@@ -853,7 +853,11 @@ fn only_the_settings_jobs_row_is_left_out() {
     }
 }
 
-/// Named divergence D-SPLIT-API in Settings: the split_bots switch under Control (this build's own tool) is taken out of this
+/// This build's own tools: D-SPLIT-API's split_bots (under Control) and D-RAILS-UNRECORDED-API's answer_unrecorded_order
+/// (under Trade).
+const OWN_TOOLS: [&str; 2] = ["split_bots", "answer_unrecorded_order"];
+
+/// Named divergences D-SPLIT-API and D-RAILS-UNRECORDED-API in Settings: each OWN_TOOLS switch is taken out of this
 /// crate's page with the whitespace before it, and its entry out of the rows a write stored (the owner's switches, a
 /// client's grant). Returns how many switches were taken.
 fn without_split_tool(answer: &mut Value) -> usize {
@@ -862,7 +866,7 @@ fn without_split_tool(answer: &mut Value) -> usize {
         let mut i = 0;
         while i < lines.len() {
             let line = lines[i].as_str().unwrap_or_default();
-            if !(line.trim_start().starts_with("<div ") && attr(line, "data-tool").as_deref() == Some("split_bots")) { i += 1; continue; }
+            if !(line.trim_start().starts_with("<div ") && attr(line, "data-tool").is_some_and(|t| OWN_TOOLS.contains(&t.as_str()))) { i += 1; continue; }
             let end = subtree_end(lines, i);
             let start = if i > 0 && is_space(&lines[i - 1]) { i - 1 } else { i };
             lines.drain(start..end);
@@ -872,12 +876,12 @@ fn without_split_tool(answer: &mut Value) -> usize {
     }
     for row in answer.get_mut("settings_rows").and_then(|rows| rows.get_mut("users")).and_then(Value::as_array_mut).into_iter().flatten() {
         for column in ["mcp_settings", "rest_settings"] {
-            if let Some(tools) = row.get_mut(column).and_then(|v| v.get_mut("tool_permissions")).and_then(Value::as_object_mut) { tools.shift_remove("split_bots"); }
+            if let Some(tools) = row.get_mut(column).and_then(|v| v.get_mut("tool_permissions")).and_then(Value::as_object_mut) { for own in OWN_TOOLS { tools.shift_remove(own); } }
         }
     }
     for row in answer.get_mut("settings_rows").and_then(|rows| rows.get_mut("connected_clients")).and_then(Value::as_array_mut).into_iter().flatten() {
         for column in ["mcp_tools", "rest_tools"] {
-            if let Some(tools) = row.get_mut(column).and_then(Value::as_array_mut) { tools.retain(|tool| tool != "split_bots"); }
+            if let Some(tools) = row.get_mut(column).and_then(Value::as_array_mut) { tools.retain(|tool| !OWN_TOOLS.iter().any(|own| tool == own)); }
         }
     }
     taken
@@ -887,11 +891,11 @@ fn without_split_tool(answer: &mut Value) -> usize {
 fn only_the_split_tool_switch_and_its_stored_entry_are_left_out() {
     let row = |tool: &str| vec![json!("      \" \""), json!(format!("      <div class=\"srow srow--tool\" data-surface=\"mcp\" data-tool=\"{tool}\">")), json!("        \"x\""), json!("      </div>")];
     let rails: Vec<Value> = [row("unarchive_bot"), row("sync_tracker")].concat();
-    let ours_body: Vec<Value> = [row("unarchive_bot"), row("split_bots"), row("sync_tracker")].concat();
+    let ours_body: Vec<Value> = [row("unarchive_bot"), row("split_bots"), row("sync_tracker"), row("answer_unrecorded_order")].concat();
     let mut ours = json!({ "body": ours_body,
-        "settings_rows": { "users": [{ "mcp_settings": { "tool_permissions": { "delete_bot": true, "split_bots": true } }, "rest_settings": null }],
-                           "connected_clients": [{ "mcp_tools": ["delete_bot", "split_bots"], "rest_tools": null }] } });
-    assert_eq!(without_split_tool(&mut ours), 1);
+        "settings_rows": { "users": [{ "mcp_settings": { "tool_permissions": { "delete_bot": true, "split_bots": true, "answer_unrecorded_order": false } }, "rest_settings": null }],
+                           "connected_clients": [{ "mcp_tools": ["delete_bot", "split_bots", "answer_unrecorded_order"], "rest_tools": null }] } });
+    assert_eq!(without_split_tool(&mut ours), 2);
     assert_eq!(ours, json!({ "body": rails, "settings_rows": { "users": [{ "mcp_settings": { "tool_permissions": { "delete_bot": true } }, "rest_settings": null }],
                                                               "connected_clients": [{ "mcp_tools": ["delete_bot"], "rest_tools": null }] } }));
 }

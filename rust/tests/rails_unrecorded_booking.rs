@@ -924,3 +924,353 @@ async fn an_offer_that_leaves_the_carry_says_it_goes_into_the_history_only() {
     assert!(!row.contains("owes"), "{row}");
     assert!(row.contains("It goes into the bot&#39;s history only; its next order isn&#39;t affected.\""), "{row}");
 }
+
+// ---- MCP and REST: answer_unrecorded_order and POST /api/v1/bots/:id/unrecorded_orders (A28-2b, D-RAILS-UNRECORDED-API) -
+
+/// The web's App over the fixture, with an OAuth client holding an `mcp` and an `api` token that follow the owner's tools
+/// (a NULL grant), and the owner's `tools` on for both surfaces.
+struct Api { app: deltabadger::web::App, wake: std::sync::Arc<tokio::sync::Notify> }
+fn api(f: &Fx, tools: &[&str]) -> Api {
+    let (app, _, wake) = web(f, "2026-09-30T12:00:00Z");
+    f.c.execute("INSERT INTO oauth_applications(name,uid,redirect_uri,confidential,scopes,created_at,updated_at) VALUES ('A','a','http://localhost/cb',0,'mcp api','2026-09-30 11:00:00','2026-09-30 11:00:00')", []).unwrap();
+    let application = f.c.last_insert_rowid();
+    for (token, scope) in [("a-mcp", "mcp"), ("a-api", "api")] {
+        f.c.execute("INSERT INTO oauth_access_tokens(application_id,resource_owner_id,token,scopes,created_at,expires_in) VALUES (?1,?2,?3,?4,'2026-09-30 11:00:00',86400)",
+                    params![application, f.s.user_id, token, scope]).unwrap();
+    }
+    f.c.execute("INSERT INTO connected_clients(user_id,oauth_application_id,mcp_tools,rest_tools,created_at,updated_at) VALUES (?1,?2,NULL,NULL,'2026-09-30 11:00:00','2026-09-30 11:00:00')",
+                params![f.s.user_id, application]).unwrap();
+    permit(f, tools);
+    Api { app, wake }
+}
+fn permit(f: &Fx, tools: &[&str]) {
+    let permissions = json!({ "tool_permissions": tools.iter().map(|t| (t.to_string(), json!(true))).collect::<serde_json::Map<_, _>>() }).to_string();
+    f.c.execute("UPDATE users SET mcp_settings = ?1, rest_settings = ?1", [&permissions]).unwrap();
+}
+const BOTH: [&str; 2] = ["answer_unrecorded_order", "get_bot_details"];
+impl Api {
+    async fn send(&self, request: axum::http::Request<axum::body::Body>) -> (u16, String) {
+        use tower::ServiceExt;
+        let response = deltabadger::web::router(self.app.clone()).oneshot(request).await.unwrap();
+        let status = response.status().as_u16();
+        (status, String::from_utf8(axum::body::to_bytes(response.into_body(), 8_000_000).await.unwrap().to_vec()).unwrap())
+    }
+    /// REST with the `api` token: the status and the envelope.
+    async fn rest(&self, method: &str, path: &str, body: Option<(&str, String)>) -> (u16, Value) {
+        let mut r = axum::http::Request::builder().method(method).uri(path).header("host", "localhost:3000").header("authorization", "Bearer a-api").header("accept", "application/json");
+        if let Some((kind, _)) = &body { r = r.header("content-type", *kind); }
+        let (status, text) = self.send(r.body(axum::body::Body::from(body.map(|(_, b)| b).unwrap_or_default())).unwrap()).await;
+        (status, serde_json::from_str(&text).unwrap_or_else(|_| json!({ "raw": text })))
+    }
+    async fn post_json(&self, bot: i64, body: Value) -> (u16, Value) { self.rest("POST", &format!("/api/v1/bots/{bot}/unrecorded_orders"), Some(("application/json", body.to_string()))).await }
+    async fn post_form(&self, path: &str, form: &str) -> (u16, Value) { self.rest("POST", path, Some(("application/x-www-form-urlencoded", form.to_string()))).await }
+    /// One JSON-RPC call on a fresh MCP session: the answer.
+    async fn rpc(&self, method: &str, params: Value) -> Value {
+        let request = |body: Value, session: Option<&str>| {
+            let mut r = axum::http::Request::builder().method("POST").uri("/mcp").header("host", "localhost:3000").header("authorization", "Bearer a-mcp")
+                .header("content-type", "application/json").header("accept", "application/json, text/event-stream");
+            if let Some(session) = session { r = r.header("mcp-session-id", session).header("mcp-protocol-version", "2025-11-25"); }
+            r.body(axum::body::Body::from(body.to_string())).unwrap()
+        };
+        use tower::ServiceExt;
+        let response = deltabadger::web::router(self.app.clone()).oneshot(request(json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"A","version":"1"}}}), None)).await.unwrap();
+        let session = response.headers().get("mcp-session-id").unwrap().to_str().unwrap().to_owned();
+        assert_eq!(self.send(request(json!({"jsonrpc":"2.0","method":"notifications/initialized"}), Some(&session))).await.0, 202);
+        let (_, body) = self.send(request(json!({"jsonrpc":"2.0","id":2,"method":method,"params":params}), Some(&session))).await;
+        serde_json::from_str(&body).unwrap()
+    }
+    /// A tools/call: its text and whether it is an error.
+    async fn mcp(&self, name: &str, arguments: Value) -> (String, bool) {
+        let answer = self.rpc("tools/call", json!({ "name": name, "arguments": arguments })).await;
+        let result = &answer["result"];
+        (result["content"][0]["text"].as_str().unwrap_or_else(|| panic!("{answer}")).to_string(), result["isError"] == true)
+    }
+    async fn listed(&self, bot: i64) -> Value {
+        let (status, body) = self.rest("GET", &format!("/api/v1/bots/{bot}"), None).await;
+        assert_eq!(status, 200, "{body}");
+        body["data"]["unrecorded_orders"].clone()
+    }
+}
+/// The fixture's line, reported with one filled order on offer.
+async fn offered(kind: Kind) -> (Fx, i64, i64) {
+    let f = fx(kind);
+    f.answer(&[o(7, St::Filled, "0.0004", "20")]);
+    f.report().await;
+    let (obligation, offers) = f.offers();
+    (f, obligation, offers[0].0)
+}
+async fn woken(a: &Api) { tokio::time::timeout(std::time::Duration::from_secs(1), a.wake.notified()).await.expect("the engine is woken"); }
+
+#[tokio::test]
+async fn mcp_and_rest_book_exactly_what_the_web_books() {
+    // The web.
+    let (web_fx, obligation, offer) = offered(Kind::Binance).await;
+    let (app, mut b, _) = web(&web_fx, "2026-09-30T12:00:00Z");
+    assert_eq!(answer(&app, &mut b, web_fx.b, &[("obligation", &obligation.to_string()), ("offer", &offer.to_string())], common::web::Csrf::Header).await.status, 302);
+    let tx = web_fx.serve().await.booked[0].1;
+    let booked = |f: &Fx| (money(&f.c), lines(&f.c, f.b, ru::RECOVERED), f.carry("2026-09-30 12:00:00"));
+    let by_web = booked(&web_fx);
+    // MCP.
+    let (f, obligation2, offer2) = offered(Kind::Binance).await;
+    assert_eq!((obligation2, offer2), (obligation, offer));
+    let a = api(&f, &BOTH);
+    let (text, error) = a.mcp("answer_unrecorded_order", json!({ "bot_id": f.b, "obligation": obligation, "offer": offer })).await;
+    assert_eq!((text.as_str(), error), ("Checking this order with Binance. Reload the page in a moment to see whether it was added. get_bot_details shows the result under unrecorded orders.", false));
+    woken(&a).await;
+    assert_eq!(f.serve().await.booked, [(f.b, tx)]);
+    assert_eq!(booked(&f), by_web, "the same row, resolution, line and carry");
+    // REST.
+    let (f, _, _) = offered(Kind::Binance).await;
+    let a = api(&f, &BOTH);
+    let (status, body) = a.post_json(f.b, json!({ "obligation": obligation, "offer": offer })).await;
+    assert_eq!((status, &body), (202, &json!({ "data": { "bot_id": f.b, "obligation": obligation, "offer": offer, "state": "checking" }, "error": null })));
+    woken(&a).await;
+    assert_eq!(f.serve().await.booked, [(f.b, tx)]);
+    assert_eq!(booked(&f), by_web);
+    // The read: booked, its row, no projection.
+    let listed = a.listed(f.b).await;
+    assert_eq!(listed["obligations"][0]["state"], "booked");
+    assert_eq!(listed["obligations"][0]["transaction_id"], tx);
+    assert_eq!(listed["obligations"][0]["offers"][0]["carry_after"], Value::Null);
+    assert_eq!(listed["carry"], json!(f.carry("2026-09-30 12:00:00").to_s_f()));
+    let (text, _) = a.mcp("get_bot_details", json!({ "bot_id": f.b })).await;
+    assert!(text.contains(&format!("- obligation {obligation}: added to the bot's history as transaction {tx}")), "{text}");
+}
+
+#[tokio::test]
+async fn none_was_mine_through_mcp_and_a_rest_form() {
+    let (f, obligation, _) = offered(Kind::Binance).await;
+    let a = api(&f, &BOTH);
+    let rows = dump(&f.c, "SELECT * FROM transactions ORDER BY id");
+    assert_eq!(a.mcp("answer_unrecorded_order", json!({ "bot_id": f.b, "obligation": obligation, "none": true })).await, ("Noted: none of these orders was this bot's.".to_string(), false));
+    assert_eq!(lines(&f.c, f.b, ru::NOT_MINE), [json!({ "obligation": obligation })]);
+    assert_eq!(dump(&f.c, "SELECT * FROM transactions ORDER BY id"), rows);
+    assert_eq!(a.listed(f.b).await["obligations"][0]["state"], "not_mine");
+    let (f, obligation, _) = offered(Kind::Binance).await;
+    let a = api(&f, &BOTH);
+    let (status, body) = a.post_form(&format!("/api/v1/bots/{}/unrecorded_orders", f.b), &format!("obligation={obligation}&none=1")).await;
+    assert_eq!((status, body), (200, json!({ "data": { "bot_id": f.b, "obligation": obligation, "state": "not_mine" }, "error": null })));
+    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_resolutions WHERE resolution = 'not_mine'"), 1);
+}
+
+#[tokio::test]
+async fn a_repeat_says_checking_then_decided_and_books_once() {
+    let (f, obligation, offer) = offered(Kind::Binance).await;
+    let a = api(&f, &BOTH);
+    let form = format!("obligation={obligation}&offer={offer}");
+    assert_eq!(a.post_form(&format!("/api/v1/bots/{}/unrecorded_orders", f.b), &form).await.0, 202, "a form body's digits");
+    let before = (money(&f.c), waiting(&f.c));
+    let (status, body) = a.post_json(f.b, json!({ "obligation": obligation, "offer": offer })).await;
+    assert_eq!((status, &body["error"]), (409, &json!({ "code": "already_checking", "message": Refused::Pending.text(), "details": { "state": "checking" } })));
+    assert_eq!(a.mcp("answer_unrecorded_order", json!({ "bot_id": f.b, "obligation": obligation, "none": true })).await, (Refused::Pending.text().to_string(), true));
+    assert_eq!((money(&f.c), waiting(&f.c)), before);
+    let listed = a.listed(f.b).await;
+    assert_eq!((listed["obligations"][0]["state"].clone(), listed["obligations"][0]["offers"][0]["carry_after"].clone()), (json!("checking"), Value::Null));
+    let tx = f.serve().await.booked[0].1;
+    let before = (money(&f.c), waiting(&f.c));
+    let (status, body) = a.post_json(f.b, json!({ "obligation": obligation, "offer": offer })).await;
+    assert_eq!((status, &body["error"]["code"], &body["error"]["details"]), (409, &json!("already_decided"), &json!({ "state": "booked", "transaction_id": tx })));
+    let (text, error) = a.mcp("answer_unrecorded_order", json!({ "bot_id": f.b, "obligation": obligation, "offer": offer })).await;
+    assert_eq!((text, error), (format!("This was already decided. Added to the bot's history as transaction {tx}."), true));
+    assert_eq!((money(&f.c), waiting(&f.c)), before);
+    assert_eq!(count(&f.c, "SELECT count(*) FROM transactions WHERE external_id = 'BTCEUR-7'"), 1);
+}
+
+#[tokio::test]
+async fn refusals_and_malformed_answers_write_nothing() {
+    let (f, obligation, offer) = offered(Kind::Binance).await;
+    let a = api(&f, &BOTH);
+    let path = format!("/api/v1/bots/{}/unrecorded_orders", f.b);
+    let before = (money(&f.c), waiting(&f.c));
+    let unchanged = |why: &str| assert_eq!((money(&f.c), waiting(&f.c)), before, "{why}");
+    // Request-time refusals.
+    for (body, code) in [(json!({ "obligation": obligation + 1000, "offer": offer }), "order_not_listed"), (json!({ "obligation": obligation, "offer": offer + 1000 }), "order_not_listed"),
+                         (json!({ "obligation": obligation + 1000, "none": true }), "order_not_listed")] {
+        let (status, answer) = a.post_json(f.b, body.clone()).await;
+        assert_eq!((status, answer["error"]["code"].clone()), (404, json!(code)), "{body}");
+        unchanged(&body.to_string());
+    }
+    let (text, error) = a.mcp("answer_unrecorded_order", json!({ "bot_id": f.b, "obligation": obligation, "offer": offer + 1000 })).await;
+    assert_eq!((text.as_str(), error), (Refused::NotFound.text(), true));
+    // Malformed: both, neither, none false or null, offer null, fractions, overflow, strings in JSON.
+    let malformed = [json!({ "obligation": obligation, "offer": offer, "none": true }), json!({ "obligation": obligation }), json!({ "obligation": obligation, "none": false }),
+                     json!({ "obligation": obligation, "none": null }), json!({ "obligation": obligation, "offer": null }), json!({ "obligation": obligation, "offer": 1.5 }),
+                     json!({ "obligation": obligation as f64 + 0.5, "none": true }), json!({ "obligation": obligation, "offer": 9_223_372_036_854_775_808u64 }),
+                     json!({ "obligation": obligation.to_string(), "none": true }), json!({ "obligation": obligation, "offer": offer.to_string() }), json!({ "offer": offer })];
+    for body in &malformed {
+        let (status, answer) = a.post_json(f.b, body.clone()).await;
+        assert_eq!((status, answer["error"]["code"].clone()), (422, json!("invalid_answer")), "REST {body}");
+        let mut args = body.clone();
+        args["bot_id"] = json!(f.b);
+        let (text, error) = a.mcp("answer_unrecorded_order", args).await;
+        assert!(error && text.starts_with("Invalid input"), "MCP {body}: {text}");
+        unchanged(&body.to_string());
+    }
+    for args in [json!({ "bot_id": f.b as f64 + 0.5, "obligation": obligation, "none": true }), json!({ "bot_id": f.b.to_string(), "obligation": obligation, "none": true })] {
+        let (text, error) = a.mcp("answer_unrecorded_order", args.clone()).await;
+        assert!(error && text.starts_with("Invalid input"), "MCP {args}: {text}");
+    }
+    for form in [format!("obligation={obligation}&offer=1.5"), format!("obligation={obligation}&none=0"), format!("obligation=-{obligation}&none=1"), format!("obligation={obligation}&offer={offer}&none=1")] {
+        assert_eq!(a.post_form(&path, &form).await.0, 422, "{form}");
+        unchanged(&form);
+    }
+    // The query is never read: an offer there is no answer.
+    let (status, _) = a.rest("POST", &format!("{path}?obligation={obligation}&offer={offer}"), Some(("application/json", "{}".into()))).await;
+    assert_eq!(status, 422);
+    // Path ids: only digits name a bot.
+    for bad in [format!("{}abc", f.b), "1.5".into(), "9223372036854775808".into()] {
+        let (status, answer) = a.rest("POST", &format!("/api/v1/bots/{bad}/unrecorded_orders"), Some(("application/json", json!({ "obligation": obligation, "none": true }).to_string()))).await;
+        assert!(matches!(status, 404 | 501), "{bad}: {status} {answer}");
+        unchanged(&bad);
+    }
+    // Another user's bot, a deleted bot.
+    f.c.execute("INSERT INTO users (id, email, created_at, updated_at) VALUES (9999, 'foreign@example.com', '2026-01-01', '2026-01-01')", []).unwrap();
+    for sql in ["UPDATE bots SET user_id = 9999 WHERE id = ?1", "UPDATE bots SET user_id = (SELECT min(id) FROM users WHERE id <> 9999), status = 3 WHERE id = ?1"] {
+        f.c.execute(sql, [f.b]).unwrap();
+        let before = (money(&f.c), waiting(&f.c));
+        let (status, answer) = a.post_json(f.b, json!({ "obligation": obligation, "offer": offer })).await;
+        assert_eq!((status, answer["error"]["code"].clone()), (404, json!("bot_not_found")), "{sql}");
+        assert_eq!(a.mcp("answer_unrecorded_order", json!({ "bot_id": f.b, "obligation": obligation, "none": true })).await, ("Bot not found.".to_string(), true));
+        assert_eq!((money(&f.c), waiting(&f.c)), before, "{sql}");
+    }
+}
+
+#[tokio::test]
+async fn the_tool_is_off_until_granted_and_paper_trading_records_nothing() {
+    let (f, obligation, offer) = offered(Kind::Binance).await;
+    let a = api(&f, &["get_bot_details"]);
+    let before = (money(&f.c), waiting(&f.c));
+    let (status, body) = a.post_json(f.b, json!({ "obligation": obligation, "offer": offer })).await;
+    assert_eq!((status, body["error"]["code"].clone()), (403, json!("tool_disabled")));
+    let listed = a.rpc("tools/list", json!({})).await;
+    assert!(!listed.to_string().contains("answer_unrecorded_order"), "{listed}");
+    let called = a.rpc("tools/call", json!({ "name": "answer_unrecorded_order", "arguments": { "bot_id": f.b, "obligation": obligation, "none": true } })).await;
+    assert_eq!(called["error"]["code"], -32602);
+    assert_eq!((money(&f.c), waiting(&f.c)), before);
+    // On, but not granted to this client.
+    permit(&f, &BOTH);
+    f.c.execute("UPDATE connected_clients SET mcp_tools = '[\"get_bot_details\"]', rest_tools = '[\"get_bot_details\"]'", []).unwrap();
+    assert_eq!(a.post_json(f.b, json!({ "obligation": obligation, "offer": offer })).await.0, 403);
+    assert!(!a.rpc("tools/list", json!({})).await.to_string().contains("answer_unrecorded_order"));
+    f.c.execute("UPDATE connected_clients SET mcp_tools = NULL, rest_tools = NULL", []).unwrap();
+    // Paper trading: MCP records nothing; REST has none.
+    f.c.execute("UPDATE users SET mcp_settings = json_set(mcp_settings, '$.dry_run', json('true'))", []).unwrap();
+    let (text, error) = a.mcp("answer_unrecorded_order", json!({ "bot_id": f.b, "obligation": obligation, "offer": offer })).await;
+    assert!(error && text.starts_with("[DRY RUN] Paper trading is on, so nothing was recorded"), "{text}");
+    assert_eq!((money(&f.c), waiting(&f.c)), before);
+    assert_eq!(a.post_json(f.b, json!({ "obligation": obligation, "offer": offer })).await.0, 202, "REST is never a dry run");
+}
+
+#[tokio::test]
+async fn the_read_shows_the_offers_and_the_engines_refusal() {
+    let (f, obligation, offer) = offered(Kind::Binance).await;
+    let a = api(&f, &BOTH);
+    let listed = a.listed(f.b).await;
+    let view = &ru::offers_for(&f.c, f.b, &[obligation], now()).unwrap()[0].offers[0];
+    let (from, to): (String, String) = f.c.query_row("SELECT span_from, span_to FROM rust_rails_unrecorded WHERE id = ?1", [obligation], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!(listed, json!({ "carry": view.carry_before.as_ref().map(BigDec::to_s_f), "more": false, "obligations": [{ "obligation": obligation, "state": "open", "from": from, "to": to,
+        "offers": [{ "offer": offer, "order": view.order, "carry_after": view.carry_after.as_ref().map(BigDec::to_s_f) }], "transaction_id": null, "refused": null }] }));
+    let (text, _) = a.mcp("get_bot_details", json!({ "bot_id": f.b })).await;
+    assert!(text.contains("Unrecorded orders from before the update (answer with answer_unrecorded_order); carry now")
+            && text.contains(&format!("- obligation {obligation} ({from} to {to}): offer {offer} = {}", view.order)) && text.contains("; or none: true"), "{text}");
+    // The engine refuses (mid-tick): open again, with the web's line.
+    assert_eq!(a.post_json(f.b, json!({ "obligation": obligation, "offer": offer })).await.0, 202);
+    f.c.execute("UPDATE bots SET status = ?2 WHERE id = ?1", params![f.b, deltabadger::enums::BotStatus::Executing as i64]).unwrap();
+    f.serve().await;
+    f.c.execute("UPDATE bots SET status = 1 WHERE id = ?1", [f.b]).unwrap();
+    let refused = &a.listed(f.b).await["obligations"][0];
+    let message = "Couldn't add the order from before the update to this bot's history. This bot was placing an order at that moment. Try again in a minute.";
+    assert_eq!((refused["state"].clone(), refused["refused"]["reason"].clone(), refused["refused"]["message"].clone()), (json!("open"), json!("busy"), json!(message)));
+    assert!(a.mcp("get_bot_details", json!({ "bot_id": f.b })).await.0.contains(&format!("  last try refused: {message}")));
+    // The line is pruned before the next pass: still listed, then booked.
+    assert_eq!(a.post_json(f.b, json!({ "obligation": obligation, "offer": offer })).await.0, 202);
+    f.c.execute("DELETE FROM bot_activity_logs WHERE event IN ('rails_order_open', 'rails_order_listed')", []).unwrap();
+    assert_eq!(a.listed(f.b).await["obligations"][0]["state"], "checking");
+    let tx = f.serve().await.booked[0].1;
+    assert_eq!(a.listed(f.b).await["obligations"][0]["transaction_id"], tx);
+}
+
+/// A reported obligation of the bot over [from, to], with `offers` offers (unreadable facts: listed without offers).
+fn obligation(f: &Fx, from: &str, to: &str, offers: usize) -> i64 {
+    f.c.execute("INSERT INTO rust_rails_unrecorded (bot_id, source, source_ref, span_from, span_to, collected_at, reported_at) VALUES (?1, 'failed_row', \
+                 (SELECT coalesce(max(source_ref), 0) + 1000 FROM rust_rails_unrecorded), ?2, ?3, ?4, ?4)", params![f.b, from, to, "2026-09-30 11:00:00"]).unwrap();
+    let id = f.c.last_insert_rowid();
+    for n in 0..offers { f.c.execute("INSERT INTO rust_rails_unrecorded_offers (obligation_id, external_id, symbol, facts) VALUES (?1, ?2, 'BTCEUR', '{}')", params![id, format!("X-{id}-{n}")]).unwrap(); }
+    id
+}
+fn day(n: usize) -> (String, String) { (format!("2026-08-{:02} 10:00:00", n + 1), format!("2026-08-{:02} 10:01:00", n + 1)) }
+
+#[tokio::test]
+async fn open_obligations_come_first_and_a_repeat_reaches_one_past_the_listing() {
+    let f = fx(Kind::Binance);
+    let a = api(&f, &BOTH);
+    let ids: Vec<i64> = (0..21).map(|n| { let (from, to) = day(n); obligation(&f, &from, &to, 1) }).collect();
+    let listed = a.listed(f.b).await;
+    assert_eq!((listed["obligations"].as_array().unwrap().len(), listed["more"].clone()), (20, json!(true)));
+    assert_eq!(listed["obligations"][0]["obligation"], ids[0], "oldest first");
+    assert!(a.mcp("get_bot_details", json!({ "bot_id": f.b })).await.0.contains("- and 1 more"));
+    assert!(!a.mcp("answer_unrecorded_order", json!({ "bot_id": f.b, "obligation": ids[0], "none": true })).await.1);
+    let listed = a.listed(f.b).await;
+    let shown: Vec<i64> = listed["obligations"].as_array().unwrap().iter().map(|o| o["obligation"].as_i64().unwrap()).collect();
+    assert_eq!(shown, ids[1..21], "the 21st comes into view; the decided one is behind the open ones");
+    // The decided one is still asked about through the tool.
+    let (status, body) = a.post_json(f.b, json!({ "obligation": ids[0], "none": true })).await;
+    assert_eq!((status, body["error"]["details"].clone()), (409, json!({ "state": "not_mine", "transaction_id": null })));
+    // An old open one behind 20 decided ones: listed first.
+    for id in &ids[1..20] { a.post_json(f.b, json!({ "obligation": id, "none": true })).await; }
+    let listed = a.listed(f.b).await;
+    assert_eq!((listed["obligations"][0]["obligation"].clone(), listed["obligations"][0]["state"].clone()), (json!(ids[20]), json!("open")));
+}
+
+#[tokio::test]
+async fn a_group_is_read_from_every_member() {
+    let f = fx(Kind::Binance);
+    let a = api(&f, &BOTH);
+    let low = obligation(&f, "2026-08-01 10:00:00", "2026-08-01 10:01:00", 1);
+    let high = obligation(&f, "2026-08-01 10:05:00", "2026-08-01 10:06:00", 2);
+    let lone = obligation(&f, "2026-08-01 10:30:00", "2026-08-01 10:31:00", 0);
+    model::log_activity(&f.c, f.b, ru::NOT_ADDED, Level::Warning, json!({ "reason": "unreachable", "venue": "Binance", "placed": null, "obligation": high }), now()).unwrap();
+    let listed = a.listed(f.b).await;
+    let shown: Vec<(i64, usize, Value)> = listed["obligations"].as_array().unwrap().iter().map(|o| (o["obligation"].as_i64().unwrap(), o["offers"].as_array().unwrap().len(), o["refused"]["reason"].clone())).collect();
+    assert_eq!(shown, [(low, 0, json!("unreachable")), (high, 0, json!("unreachable"))], "each member listed with its own offers (unreadable here), the group's refusal on both; no offer, not listed ({lone})");
+    assert_eq!(f.c.query_row("SELECT count(*) FROM rust_rails_unrecorded_offers WHERE obligation_id = ?1", [high], |r| r.get::<_, i64>(0)).unwrap(), 2);
+    assert_eq!(a.post_json(f.b, json!({ "obligation": high, "none": true })).await.0, 200);
+    let states: Vec<Value> = a.listed(f.b).await["obligations"].as_array().unwrap().iter().map(|o| o["state"].clone()).collect();
+    assert_eq!(states, [json!("not_mine"), json!("not_mine")]);
+}
+use deltabadger::engine::model::Level;
+
+#[tokio::test]
+async fn the_refusal_is_looked_for_in_the_newest_lines_only() {
+    let f = fx(Kind::Binance);
+    let a = api(&f, &BOTH);
+    let id = obligation(&f, "2026-08-01 10:00:00", "2026-08-01 10:01:00", 1);
+    let line = |reason: &str, pad: usize, at: &str| f.c.execute("INSERT INTO bot_activity_logs (bot_id, event, level, details, created_at) VALUES (?1, ?2, 2, ?3, ?4)",
+        params![f.b, ru::NOT_ADDED, json!({ "reason": reason, "venue": "Binance", "obligation": id, "pad": "x".repeat(pad) }).to_string(), at]).unwrap();
+    line("unreachable", 0, "2026-09-30 10:00:00");
+    line("ledger", 20_000, "2026-09-30 10:00:01");
+    let reason = |listed: Value| listed["obligations"][0]["refused"]["reason"].clone();
+    assert_eq!(reason(a.listed(f.b).await), json!("unreachable"), "an oversized line is skipped, the next older one shown");
+    let others = |n: usize| for i in 0..n { f.c.execute("INSERT INTO bot_activity_logs (bot_id, event, level, details, created_at) VALUES (?1, 'placement_ambiguous', 1, '{}', ?2)",
+        params![f.b, format!("2026-09-30 11:{:02}:{:02}", i / 60, i % 60)]).unwrap(); };
+    others(498);
+    assert_eq!(reason(a.listed(f.b).await), json!("unreachable"), "500th newest line");
+    others(1);
+    assert_eq!(reason(a.listed(f.b).await), Value::Null, "past the window: open, no refusal");
+    let mut q = f.c.prepare("EXPLAIN QUERY PLAN SELECT event, CASE WHEN octet_length(details) <= 16384 THEN details END, created_at FROM bot_activity_logs \
+                             WHERE bot_id = 1 ORDER BY created_at DESC, id DESC LIMIT 500").unwrap();
+    let plan = q.query_map([], |r| r.get::<_, String>(3)).unwrap().map(Result::unwrap).collect::<Vec<_>>().join("; ");
+    assert!(plan.contains("index_bot_activity_logs_on_bot_id_and_created_at") && !plan.contains("TEMP B-TREE"), "{plan}");
+}
+
+#[tokio::test]
+async fn the_read_is_refused_past_the_read_limits() {
+    let f = fx(Kind::Binance);
+    let a = api(&f, &BOTH);
+    let id = obligation(&f, "2026-08-01 10:00:00", "2026-08-01 10:01:00", 0);
+    f.c.execute("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 10001) \
+                 INSERT INTO rust_rails_unrecorded_offers (obligation_id, external_id, symbol, facts) SELECT ?1, 'X-' || i, 'BTCEUR', '{}' FROM n", [id]).unwrap();
+    let (status, body) = a.rest("GET", &format!("/api/v1/bots/{}", f.b), None).await;
+    assert_eq!((status, body["error"]["code"].clone()), (501, json!("not_ported")));
+    assert_eq!(a.mcp("get_bot_details", json!({ "bot_id": f.b })).await.0, "Read unavailable: request data exceeds read limits");
+}
