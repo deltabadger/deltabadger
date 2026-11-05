@@ -14,7 +14,7 @@ Common fixes:
 
 ## Docker: "Deltabadger didn't start"
 
-When Deltabadger can't start on your data, it doesn't stop: it keeps the container up and shows a page at its address saying why and what to do, and the container reports unhealthy. Nothing trades meanwhile. The same line is in the logs. The lines you can meet after updating from 2.x, and what to do about each, are on [Updating](07-updating.md#if-it-doesnt-start).
+When Deltabadger can't start on your data, it usually doesn't stop: it keeps the container up and shows a page at its address saying why and what to do, and the container reports unhealthy. Nothing trades meanwhile. The line is always in the logs. The lines you can meet after updating from 2.x, and what to do about each, are on [Updating](07-updating.md#if-it-doesnt-start).
 
 ## Docker: Port already in use
 

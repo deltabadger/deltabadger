@@ -4,7 +4,7 @@ Deltabadger is configured through environment variables. A local install needs n
 
 With Docker Compose, put them in `.env.docker` next to `docker-compose.yml` (copy `.env.docker.example`, see [Docker Compose](03-docker-compose.md)). With a single `docker run`, pass them with `-e NAME=value`. Compose reads `.env.docker` when it creates the container, so after editing it run `docker compose up -d --force-recreate`; a plain restart keeps the old values.
 
-Two variables are an exception: Compose resolves `APP_PORT` and `APP_ROOT_URL` itself, from your shell or from a `.env` file next to `docker-compose.yml`. Values for those in `.env.docker` do not reach it.
+Compose resolves `APP_PORT` and `APP_ROOT_URL` itself, from your shell or from a `.env` file next to `docker-compose.yml`. Values for those in `.env.docker` do not reach it.
 
 ## Ports and URLs
 

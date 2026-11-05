@@ -10,8 +10,8 @@ Download the file for your computer from the [releases page](https://github.com/
 |---|---|
 | Mac with Apple silicon | `Deltabadger_darwin-aarch64.dmg` |
 | Windows (64-bit) | `Deltabadger_windows-x86_64-setup.exe` |
-| Linux (64-bit), any distribution | `Deltabadger_linux-x86_64.AppImage` |
-| Debian, Ubuntu and their derivatives | `Deltabadger_linux-x86_64.deb` |
+| Linux (x86-64) | `Deltabadger_linux-x86_64.AppImage` |
+| Debian or Ubuntu (x86-64) | `Deltabadger_linux-x86_64.deb` |
 
 On a Mac, open the `.dmg` and drag Deltabadger into **Applications**, then open it from there. An app opened straight from the disk image can't update itself (see [Updating](07-updating.md#desktop-app)).
 
@@ -27,7 +27,7 @@ To use Deltabadger in a browser on the same computer, or to connect an AI assist
 
 Closing the window hides it. Deltabadger keeps running, and your bots keep trading, until you quit it: choose **Quit** from the tray icon's menu, or on a Mac **Quit Deltabadger** (⌘Q) from the app menu. **Show Deltabadger** in the tray menu brings the window back.
 
-While the app is quit, nothing trades.
+While the app is quit, nothing trades. After you quit, the engine finishes what it is doing and closes by itself, usually within seconds. Before touching the data folder, make sure no program called `deltabadger-engine` is still running (Activity Monitor on a Mac, Task Manager on Windows, `pgrep deltabadger-engine` on Linux).
 
 ## What the window can show
 
@@ -36,7 +36,7 @@ While the app is quit, nothing trades.
 | **Starting Deltabadger…** | The app is starting. After a minute it adds that the first start after an update can take a few minutes while Deltabadger saves a copy of your data and updates it. Leave it open. |
 | **Deltabadger is finishing its previous run.** | The last run is still closing. If this doesn't change, Deltabadger may be open in another program on this computer, for example in a terminal. Close it, or restart your computer. |
 | **Deltabadger stopped unexpectedly.** | Your bots are paused until it runs again. Quit Deltabadger and open it again. |
-| **Deltabadger didn't start.** followed by a reason | The reason says what to do. Each one also says whether anything was changed. |
+| **Deltabadger didn't start.** followed by a reason | The reason says what to do, and most also say whether your data was changed. |
 | **Deltabadger isn't responding.** | Wait a moment. If it doesn't change, quit Deltabadger and open it again. |
 
 If one of these keeps coming back, contact support and send them the files in the log folder below; the window names it.
@@ -58,11 +58,11 @@ Inside it:
 | `.secrets` | The keys your stored exchange keys are encrypted with. Without this file the data can't be read. |
 | `log/deltabadger.log` | The log. Support asks for the files in `log/`. |
 
-To back up, quit Deltabadger and copy the whole data folder. See [Data and backups](30-data-and-backups.md#desktop-app).
+To back up, quit Deltabadger, wait until its engine has closed (see [Closing and quitting](#closing-and-quitting)), and copy the whole data folder. See [Data and backups](30-data-and-backups.md#desktop-app).
 
 ## Command line
 
-The app's engine is a program called `deltabadger-engine`, next to the app's own program: on a Mac, `/Applications/Deltabadger.app/Contents/MacOS/deltabadger-engine`; with the `.deb`, `/usr/bin/deltabadger-engine`; on Windows, `deltabadger-engine.exe` in the folder Deltabadger was installed to. Support may ask you to run one of its commands (see [Configuration](29-configuration.md#commands)). Quit the app first, and point the command at the data folder, for example on a Mac:
+The app's engine is a program called `deltabadger-engine`, next to the app's own program: on a Mac, `/Applications/Deltabadger.app/Contents/MacOS/deltabadger-engine`; with the `.deb`, `/usr/bin/deltabadger-engine`; on Windows, `deltabadger-engine.exe` in the folder Deltabadger was installed to. Support may ask you to run one of its commands (see [Configuration](29-configuration.md#commands)). Quit the app first and wait until its engine has closed, and point the command at the data folder, for example on a Mac:
 
 ```bash
 D="$HOME/Library/Application Support/com.deltabadger.app"

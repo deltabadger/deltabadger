@@ -47,7 +47,7 @@ An update marked important says so in the banner: **An important update is ready
 
 **With the `.deb` package**, the app tells you about an update but doesn't download it: **An update is available. Quit Deltabadger, then download the new .deb file from the download page and open it to install it.**
 
-**When the banner says Deltabadger can't install it itself**, the app is running from somewhere it can't replace itself. On a Mac this happens when it is opened straight from the downloaded disk image or from the Downloads folder: quit it, move it into **Applications**, and open it from there. It also happens when the folder `/Users/Shared/.deltabadger`, which Deltabadger uses so that it is never replaced while it runs in another account on this Mac, can no longer be written by every account. Otherwise, download Deltabadger from the download page and install it again over the old one; your data stays where it is.
+**When the banner says Deltabadger can't install it itself**, the app is running from a folder where it can't replace itself. On a Mac this happens, for example, when it is opened straight from the downloaded disk image: quit it, move it into **Applications**, and open it from there. It also happens when the folder `/Users/Shared/.deltabadger`, which Deltabadger uses so that it is never replaced while it runs in another account on this Mac, can no longer be written by every account. Otherwise, download Deltabadger from the download page and install it again over the old one; your data stays where it is.
 
 The banner's other messages say what went wrong and what to do. A download that failed, or didn't verify, is tried again later. **The update couldn't be saved because the disk is full** needs some free space first; then press **Try again**.
 
@@ -59,7 +59,7 @@ There is no automatic way back. If an update leaves you stuck, contact support. 
 
 ## Deltabadger.com hosting
 
-Updates are installed for you, including the update to 3.0. There is nothing to do. The in-app notice stays quiet.
+Updates are installed for you, including the update to 3.0. There is nothing to do on your side. The in-app notice stays quiet.
 
 ## Updating from 2.x
 
@@ -69,20 +69,20 @@ On that first start it:
 
 1. waits, if your previous version stopped less than about two minutes ago, until it has surely shut down. Meanwhile the app's address shows **Deltabadger is starting** and reloads on its own;
 2. saves a copy of your data in `backups/pre-3.0-<date and time>` next to the database (`/app/storage/backups/` in Docker). The log says **Saved a copy of your data to … before updating it.** Starting again without any change in between adds no second copy;
-3. updates the data, and starts your bots.
+3. updates the data, and starts your bots. A bot or withdrawal rule this version can't run yet is stopped instead, and says why on its page; nothing was bought or sold for it. Check your bots after the first start.
 
 The copy takes as long as copying your database files does. Until the first start has finished, the address may show the waiting page or nothing; with Docker Compose the container reports healthy once the app answers.
 
 ### If it doesn't start
 
-Nothing trades while Deltabadger is refused. Its address shows a line saying what is wrong and what to do; the same line is in the log (`docker compose logs deltabadger`). The container stays up showing it and reports unhealthy. Fix the cause, then restart it with `docker compose restart` (or `docker restart deltabadger`).
+Nothing trades while Deltabadger is refused. In most cases its address shows a line saying what is wrong and what to do, the container stays up showing it, and it reports unhealthy. The line is always in the log (`docker compose logs deltabadger`). Fix the cause, then start it again with `docker compose up -d --force-recreate`, so that a changed `.env.docker` is read (with `docker run`, remove the container and run it again with the corrected options).
 
 | The line says | What to do |
 |---|---|
 | this data is from an older version of Deltabadger | Your 2.x install never finished an update. Bring it up to date with 2.70.21 once, then start 3 again; the steps are below. Nothing was changed. |
-| your previous version of Deltabadger still seems to be running on this data | Another container, an old one or one under another name, still runs 2.x on the same volume. Stop it, then start this again. Nothing was changed. |
-| it couldn't save a copy of your data to … first | The copy failed, because the disk is full or the folder can't be written to. Free some space or fix the folder, then start again. Your data hasn't been changed. |
-| can't read this install with this `SECRET_KEY_BASE` | The secret in your environment is not the one this install was made with. Use the original one (see [Secrets and encryption keys](31-secrets-and-encryption-keys.md)). |
+| your previous version of Deltabadger still seems to be running on this data | Another container, an old one or one under another name, still runs 2.x on the same volume: stop it, then start this again. If none does, check that the server's clock is right. Nothing was changed. |
+| it couldn't save a copy of your data to … first | The copy failed; the line says why, for example a full disk or a folder that can't be written to. Fix that, then start again. Your data hasn't been changed. |
+| can't read this install with this `SECRET_KEY_BASE` | The secret, or the encryption keys, this container runs with are not the ones this install's data was written with. Use the original values (see [Secrets and encryption keys](31-secrets-and-encryption-keys.md)). |
 | some of your data has to be checked by support first | Contact support. Nothing was bought or sold. |
 
 #### An install from an older version
@@ -122,4 +122,4 @@ It ends with **handed back: … bot(s) scheduled. You can start Deltabadger 2.70
 
 `DELTABADGER_UPDATE_CHECK=false` stops it, and the Settings section then only shows your version.
 
-The check is the only outbound request an otherwise offline server install makes: an unauthenticated `GET` to `api.github.com` for the tag of the latest release, twice a day. It sends no version, no identifier and nothing about your install, and it is never made on Deltabadger.com hosting. The desktop app doesn't make it either: its own update check, above, reads the latest release's update file from GitHub.
+The check is an unauthenticated `GET` to `api.github.com` for the tag of the latest release, twice a day. It sends no version, no identifier and nothing about your install, and it is never made on Deltabadger.com hosting. The desktop app doesn't make it either: its own update check, above, reads the latest release's update file from GitHub.

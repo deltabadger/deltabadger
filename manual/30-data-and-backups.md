@@ -7,7 +7,7 @@ Everything Deltabadger stores lives in one directory inside the container, `/app
 | File | Contents |
 |---|---|
 | `production.sqlite3` | Accounts, bots, rules, exchange keys, transactions, settings |
-| `production_queue.sqlite3` | Scheduled work |
+| `production_queue.sqlite3` | The job queue 2.x used. Deltabadger 3 keeps it so an install can be [handed back](07-updating.md#going-back-to-2x) to 2.x. |
 | `.secrets` | This install's generated keys; see [Secrets and encryption keys](31-secrets-and-encryption-keys.md) |
 | `backups/` | Copies Deltabadger made itself; see [Copies Deltabadger makes](#copies-deltabadger-makes) |
 
@@ -46,13 +46,13 @@ The quick-start command names the volume `deltabadger_data`; `docker-compose.yml
 
 If the keys came from the environment, the restored install has to run with the same values, or nothing stored under them can be read. Restore into the same version of Deltabadger the backup was taken from, or a newer one: Deltabadger updates the data on start, and refuses data from a newer version than itself.
 
-A restored backup knows nothing of the orders Deltabadger placed after it was taken. Before you start any bot again, check each exchange's open orders and order history, so a bot doesn't buy again what was already bought.
+A restored backup knows nothing of the orders Deltabadger placed after it was taken, and its bots resume as soon as it starts. Before you start it (step 3), check each exchange's open orders and order history, so you know what was already bought; pause a bot after the start if it would buy something again.
 
 To wipe an install instead, see [Starting fresh](03-docker-compose.md#starting-fresh).
 
 ## Copies Deltabadger makes
 
-Before Deltabadger changes your data in a way an older version can't read, it saves a copy of the two database files in `backups/`, next to the database:
+In two cases Deltabadger saves a copy of the two database files in `backups/`, next to the database, before it changes them:
 
 | Folder | Made |
 |---|---|
@@ -80,8 +80,8 @@ With Docker Compose, to restore a `pre-3.0-` copy and run 2.x again:
      cp backups/pre-3.0-20261105T120000.000000Z/production.sqlite3 backups/pre-3.0-20261105T120000.000000Z/production_queue.sqlite3 . &&
      rm -f production.sqlite3-wal production.sqlite3-shm production_queue.sqlite3-wal production_queue.sqlite3-shm'
    ```
-3. Change the `image:` line in `docker-compose.yml` to `ghcr.io/deltabadger/deltabadger:2.70.21` and start it: `docker compose up -d`.
-4. Before you start any bot again, check each exchange's open orders and order history.
+3. Before you start it: check each exchange's open orders and order history since the copy was made. The restored bots resume as soon as 2.x starts and know nothing of those orders.
+4. Change the `image:` line in `docker-compose.yml` to `ghcr.io/deltabadger/deltabadger:2.70.21` and start it: `docker compose up -d`.
 
 The desktop app's `before-update-` copies are restored the same way, by hand, into the data folder's `db/`, with the app quit; see [Going back to an earlier version](07-updating.md#going-back-to-an-earlier-version).
 
@@ -89,4 +89,4 @@ The desktop app's `before-update-` copies are restored the same way, by hand, in
 
 The desktop app keeps everything in its data folder: `~/Library/Application Support/com.deltabadger.app` on a Mac, `%APPDATA%\Deltabadger` on Windows, `~/.local/share/com.deltabadger.app` on Linux. The databases are in its `db/` folder, the copies in `db/backups/`, the keys in `.secrets` and the log in `log/`. See [Desktop app](04-desktop-app.md#where-your-data-is).
 
-To back up, quit Deltabadger (from the tray menu, or ⌘Q on a Mac; closing the window isn't enough) and copy the whole data folder. To restore, quit it, put the folder back, and open the app. The copy contains `.secrets`, so keep it as carefully as the note above says.
+To back up, quit Deltabadger (from the tray menu, or ⌘Q on a Mac; closing the window isn't enough), wait until its engine has closed (see [Closing and quitting](04-desktop-app.md#closing-and-quitting)), and copy the whole data folder. To restore, do the same, put the folder back, and open the app. The copy contains `.secrets`, so keep it as carefully as the note above says.
