@@ -304,10 +304,18 @@ fn row_difference(context: &str, before: &Value, after: &Value) -> Option<String
         let (Some(left), Some(right)) = (a.get(table).and_then(Value::as_array), b.get(table).and_then(Value::as_array)) else {
             return Some(format!("{context}: table {table} missing"));
         };
-        let ids: std::collections::BTreeSet<_> = left.iter().chain(right).map(|row| row.get("id").unwrap_or(row).to_string()).collect();
+        if left == right { continue; }
+        // One map per side, first row per id (as a linear find would): the export scenarios' thousands of rows made
+        // the per-id rescan quadratic and hung the page shard on a busy runner.
+        fn by_id(rows: &[Value]) -> std::collections::HashMap<String, &Value> {
+            let mut map = std::collections::HashMap::new();
+            for row in rows { map.entry(row.get("id").unwrap_or(row).to_string()).or_insert(row); }
+            map
+        }
+        let (left_by_id, right_by_id) = (by_id(left), by_id(right));
+        let ids: std::collections::BTreeSet<_> = left_by_id.keys().chain(right_by_id.keys()).cloned().collect();
         for id in ids {
-            let find = |rows: &Vec<Value>| rows.iter().find(|row| { let key = row.get("id").unwrap_or(row).to_string(); key == id }).cloned();
-            let (l, r) = (find(left), find(right));
+            let (l, r) = (left_by_id.get(&id).map(|row| (*row).clone()), right_by_id.get(&id).map(|row| (*row).clone()));
             if l == r { continue; }
             let (Some(l), Some(r)) = (l.as_ref().and_then(Value::as_object), r.as_ref().and_then(Value::as_object)) else {
                 return Some(format!("{context}: table {table} id={id} column <row> inserted/deleted: rails/before={l:?}, rust/after={r:?}"));
