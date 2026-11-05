@@ -845,23 +845,66 @@ fn facts_of(v: &Value) -> Option<CreatedOrder> {
 /// r1.6: the obligations of the bot whose search windows overlap the obligation's, transitively (itself included).
 fn group(c: &Connection, obligation: i64) -> Result<Vec<i64>, EngineError> {
     let Some(bot) = c.query_row("SELECT bot_id FROM rust_rails_unrecorded WHERE id = ?1", [obligation], |r| r.get::<_, i64>(0)).optional()? else { return Ok(vec![]) };
+    Ok(groups(c, bot)?.of(obligation))
+}
+
+/// Every obligation of a bot with its group (r1.6), built once (A28-2b r4-r5: an interval sweep, O(n log n)).
+pub(crate) struct Groups { component: std::collections::HashMap<i64, usize>, members: Vec<Vec<i64>> }
+impl Groups {
+    /// The obligation's group; an id the bot doesn't hold is its own.
+    pub(crate) fn of(&self, obligation: i64) -> Vec<i64> { self.component.get(&obligation).map_or_else(|| vec![obligation], |&g| self.members[g].clone()) }
+}
+
+pub(crate) fn groups(c: &Connection, bot: i64) -> Result<Groups, EngineError> {
     let mut s = c.prepare("SELECT id, span_from, span_to FROM rust_rails_unrecorded WHERE bot_id = ?1 ORDER BY id")?;
     let rows = s.query_map([bot], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))?.collect::<Result<Vec<_>, _>>()?;
     let around = Duration::seconds(AROUND);
     // A window that can't be read joins nothing.
-    let window = |f: &str, t: &str| match (parse_time(f), parse_time(t)) { (Ok(f), Ok(t)) => Some((f - around, t + around)), _ => None };
     type Window = Option<(DateTime<Utc>, DateTime<Utc>)>;
-    let windows: Vec<(i64, Window)> = rows.iter().map(|(id, f, t)| (*id, window(f, t))).collect();
-    let mut members = vec![obligation];
-    loop {
-        let before = members.len();
-        for (id, w) in &windows {
-            if members.contains(id) { continue; }
-            let joins = w.is_some_and(|(f, t)| windows.iter().any(|(m, mw)| members.contains(m) && mw.is_some_and(|(mf, mt)| f <= mt && mf <= t)));
-            if joins { members.push(*id); }
-        }
-        if members.len() == before { return Ok(members); }
+    let windows: Vec<(i64, Window)> = rows.iter().map(|(id, f, t)| (*id, match (parse_time(f), parse_time(t)) {
+        (Ok(f), Ok(t)) => Some((f - around, t + around)), _ => None })).collect();
+    let members = components(&windows);
+    let component = members.iter().enumerate().flat_map(|(g, ids)| ids.iter().map(move |id| (*id, g))).collect();
+    Ok(Groups { component, members })
+}
+
+/// The connected components of "windows (f, t) and (mf, mt) overlap": `f <= mt && mf <= t`, as r1.6's fixpoint read it.
+/// Proper windows (f <= t) are swept in order of start: one joins the component before it while its start is at most
+/// that component's latest end. An inverted window (f > t, collection accepts `failed_at < claimed_at`) overlaps no
+/// other inverted one, and a proper one only when that one covers [t, f]; two such proper windows overlap each other, so
+/// it joins at most one component, found by a binary search over the starts and their running maximum end. An unread
+/// window is its own.
+fn components<T: Ord + Copy>(windows: &[(i64, Option<(T, T)>)]) -> Vec<Vec<i64>> {
+    let mut proper: Vec<(T, T, i64)> = windows.iter().filter_map(|(id, w)| w.filter(|(f, t)| f <= t).map(|(f, t)| (f, t, *id))).collect();
+    proper.sort_unstable();
+    let mut members: Vec<Vec<i64>> = vec![];
+    // Per sorted window: its component, and the running maximum end with that end's component.
+    let mut of = Vec::with_capacity(proper.len());
+    let mut running: Vec<(T, usize)> = Vec::with_capacity(proper.len());
+    let mut latest: Option<T> = None;
+    for &(f, t, id) in &proper {
+        if latest.is_none_or(|end| f > end) { members.push(vec![]); }
+        let g = members.len() - 1;
+        members[g].push(id);
+        of.push(g);
+        latest = Some(latest.map_or(t, |end| end.max(t)));
+        let best = match running.last() { Some(&(end, at)) if end >= t => (end, at), _ => (t, g) };
+        running.push(best);
     }
+    for (id, w) in windows {
+        match w {
+            Some((f, t)) if f > t => {
+                let before = proper.partition_point(|(start, _, _)| start <= t);
+                match before.checked_sub(1).map(|i| running[i]) {
+                    Some((end, g)) if end >= *f => members[g].push(*id),
+                    _ => members.push(vec![*id]),
+                }
+            }
+            Some(_) => {}
+            None => members.push(vec![*id]),
+        }
+    }
+    members
 }
 
 fn any_of(c: &Connection, table: &str, ids: &[i64]) -> Result<bool, EngineError> {
@@ -931,11 +974,12 @@ pub fn offers_for(c: &Connection, bot: i64, obligations: &[i64], now: DateTime<U
     let now_us = now.timestamp_micros();
     let carry = |extra: Option<(&str, &BigDec)>| super::accounting::pending_quote_amount_plus(c, &b, now_us, extra).ok().and_then(|n| n.to_dec().ok());
     let before = carry(None);
+    let groups = groups(c, bot)?;
     let mut out = vec![];
     for &id in obligations {
         let Some(o) = load_where(c, id, false)? else { continue };
         if o.bot != bot { continue; }
-        let ids = group(c, id)?;
+        let ids = groups.of(id);
         let mut view = ObligationView { obligation: id, resolved: any_of(c, "rust_rails_unrecorded_resolutions", &ids)?,
                                         pending: any_of(c, "rust_rails_unrecorded_requests", &ids)?, offers: vec![] };
         let mut s = c.prepare("SELECT id, facts FROM rust_rails_unrecorded_offers WHERE obligation_id = ?1 ORDER BY id")?;
@@ -956,6 +1000,90 @@ pub fn offers_for(c: &Connection, bot: i64, obligations: &[i64], now: DateTime<U
         out.push(view);
     }
     Ok(out)
+}
+
+/// A28-2b: where an obligation stands, as MCP and REST list it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ListedState { Open, Checking, Booked, NotMine }
+impl ListedState {
+    pub fn as_str(self) -> &'static str { match self { Self::Open => "open", Self::Checking => "checking", Self::Booked => "booked", Self::NotMine => "not_mine" } }
+}
+/// One answerable obligation (reported, with offers): its group's state, its offers (their carry with the offer booked
+/// only while open), the booked row, and the newest refusal line naming its group while open: (reason, venue, at).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Listed { pub obligation: i64, pub state: ListedState, pub from: String, pub to: String, pub offers: Vec<OfferView>, pub transaction_id: Option<i64>,
+                    pub refused: Option<(String, String, String)> }
+/// The bot's answerable obligations for the API (PLAN-A28-2b §3): at most LISTED_API, open first (oldest first), then
+/// checking, then decided (most recently decided first); `more` counts the rest. `carry` is the bot's carry now.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Listing { pub carry: Option<BigDec>, pub obligations: Vec<Listed>, pub more: usize }
+pub const LISTED_API: usize = 20;
+/// The newest activity lines of a bot a refusal is looked for in (ponytail: a window, not a durable refusal column).
+const REFUSAL_LINES: usize = 500;
+
+/// The group's resolution, from any member: ('booked' | 'not_mine', the booked row, when).
+pub fn decision(c: &Connection, obligation: i64) -> Result<Option<(String, Option<i64>, String)>, EngineError> {
+    let ids = group(c, obligation)?;
+    decided(c, &ids)
+}
+
+fn decided(c: &Connection, ids: &[i64]) -> Result<Option<(String, Option<i64>, String)>, EngineError> {
+    if ids.is_empty() { return Ok(None); }
+    let list = ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
+    Ok(c.query_row(&format!("SELECT resolution, transaction_id, resolved_at FROM rust_rails_unrecorded_resolutions WHERE obligation_id IN ({list}) ORDER BY obligation_id LIMIT 1"),
+                   [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?)
+}
+
+/// Read-only: the bot's listing, or None when it has no answerable obligation.
+pub fn listing(c: &Connection, bot: i64, now: DateTime<Utc>) -> Result<Option<Listing>, EngineError> {
+    let eligible: Vec<(i64, String, String)> = {
+        let mut s = c.prepare("SELECT o.id, o.span_from, o.span_to FROM rust_rails_unrecorded o WHERE o.bot_id = ?1 AND o.reported_at IS NOT NULL \
+                               AND EXISTS (SELECT 1 FROM rust_rails_unrecorded_offers f WHERE f.obligation_id = o.id) ORDER BY o.id")?;
+        let rows = s.query_map([bot], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
+        rows
+    };
+    if eligible.is_empty() { return Ok(None); }
+    let groups = groups(c, bot)?;
+    let mut all = vec![];
+    for (id, from, to) in eligible {
+        let ids = groups.of(id);
+        let (state, transaction_id, at) = match decided(c, &ids)? {
+            Some((r, tx, at)) => (if r == "booked" { ListedState::Booked } else { ListedState::NotMine }, tx, at),
+            None if any_of(c, "rust_rails_unrecorded_requests", &ids)? => (ListedState::Checking, None, String::new()),
+            None => (ListedState::Open, None, String::new()),
+        };
+        all.push((Listed { obligation: id, state, from, to, offers: vec![], transaction_id, refused: None }, at, ids));
+    }
+    let rank = |s: ListedState| match s { ListedState::Open => 0, ListedState::Checking => 1, _ => 2 };
+    all.sort_by(|(a, at_a, _), (b, at_b, _)| rank(a.state).cmp(&rank(b.state)).then_with(|| match a.state {
+        ListedState::Open | ListedState::Checking => a.obligation.cmp(&b.obligation),
+        _ => at_b.cmp(at_a).then(b.obligation.cmp(&a.obligation)),
+    }));
+    let more = all.len().saturating_sub(LISTED_API);
+    all.truncate(LISTED_API);
+    let ids: Vec<i64> = all.iter().map(|(l, _, _)| l.obligation).collect();
+    let mut views: std::collections::HashMap<i64, ObligationView> = offers_for(c, bot, &ids, now)?.into_iter().map(|v| (v.obligation, v)).collect();
+    // The newest refusal line naming each open group, within the bot's newest REFUSAL_LINES lines (the index on
+    // (bot_id, created_at) serves the order; a detail over 16 KiB is never loaded).
+    let lines: Vec<(String, Option<String>, String)> = {
+        let mut s = c.prepare(&format!("SELECT event, CASE WHEN octet_length(details) <= 16384 THEN details END, created_at FROM bot_activity_logs \
+                                        WHERE bot_id = ?1 ORDER BY created_at DESC, id DESC LIMIT {REFUSAL_LINES}"))?;
+        let rows = s.query_map([bot], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
+        rows
+    };
+    let refusals: Vec<(i64, String, String, String)> = lines.into_iter().filter(|(event, _, _)| event == NOT_ADDED).filter_map(|(_, details, at)| {
+        let d: Value = serde_json::from_str(&details?).ok()?;
+        Some((d["obligation"].as_i64()?, d["reason"].as_str()?.to_string(), d["venue"].as_str().unwrap_or_default().to_string(), at))
+    }).collect();
+    let before = super::accounting::pending_quote_amount_plus(c, &model::load_bot(c, bot)?, now.timestamp_micros(), None).ok().and_then(|n| n.to_dec().ok());
+    let obligations = all.into_iter().map(|(mut l, _, ids)| {
+        let open = l.state == ListedState::Open;
+        l.offers = views.remove(&l.obligation).map(|v| v.offers).unwrap_or_default();
+        if !open { for o in &mut l.offers { o.carry_after = None; } }
+        if open { l.refused = refusals.iter().find(|(o, ..)| ids.contains(o)).map(|(_, reason, venue, at)| (reason.clone(), venue.clone(), at.clone())); }
+        l
+    }).collect();
+    Ok(Some(Listing { carry: before, obligations, more }))
 }
 
 /// What the booked row counts in the carry until its poll (#invested_quote): its quote, or amount × price, price being the
@@ -1272,4 +1400,65 @@ pub(crate) fn holds(c: &Connection, bot: i64, tx: i64, s: &crate::venue::OrderSt
     let since: String = c.query_row("SELECT at FROM rust_rails_unrecorded_notices WHERE transaction_id = ?1 AND kind = 'held'", [tx], |r| r.get(0))?;
     if matches!(parse_time(&since), Ok(at) if at + Duration::days(NOTICE_DAYS) <= now) { notice_once(c, tx, bot, "lower", SETTLED_LOWER, &facts, &venue, now)?; }
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::components;
+
+    /// r1.6's fixpoint as A28-2a wrote it: the oracle `components` must equal.
+    fn fixpoint(windows: &[(i64, Option<(i64, i64)>)], obligation: i64) -> Vec<i64> {
+        let mut members = vec![obligation];
+        loop {
+            let before = members.len();
+            for (id, w) in windows {
+                if members.contains(id) { continue; }
+                let joins = w.is_some_and(|(f, t)| windows.iter().any(|(m, mw)| members.contains(m) && mw.is_some_and(|(mf, mt)| f <= mt && mf <= t)));
+                if joins { members.push(*id); }
+            }
+            if members.len() == before { members.sort_unstable(); return members; }
+        }
+    }
+
+    fn same(windows: &[(i64, Option<(i64, i64)>)]) {
+        let comps = components(windows);
+        assert_eq!(comps.iter().map(Vec::len).sum::<usize>(), windows.len(), "each window in exactly one component: {comps:?}");
+        for (id, _) in windows {
+            let mut got = comps.iter().find(|c| c.contains(id)).unwrap().clone();
+            got.sort_unstable();
+            assert_eq!(got, fixpoint(windows, *id), "obligation {id} in {windows:?}");
+        }
+    }
+
+    #[test]
+    fn the_sweep_groups_as_the_fixpoint_did() {
+        // Disjoint; touching ends; a chain listed against the order it is found in; unread windows.
+        same(&[(1, Some((0, 10))), (2, Some((20, 30))), (3, Some((40, 50)))]);
+        same(&[(1, Some((0, 10))), (2, Some((10, 20))), (3, Some((21, 30)))]);
+        same(&[(1, Some((40, 50))), (2, Some((30, 41))), (3, Some((20, 31))), (4, Some((10, 21))), (5, Some((0, 11)))]);
+        same(&[(1, None), (2, Some((0, 10))), (3, None), (4, Some((5, 15)))]);
+        // Inverted windows: apart from a proper one that only overlaps their reach, joined to one covering them, never
+        // to each other, and never a bridge.
+        same(&[(1, Some((10, 40))), (2, Some((30, 0)))]);
+        same(&[(1, Some((0, 50))), (2, Some((30, 20)))]);
+        same(&[(1, Some((30, 20))), (2, Some((35, 25)))]);
+        same(&[(1, Some((0, 25))), (2, Some((24, 50))), (3, Some((26, 23)))]);
+        same(&[(1, Some((0, 10))), (2, Some((40, 60))), (3, Some((50, 5))), (4, Some((0, 100)))]);
+        // A seeded pseudo-random set.
+        let mut x: u64 = 0x2545_f491_4f6c_dd1d;
+        let mut next = |n: u64| { x ^= x << 13; x ^= x >> 7; x ^= x << 17; (x % n) as i64 };
+        for _ in 0..20 {
+            let windows: Vec<_> = (0..60).map(|id| (id, if next(10) == 0 { None } else { let f = next(1000); Some((f, f + next(80) - 15)) })).collect();
+            same(&windows);
+        }
+    }
+
+    #[test]
+    fn the_sweep_is_bounded_on_many_inverted_windows() {
+        let windows: Vec<_> = (0..10_000i64).map(|i| (i, Some(if i % 2 == 0 { (i * 10, i * 10 + 5) } else { (i * 10 + 5, i * 10) }))).collect();
+        let started = std::time::Instant::now();
+        let comps = components(&windows);
+        assert_eq!(comps.len(), 10_000);
+        assert!(started.elapsed() < std::time::Duration::from_secs(1), "{:?}", started.elapsed());
+    }
 }
