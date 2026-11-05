@@ -804,7 +804,7 @@ pub fn plan_copy(src: &Path, tickers: &Value, out: &Path, now: DateTime<Utc>) ->
                 .execute("VACUUM INTO ?1", [target.to_string_lossy()])?;
         }
         // Every member's pair: a basket's legs each read their own price from the copy's script.
-        let pairs = if bot.bot_type == "Bots::DcaIndex" { crate::engine::index::candidate_pairs(&c, &bot)? } else { crate::engine::basket::member_pairs(&c, &bot)? };
+        let pairs = if bot.bot_type == "Bots::DcaIndex" { crate::engine::index::rails_candidate_pairs(&c, &bot)? } else { crate::engine::basket::member_pairs(&c, &bot)? };
         let mut crypto = Vec::new();
         for pair in &pairs {
             if model::ticker_for_pair(&c, bot.exchange_id, pair)?.is_some_and(|t| t.crypto) {

@@ -339,6 +339,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
                 Some("its members or provider are no longer eligible")
             }
             else if super::provider::stale(&tx, &current)?.is_some() { Some("its index provider configuration changed") }
+            else if super::staleness::ranking_stale(&tx, &current, clock.now())?.is_some() { Some("its index ranking is no longer usable") }
             else { None };
         if let Some(reason) = reason {
             super::log(&format!("[engine] bot {}: {} order not placed: {reason} after it was sized", bot.id, plan.ticker.ticker));

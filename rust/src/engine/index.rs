@@ -312,7 +312,9 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
         else if matches!(model::load_bot(tx, bot.id)?.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) { return Err(EngineError::RunFenced); }
         let current = model::load_bot(tx, bot.id)?;
         let source_now = ranked_row(tx, category)?;
-        let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != before || source_now.as_ref() != Some(&source_before) || super::provider::fingerprint(tx)? != provider_before
+        // A ranking that aged past its bound during the probes composes nothing: the next pass's gate holds the bot.
+        let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != before || source_now.as_ref() != Some(&source_before)
+            || !usable(&source_before, clock.now()) || super::provider::fingerprint(tx)? != provider_before
             || super::provider::stale(tx, &current)?.is_some();
         for ticker in &priced_tickers { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
         if changed { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
@@ -339,10 +341,21 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     })
 }
 
-/// The pairs an index bot's tick may price: every available, trading-enabled ticker at its quote whose asset the index ranks
-/// (incumbents at Step 1, newcomers at their probe). For a parity copy (parity::plan_copy).
+/// The pairs an index bot's tick may price: every available, trading-enabled ticker at its quote whose asset its ranking
+/// (`ranked_row`) names (incumbents at Step 1, newcomers at their probe).
 pub fn candidate_pairs(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
-    let top = ranked_row(c, bot.index_external_id())?.and_then(|r| r.top_coins);
+    pairs_of(c, bot, ranked_row(c, bot.index_external_id())?.and_then(|r| r.top_coins))
+}
+
+/// The same over the row Rails reads (`Index.find_by(external_id:)`, the lowest id), on a Rails install that holds no
+/// rankings: for a parity copy (parity::plan_copy), which scripts the prices the recorded tick asks.
+pub fn rails_candidate_pairs(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
+    let top: Option<Option<String>> = c.query_row("SELECT top_coins FROM indices WHERE external_id = ?1 ORDER BY id LIMIT 1",
+        [bot.index_external_id()], |r| r.get(0)).optional()?;
+    pairs_of(c, bot, top.flatten())
+}
+
+fn pairs_of(c: &Connection, bot: &Bot, top: Option<String>) -> Result<Vec<String>, EngineError> {
     let top = top.filter(|t| t.trim_start().starts_with('[')).unwrap_or_else(|| "[]".into());
     let mut s = c.prepare("SELECT t.ticker FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 AND t.quote_asset_id = ?2 \
                            AND t.available = 1 AND t.trading_enabled = 1 AND a.external_id IN (SELECT value FROM json_each(?3)) ORDER BY t.id")?;

@@ -1125,3 +1125,16 @@ async fn the_index_wizard_creates_a_coingecko_category_bot_whose_tick_buys_the_r
     assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
     assert_eq!(in_index(&o, id), [("BTC".to_string(), 0.75), ("ETH".to_string(), 0.25)]);
 }
+
+/// Codex r1 P1: a ranking that ages past its 49 h bound while the composition's probes await composes nothing (the commit's
+/// re-check), so no membership is written from it and the next pass's gate holds the bot.
+#[tokio::test(flavor = "current_thread")]
+async fn a_ranking_that_expires_during_the_composition_writes_no_membership() {
+    let (_d, o, _s, id, row) = coingecko_category_bot(json!({ "bitcoin": 1, "ethereum": 1 })).await;
+    let c = &o.primary;
+    rank(c, row, "coingecko", at(T0) - Duration::hours(50));
+    let bot = model::load_bot(c, id).unwrap();
+    let out = index::refresh_composition(c, &bundled_venue(), &bot, &FixedClock(at(T0)), &tick::PriceCache::default()).await.unwrap();
+    assert_eq!(out, Err(index::Refusal::Transient(index::CHANGED.into())));
+    assert!(in_index(&o, id).is_empty());
+}

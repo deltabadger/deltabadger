@@ -1997,6 +1997,8 @@ async fn a_stock_and_an_index_copy_are_planned_with_stock_bodies_and_an_open_clo
         seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(aapl, 1.0)]));
         seed::insert_index(&o.primary, "nasdaq-100", &["MSFT.US", "AAPL.US"], &json!({ "MSFT.US": 3.1e12, "AAPL.US": 3.4e12 }));
         seed::index_bot(&o.primary, &s, "nasdaq-100", 2, 0.0, false);
+        // A Rails source holds no rankings (D-INDEX-UNATTESTED-HELD): the copy prices the row Rails reads all the same.
+        o.primary.execute("DELETE FROM rust_index_rankings", []).map_err(|e| format!("{e:?}"))?;
     }
     let tickers = json!({ "AAPL": { "quote": { "symbol": "AAPL", "quote": { "ap": 187.43 } }, "trade": { "symbol": "AAPL", "trade": { "p": 187.41 } } },
                           "MSFT": { "quote": { "symbol": "MSFT", "quote": { "ap": 401.25 } }, "trade": { "symbol": "MSFT", "trade": { "p": 401.2 } } } });
