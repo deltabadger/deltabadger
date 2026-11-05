@@ -13,7 +13,7 @@ use deltabadger::engine::rails_unrecorded::{self as ru, Refused, Report};
 use deltabadger::jobs::Db;
 use deltabadger::ruby::BigDec;
 use deltabadger::venue::http::ScriptedTransport;
-use deltabadger::venue::{binance, bybit, Venue, VenueFactory};
+use deltabadger::venue::{alpaca, binance, bybit, Venue, VenueFactory};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::cell::RefCell;
@@ -25,10 +25,14 @@ const AT: &str = "2026-09-29 14:03:00";
 const PLACED: &str = "2026-09-29T14:03:05Z";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum Kind { Binance, Bybit }
+enum Kind { Binance, Bybit, Alpaca }
 impl Kind {
-    fn exchange(self) -> (&'static str, &'static str) { match self { Kind::Binance => ("Exchanges::Binance", "Binance"), Kind::Bybit => ("Exchanges::Bybit", "Bybit") } }
-    fn external_id(self, id: u64) -> String { if self == Kind::Bybit { id.to_string() } else { format!("BTCEUR-{id}") } }
+    fn exchange(self) -> (&'static str, &'static str) {
+        match self { Kind::Binance => ("Exchanges::Binance", "Binance"), Kind::Bybit => ("Exchanges::Bybit", "Bybit"), Kind::Alpaca => ("Exchanges::Alpaca", "Alpaca") }
+    }
+    fn external_id(self, id: u64) -> String { match self { Kind::Bybit => id.to_string(), Kind::Alpaca => alpaca_id(id), Kind::Binance => format!("BTCEUR-{id}") } }
+    /// Alpaca spells a crypto pair "BASE/QUOTE" and trades it against USD only (eligibility's "Alpaca: only USD").
+    fn symbol(self) -> &'static str { if self == Kind::Alpaca { "BTC/USD" } else { "BTCEUR" } }
 }
 
 /// The scripted venue for every bot, after `hook` (what happens between the read and the write).
@@ -46,7 +50,7 @@ struct Fx { _dir: tempfile::TempDir, path: PathBuf, c: Connection, s: Seeded, b:
 fn open(path: &PathBuf) -> Connection { Connection::open(path).unwrap() }
 
 /// A running weekly bot on `kind` with an ambiguous Rails tick at AT, collected; its ledger synced after the window.
-fn fx(kind: Kind) -> Fx { fx_with(kind, BotSpec::weekly(20.0, "2026-09-01 10:00:00"), "BTCEUR", "2026-09-22 14:03:00", AT, now()) }
+fn fx(kind: Kind) -> Fx { fx_with(kind, BotSpec::weekly(20.0, "2026-09-01 10:00:00"), kind.symbol(), "2026-09-22 14:03:00", AT, now()) }
 
 fn fx_with(kind: Kind, spec: BotSpec, symbol: &str, prior: &str, at: &str, collected: DateTime<Utc>) -> Fx {
     let dir = tempfile::tempdir().unwrap();
@@ -58,6 +62,10 @@ fn fx_with(kind: Kind, spec: BotSpec, symbol: &str, prior: &str, at: &str, colle
     let (ty, name) = kind.exchange();
     c.execute("UPDATE exchanges SET type = ?2, name = ?3 WHERE id = ?1", params![s.exchange_id, ty, name]).unwrap();
     c.execute("UPDATE tickers SET ticker = ?2, base = 'BTC', price_decimals = 2 WHERE id = ?1", params![s.ticker_id, symbol]).unwrap();
+    if kind == Kind::Alpaca {
+        c.execute("UPDATE tickers SET quote = 'USD' WHERE id = ?1", [s.ticker_id]).unwrap();
+        c.execute("UPDATE assets SET symbol = 'USD' WHERE id = ?1", [s.quote]).unwrap();
+    }
     let b = seed::insert_bot(&c, &s, &spec);
     prior_row(&c, &s, b, prior);
     ambiguous_line(&c, b, at);
@@ -119,6 +127,24 @@ fn binance_row(o: &O) -> Value {
             "icebergQty": "0.00000000", "time": ms(o.at), "updateTime": ms(o.at) + 1000, "isWorking": true, "workingTime": ms(o.at),
             "origQuoteOrderQty": orig_quote, "selfTradePreventionMode": "EXPIRE_MAKER" })
 }
+fn alpaca_id(id: u64) -> String { format!("6c88c025-e7a0-0992-70eb-{id:012}") }
+/// A recorded Alpaca row (tests/fixtures/order_lists/alpaca, a crypto limit, filled) edited into `o`, as the live-read
+/// tests build it; `filled_avg_price` = cum / exec (Alpaca states no quote total). The creation time keeps nine digits.
+fn alpaca_row(o: &O) -> Value {
+    let rows: Vec<Value> = serde_json::from_str(include_str!("fixtures/order_lists/alpaca/orders.json")).unwrap();
+    let mut r = rows.into_iter().find(|r| r["asset_class"] == "crypto" && r["status"] == "filled").unwrap();
+    let status = match o.state { St::Open => "new", St::Partly => "partially_filled", St::Filled => "filled", St::PartlyCancelled | St::Cancelled => "canceled" };
+    let avg = if BigDec::parse(o.exec).unwrap().is_positive() { json!(BigDec::parse(o.cum).unwrap().div(&BigDec::parse(o.exec).unwrap()).unwrap().to_s_f()) } else { Value::Null };
+    let at = o.at.replace('Z', ".123456789Z");
+    for (k, v) in [("id", json!(alpaca_id(o.id))), ("client_order_id", json!(format!("c-{}", o.id))), ("symbol", json!("BTC/USD")), ("side", json!(if o.sell { "sell" } else { "buy" })),
+                   ("type", json!(if o.limit.is_some() { "limit" } else { "market" })), ("order_type", json!(if o.limit.is_some() { "limit" } else { "market" })),
+                   ("qty", if o.limit.is_some() { json!(o.size) } else { Value::Null }), ("notional", if o.limit.is_some() { Value::Null } else { json!(o.size) }),
+                   ("limit_price", o.limit.map_or(Value::Null, |p| json!(p))), ("status", json!(status)), ("filled_qty", json!(o.exec)), ("filled_avg_price", avg),
+                   ("created_at", json!(at)), ("submitted_at", json!(at)), ("updated_at", json!(at)), ("filled_at", Value::Null), ("canceled_at", Value::Null)] {
+        r[k] = v;
+    }
+    r
+}
 fn bybit_row(o: &O) -> Value {
     let status = match o.state { St::Open => "New", St::Partly => "PartiallyFilled", St::Filled => "Filled", St::PartlyCancelled => "PartiallyFilledCanceled", St::Cancelled => "Cancelled" };
     let (ty, unit, price) = match o.limit { Some(p) => ("Limit", "", p), None => ("Market", "quoteCoin", "0") };
@@ -147,6 +173,7 @@ fn fill(c: &Connection, s: &Seeded, id: i64, order: u64, qty: &str, quote: &str,
 impl Fx {
     fn binance(&self) -> binance::BinanceVenue<ScriptedTransport> { binance::BinanceVenue::new(self.tr.clone(), binance::URL, "secret") }
     fn bybit(&self) -> bybit::BybitVenue<ScriptedTransport> { bybit::BybitVenue::new(self.tr.clone(), bybit::URL).with_history_db(self.path.clone(), now() + Duration::days(40)) }
+    fn alpaca(&self) -> alpaca::AlpacaVenue<ScriptedTransport> { alpaca::AlpacaVenue::new(self.tr.clone(), alpaca::Urls::for_passphrase(Some("paper"))) }
     /// The venue lists these orders (both the report's read and the booking's identity read: the last reply repeats).
     fn answer(&self, orders: &[O]) {
         match self.kind {
@@ -156,6 +183,7 @@ impl Fx {
                 self.tr.reply("GET /v5/order/history", 200, page(closed.iter().map(|o| bybit_row(o)).collect()));
             }
             Kind::Binance => { self.tr.reply("GET /api/v3/allOrders", 200, Value::Array(orders.iter().map(binance_row).collect())); }
+            Kind::Alpaca => { self.tr.reply("GET /v2/orders", 200, Value::Array(orders.iter().map(alpaca_row).collect())); }
         }
     }
     /// The report's pass: the line and its offers.
@@ -163,6 +191,7 @@ impl Fx {
         let n = match self.kind {
             Kind::Binance => Report::new(Factory { venue: self.binance(), hook: RefCell::new(None) }).pass(&self.db, now()).await,
             Kind::Bybit => Report::new(Factory { venue: self.bybit(), hook: RefCell::new(None) }).pass(&self.db, now()).await,
+            Kind::Alpaca => Report::new(Factory { venue: self.alpaca(), hook: RefCell::new(None) }).pass(&self.db, now()).await,
         }.unwrap();
         assert_eq!(n, 1);
     }
@@ -182,6 +211,7 @@ impl Fx {
         match self.kind {
             Kind::Binance => ru::serve_bookings(&self.c, &Factory { venue: self.binance(), hook }, &seed::cipher(), &|_| false, at).await,
             Kind::Bybit => ru::serve_bookings(&self.c, &Factory { venue: self.bybit(), hook }, &seed::cipher(), &|_| false, at).await,
+            Kind::Alpaca => ru::serve_bookings(&self.c, &Factory { venue: self.alpaca(), hook }, &seed::cipher(), &|_| false, at).await,
         }.unwrap()
     }
     async fn serve(&self) -> ru::Served { self.serve_with(now(), None).await }
@@ -199,6 +229,7 @@ impl Fx {
         match self.kind {
             Kind::Binance => polling::follow_up(&self.c, &self.binance(), self.b, tx, at).await,
             Kind::Bybit => polling::follow_up(&self.c, &self.bybit(), self.b, tx, at).await,
+            Kind::Alpaca => polling::follow_up(&self.c, &self.alpaca(), self.b, tx, at).await,
         }
     }
     fn row(&self, tx: i64) -> Value {
@@ -313,6 +344,7 @@ async fn each_bookable_state_is_booked_and_an_open_one_is_polled_to_closed() {
                 f.tr.reply("GET /v5/order/realtime", 200, page(vec![]));
                 f.tr.reply("GET /v5/order/history", 200, page(vec![bybit_row(&limit(7, St::Filled, "0.0004", "20"))]));
             }
+            Kind::Alpaca => unreachable!(),
         }
         assert_eq!(f.follow_up(tx, now()).await, Ok(polling::FollowUp::Done), "{kind:?}");
         assert_eq!(f.row(tx)["external_status"], json!(2), "{kind:?}");
@@ -1283,4 +1315,50 @@ fn the_settings_switch_names_the_tool() {
         assert_eq!(i18n::text(locale, "settings.mcp.tools.answer_unrecorded_order.label", &[]), "Answer unrecorded order");
         assert_eq!(i18n::text(locale, "settings.mcp.tools.answer_unrecorded_order.description", &[]), "Say which order from before the update was a bot's, or that none was");
     }
+}
+
+// ---- A28-3b-1: Alpaca, its booking on the recorded answer -------------------------------------------------------------------
+
+#[tokio::test]
+async fn an_alpaca_order_is_offered_and_booked_once_with_its_creation_time_to_the_microsecond() {
+    let f = fx(Kind::Alpaca);
+    f.answer(&[o(7, St::Filled, "0.0004", "20"), limit(8, St::Open, "0", "0"), o(11, St::Cancelled, "0", "0")]);
+    f.report().await;
+    let (obligation, offers) = f.offers();
+    let mut ids: Vec<String> = offers.iter().map(|(_, e)| e.clone()).collect();
+    ids.sort();
+    assert_eq!(ids, [alpaca_id(7), alpaca_id(8)], "cancelled with nothing filled is never offered");
+    let filled = offers.iter().find(|(_, e)| *e == alpaca_id(7)).unwrap().0;
+    let before = count(&f.c, "SELECT count(*) FROM transactions");
+    f.request(obligation, filled).unwrap();
+    // The identity re-read answers the same nine-digit creation time: the stored facts (microseconds) must still match it.
+    let served = f.serve().await;
+    assert_eq!(served.booked.len(), 1, "{:?}", lines(&f.c, f.b, ru::NOT_ADDED));
+    let tx = served.booked[0].1;
+    let row = f.row(tx);
+    assert_eq!((row["external_id"].clone(), row["quote_amount"].clone(), row["amount"].clone(), row["price"].clone(), row["created_at"].clone()),
+               (json!(alpaca_id(7)), json!(20), Value::Null, json!(50000), json!(AT)));
+    assert_eq!(count(&f.c, "SELECT count(*) FROM transactions"), before + 1);
+    assert_eq!(lines(&f.c, f.b, ru::RECOVERED)[0]["venue_created_at"], "2026-09-29 14:03:05.123456");
+    assert_eq!(f.serve().await.booked.len(), 0, "booked once");
+    assert_eq!(count(&f.c, "SELECT count(*) FROM transactions"), before + 1);
+    let read = f.tr.requests().into_iter().rev().find(|r| r.path == "/v2/orders").unwrap();
+    assert_eq!(read.query.iter().find(|(k, _)| *k == "after").unwrap().1, "2026-09-29T13:53:04Z", "the identity read: its creation time - 1 s - the margin");
+}
+
+#[tokio::test]
+async fn an_alpaca_order_the_re_read_does_not_list_is_refused_with_nothing_written() {
+    // D-ALPACA-HISTORY-SUBMISSION-WINDOW: an order submitted past the margin is not in the re-read; the refusal is clean.
+    let mut f = fx(Kind::Alpaca);
+    f.answer(&[o(7, St::Filled, "0.0004", "20")]);
+    f.report().await;
+    let (obligation, offers) = f.offers();
+    f.request(obligation, offers[0].0).unwrap();
+    f.tr = ScriptedTransport::default();
+    f.answer(&[]);
+    let before = money(&f.c);
+    assert_eq!(f.serve().await.booked.len(), 0);
+    assert_eq!(lines(&f.c, f.b, ru::NOT_ADDED)[0]["reason"], "not_found");
+    let after = money(&f.c);
+    assert_eq!(after[..3], before[..3], "no order row, carry or link");
 }
