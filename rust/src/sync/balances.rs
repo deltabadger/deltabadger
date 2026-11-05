@@ -8,7 +8,10 @@
 //! - everything else (coins), and a stock Alpaca gave no snapshot or no latest trade for: the market-data source, by `assets.external_id`
 //!   (hosted: the data API's GET api/v1/prices).
 use super::activities::Raw;
-use crate::jobs::data_api::{ApiError, PriceFuture, PriceSource};
+use crate::jobs::coingecko::CoinGecko;
+use crate::jobs::data_api::{ApiError, PriceFuture, PriceSource, RateCache};
+use crate::jobs::market::Feed;
+use crate::market_data::Settings;
 use crate::jobs::Db;
 use super::wire::{self, Budget, Node};
 use super::{ load_key, number, parsed, phase, record_sync_error, sql_time, venue_failure, Failure, SyncError, Unread};
@@ -50,6 +53,74 @@ impl PriceSource for NoPrices {
     fn prices<'a>(&'a self, _: &'a [String], _: &'a str) -> PriceFuture<'a> {
         Box::pin(async { Err(ApiError::Failed { status: None, message: NO_PROVIDER.into() }) })
     }
+}
+
+/// AccountBalance::Sync's market source on any provider: MarketData.get_prices and get_exchange_rates (market_data.rb:
+/// 166-215) over the run's feed, with Rails' CoinGecko fallback as its own contract, here only (never on the FX path):
+/// - the deltabadger provider: data-api's `Failure` answer (an HTTP error, an unreadable body, a permanent transport
+///   failure) is asked once of CoinGecko when a key is set (`Settings::fallback_key`); a transient failure (Rails raises)
+///   and a successful partial answer are not;
+/// - no provider selected: CoinGecko is asked directly when a key is set;
+/// - the coingecko provider: the feed itself (a blank key fails without a request).
+///
+/// The exchange rates come from the feed only; a CoinGecko answer is held 60 s in the engine's rate cache
+/// (Coingecko#get_exchange_rates).
+pub struct MarketPrices<T: Transport> { feed: Option<Feed<T>>, fallback: Option<Feed<T>>, rates: Arc<RateCache> }
+
+impl<T: Transport> MarketPrices<T> {
+    /// `fallback`: a CoinGecko client for `settings.fallback_key`, made only where Rails would fall back.
+    pub fn new(settings: &Settings, feed: Option<Feed<T>>, coingecko: impl FnOnce(&str) -> CoinGecko<T>, rates: Arc<RateCache>) -> Self {
+        let fallback = match (&feed, &settings.fallback_key) {
+            (Some(Feed::CoinGecko(_)), _) | (_, None) => None,
+            (_, Some(key)) => Some(Feed::CoinGecko(coingecko(key))),
+        };
+        Self { feed, fallback, rates }
+    }
+}
+
+impl MarketPrices<crate::jobs::market::Live> {
+    /// The live source of a run: the feed `settings` name and its fallback.
+    pub fn live(settings: &Settings, rates: Arc<RateCache>) -> Self {
+        use crate::jobs::{coingecko::LiveTransport, market::Live};
+        let feed = Feed::live(settings, rates.clone());
+        Self::new(settings, feed, |key| CoinGecko::new(key, Live::CoinGecko(LiveTransport::new(key))), rates)
+    }
+}
+
+/// `{id: {cur: p}}` read as MarketData.get_prices reads it (`to_f`, absent when missing).
+fn read_feed_prices(answer: Value, ids: &[String], currency: &str) -> Result<BTreeMap<String, f64>, ApiError> {
+    crate::jobs::data_api::read_prices(&serde_json::json!({ "data": answer }), &ids.iter().map(String::as_str).collect::<Vec<_>>(), currency)
+}
+
+impl<T: Transport> PriceSource for MarketPrices<T> {
+    fn prices<'a>(&'a self, ids: &'a [String], currency: &'a str) -> PriceFuture<'a> {
+        Box::pin(async move {
+            let answer = match (&self.feed, &self.fallback) {
+                (Some(feed @ Feed::DataApi(_)), fallback) => match (feed.prices(ids, currency).await, fallback) {
+                    (Err(ApiError::Failed { .. }), Some(fallback)) => fallback.prices(ids, currency).await,
+                    (other, _) => other,
+                },
+                (Some(feed), _) | (None, Some(feed)) => feed.prices(ids, currency).await,
+                (None, None) => Err(ApiError::Failed { status: None, message: NO_PROVIDER.into() }),
+            };
+            read_feed_prices(answer?, ids, currency)
+        })
+    }
+    fn exchange_rates<'a>(&'a self, now: DateTime<Utc>) -> crate::jobs::data_api::RatesFuture<'a> {
+        Box::pin(async move {
+            match &self.feed {
+                Some(feed @ Feed::CoinGecko(_)) => {
+                    if let Some(held) = self.rates.coingecko_rates(now) { return Ok(held); }
+                    let rates = feed.exchange_rates().await?;
+                    self.rates.put_coingecko_rates(rates.clone(), now);
+                    Ok(rates)
+                }
+                Some(feed) => feed.exchange_rates().await,
+                None => Err(ApiError::Failed { status: None, message: "No market data provider configured".into() }),
+            }
+        })
+    }
+    fn rate_cache(&self) -> Option<&RateCache> { Some(&self.rates) }
 }
 
 /// The data API's answer to GET api/v1/prices, read as MarketData.get_prices reads it: `data[id]["usd"]`, `to_f`,
@@ -103,7 +174,7 @@ impl PriceSource for ScriptedPrices {
             scripted(&reply).and_then(|body| parse_prices(body, external_ids))
         })
     }
-    fn exchange_rates<'a>(&'a self) -> crate::jobs::data_api::RatesFuture<'a> {
+    fn exchange_rates<'a>(&'a self, _now: DateTime<Utc>) -> crate::jobs::data_api::RatesFuture<'a> {
         Box::pin(async move {
             *self.rate_requests.borrow_mut() += 1;
             let reply = next_reply(&self.rates, EXCHANGE_RATES_PATH);
@@ -1001,7 +1072,7 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
             fresh.insert(a.external_id.clone(), Price::Decimal(rate));
             continue;
         }
-        match prices.exchange_rates().await {
+        match prices.exchange_rates(clock.now()).await {
             Ok(rates) => if let Some(rate) = match fiat_rate(&rates, &symbol) { Ok(rate) => rate, Err(refused) => return Ok(Err(refused)) } {
                 if let Some(cache) = prices.rate_cache() { cache.put(&symbol, rate.clone(), clock.now()); }
                 rated.insert(symbol, Price::Decimal(rate.clone()));

@@ -602,6 +602,61 @@ module SyncScenarios
     ]
   end
 
+  # PLAN-A17 A17-3: a Binance balance sync priced by CoinGecko, as the provider (simple/price, exchange_rates for the cash)
+  # and as MarketData.get_prices' fallback (market_data.rb:166-190). A request a side was not meant to make is unscripted
+  # there and fails the recording (Rails) or the replay (Rust): "not asked" is asserted by both.
+  def coingecko_balance_scenarios
+    night = '2026-09-20T02:30:00.750000Z'
+    held = P.binance_account(%w[BTC 0.50000000 0.10000000], %w[ETH 2.00000000], %w[USDT 100.50000000], %w[EUR 50.00])
+    rate = ->(value) { { 'name' => 'x', 'unit' => 'x', 'value' => value, 'type' => 'fiat' } }
+    cg_rates = P.ok('rates' => { 'btc' => rate.(1), 'usd' => rate.(60_000.5), 'eur' => rate.(55_000.25) })
+    hosted_rates = P.ok('data' => { 'btc' => { 'value' => 1 }, 'usd' => { 'value' => 60_000.5 }, 'eur' => { 'value' => 55_000.25 } })
+    some = { 'bitcoin' => { 'usd' => 60_000.5 }, 'tether' => { 'usd' => 1.0001 } } # no ethereum: it keeps its last price
+    every = some.merge('ethereum' => { 'usd' => 2500.25 })
+    limited = { 'status' => 429, 'body' => { 'status' => { 'error_code' => 429, 'error_message' => "You've exceeded the Rate Limit." } } }
+    # Stale prices are a first sync's: a price stored before (a seeded row) has no producer the Rust side can trust.
+    installed = lambda do |rows|
+      lambda do |ctx|
+        P.binance(ctx)
+        P.market_rows(rows)
+      end
+    end
+    later = '2026-09-21T02:30:00.750000Z'
+    first = P.cg_balances(night, account: held, coingecko: { P::CG_RATES => cg_rates, P::CG_PRICES => P.ok(every) })
+    provider = { 'market_data_provider' => 'coingecko', 'coingecko_api_key' => P::CG_KEY }
+    key_only = { 'coingecko_api_key' => P::CG_KEY }
+    off_hosted = { 'MARKET_DATA_URL' => nil, 'MARKET_DATA_TOKEN' => nil }
+    [
+      # The provider: one batched simple/price; a coin it does not answer keeps its last price; the cash by `rates`.
+      { name: 'cg-balances-partial', market_env: off_hosted, setup: installed.(provider),
+        steps: [first, P.cg_balances(later, account: held, coingecko: { P::CG_RATES => cg_rates, P::CG_PRICES => P.ok(some) })] },
+      # A blank key (the row wins over the environment): nothing is asked, nothing is priced.
+      { name: 'cg-balances-blank_key', market_env: off_hosted.merge('COINGECKO_API_KEY' => P::CG_KEY),
+        setup: installed.(provider.merge('coingecko_api_key' => '')), steps: [P.cg_balances(night, account: held)] },
+      # A 429 on both: an ordinary failure, the last prices stay.
+      { name: 'cg-balances-rate_limited', market_env: off_hosted, setup: installed.(provider),
+        steps: [first, P.cg_balances(later, account: held, coingecko: { P::CG_RATES => limited, P::CG_PRICES => limited })] },
+      # The deltabadger provider with a key: data-api's Failure is asked once of CoinGecko (the key from the row, or the env).
+      { name: 'cg-fallback-failure', setup: installed.(key_only),
+        steps: [P.cg_balances(night, account: held, market: { P::EXCHANGE_RATES => hosted_rates, P::PRICES => P::SERVER_ERROR },
+                              coingecko: { P::CG_PRICES => P.ok(every) })] },
+      { name: 'cg-fallback-env_key', market_env: { 'COINGECKO_API_KEY' => P::CG_KEY }, setup: installed.({}),
+        steps: [P.cg_balances(night, account: held, market: { P::EXCHANGE_RATES => hosted_rates, P::PRICES => P::SERVER_ERROR },
+                              coingecko: { P::CG_PRICES => P.ok(every) })] },
+      # Not a Failure: a transport failure raises (the sync fails), a partial answer is an answer. CoinGecko is not asked.
+      { name: 'cg-fallback-transient', setup: installed.(key_only),
+        steps: [P.cg_balances(night, account: held, market: { P::EXCHANGE_RATES => hosted_rates, P::PRICES => P::POST_SEND })] },
+      { name: 'cg-fallback-partial', setup: installed.(key_only),
+        steps: [P.cg_balances(night, account: held, market: { P::EXCHANGE_RATES => hosted_rates, P::PRICES => P.ok('data' => some) })] },
+      # The exchange rates have no fallback: the cash is not priced.
+      { name: 'cg-fallback-no_fx_fallback', setup: installed.(key_only),
+        steps: [P.cg_balances(night, account: held, market: { P::EXCHANGE_RATES => P::SERVER_ERROR, P::PRICES => P.ok('data' => every) })] },
+      # No provider selected and a key: CoinGecko is asked directly; the cash has no provider to ask.
+      { name: 'cg-none-direct', market_env: off_hosted, setup: installed.(key_only),
+        steps: [P.cg_balances(night, account: held, coingecko: { P::CG_PRICES => P.ok(every) })] }
+    ]
+  end
+
   # Exchanges::Binance#get_balances (and Binance.US's, the same code on api.binance.us) with AccountBalance::Sync.
   def binance_balance_scenarios
     night = '2026-09-20T02:30:00.750000Z'
@@ -1949,7 +2004,7 @@ module SyncScenarios
     ]
   end
 
-  def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
+  def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + coingecko_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
             kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios + gemini_ledger_scenarios + gemini_balance_scenarios +
             bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios + hyperliquid_ledger_scenarios + hyperliquid_balance_scenarios + bybit_ledger_scenarios + bybit_balance_scenarios + bitrue_ledger_scenarios + bitrue_balance_scenarios + coinbase_scenarios + bingx_ledger_scenarios + bingx_balance_scenarios +
             kraken_balance_scenarios + kraken_ledger_scenarios

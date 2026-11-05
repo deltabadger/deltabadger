@@ -33,6 +33,9 @@ pub struct Settings {
     pub provider: Provider,
     /// MarketDataSettings.configured?
     pub configured: bool,
+    /// AppConfig.coingecko_api_key whatever the provider (the row, even blank, else COINGECKO_API_KEY); None when blank.
+    /// Kept apart from `provider`: MarketData.get_prices falls back to CoinGecko on it (market_data.rb:166-190).
+    pub fallback_key: Option<String>,
 }
 
 fn present(v: &Option<String>) -> bool { v.as_deref().is_some_and(|s| !s.trim().is_empty()) }
@@ -51,15 +54,14 @@ pub fn decide(rows: &Rows, env: &Env) -> Settings {
     } else {
         present(&current)
     };
+    let key = row_or_env(&rows.coingecko_key, &env.coingecko_key);
+    let fallback_key = (!key.trim().is_empty()).then_some(key);
     let provider = match current.as_deref() {
         Some("deltabadger") => Provider::DataApi(Config { url, token }),
-        Some("coingecko") => {
-            let key = row_or_env(&rows.coingecko_key, &env.coingecko_key);
-            Provider::CoinGecko { key: (!key.trim().is_empty()).then_some(key) }
-        }
+        Some("coingecko") => Provider::CoinGecko { key: fallback_key.clone() },
         _ => Provider::None,
     };
-    Settings { provider, configured }
+    Settings { provider, configured, fallback_key }
 }
 
 /// The four rows through `app_config` (decrypted; a NULL value reads as ""), then `decide`.
@@ -116,8 +118,18 @@ mod tests {
 
     #[test]
     fn no_provider_and_unknown_provider() {
-        assert_eq!(decide(&Rows::default(), &Env::default()), Settings { provider: Provider::None, configured: false });
+        assert_eq!(decide(&Rows::default(), &Env::default()), Settings { provider: Provider::None, configured: false, fallback_key: None });
         let other = decide(&Rows { provider: s("other"), ..Default::default() }, &Env::default());
-        assert_eq!(other, Settings { provider: Provider::None, configured: true });
+        assert_eq!(other, Settings { provider: Provider::None, configured: true, fallback_key: None });
+    }
+
+    /// The fallback key is read whatever the provider: the row wins even blank, else the environment.
+    #[test]
+    fn the_fallback_key_is_read_apart_from_the_provider() {
+        let hosted = Env { url: s("http://data-api:3000"), token: s("t"), coingecko_key: s("env") };
+        assert_eq!(decide(&Rows::default(), &hosted).fallback_key.as_deref(), Some("env"));
+        assert_eq!(decide(&Rows { coingecko_key: s("row"), ..Default::default() }, &hosted).fallback_key.as_deref(), Some("row"));
+        assert_eq!(decide(&Rows { coingecko_key: s(" "), ..Default::default() }, &hosted).fallback_key, None, "a blank row wins");
+        assert_eq!(decide(&Rows { coingecko_key: s("row"), ..Default::default() }, &Env::default()).fallback_key.as_deref(), Some("row"), "no provider");
     }
 }

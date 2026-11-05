@@ -23,14 +23,14 @@ pub fn paper() -> Credentials { Credentials { redaction_values: vec![], key: "PK
 #[derive(Clone)]
 pub struct Venues;
 impl Connect for Venues { type T = ScriptedTransport; fn connect(&self, _: &Credentials) -> AlpacaVenue<Self::T> { AlpacaVenue::new(ScriptedTransport::from_script(&json!({})), Urls::for_passphrase(Some("paper"))) } }
-pub type Api = Rc<Option<DataApi<ScriptedTransport>>>;
+pub type Api = Rc<Option<deltabadger::jobs::market::Feed<ScriptedTransport>>>;
 
 /// data-api answering every historical-price request with `price` on each of `days`.
 pub fn prices_api(price: f64, days: &[&str]) -> Api {
     let ms = |d: &str| d.parse::<chrono::NaiveDate>().unwrap().and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis();
     let answer = ok(json!({ "prices": days.iter().map(|d| json!([ms(d), price])).collect::<Vec<_>>() }));
     let t = ScriptedTransport::from_script(&json!({ "GET /api/v1/historical_prices": vec![answer; 60] }));
-    Rc::new(Some(DataApi::new(Config { url: "http://data-api:3000".into(), token: "t".into() }, t.clone(), t)))
+    Rc::new(Some(deltabadger::jobs::market::Feed::DataApi(DataApi::new(Config { url: "http://data-api:3000".into(), token: "t".into() }, t.clone(), t))))
 }
 
 /// An Alpaca account (a dollar deposit, a bitcoin buy of 0.01) whose ledger import is current.

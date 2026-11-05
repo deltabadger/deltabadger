@@ -8,6 +8,8 @@ use crate::crypto::{Cipher, Credentials};
 use crate::engine::FixedClock;
 use crate::figures::{dec::Dec, FiguresError};
 use crate::jobs::data_api::{Config, DataApi};
+use crate::jobs::market::Feed;
+use crate::jobs::coingecko::{CoinGecko, Plan, Throttle};
 use crate::jobs::Db;
 use crate::store::{self, Paths};
 use crate::sync::jobs::Connect;
@@ -161,13 +163,23 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, String> {
     }
     let ecb_script = ScriptedTransport::from_script(&scenario["ecb"]);
     let ecb = super::fx::Source::Scripted(ecb_script.clone());
-    let api = DataApi::new(Config { url: "http://data-api:3000".into(), token: "parity-token".into() }, market.clone(), market.clone());
+    // One feed per job run, as the scheduler builds them (jobs::resolve::configured); a CoinGecko scenario's plan as
+    // Rails' pre-seeded `@detect_plan` holds it, or asked by each run's ping when the scenario seeds none.
+    let feed = || match &scenario["coingecko"] {
+        Value::Null => Feed::DataApi(DataApi::new(Config { url: "http://data-api:3000".into(), token: "parity-token".into() }, market.clone(), market.clone())),
+        cg => {
+            let client = CoinGecko::new(cg["key"].as_str().unwrap_or_default(), market.clone()).with_throttle(std::sync::Arc::new(Throttle::new(usize::MAX)));
+            Feed::CoinGecko(match cg["plan"].as_str() { Some("demo") => client.with_plan(Plan::Demo), Some("pro") => client.with_plan(Plan::Pro), _ => client })
+        }
+    };
+    let api = feed();
     let clock = FixedClock(at);
     let (ledger, ledger_error) = if scenario["backfill_only"] == true { (Value::Null, Value::Null) } else { match super::jobs::ledger_run(&db, Some(&api), Some(&ecb), user_id, &clock, std::sync::Arc::new(move || at), &mut super::jobs::Allowance::run()).await {
         // The figures read the balances, which the job's writes leave as they were.
         Ok(walked) => (db.run(move |c, _| report(c, user_id, &walked, at.date_naive()).map_err(super::jobs::message)).await?, Value::Null),
         Err(e) => (Value::Null, json!(e)),
     } };
+    let api = feed();
     let backfill_error = match super::jobs::backfill_run(&db, &Scripted(alpaca.clone()), Some(&api), Some(&ecb), user_id, &clock).await { Ok(_) => Value::Null, Err(e) => json!(e) };
     let tables = db.run(move |c, cipher| tables(c, cipher, user_id)).await?;
     Ok(json!({ "ledger": ledger, "ledger_error": ledger_error, "backfill_error": backfill_error, "tables": tables,

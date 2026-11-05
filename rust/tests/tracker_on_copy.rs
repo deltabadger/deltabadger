@@ -53,7 +53,7 @@ async fn the_tracker_jobs_on_a_copy() {
     for currency in fx::CURRENCIES { ecb_script.insert(format!("GET {}", fx::bundesbank_path(currency)), json!([{ "status": 500, "body": "" }])); }
     let ecb_t = ScriptedTransport::from_script(&Value::Object(ecb_script));
     let ecb = fx::Source::Scripted(ecb_t.clone());
-    let api = deltabadger::jobs::data_api::DataApi::new(deltabadger::jobs::data_api::Config { url: "http://data-api:3000".into(), token: "copy-token".into() }, market.clone(), market.clone());
+    let api = deltabadger::jobs::market::Feed::DataApi(deltabadger::jobs::data_api::DataApi::new(deltabadger::jobs::data_api::Config { url: "http://data-api:3000".into(), token: "copy-token".into() }, market.clone(), market.clone()));
     let clock = deltabadger::engine::FixedClock(at);
     let out = jobs::ledger_run(&db, Some(&api), Some(&ecb), user, &clock, std::sync::Arc::new(move || at), &mut jobs::Allowance::run()).await;
     let (error, whole, venues) = match &out {

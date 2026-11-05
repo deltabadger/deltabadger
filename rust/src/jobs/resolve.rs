@@ -1,23 +1,29 @@
 //! Construction of every registered job type; scheduler handles late scope registration.
-use super::{Job,Resolver,data_api::{DataApi,RateCache}};
+use super::{Job,Resolver,data_api::{DataApi,RateCache},market::Feed};
 use crate::{sync::jobs::{self,Connect},venue::http::Transport,tracker};
 use std::rc::Rc;
 use std::sync::Arc;
 pub fn all<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Option<DataApi<T>>>,wall:tracker::jobs::Wall)->Resolver{
+    let prices:Rc<dyn crate::jobs::data_api::PriceSource>=api.clone();
+    all_with(venues,api,Rc::new(None),prices,wall)
+}
+/// `all`, the tracker and tax jobs asking `feed` (jobs::market): the reference and balance jobs keep `api`.
+/// `prices`: the balance sync's (sync::balances::MarketPrices on the scheduler: the run's feed and Rails' CoinGecko fallback).
+pub fn all_with<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Option<DataApi<T>>>,feed:Rc<Option<Feed<T>>>,prices:Rc<dyn crate::jobs::data_api::PriceSource>,wall:tracker::jobs::Wall)->Resolver{
     Box::new(move|name,scope|{
         if scope.is_none(){
             // AppPaths.tmp is the process's (the binary's env is the process env).
-            if name==crate::tax::job::JOB {return Ok(crate::tax::job::job(api.clone(),venues.clone(),crate::tax::job::tmp_dir(&|k|std::env::var(k).ok())));}
+            if name==crate::tax::job::JOB {return Ok(crate::tax::job::job(feed.clone(),venues.clone(),crate::tax::job::tmp_dir(&|k|std::env::var(k).ok())));}
             return super::reference::shared_jobs(api.clone()).into_iter().find(|job|job.spec().name==name).ok_or_else(||"unknown unscoped job".into());
         }
         let id=scope.and_then(|s|s.parse::<i64>().ok()).filter(|id|*id>0).ok_or("invalid job scope")?;
         let job:Box<dyn Job>=match name{
             jobs::API_KEY_VALIDATOR=>Box::new(jobs::Validator{venues:venues.clone(),key_id:id}),
             jobs::LEDGER_SYNC=>Box::new(jobs::LedgerSync::new(venues.clone(),id)),
-            jobs::BALANCE_SYNC=>Box::new(jobs::BalanceSync::new(venues.clone(),api.clone(),id)),
+            jobs::BALANCE_SYNC=>Box::new(jobs::BalanceSync::new(venues.clone(),prices.clone(),id)),
             super::reference::ASSET_DATA=>Box::new(super::reference::AssetData{cg:super::coingecko::live_clients(),asset:id}),
             super::asset_color::NAME=>Box::new(super::asset_color::InferColor::new(id)),
-            _=>tracker::jobs::resolve(name,id,&venues,api.clone(),wall.clone()).ok_or("unknown scoped job")?,
+            _=>tracker::jobs::resolve(name,id,&venues,feed.clone(),wall.clone()).ok_or("unknown scoped job")?,
         };
         Ok(job)
     })
@@ -32,12 +38,20 @@ pub fn configured(job: Box<dyn Job>, env: &dyn Fn(&str) -> Option<String>, rates
 
 /// `configured`, reaching the venues through `venues`.
 pub fn configured_with<C: Connect + Clone + 'static>(job: Box<dyn Job>, env: &dyn Fn(&str) -> Option<String>, rates: Arc<RateCache>, venues: C) -> Box<dyn Job> {
+    configured_feeds(job, env, rates, venues, Rc::new(Feed::live) as Feeds<super::market::Live>)
+}
+
+/// What a run's feed is made of: the settings read at its start, and the engine's rate cache.
+pub type Feeds<T> = Rc<dyn Fn(&crate::market_data::Settings, Arc<RateCache>) -> Option<Feed<T>>>;
+
+/// `configured_with`, the run's clients made by `feeds` (tests: scripted transports).
+pub fn configured_feeds<C: Connect + Clone + 'static, T: Transport + 'static>(job: Box<dyn Job>, env: &dyn Fn(&str) -> Option<String>, rates: Arc<RateCache>, venues: C, feeds: Feeds<T>) -> Box<dyn Job> {
     let name = job.spec().name;
     let uses_data = super::reference::specs().iter().any(|s| s.name == name && name != super::reference::PRUNE)
         || matches!(name, jobs::BALANCE_SYNC | tracker::jobs::TRACKER_LEDGER | tracker::jobs::PORTFOLIO_BACKFILL | crate::tax::job::JOB);
     if !uses_data { return job; }
     let env = ["MARKET_DATA_URL", "MARKET_DATA_TOKEN", "COINGECKO_API_KEY"].into_iter().filter_map(|name| env(name).map(|value| (name, value))).collect();
-    Box::new(Configured { job, env, rates, venues })
+    Box::new(Configured { job, env, rates, venues, feeds })
 }
 
 pub fn configured_resolver(resolve: Resolver, env: &dyn Fn(&str) -> Option<String>, rates: Arc<RateCache>) -> Resolver {
@@ -48,14 +62,15 @@ pub fn configured_resolver(resolve: Resolver, env: &dyn Fn(&str) -> Option<Strin
     })
 }
 
-struct Configured<C: Connect> {
+struct Configured<C: Connect, T: Transport> {
     job: Box<dyn Job>,
     env: Vec<(&'static str, String)>,
     rates: Arc<RateCache>,
     venues: C,
+    feeds: Feeds<T>,
 }
 
-impl<C: Connect + Clone + 'static> Job for Configured<C> {
+impl<C: Connect + Clone + 'static, T: Transport + 'static> Job for Configured<C, T> {
     fn spec(&self) -> super::Spec { self.job.spec() }
     fn manual(&self) -> bool { self.job.manual() }
     fn wants(&self, event: &crate::engine::events::EngineEvent) -> bool { self.job.wants(event) }
@@ -65,15 +80,26 @@ impl<C: Connect + Clone + 'static> Job for Configured<C> {
     fn run_attributed<'a>(&'a self, cx: super::Cx<'a>, wakes: Vec<super::Wake>) -> super::AttributedJobFuture<'a> {
         Box::pin(async move {
             let env = self.env.clone();
-            let config = cx.db.run(move |c, cipher| {
-                super::data_api::config(&|name| env.iter().find(|(n, _)| *n == name).map(|(_, v)| v.clone()), c, cipher)
+            let settings = cx.db.run(move |c, cipher| {
+                let env = |name: &str| env.iter().find(|(n, _)| *n == name).map(|(_, v)| v.clone());
+                super::data_api::config(&env, c, cipher)?;
+                crate::market_data::read(c, cipher, &crate::market_data::Env::read(&env))
             }).await;
-            let api = match config {
-                Ok(config) => Rc::new(config.map(|config| DataApi::live(config).with_rates(self.rates.clone()))),
+            let settings = match settings {
+                Ok(settings) => settings,
                 Err(e) => return crate::engine::model::Produced::new(super::Outcome::Failed(e), None),
             };
+            // One snapshot of the configuration per run: a switch takes effect at the next run (PLAN-A17 A17-3 item 1).
+            let api = Rc::new((self.feeds)(&settings, self.rates.clone()).and_then(Feed::into_data_api));
+            let feed = Rc::new((self.feeds)(&settings, self.rates.clone()));
+            // The balance sync's prices: the run's feed, and a CoinGecko client for Rails' fallback made by the same factory.
+            let fallback = |key: &str| {
+                let only = crate::market_data::Settings { provider: crate::market_data::Provider::CoinGecko { key: Some(key.into()) }, ..settings.clone() };
+                match (self.feeds)(&only, self.rates.clone()) { Some(Feed::CoinGecko(cg)) => cg, _ => unreachable!("a CoinGecko provider makes a CoinGecko feed") }
+            };
+            let prices = Rc::new(crate::sync::balances::MarketPrices::new(&settings, (self.feeds)(&settings, self.rates.clone()), fallback, self.rates.clone()));
             let spec = self.spec();
-            let resolve = all(self.venues.clone(), api, tracker::jobs::system_wall());
+            let resolve = all_with(self.venues.clone(), api, feed, prices, tracker::jobs::system_wall());
             match resolve(spec.name, spec.scope.as_deref()) {
                 Ok(job) => job.run_attributed(cx, wakes).await,
                 Err(e) => crate::engine::model::Produced::new(super::Outcome::Failed(e), None),

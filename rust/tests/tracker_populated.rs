@@ -156,7 +156,7 @@ async fn populated_regions_match_rails() {
         c.execute_batch("CREATE TEMP TABLE kept_whole AS SELECT * FROM portfolio_snapshots; CREATE TEMP TABLE kept_venues AS SELECT * FROM portfolio_venue_snapshots;").unwrap();
         if !matches!(name.as_str(), "populated_cold" | "populated_cold_hidden" | "populated_cold_scope" | "populated_window_cold" | "populated_dead") {
             let db = deltabadger::jobs::Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, scenario["secret_key_base"].as_str().unwrap()).unwrap()));
-            deltabadger::tracker::jobs::ledger_run(&db, None::<&deltabadger::jobs::data_api::DataApi<deltabadger::venue::http::ScriptedTransport>>, None, owner, &deltabadger::engine::FixedClock(at), Arc::new(move || at), &mut deltabadger::tracker::jobs::Allowance::run()).await.unwrap_or_else(|e| panic!("{name}: ledger pass: {e}"));
+            deltabadger::tracker::jobs::ledger_run(&db, None::<&deltabadger::jobs::market::Feed<deltabadger::venue::http::ScriptedTransport>>, None, owner, &deltabadger::engine::FixedClock(at), Arc::new(move || at), &mut deltabadger::tracker::jobs::Allowance::run()).await.unwrap_or_else(|e| panic!("{name}: ledger pass: {e}"));
             history_gap_absent(&c, &name, owner, at);
         }
         c.execute_batch("DELETE FROM portfolio_snapshots; INSERT INTO portfolio_snapshots SELECT * FROM kept_whole; DELETE FROM portfolio_venue_snapshots; INSERT INTO portfolio_venue_snapshots SELECT * FROM kept_venues; DROP TABLE kept_whole; DROP TABLE kept_venues;").unwrap();
@@ -278,7 +278,7 @@ async fn warm_install(synced: bool) -> (tempfile::TempDir, deltabadger::web::App
     }
     deltabadger::engine::model::credential_write(c, &Some(v.clone()), |f| deltabadger::sync::cache::record_ledger(f, s.api_key_id, &v, at)).unwrap();
     let db = deltabadger::jobs::Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), common::seed::cipher());
-    deltabadger::tracker::jobs::ledger_run(&db, None::<&deltabadger::jobs::data_api::DataApi<deltabadger::venue::http::ScriptedTransport>>, None, s.user_id, &deltabadger::engine::FixedClock(at), Arc::new(move || at), &mut deltabadger::tracker::jobs::Allowance::run()).await.unwrap();
+    deltabadger::tracker::jobs::ledger_run(&db, None::<&deltabadger::jobs::market::Feed<deltabadger::venue::http::ScriptedTransport>>, None, s.user_id, &deltabadger::engine::FixedClock(at), Arc::new(move || at), &mut deltabadger::tracker::jobs::Allowance::run()).await.unwrap();
     let state = deltabadger::tracker::cache::read(c, s.user_id, None, at).unwrap();
     assert!(matches!(state, deltabadger::tracker::cache::State::Warm(_)), "the ledger is cached");
     let app = common::web::app(dir.path(), common::web::SECRET, TestClock::at(AT));

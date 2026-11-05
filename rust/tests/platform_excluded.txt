@@ -44,6 +44,7 @@ cli
 coinbase
 coinbase_continuation
 coingecko
+coingecko_prices
 coingecko_tickers
 composition_context
 conditions

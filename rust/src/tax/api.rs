@@ -68,10 +68,7 @@ fn generating() -> Res {
 
 /// D-TAX-NOT-PORTED-GATE's answer for a jurisdiction named `name`.
 pub fn not_ported_message(name: &str) -> String { format!("Tax reports for {name} are not served by this build yet.") }
-/// The CoinGecko refusal (A17 lifts it).
-pub const COINGECKO: &str = "Tax reports need Deltabadger market data on this build: historical prices from CoinGecko are not fetched yet.";
-
-/// D-TAX-NOT-PORTED-GATE and the CoinGecko refusal, as the REST 501 and the tool's error text.
+/// D-TAX-NOT-PORTED-GATE, as the REST 501 and the tool's error text.
 fn not_ported(message: String) -> Res { failure(Domain::NotPorted, "not_ported", message) }
 
 /// D-TAX-PL-DECLARED-CARRY: the refusal of an amount `pl::carried` does not read.
@@ -93,9 +90,6 @@ pub fn create(c: &Connection, app: &App, user: i64, args: &serde_json::Map<Strin
         return Ok(failure(Domain::ValidationFailed, "market_data_not_configured", "Market data provider is not configured. Set up CoinGecko or Deltabadger market data in Settings first."));
     }
     if !super::jurisdictions::ported(&code, year) { return Ok(not_ported(not_ported_message(&name))); }
-    if crate::web::tracker::report::coingecko(c, app)? {
-        return Ok(not_ported(COINGECKO.into()));
-    }
     let tmp = &app.config.tmp_dir;
     let path = job::report_path(tmp, user, &code, year, "crypto");
     let _files = job::files(user, "crypto");

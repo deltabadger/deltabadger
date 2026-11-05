@@ -167,7 +167,7 @@ async fn completion_ledger_refreshes_once_after_commit_and_not_on_failure() {
             "SELECT count(*)=1 FROM portfolio_snapshots",
         );
         let db = Db::new(opened.primary, common::seed::cipher()).with_notifications(notifications);
-        let api: std::rc::Rc<Option<jobs::data_api::DataApi<ScriptedTransport>>> =
+        let api: std::rc::Rc<Option<jobs::market::Feed<ScriptedTransport>>> =
             std::rc::Rc::new(None);
         let now = clock().0;
         let job = tracker::jobs::resolve(

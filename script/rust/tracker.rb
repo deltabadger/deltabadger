@@ -32,7 +32,7 @@ module ScriptedTracker
   def self.reply(env)
     host = env.url.host.to_s
     kind, script = if host.end_with?('alpaca.markets') then ['alpaca', alpaca]
-                   elsif host == 'data-api' then ['market', market]
+                   elsif host == 'data-api' || host.end_with?('coingecko.com') then ['market', market]
                    elsif ECB_HOSTS.include?(host) then ['ecb', ecb]
                    end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
@@ -40,10 +40,17 @@ module ScriptedTracker
 
     query = URI.decode_www_form(env.url.query.to_s)
     requests[kind] << [key, query.sort]
-    # A coin's own answers ("GET /api/v1/historical_prices coin_id=bitcoin") before the path's, taken in call order.
+    # The request with its whole query ("GET /api/v3/coins/bitcoin/market_chart/range?from=…&interval=daily&…", as the
+    # Rust harness's request_key names it), then a coin's own answers ("GET /api/v1/historical_prices coin_id=bitcoin"),
+    # then the path's, taken in call order.
+    full = query.empty? ? nil : "#{key}?#{query.sort.map { |k, v| "#{k}=#{v}" }.join('&')}"
     coin = query.to_h['coin_id']
-    queue = (coin && script["#{key} coin_id=#{coin}"]) || script[key] or raise Harness::Unscripted, "unscripted call #{key}"
-    queue.size > 1 ? queue.shift : queue.first
+    queue = (full && script[full]) || (coin && script["#{key} coin_id=#{coin}"]) || script[key] or raise Harness::Unscripted, "unscripted call #{key}"
+    reply = queue.size > 1 ? queue.shift : queue.first
+    # A transport failure: the request got no answer (Faraday's own error, as the adapter raises it).
+    raise Faraday::ConnectionFailed, reply['message'] if reply['network']
+
+    reply
   end
 
   module Adapter
@@ -66,6 +73,10 @@ module TrackerParity
   AT = '2026-10-01T03:00:00Z'.freeze
   SYNCED = Time.utc(2026, 10, 1, 2, 30, 0)
   HISTORY = 'GET /api/v1/historical_prices'.freeze
+  # CoinGecko's daily range (Clients::Coingecko#coin_historical_chart_data_within_time_range_by_id), per coin.
+  def cg_range(coin) = "GET /api/v3/coins/#{coin}/market_chart/range"
+  CG_PING = 'GET /api/v3/ping'.freeze
+  CG_KEY = 'CG-parity-demo-key'.freeze
   ENTRY = AccountTransaction.entry_types
 
   def ok(body) = { 'status' => 200, 'body' => body }
@@ -110,6 +121,11 @@ module TrackerParity
       # The ECB table is current, so Tax::EcbFxRates.ensure_loaded! fetches nothing unless a scenario makes it stale.
       FxRate.create!(currency: 'USD', date: Date.new(2026, 9, 30), rate: '1.17')
       ctx = { user:, alpaca:, assets:, key:, venues: {} }
+      # A CoinGecko install (PLAN-A17 A17-3): the provider row and the user's own key; MARKET_DATA_URL is unset at record.
+      if scenario[:coingecko]
+        AppConfig.market_data_provider = 'coingecko'
+        AppConfig.coingecko_api_key = CG_KEY
+      end
       scenario[:setup]&.call(ctx)
       ctx
     end
@@ -808,6 +824,94 @@ module TrackerParity
   end
 
   # D-TRACKER-TRANSFER-ORDER: same-instant withdrawals between venues (A Binance, B Kraken, C Bybit; BTC 60,000 every day).
+  # PLAN-A17 A17-3: a CoinGecko install's walk and backfill (the plan seeded demo unless a scenario asks the ping).
+  # 1,000 USD in, 0.01 BTC bought, a BTC fee on 10 September the walk prices; with `eth`, the same for ETH after it.
+  def cg_holding(c, bought: '2026-09-03T10:00:00Z', funded: '2026-09-01T14:00:00Z', eth: false)
+    deposit(c, '1000', funded)
+    buy(c, 'BTC', '0.01', '60000', bought)
+    row(c, :fee, 'BTC', '0.0001', '2026-09-10T00:00:00Z', description: 'CFEE')
+    if eth
+      buy(c, 'ETH', '0.1', '3000', '2026-09-04T10:00:00Z')
+      row(c, :fee, 'ETH', '0.001', '2026-09-12T00:00:00Z', description: 'CFEE')
+    end
+    balance(c, 'USD', eth ? '100' : '400', usd_price: '1')
+    balance(c, 'BTC', '0.0099', usd_price: '61000')
+    balance(c, 'ETH', '0.099', usd_price: '3100') if eth
+  end
+
+  # CoinGecko's daily answer: [[epoch ms, price], ...] for every day of `from..to`, `price` + the day's index.
+  def cg_days(from, to, price) = history((Date.parse(from)..Date.parse(to)).each_with_index.map { |d, i| [d.to_s, price + i] })
+
+  def coingecko_scenarios
+    demo = { plan: 'demo' }
+    btc = cg_days('2026-08-01', '2026-10-01', 60_000)
+    eth = cg_days('2026-08-01', '2026-10-01', 3_000)
+    limited = { 'status' => 429, 'body' => { 'status' => { 'error_code' => 429, 'error_message' => "You've exceeded the Rate Limit." } } }
+    [
+      { name: 'cg_prices', coingecko: demo, market: { cg_range('bitcoin') => [btc] }, setup: ->(c) { cg_holding(c) } },
+      # Any failure but a 429 stores nothing and the run goes on (Rails' `return if failure?`).
+      { name: 'cg_failure_stores_nothing', coingecko: demo,
+        market: { cg_range('bitcoin') => [{ 'status' => 500, 'body' => { 'error' => 'internal' } }], cg_range('ethereum') => [eth] },
+        setup: ->(c) { cg_holding(c, eth: true) } },
+      # D-CG-429-STOPS-PRICES: the endpoint's 429 stops Rust asking; Rails asks ethereum after it, and every later lookup.
+      { name: 'cg_endpoint_429', coingecko: demo, expect: 'diverges: D-CG-429-STOPS-PRICES',
+        market: { cg_range('bitcoin') => [limited], cg_range('ethereum') => [eth] }, setup: ->(c) { cg_holding(c, eth: true) } },
+      # The plan ping's 429: Rails reads it as a demo key and goes on; Rust asks nothing more this run.
+      { name: 'cg_ping_429', coingecko: {}, expect: 'diverges: D-CG-429-STOPS-PRICES',
+        market: { CG_PING => [limited], cg_range('bitcoin') => [btc] }, setup: ->(c) { cg_holding(c) } },
+      # No answer at all: the run ends with the transport's error (Rails raises Client::TransientNetworkError).
+      { name: 'cg_transport_failure', coingecko: demo, transport_failure: true,
+        market: { cg_range('bitcoin') => [{ 'network' => 'pre_send', 'message' => 'Failed to open TCP connection to api.coingecko.com:443 (Connection refused - connect(2))' }] },
+        setup: ->(c) { cg_holding(c) } },
+      # The same answers read on a host whose zone is not UTC: the bounds are UTC midnights on both sides.
+      { name: 'cg_prices_host_zone', coingecko: demo, host_zone: 'Pacific/Auckland', market: { cg_range('bitcoin') => [btc] }, setup: ->(c) { cg_holding(c) } }
+    ] + cg_window_scenarios
+  end
+
+  # D-CG-HISTORY-WINDOW (the run's clock 2026-10-01 03:00 UTC: a demo key is served from 2 October 2025). Rails asks the
+  # whole span and CoinGecko refuses it; Rust asks from the cutoff, or nothing for a span wholly before it.
+  def cg_span(coin, from, to) = "#{cg_range(coin)}?from=#{from.to_time(:utc).to_i}&interval=daily&precision=full&to=#{(to + 1).to_time(:utc).to_i}&vs_currency=usd"
+
+  CG_TOO_OLD = { 'status' => 401, 'body' => { 'error' => { 'status' => { 'error_code' => 10_012, 'error_message' =>
+    'Your request exceeds the allowed time range. Public API users are limited to querying historical data within the past 365 days.' } } } }.freeze
+
+  def cg_window_scenarios
+    demo = { plan: 'demo' }
+    cutoff = Date.new(2025, 10, 2)
+    bought = Date.new(2025, 9, 15)
+    last = Date.new(2026, 9, 30)
+    recent = cg_days(cutoff.to_s, '2026-10-01', 55_000)
+    crossing = { cg_span('bitcoin', bought, last) => [CG_TOO_OLD], cg_span('bitcoin', cutoff, last) => [recent],
+                 cg_range('bitcoin') => [cg_days('2026-08-01', '2026-10-01', 60_000)] }
+    held = lambda do |c|
+      cg_holding(c, bought: '2025-09-15T10:00:00Z', funded: '2025-09-01T14:00:00Z')
+    end
+    [
+      { name: 'cg_window_crossing', coingecko: demo, expect: 'diverges: D-CG-HISTORY-WINDOW', market: crossing, setup: held },
+      # The days before the cutoff already stored are read, as Rails reads them; only the window's are asked.
+      { name: 'cg_window_older_stored', coingecko: demo, expect: 'diverges: D-CG-HISTORY-WINDOW', market: crossing,
+        setup: lambda { |c|
+          held.call(c)
+          HistoricalPrice.insert_all((bought...cutoff).each_with_index.map { |d, i| { asset: 'BTC', currency: 'USD', date: d, price: 50_000 + i } })
+        } },
+      # ETH held and sold before the cutoff: the walk's lookups are wholly before it, so Rust asks nothing for them; the
+  # backfill's ETH span (to yesterday) crosses it.
+      { name: 'cg_window_wholly_before', coingecko: demo, expect: 'diverges: D-CG-HISTORY-WINDOW',
+        market: { cg_range('ethereum') => [CG_TOO_OLD], cg_span('ethereum', cutoff, last) => [cg_days(cutoff.to_s, '2026-10-01', 2_500)],
+                  cg_range('bitcoin') => [cg_days('2026-08-01', '2026-10-01', 60_000)] },
+        setup: lambda { |c|
+          deposit(c, '2000', '2025-06-01T14:00:00Z')
+          buy(c, 'ETH', '0.1', '3000', '2025-06-02T10:00:00Z')
+          row(c, :fee, 'ETH', '0.001', '2025-06-10T00:00:00Z', description: 'CFEE')
+          sell(c, 'ETH', '0.099', '3200', '2025-07-01T10:00:00Z')
+          buy(c, 'BTC', '0.01', '60000', '2026-09-03T10:00:00Z')
+          row(c, :fee, 'BTC', '0.0001', '2026-09-10T00:00:00Z', description: 'CFEE')
+          balance(c, 'USD', '1716.8', usd_price: '1')
+          balance(c, 'BTC', '0.0099', usd_price: '61000')
+        } }
+    ]
+  end
+
   def transfer_order_scenarios
     m = priced('bitcoin' => 60_000, 'tether' => 1)
     o = 'diverges: D-TRACKER-TRANSFER-ORDER'
@@ -1289,7 +1393,7 @@ module TrackerParity
           balance(c, 'ETH', '0.395', usd_price: '2500', exchange: b)
           balance(c, 'BTC', '0.025', usd_price: '61000', exchange: b)
         } }
-    ] + ecb_scenarios + wash_scenarios + kraken_scenarios + coin_quote_scenarios + transfer_order_scenarios
+    ] + ecb_scenarios + wash_scenarios + kraken_scenarios + coin_quote_scenarios + transfer_order_scenarios + coingecko_scenarios
     list.map { |sc| sc.merge(rust_balances: true) }
   end
 
@@ -1304,6 +1408,9 @@ module TrackerParity
                                         'market' => sc[:market] || {}, 'alpaca' => sc[:alpaca] || {}, 'ecb' => sc[:ecb] || {} }
                                         .merge(sc[:rust_balances] ? { 'balances_synced_by_rust' => true } : {})
                                         .merge(sc[:backfill_only] ? { 'backfill_only' => true } : {})
+                                        .merge(sc[:coingecko] ? { 'coingecko' => { 'key' => CG_KEY, 'plan' => sc[:coingecko][:plan] } } : {})
+                                        .merge(sc[:host_zone] ? { 'host_zone' => sc[:host_zone] } : {})
+                                        .merge(sc[:transport_failure] ? { 'transport_failure' => true } : {})
                                         .merge(sc[:expect] ? { 'expect' => sc[:expect] } : {})))
       ActiveRecord::Base.connection_pool.disconnect!
     end
@@ -1391,6 +1498,13 @@ module TrackerParity
       ScriptedTracker.requests = { 'market' => [], 'alpaca' => [], 'ecb' => [] }
       user = User.find(sc['user_id'])
       ledger = ledger_error = backfill_error = nil
+      # A CoinGecko scenario: no data-api in the environment, the client built afresh, and the plan as the scenario seeds
+      # it (figures.rb's pre-seeded `@detect_plan`), else asked by the ping.
+      cg = sc['coingecko']
+      ENV.delete('MARKET_DATA_URL') if cg
+      MarketData.instance_variable_set(:@coingecko, nil)
+      Clients::Coingecko.instance_variable_set(:@detect_plan, cg && cg['plan'] ? { cg['key'] => cg['plan'].to_sym } : nil)
+      ENV['TZ'] = sc['host_zone'] if sc['host_zone']
       travel_to(Time.iso8601(sc['at'])) do
         unless sc['backfill_only']
           begin
@@ -1406,6 +1520,8 @@ module TrackerParity
           backfill_error = "#{e.class}: #{e.message}"
         end
       end
+      ENV['MARKET_DATA_URL'] = 'http://data-api:3000'
+      ENV['TZ'] = 'UTC'
       report = { 'ledger' => ledger, 'ledger_error' => ledger_error, 'backfill_error' => backfill_error, 'tables' => tables(user),
                  'requests' => ScriptedTracker.requests }
       File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(report))

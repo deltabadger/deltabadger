@@ -90,7 +90,8 @@ fn the_crypto_report_is_rails_own_or_the_named_divergence() {
     assert!(scenarios.len() >= 147);
     let write = std::env::var("TAX_DIVERGENCES_WRITE").is_ok();
     let mut failures = vec![];
-    for s in scenarios.iter().filter(|s| s["scope"] != "broker") {
+    // The CoinGecko scenarios ask the feed; `coingecko_reports_*` replays them.
+    for s in scenarios.iter().filter(|s| s["scope"] != "broker" && s["coingecko"].is_null()) {
         let name = s["name"].as_str().unwrap();
         let country = s["country"].as_str().unwrap();
         let c = install(&s["tables"]);
@@ -177,7 +178,7 @@ fn the_ruby_being_mirrored_has_not_changed() {
     use sha2::{Digest, Sha256};
     let v = vectors();
     let pinned = v["ported_sources"].as_object().unwrap();
-    assert_eq!(pinned.len(), 25);
+    assert_eq!(pinned.len(), 28);
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     for (path, sum) in pinned {
         let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
@@ -245,4 +246,75 @@ fn the_broker_report_is_rails_own_or_the_named_divergence() {
         }
     }
     assert!(failures.is_empty(), "{}:\n{}", failures.len(), failures.join("\n\n"));
+}
+
+/// One CoinGecko scenario replayed as the tax job runs it (`tracker::jobs::fetching` over a CoinGecko feed of the answers
+/// Rails' Clients::Coingecko was given, demo plan seeded as Rails' was): the report, the prices stored
+/// (asset, currency, date, price) and the requests, and the feed after the run.
+async fn coingecko_replay(s: &Value) -> (Outcome, Vec<(String, String, String, f64)>, Value, bool) {
+    use deltabadger::jobs::{coingecko::{CoinGecko, Plan, Throttle}, market::Feed, Db};
+    let mut tables = s["tables"].clone();
+    tables["historical_prices"] = serde_json::json!([]); // the scenarios store none before the run: what is there is Rails' writes
+    let c = install(&tables);
+    nbp(&c, s);
+    let today = chrono::NaiveDate::parse_from_str(&s["now"].as_str().unwrap()[..10], "%Y-%m-%d").unwrap();
+    let now: chrono::DateTime<chrono::Utc> = s["now"].as_str().unwrap().parse().unwrap();
+    let prepared = deltabadger::tax::prepare(&c, s["user_id"].as_i64().unwrap(), s["country"].as_str().unwrap(), s["year"].as_i64().unwrap() as i32,
+                                             s["stablecoin_as_fiat"].as_bool().unwrap()).unwrap();
+    let deltabadger::tax::Prepared::Report(report) = prepared else { panic!("{}: nothing to fetch for", s["name"]) };
+    let db = Db::new(c, deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "tax-parity").unwrap()));
+    let t = deltabadger::venue::http::ScriptedTransport::from_script(&s["coingecko"]["script"]);
+    let feed = Feed::CoinGecko(CoinGecko::new(s["coingecko"]["key"].as_str().unwrap(), t.clone())
+        .with_throttle(std::sync::Arc::new(Throttle::new(usize::MAX))).with_plan(Plan::Demo));
+    let got = deltabadger::tracker::jobs::fetching(&db, Some(&feed), now, &mut deltabadger::tracker::jobs::Allowance::run(),
+                                                   move |fetcher| report.compute(fetcher, today, &mut |_| {})).await.unwrap().unwrap();
+    let prices = db.run(|c, _| {
+        let mut q = c.prepare("SELECT asset, currency, date, CAST(price AS REAL) FROM historical_prices ORDER BY id").map_err(|e| e.to_string())?;
+        let rows = q.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>();
+        rows.map_err(|e| e.to_string())
+    }).await.unwrap();
+    (got, prices, Value::Array(deltabadger::tracker::parity::logged(&t)), feed.rate_limited())
+}
+
+fn rails_prices(s: &Value) -> Vec<(String, String, String, f64)> {
+    s["tables"]["historical_prices"].as_array().unwrap().iter().map(|r| {
+        let price = r["price"].as_f64().or_else(|| r["price"].as_str().and_then(|p| p.parse().ok())).unwrap();
+        (r["asset"].as_str().unwrap().into(), r["currency"].as_str().unwrap().into(), r["date"].as_str().unwrap().into(), price)
+    }).collect()
+}
+
+/// PLAN-A17 A17-3: a CoinGecko install's report against Rails' own (tax_vectors.rb's CoinGecko mode, the real
+/// Tax::PriceService beneath scripted api.coingecko.com): the file, the prices stored and the requests are Rails', except
+/// D-CG-429-STOPS-PRICES, whose differences are asserted.
+#[tokio::test(flavor = "current_thread")]
+async fn coingecko_reports_are_rails_own_or_the_429_stop() {
+    let v = vectors();
+    let cg: Vec<&Value> = v["scenarios"].as_array().unwrap().iter().filter(|s| !s["coingecko"].is_null()).collect();
+    assert_eq!(cg.len(), 4, "the CoinGecko scenarios");
+    for s in cg {
+        let name = s["name"].as_str().unwrap();
+        let (got, prices, requests, limited) = coingecko_replay(s).await;
+        let rails_requests: Value = s["coingecko"]["requests"].clone();
+        if s["expect"] == "parity" {
+            assert_eq!(got, rails(s), "{name}: the report");
+            assert_eq!(prices, rails_prices(s), "{name}: the prices stored");
+            assert_eq!(requests, rails_requests, "{name}: the requests");
+            assert!(!limited, "{name}");
+            continue;
+        }
+        assert_eq!((name, s["expect"].as_str().unwrap()), ("cg_429_then_later_coin", "diverges: D-CG-429-STOPS-PRICES"));
+        // Rails: BTC's 429, then ETH asked and stored, then BTC's single window asked again.
+        let path = |r: &Value| r[0].as_str().unwrap().to_string();
+        assert_eq!(rails_requests.as_array().unwrap().iter().map(path).collect::<Vec<_>>(),
+                   ["GET /api/v3/coins/bitcoin/market_chart/range", "GET /api/v3/coins/ethereum/market_chart/range", "GET /api/v3/coins/bitcoin/market_chart/range"]);
+        assert_eq!(rails_prices(s).iter().map(|p| (p.0.as_str(), p.2.as_str())).collect::<Vec<_>>(), [("ETH", "2026-04-10")]);
+        // Rust: the first request's 429 stops the run asking; nothing stored; the report still completes, ETH warned too.
+        assert_eq!(requests, Value::Array(rails_requests.as_array().unwrap()[..1].to_vec()));
+        assert!(prices.is_empty() && limited);
+        let (Outcome::Csv(rust), Outcome::Csv(rails_csv)) = (&got, rails(s)) else { panic!("{name}: {got:?}") };
+        assert!(rails_csv.contains("WARNING: Missing historical prices for:\nBTC/USD 2026-02-10\nUpgrade"), "{rails_csv}");
+        assert!(rust.contains("WARNING: Missing historical prices for:\nBTC/USD 2026-02-10\nETH/USD 2026-04-10\nUpgrade"), "{rust}");
+        assert!(rust.contains("2 values missing") && rails_csv.contains("1 values missing"), "{rust}");
+        assert!(rails_csv.contains(",ETH,1.0,2600.0,2599.0,1.0,USD,") && rust.contains(",ETH,1.0,2600.0,0.0,2600.0,USD,"), "{rust}");
+    }
 }
