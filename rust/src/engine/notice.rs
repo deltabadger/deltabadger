@@ -82,6 +82,19 @@ impl Notice {
 pub struct Pending { pub bot_id: i64, pub stamped_at: String, pub notice: Notice }
 
 impl Pending {
+    /// D-DESKTOP-NOTIFY's notice id: bot, marker key, error kind (empty for the other markers), stamped_at. The same
+    /// tuple `clear` matches, so an ack for a marker raised again since clears nothing.
+    pub fn id(&self) -> String {
+        let (key, kind) = match &self.notice {
+            Notice::EndOfFunds { .. } => (FUNDS, ""),
+            Notice::Error { kind, .. } => (ERROR, kind.as_str()),
+            Notice::StoppedByError { .. } => (STOPPED, ""),
+            Notice::StoppedByAmountLimit => (LIMIT, ""),
+            Notice::StoppedByBaseAmountLimit => (BASE_LIMIT, ""),
+            Notice::SetAside { .. } => (SET_ASIDE, ""),
+        };
+        format!("{}:{key}:{kind}:{}", self.bot_id, self.stamped_at)
+    }
     pub fn raised_at(&self) -> Result<DateTime<Utc>, crate::codec::CodecError> { crate::codec::parse_time(&self.stamped_at) }
 }
 

@@ -1061,7 +1061,9 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     // POST /hook/*: its body is read whatever its type (bounded, so a stalled body spends no claim) and parsed only as
     // Rack parses it (web::hook::body).
     let hook_post = original_method == Method::POST && (route_path == "/hook" || route_path.starts_with("/hook/"));
-    let json_post = (setup_json || bot_json || broadcast_json || (json_method == Method::POST && route_path=="/api/api_keys") || (json_method == Method::PATCH && route_path == "/bots/reorder") || (json_method == Method::POST && JSON_PATHS.contains(&oauth::unformatted(&full_path))))
+    let json_post = (setup_json || bot_json || broadcast_json || (json_method == Method::POST && route_path=="/api/api_keys") || (json_method == Method::PATCH && route_path == "/bots/reorder") || (json_method == Method::POST && JSON_PATHS.contains(&oauth::unformatted(&full_path)))
+        // D-DESKTOP-NOTIFY: the launcher's ack, on the desktop only (elsewhere the path is unknown, its body unread).
+        || (original_method == Method::POST && route_path == "/desktop/notices/ack" && entry.app.desktop.is_some()))
         && json_type;
     let mut json = None;
     // A JSON body of whitespace alone: no parameters here, a parse error to Rails.

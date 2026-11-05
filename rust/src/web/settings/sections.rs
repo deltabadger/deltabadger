@@ -177,6 +177,11 @@ pub fn two_fa_open(ctx: &Ctx, csrf: &str, enabled: bool, qr: &str, error: Option
     )
 }
 
+/// D-DESKTOP-NOTIFY: the desktop's notifications row, one line (no toggle: none exists for which alerts are raised).
+pub fn desktop_notifications(ctx: &Ctx) -> String {
+    format!("<div class=\"sitem\" id=\"desktop_notifications\">\n  {}</div>", row(&ctx.t("desktop_notice.settings"), None, "", "", None, None))
+}
+
 /// D-DESKTOP-BROWSER-CODE: the desktop's "Sign in a browser" row; with `code`, the code it just made.
 pub fn browser_sign_in(ctx: &Ctx, csrf: &str, code: Option<&str>) -> String {
     let label = ctx.t("desktop_sign_in.settings_title");
