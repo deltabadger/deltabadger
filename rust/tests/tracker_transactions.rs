@@ -215,7 +215,7 @@ async fn round1_historical_user_without_startup_key_runs_real_rebuild() {
     let clock=TestClock::at("2026-09-10T12:00:30.123456Z");
     let wall:tracker::jobs::Wall=std::sync::Arc::new(||"2026-09-10T12:00:30.123456Z".parse().unwrap());
     let factory=LiveFactory::new();
-    let registered=tracker::jobs::register(&c,&factory,api.clone(),wall.clone()).unwrap();
+    let registered=tracker::jobs::register(&c,&factory,std::rc::Rc::new(None::<jobs::market::Feed<ScriptedTransport>>),wall.clone()).unwrap();
     assert!(registered.is_empty(),"regression requires no startup consumer");
     let scheduler=jobs::Scheduler::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(),app.cipher.clone(),registered,None)
         .with_resolver(jobs::resolve::all(factory,api,wall));

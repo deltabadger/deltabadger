@@ -363,14 +363,13 @@ fn tracker_difference(name:&str,want:&mut Value)->Result<(),String> {
     Ok(())
 }
 
-/// D-TAX-NOT-PORTED-GATE and the CoinGecko gate (PLAN-A12 item 6, r1 item 8): a generate_tax_report this build cannot compute
+/// D-TAX-NOT-PORTED-GATE (PLAN-A12 item 6): a generate_tax_report this build cannot compute
 /// yet answers its refusal as an error text, nothing written or queued. Every call Rails started in a `tax_d_` scenario becomes
 /// that answer (in the response and the session's stored copy), after checking Rails started it; its job and the owner's
 /// pending_report are taken back (Rails' users rows become this build's, once they differ in nothing else).
 fn tax_difference(name:&str,want:&mut Value,got:&Value)->Result<(),String> {
     use deltabadger::web::mcp::protocol::tool_text;
-    let coingecko=name.starts_with("tax_d_coingecko");
-    if !coingecko && !name.starts_with("tax_d_not_ported") { return Ok(()) }
+    if !name.starts_with("tax_d_not_ported") { return Ok(()) }
     let mut gated=0;
     let mut served_last=false;
     for i in 0..want["responses"].as_array().ok_or("no responses")?.len() {
@@ -379,10 +378,9 @@ fn tax_difference(name:&str,want:&mut Value,got:&Value)->Result<(),String> {
         let Some((country,year))=shown.strip_prefix("Tax report generation started for ").and_then(|rest|rest.split_once(" (")) else {continue};
         let year:i64=year.chars().take_while(char::is_ascii_digit).collect::<String>().parse().unwrap_or(0);
         // A jurisdiction this build computes is served, compared whole.
-        if !coingecko && deltabadger::tax::jurisdictions::REGISTRY.iter().any(|j|j.name==country && deltabadger::tax::jurisdictions::ported(j.code,year)) {served_last=true;continue}
+        if deltabadger::tax::jurisdictions::REGISTRY.iter().any(|j|j.name==country && deltabadger::tax::jurisdictions::ported(j.code,year)) {served_last=true;continue}
         served_last=false;
-        let owed=tool_text(&if coingecko {deltabadger::tax::api::COINGECKO.to_string()}
-                            else {deltabadger::tax::api::not_ported_message(country)},true);
+        let owed=tool_text(&deltabadger::tax::api::not_ported_message(country),true);
         let old=std::mem::replace(&mut body["result"],owed.clone());
         want["responses"][i]["body"]=json!(serde_json::to_string(&body).unwrap());
         for message in want["rows"]["action_mcp_session_messages"].as_array_mut().ok_or("no session messages")? {
@@ -396,7 +394,7 @@ fn tax_difference(name:&str,want:&mut Value,got:&Value)->Result<(),String> {
     if gated==0 { return Err("Rails started no report: drop or rename this scenario".into()) }
     let jobs=want["rows"].as_object_mut().unwrap().shift_remove("tax_jobs").ok_or("Rails queued no report")?;
     let (served,held):(Vec<Value>,Vec<Value>)=jobs.as_array().into_iter().flatten().cloned()
-        .partition(|j|!coingecko && deltabadger::tax::jurisdictions::ported(&j[1].as_str().unwrap_or_default().to_uppercase(),j[2].as_i64().unwrap_or(0)));
+        .partition(|j|deltabadger::tax::jurisdictions::ported(&j[1].as_str().unwrap_or_default().to_uppercase(),j[2].as_i64().unwrap_or(0)));
     if held.len()!=gated { return Err(format!("Rails queued {jobs} for {gated} started reports")) }
     if !served.is_empty() { want["rows"]["tax_jobs"]=json!(served); }
     if served_last { return Ok(()) }

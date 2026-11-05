@@ -44,6 +44,7 @@ cli
 coinbase
 coinbase_continuation
 coingecko
+coingecko_prices
 coingecko_tickers
 composition_context
 conditions
@@ -119,6 +120,7 @@ set_aside
 signal
 signal_conditions
 single_asset
+split_base_cap
 split_menu_api
 splits
 splits_engine

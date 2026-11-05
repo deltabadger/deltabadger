@@ -235,6 +235,15 @@ fn import_step(c: &Connection, cipher: &Cipher, user_id: i64, step: &Value, at: 
 }
 
 /// Runs the scenario in `dir` (a scratch copy the Rails harness built) and reports what Rails' `record` reports.
+/// The market-data environment sync.rb records under: the hosted one, with the scenario's `market_env` over it (null
+/// removes a variable).
+fn market_env(scenario: &Value) -> crate::market_data::Env {
+    let mut env: std::collections::HashMap<String, Option<String>> = [("MARKET_DATA_URL", "http://data-api:3000"), ("MARKET_DATA_TOKEN", "parity-token"), ("COINGECKO_API_KEY", "")]
+        .into_iter().map(|(k, v)| (k.to_string(), Some(v.to_string()))).collect();
+    for (k, v) in scenario["market_env"].as_object().into_iter().flatten() { env.insert(k.clone(), v.as_str().map(str::to_string)); }
+    crate::market_data::Env::read(&|name| env.get(name).cloned().flatten())
+}
+
 pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
     let data = |what: &str| SyncError(format!("scenario.json: {what}"));
     let read = std::fs::read_to_string(dir.join("scenario.json")).map_err(|e| SyncError(e.to_string()))?;
@@ -283,7 +292,23 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         }
         let served = Served { script: transport.clone(), filters_after: step["server_filters_after"] == true };
         let venue = AlpacaVenue::new(served, Urls::for_passphrase(credentials.passphrase.as_deref()));
-        let prices = ScriptedPrices::from_script(&step["market"]).with_rate_cache(rate_cache.clone());
+        let scripted = ScriptedPrices::from_script(&step["market"]).with_rate_cache(rate_cache.clone());
+        // A step scripting CoinGecko (sync.rb `cg_balances`) is priced by the real source over the scripted hosts: the
+        // install's market-data rows and the scenario's environment pick the feed and the fallback.
+        let (market, coingecko) = (ScriptedTransport::from_script(&step["market"]), ScriptedTransport::from_script(&step["coingecko"]));
+        let real = match step.get("coingecko") {
+            Some(_) => {
+                // Rails' harness pre-seeds the key's plan as demo; here the pro ping answers 401 and is left out of the log.
+                coingecko.reply("GET /api/v3/ping", 401, json!({}));
+                let env = market_env(&scenario);
+                let settings = db.run(move |c, cipher| crate::market_data::read(c, cipher, &env)).await.map_err(SyncError)?;
+                let cg = |key: &str| crate::jobs::coingecko::CoinGecko::new(key, coingecko.clone()).with_throttle(Arc::new(crate::jobs::coingecko::Throttle::new(10_000)));
+                let feed = crate::jobs::market::Feed::from_settings(&settings, |config| crate::jobs::data_api::DataApi::new(config, market.clone(), market.clone()), cg);
+                Some(balances::MarketPrices::new(&settings, feed, cg, rate_cache.clone()))
+            }
+            None => None,
+        };
+        let prices: &dyn crate::jobs::data_api::PriceSource = match &real { Some(real) => real, None => &scripted };
         let mut imported = None;
         let raised = match (step["kind"].as_str(), &fake) {
             (Some("import"), _) => {
@@ -305,19 +330,19 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
             (Some("ledger"), Some(fake)) => super::binance_ledger::sync(&db, fake.clone(), key_id, &credentials, &FixedClock(at), super::binance_ledger::Pacing::NONE).await?.is_err_and(|f| f.raised),
             (kind, _) => match kind {
             Some("ledger") => ledger::sync(&db, &venue, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
-            Some("balances") if kucoin => balances::sync_kucoin(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
-            Some("balances") if bitvavo => balances::sync_bitvavo(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
-            Some("balances") if coinbase => balances::sync_coinbase(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
-            Some("balances") if hyperliquid => balances::sync_hyperliquid(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
-            Some("balances") if gemini => balances::sync_gemini(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
-            Some("balances") if bitget => balances::sync_bitget(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
-            Some("balances") if mexc => balances::sync_mexc(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
-            Some("balances") if bybit => balances::sync_bybit(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
-            Some("balances") if bitrue => balances::sync_bitrue(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
-            Some("balances") if kraken => balances::sync_kraken(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
-            Some("balances") if bingx => balances::sync_bingx(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
-            Some("balances") if binance => balances::sync_binance(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
-            Some("balances") => balances::sync(&db, &venue, &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if kucoin => balances::sync_kucoin(&db, transport.clone(), prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if bitvavo => balances::sync_bitvavo(&db, transport.clone(), prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if coinbase => balances::sync_coinbase(&db, transport.clone(), prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if hyperliquid => balances::sync_hyperliquid(&db, transport.clone(), prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if gemini => balances::sync_gemini(&db, transport.clone(), prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if bitget => balances::sync_bitget(&db, transport.clone(), prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if mexc => balances::sync_mexc(&db, transport.clone(), prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if bybit => balances::sync_bybit(&db, transport.clone(), prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if bitrue => balances::sync_bitrue(&db, transport.clone(), prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if kraken => balances::sync_kraken(&db, transport.clone(), prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if bingx => balances::sync_bingx(&db, transport.clone(), prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if binance => balances::sync_binance(&db, transport.clone(), prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") => balances::sync(&db, &venue, prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             other => return Err(SyncError(format!("unknown step kind {other:?}"))),
         } };
         // As Rails' harness logs them: "METHOD path" and the query pairs, sorted.
@@ -340,8 +365,14 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
             query.sort();
             json!([format!("{} {}", r.method, r.path), query])
         }).collect();
-        requests.extend((0..prices.rate_requests()).map(|_| json!([format!("GET {EXCHANGE_RATES_PATH}"), []])));
-        requests.extend(prices.requests().iter().map(|ids| json!([format!("GET {PRICES_PATH}"), [["coin_ids", ids.join(",")], ["vs_currencies", "usd"]]])));
+        requests.extend((0..scripted.rate_requests()).map(|_| json!([format!("GET {EXCHANGE_RATES_PATH}"), []])));
+        requests.extend(scripted.requests().iter().map(|ids| json!([format!("GET {PRICES_PATH}"), [["coin_ids", ids.join(",")], ["vs_currencies", "usd"]]])));
+        // The market hosts' requests, data-api's before CoinGecko's (the order both sides ask them in every scenario).
+        requests.extend(market.requests().iter().chain(coingecko.requests().iter().filter(|r| r.path != "/api/v3/ping")).map(|r| {
+            let mut query: Vec<(String, String)> = r.query.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
+            query.sort();
+            json!([format!("{} {}", r.method, r.path), query])
+        }));
         let generations = db.run(|c, _| generations(c).map_err(|e| e.0)).await.map_err(SyncError)?;
         let mut out = json!({ "requests": requests, "raised": raised, "generations": generations });
         if let Some(imported) = imported { out["import"] = imported; }

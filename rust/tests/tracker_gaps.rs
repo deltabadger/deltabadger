@@ -4,7 +4,7 @@ mod common;
 use chrono::Utc;
 use common::web::{Browser, Csrf, TestClock};
 use deltabadger::engine::FixedClock;
-use deltabadger::jobs::{self, data_api::DataApi, notifications::Notifications, Cx, Db, Job, Outcome};
+use deltabadger::jobs::{self, notifications::Notifications, Cx, Db, Job, Outcome};
 use deltabadger::tracker::{self, cache, gaps};
 use deltabadger::venue::http::ScriptedTransport;
 use rusqlite::{Connection, OptionalExtension};
@@ -224,7 +224,7 @@ async fn the_step_runs_on_its_own_budget_after_the_tightest_publish() {
     let copies: Vec<(tempfile::TempDir, PathBuf)> = (0..4).map(|_| fx.copy()).collect();
     let ledger = |file: &PathBuf, steps: u64| {
         let db = Db::new(Connection::open(file).unwrap(), common::seed::cipher());
-        async move { let mut allowance = tracker::jobs::Allowance { steps, stored: 0 }; let out = tracker::jobs::ledger_run(&db, None::<&DataApi<ScriptedTransport>>, None, fx_owner(&db).await, &FixedClock(at()), Arc::new(at), &mut allowance).await.map(|_| ()); (out, allowance, db) }
+        async move { let mut allowance = tracker::jobs::Allowance { steps, stored: 0 }; let out = tracker::jobs::ledger_run(&db, None::<&deltabadger::jobs::market::Feed<ScriptedTransport>>, None, fx_owner(&db).await, &FixedClock(at()), Arc::new(at), &mut allowance).await.map(|_| ()); (out, allowance, db) }
     };
     let (out, left, _) = ledger(&copies[0].1, tracker::jobs::WALK.steps).await;
     out.unwrap();
@@ -367,7 +367,7 @@ async fn a_deadline_during_the_step_loses_only_its_second_refresh() {
                 // Another publication on a connection of its own: a later wall clock, so a new `expires`.
                 let db = Db::new(Connection::open(&file).unwrap(), common::seed::cipher());
                 let later = at() + chrono::Duration::minutes(5);
-                tracker::jobs::ledger_run(&db, None::<&DataApi<ScriptedTransport>>, None, owner, &FixedClock(later), Arc::new(move || later), &mut tracker::jobs::Allowance::run()).await.unwrap();
+                tracker::jobs::ledger_run(&db, None::<&deltabadger::jobs::market::Feed<ScriptedTransport>>, None, owner, &FixedClock(later), Arc::new(move || later), &mut tracker::jobs::Allowance::run()).await.unwrap();
             }
             release.send(()).unwrap();
             loop {

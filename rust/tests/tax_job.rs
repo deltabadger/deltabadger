@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 
 const T0: &str = "2026-09-10T12:00:00Z";
 
-struct Install { d: tempfile::TempDir, user: i64 }
+struct Install { d: tempfile::TempDir, user: i64, s: common::seed::Seeded }
 
 /// An Alpaca owner with a buy and a sale of bitcoin in 2025, quoted in dollars, and this build's migrations applied.
 fn install() -> Install {
@@ -30,7 +30,7 @@ fn install() -> Install {
                    VALUES (?1, ?2, ?3, ?4, 'BTC', ?5, 'USD', ?6, ?7, ?8, '{}', '{}', 0, ?8, ?8)",
                   rusqlite::params![s.user_id, s.api_key_id, s.exchange_id, kind, amount, quote, format!("t-{kind}"), at]).unwrap();
     }
-    Install { d, user: s.user_id }
+    Install { d, user: s.user_id, s }
 }
 
 fn db_path(i: &Install) -> PathBuf { i.d.path().join("production.sqlite3") }
@@ -184,11 +184,13 @@ fn the_not_ported_gate_refuses_before_anything_is_queued() {
     assert_eq!(text["isError"], true, "{text}");
     // Validation still answers first, as Rails.
     assert_eq!(deltabadger::tax::api::create(&c, &app, i.user, &args(json!({"country": "ZZ", "year": 2025})), "en").unwrap().code, Some("unknown_country"));
-    // An install on CoinGecko prices: refused up front (A17 lifts it).
-    let plain = web::app_in(i.d.path(), "engine-test-secret", None, &Map::new(), TestClock::at(T0));
-    c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('market_data_provider', 'coingecko', '2026-01-01', '2026-01-01')", []).unwrap();
-    assert_eq!(deltabadger::tax::api::create(&c, &plain, i.user, &args(json!({"country": "US", "year": 2025})), "en").unwrap().code, Some("not_ported"));
     assert!(rows(&c).is_empty());
+    // An install on CoinGecko prices is served (PLAN-A17 A17-3 lifted the gate).
+    let plain = web::app_in(i.d.path(), "engine-test-secret", None, &Map::new(), TestClock::at(T0));
+    plain.attach_jobs(Wakers::default()).unwrap();
+    c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('market_data_provider', 'coingecko', '2026-01-01', '2026-01-01')", []).unwrap();
+    assert_eq!(deltabadger::tax::api::create(&c, &plain, i.user, &args(json!({"country": "US", "year": 2025})), "en").unwrap().code, None);
+    assert_eq!(rows(&c).len(), 1);
 }
 
 #[tokio::test]
@@ -624,9 +626,9 @@ async fn a_broker_run_for_another_country_or_without_a_ledger_fails() {
     assert!(files(&tmp(&i)).is_empty());
 }
 
-/// The broker report reads the broker's closes, never the market-data provider's: queued on a CoinGecko install too.
+/// A CoinGecko install queues both reports (PLAN-A17 A17-3 lifted the crypto refusal); the broker report reads the broker.
 #[tokio::test]
-async fn a_broker_create_is_queued_on_a_coingecko_install() {
+async fn both_reports_are_queued_on_a_coingecko_install() {
     let i = install();
     // No data-api configured, CoinGecko the provider (as the not-ported gate test sets it).
     let app = web::app_in(i.d.path(), "engine-test-secret", None, &Map::new(), TestClock::at(T0));
@@ -637,11 +639,75 @@ async fn a_broker_create_is_queued_on_a_coingecko_install() {
     browser.get(&app, "/login").await;
     assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
     let crypto = browser.send(&app, "GET", "/tracker/tax_report?country=DE&year=2025", None, Csrf::None, &TURBO).await;
-    assert_eq!(crypto.status, 501, "{}", crypto.body);
+    assert_eq!(crypto.status, 200, "{}", crypto.body);
     let broker = browser.send(&app, "GET", "/tracker/tax_report?country=DE&year=2025&report_scope=broker", None, Csrf::None, &TURBO).await;
     assert_eq!(broker.status, 200, "{}", broker.body);
-    let scope: String = open(&i).query_row("SELECT scope FROM rust_tax_reports", [], |r| r.get(0)).unwrap();
-    assert_eq!(scope, "broker");
+    let mut s = open(&i).prepare("SELECT scope FROM rust_tax_reports ORDER BY id").unwrap().query_map([], |r| r.get::<_, String>(0)).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+    s.sort();
+    assert_eq!(s, ["broker", "crypto"]);
+}
+
+/// A CoinGecko feed of `script` (demo plan known): the transport and the feed, one per run as the scheduler builds them.
+fn coingecko(script: Value) -> (ScriptedTransport, deltabadger::jobs::market::Feed<ScriptedTransport>) {
+    use deltabadger::jobs::coingecko::{CoinGecko, Plan, Throttle};
+    let t = ScriptedTransport::from_script(&script);
+    let cg = CoinGecko::new("CG-test-key", t.clone()).with_throttle(Arc::new(Throttle::new(usize::MAX))).with_plan(Plan::Demo);
+    (t, deltabadger::jobs::market::Feed::CoinGecko(cg))
+}
+
+/// CoinGecko's daily answer for every day of `from..=to` at `price`.
+fn cg_days(from: &str, to: &str, price: f64) -> Value {
+    let (from, to) = (chrono::NaiveDate::parse_from_str(from, "%Y-%m-%d").unwrap(), chrono::NaiveDate::parse_from_str(to, "%Y-%m-%d").unwrap());
+    let prices: Vec<Value> = from.iter_days().take_while(|d| *d <= to).map(|d| json!([d.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis(), price])).collect();
+    json!({ "status": 200, "body": { "prices": prices } })
+}
+
+/// D-CG-429-STOPS-PRICES on the tax report: the first coin's 429 stops the run asking; the report is still published,
+/// `ready` with both coins' prices warned missing, and the job records RateLimited. A wake asks nothing (the report is not
+/// retried); a regeneration asks again and fills the gaps.
+#[tokio::test]
+async fn a_429_publishes_the_report_with_warnings_and_a_regeneration_fills_the_gaps() {
+    let i = install();
+    let c = open(&i);
+    let s = &i.s;
+    common::seed::add_alpaca_crypto(&c, s, "ETH", &json!({"base_decimals": 4, "quote_decimals": 2, "price_decimals": 2, "minimum_base_size": "0.0001", "minimum_quote_size": "1"}));
+    // Deposits (no quote: priced from the market) inside a demo key's window at T0, and their sales.
+    for (kind, coin, amount, quote, at, id) in [(4, "BTC", "0.1", None, "2025-10-01 08:00:00", "d-btc"), (1, "BTC", "0.1", Some("9000"), "2025-11-01 08:00:00", "s-btc"),
+                                                (4, "ETH", "1", None, "2025-10-05 08:00:00", "d-eth"), (1, "ETH", "1", Some("4000"), "2025-11-05 08:00:00", "s-eth")] {
+        c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, \
+                   tx_id, transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
+                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, CASE WHEN ?7 IS NULL THEN NULL ELSE 'USD' END, ?7, ?8, ?9, '{}', '{}', 0, ?9, ?9)",
+                  rusqlite::params![i.user, s.api_key_id, s.exchange_id, kind, coin, amount, quote, id, at]).unwrap();
+    }
+    queued(&c, i.user, R1, "US", "queued");
+    let limited = json!({ "status": 429, "body": { "status": { "error_code": 429 } } });
+    let (t, feed) = coingecko(json!({ "GET /api/v3/coins/bitcoin/market_chart/range": [limited], "GET /api/v3/coins/seed-eth/market_chart/range": [cg_days("2025-09-01", "2025-12-31", 3000.0)] }));
+    let job = tax::job::<Bars, ScriptedTransport>(std::rc::Rc::new(Some(feed)), Bars(ScriptedTransport::from_script(&json!({}))), tmp(&i));
+    let (db, _) = job_db(&i);
+    let clock = FixedClock(web::at(T0));
+    let cx = |db: &Db| Cx { db: db.clone(), clock: &clock, wakers: Wakers::default() };
+    assert!(matches!(job.run(cx(&db), vec![]).await, Outcome::RateLimited(_)));
+    assert_eq!(t.requests().len(), 1, "nothing asked after the 429");
+    assert_eq!(rows(&open(&i)), vec![(R1.into(), "ready".into())]);
+    let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "US", 2025, "crypto")).unwrap();
+    assert!(csv.contains("BTC/USD 2025-10-01") && csv.contains("ETH/USD 2025-10-05"), "{csv}");
+    let stored = |c: &Connection| c.query_row("SELECT count(*) FROM historical_prices", [], |r| r.get::<_, i64>(0)).unwrap();
+    assert_eq!(stored(&open(&i)), 0);
+    // A wake: nothing queued, nothing asked.
+    let (t, feed) = coingecko(json!({}));
+    let job = tax::job::<Bars, ScriptedTransport>(std::rc::Rc::new(Some(feed)), Bars(ScriptedTransport::from_script(&json!({}))), tmp(&i));
+    assert_eq!(job.run(cx(&db), vec![]).await, Outcome::NothingNew);
+    assert!(t.requests().is_empty());
+    // The user regenerates: the next run asks both coins and the report has every price.
+    queued(&open(&i), i.user, R2, "US", "queued");
+    let (t, feed) = coingecko(json!({ "GET /api/v3/coins/bitcoin/market_chart/range": [cg_days("2025-09-01", "2025-12-31", 60000.0)],
+                                      "GET /api/v3/coins/seed-eth/market_chart/range": [cg_days("2025-09-01", "2025-12-31", 3000.0)] }));
+    let job = tax::job::<Bars, ScriptedTransport>(std::rc::Rc::new(Some(feed)), Bars(ScriptedTransport::from_script(&json!({}))), tmp(&i));
+    assert_eq!(job.run(cx(&db), vec![]).await, Outcome::Done);
+    assert_eq!(t.requests().len(), 2, "one span per coin");
+    let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "US", 2025, "crypto")).unwrap();
+    assert!(!csv.contains("Missing historical prices"), "{csv}");
+    assert_eq!(stored(&open(&i)), 2);
 }
 
 /// The end window's last close not stored: fetched; an answer with no bar in the window leaves a partial cache unconfirmed.

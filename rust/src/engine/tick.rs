@@ -566,7 +566,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut mod
         }));
     }
     model::require_run(c, bot)?;
-    let reconciled = splits::snapshot(c, bot)?;
+    let reconciled = splits::snapshot(c, bot, clock.now())?;
     if let Some(reason) = splits::refusal(c, venue, bot, clock.now()).await? {
         model::run_credential_write(c, bot, &cx.credential_version, |tx| {
             model::merge_transient_compact(tx, bot_id, &[("rust_split_hold", json!({"reason":reason,"at":iso8601_ms(clock.now())}))])?;
@@ -575,7 +575,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut mod
         super::log(&format!("[engine] bot {bot_id}: split reconciliation required: {reason}; refresh the ledger and correct its split records before restarting; no trade is required"));
         return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None, paused: false, flipped: false }));
     }
-    if splits::snapshot(c, bot)? != reconciled {
+    if splits::snapshot(c, bot, clock.now())? != reconciled {
         let now = clock.now();
         model::run_write(c, bot, |tx| model::log_activity(tx, bot_id, "dca_skipped_restatement", Level::Info, json!({"reason":"split generation or held assets changed during reconciliation"}), now))?;
         return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None, paused: false, flipped: false }));
@@ -798,7 +798,7 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
         return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
     }
     let holdings = model::locked(c, |tx| {
-        if splits::snapshot(tx, bot)? != *reconciled { return Ok(None); }
+        if splits::snapshot(tx, bot, clock.now())? != *reconciled { return Ok(None); }
         Ok(Some(basket::walk(tx, bot, clock.now())?.amounts))
     })?;
     let Some(holdings) = holdings else { return Ok(Ok(())); };
@@ -1031,7 +1031,7 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
     let ticker = member.ticker;
     // Bot::BaseAmountLimitable (slice 6d): what the base cap leaves, read before any exchange call; nothing left is a logged
     // skip (`return sell_skipped('cap_reached') unless cap.positive?`). Off, it is no bound (Float::INFINITY).
-    let cap = super::accounting::base_amount_available_num(c, bot)?.map(|left| left.to_dec()).transpose().map_err(|e| EngineError::Data(format!("{e:?}")))?;
+    let cap = super::accounting::base_amount_available_at(c, bot, clock.now())?.map(|left| left.to_dec()).transpose().map_err(|e| EngineError::Data(format!("{e:?}")))?;
     if cap.as_ref().is_some_and(|left| !left.is_positive()) {
         super::log(&format!("[engine] bot {}: set_orders composition event=sell_skipped reason=cap_reached", bot.id));
         return Ok(Ok(()));

@@ -41,10 +41,10 @@ pub struct Forms<'a> {
 
 /// bots/settings/_amount_limit_info of a seller: what is left of "Don't sell more than N BASE", or nothing (balances hidden,
 /// the cap off or not positive). Also Bot::BaseAmountLimitable#broadcast_base_amount_limit_update's content.
-pub fn base_amount_limit_info(c: &Connection, locale: &str, bot: &Bot, hide_balances: bool) -> Result<String, WebError> {
+pub fn base_amount_limit_info(c: &Connection, locale: &str, bot: &Bot, hide_balances: bool, now: chrono::DateTime<chrono::Utc>) -> Result<String, WebError> {
     let active = bot.one_asset() && bot.on("base_amount_limited");
     if hide_balances || !active || !bot.number("base_amount_limit").is_some_and(|limit| limit.is_positive()) { return Ok(String::new()); }
-    let Some((left, reached)) = crate::engine::accounting::web_base_cap(c, bot)? else { return Ok(String::new()) };
+    let Some((left, reached)) = crate::engine::accounting::web_base_cap(c, bot, now)? else { return Ok(String::new()) };
     let text = if reached {
         format!("<span class=\"text-success\">\n          {}\n        </span>", i18n::t(locale, "bot.settings.extra_amount_limit.sell_info.sold", &[]))
     } else {
@@ -354,7 +354,7 @@ impl Forms<'_> {
             let field = self.amount("base_amount_limit", value.as_deref(), "");
             let base = bot.base_asset().and_then(|asset| asset.symbol.as_deref()).unwrap_or("");
             let sentence = self.t("bot.settings.extra_amount_limit.sell_sentence_html", &[("value_html", Arg::Html(&format!("<div>            {field}\n</div>"))), ("base", Arg::Text(base))]);
-            let info = base_amount_limit_info(c, self.ctx.locale, bot, self.hide_balances)?;
+            let info = base_amount_limit_info(c, self.ctx.locale, bot, self.hide_balances, self.ctx.now)?;
             return Ok(self.rule(active, "base_amount_limited", active, self.locked(), &format!("            {sentence}\n          {info}\n")));
         }
         let active = bot.on("quote_amount_limited");

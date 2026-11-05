@@ -21,6 +21,8 @@ const HISTORY_VERSION: i64 = 1;
 
 pub fn history_key(user_id: i64) -> String { format!("snapshot_history_version_{user_id}") }
 pub fn price_key(user_id: i64) -> String { format!("snapshot_price_generation_{user_id}") }
+/// D-CG-429-STOPS-PRICES (Rust's own key): the last sweep's price requests met a 429, so its gaps are still to be asked.
+pub fn rate_limited_key(user_id: i64) -> String { format!("rust_snapshot_prices_pending_{user_id}") }
 /// The calculation a stored history was swept by (Rust's own key; Rails has none): a history of another one is swept again.
 /// 2: coin-quoted single rows are two legs (D-TRACKER-COIN-QUOTE), transfers wait for their funds (D-TRACKER-TRANSFER-ORDER),
 /// a non-cash sale's own fee leaves (D-TRACKER-HISTORY-SELL-FEE).
@@ -80,6 +82,8 @@ pub fn wanted(c: &Connection, cipher: &Cipher, user_id: i64, today: NaiveDate) -
     }
     if crate::app_config::get(c, cipher, &history_key(user_id)).map_err(FiguresError::Data)? != Some(history_version(c, user_id)?) { return Ok(true); }
     if crate::app_config::get(c, cipher, &calculation_key(user_id)).map_err(FiguresError::Data)?.as_deref() != Some(CALCULATION) { return Ok(true); }
+    // Whatever the days say: a price carried over a gap the 429 left reads as a complete day.
+    if crate::app_config::exists(c, &rate_limited_key(user_id)).map_err(FiguresError::Data)? { return Ok(true); }
     Ok(partial && crate::app_config::get(c, cipher, &price_key(user_id)).map_err(FiguresError::Data)? != Some(generation(c)?.to_string()))
 }
 

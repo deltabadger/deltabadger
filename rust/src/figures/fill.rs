@@ -326,7 +326,9 @@ fn quantity(raw: &Raw, closed: bool) -> Result<Dec, FiguresError> {
 /// `pluck(:amount).compact`, BigDecimal. Cancelled: `COALESCE(amount_exec, 0)`, raw. Abandoned (D-6D-3): what it asked
 /// for while that is more than it reported, `max(amount_exec, amount)`, until polling moves it to closed or cancelled
 /// (Rails counts the reported exec only, which reopens the unreported part of the cap).
-pub fn sold_commitments(c: &Connection, bot_id: i64, since: Option<&str>) -> Result<Vec<Commitment>, FiguresError> {
+/// A14b: each with its row's `created_at` (µs), venue and asset, which its split restatement reads.
+pub struct Sold { pub commitment: Commitment, pub at_us: i64, pub exchange_id: Option<i64>, pub asset_id: Option<i64> }
+pub fn sold_commitments(c: &Connection, bot_id: i64, since: Option<&str>) -> Result<Vec<Sold>, FiguresError> {
     use rusqlite::types::ValueRef;
     // An INTEGER is an Integer, a REAL a Float; a NULL in COALESCE(…, 0) the Integer 0. TEXT (never written by Rails,
     // which binds a Float) is read as its decimal.
@@ -341,7 +343,7 @@ pub fn sold_commitments(c: &Connection, bot_id: i64, since: Option<&str>) -> Res
     let big = |d: &Dec| BigDec::parse(&d.to_s_f()).map_err(|_| FiguresError::Data("sell commitment exceeds numeric bounds".into()));
     budget::within(|| {
         // As in commitments: Rails' text comparison decides the window; an unset stamp matches nothing.
-        let mut s = c.prepare("SELECT external_status, price, amount, amount_exec, quote_amount_exec, created_at, coalesce(created_at >= ?2, 0) FROM transactions WHERE bot_id=?1 AND side=1 AND status=0 AND transaction_type='REGULAR' AND external_status IN (0,1,2,3,4) ORDER BY id LIMIT 100001")?;
+        let mut s = c.prepare("SELECT external_status, price, amount, amount_exec, quote_amount_exec, created_at, coalesce(created_at >= ?2, 0), exchange_id, base_asset_id FROM transactions WHERE bot_id=?1 AND side=1 AND status=0 AND transaction_type='REGULAR' AND external_status IN (0,1,2,3,4) ORDER BY id LIMIT 100001")?;
         since.map(crate::codec::parse_time).transpose().map_err(|e|FiguresError::Data(format!("{e:?}")))?;
         let mut rows = s.query(params![bot_id, since])?;
         let mut out = Vec::new();
@@ -350,7 +352,7 @@ pub fn sold_commitments(c: &Connection, bot_id: i64, since: Option<&str>) -> Res
             work += 1;
             if work > 100_000 { return Err(FiguresError::Data("bot action history exceeds the 100000-row work budget".into())); }
             budget::charge(1,0)?;
-            crate::codec::parse_time(&row.get::<_,String>(5)?).map_err(|e|FiguresError::Data(format!("{e:?}")))?;
+            let at_us = crate::codec::parse_time(&row.get::<_,String>(5)?).map_err(|e|FiguresError::Data(format!("{e:?}")))?.timestamp_micros();
             if !row.get::<_,bool>(6)? {continue;}
             let status:i64 = row.get(0)?;
             let raw = Raw::new(super::db::decimal(row,1)?,super::db::decimal(row,2)?,super::db::decimal(row,3)?,super::db::decimal(row,4)?);
@@ -367,7 +369,7 @@ pub fn sold_commitments(c: &Connection, bot_id: i64, since: Option<&str>) -> Res
                 (_, Some(asked)) => { let kind = raw_kind(amount, &asked); (asked, kind) }
                 _ => { let kind = raw_kind(exec, &executed); (executed, kind) }
             };
-            out.push(Commitment::normalized(status, value, kind, false));
+            out.push(Sold { commitment: Commitment::normalized(status, value, kind, false), at_us, exchange_id: row.get(7)?, asset_id: row.get(8)? });
         }
         Ok(out)
     })

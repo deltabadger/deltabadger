@@ -487,7 +487,7 @@ module McpControl
   # scenario's install state, applied by `grid` (tax_install): report and refusal files by name under <scenario>/tmp/tax_reports
   # ('tax_fixtures'), a report already generating ('tax_generating': an unfinished Solid Queue job under the job's concurrency
   # key; tests/mcp_control.rs holds the same as this build's request row) and the market data provider ('tax_market_data').
-  # ActiveJob's test adapter holds no slot for an accepted create: no scenario asks again after one (see pages_api.rb).
+  # ActiveJob's test adapter holds no slot for an accepted create: a step that reads one after it says 'tax_queued' (mcp.rb).
   TAX_NAMES = McpParity::TAX_NAMES
 
   def tax_ready(extra = [], install = {})
@@ -560,13 +560,13 @@ module McpControl
                                   'tax_fixtures' => ready) + [generate.(), status.(), download.()]
     s['tax_paper'] = tax_ready(["UPDATE users SET mcp_settings=json_set(mcp_settings,'$.dry_run',json('true')) WHERE email='owner@example.com'"], 'tax_fixtures' => ready) +
                      [status.(), download.(), generate.(us.merge(force: true))]
-    # D-TAX-NOT-PORTED-GATE and the CoinGecko gate (tests/mcp_control.rs tax_difference): validation still answers first.
+    # D-TAX-NOT-PORTED-GATE (tests/mcp_control.rs tax_difference): validation still answers first; a CoinGecko install is served.
     # FR before 2019 is not served (D-TAX-FR-YEARS); FR 2025 is since A12-6 (started last: this build's request row would answer
     # a later status). NL 2020 is not served (D-TAX-NL-YEARS); NL 2025 is, with no market data (a wealth snapshot needs none).
     s['tax_d_not_ported'] = tax_ready + [generate.(at.('DE', 2008)), generate.(at.('fr', 2018)), status.(at.('FR', 2018)), generate.(at.('fr', 2025))]
     s['tax_d_not_ported_wealth'] = tax_ready([], 'tax_market_data' => 'none') + [generate.(), generate.(at.('NL', 2020)), status.(at.('NL', 2020)),
                                                                                   generate.(at.('NL', 2025))]
-    s['tax_d_coingecko'] = tax_ready([], 'tax_market_data' => 'coingecko') + [generate.(at.('US', 2008)), generate.(), status.()]
+    s['tax_coingecko'] = tax_ready([], 'tax_market_data' => 'coingecko') + [generate.(at.('US', 2008)), generate.(), status.().merge('tax_queued' => true)]
   end
 
   def grid(root)

@@ -57,7 +57,7 @@ fn stream(body: &str) -> Response {
     (StatusCode::OK, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], turbo::stream("append", "flash", body)).into_response()
 }
 
-/// D-TAX-NOT-PORTED-GATE (and the CoinGecko refusal): a report this build cannot compute is refused by the request
+/// D-TAX-NOT-PORTED-GATE: a report this build cannot compute is refused by the request
 /// itself, never queued, with the refused flash every unported page answers.
 async fn refused(ctx: &Ctx, headers: &HeaderMap, reason: &str) -> Result<Response, WebError> {
     let response = layout::refused(ctx, reason);
@@ -65,12 +65,6 @@ async fn refused(ctx: &Ctx, headers: &HeaderMap, reason: &str) -> Result<Respons
     let body = axum::body::to_bytes(response.into_body(), 64 * 1024).await.map_err(|_| super::row::invalid())?;
     let body = std::str::from_utf8(&body).map_err(|_| super::row::invalid())?;
     Ok((StatusCode::NOT_IMPLEMENTED, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], turbo::stream("append", "flash", body)).into_response())
-}
-
-/// Whether the install's historical prices come from CoinGecko, which this build does not fetch from (A17 lifts it).
-pub fn coingecko(c: &rusqlite::Connection, app: &crate::web::App) -> Result<bool, WebError> {
-    let (deltabadger, configured) = crate::web::bots::market_data(c, app)?;
-    Ok(configured && !deltabadger)
 }
 
 /// `user.update(tracker_settings: settings.merge('pending_report' => …))`: the pending report's identity only, so the
@@ -128,8 +122,6 @@ async fn generate(app: crate::web::App, ctx: Ctx, headers: HeaderMap, asked: Ask
     let stablecoin = stablecoin.as_deref() == Some("true");
     let (app2, ctx2) = (app.clone(), ctx.clone());
     let answer = app.db(move |c| {
-        // The broker report reads the broker's closes, never the market-data provider's.
-        if scope == "crypto" && coingecko(c, &app2)? { return Ok(None); }
         let tmp = &app2.config.tmp_dir;
         let _files = job::files(owner, scope);
         let request = job::token();
@@ -164,12 +156,9 @@ async fn generate(app: crate::web::App, ctx: Ctx, headers: HeaderMap, asked: Ask
             let r = job::active(c, owner, scope)?.ok_or_else(|| WebError::Config("a refused tax report request has no slot holder".into()))?;
             panel(ctx2.locale, &r, &Panel::Progress(0))
         };
-        Ok(Some(body))
+        Ok(body)
     }).await?;
-    match answer {
-        Some(body) => Ok(stream(&body)),
-        None => refused(&ctx, &headers, "tracker tax reports from CoinGecko prices").await,
-    }
+    Ok(stream(&answer))
 }
 
 /// TrackerController#download_tax_report: the refusal's alert, else the file sent and deleted, else "expired".

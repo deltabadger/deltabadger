@@ -228,6 +228,8 @@ module McpParity
     travel_to(Time.iso8601(AT), with_usec: true) do
       steps.each do |step|
         Array(step['sql']).each { |sql| ActiveRecord::Base.connection.execute(sql) }
+        # The report the previous step's accepted create queued (pages.rb BEFORE 'tax_queued'; Rust's request row holds it).
+        Pages::BEFORE.fetch('tax_queued').call if step['tax_queued']
         hs = step['headers'].transform_values { |v| v == '$session' ? session_id : v }.compact
         browser.process(step['method'].downcase.to_sym, step['path'], params: step['body'], headers: hs)
         raise 'unscripted MCP market request' if defined?(ScriptedMarket) && ScriptedMarket.gaps&.any?

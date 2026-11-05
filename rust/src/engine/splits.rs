@@ -8,13 +8,64 @@ use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap};
 
+/// `cap`: the base cap's split dependencies at `now` (A14b; empty when the cap is off). The account sync bumps the generation
+/// only for bots whose rows name a split's symbol, so a wallet seller's split, or one coming into effect, shows only here.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Snapshot { pub generation: i64, pub held_assets: Vec<i64> }
-pub fn snapshot(c: &Connection, bot: &Bot) -> Result<Snapshot, EngineError> {
+pub struct Snapshot { pub generation: i64, pub held_assets: Vec<i64>, pub cap: CapSplits }
+pub fn snapshot(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Snapshot, EngineError> {
     let generation = c.query_row("SELECT restatement_generation FROM bots WHERE id=?1", [bot.id], |r| r.get(0))?;
     let mut s = c.prepare("SELECT DISTINCT base_asset_id FROM transactions WHERE bot_id=?1 AND status=0 AND base_asset_id IS NOT NULL ORDER BY base_asset_id")?;
     let held_assets = s.query_map([bot.id], |r| r.get(0))?.collect::<Result<_,_>>()?;
-    Ok(Snapshot { generation, held_assets })
+    Ok(Snapshot { generation, held_assets, cap: cap_dependencies(c, bot, now)? })
+}
+
+/// A14b (D-SPLIT-BASE-CAP): split events per (venue, asset), already in effect, and whether any of them cannot be sized.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct CapSplits { pub events: Vec<(i64, SplitEvent)>, pub unresolved: bool }
+impl CapSplits {
+    /// F_{venue,asset}(t): the product of the factors of that asset's events on that venue after `t_us` (an event at `t` is
+    /// already in a count taken at `t`).
+    pub fn factor(&self, venue: i64, asset: i64, t_us: i64) -> BigDec {
+        self.events.iter().filter(|(v, e)| *v == venue && e.asset_id == asset && t_us < e.at_us).fold(BigDec::one(), |f, (_, e)| &f * &e.factor)
+    }
+}
+
+/// The base cap's split events for (venue, asset) pairs a bot need not have traded (a seller of a wallet it never bought
+/// through the bot). Matched once per venue, with only that venue's holdings and eligibility: `groups` buckets by holding
+/// and checks eligibility across every venue it is given, which would apply one venue's report to another's sales. A
+/// holding's names are the venue's tickers for the asset and the names the bot's own rows of it were recorded under.
+pub fn asset_splits(c: &Connection, user_id: i64, bot_id: i64, pairs: &[(i64, i64)], now: DateTime<Utc>) -> Result<CapSplits, EngineError> {
+    let mut venues: BTreeMap<i64, std::collections::BTreeSet<i64>> = BTreeMap::new();
+    for (venue, asset) in pairs { venues.entry(*venue).or_default().insert(*asset); }
+    let at = At::from_utc(now).ok_or_else(|| data("split time out of range"))?;
+    figures::budget::within(|| {
+        let mut out = CapSplits::default();
+        for (venue, assets) in venues {
+            let mut holdings = vec![];
+            for asset in &assets {
+                let mut s = c.prepare("SELECT base FROM tickers WHERE exchange_id = ?1 AND base_asset_id = ?2 \
+                                       UNION SELECT base FROM transactions WHERE bot_id = ?3 AND exchange_id = ?1 AND base_asset_id = ?2 AND base IS NOT NULL ORDER BY 1")?;
+                let strings = s.query_map(params![venue, asset, bot_id], |r| r.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
+                holdings.push(rails::Holding { key: asset.to_string(), asset_id: Some(*asset), strings });
+            }
+            let strings = holdings.iter().flat_map(|h| h.strings.iter().map(|s| (venue, s.as_str()))).collect();
+            let eligible = (strings, assets.iter().map(|a| (venue, *a)).collect(), vec![venue]);
+            for e in rails::events_with(c, user_id, &eligible, &holdings, at).map_err(data)? {
+                out.events.push((venue, SplitEvent { at_us: e.at.0 / 1000, asset_id: e.key.parse().map_err(data)?, factor: BigDec::parse(&e.factor.to_s_f()).map_err(data)? }));
+            }
+            out.unresolved |= rails::unresolved_with(c, user_id, &eligible, &holdings, at).map_err(data)?;
+        }
+        Ok(out)
+    })
+}
+
+/// The base cap's dependencies: `asset_splits` over the pairs its tally counts (accounting::cap_pairs). The tick's gate, the
+/// placement fences and the tally read this one set. Empty while the cap is off.
+pub fn cap_dependencies(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<CapSplits, EngineError> {
+    match super::accounting::cap_pairs(c, bot)? {
+        Some(pairs) => asset_splits(c, bot.user_id, bot.id, &pairs, now),
+        None => Ok(CapSplits::default()),
+    }
 }
 
 pub const QUARANTINE_SECS: i64 = rails::QUARANTINE_SECONDS;
@@ -41,6 +92,8 @@ pub fn splits(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Splits, E
 pub fn untrusted(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<bool, EngineError> {
     let s = splits(c, bot, now)?;
     if s.unresolved { return Ok(true); }
+    // A14b: a base cap that counts an asset whose split cannot be sized cannot be counted; no sale is sized against it.
+    if cap_dependencies(c, bot, now)?.unresolved { return Ok(true); }
     let walk = basket::walk_with(c, bot, &s.events)?;
     Ok(walk.restated_at_us.is_some_and(|at| at > now.timestamp_micros() - QUARANTINE_SECS * 1_000_000))
 }

@@ -578,11 +578,11 @@ async fn rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, mut claim: 
 /// holds too. None: hold, nothing is sized.
 pub(crate) async fn split_gate<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, clock: &dyn Clock) -> Result<Option<super::splits::Snapshot>, EngineError> {
     let bot = &claim.bot;
-    let reconciled = super::splits::snapshot(c, bot)?;
+    let reconciled = super::splits::snapshot(c, bot, clock.now())?;
     let reason = if reconciled.generation != bot.restatement_generation { "split generation changed since the pass began".into() } else {
         match super::splits::refusal(c, venue, bot, clock.now()).await? {
             Some(reason) => reason,
-            None if super::splits::snapshot(c, bot)? != reconciled => "split generation or held assets changed during reconciliation".into(),
+            None if super::splits::snapshot(c, bot, clock.now())? != reconciled => "split generation or held assets changed during reconciliation".into(),
             None => return Ok(Some(reconciled)),
         }
     };

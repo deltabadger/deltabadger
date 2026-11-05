@@ -1020,7 +1020,7 @@ async fn a_buy_whose_asset_was_locked_after_it_was_sized_is_not_placed() {
     let price = BigDec::from_i64(2500);
     let plan = |side, kind| amount::size_order(&ticker, side, &price, &BigDec::parse("0.01").unwrap(), &BigDec::from_i64(25), ALPACA.minimum_logic, kind).unwrap().0;
     let composition = placement::composition_snapshot(c, &bot).unwrap();
-    let reconciled = splits::snapshot(c, &bot).unwrap();
+    let reconciled = splits::snapshot(c, &bot, at(T0)).unwrap();
     let version = model::credential_version(c, &bot).unwrap();
     let begin = |plan: &amount::OrderPlan| placement::begin_with_credentials(c, &bot, plan, &[&ticker], &composition, &reconciled, &version, None, false, None, &FixedClock(at(T0))).unwrap();
     assert!(matches!(begin(&plan(Side::Buy, TxKind::Regular)), placement::Begun::WashSaleLocked));

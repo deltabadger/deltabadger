@@ -218,6 +218,31 @@ fn listed_binance(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), 
     })
 }
 
+/// PLAN-A17 A17-3: the cash rule of `binance-balances-no_rate` on CoinGecko-priced balances. With no exchange rate for EUR
+/// (data-api's rates failed, CoinGecko's answered 429, or no provider to ask), Rails asks the coin market for "eur" as a
+/// coin (on CoinGecko a real coin id); Rust never prices cash at the coin market. The answers here hold no "eur", so the
+/// rows are the same: only the ids asked differ.
+const CG_CASH_AT_COIN_MARKET: [&str; 3] = ["cg-balances-rate_limited", "cg-fallback-no_fx_fallback", "cg-none-direct"];
+fn cg_cash_at_coin_market(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    if !CG_CASH_AT_COIN_MARKET.contains(&name) { return None; }
+    Some((|| {
+        let mut expected = rails.clone();
+        let mut stripped = 0;
+        for step in expected["steps"].as_array_mut().into_iter().flatten() {
+            for request in step["requests"].as_array_mut().into_iter().flatten() {
+                if !matches!(request[0].as_str(), Some("GET /api/v1/prices" | "GET /api/v3/simple/price")) { continue; }
+                for pair in request[1].as_array_mut().into_iter().flatten() {
+                    if !matches!(pair[0].as_str(), Some("ids" | "coin_ids")) { continue; }
+                    let ids = pair[1].as_str().unwrap_or_default();
+                    if let Some(coins) = ids.strip_suffix(",eur") { pair[1] = json!(coins); stripped += 1; }
+                }
+            }
+        }
+        check(stripped == 1, "Rails no longer asks the coin market for the cash: drop the listed divergence")?;
+        check(expected == *rust, "a field besides the ids asked differs")
+    })())
+}
+
 /// Keeps the first `keep` requests of the first step, and of those only the ones not sent to `but`.
 fn only_requests(out: &mut Value, keep: usize, but: &str) {
     if let Some(requests) = out["steps"][0]["requests"].as_array_mut() { requests.truncate(keep); requests.retain(|r| r[0] != but); }
@@ -728,8 +753,8 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
     assert_eq!([named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"),
                 named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("bitget-ledger-"), named("bitget-balances-"),
-                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), named("coinbase-ledger-"), named("coinbase-balances-"), named("bingx-ledger-"), named("bingx-balances-"), named("kraken-balances-"), named("kraken-ledger-"), dirs.len()],
-               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 12, 4, 18 + 2 + 26, 5, 11, 19, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 12 + 4 + 18 + 2 + 26 + 5 + 11 + 19], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 12 Coinbase ledger + 4 Coinbase balances + 51 BingX scenarios (including 26 account and listing shapes) + 11 Kraken balances + 19 Kraken ledger");
+                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), named("coinbase-ledger-"), named("coinbase-balances-"), named("bingx-ledger-"), named("bingx-balances-"), named("kraken-balances-"), named("kraken-ledger-"), named("cg-"), dirs.len()],
+               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 12, 4, 18 + 2 + 26, 5, 11, 19, 9, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 12 + 4 + 18 + 2 + 26 + 5 + 11 + 19 + 9], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 12 Coinbase ledger + 4 Coinbase balances + 51 BingX scenarios (including 26 account and listing shapes) + 11 Kraken balances + 19 Kraken ledger + 9 CoinGecko-priced balances (PLAN-A17 A17-3)");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     // Rust's side starts as `serve` does: with this build's Rust migrations applied. parity::snapshot compares Rails'
     // tables only (parity::TABLES), so Rust's own tables stay out of the comparison.
@@ -752,7 +777,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
 
     let cipher = cipher();
     let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-",
-                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-", "bybit-ledger-", "bybit-balances-", "bitrue-ledger-", "bitrue-balances-", "coinbase-ledger-", "coinbase-balances-", "bingx-ledger-", "bingx-balances-", "kraken-balances-", "kraken-ledger-"];
+                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-", "bybit-ledger-", "bybit-balances-", "bitrue-ledger-", "bitrue-balances-", "coinbase-ledger-", "coinbase-balances-", "bingx-ledger-", "bingx-balances-", "kraken-balances-", "kraken-ledger-", "cg-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -762,7 +787,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     }
     let (mut failures, mut divergences) = (vec![], vec![]);
     for (name, rails_out, rust_out) in &outputs {
-        match alpaca_split_grouping(name, rails_out, rust_out).or_else(|| transfer_watermarks(name, &rust_root.path().join(name), rails_out, rust_out).or_else(|| transfer_status_reads(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| listed_kraken(name, &rails_root.path().join(name), &rust_root.path().join(name), rails_out, rust_out)).or_else(|| bingx_page(name, rails_out, rust_out)).or_else(|| bitrue_page(name, rails_out, rust_out)).or_else(|| coinbase_size(name,rails_out,rust_out)).or_else(|| kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, &rust_root.path().join(name), a12_first.path(), rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out))) {
+        match alpaca_split_grouping(name, rails_out, rust_out).or_else(|| transfer_watermarks(name, &rust_root.path().join(name), rails_out, rust_out).or_else(|| transfer_status_reads(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| listed_kraken(name, &rails_root.path().join(name), &rust_root.path().join(name), rails_out, rust_out)).or_else(|| bingx_page(name, rails_out, rust_out)).or_else(|| bitrue_page(name, rails_out, rust_out)).or_else(|| coinbase_size(name,rails_out,rust_out)).or_else(|| kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(|| cg_cash_at_coin_market(name,rails_out,rust_out)).or_else(||binance_ledger(name, &rust_root.path().join(name), a12_first.path(), rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out))) {
             Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {rails_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => { divergences.push(name.as_str()); assert_ne!(rails_out, rust_out, "{name}: a listed divergence that no longer differs"); }
             None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
@@ -777,6 +802,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     expected.push("bybit-ledger-stuck");
     expected.extend_from_slice(&["coinbase-ledger-size_in_quote","coinbase-ledger-quote_swap"]);
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
+    expected.extend_from_slice(&CG_CASH_AT_COIN_MARKET);
     expected.push("bitrue-ledger-repeated_page");
     expected.push("bingx-ledger-repeated_page");
     expected.push("kraken-balances-full");
@@ -800,6 +826,15 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     // What the grid must have exercised, read from Rails' own output: a scenario that silently stopped doing its thing
     // (a renamed column, a changed default) would otherwise still pass by agreeing on nothing.
     let rails_of = |name: &str| read(&rails_root.path().join(name).join("rails.json"));
+    // PLAN-A17 A17-3: each CoinGecko-priced balance case asked CoinGecko as it says, read from Rails' own requests.
+    let cg_asked = |name: &str, step: usize| rails_of(name)["steps"][step]["requests"].as_array().unwrap().iter()
+        .filter_map(|r| r[0].as_str().filter(|p| matches!(*p, "GET /api/v3/simple/price" | "GET /api/v3/exchange_rates")).map(str::to_string)).collect::<Vec<_>>();
+    assert_eq!(cg_asked("cg-balances-partial", 1), ["GET /api/v3/exchange_rates", "GET /api/v3/simple/price"], "one batched price request, the rates for the cash");
+    assert!(cg_asked("cg-balances-blank_key", 0).is_empty(), "a blank key asks nothing");
+    for name in ["cg-fallback-failure", "cg-fallback-env_key", "cg-none-direct"] { assert_eq!(cg_asked(name, 0), ["GET /api/v3/simple/price"], "{name}"); }
+    for name in ["cg-fallback-transient", "cg-fallback-partial", "cg-fallback-no_fx_fallback"] { assert!(cg_asked(name, 0).is_empty(), "{name}: no fallback"); }
+    let first_night = rows(&rails_of("cg-balances-partial"), "account_balances").iter().filter(|r| r["after"]["priced_at"].as_str().is_some_and(|t| t.starts_with("2026-09-20"))).count();
+    assert_eq!(first_night, 1, "the coin CoinGecko left out keeps the first night's price");
     for shape in ["null", "array", "object_symbols", "number_symbols", "false_symbols"] {
         let out = rails_of(&format!("bitrue-ledger-listing_{shape}"));
         assert_eq!(out["steps"][0]["raised"], true, "{shape}: Rails raises on the listing");

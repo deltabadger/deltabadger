@@ -20,7 +20,7 @@
 //!
 //! D-TAX-BUDGET: the run is held to the tracker's walk budget (`tracker::jobs::WALK`); past it the run ends as
 //! `report_failed`, where Rails would run on.
-use crate::jobs::data_api::DataApi;
+use crate::jobs::market::Feed;
 use crate::jobs::{Cx, Db, Job, JobFuture, Outcome, Retry, Spec, Wake};
 use crate::sync::jobs::Connect;
 use crate::tracker::fx;
@@ -204,7 +204,7 @@ pub fn terminal(tmp: &Path, r: &Request) -> Option<Panel> {
 
 /// `tax_report`: one request per run, the oldest queued; woken by every accepted create and at start-up, and again by
 /// itself while requests wait.
-pub struct TaxReport<C: Connect, T: Transport> { pub api: Rc<Option<DataApi<T>>>, pub ecb: Option<fx::Source>, pub venues: C, pub tmp: PathBuf }
+pub struct TaxReport<C: Connect, T: Transport> { pub api: Rc<Option<Feed<T>>>, pub ecb: Option<fx::Source>, pub venues: C, pub tmp: PathBuf }
 
 impl<C: Connect, T: Transport> Job for TaxReport<C, T> {
     fn spec(&self) -> Spec {
@@ -231,7 +231,9 @@ impl<C: Connect, T: Transport> Job for TaxReport<C, T> {
             // The next request waits for its own run.
             let more = cx.db.run(|c, _| c.query_row("SELECT EXISTS(SELECT 1 FROM rust_tax_reports WHERE state = 'queued')", [], |x| x.get::<_, bool>(0)).map_err(|e| e.to_string())).await;
             if more.unwrap_or(false) { cx.wakers.wake(JOB, None, None); }
-            match ended { Ok(()) => Outcome::Done, Err(e) => Outcome::Failed(e) }
+            // D-CG-429-STOPS-PRICES: the report is published with its missing-price warnings and never retried; the user
+            // regenerates it to fill the gaps.
+            match ended { Ok(()) => crate::tracker::jobs::limited(&self.api).unwrap_or(Outcome::Done), Err(e) => Outcome::Failed(e) }
         })
     }
 }
@@ -247,11 +249,12 @@ fn take(c: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Option<Request>>
 
 /// `perform` up to the file: the ECB rates, the report's reads, then its enrichment on a blocking thread whose price
 /// fetches are made on this one (`tracker::jobs::fetching`), the progress broadcast each time the percent changes.
-async fn perform<C: Connect, T: Transport>(cx: &Cx<'_>, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, venues: &C, r: &Request) -> Result<crate::tax::Outcome, String> {
+async fn perform<C: Connect, T: Transport>(cx: &Cx<'_>, api: Option<&Feed<T>>, ecb: Option<&fx::Source>, venues: &C, r: &Request) -> Result<crate::tax::Outcome, String> {
     if r.scope == "broker" { return broker(cx, ecb, venues, r).await; }
     // D-TAX-NOT-PORTED-GATE: nothing is queued for a report this build cannot compute; a row that is anyway fails.
     if !crate::tax::jurisdictions::ported(&r.country, r.year) { return Err(format!("the {} report for {} is not ported", r.scope, r.country)); }
-    let today = cx.clock.now().date_naive();
+    let now = cx.clock.now();
+    let today = now.date_naive();
     fx::ensure_loaded(&cx.db, ecb, today).await;
     let mut allowance = Allowance::run();
     let (user, country, year, stablecoin) = (r.user_id, r.country.clone(), i32::try_from(r.year).map_err(|_| "a report year out of range".to_string())?, r.stablecoin_as_fiat);
@@ -281,7 +284,7 @@ async fn perform<C: Connect, T: Transport>(cx: &Cx<'_>, api: Option<&DataApi<T>>
     // r3 item 3: a wealth report runs without market data, as Rails' does: stored prices are read, missing ones are warnings.
     let unfetched = api.is_none() && report.is_wealth();
     let (db, request) = (cx.db.clone(), r.clone());
-    fetching(&cx.db, api, &mut allowance, move |fetcher| {
+    fetching(&cx.db, api, now, &mut allowance, move |fetcher| {
         let mut last = 0;
         let mut none = crate::tracker::prices::Unfetched;
         let fetcher: &mut dyn crate::tracker::prices::Fetcher = if unfetched { &mut none } else { fetcher };
@@ -459,7 +462,7 @@ fn owner(target: &str) -> Option<(i64, &'static str)> {
 }
 
 /// Construct the job for the scheduler.
-pub fn job<C: Connect + 'static, T: Transport + 'static>(api: Rc<Option<DataApi<T>>>, venues: C, tmp: PathBuf) -> Box<dyn Job> {
+pub fn job<C: Connect + 'static, T: Transport + 'static>(api: Rc<Option<Feed<T>>>, venues: C, tmp: PathBuf) -> Box<dyn Job> {
     Box::new(TaxReport { api, ecb: venues.ecb(), venues, tmp })
 }
 

@@ -418,14 +418,17 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     let rates = std::sync::Arc::new(jobs::data_api::RateCache::default());
     let api = jobs::data_api::config(env, &own.primary, &cipher)?.map(|config| jobs::data_api::DataApi::live(config).with_rates(rates.clone()));
     let api = std::rc::Rc::new(api);
+    // The tracker's and the tax report's feed (jobs::market): each run rebuilds it from the configuration (resolve::configured).
+    let settings = deltabadger::market_data::read(&own.primary, &cipher, &deltabadger::market_data::Env::read(env))?;
+    let feed = std::rc::Rc::new(jobs::market::Feed::live(&settings, rates.clone()));
     let mut registered = jobs::reference::shared_jobs(api.clone());
     // Setup::SeedAndSyncJob, which a platform claim on /setup wakes: it reads the data-api configuration the claim wrote.
     registered.push(Box::new(jobs::setup_sync::SeedAndSync::new(env, jobs::data_api::DataApi::live)));
     // AppUpdate::CheckJob: the latest release for the Settings row; nothing is asked on the desktop or once opted out.
     registered.push(jobs::app_update::job(env));
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
-    registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
-    registered.push(deltabadger::tax::job::job(api.clone(), LiveFactory::new(), deltabadger::tax::job::tmp_dir(env)));
+    registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), feed.clone(), deltabadger::tracker::jobs::system_wall())?);
+    registered.push(deltabadger::tax::job::job(feed, LiveFactory::new(), deltabadger::tax::job::tmp_dir(env)));
     registered.push(Box::new(deltabadger::sync::binance_repair::HistoryRepair::new(LiveFactory::new())));
     registered.push(Box::new(deltabadger::identity::Discovery { venues: LiveFactory::new() }));
     // The self-hosted catalogue (Ibkr plan R2): the bundle at every start, the public snapshot daily.

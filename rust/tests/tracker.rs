@@ -6,6 +6,7 @@ use common::seed;
 use deltabadger::crypto::Credentials;
 use deltabadger::engine::Clock;
 use deltabadger::jobs::data_api::DataApi;
+use deltabadger::jobs::market::Feed;
 use deltabadger::jobs::schedule::Schedule;
 use deltabadger::jobs::{state, Job, Scheduler};
 use deltabadger::sync::balances::NoPrices;
@@ -72,7 +73,7 @@ fn script_with(bars: Vec<Value>) -> Value {
 fn jobs(dir: &Path, venue: &Scripted, clock: TokioClock) -> Vec<Box<dyn Job>> {
     let c = Connection::open(dir.join("production.sqlite3")).unwrap();
     let mut jobs = sync_jobs::register(&c, venue, Rc::new(NoPrices)).unwrap();
-    jobs.extend(tracker_jobs::register(&c, venue, Rc::new(None::<DataApi<ScriptedTransport>>), std::sync::Arc::new(move || clock.now())).unwrap());
+    jobs.extend(tracker_jobs::register(&c, venue, Rc::new(None::<Feed<ScriptedTransport>>), std::sync::Arc::new(move || clock.now())).unwrap());
     jobs
 }
 
@@ -210,7 +211,7 @@ async fn many_held_symbols_record_in_linear_work_or_are_refused_before_the_write
     let walls = std::sync::Arc::new(AtomicUsize::new(0));
     let w = walls.clone();
     let wall: deltabadger::tracker::jobs::Wall = std::sync::Arc::new(move || { w.fetch_add(1, Ordering::SeqCst); at });
-    let api = None::<&DataApi<ScriptedTransport>>;
+    let api = None::<&Feed<ScriptedTransport>>;
     let out = ledger_run(&db, api, None, user, &clock, wall.clone(), &mut Allowance { steps: 1_000_000, stored: 0 }).await;
     assert_eq!(out.err().as_deref(), Some(deltabadger::figures::OVER_BUDGET));
     assert_eq!(walls.load(Ordering::SeqCst), 0, "refused before the write lock");
@@ -253,7 +254,7 @@ async fn many_loss_symbols_arm_their_locks_in_one_read_of_the_tickers() {
     let db = deltabadger::jobs::Db::new(counted, seed::cipher());
     let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
     let mut run = Allowance::run();
-    let walked = ledger_run(&db, None::<&DataApi<ScriptedTransport>>, None, user, &deltabadger::engine::FixedClock(at), std::sync::Arc::new(move || at), &mut run).await.unwrap();
+    let walked = ledger_run(&db, None::<&Feed<ScriptedTransport>>, None, user, &deltabadger::engine::FixedClock(at), std::sync::Arc::new(move || at), &mut run).await.unwrap();
     assert_eq!(walked.whole.loss_sales.len(), 3000);
     let locks: i64 = c.query_row("SELECT count(*) FROM wash_sale_locks WHERE source = 'ledger'", [], |r| r.get(0)).unwrap();
     assert_eq!(locks, 3000);
@@ -278,7 +279,7 @@ impl deltabadger::venue::http::Transport for Hooked {
 
 /// The install of `install()` with an airdrop of a coin data-api never prices (each pass asks for it twice: the
 /// prefetch's range, then the day's window), and a data-api that calls `hook` with each request's number.
-fn hooked_install(hook: impl Fn(&Path, usize) + 'static) -> (tempfile::TempDir, i64, Hooked, DataApi<Hooked>) {
+fn hooked_install(hook: impl Fn(&Path, usize) + 'static) -> (tempfile::TempDir, i64, Hooked, Feed<Hooked>) {
     let (dir, user, key) = install();
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
     c.execute_batch(&format!("INSERT OR IGNORE INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('bitcoin', 'BTC', 'Bitcoin', 'Cryptocurrency', '2026-01-01', '2026-01-01');
@@ -287,7 +288,7 @@ fn hooked_install(hook: impl Fn(&Path, usize) + 'static) -> (tempfile::TempDir, 
     let inner = ScriptedTransport::from_script(&json!({ "GET /api/v1/historical_prices": [ok(json!({ "prices": [] }))] }));
     let path = dir.path().to_path_buf();
     let hooked = Hooked { inner, hook: Rc::new(move |n| hook(&path, n)), seen: Rc::new(std::cell::Cell::new(0)) };
-    let api = DataApi::new(deltabadger::jobs::data_api::Config { url: "http://data-api:3000".into(), token: "t".into() }, hooked.clone(), hooked.clone());
+    let api = Feed::DataApi(DataApi::new(deltabadger::jobs::data_api::Config { url: "http://data-api:3000".into(), token: "t".into() }, hooked.clone(), hooked.clone()));
     (dir, user, hooked, api)
 }
 
@@ -296,7 +297,7 @@ fn edit_deposit(dir: &Path, amount: &str, stamp: &str) {
         .execute("UPDATE account_transactions SET base_amount = ?1, updated_at = ?2 WHERE tx_id = 'd-1'", [amount, stamp]).unwrap();
 }
 
-async fn run_ledger(dir: &Path, user: i64, api: &DataApi<Hooked>) -> Result<deltabadger::tracker::walk::Walked, String> {
+async fn run_ledger(dir: &Path, user: i64, api: &Feed<Hooked>) -> Result<deltabadger::tracker::walk::Walked, String> {
     use deltabadger::tracker::jobs::{ledger_run, Allowance};
     let db = deltabadger::jobs::Db::new(Connection::open(dir.join("production.sqlite3")).unwrap(), seed::cipher());
     let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
@@ -387,7 +388,7 @@ async fn a_two_venue_history_is_rewritten_under_each_venue_and_rolled_back_whole
           SELECT {user}, id, '2026-09-20', 7, 7, 0, '2026-09-20 02:00:00', '2026-09-20 02:00:00' FROM exchanges;")).unwrap();
     let db = deltabadger::jobs::Db::new(Connection::open(&path).unwrap(), seed::cipher());
     let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
-    let sweep = || async { backfill_run(&db, &Scripted(ScriptedTransport::from_script(&script())), None::<&DataApi<ScriptedTransport>>, None, user, &deltabadger::engine::FixedClock(at)).await };
+    let sweep = || async { backfill_run(&db, &Scripted(ScriptedTransport::from_script(&script())), None::<&Feed<ScriptedTransport>>, None, user, &deltabadger::engine::FixedClock(at)).await };
     let binance = |c: &Connection| -> (String, i64, i64) { c.query_row("SELECT min(date), count(*), sum(date = '2026-09-20' AND value_usd = 7) FROM portfolio_venue_snapshots v JOIN exchanges e ON e.id = v.exchange_id WHERE e.type = 'Exchanges::Binance'", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap() };
     assert_eq!(sweep().await, Ok(true));
     assert_eq!(binance(&c), ("2026-09-05".to_string(), 16, 1), "5 to 19 September, and today's row kept");
