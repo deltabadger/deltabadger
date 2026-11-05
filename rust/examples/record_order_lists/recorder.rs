@@ -183,13 +183,14 @@ const KEEP: &[&str] = &[
     "status", "state", "side", "type", "ordertype", "ordtype", "symbol", "pair", "market", "productid", "producttype", "instid",
     "coin", "timeinforce", "tif", "force", "count", "total", "totalnum", "totalpage", "currentpage", "pagesize", "page",
     "pageindex", "limit", "hasnext", "exchange", "selftradeprevention", "stp", "feecurrency", "feeasset", "commissionasset",
-    "ordersource", "enterpointsource", "source", "oflags", "triggertype", "tpsltype", "liquidity",
+    "ordersource", "enterpointsource", "source", "oflags", "triggertype", "tpsltype", "liquidity", "assetclass",
+    "positionintent",
 ];
 /// The exact time field names shifted (r1.1); a value that is not a time is replaced instead.
 const TIME: &[&str] = &[
     "opentm", "closetm", "starttm", "expiretm", "time", "updatetime", "workingtime", "transacttime", "timestamp", "timestampms",
     "statustimestamp", "ctime", "utime", "created", "updated", "createdat", "updatedat", "submittedat", "filledat", "expiredat",
-    "canceledat", "failedat", "replacedat", "createdtime", "updatedtime", "lastupdatetimestamp", "ordercreatetime",
+    "canceledat", "failedat", "replacedat", "expiresat", "createdtime", "updatedtime", "lastupdatetimestamp", "ordercreatetime",
     "orderupdatetime", "lastupdatedat", "createtime", "requesttime",
 ];
 
