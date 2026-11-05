@@ -2585,14 +2585,32 @@ mod custom_allocation {
         follow_refused_unchanged(&f, "nasdaq-100", "Wait for the pending swap or sale to finish.")
     }
 
-    /// D-IDX-COINGECKO: on a CoinGecko install this engine derives no index, so the switch Rails would make is refused.
+    /// D-IDX-COINGECKO: on a CoinGecko install with no key (no provider at all) this engine ranks no index, so the switch
+    /// Rails would make is refused.
     #[test]
-    fn a_coingecko_install_refuses_a_follow() -> Result {
+    fn a_coingecko_install_without_a_key_refuses_a_follow() -> Result {
         let f = Fixture::new()?;
         as_basket(&f)?;
         f.c.execute("UPDATE indices SET source='coingecko'", [])?;
         deltabadger::app_config::set_plain(&f.c, "market_data_provider", "coingecko", harness::at(NOW)).map_err(|e| format!("{e:?}"))?;
         follow_refused_unchanged(&f, "nasdaq-100", "This app can't run that yet: an index bot whose market data comes from CoinGecko")
+    }
+
+    /// A17-4: with a CoinGecko key the switch is made (the engine holds the bot until CoinGecko ranks the category).
+    #[test]
+    fn a_coingecko_install_with_a_key_follows() -> Result {
+        let f = Fixture::new()?;
+        as_basket(&f)?;
+        f.c.execute("UPDATE indices SET source='coingecko'", [])?;
+        f.c.execute("DELETE FROM app_configs WHERE key IN ('market_data_url','market_data_token')", [])?;
+        for (key, value) in [("market_data_provider", "coingecko"), ("coingecko_api_key", "CG-test-key")] {
+            deltabadger::app_config::set_plain(&f.c, key, value, harness::at(NOW)).map_err(|e| format!("{e:?}"))?;
+        }
+        assert!(matches!(follow(&f, "nasdaq-100")?, Switched::Done));
+        let (class, settings, transient) = f.row()?;
+        assert_eq!((class.as_str(), &settings["index_category_id"]), ("Bots::DcaIndex", &json!("nasdaq-100")));
+        assert!(transient.get(deltabadger::engine::index::RESYNC_KEY).is_some(), "the engine derives it once ranked");
+        Ok(())
     }
 
     /// An index bot is not offered the index it follows; a selling portfolio may not follow one.

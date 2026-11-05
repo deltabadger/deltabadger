@@ -1,6 +1,6 @@
 //! Bots::DcaIndex's composition, derived on every tick before anything is sized (Bots::DcaIndex#execute_action,
 //! dca_index.rb:126-143; IndexAllocatable#derive_composition, index_allocatable.rb:61-123) from the data-api `indices` row
-//! (MarketData.get_top_coins, market_data.rb:117-143), and written as Rails writes it (basket::write_members). The buy leg is
+//! (MarketData.get_top_coins, market_data.rb:117-143) as this engine ranked it (`ranked_row`), and written as Rails writes it (basket::write_members). The buy leg is
 //! the basket's (tick::buy). It never sells: a member that leaves is only marked out of the index.
 use crate::venue::Attributed;
 use super::model::{self, Bot, Ticker};
@@ -77,22 +77,91 @@ fn to_f(v: Option<&Value>) -> f64 {
     match v { Some(Value::Number(n)) => n.as_f64().unwrap_or(0.0), Some(Value::String(s)) => s.trim().parse().unwrap_or(0.0), _ => 0.0 }
 }
 
+/// The `indices` row an index bot following `external_id` reads (D-INDEX-UNATTESTED-HELD, D-INDEX-NEWEST-RANKING): among
+/// the rows with that id ranked in `rust_index_rankings` by the current provider (provider::ranking_provider) under the
+/// current configuration (provider::fingerprint), the newest `ranked_at`, then the lowest id. A row with no ranking, or
+/// another provider's or configuration's, is never selected.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Ranked { pub id: i64, pub source: Option<String>, pub top_coins: Option<String>, pub weights: Option<String>, pub provider: String, pub ranked_at: String }
+
+pub fn ranked_row(c: &Connection, external_id: &str) -> Result<Option<Ranked>, EngineError> {
+    let Some(provider) = super::provider::ranking_provider(c)? else { return Ok(None) };
+    let Some(fingerprint) = super::provider::fingerprint(c)? else { return Ok(None) };
+    Ok(c.query_row("SELECT i.id, i.source, i.top_coins, i.weights, r.provider, r.ranked_at FROM indices i JOIN rust_index_rankings r ON r.index_id = i.id \
+                    WHERE i.external_id = ?1 AND r.provider = ?2 AND r.fingerprint = ?3 ORDER BY r.ranked_at DESC, i.id LIMIT 1",
+        params![external_id, provider, fingerprint],
+        |r| Ok(Ranked { id: r.get(0)?, source: r.get(1)?, top_coins: r.get(2)?, weights: r.get(3)?, provider: r.get(4)?, ranked_at: r.get(5)? })).optional()?)
+}
+
+/// `ranked_at` as every writer stores it (fixed width, so the text orders as the time).
+pub fn ranked_at_text(at: chrono::DateTime<chrono::Utc>) -> String { at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true) }
+
+/// Attests `index_id` as ranked by `provider` under `fingerprint` at `at`, in the caller's write unit (the same one that
+/// writes the row's `top_coins`/`weights`).
+pub fn record_ranking(c: &Connection, index_id: i64, provider: &str, fingerprint: &str, at: chrono::DateTime<chrono::Utc>) -> Result<(), EngineError> {
+    c.execute("INSERT INTO rust_index_rankings (index_id, provider, fingerprint, ranked_at) VALUES (?1, ?2, ?3, ?4) \
+               ON CONFLICT(index_id) DO UPDATE SET provider = excluded.provider, fingerprint = excluded.fingerprint, ranked_at = excluded.ranked_at",
+        params![index_id, provider, fingerprint, ranked_at_text(at)])?;
+    Ok(())
+}
+
+/// May compose (D-INDEX-FRESH-PER-ROW): ranked within `staleness::bound_secs(24)` (49 h) of `now`. Unreadable is not usable.
+pub fn usable(r: &Ranked, now: chrono::DateTime<chrono::Utc>) -> bool {
+    crate::codec::parse_time(&r.ranked_at).is_ok_and(|at| (now - at).num_seconds() <= super::staleness::bound_secs(24))
+}
+
+/// The INDICES job's slot at `now`: its schedule's latest fire (daily 10:30 UTC).
+pub fn ranking_slot(now: chrono::DateTime<chrono::Utc>) -> chrono::DateTime<chrono::Utc> {
+    crate::jobs::reference::specs().into_iter().find(|s| s.name == crate::jobs::reference::INDICES)
+        .and_then(|s| s.schedule).map_or(now, |s| s.last_fire(now))
+}
+
+/// The bot needs a refresh of the ranking it follows: an index bot whose followed id has no usable ranking (absent,
+/// unattested, another configuration's, or past 49 h).
+pub fn ranking_wanted(c: &Connection, bot: &Bot, now: chrono::DateTime<chrono::Utc>) -> Result<bool, EngineError> {
+    if bot.bot_type != "Bots::DcaIndex" { return Ok(false); }
+    Ok(!ranked_row(c, bot.index_external_id())?.is_some_and(|r| usable(&r, now)))
+}
+
+/// What `EngineEvent::RankingMissing` is deduped on, per process: (external id, fingerprint, slot).
+pub type WakeKey = (String, String, i64);
+
+/// The followed id to wake the INDICES job for, once per (external id, fingerprint, slot) in `sent`; None when the bot
+/// wants nothing or was already announced in this slot under this configuration. Older slots' keys are dropped.
+pub fn ranking_wake(c: &Connection, bot: &Bot, now: chrono::DateTime<chrono::Utc>, sent: &mut HashSet<WakeKey>) -> Result<Option<String>, EngineError> {
+    if !ranking_wanted(c, bot, now)? { return Ok(None); }
+    let slot = ranking_slot(now).timestamp();
+    sent.retain(|k| k.2 == slot);
+    let id = bot.index_external_id().to_string();
+    let key = (id.clone(), super::provider::fingerprint(c)?.unwrap_or_default(), slot);
+    Ok(sent.insert(key).then_some(id))
+}
+
 /// The asset classifier owns taxonomy, including overrides for legacy catalogue rows.
 pub use crate::asset_taxonomy::stablecoin;
 
 /// MarketData.get_top_coins' data-api branch: the ranked ids with the asset's market_cap, else the index's published weight;
-/// a coin with neither, or with no local asset, is skipped.
-fn top_coins(c: &Connection, ids: &[String], weights: &Map<String, Value>) -> Result<Vec<(String, f64)>, EngineError> {
+/// a coin with neither, or with no local asset, is skipped. On a `coingecko` ranking (`own_caps`) the ranking's own caps
+/// only, as Rails' live answer weighs (`coin['market_cap'].to_f`, index_allocatable.rb:108): `weights[id]` with to_f
+/// (missing or null: 0.0), never the asset's cap, never skipped for zero. Stablecoins and ids without a local asset are
+/// skipped on both. Ok(None): a negative or non-finite cap (D-CG-INVALID-CAP-HELD; its writer never stores one).
+fn top_coins(c: &Connection, ids: &[String], weights: &Map<String, Value>, own_caps: bool) -> Result<Option<Vec<(String, f64)>>, EngineError> {
     let mut out = vec![];
     for id in ids {
         let asset: Option<(Option<f64>, Option<String>)> = c.query_row("SELECT market_cap, category FROM assets WHERE external_id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
         let Some((cap, category)) = asset else { continue };
         if stablecoin(category.as_deref(), id) { continue; }
+        if own_caps {
+            let value = to_f(weights.get(id));
+            if !value.is_finite() || value < 0.0 { return Ok(None); }
+            out.push((id.clone(), value));
+            continue;
+        }
         let mut value = cap.unwrap_or(0.0);
         if value <= 0.0 { value = to_f(weights.get(id)); }
         if value > 0.0 { out.push((id.clone(), value)); }
     }
-    Ok(out)
+    Ok(Some(out))
 }
 
 /// Ticker#priced?(side) through Rails' 5 s price cache (Exchange#get_*_price fills it), so Step 1's read of a newcomer reuses
@@ -181,11 +250,9 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     let provider_before = super::provider::fingerprint(c)?;
     if provider_before.is_none() { return Ok(Err(Refusal::Failure("Index provider not configured".into()))); }
     let category = bot.index_external_id();
-    let row: Option<(Option<String>, Option<String>, Option<String>)> = c.query_row(
-        "SELECT source, top_coins, weights FROM indices WHERE external_id = ?1 ORDER BY id LIMIT 1", [category],
-        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
-    let source_before = row.clone();
-    let Some((source, top, weights)) = row else { return Ok(Err(Refusal::Failure("Index not found".into()))) };
+    let Some(source_before) = ranked_row(c, category)? else { return Ok(Err(Refusal::Failure("Index not found".into()))) };
+    let own_caps = source_before.provider == "coingecko";
+    let Ranked { source, top_coins: top, weights, .. } = source_before.clone();
     let top: Vec<String> = top.and_then(|t| serde_json::from_str::<Vec<Value>>(&t).ok()).unwrap_or_default()
         .into_iter().filter_map(|v| v.as_str().map(str::to_string)).collect();
     let weights: Map<String, Value> = weights.and_then(|w| serde_json::from_str::<Value>(&w).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default();
@@ -194,7 +261,7 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     let bounded = (source.as_deref() == Some("deltabadger") && !top.is_empty()).then_some(top.len() as i64);
     let n = match bounded { Some(b) if bot.hold_all() => b, _ => bot.num_coins().unwrap_or(0) };
     if n > 1000 || top.len() > 1000 { return Ok(Err(Refusal::Failure("index exceeds 1000 members".into()))); }
-    let ranked = top_coins(c, &top, &weights)?;
+    let Some(ranked) = top_coins(c, &top, &weights, own_caps)? else { return Ok(Err(Refusal::Failure("index ranking holds an invalid market cap".into()))) };
 
     // The candidates: available, trading-enabled tickers at the bot's quote, by their base asset's external id (index_by: the
     // last one wins).
@@ -244,10 +311,8 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
         if run_owned { model::require_run(tx, bot)?; }
         else if matches!(model::load_bot(tx, bot.id)?.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) { return Err(EngineError::RunFenced); }
         let current = model::load_bot(tx, bot.id)?;
-        let source_now: Option<(Option<String>, Option<String>, Option<String>)> = tx.query_row(
-            "SELECT source, top_coins, weights FROM indices WHERE external_id=?1 ORDER BY id LIMIT 1", [category],
-            |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
-        let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != before || source_now != source_before || super::provider::fingerprint(tx)? != provider_before
+        let source_now = ranked_row(tx, category)?;
+        let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != before || source_now.as_ref() != Some(&source_before) || super::provider::fingerprint(tx)? != provider_before
             || super::provider::stale(tx, &current)?.is_some();
         for ticker in &priced_tickers { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
         if changed { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
@@ -277,9 +342,8 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
 /// The pairs an index bot's tick may price: every available, trading-enabled ticker at its quote whose asset the index ranks
 /// (incumbents at Step 1, newcomers at their probe). For a parity copy (parity::plan_copy).
 pub fn candidate_pairs(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
-    let top: Option<Option<String>> = c.query_row("SELECT top_coins FROM indices WHERE external_id = ?1 ORDER BY id LIMIT 1",
-        [bot.index_external_id()], |r| r.get(0)).optional()?;
-    let top = top.flatten().filter(|t| t.trim_start().starts_with('[')).unwrap_or_else(|| "[]".into());
+    let top = ranked_row(c, bot.index_external_id())?.and_then(|r| r.top_coins);
+    let top = top.filter(|t| t.trim_start().starts_with('[')).unwrap_or_else(|| "[]".into());
     let mut s = c.prepare("SELECT t.ticker FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 AND t.quote_asset_id = ?2 \
                            AND t.available = 1 AND t.trading_enabled = 1 AND a.external_id IN (SELECT value FROM json_each(?3)) ORDER BY t.id")?;
     let pairs = s.query_map(params![bot.exchange_id, bot.quote_asset_id(), top], |r| r.get(0))?.collect::<Result<Vec<String>, _>>()?;

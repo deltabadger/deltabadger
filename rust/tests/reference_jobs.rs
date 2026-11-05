@@ -1056,6 +1056,9 @@ async fn self_hosted_top_coins_refreshes_and_expires_without_forcing_trades() {
     let bot = model::load_bot(&c,id).unwrap();
     assert!(deltabadger::engine::eligibility::bot_reasons(&c,&bot).unwrap().is_empty(),"the refreshed direct-provider bot is admitted");
     assert!(provider::stale(&c,&bot).unwrap().is_none());
+    // ponytail: the Top Coins writer's own ranking row is A17-4's jobs half; until it lands, attested here as it will write it.
+    let top: i64 = one(&c,"SELECT id FROM indices WHERE external_id='top-coins'");
+    index::record_ranking(&c,top,"coingecko",&provider::fingerprint(&c).unwrap().unwrap(),now).unwrap();
     assert!(staleness::stale(&c,&bot,now).unwrap().is_none());
     seed::insert_index(&c,"unrelated-category",&["bitcoin"],&json!({}));
     assert!(staleness::stale(&c,&bot,now+chrono::Duration::hours(50)).unwrap().is_some(),"another index cannot hide an old Top Coins ranking");

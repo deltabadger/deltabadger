@@ -211,7 +211,9 @@ pub(crate) fn offered(c: &Connection, ctx: &Ctx, id: i64) -> Result<Vec<wizard::
 ///
 /// D-IDX-FOLLOW-LATE: Rails derives the new members in the request (market data and venue probes for newcomers); this build
 /// leaves the engine a resync marker, and the engine derives them once woken (engine::run::resync_bot).
-/// D-IDX-COINGECKO: where this engine cannot derive (or run) the index bot, Rails switches and this build refuses, writing nothing.
+/// D-IDX-COINGECKO: where this engine cannot derive (or run) the index bot (an install with no provider: neither data-api
+/// nor a CoinGecko key), Rails switches and this build refuses, writing nothing. On a CoinGecko key it switches, and the
+/// engine holds the bot until CoinGecko ranks the new index (staleness::ranking_stale).
 pub fn follow(c: &Connection, ctx: &Ctx, owner: i64, id: i64, category: Option<&str>) -> Result<Switched, WebError> {
     match follow_inner(c, ctx, owner, id, category) {
         Err(e) if super::unreadable(&e) => Ok(Switched::Unported("a bot beyond the supported history, member or numeric bounds")),
@@ -239,7 +241,7 @@ fn follow_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, category: Option
     let Some(draft) = draft::Draft::load(&tx, owner, id, ctx.locale)? else { return Ok(Switched::Missing) };
     let source = draft.original.clone();
     if let Some(reason) = source.unrendered() { return Ok(Switched::Unported(reason)); }
-    if let Some(reason) = wizard::index::refusal(&tx, &ctx.app, &index.external_id, &source.exchange.class)? { return Ok(Switched::Refused(write_refused(ctx.locale, reason))); }
+    if let Some(reason) = wizard::index::refusal(&tx, &ctx.app, &source.exchange.class)? { return Ok(Switched::Refused(write_refused(ctx.locale, reason))); }
     let switched = switch(&tx, ctx, owner, id, &draft, source, (&from, TO, super::Kind::Index, STORED_DCA_INDEX), |c, settings| {
         // Index#bot_settings, then the size: `num_coins = bounded_universe_size || 10`, `hold_all = size.present?`.
         let top = index.external_id == "top-coins";

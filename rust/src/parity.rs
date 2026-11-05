@@ -264,6 +264,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
             })?;
         }
     }
+    if index_bot { rank_fixture_indices(&o.primary, start)?; }
     // The recorder explicitly seeded this prior failure with the scratch account's key.
     // Unknown live rows receive no inferred producer and are stale.
     if scenario["parity_scratch"] == true {
@@ -1018,11 +1019,30 @@ fn add_stock_bodies(c: &Connection, bot: &crate::engine::model::Bot, script: &mu
 /// D-IDX-FOLLOW-LATE in the page grid (tests/pages.rs): what the woken engine does for every index bot left a resync marker
 /// (engine::run::resync_bot at `now`), over a venue that must not be asked: the grid's switches seat only incumbents, which
 /// no price probe decides.
+/// Rails' rows carry no ranking (D-INDEX-UNATTESTED-HELD). A recorded scenario compares composition, so every row of the
+/// fixture is taken as ranked by its provider at `now`, as this engine's own pull would leave it; the table is made where the
+/// copy has none (Rails built it), recorded as applied so a later migrate of the copy skips it. The page grid runs it before
+/// a resync step's snapshot, so the ranking is the fixture's, not the step's write.
+pub fn rank_fixture_indices(c: &Connection, now: DateTime<Utc>) -> Result<(), EngineError> {
+    let table: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_index_rankings')", [], |r| r.get(0))?;
+    if !table {
+        c.execute_batch(include_str!("../migrations/20261111000001_rust_index_rankings.sql"))?;
+        c.execute_batch("CREATE TABLE IF NOT EXISTS rust_schema_migrations (version TEXT NOT NULL PRIMARY KEY, applied_at TEXT NOT NULL); \
+                         INSERT OR IGNORE INTO rust_schema_migrations (version, applied_at) VALUES ('20261111000001', '2026-11-05 00:00:00')")?;
+    }
+    if let (Some(provider), Some(hash)) = (crate::engine::provider::ranking_provider(c)?, crate::engine::provider::fingerprint(c)?) {
+        let ids = c.prepare("SELECT id FROM indices ORDER BY id")?.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+        for id in ids { crate::engine::index::record_ranking(c, id, provider, &hash, now)?; }
+    }
+    Ok(())
+}
+
 pub async fn resync_marked(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<(), EngineError> {
     // As `serve` opens the engine's connection: the install's market-data provider readable.
     crate::engine::provider::bind(c, cipher, &|_| None)?;
     // A Rails fixture's stored ranking is its provider's complete answer: the refresh fence holds, as on the order grid.
     if let Some(hash) = crate::engine::provider::fingerprint(c)? { crate::engine::provider::record(c, &hash, now)?; }
+    rank_fixture_indices(c, now)?;
     let (prices, mut state) = (PriceCache::default(), crate::engine::run::Resyncs::default());
     for (id, marker) in crate::engine::index::resync_marked(c)? {
         let venue = crate::venue::fake::FakeVenue::new().on_price(|| panic!("a page-grid resync probed a newcomer's price"));
