@@ -623,32 +623,51 @@ async fn an_unresolved_split_of_an_old_commitments_asset_stands_the_tick_down() 
     assert_eq!(events(&f), ["dca_skipped_restatement"]);
 }
 
-/// After a successful begin and before the send's dispatch lock: once the intent exists, `hook` runs (once) and the clock
-/// reads `late`.
-struct AfterBegin { db: std::path::PathBuf, bot: i64, late: DateTime<Utc>, hook: String, ran: std::cell::Cell<bool> }
+/// After a successful begin: once the intent exists, the clock reads `late` (a stored future-dated split comes into effect
+/// between the begin and the send's dispatch lock).
+struct AfterBegin { db: std::path::PathBuf, bot: i64, late: DateTime<Utc> }
 impl Clock for AfterBegin {
     fn now(&self) -> DateTime<Utc> {
-        let c = rusqlite::Connection::open(&self.db).unwrap();
-        let begun: bool = c.query_row("SELECT json_type(transient_data, '$.rust_placement') IS NOT NULL FROM bots WHERE id = ?1", [self.bot], |r| r.get(0)).unwrap();
-        if !begun { return at(NOW); }
-        if !self.ran.get() { self.ran.set(true); c.execute_batch(&self.hook).unwrap(); }
-        self.late
+        let begun: bool = rusqlite::Connection::open(&self.db).unwrap()
+            .query_row("SELECT json_type(transient_data, '$.rust_placement') IS NOT NULL FROM bots WHERE id = ?1", [self.bot], |r| r.get(0)).unwrap();
+        if begun { self.late } else { at(NOW) }
     }
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_split_between_the_begin_and_the_dispatch_sends_nothing() {
-    for (hook, future) in [(REVERSE_LATE, false), ("", true)] {
-        let f = seller(json!(10));
-        if future { f.split("AAPL", "2026-09-10 14:00:00.700000", Some("1:10")); }
-        let t = script(holding("AAPL", "32"));
-        let clock = AfterBegin { db: f.c().path().unwrap().into(), bot: f.id, late: at("2026-09-10T14:00:01Z"), hook: hook.into(), ran: false.into() };
-        tick_with(&f, t.clone(), &clock).await;
-        assert!(t.posted_orders().is_empty(), "future {future}: nothing dispatched");
-        assert!(f.bot().rust_placement().is_none(), "future {future}: the intent cleared as not placed");
-        tick_with(&f, t.clone(), &FixedClock(at("2026-09-17T14:00:00.5Z"))).await;
-        assert_eq!(sold(&t), ["1.000000000"], "future {future}: the retry sizes on the restated cap");
-    }
+async fn a_split_coming_into_effect_between_the_begin_and_the_dispatch_sends_nothing() {
+    let f = seller(json!(10));
+    f.split("AAPL", "2026-09-10 14:00:00.700000", Some("1:10"));
+    let t = script(holding("AAPL", "32"));
+    let clock = AfterBegin { db: f.c().path().unwrap().into(), bot: f.id, late: at("2026-09-10T14:00:01Z") };
+    tick_with(&f, t.clone(), &clock).await;
+    assert!(t.posted_orders().is_empty(), "begun at 10, dispatched after 10 old shares became 1: nothing sent");
+    assert!(f.bot().rust_placement().is_none(), "the intent cleared as not placed");
+    tick_with(&f, t.clone(), &FixedClock(at("2026-09-17T14:00:00.5Z"))).await;
+    assert_eq!(sold(&t), ["1.000000000"], "the retry sizes on the restated cap");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_split_stored_between_the_begin_and_the_dispatch_sends_nothing() {
+    use deltabadger::engine::{amount, placement, venue_rules::ALPACA};
+    let f = seller(json!(10));
+    let c = f.c();
+    seed::fresh_stock_jobs(c, at(NOW));
+    // Claimed by a tick, as the engine sizes it: a sale of the whole cap, 10 shares.
+    c.execute("UPDATE bots SET status = 4 WHERE id = ?1", [f.id]).unwrap();
+    let bot = f.bot();
+    let ticker = model::ticker_for_asset(c, &bot, f.aapl).unwrap().unwrap();
+    let (plan, _) = amount::size_order(&ticker, deltabadger::venue::Side::Sell, &dec("187.4"), &dec("10"), &dec("1874"), ALPACA.minimum_logic, amount::TxKind::Regular).unwrap();
+    let composition = placement::composition_snapshot(c, &bot).unwrap();
+    let reconciled = splits::snapshot(c, &bot, at(NOW)).unwrap();
+    let version = model::credential_version(c, &bot).unwrap();
+    let placement::Begun::Intent(intent) = placement::begin_with_credentials(c, &bot, &plan, &[&ticker], &composition, &reconciled, &version, None, false, None, &FixedClock(at(NOW))).unwrap()
+        else { panic!("begun") };
+    c.execute_batch(REVERSE_LATE).unwrap();
+    let t = script(holding("AAPL", "32"));
+    let sent = placement::send(c, &venue(t.clone()), &intent, &FixedClock(at(NOW))).await.unwrap();
+    assert!(matches!(sent, placement::Sent::NotSent(_)), "{sent:?}");
+    assert!(t.posted_orders().is_empty(), "the 1:10 stored after the begin: nothing sent");
 }
 
 // ---- 11: the surfaces agree ----

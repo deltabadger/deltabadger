@@ -604,8 +604,6 @@ pub async fn send<V: Venue>(c: &Connection, venue: &V, intent: &Intent, clock: &
         if dispatched { return Ok(Sent::Ambiguous(format!("{}; previous dispatch remains unresolved", error.message()))); }
         return Ok(Sent::NotSent(error.message()));
     }
-    // The dispatch time the base cap's splits are re-read at (A14b), taken before the write lock.
-    let dispatch_at = clock.now();
     {
         let tx = model::immediate(c)?;
         if !intent_owned(&tx, intent)? || !still_pending(&tx, intent.bot_id, &intent.cl_ord_id)? {
@@ -621,10 +619,10 @@ pub async fn send<V: Venue>(c: &Connection, venue: &V, intent: &Intent, clock: &
             return Ok(Sent::Fenced);
         }
         model::check_credential_result(&tx, &intent.credential_version)?;
-        // A14b: the base cap's splits as sized. A split stored, or come into effect, since then: nothing is sent, and the
-        // not-placed path clears the intent; the retry sizes on the restated cap.
+        // A14b: the base cap's splits as sized, re-read under this lock at its own time. A split stored, or come into effect,
+        // since then: nothing is sent, and the not-placed path clears the intent; the retry sizes on the restated cap.
         if let Some(cap) = &intent.cap {
-            if super::splits::cap_dependencies(&tx, &model::load_bot(&tx, intent.bot_id)?, dispatch_at)? != *cap {
+            if super::splits::cap_dependencies(&tx, &model::load_bot(&tx, intent.bot_id)?, clock.now())? != *cap {
                 super::log(&format!("[engine] bot {}: {} order not sent: its base cap's split rows changed after it was sized", intent.bot_id, intent.symbol));
                 return Ok(Sent::NotSent("its base cap's split rows changed after it was sized".into()));
             }
