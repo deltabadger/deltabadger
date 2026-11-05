@@ -762,10 +762,15 @@ pub fn run() {
                         notices::run(&e, &|| !a.open(), &identifier, focus, &log);
                     });
                     let fault = config.fault.clone();
-                    // A Windows installer's outcome (r4.3), before the failure mark is read: a failed one becomes it.
+                    // A Windows installer's outcome (r4.3), before the failure mark is read: a failed one becomes it. Not while
+                    // `.updating` is there: the installer may still be copying (U13), and only the version that starts after
+                    // it can tell; an orphaned mark shows U10, and the attempt waits for the reinstall.
                     let running = app.package_info().version.to_string();
-                    if let Some(line) = update::settle_attempt(&launch.data, &launch.log_dir(), &running, std::time::SystemTime::now()) {
-                        log_line(app.handle(), &line);
+                    let marked = launch.updating.as_deref().is_some_and(|mark| !matches!(mark.try_exists(), Ok(false)));
+                    if !marked {
+                        if let Some(line) = update::settle_attempt(&launch.data, &launch.log_dir(), &running, std::time::SystemTime::now()) {
+                            log_line(app.handle(), &line);
+                        }
                     }
                     let failed_mark = update::read_failed_mark(&launch.log_dir()).map(|kind| {
                         log_line(app.handle(), "desktop: update: the previous quit's install failed");

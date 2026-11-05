@@ -430,7 +430,8 @@ pub fn wait_while_updating(mark: &Path, held: &dyn Fn(&Path) -> bool, quitting: 
                 show(Page::BeingUpdated);
                 shown = true;
             }
-        } else if !mark.exists() {
+        } else if matches!(mark.try_exists(), Ok(false)) {
+            // Only a mark known to be absent starts the engine; one that can't be looked at counts as there.
             return Ok(true);
         } else if orphaned {
             return Err(Page::UpdateUnfinished);
@@ -444,12 +445,13 @@ pub fn wait_while_updating(mark: &Path, held: &dyn Fn(&Path) -> bool, quitting: 
     }
 }
 
-/// The installer has `.updating` open (hooks.nsh keeps its handle until POSTINSTALL): an open without sharing fails with
-/// ERROR_SHARING_VIOLATION. Its handle closes with its process, so a killed installer holds nothing.
+/// The installer has `.updating` open for writing (hooks.nsh keeps its handle until POSTINSTALL): an open that doesn't
+/// share writing fails with ERROR_SHARING_VIOLATION. Its handle closes with its process, so a killed installer holds
+/// nothing. The probe shares deletion (FILE_SHARE_DELETE), so POSTINSTALL's delete never fails because of it.
 #[cfg(windows)]
 fn installer_holds(mark: &Path) -> bool {
     use std::os::windows::fs::OpenOptionsExt;
-    match OpenOptions::new().read(true).share_mode(0).open(mark) {
+    match OpenOptions::new().read(true).share_mode(4).open(mark) {
         Ok(_) => false,
         Err(error) => error.raw_os_error() == Some(32),
     }

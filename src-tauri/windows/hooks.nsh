@@ -17,6 +17,7 @@
 ; desktop.yml check that the release installer has none.
 
 Var DbUpdating
+Var DbOwned
 
 !macro NSIS_HOOK_PREINSTALL
   !if "${BUNDLEID}" == "com.deltabadger.app.test"
@@ -30,10 +31,17 @@ Var DbUpdating
     ${EndIf}
   !endif
 
+  ; A file that can't be written stops the install (NSIS would otherwise offer to skip it, and a skipped engine is a
+  ; mixed pair): the mark then stays, and the next launch shows U10.
+  AllowSkipFiles off
+  ; The mark is ours only if this open made it; without it nothing is copied (and another installer's mark is kept).
+  StrCpy $DbOwned 0
   ClearErrors
   FileOpen $DbUpdating "$INSTDIR\.updating" w
-  ${If} ${Errors}
-    DetailPrint "Deltabadger: could not write $INSTDIR\.updating"
+  ${IfNot} ${Errors}
+    StrCpy $DbOwned 1
+  ${Else}
+    DetailPrint "Deltabadger: could not write $INSTDIR\.updating; nothing is copied"
   ${EndIf}
 
   ; Restart Manager: which processes use the engine's file. A zero-length list answers ERROR_MORE_DATA (234) when any
@@ -54,7 +62,9 @@ Var DbUpdating
     StrCpy $0 "-"
     StrCpy $2 "-"
     StrCpy $4 1
-    ${IfNot} ${FileExists} "$INSTDIR\deltabadger-engine.exe"
+    ${If} $DbOwned != 1
+      ; No mark of ours: refuse, as for an engine in use.
+    ${ElseIfNot} ${FileExists} "$INSTDIR\deltabadger-engine.exe"
       StrCpy $4 0
     ${Else}
       System::Call 'rstrtmgr::RmStartSession(*i .r1, i 0, w .r6) i .r0'
@@ -86,6 +96,7 @@ Var DbUpdating
       FileClose $3
     !endif
     ${If} $4 = 0
+    ${OrIf} $DbOwned != 1
     ${OrIf} $5 >= 5
       ${ExitDo}
     ${EndIf}
@@ -94,8 +105,10 @@ Var DbUpdating
   ${Loop}
 
   ${If} $4 = 1
-    FileClose $DbUpdating
-    Delete "$INSTDIR\.updating"
+    ${If} $DbOwned = 1
+      FileClose $DbUpdating
+      Delete "$INSTDIR\.updating"
+    ${EndIf}
     ; Someone ran this installer by hand while Deltabadger runs: say so (an update's installer runs passive: no box).
     ${IfNot} ${Silent}
     ${AndIf} $PassiveMode != 1

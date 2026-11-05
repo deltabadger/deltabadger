@@ -503,7 +503,11 @@ pub fn read_failed_mark(log_dir: &std::path::Path) -> Option<Kind> {
 /// as after a failed Quit install, r3.6), written before the attempt is deleted. The line to log, if there was one.
 pub fn settle_attempt(data: &std::path::Path, log_dir: &std::path::Path, running: &str, now: std::time::SystemTime) -> Option<String> {
     let path = data.join("updates").join("attempt");
-    let text = std::fs::read_to_string(&path).ok()?;
+    // Only a missing attempt is no attempt: one that can't be read is a failed install.
+    let text = match std::fs::read_to_string(&path) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return None,
+        read => read.unwrap_or_default(),
+    };
     let target = serde_json::from_str::<serde_json::Value>(&text).ok().and_then(|v| v.get("version")?.as_str().map(str::to_string));
     let line = if target.as_deref() == Some(running) {
         let _ = std::fs::remove_file(log_dir.join(FAILED_MARK));
@@ -514,8 +518,11 @@ pub fn settle_attempt(data: &std::path::Path, log_dir: &std::path::Path, running
     } else {
         "desktop: update: the last installer didn't install this version; shown once".to_string()
     };
-    let _ = std::fs::remove_file(&path);
-    Some(line)
+    Some(match std::fs::remove_file(&path) {
+        // ponytail: an attempt that can't be deleted shows U5d again at the next start; a read-only data dir is broken anyway.
+        Err(error) => format!("{line}; could not delete the attempt: {error}"),
+        Ok(()) => line,
+    })
 }
 
 /// A .deb is told about updates, never downloads them (§2.4): the same value the plugin picks its install branch by.

@@ -583,5 +583,11 @@ fn an_attempt_is_settled_by_the_version_that_starts_and_a_failure_is_shown_once(
     std::fs::write(data.join("updates/attempt"), "{").unwrap();
     settle_attempt(&data, &log, "2.0.0", at).unwrap();
     assert_eq!(read_failed_mark(&log), Some(Kind::Install));
+    std::fs::remove_file(log.join(FAILED_MARK)).unwrap();
+    // So is one that isn't text (a read error, not a missing file).
+    std::fs::write(data.join("updates/attempt"), [0xff, 0xfe, 0x00]).unwrap();
+    settle_attempt(&data, &log, "2.0.0", at).unwrap();
+    assert_eq!(read_failed_mark(&log), Some(Kind::Install), "an attempt that isn't text = an install failure");
+    assert!(!data.join("updates/attempt").exists());
     std::fs::remove_dir_all(&dir).unwrap();
 }
