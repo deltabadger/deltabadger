@@ -1564,3 +1564,39 @@ async fn after_a_key_change_a_failed_category_stays_unselected_and_the_retry_ask
     assert_eq!(asked(&t), ["ping", "categories", "storage"]);
     assert_eq!(index_ranked(&reopen(&d), "storage"), Some("coingecko".into()));
 }
+
+/// A client whose categories request lands while the owner follows two categories (the bots committed mid-request).
+struct FollowsDuring(std::path::PathBuf, seed::Seeded, Box<dyn Api>);
+impl Api for FollowsDuring {
+    fn markets<'a>(&'a self, ids: Option<&'a [String]>, category: Option<&'a str>, per_page: usize, page: usize) -> coingecko::Fut<'a> { self.2.markets(ids, category, per_page, page) }
+    fn coin<'a>(&'a self, id: &'a str) -> coingecko::Fut<'a> { self.2.coin(id) }
+    fn exchange_tickers<'a>(&'a self, id: &'a str, page: usize) -> coingecko::Fut<'a> { self.2.exchange_tickers(id, page) }
+    fn categories(&self) -> coingecko::Fut<'_> {
+        let c = Connection::open(&self.0).unwrap();
+        cg_bot(&c, &self.1, "old-category", 2);
+        cg_bot(&c, &self.1, "music", 1);
+        self.2.categories()
+    }
+}
+
+/// D-CG-FOLLOWED-KEPT against a follow committed during the categories request: the sweep and the disqualification read the
+/// followed set in their own transaction, so the swept-to-be row keeps its row and ranking, and the < 3 category is written.
+#[tokio::test(flavor = "current_thread")]
+async fn a_follow_during_the_categories_request_keeps_its_row_and_ranking() {
+    let (d, c, s) = cg_install(&["coin-a", "coin-b"]);
+    let fp = deltabadger::engine::provider::fingerprint(&c).unwrap().unwrap();
+    let old = rails_category_row(&c, "old-category", &["coin-a"]);
+    deltabadger::engine::index::record_ranking(&c, old, "coingecko", &fp, at("2026-09-30T10:31:00Z")).unwrap();
+    let before = ranking(&c, "old-category");
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("music", "M")])).reply(&cat_key("music"), 200, members(&[("coin-a", 3.0), ("coin-b", 2.0)]));
+    let (path, inner) = (d.path().join("production.sqlite3"), cg_clients(&t));
+    let seeded = seed::Seeded { ..s };
+    let clients: Clients = Rc::new(move |k: &str| Box::new(FollowsDuring(path.clone(), seed::Seeded { ..seeded }, inner(k))) as Box<dyn Api>);
+    let c = reopen(&d);
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
+    assert_eq!(reference::coingecko_indices(&clients, &Cx { db: Db::new(c, seed::cipher()), clock: &FixedClock(at(CG_NOW)), wakers: Default::default() }).await, Outcome::Done);
+    let c = reopen(&d);
+    assert_eq!(ranking(&c, "old-category"), before, "not swept: its row and ranking kept");
+    assert_eq!(top_of(&c, "music"), ["coin-a", "coin-b"], "followed since the run began: written, not disqualified");
+}

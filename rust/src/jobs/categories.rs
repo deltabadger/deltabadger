@@ -296,8 +296,10 @@ async fn steps(api: &dyn Api, fingerprint: &str, cx: &Cx<'_>, tally: &mut Tally)
                                                               && present(&c["content"])).collect();
     let eligible_ids: Vec<String> = eligible.iter().filter_map(|c| c["id"].as_str().map(str::to_string)).collect();
     if !eligible_ids.is_empty() {
-        let (keep, spare) = (json!(eligible_ids).to_string(), json!(followed).to_string());
+        let keep = json!(eligible_ids).to_string();
         unit(cx, fingerprint, move |tx| {
+            // The followed set as this transaction sees it: a follow committed during the list request is spared too.
+            let spare = json!(self::followed(tx)?).to_string();
             tx.execute("DELETE FROM indices WHERE source = 'coingecko' AND external_id NOT IN (SELECT value FROM json_each(?1)) \
                         AND external_id NOT IN (SELECT value FROM json_each(?2))", params![keep, spare])?;
             Ok(())
@@ -341,7 +343,10 @@ async fn steps(api: &dyn Api, fingerprint: &str, cx: &Cx<'_>, tally: &mut Tally)
             }
         };
         let (id, followed, fp) = (d.id.clone(), d.followed, fingerprint.to_string());
-        let ranked = unit(cx, fingerprint, move |tx| rank(tx, &id, &rows, followed, entry.as_ref(), &fp, now)).await?;
+        let ranked = unit(cx, fingerprint, move |tx| {
+            let followed = followed || self::followed(tx)?.contains(&id); // followed since the run began
+            rank(tx, &id, &rows, followed, entry.as_ref(), &fp, now)
+        }).await?;
         match ranked {
             Ranked::Written => tally.done = true,
             Ranked::Disqualified => disqualified.push(d.id.clone()),
@@ -354,7 +359,9 @@ async fn steps(api: &dyn Api, fingerprint: &str, cx: &Cx<'_>, tally: &mut Tally)
     if !disqualified.is_empty() {
         let ids = json!(disqualified).to_string();
         unit(cx, fingerprint, move |tx| {
-            tx.execute("DELETE FROM indices WHERE source = 'coingecko' AND external_id IN (SELECT value FROM json_each(?1))", [ids])?;
+            let spare = json!(self::followed(tx)?).to_string(); // a follow since the fetch keeps its row
+            tx.execute("DELETE FROM indices WHERE source = 'coingecko' AND external_id IN (SELECT value FROM json_each(?1)) \
+                        AND external_id NOT IN (SELECT value FROM json_each(?2))", params![ids, spare])?;
             Ok(())
         }).await?;
     }
