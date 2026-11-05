@@ -493,6 +493,7 @@ async fn run(dir: &Path) -> Value {
     let mut responses = vec![];
     let mut etags: BTreeMap<String, String> = BTreeMap::new();
     for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
+        progress(format!("  step {index}: {} {}", step["method"].as_str().unwrap_or("GET"), step["path"].as_str().unwrap_or("?")), true);
         now += chrono::Duration::seconds(step["advance"].as_i64().unwrap_or(0));
         clock.set(now);
         *mail.1.lock().unwrap() = step["smtp_failure"].as_str().map(str::to_string);
@@ -2471,11 +2472,75 @@ async fn rails_and_rust_serve_the_same_pages_shard_4() { replay_page_shard(3).aw
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_serve_the_same_pages_shard_5() { replay_page_shard(4).await; }
 
+/// What the page grid is doing now, and since when: the watchdog's view of a shard (one per test process under nextest).
+/// The scenario, the step within it, and when that began.
+static PROGRESS: std::sync::Mutex<(String, String, Option<std::time::Instant>)> = std::sync::Mutex::new((String::new(), String::new(), None));
+
+/// Says what the grid starts now, a scenario (`step` false) or one of its steps: on stderr (shown when the shard fails or
+/// times out) and to the watchdog.
+fn progress(what: String, step: bool) {
+    eprintln!("{what}");
+    let mut now = PROGRESS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if step { now.1 = what } else { *now = (what, String::new(), None) }
+    now.2 = Some(std::time::Instant::now());
+}
+
+/// A replay step takes seconds and a whole shard a few minutes. One that makes no progress for `STALL` is hung: the
+/// watchdog names the step and ends the process, instead of the shard holding CI to its 60-minute limit. A thread of its
+/// own, because a hang can be a blocked thread, which no timer of the test's single-threaded runtime would ever wake.
+/// ponytail: exits without cleanup, so the shard's temporary installs stay behind; the run fails either way.
+const STALL: std::time::Duration = std::time::Duration::from_secs(180);
+/// Shards replaying now: the watchdog acts only while one is (a plain `cargo test` runs other tests in the same process).
+static REPLAYING: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+fn start_watchdog() {
+    static STARTED: std::sync::Once = std::sync::Once::new();
+    STARTED.call_once(|| {
+        std::thread::spawn(|| loop {
+            std::thread::sleep(std::time::Duration::from_secs(5));
+            if REPLAYING.load(std::sync::atomic::Ordering::SeqCst) == 0 { continue }
+            let stalled = {
+                let (scenario, step, since) = &*PROGRESS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                since.filter(|since| since.elapsed() > STALL).map(|since| format!("{scenario} {}: no progress for {:?}", step.trim(), since.elapsed()))
+            };
+            if let Some(stalled) = stalled {
+                eprintln!("page grid hung: {stalled}");
+                eprintln!("page grid threads: {}", threads());
+                // The stacks say what a spinning thread runs (CI installs gdb; its runner's sudo needs no password).
+                let pid = std::process::id().to_string();
+                let gdb = std::process::Command::new("sudo").args(["-n", "gdb", "-p", &pid, "-batch", "-ex", "thread apply all bt 40"]).output();
+                if let Ok(out) = gdb { eprintln!("page grid stacks:\n{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)); }
+                std::process::exit(101);
+            }
+        });
+    });
+}
+
+/// This process's threads by name, state and kernel wait (Linux's /proc): a hung shard says whether its blocking pool
+/// filled up (tokio's blocking threads are named `tokio-runtime-w`) or where its threads wait. Empty off Linux.
+fn threads() -> String {
+    let Ok(tasks) = std::fs::read_dir("/proc/self/task") else { return String::new() };
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for task in tasks.flatten().map(|task| task.path()) {
+        let read = |file: &str| std::fs::read_to_string(task.join(file)).unwrap_or_default().trim().to_string();
+        let stat = read("stat");
+        let state = stat.rsplit_once(") ").and_then(|(_, rest)| rest.split(' ').next()).unwrap_or("?").to_string();
+        *counts.entry(format!("{} {state} {}", read("comm"), read("wchan"))).or_default() += 1;
+    }
+    let total: usize = counts.values().sum();
+    format!("{total}: {}", counts.iter().map(|(what, n)| format!("{n}× {what}")).collect::<Vec<_>>().join(", "))
+}
+
 async fn replay_page_shard(shard: usize) {
     let measured = std::time::Instant::now();
     let (_rails_root, rust_root, dirs) = recorded_grid(&format!("shard-{shard}"));
     eprintln!("page shard {}: {} scenarios; recording/setup {:?}", shard + 1, dirs.len(), measured.elapsed());
     let replay = std::time::Instant::now();
+    start_watchdog();
+    // Counted while this shard replays, a panic's unwinding included.
+    struct Replaying;
+    impl Drop for Replaying { fn drop(&mut self) { REPLAYING.fetch_sub(1, std::sync::atomic::Ordering::SeqCst); } }
+    REPLAYING.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let _replaying = Replaying;
     let mut failures = vec![];
     for dir in &dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
@@ -2486,7 +2551,8 @@ async fn replay_page_shard(shard: usize) {
         for scope in ["", "de", "crypto", "crypto_de"].into_iter().filter(|scope| scope.is_empty() || dir.join(scope).is_dir()) {
         let dir = &dir.join(scope);
         // Shown with the captured output when the shard fails or times out: the last name is the scenario it stopped in.
-        eprintln!("page shard {}: {name}/{scope}", shard + 1);
+        let count = std::fs::read_dir("/proc/self/task").map_or(String::new(), |tasks| format!(", {} threads", tasks.count()));
+        progress(format!("page shard {}: {name}/{scope} (+{:.1?}{count})", shard + 1, replay.elapsed()), false);
         let scenario = scenario(dir);
         let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows) = (0, 0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
