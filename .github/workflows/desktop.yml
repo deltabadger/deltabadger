@@ -276,15 +276,15 @@ jobs:
       # N is the build above. N+1 = this tree with its version bumped and one proof migration, built in place, signed
       # with the job's key, then put back (never committed); the debug engine for P6's barrier; the variants P3 and r5.1
       # need. Windows also checks the release installer carries no test hook.
-      - name: Build N+1 and the update packages
-        if: runner.os != 'macOS'
-        shell: bash
-        run: bash script/rust/desktop_smoke/update_builds.sh "${{ matrix.triple }}" "$RUNNER_TEMP/updates" "$RUNNER_TEMP/testkey/test.key"
-
       - name: Check the release installer carries no test hook
         if: always() && runner.os == 'Windows'
         shell: bash
         run: bash script/rust/desktop_smoke/update_builds.sh "${{ matrix.triple }}" "$RUNNER_TEMP/hooks-check" "$RUNNER_TEMP/testkey/test.key" hooks
+
+      - name: Build N+1 and the update packages
+        if: runner.os != 'macOS'
+        shell: bash
+        run: bash script/rust/desktop_smoke/update_builds.sh "${{ matrix.triple }}" "$RUNNER_TEMP/updates" "$RUNNER_TEMP/testkey/test.key"
 
       # r4.8's by-hand run: N to install, N+1's feed to serve (README in the PR). Test identifier, the job's key only.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
