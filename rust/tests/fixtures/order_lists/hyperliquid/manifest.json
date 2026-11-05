@@ -1,0 +1,91 @@
+{
+  "exchange": "hyperliquid",
+  "recorded_at": "2026-07-01T17:08:38Z",
+  "files": [
+    {
+      "file": "historical_orders.json",
+      "method": "POST",
+      "path": "/info",
+      "params": {
+        "type": "historicalOrders",
+        "user": "0xdbbacbffeefeebfefeecbfdcceedfaadbaacfdcf"
+      },
+      "status": 200,
+      "orders": 1146
+    },
+    {
+      "file": "frontend_open_orders.json",
+      "method": "POST",
+      "path": "/info",
+      "params": {
+        "type": "frontendOpenOrders",
+        "user": "0xdbbacbffeefeebfefeecbfdcceedfaadbaacfdcf"
+      },
+      "status": 200,
+      "orders": 0
+    },
+    {
+      "file": "user_fills_by_time.json",
+      "method": "POST",
+      "path": "/info",
+      "params": {
+        "type": "userFillsByTime",
+        "user": "0xdbbacbffeefeebfefeecbfdcceedfaadbaacfdcf",
+        "startTime": "1782923315000"
+      },
+      "status": 200,
+      "orders": 76
+    }
+  ],
+  "not_recorded": [],
+  "scrubbed": {
+    "historical_orders.json /[]/order/limitPx": {
+      "replaced": 1146
+    },
+    "historical_orders.json /[]/order/oid": {
+      "replaced": 1146
+    },
+    "historical_orders.json /[]/order/origSz": {
+      "replaced": 1146
+    },
+    "historical_orders.json /[]/order/sz": {
+      "replaced": 1115
+    },
+    "historical_orders.json /[]/order/timestamp": {
+      "shifted": 1146
+    },
+    "historical_orders.json /[]/order/triggerCondition": {
+      "replaced": 1146
+    },
+    "historical_orders.json /[]/statusTimestamp": {
+      "shifted": 1146
+    },
+    "user_fills_by_time.json /[]/dir": {
+      "replaced": 76
+    },
+    "user_fills_by_time.json /[]/feeToken": {
+      "replaced": 76
+    },
+    "user_fills_by_time.json /[]/hash": {
+      "replaced": 76
+    },
+    "user_fills_by_time.json /[]/oid": {
+      "replaced": 76
+    },
+    "user_fills_by_time.json /[]/px": {
+      "replaced": 76
+    },
+    "user_fills_by_time.json /[]/startPosition": {
+      "replaced": 76
+    },
+    "user_fills_by_time.json /[]/sz": {
+      "replaced": 76
+    },
+    "user_fills_by_time.json /[]/tid": {
+      "replaced": 76
+    },
+    "user_fills_by_time.json /[]/time": {
+      "shifted": 76
+    }
+  }
+}
