@@ -10,6 +10,7 @@
 #   validate.sh check <dir> <tag> <signed|unsigned> <pubkey>   the desktop assets a release publishes, or why not
 #   validate.sh highest <series> <tag> <tag>...  `true` when <tag> is the highest stable tag of <series> (e.g. v3, v3.1)
 #   validate.sh tags <tag> <latest_major> <tag>...   the image tags to publish, one per line
+#   validate.sh seed <file>                     fail unless <file> is a seed bundle a fresh install can start from
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -20,6 +21,9 @@ INSTALLERS=(Deltabadger_darwin-aarch64.dmg Deltabadger_linux-x86_64.deb)
 PACKAGES=(darwin-aarch64:Deltabadger_darwin-aarch64.app.tar.gz
           windows-x86_64:Deltabadger_windows-x86_64-setup.exe
           linux-x86_64-appimage:Deltabadger_linux-x86_64.AppImage)
+
+# The 13 exchanges with a ticker file in the seed bundle (rust/src/store.rs EXCHANGES without Alpaca and IBKR, r2.5).
+SEED_EXCHANGES=(binance binance_us bingx bitget bitrue bitvavo bybit coinbase gemini hyperliquid kraken kucoin mexc)
 
 version() { sed -n 's/^version = "\([^"]*\)"$/\1/p' src-tauri/Cargo.toml | head -1; }
 
@@ -40,7 +44,7 @@ highest() { # <series> <tag> <tags...>: the newest stable tag of the series, by 
   if [ "$top" = "$tag" ]; then echo true; else echo false; fi
 }
 
-cmd=${1:?usage: validate.sh version|set-version|same-version|feed|check|highest|tags ...}; shift
+cmd=${1:?usage: validate.sh version|set-version|same-version|feed|check|highest|tags|seed ...}; shift
 case $cmd in
   version) version ;;
 
@@ -128,6 +132,35 @@ case $cmd in
         if [ "$latest" = true ]; then echo latest; fi
       fi
     fi
+    ;;
+
+  seed) # PLAN-B8 r1.9, r2.5: every file has rows (each ticker file one the import keeps), no logo_url (tests/seeds.rs),
+        # no reference outside assets.json
+    file=${1:?seed <file>}
+    gzip -t "$file" 2>/dev/null || fail "$file is not a valid gzip"
+    # One JSON object, as store::seed_files parses it (serde_json::from_slice).
+    gzip -dc "$file" | jq -se 'length == 1 and (.[0] | type == "object")' > /dev/null 2>&1 || fail "$file is not one JSON object"
+    files=(assets.json indices.json); for x in "${SEED_EXCHANGES[@]}"; do files+=("tickers/$x.json"); done
+    problems=$(gzip -dc "$file" | jq -r --argjson files "$(jq -n '$ARGS.positional' --args "${files[@]}")" '
+      . as $b
+      | ([$b["assets.json"].data[]? | objects | .external_id | strings | {(.): true}] | add // {}) as $ids
+      | def missing($x): ($x | type) != "string" or ($ids[$x] | not);
+      [ $files[] | select(($b[.].data | type) != "array" or ($b[.].data | length) == 0 or ($b[.].data | all(type == "object") | not))
+               | "\(.): no data rows" ]
+      # MarketData.ticker_records_for skips a row without all three decimals (rust/src/jobs/import.rs).
+      + [ $files[] | select(startswith("tickers/")) | select([$b[.].data[]? | objects
+            | select([.base_decimals, .quote_decimals, .price_decimals] | all(. != null and . != false))] | length == 0)
+          | "\(.): no ticker with base, quote and price decimals" ]
+      + (if [.. | objects | select(has("logo_url"))] | length > 0 then ["a logo_url (a seeded install has no public URL for it)"] else [] end)
+      + ([$b["indices.json"].data[]? | objects | .external_id as $i
+          | ((.top_coins // []) + ([(.top_coins_by_exchange // {})[]] | add // []))[] | select(missing(.))
+          | "indices.json \($i): coin \(.) is not in assets.json"] | unique)
+      + [$b | to_entries[] | select(.key | startswith("tickers/")) | .key as $k | .value.data[]? | objects
+          | . as $t | (.base_external_id, .quote_external_id) | select(missing(.))
+          | "\($k) \($t.ticker): \(.) is not in assets.json"]
+      | .[:20][]')
+    [ -z "$problems" ] || fail "$file is not a seed bundle: $(tr '\n' ';' <<< "$problems")"
+    echo "seed bundle $file: $(gzip -dc "$file" | jq -r '[.["assets.json"].data, .["indices.json"].data] | map(length) | "\(.[0]) assets, \(.[1]) indices"'), ${#SEED_EXCHANGES[@]} ticker files"
     ;;
 
   *) fail "unknown command $cmd" ;;
