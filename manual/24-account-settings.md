@@ -8,6 +8,39 @@ Account settings hold what is yours alone: name, email, password, language, time
 - **Email** — enter the **New email** and your **Current password**, then **Update**. A confirmation link goes to the new address, and the page shows "Currently, waiting confirmation for: …" until you click it. The old address stays in use until then. This needs a working email provider (see [Email notifications](28-email-notifications.md)).
 - **Password** — enter your **Current password**, the **New password** and **Confirm new password**, then **Update**. The checklist under the fields shows what is required: at least 8 characters, an uppercase and a lowercase letter, a digit and a symbol. You stay signed in.
 
+## Forgot your password
+
+With email set up (see [Email notifications](28-email-notifications.md)), **Forgot your password?** on the login page mails you a reset link.
+
+Without email, no link can be sent, and the page says so. Whoever runs the install can then set a new password from its command line:
+
+```bash
+# Docker: in the running container
+docker exec -it -u deltabadger <container> deltabadger reset-password you@example.com
+
+# Docker Compose
+docker compose exec -u deltabadger deltabadger deltabadger reset-password you@example.com
+
+# Umbrel: in the umbrelOS terminal (Settings → Advanced settings → Terminal) or over SSH
+sudo docker exec -it -u deltabadger deltabadger_web_1 deltabadger reset-password you@example.com
+```
+
+It asks for the new password twice and shows nothing as you type. Two more ways:
+
+- `--generate` makes a strong password and prints it once. It only does this on a terminal, so the password never ends up in a log.
+- `--stdin` reads the password from a pipe, for scripts: `printf '%s\n' "$NEW_PASSWORD" | docker exec -i -u deltabadger <container> deltabadger reset-password you@example.com --stdin`.
+
+The new password follows the same rules as the form above. The command also:
+
+- signs that account out everywhere;
+- lifts a lock from too many wrong passwords;
+- confirms an account that never got its confirmation email;
+- ends any reset link mailed earlier.
+
+Two-factor stays on: sign-in still asks for the code. API tokens and connected MCP clients keep working.
+
+It works while Deltabadger runs, and needs no restart. Nothing on the web can trigger it: it takes someone who can already run commands where Deltabadger is installed. The desktop app doesn't need it, as it has no password.
+
 ## Language, Timezone & Currency
 
 Three pickers, each saved as soon as you change it.
