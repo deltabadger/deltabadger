@@ -248,38 +248,79 @@ fn ruby_to_s(v: Option<&Value>) -> String {
     }
 }
 
-/// The mail a marker on bot `bot_id` asks for, from the rows as they are now. None when Rails would send nothing: the
-/// bot's user, its venue or (where the mail names it) its quote asset is gone.
+/// What a marker's notice says, from the rows as they are now: the part the mail and the desktop notice share.
+pub struct Facts { pub user_id: i64, pub email: Option<String>, pub name: String, pub locale: &'static str, pub label: String, pub what: What }
+
+pub enum What {
+    EndOfFunds { exchange_name: String, quote: String },
+    /// `sentence`: the error humanised in the user's language (Exchange#humanize_error).
+    Failure { stopped: bool, exchange_name: String, sentence: String },
+    SetAside { reasons: String },
+    AmountLimit { amount: String, quote: String },
+    BaseLimit { amount: String, base: String },
+}
+
+/// The facts a marker on bot `bot_id` stands for. None when Rails would send nothing: the bot's user, its venue or
+/// (where the notice names it) its quote asset is gone.
 /// A bot whose label is blank is named by Rails the first time it loads the row; here the label is used as stored
 /// (a listed divergence that needs a bot Rails never loaded).
-pub fn for_notice(c: &Connection, bot_id: i64, notice: &Notice, from: &str, urls: &Urls) -> Result<Option<Message>, EngineError> {
-    type Row = (Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
+pub fn facts(c: &Connection, bot_id: i64, notice: &Notice) -> Result<Option<Facts>, EngineError> {
+    type Row = (i64, Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
     let row: Option<Row> = c.query_row(
-        "SELECT b.label, b.settings, u.email, u.name, u.locale, e.name, e.type, json_extract(b.transient_data, '$.' || ?2) FROM bots b JOIN users u ON u.id = b.user_id \
+        "SELECT u.id, b.label, b.settings, u.email, u.name, u.locale, e.name, e.type, json_extract(b.transient_data, '$.' || ?2) FROM bots b JOIN users u ON u.id = b.user_id \
          LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1",
-        params![bot_id, crate::engine::notice::BASE_LIMIT], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?))).optional()?;
-    let Some((label, settings, Some(email), name, stored_locale, exchange_name, exchange_type, base_marker)) = row else { return Ok(None) };
+        params![bot_id, crate::engine::notice::BASE_LIMIT], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?))).optional()?;
+    let Some((user_id, label, settings, email, name, stored_locale, exchange_name, exchange_type, base_marker)) = row else { return Ok(None) };
     let settings: Value = serde_json::from_str(&settings).map_err(|e| EngineError::Data(format!("bot {bot_id}: settings: {e}")))?;
-    let to = Recipient { email, name: bounded(&name.unwrap_or_default(), NAME_LIMIT), locale: user_locale(stored_locale.as_deref()) };
+    let locale = user_locale(stored_locale.as_deref());
     let label = bounded(&label.unwrap_or_default(), NAME_LIMIT);
     let symbol = |asset_id: Option<i64>| -> Result<Option<String>, EngineError> {
         let Some(id) = asset_id else { return Ok(None) };
         Ok(c.query_row("SELECT symbol FROM assets WHERE id = ?1", [id], |r| r.get::<_, Option<String>>(0)).optional()?.flatten())
     };
-    Ok(match notice {
+    let what = match notice {
         // The quote asset the budget was stamped for, as Rails captures it when it enqueues the mail.
         Notice::EndOfFunds { quote_asset_id } => match (exchange_name, symbol(*quote_asset_id)?) {
-            (Some(exchange_name), Some(quote)) => Some(end_of_funds(from, urls, &to, &exchange_name, &quote)),
+            (Some(exchange_name), Some(quote)) => Some(What::EndOfFunds { exchange_name, quote }),
             _ => None,
         },
         Notice::Error { error, .. } | Notice::StoppedByError { error } => exchange_name.map(|exchange_name| {
-            let sentence = humanize_error(exchange_type.as_deref().unwrap_or_default(), &exchange_name, to.locale, &bounded(error, ERROR_LIMIT));
-            failure(from, urls, &to, matches!(notice, Notice::StoppedByError { .. }), &label, &exchange_name, &sentence)
+            let sentence = humanize_error(exchange_type.as_deref().unwrap_or_default(), &exchange_name, locale, &bounded(error, ERROR_LIMIT));
+            What::Failure { stopped: matches!(notice, Notice::StoppedByError { .. }), exchange_name, sentence }
         }),
-        Notice::SetAside { reasons } => Some(set_aside(from, urls, &to, &label, reasons)),
+        Notice::SetAside { reasons } => Some(What::SetAside { reasons: reasons.clone() }),
         Notice::StoppedByAmountLimit => symbol(settings.get("quote_asset_id").and_then(Value::as_i64))?
-            .map(|quote| stopped_by_amount_limit(from, urls, &to, &label, &ruby_to_s(settings.get("quote_amount_limit")), &quote)),
+            .map(|quote| What::AmountLimit { amount: ruby_to_s(settings.get("quote_amount_limit")), quote }),
         Notice::StoppedByBaseAmountLimit => base_mail_values(c, bot_id, &settings, base_marker.as_deref())?
-            .map(|(amount, base)| stopped_by_base_amount_limit(from, urls, &to, &label, &amount, &base)),
-    })
+            .map(|(amount, base)| What::BaseLimit { amount, base }),
+    };
+    Ok(what.map(|what| Facts { user_id, email, name: bounded(&name.unwrap_or_default(), NAME_LIMIT), locale, label, what }))
+}
+
+/// The mail a marker on bot `bot_id` asks for (`facts`), for a user with an address.
+pub fn for_notice(c: &Connection, bot_id: i64, notice: &Notice, from: &str, urls: &Urls) -> Result<Option<Message>, EngineError> {
+    let Some(Facts { email: Some(email), name, locale, label, what, .. }) = facts(c, bot_id, notice)? else { return Ok(None) };
+    let to = Recipient { email, name, locale };
+    Ok(Some(match what {
+        What::EndOfFunds { exchange_name, quote } => end_of_funds(from, urls, &to, &exchange_name, &quote),
+        What::Failure { stopped, exchange_name, sentence } => failure(from, urls, &to, stopped, &label, &exchange_name, &sentence),
+        What::SetAside { reasons } => set_aside(from, urls, &to, &label, &reasons),
+        What::AmountLimit { amount, quote } => stopped_by_amount_limit(from, urls, &to, &label, &amount, &quote),
+        What::BaseLimit { amount, base } => stopped_by_base_amount_limit(from, urls, &to, &label, &amount, &base),
+    }))
+}
+
+/// D-DESKTOP-NOTIFY: the desktop notification's title and body for `notice` (Rust-only keys `desktop_notice.<mail>.*`),
+/// plain text in the user's language.
+pub fn desktop_text(facts: &Facts, notice: &Notice) -> (String, String) {
+    let mut args: Vec<(&str, Arg)> = vec![("label", Arg::Text(&facts.label))];
+    match &facts.what {
+        What::EndOfFunds { exchange_name, quote } => args.extend([("exchange_name", Arg::Text(exchange_name)), ("quote", Arg::Text(quote))]),
+        What::Failure { exchange_name, sentence, .. } => args.extend([("exchange_name", Arg::Text(exchange_name)), ("errors", Arg::Text(sentence))]),
+        What::SetAside { reasons } => args.push(("reasons", Arg::Text(reasons))),
+        What::AmountLimit { amount, quote } => args.extend([("amount", Arg::Text(amount)), ("quote", Arg::Text(quote))]),
+        What::BaseLimit { amount, base } => args.extend([("amount", Arg::Text(amount)), ("base", Arg::Text(base))]),
+    }
+    let key = |part: &str| format!("desktop_notice.{}.{part}", notice.mail());
+    (i18n::text(facts.locale, &key("title"), &args), i18n::text(facts.locale, &key("body"), &args))
 }

@@ -564,7 +564,7 @@ async fn without_the_launcher_secret_no_browser_code_is_made_or_taken() {
     assert_eq!(enter(&without, &mut browser, "00000000").await.status, 422);
 }
 
-/// Codex r2 (D-DESKTOP-NO-MAIL): the desktop's expiry clears every marker seven days old, one batch after another; a
+/// Codex r2 (D-DESKTOP-NO-MAIL, D-DESKTOP-NOTIFY): the desktop's expiry clears every marker seven days old, one batch after another; a
 /// marker whose clear is refused stays, and the bots after it are still swept.
 #[tokio::test]
 async fn the_expiry_sweeps_past_a_marker_it_cannot_clear() {
@@ -580,10 +580,11 @@ async fn the_expiry_sweeps_past_a_marker_it_cannot_clear() {
     c.execute_batch("CREATE TRIGGER refuse BEFORE UPDATE ON bots WHEN OLD.label = 'refused' BEGIN SELECT RAISE(ABORT, 'refused'); END;").unwrap();
     let opened = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
     let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, SECRET).unwrap());
-    let mut s = deltabadger::mail::sender::Sender::new(opened.primary, cipher, &|_| None, Fixed);
-    (s.batch, s.poll) = (1, std::time::Duration::from_millis(20));
+    // B6-3b: the desktop's sender (D-DESKTOP-NOTIFY) does the expiry 3a's expire-only sweep did.
+    let mut s = deltabadger::mail::sender::Sender::new(opened.primary, cipher, &|_| None, Fixed).desktop(Default::default(), user);
+    (s.batch, s.poll, s.waits) = (1, std::time::Duration::from_millis(20), vec![std::time::Duration::from_millis(50)]);
     let (stop, stopped) = tokio::sync::watch::channel(false);
-    let run = tokio::spawn(s.expire_only(stopped));
+    let run = tokio::spawn(s.run::<()>(stopped, None));
     tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
     stop.send(true).unwrap();
     run.await.unwrap().unwrap();

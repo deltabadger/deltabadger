@@ -21,6 +21,7 @@
 //! - A stop drops whatever is in hand, a delivery included, and records nothing: the marker is still there at the next start.
 //! - Nothing here can fail a tick or end the process: an error is logged and tried again.
 //! - A log line names a bot, a mail and a `smtp::Failure`: never an address, a credential, or a word the server wrote.
+use super::outbox::Taken;
 use super::{render, smtp};
 use crate::crypto::Cipher;
 use crate::engine::notice::{self, Pending};
@@ -35,6 +36,8 @@ use tokio::time::Instant;
 
 /// How long a marker waits for its mail to be delivered (or rendered) before it is given up.
 const MAX_AGE_HOURS: i64 = 7 * 24;
+/// The longest an offered or accepted marker's bookkeeping is kept: past its marker's seven days.
+const MAX_KEPT: Duration = Duration::from_secs(8 * 24 * 3600);
 /// How often a mail that keeps failing to render is logged.
 const RENDER_LOG_EVERY: Duration = Duration::from_secs(24 * 3600);
 
@@ -52,12 +55,38 @@ pub struct Sender<C: Clock> {
     pub batch: usize,
     /// Tests only: see smtp::Settings::trust_root.
     pub trust_root: Option<Vec<u8>>,
+    /// Where a notice goes: a mail server, or the desktop launcher (D-DESKTOP-NOTIFY).
+    delivery: Delivery,
+    /// How long an offered desktop notice waits for the launcher's ack before it counts as a failed delivery.
+    pub ack_wait: Duration,
 }
 
-/// Per marker: failures so far, when to look at it next, whether its mail has already been accepted (then only the
-/// clear is still owed), and when a failure to render it was last logged. Keyed by the marker itself, so a marker raised
-/// again starts afresh.
-type Attempts = HashMap<Pending, (usize, Instant, bool, Option<Instant>)>;
+/// D-DESKTOP-NOTIFY (PLAN-B6-3 §3, r4 §3.1): SMTP everywhere but the desktop, whose launcher shows each notice as a system
+/// notification. Only the desktop `account`'s bots are notified there; every bot's markers still expire.
+enum Delivery {
+    Smtp,
+    Desktop { outbox: Arc<super::outbox::Outbox>, account: i64 },
+}
+
+/// Per marker, keyed by the marker itself, so a marker raised again starts afresh.
+#[derive(Clone, Copy)]
+struct Attempt {
+    /// Failures so far.
+    tried: usize,
+    /// When to look at it next.
+    due: Instant,
+    /// Its mail was accepted (or its desktop notice acked): only the clear is still owed.
+    accepted: bool,
+    /// When a failure to render it was last logged.
+    logged: Option<Instant>,
+    /// D-DESKTOP-NOTIFY: offered to the launcher, waiting for its ack until `due`.
+    offered: bool,
+}
+type Attempts = HashMap<Pending, Attempt>;
+
+impl Attempt {
+    fn new(tried: usize, due: Instant, accepted: bool) -> Self { Self { tried, due, accepted, logged: None, offered: false } }
+}
 
 /// What the blocking pool hands back for one marker.
 enum Prepared {
@@ -69,13 +98,24 @@ enum Prepared {
     Unsendable(String),
     /// Not now: tried again like a failed delivery.
     Later(String),
+    /// D-DESKTOP-NOTIFY: the notice for the launcher.
+    Offer(super::outbox::Notice),
+    /// D-DESKTOP-NOTIFY: a bot of another user than the desktop account's (a 2.x data dir): never shown, only expired.
+    NotOurs,
 }
 
 impl<C: Clock> Sender<C> {
     /// `db`: this service's own connection (store::configure'd), never the engine's.
     pub fn new(db: Connection, cipher: Cipher, env: &dyn Fn(&str) -> Option<String>, clock: C) -> Self {
         Self { db: Arc::new(Mutex::new(db)), cipher: Arc::new(cipher), env: Arc::new(smtp::Env::read(env)), urls: Arc::new(render::Urls::from_env(env)), clock,
-               poll: Duration::from_secs(5), waits: [3, 18, 83, 258, 3600].map(Duration::from_secs).to_vec(), batch: 20, trust_root: None }
+               poll: Duration::from_secs(5), waits: [3, 18, 83, 258, 3600].map(Duration::from_secs).to_vec(), batch: 20, trust_root: None,
+               delivery: Delivery::Smtp, ack_wait: Duration::from_secs(90) }
+    }
+
+    /// The desktop's sender: notices for `account`'s bots go to `outbox`, none to a mail server.
+    pub fn desktop(mut self, outbox: Arc<super::outbox::Outbox>, account: i64) -> Self {
+        self.delivery = Delivery::Desktop { outbox, account };
+        self
     }
 
     /// The service's future. Returns Ok once `stop` turns true (the supervisor's one stop signal, `Shutdown::subscribe()`),
@@ -86,40 +126,6 @@ impl<C: Clock> Sender<C> {
             biased;
             _ = stop.wait_for(|stopped| *stopped) => Ok(()),
             never = self.work(wake) => match never {},
-        }
-    }
-
-    /// D-DESKTOP-NO-MAIL (PLAN-B6-3 §2.5): the sender's seven-day expiry alone, for an install that sends no mail. Every
-    /// `poll`, the markers are read in batches and each one seven days old or more is cleared unsent; nothing is
-    /// rendered and no mail server is ever reached. Returns once `stop` turns true.
-    pub async fn expire_only(self, mut stop: watch::Receiver<bool>) -> Result<(), String> {
-        tokio::select! {
-            biased;
-            _ = stop.wait_for(|stopped| *stopped) => Ok(()),
-            never = self.expiring() => match never {},
-        }
-    }
-
-    async fn expiring(&self) -> Infallible {
-        let mut after = 0;
-        loop {
-            let (batch, now) = (self.batch, self.clock.now());
-            let wait = match self.db(move |c, cipher| -> Result<i64, crate::engine::EngineError> {
-                let (markers, next) = notice::pending(c, after, batch)?;
-                // One marker that cannot be cleared (the guard refuses its bot) stays for the next sweep; the rest go on.
-                for marker in markers.iter().filter(|m| expired(m, now)) {
-                    match notice::clear(c, cipher, marker) {
-                        Ok(_) => log(&format!("[mail] {} for bot {}: given up: raised seven days ago or more", marker.notice.mail(), marker.bot_id)),
-                        Err(e) => log(&format!("[mail] {} for bot {}: its marker could not be cleared ({e:?}); tried again at the next sweep", marker.notice.mail(), marker.bot_id)),
-                    }
-                }
-                Ok(next)
-            }).await {
-                Ok(Ok(next)) => { after = next; if next != 0 { Duration::ZERO } else { self.poll } }
-                Ok(Err(e)) => { log(&format!("[mail] the markers could not be read: {e:?}; trying again in {} s", self.poll.as_secs())); self.poll }
-                Err(e) => { log(&format!("[mail] the markers could not be read: {e}; trying again in {} s", self.poll.as_secs())); self.poll }
-            };
-            tokio::time::sleep(wait).await;
         }
     }
 
@@ -134,18 +140,34 @@ impl<C: Clock> Sender<C> {
         let mut said: Option<String> = None; // the "not configured" reason last logged
         let mut after = 0; // the bot id the next look starts above
         let (env, trust) = (self.env.clone(), self.trust_root.clone());
-        if let Ok(Err(reason)) = self.db(move |c, cipher| configuration(c, cipher, &env, trust).map(|_| ())).await { self.not_configured(&reason, &mut said); }
+        if matches!(self.delivery, Delivery::Smtp) {
+            if let Ok(Err(reason)) = self.db(move |c, cipher| configuration(c, cipher, &env, trust).map(|_| ())).await { self.not_configured(&reason, &mut said); }
+        }
         loop {
             let batch = self.batch;
             let wait = match self.db(move |c, _| notice::pending(c, after, batch)).await {
                 Ok(Ok((markers, next))) => {
                     after = next;
                     let now = Instant::now();
-                    attempts.retain(|_, (_, due, _, _)| *due + Duration::from_secs(3600) > now); // nobody else clears a marker; this only bounds the map
+                    // Nobody else clears a marker; this only bounds the map. One offered or accepted is kept for as long
+                    // as its marker can live, so an ack is never forgotten and a notice never shown twice for it.
+                    attempts.retain(|_, a| a.due + if a.offered || a.accepted { MAX_KEPT } else { Duration::from_secs(3600) } > now);
                     let mut wait = self.poll;
                     for marker in markers {
+                        // An offered notice is settled before the due gate: an ack clears it now, not at its deadline.
+                        if let (Delivery::Desktop { outbox, .. }, Some(a)) = (&self.delivery, attempts.get(&marker).copied().filter(|a| a.offered)) {
+                            match outbox.take(&marker.id()) {
+                                Taken::Acked => { attempts.insert(marker.clone(), Attempt::new(a.tried, Instant::now(), true)); }
+                                Taken::Waiting => { wait = wait.min(a.due.saturating_duration_since(Instant::now())); continue; }
+                                Taken::Gone => {
+                                    let why = format!("not shown: the app did not confirm it within {} s", self.ack_wait.as_secs());
+                                    self.later(marker, a.tried, false, &why, &mut attempts);
+                                    continue;
+                                }
+                            }
+                        }
                         match attempts.get(&marker) {
-                            Some((_, due, _, _)) if *due > Instant::now() => wait = wait.min(*due - Instant::now()),
+                            Some(a) if a.due > Instant::now() => wait = wait.min(a.due - Instant::now()),
                             _ => { self.attempt(marker, &mut attempts, &mut said).await; tokio::task::yield_now().await; }
                         }
                     }
@@ -155,13 +177,14 @@ impl<C: Clock> Sender<C> {
                 Ok(Err(e)) => { log(&format!("[mail] the markers could not be read: {e:?}; trying again in {} s", self.poll.as_secs())); self.poll }
                 Err(e) => { log(&format!("[mail] the markers could not be read: {e}; trying again in {} s", self.poll.as_secs())); self.poll }
             };
-            match &mut wake {
-                Some(events) => tokio::select! {
-                    _ = tokio::time::sleep(wait) => {}
-                    event = events.recv() => if event.is_none() { wake = None }, // the engine is gone: the timer still runs
-                },
-                None => tokio::time::sleep(wait).await,
-            }
+            let acked = async { match &self.delivery { Delivery::Desktop { outbox, .. } => outbox.acked().await, Delivery::Smtp => std::future::pending().await } };
+            let events = async { match &mut wake { Some(events) => events.recv().await.is_none(), None => std::future::pending().await } };
+            let gone = tokio::select! {
+                _ = tokio::time::sleep(wait) => false,
+                _ = acked => false,
+                gone = events => gone, // the engine is gone: the timer still runs
+            };
+            if gone { wake = None; }
         }
     }
 
@@ -175,13 +198,13 @@ impl<C: Clock> Sender<C> {
     fn later(&self, marker: Pending, tried: usize, accepted: bool, why: &str, attempts: &mut Attempts) {
         let wait = self.wait(tried);
         log(&format!("[mail] {} for bot {}: {why}; trying again in {} s", marker.notice.mail(), marker.bot_id, wait.as_secs()));
-        attempts.insert(marker, (tried + 1, Instant::now() + wait, accepted, None));
+        attempts.insert(marker, Attempt::new(tried + 1, Instant::now() + wait, accepted));
     }
 
     /// A mail that could not be rendered: the same waits, but logged once a day, not at every retry.
     fn unrendered(&self, marker: Pending, tried: usize, why: &str, attempts: &mut Attempts) {
         let wait = self.wait(tried);
-        let last = attempts.get(&marker).and_then(|(.., logged)| *logged);
+        let last = attempts.get(&marker).and_then(|a| a.logged);
         let logged = match last {
             Some(at) if at.elapsed() < RENDER_LOG_EVERY => at,
             _ => {
@@ -189,19 +212,38 @@ impl<C: Clock> Sender<C> {
                 Instant::now()
             }
         };
-        attempts.insert(marker, (tried + 1, Instant::now() + wait, false, Some(logged)));
+        attempts.insert(marker, Attempt { logged: Some(logged), ..Attempt::new(tried + 1, Instant::now() + wait, false) });
     }
 
     fn wait(&self, tried: usize) -> Duration { self.waits.get(tried).or(self.waits.last()).copied().unwrap_or(self.poll) }
 
     async fn attempt(&self, marker: Pending, attempts: &mut Attempts, said: &mut Option<String>) {
-        let (tried, accepted) = attempts.get(&marker).map_or((0, false), |(n, _, accepted, _)| (*n, *accepted));
+        let (tried, accepted) = attempts.get(&marker).map_or((0, false), |a| (a.tried, a.accepted));
+        let delivered = match self.delivery { Delivery::Smtp => "sent", Delivery::Desktop { .. } => "shown" };
         let now = self.clock.now();
         let raised = match marker.raised_at() { Ok(at)=>at, Err(e)=>return self.later(marker, tried, false, &format!("unreadable timestamp: {e:?}"), attempts) };
         let (outcome, accepted) = if accepted {
-            ("sent".to_string(), true)
+            (delivered.to_string(), true)
         } else if older_than_max(raised, now) {
+            if let Delivery::Desktop { outbox, .. } = &self.delivery { outbox.remove(&marker.id()); }
             ("given up: raised seven days ago or more".to_string(), false)
+        } else if let Delivery::Desktop { outbox, account } = &self.delivery {
+            let (m, account) = (marker.clone(), *account);
+            match self.db(move |c, _| prepare_desktop(c, &m, account)).await {
+                Err(e) => return self.later(marker, tried, false, &format!("not shown: {e}"), attempts),
+                Ok(Prepared::Later(why)) => return self.unrendered(marker, tried, &why, attempts),
+                // Looked at again hourly, for its expiry.
+                Ok(Prepared::NotOurs) => { attempts.insert(marker, Attempt::new(tried, Instant::now() + Duration::from_secs(3600), false)); return; }
+                Ok(Prepared::Offer(notice)) => {
+                    let due = Instant::now() + self.ack_wait;
+                    // Full: not a failure, nothing evicted; looked at again after `poll`.
+                    let offered = outbox.offer(notice, due);
+                    attempts.insert(marker, Attempt { offered, ..Attempt::new(tried, if offered { due } else { Instant::now() + self.poll }, false) });
+                    return;
+                }
+                Ok(Prepared::Unsendable(why)) => (format!("not shown: {why}"), false),
+                Ok(Prepared::Ready(_) | Prepared::NotConfigured(_)) => unreachable!("desktop notices are never mail"),
+            }
         } else {
             let (m, env, urls, trust) = (marker.clone(), self.env.clone(), self.urls.clone(), self.trust_root.clone());
             match self.db(move |c, cipher| prepare(c, cipher, &m, &env, &urls, trust, now)).await {
@@ -210,14 +252,15 @@ impl<C: Clock> Sender<C> {
                 Ok(Prepared::NotConfigured(reason)) => {
                     // Said once. The marker waits, quietly, for settings or for its seven days to end.
                     self.not_configured(&reason, said);
-                    attempts.insert(marker, (tried, Instant::now() + self.poll, false, None));
+                    attempts.insert(marker, Attempt::new(tried, Instant::now() + self.poll, false));
                     return;
                 }
+                Ok(Prepared::Offer(_) | Prepared::NotOurs) => unreachable!("mail is never a desktop notice"),
                 Ok(Prepared::Unsendable(why)) => (format!("not sent: {why}"), false),
                 Ok(Prepared::Ready(ready)) => {
                     let (settings, from, to, message) = *ready;
                     match smtp::deliver(&settings, &from, &to, &message).await {
-                        Ok(()) => ("sent".to_string(), true),
+                        Ok(()) => (delivered.to_string(), true),
                         Err(failure) => return self.later(marker, tried, false, &format!("not sent: {failure}"), attempts),
                     }
                 }
@@ -238,11 +281,6 @@ impl<C: Clock> Sender<C> {
 
 fn older_than_max(raised: chrono::DateTime<chrono::Utc>, now: chrono::DateTime<chrono::Utc>) -> bool {
     now - raised >= chrono::Duration::hours(MAX_AGE_HOURS)
-}
-
-/// A marker the expiry gives up: seven days old or more. One whose time cannot be read is left to the full sender.
-fn expired(marker: &Pending, now: chrono::DateTime<chrono::Utc>) -> bool {
-    marker.raised_at().is_ok_and(|raised| older_than_max(raised, now))
 }
 
 /// The sender address and where to deliver, read for every mail, as Rails' interceptor reads them: a change made in
@@ -277,5 +315,18 @@ fn prepare(c: &Connection, cipher: &Cipher, marker: &Pending, env: &smtp::Env, u
         Ok(encoded) => Prepared::Ready(Box::new((settings, message.from, message.to, encoded))),
         // Never repaired or cut short: a header that would carry a line break is not sent at all.
         Err(why) => Prepared::Unsendable(why.to_string()),
+    }
+}
+
+/// D-DESKTOP-NOTIFY: the launcher's notice for `marker`, if its bot is the desktop `account`'s.
+fn prepare_desktop(c: &Connection, marker: &Pending, account: i64) -> Prepared {
+    match render::facts(c, marker.bot_id, &marker.notice) {
+        Err(e) => Prepared::Later(format!("it could not be rendered ({e:?})")),
+        Ok(None) => Prepared::Unsendable("its bot's user, venue or quote asset is gone".into()),
+        Ok(Some(facts)) if facts.user_id != account => Prepared::NotOurs,
+        Ok(Some(facts)) => {
+            let (title, body) = render::desktop_text(&facts, &marker.notice);
+            Prepared::Offer(super::outbox::Notice { id: marker.id(), bot_id: marker.bot_id, title, body })
+        }
     }
 }

@@ -603,12 +603,11 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
             run: Box::pin(deltabadger::web::below_minimum::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_warning), engine.stop_handle().subscribe())) };
         let live = supervisor::Service { name: "bot pages",
             run: Box::pin(deltabadger::web::bot::live::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_live), engine.stop_handle().subscribe())) };
-        // D-DESKTOP-NO-MAIL (PLAN-B6-3 §2.5): the desktop sends no mail, whatever SMTP settings a 2.x install left; its
-        // markers still expire after seven days.
-        let mail = if app.desktop_account().is_some() {
-            supervisor::Service { name: "mail expiry", run: Box::pin(mail.expire_only(engine.stop_handle().subscribe())) }
-        } else {
-            mail_service(mail, &engine.stop_handle(), engine.subscribe())
+        // D-DESKTOP-NO-MAIL (PLAN-B6-3 §2.5): the desktop sends no mail, whatever SMTP settings a 2.x install left;
+        // D-DESKTOP-NOTIFY (§3): its sender offers the account's bot alerts to the launcher instead, and expires every bot's.
+        let mail = match (app.desktop_account(), app.desktop_outbox()) {
+            (Some(account), Some(outbox)) => supervisor::Service { name: "desktop notices", run: Box::pin(mail.desktop(outbox, account).run(engine.stop_handle().subscribe(), Some(engine.subscribe()))) },
+            _ => mail_service(mail, &engine.stop_handle(), engine.subscribe()),
         };
         let services = vec![mail, scheduler, figures, warnings, live];
         log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
