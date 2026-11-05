@@ -1138,3 +1138,158 @@ async fn a_ranking_that_expires_during_the_composition_writes_no_membership() {
     assert_eq!(out, Err(index::Refusal::Transient(index::CHANGED.into())));
     assert!(in_index(&o, id).is_empty());
 }
+
+// ---- A17-4 r18: retired categories (D-INDEX-RETIRED-KEPT) ----
+
+fn retire(c: &rusqlite::Connection, id: &str, by: &str, now: DateTime<Utc>) { assert!(index::retire(c, id, by, &[], now).unwrap()); }
+fn composed_marker(c: &rusqlite::Connection, id: i64) -> Option<String> {
+    c.query_row("SELECT json_extract(transient_data, '$.rust_composed_index') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap()
+}
+
+/// A bot this engine composed keeps its allocation once its category is retired: the tick is neither held nor woken, reads
+/// no ranking, writes no membership, and buys the members it holds.
+#[tokio::test(flavor = "current_thread")]
+async fn a_retired_category_keeps_the_allocation_this_engine_composed() {
+    use deltabadger::engine::staleness;
+    let (_d, o, _s, id, row) = coingecko_category_bot(json!({ "bitcoin": 3, "ethereum": 1 })).await;
+    let c = &o.primary;
+    rank(c, row, "coingecko", at(T0));
+    let out = tick::tick(c, &bundled_venue(), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!(composed_marker(c, id).as_deref(), Some("layer-1"), "the composition records its provenance");
+    let members = in_index(&o, id);
+    retire(c, "layer-1", "coingecko", at(T0) + Duration::days(1));
+    assert_eq!(c.query_row("SELECT count(*) FROM rust_index_rankings WHERE index_id = ?1", [row], |r| r.get::<_, i64>(0)).unwrap(), 0, "its rankings dropped");
+    let later = at(T0) + Duration::days(7);
+    let bot = model::load_bot(c, id).unwrap();
+    assert!(staleness::stale(c, &bot, later).unwrap().is_none(), "not held");
+    assert!(!index::ranking_wanted(c, &bot, later).unwrap(), "not woken");
+    c.execute("UPDATE indices SET top_coins = '[\"ethereum\"]', weights = '{\"ethereum\": 1}' WHERE id = ?1", [row]).unwrap(); // never read
+    let venue = bundled_venue();
+    let out = tick::tick(c, &venue, id, &FixedClock(later), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!(in_index(&o, id), members, "the last allocation, unwritten");
+    assert_eq!(venue.sent().len(), 2);
+}
+
+/// No provenance, no trade: a bot whose index is retired before this engine composed it (a takeover, a failed switch, a
+/// portfolio that follows it again) fails "Index retired" and buys nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_retired_category_without_this_engines_composition_fails_and_trades_nothing() {
+    let failed = |o: &store::Opened, id: i64| -> bool {
+        o.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'execution_failed' AND details LIKE '%Index retired%'", [id], |r| r.get::<_, i64>(0)).unwrap() > 0
+    };
+    // Never composed here (as after a takeover: the claim removed every marker).
+    let (_d, o, _s, id, _) = coingecko_category_bot(json!({ "bitcoin": 3, "ethereum": 1 })).await;
+    let c = &o.primary;
+    retire(c, "layer-1", "coingecko", at(T0));
+    let venue = bundled_venue();
+    let out = tick::tick(c, &venue, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(failed(&o, id) && venue.sent().is_empty() && in_index(&o, id).is_empty(), "{out:?}");
+    // Composed from another index (a switch A -> B whose composition failed, then B retires).
+    let (_d, o, _s, id, row) = coingecko_category_bot(json!({ "bitcoin": 3, "ethereum": 1 })).await;
+    let c = &o.primary;
+    rank(c, row, "coingecko", at(T0));
+    tick::tick(c, &bundled_venue(), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    c.execute("UPDATE bots SET settings = json_set(settings, '$.index_category_id', 'meme') WHERE id = ?1", [id]).unwrap();
+    cg_category(c, "meme", &["bitcoin", "ethereum"], &json!({}));
+    retire(c, "meme", "coingecko", at(T0));
+    let venue = bundled_venue();
+    let out = tick::tick(c, &venue, id, &FixedClock(at(T0) + Duration::days(7)), &mut Attempts::default()).await.unwrap();
+    assert!(failed(&o, id) && venue.sent().is_empty(), "{out:?}: layer-1's membership is not meme's");
+}
+
+/// The fence: a retirement that lands during the composition's price probes writes nothing (Transient CHANGED); the next
+/// step keeps the allocation, or refuses without provenance.
+#[tokio::test(flavor = "current_thread")]
+async fn a_retirement_during_the_probes_writes_nothing() {
+    let (d, o, _s, id, row) = coingecko_category_bot(json!({ "bitcoin": 3, "ethereum": 1 })).await;
+    let c = &o.primary;
+    rank(c, row, "coingecko", at(T0));
+    let path = d.path().join("production.sqlite3");
+    let venue = bundled_venue().on_price(move || {
+        rusqlite::Connection::open(&path).unwrap().execute("INSERT OR IGNORE INTO rust_index_retired (external_id, provider, retired_at) VALUES ('layer-1', 'coingecko', '2026-09-01T14:00:00Z')", []).unwrap();
+    });
+    let bot = model::load_bot(c, id).unwrap();
+    let out = index::refresh_composition(c, &venue, &bot, &FixedClock(at(T0)), &tick::PriceCache::default()).await.unwrap();
+    assert_eq!(out, Err(index::Refusal::Transient(index::CHANGED.into())));
+    assert!(in_index(&o, id).is_empty() && composed_marker(c, id).is_none());
+    let out = index::refresh_composition(c, &bundled_venue(), &bot, &FixedClock(at(T0)), &tick::PriceCache::default()).await.unwrap();
+    assert_eq!(out, Err(index::Refusal::Failure(index::RETIRED.into())), "no provenance: nothing composed");
+}
+
+/// The rebalance keeps the last allocation of a retired index it composed, and without provenance stops before any order
+/// (before_rebalance would otherwise log the failure and go on).
+#[tokio::test(flavor = "current_thread")]
+async fn a_rebalance_of_a_retired_index_runs_on_its_last_membership_or_not_at_all() {
+    use deltabadger::engine::rebalance::Outcome;
+    for composed in [true, false] {
+        let (_d, o, id, t) = index_swap();
+        let c = &o.primary;
+        if composed {
+            // Composed by this engine while running, then stopped again.
+            c.execute("UPDATE bots SET status = 1 WHERE id = ?1", [id]).unwrap();
+            let bot = model::load_bot(c, id).unwrap();
+            let out = index::refresh_composition(c, &venue(&t), &bot, &FixedClock(at("2026-09-01T16:00:00Z")), &tick::PriceCache::default()).await.unwrap();
+            assert_eq!(out, Ok(()));
+            c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+        }
+        retire(c, "nasdaq-100", "data-api", at("2026-09-01T16:10:00Z"));
+        let before = t.posted_orders().len();
+        let out = evaluate_swap(&o, &venue(&t), id).await;
+        if composed { assert_eq!(t.posted_orders().len(), before + 1, "{out:?}: the overweight member sold"); }
+        else { assert_eq!((out, t.posted_orders().len()), (Outcome::Skipped("changed"), before), "zero orders"); }
+    }
+}
+
+/// A stopped rebalancing index bot over the ND100 row holding 10 AAA and 3 BBB at 100 (AAA overweight against its cap).
+fn index_swap() -> (tempfile::TempDir, store::Opened, i64, ScriptedTransport) {
+    let (d, o, s, id, m) = universe(3, 0.0, false);
+    o.primary.execute("UPDATE bots SET status = 2, settings = json_set(settings, '$.rebalance_enabled', json('true')) WHERE id = ?1", [id]).unwrap();
+    o.primary.execute("INSERT INTO exchange_assets (exchange_id, asset_id, available, created_at, updated_at) \
+                       SELECT exchange_id, base_asset_id, 1, created_at, updated_at FROM tickers WHERE quote = 'USD' AND ticker NOT LIKE '%/%'", []).unwrap();
+    for (i, (sym, qty, quote)) in [("AAA", "10", "1000"), ("BBB", "3", "300")].into_iter().enumerate() {
+        seed::insert_stock_tx(&o.primary, &s, id, m[i].0, sym, &TxSpec { status: 0, external_status: Some(2), external_id: Some(format!("held-{sym}")), order_type: 0,
+            amount: Some(qty), quote_amount: Some(quote), price: Some("100"), amount_exec: Some(qty), quote_amount_exec: Some(quote), created_at: "2026-08-01 14:00:00".into() });
+    }
+    let snapshots: serde_json::Map<String, Value> = SYMBOLS.iter().map(|s| (s.to_string(), json!({ "latestTrade": { "p": 100 } }))).collect();
+    let mut script = json!({
+        "GET /v2/clock": ok(json!({ "timestamp": "2026-09-01T10:00:00.5-04:00", "is_open": true, "next_open": "2099-01-02T09:30:00-05:00", "next_close": "2099-01-01T16:00:00-05:00" })),
+        "POST /v2/orders": ok(json!({ "id": "OTX-1", "status": "accepted" })),
+        "GET /v2/account": ok(json!({ "cash": "100000", "buying_power": "200000", "non_marginable_buying_power": "100000" })),
+        "GET /v2/positions": ok(json!([{ "symbol": "AAA", "asset_class": "us_equity", "qty": "10", "qty_available": "10" },
+                                      { "symbol": "BBB", "asset_class": "us_equity", "qty": "3", "qty_available": "3" }])),
+        "GET /v2/stocks/snapshots": ok(Value::Object(snapshots)),
+        "GET /v1beta3/crypto/us/latest/trades": ok(json!({ "trades": {} })),
+    });
+    for sym in SYMBOLS { script[format!("GET /v2/stocks/{sym}/quotes/latest")] = ok(json!({ "quote": { "ap": 100, "bp": 100 } })); }
+    (d, o, id, ScriptedTransport::from_script(&script))
+}
+
+/// The settings line names a retired index " (Retired)", red, in every locale this build ships.
+#[tokio::test(flavor = "current_thread")]
+async fn the_settings_line_says_retired_in_red_in_every_locale() {
+    use common::web::{self as harness, Browser};
+    use deltabadger::web::{csrf, session::{self, SessionData}};
+    let (d, o, s, id, _) = coingecko_category_bot(json!({})).await;
+    let c = &o.primary;
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+    c.execute("UPDATE users SET confirmed_at = '2026-01-01 00:00:00' WHERE id = ?1", [s.user_id]).unwrap();
+    let app = harness::app(d.path(), "engine-test-secret", harness::TestClock::starting(at(T0)));
+    let hash: String = c.query_row("SELECT encrypted_password FROM users WHERE id = ?1", [s.user_id], |r| r.get(0)).unwrap();
+    let data = SessionData { user: Some((s.user_id, hash.chars().take(29).collect())), csrf: Some(csrf::new_token()), ..Default::default() };
+    let mut browser = Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: None };
+    let page = browser.get(&app, &format!("/bots/{id}")).await;
+    assert_eq!(page.status, 200);
+    assert!(!page.body.contains("text-danger\">(Retired)"), "not retired yet");
+    retire(c, "layer-1", "coingecko", at(T0));
+    for locale in ["bg", "cs", "da", "de", "el", "en", "es", "fr", "it", "nl", "pl", "pt", "ru", "sk", "sv"] {
+        let path = if locale == "en" { format!("/bots/{id}") } else { format!("/{locale}/bots/{id}") };
+        let page = browser.get(&app, &path).await;
+        assert_eq!(page.status, 200, "{locale}");
+        let word = deltabadger::web::i18n::text(locale, "bot.dca_index.retired", &[]);
+        assert!(locale == "en" || word != "(Retired)", "{locale} is translated");
+        assert!(page.body.contains(&format!(" <span class=\"text-danger\">{}</span>", askama_escape(&word))), "{locale}: {word}");
+    }
+}
+fn askama_escape(s: &str) -> String { s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&#34;").replace('\'', "&#39;") }

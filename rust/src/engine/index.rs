@@ -119,7 +119,7 @@ pub fn ranking_slot(now: chrono::DateTime<chrono::Utc>) -> chrono::DateTime<chro
 /// The bot needs a refresh of the ranking it follows: an index bot whose followed id has no usable ranking (absent,
 /// unattested, another configuration's, or past 49 h).
 pub fn ranking_wanted(c: &Connection, bot: &Bot, now: chrono::DateTime<chrono::Utc>) -> Result<bool, EngineError> {
-    if bot.bot_type != "Bots::DcaIndex" { return Ok(false); }
+    if bot.bot_type != "Bots::DcaIndex" || retired(c, bot.index_external_id())? { return Ok(false); }
     Ok(!ranked_row(c, bot.index_external_id())?.is_some_and(|r| usable(&r, now)))
 }
 
@@ -135,6 +135,46 @@ pub fn ranking_wake(c: &Connection, bot: &Bot, now: chrono::DateTime<chrono::Utc
     let id = bot.index_external_id().to_string();
     let key = (id.clone(), super::provider::fingerprint(c)?.unwrap_or_default(), slot);
     Ok(sent.insert(key).then_some(id))
+}
+
+/// A17-4 r18 (D-INDEX-RETIRED-KEPT): the composition's refusal of a retired index it has no provenance for.
+pub const RETIRED: &str = "Index retired";
+
+/// The positive provenance of a bot's membership (`bots.transient_data`, Rust-only): the external id this engine's index
+/// composition last wrote it from, set in that write's own transaction. Removed by every other write that changes what the
+/// bot follows or holds (the index switch, an index settings write) and by a new ownership's claim; never inferred.
+pub const COMPOSED_KEY: &str = "rust_composed_index";
+
+/// Whether `external_id` is retired by the install's current provider (rust_index_retired). False with no provider, and
+/// on a copy with no Rust migrations (a page-grid fixture): nothing there was ever retired by this engine.
+pub fn retired(c: &Connection, external_id: &str) -> Result<bool, EngineError> {
+    let Some(provider) = super::provider::ranking_provider(c)? else { return Ok(false) };
+    let table: bool = c.prepare_cached("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_index_retired')")?.query_row([], |r| r.get(0))?;
+    if !table { return Ok(false); }
+    Ok(c.prepare_cached("SELECT EXISTS (SELECT 1 FROM rust_index_retired WHERE external_id = ?1 AND provider = ?2)")?.query_row(params![external_id, provider], |r| r.get(0))?)
+}
+
+/// Whether the bot's current membership is this engine's composition of the index it follows (COMPOSED_KEY).
+pub fn composed_here(bot: &Bot) -> bool { bot.transient.get(COMPOSED_KEY).and_then(Value::as_str) == Some(bot.index_external_id()) }
+
+/// A validated catalogue of `provider` no longer lists `external_id`, in the caller's write unit: the retirement, every
+/// ranking of the id dropped (the old ranking never composes after a re-listing), and one `index_retired` line per bot
+/// following it (category bots neither deleted nor archived, with an exchange). Nothing when it already is retired.
+pub fn retire(c: &Connection, external_id: &str, provider: &str, following: &[i64], now: chrono::DateTime<chrono::Utc>) -> Result<bool, EngineError> {
+    if c.execute("INSERT OR IGNORE INTO rust_index_retired (external_id, provider, retired_at) VALUES (?1, ?2, ?3)",
+                 params![external_id, provider, ranked_at_text(now)])? == 0 { return Ok(false); }
+    c.execute("DELETE FROM rust_index_rankings WHERE index_id IN (SELECT id FROM indices WHERE external_id = ?1)", [external_id])?;
+    for bot in following {
+        c.execute("INSERT INTO bot_activity_logs (bot_id, event, level, message, details, created_at) VALUES (?1, 'index_retired', 1, NULL, ?2, ?3)",
+            params![bot, serde_json::json!({ "index": external_id }).to_string(), crate::codec::format_time(now)])?;
+    }
+    Ok(true)
+}
+
+/// A later validated catalogue of `provider` lists `external_id` again: the retirement goes, in the caller's unit. The id has
+/// no ranking (`retire` dropped them), so its bots are held and woken as any unranked index until a new ranking commits.
+pub fn unretire(c: &Connection, external_id: &str, provider: &str) -> Result<bool, EngineError> {
+    Ok(c.execute("DELETE FROM rust_index_retired WHERE external_id = ?1 AND provider = ?2", params![external_id, provider])? > 0)
 }
 
 /// The asset classifier owns taxonomy, including overrides for legacy catalogue rows.
@@ -250,6 +290,13 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     let provider_before = super::provider::fingerprint(c)?;
     if provider_before.is_none() { return Ok(Err(Refusal::Failure("Index provider not configured".into()))); }
     let category = bot.index_external_id();
+    // D-INDEX-RETIRED-KEPT: a retired index keeps the membership this engine composed from it, unread and unwritten (a
+    // resync's job completes); without that provenance nothing is composed or traded.
+    if retired(c, category)? {
+        if !composed_here(bot) { return Ok(Err(Refusal::Failure(RETIRED.into()))); }
+        if let Some(read) = marker { model::locked(c, |tx| clear_resync(tx, bot.id, read).map(|_| ()))?; }
+        return Ok(Ok(before));
+    }
     let Some(source_before) = ranked_row(c, category)? else { return Ok(Err(Refusal::Failure("Index not found".into()))) };
     let own_caps = source_before.provider == "coingecko";
     let Ranked { source, top_coins: top, weights, .. } = source_before.clone();
@@ -314,7 +361,7 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
         let source_now = ranked_row(tx, category)?;
         // A ranking that aged past its bound during the probes composes nothing: the next pass's gate holds the bot.
         let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != before || source_now.as_ref() != Some(&source_before)
-            || !usable(&source_before, clock.now()) || super::provider::fingerprint(tx)? != provider_before
+            || !usable(&source_before, clock.now()) || retired(tx, category)? || super::provider::fingerprint(tx)? != provider_before
             || super::provider::stale(tx, &current)?.is_some();
         for ticker in &priced_tickers { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
         if changed { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
@@ -328,6 +375,7 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
             if stablecoin(category.as_deref(), &ext) { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
         }
         basket::write_members(tx, bot.id, &members, clock.now())?;
+        tx.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{COMPOSED_KEY}', ?2) WHERE id = ?1"), params![bot.id, category])?;
         if (members.len() as i64) < n {
             let message = format!("Index composition: {} of {n} requested assets are tradable on {} in {}.", members.len(), model::exchange_name(tx, bot)?, model::quote_symbol(tx, bot)?);
             tx.execute("INSERT INTO bot_activity_logs (bot_id,event,level,message,details,created_at) VALUES (?1,'index_composition_shortfall',1,?2,?3,?4)",

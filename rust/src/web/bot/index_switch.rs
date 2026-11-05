@@ -166,7 +166,7 @@ fn switch(tx: &Connection, ctx: &Ctx, owner: i64, id: i64, draft: &draft::Draft,
     let label = if renamed { Some(source.label.clone()) } else { None };
     // The settings column as ActiveRecord's JSON coder writes it (an index's name may hold <, > or &).
     one(tx.execute("UPDATE bots SET settings=?1, label=?2, settings_changed_at=?3, updated_at=?3, \
-        transient_data=json_set(transient_data,'$.run_generation',coalesce(json_extract(transient_data,'$.run_generation'),0)+1) WHERE id=?4 AND type=?5",
+        transient_data=json_remove(json_set(transient_data,'$.run_generation',coalesce(json_extract(transient_data,'$.run_generation'),0)+1),'$.rust_composed_index') WHERE id=?4 AND type=?5",
         (bots::json(&Value::Object(settings)), &label, &at, id, to))?)?;
     for (key, value) in [("missed_quote_amount", carry), ("missed_quote_amount_was_set", Value::Null)] {
         if draft.raw_transient.get(key) != Some(&value) {

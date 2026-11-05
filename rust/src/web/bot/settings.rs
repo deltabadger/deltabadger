@@ -703,6 +703,8 @@ struct IndexMain<'a> {
     interval_words: String,
     interval_select: String,
     index_name: String,
+    /// A17-4 r18: " (Retired)" after the name, red, while the provider has retired the index (engine::index::retired).
+    retired: Option<String>,
     num_coins: i64,
     max_coins: i64,
     num_coins_progress: i64,
@@ -843,6 +845,8 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
             out.push_str(&IndexMain {
                 v: ctx, csrf: forms.csrf, path: &forms.path, bot_id: bot.id, locked: bot.working(), quote, quote_asset_id, amount_field, interval_words, interval_select,
                 index_name: bot.display_index_name().unwrap_or_else(|| i18n::text(ctx.locale, "bot.dca_index.setup.pick_index.top_coins", &[])),
+                retired: crate::engine::index::retired(c, &crate::web::wizard::index::followed(Some(&bot.settings))).map_err(|e| super::data(format!("{e:?}")))?
+                    .then(|| i18n::text(ctx.locale, "bot.dca_index.retired", &[])),
                 num_coins, max_coins,
                 num_coins_progress: if max_coins > MIN_COINS { ((num_coins - MIN_COINS) as f64 / (max_coins - MIN_COINS) as f64 * 100.0).round() as i64 } else { 100 },
                 flattening_progress: (flattening.to_f() * 100.0).round() as i64, flattening: flattening.to_s(),

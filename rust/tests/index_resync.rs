@@ -586,3 +586,36 @@ async fn a_held_tick_wakes_the_ranking_once_per_slot_and_buys_once_ranked() {
     assert_eq!(r.t.posted_orders().len(), 3, "ranked: the members are bought");
     assert!(ranking_wakes(&mut rx).is_empty());
 }
+
+/// A17-4 r18: a retirement that lands during a resync's probes writes no membership; the next pass, with no composition of
+/// this engine's own to keep, ends the job on "Index retired" and nothing is traded.
+#[tokio::test(flavor = "current_thread")]
+async fn a_retirement_during_a_resyncs_probes_writes_nothing() {
+    let r = Rig::new(true, [100.0, 200.0, 300.0, 400.0, 500.0]);
+    r.mark();
+    *r.sql.borrow_mut() = Some("INSERT INTO rust_index_retired VALUES ('nasdaq-100', 'data-api', '2026-09-03T15:00:00Z')".into());
+    let mut e = r.engine();
+    step(&mut e, NOW).await;
+    assert!(r.members().is_empty(), "nothing written from a ranking retired mid-run");
+    step(&mut e, "2026-09-03T15:01:00Z").await;
+    assert!(r.members().is_empty() && r.marker().is_none(), "no provenance: Index retired, the job ends");
+    assert!(r.t.posted_orders().is_empty());
+}
+
+/// A17-4 r18: a resync of a retired index this engine composed keeps the membership and ends the job, unwoken.
+#[tokio::test(flavor = "current_thread")]
+async fn a_resync_of_a_retired_index_it_composed_keeps_the_membership() {
+    let r = Rig::new(true, [100.0, 200.0, 300.0, 400.0, 500.0]);
+    r.mark();
+    let mut e = r.engine();
+    let mut rx = e.subscribe_to(wants_ranking);
+    step(&mut e, NOW).await;
+    assert_eq!(r.members(), ["AAA", "BBB", "CCC"]);
+    let c = r.c();
+    c.execute("INSERT INTO rust_index_retired VALUES ('nasdaq-100', 'data-api', '2026-09-03T15:00:30Z')", []).unwrap();
+    c.execute("DELETE FROM rust_index_rankings", []).unwrap();
+    index::mark_resync(&c, r.id, at("2026-09-03T15:00:40Z")).unwrap();
+    step(&mut e, "2026-09-03T15:01:00Z").await;
+    assert_eq!((r.members(), r.marker()), (vec!["AAA".to_string(), "BBB".into(), "CCC".into()], None));
+    assert!(ranking_wakes(&mut rx).is_empty(), "a retired index is not woken");
+}

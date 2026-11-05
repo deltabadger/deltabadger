@@ -301,6 +301,8 @@ pub const RANKING_SOURCE: &str = "Index ranking";
 pub fn ranking_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
     if bot.bot_type != "Bots::DcaIndex" { return Ok(None); }
     let id = bot.index_external_id();
+    // D-INDEX-RETIRED-KEPT: a retired index is never refreshed; the composition keeps or refuses (index::RETIRED).
+    if super::index::retired(c, id)? { return Ok(None); }
     if !c.query_row("SELECT EXISTS (SELECT 1 FROM indices WHERE external_id = ?1)", [id], |r| r.get::<_, bool>(0))? { return Ok(None); }
     let why = match super::index::ranked_row(c, id)? {
         Some(r) if super::index::usable(&r, now) => return Ok(None),

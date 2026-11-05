@@ -19,7 +19,7 @@ use md5::{Digest, Md5};
 use rusqlite::types::Value as Sql;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Map, Value};
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 /// The slice completed for (fingerprint, slot): `<fingerprint>@<slot>` (contract item 5).
 pub const SLICE_KEY: &str = "rust_job.indices_slice";
@@ -47,18 +47,39 @@ pub fn current(c: &Connection, external_id: &str, fingerprint: &str, slot: DateT
 
 /// Followed (D-CG-FOLLOWED-DAILY, Q-FOLLOWED (a)): the categories of index bots neither deleted nor archived that have an
 /// exchange, stopped ones included (Rails' recheck set), sorted; never `top-coins`.
-fn followed(c: &Connection) -> Result<BTreeSet<String>, EngineError> {
+fn followed(c: &Connection) -> Result<BTreeSet<String>, EngineError> { Ok(followers(c)?.into_keys().collect()) }
+
+/// The followed categories, each with its bots (in id order).
+pub(crate) fn followers(c: &Connection) -> Result<BTreeMap<String, Vec<i64>>, EngineError> {
     use crate::enums::BotStatus::{Archived, Deleted};
     let ids = c.prepare(&format!("SELECT id FROM bots WHERE type = 'Bots::DcaIndex' AND status NOT IN ({}, {}) AND exchange_id IS NOT NULL ORDER BY id",
                                  Deleted as i64, Archived as i64))?
         .query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
-    let mut out = BTreeSet::new();
+    let mut out: BTreeMap<String, Vec<i64>> = BTreeMap::new();
     for id in ids {
         let bot = model::load_bot(c, id)?;
         // Top Coins' own row is ranked by Top Coins, whatever the bot's index type says.
-        if bot.index_type() == Some("category") && bot.index_category_id().is_some_and(|id| id != "top-coins") { out.insert(bot.index_external_id().to_string()); }
+        if bot.index_type() == Some("category") && bot.index_category_id().is_some_and(|id| id != "top-coins") { out.entry(bot.index_external_id().to_string()).or_default().push(id); }
     }
     Ok(out)
+}
+
+/// The ids `provider` has retired (rust_index_retired).
+pub(crate) fn retired_ids(c: &Connection, provider: &str) -> Result<BTreeSet<String>, EngineError> {
+    Ok(c.prepare_cached("SELECT external_id FROM rust_index_retired WHERE provider = ?1")?.query_map([provider], |r| r.get(0))?.collect::<Result<_, _>>()?)
+}
+
+/// A17-4 r18 (D-INDEX-RETIRED-KEPT), in the caller's unit: a validated catalogue of `provider` listing `listed` retires every
+/// followed category it no longer lists (engine::index::retire: once, with a line per following bot) and un-retires every
+/// retired id it lists again.
+pub(crate) fn apply_catalogue(tx: &Connection, provider: &str, listed: &HashSet<String>, now: DateTime<Utc>) -> Result<(), EngineError> {
+    for (id, bots) in followers(tx)? {
+        if !listed.contains(&id) { index::retire(tx, &id, provider, &bots, now)?; }
+    }
+    for id in retired_ids(tx, provider)? {
+        if listed.contains(&id) { index::unretire(tx, &id, provider)?; }
+    }
+    Ok(())
 }
 
 /// `strip_brackets` (:160-162): bracketed text removed, whitespace runs collapsed, stripped.
@@ -300,11 +321,19 @@ async fn steps(api: &dyn Api, fingerprint: &str, cx: &Cx<'_>, tally: &mut Tally)
     let eligible: Vec<&Value> = feed.iter().flatten().filter(|c| c["id"].as_str().is_some_and(|id| !id.trim().is_empty() && !EXCLUDED.contains(&id))
                                                               && present(&c["content"])).collect();
     let eligible_ids: Vec<String> = eligible.iter().filter_map(|c| c["id"].as_str().map(str::to_string)).collect();
+    // Validated (r18): every entry has a non-empty string id, and one is eligible; anything else retires nothing.
+    let listed: Option<HashSet<String>> = feed.as_ref()
+        .filter(|rows| !eligible_ids.is_empty() && rows.iter().all(|c| c["id"].as_str().is_some_and(|id| !id.trim().is_empty())))
+        .map(|rows| rows.iter().filter_map(|c| c["id"].as_str().map(str::to_string)).collect());
     if !eligible_ids.is_empty() {
         let keep = json!(eligible_ids).to_string();
         unit(cx, fingerprint, move |tx| {
-            // The followed set as this transaction sees it: a follow committed during the list request is spared too.
-            let spare = json!(self::followed(tx)?).to_string();
+            if let Some(listed) = &listed { apply_catalogue(tx, "coingecko", listed, now)?; }
+            // The followed set as this transaction sees it: a follow committed during the list request is spared too, and
+            // a retired id's rows are kept (its bots keep their last allocation).
+            let mut spare = self::followed(tx)?;
+            spare.extend(retired_ids(tx, "coingecko")?);
+            let spare = json!(spare).to_string();
             tx.execute("DELETE FROM indices WHERE source = 'coingecko' AND external_id NOT IN (SELECT value FROM json_each(?1)) \
                         AND external_id NOT IN (SELECT value FROM json_each(?2))", params![keep, spare])?;
             Ok(())
@@ -321,7 +350,14 @@ async fn steps(api: &dyn Api, fingerprint: &str, cx: &Cx<'_>, tally: &mut Tally)
     }
     for id in &followed { if !due.iter().any(|d| d.id == *id) { due.push(Due { id: id.clone(), followed: true, slice: false }); } }
     let (fp, ids) = (fingerprint.to_string(), due.iter().map(|d| d.id.clone()).collect::<Vec<_>>());
-    let skip: Vec<bool> = cx.db.run(move |c, _| ids.iter().map(|id| current(c, id, &fp, slot)).collect::<Result<Vec<_>, _>>().map_err(|e| format!("{e:?}"))).await?;
+    // A retired id is never asked (r18).
+    let skip: Vec<bool> = cx.db.run(move |c, _| {
+        let skip = || -> Result<Vec<bool>, EngineError> {
+            let retired = retired_ids(c, "coingecko")?;
+            ids.iter().map(|id| Ok(retired.contains(id) || current(c, id, &fp, slot)?)).collect()
+        };
+        skip().map_err(|e| format!("{e:?}"))
+    }).await?;
     let due: Vec<Due> = due.into_iter().zip(skip).filter_map(|(d, cur)| (!cur).then_some(d)).collect();
 
     // e. Each due category, one `coins/markets?category=` page of 250 (Rails' get_coins_list_with_market_data(limit: 250)).

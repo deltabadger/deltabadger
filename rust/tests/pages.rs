@@ -2027,6 +2027,12 @@ fn without_counters(bot: &mut Value) {
         let (from, to) = if text[..start].ends_with(',') { (start - 1, end) } else if text[end..].starts_with(',') { (start, end + 1) } else { (start, end) };
         text.replace_range(from..to, "");
     }
+    // A17-4 r18: the composition marker, a plain string (engine::index::COMPOSED_KEY).
+    if let Some(start) = text.find("\"rust_composed_index\":\"") {
+        let end = start + 23 + text[start + 23..].find('"').unwrap() + 1;
+        let (from, to) = if text[..start].ends_with(',') { (start - 1, end) } else if text[end..].starts_with(',') { (start, end + 1) } else { (start, end) };
+        text.replace_range(from..to, "");
+    }
     for counter in ["run_generation", "tick_generation"] {
         let Some(start) = text.find(&format!("\"{counter}\":")) else { continue };
         let end = start + text[start..].find([',', '}']).unwrap();

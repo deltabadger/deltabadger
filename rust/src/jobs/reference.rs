@@ -276,9 +276,14 @@ async fn indices<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
     let now = cx.clock.now();
     let plan = cx.db.run(move |_, _| {
         let rows = take_data(body)?;
-        if !present(&rows) { return Ok(vec![]); } // `return if indices_data.blank?`
-        import::plan_indices(rows.as_array().ok_or_else(|| "the indices payload's data is not a list".to_string())?)
+        if !present(&rows) { return Ok((vec![], None)); } // `return if indices_data.blank?`
+        let list = rows.as_array().ok_or_else(|| "the indices payload's data is not a list".to_string())?;
+        // A17-4 r18: validated when every row names a non-empty string external_id (the payload is non-empty here).
+        let listed: Option<std::collections::HashSet<String>> = list.iter()
+            .map(|r| r["external_id"].as_str().filter(|id| !id.trim().is_empty()).map(str::to_string)).collect();
+        Ok((import::plan_indices(list)?, listed))
     }).await;
+    let (plan, listed) = match plan { Ok((rows, listed)) => (Ok(rows), listed), Err(m) => (Err(m), None) };
     let result = match plan {
         Ok(rows) if rows.is_empty() => { // Rails writes nothing; the indices keep their age
             let now = cx.clock.now();
@@ -294,6 +299,7 @@ async fn indices<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
         Ok(()) => match cx.db.run(move |c,_| {
             crate::engine::model::locked(c,|tx| {
                 if crate::engine::provider::fingerprint(tx)?.as_deref()!=Some(&captured) {return Err(crate::engine::EngineError::Data("index configuration changed during refresh".into()));}
+                if let Some(listed) = &listed { super::categories::apply_catalogue(tx, "data-api", listed, now)?; }
                 crate::engine::provider::record(tx,&captured,now)?;
                 crate::engine::index::mark_resync_all(tx,now).map(|_|())
             }).map_err(|_|"index configuration changed during refresh; refresh again".to_string())

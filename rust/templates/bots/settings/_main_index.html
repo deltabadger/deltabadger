@@ -19,7 +19,7 @@
         {{ interval_select|safe }}
       </div>
       {{ v.t("bot.dca_index.into")|safe }}
-        {{ index_name }}
+        {{ index_name }}{% if let Some(retired) = retired %} <span class="text-danger">{{ retired }}</span>{% endif %}
     </div>
 
     <div class="index-settings">

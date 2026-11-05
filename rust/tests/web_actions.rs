@@ -2613,6 +2613,26 @@ mod custom_allocation {
         Ok(())
     }
 
+    /// A17-4 r18: the switch ends the provenance of the bot's membership. A bot this engine composed from ND100 becomes a
+    /// portfolio, its allocations change, it follows ND100 again, ND100 retires: "Index retired", nothing composed.
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_portfolio_that_follows_a_retired_index_again_has_no_provenance() -> Result {
+        use deltabadger::engine::{index, model};
+        let f = Fixture::new()?;
+        f.c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_composed_index', 'nasdaq-100') WHERE id = ?1", [f.id])?;
+        assert!(matches!(f.customize()?, Switched::Done));
+        assert!(f.row()?.2.get(index::COMPOSED_KEY).is_none(), "the portfolio conversion removes it");
+        f.c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_composed_index', 'nasdaq-100') WHERE id = ?1", [f.id])?; // as if left behind
+        assert!(matches!(follow(&f, "nasdaq-100")?, Switched::Done));
+        assert!(f.row()?.2.get(index::COMPOSED_KEY).is_none(), "following an index removes it");
+        index::retire(&f.c, "nasdaq-100", "data-api", &[], harness::at(NOW)).map_err(|e| format!("{e:?}"))?;
+        let bot = model::load_bot(&f.c, f.id).map_err(|e| format!("{e:?}"))?;
+        let venue = deltabadger::venue::fake::FakeVenue::new().on_price(|| panic!("nothing is probed"));
+        let out = index::refresh_composition(&f.c, &venue, &bot, &deltabadger::engine::FixedClock(harness::at(NOW)), &deltabadger::engine::tick::PriceCache::default()).await.map_err(|e| format!("{e:?}"))?;
+        assert_eq!(out, Err(index::Refusal::Failure(index::RETIRED.into())));
+        Ok(())
+    }
+
     /// An index bot is not offered the index it follows; a selling portfolio may not follow one.
     #[test]
     fn the_followed_index_is_not_offered_and_a_seller_refuses() -> Result {

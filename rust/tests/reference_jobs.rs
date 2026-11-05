@@ -1197,7 +1197,7 @@ async fn the_category_pass_ranks_the_slice_sweeps_and_keeps_what_is_followed() {
     let old = rails_category_row(&c, "old-category", &["coin-a"]);
     deltabadger::engine::index::record_ranking(&c, old, "coingecko", &fp, at("2026-09-30T10:31:00Z")).unwrap();
     rails_category_row(&c, "launchpad", &["coin-a"]); // listed without a description: swept
-    rails_category_row(&c, "oracle", &["coin-a"]);    // followed, gone from the feed: kept and asked
+    rails_category_row(&c, "oracle", &["coin-a"]);    // followed, gone from the feed: retired (r18), its row kept, not asked
     rails_category_row(&c, "meme-token", &["coin-b"]); // eligible, not due: untouched
     cg_bot(&c, &s, "oracle", 2);
     cg_bot(&c, &s, "frog-themed-coins", 1);
@@ -1210,7 +1210,7 @@ async fn the_category_pass_ranks_the_slice_sweeps_and_keeps_what_is_followed() {
         .reply(&cat_key("frog-themed-coins"), 200, members(&[("coin-c", 7.0), ("no-asset", 1.0)]))
         .reply(&cat_key("oracle"), 200, members(&[("coin-d", 5.0), ("coin-e", 0.0), ("coin-f", 4.0)]));
     assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done);
-    assert_eq!(asked(&t), ["ping", "top-coins", "categories", "payments", "music", "pump-fun", "frog-themed-coins", "oracle"]);
+    assert_eq!(asked(&t), ["ping", "top-coins", "categories", "payments", "music", "pump-fun", "frog-themed-coins"]);
     let c = reopen(&d);
     let ids = |sql: &str| -> Vec<String> { c.prepare(sql).unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect() };
     assert_eq!(ids("SELECT external_id FROM indices WHERE source = 'coingecko' ORDER BY external_id"), ["frog-themed-coins", "meme-token", "oracle", "payments"],
@@ -1227,8 +1227,8 @@ async fn the_category_pass_ranks_the_slice_sweeps_and_keeps_what_is_followed() {
     assert_eq!(ranking(&c, "payments").map(|r| r.0).as_deref(), Some("coingecko"));
     assert_eq!(top_of(&c, "frog-themed-coins"), ["coin-c"], "D-CG-FOLLOWED-KEPT: written with one valid member");
     assert_eq!(row_text(&c, "frog-themed-coins", "available_exchanges").as_deref(), Some("{}"), "and no venue with 3");
-    assert_eq!(top_of(&c, "oracle"), ["coin-d", "coin-e", "coin-f"]);
-    assert_eq!(row_text(&c, "oracle", "description").as_deref(), Some("Rails"), "absent from the feed: the row keeps its own attributes");
+    assert_eq!(top_of(&c, "oracle"), ["coin-a"], "retired: its row as it was");
+    assert_eq!(one::<String>(&c, "SELECT provider FROM rust_index_retired WHERE external_id = 'oracle'"), "coingecko");
     assert_eq!(top_of(&c, "meme-token"), ["coin-b"], "not due, not followed: not asked");
     assert_eq!(ranking(&c, "meme-token"), None);
     assert_eq!(deltabadger::app_config::get_plain(&c, deltabadger::jobs::categories::SLICE_KEY).unwrap(),
@@ -1597,6 +1597,116 @@ async fn a_follow_during_the_categories_request_keeps_its_row_and_ranking() {
     deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
     assert_eq!(reference::coingecko_indices(&clients, &Cx { db: Db::new(c, seed::cipher()), clock: &FixedClock(at(CG_NOW)), wakers: Default::default() }).await, Outcome::Done);
     let c = reopen(&d);
-    assert_eq!(ranking(&c, "old-category"), before, "not swept: its row and ranking kept");
+    let _ = before;
+    // A follow committed during the request is read in the unit's own transaction: the list no longer names the category, so
+    // it is retired (r18): its row kept, its ranking dropped.
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM indices WHERE external_id = 'old-category'"), 1, "not swept: its row kept");
+    assert_eq!(ranking(&c, "old-category"), None, "retired: its ranking dropped");
+    assert_eq!(one::<String>(&c, "SELECT provider FROM rust_index_retired WHERE external_id = 'old-category'"), "coingecko");
     assert_eq!(top_of(&c, "music"), ["coin-a", "coin-b"], "followed since the run began: written, not disqualified");
+}
+
+// ---- A17-4 r18: retired categories (D-INDEX-RETIRED-KEPT) ----
+
+fn retirements(c: &Connection) -> Vec<(String, String)> {
+    c.prepare("SELECT external_id, provider FROM rust_index_retired ORDER BY external_id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
+}
+fn retired_lines(c: &Connection) -> Vec<i64> {
+    c.prepare("SELECT bot_id FROM bot_activity_logs WHERE event = 'index_retired' ORDER BY bot_id").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
+}
+
+/// A validated list that no longer names a followed category retires it: the table row, its ranking dropped, one line per
+/// following bot; the next run asks nothing of it and writes no second line; its row is kept by the sweep.
+#[tokio::test(flavor = "current_thread")]
+async fn a_validated_coingecko_list_retires_a_followed_category_once() {
+    let (d, c, s) = cg_install(&["coin-a", "coin-b", "coin-c"]);
+    let (one_bot, two_bot) = (cg_bot(&c, &s, "oracle", 1), cg_bot(&c, &s, "oracle", 2));
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("oracle", "O"), category("meme-token", "M")])).reply(&cat_key("oracle"), 200, members(&[("coin-a", 3.0), ("coin-b", 2.0), ("coin-c", 1.0)]));
+    assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done);
+    assert!(ranking(&reopen(&d), "oracle").is_some());
+    for (n, now) in ["2026-10-03T10:31:00Z", "2026-10-04T10:31:00Z"].into_iter().enumerate() {
+        let t = cg_transport();
+        t.reply(CATS_KEY, 200, json!([category("meme-token", "M")]));
+        cg_run(&d, &t, now).await;
+        assert!(!asked(&t).contains(&"oracle".to_string()), "run {n}: a retired category is not asked: {:?}", asked(&t));
+        let c = reopen(&d);
+        assert_eq!(retirements(&c), [("oracle".to_string(), "coingecko".to_string())]);
+        assert!(ranking(&c, "oracle").is_none(), "its ranking dropped");
+        assert_eq!(one::<i64>(&c, "SELECT count(*) FROM indices WHERE external_id = 'oracle'"), 1, "its row kept");
+        assert_eq!(retired_lines(&c), [one_bot, two_bot], "one line per following bot, once");
+    }
+}
+
+/// Only a validated list retires (r18): a list entry without an id, `[{}]`, a list with no eligible category, or a failed
+/// read retires nothing and un-retires nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_malformed_coingecko_list_retires_and_clears_nothing() {
+    for (body, status) in [(json!([category("meme-token", "M"), { "name": "no id" }]), 200), (json!([{}]), 200), (json!([category("stablecoins", "S")]), 200),
+                           (json!([category("meme-token", "M"), { "id": "" }]), 200), (json!({}), 500)] {
+        let (d, c, s) = cg_install(&["coin-a", "coin-b", "coin-c"]);
+        cg_bot(&c, &s, "oracle", 1);
+        c.execute("INSERT INTO rust_index_retired VALUES ('meme-token', 'coingecko', '2026-10-01T00:00:00Z')", []).unwrap();
+        let t = cg_transport();
+        t.reply(CATS_KEY, status, body.clone()).reply(&cat_key("oracle"), 200, members(&[("coin-a", 3.0), ("coin-b", 2.0), ("coin-c", 1.0)]));
+        cg_run(&d, &t, CG_NOW).await;
+        let c = reopen(&d);
+        assert_eq!(retirements(&c), [("meme-token".to_string(), "coingecko".to_string())], "{body}: nothing retired or cleared");
+        assert!(retired_lines(&c).is_empty(), "{body}");
+    }
+}
+
+/// Re-listing: a validated list naming a retired category again drops the retirement in the same unit and asks it in the
+/// same slot; until a new ranking commits its bots are held (a failed fetch leaves them held).
+#[tokio::test(flavor = "current_thread")]
+async fn a_relisted_category_is_unretired_and_fetched_and_held_until_ranked() {
+    use deltabadger::engine::{model, staleness};
+    let (d, c, s) = cg_install(&["coin-a", "coin-b", "coin-c"]);
+    let bot = cg_bot(&c, &s, "oracle", 1);
+    rails_category_row(&c, "oracle", &["coin-a"]);
+    c.execute("INSERT INTO rust_index_retired VALUES ('oracle', 'coingecko', '2026-10-01T00:00:00Z')", []).unwrap();
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("oracle", "O")])).reply(&cat_key("oracle"), 500, json!({}));
+    let out = cg_run(&d, &t, CG_NOW).await;
+    assert!(matches!(&out, Outcome::Transient(m) if m.contains("oracle")), "{out:?}");
+    assert!(asked(&t).contains(&"oracle".to_string()), "fetched in the same slot");
+    let c = reopen(&d);
+    deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
+    assert!(retirements(&c).is_empty(), "the retirement dropped");
+    let held = || staleness::ranking_stale(&c, &model::load_bot(&c, bot).unwrap(), at(CG_NOW)).unwrap().is_some();
+    assert!(held(), "held after the failed fetch");
+    let t = cg_transport();
+    t.reply(CATS_KEY, 200, json!([category("oracle", "O")])).reply(&cat_key("oracle"), 200, members(&[("coin-a", 3.0), ("coin-b", 2.0), ("coin-c", 1.0)]));
+    assert_eq!(cg_run(&d, &t, "2026-10-02T10:46:00Z").await, Outcome::Done);
+    assert!(!held(), "ranked: composes again");
+}
+
+/// The data-api pull retires too, on its own provider: a successful, non-empty payload in which every row names an
+/// external_id; a malformed one retires nothing; a later payload naming the id again un-retires it.
+#[tokio::test(flavor = "current_thread")]
+async fn the_data_api_pull_retires_what_a_validated_payload_no_longer_lists() {
+    let (d, o, s) = common::install();
+    let c = o.primary;
+    let bot = seed::index_bot(&c, &s, "layer-1", 3, 0.0, false);
+    let pull = |body: Value| {
+        let t = ScriptedTransport::default();
+        t.reply("GET /api/v2/indices", 200, body);
+        DataApi::new(Config { url: "https://data.invalid".into(), token: "scripted-token".into() }, t.clone(), t)
+    };
+    let run = |api, now: &'static str| { let c = reopen(&d); async move { reference::run_once(reference::INDICES, Some(api), Cx { db: Db::new(c, seed::cipher()), clock: &FixedClock(at(now)), wakers: Default::default() }).await } };
+    let other = json!({ "external_id": "meme", "source": "coingecko", "name": "Meme", "top_coins": ["bitcoin"] });
+    let layer = json!({ "external_id": "layer-1", "source": "coingecko", "name": "Layer 1", "top_coins": ["bitcoin"] });
+    drop(c);
+    // Malformed: a row with no external_id retires nothing (whatever the import then makes of it).
+    run(pull(json!({ "data": [other.clone(), { "source": "coingecko", "name": "nameless" }] })), CG_NOW).await;
+    assert!(retirements(&reopen(&d)).is_empty());
+    assert_eq!(run(pull(json!({ "data": [other.clone()] })), CG_NOW).await, Outcome::Done);
+    let c = reopen(&d);
+    assert_eq!(retirements(&c), [("layer-1".to_string(), "data-api".to_string())]);
+    assert_eq!(retired_lines(&c), [bot]);
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM rust_index_rankings r JOIN indices i ON i.id = r.index_id WHERE i.external_id = 'layer-1'"), 0, "its rankings dropped");
+    assert_eq!(run(pull(json!({ "data": [other, layer] })), "2026-10-03T10:31:00Z").await, Outcome::Done);
+    let c = reopen(&d);
+    assert!(retirements(&c).is_empty(), "listed again: un-retired");
+    assert_eq!(retired_lines(&c), [bot], "no second line");
 }
