@@ -48,6 +48,8 @@ pub struct Launch {
     /// The OS's language (`pl-PL`) and IANA time zone, for the one account a fresh data dir gets (PLAN-B6-3 §2.1).
     pub locale: Option<String>,
     pub time_zone: Option<String>,
+    /// Windows: `<exe dir>\.updating`, the mark the installer keeps open while it copies (PLAN-B7 r2.3, r3.3; hooks.nsh).
+    pub updating: Option<PathBuf>,
 }
 
 impl Launch {
@@ -251,6 +253,10 @@ pub enum Page {
     NotStarted(String),
     /// D7.
     NotResponding,
+    /// U13 (PLAN-B7 r3.3): an installer is copying the app.
+    BeingUpdated,
+    /// U10 (r2.3): the installer's mark is left with no installer: the copy was interrupted.
+    UpdateUnfinished,
 }
 
 impl Page {
@@ -263,6 +269,8 @@ impl Page {
             Page::Stopped(_) => "stopped",
             Page::NotStarted(_) => "not-started",
             Page::NotResponding => "not-responding",
+            Page::BeingUpdated => "being-updated",
+            Page::UpdateUnfinished => "update-unfinished",
         }
     }
 
@@ -356,6 +364,13 @@ pub fn supervise(launch: &Launch, engine: &Engine, view: &dyn View) {
             Ok(false) => return,
             Err(error) => return show(Page::NotStarted(error)),
         }
+        if let Some(mark) = &launch.updating {
+            match wait_while_updating(mark, &installer_holds, &|| engine.quitting(), &show, UPDATING_POLL) {
+                Ok(true) => {}
+                Ok(false) => return,
+                Err(page) => return show(page),
+            }
+        }
         let port = first_port.take().unwrap_or_else(|| find_available_port(base));
         let (token, launcher) = match (secrets::random_hex(16), secrets::random_hex(16)) {
             (Ok(token), Ok(launcher)) => (token, launcher),
@@ -395,6 +410,52 @@ pub fn supervise(launch: &Launch, engine: &Engine, view: &dyn View) {
         return show(if served { Page::Stopped(details) } else { Page::NotStarted(details) });
     }
 }
+
+/// U13 is re-checked this often (PLAN-B7 r2.3).
+pub const UPDATING_POLL: Duration = Duration::from_secs(2);
+
+/// Before every spawn on Windows (PLAN-B7 r2.3, r3.3): no `.updating` → true at once. `.updating` held open by the
+/// installer (`held`) → U13, looked at again every `every`, true once the installer removed it. `.updating` with nobody
+/// holding it on two looks in a row (the second covers the instant between POSTINSTALL's close and its delete) → U10,
+/// no engine. False on a quit.
+pub fn wait_while_updating(mark: &Path, held: &dyn Fn(&Path) -> bool, quitting: &dyn Fn() -> bool, show: &dyn Fn(Page), every: Duration) -> Result<bool, Page> {
+    let (mut shown, mut orphaned) = (false, false);
+    loop {
+        if quitting() {
+            return Ok(false);
+        }
+        if held(mark) {
+            orphaned = false;
+            if !shown {
+                show(Page::BeingUpdated);
+                shown = true;
+            }
+        } else if !mark.exists() {
+            return Ok(true);
+        } else if orphaned {
+            return Err(Page::UpdateUnfinished);
+        } else {
+            orphaned = true;
+        }
+        let until = Instant::now() + every;
+        while Instant::now() < until && !quitting() {
+            thread::sleep(Duration::from_millis(50));
+        }
+    }
+}
+
+/// The installer has `.updating` open (hooks.nsh keeps its handle until POSTINSTALL): an open without sharing fails with
+/// ERROR_SHARING_VIOLATION. Its handle closes with its process, so a killed installer holds nothing.
+#[cfg(windows)]
+fn installer_holds(mark: &Path) -> bool {
+    use std::os::windows::fs::OpenOptionsExt;
+    match OpenOptions::new().read(true).share_mode(0).open(mark) {
+        Ok(_) => false,
+        Err(error) => error.raw_os_error() == Some(32),
+    }
+}
+#[cfg(not(windows))]
+fn installer_holds(_: &Path) -> bool { false }
 
 /// D2 while another process holds the engine lock, re-probed every 2 s, with D3's hint after 65 s (r1.8). False on a
 /// quit.

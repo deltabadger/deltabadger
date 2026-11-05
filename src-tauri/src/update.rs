@@ -136,7 +136,8 @@ impl Agent {
         Snapshot { seq: inner.seq, state: inner.state.clone() }
     }
 
-    fn open(&self) -> bool { self.phase.load(Ordering::SeqCst) == OPEN }
+    /// No install or quit under way. B6-3b's notice poll looks at the engine only then (PLAN-B7 r7).
+    pub fn open(&self) -> bool { self.phase.load(Ordering::SeqCst) == OPEN }
 
     pub fn quitting(&self) -> bool { self.quit.load(Ordering::SeqCst) }
 
@@ -367,8 +368,10 @@ impl Agent {
             return host.log("desktop: update: quit before installing; nothing installed");
         }
         self.set_state(State::Installing);
-        // A quit that came in by now means no relaunch either. ponytail: on Windows a quit after the installer's launch
-        // can't take back its /R (B7-2 holds ExitRequested there).
+        // A quit that came in by now means no relaunch either. On Windows the app's Exit waits for this step
+        // (`wait_for_replacement`), so the attempt mark and the installer's launch finish before the process ends.
+        // ponytail: a quit in the instant after the installer's launch can't take back its /R; the app it relaunches is
+        // the one the click asked for.
         let relaunch = intent == Intent::Click && !self.quitting();
         match host.install(package, relaunch) {
             Ok(()) => {
@@ -492,6 +495,27 @@ pub fn write_failed_mark(log_dir: &std::path::Path, kind: Kind, now: std::time::
 pub fn read_failed_mark(log_dir: &std::path::Path) -> Option<Kind> {
     let text = std::fs::read_to_string(log_dir.join(FAILED_MARK)).ok()?;
     Some(if text.split_whitespace().nth(1) == Some("space") { Kind::Space } else { Kind::Install })
+}
+
+/// `<data>/updates/attempt` (r4.3; install.rs `write_attempt`), read at every start: the version that runs is the outcome,
+/// whatever the installer did. The target running → it installed: the attempt and any older failure mark go. Anything
+/// else (PREINSTALL refused, the installer crashed or was cancelled, the file unreadable) → the failure mark (U5d once,
+/// as after a failed Quit install, r3.6), written before the attempt is deleted. The line to log, if there was one.
+pub fn settle_attempt(data: &std::path::Path, log_dir: &std::path::Path, running: &str, now: std::time::SystemTime) -> Option<String> {
+    let path = data.join("updates").join("attempt");
+    let text = std::fs::read_to_string(&path).ok()?;
+    let target = serde_json::from_str::<serde_json::Value>(&text).ok().and_then(|v| v.get("version")?.as_str().map(str::to_string));
+    let line = if target.as_deref() == Some(running) {
+        let _ = std::fs::remove_file(log_dir.join(FAILED_MARK));
+        "desktop: update: the installer installed this version".to_string()
+    } else if let Err(error) = write_failed_mark(log_dir, Kind::Install, now) {
+        // The attempt stays: the next start tries again.
+        return Some(format!("desktop: update: the last installer didn't install this version; could not write {FAILED_MARK}: {error}"));
+    } else {
+        "desktop: update: the last installer didn't install this version; shown once".to_string()
+    };
+    let _ = std::fs::remove_file(&path);
+    Some(line)
 }
 
 /// A .deb is told about updates, never downloads them (§2.4): the same value the plugin picks its install branch by.

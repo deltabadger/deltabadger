@@ -552,3 +552,36 @@ fn an_exit_during_the_replacement_waits_for_it() {
     assert_eq!(slow.0.events().last().unwrap(), "exit", "the step and its exit were done before the wait returned");
     worker.join().unwrap();
 }
+
+/// PLAN-B7 r4.3: the Windows installer's outcome read from the version that starts, once.
+#[test]
+fn an_attempt_is_settled_by_the_version_that_starts_and_a_failure_is_shown_once() {
+    let at = std::time::UNIX_EPOCH + Duration::from_secs(1_800_000_000);
+    let dir = std::env::temp_dir().join(format!("b7-attempt-{}", std::process::id()));
+    let (data, log) = (dir.join("data"), dir.join("data/log"));
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(settle_attempt(&data, &log, "2.0.0", at), None, "no attempt, nothing to do");
+
+    // The target runs: it installed; an older failure mark is out of date.
+    install::write_attempt(&data, "2.0.0", true).unwrap();
+    write_failed_mark(&log, Kind::Install, at).unwrap();
+    assert!(settle_attempt(&data, &log, "2.0.0", at).unwrap().contains("installed this version"));
+    assert!(!data.join("updates/attempt").exists());
+    assert_eq!(read_failed_mark(&log), None);
+
+    // Another version runs (PREINSTALL refused, the installer crashed or was cancelled): U5d at this start, once.
+    for intent in [true, false] {
+        install::write_attempt(&data, "2.0.1", intent).unwrap();
+        assert!(settle_attempt(&data, &log, "2.0.0", at).unwrap().contains("didn't install"));
+        assert!(!data.join("updates/attempt").exists());
+        assert_eq!(read_failed_mark(&log), Some(Kind::Install));
+        assert_eq!(settle_attempt(&data, &log, "2.0.0", at), None, "the next start shows nothing more");
+        std::fs::remove_file(log.join(FAILED_MARK)).unwrap(); // what update_state does once a page has the state
+    }
+
+    // An unreadable attempt is a failed one.
+    std::fs::write(data.join("updates/attempt"), "{").unwrap();
+    settle_attempt(&data, &log, "2.0.0", at).unwrap();
+    assert_eq!(read_failed_mark(&log), Some(Kind::Install));
+    std::fs::remove_dir_all(&dir).unwrap();
+}

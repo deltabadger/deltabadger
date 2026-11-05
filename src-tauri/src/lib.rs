@@ -589,8 +589,11 @@ fn launch(app: &tauri::App) -> Result<Launch, String> {
         .path()
         .resource_dir()
         .map_err(|error| format!("Failed to resolve resource directory: {error}"))?;
+    let exe = engine_exe()?;
+    // PLAN-B7 r2.3: the installer's mark sits next to the app's executables.
+    let updating = if cfg!(windows) { exe.parent().map(|dir| dir.join(".updating")) } else { None };
     Ok(Launch {
-        exe: engine_exe()?,
+        exe,
         extra_args: Vec::new(),
         cwd,
         data,
@@ -598,6 +601,7 @@ fn launch(app: &tauri::App) -> Result<Launch, String> {
         first_port: None,
         locale: sys_locale::get_locale(),
         time_zone: iana_time_zone::get_timezone().ok(),
+        updating,
     })
 }
 
@@ -742,15 +746,21 @@ pub fn run() {
                     let (l, e, v) = (launch.clone(), engine.clone(), view.clone());
                     let supervisor = Mutex::new(Some(std::thread::spawn(move || supervisor::supervise(&l, &e, &*v))));
                     // D-DESKTOP-NOTIFY (PLAN-B6-3 §3): bot alerts as system notifications, for the app's life.
-                    let (e, handle, identifier) = (engine.clone(), app.handle().clone(), app.config().identifier.clone());
+                    // PLAN-B7 r7: not while an install or a quit is stopping the engine.
+                    let (e, handle, identifier, a) = (engine.clone(), app.handle().clone(), app.config().identifier.clone(), agent.clone());
                     std::thread::spawn(move || {
                         let log = |line: &str| log_line(&handle, line);
                         notices::set_app(&identifier, &log);
                         let focused = handle.clone();
                         let focus: &'static (dyn Fn() + Send + Sync) = Box::leak(Box::new(move || show_window(&focused)));
-                        notices::run(&e, &identifier, focus, &log);
+                        notices::run(&e, &|| !a.open(), &identifier, focus, &log);
                     });
                     let fault = config.fault.clone();
+                    // A Windows installer's outcome (r4.3), before the failure mark is read: a failed one becomes it.
+                    let running = app.package_info().version.to_string();
+                    if let Some(line) = update::settle_attempt(&launch.data, &launch.log_dir(), &running, std::time::SystemTime::now()) {
+                        log_line(app.handle(), &line);
+                    }
                     let failed_mark = update::read_failed_mark(&launch.log_dir()).map(|kind| {
                         log_line(app.handle(), "desktop: update: the previous quit's install failed");
                         agent.failed_before(kind);

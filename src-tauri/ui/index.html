@@ -27,6 +27,8 @@
 <main>
   <p id="lead"></p>
   <p id="more" class="muted"></p>
+  <!-- No target: the window's navigation handler (lib.rs `navigation`) opens any web page in the browser. -->
+  <p id="link" hidden><a href="https://github.com/deltabadger/deltabadger/releases" rel="noopener">Download page</a></p>
   <details id="details" hidden><summary>Details</summary><pre id="lines"></pre></details>
 </main>
 <script>
@@ -58,6 +60,12 @@
       // U12 (r6 Q6): the user chose Quit with an update ready; U8 joins it after 60 s.
       "quitting-update": function () { return [QUITTING_UPDATE, ""]; },
       "quitting-update-long": function () { return [QUITTING_UPDATE, UPDATE_WAITING]; },
+      // U13 (PLAN-B7 r3, section 3): an installer is copying the app; no engine starts until it has finished.
+      "being-updated": function () { return ["Deltabadger is being updated. Open it again in a moment.", ""]; },
+      // U10 (PLAN-B7 r2, section 3): the installer's mark was left behind: its copy was interrupted (D-DESKTOP-WIN-INTERRUPTED-COPY).
+      "update-unfinished": function () {
+        return ["Deltabadger didn't start: its last update didn't finish. Download Deltabadger from the download page and install it again. Your data is kept.", "", true];
+      },
       "not-responding": function () {
         return ["Deltabadger isn't responding.", "It may be stopping after a problem. Wait a moment. If this doesn't change, quit Deltabadger and open it again."];
       }
@@ -76,6 +84,7 @@
       var text = page(params);
       document.getElementById("lead").textContent = text[0];
       document.getElementById("more").textContent = text[1];
+      document.getElementById("link").hidden = !text[2];
       var details = params.details || "";
       document.getElementById("lines").textContent = details;
       document.getElementById("details").hidden = details === "";

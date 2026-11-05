@@ -129,8 +129,9 @@ pub fn set_app(identifier: &str, log: &dyn Fn(&str)) {
     let _ = (identifier, log);
 }
 
-/// The poller, for the app's life: looks at whichever engine start is current.
-pub fn run(engine: &Engine, app_id: &str, focus: &'static (dyn Fn() + Send + Sync), log: &dyn Fn(&str)) {
+/// The poller, for the app's life: looks at whichever engine start is current, never while `paused` (an update stopping
+/// the engine, PLAN-B7 r7).
+pub fn run(engine: &Engine, paused: &dyn Fn() -> bool, app_id: &str, focus: &'static (dyn Fn() + Send + Sync), log: &dyn Fn(&str)) {
     let mut shown = Shown::default();
     // The engine start last looked at, and when.
     let mut last: Option<((u16, String), Instant)> = None;
@@ -138,7 +139,7 @@ pub fn run(engine: &Engine, app_id: &str, focus: &'static (dyn Fn() + Send + Syn
         std::thread::sleep(TICK);
         let Some((port, launcher)) = engine.launcher() else { continue };
         let fresh = last.as_ref().is_none_or(|(at, when)| at.0 != port || at.1 != launcher || when.elapsed() >= EVERY);
-        if !fresh || engine.quitting() {
+        if !fresh || engine.quitting() || paused() {
             continue;
         }
         let shown_now = |n: &Notice| {
