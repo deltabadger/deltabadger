@@ -151,7 +151,8 @@ def install_n(name, debug=False):
         shutil.rmtree(HOOKS, ignore_errors=True)
         HOOKS.mkdir(parents=True)
         p = subprocess.run([str(P / "N-setup.exe"), "/S"])
-        check(p.returncode == 0, f"N's installer exited {p.returncode}")
+        rm = (HOOKS / "rm-result").read_text(errors="replace").strip() if (HOOKS / "rm-result").exists() else "none"
+        check(p.returncode == 0, f"N's installer exited {p.returncode}; Restart Manager: {rm}; engines {s.engine_pids()}")
         check(not (INST / ".updating").exists(), "a fresh install left .updating")
         if debug:
             shutil.copyfile(P / "engine-debug.exe", INST / "deltabadger-engine.exe")
@@ -488,7 +489,7 @@ def scenario_p3(name):
         banner(win, "An update is ready.")
         win.click("[data-desktop-update-action]")
         got = banner(win, "The update couldn't be installed.")
-        check(any("not an x86-64" in x for x in s.lines(data)), "r5.1: no format refusal in the log")
+        check(any("not installed: the package is not a" in x for x in s.lines(data)), "r5.1: no format refusal in the log")
         say(f"r5.1: another platform's signed package refused: {got['line']!r}")
         check_n_serves(data, "r5.1")
         check_n_unchanged(before, "r5.1")

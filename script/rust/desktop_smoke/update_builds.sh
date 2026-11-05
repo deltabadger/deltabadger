@@ -14,6 +14,37 @@ exe=; case "$triple" in *windows*) exe=.exe ;; esac
 # Bound to N+1's version, as `tauri build` signs (the app is built with requireSignedVersion).
 sign() { TAURI_SIGNING_PRIVATE_KEY=$(cat "$2") TAURI_SIGNING_PRIVATE_KEY_PASSWORD= bunx tauri signer sign --app-version "$3" "$1" > /dev/null; }
 
+# ---- r5.4: the release installer carries no test hook (Windows; its own step, the job's last: `hooks`) ----
+# The installer built for the released identifier from this tree, installed silently into a folder of its own with every
+# test hook's trigger file present: it must ignore all of them (no wait at the barrier, no 20 s sleep, no early end
+# leaving .updating, no test-only record of its Restart Manager answer), and ask for no elevation.
+if [ "$only" = hooks ]; then
+  [ -n "$exe" ] || exit 0
+  echo '{"bundle":{"createUpdaterArtifacts":false}}' > "$RUNNER_TEMP/release-id.conf.json"
+  bunx tauri build --bundles nsis --config "$RUNNER_TEMP/release-id.conf.json" -- --locked
+  n=$(bash script/release/validate.sh version)
+  installer=$(ls $b/nsis/*_"$n"_*-setup.exe)
+  hooks="$LOCALAPPDATA/deltabadger-test-hooks"
+  rm -rf "$hooks"; mkdir -p "$hooks"; touch "$hooks/hold" "$hooks/sleep" "$hooks/quit"
+  dir=$(cygpath -w "$out/release-install")
+  rm -rf "$out/release-install"
+  t0=$SECONDS
+  code=$(powershell -NoProfile -Command "\$p = Start-Process -FilePath '$(cygpath -w "$installer")' -ArgumentList '/S','/D=$dir' -PassThru; if (-not \$p.WaitForExit(120000)) { \$p.Kill(); 'hung' } else { \$p.ExitCode }" | tr -d '\r')
+  took=$((SECONDS - t0))
+  echo "the release installer: exit $code in $took s; test-hook files: $(ls "$hooks" | tr '\n' ' ')"
+  [ "$code" = 0 ] || { echo "::error::the release installer exited $code with the test hooks' files present"; exit 1; }
+  [ -f "$out/release-install/Deltabadger.exe" ] || { echo "::error::the release installer installed nothing"; exit 1; }
+  [ ! -e "$out/release-install/.updating" ] || { echo "::error::the release installer left .updating (its test Quit ran)"; exit 1; }
+  [ ! -e "$hooks/waiting" ] && [ ! -e "$hooks/rm-result" ] || { echo "::error::the release installer ran a test hook"; exit 1; }
+  [ "$took" -lt 20 ] || { echo "::error::the release installer took $took s (its test Sleep ran?)"; exit 1; }
+  # A per-account install needs no elevation: no UAC prompt (installer.nsi `RequestExecutionLevel user`).
+  grep -aq 'level="asInvoker"' "$installer" || { echo "::error::the release installer asks for elevation"; exit 1; }
+  grep -aq 'level="asInvoker"' "$out/N-setup.exe" || { echo "::error::the test installer asks for elevation"; exit 1; }
+  rm -rf "$hooks"
+  echo "the release installer ignored every test hook and asks for no elevation"
+  exit 0
+fi
+
 # ---- N, as built by the job's build step ----
 if [ -n "$exe" ]; then
   cp $b/nsis/*-setup.exe "$out/N-setup.exe"
@@ -22,37 +53,6 @@ else
   cp $b/deb/*.deb "$out/N.deb"
 fi
 
-# ---- r5.4: the test hooks are compiled for the test identifier only (Windows; its own step: `hooks`) ----
-if [ -n "$exe" ] && [ "$only" = hooks ]; then
-  nsi=$(ls src-tauri/target/release/nsis/x64/installer.nsi)
-  makensis=$(ls "$LOCALAPPDATA"/tauri/NSIS/makensis.exe)
-  grep -q '^!define BUNDLEID "com.deltabadger.app.test"$' "$nsi" || { echo "::error::$nsi is not the test identifier's"; exit 1; }
-  # The plugins the bundler's own run found (makensis checks plugin calls while preprocessing too).
-  grep -n '^!addplugindir' "$nsi" || true
-  plugins=$(cygpath -w "$(dirname "$(find "$LOCALAPPDATA/tauri" -iname nsis_tauri_utils.dll -path '*x86-unicode*' | head -1)")")
-  echo "nsis_tauri_utils in $plugins"
-  sed 's/^!define BUNDLEID "com.deltabadger.app.test"$/!define BUNDLEID "com.deltabadger.app"/' "$nsi" > "$(dirname "$nsi")/release-id.nsi"
-  # The script an installer is compiled from under each identifier, its macros expanded (makensis /PPO): the test
-  # build's is the one this job's installer was made from.
-  for which in test release; do
-    src=installer.nsi; [ $which = release ] && src=release-id.nsi
-    (cd "$(dirname "$nsi")" && "$makensis" -INPUTCHARSET UTF8 "-X!addplugindir /x86-unicode \"$plugins\"" -PPO "$src") > "$out/$which.ppo.nsi"
-    hooks=$(grep -c 'deltabadger-test-hooks' "$out/$which.ppo.nsi" || true)
-    rm_calls=$(grep -c 'RmGetList' "$out/$which.ppo.nsi" || true)
-    echo "$which installer: $hooks test-hook lines, $rm_calls RmGetList calls"
-    [ "$rm_calls" -ge 1 ] || { echo "::error::the $which installer has no Restart Manager query"; exit 1; }
-    # /PPO may echo the macros' definitions as written: those copies are not compiled. Only the test build expands them.
-    eval "${which}_hooks=$hooks"
-  done
-  # A per-account install needs no elevation: no UAC prompt (installer.nsi `RequestExecutionLevel user`).
-  grep -aq 'level="asInvoker"' "$out/N-setup.exe" || { echo "::error::the installer asks for elevation"; exit 1; }
-  defined=$(grep -c 'deltabadger-test-hooks' src-tauri/windows/hooks.nsh)
-  { [ "$release_hooks" = 0 ] || [ "$release_hooks" = "$defined" ]; } || { echo "::error::the release installer carries test hooks"; exit 1; }
-  [ $((test_hooks - release_hooks)) -ge 3 ] || { echo "::error::the test installer lacks its test hooks"; exit 1; }
-  echo "test hooks expanded in the test installer only ($test_hooks vs $release_hooks lines, $defined in their definitions)"
-fi
-
-[ "$only" = hooks ] && exit 0
 
 # ---- the debug engine (DELTABADGER_TEST_PAUSE works only there) ----
 bash script/rust/desktop_engine.sh --debug "$triple"

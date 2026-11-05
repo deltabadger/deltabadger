@@ -276,11 +276,6 @@ jobs:
       # N is the build above. N+1 = this tree with its version bumped and one proof migration, built in place, signed
       # with the job's key, then put back (never committed); the debug engine for P6's barrier; the variants P3 and r5.1
       # need. Windows also checks the release installer carries no test hook.
-      - name: Check the release installer carries no test hook
-        if: ${{ !cancelled() && runner.os == 'Windows' }}
-        shell: bash
-        run: bash script/rust/desktop_smoke/update_builds.sh "${{ matrix.triple }}" "$RUNNER_TEMP/hooks-check" "$RUNNER_TEMP/testkey/test.key" hooks
-
       - name: Build N+1 and the update packages
         if: ${{ !cancelled() && runner.os != 'macOS' }}
         shell: bash
@@ -317,3 +312,10 @@ jobs:
           dbus-run-session -- xvfb-run -a python3 script/rust/desktop_smoke/update_smoke.py --kind deb \
             --packages "$RUNNER_TEMP/updates" --work "$RUNNER_TEMP/updates-deb" deb || status=1
           exit $status
+
+      # Last: it installs the released identifier's build into a folder of its own, under the same uninstall entry.
+      - name: Check the release installer carries no test hook
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        shell: bash
+        run: bash script/rust/desktop_smoke/update_builds.sh "${{ matrix.triple }}" "$RUNNER_TEMP/updates" "$RUNNER_TEMP/testkey/test.key" hooks
+

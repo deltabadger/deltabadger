@@ -37,34 +37,52 @@ Var DbUpdating
   ${EndIf}
 
   ; Restart Manager: which processes use the engine's file. A zero-length list answers ERROR_MORE_DATA (234) when any
-  ; do; any other failure counts as in use (nothing is copied). A first install has no engine file to be in use.
+  ; do; any other failure counts as in use (nothing is copied). A first install has no engine file to be in use. A
+  ; file in use is asked about again for 5 s: a scanner holds a new file only briefly, a running engine stays.
   Push $0
   Push $1
   Push $2
   Push $3
   Push $4
-  StrCpy $0 ""
-  StrCpy $4 1
-  ${IfNot} ${FileExists} "$INSTDIR\deltabadger-engine.exe"
-    StrCpy $4 0
-  ${Else}
-    System::Call 'rstrtmgr::RmStartSession(*i .r1, i 0, w .r2) i .r0'
-  ${EndIf}
-  ${If} $4 = 1
-  ${AndIf} $0 = 0
-    System::Call '*(&w${NSIS_MAX_STRLEN} "$INSTDIR\deltabadger-engine.exe") p .r3'
-    System::Call 'rstrtmgr::RmRegisterResources(i r1, i 1, *p r3, i 0, p 0, i 0, p 0) i .r0'
-    ${If} $0 = 0
-      System::Call 'rstrtmgr::RmGetList(i r1, *i 0 .r2, *i 0, p 0, *i 0) i .r0'
+  Push $5
+  StrCpy $5 0
+  ${Do}
+    StrCpy $0 ""
+    StrCpy $2 ""
+    StrCpy $4 1
+    ${IfNot} ${FileExists} "$INSTDIR\deltabadger-engine.exe"
+      StrCpy $4 0
+    ${Else}
+      System::Call 'rstrtmgr::RmStartSession(*i .r1, i 0, w .r2) i .r0'
       ${If} $0 = 0
-      ${AndIf} $2 = 0
-        StrCpy $4 0
+        System::Call '*(&w${NSIS_MAX_STRLEN} "$INSTDIR\deltabadger-engine.exe") p .r3'
+        System::Call 'rstrtmgr::RmRegisterResources(i r1, i 1, *p r3, i 0, p 0, i 0, p 0) i .r0'
+        ${If} $0 = 0
+          System::Call 'rstrtmgr::RmGetList(i r1, *i 0 .r2, *i 0, p 0, *i 0) i .r0'
+          ${If} $0 = 0
+          ${AndIf} $2 = 0
+            StrCpy $4 0
+          ${EndIf}
+        ${EndIf}
+        System::Free $3
+        System::Call 'rstrtmgr::RmEndSession(i r1)'
       ${EndIf}
     ${EndIf}
-    System::Free $3
-    System::Call 'rstrtmgr::RmEndSession(i r1)'
-  ${EndIf}
-  DetailPrint "Deltabadger: the engine's file in use: $4 (Restart Manager $0)"
+    DetailPrint "Deltabadger: the engine's file in use: $4 (Restart Manager $0, $2 processes)"
+    !if "${BUNDLEID}" == "com.deltabadger.app.test"
+      ; What each look found, for the proofs' logs.
+      FileOpen $3 "$LOCALAPPDATA\deltabadger-test-hooks\rm-result" a
+      FileSeek $3 0 END
+      FileWrite $3 "in use $4, Restart Manager $0, $2 processes$\r$\n"
+      FileClose $3
+    !endif
+    ${If} $4 = 0
+    ${OrIf} $5 >= 5
+      ${ExitDo}
+    ${EndIf}
+    IntOp $5 $5 + 1
+    Sleep 1000
+  ${Loop}
 
   ${If} $4 = 1
     FileClose $DbUpdating
@@ -82,6 +100,7 @@ Var DbUpdating
     SetErrorLevel 2
     Quit
   ${EndIf}
+  Pop $5
   Pop $4
   Pop $3
   Pop $2
