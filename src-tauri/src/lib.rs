@@ -14,6 +14,7 @@ use tauri::{
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
 
+pub mod notices;
 mod secrets;
 pub mod supervisor;
 pub mod update;
@@ -740,6 +741,15 @@ pub fn run() {
                     let (launch, engine) = (Arc::new(launch), app.state::<Arc<Engine>>().inner().clone());
                     let (l, e, v) = (launch.clone(), engine.clone(), view.clone());
                     let supervisor = Mutex::new(Some(std::thread::spawn(move || supervisor::supervise(&l, &e, &*v))));
+                    // D-DESKTOP-NOTIFY (PLAN-B6-3 §3): bot alerts as system notifications, for the app's life.
+                    let (e, handle, identifier) = (engine.clone(), app.handle().clone(), app.config().identifier.clone());
+                    std::thread::spawn(move || {
+                        let log = |line: &str| log_line(&handle, line);
+                        notices::set_app(&identifier, &log);
+                        let focused = handle.clone();
+                        let focus: &'static (dyn Fn() + Send + Sync) = Box::leak(Box::new(move || show_window(&focused)));
+                        notices::run(&e, &identifier, focus, &log);
+                    });
                     let fault = config.fault.clone();
                     let failed_mark = update::read_failed_mark(&launch.log_dir()).map(|kind| {
                         log_line(app.handle(), "desktop: update: the previous quit's install failed");
