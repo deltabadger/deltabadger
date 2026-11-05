@@ -2504,10 +2504,26 @@ fn start_watchdog() {
             };
             if let Some(stalled) = stalled {
                 eprintln!("page grid hung: {stalled}");
+                eprintln!("page grid threads: {}", threads());
                 std::process::exit(101);
             }
         });
     });
+}
+
+/// This process's threads by name, state and kernel wait (Linux's /proc): a hung shard says whether its blocking pool
+/// filled up (tokio's blocking threads are named `tokio-runtime-w`) or where its threads wait. Empty off Linux.
+fn threads() -> String {
+    let Ok(tasks) = std::fs::read_dir("/proc/self/task") else { return String::new() };
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for task in tasks.flatten().map(|task| task.path()) {
+        let read = |file: &str| std::fs::read_to_string(task.join(file)).unwrap_or_default().trim().to_string();
+        let stat = read("stat");
+        let state = stat.rsplit_once(") ").and_then(|(_, rest)| rest.split(' ').next()).unwrap_or("?").to_string();
+        *counts.entry(format!("{} {state} {}", read("comm"), read("wchan"))).or_default() += 1;
+    }
+    let total: usize = counts.values().sum();
+    format!("{total}: {}", counts.iter().map(|(what, n)| format!("{n}× {what}")).collect::<Vec<_>>().join(", "))
 }
 
 async fn replay_page_shard(shard: usize) {
@@ -2531,7 +2547,8 @@ async fn replay_page_shard(shard: usize) {
         for scope in ["", "de", "crypto", "crypto_de"].into_iter().filter(|scope| scope.is_empty() || dir.join(scope).is_dir()) {
         let dir = &dir.join(scope);
         // Shown with the captured output when the shard fails or times out: the last name is the scenario it stopped in.
-        progress(format!("page shard {}: {name}/{scope} (+{:.1?})", shard + 1, replay.elapsed()), false);
+        let count = std::fs::read_dir("/proc/self/task").map_or(String::new(), |tasks| format!(", {} threads", tasks.count()));
+        progress(format!("page shard {}: {name}/{scope} (+{:.1?}{count})", shard + 1, replay.elapsed()), false);
         let scenario = scenario(dir);
         let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows) = (0, 0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
