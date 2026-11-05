@@ -1362,3 +1362,42 @@ async fn an_alpaca_order_the_re_read_does_not_list_is_refused_with_nothing_writt
     let after = money(&f.c);
     assert_eq!(after[..3], before[..3], "no order row, carry or link");
 }
+
+/// An Alpaca FILL activity of `order`, through activities::normalize, stored as the importer stores it.
+fn alpaca_fill(c: &Connection, s: &Seeded, id: &str, order: &str, qty: &str, price: &str, at: &str) -> i64 {
+    let raw = deltabadger::sync::activities::Raw::from_value(json!({ "id": id, "activity_type": "FILL", "transaction_time": at, "type": "fill", "price": price,
+        "qty": qty, "side": "buy", "symbol": "BTC/USD", "leaves_qty": "0", "order_id": order, "cum_qty": qty, "order_status": "filled" }));
+    let e = deltabadger::sync::activities::normalize(&raw, &deltabadger::sync::activities::CryptoPairs::default()).unwrap().unwrap();
+    c.execute("INSERT INTO account_transactions (user_id, exchange_id, api_key_id, tx_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, \
+               raw_data, transacted_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 'BTC', ?6, 'USD', ?7, ?8, ?9, ?9, ?9)",
+              params![s.user_id, s.exchange_id, s.api_key_id, e.tx_id, e.entry_type, qty, price, e.raw.value.to_string(),
+                      deltabadger::codec::format_time(e.transacted_at.unwrap())]).unwrap();
+    c.last_insert_rowid()
+}
+
+#[tokio::test]
+async fn an_alpaca_quote_from_a_rounded_average_is_booked_beside_the_ledgers_exact_fills() {
+    // Two fills, 0.0002 at 50000 and 0.0001 at 50100: 15.01 USD. Alpaca states the average rounded, so its product is a hair less.
+    for (exec, lost) in [("0.0003", false), ("0.0002", true)] {
+        let f = fx(Kind::Alpaca);
+        let fills = [alpaca_fill(&f.c, &f.s, "a1", &alpaca_id(7), "0.0002", "50000", "2026-09-29T14:03:06Z"),
+                     alpaca_fill(&f.c, &f.s, "a2", &alpaca_id(7), "0.0001", "50100", "2026-09-29T14:03:07Z")];
+        let mut row = alpaca_row(&o(7, St::Filled, exec, "15.01"));
+        row["filled_avg_price"] = json!("50033.333333333");
+        f.tr.reply("GET /v2/orders", 200, json!([row]));
+        f.report().await;
+        let (obligation, offers) = f.offers();
+        f.request(obligation, offers[0].0).unwrap();
+        let served = f.serve().await;
+        if lost {
+            // The venue reports less base than the ledger proves: refused, whatever the quote.
+            assert_eq!((served.booked.len(), lines(&f.c, f.b, ru::NOT_ADDED)[0]["reason"].clone()), (0, json!("ledger")));
+            continue;
+        }
+        assert_eq!(served.booked.len(), 1, "{:?}", lines(&f.c, f.b, ru::NOT_ADDED));
+        let tx = served.booked[0].1;
+        for id in fills {
+            assert_eq!(f.c.query_row("SELECT transaction_id FROM account_transactions WHERE id = ?1", [id], |r| r.get::<_, Option<i64>>(0)).unwrap(), Some(tx), "its fills linked");
+        }
+    }
+}
