@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # What desktop.yml's update proofs need on a Windows or Linux leg (PLAN-B7 §9 B7-2), after N was built and smoked:
-#   script/rust/desktop_smoke/update_builds.sh <triple> <out dir> <updater key file>
+#   script/rust/desktop_smoke/update_builds.sh <triple> <out dir> <updater key file> [hooks]
 # In <out dir>: N's packages; the debug engine (P6's in-tick barrier); N+1 = this tree with its version bumped and one
 # proof migration, built in place and then put back (never committed), signed with the job's throwaway key; another
 # platform's correctly signed package (r5.1); N+1's signature by another key (P3); versions.json. Windows also checks
 # that the test hooks are in the test installer and not in an installer for the released identifier.
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
-triple=${1:?triple} out=${2:?out dir} key=${3:?key file}
+triple=${1:?triple} out=${2:?out dir} key=${3:?key file} only=${4:-}
 mkdir -p "$out"
 b=src-tauri/target/release/bundle
 exe=; case "$triple" in *windows*) exe=.exe ;; esac
@@ -22,8 +22,8 @@ else
   cp $b/deb/*.deb "$out/N.deb"
 fi
 
-# ---- r5.4: the test hooks are compiled for the test identifier only (Windows) ----
-if [ -n "$exe" ]; then
+# ---- r5.4: the test hooks are compiled for the test identifier only (Windows; its own step: `hooks`) ----
+if [ -n "$exe" ] && [ "$only" = hooks ]; then
   nsi=$(ls src-tauri/target/release/nsis/x64/installer.nsi)
   makensis=$(ls "$LOCALAPPDATA"/tauri/NSIS/makensis.exe)
   grep -q '^!define BUNDLEID "com.deltabadger.app.test"$' "$nsi" || { echo "::error::$nsi is not the test identifier's"; exit 1; }
@@ -51,6 +51,8 @@ if [ -n "$exe" ]; then
   [ $((test_hooks - release_hooks)) -ge 3 ] || { echo "::error::the test installer lacks its test hooks"; exit 1; }
   echo "test hooks expanded in the test installer only ($test_hooks vs $release_hooks lines, $defined in their definitions)"
 fi
+
+[ "$only" = hooks ] && exit 0
 
 # ---- the debug engine (DELTABADGER_TEST_PAUSE works only there) ----
 bash script/rust/desktop_engine.sh --debug "$triple"
