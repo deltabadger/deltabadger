@@ -97,8 +97,8 @@ jobs:
           printf '%s\n' "dry=$dry" "tag=$tag" "version=$version" "prerelease=$prerelease" \
             "updater_ready=$updater_ready" "apple_ready=$apple_ready" | tee -a "$GITHUB_OUTPUT"
 
-  # The catalogue snapshot as of this release, attached to the draft and handed to every build. A re-run reuses the
-  # draft's copy, so it builds the same bytes (r1.7).
+  # The catalogue and seed snapshots as of this release, attached to the draft and handed to every build. A re-run
+  # reuses the draft's copies, so it builds the same bytes (r1.7).
   draft:
     needs: meta
     runs-on: ubuntu-24.04
@@ -119,10 +119,11 @@ jobs:
           git fetch --force --tags origin
           if state=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null); then
             [ "$state" = true ] || { echo "::error::$TAG is already published; a re-run only resumes a draft"; exit 1; }
-            # A re-run builds what the first run built: the attached snapshot, or a failure if it can't be read.
-            if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx catalogue.json.gz; then
-              gh release download "$TAG" --pattern catalogue.json.gz --dir .
-            fi
+            # A re-run builds what the first run built: the attached snapshots, or a failure if one can't be read.
+            attached=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+            for f in catalogue.json.gz seed_data.json.gz; do
+              if grep -qx "$f" <<< "$attached"; then gh release download "$TAG" --pattern "$f" --dir .; fi
+            done
           else
             # The notes are the annotated tag's body (D-RELEASE-NOTES-IN-TAG), without its trailers or signature.
             git tag -l --format='%(contents:body)' "$TAG" | sed '/^-----BEGIN /,$d' | grep -v '^Critical: ' > notes.md || true
@@ -137,13 +138,30 @@ jobs:
           fi
           gzip -t catalogue.json.gz
           gzip -dc catalogue.json.gz | jq -e '(.metadata.sources | type == "object") and (.data | type == "object")' > /dev/null
-      - name: Attach it to the draft
+      # The reference data a fresh install starts with, embedded over rust/seed/seed_data.json.gz by every build (§1.4).
+      # Nothing is committed before B11 (r2.6): the committed bundle stays the source-build fallback.
+      - name: Download the seed snapshot
+        run: |
+          set -euo pipefail
+          if [ ! -s seed_data.json.gz ]; then
+            curl -fsSL --retry 5 --retry-all-errors --max-filesize 67108864 -o seed_data.json.gz \
+              https://data.deltabadger.com/public/v1/seed_data.json.gz
+          fi
+          bash script/release/validate.sh seed "$PWD/seed_data.json.gz"
+          sha256sum seed_data.json.gz
+      - name: Attach them to the draft
         if: needs.meta.outputs.dry != 'true'
-        run: gh release upload "$TAG" catalogue.json.gz --clobber
+        run: gh release upload "$TAG" catalogue.json.gz seed_data.json.gz --clobber
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: catalogue
           path: catalogue.json.gz
+          if-no-files-found: error
+          retention-days: 3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: seed
+          path: seed_data.json.gz
           if-no-files-found: error
           retention-days: 3
 
@@ -204,6 +222,16 @@ jobs:
         with:
           images: ${{ env.IMAGE }}
           labels: org.opencontainers.image.version=${{ needs.meta.outputs.version }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: seed
+          path: ${{ runner.temp }}/seed
+      # Its sha256 is the draft job's (the proof that this build embeds the release's snapshot).
+      - name: Embed the release's seed snapshot
+        shell: bash
+        run: |
+          cp "$RUNNER_TEMP/seed/seed_data.json.gz" rust/seed/seed_data.json.gz
+          { sha256sum rust/seed/seed_data.json.gz 2>/dev/null || shasum -a 256 rust/seed/seed_data.json.gz; }
       - name: Build for the smoke test
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
@@ -318,6 +346,16 @@ jobs:
         with:
           name: testkey
           path: ${{ runner.temp }}/testkey
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: seed
+          path: ${{ runner.temp }}/seed
+      # Its sha256 is the draft job's (the proof that this build embeds the release's snapshot).
+      - name: Embed the release's seed snapshot
+        shell: bash
+        run: |
+          cp "$RUNNER_TEMP/seed/seed_data.json.gz" rust/seed/seed_data.json.gz
+          { sha256sum rust/seed/seed_data.json.gz 2>/dev/null || shasum -a 256 rust/seed/seed_data.json.gz; }
       - name: Build the app
         shell: bash
         env:

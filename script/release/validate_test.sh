@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# script/release/validate.sh's cases (PLAN-B8 r1.6, r2.1; PLAN-B7 r1.14, r1.15). Needs jq and minisign. rust.yml runs it.
+# script/release/validate.sh's cases (PLAN-B8 r1.6, r1.9, r2.1, r2.5; PLAN-B7 r1.14, r1.15). Needs jq and minisign. rust.yml runs it.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
@@ -88,5 +88,22 @@ says "betas of a newer version don't hold a stable back" "3.1.0 3.1 3 latest" v 
 says "version order, not text order" "3.10.0 3.10 3 latest" v tags v3.10.0 3 v3.9.0 v3.10.0
 says "highest: a newer tag only in the remote list holds an older release back" false v highest v3 v3.0.1 v3.0.1 v3.1.0
 refuses "LATEST_MAJOR unset fails" "LATEST_MAJOR" v tags v3.0.0 "" v3.0.0
+
+# ---- the seed bundle (r1.9, r2.5): the committed one passes; each broken copy of it fails
+good=$root/rust/seed/seed_data.json.gz
+bundle() { gzip -dc "$good" | jq "$1" | gzip > "$work/seed.gz"; v seed "$work/seed.gz"; }
+passes "the committed seed bundle passes" v seed "$good"
+refuses "a seed bundle missing a ticker file fails" "tickers/kraken.json: no data rows" bundle 'del(.["tickers/kraken.json"])'
+refuses "an exchange with no tickers fails" "tickers/hyperliquid.json: no data rows" bundle '.["tickers/hyperliquid.json"].data = []'
+refuses "a row that is not an object fails" "indices.json: no data rows" bundle '.["indices.json"].data += [1]'
+refuses "a logo_url fails" "logo_url" bundle '.["assets.json"].data[5].logo_url = "/logos/x.png"'
+refuses "a ticker's base outside assets.json fails" "is not in assets.json" bundle '.["tickers/mexc.json"].data[0].base_external_id = "gone"'
+refuses "a ticker without a quote id fails" "null is not in assets.json" bundle '.["tickers/gemini.json"].data[0].quote_external_id = null'
+refuses "an index coin outside assets.json fails" "coin gone is not in assets.json" bundle '.["indices.json"].data[0].top_coins += ["gone"]'
+refuses "an index's per-exchange coin outside assets.json fails" "coin gone is not in assets.json" \
+  bundle '.["indices.json"].data[0].top_coins_by_exchange["Exchanges::Kraken"] += ["gone"]'
+passes "an extra file (Alpaca) is not checked" bundle '.["tickers/alpaca.json"] = {data: []}'
+echo nope > "$work/seed.gz"; refuses "not a gzip fails" "not a valid gzip" v seed "$work/seed.gz"
+echo '[]' | gzip > "$work/seed.gz"; refuses "not an object fails" "not a JSON object" v seed "$work/seed.gz"
 
 [ "$failures" = 0 ] && echo "all passed" || { echo "$failures failed"; exit 1; }
