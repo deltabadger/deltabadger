@@ -1787,13 +1787,14 @@ module Decisions
     }.merge(sc['settings']))
     bot.set_missed_quote_amount
     bot.save!
-    bot.update_columns(status: Bot.statuses[:scheduled], settings_changed_at: nil, started_at: Time.iso8601(sc['started_at']),
-                       transient_data: bot.reload.transient_data.merge(sc['transient']))
+    bot.update_columns(status: Bot.statuses[:scheduled], settings_changed_at: sc['settings_changed_at'] && Time.iso8601(sc['settings_changed_at']),
+                       started_at: Time.iso8601(sc['started_at']), transient_data: bot.reload.transient_data.merge(sc['transient']))
     sc['transactions'].each do |t|
       sym = t.fetch('symbol', members.first.first)
-      Transaction.insert!(t.except('symbol', 'foreign').merge('bot_id' => bot.id, 'exchange_id' => t['foreign'] ? foreign_venue.id : alpaca.id,
+      Transaction.insert!(t.except('symbol', 'foreign', 'side', 'transaction_type').merge('bot_id' => bot.id, 'exchange_id' => t['foreign'] ? foreign_venue.id : alpaca.id,
                                                    'base_asset_id' => assets.fetch(sym).id,
-                                                   'quote_asset_id' => usd.id, 'base' => sym, 'quote' => 'USD', 'side' => 0, 'transaction_type' => 'REGULAR',
+                                                   'quote_asset_id' => usd.id, 'base' => sym, 'quote' => 'USD',
+                                                   'side' => t.fetch('side', 0), 'transaction_type' => t.fetch('transaction_type', 'REGULAR'),
                                                    'bot_interval' => sc['interval'], 'bot_quote_amount' => sc['quote_amount'], 'error_messages' => [],
                                                    'updated_at' => t['created_at']))
     end
@@ -1828,6 +1829,8 @@ module Decisions
       end
       sc['script']['alpaca']['GET /v2/positions'] = [ok(positions)]
     end
+    # A wallet seller's holdings: the rows-derived count above reads its sells as held.
+    sc['script']['alpaca']['GET /v2/positions'] = [ok(sc['positions'])] if sc['positions']
     bot
   end
 
@@ -1864,6 +1867,13 @@ module Decisions
       stale_open = clock_body(true, "#{day1 + 1}T09:30:00-04:00", "#{day1}T16:00:00-04:00", after_close)
       one_day_before = (Time.iso8601(at1) - 1.day).utc.strftime('%Y-%m-%d %H:%M:%S')
       order_answer = ->(status, **kw) { { 'GET /v2/orders/OOPEN-1' => [ok(stock_order('OOPEN-1', status, **kw))] } }
+      sold = closed.merge('external_id' => 'OSOLD-1', 'side' => 1, 'amount' => '4', 'amount_exec' => '4', 'price' => '180', 'quote_amount' => '720',
+                          'quote_amount_exec' => '720', 'created_at' => '2026-08-25 14:00:01')
+      cap_sold = { 'at' => at1, 'transactions' => [sold], 'settings_changed_at' => '2026-08-20T14:00:00Z',
+                   'transient' => { 'base_amount_limit_enabled_at' => '2026-08-20T14:00:00.000Z' },
+                   'settings' => { 'direction' => 'selling', 'sell_denomination' => 'base', 'sell_amount' => 15, 'sell_interval' => interval,
+                                   'base_amount_limited' => true, 'base_amount_limit' => 10 },
+                   'positions' => [{ 'symbol' => 'AAPL', 'asset_class' => 'us_equity', 'qty' => '32', 'qty_available' => '32' }] }
       variants = {
         'first_tick' => { 'at' => (Time.iso8601(started) + 0.5).iso8601(6) },
         'on_schedule' => { 'at' => at1, 'transactions' => [closed] },
@@ -1920,9 +1930,13 @@ module Decisions
                                    'splits' => [{ 'name' => 'AAPL', 'at' => one_day_before, 'ratio' => '4:1' }] },
         'basket_split_unresolved' => { 'at' => at1, 'members' => [['AAPL', 0.5], ['MSFT', 0.5]],
                                        'transactions' => [held, held.merge('external_id' => 'OCLOSED-M', 'symbol' => 'MSFT', 'price' => '400', 'amount_exec' => '0.15')],
-                                       'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => nil }] }
+                                       'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => nil }] },
+        # A14b: a one-asset AAPL seller capped at 10 since 08-20 that sold 4 on 08-25, holding 32. The split twin's 2:1 on 08-28
+        # is a listed divergence (D-SPLIT-BASE-CAP): Rails counts both as traded and sells 6, Rust restates them and sells 12.
+        'cap_sold_nosplit' => cap_sold,
+        'cap_sold_split' => cap_sold.merge('splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => '2:1' }])
       }
-      raise "the stock grid has #{variants.size} variants, not 38" unless variants.size == 38
+      raise "the stock grid has #{variants.size} variants, not 40" unless variants.size == 40
 
       modes.flat_map do |mode, settings|
         variants.map do |name, v|
@@ -1932,8 +1946,9 @@ module Decisions
                         'POST /v2/orders' => [ok(stock_order('OTX-1', 'new')), ok(stock_order('OTX-2', 'new', sym: 'MSFT'))],
                         'GET /v2/account' => [stock_account('100000', '200000')], 'GET /v2/positions' => [ok([])] }
           { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'alpaca', 'asset' => 'stock', 'interval' => interval, 'quote_amount' => 60.0,
-            'started_at' => started, 'settings' => settings, 'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []),
-            'members' => v['members'], 'splits' => v.fetch('splits', []), 'at' => v.fetch('at'), 'script' => { 'alpaca' => base_http.merge(v.fetch('http', {})) },
+            'started_at' => started, 'settings' => settings.merge(v.fetch('settings', {})), 'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []),
+            'members' => v['members'], 'splits' => v.fetch('splits', []), 'positions' => v['positions'], 'settings_changed_at' => v['settings_changed_at'],
+            'at' => v.fetch('at'), 'script' => { 'alpaca' => base_http.merge(v.fetch('http', {})) },
             'rails_cache' => v['rails_cache'], 'tick' => v.fetch('tick', true), 'poll' => v['poll'] }.compact
         end
       end

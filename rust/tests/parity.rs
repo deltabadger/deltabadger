@@ -1842,8 +1842,24 @@ async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
 }
 
 /// Stock grid variants where Rust deliberately decides otherwise than Rails (spec Amendment 2026-10-02b), each asserted below.
-const STOCK_DIVERGENCES: [&str; 7] = ["clock_5xx", "clock_unreadable", "clock_certificate", "clock_stale_body", "clock_stale_cache",
-                                      "clock_past_next_open", "add_server_error"];
+const STOCK_DIVERGENCES: [&str; 8] = ["clock_5xx", "clock_unreadable", "clock_certificate", "clock_stale_body", "clock_stale_cache",
+                                      "clock_past_next_open", "add_server_error", "cap_sold_split"];
+
+/// D-SPLIT-BASE-CAP (PLAN-A14b): a seller capped at 10 shares sold 4 before a 2:1 split. Rails counts both as traded and sells
+/// 6; Rust restates them into today's shares (20 − 8) and sells 12. Otherwise the outcome is Rails' with that order's amount.
+fn cap_restated(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    if rails_out["sent"][0]["qty"] != "6.000000000" { return Err(format!("Rails no longer sells 6 as traded: drop the listed divergence\n  rails: {rails_out}")); }
+    if rust_out["sent"][0]["qty"] != "12.000000000" { return Err(format!("Rust must sell 12 restated shares: {rust_out}")); }
+    let mut expected = rails_out.clone();
+    expected["sent"][0]["qty"] = rust_out["sent"][0]["qty"].clone();
+    let rows = |out: &serde_json::Value| out["changes"]["transactions"].as_array().cloned().unwrap_or_default();
+    let (want, got) = (rows(&expected), rows(rust_out));
+    if want.len() != 1 || got.len() != 1 { return Err(format!("one order row each: {rails_out}\n  rust: {rust_out}")); }
+    if got[0]["after"]["amount"] != 12 { return Err(format!("Rust's row must record 12: {rust_out}")); }
+    for key in ["amount", "quote_amount"] { expected["changes"]["transactions"][0]["after"][key] = got[0]["after"][key].clone(); }
+    if &expected != rust_out { return Err(format!("otherwise Rails' outcome\n  expected: {expected}\n  rust:     {rust_out}")); }
+    Ok(())
+}
 
 fn events_and_status(dir: &Path) -> Result<(Vec<String>, i64), String> {
     let c = rusqlite::Connection::open(dir.join("production.sqlite3")).map_err(|e| e.to_string())?;
@@ -1880,7 +1896,7 @@ async fn rails_and_rust_decide_identically_across_the_stock_grid() -> Result<(),
     rails(&["grid-stock", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 152, "the stock grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 160, "the stock grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -1896,6 +1912,7 @@ async fn rails_and_rust_decide_identically_across_the_stock_grid() -> Result<(),
             Some("add_server_error") => Some(intent_kept(&rust_dir, &rails_out, &rust_out)),
             Some("clock_past_next_open") => Some(past_next_open_retried(&rust_dir, &rails_out, &rust_out)),
             Some("clock_stale_cache") => Some(clock_failed_closed(&rust_dir, &rails_out, &rust_out, true)),
+            Some("cap_sold_split") => Some(cap_restated(&rails_out, &rust_out)),
             Some(_) => Some(clock_failed_closed(&rust_dir, &rails_out, &rust_out, false)),
             None => None,
         };
@@ -1923,6 +1940,8 @@ async fn rails_and_rust_decide_identically_across_the_stock_grid() -> Result<(),
         if name.ends_with("-funds_low_buying_power") { assert_eq!(r["funds_notified"], true, "{name}: a stock bot spends buying_power"); }
         if name.ends_with("-funds_low_cash_only") { assert_eq!(r["funds_notified"], false, "{name}"); }
         if name.ends_with("-first_tick") { assert_eq!(r["sent"][0]["time_in_force"], "day", "{name}"); }
+        // A14b: Rails' base cap counts as traded across a split: 10 − 4 = 6 either way.
+        if name.ends_with("-cap_sold_nosplit") || name.ends_with("-cap_sold_split") { assert_eq!(r["sent"][0]["qty"], "6.000000000", "{name}"); }
     }
     Ok(())
 }
