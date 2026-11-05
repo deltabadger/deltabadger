@@ -1,0 +1,124 @@
+{
+  "exchange": "alpaca",
+  "recorded_at": "2026-06-09T11:17:16Z",
+  "files": [
+    {
+      "file": "orders.json",
+      "method": "GET",
+      "path": "/v2/orders",
+      "params": {
+        "status": "all",
+        "after": "2026-06-06T00:00:00Z",
+        "until": "2026-06-09T11:18:00Z"
+      },
+      "status": 200,
+      "orders": 32
+    },
+    {
+      "file": "orders.page.json",
+      "method": "GET",
+      "path": "/v2/orders",
+      "params": {
+        "status": "all",
+        "after": "2026-06-06T00:00:00Z",
+        "until": "2026-06-09T11:18:00Z",
+        "limit": "1"
+      },
+      "status": 200,
+      "orders": 1
+    },
+    {
+      "file": "orders.empty.json",
+      "method": "GET",
+      "path": "/v2/orders",
+      "params": {
+        "status": "all",
+        "after": "2026-06-04T00:00:00Z",
+        "until": "2026-06-05T00:00:00Z"
+      },
+      "status": 200,
+      "orders": 0
+    }
+  ],
+  "not_recorded": [],
+  "scrubbed": {
+    "orders.json /[]/asset_id": {
+      "replaced": 32
+    },
+    "orders.json /[]/canceled_at": {
+      "shifted": 3
+    },
+    "orders.json /[]/client_order_id": {
+      "replaced": 32
+    },
+    "orders.json /[]/created_at": {
+      "shifted": 32
+    },
+    "orders.json /[]/expires_at": {
+      "shifted": 32
+    },
+    "orders.json /[]/filled_at": {
+      "shifted": 28
+    },
+    "orders.json /[]/filled_avg_price": {
+      "replaced": 28
+    },
+    "orders.json /[]/filled_qty": {
+      "replaced": 28
+    },
+    "orders.json /[]/id": {
+      "replaced": 32
+    },
+    "orders.json /[]/limit_price": {
+      "replaced": 29
+    },
+    "orders.json /[]/notional": {
+      "replaced": 3
+    },
+    "orders.json /[]/qty": {
+      "replaced": 29
+    },
+    "orders.json /[]/submitted_at": {
+      "shifted": 32
+    },
+    "orders.json /[]/updated_at": {
+      "shifted": 32
+    },
+    "orders.page.json /[]/asset_id": {
+      "replaced": 1
+    },
+    "orders.page.json /[]/client_order_id": {
+      "replaced": 1
+    },
+    "orders.page.json /[]/created_at": {
+      "shifted": 1
+    },
+    "orders.page.json /[]/expires_at": {
+      "shifted": 1
+    },
+    "orders.page.json /[]/filled_at": {
+      "shifted": 1
+    },
+    "orders.page.json /[]/filled_avg_price": {
+      "replaced": 1
+    },
+    "orders.page.json /[]/filled_qty": {
+      "replaced": 1
+    },
+    "orders.page.json /[]/id": {
+      "replaced": 1
+    },
+    "orders.page.json /[]/limit_price": {
+      "replaced": 1
+    },
+    "orders.page.json /[]/qty": {
+      "replaced": 1
+    },
+    "orders.page.json /[]/submitted_at": {
+      "shifted": 1
+    },
+    "orders.page.json /[]/updated_at": {
+      "shifted": 1
+    }
+  }
+}

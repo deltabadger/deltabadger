@@ -495,8 +495,9 @@ impl<F: crate::venue::VenueFactory> crate::jobs::Job for Report<F> {
 use crate::venue::binance::{BINANCE, BINANCE_US};
 use crate::venue::{Created, CreatedKind, CreatedOrder, CreatedSize, CreatedState, HistoryError, Venue};
 
-/// The venues whose order history is read live (A28-3a): Rails' own clients pin their order-list answer (§1).
-const SERVED: [&str; 3] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT];
+/// The venues whose order history is read live: A28-3a (Rails' own clients pin their order-list answer, §1) and A28-3b-1 Alpaca
+/// (a recorded answer, tests/fixtures/order_lists/alpaca).
+const SERVED: [&str; 4] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA];
 /// Pairs one read may ask for (§4); more leave the line A28-1's.
 const MAX_SYMBOLS: usize = 5;
 /// Live reads per pass (r1.4), taken round-robin from `LIVE_CURSOR`.
@@ -1275,7 +1276,10 @@ fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Ciphe
     if !clean { return Ok(Err("ledger")); }
     let zero = BigDec::zero();
     if let Some((lb, lq)) = sums.get(&fresh.external_id) {
-        if *lb > fresh.filled_base || *lq > *fresh.filled_quote.as_ref().unwrap_or(&zero) { return Ok(Err("ledger")); }
+        // D-ALPACA-HISTORY-QUOTE-COMPUTED: Alpaca's quote is fill × a rounded average, so with the bases equal the ledger's
+        // exact total may be a hair above it; a fill the venue lost always shows in the base (Codex branch r1).
+        let computed = venue_type == crate::sync::ALPACA && *lb == fresh.filled_base;
+        if *lb > fresh.filled_base || (!computed && *lq > *fresh.filled_quote.as_ref().unwrap_or(&zero)) { return Ok(Err("ledger")); }
     }
     let Some(ticker) = model::ticker_by_id(c, exchange, ticker_id)? else { return Ok(Err("settings_changed")) };
     let Ok((_, _, places)) = ticker.scales() else { return Ok(Err("unreadable")) };
