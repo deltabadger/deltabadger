@@ -701,6 +701,11 @@ def scenario_u13(name):
     s.cleanup()
     launch(data)
     check_runs(data, V["next"], f"{name}: after POSTINSTALL")
+    # The start during the copy didn't settle the attempt: N+1 settles it as installed, with no U5d.
+    until(f"{name}: the attempt settled", 30, lambda: any("the installer installed this version" in x for x in s.lines(data)))
+    time.sleep(5)
+    u5d = state_lines(data, 'kind="install"')
+    check(not u5d, f"{name}: U5d after a good install: {u5d}")
 
 
 def scenario_u10(name):
