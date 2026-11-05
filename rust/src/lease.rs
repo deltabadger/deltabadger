@@ -169,7 +169,13 @@ pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version
             None => false,
         },
     };
-    if new_ownership { upsert(primary, TAKEN_OVER_AT, &now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), now)?; }
+    if new_ownership {
+        upsert(primary, TAKEN_OVER_AT, &now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), now)?;
+        // A17-4: Rails rewrote `indices` rows in place while it owned the install, so no ranking attested before survives.
+        // The table exists wherever Rust's migrations ran; a claim on an unmigrated copy (a parity scratch) has none.
+        let ranked: bool = primary.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_index_rankings')", [], |r| r.get(0))?;
+        if ranked { primary.execute("DELETE FROM rust_index_rankings", [])?; }
+    }
     Ok(from)
 }
 

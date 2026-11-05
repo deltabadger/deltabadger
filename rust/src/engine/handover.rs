@@ -705,6 +705,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // A28-2: the bookable orders of those lines, the owner's resolutions and requests, and the booked rows' notices.
         (Table, "rust_rails_unrecorded_offers", Ignored), (Table, "rust_rails_unrecorded_resolutions", Ignored),
         (Table, "rust_rails_unrecorded_requests", Ignored), (Table, "rust_rails_unrecorded_notices", Ignored),
+        // A17-4: which provider ranked an index row; Rails never reads it, its deletes cascade, and the next claim clears it.
+        (Table, "rust_index_rankings", Ignored),
         // Withdrawal rules (rules::handback_problems): an intent or an unconsumed evaluation refuses.
         (Table, "rust_withdrawal_intents", Refuses("withdrawal work is unconsumed or unconfirmed")),
         (Table, "rust_rule_evaluations", Refuses("withdrawal work is unconsumed or unconfirmed")),
