@@ -453,7 +453,7 @@ impl Config {
         let secs = |name: &str| test.then(|| env(name)).flatten().and_then(|v| v.trim().parse::<u64>().ok()).filter(|v| *v > 0);
         Config {
             // Release builds and test builds (§1): `tauri dev` never reaches the production feed.
-            enabled: !debug || identifier == "com.deltabadger.app.test",
+            enabled: !debug || identifier == crate::TEST_IDENTIFIER,
             interval: Duration::from_secs(secs("DELTABADGER_TEST_UPDATE_INTERVAL_SECS").unwrap_or(12 * 60 * 60)),
             read_timeout: Duration::from_secs(secs("DELTABADGER_TEST_UPDATE_READ_TIMEOUT_SECS").unwrap_or(60)),
             fault: test.then(|| env("DELTABADGER_TEST_INSTALL_FAULT")).flatten().filter(|f| !f.is_empty()),

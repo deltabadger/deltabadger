@@ -340,7 +340,6 @@ pub fn write_attempt(data: &Path, version: &str, relaunch: bool) -> io::Result<(
 #[cfg(windows)]
 pub fn launch_windows_installer(bytes: &[u8], data: &Path, version: &str, relaunch: bool, test_fault: Option<&str>) -> Result<(), Failure> {
     use std::io::Write;
-    use std::os::windows::ffi::OsStrExt;
     fault(test_fault, "format")?;
     check_windows(bytes).map_err(Failure::new)?;
     let dir = std::env::temp_dir().join(format!("deltabadger-update-{}", random()));
@@ -351,7 +350,17 @@ pub fn launch_windows_installer(bytes: &[u8], data: &Path, version: &str, relaun
     file.sync_all()?;
     drop(file);
     write_attempt(data, version, relaunch)?;
-    fault(test_fault, "launch")?;
+    let launched = fault(test_fault, "launch").map_err(Failure::from).and_then(|()| shell_execute(&setup, relaunch));
+    // A launch that failed is shown now (U5d): the attempt goes, so the next start doesn't show it again.
+    if launched.is_err() {
+        let _ = std::fs::remove_file(data.join("updates").join("attempt"));
+    }
+    launched
+}
+
+#[cfg(windows)]
+fn shell_execute(setup: &Path, relaunch: bool) -> Result<(), Failure> {
+    use std::os::windows::ffi::OsStrExt;
     let wide = |s: &std::ffi::OsStr| s.encode_wide().chain(Some(0)).collect::<Vec<u16>>();
     let (file, args, verb) = (wide(setup.as_os_str()), wide(installer_args(relaunch).as_ref()), wide("open".as_ref()));
     // SAFETY: NUL-terminated UTF-16 strings that live across the call.

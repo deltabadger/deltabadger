@@ -1072,7 +1072,7 @@ fn an_installers_mark_holds_every_spawn_u13_while_it_copies_u10_once_it_is_orpha
 
 #[test]
 fn an_orphaned_installer_mark_shows_u10_and_starts_no_engine() {
-    let mut launch = stub("b7-updating-supervise", "serve:app:60000;stdin");
+    let mut launch = stub("b7-updating-supervise", "exit:0");
     let mark = launch.cwd.join(".updating");
     fs::write(&mark, "").unwrap();
     launch.updating = Some(mark);

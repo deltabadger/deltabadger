@@ -25,6 +25,9 @@ use update::{Agent, Intent, Snapshot, UserQuit};
 /// The released app's identifier: the only one that runs on the 2.x data dir (PLAN-B6 r2.2). Test builds use
 /// `com.deltabadger.app.test`, `tauri dev` `com.deltabadger.app.dev`.
 pub const RELEASE_IDENTIFIER: &str = "com.deltabadger.app";
+/// The CI and proof builds' identifier: the only one with the test-only hooks (update.rs `Config`, the Quit trigger file,
+/// windows/hooks.nsh).
+pub const TEST_IDENTIFIER: &str = "com.deltabadger.app.test";
 
 // Injected at document start in the desktop webview, before any page script and before the
 // stylesheet applies, so the chrome never paints in its browser form first.
@@ -742,6 +745,9 @@ pub fn run() {
             let host = match launch(app) {
                 Ok(launch) => {
                     app.manage(LogFile(launch.log_file()));
+                    // Before the supervisor's first line: which version this start is (support, the update proofs).
+                    let _ = std::fs::create_dir_all(launch.log_dir());
+                    log_line(app.handle(), &format!("desktop: version {}", app.package_info().version));
                     let (launch, engine) = (Arc::new(launch), app.state::<Arc<Engine>>().inner().clone());
                     let (l, e, v) = (launch.clone(), engine.clone(), view.clone());
                     let supervisor = Mutex::new(Some(std::thread::spawn(move || supervisor::supervise(&l, &e, &*v))));
@@ -774,7 +780,24 @@ pub fn run() {
                     None
                 }
             };
+            let data = host.as_ref().map(|h| h.launch.data.clone());
             app.manage(Updates { agent, config: config.clone(), host });
+            // The B7-2 proofs: the format the update agent decides by (§2.4), next to the variable the AppImage runtime sets.
+            #[cfg(target_os = "linux")]
+            log_line(app.handle(), &format!("desktop: bundle {:?}, APPIMAGE {}", tauri::utils::platform::bundle_type(), if std::env::var_os("APPIMAGE").is_some() { "set" } else { "unset" }));
+            // PLAN-B7 r3.7: the CI legs can't reach the tray's menu; on the test identifier a file in the data dir stands in
+            // for its Quit item and calls the same `user_quit`.
+            if let Some(trigger) = data.filter(|_| app.config().identifier == TEST_IDENTIFIER).map(|d| d.join("test-user-quit")) {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || loop {
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                    if std::fs::remove_file(&trigger).is_ok() {
+                        log_line(&handle, "desktop: test: the tray's Quit");
+                        let main = handle.clone();
+                        let _ = handle.run_on_main_thread(move || user_quit(&main));
+                    }
+                });
+            }
             // At start once the window exists, then every 12 hours (§1); independent of the engine.
             if config.enabled {
                 let handle = app.handle().clone();
