@@ -31,7 +31,7 @@ enum Gate { Tool(&'static str), BotType, OrderType }
 
 /// The routes this build serves; every other one is `Unported`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Action { Bots, Create, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Rules(rules::Action), Order(Order), Tracker(tracker::Route), Tax(crate::tax::api::Route), Unported }
+enum Action { Bots, Create, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Unrecorded, Rules(rules::Action), Order(Order), Tracker(tracker::Route), Tax(crate::tax::api::Route), Unported }
 
 /// OrdersController#create and #destroy (PLAN-A9).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -95,9 +95,11 @@ fn route(method: &Method, path: &str) -> Option<Route> {
                 ["archive"] if delete => Some("unarchive_bot"),
                 ["liquidations"] if post => Some("liquidate_exited_asset"),
                 ["redeploy"] if post => Some("answer_redeploy_offer"),
+                // D-RAILS-UNRECORDED-API: this build's own route.
+                ["unrecorded_orders"] if post => Some("answer_unrecorded_order"),
                 _ => None,
             };
-            let action = if name == Some("get_bot_details") { Action::Read(Reading::Details) } else { name.and_then(bot_api::Write::tool).map_or(Action::Unported, Action::Write) };
+            let action = if name == Some("get_bot_details") { Action::Read(Reading::Details) } else if name == Some(super::bot::rails_orders::TOOL) { Action::Unrecorded } else { name.and_then(bot_api::Write::tool).map_or(Action::Unported, Action::Write) };
             (name.map(Gate::Tool), action)
         }
         ["transactions"] if get => (tool("list_transactions"), Action::Transactions),
@@ -424,6 +426,21 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
                 // DownloadReport's send_data: the report, never deleted.
                 crate::tax::api::Out::Csv { csv, filename } => Answer::Csv(Box::new(CsvAnswer { body: csv, filename, headers: vec![] })),
             }
+        }
+        Action::Unrecorded => {
+            use super::bot::rails_orders as ro;
+            // PLAN-A28-2b §1: the path's id as digits, the body only (never the query), JSON or form as it came.
+            let bot = route.path.iter().find(|(name, _)| *name == "id").and_then(|(_, id)| ro::digits(id));
+            let Ok(body) = input.body() else { return Ok(bad_request()) };
+            let answered = match (bot, ro::parse(&body, !input.is_json())) {
+                (None, _) => ro::api_missing(),
+                (Some(_), None) => ro::invalid(),
+                (Some(bot), Some((obligation, given))) => ro::api(c, user, bot, obligation, given, app.now())?,
+            };
+            if answered.accepted { app.wake_engine(); }
+            let mut answer = render(answered.res);
+            if answered.accepted { if let Answer::Json(status, _) = &mut answer { *status = StatusCode::ACCEPTED; } }
+            answer
         }
         Action::Split => { let Ok(p) = params() else { return Ok(bad_request()) }; render(bot_api::split(c, app, user, p.get("bot_ids"), p.get("keep_proceeds_for"))?) }
         Action::Order(order) => {
@@ -820,7 +837,7 @@ mod tests {
         let sources = [
             include_str!("rest.rs"), include_str!("rest_idempotency.rs"), include_str!("bearer.rs"), include_str!("bot_api.rs"),
             include_str!("bot_api/orders.rs"), include_str!("bot/create.rs"), include_str!("bot/write.rs"), include_str!("bot/signal_write.rs"),
-            include_str!("bot/mcp_input.rs"), include_str!("bot/liquidation.rs"), include_str!("bot/redeploy.rs"), include_str!("bot/split.rs"),
+            include_str!("bot/mcp_input.rs"), include_str!("bot/liquidation.rs"), include_str!("bot/rails_orders.rs"), include_str!("bot/redeploy.rs"), include_str!("bot/split.rs"),
             include_str!("mcp/reads.rs"), include_str!("tracker/api.rs"), include_str!("rules/service.rs"), include_str!("../tax/api.rs"),
         ];
         // The code a build runs: each file above its tests (this file's own examples below are no codes).
