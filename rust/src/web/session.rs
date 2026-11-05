@@ -31,11 +31,14 @@ pub fn overflows(sealed: &str) -> bool {
     COOKIE.len() + sealed.len() > MAX_COOKIE_BYTES
 }
 
-/// The second-factor step of a sign-in that has passed the password stage (Users::SessionsController).
+/// The second-factor step of a sign-in that has passed the password stage (Users::SessionsController), tied to the password
+/// it passed by that password's salt (D-PENDING-SIGN-IN-BOUND-TO-PASSWORD: Rails' pending_user_id is not), so a password
+/// change ends it as it ends a session. A pending sign-in without the salt (an older cookie) reads as none.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Pending {
     pub user_id: i64,
     pub started_at: i64,
+    pub salt: String,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -77,7 +80,7 @@ impl SessionData {
             "user": self.user.as_ref().map(|(id, salt)| json!([id, salt])),
             "csrf": self.csrf,
             "flash": self.flash.iter().map(|(kind, message)| json!([kind, message])).collect::<Vec<_>>(),
-            "pending": self.pending.as_ref().map(|p| json!([p.user_id, p.started_at])),
+            "pending": self.pending.as_ref().map(|p| json!([p.user_id, p.started_at, p.salt])),
             "return_to": self.return_to,
             "auto_open_bot_wizard": self.auto_open_bot_wizard,
             "tracker_connect": self.tracker_connect,
@@ -95,7 +98,7 @@ impl SessionData {
             user: v["user"].as_array().and_then(|a| Some((a.first()?.as_i64()?, text(a.get(1)?)?))),
             csrf: text(&v["csrf"]),
             flash: v["flash"].as_array().map(|entries| entries.iter().filter_map(|e| Some((text(&e[0])?, text(&e[1])?))).collect()).unwrap_or_default(),
-            pending: v["pending"].as_array().and_then(|a| Some(Pending { user_id: a.first()?.as_i64()?, started_at: a.get(1)?.as_i64()? })),
+            pending: v["pending"].as_array().and_then(|a| Some(Pending { user_id: a.first()?.as_i64()?, started_at: a.get(1)?.as_i64()?, salt: text(a.get(2)?)? })),
             return_to: text(&v["return_to"]),
             auto_open_bot_wizard: v["auto_open_bot_wizard"] == true,
             tracker_connect: v["tracker_connect"].as_i64(),
@@ -206,6 +209,14 @@ mod tests {
             assert_eq!(open(&key, &seal(&key, &data, now), now).unwrap().bot_config, config);
         }
         assert_ne!(SessionData::default(), SessionData { bot_config: Some(json!({})), ..SessionData::default() }, "nil -> {{}} is a change");
+    }
+
+    #[test]
+    fn a_pending_sign_in_keeps_its_salt_and_one_without_reads_as_none() {
+        let pending = Pending { user_id: 7, started_at: 1_700_000_000, salt: "$2a$11$abcdefghijklmnopqrstuv".into() };
+        let data = SessionData { pending: Some(pending.clone()), ..SessionData::default() };
+        assert_eq!(SessionData::from_json(&data.to_json()).pending, Some(pending));
+        assert_eq!(SessionData::from_json(&json!({"pending": [7, 1_700_000_000]})).pending, None, "an older cookie's pending sign-in");
     }
 
     #[test]
