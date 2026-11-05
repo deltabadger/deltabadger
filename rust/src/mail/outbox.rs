@@ -130,12 +130,12 @@ mod tests {
     }
 
     /// Codex branch r1: an ack the sender has not taken yet survives a long pause and any listing in between.
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn an_ack_waits_for_the_sender_however_long_it_takes() {
         let o = Outbox::default();
-        assert!(o.offer(notice("a"), Instant::now() + Duration::from_millis(20)));
+        assert!(o.offer(notice("a"), Instant::now() + Duration::from_secs(90)));
         o.ack(&["a".into()]);
-        tokio::time::sleep(Duration::from_millis(40)).await;
+        tokio::time::advance(Duration::from_secs(2 * 24 * 3600)).await;
         assert!(o.list(10).is_empty() && o.offer(notice("b"), Instant::now() + Duration::from_secs(60)));
         assert_eq!(o.take("a"), Taken::Acked);
         o.keep_only(&std::collections::HashSet::new());
