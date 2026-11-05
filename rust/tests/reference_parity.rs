@@ -51,6 +51,32 @@ fn without(rails: &Value, (_, _, requests, assets, tickers): &Divergent) -> Valu
     out
 }
 
+/// PLAN-A17 A17-4, the CoinGecko category pass (the `coingecko-categories*` scenarios), compared with its named columns apart:
+/// D-INDEX-TOP-N (Rust ranks Top Coins first; Rails' job never does: answered empty here, Rust refuses it and writes nothing,
+/// so only its request is dropped) and D-CG-CATEGORY-STORED (Rust stores every valid member with its caps: `top_coins`
+/// compared on Rails' first 10, `weights` apart). The rankings (rust_index_rankings) are Rust's only and not snapshotted.
+fn categories_view(v: &Value) -> Value {
+    let mut out = v.clone();
+    out["requests"] = Value::Array(v["requests"].as_array().unwrap().iter()
+        .filter(|r| { let r = r.as_str().unwrap(); !r.contains("/coins/markets?") || r.contains("category=") }).cloned().collect());
+    for change in out["changes"]["indices"].as_array_mut().unwrap() {
+        for side in ["before", "after"] {
+            let Some(row) = change[side].as_object_mut() else { continue };
+            row.remove("weights");
+            if let Some(top) = row.get_mut("top_coins").and_then(Value::as_array_mut) { top.truncate(10); }
+        }
+    }
+    out
+}
+
+/// (scenario, divergence, Rails requests Rust does not make): Rust retries each (Transient or RateLimited), Rails does not.
+const CATEGORY_DIVERGENT: &[(&str, &str, &[&str])] = &[
+    // A failed categories read: Rails returns; Rust's run is Transient, retried 4 x 15 min.
+    ("coingecko-categories-failed", "D-CG-INDEX-PULL-RETRIED", &[]),
+    // music answers 429: Rails asks pump-fun next (and skips it: no venue); Rust asks nothing more and ends RateLimited.
+    ("coingecko-categories-429-midway", "D-CG-INDEX-429-STOPS", &["category=pump-fun"]),
+];
+
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload() {
     let rails_root = tempfile::tempdir().unwrap();
@@ -58,7 +84,7 @@ async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 65, "the grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 70, "the grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -71,6 +97,27 @@ async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload
         if name == "cg-tickers-import" {
             let venues = rails_out["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains("api.kraken.com/") || r.as_str().unwrap().contains("api.coinbase.com/")).count();
             if venues != 2 || rails_out["changes"]["tickers"].as_array().unwrap().len() < 4 { failures.push(format!("{name}: the catalogues were not applied: {rails_out}")); }
+        }
+        if name.starts_with("coingecko-categories") {
+            let (mut expected, rust) = (categories_view(&rails_out), categories_view(&rust_out));
+            if name == "coingecko-categories" {
+                // D-CG-CATEGORY-STORED, positively: payments' 12 valid members, Rails' first 10, Rust's caps.
+                let payments = |o: &Value| o["changes"]["indices"].as_array().unwrap().iter().find(|c| c["after"]["external_id"] == "payments").map(|c| c["after"].clone()).unwrap_or_default();
+                let (r, u) = (payments(&rails_out), payments(&rust_out));
+                if r["top_coins"].as_array().map(Vec::len) != Some(10) || u["top_coins"].as_array().map(Vec::len) != Some(12)
+                    || r["weights"] != serde_json::json!({}) || u["weights"].as_object().map(serde_json::Map::len) != Some(12) {
+                    failures.push(format!("{name}: D-CG-CATEGORY-STORED not seen\n  rails: {r}\n  rust:  {u}"));
+                }
+            }
+            if let Some((_, divergence, requests)) = CATEGORY_DIVERGENT.iter().find(|d| d.0 == name) {
+                if rails_out["retry"] != false || rust_out["retry"] != true { failures.push(format!("{name}: {divergence}: Rails retries {} and Rust {}", rails_out["retry"], rust_out["retry"])); }
+                expected["retry"] = true.into();
+                let before = expected["requests"].as_array().unwrap().len();
+                expected["requests"] = Value::Array(expected["requests"].as_array().unwrap().iter().filter(|r| !requests.iter().any(|x| r.as_str().unwrap().contains(x))).cloned().collect());
+                if expected["requests"].as_array().unwrap().len() != before - requests.len() { failures.push(format!("{name}: {divergence}: Rails no longer makes {requests:?}")); }
+            }
+            if expected != rust { failures.push(format!("{name}\n  rails: {expected}\n  rust:  {rust}")); }
+            continue;
         }
         let expected = match DIVERGENT.iter().find(|d| d.0 == name) {
             Some(d) => {
