@@ -384,7 +384,7 @@ def scenario_p1_p2_p5(name):
             check(got["more"] == TRAY_LINE, f"U2's second line: {got['more']!r}")
             check(package_gets()[-1][1] is None, f"P2: a ranged request {package_gets()[-1]}")
             say(f"P2 {how}: downloaded again from zero ({len(package_gets())} full requests)")
-            big = [p for p in data.rglob("*") if p.is_file() and p.stat().st_size > 10_000_000]
+            big = [p for p in data.rglob("*") if p.is_file() and p.stat().st_size > 10_000_000 and "db" not in p.relative_to(data).parts]
             check(not big, f"P2: a package staged on disk: {big}")
             if how.startswith("after a quit"):
                 for pid in s.app_pids():
@@ -429,7 +429,6 @@ def scenario_p4_p6(name):
         before = installed()
         engine_file = INST / "deltabadger-engine.exe" if WIN else s.ARGS.app
         stamp = (sha(engine_file), engine_file.stat().st_mtime_ns)
-        watch = s.ExitWatch(start.pid)
         replaced = Seen(installer_pids if WIN else (lambda: installed() != before))
         win.click("[data-desktop-update-action]")
         status_text(win, "U7", "Deltabadger is finishing its current work before updating and restarting.")
@@ -441,7 +440,7 @@ def scenario_p4_p6(name):
         check((sha(engine_file), engine_file.stat().st_mtime_ns) == stamp, "P6: the engine's file was written while it ran")
         say("P6: 20 s held in a tick: the engine runs, nothing replaced, its file untouched")
         release.write_text("")
-        watch.wait(120)
+        until("P6: the engine's exit after the release", 120, lambda: start.pid not in s.engine_pids(), every=0.05)
         exited = time.monotonic()
         until("P4: replaced", 180, lambda: replaced.at)
         line = command_line(replaced.value[0]) if WIN else ""

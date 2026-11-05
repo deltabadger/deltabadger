@@ -26,24 +26,29 @@ fi
 if [ -n "$exe" ]; then
   nsi=$(ls src-tauri/target/release/nsis/x64/installer.nsi)
   makensis=$(ls "$LOCALAPPDATA"/tauri/NSIS/makensis.exe)
-  sevenzip="/c/Program Files/7-Zip/7z.exe"
   grep -q '^!define BUNDLEID "com.deltabadger.app.test"$' "$nsi" || { echo "::error::$nsi is not the test identifier's"; exit 1; }
   sed 's/^!define BUNDLEID "com.deltabadger.app.test"$/!define BUNDLEID "com.deltabadger.app"/; s|^!define OUTFILE ".*"$|!define OUTFILE "release-id-setup.exe"|' "$nsi" > "$(dirname "$nsi")/release-id.nsi"
   (cd "$(dirname "$nsi")" && "$makensis" -V2 -INPUTCHARSET UTF8 -OUTPUTCHARSET UTF8 release-id.nsi)
+  # The script each installer was compiled from, macros expanded under its identifier (makensis /PPO), and the built
+  # installers' manifests.
   for which in test release; do
-    installer=$out/N-setup.exe; [ $which = release ] && installer=$(dirname "$nsi")/release-id-setup.exe
-    rm -rf "$out/7z-$which"; "$sevenzip" x -y -o"$out/7z-$which" "$installer" '[NSIS].nsi' > /dev/null
-    script="$out/7z-$which/[NSIS].nsi"
-    [ -s "$script" ] || { echo "::error::7-Zip gave no script for the $which installer"; exit 1; }
-    hooks=$(grep -c 'deltabadger-test-hooks' "$script" || true)
-    rm_calls=$(grep -c 'RmGetList' "$script" || true)
+    src=installer.nsi installer=$out/N-setup.exe
+    [ $which = release ] && src=release-id.nsi installer=$(dirname "$nsi")/release-id-setup.exe
+    (cd "$(dirname "$nsi")" && "$makensis" -INPUTCHARSET UTF8 -PPO "$src") > "$out/$which.ppo.nsi"
+    hooks=$(grep -c 'deltabadger-test-hooks' "$out/$which.ppo.nsi" || true)
+    rm_calls=$(grep -c 'RmGetList' "$out/$which.ppo.nsi" || true)
     echo "$which installer: $hooks test-hook lines, $rm_calls RmGetList calls"
     [ "$rm_calls" -ge 1 ] || { echo "::error::the $which installer has no Restart Manager query"; exit 1; }
-    if [ $which = test ]; then [ "$hooks" -ge 3 ] || { echo "::error::the test installer lacks its test hooks"; exit 1; }
-    else [ "$hooks" = 0 ] || { echo "::error::the release installer carries test hooks"; exit 1; }; fi
+    # /PPO may echo the macros' definitions as written: those copies are not compiled. Only the test build expands them.
+    eval "${which}_hooks=$hooks"
+    [ -s "$installer" ] || { echo "::error::no $which installer was built"; exit 1; }
     # A per-account install needs no elevation: no UAC prompt (installer.nsi `RequestExecutionLevel user`).
     grep -aq 'level="asInvoker"' "$installer" || { echo "::error::the $which installer asks for elevation"; exit 1; }
   done
+  defined=$(grep -c 'deltabadger-test-hooks' src-tauri/windows/hooks.nsh)
+  { [ "$release_hooks" = 0 ] || [ "$release_hooks" = "$defined" ]; } || { echo "::error::the release installer carries test hooks"; exit 1; }
+  [ $((test_hooks - release_hooks)) -ge 3 ] || { echo "::error::the test installer lacks its test hooks"; exit 1; }
+  echo "test hooks expanded in the test installer only ($test_hooks vs $release_hooks lines, $defined in their definitions)"
 fi
 
 # ---- the debug engine (DELTABADGER_TEST_PAUSE works only there) ----
@@ -108,4 +113,14 @@ mv "$out/other-signed.sig" "$out/$package.other.sig"
 rm -f "$out/other-signed" "$out/other.key" "$out/other.key.pub"
 
 printf '{"n": "%s", "next": "%s", "package": "%s"}\n' "$n" "$next" "$package" > "$out/versions.json"
+
+# ---- r4.8: N+1's feed, ready to serve by hand (python3 -m http.server 8765 --bind 127.0.0.1 -d feed) ----
+feed=$out/feed
+rm -rf "$feed"; mkdir -p "$feed"
+name=$([ -n "$exe" ] && echo Deltabadger_windows-x86_64-setup.exe || echo Deltabadger_linux-x86_64.AppImage)
+cp "$out/$package" "$feed/$name"; cp "$out/$package.sig" "$feed/$name.sig"
+for other in Deltabadger_windows-x86_64-setup.exe Deltabadger_linux-x86_64.AppImage Deltabadger_darwin-aarch64.app.tar.gz; do
+  [ "$other" = "$name" ] || echo "not this platform's" > "$feed/$other.sig"
+done
+bash script/release/validate.sh feed "$feed" "v$next" false http://127.0.0.1:8765
 ls -l "$out"
