@@ -527,6 +527,8 @@ mod action_draft {
                 let mut transient = draft.raw_transient.clone();
                 for key in &effects.transient.remove { transient.shift_remove(key); }
                 transient.extend(effects.transient.set.clone());
+                // D-SPLIT-BASE-CAP's basis is Rust-only state (parity::RUST_KEYS); tests/split_base_cap.rs pins it.
+                transient.shift_remove(deltabadger::engine::accounting::BASIS_KEY);
                 compare!(json!(transient), *field(case, "save_transient"), "{name}: save transient callbacks");
             }
             compare!(draft.candidate.label, field(case, "label").as_str().ok_or("label")?, "{name}: label");

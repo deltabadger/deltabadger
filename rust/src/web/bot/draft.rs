@@ -699,7 +699,9 @@ impl Draft {
     fn writes_basis(&self) -> bool {
         let on = |s: &Map<String, Value>| s.get("base_amount_limited") == Some(&json!(true));
         let asset = |s: &Map<String, Value>| crate::engine::accounting::one_asset_id(Some(s));
-        on(&self.candidate.settings) && (!on(&self.raw_settings)
+        // Only a basis the tally can count: a number of shares of one asset.
+        let countable = self.candidate.settings.get("base_amount_limit").is_some_and(Value::is_number) && asset(&self.candidate.settings).is_some();
+        countable && on(&self.candidate.settings) && (!on(&self.raw_settings)
             || !equal_option(self.raw_settings.get("base_amount_limit"), self.candidate.settings.get("base_amount_limit"))
             || asset(&self.raw_settings) != asset(&self.candidate.settings))
     }
@@ -957,7 +959,7 @@ impl Draft {
                 transient.insert(basis.into(), json!({ "at": now.to_rfc3339_opts(chrono::SecondsFormat::Micros, true), "limit": self.candidate.settings.get("base_amount_limit"),
                     "asset_id": crate::engine::accounting::one_asset_id(Some(&self.candidate.settings)),
                     "enabled_at": transient.get("base_amount_limit_enabled_at").cloned().unwrap_or(Value::Null) }));
-            } else if self.candidate.settings.get("base_amount_limited") != Some(&json!(true)) {
+            } else if self.candidate.settings.get("base_amount_limited") != Some(&json!(true)) || crate::engine::accounting::one_asset_id(Some(&self.candidate.settings)).is_none() {
                 transient.remove(basis);
             }
             for prefix in ["price_limit", "sell_price_limit"] {
