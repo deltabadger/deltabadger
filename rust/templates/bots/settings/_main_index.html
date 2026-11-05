@@ -39,7 +39,7 @@
                  class="slider__input"
                  data-index-allocation-target="numCoins"
                  data-action="input->index-allocation#updateNumCoins change->form--submit#submit"
-                 {% if locked %}disabled{% endif %}>
+                 {% if locked || frozen %}disabled{% endif %}>
           <div class="slider__style">
             <div class="slider__style__track" data-index-allocation-target="numCoinsTrack" style="grid-template-columns: {{ num_coins_progress }}% auto;">
               <div class="slider__style__progress">
@@ -65,7 +65,7 @@
                  class="slider__input"
                  data-index-allocation-target="flattening"
                  data-action="input->index-allocation#updateFlattening change->form--submit#submit"
-                 {% if locked %}disabled{% endif %}>
+                 {% if locked || frozen %}disabled{% endif %}>
           <div class="slider__style">
             <div class="slider__style__track" data-index-allocation-target="flatteningTrack" style="grid-template-columns: {{ flattening_progress }}% auto;">
               <div class="slider__style__progress">

@@ -1363,14 +1363,26 @@ async fn bot_page(d: &tempfile::TempDir, c: &rusqlite::Connection, s: &seed::See
     page.body
 }
 
-/// The page's allocation preview as index_allocation_controller.js computes it: each shown coin's
-/// `cap/Σcap × (1 − f) + f/n`, by symbol.
-fn previewed(body: &str, flattening: f64) -> Vec<(String, f64)> {
+/// The page's allocation preview as index_allocation_controller.js computes it on connect, from the sliders' rendered
+/// values: the first min(num_coins, coins) coins, each `cap/Σcap × (1 − f) + f/n`, by asset id.
+fn previewed(body: &str) -> Vec<(String, f64)> {
+    let slider = |target: &str| -> f64 {
+        let re = regex::Regex::new(&format!(r#"value="([^"]*)"\s+class="slider__input"\s+data-index-allocation-target="{target}""#)).unwrap();
+        re.captures(body).map(|m| m[1].parse().unwrap()).unwrap_or_else(|| panic!("no {target} slider"))
+    };
+    let (num_coins, flattening) = (slider("numCoins") as usize, slider("flattening"));
     let re = regex::Regex::new(r#"data-market-cap="([^"]*)" data-asset-id="(\d+)""#).unwrap();
-    let coins: Vec<(i64, f64)> = re.captures_iter(body).map(|m| (m[2].parse().unwrap(), m[1].parse().unwrap())).collect();
+    let coins: Vec<(i64, f64)> = re.captures_iter(body).map(|m| (m[2].parse().unwrap(), m[1].parse().unwrap())).take(num_coins).collect();
     let total: f64 = coins.iter().map(|(_, cap)| cap).sum();
     let n = coins.len() as f64;
     coins.into_iter().map(|(asset, cap)| (asset.to_string(), (if total > 0.0 { cap / total } else { 1.0 / n }) * (1.0 - flattening) + flattening / n)).collect()
+}
+/// Whether the page draws both allocation sliders disabled.
+fn sliders_disabled(body: &str) -> bool {
+    ["numCoins", "flattening"].iter().all(|target| {
+        let at = body.find(&format!("data-index-allocation-target=\"{target}\"")).unwrap();
+        body[at..at + body[at..].find("<div").unwrap()].contains("disabled") // the input's own attributes (its data-action holds a '>')
+    })
 }
 fn targets(o: &store::Opened, id: i64) -> Vec<(String, f64)> {
     let mut s = o.primary.prepare("SELECT asset_id, target_allocation FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY target_allocation DESC, id").unwrap();
@@ -1388,24 +1400,72 @@ async fn the_page_previews_a_coingecko_ranking_as_the_composition_weighs_it() {
         c.execute("UPDATE bots SET settings = json_set(settings, '$.allocation_flattening', ?2) WHERE id = ?1", rusqlite::params![id, flattening]).unwrap();
         rank(c, row, "coingecko", at(T0));
         tick::tick(c, &bundled_venue(), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
-        let shown = previewed(&bot_page(&d, c, &s, id).await, flattening);
+        c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+        let page = bot_page(&d, c, &s, id).await;
+        let shown = previewed(&page);
         assert!(close(&shown, &targets(&o, id)), "f={flattening}: page {shown:?} vs orders {:?}", targets(&o, id));
+        assert!(!sliders_disabled(&page), "a stopped, unretired bot's sliders are live");
         assert!((targets(&o, id)[0].1 - (0.75 * (1.0 - flattening) + flattening / 2.0)).abs() < 1e-6);
     }
 }
 
-/// D-INDEX-RETIRED-KEPT: a retired index this engine composed previews its stored membership, whatever the row now holds.
+/// D-INDEX-RETIRED-KEPT: a retired index this engine composed previews its stored membership, whatever the row now holds,
+/// with both sliders disabled; a later change of flattening or num_coins changes neither the preview nor the membership. A
+/// retired index without provenance previews nothing and keeps live sliders.
 #[tokio::test(flavor = "current_thread")]
 async fn the_page_previews_a_retired_index_as_its_stored_membership() {
-    for flattening in [0.0, 0.5] {
+    for (flattening, changed) in [(0.0, 0.5), (0.5, 1.0), (0.5, 0.0)] {
         let (d, o, s, id, row) = coingecko_category_bot(json!({ "bitcoin": 300, "ethereum": 100 })).await;
         let c = &o.primary;
         c.execute("UPDATE bots SET settings = json_set(settings, '$.allocation_flattening', ?2) WHERE id = ?1", rusqlite::params![id, flattening]).unwrap();
         rank(c, row, "coingecko", at(T0));
         tick::tick(c, &bundled_venue(), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        let stored = targets(&o, id);
         retire(c, "layer-1", "coingecko", at(T0));
         c.execute("UPDATE indices SET weights = '{\"bitcoin\": 1, \"ethereum\": 9}' WHERE id = ?1", [row]).unwrap(); // never read
-        let shown = previewed(&bot_page(&d, c, &s, id).await, flattening);
-        assert!(close(&shown, &targets(&o, id)), "f={flattening}: page {shown:?} vs stored {:?}", targets(&o, id));
+        c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+        let page = bot_page(&d, c, &s, id).await;
+        assert!(sliders_disabled(&page), "f={flattening}: frozen sliders");
+        assert!(close(&previewed(&page), &stored), "f={flattening}: page {:?} vs stored {stored:?}", previewed(&page));
+        // A later settings change: the preview and the membership stay.
+        c.execute("UPDATE bots SET status = 1, settings = json_set(settings, '$.allocation_flattening', ?2, '$.num_coins', 5) WHERE id = ?1", rusqlite::params![id, changed]).unwrap();
+        let out = tick::tick(c, &bundled_venue(), id, &FixedClock(at(T0) + Duration::days(7)), &mut Attempts::default()).await.unwrap();
+        assert!(matches!(out, TickOutcome::Done { .. }), "{out:?}");
+        assert_eq!(targets(&o, id), stored, "f={flattening}->{changed}: the membership unchanged");
+        c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+        let page = bot_page(&d, c, &s, id).await;
+        assert!(sliders_disabled(&page) && close(&previewed(&page), &stored), "f={flattening}->{changed}: page {:?} vs stored {stored:?}", previewed(&page));
     }
+    // Without provenance: nothing previewed, the sliders live.
+    let (d, o, s, id, _) = coingecko_category_bot(json!({ "bitcoin": 300, "ethereum": 100 })).await;
+    let c = &o.primary;
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+    retire(c, "layer-1", "coingecko", at(T0));
+    let page = bot_page(&d, c, &s, id).await;
+    assert!(!sliders_disabled(&page) && !page.contains("data-market-cap="), "no provenance: no preview, live sliders");
+}
+
+/// Codex p1 P2: the page's bounds come from the row the composition reads. An older two-member `deltabadger` row (a bounded
+/// universe of 2) and a newer three-member CoinGecko ranking of the same id: the page previews three, as the composition targets.
+#[tokio::test(flavor = "current_thread")]
+async fn the_page_bounds_come_from_the_selected_ranking() {
+    let (d, o, s, _) = bundled_assets().await;
+    let c = &o.primary;
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, color, market_cap, created_at, updated_at) VALUES ('solana', 'SOL', 'Solana', 'Cryptocurrency', '#9945FF', 5, '2026-01-01', '2026-01-01')", []).unwrap();
+    c.execute("INSERT INTO tickers (exchange_id,base_asset_id,quote_asset_id,ticker,base,quote,available,trading_enabled,base_decimals,quote_decimals,price_decimals,minimum_base_size,minimum_quote_size,created_at,updated_at) \
+               SELECT ?1,id,?2,'SOLEUR','SOL','EUR',1,1,8,2,2,0.001,0.01,'2026-01-01','2099-01-01' FROM assets WHERE external_id='solana'", rusqlite::params![s.exchange_id, s.quote]).unwrap();
+    c.execute("INSERT INTO indices (external_id, source, name, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at) \
+               VALUES ('layer-1', 'deltabadger', 'layer-1', '[\"bitcoin\",\"ethereum\"]', '{}', '{}', '{}', 0, '2026-01-01', '2026-01-01')", []).unwrap();
+    let row = cg_category(c, "layer-1", &["bitcoin", "ethereum", "solana"], &json!({ "bitcoin": 3, "ethereum": 2, "solana": 1 }));
+    let id = seed::index_bot(c, &s, "layer-1", 3, 0.0, false);
+    c.execute("DELETE FROM rust_index_rankings", []).unwrap();
+    to_coingecko(c, at(T0));
+    rank(c, row, "coingecko", at(T0));
+    let venue = bundled_venue().ticker("SOLEUR", "10", "10", "10");
+    let out = tick::tick(c, &venue, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!(targets(&o, id).len(), 3, "the composition targets three");
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+    let shown = previewed(&bot_page(&d, c, &s, id).await);
+    assert!(close(&shown, &targets(&o, id)), "page {shown:?} vs orders {:?}", targets(&o, id));
 }
