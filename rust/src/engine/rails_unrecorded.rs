@@ -430,13 +430,18 @@ fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, 
     let mut out = vec![];
     for (key, trade) in orders {
         if linked.contains(&key) { continue; }
-        // Rails' Bitget parser also takes a bare order id (bitget.rb:719), so a legacy row may hold that form.
-        let bare = if venue == "Exchanges::Bitget" { key.rsplit_once('-').map(|(_, id)| id.to_string()) } else { None };
-        let held: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE exchange_id = ?1 AND (external_id = ?2 OR external_id = ?3))",
-                                     params![exchange, key, bare.unwrap_or_else(|| key.clone())], |r| r.get(0))?;
-        if !held { out.push(trade); }
+        if !held(c, exchange, venue, &key)? { out.push(trade); }
     }
     Ok(Ok(out))
+}
+
+/// A28-3d-2 r1.1: whether a bot's order row on `exchange` holds `external_id`: that id, or on Bitget its bare `<orderId>` too
+/// (Rails' Bitget parser takes both, bitget.rb:719, so a legacy row may hold that form). The one check A28-1's ledger
+/// candidates, the live line (`merged`) and a booking (`write_booking`) all make.
+fn held(c: &Connection, exchange: i64, venue_type: &str, external_id: &str) -> Result<bool, EngineError> {
+    let bare = if venue_type == BITGET { external_id.rsplit_once('-').map(|(_, id)| id) } else { None };
+    Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE exchange_id = ?1 AND (external_id = ?2 OR external_id = ?3))",
+                   params![exchange, external_id, bare.unwrap_or(external_id)], |r| r.get(0))?)
 }
 
 /// The order keys of every fill of the account linked to a bot's order, read once per pass (Codex r5), or Err(()) when a
@@ -496,12 +501,13 @@ use crate::venue::binance::{BINANCE, BINANCE_US};
 use crate::venue::{Created, CreatedKind, CreatedOrder, CreatedSize, CreatedState, HistoryError, Venue};
 
 /// The venues whose order history is read live: A28-3a (Rails' own clients pin their order-list answer, §1), A28-3b-1 Alpaca
-/// (a recorded answer, tests/fixtures/order_lists/alpaca), A28-3c-3a Hyperliquid, and A28-3d-1's lists built from the docs.
-const SERVED: [&str; 8] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA, crate::venue::hyperliquid::HYPERLIQUID, MEXC, BITRUE, BINGX];
+/// (a recorded answer, tests/fixtures/order_lists/alpaca), A28-3c-3a Hyperliquid, and A28-3d-1/-2's lists built from the docs.
+const SERVED: [&str; 11] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA, crate::venue::hyperliquid::HYPERLIQUID, MEXC, BITRUE, BINGX,
+                            BITGET, BITVAVO, GEMINI];
 /// A28-3d G4 (D-HISTORY-DOC-BOOK-CONFIRMED): the venues whose list read is built from the docs alone; a booking also needs
 /// the venue's Rails-called single-order lookup to read the same order (`Venue::order_created`).
-const DOC_BUILT: [&str; 3] = [MEXC, BITRUE, BINGX];
-use crate::venue::{bingx::BINGX, bitrue::BITRUE, mexc::MEXC};
+const DOC_BUILT: [&str; 6] = [MEXC, BITRUE, BINGX, BITGET, BITVAVO, GEMINI];
+use crate::venue::{bingx::BINGX, bitget::BITGET, bitrue::BITRUE, bitvavo::BITVAVO, gemini::GEMINI, mexc::MEXC};
 /// Pairs one read may ask for (§4); more leave the line A28-1's.
 const MAX_SYMBOLS: usize = 5;
 /// Live reads per pass (r1.4), taken round-robin from `LIVE_CURSOR`.
@@ -694,8 +700,7 @@ fn merged(c: &Connection, p: &Prepared, created: &Created, linked: &mut Linked) 
     let mut live: Vec<&CreatedOrder> = vec![];
     for o in &created.orders {
         if o.side != p.side || !p.symbols.contains(&o.symbol) { continue; }
-        let held: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE exchange_id = ?1 AND external_id = ?2)", params![p.exchange, o.external_id], |r| r.get(0))?;
-        if !held { live.push(o); }
+        if !held(c, p.exchange, &p.venue_type, &o.external_id)? { live.push(o); }
     }
     // A linked fill that can't be read can't exclude anything: the order is listed (a line too many, never one too few).
     if !live.is_empty() {
@@ -1280,8 +1285,7 @@ fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Ciphe
     let mut now_bases = bot.asset_ids();
     if let Some(b) = bot.settings.get("base_asset_id").and_then(Value::as_i64) { now_bases.push(b); }
     if !now_bases.contains(&base) || bot.quote_asset_id() != Some(quote) { return Ok(Err("settings_changed")); }
-    let held: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE exchange_id = ?1 AND external_id = ?2)", params![exchange, fresh.external_id], |r| r.get(0))?;
-    if held { return Ok(Err("held")); }
+    if held(c, exchange, venue_type, &fresh.external_id)? { return Ok(Err("held")); }
     match linked_keys(c, bot.user_id, exchange, venue_type, &mut Linked::new())? {
         Err(()) => return Ok(Err("unreadable")),
         Ok(keys) if keys.contains(&fresh.external_id) => return Ok(Err("linked")),

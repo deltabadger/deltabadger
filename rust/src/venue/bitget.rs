@@ -45,6 +45,19 @@ pub const ORDER_GONE_CODES: [&str; 2] = ["40109", "43001"];
 /// A 00000 answer to the order without an orderId: Rails stores "<symbol>-"; Bitget took the order, or may have.
 pub const NO_ORDER_ID: &str = "Bitget answered the order with no order id";
 pub const NO_CODE: &str = "Bitget answered the order with no result code";
+/// A28-3d-2: the order-history lists, their page and page cap, Bitget's documented reach, and the codes that refuse the
+/// key, as Bitget's error-code docs name them (the classic page, bitgetlimited.github.io/apidoc/en/spot; v2 keeps them):
+/// 40001 ACCESS_KEY cannot be empty, 40002 ACCESS_SIGN cannot be empty, 40003 Signature cannot be empty, 40006 Invalid
+/// ACCESS_KEY, 40009 sign signature error, 40011 ACCESS_PASSPHRASE cannot be empty, 40012 apikey/password is incorrect,
+/// 40014 Incorrect permissions, 40018 Invalid IP, 40036 passphrase is error, 40037 Apikey does not exist, 40038 The current
+/// ip is not in the apikey ip whitelist, 40040 user api key permission setting error, 40041 User's ApiKey does not exist.
+/// The timestamp codes (40004, 40005, 40008) are retried.
+pub const UNFILLED_PATH: &str = "/api/v2/spot/trade/unfilled-orders";
+pub const HISTORY_PATH: &str = "/api/v2/spot/trade/history-orders";
+pub const HISTORY_PAGE: usize = 100;
+pub const HISTORY_PAGES: usize = 5;
+pub const HISTORY_DAYS: i64 = 90;
+const HISTORY_REFUSED: [&str; 14] = ["40001", "40002", "40003", "40006", "40009", "40011", "40012", "40014", "40018", "40036", "40037", "40038", "40040", "40041"];
 /// The whole market's tickers in one body: its read stops at this many bytes, never a price from a cut body.
 pub const TICKERS_LIMIT: usize = 4 * 1024 * 1024;
 
@@ -126,6 +139,40 @@ pub fn parse_order(order_id: &str, o: &Value) -> Result<OrderState, VenueError> 
     };
     Ok(OrderState { zero_fill_at: None, txid: order_id.into(), status, price: (!price.is_zero()).then_some(price), amount, quote_amount, amount_exec,
                     quote_amount_exec: Some(quote_amount_exec), limit, sell: side == "sell", pair: Some(symbol.into()), asset_class: None })
+}
+
+/// A28-3d-2 (D-HISTORY-DOC-BUILT, D-HISTORY-BITGET-SECONDS): one order-history row read strictly in `parse_order`'s fields:
+/// its own `symbol` the asked one; `orderId` a non-empty string (Bitget sends every field as one); `cTime` ms as a string or
+/// number, at least 10^12 (the docs' unfilled example shows seconds: anything shorter is unreadable); `side` buy/sell;
+/// `orderType` market, or limit at a positive `price`; `size` positive, quote coins on a market buy and base otherwise (G2);
+/// `baseVolume` and `quoteVolume` present and not negative. ORDER_STATUS_MAP: live / partially_filled open, filled (something
+/// executed) filled, cancelled ended; init / new (Unknown there) and anything else None. The id is "<symbol>-<orderId>".
+pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
+    use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState};
+    let zero = BigDec::zero();
+    let amount = |k: &str| o.get(k).and_then(|v| crate::ruby::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
+    if o.get("symbol")?.as_str()? != symbol { return None; }
+    let id = o.get("orderId")?.as_str().filter(|s| !s.is_empty())?;
+    let ms = match o.get("cTime")? { Value::String(s) if s.bytes().all(|b| b.is_ascii_digit()) => s.parse::<i64>().ok()?, Value::Number(n) => n.as_i64()?, _ => return None };
+    if ms < 1_000_000_000_000 { return None; }
+    let created_at = DateTime::from_timestamp_millis(ms)?;
+    let side = match o.get("side")?.as_str()?.to_lowercase().as_str() { "buy" => Side::Buy, "sell" => Side::Sell, _ => return None };
+    let kind = match o.get("orderType")?.as_str()?.to_lowercase().as_str() {
+        "market" => CreatedKind::Market,
+        "limit" => CreatedKind::Limit { price: amount("price").filter(BigDec::is_positive)? },
+        _ => return None,
+    };
+    let size = amount("size").filter(BigDec::is_positive)?;
+    let size = if kind == CreatedKind::Market && side == Side::Buy { CreatedSize::Quote(size) } else { CreatedSize::Base(size) };
+    let (filled_base, filled_quote) = (amount("baseVolume")?, amount("quoteVolume")?);
+    let filled = filled_base.is_positive();
+    let state = match o.get("status")?.as_str()? {
+        "live" | "partially_filled" => CreatedState::of(true, filled),
+        "filled" if filled => CreatedState::Filled,
+        "cancelled" => CreatedState::of(false, filled),
+        _ => return None,
+    };
+    Some(CreatedOrder { external_id: format!("{symbol}-{id}"), symbol: symbol.into(), created_at, side, kind, size, state, filled_base, filled_quote: Some(filled_quote) })
 }
 
 /// The prices of a GET /api/v2/spot/market/tickers answer, as Exchanges::Bitget#get_tickers_prices reads them: no `data` is
@@ -256,6 +303,14 @@ impl<T: Transport> BitgetVenue<T> {
     async fn get_order(&self, order_id: &str) -> Result<Option<Value>, VenueError> {
         self.order_info(vec![("orderId", split_order_id(order_id).1)]).await
     }
+
+    /// A28-3d-2: an answer's `data` list, its envelope's `code` 00000; a documented refusal code is the key's on any HTTP
+    /// status (`binance::history_body`), any other failure or code retryable.
+    fn history_data(&self, resp: http::HttpResponse) -> Result<Vec<Value>, super::HistoryError> {
+        let body = super::binance::history_body(&self.transport, resp, &HISTORY_REFUSED, UNREADABLE)?;
+        if !ok(&body) { return Err(super::HistoryError::Retry(self.transport.redact_diagnostic(&api_error(&body)))); }
+        match body.get("data") { Some(Value::Array(rows)) => Ok(rows.clone()), _ => Err(super::HistoryError::Retry(UNREADABLE.into())) }
+    }
 }
 
 /// Clients::Bitget#get_candles' path.
@@ -384,6 +439,59 @@ impl<T: Transport> super::Venue for BitgetVenue<T> {
         let id = to_s(&o["orderId"]);
         if id.is_empty() { return Err(unreadable()); }
         parse_order(&format!("{symbol}-{id}"), &o).map(Some)
+    }
+
+    /// A28-3d-2 (D-HISTORY-DOC-BUILT, D-HISTORY-DOC-RETENTION): per symbol, GET unfilled-orders, then GET history-orders,
+    /// startTime/endTime in ms (as the ledger importer sends them), limit 100; history paged newest first by `idLessThan` =
+    /// the last row's orderId while a page is full, five pages at most (a cap, or a full unfilled page: incomplete). Each
+    /// answer `{code: "00000", data: [...]}`. A window from before Bitget's documented 90 days is not asked (empty,
+    /// incomplete). The transport signs each request as it sends it.
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
+        if from < self.transport.now() - chrono::Duration::days(HISTORY_DAYS) { return Ok(super::Created { orders: vec![], complete: false }); }
+        let mut out = super::Created { orders: vec![], complete: true };
+        let mut twice = vec![];
+        for symbol in symbols {
+            let mut before: Option<String> = None;
+            for n in 0..=HISTORY_PAGES {
+                let mut q = vec![("symbol", symbol.clone()), ("startTime", from.timestamp_millis().to_string()), ("endTime", to.timestamp_millis().to_string()),
+                                 ("limit", HISTORY_PAGE.to_string())];
+                q.extend(before.clone().map(|b| ("idLessThan", b)));
+                let r = self.request("GET", if n == 0 { UNFILLED_PATH } else { HISTORY_PATH }, q, None);
+                let read = async { self.history_data(super::binance::history_response(&self.transport, &r).await?) };
+                let rows = match super::by_deadline(deadline, read).await {
+                    Ok(rows) => rows,
+                    Err(e) if !super::binance::any_in(&out, from, to) => return Err(e),
+                    Err(_) => { out.complete = false; break; }
+                };
+                super::binance::read_rows(&mut out, &mut twice, &rows, |r| created_order(symbol, r));
+                let full = rows.len() >= HISTORY_PAGE;
+                if n == 0 { if full { out.complete = false; } continue; }
+                if !full { break; }
+                if n == HISTORY_PAGES { out.complete = false; break; }
+                // The next page by the last row's id; none, or the one just asked for, can't be followed.
+                match rows.last().and_then(|r| r.get("orderId")).and_then(Value::as_str).filter(|id| !id.is_empty() && before.as_deref() != Some(*id)) {
+                    Some(id) => before = Some(id.to_string()),
+                    None => { out.complete = false; break; }
+                }
+            }
+        }
+        Ok(super::binance::in_window(out, from, to))
+    }
+
+    /// A28-3d-2 (D-HISTORY-DOC-BOOK-CONFIRMED): #get_order's GET orderInfo by orderId, its `data` list's one row read
+    /// strictly; a gone order (#order_gone?: 40109 / 43001, or no row) is None, and so is an id without the asked symbol.
+    async fn order_created(&self, external_id: &str, symbol: &str, deadline: tokio::time::Instant) -> Result<Option<super::CreatedOrder>, super::HistoryError> {
+        let (asked, ext) = split_order_id(external_id);
+        if asked.as_deref() != Some(symbol) || ext.is_empty() { return Ok(None); }
+        let r = self.request("GET", ORDER_INFO_PATH, vec![("orderId", ext)], None);
+        super::by_deadline(deadline, async {
+            let resp = super::binance::history_response(&self.transport, &r).await?;
+            if gone(std::slice::from_ref(&resp.body)) { return Ok(None); }
+            match &self.history_data(resp)?[..] {
+                [one] => Ok(created_order(symbol, one).filter(|o| o.external_id == external_id)),
+                _ => Ok(None),
+            }
+        }).await
     }
 
     /// Exchanges::Bitget reads no fills for a gone order: it stays missing, for Bot::StaleOrderResolver.

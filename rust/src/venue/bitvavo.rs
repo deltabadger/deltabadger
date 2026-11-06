@@ -43,6 +43,15 @@ pub const NO_ORDER_ID: &str = "Bitvavo answered the order with no order id";
 /// which proves nothing about one sent moments ago; the intent waits for `deltabadger resolve-placement`. A divergence:
 /// Rails sends no clientOrderId and has no lookup at all.
 pub const ABSENCE_UNPROVEN: &str = "Bitvavo: the client order lookup did not find this order, and Bitvavo cannot prove it absent; settle it with `deltabadger resolve-placement`";
+/// A28-3d-2: the order-history lists, the list's page, and the `errorCode`s that refuse the key, as docs.bitvavo.com/docs/errors
+/// names them: 301 Your API key has an invalid length, 305 Your API key is not active, 306 You have not confirmed your API
+/// key activation, 307 Your IP is not in the whitelist for this API key, 308 Your signature format is invalid, 309 Your
+/// signature is invalid, 310 Your API key does not have the Trade digital assets permission, 311 Your API key does not have
+/// the View access permission.
+pub const ORDERS_PATH: &str = "/v2/orders";
+pub const OPEN_ORDERS_PATH: &str = "/v2/ordersOpen";
+pub const HISTORY_PAGE: usize = 1000;
+const HISTORY_REFUSED: [&str; 8] = ["301", "305", "306", "307", "308", "309", "310", "311"];
 /// The trades walk's ceiling: 100,000 pages of 1000 (ponytail: Rails has none; a misbehaving cursor fails, never loops).
 const MAX_TRADE_PAGES: usize = 100_000;
 
@@ -111,6 +120,43 @@ pub fn parse_order(order_id: &str, o: &Value) -> Result<OrderState, VenueError> 
     };
     Ok(OrderState { zero_fill_at: None, txid: order_id.into(), status, price: nonzero(price), amount: nonzero(decimal(&o["amount"])?), quote_amount: nonzero(decimal(&o["amountQuote"])?),
                     amount_exec, quote_amount_exec: Some(quote_exec), limit, sell, pair: Some(market.into()), asset_class: None })
+}
+
+/// A28-3d-2 (D-HISTORY-DOC-BUILT): one order-history row read strictly in `parse_order`'s fields: its own `market` the asked
+/// one; `orderId` a non-empty string; `created` ms, an integer; `side` buy/sell; `orderType` market, or limit at a positive
+/// `price`; exactly one of `amount` (base) and `amountQuote` (quote, a market order's only) positive, the other absent or
+/// zero; `filledAmount` and `filledAmountQuote` present and not negative. ORDER_STATUS_MAP: new / partiallyFilled open,
+/// filled (something executed) filled, canceled / cancelled / expired / rejected ended; awaitingTrigger and anything else
+/// None. The id is "<market>-<orderId>", as `add_order` stores it.
+pub fn created_order(market: &str, o: &Value) -> Option<super::CreatedOrder> {
+    use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
+    let zero = BigDec::zero();
+    let amount = |k: &str| o.get(k).and_then(|v| crate::ruby::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
+    // Absent or null is none; present, a decimal not below zero, positive or none.
+    let size = |k: &str| match o.get(k) { None | Some(Value::Null) => Some(None), Some(_) => amount(k).map(|d| d.is_positive().then_some(d)) };
+    if o.get("market")?.as_str()? != market { return None; }
+    let id = o.get("orderId")?.as_str().filter(|s| !s.is_empty())?;
+    let created_at = DateTime::from_timestamp_millis(o.get("created")?.as_i64().filter(|t| *t > 0)?)?;
+    let side = match o.get("side")?.as_str()?.to_lowercase().as_str() { "buy" => Side::Buy, "sell" => Side::Sell, _ => return None };
+    let kind = match o.get("orderType")?.as_str()? {
+        "market" => CreatedKind::Market,
+        "limit" => CreatedKind::Limit { price: amount("price").filter(BigDec::is_positive)? },
+        _ => return None,
+    };
+    let size = match (size("amount")?, size("amountQuote")?) {
+        (Some(base), None) => CreatedSize::Base(base),
+        (None, Some(quote)) if kind == CreatedKind::Market => CreatedSize::Quote(quote),
+        _ => return None,
+    };
+    let (filled_base, filled_quote) = (amount("filledAmount")?, amount("filledAmountQuote")?);
+    let filled = filled_base.is_positive();
+    let state = match o.get("status")?.as_str()? {
+        "new" | "partiallyFilled" => CreatedState::of(true, filled),
+        "filled" if filled => CreatedState::Filled,
+        "canceled" | "cancelled" | "expired" | "rejected" => CreatedState::of(false, filled),
+        _ => return None,
+    };
+    Some(CreatedOrder { external_id: format!("{market}-{id}"), symbol: market.into(), created_at, side, kind, size, state, filled_base, filled_quote: Some(filled_quote) })
 }
 
 /// The prices of a GET /v2/ticker/price answer, as Exchanges::Bitvavo#get_tickers_prices reads them: every row by its
@@ -255,6 +301,17 @@ impl<T: Transport> BitvavoVenue<T> {
     }
 }
 
+impl<T: Transport> BitvavoVenue<T> {
+    /// A28-3d-2: one list request's bare array; a documented `errorCode` is the key's refusal on any HTTP status.
+    async fn history_rows(&self, r: &HttpRequest) -> Result<Vec<Value>, super::HistoryError> {
+        let resp = super::binance::history_response(&self.transport, r).await?;
+        match super::binance::history_body_by(&self.transport, resp, "errorCode", &HISTORY_REFUSED, UNREADABLE)? {
+            Value::Array(rows) => Ok(rows),
+            _ => Err(super::HistoryError::Retry(UNREADABLE.into())),
+        }
+    }
+}
+
 /// Exchanges::Bitvavo#get_candles' interval for each timeframe: 3 days, 1 week and 1 month are daily, built.
 pub fn candle_interval(timeframe: Timeframe) -> &'static str {
     match timeframe {
@@ -394,6 +451,44 @@ impl<T: Transport> super::Venue for BitvavoVenue<T> {
             if !trades.is_empty() { out.push(order_from_trades(id, &market, &trades)?); }
         }
         Ok(out)
+    }
+
+    /// A28-3d-2 (D-HISTORY-DOC-BUILT): per market, GET /v2/orders with start/end in ms, limit 1000 (a full page:
+    /// incomplete), then GET /v2/ordersOpen (the docs don't say /v2/orders lists open ones); bare arrays. An order both
+    /// list, read the same, counts once. The transport signs each request as it sends it.
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
+        let mut out = super::Created { orders: vec![], complete: true };
+        let mut twice = vec![];
+        for market in symbols {
+            for n in 0..2 {
+                let r = if n == 0 {
+                    self.request("GET", ORDERS_PATH, vec![("market", market.clone()), ("start", from.timestamp_millis().to_string()), ("end", to.timestamp_millis().to_string()),
+                                                          ("limit", HISTORY_PAGE.to_string())], None)
+                } else { self.request("GET", OPEN_ORDERS_PATH, vec![("market", market.clone())], None) };
+                let rows = match super::by_deadline(deadline, self.history_rows(&r)).await {
+                    Ok(rows) => rows,
+                    Err(e) if !super::binance::any_in(&out, from, to) => return Err(e),
+                    Err(_) => { out.complete = false; break; }
+                };
+                if n == 0 && rows.len() >= HISTORY_PAGE { out.complete = false; }
+                super::binance::read_rows(&mut out, &mut twice, &rows, |r| created_order(market, r));
+            }
+        }
+        Ok(super::binance::in_window(out, from, to))
+    }
+
+    /// A28-3d-2 (D-HISTORY-DOC-BOOK-CONFIRMED): #get_order's GET /v2/order by market and orderId, read strictly; errorCode 240
+    /// is gone (None), and so is an id without the asked market.
+    async fn order_created(&self, external_id: &str, symbol: &str, deadline: tokio::time::Instant) -> Result<Option<super::CreatedOrder>, super::HistoryError> {
+        let (market, ext) = split_order_id(external_id);
+        if market != symbol || ext.is_empty() { return Ok(None); }
+        let r = self.request("GET", ORDER_PATH, vec![("market", market), ("orderId", ext)], None);
+        super::by_deadline(deadline, async {
+            let resp = super::binance::history_response(&self.transport, &r).await?;
+            if error_code(&resp.body) == Some(ORDER_NOT_FOUND) { return Ok(None); }
+            let body = super::binance::history_body_by(&self.transport, resp, "errorCode", &HISTORY_REFUSED, UNREADABLE)?;
+            Ok(created_order(symbol, &body).filter(|o| o.external_id == external_id))
+        }).await
     }
 
     /// #get_balances' `available` for the quote asset: each row's symbol mapped to its asset (#asset_from_symbol).
