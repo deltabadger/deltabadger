@@ -23,10 +23,10 @@ fn pinned_tag(image: &str) -> Option<&str> {
 }
 
 /// Every image is pinned by tag and digest, never `:latest` (Umbrel re-pulls `latest` on a start, PLAN-B5 r1.1), and the
-/// app's `version`, which is what Umbrel compares to offer an Update, names `web`'s tag (Umbrel's convention: they move
-/// together). `-N` after it marks a re-release of the same image.
+/// app's `version`, which is what Umbrel compares to offer an Update, is `web`'s tag (Umbrel's convention: they move
+/// together, PLAN-B5 §5).
 #[test]
-fn every_umbrel_image_is_pinned_and_the_version_names_webs_tag() {
+fn every_umbrel_image_is_pinned_and_the_version_is_webs_tag() {
     let mut web_tag = None;
     for (name, service) in services() {
         let Some(image) = service["image"].as_str() else { continue };
@@ -34,10 +34,45 @@ fn every_umbrel_image_is_pinned_and_the_version_names_webs_tag() {
         if name == "web" { web_tag = Some(tag.to_string()) }
     }
     let web_tag = web_tag.expect("a web service with an image");
-    let version = load("umbrel-app.yml")["version"].as_str().unwrap().to_string();
-    let suffix = version.strip_prefix(&web_tag).unwrap_or_else(|| panic!("version {version} doesn't name web's tag {web_tag}"));
-    assert!(suffix.is_empty() || suffix.strip_prefix('-').is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())),
-            "version {version}: web's tag {web_tag}, then nothing or -N");
+    assert_eq!(load("umbrel-app.yml")["version"].as_str(), Some(web_tag.as_str()), "umbrel-app.yml's version is web's tag");
+}
+
+/// Red on purpose while `web` runs a prerelease (`3.0.0-beta.N`): this app reaches every Umbrel install once merged, so
+/// it may only merge pinned to a released image (PLAN-B5 §5, §9 item 2). The final commit repins to `v3.0.0`'s index.
+#[test]
+fn the_umbrel_app_ships_only_a_released_image() {
+    let web = services().into_iter().find(|(n, _)| n == "web").expect("web").1;
+    let tag = pinned_tag(web["image"].as_str().unwrap()).expect("pinned").to_string();
+    assert!(!tag.contains('-'), "web runs the prerelease {tag}: repin to a released image before this merges");
+}
+
+/// The services Umbrel runs: `app_proxy` (Umbrel's), `web`, and the one-shot `upgrade` step before it (PLAN-B5 §1.1,
+/// §3). No `jobs`: Umbrel's update stops it with the old compose and nothing re-creates it (§2). The step runs
+/// docker/behind-guard.rb verbatim under 2.70.21's Ruby, never restarts, and `web` starts only once it exited 0; `web`
+/// gets 60 s to stop (§4).
+#[test]
+fn the_umbrel_app_runs_the_step_then_web_alone() {
+    let services = services();
+    let names: Vec<&str> = services.iter().map(|(n, _)| n.as_str()).collect();
+    assert_eq!(names, ["app_proxy", "web", "upgrade"]);
+    let service = |name: &str| services.iter().find(|(n, _)| n == name).unwrap().1.clone();
+    let (web, upgrade) = (service("web"), service("upgrade"));
+
+    let guard = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../docker/behind-guard.rb")).unwrap();
+    assert!(!guard.contains('$'), "docker/behind-guard.rb must have no $: compose would interpolate it");
+    let command: Vec<&str> = upgrade["command"].as_vec().expect("a command list").iter().filter_map(Yaml::as_str).collect();
+    assert_eq!(command, ["bundle", "exec", "ruby", "-e", guard.as_str()], "upgrade runs docker/behind-guard.rb verbatim");
+    assert_eq!(upgrade["restart"].as_str(), Some("no"));
+    assert!(pinned_tag(upgrade["image"].as_str().unwrap()).is_some_and(|t| t == "2.70.21"), "the step is 2.70.21's");
+    let env: Vec<&str> = upgrade["environment"].as_hash().unwrap().keys().filter_map(Yaml::as_str).collect();
+    assert_eq!(env, ["SECRET_KEY_BASE"], "2.70.21's paths are web's; its RAILS_ENV is the image's");
+
+    assert_eq!(web["depends_on"]["upgrade"]["condition"].as_str(), Some("service_completed_successfully"));
+    assert_eq!(web["stop_grace_period"].as_str(), Some("60s"));
+    assert_eq!(web["restart"].as_str(), Some("on-failure"));
+    assert_eq!(web["command"].as_str(), Some("web"));
+    assert_eq!(web["environment"]["DELTABADGER_PLATFORM"].as_str(), Some("umbrel"));
+    assert_eq!(web["environment"]["APP_ROOT_URL"].as_str(), Some("http://${DEVICE_DOMAIN_NAME}:3737"));
 }
 
 /// What decides which install a service reads, and with which secret (PLAN-B5 §1.4): any change here makes Umbrel's
