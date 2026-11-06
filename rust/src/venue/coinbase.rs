@@ -68,6 +68,64 @@ pub fn parse_order(id: &str, o: &Value) -> Result<OrderState, VenueError> {
         asset_class: None,
     })
 }
+/// A28-3d-3: the single order (`order_identified`'s path, the id behind it), the window list's page and page cap.
+pub const ORDER: &str = "/api/v3/brokerage/orders/historical/";
+pub const HISTORY_PAGE: usize = 100;
+pub const HISTORY_PAGES: usize = 5;
+/// A28-3d-3 (D-HISTORY-DOC-BUILT, D-HISTORY-COINBASE-QUOTE-AFTER-FEES): one historical order read strictly in `parse_order`'s
+/// fields: its own `product_id` the asked one; `order_id` a non-empty string (the bare id `add_order` stores, as fills.rs keys
+/// Coinbase fills); `created_time` RFC3339, kept to the microsecond (what A28-2's facts store); `side` BUY/SELL; LIMIT with
+/// only `limit_limit_gtc` {`limit_price` > 0, `base_size` > 0, no quote size}, or MARKET with only `market_market_ioc` and
+/// exactly one of `base_size` / `quote_size` positive (Rails places only these two); `filled_size` not negative; the filled
+/// quote `total_value_after_fees` − `outstanding_hold_amount` as Rails' parse computes it, not negative. Status: OPEN /
+/// QUEUED / CANCEL_QUEUED / EDIT_QUEUED open, FILLED (something filled) filled, CANCELLED / EXPIRED / FAILED ended; PENDING /
+/// UNKNOWN_ORDER_STATUS (Unknown in Rails' map) and anything else None.
+pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
+    use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
+    let zero = BigDec::zero();
+    let amount = |v: &Value| crate::ruby::json_to_d(v).ok().flatten().filter(|d| *d >= zero);
+    // Absent or null is none; present, a decimal not below zero, positive or none.
+    let size = |c: &Value, k: &str| match c.get(k) { None | Some(Value::Null) => Some(None), Some(v) => amount(v).map(|d| d.is_positive().then_some(d)) };
+    if o.get("product_id")?.as_str()? != symbol { return None; }
+    let id = o.get("order_id")?.as_str().filter(|s| !s.is_empty())?;
+    let raw = o.get("created_time")?.as_str()?;
+    // Branch r1.1, r2.1: a time finer than the microsecond booking stores is unreadable, never rounded (two such times
+    // would compare equal, and a time just past the window could round into it). Read from the text: chrono drops digits
+    // past the ninth.
+    let fraction = raw.split_once('.').map_or("", |(_, rest)| rest.split(|c: char| !c.is_ascii_digit()).next().unwrap_or(""));
+    if fraction.bytes().skip(6).any(|b| b != b'0') { return None; }
+    let created_at = DateTime::parse_from_rfc3339(raw).ok()?.with_timezone(&Utc);
+    let side = match o.get("side")?.as_str()? { "BUY" => Side::Buy, "SELL" => Side::Sell, _ => return None };
+    let config = o.get("order_configuration")?.as_object()?;
+    let (kind, size) = match (o.get("order_type")?.as_str()?, config.len()) {
+        ("LIMIT", 1) => {
+            let c = config.get("limit_limit_gtc")?;
+            let price = c.get("limit_price").and_then(amount).filter(BigDec::is_positive)?;
+            match (size(c, "base_size")?, size(c, "quote_size")?) { (Some(base), None) => (CreatedKind::Limit { price }, CreatedSize::Base(base)), _ => return None }
+        }
+        ("MARKET", 1) => {
+            let c = config.get("market_market_ioc")?;
+            match (size(c, "base_size")?, size(c, "quote_size")?) {
+                (Some(base), None) => (CreatedKind::Market, CreatedSize::Base(base)),
+                (None, Some(quote)) => (CreatedKind::Market, CreatedSize::Quote(quote)),
+                _ => return None,
+            }
+        }
+        _ => return None,
+    };
+    let filled_base = o.get("filled_size").and_then(amount)?;
+    let total = o.get("total_value_after_fees").and_then(|v| crate::ruby::json_to_d(v).ok().flatten())?;
+    let hold = o.get("outstanding_hold_amount").and_then(|v| crate::ruby::json_to_d(v).ok().flatten())?;
+    let filled_quote = Some(&total - &hold).filter(|q| *q >= zero)?;
+    let filled = filled_base.is_positive();
+    let state = match o.get("status")?.as_str()? {
+        "OPEN" | "QUEUED" | "CANCEL_QUEUED" | "EDIT_QUEUED" => CreatedState::of(true, filled),
+        "FILLED" if filled => CreatedState::Filled,
+        "CANCELLED" | "EXPIRED" | "FAILED" => CreatedState::of(false, filled),
+        _ => return None,
+    };
+    Some(CreatedOrder { external_id: id.into(), symbol: symbol.into(), created_at, side, kind, size, state, filled_base, filled_quote: Some(filled_quote) })
+}
 #[derive(Clone)]
 pub struct CoinbaseVenue<T: Transport> {
     transport: T,
@@ -239,6 +297,19 @@ impl<T: Transport> CoinbaseVenue<T> {
             cursor = Some(next.to_string());
         }
         Ok(out)
+    }
+    /// A28-3d-3: one window page's rows and, while `has_next`, its cursor ("" when it names none). A failure is the key's
+    /// refusal on HTTP 401/403 only (r1.2: the documented error envelope gives no symbolic code to rely on), else retryable.
+    async fn history_page(&self, r: &HttpRequest) -> Result<(Vec<Value>, Option<String>), super::HistoryError> {
+        let resp = super::binance::history_response(&self.transport, r).await?;
+        let body = super::binance::history_body(&self.transport, resp, &[], UNREADABLE)?;
+        let unreadable = || super::HistoryError::Retry(UNREADABLE.into());
+        let rows = body.get("orders").and_then(Value::as_array).ok_or_else(unreadable)?.clone();
+        let next = match body.get("has_next").and_then(Value::as_bool).ok_or_else(unreadable)? {
+            true => Some(body.get("cursor").and_then(Value::as_str).unwrap_or("").to_string()),
+            false => None,
+        };
+        Ok((rows, next))
     }
 }
 fn format_transport(e: http::TransportError) -> String {
@@ -468,6 +539,49 @@ impl<T: Transport> super::Venue for CoinbaseVenue<T> {
             Some(o) => Ok(Some(o)),
             None => Err(VenueError::Ambiguous(ABSENCE_UNPROVEN.into())),
         }
+    }
+    /// A28-3d-3 (D-HISTORY-DOC-BUILT: `end_date` and reading a window's every row are the docs'; Rails asks this list by ids):
+    /// per product, GET historical/batch with `product_ids`, `start_date` = from floored to the second and `end_date` = to
+    /// floored + 1 s (r1.1: the end is exclusive; RFC3339 whole seconds), limit 100, then `cursor` while `has_next`, five
+    /// pages at most (a cap, or a missing or repeated cursor: incomplete). No status filter (open orders are listed) and no
+    /// placement source (the default is an API key's, as Rails placed). Rows filtered here.
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
+        let secs = |s: i64| DateTime::from_timestamp(s, 0).map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)).unwrap_or_default();
+        let (start, end) = (secs(from.timestamp()), secs(to.timestamp() + 1));
+        let mut out = super::Created { orders: vec![], complete: true };
+        let mut twice = vec![];
+        for symbol in symbols {
+            let mut cursors: Vec<String> = vec![];
+            for n in 1..=HISTORY_PAGES {
+                let mut q = vec![("product_ids", symbol.clone()), ("start_date", start.clone()), ("end_date", end.clone()), ("limit", HISTORY_PAGE.to_string())];
+                q.extend(cursors.last().map(|c| ("cursor", c.clone())));
+                let r = self.request("GET", ORDERS, q, None);
+                let (rows, next) = match super::by_deadline(deadline, self.history_page(&r)).await {
+                    Ok(page) => page,
+                    Err(e) if !super::binance::any_in(&out, from, to) => return Err(e),
+                    Err(_) => { out.complete = false; break; }
+                };
+                super::binance::read_rows(&mut out, &mut twice, &rows, |r| created_order(symbol, r));
+                let Some(next) = next else { break };
+                if n == HISTORY_PAGES || next.is_empty() || cursors.contains(&next) { out.complete = false; break; }
+                cursors.push(next);
+            }
+        }
+        Ok(super::binance::in_window(out, from, to))
+    }
+    /// A28-3d-3 (D-HISTORY-DOC-BOOK-CONFIRMED): `order_identified`'s GET historical/{id}, its `order` read strictly; HTTP 404
+    /// is gone (None), and so is a body that isn't that order on `symbol`. An id that can't stand in a path is never sent.
+    async fn order_created(&self, external_id: &str, symbol: &str, deadline: tokio::time::Instant) -> Result<Option<super::CreatedOrder>, super::HistoryError> {
+        if external_id.is_empty() || !external_id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') { return Ok(None); }
+        let r = self.request("GET", &format!("{ORDER}{external_id}"), vec![], None);
+        super::by_deadline(deadline, async {
+            let resp = super::binance::history_response(&self.transport, &r).await?;
+            if resp.status == 404 { return Ok(None); }
+            let body = super::binance::history_body(&self.transport, resp, &[], UNREADABLE)?;
+            // Branch r1.2: an answer without `order` (an error envelope on a 200) may pass later: retried, as the list's.
+            let Some(order) = body.get("order").filter(|o| o.is_object()) else { return Err(super::HistoryError::Retry(UNREADABLE.into())) };
+            Ok(created_order(symbol, order).filter(|o| o.external_id == external_id))
+        }).await
     }
     async fn fills_from_trades(
         &self,

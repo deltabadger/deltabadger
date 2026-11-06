@@ -149,7 +149,7 @@ pub(crate) fn check(body: &Value) -> Result<(), VenueError> {
 }
 
 /// `parse_order_data` raises on an unknown status or order type; here that is an error, never a guess.
-pub(crate) fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueError> {
+pub fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueError> {
     let status = match o["status"].as_str() {
         Some("open") => OrderStatus::Open, Some("closed") => OrderStatus::Closed,
         Some("canceled") | Some("expired") => OrderStatus::Cancelled, Some("pending") => OrderStatus::Unknown,
@@ -174,6 +174,68 @@ pub(crate) fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueErro
         sell: o["descr"]["type"] == "sell",
         pair: o["descr"]["pair"].as_str().map(str::to_string),
     })
+}
+
+/// A28-3d-4: the order lists the history read asks, ClosedOrders' page cap, and the errors that refuse the key
+/// (docs.kraken.com/exchange/guides/general/errors). Everything else, "EAPI:Invalid nonce" included, is retried.
+pub const OPEN_ORDERS: &str = "/0/private/OpenOrders";
+pub const CLOSED_ORDERS: &str = "/0/private/ClosedOrders";
+pub const HISTORY_PAGES: usize = 5;
+pub const HISTORY_REFUSED: [&str; 3] = [
+    // "The `API-Key` header is missing, malformed, or refers to a key that has been deleted or revoked."
+    "EAPI:Invalid key",
+    // "The `API-Sign` header does not match the expected HMAC-SHA512 signature."
+    "EAPI:Invalid signature",
+    // "The API key exists and authenticated correctly, but does not have the permission required for this endpoint."
+    "EGeneral:Permission denied",
+];
+
+/// A28-3d-4 (D-HISTORY-DOC-BUILT): one Open/ClosedOrders row read strictly in `parse_order`'s fields (Rails' QueryOrders
+/// shape, its status and type maps): `txid` non-empty (the id `add_order` stores); `descr.pair` one of `symbols` exactly (the
+/// altname Rails stores as `tickers.ticker`); `opentm` the creation time; `descr.type` buy/sell; `descr.ordertype` limit
+/// (`descr.price` > 0) or market; `vol` > 0, in the quote with `viqc` in `oflags`, else the base; `vol_exec` and `cost` (the
+/// filled quote) not negative. Status: open open, closed (something filled) filled, canceled / expired ended; pending
+/// (Unknown in Rails' map) and anything else None.
+pub fn created_order(symbols: &[String], txid: &str, o: &Value) -> Option<super::CreatedOrder> {
+    use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
+    if txid.is_empty() { return None; }
+    let pair = o["descr"]["pair"].as_str().filter(|p| symbols.iter().any(|s| s == p))?;
+    // Branch r1.1: `oflags` decides the size's denomination (viqc): a missing or non-string one is unreadable, never base.
+    o["oflags"].as_str()?;
+    let s = parse_order(txid, o).ok()?;
+    let side = match o["descr"]["type"].as_str()? { "buy" => Side::Buy, "sell" => Side::Sell, _ => return None };
+    let kind = if s.limit { CreatedKind::Limit { price: dec(&o["descr"]["price"]).ok().flatten().filter(BigDec::is_positive)? } } else { CreatedKind::Market };
+    let size = match (s.amount, s.quote_amount) {
+        (Some(b), None) if b.is_positive() => CreatedSize::Base(b),
+        (None, Some(q)) if q.is_positive() => CreatedSize::Quote(q),
+        _ => return None,
+    };
+    let zero = BigDec::zero();
+    let filled_quote = s.quote_amount_exec.filter(|q| *q >= zero)?;
+    if s.amount_exec < zero { return None; }
+    let filled = s.amount_exec.is_positive();
+    let state = match s.status {
+        OrderStatus::Open => CreatedState::of(true, filled),
+        OrderStatus::Closed if filled => CreatedState::Filled,
+        OrderStatus::Cancelled => CreatedState::of(false, filled),
+        _ => return None,
+    };
+    Some(CreatedOrder { external_id: txid.into(), symbol: pair.into(), created_at: opentm(&o["opentm"])?, side, kind, size, state, filled_base: s.amount_exec,
+                        filled_quote: Some(filled_quote) })
+}
+
+/// `opentm`: Unix seconds as a JSON number to the microsecond (what A28-2's facts store); a finer one (branch r1.2: it would
+/// round into the window or onto another order's time) and anything else None.
+// ponytail: digits are checked after JSON decoding has made the number an f64, so a raw time within ~0.2 µs of a whole
+// microsecond passes as that microsecond. Harmless here: Kraken is report only (no booking compares times), orders are
+// deduplicated by txid, and the window is already the obligation's ± AROUND margin. Read the raw token if Kraken is ever booked.
+fn opentm(v: &Value) -> Option<DateTime<Utc>> {
+    let Value::Number(n) = v else { return None };
+    let text = n.to_string();
+    let (secs, frac) = text.split_once('.').unwrap_or((&text, ""));
+    if secs.is_empty() || !secs.bytes().all(|b| b.is_ascii_digit()) || !frac.bytes().all(|b| b.is_ascii_digit()) || frac.bytes().skip(6).any(|b| b != b'0') { return None; }
+    let micros: u32 = format!("{:0<6}", &frac[..frac.len().min(6)]).parse().ok()?;
+    DateTime::from_timestamp(secs.parse().ok().filter(|s: &i64| *s > 0)?, micros * 1_000)
 }
 
 /// Exchanges::Kraken#get_ask_price / #get_bid_price / #get_last_price over a checked Ticker body: the first result entry's
@@ -366,6 +428,30 @@ impl<T: Transport> KrakenVenue<T> {
         }
     }
 
+    /// A28-3d-4: one history answer's rows under `result[key]` (keyed by txid) and, for ClosedOrders, its `cursor.next`:
+    /// None when the answer names none (the last page), Some("") when it can't be read (no next page asked). A failure is the
+    /// key's refusal on HTTP 401/403 or an `error` in HISTORY_REFUSED, else retryable.
+    async fn history_page(&self, r: &HttpRequest, key: &str) -> Result<(Map<String, Value>, Option<String>), super::HistoryError> {
+        use super::HistoryError::{Refused, Retry};
+        let resp = super::binance::history_response(&self.transport, r).await?;
+        let message = |text: &str| self.transport.redact_diagnostic(&format!("HTTP {}: {text}", resp.status));
+        let body = http::decode_json(&resp.body).ok();
+        let errors = body.as_ref().and_then(|b| b["error"].as_array()).cloned().unwrap_or_default();
+        // A28-3d-1 r2.1: a refusing error is the key's whatever the HTTP status.
+        let refused = errors.iter().any(|e| e.as_str().is_some_and(|e| HISTORY_REFUSED.contains(&e)));
+        let text = if errors.is_empty() { resp.body.clone() } else { errors.iter().map(ruby_to_s).collect::<Vec<_>>().join(", ") };
+        if refused || !(200..300).contains(&resp.status) || !errors.is_empty() {
+            return Err(if refused || matches!(resp.status, 401 | 403) { Refused(message(&text)) } else { Retry(message(&text)) });
+        }
+        let body = body.filter(|b| b["error"].is_array()).ok_or_else(|| Retry(UNREADABLE.into()))?;
+        let rows = body["result"][key].as_object().ok_or_else(|| Retry(UNREADABLE.into()))?.clone();
+        let next = match body["result"].get("cursor") {
+            None | Some(Value::Null) => None,
+            Some(c) => match c.get("next") { None | Some(Value::Null) => None, Some(Value::String(t)) => Some(t.clone()), Some(_) => Some(String::new()) },
+        };
+        Ok((rows, next))
+    }
+
     fn public(&self, path: &str, query: Vec<(&'static str, String)>) -> HttpRequest {
         HttpRequest { method: "GET", base: self.base.clone(), path: path.into(), query, body: None, not_after: None }
     }
@@ -524,6 +610,38 @@ impl<T: Transport> Venue for KrakenVenue<T> {
         found.extend(unseen.into_iter().map(|txid| OrderState { zero_fill_at: None, asset_class: None, txid: txid.clone(), status: OrderStatus::Unknown, price: None, amount: None,
             quote_amount: None, amount_exec: BigDec::zero(), quote_amount_exec: None, limit: false, sell: false, pair: None }));
         Ok(found)
+    }
+
+    /// A28-3d-4 (D-HISTORY-DOC-BUILT: the window listing is the docs'; Rails reads Kraken orders by txid only): OpenOrders
+    /// (every open order), then ClosedOrders with `start` = floor(from) − 1 (exclusive), `end` = ceil(to), `closetime=open`
+    /// (r1.1: by opening time, so an order closed after the window is listed) and `with_cursor=true`, each next page by the
+    /// previous `cursor.next` (r2.1): none is the last page; a repeated or unreadable one, or one still left after the fifth
+    /// page, leaves the read incomplete. `count` is never read. Rows of another pair are skipped; the rest read strictly.
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
+        let mut out = super::Created { orders: vec![], complete: true };
+        let mut twice = vec![];
+        let asked = |raw: &Value| raw["descr"]["pair"].as_str().is_none_or(|p| symbols.iter().any(|s| s == p));
+        let mut read = |out: &mut super::Created, rows: Map<String, Value>| for (txid, raw) in rows.iter().filter(|(_, raw)| asked(raw)) {
+            match created_order(symbols, txid, raw) { Some(o) => super::binance::push_once(out, &mut twice, o), None => out.complete = false }
+        };
+        let (open, _) = super::by_deadline(deadline, self.history_page(&self.private(OPEN_ORDERS, &[]), "open")).await?;
+        read(&mut out, open);
+        let end = to.timestamp() + i64::from(to.timestamp_subsec_nanos() > 0);
+        let mut cursors: Vec<String> = vec![];
+        for n in 1..=HISTORY_PAGES {
+            let mut fields = vec![("start", (from.timestamp() - 1).to_string()), ("end", end.to_string()), ("closetime", "open".into()), ("with_cursor", "true".into())];
+            fields.extend(cursors.last().map(|c| ("cursor", c.clone())));
+            let (rows, next) = match super::by_deadline(deadline, self.history_page(&self.private(CLOSED_ORDERS, &fields), "closed")).await {
+                Ok(page) => page,
+                Err(e) if !super::binance::any_in(&out, from, to) => return Err(e),
+                Err(_) => { out.complete = false; break; }
+            };
+            read(&mut out, rows);
+            let Some(next) = next else { break };
+            if n == HISTORY_PAGES || next.is_empty() || cursors.contains(&next) { out.complete = false; break; }
+            cursors.push(next);
+        }
+        Ok(super::binance::in_window(out, from, to))
     }
 
     /// Bot::Fundable's free balance: BalanceEx's balance − hold_trade.
