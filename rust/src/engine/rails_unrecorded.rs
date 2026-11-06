@@ -9,7 +9,8 @@
 //! A28-3 (PLAN-A28-3 r1-r4, D-RAILS-UNRECORDED-LIVE-HISTORY): the job (`Report`) also reads the order history of a served
 //! venue (Binance, Binance.US, Bybit) live once that line is due, through the bot's trading key, and names in the line the
 //! orders it lists that no bot recorded, open ones first (D-RAILS-UNRECORDED-OPEN-NAMED). The live read only adds: with no
-//! such order, or no answer, the line is A28-1's. Nothing is booked, cancelled or carried.
+//! such order, or no answer, the line is A28-1's. Nothing is booked, cancelled or carried. A28-3d-4: Kraken, which has no
+//! fills ledger, is read onto A28-1's `no_history` line and is report only (`NO_LEDGER_SERVED`).
 
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -275,10 +276,16 @@ fn judged(c: &Connection, o: &Obligation, now: DateTime<Utc>, linked: &mut Linke
     };
     let Some(scope) = scope else { return prefix(unchecked(&when, &then()?, "settings_changed")) };
     let (venue_type, venue) = c.query_row("SELECT type, name FROM exchanges WHERE id = ?1", [scope.exchange], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
-    if !crate::sync::fills::supported(&venue_type) { return prefix(unchecked(&when, &venue, "no_history")); }
     let search_from = o.from - Duration::seconds(AROUND);
     let search_to = o.to + Duration::seconds(AROUND);
     let basis = |trades: Vec<Trade>, scope: Scope| Some(Basis { user, venue_type: venue_type.clone(), venue: venue.clone(), when: when.clone(), scope, from: search_from, to: search_to, trades });
+    if !crate::sync::fills::supported(&venue_type) {
+        // A28-3d-4 r1 (D-HISTORY-NO-LEDGER-BASIS): a venue with no fills ledger whose order list is served keeps A28-1's line
+        // and gets a basis without trades, so the live read may add to it; every other one is A28-1's prefix line.
+        let line = unchecked(&when, &venue, "no_history");
+        if no_ledger(&venue_type) { return Ok(Some((line, basis(vec![], scope)))); }
+        return prefix(line);
+    }
     // The ledger has the window when a sync of the user's reading key on that venue reached the venue's end after it.
     let readable = match reading_key(c, user, scope.exchange)? {
         Some(key) => {
@@ -501,9 +508,14 @@ use crate::venue::binance::{BINANCE, BINANCE_US};
 use crate::venue::{Created, CreatedKind, CreatedOrder, CreatedSize, CreatedState, HistoryError, Venue};
 
 /// The venues whose order history is read live: A28-3a (Rails' own clients pin their order-list answer, §1), A28-3b-1 Alpaca
-/// (a recorded answer, tests/fixtures/order_lists/alpaca), A28-3c-3a Hyperliquid, and A28-3d-1/-2/-3's lists built from the docs.
-const SERVED: [&str; 12] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA, crate::venue::hyperliquid::HYPERLIQUID, MEXC, BITRUE, BINGX,
-                            BITGET, BITVAVO, GEMINI, COINBASE];
+/// (a recorded answer, tests/fixtures/order_lists/alpaca), A28-3c-3a Hyperliquid, and A28-3d-1..4's lists built from the docs.
+const SERVED: [&str; 13] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA, crate::venue::hyperliquid::HYPERLIQUID, MEXC, BITRUE, BINGX,
+                            BITGET, BITVAVO, GEMINI, COINBASE, KRAKEN];
+/// A28-3d-4 r1 (D-HISTORY-NO-LEDGER-BASIS, D-HISTORY-NO-LEDGER-REPORT-ONLY): the served venues with no fills ledger
+/// (`sync::fills::supported` excludes them): read live onto A28-1's `no_history` line, never offered or booked.
+const NO_LEDGER_SERVED: [&str; 1] = [KRAKEN];
+fn no_ledger(venue_type: &str) -> bool { NO_LEDGER_SERVED.contains(&venue_type) }
+use crate::venue::catalogue::KRAKEN;
 /// A28-3d G4 (D-HISTORY-DOC-BOOK-CONFIRMED): the venues whose list read is built from the docs alone; a booking also needs
 /// the venue's Rails-called single-order lookup to read the same order (`Venue::order_created`).
 const DOC_BUILT: [&str; 7] = [MEXC, BITRUE, BINGX, BITGET, BITVAVO, GEMINI, COINBASE];
@@ -684,7 +696,8 @@ fn settle(c: &Connection, cipher: &crate::crypto::Cipher, read: &LiveRead, resul
             None => (again.line, vec![]),
         };
         if !mark(tx, p.id, p.bot, &line, now)? { return Ok(false); }
-        for o in offers.iter().filter(|o| bookable(o)) {
+        // D-HISTORY-NO-LEDGER-REPORT-ONLY: a booking links its imported fills; a venue with none offers nothing.
+        for o in offers.iter().filter(|o| bookable(o) && !no_ledger(&p.venue_type)) {
             tx.execute("INSERT INTO rust_rails_unrecorded_offers (obligation_id, external_id, symbol, facts) VALUES (?1, ?2, ?3, ?4) ON CONFLICT DO NOTHING",
                        params![p.id, o.external_id, o.symbol, facts_json(o).to_string()])?;
         }
@@ -703,11 +716,14 @@ fn merged(c: &Connection, p: &Prepared, created: &Created, linked: &mut Linked) 
         if !held(c, p.exchange, &p.venue_type, &o.external_id)? { live.push(o); }
     }
     // A linked fill that can't be read can't exclude anything: the order is listed (a line too many, never one too few).
-    if !live.is_empty() {
+    // A28-3d-4 r1: a venue with no fills ledger has no linked fill to exclude by, and no sums: "nothing filled" is never
+    // claimed from a ledger that doesn't exist (clean = false), and the venue's own figures are shown.
+    let ledger = !no_ledger(&p.venue_type);
+    if !live.is_empty() && ledger {
         if let Ok(keys) = linked_keys(c, p.user, p.exchange, &p.venue_type, linked)? { live.retain(|o| !keys.contains(&o.external_id)); }
     }
     let Some(since) = live.iter().map(|o| o.created_at).min() else { return Ok(None) };
-    let (sums, clean) = ledger_sums(c, p.user, p.exchange, &p.venue_type, since - Duration::seconds(60))?;
+    let (sums, clean) = if ledger { ledger_sums(c, p.user, p.exchange, &p.venue_type, since - Duration::seconds(60))? } else { (Sums::new(), false) };
     let mut items: Vec<(bool, DateTime<Utc>, String)> = vec![];
     let mut conflict = false;
     for o in &live {
@@ -1179,8 +1195,11 @@ async fn book<F: crate::venue::VenueFactory>(c: &Connection, factory: &F, cipher
     // §2.1: read-side checks.
     if bot.status == BotStatus::Deleted { return refused("deleted"); }
     let venue_type = model::exchange_type(c, &bot)?;
-    // D-RAILS-UNRECORDED-NO-ROUTE: KuCoin and IBKR are never served here, whatever SERVED holds.
-    if !SERVED.contains(&venue_type.as_str()) || [crate::venue::kucoin::KUCOIN, crate::venue::ibkr::IBKR].contains(&venue_type.as_str()) { return refused("unsupported"); }
+    // D-RAILS-UNRECORDED-NO-ROUTE: KuCoin, IBKR and the venues with no fills ledger (D-HISTORY-NO-LEDGER-REPORT-ONLY) are
+    // never served here, whatever SERVED holds.
+    if !SERVED.contains(&venue_type.as_str()) || [crate::venue::kucoin::KUCOIN, crate::venue::ibkr::IBKR].contains(&venue_type.as_str()) || no_ledger(&venue_type) {
+        return refused("unsupported");
+    }
     if scope_now(c, &b.o, &bot)?.is_none_or(|s| s.exchange != bot.exchange_id) { return refused("settings_changed"); }
     let (venue, version) = super::run::venue_for(c, factory, cipher, &bot)?;
     let Some(version) = version else { return refused("key_changed") };
