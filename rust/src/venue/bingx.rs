@@ -568,7 +568,7 @@ impl<T: Transport> super::Venue for BingxVenue<T> {
                     Err(e) if !super::binance::any_in(&out, from, to) => return Err(e),
                     Err(_) => { out.complete = false; break; }
                 };
-                super::binance::read_rows(&mut out, &mut twice, symbol, &rows, &SHAPE);
+                super::binance::read_rows(&mut out, &mut twice, &rows, |r| super::binance::created_order_shaped(symbol, r, &SHAPE));
                 if n == 0 { continue; }
                 if rows.len() < HISTORY_PAGE { break; }
                 if n == HISTORY_PAGES { out.complete = false; }

@@ -33,6 +33,18 @@ pub const ORDER_STATUS: &str = "/v1/order/status";
 pub const ORDER_NEW: &str = "/v1/order/new";
 pub const ORDER_CANCEL: &str = "/v1/order/cancel";
 pub const PRICE_FEED: &str = "/v1/pricefeed";
+/// A28-3d-2: the order-history lists (the active orders of every symbol; one symbol's closed orders, newest first), the
+/// history's page, and the reasons that refuse the key, as developer.gemini.com/error-codes names them: InvalidSignature
+/// "Request signature did not match payload and API secret", MissingRole "API key lacks the required role for this
+/// endpoint", MissingAccounts "Required `account` field omitted", MissingApikeyHeader "Missing `X-GEMINI-APIKEY` HTTP
+/// header", MissingSignatureHeader "Missing `X-GEMINI-SIGNATURE` HTTP header", MissingPayloadHeader "Missing
+/// `X-GEMINI-PAYLOAD` HTTP header", RemoteAddressForbidden "Request originated from an IP address not on the group
+/// allowlist"; and InvalidApiKey, which the plan names and the page doesn't list (a key's refusal whatever it is called).
+pub const ACTIVE_ORDERS: &str = "/v1/orders";
+pub const ORDERS_HISTORY: &str = "/v1/orders/history";
+pub const HISTORY_PAGE: usize = 500;
+const HISTORY_REFUSED: [&str; 8] = ["InvalidSignature", "InvalidApiKey", "MissingRole", "MissingAccounts", "MissingApikeyHeader", "MissingSignatureHeader",
+                                    "MissingPayloadHeader", "RemoteAddressForbidden"];
 /// The whole market's prices in one body: its read stops at this many bytes, never a price from a cut body.
 pub const PRICE_FEED_LIMIT: usize = 4 * 1024 * 1024;
 
@@ -74,6 +86,47 @@ pub fn parse_order(order_id: &str, o: &Value) -> Result<OrderState, VenueError> 
                  else if !live && amount_exec.is_positive() { OrderStatus::Closed } else { OrderStatus::Unknown };
     Ok(OrderState { zero_fill_at: None, txid: order_id.into(), status, price, amount: Some(amount), quote_amount: None, amount_exec, quote_amount_exec: Some(quote_amount_exec),
                     limit, sell, pair: Some(symbol.into()), asset_class: None })
+}
+
+/// A row's `timestampms`: a number, or a string of digits.
+fn ms(o: &Value) -> Option<i64> {
+    match o.get("timestampms")? { Value::Number(n) => n.as_i64(), Value::String(s) if !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()) => s.parse().ok(), _ => None }
+}
+
+/// A28-3d-2 (D-HISTORY-DOC-BUILT, D-HISTORY-GEMINI-QUOTE-AVERAGE, r1.2, r1.3): one order row read strictly in `parse_order`'s
+/// fields: its own `symbol` the asked one (lowercase, as stored); `order_id` a JSON integer or a non-empty string of digits,
+/// kept as written (the bare id `add_order` stores); `timestampms` ms; `side` buy/sell; `type` "exchange limit" at a positive
+/// `price`, or "exchange market" / "market"; `original_amount` positive, in base (Gemini has no quote size);
+/// `executed_amount` and `avg_execution_price` present and not negative, the filled quote their product as Rails' parse
+/// computes it (Gemini states no total). Something executed at a zero average is None, never a cost guessed from `price`.
+/// `is_cancelled` ends it; `is_live` with something remaining is open; neither, executed = original, filled; else None.
+pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
+    use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
+    let zero = BigDec::zero();
+    let amount = |k: &str| o.get(k).and_then(|v| crate::ruby::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
+    if o.get("symbol")?.as_str()? != symbol { return None; }
+    let id = match o.get("order_id")? {
+        Value::Number(n) if n.is_u64() => n.to_string(),
+        Value::String(s) if !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()) => s.clone(),
+        _ => return None,
+    };
+    let created_at = DateTime::from_timestamp_millis(ms(o).filter(|t| *t > 0)?)?;
+    let side = match o.get("side")?.as_str()?.to_lowercase().as_str() { "buy" => Side::Buy, "sell" => Side::Sell, _ => return None };
+    let kind = match o.get("type")?.as_str()? {
+        "exchange limit" => CreatedKind::Limit { price: amount("price").filter(BigDec::is_positive)? },
+        "exchange market" | "market" => CreatedKind::Market,
+        _ => return None,
+    };
+    let original = amount("original_amount").filter(BigDec::is_positive)?;
+    let (executed, average) = (amount("executed_amount")?, amount("avg_execution_price")?);
+    if executed.is_positive() && !average.is_positive() { return None; }
+    let filled = executed.is_positive();
+    let (live, cancelled) = (o.get("is_live")?.as_bool()?, o.get("is_cancelled")?.as_bool()?);
+    let state = if cancelled { CreatedState::of(false, filled) }
+                else if live { amount("remaining_amount").filter(BigDec::is_positive)?; CreatedState::of(true, filled) }
+                else if executed == original { CreatedState::Filled } else { return None };
+    let filled_quote = &average * &executed;
+    Some(CreatedOrder { external_id: id, symbol: symbol.into(), created_at, side, kind, size: CreatedSize::Base(original), state, filled_base: executed, filled_quote: Some(filled_quote) })
 }
 
 /// Exchanges::Gemini#get_tickers_prices over /v1/pricefeed: every entry's `dig_or_raise`d `pair`, downcased, and its
@@ -167,6 +220,15 @@ impl<T: Transport> GeminiVenue<T> {
         match self.post(ORDER_STATUS, vec![("order_id", Value::String(order_id.into()))]).await {
             Err(VenueError::Rejected(m) | VenueError::Unauthorized(m) | VenueError::Coded { errors: m, .. }) if reason(&m).as_deref() == Some(ORDER_NOT_FOUND) => Ok(None),
             other => other.map(Some),
+        }
+    }
+
+    /// A28-3d-2: one list request's array; a documented `reason` is the key's refusal on any HTTP status.
+    async fn history_rows(&self, r: &HttpRequest) -> Result<Vec<Value>, super::HistoryError> {
+        let resp = super::binance::history_response(&self.transport, r).await?;
+        match super::binance::history_body_by(&self.transport, resp, "reason", &HISTORY_REFUSED, UNREADABLE)? {
+            Value::Array(rows) => Ok(rows),
+            _ => Err(super::HistoryError::Retry(UNREADABLE.into())),
         }
     }
 }
@@ -305,6 +367,43 @@ impl<T: Transport> super::Venue for GeminiVenue<T> {
             }
             None => Ok(None),
         }
+    }
+
+    /// A28-3d-2 (D-HISTORY-DOC-BUILT): POST /v1/orders, the active orders of every symbol (a row of a symbol not asked is
+    /// skipped unread), then per symbol POST /v1/orders/history with `timestamp` = from in ms (as the ledger importer sends
+    /// it) and limit_orders 500, newest first. A full page with no row before `from` may not reach back to it: incomplete
+    /// (no second page: the docs' paging rule is ambiguous). An order both list, read the same, counts once.
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
+        let mut out = super::Created { orders: vec![], complete: true };
+        let mut twice = vec![];
+        let active = super::by_deadline(deadline, self.history_rows(&self.private(ACTIVE_ORDERS, vec![]))).await?;
+        let unasked = |r: &Value| r.get("symbol").and_then(Value::as_str).is_some_and(|s| !symbols.iter().any(|a| a == s));
+        let active: Vec<Value> = active.into_iter().filter(|r| !unasked(r)).collect();
+        super::binance::read_rows(&mut out, &mut twice, &active, |r| r.get("symbol").and_then(Value::as_str).and_then(|s| created_order(s, r)));
+        let from_ms = from.timestamp_millis();
+        for symbol in symbols {
+            let r = self.private(ORDERS_HISTORY, vec![("symbol", symbol.clone().into()), ("timestamp", from_ms.into()), ("limit_orders", HISTORY_PAGE.into())]);
+            let rows = match super::by_deadline(deadline, self.history_rows(&r)).await {
+                Ok(rows) => rows,
+                Err(e) if !super::binance::any_in(&out, from, to) => return Err(e),
+                Err(_) => { out.complete = false; continue; }
+            };
+            if rows.len() >= HISTORY_PAGE && !rows.iter().any(|r| ms(r).is_some_and(|t| t < from_ms)) { out.complete = false; }
+            super::binance::read_rows(&mut out, &mut twice, &rows, |r| created_order(symbol, r));
+        }
+        Ok(super::binance::in_window(out, from, to))
+    }
+
+    /// A28-3d-2 (D-HISTORY-DOC-BOOK-CONFIRMED): #get_order's POST /v1/order/status by order_id, read strictly; OrderNotFound
+    /// is gone (None).
+    async fn order_created(&self, external_id: &str, symbol: &str, deadline: tokio::time::Instant) -> Result<Option<super::CreatedOrder>, super::HistoryError> {
+        let r = self.private(ORDER_STATUS, vec![("order_id", Value::String(external_id.into()))]);
+        super::by_deadline(deadline, async {
+            let resp = super::binance::history_response(&self.transport, &r).await?;
+            if reason(std::slice::from_ref(&resp.body)).as_deref() == Some(ORDER_NOT_FOUND) { return Ok(None); }
+            let body = super::binance::history_body_by(&self.transport, resp, "reason", &HISTORY_REFUSED, UNREADABLE)?;
+            Ok(created_order(symbol, &body).filter(|o| o.external_id == external_id))
+        }).await
     }
 
     /// Exchanges::Gemini reads no fills for a gone order: it stays missing, for Bot::StaleOrderResolver.

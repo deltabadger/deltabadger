@@ -286,8 +286,12 @@ pub fn error_message(text: &str) -> String {
 }
 
 /// The JSON body's `code`, which `error_message` drops whenever `msg` is present (Binance and MEXC send both).
-pub fn error_code(text: &str) -> Option<String> {
-    match serde_json::from_str::<serde_json::Value>(text).ok()?.get("code")? {
+pub fn error_code(text: &str) -> Option<String> { body_code(text, "code") }
+
+/// A28-3d-2: the JSON body's `key` as text: an integer's digits or a non-blank string (Bitvavo's `errorCode`, Gemini's
+/// `reason`, Bitget's string `code`).
+pub fn body_code(text: &str, key: &str) -> Option<String> {
+    match serde_json::from_str::<serde_json::Value>(text).ok()?.get(key)? {
         serde_json::Value::Number(n) if n.is_i64() || n.is_u64() => Some(n.to_string()),
         serde_json::Value::String(s) if !crate::ruby::blank(s) => Some(s.clone()),
         _ => None,
@@ -774,9 +778,14 @@ pub(crate) async fn history_response<T: Transport>(transport: &T, r: &HttpReques
 /// A28-3d-1: a doc-built history answer's body, decoded; a failure is the key's refusal on HTTP 401/403 or a body `code` in
 /// `codes` (the venue's documented key, signature and permission codes), else retryable.
 pub(crate) fn history_body<T: Transport>(transport: &T, resp: http::HttpResponse, codes: &[&str], unreadable: &str) -> Result<serde_json::Value, super::HistoryError> {
+    history_body_by(transport, resp, "code", codes, unreadable)
+}
+
+/// `history_body`, the refusal read from the body's `key` (A28-3d-2: Bitvavo's `errorCode`, Gemini's `reason`).
+pub(crate) fn history_body_by<T: Transport>(transport: &T, resp: http::HttpResponse, key: &str, codes: &[&str], unreadable: &str) -> Result<serde_json::Value, super::HistoryError> {
     use super::HistoryError::{Refused, Retry};
     // Branch r1.1: a documented refusal code is the key's whatever the HTTP status (an error body may come with a 200).
-    let coded = error_code(&resp.body).is_some_and(|c| codes.contains(&c.as_str()));
+    let coded = body_code(&resp.body, key).is_some_and(|c| codes.contains(&c.as_str()));
     if !(200..300).contains(&resp.status) || coded {
         let message = transport.redact_diagnostic(&format!("HTTP {}: {}", resp.status, error_message(&resp.body)));
         return Err(if coded || matches!(resp.status, 401 | 403) { Refused(message) } else { Retry(message) });
@@ -795,12 +804,12 @@ pub(crate) fn push_once(out: &mut super::Created, twice: &mut Vec<String>, o: su
     }
 }
 
-/// A28-3d-1 G2/G3: a doc-built list's rows on `symbol`, each read strictly (`created_order_shaped`); an unreadable row
-/// leaves the read incomplete. Every readable row is kept here, in the window or not, so one id listed twice is compared
-/// whole (branch r1.2); `in_window` drops the rest once every answer is read.
-pub(crate) fn read_rows(out: &mut super::Created, twice: &mut Vec<String>, symbol: &str, rows: &[serde_json::Value], shape: &Shape) {
+/// A28-3d-1 G2/G3: a doc-built list's rows, each read strictly by the venue's reader (`created_order_shaped` on a
+/// Binance-shaped venue); an unreadable row leaves the read incomplete. Every readable row is kept here, in the window or
+/// not, so one id listed twice is compared whole (branch r1.2); `in_window` drops the rest once every answer is read.
+pub(crate) fn read_rows(out: &mut super::Created, twice: &mut Vec<String>, rows: &[serde_json::Value], read: impl Fn(&serde_json::Value) -> Option<super::CreatedOrder>) {
     for raw in rows {
-        match created_order_shaped(symbol, raw, shape) {
+        match read(raw) {
             Some(o) => push_once(out, twice, o),
             None => out.complete = false,
         }
@@ -835,7 +844,7 @@ pub(crate) async fn all_orders_created<T: Transport>(transport: &T, symbols: &[S
             Err(_) => { out.complete = false; continue; }
         };
         if page.len() >= PAGE { out.complete = false; }
-        read_rows(&mut out, &mut twice, symbol, &page, shape);
+        read_rows(&mut out, &mut twice, &page, |r| created_order_shaped(symbol, r, shape));
     }
     Ok(in_window(out, from, to))
 }
