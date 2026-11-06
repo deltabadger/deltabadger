@@ -161,6 +161,59 @@ pub fn parse_order(order_id: &str, o: &Value, pairs: &Pairs) -> Result<OrderStat
                     amount_exec, quote_amount_exec: Some(deal_funds.unwrap_or_else(BigDec::zero)), limit, sell, pair: Some(symbol.into()), asset_class: None })
 }
 
+/// A28-3d-5: the classic order list the history read asks (r1.1: whatever the account's mode, where Rails placed), its page
+/// cap, and KuCoin's reach for done orders (D-HISTORY-DOC-RETENTION: cancelled ones are kept a month).
+pub const ORDERS: &str = "/api/v1/orders";
+pub const HISTORY_PAGES: i64 = 5;
+pub const HISTORY_DAYS: i64 = 30;
+/// A28-3d-5 r1.2: the codes that refuse the key on any HTTP status (KuCoin's REST error table). 400002 (the timestamp) and
+/// every other code is retried.
+pub const HISTORY_REFUSED: [&str; 6] = [
+    // "Any of KC-API-KEY, KC-API-SIGN, KC-API-TIMESTAMP, KC-API-PASSPHRASE is missing in your request header."
+    "400001",
+    // "KC-API-KEY not exists"
+    "400003",
+    // "KC-API-PASSPHRASE error"
+    "400004",
+    // "Signature error -- Please check your signature"
+    "400005",
+    // "The IP address is not in the API whitelist"
+    "400006",
+    // "Access Denied -- Your API key does not have sufficient permissions to access the URI"
+    "400007",
+];
+
+/// A28-3d-5 (D-HISTORY-DOC-BUILT): one `/api/v1/orders` row read strictly in `parse_order`'s fields: `symbol` the asked one;
+/// `id` a non-empty string (the bare id `add_order` stores); `createdAt` ms, a JSON integer > 0; `side` buy/sell and `type`
+/// limit/market in any case (r1.3, as Rails reads them); a limit at its raw `price` > 0 sized `size` > 0 (its `funds` unread); a market
+/// sized by exactly one of `size` (base) / `funds` (quote) > 0; `dealSize`, `dealFunds` present and not negative. State as
+/// Rails' map: `cancelExist` ended, `isActive` open, neither with something dealt filled; neither with nothing dealt (Unknown,
+/// D-KUCOIN-ZERO-FILL-FUNDS' case) None. D-HISTORY-KUCOIN-FLAGS-STRICT: both flags must be JSON booleans; Rails reads an
+/// absent one as false.
+pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
+    use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
+    if o["symbol"].as_str() != Some(symbol) { return None; }
+    let id = o["id"].as_str().filter(|i| !i.is_empty())?;
+    let s = parse_order(id, o, &Pairs::default()).ok()?;
+    let (Value::Bool(active), Value::Bool(cancelled)) = (&o["isActive"], &o["cancelExist"]) else { return None };
+    let side = match o["side"].as_str()?.to_lowercase().as_str() { "buy" => Side::Buy, "sell" => Side::Sell, _ => return None };
+    let zero = BigDec::zero();
+    if [&s.amount, &s.quote_amount].into_iter().flatten().any(|v| *v < zero) { return None; }
+    let positive = |v: &Option<BigDec>| v.clone().filter(BigDec::is_positive);
+    let (kind, size) = match (s.limit, positive(&s.amount), positive(&s.quote_amount)) {
+        (true, Some(b), _) => (CreatedKind::Limit { price: optional(&o["price"]).ok().flatten().filter(BigDec::is_positive)? }, CreatedSize::Base(b)),
+        (false, Some(b), None) => (CreatedKind::Market, CreatedSize::Base(b)),
+        (false, None, Some(q)) => (CreatedKind::Market, CreatedSize::Quote(q)),
+        _ => return None,
+    };
+    let dealt = |k: &str| optional(&o[k]).ok().flatten().filter(|v| *v >= zero);
+    let (filled_base, filled_quote) = (dealt("dealSize")?, dealt("dealFunds")?);
+    let filled = filled_base.is_positive();
+    let state = if *cancelled { CreatedState::of(false, filled) } else if *active { CreatedState::of(true, filled) } else if filled { CreatedState::Filled } else { return None };
+    let created_at = o["createdAt"].as_i64().filter(|t| *t > 0).and_then(DateTime::from_timestamp_millis)?;
+    Some(CreatedOrder { external_id: id.into(), symbol: symbol.into(), created_at, side, kind, size, state, filled_base, filled_quote: Some(filled_quote) })
+}
+
 /// D-KUCOIN-HF-ORDERS: a stored HF order as its record names it. Every answer must be this order before its state is
 /// read: its id, symbol, side and type.
 #[derive(Clone, Debug, PartialEq)]
@@ -440,6 +493,23 @@ impl<T: Transport> KucoinVenue<T> {
             start = end;
         }
         Ok(())
+    }
+
+    /// A28-3d-5: one history page's items, and whether KuCoin names a page after `page` (None when `currentPage` isn't this
+    /// page or `totalPage` can't be read: no next page is asked and the read is incomplete). r1.2: a refusing code is the key's
+    /// on any HTTP status, as is HTTP 401/403; any other failure, or an envelope without the success code, is retried.
+    async fn history_page(&self, r: &HttpRequest, page: i64) -> Result<(Vec<Value>, Option<bool>), super::HistoryError> {
+        use super::HistoryError::Retry;
+        let resp = super::binance::history_response(&self.transport, r).await?;
+        let body = super::binance::history_body(&self.transport, resp, &HISTORY_REFUSED, UNREADABLE)?;
+        if code(&body).ok().as_deref() != Some(OK) { return Err(Retry(self.transport.redact_diagnostic(&api_error(&body)))); }
+        let data = &body["data"];
+        let items = data["items"].as_array().ok_or_else(|| Retry(UNREADABLE.into()))?.clone();
+        let more = match (data["currentPage"].as_i64(), data["totalPage"].as_i64()) {
+            (Some(current), Some(total)) if current == page && total >= 0 => Some(current < total),
+            _ => None,
+        };
+        Ok((items, more))
     }
 
     /// D-KUCOIN-HF-ORDERS: an HF placement's answer, its status and envelope read together. Accepted only on 200000 with
@@ -752,6 +822,35 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
             if !fills.is_empty() { out.push(self.order_from_fills(id, &fills)?); }
         }
         Ok(out)
+    }
+
+    /// A28-3d-5 (D-HISTORY-DOC-BUILT: Rails reads KuCoin orders by id only; the window listing is the docs'): the classic
+    /// `/api/v1/orders`, `status=active` then `status=done`, by symbol and `startAt`/`endAt` in ms, `currentPage` 1.. at 500
+    /// a page while `currentPage < totalPage`, at most five pages (cap or unreadable page metadata: incomplete). r1.1: no
+    /// account-mode gate; a classic list that fails is the read's failure. A window over 7 days is refused (KuCoin's range);
+    /// one starting over 30 days ago is not asked (D-HISTORY-DOC-RETENTION).
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
+        use super::binance::{any_in, in_window, read_rows};
+        if to < from || (to - from).num_milliseconds() > WINDOW_MS { return Err(super::HistoryError::Refused("KuCoin: an order-history window over 7 days".into())); }
+        if from < self.transport.now() - chrono::Duration::days(HISTORY_DAYS) { return Ok(super::Created { orders: vec![], complete: false }); }
+        let mut out = super::Created { orders: vec![], complete: true };
+        let mut twice = vec![];
+        for symbol in symbols {
+            for status in ["active", "done"] {
+                for page in 1..=HISTORY_PAGES {
+                    let q = vec![("status", status.to_string()), ("symbol", symbol.clone()), ("startAt", from.timestamp_millis().to_string()),
+                                 ("endAt", to.timestamp_millis().to_string()), ("currentPage", page.to_string()), ("pageSize", PAGE_SIZE.into())];
+                    let (rows, more) = match super::by_deadline(deadline, self.history_page(&self.request("GET", ORDERS.into(), q, None), page)).await {
+                        Ok(p) => p,
+                        Err(e) if !any_in(&out, from, to) => return Err(e),
+                        Err(_) => { out.complete = false; break; }
+                    };
+                    read_rows(&mut out, &mut twice, &rows, |raw| created_order(symbol, raw));
+                    match more { Some(false) => break, Some(true) if page < HISTORY_PAGES => {}, _ => { out.complete = false; break; } }
+                }
+            }
+        }
+        Ok(in_window(out, from, to))
     }
 
     /// #get_balances' `available` for the quote asset: each trade-account row's currency mapped to its asset (#asset_from_symbol).
