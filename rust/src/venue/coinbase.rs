@@ -90,7 +90,10 @@ pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
     if o.get("product_id")?.as_str()? != symbol { return None; }
     let id = o.get("order_id")?.as_str().filter(|s| !s.is_empty())?;
     let t = DateTime::parse_from_rfc3339(o.get("created_time")?.as_str()?).ok()?.with_timezone(&Utc);
-    let created_at = t.with_nanosecond(t.nanosecond() / 1_000 * 1_000)?;
+    // Branch r1.1: a time finer than the microsecond booking stores is unreadable, never rounded (two such times would
+    // compare equal, and a time just past the window could round into it).
+    if t.nanosecond() % 1_000 != 0 { return None; }
+    let created_at = t;
     let side = match o.get("side")?.as_str()? { "BUY" => Side::Buy, "SELL" => Side::Sell, _ => return None };
     let config = o.get("order_configuration")?.as_object()?;
     let (kind, size) = match (o.get("order_type")?.as_str()?, config.len()) {
@@ -574,7 +577,9 @@ impl<T: Transport> super::Venue for CoinbaseVenue<T> {
             let resp = super::binance::history_response(&self.transport, &r).await?;
             if resp.status == 404 { return Ok(None); }
             let body = super::binance::history_body(&self.transport, resp, &[], UNREADABLE)?;
-            Ok(body.get("order").and_then(|o| created_order(symbol, o)).filter(|o| o.external_id == external_id))
+            // Branch r1.2: an answer without `order` (an error envelope on a 200) may pass later: retried, as the list's.
+            let Some(order) = body.get("order").filter(|o| o.is_object()) else { return Err(super::HistoryError::Retry(UNREADABLE.into())) };
+            Ok(created_order(symbol, order).filter(|o| o.external_id == external_id))
         }).await
     }
     async fn fills_from_trades(

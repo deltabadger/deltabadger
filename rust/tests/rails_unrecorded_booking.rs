@@ -2005,8 +2005,8 @@ async fn a_coinbase_order_the_lookup_reads_otherwise_is_refused_unconfirmed() {
             unconfirmed(&f, name).await;
         }
     }
-    // The order gone (HTTP 404), and an answer that isn't an order.
-    for (status, body) in [(404, json!({ "error": "NOT_FOUND", "code": 5, "message": "order not found", "details": [] })), (200, cb_row(&limit(7, St::Filled, "0.0004", "20")))] {
+    // The order gone (HTTP 404).
+    for (status, body) in [(404, json!({ "error": "NOT_FOUND", "code": 5, "message": "order not found", "details": [] }))] {
         let f = fx(Kind::Coinbase);
         f.tr.reply(CB_ORDERS, 200, cb_page(vec![cb_row(&limit(7, St::Filled, "0.0004", "20"))]));
         f.tr.reply(&cb_lookup("7"), status, body);
@@ -2016,8 +2016,10 @@ async fn a_coinbase_order_the_lookup_reads_otherwise_is_refused_unconfirmed() {
 
 #[tokio::test]
 async fn a_failed_coinbase_lookup_counts_an_attempt_and_one_refused_by_its_status_refuses() {
-    // r1.2: an UNAUTHENTICATED body on a 400 is retried like any failure; a 401 refuses.
-    for failure in [(500, json!("<html>busy</html>")), (400, json!({ "error": "UNAUTHENTICATED", "code": 16, "message": "x", "details": [] }))] {
+    // r1.2: an UNAUTHENTICATED body on a 400 is retried like any failure; a 401 refuses. Branch r1.2: so is a 200 whose body
+    // carries no `order` (an error envelope, or the bare row).
+    for failure in [(500, json!("<html>busy</html>")), (400, json!({ "error": "UNAUTHENTICATED", "code": 16, "message": "x", "details": [] })),
+                    (200, json!({ "error": "INTERNAL", "code": 13, "message": "x", "details": [] })), (200, cb_row(&limit(7, St::Filled, "0.0004", "20")))] {
         let order = limit(7, St::Filled, "0.0004", "20");
         let f = fx(Kind::Coinbase);
         f.tr.reply(CB_ORDERS, 200, cb_page(vec![cb_row(&order)]));

@@ -2169,8 +2169,13 @@ fn a_coinbase_row_is_read_only_in_its_venues_words() {
         assert_eq!(cb_read(&r).unwrap().state, state, "{status}");
     }
     let mut r = base.clone();
-    r["created_time"] = json!("2026-09-29T14:03:05.123456789Z");
+    // Branch r1.1: kept to the microsecond; a finer time is unreadable, never rounded.
+    r["created_time"] = json!("2026-09-29T14:03:05.123456Z");
     assert_eq!(cb_read(&r).unwrap().created_at, t("2026-09-29T14:03:05.123456Z"));
+    for finer in ["2026-09-29T14:03:05.123456100Z", "2026-09-29T14:03:05.123456789Z"] {
+        r["created_time"] = json!(finer);
+        assert!(cb_read(&r).is_none(), "{finer}");
+    }
 }
 
 #[tokio::test]
