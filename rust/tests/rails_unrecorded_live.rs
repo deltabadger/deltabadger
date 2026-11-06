@@ -1297,12 +1297,14 @@ fn doc_row(kind: Kind, o: &O) -> Value {
     r
 }
 async fn doc_read(kind: Kind, tr: &ScriptedTransport, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<deltabadger::venue::Created, deltabadger::venue::HistoryError> {
-    let symbols = [kind.symbol().to_string()];
+    doc_read_on(kind, tr, &[kind.symbol().to_string()], from, to).await
+}
+async fn doc_read_on(kind: Kind, tr: &ScriptedTransport, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>) -> Result<deltabadger::venue::Created, deltabadger::venue::HistoryError> {
     let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(20);
     match kind {
-        Kind::Mexc => mexc::MexcVenue::new(tr.clone(), mexc::URL, "secret").orders_created(&symbols, from, to, deadline).await,
-        Kind::Bitrue => bitrue::BitrueVenue::new(tr.clone(), bitrue::URL, "secret").orders_created(&symbols, from, to, deadline).await,
-        _ => bingx::BingxVenue::new(tr.clone(), bingx::URL, "secret").orders_created(&symbols, from, to, deadline).await,
+        Kind::Mexc => mexc::MexcVenue::new(tr.clone(), mexc::URL, "secret").orders_created(symbols, from, to, deadline).await,
+        Kind::Bitrue => bitrue::BitrueVenue::new(tr.clone(), bitrue::URL, "secret").orders_created(symbols, from, to, deadline).await,
+        _ => bingx::BingxVenue::new(tr.clone(), bingx::URL, "secret").orders_created(symbols, from, to, deadline).await,
     }
 }
 fn ids(c: &deltabadger::venue::Created) -> Vec<&str> { c.orders.iter().map(|o| o.external_id.as_str()).collect() }
@@ -1431,6 +1433,27 @@ async fn one_id_listed_in_and_out_of_the_window_is_unreadable_either_way_round()
             let read = doc_read(kind, &tr, from, to).await.unwrap();
             assert_eq!((ids(&read), read.complete), (vec![kind.external_id(8).as_str()], false), "{kind:?} {flip}");
         }
+    }
+}
+
+#[tokio::test]
+async fn a_failure_after_only_older_orders_is_the_reads_failure() {
+    // Branch r2.1: rows kept for the twin check only (outside the window) never make a later failure a partial read.
+    use deltabadger::venue::HistoryError;
+    let (from, to) = window();
+    let old = |kind| doc_row(kind, &O { at: "2026-09-29T12:00:00Z", ..limit(9, St::Filled, "0.0004", "20") });
+    let tr = ScriptedTransport::default();
+    tr.reply(BINGX_OPEN, 200, bingx_page(vec![old(Kind::Bingx)]));
+    tr.reply(BINGX_HISTORY, 500, json!({ "code": 100500, "msg": "busy" }));
+    assert!(matches!(doc_read(Kind::Bingx, &tr, from, to).await, Err(HistoryError::Retry(_))));
+    for kind in [Kind::Mexc, Kind::Bitrue] {
+        let tr = ScriptedTransport::default();
+        tr.set_now(now());
+        let path = if kind == Kind::Mexc { "GET /api/v3/allOrders" } else { "GET /api/v1/allOrders" };
+        tr.reply(path, 200, Value::Array(vec![old(kind)]));
+        tr.reply(path, 500, json!({ "code": -1000, "msg": "busy" }));
+        let read = doc_read_on(kind, &tr, &[kind.symbol().to_string(), "ETHEUR".to_string()], from, to).await;
+        assert!(matches!(read, Err(HistoryError::Retry(_))), "{kind:?}: {read:?}");
     }
 }
 

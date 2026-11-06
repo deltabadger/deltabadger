@@ -807,6 +807,11 @@ pub(crate) fn read_rows(out: &mut super::Created, twice: &mut Vec<String>, symbo
     }
 }
 
+/// A28-3d-1 (branch r2.1): whether an order created from `from` to `to` is read yet; a failure before one is the read's.
+pub(crate) fn any_in(out: &super::Created, from: DateTime<Utc>, to: DateTime<Utc>) -> bool {
+    out.orders.iter().any(|o| o.created_at >= from && o.created_at <= to)
+}
+
 /// A28-3d-1 G3: the read's orders created from `from` to `to`.
 pub(crate) fn in_window(mut out: super::Created, from: DateTime<Utc>, to: DateTime<Utc>) -> super::Created {
     out.orders.retain(|o| o.created_at >= from && o.created_at <= to);
@@ -826,7 +831,7 @@ pub(crate) async fn all_orders_created<T: Transport>(transport: &T, symbols: &[S
         let read = async { history_body(transport, history_response(transport, &request(symbol)).await?, codes, unreadable) };
         let page = match super::by_deadline(deadline, read).await.and_then(|b| match b { serde_json::Value::Array(rows) => Ok(rows), _ => Err(super::HistoryError::Retry(unreadable.into())) }) {
             Ok(rows) => rows,
-            Err(e) if out.orders.is_empty() => return Err(e),
+            Err(e) if !any_in(&out, from, to) => return Err(e),
             Err(_) => { out.complete = false; continue; }
         };
         if page.len() >= PAGE { out.complete = false; }

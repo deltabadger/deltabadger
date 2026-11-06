@@ -565,7 +565,7 @@ impl<T: Transport> super::Venue for BingxVenue<T> {
             for n in 0..=HISTORY_PAGES {
                 let rows = match super::by_deadline(deadline, self.history_orders(&request(n))).await {
                     Ok(rows) => rows,
-                    Err(e) if out.orders.is_empty() => return Err(e),
+                    Err(e) if !super::binance::any_in(&out, from, to) => return Err(e),
                     Err(_) => { out.complete = false; break; }
                 };
                 super::binance::read_rows(&mut out, &mut twice, symbol, &rows, &SHAPE);
