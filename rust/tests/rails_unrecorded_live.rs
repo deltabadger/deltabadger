@@ -2857,6 +2857,8 @@ async fn a_kucoin_window_over_seven_days_is_refused_and_one_older_than_thirty_da
     let to = now() - Duration::days(1);
     // Branch r1.2: the range sent ends a millisecond past `to`, so a window of exactly 7 days is already over.
     assert!(matches!(kucoin_list(&tr, to - Duration::days(7), to).await, Err(HistoryError::Refused(_))));
+    // Branch r2.1: by the bounds as sent (whole ms), not the exact span: 500 µs past 7 days − 1 ms still sends 7 days + 1 ms.
+    assert!(matches!(kucoin_list(&tr, to - Duration::days(7) + Duration::microseconds(500), to).await, Err(HistoryError::Refused(_))));
     assert!(tr.requests().is_empty());
     tr.reply(KUCOIN_ORDERS, 200, kucoin_page(vec![], 1, 0));
     let from = to - Duration::days(7) + Duration::milliseconds(1);

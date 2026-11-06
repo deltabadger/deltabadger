@@ -833,8 +833,8 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     /// one starting over 30 days ago is not asked (D-HISTORY-DOC-RETENTION).
     async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
         use super::binance::{any_in, in_window, read_rows};
-        // Branch r1.2: the range sent (to + 1 ms) stays within KuCoin's 7 days.
-        if to < from || (to - from).num_milliseconds() + 1 > WINDOW_MS { return Err(super::HistoryError::Refused("KuCoin: an order-history window over 7 days".into())); }
+        // Branch r1.2, r2.1: the range as sent (startAt, endAt = to + 1 ms, both whole ms) stays within KuCoin's 7 days.
+        if to < from || (to.timestamp_millis() + 1) - from.timestamp_millis() > WINDOW_MS { return Err(super::HistoryError::Refused("KuCoin: an order-history window over 7 days".into())); }
         if from < self.transport.now() - chrono::Duration::days(HISTORY_DAYS) { return Ok(super::Created { orders: vec![], complete: false }); }
         let mut out = super::Created { orders: vec![], complete: true };
         let mut twice = vec![];
