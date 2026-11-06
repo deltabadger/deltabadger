@@ -16,6 +16,13 @@ pub const ORDER_PATH: &str = "/openApi/spot/v1/trade/order";
 pub const QUERY_PATH: &str = "/openApi/spot/v1/trade/query";
 pub const CANCEL_PATH: &str = "/openApi/spot/v1/trade/cancel";
 pub const ACCOUNT_PATH: &str = "/openApi/spot/v1/account/balance";
+/// A28-3d-1: the order-history lists, their paging, and the codes that refuse the key (100001 signature, 100004 permission,
+/// 100412-100419 key and IP).
+pub const OPEN_ORDERS_PATH: &str = "/openApi/spot/v1/trade/openOrders";
+pub const HISTORY_ORDERS_PATH: &str = "/openApi/spot/v1/trade/historyOrders";
+pub const HISTORY_PAGE: usize = 100;
+pub const HISTORY_PAGES: usize = 5;
+const HISTORY_REFUSED: [&str; 5] = ["100001", "100004", "100412", "100413", "100419"];
 pub const ABSENCE_UNPROVEN: &str = "BingX: the client order lookup did not find this order, and BingX cannot prove it absent; settle it with `deltabadger resolve-placement`";
 
 pub const SHAPE: Shape = Shape {
@@ -310,6 +317,27 @@ impl<T: Transport> BingxVenue<T> {
     }
 }
 
+impl<T: Transport> BingxVenue<T> {
+    /// A28-3d-1: an answer's `data`, its envelope's `code` 0; another code is the request's failure: the key's refusal when
+    /// documented so (HTTP 401/403 too), else retryable (100204, a span too wide, included).
+    fn history_data(&self, resp: HttpResponse) -> Result<Value, super::HistoryError> {
+        let body = super::binance::history_body(&self.transport, resp, &HISTORY_REFUSED, UNREADABLE)?;
+        match code(&body) {
+            Some(0) => Ok(body.get("data").cloned().unwrap_or(Value::Null)),
+            c => {
+                let message = self.transport.redact_diagnostic(&api_error(&body));
+                Err(if c.is_some_and(|c| HISTORY_REFUSED.contains(&c.to_string().as_str())) { super::HistoryError::Refused(message) } else { super::HistoryError::Retry(message) })
+            }
+        }
+    }
+
+    /// One list request's `data.orders`.
+    async fn history_orders(&self, r: &HttpRequest) -> Result<Vec<Value>, super::HistoryError> {
+        let data = self.history_data(super::binance::history_response(&self.transport, r).await?)?;
+        match data.get("orders") { Some(Value::Array(rows)) => Ok(rows.clone()), _ => Err(super::HistoryError::Retry(UNREADABLE.into())) }
+    }
+}
+
 /// Exchanges::Bingx#get_candles' interval for each timeframe: BingX has one for every one.
 pub fn kline_interval(timeframe: Timeframe) -> &'static str {
     match timeframe {
@@ -520,6 +548,46 @@ impl<T: Transport> super::Venue for BingxVenue<T> {
             )]));
         }
         parse_order(&format!("{symbol}-{ext}"), &body, &self.pairs).map(Some)
+    }
+
+    /// A28-3d-1 (D-HISTORY-DOC-BUILT): per symbol, GET openOrders (historyOrders lists FILLED, CANCELED and FAILED only),
+    /// then GET historyOrders, startTime/endTime in ms, pageIndex from 1 at pageSize 100 while a page is full, five pages at
+    /// most (a cap: incomplete). Each answer `{code: 0, data: {orders}}`; an order both list, read the same, counts once.
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
+        let mut out = super::Created { orders: vec![], complete: true };
+        let mut twice = vec![];
+        for symbol in symbols {
+            let mut requests = vec![self.signed_now("GET", OPEN_ORDERS_PATH, vec![("symbol", symbol.clone())])];
+            requests.extend((1..=HISTORY_PAGES).map(|page| self.signed_now("GET", HISTORY_ORDERS_PATH, vec![("symbol", symbol.clone()),
+                ("startTime", from.timestamp_millis().to_string()), ("endTime", to.timestamp_millis().to_string()), ("pageIndex", page.to_string()),
+                ("pageSize", HISTORY_PAGE.to_string())])));
+            for (n, r) in requests.iter().enumerate() {
+                let rows = match super::by_deadline(deadline, self.history_orders(r)).await {
+                    Ok(rows) => rows,
+                    Err(e) if out.orders.is_empty() => return Err(e),
+                    Err(_) => { out.complete = false; break; }
+                };
+                super::binance::read_rows(&mut out, &mut twice, symbol, &rows, from, to, &SHAPE);
+                if n == 0 { continue; }
+                if rows.len() < HISTORY_PAGE { break; }
+                if n == HISTORY_PAGES { out.complete = false; }
+            }
+        }
+        Ok(out)
+    }
+
+    /// A28-3d-1 r1.1: #get_order's GET /openApi/spot/v1/trade/query by symbol and orderId, `data` read strictly; BingX's
+    /// "order does not exist" is gone (None).
+    async fn order_created(&self, external_id: &str, symbol: &str, deadline: tokio::time::Instant) -> Result<Option<super::CreatedOrder>, super::HistoryError> {
+        let (asked, ext) = split_order_id(external_id);
+        let Some(ext) = ext.filter(|e| asked == symbol && !e.is_empty()) else { return Ok(None) };
+        let r = self.signed_now("GET", QUERY_PATH, vec![("symbol", symbol.to_string()), ("orderId", ext)]);
+        super::by_deadline(deadline, async {
+            let resp = super::binance::history_response(&self.transport, &r).await?;
+            if gone(&resp.body) { return Ok(None); }
+            let data = self.history_data(resp)?;
+            Ok(super::binance::created_order_shaped(symbol, &data, &SHAPE).filter(|o| o.external_id == external_id))
+        }).await
     }
 
     async fn fills_from_trades(

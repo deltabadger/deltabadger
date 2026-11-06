@@ -82,6 +82,7 @@ impl Venue for LiveVenue {
     async fn withdrawal_networks(&self, coin: &str) -> Result<Option<super::withdrawal::Coin>, VenueError> { each!(self, v => v.withdrawal_networks(coin).await) }
     async fn withdrawal_fee(&self, d: &super::withdrawal::Destination, amount: &BigDec) -> Result<Option<BigDec>, VenueError> { each!(self, v => v.withdrawal_fee(d, amount).await) }
     async fn orders_created(&self, s: &[String], from: DateTime<Utc>, to: DateTime<Utc>, d: tokio::time::Instant) -> Result<super::Created, super::HistoryError> { each!(self, v => v.orders_created(s, from, to, d).await) }
+    async fn order_created(&self, id: &str, symbol: &str, d: tokio::time::Instant) -> Result<Option<super::CreatedOrder>, super::HistoryError> { each!(self, v => v.order_created(id, symbol, d).await) }
 }
 
 /// A venue's egress: its client and its proxy URL (redacted from diagnostics: it may carry credentials), or why nothing

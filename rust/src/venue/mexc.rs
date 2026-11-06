@@ -31,6 +31,11 @@ pub const RECV_WINDOW: &str = "5000";
 pub const ORDER_GONE_CODES: [i64; 2] = [-2013, -2011];
 pub const ORDER_PATH: &str = "/api/v3/order";
 pub const ACCOUNT_PATH: &str = "/api/v3/account";
+/// A28-3d-1: the order-history list, its documented reach, and the codes that refuse the key (10072 invalid key, 700001-2
+/// signature, 700007 no permission).
+pub const ALL_ORDERS_PATH: &str = "/api/v3/allOrders";
+pub const HISTORY_DAYS: i64 = 7;
+const HISTORY_REFUSED: [&str; 4] = ["10072", "700001", "700002", "700007"];
 /// Plan VB §1.5: on MEXC absence is never concluded. The lookup answers -2013 for an order it does not hold, which proves
 /// nothing about one sent moments ago; the intent waits for `deltabadger resolve-placement`. A divergence: Rails sends no
 /// newClientOrderId and has no lookup at all.
@@ -319,6 +324,31 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
             return Err(VenueError::Rejected(vec![format!("{} answered for client order id {cl_ord_id} on {symbol} with another order", RULES.name)]));
         }
         parse_order(&format!("{symbol}-{ext}"), &body, &self.pairs).map(Some)
+    }
+
+    /// A28-3d-1 (D-HISTORY-DOC-BUILT, D-HISTORY-DOC-RETENTION): GET /api/v3/allOrders per symbol, startTime/endTime in ms
+    /// (as the ledger importer sends them), 1000 a page; a bare array, the docs' "active, cancelled or completed" orders, so
+    /// no openOrders read. Over a day → refused as Binance's; a window from before MEXC's documented 7 days is not asked
+    /// (empty, incomplete). Each row read by MEXC's shape (`binance::created_order_shaped`).
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
+        if to < from || to - from > chrono::Duration::hours(24) { return Err(super::HistoryError::Refused("MEXC: an order-history window over a day".into())); }
+        if from < self.transport.now() - chrono::Duration::days(HISTORY_DAYS) { return Ok(super::Created { orders: vec![], complete: false }); }
+        let request = |symbol: &str| self.signed_now("GET", ALL_ORDERS_PATH, vec![("symbol", symbol.to_string()), ("startTime", from.timestamp_millis().to_string()),
+                                                        ("endTime", to.timestamp_millis().to_string()), ("limit", "1000".into())]);
+        super::binance::all_orders_created(&self.transport, symbols, from, to, deadline, &SHAPE, &HISTORY_REFUSED, UNREADABLE, request).await
+    }
+
+    /// A28-3d-1 r1.1: #get_order's GET /api/v3/order by symbol and orderId, read strictly; -2013/-2011 is gone (None).
+    async fn order_created(&self, external_id: &str, symbol: &str, deadline: tokio::time::Instant) -> Result<Option<super::CreatedOrder>, super::HistoryError> {
+        let (asked, ext) = split(external_id);
+        let Some(ext) = ext.filter(|_| asked == symbol) else { return Ok(None) };
+        let r = self.signed_now("GET", ORDER_PATH, vec![("symbol", symbol.to_string()), ("orderId", ext)]);
+        super::by_deadline(deadline, async {
+            let resp = super::binance::history_response(&self.transport, &r).await?;
+            if !(200..300).contains(&resp.status) && gone(&resp.body) { return Ok(None); }
+            let body = super::binance::history_body(&self.transport, resp, &HISTORY_REFUSED, UNREADABLE)?;
+            Ok(super::binance::created_order_shaped(symbol, &body, &SHAPE).filter(|o| o.external_id == external_id))
+        }).await
     }
 
     /// Rails reads no trades for an order; a missing one is never looked up in trades.

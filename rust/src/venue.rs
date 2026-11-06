@@ -257,6 +257,7 @@ impl<V:Venue> Venue for &V {
     async fn withdraw(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::SendResult{(*self).withdraw(r).await}
     async fn withdrawal_lookup(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::LookupResult{(*self).withdrawal_lookup(r).await}
     async fn orders_created(&self,s:&[String],from:DateTime<Utc>,to:DateTime<Utc>,d:tokio::time::Instant)->Result<Created,HistoryError>{(*self).orders_created(s,from,to,d).await}
+    async fn order_created(&self,id:&str,symbol:&str,d:tokio::time::Instant)->Result<Option<CreatedOrder>,HistoryError>{(*self).order_created(id,symbol,d).await}
 }
 impl<V:Venue> Venue for Handle<V> {
     async fn prepare(&self)->Result<Option<crate::engine::model::CredentialVersion>,VenueError>{self.venue.prepare().await}
@@ -294,6 +295,7 @@ impl<V:Venue> Venue for Handle<V> {
     async fn withdraw(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::SendResult{self.venue.withdraw(r).await}
     async fn withdrawal_lookup(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::LookupResult{self.venue.withdrawal_lookup(r).await}
     async fn orders_created(&self,s:&[String],from:DateTime<Utc>,to:DateTime<Utc>,d:tokio::time::Instant)->Result<Created,HistoryError>{self.venue.orders_created(s,from,to,d).await}
+    async fn order_created(&self,id:&str,symbol:&str,d:tokio::time::Instant)->Result<Option<CreatedOrder>,HistoryError>{self.venue.order_created(id,symbol,d).await}
 }
 /// Apply one immutable handle producer to success and failure values, never from a post-call lookup.
 mod sealed { pub trait Sealed {} impl<V:super::Venue> Sealed for super::Handle<V> {} }
@@ -464,6 +466,12 @@ pub trait Venue {
     /// page's failure does (r2.2): the rows already validated are kept.
     async fn orders_created(&self, _symbols: &[String], _from: DateTime<Utc>, _to: DateTime<Utc>, _deadline: tokio::time::Instant) -> Result<Created, HistoryError> {
         Err(HistoryError::Refused("order history is not connected for this venue".into()))
+    }
+    /// A28-3d-1 r1.1 (D-HISTORY-DOC-BOOK-CONFIRMED): the one order `external_id` on `symbol` by the venue's Rails-called
+    /// single-order lookup, read by the history read's strict reader. None: the venue's "order gone" answer, or a body that
+    /// isn't that order as asked. Only the doc-built venues answer.
+    async fn order_created(&self, _external_id: &str, _symbol: &str, _deadline: tokio::time::Instant) -> Result<Option<CreatedOrder>, HistoryError> {
+        Err(HistoryError::Refused("order lookup is not connected for this venue".into()))
     }
 }
 
