@@ -2821,8 +2821,10 @@ async fn kucoin_pages_are_followed_to_their_total_at_most_five_and_odd_page_meta
     }
     // Unreadable or repeated page metadata: the page's validated rows are kept, no next page is asked, incomplete.
     type Meta = (&'static str, fn(&mut Value));
-    let odd: [Meta; 4] = [("currentPage as text", |b| b["data"]["currentPage"] = json!("1")), ("no totalPage", |b| { b["data"].as_object_mut().unwrap().remove("totalPage"); }),
-                          ("a negative totalPage", |b| b["data"]["totalPage"] = json!(-1)), ("another page's currentPage", |b| b["data"]["currentPage"] = json!(2))];
+    let odd: [Meta; 5] = [("currentPage as text", |b| b["data"]["currentPage"] = json!("1")), ("no totalPage", |b| { b["data"].as_object_mut().unwrap().remove("totalPage"); }),
+                          ("a negative totalPage", |b| b["data"]["totalPage"] = json!(-1)), ("another page's currentPage", |b| b["data"]["currentPage"] = json!(2)),
+                          // Branch r1.1: a total of no pages beside an order.
+                          ("totalPage 0 with items", |b| b["data"]["totalPage"] = json!(0))];
     for (name, spoil) in odd {
         let tr = ScriptedTransport::default();
         tr.reply(KUCOIN_ORDERS, 200, kucoin_page(vec![], 1, 1));
@@ -2832,6 +2834,13 @@ async fn kucoin_pages_are_followed_to_their_total_at_most_five_and_odd_page_meta
         let read = kucoin_list(&tr, from, to).await.unwrap();
         assert_eq!((kucoin_ids(&read), read.complete, pages(&tr).len()), (vec!["9".to_string()], false, 2), "{name}");
     }
+    // Branch r1.1: page 2 claiming a total of 1 contradicts itself: its rows kept, incomplete.
+    let tr = ScriptedTransport::default();
+    tr.reply(KUCOIN_ORDERS, 200, kucoin_page(vec![], 1, 1));
+    tr.reply(KUCOIN_ORDERS, 200, kucoin_page(vec![row(100)], 1, 2));
+    tr.reply(KUCOIN_ORDERS, 200, kucoin_page(vec![row(101)], 2, 1));
+    let read = kucoin_list(&tr, from, to).await.unwrap();
+    assert_eq!((kucoin_ids(&read), read.complete), (vec!["100".to_string(), "101".to_string()], false));
     // A page answering for the first again (repeated metadata): incomplete, not a loop.
     let tr = ScriptedTransport::default();
     tr.reply(KUCOIN_ORDERS, 200, kucoin_page(vec![], 1, 1));
@@ -2846,10 +2855,14 @@ async fn a_kucoin_window_over_seven_days_is_refused_and_one_older_than_thirty_da
     use deltabadger::venue::HistoryError;
     let tr = ScriptedTransport::default();
     let to = now() - Duration::days(1);
-    assert!(matches!(kucoin_list(&tr, to - Duration::days(7) - Duration::milliseconds(1), to).await, Err(HistoryError::Refused(_))));
+    // Branch r1.2: the range sent ends a millisecond past `to`, so a window of exactly 7 days is already over.
+    assert!(matches!(kucoin_list(&tr, to - Duration::days(7), to).await, Err(HistoryError::Refused(_))));
     assert!(tr.requests().is_empty());
     tr.reply(KUCOIN_ORDERS, 200, kucoin_page(vec![], 1, 0));
-    assert!(kucoin_list(&tr, to - Duration::days(7), to).await.unwrap().complete);
+    let from = to - Duration::days(7) + Duration::milliseconds(1);
+    assert!(kucoin_list(&tr, from, to).await.unwrap().complete);
+    let q = |k: &str| tr.requests()[0].query.iter().find(|(n, _)| *n == k).unwrap().1.parse::<i64>().unwrap();
+    assert_eq!(q("endAt") - q("startAt"), Duration::days(7).num_milliseconds(), "the range sent is 7 days at most");
     // D-HISTORY-DOC-RETENTION: KuCoin keeps cancelled orders a month.
     let tr = ScriptedTransport::default();
     let from = now() - Duration::days(30) - Duration::seconds(1);

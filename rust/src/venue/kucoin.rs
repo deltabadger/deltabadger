@@ -506,7 +506,9 @@ impl<T: Transport> KucoinVenue<T> {
         let data = &body["data"];
         let items = data["items"].as_array().ok_or_else(|| Retry(UNREADABLE.into()))?.clone();
         let more = match (data["currentPage"].as_i64(), data["totalPage"].as_i64()) {
-            (Some(current), Some(total)) if current == page && total >= 0 => Some(current < total),
+            // Branch r1.1: metadata that contradicts itself (a total below this page, unless page 1 of an empty list) can't
+            // say the list ended.
+            (Some(current), Some(total)) if current == page && (total >= page || (total == 0 && page == 1 && items.is_empty())) => Some(current < total),
             _ => None,
         };
         Ok((items, more))
@@ -831,7 +833,8 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     /// one starting over 30 days ago is not asked (D-HISTORY-DOC-RETENTION).
     async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
         use super::binance::{any_in, in_window, read_rows};
-        if to < from || (to - from).num_milliseconds() > WINDOW_MS { return Err(super::HistoryError::Refused("KuCoin: an order-history window over 7 days".into())); }
+        // Branch r1.2: the range sent (to + 1 ms) stays within KuCoin's 7 days.
+        if to < from || (to - from).num_milliseconds() + 1 > WINDOW_MS { return Err(super::HistoryError::Refused("KuCoin: an order-history window over 7 days".into())); }
         if from < self.transport.now() - chrono::Duration::days(HISTORY_DAYS) { return Ok(super::Created { orders: vec![], complete: false }); }
         let mut out = super::Created { orders: vec![], complete: true };
         let mut twice = vec![];
