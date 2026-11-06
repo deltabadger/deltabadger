@@ -557,23 +557,24 @@ impl<T: Transport> super::Venue for BingxVenue<T> {
         let mut out = super::Created { orders: vec![], complete: true };
         let mut twice = vec![];
         for symbol in symbols {
-            let mut requests = vec![self.signed_now("GET", OPEN_ORDERS_PATH, vec![("symbol", symbol.clone())])];
-            requests.extend((1..=HISTORY_PAGES).map(|page| self.signed_now("GET", HISTORY_ORDERS_PATH, vec![("symbol", symbol.clone()),
-                ("startTime", from.timestamp_millis().to_string()), ("endTime", to.timestamp_millis().to_string()), ("pageIndex", page.to_string()),
-                ("pageSize", HISTORY_PAGE.to_string())])));
-            for (n, r) in requests.iter().enumerate() {
-                let rows = match super::by_deadline(deadline, self.history_orders(r)).await {
+            // Branch r1.3: each request is signed as it is sent, so a slow earlier answer never expires a later page.
+            let request = |n: usize| if n == 0 { self.signed_now("GET", OPEN_ORDERS_PATH, vec![("symbol", symbol.clone())]) } else {
+                self.signed_now("GET", HISTORY_ORDERS_PATH, vec![("symbol", symbol.clone()), ("startTime", from.timestamp_millis().to_string()),
+                    ("endTime", to.timestamp_millis().to_string()), ("pageIndex", n.to_string()), ("pageSize", HISTORY_PAGE.to_string())])
+            };
+            for n in 0..=HISTORY_PAGES {
+                let rows = match super::by_deadline(deadline, self.history_orders(&request(n))).await {
                     Ok(rows) => rows,
                     Err(e) if out.orders.is_empty() => return Err(e),
                     Err(_) => { out.complete = false; break; }
                 };
-                super::binance::read_rows(&mut out, &mut twice, symbol, &rows, from, to, &SHAPE);
+                super::binance::read_rows(&mut out, &mut twice, symbol, &rows, &SHAPE);
                 if n == 0 { continue; }
                 if rows.len() < HISTORY_PAGE { break; }
                 if n == HISTORY_PAGES { out.complete = false; }
             }
         }
-        Ok(out)
+        Ok(super::binance::in_window(out, from, to))
     }
 
     /// A28-3d-1 r1.1: #get_order's GET /openApi/spot/v1/trade/query by symbol and orderId, `data` read strictly; BingX's

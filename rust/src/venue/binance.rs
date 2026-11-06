@@ -775,10 +775,11 @@ pub(crate) async fn history_response<T: Transport>(transport: &T, r: &HttpReques
 /// `codes` (the venue's documented key, signature and permission codes), else retryable.
 pub(crate) fn history_body<T: Transport>(transport: &T, resp: http::HttpResponse, codes: &[&str], unreadable: &str) -> Result<serde_json::Value, super::HistoryError> {
     use super::HistoryError::{Refused, Retry};
-    if !(200..300).contains(&resp.status) {
+    // Branch r1.1: a documented refusal code is the key's whatever the HTTP status (an error body may come with a 200).
+    let coded = error_code(&resp.body).is_some_and(|c| codes.contains(&c.as_str()));
+    if !(200..300).contains(&resp.status) || coded {
         let message = transport.redact_diagnostic(&format!("HTTP {}: {}", resp.status, error_message(&resp.body)));
-        let refused = matches!(resp.status, 401 | 403) || error_code(&resp.body).is_some_and(|c| codes.contains(&c.as_str()));
-        return Err(if refused { Refused(message) } else { Retry(message) });
+        return Err(if coded || matches!(resp.status, 401 | 403) { Refused(message) } else { Retry(message) });
     }
     http::decode_json(&resp.body).map_err(|_| Retry(unreadable.into()))
 }
@@ -794,16 +795,22 @@ pub(crate) fn push_once(out: &mut super::Created, twice: &mut Vec<String>, o: su
     }
 }
 
-/// A28-3d-1 G2/G3: a doc-built list's rows on `symbol`, each read strictly (`created_order_shaped`) and kept only when
-/// created from `from` to `to`; an unreadable row leaves the read incomplete.
-pub(crate) fn read_rows(out: &mut super::Created, twice: &mut Vec<String>, symbol: &str, rows: &[serde_json::Value], from: DateTime<Utc>, to: DateTime<Utc>, shape: &Shape) {
+/// A28-3d-1 G2/G3: a doc-built list's rows on `symbol`, each read strictly (`created_order_shaped`); an unreadable row
+/// leaves the read incomplete. Every readable row is kept here, in the window or not, so one id listed twice is compared
+/// whole (branch r1.2); `in_window` drops the rest once every answer is read.
+pub(crate) fn read_rows(out: &mut super::Created, twice: &mut Vec<String>, symbol: &str, rows: &[serde_json::Value], shape: &Shape) {
     for raw in rows {
         match created_order_shaped(symbol, raw, shape) {
-            Some(o) if o.created_at >= from && o.created_at <= to => push_once(out, twice, o),
-            Some(_) => {}
+            Some(o) => push_once(out, twice, o),
             None => out.complete = false,
         }
     }
+}
+
+/// A28-3d-1 G3: the read's orders created from `from` to `to`.
+pub(crate) fn in_window(mut out: super::Created, from: DateTime<Utc>, to: DateTime<Utc>) -> super::Created {
+    out.orders.retain(|o| o.created_at >= from && o.created_at <= to);
+    out
 }
 
 /// A28-3d-1: an allOrders read per symbol (MEXC, Bitrue: one bare array of every state, `request` builds the signed GET),
@@ -823,9 +830,9 @@ pub(crate) async fn all_orders_created<T: Transport>(transport: &T, symbols: &[S
             Err(_) => { out.complete = false; continue; }
         };
         if page.len() >= PAGE { out.complete = false; }
-        read_rows(&mut out, &mut twice, symbol, &page, from, to, shape);
+        read_rows(&mut out, &mut twice, symbol, &page, shape);
     }
-    Ok(out)
+    Ok(in_window(out, from, to))
 }
 
 /// Clients::Binance#candlestick_data's path.

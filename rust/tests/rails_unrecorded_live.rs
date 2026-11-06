@@ -1275,7 +1275,7 @@ fn doc_vectors(kind: Kind) -> &'static [Value] {
     let (cell, name) = match kind { Kind::Mexc => (&MEXC, "mexc"), Kind::Bitrue => (&BITRUE, "bitrue"), Kind::Bingx => (&BINGX, "bingx"), _ => unreachable!() };
     cell.get_or_init(|| {
         let v: Value = serde_json::from_str(&std::fs::read_to_string(format!("{}/tests/fixtures/{name}_vectors.json", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
-        v[format!("{name}_orders")].as_array().unwrap().iter().map(|e| e.clone()).collect()
+        v[format!("{name}_orders")].as_array().unwrap().to_vec()
     })
 }
 fn doc_shape(kind: Kind) -> &'static binance::Shape { match kind { Kind::Mexc => &mexc::SHAPE, Kind::Bitrue => &bitrue::SHAPE, _ => &bingx::SHAPE } }
@@ -1416,6 +1416,25 @@ async fn a_doc_built_list_keeps_only_its_pairs_rows_in_the_window() {
 }
 
 #[tokio::test]
+async fn one_id_listed_in_and_out_of_the_window_is_unreadable_either_way_round() {
+    // Branch r1.2: the twin outside the window is compared before the window drops it.
+    let (from, to) = window();
+    for kind in [Kind::Mexc, Kind::Bitrue, Kind::Bingx] {
+        for flip in [false, true] {
+            let tr = ScriptedTransport::default();
+            tr.set_now(now());
+            let mut rows = vec![doc_row(kind, &limit(9, St::Filled, "0.0004", "20")), doc_row(kind, &O { at: "2026-09-29T12:00:00Z", ..limit(9, St::Filled, "0.0004", "20") }),
+                                doc_row(kind, &limit(8, St::Filled, "0.0004", "20"))];
+            if flip { rows.swap(0, 1); }
+            if kind == Kind::Bingx { tr.reply(BINGX_OPEN, 200, bingx_page(vec![])); tr.reply(BINGX_HISTORY, 200, bingx_page(rows)); }
+            else { tr.reply(if kind == Kind::Mexc { "GET /api/v3/allOrders" } else { "GET /api/v1/allOrders" }, 200, Value::Array(rows)); }
+            let read = doc_read(kind, &tr, from, to).await.unwrap();
+            assert_eq!((ids(&read), read.complete), (vec![kind.external_id(8).as_str()], false), "{kind:?} {flip}");
+        }
+    }
+}
+
+#[tokio::test]
 async fn one_bingx_order_in_both_lists_counts_once_and_read_two_ways_is_unreadable() {
     let (from, to) = window();
     for (history, want, complete) in [(St::Partly, vec!["BTC-EUR-9", "BTC-EUR-8"], true), (St::Filled, vec!["BTC-EUR-8"], false)] {
@@ -1452,7 +1471,7 @@ async fn bingx_history_is_paged_while_full_and_its_codes_are_classed() {
         let tr = ScriptedTransport::default();
         tr.reply(BINGX_OPEN, status, body.clone());
         let read = doc_read(Kind::Bingx, &tr, from, to).await;
-        assert!(matches!(read, Err(HistoryError::Refused(_))) == refused && matches!(read, Err(_)), "{status} {body}: {read:?}");
+        assert!(matches!(read, Err(HistoryError::Refused(_))) == refused && read.is_err(), "{status} {body}: {read:?}");
         assert_eq!(tr.requests().len(), 1);
     }
 }
@@ -1464,12 +1483,14 @@ async fn mexc_and_bitrue_failures_are_classed_by_their_documented_codes() {
     for (kind, status, code, refused) in [(Kind::Mexc, 400, json!(10072), true), (Kind::Mexc, 400, json!(700001), true), (Kind::Mexc, 400, json!(700007), true),
                                           (Kind::Mexc, 400, json!(-1021), false), (Kind::Mexc, 403, json!(0), true), (Kind::Mexc, 429, json!(0), false),
                                           (Kind::Bitrue, 400, json!(-1022), true), (Kind::Bitrue, 400, json!(-1021), false), (Kind::Bitrue, 401, json!(0), true),
-                                          (Kind::Bitrue, 503, json!(0), false)] {
+                                          (Kind::Bitrue, 503, json!(0), false),
+                                          // Branch r1.1: a documented refusal code is the key's on an HTTP 200 too.
+                                          (Kind::Mexc, 200, json!(700002), true), (Kind::Mexc, 200, json!(-1021), false), (Kind::Bitrue, 200, json!(-1022), true)] {
         let tr = ScriptedTransport::default();
         if kind == Kind::Mexc { tr.set_now(now()); }
         tr.reply(if kind == Kind::Mexc { "GET /api/v3/allOrders" } else { "GET /api/v1/allOrders" }, status, json!({ "code": code, "msg": "no" }));
         let read = doc_read(kind, &tr, from, to).await;
-        assert!(matches!(read, Err(HistoryError::Refused(_))) == refused && matches!(read, Err(_)), "{kind:?} {status} {code}: {read:?}");
+        assert!(matches!(read, Err(HistoryError::Refused(_))) == refused && read.is_err(), "{kind:?} {status} {code}: {read:?}");
     }
 }
 
