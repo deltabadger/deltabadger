@@ -135,6 +135,10 @@ impl Cipher {
     }
 }
 
+/// Whether a stored value is shaped as Rails' encrypted message (ActiveRecord::Encryption::Encryptor#encrypted?, read
+/// on its shape only): anything else is plaintext, which every key reads as itself.
+pub fn is_envelope(stored: &str) -> bool { envelope(stored).is_some() }
+
 /// `Some((p, h))` only for a JSON object shaped like Rails' message; anything else is plaintext.
 fn envelope(stored: &str) -> Option<(String, serde_json::Map<String, Value>)> {
     let v: Value = serde_json::from_str(stored).ok()?;

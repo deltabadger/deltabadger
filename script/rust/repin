@@ -82,6 +82,8 @@ RECORDED = {
                                         r'scenarios/\d+/before/(api_keys/\d+/(key|secret)|users/\d+/(encrypted_password|otp_secret_key))'),
     FIX + 'sync_vectors.json': ('test', [runner('record_sync_vectors.rb', '{out}')], None),
     FIX + 'withdrawal_vectors.json': ('test', [runner('record_withdrawal_vectors.rb', '{out}')], None),
+    FIX + 'encryption_vectors.json': ('test', [runner('encryption_vectors.rb', '{out}')],
+                                      r'(before|after)/\w+/\d+/(key|secret|passphrase|otp_secret_key|value|address|stopped_at)|secret_key_base'),
     FIX + 'tax_vectors.json': ('test', [runner('tax_vectors.rb', '{out}')],
                                r'scenarios/\d+/tables/(api_keys|users)/\d+/(key|secret|encrypted_password|otp_secret_key)'),
     FIX + 'tracker_cache.json': ('test', [runner('tracker_cache.rb', '{out}')], None),

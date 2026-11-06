@@ -17,7 +17,7 @@ Everything is kept in the app's data directory on your Umbrel, under `data/`:
 | `data/storage` | The databases and `.secrets`, the file with this install's encryption keys |
 | `data/logs` | Application logs |
 
-The session secret is not in that folder. Umbrel derives it from the app's seed and passes it to both services as `SECRET_KEY_BASE`. A copy of `data/storage`, taken while the app is stopped, is a complete backup of a fresh install. If your install predates the `.secrets` file, its encryption keys are still derived from the Umbrel seed; run `rake deltabadger:encryption:derived_keys` first so they are stored in `.secrets` (see [Secrets and encryption keys](31-secrets-and-encryption-keys.md)). See also [Data and backups](30-data-and-backups.md).
+The session secret is not in that folder. Umbrel derives it from the app's seed and passes it to both services as `SECRET_KEY_BASE`. A copy of `data/storage`, taken while the app is stopped, is a complete backup of a fresh install. If your install predates the `.secrets` file, its encryption keys are still derived from the Umbrel seed; run `encryption-derived-keys` first and add the two lines it prints to `.secrets` (see [Secrets and encryption keys](31-secrets-and-encryption-keys.md)). See also [Data and backups](30-data-and-backups.md).
 
 ## Two services
 
@@ -33,7 +33,7 @@ Bots run in `jobs`. If that container is stopped, nothing trades, even though th
 The rest of this manual writes maintenance commands for the Docker Compose service, `docker compose run --rm --no-deps deltabadger …`. On Umbrel run them inside the running web container instead:
 
 ```bash
-docker exec -it deltabadger_web_1 docker-entrypoint.sh rake deltabadger:encryption:report
+docker exec -it deltabadger_web_1 docker-entrypoint.sh encryption-report
 ```
 
 Anything you set in the environment, such as your own encryption keys, has to be the same in both service blocks, or neither service can read what the other wrote.

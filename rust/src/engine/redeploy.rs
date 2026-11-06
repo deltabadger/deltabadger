@@ -6,6 +6,8 @@ use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
 
 pub const REQUEST_KEY: &str = "rust_redeploy_request";
+/// The bots `run::run_commands` takes a redeploy for (and rotation::owed counts as owed).
+pub const PENDING_SQL: &str = "json_type(transient_data,'$.rust_redeploy_request')='object'";
 pub const PENDING_KEY: &str = "redeploy_pending";
 /// Redeployable::BASE_HEADROOM, kept where the order goes out base-denominated at a crossing venue's persisted limit.
 const BASE_HEADROOM: &str = "1.01";
