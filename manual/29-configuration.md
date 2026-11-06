@@ -93,12 +93,13 @@ docker compose run --rm --no-deps deltabadger <command>
 | `check` | Checks that this version can start on the data, and what it would update, without changing anything. |
 | `handback` | Returns a 2.x install to 2.70.21; see [Going back to 2.x](07-updating.md#going-back-to-2x). |
 | `reset-password <email>` | Sets an account's password; see [Account settings](24-account-settings.md#forgot-your-password). It also runs while the app does, with `docker compose exec`. |
+| `encryption-report`, `encryption-reset`, `encryption-derived-keys` | List the stored credentials, clear them, and print the encryption keys this install derives; see [Secrets and encryption keys](31-secrets-and-encryption-keys.md). The report and `encryption-derived-keys` also run while the app does, with `docker compose exec`. |
 | `sync ledger` or `sync balances` | One Alpaca history or balance sync by hand. |
 | `resolve-placement`, `resolve-withdrawal`, `reconcile-order`, `repair-binance-history` | For support: each settles one specific problem, and support tells you the exact command. |
 | `shell` | Opens a shell inside the container. |
 | `migrate`, `setup` | Do nothing in Deltabadger 3, which updates its data itself when it starts. They are kept so older compose files keep working. |
 | `jobs` | Does nothing: 2.x ran background work in a separate `jobs` container, which is no longer needed. It waits until it is stopped. |
-| `console`, `rake`, `export` | Refused: "This command isn't available in this version of Deltabadger." |
+| `console`, `rake`, `export` | Refused: "This command isn't available in this version of Deltabadger." For Deltabadger 2's `rake deltabadger:encryption:*` tasks, use the `encryption-*` commands above. |
 
 Anything else is run as given inside the container. On Umbrel, see [Umbrel](05-umbrel.md).
 

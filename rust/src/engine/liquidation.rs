@@ -5,6 +5,8 @@ use rusqlite::Connection;
 use serde_json::{json, Value};
 
 pub const REQUEST_KEY: &str = "liquidation_selling_since";
+/// The bots `run::run_commands` takes a liquidation for (and rotation::owed counts as owed).
+pub const PENDING_SQL: &str = "json_type(transient_data,'$.liquidation_selling_since.holdings') IS NOT NULL";
 
 pub(crate) fn refuse(c: &Connection, id: i64, reason: Value, clock: &dyn Clock) -> Result<(), EngineError> {
     model::log_activity(c, id, "liquidation_not_started", Level::Info, json!({"reason":reason}), clock.now())

@@ -51,10 +51,10 @@ fn the_secrets_block_is_the_2x_entrypoints_but_for_one_comment_line() {
         let end = setup + lines[setup..].iter().position(|l| *l == "}").expect("its end");
         lines[start..=end].join("\n")
     };
-    // D-B3-SECRETS-COMMENT: the 2.x line names a Rails task 3.0 does not have.
+    // D-B3-SECRETS-COMMENT: the 2.x line names the Rails task; 3.0's names the command that replaces it (PLAN-A29).
     let expected = block(&old).replace(
         "            echo \"# here. Run 'rake deltabadger:encryption:derived_keys' to move off that.\"",
-        "            echo \"# here.\"");
+        "            echo \"# here. Run 'deltabadger encryption-derived-keys' to move off that.\"");
     assert_ne!(expected, block(&old), "the one changed line is still in docker-entrypoint.sh");
     assert_eq!(block(&new), expected);
 }
@@ -198,4 +198,29 @@ fn concurrent_first_boots_all_adopt_the_same_keys() {
     assert!(secrets_file(dir.path()).contains(&format!("{SALT}={salt}")));
     let leftovers = std::fs::read_dir(dir.path()).unwrap().filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().starts_with(".secrets")).count();
     assert_eq!(leftovers, 1, "a temporary file was left behind");
+}
+
+/// PLAN-A29: the encryption commands reach `deltabadger` with the instance's secrets loaded, as `check` does; `rake`
+/// stays refused (64) and names them.
+#[test]
+fn the_encryption_commands_run_with_the_secrets_and_rake_names_them() {
+    let dir = tempfile::tempdir().unwrap();
+    let bin = dir.path().join("bin");
+    std::fs::create_dir(&bin).unwrap();
+    let stub = bin.join("deltabadger");
+    std::fs::write(&stub, "#!/bin/bash\necho \"ran $* with ${SECRET_KEY_BASE:+a secret}\"\n").unwrap();
+    std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let path = format!("{}:{}", bin.display(), std::env::var("PATH").unwrap());
+    for command in ["encryption-report", "encryption-reset --confirm clear-credentials", "encryption-derived-keys"] {
+        let out = bash(dir.path(), &[("PATH", &path)], &format!("main {command}"));
+        assert!(out.status.success(), "{command}: {}", String::from_utf8_lossy(&out.stderr));
+        assert_eq!(String::from_utf8_lossy(&out.stdout).lines().last(), Some(format!("ran {command} with a secret").as_str()));
+    }
+    let out = bash(dir.path(), &[("PATH", &path)], "main rake deltabadger:encryption:reset");
+    assert_eq!(out.status.code(), Some(64));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("This command isn't available in this version of Deltabadger."), "{err}");
+    assert!(err.contains("use encryption-report, encryption-reset and encryption-derived-keys"), "{err}");
+    let out = bash(dir.path(), &[("PATH", &path)], "main console");
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("encryption-report"), "only rake names them");
 }

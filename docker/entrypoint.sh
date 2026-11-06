@@ -4,11 +4,12 @@ set -e
 # Deltabadger 3.0 Docker entrypoint: the Rust program alone, no Ruby (Dockerfile.rust).
 # Commands: web, standalone, serve (the app), jobs (idle), migrate and setup (secrets only), shell,
 # and the deltabadger commands (run, check, handback, sync, repair-binance-history, resolve-withdrawal,
-# resolve-placement, reconcile-order). console, rake and export are refused.
+# resolve-placement, reconcile-order, encryption-report, encryption-reset, encryption-derived-keys).
+# console, rake and export are refused; rake's refusal names the encryption commands that replace its tasks.
 #
 # The secrets block below is docker-entrypoint.sh's (the 2.x image's), copied unchanged so a 2.x
-# install's /app/storage/.secrets is read and written exactly as before; one comment line that named
-# a Rails task is the only difference (rust/tests/entrypoint.rs checks both).
+# install's /app/storage/.secrets is read and written exactly as before; one comment line names the
+# 3.0 command instead of the Rails task (rust/tests/entrypoint.rs checks both).
 
 SECRETS_FILE="${SECRETS_FILE:-/app/storage/.secrets}"
 
@@ -103,7 +104,7 @@ generate_secrets() {
             echo "#"
             echo "# This install already had a database when this file was written, so its"
             echo "# encryption keys are still derived from SECRET_KEY_BASE and are not stored"
-            echo "# here."
+            echo "# here. Run 'deltabadger encryption-derived-keys' to move off that."
         else
             echo "ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=$(generate_hex 32)"
             echo "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=$(generate_hex 32)"
@@ -241,6 +242,9 @@ main() {
 
         console|rake|export)
             echo "This command isn't available in this version of Deltabadger." >&2
+            if [ "$cmd" = "rake" ]; then
+                echo "For deltabadger:encryption:report, :reset and :derived_keys use encryption-report, encryption-reset and encryption-derived-keys." >&2
+            fi
             exit 64
             ;;
 
@@ -254,7 +258,7 @@ main() {
             exec /bin/bash
             ;;
 
-        run|check|handback|sync|repair-binance-history|resolve-withdrawal|resolve-placement|reconcile-order)
+        run|check|handback|sync|repair-binance-history|resolve-withdrawal|resolve-placement|reconcile-order|encryption-report|encryption-reset|encryption-derived-keys)
             setup_secrets
             exec deltabadger "$@"
             ;;

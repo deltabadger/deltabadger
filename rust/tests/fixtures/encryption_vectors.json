@@ -1,0 +1,515 @@
+{
+  "sources": {
+    "lib/tasks/encryption.rake": "41598898511356bada111fa4f889d8c24187ee5bbdfe079e82415d5ec08a6619",
+    "app/services/encrypted_credentials.rb": "0b0d7469e75bf71aa5eef9ffd95fba7df62db4e8439bf67803c0bb2d90743463",
+    "app/services/encrypted_credentials/report.rb": "e95c184180cf53b5c865bf1d8acb08098b7f6c217569f05fcc682fc355cb107b",
+    "app/services/encrypted_credentials/reset.rb": "b89500f0e2c76aad50b425a7b3a97c37dea041ef738a98229defa05f883ef69b",
+    "config/initializers/secret_key_base_guard.rb": "55c7b5a1648298833d661e1192190f0e20cc4ec8bc4aa844c10656a3c9c47bc1",
+    "config/initializers/active_record_encryption.rb": "403643f5ddf3264d73d92aaed7183a9cee4496b833566e4b420c99950d68d7cb",
+    "config/initializers/encryption_key_check.rb": "c2a1dc85c05d524b2ca1f890c6c5aef8445f55e0800d6f08ed658a027d546682"
+  },
+  "secret_key_base": "43a7b23946bbdf7beb504a00208af4b3f9dcef27996551396c9d78f6c65b585a61055db94a3c08361cee3a416be24cc40f55a0842bdd22c71a38d3783f7f0eb0",
+  "independent": false,
+  "before": {
+    "users": [
+      {
+        "id": 1,
+        "admin": 1,
+        "advanced_bots_enabled": 0,
+        "confirmation_sent_at": null,
+        "confirmation_token": null,
+        "confirmed_at": null,
+        "created_at": "2026-01-01 00:00:00",
+        "display_currency": "USD",
+        "email": "o@example.com",
+        "encrypted_password": "x",
+        "failed_attempts": 0,
+        "hide_balances": 0,
+        "last_otp_at": null,
+        "locale": null,
+        "locked_at": null,
+        "mcp_settings": "{}",
+        "name": "Owner",
+        "otp_module": 1,
+        "otp_secret_key": "{\"p\":\"JOYBhUdTLoSJikmAVNmtCA==\",\"h\":{\"iv\":\"9BNqMKRSLeFUhudp\",\"at\":\"Gu1j1zzV6ecADyGcrX+pyA==\"}}",
+        "remember_created_at": null,
+        "reset_password_sent_at": null,
+        "reset_password_token": null,
+        "rest_settings": "{}",
+        "setup_completed": 0,
+        "show_smart_intervals_info": 1,
+        "subscribed_to_email_marketing": 1,
+        "time_zone": "UTC",
+        "tracker_settings": "{}",
+        "unconfirmed_email": null,
+        "updated_at": "2026-01-01 00:00:00",
+        "wash_sale_enabled": null,
+        "wash_sale_jurisdiction": null,
+        "wash_sale_selling_warned_at": null
+      }
+    ],
+    "exchanges": [
+      {
+        "id": 1,
+        "available": 1,
+        "created_at": "2026-01-01 00:00:00",
+        "maker_fee": "0.25",
+        "name": "Kraken",
+        "taker_fee": "0.4",
+        "type": "Exchanges::Kraken",
+        "updated_at": "2026-01-01 00:00:00"
+      }
+    ],
+    "assets": [
+      {
+        "id": 1,
+        "category": "Cryptocurrency",
+        "circulating_supply": null,
+        "color": null,
+        "country": null,
+        "country_exchange": null,
+        "created_at": "2026-01-01 00:00:00",
+        "external_id": "bitcoin",
+        "image_url": null,
+        "instrument_type": null,
+        "isin": null,
+        "market_cap": null,
+        "market_cap_rank": null,
+        "name": "Bitcoin",
+        "symbol": "BTC",
+        "updated_at": "2026-01-01 00:00:00",
+        "url": null
+      },
+      {
+        "id": 2,
+        "category": "Currency",
+        "circulating_supply": null,
+        "color": null,
+        "country": null,
+        "country_exchange": null,
+        "created_at": "2026-01-01 00:00:00",
+        "external_id": "EUR.FOREX",
+        "image_url": null,
+        "instrument_type": null,
+        "isin": null,
+        "market_cap": null,
+        "market_cap_rank": null,
+        "name": "Euro",
+        "symbol": "EUR",
+        "updated_at": "2026-01-01 00:00:00",
+        "url": null
+      }
+    ],
+    "api_keys": [
+      {
+        "id": 1,
+        "access_token": null,
+        "balances_synced_at": null,
+        "created_at": "2026-01-01 00:00:00",
+        "dh_param": null,
+        "exchange_id": 1,
+        "german_trading_agreement": null,
+        "ibkr_realm": null,
+        "key": "{\"p\":\"CD5FZcCIe2I=\",\"h\":{\"iv\":\"IguJ41U+rgDqkjYV\",\"at\":\"VGEgx6Sl6aHuJpEBQhz4kw==\"}}",
+        "key_type": 0,
+        "last_sync_error": null,
+        "last_synced_at": null,
+        "passphrase": null,
+        "rsa_encryption_key": null,
+        "rsa_signature_key": null,
+        "secret": "{\"p\":\"5FmT/nsN8dMrkIw=\",\"h\":{\"iv\":\"8sgMoUTd79t2/PTu\",\"at\":\"NgcwdFtykyDn5k8asQhjxw==\"}}",
+        "status": 1,
+        "updated_at": "2026-01-01 00:00:00",
+        "user_id": 1
+      },
+      {
+        "id": 2,
+        "access_token": null,
+        "balances_synced_at": null,
+        "created_at": "2026-01-01 00:00:00",
+        "dh_param": null,
+        "exchange_id": 1,
+        "german_trading_agreement": null,
+        "ibkr_realm": null,
+        "key": "{\"p\":\"srNZuCI=\",\"h\":{\"iv\":\"IKpS2Y5oIuaGFVRB\",\"at\":\"Sn1QJ/x2PPtpnkI60SWI3Q==\"}}",
+        "key_type": 1,
+        "last_sync_error": null,
+        "last_synced_at": null,
+        "passphrase": "{\"p\":\"e6NaCu7r\",\"h\":{\"iv\":\"ZckmC9hjzlBY8cyq\",\"at\":\"xuS5PcTlUl+xkzD2L4rWMA==\"}}",
+        "rsa_encryption_key": null,
+        "rsa_signature_key": null,
+        "secret": "{\"p\":\"aykOHY/iMn0=\",\"h\":{\"iv\":\"8chDaXvox3jez4N9\",\"at\":\"4ENBZVhYOaU9kpXXgLlcHA==\"}}",
+        "status": 1,
+        "updated_at": "2026-01-01 00:00:00",
+        "user_id": 1
+      }
+    ],
+    "fee_api_keys": [
+      {
+        "id": 1,
+        "exchange_id": 1,
+        "key": "{\"p\":\"pVJsdMEa9Q==\",\"h\":{\"iv\":\"mfvIOJex8XE2fQiK\",\"at\":\"yRZRMVOFdts8f/uE5qTAcQ==\"}}",
+        "passphrase": null,
+        "secret": "{\"p\":\"KrWkRYl/XFKFRA==\",\"h\":{\"iv\":\"bbLDNyBkD0paipCs\",\"at\":\"HAa7dihUWJC4ZRnqPlI48A==\"}}"
+      }
+    ],
+    "app_configs": [
+      {
+        "id": 1,
+        "created_at": "2026-01-01 00:00:00",
+        "key": "smtp_password",
+        "updated_at": "2026-01-01 00:00:00",
+        "value": "{\"p\":\"Kum1mgGrNw==\",\"h\":{\"iv\":\"TRaXCIjlfxxL+5yp\",\"at\":\"mYs7F5k0Hi79z5IfoKfqMA==\"}}"
+      },
+      {
+        "id": 2,
+        "created_at": "2026-01-01 00:00:00",
+        "key": "coingecko_api_key",
+        "updated_at": "2026-01-01 00:00:00",
+        "value": "{\"p\":\"PwqaDZJh6g==\",\"h\":{\"iv\":\"k2KpHTW3YprGz1vD\",\"at\":\"jpJBBaQZayVBjwXt8cIxpw==\"}}"
+      },
+      {
+        "id": 3,
+        "created_at": "2026-01-01 00:00:00",
+        "key": "market_data_token",
+        "updated_at": "2026-01-01 00:00:00",
+        "value": "{\"p\":\"AUD3SznYhg==\",\"h\":{\"iv\":\"HXYoZx4E2w9CPzXR\",\"at\":\"0EFqissOL8bry1WhYLzhUg==\"}}"
+      },
+      {
+        "id": 4,
+        "created_at": "2026-01-01 00:00:00",
+        "key": "registration_open",
+        "updated_at": "2026-01-01 00:00:00",
+        "value": "{\"p\":\"1a/Hh//6WA==\",\"h\":{\"iv\":\"KS0wgfyEx7iszaxj\",\"at\":\"wO33338ipuuZefRG8omPZw==\"}}"
+      }
+    ],
+    "rules": [
+      {
+        "id": 1,
+        "address": "bc1qexampleaddress",
+        "asset_id": 1,
+        "created_at": "2026-01-01 00:00:00",
+        "exchange_id": 1,
+        "settings": "{}",
+        "settings_changed_at": null,
+        "status": 1,
+        "type": "Rules::Withdrawal",
+        "updated_at": "2026-01-01 00:00:00",
+        "user_id": 1
+      }
+    ],
+    "oauth_applications": [
+      {
+        "id": 1,
+        "confidential": 0,
+        "created_at": "2026-01-01 00:00:00",
+        "grant_types": "authorization_code",
+        "name": "MCP",
+        "personal_access_token": 0,
+        "personal_owner_id": null,
+        "redirect_uri": "http://localhost/cb",
+        "registration_access_token": null,
+        "response_types": "code",
+        "scopes": "",
+        "secret": null,
+        "token_endpoint_auth_method": "none",
+        "uid": "uid-1",
+        "updated_at": "2026-01-01 00:00:00"
+      }
+    ],
+    "oauth_access_tokens": [
+      {
+        "id": 1,
+        "application_id": 1,
+        "created_at": "2026-01-01 00:00:00",
+        "expires_in": null,
+        "previous_refresh_token": "",
+        "refresh_token": null,
+        "resource_owner_id": 1,
+        "revoked_at": null,
+        "scopes": "",
+        "token": "bearer-1"
+      }
+    ],
+    "oauth_access_grants": [
+      {
+        "id": 1,
+        "application_id": 1,
+        "code_challenge": null,
+        "code_challenge_method": null,
+        "created_at": "2026-01-01 00:00:00",
+        "expires_in": 600,
+        "redirect_uri": "http://localhost/cb",
+        "resource_owner_id": 1,
+        "revoked_at": null,
+        "scopes": "",
+        "token": "grant-1"
+      }
+    ],
+    "connected_clients": [
+      {
+        "id": 1,
+        "created_at": "2026-01-01 00:00:00",
+        "mcp_tools": "[]",
+        "oauth_application_id": 1,
+        "rest_tools": "[]",
+        "updated_at": "2026-01-01 00:00:00",
+        "user_id": 1
+      }
+    ],
+    "bots": [
+      {
+        "id": 1,
+        "account_balance": 0,
+        "created_at": "2026-01-01 00:00:00",
+        "current_delay": 0,
+        "delay": 0,
+        "exchange_id": 1,
+        "fetch_restarts": 0,
+        "label": null,
+        "last_end_of_funds_notification": null,
+        "position": 0,
+        "redeploy_declined_offset": 0,
+        "restarts": 0,
+        "restatement_generation": 0,
+        "settings": "{\"interval\":\"week\",\"quote_amount\":10.0,\"quote_asset_id\":2,\"allocations\":{\"1\":1.0}}",
+        "settings_changed_at": null,
+        "started_at": "2026-01-01 00:00:00",
+        "status": 1,
+        "stop_message_key": null,
+        "stopped_at": null,
+        "transient_data": "{}",
+        "type": "Bots::DcaMultiAsset",
+        "updated_at": "2026-01-01 00:00:00",
+        "user_id": 1
+      }
+    ],
+    "account_transactions": [
+      {
+        "id": 1,
+        "api_key_id": 1,
+        "base_amount": 1,
+        "base_asset_id": null,
+        "base_currency": "BTC",
+        "created_at": "2026-01-01 00:00:00",
+        "description": null,
+        "entry_type": 0,
+        "exchange_id": 1,
+        "fee_amount": null,
+        "fee_currency": null,
+        "group_id": null,
+        "linked_transaction_id": null,
+        "manual_values": "{}",
+        "quote_amount": null,
+        "quote_currency": null,
+        "raw_data": "{}",
+        "transacted_at": "2026-01-01 00:00:00",
+        "transaction_id": null,
+        "transfer_link_rejected": 0,
+        "tx_id": null,
+        "updated_at": "2026-01-01 00:00:00",
+        "user_id": 1
+      }
+    ]
+  },
+  "after": {
+    "users": [
+      {
+        "id": 1,
+        "admin": 1,
+        "advanced_bots_enabled": 0,
+        "confirmation_sent_at": null,
+        "confirmation_token": null,
+        "confirmed_at": null,
+        "created_at": "2026-01-01 00:00:00",
+        "display_currency": "USD",
+        "email": "o@example.com",
+        "encrypted_password": "x",
+        "failed_attempts": 0,
+        "hide_balances": 0,
+        "last_otp_at": null,
+        "locale": null,
+        "locked_at": null,
+        "mcp_settings": "{}",
+        "name": "Owner",
+        "otp_module": 0,
+        "otp_secret_key": null,
+        "remember_created_at": null,
+        "reset_password_sent_at": null,
+        "reset_password_token": null,
+        "rest_settings": "{}",
+        "setup_completed": 0,
+        "show_smart_intervals_info": 1,
+        "subscribed_to_email_marketing": 1,
+        "time_zone": "UTC",
+        "tracker_settings": "{}",
+        "unconfirmed_email": null,
+        "updated_at": "2026-01-01 00:00:00",
+        "wash_sale_enabled": null,
+        "wash_sale_jurisdiction": null,
+        "wash_sale_selling_warned_at": null
+      }
+    ],
+    "exchanges": [
+      {
+        "id": 1,
+        "available": 1,
+        "created_at": "2026-01-01 00:00:00",
+        "maker_fee": "0.25",
+        "name": "Kraken",
+        "taker_fee": "0.4",
+        "type": "Exchanges::Kraken",
+        "updated_at": "2026-01-01 00:00:00"
+      }
+    ],
+    "assets": [
+      {
+        "id": 1,
+        "category": "Cryptocurrency",
+        "circulating_supply": null,
+        "color": null,
+        "country": null,
+        "country_exchange": null,
+        "created_at": "2026-01-01 00:00:00",
+        "external_id": "bitcoin",
+        "image_url": null,
+        "instrument_type": null,
+        "isin": null,
+        "market_cap": null,
+        "market_cap_rank": null,
+        "name": "Bitcoin",
+        "symbol": "BTC",
+        "updated_at": "2026-01-01 00:00:00",
+        "url": null
+      },
+      {
+        "id": 2,
+        "category": "Currency",
+        "circulating_supply": null,
+        "color": null,
+        "country": null,
+        "country_exchange": null,
+        "created_at": "2026-01-01 00:00:00",
+        "external_id": "EUR.FOREX",
+        "image_url": null,
+        "instrument_type": null,
+        "isin": null,
+        "market_cap": null,
+        "market_cap_rank": null,
+        "name": "Euro",
+        "symbol": "EUR",
+        "updated_at": "2026-01-01 00:00:00",
+        "url": null
+      }
+    ],
+    "api_keys": [],
+    "fee_api_keys": [],
+    "app_configs": [],
+    "rules": [
+      {
+        "id": 1,
+        "address": null,
+        "asset_id": 1,
+        "created_at": "2026-01-01 00:00:00",
+        "exchange_id": 1,
+        "settings": "{}",
+        "settings_changed_at": null,
+        "status": 2,
+        "type": "Rules::Withdrawal",
+        "updated_at": "2026-01-01 00:00:00",
+        "user_id": 1
+      }
+    ],
+    "oauth_applications": [
+      {
+        "id": 1,
+        "confidential": 0,
+        "created_at": "2026-01-01 00:00:00",
+        "grant_types": "authorization_code",
+        "name": "MCP",
+        "personal_access_token": 0,
+        "personal_owner_id": null,
+        "redirect_uri": "http://localhost/cb",
+        "registration_access_token": null,
+        "response_types": "code",
+        "scopes": "",
+        "secret": null,
+        "token_endpoint_auth_method": "none",
+        "uid": "uid-1",
+        "updated_at": "2026-01-01 00:00:00"
+      }
+    ],
+    "oauth_access_tokens": [],
+    "oauth_access_grants": [],
+    "connected_clients": [],
+    "bots": [
+      {
+        "id": 1,
+        "account_balance": 0,
+        "created_at": "2026-01-01 00:00:00",
+        "current_delay": 0,
+        "delay": 0,
+        "exchange_id": 1,
+        "fetch_restarts": 0,
+        "label": null,
+        "last_end_of_funds_notification": null,
+        "position": 0,
+        "redeploy_declined_offset": 0,
+        "restarts": 0,
+        "restatement_generation": 0,
+        "settings": "{\"interval\":\"week\",\"quote_amount\":10.0,\"quote_asset_id\":2,\"allocations\":{\"1\":1.0}}",
+        "settings_changed_at": null,
+        "started_at": "2026-01-01 00:00:00",
+        "status": 2,
+        "stop_message_key": null,
+        "stopped_at": "2026-11-06 06:44:38.294678",
+        "transient_data": "{}",
+        "type": "Bots::DcaMultiAsset",
+        "updated_at": "2026-01-01 00:00:00",
+        "user_id": 1
+      }
+    ],
+    "account_transactions": [
+      {
+        "id": 1,
+        "api_key_id": null,
+        "base_amount": 1,
+        "base_asset_id": null,
+        "base_currency": "BTC",
+        "created_at": "2026-01-01 00:00:00",
+        "description": null,
+        "entry_type": 0,
+        "exchange_id": 1,
+        "fee_amount": null,
+        "fee_currency": null,
+        "group_id": null,
+        "linked_transaction_id": null,
+        "manual_values": "{}",
+        "quote_amount": null,
+        "quote_currency": null,
+        "raw_data": "{}",
+        "transacted_at": "2026-01-01 00:00:00",
+        "transaction_id": null,
+        "transfer_link_rejected": 0,
+        "tx_id": null,
+        "updated_at": "2026-01-01 00:00:00",
+        "user_id": 1
+      }
+    ]
+  },
+  "report": {
+    "status": 0,
+    "stdout": "\nAPI keys stored here — these will be cleared because the encryption key is\nchanging. Every stored value still decrypts under the current secret, and that\nsecret is not one published in this repository, so nothing below is known to be\nexposed. If you know otherwise, re-run with PUBLISHED=yes.\n  Kraken (trading) — o@example.com\n  Kraken (withdrawal) — o@example.com\n\nFee API keys — will also be cleared: Kraken\nTwo-factor seed present for: o@example.com\nSettings that will reset:    coingecko_api_key, market_data_token, registration_open, smtp_password\nThose settings hold credentials too — they will be cleared and need re-entering,\nnot rotated: SMTP password, Alpaca key and secret, CoinGecko key, market-data token.\n\nWithdrawal addresses — COPY THESE NOW, they cannot be recovered afterwards:\n  Kraken / BTC: bc1qexampleaddress\n\n",
+    "stderr": ""
+  },
+  "unconfirmed": {
+    "status": 1,
+    "stdout": "",
+    "stderr": "\nThis deletes every stored API key, every REST API and MCP token, disables\ntwo-factor authentication, clears withdrawal addresses, resets settings, and stops\nevery working bot and rule. It cannot be undone.\n\nDo these first, in order:\n  1. Stop the app. A job a worker has already picked up cannot be cancelled and\n     would keep trading while this runs.\n  2. Back up /app/storage — with the app stopped, so the copy is consistent.\n  3. Run `deltabadger:encryption:report`. Copy your withdrawal addresses.\n  4. Nothing here is known to be exposed — this clears credentials\n     because the encryption key is changing, not because anything\n     leaked.\n\nExposure is judged from two things: whether the secret you are running now is one\npublished in this repository, and whether anything stored still decrypts under it.\nNeither can see a key you have already replaced and discarded. If you know the key\nthis data was written under was published, re-run with PUBLISHED=yes as well and\nevery message here will say so.\n\nRe-run with:  CONFIRM=clear-credentials bin/rails deltabadger:encryption:reset\n\n"
+  },
+  "reset": {
+    "status": 0,
+    "stdout": "\nCleared:\n  API keys deleted:            2\n  Fee API keys deleted:        1\n  Settings cleared:            4\n  Withdrawal addresses:        1\n  Two-factor seed cleared for: 1 user(s)\n  REST API and MCP tokens:     2\n  Bots stopped:                1\n  Rules stopped:               1\n\nNothing here was known to be exposed, so nothing needed revoking first — this\nonly cleared credentials because the encryption key is changing.\n\nNext: point this install at a new key. Blank the SECRET_KEY_BASE value in\n.env.docker and delete the generated key, which is a separate file:\n  docker compose run --rm --no-deps deltabadger rm -f /app/storage/.secrets\nOn a default install that file is where your key actually is, and a new one is\nwritten only when it is absent. If your value comes from a compose file instead,\nput a freshly generated one there (openssl rand -hex 64) rather than blanking it:\nthat file runs two services off one volume, and each would generate its own.\nThen recreate the container, which is what picks up the change:\n  docker compose up -d --force-recreate\nStarting the stopped container instead brings the old value back with it.\n\nIssue the replacement credentials, re-enable two-factor, re-issue your REST\nAPI token, reconnect your MCP clients, and restart your bots and rules — until\nthe app is running there is nowhere to store the new credentials.\n\n",
+    "stderr": ""
+  }
+}

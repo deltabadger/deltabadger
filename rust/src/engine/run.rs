@@ -1231,8 +1231,7 @@ pub async fn run_commands<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock)
 async fn run_command<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, kind: super::amount::TxKind) -> Result<(),EngineError> {
     use super::{liquidation, redeploy};
     let liquidating = kind == super::amount::TxKind::Liquidation;
-    let (key, select) = if liquidating { (liquidation::REQUEST_KEY, "json_type(transient_data,'$.liquidation_selling_since.holdings') IS NOT NULL") }
-        else { (redeploy::REQUEST_KEY, "json_type(transient_data,'$.rust_redeploy_request')='object'") };
+    let (key, select) = if liquidating { (liquidation::REQUEST_KEY, liquidation::PENDING_SQL) } else { (redeploy::REQUEST_KEY, redeploy::PENDING_SQL) };
     let name = super::composition::name(kind).expect("composition kind");
     let refuse = |c: &Connection, id: i64, reason: serde_json::Value| if liquidating { liquidation::refuse(c,id,reason,clock) } else { redeploy::refuse(c,id,reason,clock) };
     let clear = |c: &Connection, id: i64, request: &serde_json::Value| if liquidating { liquidation::clear(c,id,request) } else { redeploy::clear(c,id,request) };

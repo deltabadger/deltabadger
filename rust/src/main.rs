@@ -10,6 +10,9 @@
 //! - reset-password <email> [--stdin | --generate]: set an account's password from the install's shell (PLAN-A16b,
 //!   D-RESET-PASSWORD-COMMAND), asked twice on the terminal, read from a pipe, or made and printed once to a terminal.
 //!   Not an engine: it takes no engine lock and writes one short transaction while `serve` runs (`reset_password`).
+//! - encryption-report [--published] | encryption-reset [--confirm clear-credentials] [--confirm-ibkr] [--published] |
+//!   encryption-derived-keys: Rails' deltabadger:encryption:* tasks (PLAN-A29, deltabadger::rotation). The report and
+//!   derived-keys only read; the reset takes the engine lock and clears every stored credential in one transaction.
 //!
 //! Env: STORAGE_DIR (default ./storage), DATABASE_PATH and QUEUE_DATABASE_PATH; run, handback and serve also need
 //! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). serve also reads PORT (default 3000),
@@ -101,6 +104,9 @@ fn main() {
         Some("repair-binance-history") => std::process::exit(repair_binance_history(&env)),
         Some("serve") => std::process::exit(serve(&env)),
         Some("reset-password") => reset_password(&env),
+        Some("encryption-report") => encryption_report(&env),
+        Some("encryption-reset") => encryption_reset(&env),
+        Some("encryption-derived-keys") => encryption_derived_keys(&env),
         Some("resolve-withdrawal") => {
             use deltabadger::engine::withdrawal::{self,Target};
             let args:Vec<String>=std::env::args().skip(2).collect();
@@ -179,7 +185,7 @@ fn main() {
             println!("{}", serde_json::to_string_pretty(&out).unwrap());
         }
         _ => println!(
-            "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | reset-password <email> [--stdin | --generate] | repair-binance-history --dry-run|--apply|--inventory | resolve-withdrawal <rule_id> --sent <id> | --not-sent | resolve-placement <bot_id> --placed <order_id> | --not-placed | reconcile-order <transaction_id> --evidence <file> | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
+            "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | reset-password <email> [--stdin | --generate] | encryption-report [--published] | encryption-reset [--confirm clear-credentials] [--confirm-ibkr] [--published] | encryption-derived-keys | repair-binance-history --dry-run|--apply|--inventory | resolve-withdrawal <rule_id> --sent <id> | --not-sent | resolve-placement <bot_id> --placed <order_id> | --not-placed | reconcile-order <transaction_id> --evidence <file> | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
             deltabadger::VERSION
         ),
     }
@@ -242,6 +248,95 @@ fn reset_password(env: &dyn Fn(&str) -> Option<String>) {
             if let Source::Generate = source { println!("new password: {password}"); }
         }
     }
+}
+
+/// The flags of an encryption command, each at most once; anything else is the usage line, nothing read.
+fn encryption_flags(usage: &str, allowed: &[&str]) -> std::collections::HashMap<String, String> {
+    let args: Vec<String> = std::env::args_os().skip(2).map(|a| a.into_string().unwrap_or_else(|_| fail(usage))).collect();
+    let mut flags = std::collections::HashMap::new();
+    let mut it = args.into_iter();
+    while let Some(a) = it.next() {
+        let (flag, value) = match a.split_once('=') { Some((f, v)) if f == "--confirm" => (f.to_string(), v.to_string()), _ => (a.clone(), String::new()) };
+        if !allowed.contains(&flag.as_str()) { fail(usage) }
+        let value = if flag == "--confirm" && value.is_empty() && !a.contains('=') { it.next().unwrap_or_else(|| fail(usage)) } else { value };
+        if flags.insert(flag, value).is_some() { fail(usage) }
+    }
+    flags
+}
+
+/// The instance's secret and the cipher it resolves to, as `run` reads them (no secret, a partial pair: refused).
+fn encryption_secret(env: &dyn Fn(&str) -> Option<String>) -> (String, Cipher) {
+    refuse_url_overrides(env);
+    let secret = env("SECRET_KEY_BASE").filter(|s| !s.trim().is_empty()).unwrap_or_else(|| fail("SECRET_KEY_BASE is not set: use the instance's own"));
+    let keys = EncryptionKeys::resolve(env, &secret).unwrap_or_else(|e| fail_as(Why::KeysIncomplete, &format!("encryption keys: {e:?}")));
+    (secret, Cipher::new(&keys))
+}
+
+fn read_only_primary(paths: &Paths, env: &dyn Fn(&str) -> Option<String>) -> rusqlite::Connection {
+    store::check(paths).unwrap_or_else(|e| refuse_store(e, paths, env));
+    rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap_or_else(|e| fail(&format!("{e}")))
+}
+
+/// `deltabadger encryption-report` (Rails' encryption:report): read-only; runs beside the app. The owed list needs the
+/// stopped app's lock (it judges a copy as the next start would), so with the app up it says it wasn't checked.
+fn encryption_report(env: &dyn Fn(&str) -> Option<String>) {
+    use deltabadger::rotation;
+    let flags = encryption_flags("usage: deltabadger encryption-report [--published]", &["--published"]);
+    let (secret, cipher) = encryption_secret(env);
+    let paths = paths(env);
+    let c = read_only_primary(&paths, env);
+    let sql = |e: rusqlite::Error| -> ! { fail(&format!("{e}")) };
+    let inventory = rotation::inventory(&c, &cipher).unwrap_or_else(|e| sql(e));
+    let compromised = rotation::compromised(flags.contains_key("--published"), &secret, &c, &cipher).unwrap_or_else(|e| sql(e));
+    let owed = lease::lock(&paths, chrono::Utc::now()).ok().map(|lock| {
+        let copy = store::copy_in_memory(&paths).unwrap_or_else(|e| refuse_store(e, &paths, env));
+        rotation::owed(&lock, &copy, chrono::Utc::now()).unwrap_or_else(|e| fail(&e))
+    });
+    print!("{}", rotation::report_text(&inventory, compromised, owed.as_deref()));
+}
+
+/// `deltabadger encryption-reset` (Rails' encryption:reset, PLAN-A29): under the engine lock, compromised judged before
+/// anything changes, then the confirmation, the IBKR confirmation and the owed work, then one transaction that decrypts
+/// nothing (rotation::clear).
+fn encryption_reset(env: &dyn Fn(&str) -> Option<String>) {
+    use deltabadger::rotation;
+    let flags = encryption_flags("usage: deltabadger encryption-reset [--confirm clear-credentials] [--confirm-ibkr] [--published]",
+                                 &["--confirm", "--confirm-ibkr", "--published"]);
+    let (secret, cipher) = encryption_secret(env);
+    let paths = paths(env);
+    let lock = take_lock(&paths);
+    let platform = rotation::platform(env);
+    let sql = |e: rusqlite::Error| -> ! { fail(&format!("{e}")) };
+    let (compromised, ibkr, readable) = {
+        let c = read_only_primary(&paths, env);
+        let unreadable = rotation::written_under_another_key(&c, &cipher).unwrap_or_else(|e| sql(e));
+        (flags.contains_key("--published") || rotation::published(&secret) || unreadable, rotation::holds_ibkr(&c).unwrap_or_else(|e| sql(e)), !unreadable)
+    };
+    let refuse = |text: String| -> ! { eprint!("{text}"); std::process::exit(EXIT_REFUSED) };
+    if flags.get("--confirm").map(String::as_str) != Some(rotation::CONFIRMATION) { refuse(rotation::unconfirmed_text(compromised, platform)) }
+    if ibkr && !flags.contains_key("--confirm-ibkr") { refuse(rotation::IBKR_TEXT.into()) }
+    let now = chrono::Utc::now();
+    let copy = store::copy_in_memory(&paths).unwrap_or_else(|e| refuse_store(e, &paths, env));
+    let owed = rotation::owed(&lock, &copy, now).unwrap_or_else(|e| fail(&e));
+    drop(copy);
+    if !owed.is_empty() { refuse(rotation::owed_text(&owed, readable)) }
+    let o = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths, env));
+    let tx = deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e| fail(&format!("{e:?}")));
+    let summary = rotation::clear(&tx, now).unwrap_or_else(|e| sql(e));
+    tx.commit().unwrap_or_else(|e| sql(e));
+    print!("{}", rotation::cleared_text(&summary, compromised, rotation::independent(env), platform));
+}
+
+/// `deltabadger encryption-derived-keys` (Rails' encryption:derived_keys): read-only, prints, never writes.
+fn encryption_derived_keys(env: &dyn Fn(&str) -> Option<String>) {
+    use deltabadger::rotation;
+    encryption_flags("usage: deltabadger encryption-derived-keys", &[]);
+    let (secret, cipher) = encryption_secret(env);
+    let paths = paths(env);
+    let c = read_only_primary(&paths, env);
+    // An error is indeterminate: refused like an unreadable install (Rails' readability).
+    let readable = rotation::written_under_another_key(&c, &cipher).ok().map(|unreadable| !unreadable);
+    print!("{}", rotation::derived_keys_text(readable, env, &secret, rotation::platform(env)));
 }
 
 fn paths(env: &dyn Fn(&str) -> Option<String>) -> Paths {
@@ -380,6 +475,8 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     let secret = env("SECRET_KEY_BASE").filter(|s| !s.trim().is_empty()).unwrap_or_else(|| fail("SECRET_KEY_BASE is not set: use the instance's own"));
     let keys = EncryptionKeys::resolve(env, &secret).unwrap_or_else(|e| fail_as(Why::KeysIncomplete, &format!("encryption keys: {e:?}")));
     let cipher = Cipher::new(&keys);
+    // SecretKeyBaseGuard at start (PLAN-A29 §7): a published or short secret is said, never refused.
+    if start { if let Some(warning) = deltabadger::rotation::warning_for(&secret, env) { deltabadger::eline!("{warning}"); } }
     let paths = paths(env);
     let lock = if start { take_lock_waiting(&paths) } else { take_lock(&paths) };
     let created = start && store::bootstrap(&paths, &lock, &cipher, env, deltabadger::VERSION, chrono::Utc::now()).unwrap_or_else(|e| refuse_store(e, &paths, env));
@@ -389,6 +486,16 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
         store::abort_point("after-commit");
     }
     check_readable(&paths, &cipher, env);
+    // EncryptionKeyCheck at start (r2.5): one readable sample let the start through; anything else written under other keys
+    // is said, never refused. An error is a line only (Rails' indeterminate).
+    if start {
+        let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap_or_else(|e| fail(&format!("{e}")));
+        match deltabadger::rotation::written_under_another_key(&c, &cipher) {
+            Ok(true) => deltabadger::eline!("{}", deltabadger::rotation::KEY_NOTICE),
+            Ok(false) => {}
+            Err(e) => log(&format!("encryption key check did not complete: {e}")),
+        }
+    }
     if start { pause("before-backup"); stop_if_requested(); }
     // One copy per start at most (PLAN-B7 §4): before a takeover from Rails, or before this build migrates a desktop install
     // that is already Rust's. A new install has nothing to copy.

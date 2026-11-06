@@ -15,6 +15,18 @@ const ROTATE_AT: u64 = 10 * 1024 * 1024;
 struct Log { path: PathBuf, file: Option<std::fs::File>, len: u64, limit: u64, marker: String, read_only: bool }
 
 static LOG: OnceLock<Mutex<Log>> = OnceLock::new();
+/// While set, no line is written anywhere (`muted`).
+static MUTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// `f` with every engine line dropped: encryption-reset's judgement runs the takeover on a copy (rotation::owed), whose
+/// start-log lines describe nothing that happened.
+pub fn muted<T>(f: impl FnOnce() -> T) -> T {
+    use std::sync::atomic::Ordering::SeqCst;
+    MUTED.store(true, SeqCst);
+    let out = f();
+    MUTED.store(false, SeqCst);
+    out
+}
 
 impl Log {
     fn open(&mut self) {
@@ -62,6 +74,7 @@ pub fn init(env: &dyn Fn(&str) -> Option<String>) {
 }
 
 fn line(text: &str, stdout: bool) {
+    if MUTED.load(std::sync::atomic::Ordering::SeqCst) { return; }
     match LOG.get() {
         Some(log) => log.lock().unwrap_or_else(|e| e.into_inner()).write(&format!("{text}\n")),
         None if stdout => println!("{text}"),
