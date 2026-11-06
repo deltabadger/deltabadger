@@ -82,18 +82,19 @@ pub const HISTORY_PAGES: usize = 5;
 /// UNKNOWN_ORDER_STATUS (Unknown in Rails' map) and anything else None.
 pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
-    use chrono::Timelike;
     let zero = BigDec::zero();
     let amount = |v: &Value| crate::ruby::json_to_d(v).ok().flatten().filter(|d| *d >= zero);
     // Absent or null is none; present, a decimal not below zero, positive or none.
     let size = |c: &Value, k: &str| match c.get(k) { None | Some(Value::Null) => Some(None), Some(v) => amount(v).map(|d| d.is_positive().then_some(d)) };
     if o.get("product_id")?.as_str()? != symbol { return None; }
     let id = o.get("order_id")?.as_str().filter(|s| !s.is_empty())?;
-    let t = DateTime::parse_from_rfc3339(o.get("created_time")?.as_str()?).ok()?.with_timezone(&Utc);
-    // Branch r1.1: a time finer than the microsecond booking stores is unreadable, never rounded (two such times would
-    // compare equal, and a time just past the window could round into it).
-    if t.nanosecond() % 1_000 != 0 { return None; }
-    let created_at = t;
+    let raw = o.get("created_time")?.as_str()?;
+    // Branch r1.1, r2.1: a time finer than the microsecond booking stores is unreadable, never rounded (two such times
+    // would compare equal, and a time just past the window could round into it). Read from the text: chrono drops digits
+    // past the ninth.
+    let fraction = raw.split_once('.').map_or("", |(_, rest)| rest.split(|c: char| !c.is_ascii_digit()).next().unwrap_or(""));
+    if fraction.bytes().skip(6).any(|b| b != b'0') { return None; }
+    let created_at = DateTime::parse_from_rfc3339(raw).ok()?.with_timezone(&Utc);
     let side = match o.get("side")?.as_str()? { "BUY" => Side::Buy, "SELL" => Side::Sell, _ => return None };
     let config = o.get("order_configuration")?.as_object()?;
     let (kind, size) = match (o.get("order_type")?.as_str()?, config.len()) {
