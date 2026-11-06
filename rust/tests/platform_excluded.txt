@@ -109,6 +109,7 @@ reference_jobs
 reference_parity
 reference_safety
 reversal
+rotation
 rules_api
 rules_web
 run

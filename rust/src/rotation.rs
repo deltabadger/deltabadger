@@ -253,10 +253,11 @@ pub fn written_under_another_key(c: &Connection, cipher: &Cipher) -> rusqlite::R
 }
 
 /// The keys app/models/app_config.rb names (its setting constants; `proxy_` is a prefix): a plain legacy value under one
-/// of these is a setting the reset clears too.
+/// of these is a setting the reset clears too. The retired Alpaca keys (D-STOCKS-RETIRED) are left out: no code names
+/// them (settings.rs no_code_reads_the_install_alpaca_credential), and AppConfig only ever stored them encrypted, so the
+/// encrypted-row rule clears them.
 pub const RAILS_SETTINGS: &[&str] = &["coingecko_api_key", "setup_sync_status", "market_data_provider", "market_data_url", "market_data_token",
-    "platform_connected_at", "registration_open", "alpaca_api_key", "alpaca_api_secret", "alpaca_mode", "smtp_provider", "smtp_username",
-    "smtp_password", "smtp_host", "smtp_port"];
+    "platform_connected_at", "registration_open", "smtp_provider", "smtp_username", "smtp_password", "smtp_host", "smtp_port"];
 const PROXY_PREFIX: &str = "proxy_";
 
 /// The app_configs rows the reset deletes (D-RESET-KEEPS-ENGINE-STATE): every encrypted row, and every Rails setting.

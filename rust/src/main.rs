@@ -476,7 +476,8 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     let keys = EncryptionKeys::resolve(env, &secret).unwrap_or_else(|e| fail_as(Why::KeysIncomplete, &format!("encryption keys: {e:?}")));
     let cipher = Cipher::new(&keys);
     // SecretKeyBaseGuard at start (PLAN-A29 §7): a published or short secret is said, never refused.
-    if start { if let Some(warning) = deltabadger::rotation::warning_for(&secret, env) { deltabadger::eline!("{warning}"); } }
+    // Line by line, so the desktop's log file rotates (or stops) between them as it does for any other line.
+    if start { for line in deltabadger::rotation::warning_for(&secret, env).unwrap_or_default().lines() { deltabadger::eline!("{line}"); } }
     let paths = paths(env);
     let lock = if start { take_lock_waiting(&paths) } else { take_lock(&paths) };
     let created = start && store::bootstrap(&paths, &lock, &cipher, env, deltabadger::VERSION, chrono::Utc::now()).unwrap_or_else(|e| refuse_store(e, &paths, env));
@@ -491,7 +492,7 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     if start {
         let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap_or_else(|e| fail(&format!("{e}")));
         match deltabadger::rotation::written_under_another_key(&c, &cipher) {
-            Ok(true) => deltabadger::eline!("{}", deltabadger::rotation::KEY_NOTICE),
+            Ok(true) => for line in deltabadger::rotation::KEY_NOTICE.lines() { deltabadger::eline!("{line}"); },
             Ok(false) => {}
             Err(e) => log(&format!("encryption key check did not complete: {e}")),
         }
