@@ -226,6 +226,9 @@ pub fn created_order(symbols: &[String], txid: &str, o: &Value) -> Option<super:
 
 /// `opentm`: Unix seconds as a JSON number to the microsecond (what A28-2's facts store); a finer one (branch r1.2: it would
 /// round into the window or onto another order's time) and anything else None.
+// ponytail: digits are checked after JSON decoding has made the number an f64, so a raw time within ~0.2 µs of a whole
+// microsecond passes as that microsecond. Harmless here: Kraken is report only (no booking compares times), orders are
+// deduplicated by txid, and the window is already the obligation's ± AROUND margin. Read the raw token if Kraken is ever booked.
 fn opentm(v: &Value) -> Option<DateTime<Utc>> {
     let Value::Number(n) = v else { return None };
     let text = n.to_string();
