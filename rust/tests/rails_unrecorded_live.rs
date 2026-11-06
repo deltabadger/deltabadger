@@ -2403,7 +2403,7 @@ fn a_kraken_row_is_read_only_in_its_venues_words() {
     r["opentm"] = json!(1790690585.8974);
     assert_eq!(kraken_read(&r).unwrap().created_at, t("2026-09-29T14:03:05.8974Z"));
     type Edit = (&'static str, fn(&mut Value));
-    let none: [Edit; 17] = [
+    let none: [Edit; 21] = [
         ("pending (Unknown in Rails' map)", |r| r["status"] = json!("pending")), ("an unlisted status", |r| r["status"] = json!("filled")),
         ("closed with nothing filled", |r| r["vol_exec"] = json!("0")), ("a stop order", |r| r["descr"]["ordertype"] = json!("stop-loss")),
         ("another side", |r| r["descr"]["type"] = json!("BUY")), ("a limit at no price", |r| r["descr"]["price"] = json!("0")),
@@ -2412,6 +2412,9 @@ fn a_kraken_row_is_read_only_in_its_venues_words() {
         ("no opening time", |r| { r.as_object_mut().unwrap().remove("opentm"); }), ("an opening time as text", |r| r["opentm"] = json!("1790690585.1")),
         ("an opening time of zero", |r| r["opentm"] = json!(0)), ("a negative opening time", |r| r["opentm"] = json!(-5.5)),
         ("the pair's wsname", |r| r["descr"]["pair"] = json!("XBT/EUR")), ("an empty txid", |r| r["__txid"] = json!("")),
+        // Branch r1.1/r1.2: flags that can't say the denomination; a time finer than the microsecond.
+        ("no flags", |r| { r.as_object_mut().unwrap().remove("oflags"); }), ("null flags", |r| r["oflags"] = Value::Null), ("flags as a number", |r| r["oflags"] = json!(1)),
+        ("an opening time finer than the microsecond", |r| r["opentm"] = json!(1790690585.1234567)),
     ];
     for (name, edit) in none {
         let mut r = base.clone();

@@ -200,6 +200,8 @@ pub fn created_order(symbols: &[String], txid: &str, o: &Value) -> Option<super:
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
     if txid.is_empty() { return None; }
     let pair = o["descr"]["pair"].as_str().filter(|p| symbols.iter().any(|s| s == p))?;
+    // Branch r1.1: `oflags` decides the size's denomination (viqc): a missing or non-string one is unreadable, never base.
+    o["oflags"].as_str()?;
     let s = parse_order(txid, o).ok()?;
     let side = match o["descr"]["type"].as_str()? { "buy" => Side::Buy, "sell" => Side::Sell, _ => return None };
     let kind = if s.limit { CreatedKind::Limit { price: dec(&o["descr"]["price"]).ok().flatten().filter(BigDec::is_positive)? } } else { CreatedKind::Market };
@@ -222,12 +224,13 @@ pub fn created_order(symbols: &[String], txid: &str, o: &Value) -> Option<super:
                         filled_quote: Some(filled_quote) })
 }
 
-/// `opentm`: Unix seconds as a JSON number, its fraction kept to the microsecond (what A28-2's facts store); anything else None.
+/// `opentm`: Unix seconds as a JSON number to the microsecond (what A28-2's facts store); a finer one (branch r1.2: it would
+/// round into the window or onto another order's time) and anything else None.
 fn opentm(v: &Value) -> Option<DateTime<Utc>> {
     let Value::Number(n) = v else { return None };
     let text = n.to_string();
     let (secs, frac) = text.split_once('.').unwrap_or((&text, ""));
-    if secs.is_empty() || !secs.bytes().all(|b| b.is_ascii_digit()) || !frac.bytes().all(|b| b.is_ascii_digit()) { return None; }
+    if secs.is_empty() || !secs.bytes().all(|b| b.is_ascii_digit()) || !frac.bytes().all(|b| b.is_ascii_digit()) || frac.bytes().skip(6).any(|b| b != b'0') { return None; }
     let micros: u32 = format!("{:0<6}", &frac[..frac.len().min(6)]).parse().ok()?;
     DateTime::from_timestamp(secs.parse().ok().filter(|s: &i64| *s > 0)?, micros * 1_000)
 }
