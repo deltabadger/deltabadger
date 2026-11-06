@@ -9,8 +9,8 @@
 //! A28-3 (PLAN-A28-3 r1-r4, D-RAILS-UNRECORDED-LIVE-HISTORY): the job (`Report`) also reads the order history of a served
 //! venue (Binance, Binance.US, Bybit) live once that line is due, through the bot's trading key, and names in the line the
 //! orders it lists that no bot recorded, open ones first (D-RAILS-UNRECORDED-OPEN-NAMED). The live read only adds: with no
-//! such order, or no answer, the line is A28-1's. Nothing is booked, cancelled or carried. A28-3d-4: Kraken, which has no
-//! fills ledger, is read onto A28-1's `no_history` line and is report only (`NO_LEDGER_SERVED`).
+//! such order, or no answer, the line is A28-1's. Nothing is booked, cancelled or carried. A28-3d-4/-5: Kraken and KuCoin,
+//! which have no fills ledger, are read onto A28-1's `no_history` line and are report only (`NO_LEDGER_SERVED`).
 
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -508,14 +508,15 @@ use crate::venue::binance::{BINANCE, BINANCE_US};
 use crate::venue::{Created, CreatedKind, CreatedOrder, CreatedSize, CreatedState, HistoryError, Venue};
 
 /// The venues whose order history is read live: A28-3a (Rails' own clients pin their order-list answer, §1), A28-3b-1 Alpaca
-/// (a recorded answer, tests/fixtures/order_lists/alpaca), A28-3c-3a Hyperliquid, and A28-3d-1..4's lists built from the docs.
-const SERVED: [&str; 13] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA, crate::venue::hyperliquid::HYPERLIQUID, MEXC, BITRUE, BINGX,
-                            BITGET, BITVAVO, GEMINI, COINBASE, KRAKEN];
+/// (a recorded answer, tests/fixtures/order_lists/alpaca), A28-3c-3a Hyperliquid, and A28-3d-1..5's lists built from the docs.
+const SERVED: [&str; 14] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA, crate::venue::hyperliquid::HYPERLIQUID, MEXC, BITRUE, BINGX,
+                            BITGET, BITVAVO, GEMINI, COINBASE, KRAKEN, KUCOIN];
 /// A28-3d-4 r1 (D-HISTORY-NO-LEDGER-BASIS, D-HISTORY-NO-LEDGER-REPORT-ONLY): the served venues with no fills ledger
-/// (`sync::fills::supported` excludes them): read live onto A28-1's `no_history` line, never offered or booked.
-const NO_LEDGER_SERVED: [&str; 1] = [KRAKEN];
+/// (`sync::fills::supported` excludes them): read live onto A28-1's `no_history` line, never offered or booked. A28-3d-5: KuCoin.
+const NO_LEDGER_SERVED: [&str; 2] = [KRAKEN, KUCOIN];
 fn no_ledger(venue_type: &str) -> bool { NO_LEDGER_SERVED.contains(&venue_type) }
 use crate::venue::catalogue::KRAKEN;
+use crate::venue::kucoin::KUCOIN;
 /// A28-3d G4 (D-HISTORY-DOC-BOOK-CONFIRMED): the venues whose list read is built from the docs alone; a booking also needs
 /// the venue's Rails-called single-order lookup to read the same order (`Venue::order_created`).
 const DOC_BUILT: [&str; 7] = [MEXC, BITRUE, BINGX, BITGET, BITVAVO, GEMINI, COINBASE];
