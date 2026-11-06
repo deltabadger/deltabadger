@@ -147,7 +147,11 @@ pub fn parse_order(order_id: &str, o: &Value) -> Result<OrderState, VenueError> 
 /// `orderType` market, or limit at a positive `price`; `size` positive, quote coins on a market buy and base otherwise (G2);
 /// `baseVolume` and `quoteVolume` present and not negative. ORDER_STATUS_MAP: live / partially_filled open, filled (something
 /// executed) filled, cancelled ended; init / new (Unknown there) and anything else None. The id is "<symbol>-<orderId>".
-pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
+pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> { created_order_in(symbol, o, false) }
+
+/// `created_order` for a row of `unfilled` (unfilled-orders, branch r1.1): that list documents the order's price as
+/// `priceAvg` and no `price`, so a limit row there takes `price`, else `priceAvg`.
+pub fn created_order_in(symbol: &str, o: &Value, unfilled: bool) -> Option<super::CreatedOrder> {
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState};
     let zero = BigDec::zero();
     let amount = |k: &str| o.get(k).and_then(|v| crate::ruby::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
@@ -159,7 +163,7 @@ pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
     let side = match o.get("side")?.as_str()?.to_lowercase().as_str() { "buy" => Side::Buy, "sell" => Side::Sell, _ => return None };
     let kind = match o.get("orderType")?.as_str()?.to_lowercase().as_str() {
         "market" => CreatedKind::Market,
-        "limit" => CreatedKind::Limit { price: amount("price").filter(BigDec::is_positive)? },
+        "limit" => CreatedKind::Limit { price: amount("price").or_else(|| if unfilled && o.get("price").is_none() { amount("priceAvg") } else { None }).filter(BigDec::is_positive)? },
         _ => return None,
     };
     let size = amount("size").filter(BigDec::is_positive)?;
@@ -463,7 +467,7 @@ impl<T: Transport> super::Venue for BitgetVenue<T> {
                     Err(e) if !super::binance::any_in(&out, from, to) => return Err(e),
                     Err(_) => { out.complete = false; break; }
                 };
-                super::binance::read_rows(&mut out, &mut twice, &rows, |r| created_order(symbol, r));
+                super::binance::read_rows(&mut out, &mut twice, &rows, |r| created_order_in(symbol, r, n == 0));
                 let full = rows.len() >= HISTORY_PAGE;
                 if n == 0 { if full { out.complete = false; } continue; }
                 if !full { break; }

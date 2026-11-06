@@ -1476,6 +1476,21 @@ async fn one_id_listed_in_and_out_of_the_window_is_unreadable_either_way_round()
 }
 
 #[tokio::test]
+async fn a_bitget_unfilled_row_priced_only_by_price_avg_reads_at_that_price() {
+    // A28-3d-2 branch r1.1: unfilled-orders documents the order's price as `priceAvg`, with no `price`.
+    let (from, to) = window();
+    let row = |id| { let mut r = bitget_row(&limit(id, St::Open, "0", "0")); r.as_object_mut().unwrap().remove("price"); r["priceAvg"] = json!("50000"); r };
+    let tr = ScriptedTransport::default();
+    tr.set_now(now());
+    two(Kind::Bitget, &tr, vec![row(9)], vec![row(8)]);
+    let read = doc_read(Kind::Bitget, &tr, from, to).await.unwrap();
+    // The open list's row reads; the same shape in history-orders (which documents `price`) is unreadable.
+    assert_eq!((ids(&read), read.complete), (vec![Kind::Bitget.external_id(9).as_str()], false));
+    assert_eq!(read.orders[0].kind, deltabadger::venue::CreatedKind::Limit { price: dec("50000") });
+    assert_eq!(read.orders[0].state, deltabadger::venue::CreatedState::Open);
+}
+
+#[tokio::test]
 async fn a_failure_after_only_older_orders_is_the_reads_failure() {
     // Branch r2.1: rows kept for the twin check only (outside the window) never make a later failure a partial read.
     use deltabadger::venue::HistoryError;
