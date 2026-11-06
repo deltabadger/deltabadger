@@ -291,6 +291,7 @@ const FROM_GEMS: &[(&str, &str)] = &[
     ("en.bot_activity.events.rails_order_not_added_nothing_filled", "Couldn't add the order from before the update to this bot's history. %{venue} shows nothing filled for it."),
     ("en.bot_activity.events.rails_order_not_added_no_cost", "Couldn't add the order from before the update to this bot's history. %{venue} doesn't say what it cost."),
     ("en.bot_activity.events.rails_order_not_added_ledger", "Couldn't add the order from before the update to this bot's history. Your imported %{venue} trades show more filled than %{venue} reports for it. Try again later."),
+    ("en.bot_activity.events.rails_order_not_added_unconfirmed", "Couldn't add the order from before the update to this bot's history. %{venue} didn't confirm this order when asked for it again. Try again later."),
     ("en.bot_activity.events.rails_order_not_added_not_found", "Couldn't add the order from before the update to this bot's history. %{venue} didn't return this order. Try again later."),
     ("en.bot_activity.events.rails_order_not_added_unreachable", "Couldn't add the order from before the update to this bot's history. Deltabadger couldn't reach %{venue}. Try again later."),
     ("en.bot_activity.events.rails_order_not_added_refused", "Couldn't add the order from before the update to this bot's history. %{venue} refused the API key. Check the key, then try again."),
