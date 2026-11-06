@@ -573,11 +573,18 @@ fn an_attempt_is_settled_by_the_version_that_starts_and_a_failure_is_shown_once(
     for intent in [true, false] {
         install::write_attempt(&data, "2.0.1", intent).unwrap();
         assert!(settle_attempt(&data, &log, "2.0.0", at).unwrap().contains("didn't install"));
-        assert!(!data.join("updates/attempt").exists());
         assert_eq!(read_failed_mark(&log), Some(Kind::Install));
-        assert_eq!(settle_attempt(&data, &log, "2.0.0", at), None, "the next start shows nothing more");
         std::fs::remove_file(log.join(FAILED_MARK)).unwrap(); // what update_state does once a page has the state
+        assert_eq!(settle_attempt(&data, &log, "2.0.0", at), None, "the next start shows nothing more");
+        assert_eq!(read_failed_mark(&log), None);
     }
+    // A start of N in the instant before PREINSTALL ran reported a failure; the installer then finished: N+1 settles it
+    // as installed and clears the mark the page hasn't shown yet.
+    install::write_attempt(&data, "2.0.1", false).unwrap();
+    settle_attempt(&data, &log, "2.0.0", at).unwrap();
+    assert!(settle_attempt(&data, &log, "2.0.1", at).unwrap().contains("installed this version"));
+    assert!(!data.join("updates/attempt").exists());
+    assert_eq!(read_failed_mark(&log), None);
 
     // An unreadable attempt is a failed one.
     std::fs::write(data.join("updates/attempt"), "{").unwrap();

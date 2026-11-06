@@ -500,7 +500,9 @@ pub fn read_failed_mark(log_dir: &std::path::Path) -> Option<Kind> {
 /// `<data>/updates/attempt` (r4.3; install.rs `write_attempt`), read at every start: the version that runs is the outcome,
 /// whatever the installer did. The target running → it installed: the attempt and any older failure mark go. Anything
 /// else (PREINSTALL refused, the installer crashed or was cancelled, the file unreadable) → the failure mark (U5d once,
-/// as after a failed Quit install, r3.6), written before the attempt is deleted. The line to log, if there was one.
+/// as after a failed Quit install, r3.6), written before the attempt is marked `reported`. A reported attempt stays
+/// until the target starts (it may yet: a start in the instant before PREINSTALL ran looks like a failure) or the next
+/// update's attempt replaces it; it never shows U5d again. The line to log, if there was one.
 pub fn settle_attempt(data: &std::path::Path, log_dir: &std::path::Path, running: &str, now: std::time::SystemTime) -> Option<String> {
     let path = data.join("updates").join("attempt");
     // Only a missing attempt is no attempt: one that can't be read is a failed install.
@@ -508,15 +510,26 @@ pub fn settle_attempt(data: &std::path::Path, log_dir: &std::path::Path, running
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return None,
         read => read.unwrap_or_default(),
     };
-    let target = serde_json::from_str::<serde_json::Value>(&text).ok().and_then(|v| v.get("version")?.as_str().map(str::to_string));
+    let attempt = serde_json::from_str::<serde_json::Value>(&text).ok();
+    let target = attempt.as_ref().and_then(|v| v.get("version")?.as_str().map(str::to_string));
     let line = if target.as_deref() == Some(running) {
         let _ = std::fs::remove_file(log_dir.join(FAILED_MARK));
         "desktop: update: the installer installed this version".to_string()
+    } else if attempt.as_ref().and_then(|v| v.get("reported")?.as_bool()) == Some(true) {
+        return None;
     } else if let Err(error) = write_failed_mark(log_dir, Kind::Install, now) {
         // The attempt stays: the next start tries again.
         return Some(format!("desktop: update: the last installer didn't install this version; could not write {FAILED_MARK}: {error}"));
     } else {
-        "desktop: update: the last installer didn't install this version; shown once".to_string()
+        let line = "desktop: update: the last installer didn't install this version; shown once".to_string();
+        let mut reported = attempt.filter(serde_json::Value::is_object).unwrap_or_default();
+        if target.is_some() {
+            reported["reported"] = serde_json::Value::Bool(true);
+            if std::fs::write(&path, reported.to_string()).is_ok() {
+                return Some(line);
+            }
+        }
+        line
     };
     Some(match std::fs::remove_file(&path) {
         // ponytail: an attempt that can't be deleted shows U5d again at the next start; a read-only data dir is broken anyway.

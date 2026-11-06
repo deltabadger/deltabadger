@@ -18,6 +18,7 @@
 
 Var DbUpdating
 Var DbOwned
+Var DbInherited
 
 !macro NSIS_HOOK_PREINSTALL
   !if "${BUNDLEID}" == "com.deltabadger.app.test"
@@ -36,6 +37,11 @@ Var DbOwned
   AllowSkipFiles off
   ; The mark is ours only if this open made it; without it nothing is copied (and another installer's mark is kept).
   StrCpy $DbOwned 0
+  ; A mark already there is an earlier copy's that never finished (U10): a refusal keeps it; only POSTINSTALL clears it.
+  StrCpy $DbInherited 0
+  ${If} ${FileExists} "$INSTDIR\.updating"
+    StrCpy $DbInherited 1
+  ${EndIf}
   ClearErrors
   FileOpen $DbUpdating "$INSTDIR\.updating" w
   ${IfNot} ${Errors}
@@ -107,7 +113,9 @@ Var DbOwned
   ${If} $4 = 1
     ${If} $DbOwned = 1
       FileClose $DbUpdating
-      Delete "$INSTDIR\.updating"
+      ${If} $DbInherited != 1
+        Delete "$INSTDIR\.updating"
+      ${EndIf}
     ${EndIf}
     ; Someone ran this installer by hand while Deltabadger runs: say so (an update's installer runs passive: no box).
     ${IfNot} ${Silent}
