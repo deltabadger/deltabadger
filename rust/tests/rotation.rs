@@ -282,7 +282,16 @@ fn the_reset_refuses_while_the_engine_holds_the_install() {
 #[test]
 fn owed_work_refuses_the_reset() {
     type Add<'a> = &'a dyn Fn(&Connection, &Fixture);
-    let cases: [(&str, Add, &str); 7] = [
+    let late = |kind: &'static str| move |c: &Connection, f: &Fixture| {
+        let now = deltabadger::codec::format_time(chrono::Utc::now());
+        let tx = seed::insert_tx(c, &f.seeded, f.bot, &seed::TxSpec { status: 0, external_status: Some(2), external_id: Some(format!("{kind}-1")), order_type: 0,
+                                 amount: Some("0.001"), quote_amount: None, price: None, quote_amount_exec: None, amount_exec: Some("0.001"), created_at: now });
+        c.execute("UPDATE transactions SET transaction_type = ?2 WHERE id = ?1", (tx, kind)).unwrap();
+    };
+    let (late_liquidation, late_redeploy) = (late("LIQUIDATION"), late("REDEPLOY"));
+    let cases: [(&str, Add, &str); 9] = [
+        ("liquidation proceeds", &late_liquidation, "its proceeds aren't recorded yet"),
+        ("redeploy spend", &late_redeploy, "its proceeds aren't recorded yet"),
         ("liquidation marker", &|c, f| { c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.liquidation_pending', json('{\"id\":\"x\",\"state\":\"ambiguous\"}')) WHERE id = ?1", [f.bot]).unwrap(); },
          "a sale of its holdings hasn't finished"),
         ("abandoned liquidation", &|c, f| { let tx = seed::insert_tx(c, &f.seeded, f.bot, &seed::TxSpec { status: 1, external_status: Some(4), external_id: Some("L-1".into()), order_type: 0,

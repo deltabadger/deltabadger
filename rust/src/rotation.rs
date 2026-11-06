@@ -674,6 +674,12 @@ fn left_over(c: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Vec<String>
             || in_flight(&|b| crate::engine::composition::redeploy_in_flight(c, b));
         if redeploying { lines.push(format!("{n}: a redeploy hasn't finished.")); }
     }
+    // A liquidation or redeploy filled with its proceeds or spend not read yet: re-read with the key for seven days
+    // (composition::scan, run.rs's late refresh; Codex branch review r2).
+    let scan = crate::engine::composition::scan(c, now).map_err(|e| rusqlite::Error::UserFunctionError(Box::new(std::io::Error::other(format!("{e:?}")))))?;
+    let mut late: Vec<i64> = scan.late.iter().map(|(bot, _)| *bot).collect();
+    late.dedup();
+    for bot in late { lines.push(format!("{}: a sale or redeploy filled, and its proceeds aren't recorded yet: start the app so it reads them.", name(c, bot)?)); }
     let mut s = c.prepare("SELECT DISTINCT bot_id FROM transactions WHERE status = 0 AND external_status IN (0, 1) AND bot_id IS NOT NULL ORDER BY 1")?;
     for id in s.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()? { lines.push(format!("{}: it has open orders.", name(c, id)?)); }
     drop(s);
