@@ -311,12 +311,14 @@ pub fn install_appimage(target: &Path, bytes: &[u8], test_fault: Option<&str>, l
 
 // ---- Windows (r3.1, r4.3), the parts compiled and tested here; the installer launch is proved in B7-2 ----
 
-/// `MZ`, then `PE\0\0` with machine x86-64 (r5.1).
+/// `MZ`, then `PE\0\0` (r5.1). An NSIS installer is a 32-bit x86 program (machine 0x014c) whatever it installs: Tauri's
+/// x64 setup.exe is one. So the machine may be x86 or x86-64; arm64 (0xaa64) and every other format are refused.
 pub fn check_windows(bytes: &[u8]) -> Result<(), String> {
     let pe = bytes.get(0x3c..0x40).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]) as usize);
+    let machine = |pe: usize| bytes.get(pe + 4..pe + 6).map(|m| u16::from_le_bytes([m[0], m[1]]));
     let ok = bytes.starts_with(b"MZ")
-        && pe.is_some_and(|pe| bytes.get(pe..pe + 4) == Some(b"PE\0\0") && bytes.get(pe + 4..pe + 6) == Some(&[0x64, 0x86]));
-    if ok { Ok(()) } else { Err("the package is not an x86-64 Windows installer".into()) }
+        && pe.is_some_and(|pe| bytes.get(pe..pe + 4) == Some(b"PE\0\0") && matches!(machine(pe), Some(0x014c | 0x8664)));
+    if ok { Ok(()) } else { Err("the package is not a Windows installer".into()) }
 }
 
 /// The installer's arguments (the plugin's, updater.rs): passive update; `/R` relaunches (click, not Quit).
@@ -340,7 +342,6 @@ pub fn write_attempt(data: &Path, version: &str, relaunch: bool) -> io::Result<(
 #[cfg(windows)]
 pub fn launch_windows_installer(bytes: &[u8], data: &Path, version: &str, relaunch: bool, test_fault: Option<&str>) -> Result<(), Failure> {
     use std::io::Write;
-    use std::os::windows::ffi::OsStrExt;
     fault(test_fault, "format")?;
     check_windows(bytes).map_err(Failure::new)?;
     let dir = std::env::temp_dir().join(format!("deltabadger-update-{}", random()));
@@ -351,7 +352,17 @@ pub fn launch_windows_installer(bytes: &[u8], data: &Path, version: &str, relaun
     file.sync_all()?;
     drop(file);
     write_attempt(data, version, relaunch)?;
-    fault(test_fault, "launch")?;
+    let launched = fault(test_fault, "launch").map_err(Failure::from).and_then(|()| shell_execute(&setup, relaunch));
+    // A launch that failed is shown now (U5d): the attempt goes, so the next start doesn't show it again.
+    if launched.is_err() {
+        let _ = std::fs::remove_file(data.join("updates").join("attempt"));
+    }
+    launched
+}
+
+#[cfg(windows)]
+fn shell_execute(setup: &Path, relaunch: bool) -> Result<(), Failure> {
+    use std::os::windows::ffi::OsStrExt;
     let wide = |s: &std::ffi::OsStr| s.encode_wide().chain(Some(0)).collect::<Vec<u16>>();
     let (file, args, verb) = (wide(setup.as_os_str()), wide(installer_args(relaunch).as_ref()), wide("open".as_ref()));
     // SAFETY: NUL-terminated UTF-16 strings that live across the call.
@@ -408,6 +419,8 @@ mod tests {
         pe[..2].copy_from_slice(b"MZ");
         pe[0x3c] = 0x80;
         pe[0x80..0x86].copy_from_slice(b"PE\0\0\x64\x86");
+        assert!(check_windows(&pe).is_ok());
+        pe[0x84..0x86].copy_from_slice(&[0x4c, 0x01]); // x86: an NSIS installer's own machine
         assert!(check_windows(&pe).is_ok());
         pe[0x84..0x86].copy_from_slice(&[0x64, 0xaa]); // arm64
         assert!(check_windows(&pe).is_err());

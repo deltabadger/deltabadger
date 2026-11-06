@@ -129,18 +129,23 @@ pub fn set_app(identifier: &str, log: &dyn Fn(&str)) {
     let _ = (identifier, log);
 }
 
-/// The poller, for the app's life: looks at whichever engine start is current.
-pub fn run(engine: &Engine, app_id: &str, focus: &'static (dyn Fn() + Send + Sync), log: &dyn Fn(&str)) {
+/// The engine start to look at now: a new start at once, the same one every 30 s; none while the app quits or an update
+/// stops the engine (`paused`).
+fn due(current: Option<(u16, String)>, last: Option<&((u16, String), Instant)>, quitting: bool, paused: bool) -> Option<(u16, String)> {
+    let current = current?;
+    let fresh = last.is_none_or(|(at, when)| *at != current || when.elapsed() >= EVERY);
+    (fresh && !quitting && !paused).then_some(current)
+}
+
+/// The poller, for the app's life: looks at whichever engine start is current, never while `paused` (an update stopping
+/// the engine, PLAN-B7 r7).
+pub fn run(engine: &Engine, paused: &dyn Fn() -> bool, app_id: &str, focus: &'static (dyn Fn() + Send + Sync), log: &dyn Fn(&str)) {
     let mut shown = Shown::default();
     // The engine start last looked at, and when.
     let mut last: Option<((u16, String), Instant)> = None;
     loop {
         std::thread::sleep(TICK);
-        let Some((port, launcher)) = engine.launcher() else { continue };
-        let fresh = last.as_ref().is_none_or(|(at, when)| at.0 != port || at.1 != launcher || when.elapsed() >= EVERY);
-        if !fresh || engine.quitting() {
-            continue;
-        }
+        let Some((port, launcher)) = due(engine.launcher(), last.as_ref(), engine.quitting(), paused()) else { continue };
         let shown_now = |n: &Notice| {
             show(n, app_id, focus)?;
             log(&format!("desktop: bot alert shown ({})", n.id));
@@ -243,6 +248,21 @@ mod tests {
         assert_eq!(look(&|| None, &|_| Ok(()), &|_| true, &mut shown, &|_| {}), None, "no list: nothing done");
         for i in 0..SHOWN_KEPT { shown.add(&format!("x{i}")); }
         assert!(!shown.has("0") && shown.has("x199"));
+    }
+
+    #[test]
+    fn no_look_while_an_update_stops_the_engine_or_the_app_quits() {
+        let start = Some((3001, "secret".to_string()));
+        assert_eq!(due(start.clone(), None, false, false), start, "a new start: at once");
+        assert_eq!(due(start.clone(), None, false, true), None, "PLAN-B7 r7: an update stopping the engine");
+        assert_eq!(due(start.clone(), None, true, false), None, "quitting");
+        let just = ((3001, "secret".to_string()), Instant::now());
+        assert_eq!(due(start.clone(), Some(&just), false, false), None, "looked at just now");
+        let long_ago = ((3001, "secret".to_string()), Instant::now() - EVERY);
+        assert_eq!(due(start.clone(), Some(&long_ago), false, false), start);
+        assert_eq!(due(start, Some(&long_ago), false, true), None);
+        assert_eq!(due(Some((3002, "new".into())), Some(&just), false, false), Some((3002, "new".into())), "another start");
+        assert_eq!(due(None, None, false, false), None);
     }
 
     /// The two requests against a fake engine: the launcher's header on both, the ack's JSON body.

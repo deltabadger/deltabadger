@@ -386,7 +386,7 @@ class Window:
         return until(what, seconds, probe, every=0.5)
 
     def url(self):
-        return self.js("return location.href;")
+        return self.poll("the window's URL", 30, "return location.href;")
 
     def click(self, css):
         found = self.call("POST", f"/session/{self.sid}/element", {"using": "css selector", "value": css})

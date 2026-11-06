@@ -1157,9 +1157,12 @@ fn the_desktop_pages_carry_the_launch_token_and_the_update_banner() {
             let start = page.find("<div id=\"desktop_update\"").expect("the banner");
             let banner = &page[start..start + page[start..].find("</div>\n</div>").unwrap()];
             assert!(banner.contains("class=\"salert salert--download hidden\""), "hidden until the app says otherwise");
+            // PLAN-B7 r6 Q6: macOS names its app menu, Windows and Linux the tray icon's.
+            let quit = if cfg!(target_os = "macos") { "choose Quit in Deltabadger&#39;s menu" } else { "choose Quit from the Deltabadger icon&#39;s menu" };
+            let more = format!("data-text-ready-more=\"Deltabadger finishes its current work before it restarts. You can also update later: {quit}, and it installs the update before it closes.\"");
             for line in [
                 "data-text-ready=\"An update is ready.\"",
-                "data-text-ready-more=\"Deltabadger finishes its current work before it restarts. You can also update later: choose Quit in Deltabadger&#39;s menu, and it installs the update before it closes.\"",
+                more.as_str(),
                 "data-text-restart=\"Restart to update\"",
                 "data-text-downloading-percent=\"Downloading an update… %{percent}%\"",
                 "data-text-critical-ready=\"An important update is ready. Please restart soon to install it.\"",

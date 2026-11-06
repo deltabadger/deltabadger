@@ -66,6 +66,7 @@ fn stub(label: &str, script: &str) -> Launch {
         first_port: Some(free_port()),
         locale: None,
         time_zone: None,
+        updating: None,
     }
 }
 
@@ -76,7 +77,7 @@ fn sidecar() -> PathBuf {
 
 fn engine(label: &str) -> Launch {
     let data = temporary_directory(label);
-    Launch { exe: sidecar(), extra_args: Vec::new(), cwd: data.clone(), data: data.join("data"), notes: Vec::new(), first_port: Some(free_port()), locale: None, time_zone: None }
+    Launch { exe: sidecar(), extra_args: Vec::new(), cwd: data.clone(), data: data.join("data"), notes: Vec::new(), first_port: Some(free_port()), locale: None, time_zone: None, updating: None }
 }
 
 fn log(launch: &Launch) -> String { fs::read_to_string(launch.log_file()).unwrap_or_default() }
@@ -1029,4 +1030,105 @@ fn the_macos_menu_keeps_todays_items_with_quit_as_the_launchers_own() {
     assert_eq!(entries("Edit"), [Undo, Redo, Separator, Cut, Copy, Paste, SelectAll]);
     assert_eq!(entries("Window"), [Minimize, Maximize, Separator, CloseWindow]);
     assert_eq!(APP_MENU.iter().flat_map(|(_, e)| e.iter()).filter(|e| **e == Quit).count(), 1, "one Quit");
+}
+
+// ---- PLAN-B7 r2.3, r3.3: the Windows installer's `.updating` before every spawn ----
+
+#[test]
+fn an_installers_mark_holds_every_spawn_u13_while_it_copies_u10_once_it_is_orphaned() {
+    use crate::supervisor::{wait_while_updating, Page};
+    let dir = temporary_directory("b7-updating");
+    let mark = dir.join(".updating");
+    let every = Duration::from_millis(20);
+    let shown = Mutex::new(Vec::<Page>::new());
+    let show = |p: Page| shown.lock().unwrap().push(p);
+    assert_eq!(wait_while_updating(&mark, &|_| false, &|| false, &show, every), Ok(true), "no mark: start");
+
+    // The installer holds it for three looks, then deletes it (POSTINSTALL): U13 once, then start.
+    fs::write(&mark, "").unwrap();
+    let looks = std::sync::atomic::AtomicUsize::new(0);
+    let held = |m: &Path| {
+        let n = looks.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if n == 2 { fs::remove_file(m).unwrap() }
+        n < 2
+    };
+    assert_eq!(wait_while_updating(&mark, &held, &|| false, &show, every), Ok(true));
+    assert_eq!(*shown.lock().unwrap(), [Page::BeingUpdated]);
+
+    // POSTINSTALL's close comes an instant before its delete: one look at a mark nobody holds is not yet U10.
+    fs::write(&mark, "").unwrap();
+    let looks = std::sync::atomic::AtomicUsize::new(0);
+    let closing = |m: &Path| {
+        if looks.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 1 { fs::remove_file(m).unwrap() }
+        false
+    };
+    assert_eq!(wait_while_updating(&mark, &closing, &|| false, &show, every), Ok(true));
+
+    // Left with no installer (the copy was interrupted): U10, never a start.
+    fs::write(&mark, "").unwrap();
+    assert_eq!(wait_while_updating(&mark, &|_| false, &|| false, &show, every), Err(Page::UpdateUnfinished));
+    assert_eq!(wait_while_updating(&mark, &|_| true, &|| true, &show, every), Ok(false), "a quit while it copies");
+}
+
+#[test]
+fn an_orphaned_installer_mark_shows_u10_and_starts_no_engine() {
+    let mut launch = stub("b7-updating-supervise", "exit:0");
+    let mark = launch.cwd.join(".updating");
+    fs::write(&mark, "").unwrap();
+    launch.updating = Some(mark);
+    let view = Recorder::default();
+    with_stub_script(&launch, || supervise(&launch, &Engine::default(), &view));
+    assert_eq!(view.states().last().map(String::as_str), Some("update-unfinished"), "{:?}", view.events());
+    assert_eq!(starts(&launch), 0, "no engine while the mark is there");
+    assert!(log(&launch).contains("desktop: showing update-unfinished"));
+}
+
+#[test]
+fn the_status_page_says_u10_and_u13_without_a_version() {
+    let page = fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("ui/index.html")).unwrap();
+    for line in [
+        "\"being-updated\": function () { return [\"Deltabadger is being updated. Open it again in a moment.\", \"\"]; }",
+        "\"update-unfinished\": function",
+        "\"Deltabadger didn't start: its last update didn't finish. Download Deltabadger from the download page and install it again. Your data is kept.\", \"\", true]",
+        "<a href=\"https://github.com/deltabadger/deltabadger/releases\" rel=\"noopener\">Download page</a>",
+    ] {
+        assert!(page.contains(line), "{line}");
+    }
+    assert_eq!(supervisor::Page::BeingUpdated.fragment(Path::new("")), "being-updated");
+    assert_eq!(supervisor::Page::UpdateUnfinished.fragment(Path::new("")), "update-unfinished");
+}
+
+/// PLAN-B7 r5.4, B7-2: the installer's hooks are configured, and every test hook is compiled only into a build for the
+/// test identifier (an `!if` on BUNDLEID). desktop.yml checks the same from the built installers.
+#[test]
+fn the_release_installer_carries_no_test_hook() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let conf: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("tauri.conf.json")).unwrap()).unwrap();
+    assert_eq!(conf["bundle"]["windows"]["nsis"]["installerHooks"], "windows/hooks.nsh");
+    assert_eq!(conf["identifier"], RELEASE_IDENTIFIER);
+    let hooks = fs::read_to_string(dir.join("windows/hooks.nsh")).unwrap();
+    let (mut depth, mut test_depth) = (0usize, None::<usize>);
+    let mut test_lines = 0;
+    for (n, raw) in hooks.lines().enumerate() {
+        let line = raw.split(';').next().unwrap().trim();
+        if line.starts_with("!if") {
+            depth += 1;
+            if line == "!if \"${BUNDLEID}\" == \"com.deltabadger.app.test\"" && test_depth.is_none() {
+                test_depth = Some(depth);
+            }
+        } else if line.starts_with("!endif") {
+            if test_depth == Some(depth) {
+                test_depth = None;
+            }
+            depth -= 1;
+        } else if line.starts_with("!else") {
+            assert_ne!(test_depth, Some(depth), "line {}: an !else would compile into the release build", n + 1);
+        }
+        if line.contains("deltabadger-test-hooks") {
+            assert!(test_depth.is_some(), "line {}: a test hook outside the test identifier's !if: {raw}", n + 1);
+            test_lines += 1;
+        }
+    }
+    assert_eq!(depth, 0);
+    assert!(test_lines >= 3, "the barrier, the sleep and the quit hooks");
 }

@@ -25,6 +25,9 @@ use update::{Agent, Intent, Snapshot, UserQuit};
 /// The released app's identifier: the only one that runs on the 2.x data dir (PLAN-B6 r2.2). Test builds use
 /// `com.deltabadger.app.test`, `tauri dev` `com.deltabadger.app.dev`.
 pub const RELEASE_IDENTIFIER: &str = "com.deltabadger.app";
+/// The CI and proof builds' identifier: the only one with the test-only hooks (update.rs `Config`, the Quit trigger file,
+/// windows/hooks.nsh).
+pub const TEST_IDENTIFIER: &str = "com.deltabadger.app.test";
 
 // Injected at document start in the desktop webview, before any page script and before the
 // stylesheet applies, so the chrome never paints in its browser form first.
@@ -589,8 +592,11 @@ fn launch(app: &tauri::App) -> Result<Launch, String> {
         .path()
         .resource_dir()
         .map_err(|error| format!("Failed to resolve resource directory: {error}"))?;
+    let exe = engine_exe()?;
+    // PLAN-B7 r2.3: the installer's mark sits next to the app's executables.
+    let updating = if cfg!(windows) { exe.parent().map(|dir| dir.join(".updating")) } else { None };
     Ok(Launch {
-        exe: engine_exe()?,
+        exe,
         extra_args: Vec::new(),
         cwd,
         data,
@@ -598,6 +604,7 @@ fn launch(app: &tauri::App) -> Result<Launch, String> {
         first_port: None,
         locale: sys_locale::get_locale(),
         time_zone: iana_time_zone::get_timezone().ok(),
+        updating,
     })
 }
 
@@ -738,19 +745,33 @@ pub fn run() {
             let host = match launch(app) {
                 Ok(launch) => {
                     app.manage(LogFile(launch.log_file()));
+                    // Before the supervisor's first line: which version this start is (support, the update proofs).
+                    let _ = std::fs::create_dir_all(launch.log_dir());
+                    log_line(app.handle(), &format!("desktop: version {}", app.package_info().version));
                     let (launch, engine) = (Arc::new(launch), app.state::<Arc<Engine>>().inner().clone());
                     let (l, e, v) = (launch.clone(), engine.clone(), view.clone());
                     let supervisor = Mutex::new(Some(std::thread::spawn(move || supervisor::supervise(&l, &e, &*v))));
                     // D-DESKTOP-NOTIFY (PLAN-B6-3 §3): bot alerts as system notifications, for the app's life.
-                    let (e, handle, identifier) = (engine.clone(), app.handle().clone(), app.config().identifier.clone());
+                    // PLAN-B7 r7: not while an install or a quit is stopping the engine.
+                    let (e, handle, identifier, a) = (engine.clone(), app.handle().clone(), app.config().identifier.clone(), agent.clone());
                     std::thread::spawn(move || {
                         let log = |line: &str| log_line(&handle, line);
                         notices::set_app(&identifier, &log);
                         let focused = handle.clone();
                         let focus: &'static (dyn Fn() + Send + Sync) = Box::leak(Box::new(move || show_window(&focused)));
-                        notices::run(&e, &identifier, focus, &log);
+                        notices::run(&e, &|| !a.open(), &identifier, focus, &log);
                     });
                     let fault = config.fault.clone();
+                    // A Windows installer's outcome (r4.3), before the failure mark is read: a failed one becomes it. Not while
+                    // `.updating` is there: the installer may still be copying (U13), and only the version that starts after
+                    // it can tell; an orphaned mark shows U10, and the attempt waits for the reinstall.
+                    let running = app.package_info().version.to_string();
+                    let marked = launch.updating.as_deref().is_some_and(|mark| !matches!(mark.try_exists(), Ok(false)));
+                    if !marked {
+                        if let Some(line) = update::settle_attempt(&launch.data, &launch.log_dir(), &running, std::time::SystemTime::now()) {
+                            log_line(app.handle(), &line);
+                        }
+                    }
                     let failed_mark = update::read_failed_mark(&launch.log_dir()).map(|kind| {
                         log_line(app.handle(), "desktop: update: the previous quit's install failed");
                         agent.failed_before(kind);
@@ -764,7 +785,24 @@ pub fn run() {
                     None
                 }
             };
+            let data = host.as_ref().map(|h| h.launch.data.clone());
             app.manage(Updates { agent, config: config.clone(), host });
+            // The B7-2 proofs: the format the update agent decides by (§2.4), next to the variable the AppImage runtime sets.
+            #[cfg(target_os = "linux")]
+            log_line(app.handle(), &format!("desktop: bundle {:?}, APPIMAGE {}", tauri::utils::platform::bundle_type(), if std::env::var_os("APPIMAGE").is_some() { "set" } else { "unset" }));
+            // PLAN-B7 r3.7: the CI legs can't reach the tray's menu; on the test identifier a file in the data dir stands in
+            // for its Quit item and calls the same `user_quit`.
+            if let Some(trigger) = data.filter(|_| app.config().identifier == TEST_IDENTIFIER).map(|d| d.join("test-user-quit")) {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || loop {
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                    if std::fs::remove_file(&trigger).is_ok() {
+                        log_line(&handle, "desktop: test: the tray's Quit");
+                        let main = handle.clone();
+                        let _ = handle.run_on_main_thread(move || user_quit(&main));
+                    }
+                });
+            }
             // At start once the window exists, then every 12 hours (§1); independent of the engine.
             if config.enabled {
                 let handle = app.handle().clone();

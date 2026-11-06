@@ -50,6 +50,9 @@
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"
+      },
+      "nsis": {
+        "installerHooks": "windows/hooks.nsh"
       }
     },
     "externalBin": [

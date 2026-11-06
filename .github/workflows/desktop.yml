@@ -27,6 +27,10 @@ on:
       - 'rust/src/web/mod.rs'
       - 'rust/src/engine/run.rs'
       - 'rust/tests/desktop_engine.rs'
+      # PLAN-B7 B7-2: the update legs.
+      - 'rust/src/bundle.rs'
+      - 'rust/src/web/layout.rs'
+      - 'script/release/validate.sh'
   # Nightly on main: whatever else the app depends on and the paths above don't name.
   schedule:
     - cron: '41 2 * * *'
@@ -71,7 +75,7 @@ jobs:
     name: ${{ matrix.name }}
     needs: fixture-2x
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -103,7 +107,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
-            libxdo-dev libssl-dev patchelf file xvfb xauth dbus dbus-x11 xdotool webkit2gtk-driver
+            libxdo-dev libssl-dev patchelf file xvfb xauth dbus dbus-x11 xdotool webkit2gtk-driver libfuse2t64 squashfs-tools
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
@@ -129,12 +133,28 @@ jobs:
         shell: bash
         run: bash script/rust/desktop_engine.sh "${{ matrix.triple }}"
 
+      # PLAN-B7 B7-2: the update legs' throwaway updater key, made in the job; it signs nothing anyone installs.
+      - name: Make the update test key
+        if: runner.os != 'macOS'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/testkey"
+          bunx tauri signer generate --ci -w "$RUNNER_TEMP/testkey/test.key"
+
       # The test identifier: a test build never meets an installed app's single instance or data (PLAN-B6 r1.12, r2.2).
-      # beforeBuildCommand runs desktop_engine.sh again (a no-op build after the step above).
+      # beforeBuildCommand runs desktop_engine.sh again (a no-op build after the step above). Windows and Linux: N of the
+      # update legs, so the updater trusts the job's key and checks the legs' local feed (plain http on 127.0.0.1 only).
       - name: Build the app (unsigned)
         shell: bash
         run: |
           echo '{"identifier":"com.deltabadger.app.test","bundle":{"createUpdaterArtifacts":false}}' > "$RUNNER_TEMP/test.conf.json"
+          if [ "$RUNNER_OS" != macOS ]; then
+            jq -n --arg k "$(cat "$RUNNER_TEMP/testkey/test.key.pub")" '{identifier: "com.deltabadger.app.test",
+              plugins: {updater: {pubkey: $k, endpoints: ["http://127.0.0.1:8765/latest.json"], dangerousInsecureTransportProtocol: true}}}' \
+              > "$RUNNER_TEMP/update.conf.json"
+            jq -s '.[0] * .[1]' "$RUNNER_TEMP/test.conf.json" "$RUNNER_TEMP/update.conf.json" > "$RUNNER_TEMP/n.conf.json"
+            mv "$RUNNER_TEMP/n.conf.json" "$RUNNER_TEMP/test.conf.json"
+          fi
           bunx tauri build --bundles "${{ matrix.bundles }}" --config "$RUNNER_TEMP/test.conf.json" -- --locked
 
       # ---------------- macOS ----------------
@@ -251,3 +271,51 @@ jobs:
           sudo apt-get install -y ./src-tauri/target/release/bundle/deb/*.deb
           dbus-run-session -- xvfb-run -a python3 script/rust/desktop_smoke/smoke.py --kind deb --app /usr/bin/Deltabadger \
             --work "$RUNNER_TEMP/smoke-deb" fresh
+
+      # ---------------- Updates (PLAN-B7 §9 B7-2), Windows and Linux ----------------
+      # N is the build above. N+1 = this tree with its version bumped and one proof migration, built in place, signed
+      # with the job's key, then put back (never committed); the debug engine for P6's barrier; the variants P3 and r5.1
+      # need. Windows also checks the release installer carries no test hook.
+      - name: Build N+1 and the update packages
+        if: ${{ !cancelled() && runner.os != 'macOS' }}
+        shell: bash
+        run: bash script/rust/desktop_smoke/update_builds.sh "${{ matrix.triple }}" "$RUNNER_TEMP/updates" "$RUNNER_TEMP/testkey/test.key"
+
+      # r4.8's by-hand run: N to install, N+1's feed to serve (README in the PR). Test identifier, the job's key only.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && runner.os != 'macOS' }}
+        with:
+          name: updates-by-hand-${{ matrix.name }}
+          path: |
+            ${{ runner.temp }}/updates/N-setup.exe
+            ${{ runner.temp }}/updates/N.AppImage
+            ${{ runner.temp }}/updates/versions.json
+            ${{ runner.temp }}/updates/feed/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Prove the updates (Windows)
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        shell: bash
+        run: |
+          python script/rust/desktop_smoke/update_smoke.py --kind nsis --packages "$RUNNER_TEMP/updates" --work "$RUNNER_TEMP/updates-work" \
+            p1-p2-p5 p4-p6 p3 p7 p8 lock refuse-click refuse-quit u13 u10 killed
+
+      # The AppImage mounted through FUSE, as a user runs it; then the .deb smoke.py installed.
+      - name: Prove the updates (Linux)
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        run: |
+          export TAURI_DRIVER=$HOME/.cargo/bin/tauri-driver
+          status=0
+          dbus-run-session -- xvfb-run -a python3 script/rust/desktop_smoke/update_smoke.py --kind appimage \
+            --packages "$RUNNER_TEMP/updates" --work "$RUNNER_TEMP/updates-work" p1-p2-p5 p4-p6 p3 p7 p8 lock || status=1
+          dbus-run-session -- xvfb-run -a python3 script/rust/desktop_smoke/update_smoke.py --kind deb \
+            --packages "$RUNNER_TEMP/updates" --work "$RUNNER_TEMP/updates-deb" deb || status=1
+          exit $status
+
+      # Last: it installs the released identifier's build into a folder of its own, under the same uninstall entry.
+      - name: Check the release installer carries no test hook
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        shell: bash
+        run: bash script/rust/desktop_smoke/update_builds.sh "${{ matrix.triple }}" "$RUNNER_TEMP/updates" "$RUNNER_TEMP/testkey/test.key" hooks
+

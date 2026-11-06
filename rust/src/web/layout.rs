@@ -83,7 +83,9 @@ impl Ctx {
             "critical_downloading", "critical_downloading_percent", "failed_download", "failed_verify", "failed_space",
             "failed_install", "deb", "manual", "restart", "try_again", "download_page",
         ];
-        let mut texts: String = LINES.iter().map(|k| format!(" data-text-{}=\"{}\"", k.replace('_', "-"), self.t(&format!("desktop_update.{k}")))).collect();
+        // U2/U3's second line names where Quit is (PLAN-B7 r6 Q6): the app menu on macOS, the tray icon's menu elsewhere.
+        let key = |k: &str| if k == "ready_more" && !cfg!(target_os = "macos") { "ready_more_tray".to_string() } else { k.to_string() };
+        let mut texts: String = LINES.iter().map(|k| format!(" data-text-{}=\"{}\"", k.replace('_', "-"), self.t(&format!("desktop_update.{}", key(k))))).collect();
         for (name, key) in [("checking", "checking"), ("up-to-date", "up_to_date"), ("check-failed", "check_failed"), ("check-now", "check_now")] {
             texts.push_str(&format!(" data-text-{name}=\"{}\"", self.t(&format!("settings.app_update.{key}"))));
         }
