@@ -361,3 +361,11 @@ pub fn recorded_rule_kinds(body: &str) -> String {
     }
     body
 }
+
+/// Drops a wiremock server from async code. wiremock's Drop runs `futures::executor::block_on(verify())`, and verify
+/// takes a tokio RwLock read. If the dropping task has spent its tokio coop budget, that acquire returns Pending and
+/// tokio defers its wake to the runtime's scheduler, which never runs again: block_on parks the runtime's thread for
+/// good. With the budget lifted for the drop, the acquire goes through.
+pub async fn drop_mock_server(server: wiremock::MockServer) {
+    tokio::task::unconstrained(async move { drop(server) }).await
+}

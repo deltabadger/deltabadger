@@ -697,6 +697,7 @@ async fn run(dir: &Path) -> Value {
         responses.push(response);
     }
     drop(app);
+    common::drop_mock_server(key_server).await;
     let mut bots = rows(dir, "bots", &BOT_COLUMNS);
     for bot in bots.as_array_mut().into_iter().flatten() {
         let Some(mut data) = bot["transient_data"].as_str().and_then(|t| serde_json::from_str::<Value>(t).ok()) else { continue };
@@ -2489,6 +2490,22 @@ async fn rails_and_rust_serve_the_same_pages_shard_2() { replay_page_shard(1).aw
 
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_serve_the_same_pages_shard_3() { replay_page_shard(2).await; }
+
+/// The shard hang: `run` dropped its key server right after a scenario had spent the test task's coop budget.
+#[test]
+fn a_mock_server_dropped_with_the_coop_budget_spent_does_not_hang() {
+    let (done, finished) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async {
+            let server = wiremock::MockServer::start().await;
+            tokio::task::yield_now().await;
+            for _ in 0..128 { tokio::task::consume_budget().await; }
+            common::drop_mock_server(server).await;
+        });
+        done.send(()).unwrap();
+    });
+    finished.recv_timeout(std::time::Duration::from_secs(20)).expect("dropping the mock server hung");
+}
 
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_serve_the_same_pages_shard_4() { replay_page_shard(3).await; }
