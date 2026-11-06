@@ -495,9 +495,13 @@ impl<F: crate::venue::VenueFactory> crate::jobs::Job for Report<F> {
 use crate::venue::binance::{BINANCE, BINANCE_US};
 use crate::venue::{Created, CreatedKind, CreatedOrder, CreatedSize, CreatedState, HistoryError, Venue};
 
-/// The venues whose order history is read live: A28-3a (Rails' own clients pin their order-list answer, §1) and A28-3b-1 Alpaca
-/// (a recorded answer, tests/fixtures/order_lists/alpaca).
-const SERVED: [&str; 5] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA, crate::venue::hyperliquid::HYPERLIQUID];
+/// The venues whose order history is read live: A28-3a (Rails' own clients pin their order-list answer, §1), A28-3b-1 Alpaca
+/// (a recorded answer, tests/fixtures/order_lists/alpaca), A28-3c-3a Hyperliquid, and A28-3d-1's lists built from the docs.
+const SERVED: [&str; 8] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA, crate::venue::hyperliquid::HYPERLIQUID, MEXC, BITRUE, BINGX];
+/// A28-3d G4 (D-HISTORY-DOC-BOOK-CONFIRMED): the venues whose list read is built from the docs alone; a booking also needs
+/// the venue's Rails-called single-order lookup to read the same order (`Venue::order_created`).
+const DOC_BUILT: [&str; 3] = [MEXC, BITRUE, BINGX];
+use crate::venue::{bingx::BINGX, bitrue::BITRUE, mexc::MEXC};
 /// Pairs one read may ask for (§4); more leave the line A28-1's.
 const MAX_SYMBOLS: usize = 5;
 /// Live reads per pass (r1.4), taken round-robin from `LIVE_CURSOR`.
@@ -750,7 +754,7 @@ fn ledger_sums(c: &Connection, user: i64, exchange: i64, venue: &str, since: Dat
 /// A decimal as the lines write it: "20", "0.0004".
 fn num(d: &BigDec) -> String { let s = d.to_s_f(); s.strip_suffix(".0").map(str::to_string).unwrap_or(s) }
 
-/// §2, r3.1, r4.1: one listed order. The fills shown are the larger of the venue's and the ledger's by base (a tie: the
+/// §2, r3.1, r4.1, A28-3d-1 r1.2: one listed order. The fills shown are the larger of the venue's and the ledger's by base (a tie: the
 /// venue's); a venue lower than the ledger proves is "at least" the ledger's, with "still open" only for an open order;
 /// "nothing filled" only when both say zero and every ledger row read. Returns the text and whether the two differed.
 fn describe_live(o: &CreatedOrder, base: &str, quote: &str, ledger: Option<&(BigDec, BigDec)>, clean: bool) -> (String, bool) {
@@ -765,7 +769,8 @@ fn describe_live(o: &CreatedOrder, base: &str, quote: &str, ledger: Option<&(Big
         None => format!("{} {base} filled", num(b)),
     };
     let at = o.created_at.format("%Y-%m-%d %H:%M:%S UTC");
-    if o.filled_base < *lb {
+    // r1.2 (A28-3d-1): a live quote below the ledger's never hides the ledger's either.
+    if o.filled_base < *lb || o.filled_quote.as_ref().is_some_and(|q| q < lq) {
         let open = if o.state.open() { ", still open" } else { "" };
         return (format!("{head}, at least {}{open}, placed {at}", amounts(lb, Some(lq))), true);
     }
@@ -1178,15 +1183,17 @@ async fn book<F: crate::venue::VenueFactory>(c: &Connection, factory: &F, cipher
     if !matches!(updated.as_deref().map(parse_time), Some(Ok(u)) if u + Duration::seconds(1) < b.o.from - Duration::seconds(AROUND)) { return refused("key_changed"); }
     // r1.1: the identity read, by the history read's own contract.
     let at = b.facts.created_at;
+    // A transient failure counts an attempt; the last one refuses.
+    let retry = || {
+        if b.attempts + 1 >= BOOK_ATTEMPTS { return refused("unreachable"); }
+        c.execute("UPDATE rust_rails_unrecorded_requests SET attempts = attempts + 1, last_at = ?2 WHERE obligation_id = ?1", params![obligation, format_time(now)])?;
+        Ok(None)
+    };
     let read = venue.orders_created(std::slice::from_ref(&b.facts.symbol), at - Duration::seconds(1), at + Duration::seconds(1), tokio::time::Instant::now() + READ_TIMEOUT).await;
     let created = match read {
         Ok(created) => created,
         Err(HistoryError::Refused(_)) => return refused("refused"),
-        Err(HistoryError::Retry(_)) => {
-            if b.attempts + 1 >= BOOK_ATTEMPTS { return refused("unreachable"); }
-            c.execute("UPDATE rust_rails_unrecorded_requests SET attempts = attempts + 1, last_at = ?2 WHERE obligation_id = ?1", params![obligation, format_time(now)])?;
-            return Ok(None);
-        }
+        Err(HistoryError::Retry(_)) => return retry(),
     };
     let same: Vec<&CreatedOrder> = created.orders.iter().filter(|o| o.external_id == b.facts.external_id && o.symbol == b.facts.symbol && o.side == b.facts.side
                                                                   && o.created_at == b.facts.created_at).collect();
@@ -1194,6 +1201,16 @@ async fn book<F: crate::venue::VenueFactory>(c: &Connection, factory: &F, cipher
     // r1.2: nothing filled, or a fill whose cost the venue doesn't state, can't be booked.
     if fresh.state == CreatedState::Cancelled { return refused("nothing_filled"); }
     if (fresh.kind == CreatedKind::Market && !fresh.filled_base.is_positive()) || (fresh.filled_base.is_positive() && fresh.filled_quote.is_none()) { return refused("no_cost"); }
+    // A28-3d-1 r1.1 (D-HISTORY-DOC-BOOK-CONFIRMED): a list built from the docs is never booked from alone; the venue's own
+    // single-order lookup must read this order field for field.
+    if DOC_BUILT.contains(&venue_type.as_str()) {
+        match venue.order_created(&fresh.external_id, &fresh.symbol, tokio::time::Instant::now() + READ_TIMEOUT).await {
+            Ok(Some(o)) if o == *fresh => {}
+            Ok(_) => return refused("unconfirmed"),
+            Err(HistoryError::Refused(_)) => return refused("refused"),
+            Err(HistoryError::Retry(_)) => return retry(),
+        }
+    }
     let tx = model::immediate(c)?;
     let written = match model::check_credential_result(&tx, &Some(version)) {
         Ok(fenced) => write_booking(&fenced, cipher, &b, &bot, &venue_type, fresh, now)?,

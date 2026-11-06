@@ -20,6 +20,9 @@ pub const RECV_WINDOW: &str = "5000";
 pub const ORDER_GONE_CODE: i64 = -2013;
 pub const ORDER_PATH: &str = "/api/v1/order";
 pub const ACCOUNT_PATH: &str = "/api/v1/account";
+/// A28-3d-1: the order-history list, and the code that refuses the key (-1022 signature).
+pub const ALL_ORDERS_PATH: &str = "/api/v1/allOrders";
+const HISTORY_REFUSED: [&str; 1] = ["-1022"];
 pub const ABSENCE_UNPROVEN: &str = "Bitrue: the client order lookup did not find this order, and Bitrue cannot prove it absent; settle it with `deltabadger resolve-placement`";
 
 pub const SHAPE: Shape = Shape {
@@ -288,6 +291,28 @@ impl<T: Transport> super::Venue for BitrueVenue<T> {
             return Err(VenueError::Rejected(vec![format!("{} answered for client order id {cl_ord_id} on {symbol} with another order", RULES.name)]));
         }
         parse_order(&format!("{symbol}-{ext}"), &body, &self.pairs).map(Some)
+    }
+
+    /// A28-3d-1 (D-HISTORY-DOC-BUILT, r1.4): GET /api/v1/allOrders per symbol, startTime/endTime in ms, 1000 a page; a bare
+    /// array that the docs say includes active orders, so no openOrders read. Each row read by Bitrue's shape; Bitrue states
+    /// no quote size, so a market row sized only in the quote is unreadable.
+    async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
+        let request = |symbol: &str| self.signed_now("GET", ALL_ORDERS_PATH, vec![("symbol", symbol.to_string()), ("startTime", from.timestamp_millis().to_string()),
+                                                        ("endTime", to.timestamp_millis().to_string()), ("limit", "1000".into())]);
+        super::binance::all_orders_created(&self.transport, symbols, from, to, deadline, &SHAPE, &HISTORY_REFUSED, UNREADABLE, request).await
+    }
+
+    /// A28-3d-1 r1.1: #get_order's GET /api/v1/order by symbol and orderId, read strictly; -2013 is gone (None).
+    async fn order_created(&self, external_id: &str, symbol: &str, deadline: tokio::time::Instant) -> Result<Option<super::CreatedOrder>, super::HistoryError> {
+        let (asked, ext) = split(external_id);
+        let Some(ext) = ext.filter(|_| asked == symbol) else { return Ok(None) };
+        let r = self.signed_now("GET", ORDER_PATH, vec![("symbol", symbol.to_string()), ("orderId", ext)]);
+        super::by_deadline(deadline, async {
+            let resp = super::binance::history_response(&self.transport, &r).await?;
+            if gone(&resp.body) { return Ok(None); }
+            let body = super::binance::history_body(&self.transport, resp, &HISTORY_REFUSED, UNREADABLE)?;
+            Ok(super::binance::created_order_shaped(symbol, &body, &SHAPE).filter(|o| o.external_id == external_id))
+        }).await
     }
 
     async fn fills_from_trades(&self, _txids: &[String], _since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> { Ok(vec![]) }

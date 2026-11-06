@@ -730,6 +730,116 @@ pub fn created_order(symbol: &str, o: &serde_json::Value) -> Option<super::Creat
     Some(CreatedOrder { external_id: format!("{symbol}-{id}"), symbol: symbol.into(), created_at, side, kind, size, state, filled_base, filled_quote })
 }
 
+/// A28-3d-1 (D-HISTORY-DOC-BUILT, r1.1, r1.3): `created_order` for a Binance-shaped venue (MEXC, Bitrue, BingX), each
+/// field as `parse_binance_shaped` reads it (a decimal string or number), its state by the venue's `shape`: Open → open,
+/// Closed → filled (something executed), Cancelled / Failed → ended; Unknown or unlisted → None. The row's own `symbol` is
+/// the asked one; `orderId` a JSON integer or a non-empty `[A-Za-z0-9_]` string, kept as written (the id `add_order`
+/// stores); `time` ms; type MARKET or LIMIT (a positive price); `cummulativeQuoteQty` present and not negative.
+pub fn created_order_shaped(symbol: &str, o: &serde_json::Value, shape: &Shape) -> Option<super::CreatedOrder> {
+    use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, OrderStatus, Side};
+    use serde_json::Value;
+    let zero = BigDec::zero();
+    let amount = |k: &str| o.get(k).and_then(|v| crate::ruby::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
+    if o.get("symbol")?.as_str()? != symbol { return None; }
+    let id = match o.get("orderId")? {
+        Value::Number(n) if n.is_u64() || n.is_i64() => n.to_string(),
+        Value::String(s) if !s.is_empty() && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_') => s.clone(),
+        _ => return None,
+    };
+    let created_at = DateTime::from_timestamp_millis(o.get("time")?.as_i64().filter(|t| *t > 0)?)?;
+    let side = match o.get("side")?.as_str()? { "BUY" => Side::Buy, "SELL" => Side::Sell, _ => return None };
+    let (filled_base, filled_quote, price, orig) = (amount("executedQty")?, amount("cummulativeQuoteQty")?, amount("price")?, amount("origQty")?);
+    let orig_quote = match o.get("origQuoteOrderQty") { None | Some(Value::Null) if shape.quote_optional => zero.clone(), _ => amount("origQuoteOrderQty")? };
+    let kind = match o.get("type")?.as_str()? { "MARKET" => CreatedKind::Market, "LIMIT" if price.is_positive() => CreatedKind::Limit { price }, _ => return None };
+    let size = if kind == CreatedKind::Market && orig_quote.is_positive() { CreatedSize::Quote(orig_quote) }
+               else if orig.is_positive() { CreatedSize::Base(orig) } else { return None };
+    let filled = filled_base.is_positive();
+    let status = o.get("status")?.as_str()?;
+    let state = match shape.statuses.iter().find(|(s, _)| *s == status)?.1 {
+        OrderStatus::Open => CreatedState::of(true, filled),
+        OrderStatus::Closed if filled => CreatedState::Filled,
+        OrderStatus::Cancelled | OrderStatus::Failed => CreatedState::of(false, filled),
+        _ => return None,
+    };
+    Some(CreatedOrder { external_id: format!("{symbol}-{id}"), symbol: symbol.into(), created_at, side, kind, size, state, filled_base, filled_quote: Some(filled_quote) })
+}
+
+/// A28-3d-1: one doc-built history request's answer, a transport failure retryable.
+pub(crate) async fn history_response<T: Transport>(transport: &T, r: &HttpRequest) -> Result<http::HttpResponse, super::HistoryError> {
+    transport.send_limited(r, http::MAX_BODY).await.map_err(|e| match e {
+        TransportError::Permanent(m) | TransportError::NotSent(m) | TransportError::MaybeSent(m) => super::HistoryError::Retry(transport.redact_diagnostic(&m)),
+    })
+}
+
+/// A28-3d-1: a doc-built history answer's body, decoded; a failure is the key's refusal on HTTP 401/403 or a body `code` in
+/// `codes` (the venue's documented key, signature and permission codes), else retryable.
+pub(crate) fn history_body<T: Transport>(transport: &T, resp: http::HttpResponse, codes: &[&str], unreadable: &str) -> Result<serde_json::Value, super::HistoryError> {
+    use super::HistoryError::{Refused, Retry};
+    // Branch r1.1: a documented refusal code is the key's whatever the HTTP status (an error body may come with a 200).
+    let coded = error_code(&resp.body).is_some_and(|c| codes.contains(&c.as_str()));
+    if !(200..300).contains(&resp.status) || coded {
+        let message = transport.redact_diagnostic(&format!("HTTP {}: {}", resp.status, error_message(&resp.body)));
+        return Err(if coded || matches!(resp.status, 401 | 403) { Refused(message) } else { Retry(message) });
+    }
+    http::decode_json(&resp.body).map_err(|_| Retry(unreadable.into()))
+}
+
+/// A28-3d-1 G3: an order listed twice is kept once when both rows read the same, else dropped as unreadable (`twice`
+/// remembers it, so a third row can't bring it back).
+pub(crate) fn push_once(out: &mut super::Created, twice: &mut Vec<String>, o: super::CreatedOrder) {
+    if twice.contains(&o.external_id) { return; }
+    match out.orders.iter().position(|x| x.external_id == o.external_id) {
+        Some(i) if out.orders[i] == o => {}
+        Some(i) => { out.orders.remove(i); twice.push(o.external_id); out.complete = false; }
+        None => out.orders.push(o),
+    }
+}
+
+/// A28-3d-1 G2/G3: a doc-built list's rows on `symbol`, each read strictly (`created_order_shaped`); an unreadable row
+/// leaves the read incomplete. Every readable row is kept here, in the window or not, so one id listed twice is compared
+/// whole (branch r1.2); `in_window` drops the rest once every answer is read.
+pub(crate) fn read_rows(out: &mut super::Created, twice: &mut Vec<String>, symbol: &str, rows: &[serde_json::Value], shape: &Shape) {
+    for raw in rows {
+        match created_order_shaped(symbol, raw, shape) {
+            Some(o) => push_once(out, twice, o),
+            None => out.complete = false,
+        }
+    }
+}
+
+/// A28-3d-1 (branch r2.1): whether an order created from `from` to `to` is read yet; a failure before one is the read's.
+pub(crate) fn any_in(out: &super::Created, from: DateTime<Utc>, to: DateTime<Utc>) -> bool {
+    out.orders.iter().any(|o| o.created_at >= from && o.created_at <= to)
+}
+
+/// A28-3d-1 G3: the read's orders created from `from` to `to`.
+pub(crate) fn in_window(mut out: super::Created, from: DateTime<Utc>, to: DateTime<Utc>) -> super::Created {
+    out.orders.retain(|o| o.created_at >= from && o.created_at <= to);
+    out
+}
+
+/// A28-3d-1: an allOrders read per symbol (MEXC, Bitrue: one bare array of every state, `request` builds the signed GET),
+/// as `BinanceVenue::orders_created` reads Binance's: a full page is a cap; a failure before any order was read is the
+/// read's, a later one leaves it incomplete.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn all_orders_created<T: Transport>(transport: &T, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant,
+                                                    shape: &Shape, codes: &[&str], unreadable: &str, request: impl Fn(&str) -> HttpRequest)
+                                                    -> Result<super::Created, super::HistoryError> {
+    let mut out = super::Created { orders: vec![], complete: true };
+    let mut twice = vec![];
+    for symbol in symbols {
+        let read = async { history_body(transport, history_response(transport, &request(symbol)).await?, codes, unreadable) };
+        let page = match super::by_deadline(deadline, read).await.and_then(|b| match b { serde_json::Value::Array(rows) => Ok(rows), _ => Err(super::HistoryError::Retry(unreadable.into())) }) {
+            Ok(rows) => rows,
+            Err(e) if !any_in(&out, from, to) => return Err(e),
+            Err(_) => { out.complete = false; continue; }
+        };
+        if page.len() >= PAGE { out.complete = false; }
+        read_rows(&mut out, &mut twice, symbol, &page, shape);
+    }
+    Ok(in_window(out, from, to))
+}
+
 /// Clients::Binance#candlestick_data's path.
 pub const KLINES: &str = "/api/v3/klines";
 /// Exchanges::Binance#get_candles' interval for each timeframe: Binance has one for every one.

@@ -5,15 +5,16 @@
 //! (tests/fixtures/order_lists/alpaca, Jan's paper account; each edit named in `alpaca_row`). A28-3c-3a adds Hyperliquid, its
 //! rows and fills built on recorded ones (tests/fixtures/order_lists/hyperliquid, a public protocol address; each edit named
 //! in `hl_row` / `hl_fill`); it runs the cases below whose orders are limits (`SERVED_ALL`) and its own: a Hyperliquid
-//! order is always a limit sized in base. No live venue call. Every pass
-//! is checked by the money guard.
+//! order is always a limit sized in base. A28-3d-1 adds MEXC, Bitrue and BingX, their lists built from the docs, each row
+//! one of the venue's Rails order vectors (tests/fixtures/<venue>_vectors.json) plus `time` (`doc_row`). No live venue
+//! call. Every pass is checked by the money guard.
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use common::seed::{self, BotSpec, Seeded};
 use deltabadger::engine::rails_unrecorded::{self as ru, Report};
 use deltabadger::jobs::Db;
 use deltabadger::venue::http::ScriptedTransport;
-use deltabadger::venue::{alpaca, binance, bybit, hyperliquid, Venue, VenueFactory};
+use deltabadger::venue::{alpaca, binance, bingx, bitrue, bybit, hyperliquid, mexc, Venue, VenueFactory};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::cell::RefCell;
@@ -27,26 +28,37 @@ const PLACED: &str = "2026-09-29T14:03:05Z";
 const WHEN: &str = "around 2026-09-29 14:03 UTC";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum Kind { Binance, BinanceUs, Bybit, Alpaca, Hyperliquid }
+enum Kind { Binance, BinanceUs, Bybit, Alpaca, Hyperliquid, Mexc, Bitrue, Bingx }
 /// The venues every case runs on (market and limit orders).
-const SERVED: [Kind; 4] = [Kind::Binance, Kind::BinanceUs, Kind::Bybit, Kind::Alpaca];
+const SERVED: [Kind; 7] = [Kind::Binance, Kind::BinanceUs, Kind::Bybit, Kind::Alpaca, Kind::Mexc, Kind::Bitrue, Kind::Bingx];
 /// The venues the limit-order cases run on: SERVED and Hyperliquid.
-const SERVED_ALL: [Kind; 5] = [Kind::Binance, Kind::BinanceUs, Kind::Bybit, Kind::Alpaca, Kind::Hyperliquid];
+const SERVED_ALL: [Kind; 8] = [Kind::Binance, Kind::BinanceUs, Kind::Bybit, Kind::Alpaca, Kind::Hyperliquid, Kind::Mexc, Kind::Bitrue, Kind::Bingx];
+/// A28-3d-1: the doc-built venues.
+const DOC_BUILT: [Kind; 3] = [Kind::Mexc, Kind::Bitrue, Kind::Bingx];
 
 impl Kind {
     fn exchange(self) -> (&'static str, &'static str) {
         match self { Kind::Binance => ("Exchanges::Binance", "Binance"), Kind::BinanceUs => ("Exchanges::BinanceUs", "Binance.US"), Kind::Bybit => ("Exchanges::Bybit", "Bybit"),
-                     Kind::Alpaca => ("Exchanges::Alpaca", "Alpaca"), Kind::Hyperliquid => ("Exchanges::Hyperliquid", "Hyperliquid") }
+                     Kind::Alpaca => ("Exchanges::Alpaca", "Alpaca"), Kind::Hyperliquid => ("Exchanges::Hyperliquid", "Hyperliquid"),
+                     Kind::Mexc => ("Exchanges::Mexc", "MEXC"), Kind::Bitrue => ("Exchanges::Bitrue", "Bitrue"), Kind::Bingx => ("Exchanges::Bingx", "BingX") }
     }
     /// The order's id as `add_order` writes `transactions.external_id`: Alpaca's bare UUID, Hyperliquid's "<base>-<oid>".
     fn external_id(self, id: u64) -> String {
-        match self { Kind::Bybit => id.to_string(), Kind::Alpaca => alpaca_id(id), Kind::Hyperliquid => format!("BTC-{id}"), _ => format!("BTCEUR-{id}") }
+        match self { Kind::Bybit => id.to_string(), Kind::Alpaca => alpaca_id(id), Kind::Hyperliquid => format!("BTC-{id}"), Kind::Bingx => format!("BTC-EUR-{id}"),
+                     _ => format!("BTCEUR-{id}") }
     }
-    /// The pair's listing: Alpaca spells a crypto pair "BASE/QUOTE"; Hyperliquid names a spot pair by its index.
-    fn symbol(self) -> &'static str { match self { Kind::Alpaca => "BTC/EUR", Kind::Hyperliquid => HL_COIN, _ => "BTCEUR" } }
+    /// The pair's listing: Alpaca spells a crypto pair "BASE/QUOTE"; Hyperliquid names a spot pair by its index; BingX "BASE-QUOTE".
+    fn symbol(self) -> &'static str { match self { Kind::Alpaca => "BTC/EUR", Kind::Hyperliquid => HL_COIN, Kind::Bingx => "BTC-EUR", _ => "BTCEUR" } }
+    /// Requests one read of an empty answer sends: Bybit's two lists, BingX's open orders and history.
+    fn reads(self) -> usize { if matches!(self, Kind::Bybit | Kind::Bingx) { 2 } else { 1 } }
+    /// A28-1's line for an empty window: "none seen", or "reach" where the ledger's reach is short (r3.1).
+    fn short_reach(self) -> bool { matches!(self, Kind::Mexc | Kind::Bingx | Kind::Hyperliquid) }
     /// One row of the single list a venue answers with (Binance's allOrders, Alpaca's /v2/orders, Hyperliquid's
     /// historicalOrders; Bybit's either list).
-    fn row(self, o: &O) -> Value { match self { Kind::Bybit => bybit_row(o), Kind::Alpaca => alpaca_row(o), Kind::Hyperliquid => hl_row(o), _ => binance_row(o) } }
+    fn row(self, o: &O) -> Value {
+        match self { Kind::Bybit => bybit_row(o), Kind::Alpaca => alpaca_row(o), Kind::Hyperliquid => hl_row(o), Kind::Mexc | Kind::Bitrue | Kind::Bingx => doc_row(self, o),
+                     _ => binance_row(o) }
+    }
 }
 
 /// A test venue factory: the scripted venue for every bot, after `hook` (what happens between the read and the write).
@@ -79,7 +91,10 @@ fn fx(kind: Kind) -> Fx {
     ru::collect(&c, &queue(), None, now()).unwrap();
     synced(&c, s.api_key_id, now());
     let db = Db::new(open(&path), seed::cipher());
-    Fx { _dir: dir, path, c, s, b, kind, tr: ScriptedTransport::default(), db }
+    let tr = ScriptedTransport::default();
+    // MEXC's reach is 7 days from the venue's clock (D-HISTORY-DOC-RETENTION).
+    if kind == Kind::Mexc { tr.set_now(now()); }
+    Fx { _dir: dir, path, c, s, b, kind, tr, db }
 }
 fn bot(c: &Connection, s: &Seeded) -> i64 {
     let b = seed::insert_bot(c, s, &BotSpec::weekly(20.0, "2026-09-01 10:00:00"));
@@ -141,6 +156,9 @@ impl Fx {
             Kind::Bybit => Report::new(Factory { venue: bybit::BybitVenue::new(self.tr.clone(), bybit::URL), hook }).pass(&self.db, at).await,
             Kind::Alpaca => Report::new(Factory { venue: alpaca_venue(&self.tr), hook }).pass(&self.db, at).await,
             Kind::Hyperliquid => Report::new(Factory { venue: hl_venue(&self.tr), hook }).pass(&self.db, at).await,
+            Kind::Mexc => Report::new(Factory { venue: mexc::MexcVenue::new(self.tr.clone(), mexc::URL, "secret"), hook }).pass(&self.db, at).await,
+            Kind::Bitrue => Report::new(Factory { venue: bitrue::BitrueVenue::new(self.tr.clone(), bitrue::URL, "secret"), hook }).pass(&self.db, at).await,
+            Kind::Bingx => Report::new(Factory { venue: bingx::BingxVenue::new(self.tr.clone(), bingx::URL, "secret"), hook }).pass(&self.db, at).await,
         }.unwrap();
         assert_eq!(guard(&self.c), before, "a pass writes no order, carry or link");
         n
@@ -171,11 +189,26 @@ impl Fx {
                 self.tr.reply(self.first_path(), 200, Value::Array(orders.iter().map(hl_row).collect()));
                 self.tr.reply(HL_FILLS, 200, Value::Array(orders.iter().filter(|o| o.exec != "0").map(|o| hl_fill(o, o.id, 500)).collect()));
             }
+            Kind::Bingx => {
+                let (open, closed): (Vec<&O>, Vec<&O>) = orders.iter().partition(|o| matches!(o.state, St::Open | St::Partly));
+                self.tr.reply(BINGX_OPEN, 200, bingx_page(open.iter().map(|o| doc_row(Kind::Bingx, o)).collect()));
+                self.tr.reply(BINGX_HISTORY, 200, bingx_page(closed.iter().map(|o| doc_row(Kind::Bingx, o)).collect()));
+            }
             kind => { self.tr.reply(self.first_path(), 200, Value::Array(orders.iter().map(|o| kind.row(o)).collect())); }
         }
     }
+    /// One list of these rows: BingX's history (its open orders none), else the venue's first list.
+    fn list(&self, rows: Vec<Value>) {
+        if self.kind == Kind::Bingx {
+            self.tr.reply(BINGX_OPEN, 200, bingx_page(vec![]));
+            self.tr.reply(BINGX_HISTORY, 200, bingx_page(rows));
+        } else {
+            self.tr.reply(self.first_path(), 200, Value::Array(rows));
+        }
+    }
     fn first_path(&self) -> &'static str {
-        match self.kind { Kind::Bybit => "GET /v5/order/realtime", Kind::Alpaca => "GET /v2/orders", Kind::Hyperliquid => HL_ORDERS, _ => "GET /api/v3/allOrders" }
+        match self.kind { Kind::Bybit => "GET /v5/order/realtime", Kind::Alpaca => "GET /v2/orders", Kind::Hyperliquid => HL_ORDERS, Kind::Bitrue => "GET /api/v1/allOrders",
+                          Kind::Bingx => BINGX_OPEN, _ => "GET /api/v3/allOrders" }
     }
     /// The key's refusal, as each venue answers it.
     fn refuse(&self, http: bool) {
@@ -187,6 +220,10 @@ impl Fx {
             // Hyperliquid's answer to an address it can't read.
             (Kind::Hyperliquid, false) => self.tr.reply(self.first_path(), 422, json!("Failed to deserialize the JSON body into the target type")),
             (Kind::Hyperliquid, true) => self.tr.reply(self.first_path(), 401, json!("Unauthorized")),
+            (Kind::Mexc, false) => self.tr.reply(self.first_path(), 400, json!({ "code": 700002, "msg": "Signature for this request is not valid." })),
+            (Kind::Bitrue, false) => self.tr.reply(self.first_path(), 400, json!({ "code": -1022, "msg": "Signature for this request is not valid." })),
+            // BingX answers a refusal in its envelope, HTTP 200.
+            (Kind::Bingx, false) => self.tr.reply(self.first_path(), 200, json!({ "code": 100001, "msg": "Signature verification failed", "data": {} })),
             (_, false) => self.tr.reply(self.first_path(), 400, json!({ "code": -2015, "msg": "Invalid API-key, IP, or permissions for action." })),
             (_, true) => self.tr.reply(self.first_path(), 401, json!({ "code": -2015, "msg": "Invalid API-key, IP, or permissions for action." })),
         };
@@ -281,7 +318,7 @@ async fn each_order_state_is_named_as_the_venue_lists_it() {
                                             "obligation": f.c.query_row("SELECT id FROM rust_rails_unrecorded", [], |r| r.get::<_, i64>(0)).unwrap() })),
                        "{kind:?}");
             assert_eq!(f.pass(now() + Duration::hours(1)).await, 0, "one line, ever");
-            assert_eq!(f.requests(), if kind == Kind::Bybit { 2 } else { 1 }, "{kind:?}: read once");
+            assert_eq!(f.requests(), kind.reads(), "{kind:?}: read once");
         }
     }
 }
@@ -302,9 +339,18 @@ async fn the_read_asks_for_the_bots_pair_over_the_window_in_milliseconds() {
             // One request over every symbol: status=all, the window ± 10 min by submission time, the documented page maximum.
             assert_eq!(f.tr.requests()[0].path, "/v2/orders");
             assert_eq!(f.tr.requests()[0].query, vec![("status", "all".to_string()), ("after", "2026-09-29T13:43:00Z".into()), ("until", "2026-09-29T14:23:00Z".into()), ("limit", "500".into())]);
+        } else if kind == Kind::Bingx {
+            // Open orders by symbol, then history by window, page 1 of 100.
+            assert_eq!(f.tr.requests().iter().map(|r| r.path.as_str()).collect::<Vec<_>>(), [bingx::OPEN_ORDERS_PATH, bingx::HISTORY_ORDERS_PATH]);
+            assert_eq!((q(0, "symbol"), q(0, "startTime")), (Some("BTC-EUR".into()), None));
+            assert_eq!((q(1, "symbol"), q(1, "startTime"), q(1, "endTime"), q(1, "pageIndex"), q(1, "pageSize")),
+                       (Some("BTC-EUR".into()), Some(from), Some(to), Some("1".into()), Some("100".into())));
+            assert!(q(1, "signature").is_some());
         } else {
-            assert_eq!(f.tr.requests()[0].path, "/api/v3/allOrders");
-            assert_eq!((q(0, "symbol"), q(0, "startTime"), q(0, "endTime"), q(0, "limit")), (Some("BTCEUR".into()), Some(from), Some(to), Some("1000".into())));
+            assert_eq!(f.tr.requests()[0].path, f.first_path().trim_start_matches("GET "), "{kind:?}");
+            assert_eq!((q(0, "symbol"), q(0, "startTime"), q(0, "endTime"), q(0, "limit")), (Some("BTCEUR".into()), Some(from), Some(to), Some("1000".into())), "{kind:?}");
+            assert_eq!(f.requests(), 1, "{kind:?}: allOrders lists open orders too");
+            if DOC_BUILT.contains(&kind) { assert_eq!((q(0, "recvWindow"), q(0, "signature").is_some()), (Some("5000".into()), true), "{kind:?}: signed as the venue signs"); }
         }
     }
 }
@@ -345,14 +391,14 @@ async fn an_order_a_bot_holds_another_side_or_none_leaves_a28_1s_line() {
             }
             assert_eq!(f.pass(now()).await, 1);
             assert_eq!(f.one(), oracle, "{kind:?} {case}");
-            assert_eq!(oracle.0, ru::NONE_SEEN);
+            if kind.short_reach() { assert_eq!(oracle.1["reason"], "reach", "{kind:?}"); } else { assert_eq!(oracle.0, ru::NONE_SEEN); }
         }
     }
 }
 
 #[tokio::test]
 async fn an_unserved_venues_line_is_a28_1s_with_no_read() {
-    for (ty, name) in [("Exchanges::Kraken", "Kraken"), ("Exchanges::Gemini", "Gemini"), ("Exchanges::Mexc", "MEXC")] {
+    for (ty, name) in [("Exchanges::Kraken", "Kraken"), ("Exchanges::Gemini", "Gemini"), ("Exchanges::Bitget", "Bitget")] {
         let f = fx(Kind::Binance);
         f.c.execute("UPDATE exchanges SET type = ?2, name = ?3 WHERE id = ?1", params![f.s.exchange_id, ty, name]).unwrap();
         let oracle = f.a28_1();
@@ -410,7 +456,7 @@ async fn an_unreadable_row_alone_leaves_a28_1s_line_and_beside_an_open_order_kee
                     _ => {
                         let mut rows = if with_open { vec![kind.row(&open)] } else { vec![] };
                         rows.push(bad);
-                        f.tr.reply(f.first_path(), 200, Value::Array(rows));
+                        f.list(rows);
                     }
                 }
                 f.pass(now()).await;
@@ -431,7 +477,7 @@ async fn a_capped_read_keeps_what_it_validated() {
         for with_open in [false, true] {
             let f = fx(kind);
             let oracle = f.a28_1();
-            let full = match kind { Kind::Bybit => 50, Kind::Alpaca => alpaca::HISTORY_LIMIT, Kind::Hyperliquid => hyperliquid::HISTORY_LIMIT, _ => 1000 };
+            let full = match kind { Kind::Bybit => 50, Kind::Alpaca => alpaca::HISTORY_LIMIT, Kind::Hyperliquid => hyperliquid::HISTORY_LIMIT, Kind::Bingx => bingx::HISTORY_PAGE, _ => 1000 };
             let sells: Vec<O> = (100..).take(full).map(|id| O { sell: true, ..limit(id, St::Open, "0", "0") }).collect();
             match kind {
                 Kind::Bybit => {
@@ -442,6 +488,13 @@ async fn a_capped_read_keeps_what_it_validated() {
                         f.tr.reply("GET /v5/order/realtime", 200, page(rows, "next"));
                     }
                     f.tr.reply("GET /v5/order/history", 200, page(vec![], ""));
+                }
+                Kind::Bingx => {
+                    // Five full history pages: the cap.
+                    f.tr.reply(BINGX_OPEN, 200, bingx_page(if with_open { vec![doc_row(kind, &limit(9, St::Open, "0", "0"))] } else { vec![] }));
+                    for p in 0..5 {
+                        f.tr.reply(BINGX_HISTORY, 200, bingx_page(sells.iter().map(|o| doc_row(kind, &O { id: o.id + 1000 * p, state: St::Cancelled, ..o.clone() })).collect()));
+                    }
                 }
                 _ => {
                     let mut rows: Vec<Value> = sells.iter().map(|o| kind.row(o)).collect();
@@ -455,6 +508,7 @@ async fn a_capped_read_keeps_what_it_validated() {
             if with_open { assert_eq!((line.0.as_str(), line.1["complete"].as_bool()), (ru::LIVE_OPEN, Some(false)), "{kind:?}"); }
             else { assert_eq!(line, oracle, "{kind:?}"); }
             if kind == Kind::Bybit { assert_eq!(f.tr.requests().iter().filter(|r| r.path == bybit::REALTIME_PATH).count(), 5, "five pages at most"); }
+            if kind == Kind::Bingx { assert_eq!(f.tr.requests().iter().filter(|r| r.path == bingx::HISTORY_ORDERS_PATH).count(), 5, "five pages at most"); }
         }
     }
 }
@@ -1204,4 +1258,310 @@ async fn an_unreadable_hyperliquid_row_of_the_pair_is_incomplete_and_anothers_is
     tr.reply(HL_ORDERS, 200, json!([hl_row(&limit(9, St::Cancelled, "0", "0"))]));
     let read = hl_venue_for(&tr, "@999", "BTC").orders_created(&[HL_COIN.to_string()], from, to, tokio::time::Instant::now() + std::time::Duration::from_secs(20)).await.unwrap();
     assert_eq!((read.orders.len(), read.complete), (0, false));
+}
+
+// ---- A28-3d-1: MEXC, Bitrue, BingX, their lists built from the docs ------------------------------------------------------
+
+const BINGX_OPEN: &str = "GET /openApi/spot/v1/trade/openOrders";
+const BINGX_HISTORY: &str = "GET /openApi/spot/v1/trade/historyOrders";
+fn bingx_page(rows: Vec<Value>) -> Value { json!({ "code": 0, "msg": "", "debugMsg": "", "data": { "orders": rows } }) }
+
+/// The venue's Rails order vectors' raw rows (tests/fixtures/<venue>_vectors.json, `<venue>_orders`), read once.
+fn doc_vectors(kind: Kind) -> &'static [Value] {
+    use std::sync::OnceLock;
+    static MEXC: OnceLock<Vec<Value>> = OnceLock::new();
+    static BITRUE: OnceLock<Vec<Value>> = OnceLock::new();
+    static BINGX: OnceLock<Vec<Value>> = OnceLock::new();
+    let (cell, name) = match kind { Kind::Mexc => (&MEXC, "mexc"), Kind::Bitrue => (&BITRUE, "bitrue"), Kind::Bingx => (&BINGX, "bingx"), _ => unreachable!() };
+    cell.get_or_init(|| {
+        let v: Value = serde_json::from_str(&std::fs::read_to_string(format!("{}/tests/fixtures/{name}_vectors.json", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
+        v[format!("{name}_orders")].as_array().unwrap().to_vec()
+    })
+}
+fn doc_shape(kind: Kind) -> &'static binance::Shape { match kind { Kind::Mexc => &mexc::SHAPE, Kind::Bitrue => &bitrue::SHAPE, _ => &bingx::SHAPE } }
+/// A vector's raw LIMIT FILLED row edited into `o`: symbol (the seeded pair), orderId (as the vectors write it, a string),
+/// type, side, status, price, origQty, origQuoteOrderQty, executedQty, cummulativeQuoteQty, plus `time` (ms), which no
+/// Rails parse reads. Nothing else is in a vector's row.
+fn doc_row(kind: Kind, o: &O) -> Value {
+    let mut r = doc_vectors(kind).iter().map(|e| e["raw"].clone()).find(|r| r["type"] == "LIMIT" && r["status"] == "FILLED" && r.get("origQuoteOrderQty").is_some()).unwrap();
+    let status = match o.state {
+        St::Open => "NEW", St::Partly => "PARTIALLY_FILLED", St::Filled => "FILLED",
+        St::PartlyCancelled if kind == Kind::Mexc => "PARTIALLY_CANCELED", St::PartlyCancelled | St::Cancelled => "CANCELED",
+    };
+    let (ty, orig, orig_quote, price) = match o.limit { Some(p) => ("LIMIT", o.size, "0", p), None => ("MARKET", o.exec, o.size, "0") };
+    for (k, v) in [("symbol", json!(kind.symbol())), ("orderId", json!(o.id.to_string())), ("type", json!(ty)), ("side", json!(if o.sell { "SELL" } else { "BUY" })),
+                   ("status", json!(status)), ("price", json!(price)), ("origQty", json!(orig)), ("origQuoteOrderQty", json!(orig_quote)), ("executedQty", json!(o.exec)),
+                   ("cummulativeQuoteQty", json!(o.cum)), ("time", json!(ms(o.at)))] {
+        r[k] = v;
+    }
+    r
+}
+async fn doc_read(kind: Kind, tr: &ScriptedTransport, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<deltabadger::venue::Created, deltabadger::venue::HistoryError> {
+    doc_read_on(kind, tr, &[kind.symbol().to_string()], from, to).await
+}
+async fn doc_read_on(kind: Kind, tr: &ScriptedTransport, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>) -> Result<deltabadger::venue::Created, deltabadger::venue::HistoryError> {
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(20);
+    match kind {
+        Kind::Mexc => mexc::MexcVenue::new(tr.clone(), mexc::URL, "secret").orders_created(symbols, from, to, deadline).await,
+        Kind::Bitrue => bitrue::BitrueVenue::new(tr.clone(), bitrue::URL, "secret").orders_created(symbols, from, to, deadline).await,
+        _ => bingx::BingxVenue::new(tr.clone(), bingx::URL, "secret").orders_created(symbols, from, to, deadline).await,
+    }
+}
+fn ids(c: &deltabadger::venue::Created) -> Vec<&str> { c.orders.iter().map(|o| o.external_id.as_str()).collect() }
+
+#[test]
+fn every_vector_row_reads_strictly_as_rails_parses_it_or_not_at_all() {
+    use deltabadger::venue::CreatedState;
+    for kind in DOC_BUILT {
+        let mut read = 0;
+        for e in doc_vectors(kind) {
+            let mut r = e["raw"].clone();
+            r["time"] = json!(ms(PLACED));
+            let symbol = r["symbol"].as_str().unwrap().to_string();
+            let d = |k: &str| r.get(k).map(|v| dec(v.as_str().unwrap()));
+            let zero = dec("0");
+            let negative = ["price", "origQty", "origQuoteOrderQty", "executedQty", "cummulativeQuoteQty"].iter().any(|k| d(k).is_some_and(|x| x < zero));
+            let limit = r["type"] == "LIMIT";
+            let sized = if limit { d("price").unwrap().is_positive() && d("origQty").unwrap().is_positive() }
+                        else { d("origQuoteOrderQty").is_some_and(|q| q.is_positive()) || d("origQty").unwrap().is_positive() };
+            let rails = e["status"].as_str().unwrap();
+            let unreadable = rails == "unknown" || negative || !sized || (rails == "closed" && !d("executedQty").unwrap().is_positive());
+            let got = binance::created_order_shaped(&symbol, &r, doc_shape(kind));
+            let Some(o) = got else { assert!(unreadable, "{kind:?}: {r}"); continue };
+            assert!(!unreadable, "{kind:?}: read {r}");
+            read += 1;
+            assert_eq!(o.external_id, format!("{symbol}-{}", r["orderId"].as_str().unwrap()));
+            assert_eq!(o.filled_base, dec(e["amount_exec"].as_str().unwrap()), "{kind:?}: {r}");
+            assert_eq!(format!("{:?}", o.side).to_lowercase(), e["side"].as_str().unwrap());
+            match rails {
+                "open" => assert!(o.state.open(), "{kind:?}: {r}"),
+                "closed" => assert_eq!(o.state, CreatedState::Filled),
+                _ => assert!(matches!(o.state, CreatedState::Cancelled | CreatedState::PartlyFilledCancelled), "{kind:?}: {r}"),
+            }
+        }
+        assert!(read > 3000, "{kind:?}: {read}");
+    }
+}
+
+#[test]
+fn a_doc_built_row_is_read_only_in_its_venues_words() {
+    let base = |kind: Kind| doc_row(kind, &limit(7, St::Filled, "0.0004", "20"));
+    let read = |kind: Kind, r: &Value| binance::created_order_shaped(kind.symbol(), r, doc_shape(kind));
+    for kind in DOC_BUILT {
+        assert_eq!(read(kind, &base(kind)).unwrap().external_id, kind.external_id(7), "{kind:?}");
+        type Edit = (&'static str, fn(&mut Value));
+        let none: [Edit; 11] = [
+            ("an unlisted status", |r| r["status"] = json!("PENDING_NEW")),
+            ("a maker-only limit", |r| r["type"] = json!("LIMIT_MAKER")),
+            ("another symbol", |r| r["symbol"] = json!("ETHEUR")),
+            ("an id with a dash", |r| r["orderId"] = json!("C02-7")),
+            ("an empty id", |r| r["orderId"] = json!("")),
+            ("no id", |r| { r.as_object_mut().unwrap().remove("orderId"); }),
+            ("a time in seconds as text", |r| r["time"] = json!("1790690585")),
+            ("a negative quote", |r| r["cummulativeQuoteQty"] = json!("-1.00000000")),
+            ("no quote", |r| { r.as_object_mut().unwrap().remove("cummulativeQuoteQty"); }),
+            ("filled with nothing executed", |r| r["executedQty"] = json!("0")),
+            ("a number that is no decimal", |r| r["origQty"] = json!("abc")),
+        ];
+        for (name, edit) in none {
+            let mut r = base(kind);
+            edit(&mut r);
+            assert!(read(kind, &r).is_none(), "{kind:?}: {name}");
+        }
+        // An integer id is its digits; a string of letters, digits and underscores is kept as written; numbers may be JSON numbers.
+        let mut r = base(kind);
+        r["orderId"] = json!(7);
+        r["executedQty"] = json!(0.0004);
+        assert_eq!(read(kind, &r).map(|o| (o.external_id, o.filled_base)), Some((kind.external_id(7), dec("0.0004"))));
+        r["orderId"] = json!("C02__7");
+        assert_eq!(read(kind, &r).unwrap().external_id, format!("{}-C02__7", kind.symbol()));
+    }
+    // Bitrue's PENDING_CANCEL is Unknown in its shape; BingX's PENDING is open; MEXC's PARTIALLY_CANCELED ended.
+    let mut r = base(Kind::Bitrue);
+    r["status"] = json!("PENDING_CANCEL");
+    assert!(read(Kind::Bitrue, &r).is_none());
+    let mut r = base(Kind::Bingx);
+    r["status"] = json!("PENDING");
+    assert!(read(Kind::Bingx, &r).unwrap().state.open());
+    let mut r = base(Kind::Mexc);
+    r["status"] = json!("PARTIALLY_CANCELED");
+    assert_eq!(read(Kind::Mexc, &r).unwrap().state, deltabadger::venue::CreatedState::PartlyFilledCancelled);
+    // A market row with no quote size reads its base; sized by nothing, it is unreadable (Bitrue states no quote size).
+    let mut r = doc_row(Kind::Bitrue, &o(7, St::Filled, "0.0004", "20"));
+    r.as_object_mut().unwrap().remove("origQuoteOrderQty");
+    assert_eq!(read(Kind::Bitrue, &r).unwrap().size, deltabadger::venue::CreatedSize::Base(dec("0.0004")));
+    r["origQty"] = json!("0");
+    assert!(read(Kind::Bitrue, &r).is_none());
+}
+
+#[tokio::test]
+async fn a_doc_built_list_keeps_only_its_pairs_rows_in_the_window() {
+    let (from, to) = window();
+    for kind in DOC_BUILT {
+        for (name, edit, complete) in [("another symbol", (|r: &mut Value| r["symbol"] = json!("ETHEUR")) as fn(&mut Value), false),
+                                       ("before the window", |r| r["time"] = json!(ms("2026-09-29T13:52:59.999Z")), true),
+                                       ("after the window", |r| r["time"] = json!(ms("2026-09-29T14:13:00.001Z")), true),
+                                       ("at its start", |r| r["time"] = json!(ms("2026-09-29T13:53:00Z")), true)] {
+            let tr = ScriptedTransport::default();
+            if kind == Kind::Mexc { tr.set_now(now()); }
+            let mut odd = doc_row(kind, &limit(8, St::Filled, "0.0004", "20"));
+            edit(&mut odd);
+            let rows = vec![odd, doc_row(kind, &limit(9, St::Filled, "0.0004", "20"))];
+            if kind == Kind::Bingx { tr.reply(BINGX_OPEN, 200, bingx_page(vec![])); tr.reply(BINGX_HISTORY, 200, bingx_page(rows)); }
+            else { tr.reply(if kind == Kind::Mexc { "GET /api/v3/allOrders" } else { "GET /api/v1/allOrders" }, 200, Value::Array(rows)); }
+            let read = doc_read(kind, &tr, from, to).await.unwrap();
+            let mut want = vec![kind.external_id(9)];
+            if name == "at its start" { want.insert(0, kind.external_id(8)); }
+            assert_eq!((ids(&read), read.complete), (want.iter().map(String::as_str).collect(), complete), "{kind:?} {name}");
+        }
+    }
+}
+
+#[tokio::test]
+async fn one_id_listed_in_and_out_of_the_window_is_unreadable_either_way_round() {
+    // Branch r1.2: the twin outside the window is compared before the window drops it.
+    let (from, to) = window();
+    for kind in [Kind::Mexc, Kind::Bitrue, Kind::Bingx] {
+        for flip in [false, true] {
+            let tr = ScriptedTransport::default();
+            tr.set_now(now());
+            let mut rows = vec![doc_row(kind, &limit(9, St::Filled, "0.0004", "20")), doc_row(kind, &O { at: "2026-09-29T12:00:00Z", ..limit(9, St::Filled, "0.0004", "20") }),
+                                doc_row(kind, &limit(8, St::Filled, "0.0004", "20"))];
+            if flip { rows.swap(0, 1); }
+            if kind == Kind::Bingx { tr.reply(BINGX_OPEN, 200, bingx_page(vec![])); tr.reply(BINGX_HISTORY, 200, bingx_page(rows)); }
+            else { tr.reply(if kind == Kind::Mexc { "GET /api/v3/allOrders" } else { "GET /api/v1/allOrders" }, 200, Value::Array(rows)); }
+            let read = doc_read(kind, &tr, from, to).await.unwrap();
+            assert_eq!((ids(&read), read.complete), (vec![kind.external_id(8).as_str()], false), "{kind:?} {flip}");
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_failure_after_only_older_orders_is_the_reads_failure() {
+    // Branch r2.1: rows kept for the twin check only (outside the window) never make a later failure a partial read.
+    use deltabadger::venue::HistoryError;
+    let (from, to) = window();
+    let old = |kind| doc_row(kind, &O { at: "2026-09-29T12:00:00Z", ..limit(9, St::Filled, "0.0004", "20") });
+    let tr = ScriptedTransport::default();
+    tr.reply(BINGX_OPEN, 200, bingx_page(vec![old(Kind::Bingx)]));
+    tr.reply(BINGX_HISTORY, 500, json!({ "code": 100500, "msg": "busy" }));
+    assert!(matches!(doc_read(Kind::Bingx, &tr, from, to).await, Err(HistoryError::Retry(_))));
+    for kind in [Kind::Mexc, Kind::Bitrue] {
+        let tr = ScriptedTransport::default();
+        tr.set_now(now());
+        let path = if kind == Kind::Mexc { "GET /api/v3/allOrders" } else { "GET /api/v1/allOrders" };
+        tr.reply(path, 200, Value::Array(vec![old(kind)]));
+        tr.reply(path, 500, json!({ "code": -1000, "msg": "busy" }));
+        let read = doc_read_on(kind, &tr, &[kind.symbol().to_string(), "ETHEUR".to_string()], from, to).await;
+        assert!(matches!(read, Err(HistoryError::Retry(_))), "{kind:?}: {read:?}");
+    }
+}
+
+#[tokio::test]
+async fn one_bingx_order_in_both_lists_counts_once_and_read_two_ways_is_unreadable() {
+    let (from, to) = window();
+    for (history, want, complete) in [(St::Partly, vec!["BTC-EUR-9", "BTC-EUR-8"], true), (St::Filled, vec!["BTC-EUR-8"], false)] {
+        let tr = ScriptedTransport::default();
+        tr.reply(BINGX_OPEN, 200, bingx_page(vec![doc_row(Kind::Bingx, &limit(9, St::Partly, "0.0001", "5"))]));
+        tr.reply(BINGX_HISTORY, 200, bingx_page(vec![doc_row(Kind::Bingx, &limit(9, history, "0.0001", "5")), doc_row(Kind::Bingx, &limit(8, St::Filled, "0.0004", "20"))]));
+        let read = doc_read(Kind::Bingx, &tr, from, to).await.unwrap();
+        assert_eq!((ids(&read), read.complete), (want, complete));
+    }
+    // A third row can't bring back an order read two ways.
+    let tr = ScriptedTransport::default();
+    tr.reply(BINGX_OPEN, 200, bingx_page(vec![doc_row(Kind::Bingx, &limit(9, St::Partly, "0.0001", "5"))]));
+    tr.reply(BINGX_HISTORY, 200, bingx_page(vec![doc_row(Kind::Bingx, &limit(9, St::Filled, "0.0004", "20")), doc_row(Kind::Bingx, &limit(9, St::Partly, "0.0001", "5"))]));
+    let read = doc_read(Kind::Bingx, &tr, from, to).await.unwrap();
+    assert_eq!((read.orders.len(), read.complete), (0, false));
+}
+
+#[tokio::test]
+async fn bingx_history_is_paged_while_full_and_its_codes_are_classed() {
+    use deltabadger::venue::HistoryError;
+    let (from, to) = window();
+    let tr = ScriptedTransport::default();
+    tr.reply(BINGX_OPEN, 200, bingx_page(vec![]));
+    tr.reply(BINGX_HISTORY, 200, bingx_page((0..100).map(|n| doc_row(Kind::Bingx, &O { sell: true, ..limit(100 + n, St::Cancelled, "0", "0") })).collect()));
+    tr.reply(BINGX_HISTORY, 200, bingx_page(vec![doc_row(Kind::Bingx, &limit(9, St::Filled, "0.0004", "20"))]));
+    let read = doc_read(Kind::Bingx, &tr, from, to).await.unwrap();
+    assert_eq!((read.orders.len(), read.complete), (101, true));
+    let pages: Vec<_> = tr.requests().iter().filter(|r| r.path == bingx::HISTORY_ORDERS_PATH)
+        .map(|r| r.query.iter().find(|(k, _)| *k == "pageIndex").unwrap().1.clone()).collect();
+    assert_eq!(pages, ["1", "2"]);
+    for (status, body, refused) in [(200, json!({ "code": 100204, "msg": "time span too wide" }), false), (200, json!({ "code": 100500, "msg": "busy" }), false),
+                                    (200, json!({ "code": 100001, "msg": "Signature verification failed" }), true), (200, json!({ "code": 100413, "msg": "key" }), true),
+                                    (200, json!({ "code": 0, "data": { "orders": null } }), false), (403, json!("forbidden"), true), (500, json!({ "code": 100001 }), true)] {
+        let tr = ScriptedTransport::default();
+        tr.reply(BINGX_OPEN, status, body.clone());
+        let read = doc_read(Kind::Bingx, &tr, from, to).await;
+        assert!(matches!(read, Err(HistoryError::Refused(_))) == refused && read.is_err(), "{status} {body}: {read:?}");
+        assert_eq!(tr.requests().len(), 1);
+    }
+}
+
+#[tokio::test]
+async fn mexc_and_bitrue_failures_are_classed_by_their_documented_codes() {
+    use deltabadger::venue::HistoryError;
+    let (from, to) = window();
+    for (kind, status, code, refused) in [(Kind::Mexc, 400, json!(10072), true), (Kind::Mexc, 400, json!(700001), true), (Kind::Mexc, 400, json!(700007), true),
+                                          (Kind::Mexc, 400, json!(-1021), false), (Kind::Mexc, 403, json!(0), true), (Kind::Mexc, 429, json!(0), false),
+                                          (Kind::Bitrue, 400, json!(-1022), true), (Kind::Bitrue, 400, json!(-1021), false), (Kind::Bitrue, 401, json!(0), true),
+                                          (Kind::Bitrue, 503, json!(0), false),
+                                          // Branch r1.1: a documented refusal code is the key's on an HTTP 200 too.
+                                          (Kind::Mexc, 200, json!(700002), true), (Kind::Mexc, 200, json!(-1021), false), (Kind::Bitrue, 200, json!(-1022), true)] {
+        let tr = ScriptedTransport::default();
+        if kind == Kind::Mexc { tr.set_now(now()); }
+        tr.reply(if kind == Kind::Mexc { "GET /api/v3/allOrders" } else { "GET /api/v1/allOrders" }, status, json!({ "code": code, "msg": "no" }));
+        let read = doc_read(kind, &tr, from, to).await;
+        assert!(matches!(read, Err(HistoryError::Refused(_))) == refused && read.is_err(), "{kind:?} {status} {code}: {read:?}");
+    }
+}
+
+#[tokio::test]
+async fn mexc_is_never_asked_beyond_its_seven_days_or_over_a_day() {
+    let tr = ScriptedTransport::default();
+    tr.set_now(now());
+    let from = now() - Duration::days(7) - Duration::seconds(1);
+    let read = doc_read(Kind::Mexc, &tr, from, from + Duration::minutes(20)).await.unwrap();
+    assert_eq!((read.orders.len(), read.complete, tr.requests().len()), (0, false, 0), "D-HISTORY-DOC-RETENTION: not asked");
+    assert!(matches!(doc_read(Kind::Mexc, &tr, now() - Duration::hours(25), now()).await, Err(deltabadger::venue::HistoryError::Refused(_))));
+    assert_eq!(tr.requests().len(), 0);
+    // Through the report: an obligation past MEXC's reach writes A28-1's line, no request.
+    let f = fx(Kind::Mexc);
+    f.tr.set_now(now() + Duration::days(8));
+    let oracle = f.a28_1();
+    f.pass(now()).await;
+    assert_eq!((f.one(), f.requests()), (oracle, 0));
+}
+
+#[tokio::test]
+async fn a_held_string_id_is_excluded_as_it_is_stored() {
+    for kind in DOC_BUILT {
+        let f = fx(kind);
+        let oracle = f.a28_1();
+        let id = format!("{}-C02__7", kind.symbol());
+        f.c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, side, transaction_type, error_messages, created_at, updated_at) \
+                     VALUES (?1, ?2, ?3, 0, 0, 'REGULAR', '[]', '2026-09-22 14:03:00', '2026-09-22 14:03:00')", params![f.b, f.s.exchange_id, id]).unwrap();
+        let mut row = doc_row(kind, &o(7, St::Filled, "0.0004", "20"));
+        row["orderId"] = json!("C02__7");
+        f.list(vec![row]);
+        f.pass(now()).await;
+        assert_eq!(f.one(), oracle, "{kind:?}");
+    }
+}
+
+// ---- A28-3d-1 r1.2: the ledger's quote is never hidden ------------------------------------------------------------------
+
+#[tokio::test]
+async fn a_live_quote_below_the_ledgers_reads_at_least_the_ledgers() {
+    for (live, text, conflict) in [(o(7, St::Filled, "0.0004", "19"), "buy of 20 EUR, at least 0.0004 BTC filled for 20 EUR", true),
+                                   (o(7, St::Filled, "0.0005", "19"), "buy of 20 EUR, at least 0.0004 BTC filled for 20 EUR", true),
+                                   (o(7, St::Filled, "0.0004", "20"), "bought 0.0004 BTC for 20 EUR (filled)", false)] {
+        let f = fx(Kind::Binance);
+        fill(&f.c, &f.s, 50, 7, "0.0004", "20", "2026-09-29T14:03:06Z");
+        f.answer(std::slice::from_ref(&live));
+        f.pass(now()).await;
+        let (_, d) = f.one();
+        assert_eq!((d["orders"].as_str().unwrap(), d["conflict"].as_bool()), (format!("{text}, placed 2026-09-29 14:03:05 UTC").as_str(), Some(conflict)));
+    }
 }

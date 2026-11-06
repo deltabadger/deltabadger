@@ -13,7 +13,7 @@ use deltabadger::engine::rails_unrecorded::{self as ru, Refused, Report};
 use deltabadger::jobs::Db;
 use deltabadger::ruby::BigDec;
 use deltabadger::venue::http::ScriptedTransport;
-use deltabadger::venue::{alpaca, binance, bybit, hyperliquid, Venue, VenueFactory};
+use deltabadger::venue::{alpaca, binance, bingx, bitrue, bybit, hyperliquid, mexc, Venue, VenueFactory};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::cell::RefCell;
@@ -25,18 +25,20 @@ const AT: &str = "2026-09-29 14:03:00";
 const PLACED: &str = "2026-09-29T14:03:05Z";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum Kind { Binance, Bybit, Alpaca, Hyperliquid }
+enum Kind { Binance, Bybit, Alpaca, Hyperliquid, Mexc, Bitrue, Bingx }
 impl Kind {
     fn exchange(self) -> (&'static str, &'static str) {
         match self { Kind::Binance => ("Exchanges::Binance", "Binance"), Kind::Bybit => ("Exchanges::Bybit", "Bybit"), Kind::Alpaca => ("Exchanges::Alpaca", "Alpaca"),
-                     Kind::Hyperliquid => ("Exchanges::Hyperliquid", "Hyperliquid") }
+                     Kind::Hyperliquid => ("Exchanges::Hyperliquid", "Hyperliquid"), Kind::Mexc => ("Exchanges::Mexc", "MEXC"), Kind::Bitrue => ("Exchanges::Bitrue", "Bitrue"),
+                     Kind::Bingx => ("Exchanges::Bingx", "BingX") }
     }
     fn external_id(self, id: u64) -> String {
-        match self { Kind::Bybit => id.to_string(), Kind::Alpaca => alpaca_id(id), Kind::Hyperliquid => format!("BTC-{id}"), Kind::Binance => format!("BTCEUR-{id}") }
+        match self { Kind::Bybit => id.to_string(), Kind::Alpaca => alpaca_id(id), Kind::Hyperliquid => format!("BTC-{id}"), Kind::Bingx => format!("BTC-EUR-{id}"),
+                     Kind::Binance | Kind::Mexc | Kind::Bitrue => format!("BTCEUR-{id}") }
     }
     /// Alpaca spells a crypto pair "BASE/QUOTE" and trades it against USD only (eligibility's "Alpaca: only USD");
     /// Hyperliquid names a spot pair by its index.
-    fn symbol(self) -> &'static str { match self { Kind::Alpaca => "BTC/USD", Kind::Hyperliquid => HL_COIN, _ => "BTCEUR" } }
+    fn symbol(self) -> &'static str { match self { Kind::Alpaca => "BTC/USD", Kind::Hyperliquid => HL_COIN, Kind::Bingx => "BTC-EUR", _ => "BTCEUR" } }
 }
 
 /// The scripted venue for every bot, after `hook` (what happens between the read and the write).
@@ -76,7 +78,10 @@ fn fx_with(kind: Kind, spec: BotSpec, symbol: &str, prior: &str, at: &str, colle
     ru::collect(&c, &queue(), None, collected).unwrap();
     synced(&c, s.api_key_id, collected);
     let db = Db::new(open(&path), seed::cipher());
-    Fx { _dir: dir, path, c, s, b, kind, tr: ScriptedTransport::default(), db }
+    let tr = ScriptedTransport::default();
+    // MEXC's reach is 7 days from the venue's clock (D-HISTORY-DOC-RETENTION).
+    if kind == Kind::Mexc { tr.set_now(now()); }
+    Fx { _dir: dir, path, c, s, b, kind, tr, db }
 }
 fn prior_row(c: &Connection, s: &Seeded, b: i64, at: &str) {
     let selling = model::load_bot(c, b).unwrap().selling();
@@ -182,6 +187,9 @@ impl Fx {
         let pairs = binance::Pairs { by_symbol: [(HL_COIN.to_string(), binance::Pair { base: "BTC".into(), quote: "EUR".into(), price_decimals: 2 })].into(), assets: Default::default() };
         hyperliquid::HyperliquidVenue::new(self.tr.clone(), hyperliquid::URL, "0x00000000000000000000000000000000000000a1").with_pairs(pairs)
     }
+    fn mexc(&self) -> mexc::MexcVenue<ScriptedTransport> { mexc::MexcVenue::new(self.tr.clone(), mexc::URL, "secret") }
+    fn bitrue(&self) -> bitrue::BitrueVenue<ScriptedTransport> { bitrue::BitrueVenue::new(self.tr.clone(), bitrue::URL, "secret") }
+    fn bingx(&self) -> bingx::BingxVenue<ScriptedTransport> { bingx::BingxVenue::new(self.tr.clone(), bingx::URL, "secret") }
     /// The venue lists these orders (both the report's read and the booking's identity read: the last reply repeats).
     fn answer(&self, orders: &[O]) {
         match self.kind {
@@ -196,6 +204,27 @@ impl Fx {
                 self.tr.reply(HL_ORDERS, 200, Value::Array(orders.iter().map(hl_row).collect()));
                 self.tr.reply(HL_FILLS, 200, Value::Array(orders.iter().filter(|o| o.exec != "0").map(|o| hl_fill(o.id, o.exec, &dec(o.cum).div(&dec(o.exec)).unwrap().to_s_f(), o.id, ms(o.at) + 500)).collect()));
             }
+            Kind::Mexc | Kind::Bitrue => {
+                self.tr.reply(doc_list(self.kind), 200, Value::Array(orders.iter().map(|o| doc_row(self.kind, o)).collect()));
+                self.lookup(orders);
+            }
+            Kind::Bingx => {
+                let (open, closed): (Vec<&O>, Vec<&O>) = orders.iter().partition(|o| matches!(o.state, St::Open | St::Partly));
+                self.tr.reply(BINGX_OPEN, 200, bingx_page(open.iter().map(|o| doc_row(Kind::Bingx, o)).collect()));
+                self.tr.reply(BINGX_HISTORY, 200, bingx_page(closed.iter().map(|o| doc_row(Kind::Bingx, o)).collect()));
+                self.lookup(orders);
+            }
+        }
+    }
+    /// A28-3d-1: the venue's single-order lookup answers with the first order (as `doc_row` writes it).
+    fn lookup(&self, orders: &[O]) {
+        let Some(first) = orders.first() else { return };
+        self.lookup_row(doc_row(self.kind, first));
+    }
+    fn lookup_row(&self, row: Value) {
+        match self.kind {
+            Kind::Bingx => { self.tr.reply(BINGX_QUERY, 200, json!({ "code": 0, "msg": "", "data": row })); }
+            kind => { self.tr.reply(doc_lookup(kind), 200, row); }
         }
     }
     /// The report's pass: the line and its offers.
@@ -205,6 +234,9 @@ impl Fx {
             Kind::Bybit => Report::new(Factory { venue: self.bybit(), hook: RefCell::new(None) }).pass(&self.db, now()).await,
             Kind::Alpaca => Report::new(Factory { venue: self.alpaca(), hook: RefCell::new(None) }).pass(&self.db, now()).await,
             Kind::Hyperliquid => Report::new(Factory { venue: self.hl(), hook: RefCell::new(None) }).pass(&self.db, now()).await,
+            Kind::Mexc => Report::new(Factory { venue: self.mexc(), hook: RefCell::new(None) }).pass(&self.db, now()).await,
+            Kind::Bitrue => Report::new(Factory { venue: self.bitrue(), hook: RefCell::new(None) }).pass(&self.db, now()).await,
+            Kind::Bingx => Report::new(Factory { venue: self.bingx(), hook: RefCell::new(None) }).pass(&self.db, now()).await,
         }.unwrap();
         assert_eq!(n, 1);
     }
@@ -226,6 +258,9 @@ impl Fx {
             Kind::Bybit => ru::serve_bookings(&self.c, &Factory { venue: self.bybit(), hook }, &seed::cipher(), &|_| false, at).await,
             Kind::Alpaca => ru::serve_bookings(&self.c, &Factory { venue: self.alpaca(), hook }, &seed::cipher(), &|_| false, at).await,
             Kind::Hyperliquid => ru::serve_bookings(&self.c, &Factory { venue: self.hl(), hook }, &seed::cipher(), &|_| false, at).await,
+            Kind::Mexc => ru::serve_bookings(&self.c, &Factory { venue: self.mexc(), hook }, &seed::cipher(), &|_| false, at).await,
+            Kind::Bitrue => ru::serve_bookings(&self.c, &Factory { venue: self.bitrue(), hook }, &seed::cipher(), &|_| false, at).await,
+            Kind::Bingx => ru::serve_bookings(&self.c, &Factory { venue: self.bingx(), hook }, &seed::cipher(), &|_| false, at).await,
         }.unwrap()
     }
     async fn serve(&self) -> ru::Served { self.serve_with(now(), None).await }
@@ -245,6 +280,9 @@ impl Fx {
             Kind::Bybit => polling::follow_up(&self.c, &self.bybit(), self.b, tx, at).await,
             Kind::Alpaca => polling::follow_up(&self.c, &self.alpaca(), self.b, tx, at).await,
             Kind::Hyperliquid => polling::follow_up(&self.c, &self.hl(), self.b, tx, at).await,
+            Kind::Mexc => polling::follow_up(&self.c, &self.mexc(), self.b, tx, at).await,
+            Kind::Bitrue => polling::follow_up(&self.c, &self.bitrue(), self.b, tx, at).await,
+            Kind::Bingx => polling::follow_up(&self.c, &self.bingx(), self.b, tx, at).await,
         }
     }
     fn row(&self, tx: i64) -> Value {
@@ -359,7 +397,7 @@ async fn each_bookable_state_is_booked_and_an_open_one_is_polled_to_closed() {
                 f.tr.reply("GET /v5/order/realtime", 200, page(vec![]));
                 f.tr.reply("GET /v5/order/history", 200, page(vec![bybit_row(&limit(7, St::Filled, "0.0004", "20"))]));
             }
-            Kind::Alpaca | Kind::Hyperliquid => unreachable!(),
+            _ => unreachable!(),
         }
         assert_eq!(f.follow_up(tx, now()).await, Ok(polling::FollowUp::Done), "{kind:?}");
         assert_eq!(f.row(tx)["external_status"], json!(2), "{kind:?}");
@@ -742,7 +780,7 @@ fn every_booking_line_renders_in_english_without_a_missing_key() {
     let args = [("venue", Arg::Text("Binance")), ("placed", Arg::Text("2026-09-29 14:03:05 UTC")), ("order", Arg::Text("bought 0.0004 BTC"))];
     let mut keys: Vec<String> = ["rails_order_recovered", "rails_order_not_mine", "rails_order_unsettled", "rails_order_settled_lower"].map(String::from).to_vec();
     for reason in ["busy", "key_changed", "settings_changed", "held", "linked", "nothing_filled", "no_cost", "ledger", "not_found", "unreachable", "refused",
-                   "deleted", "resolved", "unsupported", "unreadable"] { keys.push(format!("rails_order_not_added_{reason}")); }
+                   "deleted", "resolved", "unsupported", "unreadable", "unconfirmed"] { keys.push(format!("rails_order_not_added_{reason}")); }
     for key in keys {
         let text = i18n::text("en", &format!("bot_activity.events.{key}"), &args);
         assert!(!text.contains("%{") && !text.contains("bot_activity") && !text.contains("obligation"), "{key}: {text}");
@@ -1483,4 +1521,164 @@ async fn a_hyperliquid_order_is_offered_and_booked_once_with_its_fills_quote_and
     // The identity re-read: the account's orders, then the fills from its creation time - 1 s.
     let bodies: Vec<Value> = f.tr.requests().iter().rev().take(2).map(|r| r.body.clone().unwrap()).collect();
     assert_eq!((bodies[1]["type"].clone(), bodies[0]["type"].clone(), bodies[0]["startTime"].clone()), (json!("historicalOrders"), json!("userFillsByTime"), json!(ms(PLACED) - 1000)));
+}
+
+// ---- A28-3d-1: MEXC, Bitrue, BingX, booked only when the venue's own lookup reads the same order (G4, r1.1) ----------------
+
+const BINGX_OPEN: &str = "GET /openApi/spot/v1/trade/openOrders";
+const BINGX_HISTORY: &str = "GET /openApi/spot/v1/trade/historyOrders";
+const BINGX_QUERY: &str = "GET /openApi/spot/v1/trade/query";
+const DOC_BUILT: [Kind; 3] = [Kind::Mexc, Kind::Bitrue, Kind::Bingx];
+fn bingx_page(rows: Vec<Value>) -> Value { json!({ "code": 0, "msg": "", "data": { "orders": rows } }) }
+fn doc_list(kind: Kind) -> &'static str { if kind == Kind::Mexc { "GET /api/v3/allOrders" } else { "GET /api/v1/allOrders" } }
+fn doc_lookup(kind: Kind) -> &'static str { if kind == Kind::Mexc { "GET /api/v3/order" } else { "GET /api/v1/order" } }
+/// A vector's raw LIMIT FILLED row (tests/fixtures/<venue>_vectors.json) edited into `o`, plus `time`, as the live-read tests build it.
+fn doc_row(kind: Kind, o: &O) -> Value {
+    let name = match kind { Kind::Mexc => "mexc", Kind::Bitrue => "bitrue", _ => "bingx" };
+    let v: Value = serde_json::from_str(&std::fs::read_to_string(format!("{}/tests/fixtures/{name}_vectors.json", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
+    let mut r = v[format!("{name}_orders")].as_array().unwrap().iter().map(|e| e["raw"].clone())
+        .find(|r| r["type"] == "LIMIT" && r["status"] == "FILLED" && r.get("origQuoteOrderQty").is_some()).unwrap();
+    let status = match o.state { St::Open => "NEW", St::Partly => "PARTIALLY_FILLED", St::Filled => "FILLED", St::PartlyCancelled | St::Cancelled => "CANCELED" };
+    let (ty, orig, orig_quote, price) = match o.limit { Some(p) => ("LIMIT", o.size, "0", p), None => ("MARKET", o.exec, o.size, "0") };
+    for (k, v) in [("symbol", json!(kind.symbol())), ("orderId", json!(o.id.to_string())), ("type", json!(ty)), ("side", json!(if o.sell { "SELL" } else { "BUY" })),
+                   ("status", json!(status)), ("price", json!(price)), ("origQty", json!(orig)), ("origQuoteOrderQty", json!(orig_quote)), ("executedQty", json!(o.exec)),
+                   ("cummulativeQuoteQty", json!(o.cum)), ("time", json!(ms(o.at)))] {
+        r[k] = v;
+    }
+    r
+}
+/// The list alone (the lookup scripted by the case).
+fn doc_list_only(f: &Fx, orders: &[O]) {
+    if f.kind == Kind::Bingx {
+        let (open, closed): (Vec<&O>, Vec<&O>) = orders.iter().partition(|o| matches!(o.state, St::Open | St::Partly));
+        f.tr.reply(BINGX_OPEN, 200, bingx_page(open.iter().map(|o| doc_row(Kind::Bingx, o)).collect()));
+        f.tr.reply(BINGX_HISTORY, 200, bingx_page(closed.iter().map(|o| doc_row(Kind::Bingx, o)).collect()));
+    } else {
+        f.tr.reply(doc_list(f.kind), 200, Value::Array(orders.iter().map(|o| doc_row(f.kind, o)).collect()));
+    }
+}
+/// One fill of `order` stored as the venue's ledger import stores it: MEXC and Bitrue key it "SYMBOL-orderId-id", BingX by
+/// its bare id (fills.rs reads either back to "SYMBOL-orderId").
+fn doc_fill(f: &Fx, id: i64, order: &str, qty: &str, quote: &str, at: &str) -> i64 {
+    let symbol = f.kind.symbol();
+    let raw = json!({ "symbol": symbol, "id": id, "orderId": order, "price": "50000", "qty": qty, "quoteQty": quote, "commission": "0", "commissionAsset": "EUR",
+                      "time": ms(at), "isBuyer": true, "isMaker": false });
+    let tx_id = if f.kind == Kind::Bingx { id.to_string() } else { format!("{symbol}-{order}-{id}") };
+    f.c.execute("INSERT INTO account_transactions (user_id, exchange_id, api_key_id, tx_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, \
+                 raw_data, transacted_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 0, 'BTC', ?5, 'EUR', ?6, ?7, ?8, ?8, ?8)",
+                params![f.s.user_id, f.s.exchange_id, f.s.api_key_id, tx_id, qty, quote, raw.to_string(), deltabadger::codec::format_time(t(at))]).unwrap();
+    f.c.last_insert_rowid()
+}
+fn linked_to(c: &Connection, fill: i64) -> Option<i64> { c.query_row("SELECT transaction_id FROM account_transactions WHERE id = ?1", [fill], |r| r.get(0)).unwrap() }
+
+#[tokio::test]
+async fn a_doc_built_order_in_each_bookable_state_is_booked_when_its_lookup_reads_it_the_same() {
+    for kind in DOC_BUILT {
+        for order in [limit(7, St::Open, "0", "0"), limit(7, St::Partly, "0.0001", "5"), o(7, St::Filled, "0.0004", "20"), o(7, St::PartlyCancelled, "0.0002", "10")] {
+            let f = fx(kind);
+            let fill = (order.exec != "0").then(|| doc_fill(&f, 50, "7", order.exec, order.cum, "2026-09-29T14:03:06Z"));
+            let tx = f.booked(std::slice::from_ref(&order)).await;
+            let row = f.row(tx);
+            assert_eq!(row["external_id"], json!(kind.external_id(7)), "{kind:?}");
+            if let Some(fill) = fill { assert_eq!(linked_to(&f.c, fill), Some(tx), "{kind:?}: its fills linked"); }
+            let lookup = f.tr.requests().into_iter().rev().find(|r| r.path == doc_lookup(kind).trim_start_matches("GET ") || r.path == bingx::QUERY_PATH).unwrap();
+            let q = |k: &str| lookup.query.iter().find(|(n, _)| *n == k).map(|(_, v)| v.clone());
+            assert_eq!((q("symbol"), q("orderId")), (Some(kind.symbol().to_string()), Some("7".to_string())), "{kind:?}: the Rails-called lookup by symbol and orderId");
+            assert_eq!(f.serve().await.booked.len(), 0, "booked once");
+        }
+        // A string id, as MEXC and Bitrue may answer one: booked under it, its fill linked.
+        let f = fx(kind);
+        let fill = doc_fill(&f, 51, "C02__7", "0.0004", "20", "2026-09-29T14:03:06Z");
+        let mut row = doc_row(kind, &o(7, St::Filled, "0.0004", "20"));
+        row["orderId"] = json!("C02__7");
+        if kind == Kind::Bingx { f.tr.reply(BINGX_OPEN, 200, bingx_page(vec![])); f.tr.reply(BINGX_HISTORY, 200, bingx_page(vec![row.clone()])); }
+        else { f.tr.reply(doc_list(kind), 200, json!([row.clone()])); }
+        f.lookup_row(row);
+        f.report().await;
+        let (obligation, offers) = f.offers();
+        f.request(obligation, offers[0].0).unwrap();
+        let served = f.serve().await;
+        assert_eq!(served.booked.len(), 1, "{kind:?}: {:?}", lines(&f.c, f.b, ru::NOT_ADDED));
+        assert_eq!(f.row(served.booked[0].1)["external_id"], json!(format!("{}-C02__7", kind.symbol())));
+        assert_eq!(linked_to(&f.c, fill), Some(served.booked[0].1));
+    }
+}
+
+#[tokio::test]
+async fn a_doc_built_order_the_lookup_reads_otherwise_is_refused_unconfirmed() {
+    type Edit = (&'static str, O, fn(&mut Value));
+    let lim = limit(7, St::Filled, "0.0004", "20");
+    let mkt = o(7, St::Filled, "0.0004", "20");
+    let cases: [Edit; 10] = [
+        ("another id", lim.clone(), |r| r["orderId"] = json!("8")),
+        ("no id", lim.clone(), |r| { r.as_object_mut().unwrap().remove("orderId"); }),
+        ("another symbol", lim.clone(), |r| r["symbol"] = json!(if r["symbol"] == "BTC-EUR" { "ETH-EUR" } else { "ETHEUR" })),
+        ("size", lim.clone(), |r| r["origQty"] = json!("0.0005")),
+        ("denomination", mkt.clone(), |r| { r["origQuoteOrderQty"] = json!("0"); r["origQty"] = json!("0.0004"); }),
+        ("kind", lim.clone(), |r| { r["type"] = json!("MARKET"); r["price"] = json!("0"); }),
+        ("price", lim.clone(), |r| r["price"] = json!("50001")),
+        ("state", lim.clone(), |r| r["status"] = json!("PARTIALLY_FILLED")),
+        ("filled base", lim.clone(), |r| r["executedQty"] = json!("0.0003")),
+        ("filled quote", lim.clone(), |r| r["cummulativeQuoteQty"] = json!("19.99")),
+    ];
+    for kind in DOC_BUILT {
+        for (name, order, edit) in cases.iter().cloned() {
+            let f = fx(kind);
+            doc_list_only(&f, std::slice::from_ref(&order));
+            let mut row = doc_row(kind, &order);
+            edit(&mut row);
+            f.lookup_row(row);
+            unconfirmed(&f, &format!("{kind:?} {name}")).await;
+        }
+        // The venue's "order gone" answer.
+        let f = fx(kind);
+        doc_list_only(&f, std::slice::from_ref(&lim));
+        match kind {
+            Kind::Bingx => { f.tr.reply(BINGX_QUERY, 200, json!({ "code": 100404, "msg": "order does not exist" })); }
+            _ => { f.tr.reply(doc_lookup(kind), 400, json!({ "code": -2013, "msg": "Order does not exist." })); }
+        }
+        unconfirmed(&f, &format!("{kind:?} gone")).await;
+    }
+}
+async fn unconfirmed(f: &Fx, name: &str) {
+    f.report().await;
+    let (obligation, offers) = f.offers();
+    f.request(obligation, offers[0].0).unwrap();
+    let before = money(&f.c);
+    assert_eq!(f.serve().await.booked, [], "{name}");
+    assert_eq!(money(&f.c), before, "{name}: nothing written");
+    let refused = lines(&f.c, f.b, ru::NOT_ADDED);
+    assert_eq!((refused.len(), refused[0]["reason"].as_str()), (1, Some("unconfirmed")), "{name}");
+    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_requests"), 0, "{name}: the request goes");
+}
+
+#[tokio::test]
+async fn a_failed_doc_built_lookup_counts_an_attempt_and_a_refused_one_refuses() {
+    for kind in DOC_BUILT {
+        let lookup = if kind == Kind::Bingx { BINGX_QUERY } else { doc_lookup(kind) };
+        let f = fx(kind);
+        doc_list_only(&f, &[o(7, St::Filled, "0.0004", "20")]);
+        f.tr.reply(lookup, 500, json!("<html>busy</html>"));
+        f.report().await;
+        let (obligation, offers) = f.offers();
+        f.request(obligation, offers[0].0).unwrap();
+        let before = money(&f.c);
+        f.serve_with(now(), None).await;
+        assert!(lines(&f.c, f.b, ru::NOT_ADDED).is_empty(), "{kind:?}: a retry, no line");
+        assert_eq!(count(&f.c, "SELECT attempts FROM rust_rails_unrecorded_requests"), 1, "{kind:?}: one attempt counted");
+        f.serve_with(now() + Duration::seconds(60), None).await;
+        f.serve_with(now() + Duration::seconds(120), None).await;
+        let lookups = f.tr.requests().iter().filter(|r| format!("GET {}", r.path) == lookup).count();
+        assert_eq!((lookups, money(&f.c) == before), (3, true), "{kind:?}");
+        assert_eq!(lines(&f.c, f.b, ru::NOT_ADDED)[0]["reason"], "unreachable", "{kind:?}");
+        // The key refused at the lookup.
+        let f = fx(kind);
+        doc_list_only(&f, &[o(7, St::Filled, "0.0004", "20")]);
+        f.tr.reply(lookup, 401, json!({ "code": 700002, "msg": "Signature for this request is not valid." }));
+        f.report().await;
+        let (obligation, offers) = f.offers();
+        f.request(obligation, offers[0].0).unwrap();
+        assert_eq!(f.serve().await.booked, []);
+        assert_eq!(lines(&f.c, f.b, ru::NOT_ADDED)[0]["reason"], "refused", "{kind:?}");
+    }
 }
