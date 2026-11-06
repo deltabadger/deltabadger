@@ -524,10 +524,14 @@ pub fn settle_attempt(data: &std::path::Path, log_dir: &std::path::Path, running
         let line = "desktop: update: the last installer didn't install this version; shown once".to_string();
         let mut reported = attempt.filter(serde_json::Value::is_object).unwrap_or_default();
         if target.is_some() {
+            // Replaced whole (a new file renamed over it): a kill mid-write can't leave an attempt without its target.
             reported["reported"] = serde_json::Value::Bool(true);
-            if std::fs::write(&path, reported.to_string()).is_ok() {
-                return Some(line);
-            }
+            let new = path.with_extension("new");
+            return Some(match std::fs::write(&new, reported.to_string()).and_then(|()| std::fs::rename(&new, &path)) {
+                Ok(()) => line,
+                // ponytail: kept unmarked, so U5d shows again at the next start; a data dir that can't be written is broken anyway.
+                Err(error) => format!("{line}; could not mark the attempt reported: {error}"),
+            });
         }
         line
     };

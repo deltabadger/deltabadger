@@ -585,6 +585,14 @@ fn an_attempt_is_settled_by_the_version_that_starts_and_a_failure_is_shown_once(
     assert!(settle_attempt(&data, &log, "2.0.1", at).unwrap().contains("installed this version"));
     assert!(!data.join("updates/attempt").exists());
     assert_eq!(read_failed_mark(&log), None);
+    // The reported attempt replaced whole: no half-written file beside it.
+    install::write_attempt(&data, "2.0.1", false).unwrap();
+    settle_attempt(&data, &log, "2.0.0", at).unwrap();
+    let kept: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(data.join("updates/attempt")).unwrap()).unwrap();
+    assert_eq!((kept["version"].as_str(), kept["reported"].as_bool()), (Some("2.0.1"), Some(true)));
+    assert!(!data.join("updates/attempt.new").exists());
+    std::fs::remove_file(data.join("updates/attempt")).unwrap();
+    std::fs::remove_file(log.join(FAILED_MARK)).unwrap();
 
     // An unreadable attempt is a failed one.
     std::fs::write(data.join("updates/attempt"), "{").unwrap();
