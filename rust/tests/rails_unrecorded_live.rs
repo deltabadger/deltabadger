@@ -8,15 +8,16 @@
 //! order is always a limit sized in base. A28-3d-1 adds MEXC, Bitrue and BingX, their lists built from the docs, each row
 //! one of the venue's Rails order vectors (tests/fixtures/<venue>_vectors.json) plus `time` (`doc_row`). A28-3d-2 adds
 //! Bitget and Bitvavo the same way (their vectors plus `cTime` / `created`: `bitget_row`, `bitvavo_row`) and Gemini, which
-//! has no order vectors, its rows the bodies of tests/gemini.rs (`gemini_row`; a limit only, so in `SERVED_ALL`). No live
-//! venue call. Every pass is checked by the money guard.
+//! has no order vectors, its rows the bodies of tests/gemini.rs (`gemini_row`; a limit only, so in `SERVED_ALL`). A28-3d-3
+//! adds Coinbase, its rows its vectors (`coinbase_orders`) plus `created_time` (`coinbase_row`), each page in its
+//! `{orders, has_next, cursor}` envelope. No live venue call. Every pass is checked by the money guard.
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use common::seed::{self, BotSpec, Seeded};
 use deltabadger::engine::rails_unrecorded::{self as ru, Report};
 use deltabadger::jobs::Db;
 use deltabadger::venue::http::ScriptedTransport;
-use deltabadger::venue::{alpaca, binance, bingx, bitget, bitrue, bitvavo, bybit, gemini, hyperliquid, mexc, Venue, VenueFactory};
+use deltabadger::venue::{alpaca, binance, bingx, bitget, bitrue, bitvavo, bybit, coinbase, gemini, hyperliquid, mexc, Venue, VenueFactory};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::cell::RefCell;
@@ -30,12 +31,13 @@ const PLACED: &str = "2026-09-29T14:03:05Z";
 const WHEN: &str = "around 2026-09-29 14:03 UTC";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum Kind { Binance, BinanceUs, Bybit, Alpaca, Hyperliquid, Mexc, Bitrue, Bingx, Bitget, Bitvavo, Gemini }
+enum Kind { Binance, BinanceUs, Bybit, Alpaca, Hyperliquid, Mexc, Bitrue, Bingx, Bitget, Bitvavo, Gemini, Coinbase }
 /// The venues every case runs on (market and limit orders).
-const SERVED: [Kind; 9] = [Kind::Binance, Kind::BinanceUs, Kind::Bybit, Kind::Alpaca, Kind::Mexc, Kind::Bitrue, Kind::Bingx, Kind::Bitget, Kind::Bitvavo];
+const SERVED: [Kind; 10] = [Kind::Binance, Kind::BinanceUs, Kind::Bybit, Kind::Alpaca, Kind::Mexc, Kind::Bitrue, Kind::Bingx, Kind::Bitget, Kind::Bitvavo,
+                            Kind::Coinbase];
 /// The venues the limit-order cases run on: SERVED, Hyperliquid and Gemini.
-const SERVED_ALL: [Kind; 11] = [Kind::Binance, Kind::BinanceUs, Kind::Bybit, Kind::Alpaca, Kind::Hyperliquid, Kind::Mexc, Kind::Bitrue, Kind::Bingx, Kind::Bitget,
-                                Kind::Bitvavo, Kind::Gemini];
+const SERVED_ALL: [Kind; 12] = [Kind::Binance, Kind::BinanceUs, Kind::Bybit, Kind::Alpaca, Kind::Hyperliquid, Kind::Mexc, Kind::Bitrue, Kind::Bingx, Kind::Bitget,
+                                Kind::Bitvavo, Kind::Gemini, Kind::Coinbase];
 /// A28-3d-1: the doc-built Binance-shaped venues.
 const DOC_BUILT: [Kind; 3] = [Kind::Mexc, Kind::Bitrue, Kind::Bingx];
 /// A28-3d-2: the doc-built venues each with its own reader.
@@ -46,18 +48,19 @@ impl Kind {
         match self { Kind::Binance => ("Exchanges::Binance", "Binance"), Kind::BinanceUs => ("Exchanges::BinanceUs", "Binance.US"), Kind::Bybit => ("Exchanges::Bybit", "Bybit"),
                      Kind::Alpaca => ("Exchanges::Alpaca", "Alpaca"), Kind::Hyperliquid => ("Exchanges::Hyperliquid", "Hyperliquid"),
                      Kind::Mexc => ("Exchanges::Mexc", "MEXC"), Kind::Bitrue => ("Exchanges::Bitrue", "Bitrue"), Kind::Bingx => ("Exchanges::Bingx", "BingX"),
-                     Kind::Bitget => ("Exchanges::Bitget", "Bitget"), Kind::Bitvavo => ("Exchanges::Bitvavo", "Bitvavo"), Kind::Gemini => ("Exchanges::Gemini", "Gemini") }
+                     Kind::Bitget => ("Exchanges::Bitget", "Bitget"), Kind::Bitvavo => ("Exchanges::Bitvavo", "Bitvavo"), Kind::Gemini => ("Exchanges::Gemini", "Gemini"),
+                     Kind::Coinbase => ("Exchanges::Coinbase", "Coinbase") }
     }
     /// The order's id as `add_order` writes `transactions.external_id`: Alpaca's bare UUID, Hyperliquid's "<base>-<oid>",
-    /// Gemini's bare order_id.
+    /// Gemini's and Coinbase's bare order_id.
     fn external_id(self, id: u64) -> String {
-        match self { Kind::Bybit | Kind::Gemini => id.to_string(), Kind::Alpaca => alpaca_id(id), Kind::Hyperliquid => format!("BTC-{id}"),
+        match self { Kind::Bybit | Kind::Gemini | Kind::Coinbase => id.to_string(), Kind::Alpaca => alpaca_id(id), Kind::Hyperliquid => format!("BTC-{id}"),
                      Kind::Bingx | Kind::Bitvavo => format!("BTC-EUR-{id}"), _ => format!("BTCEUR-{id}") }
     }
     /// The pair's listing: Alpaca spells a crypto pair "BASE/QUOTE"; Hyperliquid names a spot pair by its index; BingX and
-    /// Bitvavo "BASE-QUOTE"; Gemini lowercase.
+    /// Bitvavo and Coinbase "BASE-QUOTE"; Gemini lowercase.
     fn symbol(self) -> &'static str {
-        match self { Kind::Alpaca => "BTC/EUR", Kind::Hyperliquid => HL_COIN, Kind::Bingx | Kind::Bitvavo => "BTC-EUR", Kind::Gemini => "btceur", _ => "BTCEUR" }
+        match self { Kind::Alpaca => "BTC/EUR", Kind::Hyperliquid => HL_COIN, Kind::Bingx | Kind::Bitvavo | Kind::Coinbase => "BTC-EUR", Kind::Gemini => "btceur", _ => "BTCEUR" }
     }
     /// Requests one read of an empty answer sends: two on the venues with two lists.
     fn reads(self) -> usize { if self.two_lists() || self == Kind::Bybit { 2 } else { 1 } }
@@ -69,7 +72,8 @@ impl Kind {
     /// historicalOrders; Bybit's either list).
     fn row(self, o: &O) -> Value {
         match self { Kind::Bybit => bybit_row(o), Kind::Alpaca => alpaca_row(o), Kind::Hyperliquid => hl_row(o), Kind::Mexc | Kind::Bitrue | Kind::Bingx => doc_row(self, o),
-                     Kind::Bitget => bitget_row(o), Kind::Bitvavo => bitvavo_row(o), Kind::Gemini => gemini_row(o), _ => binance_row(o) }
+                     Kind::Bitget => bitget_row(o), Kind::Bitvavo => bitvavo_row(o), Kind::Gemini => gemini_row(o), Kind::Coinbase => coinbase_row(o),
+                     _ => binance_row(o) }
     }
 }
 
@@ -174,6 +178,7 @@ impl Fx {
             Kind::Bitget => Report::new(Factory { venue: bitget::BitgetVenue::new(self.tr.clone(), bitget::URL), hook }).pass(&self.db, at).await,
             Kind::Bitvavo => Report::new(Factory { venue: bitvavo::BitvavoVenue::new(self.tr.clone(), bitvavo::URL), hook }).pass(&self.db, at).await,
             Kind::Gemini => Report::new(Factory { venue: gemini::GeminiVenue::new(self.tr.clone(), gemini::URL), hook }).pass(&self.db, at).await,
+            Kind::Coinbase => Report::new(Factory { venue: coinbase::CoinbaseVenue::new(self.tr.clone(), coinbase::URL), hook }).pass(&self.db, at).await,
         }.unwrap();
         assert_eq!(guard(&self.c), before, "a pass writes no order, carry or link");
         n
@@ -208,18 +213,23 @@ impl Fx {
                 let (open, closed): (Vec<&O>, Vec<&O>) = orders.iter().partition(|o| matches!(o.state, St::Open | St::Partly));
                 self.two(open.iter().map(|o| kind.row(o)).collect(), closed.iter().map(|o| kind.row(o)).collect());
             }
-            kind => { self.tr.reply(self.first_path(), 200, Value::Array(orders.iter().map(|o| kind.row(o)).collect())); }
+            kind => self.first(orders.iter().map(|o| kind.row(o)).collect()),
         }
+    }
+    /// One answer of these rows to the venue's first list: a bare array, or Coinbase's last page.
+    fn first(&self, rows: Vec<Value>) {
+        self.tr.reply(self.first_path(), 200, if self.kind == Kind::Coinbase { cb_page(rows, None) } else { Value::Array(rows) });
     }
     /// A two-list venue's open orders and the rest, each list in the venue's envelope.
     fn two(&self, open: Vec<Value>, closed: Vec<Value>) { two(self.kind, &self.tr, open, closed) }
     /// One list of these rows: a two-list venue's history (its open orders none), else the venue's first list.
     fn list(&self, rows: Vec<Value>) {
-        if self.kind.two_lists() { self.two(vec![], rows) } else { self.tr.reply(self.first_path(), 200, Value::Array(rows)); }
+        if self.kind.two_lists() { self.two(vec![], rows) } else { self.first(rows) }
     }
     fn first_path(&self) -> &'static str {
         match self.kind { Kind::Bybit => "GET /v5/order/realtime", Kind::Alpaca => "GET /v2/orders", Kind::Hyperliquid => HL_ORDERS, Kind::Bitrue => "GET /api/v1/allOrders",
-                          Kind::Bingx => BINGX_OPEN, Kind::Bitget => BITGET_UNFILLED, Kind::Bitvavo => BITVAVO_ORDERS, Kind::Gemini => GEMINI_ACTIVE, _ => "GET /api/v3/allOrders" }
+                          Kind::Bingx => BINGX_OPEN, Kind::Bitget => BITGET_UNFILLED, Kind::Bitvavo => BITVAVO_ORDERS, Kind::Gemini => GEMINI_ACTIVE, Kind::Coinbase => CB_ORDERS,
+                          _ => "GET /api/v3/allOrders" }
     }
     /// The key's refusal, as each venue answers it.
     fn refuse(&self, http: bool) {
@@ -238,6 +248,8 @@ impl Fx {
             (Kind::Bitget, false) => self.tr.reply(self.first_path(), 400, json!({ "code": "40009", "msg": "sign signature error", "requestTime": 1790690585000u64, "data": null })),
             (Kind::Bitvavo, false) => self.tr.reply(self.first_path(), 403, json!({ "errorCode": 309, "error": "Your signature is invalid." })),
             (Kind::Gemini, false) => self.tr.reply(self.first_path(), 400, json!({ "result": "error", "reason": "InvalidSignature", "message": "InvalidSignature" })),
+            // Coinbase's documented error envelope; r1.2: refused by its HTTP status alone.
+            (Kind::Coinbase, false) => self.tr.reply(self.first_path(), 403, json!({ "error": "PERMISSION_DENIED", "code": 7, "message": "Missing required scopes", "details": [] })),
             (_, false) => self.tr.reply(self.first_path(), 400, json!({ "code": -2015, "msg": "Invalid API-key, IP, or permissions for action." })),
             (_, true) => self.tr.reply(self.first_path(), 401, json!({ "code": -2015, "msg": "Invalid API-key, IP, or permissions for action." })),
         };
@@ -372,6 +384,11 @@ async fn the_read_asks_for_the_bots_pair_over_the_window_in_milliseconds() {
             assert_eq!(f.tr.requests().iter().map(|r| r.path.as_str()).collect::<Vec<_>>(), [bitvavo::ORDERS_PATH, bitvavo::OPEN_ORDERS_PATH]);
             assert_eq!((q(0, "market"), q(0, "start"), q(0, "end"), q(0, "limit")), (Some("BTC-EUR".into()), Some(from), Some(to), Some("1000".into())));
             assert_eq!(f.tr.requests()[1].query, vec![("market", "BTC-EUR".to_string())]);
+        } else if kind == Kind::Coinbase {
+            // r1.1: by product, the window in whole RFC3339 seconds, its exclusive end a second after `to`, 100 a page.
+            assert_eq!(f.tr.requests().iter().map(|r| r.path.as_str()).collect::<Vec<_>>(), [coinbase::ORDERS]);
+            assert_eq!(f.tr.requests()[0].query, vec![("product_ids", "BTC-EUR".to_string()), ("start_date", "2026-09-29T13:53:00Z".into()),
+                                                      ("end_date", "2026-09-29T14:13:01Z".into()), ("limit", "100".into())]);
         } else {
             assert_eq!(f.tr.requests()[0].path, f.first_path().trim_start_matches("GET "), "{kind:?}");
             assert_eq!((q(0, "symbol"), q(0, "startTime"), q(0, "endTime"), q(0, "limit")), (Some("BTCEUR".into()), Some(from), Some(to), Some("1000".into())), "{kind:?}");
@@ -424,7 +441,7 @@ async fn an_order_a_bot_holds_another_side_or_none_leaves_a28_1s_line() {
 
 #[tokio::test]
 async fn an_unserved_venues_line_is_a28_1s_with_no_read() {
-    for (ty, name) in [("Exchanges::Kraken", "Kraken"), ("Exchanges::Coinbase", "Coinbase"), ("Exchanges::Kucoin", "KuCoin")] {
+    for (ty, name) in [("Exchanges::Kraken", "Kraken"), ("Exchanges::Kucoin", "KuCoin")] {
         let f = fx(Kind::Binance);
         f.c.execute("UPDATE exchanges SET type = ?2, name = ?3 WHERE id = ?1", params![f.s.exchange_id, ty, name]).unwrap();
         let oracle = f.a28_1();
@@ -461,10 +478,11 @@ async fn a_line_not_due_on_the_ledger_is_not_read_yet() {
 async fn an_unreadable_row_alone_leaves_a28_1s_line_and_beside_an_open_order_keeps_it() {
     for kind in SERVED {
         let odd: [fn(&mut Value); 4] = [
-            |r| { let k = ["time", "created_at", "cTime", "created"].into_iter().find(|k| r.get(*k).is_some()).unwrap_or("createdTime"); r.as_object_mut().unwrap().remove(k); },
+            |r| { let k = ["time", "created_at", "cTime", "created", "created_time"].into_iter().find(|k| r.get(*k).is_some()).unwrap_or("createdTime"); r.as_object_mut().unwrap().remove(k); },
             |r| r["side"] = json!("BOTH"),
             |r| if r.get("orderStatus").is_some() { r["orderStatus"] = json!("Untriggered") } else { r["status"] = json!("PENDING_NEW") },
-            |r| if r.get("marketUnit").is_some() { r["marketUnit"] = json!("") } else if r.get("orderType").is_some() { r["orderType"] = json!("stopLoss") } else { r["type"] = json!("STOP_LOSS_LIMIT") },
+            |r| if r.get("marketUnit").is_some() { r["marketUnit"] = json!("") } else if r.get("orderType").is_some() { r["orderType"] = json!("stopLoss") }
+                 else if r.get("type").is_some() { r["type"] = json!("STOP_LOSS_LIMIT") } else { r["order_type"] = json!("STOP_LIMIT") },
         ];
         for (n, spoil) in odd.iter().enumerate() {
             for with_open in [false, true] {
@@ -504,7 +522,7 @@ async fn a_capped_read_keeps_what_it_validated() {
             let f = fx(kind);
             let oracle = f.a28_1();
             let full = match kind { Kind::Bybit => 50, Kind::Alpaca => alpaca::HISTORY_LIMIT, Kind::Hyperliquid => hyperliquid::HISTORY_LIMIT, Kind::Bingx => bingx::HISTORY_PAGE,
-                                    Kind::Bitget => bitget::HISTORY_PAGE, Kind::Gemini => gemini::HISTORY_PAGE, _ => 1000 };
+                                    Kind::Bitget => bitget::HISTORY_PAGE, Kind::Gemini => gemini::HISTORY_PAGE, Kind::Coinbase => coinbase::HISTORY_PAGE, _ => 1000 };
             let sells: Vec<O> = (100..).take(full).map(|id| O { sell: true, ..limit(id, St::Open, "0", "0") }).collect();
             match kind {
                 Kind::Bybit => {
@@ -526,6 +544,14 @@ async fn a_capped_read_keeps_what_it_validated() {
                     let open = if with_open { vec![kind.row(&limit(9, St::Open, "0", "0"))] } else { vec![] };
                     f.two(open, sells.iter().map(|o| kind.row(&O { state: St::Cancelled, ..o.clone() })).collect());
                 }
+                Kind::Coinbase => {
+                    // Five full pages, each with a next cursor: the cap.
+                    for p in 0..5u64 {
+                        let mut rows: Vec<Value> = sells.iter().map(|o| coinbase_row(&O { id: o.id + 1000 * p, ..o.clone() })).collect();
+                        if with_open && p == 0 { rows[0] = coinbase_row(&limit(9, St::Open, "0", "0")); }
+                        f.tr.reply(CB_ORDERS, 200, cb_page(rows, Some(&format!("c{p}"))));
+                    }
+                }
                 _ => {
                     let mut rows: Vec<Value> = sells.iter().map(|o| kind.row(o)).collect();
                     if with_open { rows[0] = kind.row(&limit(9, St::Open, "0", "0")); }
@@ -540,6 +566,7 @@ async fn a_capped_read_keeps_what_it_validated() {
             if kind == Kind::Bybit { assert_eq!(f.tr.requests().iter().filter(|r| r.path == bybit::REALTIME_PATH).count(), 5, "five pages at most"); }
             if kind == Kind::Bingx { assert_eq!(f.tr.requests().iter().filter(|r| r.path == bingx::HISTORY_ORDERS_PATH).count(), 5, "five pages at most"); }
             if kind == Kind::Bitget { assert_eq!(f.tr.requests().iter().filter(|r| r.path == bitget::HISTORY_PATH).count(), 5, "five pages at most"); }
+            if kind == Kind::Coinbase { assert_eq!(f.requests(), 5, "five pages at most"); }
         }
     }
 }
@@ -1343,6 +1370,7 @@ async fn doc_read_on(kind: Kind, tr: &ScriptedTransport, symbols: &[String], fro
         Kind::Bitget => bitget::BitgetVenue::new(tr.clone(), bitget::URL).orders_created(symbols, from, to, deadline).await,
         Kind::Bitvavo => bitvavo::BitvavoVenue::new(tr.clone(), bitvavo::URL).orders_created(symbols, from, to, deadline).await,
         Kind::Gemini => gemini::GeminiVenue::new(tr.clone(), gemini::URL).orders_created(symbols, from, to, deadline).await,
+        Kind::Coinbase => coinbase::CoinbaseVenue::new(tr.clone(), coinbase::URL).orders_created(symbols, from, to, deadline).await,
         _ => unreachable!(),
     }
 }
@@ -2021,4 +2049,230 @@ async fn r1_1_a_bare_bitget_id_holds_the_order_on_the_live_line() {
     f.answer(&[o(7, St::Filled, "0.0004", "20")]);
     f.pass(now()).await;
     assert_eq!(f.one().0, ru::LIVE_LISTED);
+}
+
+// ---- A28-3d-3: Coinbase, its window list built from the docs ------------------------------------------------------------
+
+const CB_ORDERS: &str = "GET /api/v3/brokerage/orders/historical/batch";
+/// One page in Coinbase's envelope: `has_next` while a cursor follows.
+fn cb_page(rows: Vec<Value>, cursor: Option<&str>) -> Value { json!({ "orders": rows, "sequence": "0", "has_next": cursor.is_some(), "cursor": cursor.unwrap_or("") }) }
+/// The Rails order vectors (tests/fixtures/coinbase_vectors.json `coinbase_orders`), read once.
+fn cb_vectors() -> &'static [Value] {
+    static V: std::sync::OnceLock<Vec<Value>> = std::sync::OnceLock::new();
+    V.get_or_init(|| {
+        let v: Value = serde_json::from_str(&std::fs::read_to_string(format!("{}/tests/fixtures/coinbase_vectors.json", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
+        v["coinbase_orders"].as_array().unwrap().to_vec()
+    })
+}
+/// A Coinbase vector's raw MARKET FILLED row edited into `o`: order_id (the bare id), product_id, order_type, side, status
+/// (open while open, CANCELLED once ended), average_filled_price (cum / exec, "0" unfilled), filled_size,
+/// total_value_after_fees (= cum), outstanding_hold_amount ("0"), order_configuration rebuilt as `add_order` sends it (a
+/// limit's base size and price, a market order's quote size), plus `created_time`, which no Rails parse reads.
+fn coinbase_row(o: &O) -> Value {
+    let mut r = cb_vectors().iter().map(|e| e["raw"].clone()).find(|r| r["order_type"] == "MARKET" && r["status"] == "FILLED").unwrap();
+    let status = match o.state { St::Open | St::Partly => "OPEN", St::Filled => "FILLED", St::PartlyCancelled | St::Cancelled => "CANCELLED" };
+    let (ty, config) = match o.limit {
+        Some(p) => ("LIMIT", json!({ "limit_limit_gtc": { "base_size": o.size, "limit_price": p } })),
+        None => ("MARKET", json!({ "market_market_ioc": { "quote_size": o.size } })),
+    };
+    for (k, v) in [("order_id", json!(o.id.to_string())), ("product_id", json!("BTC-EUR")), ("order_type", json!(ty)), ("side", json!(if o.sell { "SELL" } else { "BUY" })),
+                   ("status", json!(status)), ("average_filled_price", json!(avg(o).unwrap_or_else(|| "0".into()))), ("filled_size", json!(o.exec)),
+                   ("total_value_after_fees", json!(o.cum)), ("outstanding_hold_amount", json!("0")), ("order_configuration", config), ("created_time", json!(o.at))] {
+        r[k] = v;
+    }
+    r
+}
+fn cb_read(r: &Value) -> Option<deltabadger::venue::CreatedOrder> { coinbase::created_order("BTC-EUR", r) }
+
+#[test]
+fn every_coinbase_vector_row_reads_strictly_as_rails_parses_it_or_not_at_all() {
+    use deltabadger::venue::{CreatedKind, CreatedSize, CreatedState};
+    let mut read = 0;
+    for e in cb_vectors() {
+        let mut r = e["raw"].clone();
+        r["created_time"] = json!(PLACED);
+        let product = r["product_id"].as_str().unwrap().to_string();
+        let rails = e["status"].as_str().unwrap();
+        let Some(o) = coinbase::created_order(&product, &r) else { continue };
+        read += 1;
+        assert_ne!(rails, "unknown", "{r}");
+        assert_eq!((o.external_id.as_str(), o.created_at), (r["order_id"].as_str().unwrap(), t(PLACED)));
+        assert_eq!(o.filled_base, dec(e["amount_exec"].as_str().unwrap()), "{r}");
+        assert_eq!(o.filled_quote, Some(dec(e["quote_amount_exec"].as_str().unwrap())), "D-HISTORY-COINBASE-QUOTE-AFTER-FEES: {r}");
+        assert_eq!(format!("{:?}", o.side).to_lowercase(), e["side"].as_str().unwrap());
+        assert_eq!(matches!(o.kind, CreatedKind::Limit { .. }), e["order_type"] == "limit_order", "{r}");
+        match &o.size { CreatedSize::Base(b) => assert_eq!(Some(b.clone()), e["amount"].as_str().map(dec)), CreatedSize::Quote(q) => assert_eq!(Some(q.clone()), e["quote_amount"].as_str().map(dec)) }
+        match rails {
+            "open" => assert!(o.state.open(), "{r}"),
+            "closed" => assert_eq!(o.state, CreatedState::Filled),
+            _ => assert!(matches!(o.state, CreatedState::Cancelled | CreatedState::PartlyFilledCancelled), "{r}"),
+        }
+    }
+    assert!(read > 200, "{read}");
+}
+
+#[test]
+fn a_coinbase_row_is_read_only_in_its_venues_words() {
+    use deltabadger::venue::{CreatedKind, CreatedSize, CreatedState};
+    type Edit = (&'static str, fn(&mut Value));
+    let limit_none: [Edit; 25] = [
+        ("PENDING (Unknown in Rails' map)", |r| r["status"] = json!("PENDING")), ("UNKNOWN_ORDER_STATUS", |r| r["status"] = json!("UNKNOWN_ORDER_STATUS")),
+        ("an unlisted status", |r| r["status"] = json!("REJECTED")), ("another product", |r| r["product_id"] = json!("ETH-EUR")),
+        ("an empty id", |r| r["order_id"] = json!("")), ("an integer id", |r| r["order_id"] = json!(7)), ("no time", |r| { r.as_object_mut().unwrap().remove("created_time"); }),
+        ("a time that is no RFC3339", |r| r["created_time"] = json!("2026-09-29 14:03:05")), ("a time in ms", |r| r["created_time"] = json!(ms(PLACED))),
+        ("a lowercase side", |r| r["side"] = json!("buy")), ("a stop limit", |r| r["order_type"] = json!("STOP_LIMIT")),
+        ("another configuration", |r| r["order_configuration"] = json!({ "limit_limit_gtd": { "base_size": "0.0004", "limit_price": "50000", "end_time": PLACED } })),
+        ("two configurations", |r| r["order_configuration"]["market_market_ioc"] = json!({ "quote_size": "20" })),
+        ("a market type on a limit configuration", |r| r["order_type"] = json!("MARKET")), ("a limit at no price", |r| r["order_configuration"]["limit_limit_gtc"]["limit_price"] = json!("0")),
+        ("a limit sized in the quote", |r| r["order_configuration"]["limit_limit_gtc"] = json!({ "quote_size": "20", "limit_price": "50000" })),
+        ("a limit with both sizes", |r| r["order_configuration"]["limit_limit_gtc"]["quote_size"] = json!("20")),
+        ("a size that is no decimal", |r| r["order_configuration"]["limit_limit_gtc"]["base_size"] = json!("abc")),
+        ("a negative fill", |r| r["filled_size"] = json!("-0.1")), ("no fill", |r| { r.as_object_mut().unwrap().remove("filled_size"); }),
+        ("filled with nothing filled", |r| r["filled_size"] = json!("0")), ("a hold above the total", |r| r["outstanding_hold_amount"] = json!("20.01")),
+        ("no hold", |r| { r.as_object_mut().unwrap().remove("outstanding_hold_amount"); }), ("no total", |r| { r.as_object_mut().unwrap().remove("total_value_after_fees"); }),
+        ("a total that is no decimal", |r| r["total_value_after_fees"] = json!("")),
+    ];
+    let base = coinbase_row(&limit(7, St::Filled, "0.0004", "20"));
+    let read = cb_read(&base).unwrap();
+    assert_eq!((read.external_id.as_str(), read.state, read.kind, read.size, read.filled_quote), ("7", CreatedState::Filled, CreatedKind::Limit { price: dec("50000") }, CreatedSize::Base(dec("0.0004")), Some(dec("20"))));
+    for (name, edit) in limit_none {
+        let mut r = base.clone();
+        edit(&mut r);
+        assert!(cb_read(&r).is_none(), "{name}");
+    }
+    // A market order sized by exactly one of its quote and its base.
+    let market = coinbase_row(&o(7, St::Filled, "0.0004", "20"));
+    assert_eq!(cb_read(&market).map(|o| (o.kind, o.size)), Some((CreatedKind::Market, CreatedSize::Quote(dec("20")))));
+    let mut r = market.clone();
+    r["order_configuration"]["market_market_ioc"] = json!({ "base_size": "0.0004" });
+    assert_eq!(cb_read(&r).unwrap().size, CreatedSize::Base(dec("0.0004")));
+    let market_none: [Edit; 4] = [
+        ("both sizes", |r| r["order_configuration"]["market_market_ioc"]["base_size"] = json!("0.0004")),
+        ("neither size", |r| r["order_configuration"]["market_market_ioc"] = json!({})), ("a zero size", |r| r["order_configuration"]["market_market_ioc"]["quote_size"] = json!("0")),
+        ("a limit type on a market configuration", |r| r["order_type"] = json!("LIMIT")),
+    ];
+    for (name, edit) in market_none {
+        let mut r = market.clone();
+        edit(&mut r);
+        assert!(cb_read(&r).is_none(), "{name}");
+    }
+    // D-HISTORY-COINBASE-QUOTE-AFTER-FEES: the filled quote is what Rails' parse computes, total after fees less the hold.
+    let mut r = base.clone();
+    r["total_value_after_fees"] = json!("20.5");
+    r["outstanding_hold_amount"] = json!("0.5");
+    assert_eq!(cb_read(&r).unwrap().filled_quote, Some(dec("20")));
+    // Every open and ended status of Rails' map; the creation time kept to the microsecond.
+    for (status, state) in [("OPEN", CreatedState::Open), ("QUEUED", CreatedState::Open), ("CANCEL_QUEUED", CreatedState::Open), ("EDIT_QUEUED", CreatedState::Open),
+                            ("CANCELLED", CreatedState::Cancelled), ("EXPIRED", CreatedState::Cancelled), ("FAILED", CreatedState::Cancelled)] {
+        let mut r = coinbase_row(&limit(7, St::Open, "0", "0"));
+        r["status"] = json!(status);
+        assert_eq!(cb_read(&r).unwrap().state, state, "{status}");
+    }
+    let mut r = base.clone();
+    r["created_time"] = json!("2026-09-29T14:03:05.123456789Z");
+    assert_eq!(cb_read(&r).unwrap().created_at, t("2026-09-29T14:03:05.123456Z"));
+}
+
+#[tokio::test]
+async fn a_coinbase_list_keeps_only_its_products_rows_in_the_window_its_end_a_second_past_to() {
+    let (from, to) = window();
+    for (name, at, complete) in [("another product", PLACED, false), ("before the window", "2026-09-29T13:52:59.999999Z", true),
+                                 ("after the window", "2026-09-29T14:13:00.000001Z", true), ("at its start", "2026-09-29T13:53:00Z", true),
+                                 ("r1.1: at a whole-second end", "2026-09-29T14:13:00Z", true)] {
+        let tr = ScriptedTransport::default();
+        let mut odd = coinbase_row(&O { at, ..limit(8, St::Filled, "0.0004", "20") });
+        if name == "another product" { odd["product_id"] = json!("ETH-EUR"); }
+        tr.reply(CB_ORDERS, 200, cb_page(vec![odd, coinbase_row(&limit(9, St::Filled, "0.0004", "20"))], None));
+        let read = doc_read(Kind::Coinbase, &tr, from, to).await.unwrap();
+        let want = if name.starts_with("at") || name.starts_with("r1.1") { vec!["8", "9"] } else { vec!["9"] };
+        assert_eq!((ids(&read), read.complete), (want, complete), "{name}");
+    }
+    // r1.1: a fractional window asks from its start's second to the second after its end's, and keeps an order at its end.
+    let (from, to) = (t("2026-09-29T13:53:00.400Z"), t("2026-09-29T14:13:00.500Z"));
+    let tr = ScriptedTransport::default();
+    tr.reply(CB_ORDERS, 200, cb_page(vec![coinbase_row(&O { at: "2026-09-29T14:13:00.500Z", ..limit(8, St::Open, "0", "0") }),
+                                          coinbase_row(&O { at: "2026-09-29T14:13:00.600Z", ..limit(9, St::Open, "0", "0") }),
+                                          coinbase_row(&O { at: "2026-09-29T13:53:00.300Z", ..limit(10, St::Open, "0", "0") })], None));
+    let read = doc_read(Kind::Coinbase, &tr, from, to).await.unwrap();
+    assert_eq!(ids(&read), ["8"]);
+    let q = &tr.requests()[0].query;
+    assert_eq!((q[1].1.as_str(), q[2].1.as_str()), ("2026-09-29T13:53:00Z", "2026-09-29T14:13:01Z"));
+}
+
+#[tokio::test]
+async fn a_coinbase_order_listed_twice_counts_once_and_read_two_ways_is_unreadable() {
+    let (from, to) = window();
+    for (other, want, complete) in [(limit(9, St::Partly, "0.0001", "5"), vec!["9", "8"], true), (limit(9, St::Filled, "0.0004", "20"), vec!["8"], false),
+                                    (O { at: "2026-09-29T12:00:00Z", ..limit(9, St::Partly, "0.0001", "5") }, vec!["8"], false)] {
+        for flip in [false, true] {
+            let tr = ScriptedTransport::default();
+            let (a, b) = (coinbase_row(&limit(9, St::Partly, "0.0001", "5")), coinbase_row(&other));
+            let (first, second) = if flip { (b, a) } else { (a, b) };
+            tr.reply(CB_ORDERS, 200, cb_page(vec![first], Some("c1")));
+            tr.reply(CB_ORDERS, 200, cb_page(vec![second, coinbase_row(&limit(8, St::Filled, "0.0004", "20"))], None));
+            let read = doc_read(Kind::Coinbase, &tr, from, to).await.unwrap();
+            assert_eq!((ids(&read), read.complete), (want.clone(), complete), "{flip}");
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_coinbase_list_is_followed_by_its_cursor_and_a_cap_or_stuck_cursor_is_incomplete() {
+    let (from, to) = window();
+    let page = |id: u64| vec![coinbase_row(&O { sell: true, ..limit(id, St::Cancelled, "0", "0") })];
+    let cursors = |tr: &ScriptedTransport| tr.requests().iter().map(|r| r.query.iter().find(|(k, _)| *k == "cursor").map(|(_, v)| v.clone())).collect::<Vec<_>>();
+    // A short page with a cursor is followed; the last page ends the read whole.
+    let tr = ScriptedTransport::default();
+    tr.reply(CB_ORDERS, 200, cb_page(page(100), Some("c1")));
+    tr.reply(CB_ORDERS, 200, cb_page(vec![coinbase_row(&limit(9, St::Open, "0", "0"))], None));
+    let read = doc_read(Kind::Coinbase, &tr, from, to).await.unwrap();
+    assert_eq!((ids(&read), read.complete), (vec!["100", "9"], true));
+    assert_eq!(cursors(&tr), [None, Some("c1".to_string())]);
+    assert_eq!(tr.requests()[1].query[..4], tr.requests()[0].query[..4], "every page asks the same window");
+    // has_next with no cursor, or the one just followed: incomplete, not a loop.
+    for (second, requests) in [(None, 1), (Some("c1"), 2)] {
+        let tr = ScriptedTransport::default();
+        tr.reply(CB_ORDERS, 200, if second.is_none() { json!({ "orders": [coinbase_row(&limit(9, St::Open, "0", "0"))], "has_next": true, "cursor": "" }) }
+                                 else { cb_page(vec![coinbase_row(&limit(9, St::Open, "0", "0"))], Some("c1")) });
+        if let Some(c) = second { tr.reply(CB_ORDERS, 200, cb_page(page(100), Some(c))); }
+        let read = doc_read(Kind::Coinbase, &tr, from, to).await.unwrap();
+        assert_eq!((ids(&read)[0], read.complete, tr.requests().len()), ("9", false, requests), "{second:?}");
+    }
+    // Five pages at most.
+    let tr = ScriptedTransport::default();
+    for p in 0..6 { tr.reply(CB_ORDERS, 200, cb_page(page(100 + p), Some(&format!("c{p}")))); }
+    let read = doc_read(Kind::Coinbase, &tr, from, to).await.unwrap();
+    assert_eq!((read.orders.len(), read.complete, tr.requests().len()), (5, false, coinbase::HISTORY_PAGES));
+}
+
+#[tokio::test]
+async fn coinbase_failures_are_refused_by_401_and_403_alone() {
+    use deltabadger::venue::HistoryError;
+    let (from, to) = window();
+    // r1.2: the error envelope's values are no refusal on their own.
+    for (status, body, refused) in [(401, json!({ "error": "UNAUTHENTICATED", "code": 16, "message": "Unauthorized", "details": [] }), true), (403, json!("forbidden"), true),
+                                    (400, json!({ "error": "UNAUTHENTICATED", "code": 16, "message": "x", "details": [] }), false),
+                                    (200, json!({ "error": "PERMISSION_DENIED", "code": 7, "message": "x", "details": [] }), false),
+                                    (200, json!({ "orders": null, "has_next": false }), false), (200, json!({ "orders": [] }), false),
+                                    (429, json!({ "error": "RESOURCE_EXHAUSTED", "message": "slow down" }), false), (500, json!("<html>busy</html>"), false)] {
+        let tr = ScriptedTransport::default();
+        tr.reply(CB_ORDERS, status, body.clone());
+        let read = doc_read(Kind::Coinbase, &tr, from, to).await;
+        assert!(matches!(read, Err(HistoryError::Refused(_))) == refused && read.is_err(), "{status} {body}: {read:?}");
+        assert_eq!(tr.requests().len(), 1);
+    }
+}
+
+#[tokio::test]
+async fn a_coinbase_failure_after_only_older_orders_is_the_reads_and_after_one_in_the_window_a_partial_read() {
+    use deltabadger::venue::HistoryError;
+    let (from, to) = window();
+    for (at, partial) in [("2026-09-29T12:00:00Z", false), (PLACED, true)] {
+        let tr = ScriptedTransport::default();
+        tr.reply(CB_ORDERS, 200, cb_page(vec![coinbase_row(&O { at, ..limit(9, St::Open, "0", "0") })], Some("c1")));
+        tr.reply(CB_ORDERS, 503, json!("<html>busy</html>"));
+        let read = doc_read(Kind::Coinbase, &tr, from, to).await;
+        if partial { assert!(matches!(&read, Ok(c) if ids(c) == ["9"] && !c.complete), "{read:?}"); }
+        else { assert!(matches!(read, Err(HistoryError::Retry(_))), "{read:?}"); }
+    }
 }

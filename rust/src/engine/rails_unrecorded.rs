@@ -501,13 +501,13 @@ use crate::venue::binance::{BINANCE, BINANCE_US};
 use crate::venue::{Created, CreatedKind, CreatedOrder, CreatedSize, CreatedState, HistoryError, Venue};
 
 /// The venues whose order history is read live: A28-3a (Rails' own clients pin their order-list answer, §1), A28-3b-1 Alpaca
-/// (a recorded answer, tests/fixtures/order_lists/alpaca), A28-3c-3a Hyperliquid, and A28-3d-1/-2's lists built from the docs.
-const SERVED: [&str; 11] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA, crate::venue::hyperliquid::HYPERLIQUID, MEXC, BITRUE, BINGX,
-                            BITGET, BITVAVO, GEMINI];
+/// (a recorded answer, tests/fixtures/order_lists/alpaca), A28-3c-3a Hyperliquid, and A28-3d-1/-2/-3's lists built from the docs.
+const SERVED: [&str; 12] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA, crate::venue::hyperliquid::HYPERLIQUID, MEXC, BITRUE, BINGX,
+                            BITGET, BITVAVO, GEMINI, COINBASE];
 /// A28-3d G4 (D-HISTORY-DOC-BOOK-CONFIRMED): the venues whose list read is built from the docs alone; a booking also needs
 /// the venue's Rails-called single-order lookup to read the same order (`Venue::order_created`).
-const DOC_BUILT: [&str; 6] = [MEXC, BITRUE, BINGX, BITGET, BITVAVO, GEMINI];
-use crate::venue::{bingx::BINGX, bitget::BITGET, bitrue::BITRUE, bitvavo::BITVAVO, gemini::GEMINI, mexc::MEXC};
+const DOC_BUILT: [&str; 7] = [MEXC, BITRUE, BINGX, BITGET, BITVAVO, GEMINI, COINBASE];
+use crate::venue::{bingx::BINGX, bitget::BITGET, bitrue::BITRUE, bitvavo::BITVAVO, coinbase::COINBASE, gemini::GEMINI, mexc::MEXC};
 /// Pairs one read may ask for (§4); more leave the line A28-1's.
 const MAX_SYMBOLS: usize = 5;
 /// Live reads per pass (r1.4), taken round-robin from `LIVE_CURSOR`.
