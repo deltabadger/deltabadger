@@ -282,7 +282,12 @@ fn the_reset_refuses_while_the_engine_holds_the_install() {
 #[test]
 fn owed_work_refuses_the_reset() {
     type Add<'a> = &'a dyn Fn(&Connection, &Fixture);
-    let cases: [(&str, Add, &str); 5] = [
+    let cases: [(&str, Add, &str); 7] = [
+        ("liquidation marker", &|c, f| { c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.liquidation_pending', json('{\"id\":\"x\",\"state\":\"ambiguous\"}')) WHERE id = ?1", [f.bot]).unwrap(); },
+         "a sale of its holdings hasn't finished"),
+        ("abandoned liquidation", &|c, f| { let tx = seed::insert_tx(c, &f.seeded, f.bot, &seed::TxSpec { status: 1, external_status: Some(4), external_id: Some("L-1".into()), order_type: 0,
+                                     amount: Some("0.001"), quote_amount: None, price: None, quote_amount_exec: None, amount_exec: None, created_at: T.into() });
+                                     c.execute("UPDATE transactions SET transaction_type = 'LIQUIDATION' WHERE id = ?1", [tx]).unwrap(); }, "a sale of its holdings hasn't finished"),
         ("open order", &|c, f| { seed::insert_tx(c, &f.seeded, f.bot, &seed::TxSpec { status: 0, external_status: Some(0), external_id: Some("OPEN-1".into()), order_type: 0,
                                      amount: Some("0.001"), quote_amount: Some("10"), price: Some("10000"), quote_amount_exec: None, amount_exec: None, created_at: T.into() }); }, "open orders"),
         ("swap", &|c, f| { c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rebalance_pending', json('{\"sell_transaction_id\":1}')) WHERE id = ?1", [f.bot]).unwrap(); },

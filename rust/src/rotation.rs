@@ -643,14 +643,14 @@ pub fn owed(lock: &crate::lease::EngineLock, copy: &crate::store::Opened, now: D
         Err(crate::engine::EngineError::Ineligible(p)) => lines.extend(p),
         Err(other) => lines.push(format!("This install couldn't be checked: {other:?}")),
     }
-    lines.extend(left_over(&copy.primary).map_err(e)?);
+    lines.extend(left_over(&copy.primary, now).map_err(e)?);
     let mut seen = std::collections::HashSet::new();
     lines.retain(|l| seen.insert(l.clone()));
     Ok(lines)
 }
 
 /// What the takeover lets through but a venue key is still needed for (Codex plan r3–r5).
-fn left_over(c: &Connection) -> rusqlite::Result<Vec<String>> {
+fn left_over(c: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Vec<String>> {
     use crate::engine::{liquidation, redeploy, signal};
     let mut lines = vec![];
     let mut s = c.prepare("SELECT id, transient_data FROM bots ORDER BY id")?;
@@ -663,9 +663,15 @@ fn left_over(c: &Connection) -> rusqlite::Result<Vec<String>> {
         if t.get(signal::MARKER_KEY).is_some_and(Value::is_object) || t.get("rust_placement").is_some_and(|v| !v.is_null()) {
             lines.push(format!("{n}: it has an order whose result isn't known yet."));
         }
-        let liquidating: bool = c.query_row(&format!("SELECT coalesce({}, 0) FROM bots WHERE id = ?1", liquidation::PENDING_SQL), [id], |r| r.get(0))?;
+        // The request run_commands takes, and what composition counts as in flight (a marker, a waiting or an abandoned
+        // unresolved order): takeover admits these on a stopped bot (Codex branch review r1).
+        let bot = crate::engine::model::load_bot(c, id).ok();
+        let in_flight = |f: &dyn Fn(&crate::engine::model::Bot) -> Result<bool, crate::engine::EngineError>| bot.as_ref().is_none_or(|b| f(b).unwrap_or(true));
+        let liquidating: bool = c.query_row(&format!("SELECT coalesce({}, 0) FROM bots WHERE id = ?1", liquidation::PENDING_SQL), [id], |r| r.get(0))?
+            || in_flight(&|b| crate::engine::composition::liquidation_in_flight(c, b, now));
         if liquidating { lines.push(format!("{n}: a sale of its holdings hasn't finished.")); }
-        let redeploying: bool = c.query_row(&format!("SELECT coalesce({}, 0) FROM bots WHERE id = ?1", redeploy::PENDING_SQL), [id], |r| r.get(0))?;
+        let redeploying: bool = c.query_row(&format!("SELECT coalesce({}, 0) FROM bots WHERE id = ?1", redeploy::PENDING_SQL), [id], |r| r.get(0))?
+            || in_flight(&|b| crate::engine::composition::redeploy_in_flight(c, b));
         if redeploying { lines.push(format!("{n}: a redeploy hasn't finished.")); }
     }
     let mut s = c.prepare("SELECT DISTINCT bot_id FROM transactions WHERE status = 0 AND external_status IN (0, 1) AND bot_id IS NOT NULL ORDER BY 1")?;
