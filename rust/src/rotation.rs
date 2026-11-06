@@ -680,6 +680,16 @@ fn left_over(c: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Vec<String>
     let mut late: Vec<i64> = scan.late.iter().map(|(bot, _)| *bot).collect();
     late.dedup();
     for bot in late { lines.push(format!("{}: a sale or redeploy filled, and its proceeds aren't recorded yet: start the app so it reads them.", name(c, bot)?)); }
+    // A reversal's captured orders with no recorded cancel outcome (run_reversals; they bar placements), and a cancel's
+    // result still to be re-read (run_cancel_rereads): both need the venue (Codex branch review r3).
+    let engine = |e: crate::engine::EngineError| rusqlite::Error::UserFunctionError(Box::new(std::io::Error::other(format!("{e:?}"))));
+    for bot in crate::engine::reversal::unrecorded(c).map_err(engine)? { lines.push(format!("{}: an order it asked to cancel hasn't been confirmed cancelled yet.", name(c, bot)?)); }
+    let mut s = c.prepare("SELECT t.bot_id FROM app_configs k JOIN transactions t ON t.id = CAST(substr(k.key, ?1) AS INTEGER) WHERE substr(k.key, 1, ?2) = ?3 ORDER BY t.bot_id")?;
+    let prefix = crate::web::bot::cancel::REREAD;
+    for bot in s.query_map(params![prefix.len() as i64 + 1, prefix.len() as i64, prefix], |r| r.get::<_, Option<i64>>(0))?.collect::<Result<Vec<_>, _>>()?.into_iter().flatten() {
+        lines.push(format!("{}: an order it asked to cancel hasn't been confirmed cancelled yet.", name(c, bot)?));
+    }
+    drop(s);
     let mut s = c.prepare("SELECT DISTINCT bot_id FROM transactions WHERE status = 0 AND external_status IN (0, 1) AND bot_id IS NOT NULL ORDER BY 1")?;
     for id in s.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()? { lines.push(format!("{}: it has open orders.", name(c, id)?)); }
     drop(s);

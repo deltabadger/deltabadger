@@ -289,7 +289,13 @@ fn owed_work_refuses_the_reset() {
         c.execute("UPDATE transactions SET transaction_type = ?2 WHERE id = ?1", (tx, kind)).unwrap();
     };
     let (late_liquidation, late_redeploy) = (late("LIQUIDATION"), late("REDEPLOY"));
-    let cases: [(&str, Add, &str); 9] = [
+    let cases: [(&str, Add, &str); 11] = [
+        ("reversal cancel", &|c, f| { c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_reversal_cancels', json('[{\"tx\":1}]')) WHERE id = ?1", [f.bot]).unwrap(); },
+         "an order it asked to cancel hasn't been confirmed cancelled yet"),
+        ("cancel re-read", &|c, f| { let tx = seed::insert_tx(c, &f.seeded, f.bot, &seed::TxSpec { status: 0, external_status: Some(3), external_id: Some("C-1".into()), order_type: 0,
+                                     amount: Some("0.001"), quote_amount: None, price: None, quote_amount_exec: None, amount_exec: None, created_at: T.into() });
+                                     deltabadger::app_config::set_plain(c, &format!("rust_cancel_reread:{tx}"), "1", chrono::Utc::now()).unwrap(); },
+         "an order it asked to cancel hasn't been confirmed cancelled yet"),
         ("liquidation proceeds", &late_liquidation, "its proceeds aren't recorded yet"),
         ("redeploy spend", &late_redeploy, "its proceeds aren't recorded yet"),
         ("liquidation marker", &|c, f| { c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.liquidation_pending', json('{\"id\":\"x\",\"state\":\"ambiguous\"}')) WHERE id = ?1", [f.bot]).unwrap(); },
