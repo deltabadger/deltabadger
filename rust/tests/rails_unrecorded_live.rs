@@ -409,7 +409,9 @@ async fn the_read_asks_for_the_bots_pair_over_the_window_in_milliseconds() {
             assert_eq!(f.tr.requests()[1].body, Some(json!({ "start": (t("2026-09-29T13:53:00Z").timestamp() - 1).to_string(), "end": t("2026-09-29T14:13:00Z").timestamp().to_string(),
                                                              "closetime": "open", "with_cursor": "true" })));
         } else if kind == Kind::Kucoin {
-            // A28-3d-5: the classic list's active orders, then its done ones, by symbol and window in ms, page 1 of 500.
+            // A28-3d-5: the classic list's active orders, then its done ones, by symbol and window in ms (the end a
+            // millisecond past: its bound's inclusion is undocumented), page 1 of 500.
+            let to = (to.parse::<i64>().unwrap() + 1).to_string();
             assert_eq!(f.tr.requests().iter().map(|r| r.path.as_str()).collect::<Vec<_>>(), [kucoin::ORDERS, kucoin::ORDERS]);
             for (i, status) in ["active", "done"].into_iter().enumerate() {
                 assert_eq!(f.tr.requests()[i].query, vec![("currentPage", "1".to_string()), ("endAt", to.clone()), ("pageSize", "500".into()), ("startAt", from.clone()),

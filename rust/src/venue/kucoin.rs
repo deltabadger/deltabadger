@@ -838,8 +838,9 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
         for symbol in symbols {
             for status in ["active", "done"] {
                 for page in 1..=HISTORY_PAGES {
+                    // The docs don't say whether `endAt` is inclusive: a millisecond past the window (rows are filtered here).
                     let q = vec![("status", status.to_string()), ("symbol", symbol.clone()), ("startAt", from.timestamp_millis().to_string()),
-                                 ("endAt", to.timestamp_millis().to_string()), ("currentPage", page.to_string()), ("pageSize", PAGE_SIZE.into())];
+                                 ("endAt", (to.timestamp_millis() + 1).to_string()), ("currentPage", page.to_string()), ("pageSize", PAGE_SIZE.into())];
                     let (rows, more) = match super::by_deadline(deadline, self.history_page(&self.request("GET", ORDERS.into(), q, None), page)).await {
                         Ok(p) => p,
                         Err(e) if !any_in(&out, from, to) => return Err(e),
