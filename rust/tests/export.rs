@@ -939,3 +939,15 @@ async fn a_restored_install_places_no_order_before_the_owner_acts() {
     assert!(t.posted_orders().is_empty(), "orders placed after a restore: {:?}", t.posted_orders());
     assert!(t.requests().is_empty(), "venue requests after a restore: {:?}", t.requests().iter().map(|r| format!("{} {}", r.method, r.path)).collect::<Vec<_>>());
 }
+
+/// Codex branch review: a bot with no venue (Automation::ExchangeConnectable's optional association) gets its file, header
+/// only, instead of failing the whole export.
+#[test]
+fn a_bot_without_a_venue_gets_its_file() {
+    let b = Box::new();
+    rails_input(&b);
+    b.db().execute("INSERT INTO bots (id, user_id, type, label, status, settings, transient_data, created_at, updated_at) \
+                    VALUES (99, 1, 'Bots::DcaSingleAsset', 'No venue', 2, '{}', '{}', '2026-01-01', '2026-01-01')", []).unwrap();
+    b.exported();
+    assert_eq!(std::fs::read_to_string(b.out("csv/bots/99-no-venue.csv")).unwrap(), "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n");
+}
