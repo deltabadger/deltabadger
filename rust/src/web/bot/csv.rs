@@ -104,6 +104,19 @@ fn orders_csv(c: &Connection, id: i64, bot: &Owned) -> Result<String, WebError> 
     Ok(out)
 }
 
+/// The bot's file in `deltabadger export` (PLAN-B4b §2.1): Rails' `Bot.find_each` takes every bot, deleted and archived
+/// included, so it is loaded without the web's owner and not-deleted filter. A bot whose owner is gone is written in UTC
+/// (D-EXPORT-ORPHAN-BOT: Rails raises on `user.time_zone`). None when there is no such bot.
+pub fn export_csv(c: &Connection, id: i64) -> Result<Option<String>, WebError> {
+    let bot = c.query_row("SELECT b.exchange_id, coalesce(b.type, ''), b.settings, coalesce(u.time_zone, 'UTC') FROM bots b LEFT JOIN users u ON u.id = b.user_id \
+                           WHERE b.id = ?1", [id], |r| {
+        Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, Option<String>>(2)?, r.get::<_, String>(3)?))
+    }).optional()?.map(|(exchange_id, kind, settings, zone)| Owned {
+        exchange_id, kind, settings: settings.and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null), zone,
+    });
+    bot.map(|bot| orders_csv(c, id, &bot)).transpose()
+}
+
 /// POST /bots/:id/export.
 pub async fn export(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)) };
