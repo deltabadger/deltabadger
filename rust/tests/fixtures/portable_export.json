@@ -13,7 +13,7 @@
     "csv/bots/4-to-the-moon.csv",
     "csv/bots/5-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.csv",
     "csv/bots/6-etc-passwd.csv",
-    "csv/bots/7-top-coins.csv",
+    "csv/bots/7-top-11.csv",
     "csv/bots/8-new-bot.csv",
     "csv/bots/9-new-bot.csv",
     "csv/tracker.csv",
@@ -24,7 +24,7 @@
     "portable/production_queue.sqlite3"
   ],
   "printed": "Portable export complete: /export/manifest.json\n",
-  "manifest": "{\n  \"app_version\": \"{{app_version}}\",\n  \"schema_version\": {{schema_version}},\n  \"files\": [\n    \"csv/README_CSV.txt\",\n    \"csv/bots/1-cafe-creme.csv\",\n    \"csv/bots/10-aeon-oeuvre-o.csv\",\n    \"csv/bots/11-botwithunderscores.csv\",\n    \"csv/bots/12-upper-lower-123.csv\",\n    \"csv/bots/13-dash.csv\",\n    \"csv/bots/14-unicode-n.csv\",\n    \"csv/bots/15-ijssel-ll.csv\",\n    \"csv/bots/2-strasse-nach-alesund.csv\",\n    \"csv/bots/3-bot.csv\",\n    \"csv/bots/4-to-the-moon.csv\",\n    \"csv/bots/5-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.csv\",\n    \"csv/bots/6-etc-passwd.csv\",\n    \"csv/bots/7-top-coins.csv\",\n    \"csv/bots/8-new-bot.csv\",\n    \"csv/bots/9-new-bot.csv\",\n    \"csv/tracker.csv\",\n    \"portable/production.sqlite3\",\n    \"portable/production_cable.sqlite3\",\n    \"portable/production_cache.sqlite3\",\n    \"portable/production_queue.sqlite3\"\n  ]\n}\n",
+  "manifest": "{\n  \"app_version\": \"{{app_version}}\",\n  \"schema_version\": {{schema_version}},\n  \"files\": [\n    \"csv/README_CSV.txt\",\n    \"csv/bots/1-cafe-creme.csv\",\n    \"csv/bots/10-aeon-oeuvre-o.csv\",\n    \"csv/bots/11-botwithunderscores.csv\",\n    \"csv/bots/12-upper-lower-123.csv\",\n    \"csv/bots/13-dash.csv\",\n    \"csv/bots/14-unicode-n.csv\",\n    \"csv/bots/15-ijssel-ll.csv\",\n    \"csv/bots/2-strasse-nach-alesund.csv\",\n    \"csv/bots/3-bot.csv\",\n    \"csv/bots/4-to-the-moon.csv\",\n    \"csv/bots/5-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.csv\",\n    \"csv/bots/6-etc-passwd.csv\",\n    \"csv/bots/7-top-11.csv\",\n    \"csv/bots/8-new-bot.csv\",\n    \"csv/bots/9-new-bot.csv\",\n    \"csv/tracker.csv\",\n    \"portable/production.sqlite3\",\n    \"portable/production_cable.sqlite3\",\n    \"portable/production_cache.sqlite3\",\n    \"portable/production_queue.sqlite3\"\n  ]\n}\n",
   "readme_csv": "Exported by Deltabadger {{app_version}}.\nRestore with this version or newer.\n\ntracker.csv is transaction interchange: it excludes manual prices, transfer links\nand raw data. Import it using the Deltabadger CSV format.\nbots/*.csv holds submitted, closed orders only, one file per bot.\nThese files do not contain bot configuration.\n",
   "tracker_csv": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2026-01-04T23:59:59Z,swap_in,AAPL,0.000000001,,,,,alpaca,swap_in-2-1,,'@cmd\n2026-01-04T23:59:59Z,swap_out,'-BTC,0.000000001,,,USD,99999999999.99,alpaca,swap_out-3-0,,'@cmd\n2026-01-04T23:59:59Z,airdrop,BTC,1.0,,,,,binance,airdrop-8-1,group-2,'apostrophe\n2026-01-04T23:59:59Z,mining,ETH,1.0,,,USD,5000.0,binance,mining-9-0,,'apostrophe\n2026-01-04T23:59:59Z,return_of_capital,AAPL,-3.25,,,,,alpaca,return_of_capital-14-1,,'@cmd\n2026-01-04T23:59:59Z,adjustment,USD,-3.25,,,USD,123456789.1234567,alpaca,adjustment-15-0,,'@cmd\n2026-01-05T00:00:00Z,buy,BTC,1.0,USD,123456789.1234567,USD,5000.0,kraken,buy-0-0,group-0,'=SUM(A1:A2)\n2026-01-05T00:00:00Z,buy,BTC,0.1,,,USD,5000.0,binance,buy-0-1,group-0,'+1\n2026-01-05T00:00:00Z,sell,ETH,0.1,,,,,binance,sell-1-0,,'+1\n2026-01-05T00:00:00Z,swap_out,'-BTC,0.0000000001,USD,5000.0,USD,99999999999.99,kraken,swap_out-3-1,,'\ttab\n2026-01-05T00:00:00Z,deposit,BTC,0.0000000001,USD,-3.25,,,kraken,deposit-4-0,group-1,'\ttab\n2026-01-05T00:00:00Z,withdrawal,ETH,-3.25,USD,0.0,,,coinbase,,,\"say \"\"hi\"\"\"\n2026-01-05T00:00:00Z,staking_reward,AAPL,-3.25,USD,99999999999.99,USD,123456789.1234567,coinbase,staking_reward-6-0,,\"say \"\"hi\"\"\"\n2026-01-05T00:00:00Z,staking_reward,AAPL,0.0,,,USD,123456789.1234567,alpaca,staking_reward-6-1,,\"two\nlines\"\n2026-01-05T00:00:00Z,lending_interest,USD,0.0,,,,,alpaca,lending_interest-7-0,,\"two\nlines\"\n2026-01-05T00:00:00Z,mining,ETH,0.1,USD,123456789.1234567,USD,5000.0,coinbase,mining-9-1,,plain\n2026-01-05T00:00:00Z,fee,AAPL,0.1,USD,0.000000001,,,coinbase,fee-10-0,,plain\n2026-01-05T00:00:00Z,other_income,USD,0.000000001,USD,0.0000000001,,,kraken,other_income-11-1,,'=SUM(A1:A2)\n2026-01-05T00:00:00Z,lost,BTC,0.000000001,USD,5000.0,USD,99999999999.99,kraken,lost-12-0,group-3,'=SUM(A1:A2)\n2026-01-05T00:00:00Z,lost,BTC,0.0000000001,,,USD,99999999999.99,binance,lost-12-1,group-3,'+1\n2026-01-05T00:00:00Z,withholding_tax,ETH,0.0000000001,,,,,binance,withholding_tax-13-0,,'+1\n2026-01-05T00:00:00Z,adjustment,USD,0.0,USD,99999999999.99,USD,123456789.1234567,kraken,adjustment-15-1,,'\ttab\n2026-01-05T00:00:00Z,unsupported_activity,BTC,0.0,USD,1.0,,,kraken,unsupported_activity-16-0,group-4,'\ttab\n2026-01-05T12:30:15Z,sell,ETH,123456789.1234567,USD,0.000000001,,,coinbase,sell-1-1,,'-2\n2026-01-05T12:30:15Z,swap_in,AAPL,123456789.1234567,USD,0.0000000001,,,coinbase,swap_in-2-0,,'-2\n2026-01-05T12:30:15Z,lending_interest,USD,99999999999.99,USD,1.0,,,kraken,lending_interest-7-1,,\"\"\n2026-01-05T12:30:15Z,airdrop,BTC,99999999999.99,USD,0.1,,,kraken,airdrop-8-0,group-2,\"\"\n2026-01-05T12:30:15Z,withholding_tax,ETH,5000.0,USD,-3.25,,,coinbase,withholding_tax-13-1,,'-2\n2026-01-05T12:30:15Z,return_of_capital,AAPL,5000.0,USD,0.0,,,coinbase,return_of_capital-14-0,,'-2\n2026-02-01T08:00:00Z,deposit,BTC,5000.0,,,,,binance,deposit-4-1,group-1,\"with, comma\"\n2026-02-01T08:00:00Z,withdrawal,ETH,5000.0,,,,,binance,,,\"with, comma\"\n2026-02-01T08:00:00Z,fee,AAPL,123456789.1234567,,,,,alpaca,fee-10-1,,\n2026-02-01T08:00:00Z,other_income,USD,123456789.1234567,,,,,alpaca,other_income-11-0,,\n2026-02-01T08:00:00Z,unsupported_activity,BTC,99999999999.99,,,,,binance,unsupported_activity-16-1,group-4,\"with, comma\"\n",
   "bots": {
@@ -40,7 +40,7 @@
     "4-to-the-moon.csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-02-01 15:30:00 +0530,closed-4-0,Market,Buy,0.001,64.0,64000.0,BTC,USD,Closed\n2026-02-01 15:30:00 +0530,closed-4-1,Limit,Sell,1.0,0.5,0.5,ETH,EUR,Closed\n2026-04-16 05:29:59 +0530,Kraken:closed-4-2,Market,Buy,2.5,250.25,0.0000000001,SOL,USDT,Closed\n",
     "5-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-02-01 19:00:00 +0900,closed-5-0,Market,Buy,0.001,64.0,64000.0,BTC,USD,Closed\n2026-02-01 19:00:00 +0900,closed-5-1,Limit,Sell,1.0,0.5,0.5,ETH,EUR,Closed\n2026-05-16 08:59:59 +0900,closed-5-2,Market,Buy,2.5,250.25,0.0000000001,SOL,USDT,Closed\n",
     "6-etc-passwd.csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-02-01 10:00:00 UTC,closed-6-0,Market,Buy,0.001,64.0,64000.0,BTC,USD,Closed\n2026-02-01 10:00:00 UTC,closed-6-1,Limit,Sell,1.0,0.5,0.5,ETH,EUR,Closed\n2026-06-15 23:59:59 UTC,Coinbase:closed-6-2,Market,Buy,2.5,250.25,0.0000000001,SOL,USDT,Closed\n",
-    "7-top-coins.csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-02-01 11:00:00 +0100,closed-7-0,Market,Buy,0.001,64.0,64000.0,BTC,USD,Closed\n2026-02-01 11:00:00 +0100,closed-7-1,Limit,Sell,1.0,0.5,0.5,ETH,EUR,Closed\n2026-07-16 01:59:59 +0200,closed-7-2,Market,Buy,2.5,250.25,0.0000000001,SOL,USDT,Closed\n",
+    "7-top-11.csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-02-01 11:00:00 +0100,closed-7-0,Market,Buy,0.001,64.0,64000.0,BTC,USD,Closed\n2026-02-01 11:00:00 +0100,closed-7-1,Limit,Sell,1.0,0.5,0.5,ETH,EUR,Closed\n2026-07-16 01:59:59 +0200,closed-7-2,Market,Buy,2.5,250.25,0.0000000001,SOL,USDT,Closed\n",
     "8-new-bot.csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-02-01 05:00:00 -0500,closed-8-0,Market,Buy,0.001,64.0,64000.0,BTC,USD,Closed\n2026-02-01 05:00:00 -0500,closed-8-1,Limit,Sell,1.0,0.5,0.5,ETH,EUR,Closed\n2026-08-15 19:59:59 -0400,Kraken:closed-8-2,Market,Buy,2.5,250.25,0.0000000001,SOL,USDT,Closed\n",
     "9-new-bot.csv": "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset,Quote Asset,Status\n2026-02-01 15:30:00 +0530,closed-9-0,Market,Buy,0.001,64.0,64000.0,BTC,USD,Closed\n2026-02-01 15:30:00 +0530,closed-9-1,Limit,Sell,1.0,0.5,0.5,ETH,EUR,Closed\n2026-09-16 05:29:59 +0530,closed-9-2,Market,Buy,2.5,250.25,0.0000000001,SOL,USDT,Closed\n"
   },
@@ -1432,8 +1432,8 @@
         [
           "environment",
           "production",
-          "2026-11-07 03:46:10.571",
-          "2026-11-07 03:46:10.571"
+          "2026-11-07 04:04:30.896",
+          "2026-11-07 04:04:30.896"
         ]
       ]
     },
@@ -1618,7 +1618,7 @@
           0,
           0,
           0,
-          "{\"quote_amount\":12,\"interval\":\"day\"}",
+          "{\"quote_amount\":12,\"interval\":\"day\",\"index_type\":\"top\",\"num_coins\":7}",
           null,
           null,
           2,
@@ -1718,7 +1718,7 @@
           0,
           0,
           0,
-          "{\"quote_amount\":16,\"interval\":\"day\"}",
+          "{\"quote_amount\":16,\"interval\":\"day\",\"index_type\":\"top\",\"num_coins\":11}",
           null,
           null,
           6,
@@ -1818,7 +1818,7 @@
           0,
           0,
           0,
-          "{\"quote_amount\":20,\"interval\":\"day\"}",
+          "{\"quote_amount\":20,\"interval\":\"day\",\"index_type\":\"top\",\"num_coins\":15}",
           null,
           null,
           2,
@@ -1918,7 +1918,7 @@
           0,
           0,
           0,
-          "{\"quote_amount\":24,\"interval\":\"day\"}",
+          "{\"quote_amount\":24,\"interval\":\"day\",\"index_type\":\"top\",\"num_coins\":19}",
           null,
           null,
           6,
@@ -6458,8 +6458,8 @@
         [
           "environment",
           "production",
-          "2026-11-07 03:46:10.571",
-          "2026-11-07 03:46:10.571"
+          "2026-11-07 04:04:30.896",
+          "2026-11-07 04:04:30.896"
         ]
       ]
     },
@@ -6536,7 +6536,7 @@
           0,
           0,
           null,
-          "dad6172a10a994949abaa25d876c66a1f4e4909be387f8753bf348de7a8ed552",
+          "f2ad10d68868e2845325bbc224b97db812483d0e709ddf44e4b85ba0540ed4ae",
           "2026-10-01 21:30:00.000000"
         ],
         [
@@ -6548,7 +6548,7 @@
           1,
           0,
           null,
-          "3850c0ce8e40268c97a366bc4d5a877ae45a74f8542cbf77d6794f9fd2c95714",
+          "12e6738de658d3f7ba699bf7b5e05c847a972ce23c0c765e70a4d668000617ea",
           "2026-10-01 21:30:00.000000"
         ]
       ]
@@ -6644,7 +6644,7 @@
           0,
           0,
           0,
-          "{\"quote_amount\":12,\"interval\":\"day\"}",
+          "{\"quote_amount\":12,\"interval\":\"day\",\"index_type\":\"top\",\"num_coins\":7}",
           null,
           null,
           2,
@@ -6744,7 +6744,7 @@
           0,
           0,
           0,
-          "{\"quote_amount\":16,\"interval\":\"day\"}",
+          "{\"quote_amount\":16,\"interval\":\"day\",\"index_type\":\"top\",\"num_coins\":11}",
           null,
           null,
           2,
@@ -6844,7 +6844,7 @@
           0,
           0,
           0,
-          "{\"quote_amount\":20,\"interval\":\"day\"}",
+          "{\"quote_amount\":20,\"interval\":\"day\",\"index_type\":\"top\",\"num_coins\":15}",
           null,
           null,
           2,
@@ -6944,7 +6944,7 @@
           0,
           0,
           0,
-          "{\"quote_amount\":24,\"interval\":\"day\"}",
+          "{\"quote_amount\":24,\"interval\":\"day\",\"index_type\":\"top\",\"num_coins\":19}",
           null,
           null,
           2,

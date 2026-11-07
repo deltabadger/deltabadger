@@ -75,7 +75,8 @@ module PortableExport
       user = users[i % users.size]
       venue = venues[i % venues.size]
       insert(db, 'bots', { id: id, user_id: user, exchange_id: venue, type: types[i % types.size], status: statuses[i % statuses.size],
-                           label: label, settings: { 'quote_amount' => 10 + i, 'interval' => 'day' }.to_json,
+                           label: label, settings: { 'quote_amount' => 10 + i, 'interval' => 'day' }
+                                                     .merge(types[i % types.size] == 'Bots::DcaIndex' ? { 'index_type' => 'top', 'num_coins' => 5 + i } : {}).to_json,
                            transient_data: '{}' }.merge(t))
       [['closed', 2, '2026-02-01 10:00:00', 'market_order', 'buy'], ['closed', 2, '2026-02-01 10:00:00', 'limit_order', 'sell'],
        ['closed', 2, "2026-0#{(i % 9) + 1}-15 23:59:59", 'market_order', 'buy'], ['open', 1, '2026-03-01 00:00:00', 'limit_order', 'buy']].each_with_index do |(name, ext, at, type, side), n|
