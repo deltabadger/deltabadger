@@ -224,3 +224,28 @@ fn the_encryption_commands_run_with_the_secrets_and_rake_names_them() {
     let out = bash(dir.path(), &[("PATH", &path)], "main console");
     assert!(!String::from_utf8_lossy(&out.stderr).contains("encryption-report"), "only rake names them");
 }
+
+/// PLAN-B4b: `export` runs `deltabadger export` with no secret: an existing `.secrets` is never read, none is created; the
+/// root branch creates and chowns /export, as the 2.x image's entrypoint does.
+#[test]
+fn export_runs_the_export_and_reads_and_writes_no_secrets() {
+    let dir = tempfile::tempdir().unwrap();
+    let bin = dir.path().join("bin");
+    std::fs::create_dir(&bin).unwrap();
+    let stub = bin.join("deltabadger");
+    std::fs::write(&stub, "#!/bin/bash\necho \"ran $* with ${SECRET_KEY_BASE:-no secret}\"\n").unwrap();
+    std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let path = format!("{}:{}", bin.display(), std::env::var("PATH").unwrap());
+    for present in [true, false] {
+        let storage = tempfile::tempdir().unwrap();
+        if present { std::fs::write(storage.path().join(".secrets"), "SECRET_KEY_BASE=from-the-file\n").unwrap(); }
+        let out = bash(storage.path(), &[("PATH", &path)], "main export");
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert_eq!(String::from_utf8_lossy(&out.stdout).lines().last(), Some("ran export with no secret"));
+        let left = std::fs::read_dir(storage.path()).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect::<Vec<_>>();
+        assert_eq!(left, if present { vec![".secrets".to_string()] } else { vec![] });
+        if present { assert_eq!(secrets_file(storage.path()), "SECRET_KEY_BASE=from-the-file\n"); }
+    }
+    let script = std::fs::read_to_string(script()).unwrap();
+    assert!(script.contains("        mkdir -p /app/storage /app/log /app/tmp /export\n        chown -R deltabadger:deltabadger /app/storage /app/log /app/tmp /export\n"));
+}

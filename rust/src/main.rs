@@ -14,6 +14,9 @@
 //!   encryption-derived-keys: Rails' deltabadger:encryption:* tasks (PLAN-A29, deltabadger::rotation). The report and
 //!   derived-keys only read; the reset takes the engine lock and clears every stored credential in one transaction.
 //!
+//! - export: the download of a stopped copy, in launchpad's scratch container only (PLAN-B4b, deltabadger::export): reads
+//!   /app/storage, writes /export, needs no secret. Exit 0 published, 1 refused, 65 a copy this build can't read, 2 else.
+//!
 //! Env: STORAGE_DIR (default ./storage), DATABASE_PATH and QUEUE_DATABASE_PATH; run, handback and serve also need
 //! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). serve also reads PORT (default 3000),
 //! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. run and serve send the bots' mail and read what Rails
@@ -104,6 +107,13 @@ fn main() {
         Some("repair-binance-history") => std::process::exit(repair_binance_history(&env)),
         Some("serve") => std::process::exit(serve(&env)),
         Some("reset-password") => reset_password(&env),
+        #[cfg(unix)]
+        Some("export") => {
+            match deltabadger::export::run(&deltabadger::export::Scratch::container(), &env, chrono::Utc::now()) {
+                Ok(lines) => for line in lines { println!("{line}") },
+                Err(e) => { deltabadger::eline!("deltabadger export: {}", e.message()); std::process::exit(e.exit_code()) }
+            }
+        }
         Some("encryption-report") => encryption_report(&env),
         Some("encryption-reset") => encryption_reset(&env),
         Some("encryption-derived-keys") => encryption_derived_keys(&env),

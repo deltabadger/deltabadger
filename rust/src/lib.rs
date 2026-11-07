@@ -9,6 +9,7 @@ pub mod bundle;
 pub mod codec;
 pub mod crypto;
 pub mod engine;
+pub mod export;
 pub mod identity;
 pub mod jobs;
 pub mod enums;
