@@ -24,17 +24,18 @@ v() { bash "$tree/script/release/validate.sh" "$@"; }
 # ---- versions
 before=$(v version)
 passes "the version is src-tauri/Cargo.toml's" test -n "$before"
-passes "set-version to a beta" v set-version 3.0.0-beta.3
-says "version reads it back" 3.0.0-beta.3 v version
-passes "tauri.conf.json moved" test "$(jq -r .version "$tree/src-tauri/tauri.conf.json")" = 3.0.0-beta.3
+# A version no release will be: moving to the current one changes nothing.
+passes "set-version to a beta" v set-version 99.0.0-beta.1
+says "version reads it back" 99.0.0-beta.1 v version
+passes "tauri.conf.json moved" test "$(jq -r .version "$tree/src-tauri/tauri.conf.json")" = 99.0.0-beta.1
 passes "the lock's deltabadger-desktop entry moved" grep -A1 -x 'name = "deltabadger-desktop"' "$tree/src-tauri/Cargo.lock" -q
 says "only one lock line changed" 1 bash -c "diff '$root/src-tauri/Cargo.lock' '$tree/src-tauri/Cargo.lock' | grep -c '^>'"
 says "only one Cargo.toml line changed" 1 bash -c "diff '$root/src-tauri/Cargo.toml' '$tree/src-tauri/Cargo.toml' | grep -c '^>'"
-passes "same-version agrees" v same-version v3.0.0-beta.3
+passes "same-version agrees" v same-version v99.0.0-beta.1
 refuses "same-version refuses another tag" "is not src-tauri/Cargo.toml's version" v same-version v3.0.0
 refuses "set-version refuses a non-version" "is not a release version" v set-version 3.0
 jq '.version = "9.9.9"' "$tree/src-tauri/tauri.conf.json" > "$work/c" && cp "$tree/src-tauri/tauri.conf.json" "$work/keep" && mv "$work/c" "$tree/src-tauri/tauri.conf.json"
-refuses "same-version refuses a tauri.conf.json that differs" "tauri.conf.json" v same-version v3.0.0-beta.3
+refuses "same-version refuses a tauri.conf.json that differs" "tauri.conf.json" v same-version v99.0.0-beta.1
 mv "$work/keep" "$tree/src-tauri/tauri.conf.json"
 
 # ---- desktop assets
