@@ -738,13 +738,19 @@ fn migrate_and_setup_on_an_empty_volume_write_secrets_only() {
     }
 }
 
-/// `console`, `rake …` and `export` (Rails' own) on a 2.x volume: exit 64, R1 on stderr, every file byte-equal.
+/// `console` and `rake …` (Rails' own) on a 2.x volume: exit 64, R1 on stderr, every file byte-equal. `export` outside
+/// launchpad's scratch container (no EXPORT_SCRATCH) is refused with 1 and changes nothing either (PLAN-B4b).
 #[test]
 fn rails_commands_are_refused_and_change_nothing() {
     let Some(image) = image() else { return };
     let fixture = made_by_2x_migrate(&image);
     let before = snapshot(&image, &fixture.volume);
-    for command in [&["console"][..], &["rake", "db:migrate"], &["export"]] {
+    let mount = fixture.volume.mount();
+    let out = run_once(&["--network", "none", "-v", &mount, &image, "export"]);
+    assert_eq!(out.status.code(), Some(1), "export: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("EXPORT_SCRATCH=1"), "export: {}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(snapshot(&image, &fixture.volume), before, "export changes no file");
+    for command in [&["console"][..], &["rake", "db:migrate"]] {
         let mount = fixture.volume.mount();
         let mut args = vec!["--network", "none", "-v", &mount, &image];
         args.extend(command);

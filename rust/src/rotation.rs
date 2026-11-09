@@ -475,19 +475,7 @@ pub fn clear(tx: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Summary> {
         tx.execute("UPDATE bots SET status = 2, stopped_at = ?1, updated_at = ?1 WHERE id = ?2", params![at, id])?;
         tx.execute("INSERT INTO bot_activity_logs (bot_id, event, level, message, details, created_at) VALUES (?1, 'stopped', 0, NULL, '{}', ?2)", params![id, at])?;
     }
-    // Rebalancing runs on stopped bots too (rebalance::candidate): off, so a replacement key resumes nothing by itself.
-    let mut rebalancing_off = vec![];
-    let mut s = tx.prepare("SELECT id, settings FROM bots ORDER BY id")?;
-    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
-    drop(s);
-    for (id, settings) in rows {
-        let on = settings.as_deref().and_then(|s| serde_json::from_str::<Value>(s).ok())
-            .is_some_and(|v| crate::web::bot::cast_boolean(v.get("rebalance_enabled")));
-        if on {
-            tx.execute("UPDATE bots SET settings = json_set(settings, '$.rebalance_enabled', json('false')) WHERE id = ?1", [id])?;
-            rebalancing_off.push(name(tx, id)?);
-        }
-    }
+    let rebalancing_off = rebalancing_off(tx)?;
     let rules_stopped = tx.execute(&format!("UPDATE rules SET status = 2, updated_at = ?1 WHERE status IN ({working})"), [&at])?;
     let withdrawal_addresses_cleared = tx.execute("UPDATE rules SET address = NULL WHERE type = 'Rules::Withdrawal' AND address IS NOT NULL", [])?;
     tx.execute("UPDATE account_transactions SET api_key_id = NULL WHERE api_key_id IS NOT NULL", [])?;
@@ -510,6 +498,24 @@ pub fn clear(tx: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Summary> {
     if table(tx, "rust_withdrawal_intents")? { tx.execute("DELETE FROM rust_withdrawal_intents WHERE state = 'prepared'", [])?; }
     Ok(Summary { bots_stopped: bots.len(), rules_stopped, withdrawal_addresses_cleared, api_keys_deleted, fee_api_keys_deleted, app_configs_deleted,
                  two_factor_disabled, oauth_tokens_deleted, ibkr_credentials_destroyed: ibkr, rebalancing_off })
+}
+
+/// Rebalancing runs on stopped bots too (rebalance::candidate): turned off on every bot that has it on, so a replacement
+/// key resumes nothing by itself (D-RESET-REBALANCE-OFF, D-EXPORT-REBALANCE-OFF). The names of the bots it was on for.
+pub fn rebalancing_off(tx: &Connection) -> rusqlite::Result<Vec<String>> {
+    let mut off = vec![];
+    let mut s = tx.prepare("SELECT id, settings FROM bots ORDER BY id")?;
+    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    drop(s);
+    for (id, settings) in rows {
+        let on = settings.as_deref().and_then(|s| serde_json::from_str::<Value>(s).ok())
+            .is_some_and(|v| crate::web::bot::cast_boolean(v.get("rebalance_enabled")));
+        if on {
+            tx.execute("UPDATE bots SET settings = json_set(settings, '$.rebalance_enabled', json('false')) WHERE id = ?1", [id])?;
+            off.push(name(tx, id)?);
+        }
+    }
+    Ok(off)
 }
 
 /// D-RESET-LEASE-PLAIN: the encrypted lease is unreadable under the new key, so it is replaced by the same state in

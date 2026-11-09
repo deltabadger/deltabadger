@@ -4,8 +4,9 @@ set -e
 # Deltabadger 3.0 Docker entrypoint: the Rust program alone, no Ruby (Dockerfile.rust).
 # Commands: web, standalone, serve (the app), jobs (idle), migrate and setup (secrets only), shell,
 # and the deltabadger commands (run, check, handback, sync, repair-binance-history, resolve-withdrawal,
-# resolve-placement, reconcile-order, encryption-report, encryption-reset, encryption-derived-keys).
-# console, rake and export are refused; rake's refusal names the encryption commands that replace its tasks.
+# resolve-placement, reconcile-order, encryption-report, encryption-reset, encryption-derived-keys), and export
+# (the download of a stopped copy, launchpad's scratch container only; it reads and writes no .secrets).
+# console and rake are refused; rake's refusal names the encryption commands that replace its tasks.
 #
 # The secrets block below is docker-entrypoint.sh's (the 2.x image's), copied unchanged so a 2.x
 # install's /app/storage/.secrets is read and written exactly as before; one comment line names the
@@ -213,8 +214,9 @@ setup_secrets() {
 main() {
     # If running as root, fix permissions and drop to app user
     if [ "$(id -u)" = "0" ]; then
-        mkdir -p /app/storage /app/log /app/tmp
-        chown -R deltabadger:deltabadger /app/storage /app/log /app/tmp
+        # /export: `export` writes the download there, as the 2.x image's does (PLAN-B4b).
+        mkdir -p /app/storage /app/log /app/tmp /export
+        chown -R deltabadger:deltabadger /app/storage /app/log /app/tmp /export
         exec setpriv --reuid=deltabadger --regid=deltabadger --init-groups "$0" "$@"
     fi
 
@@ -240,7 +242,13 @@ main() {
             echo "Nothing to do: Deltabadger updates its data itself when it starts."
             ;;
 
-        console|rake|export)
+        export)
+            # A download of a stopped copy (PLAN-B4b): it needs no secret (D-EXPORT-NO-KEYS), so .secrets is neither
+            # generated nor read.
+            exec deltabadger export
+            ;;
+
+        console|rake)
             echo "This command isn't available in this version of Deltabadger." >&2
             if [ "$cmd" = "rake" ]; then
                 echo "For deltabadger:encryption:report, :reset and :derived_keys use encryption-report, encryption-reset and encryption-derived-keys." >&2

@@ -89,6 +89,9 @@ RECORDED = {
     FIX + 'tracker_cache.json': ('test', [runner('tracker_cache.rb', '{out}')], None),
     FIX + 'tracker_completion.json': ('test', [runner('tracker_completion.rb', '{out}')], None),
     FIX + 'tracker_export.json': ('test', [runner('record_tracker_export.rb', '{out}')], None),
+    # The schema's own stamps and the regenerated signal tokens are drawn fresh each run.
+    FIX + 'portable_export.json': ('test', [runner('record_portable_export.rb', '{out}')],
+                                   r'(source|scrubbed)/ar_internal_metadata/.*|scrubbed/bot_signals/rows/\d+/\d+'),
     'rust/src/web/mcp/metadata.json': ('test', [runner('mcp.rb', 'metadata', '{out}')], None),
     # The full run, then the two groups it leaves to their own modes (bot_actions, action_lifecycle). It also
     # writes rust/src/web/time_zones.json, which is copied back with it.
@@ -97,7 +100,8 @@ RECORDED = {
                                 r'bcrypt/\d+/hash|turbo/stream_from|ciphertexts/\w+/(cipher|plain)'
                                 r'|bot_actions/rows/\w+/\d+/(key|passphrase|secret|run_identity|confirmation_token|encrypted_password|otp_secret_key)'),
 }
-ALSO_WRITES = {FIX + 'ruby_vectors.json': ['rust/src/web/time_zones.json']}
+ALSO_WRITES = {FIX + 'ruby_vectors.json': ['rust/src/web/time_zones.json'],
+               FIX + 'portable_export.json': [FIX + 'portable_export_2x.sqlite3.gz']}
 # setup.rb renders whole pages, so it needs the built JavaScript and CSS; their tokens, nonces, cookies, ciphertexts,
 # asset digests and fake-server ports are drawn fresh each run, so they are masked out of the content comparison.
 NEEDS_ASSETS = {FIX + 'setup_vectors.json', FIX + 'withdrawal_vectors.json'}

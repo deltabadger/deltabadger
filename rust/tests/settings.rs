@@ -4118,7 +4118,7 @@ async fn platform_claims_that_fail_write_nothing_and_stocks_writes_are_refused()
 }
 
 /// D-ALPACA-CATALOGUE, which D-STOCKS-RETIRED rests on: no code reads the install's Alpaca credential, so dropping or keeping
-/// it changes no bot. Only the secret-parameter mask names the keys.
+/// it changes no bot. Only the secret-parameter mask and the export (which deletes them from a download) name the keys.
 #[test]
 fn no_code_reads_the_install_alpaca_credential(){
     fn walk(dir:&std::path::Path,out:&mut Vec<String>){
@@ -4129,7 +4129,8 @@ fn no_code_reads_the_install_alpaca_credential(){
             }}
     }
     let mut readers=vec![];walk(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),&mut readers);
-    assert_eq!(readers.iter().map(|p|p.replace('\\',"/").rsplit("/src/").next().unwrap().to_string()).collect::<Vec<_>>(),["web/locale.rs"]);
+    let mut names=readers.iter().map(|p|p.replace('\\',"/").rsplit("/src/").next().unwrap().to_string()).collect::<Vec<_>>();names.sort();
+    assert_eq!(names,["export.rs","web/locale.rs"]);
 }
 
 /// A20 (F22): the test email is sent inside the request, bounded by the SMTP client's own timeouts. A server that accepts and

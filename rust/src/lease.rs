@@ -90,6 +90,22 @@ pub async fn lock_waiting_once<F: std::future::Future<Output = ()>>(paths: &Path
     }
 }
 
+/// `deltabadger export` (PLAN-B4b §2, D-EXPORT-FLOCK): the engine flock on an existing lock file, opened read-only and
+/// held while the returned file lives. An absent file is never created: every engine and every Rails from the floor on
+/// creates it before locking it, so absent means nobody holds it (None). Held by anyone: Locked. No heartbeat check.
+pub fn flock_existing(path: &std::path::Path) -> Result<Option<File>, LeaseError> {
+    let file = match File::open(path) {
+        Ok(f) => f,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e.into()),
+    };
+    file.try_lock().map_err(|e| match e {
+        std::fs::TryLockError::WouldBlock => LeaseError::Locked,
+        std::fs::TryLockError::Error(io) => LeaseError::Io(io),
+    })?;
+    Ok(Some(file))
+}
+
 /// Every engine lock this process took, for `release_all`.
 static HELD: std::sync::Mutex<Vec<std::sync::Weak<File>>> = std::sync::Mutex::new(Vec::new());
 

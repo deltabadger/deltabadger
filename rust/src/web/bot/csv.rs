@@ -56,8 +56,8 @@ fn owned(c: &Connection, user: i64, id: i64) -> Result<Option<Owned>, WebError> 
     }))
 }
 
-/// Bot::Exportable#orders_csv.
-fn orders_csv(c: &Connection, id: i64, bot: &Owned) -> Result<String, WebError> {
+/// Bot::Exportable#orders_csv, for the bot's venue (None: a bot with no venue) in its owner's zone.
+fn orders_csv(c: &Connection, id: i64, bot_exchange: Option<i64>, zone: &str) -> Result<String, WebError> {
     let venues: BTreeMap<i64, String> = c.prepare("SELECT id, coalesce(name, '') FROM exchanges")?
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
     let mut out = String::new();
@@ -77,7 +77,8 @@ fn orders_csv(c: &Connection, id: i64, bot: &Owned) -> Result<String, WebError> 
         let exchange: i64 = r.get(11)?;
         // venue_order_id: another venue's row names its venue.
         // A row with no id still names its venue (`"#{name}:#{nil}"`), so two such rows of different venues stay two.
-        let order_id = if exchange == bot.exchange_id { external } else {
+        // A bot with no venue (the association is optional) names every row's venue, as `nil == id` is false in Rails.
+        let order_id = if Some(exchange) == bot_exchange { external } else {
             Some(format!("{}:{}", venues.get(&exchange).cloned().unwrap_or_else(|| exchange.to_string()), external.unwrap_or_default()))
         };
         let order_type: Option<i64> = r.get(2)?;
@@ -89,7 +90,7 @@ fn orders_csv(c: &Connection, id: i64, bot: &Owned) -> Result<String, WebError> 
             _ => None,
         });
         line(&mut out, &[
-            Cell::Raw(timestamp(at, &bot.zone)),
+            Cell::Raw(timestamp(at, zone)),
             text(order_id),
             text(order_type.and_then(|t| match t { 0 => Some("Market"), 1 => Some("Limit"), _ => None }).map(str::to_string)),
             text(side.and_then(|s| match s { 0 => Some("Buy"), 1 => Some("Sell"), _ => None }).map(str::to_string)),
@@ -104,11 +105,20 @@ fn orders_csv(c: &Connection, id: i64, bot: &Owned) -> Result<String, WebError> 
     Ok(out)
 }
 
+/// The bot's file in `deltabadger export` (PLAN-B4b §2.1): Rails' `Bot.find_each` takes every bot, deleted and archived
+/// included, so it is loaded without the web's owner and not-deleted filter. A bot whose owner is gone is written in UTC
+/// (D-EXPORT-ORPHAN-BOT: Rails raises on `user.time_zone`). None when there is no such bot.
+pub fn export_csv(c: &Connection, id: i64) -> Result<Option<String>, WebError> {
+    let bot = c.query_row("SELECT b.exchange_id, coalesce(u.time_zone, 'UTC') FROM bots b LEFT JOIN users u ON u.id = b.user_id WHERE b.id = ?1", [id],
+                          |r| Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, String>(1)?))).optional()?;
+    bot.map(|(exchange, zone)| orders_csv(c, id, exchange, &zone)).transpose()
+}
+
 /// POST /bots/:id/export.
 pub async fn export(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)) };
     let Some(id) = super::id_from_path(&segment) else { return Ok(super::page::not_found(&ctx)) };
-    let file = app.db(move |c| match owned(c, user, id)? { Some(bot) => orders_csv(c, id, &bot).map(Some), None => Ok(None) }).await;
+    let file = app.db(move |c| match owned(c, user, id)? { Some(bot) => orders_csv(c, id, Some(bot.exchange_id), &bot.zone).map(Some), None => Ok(None) }).await;
     match file {
         Ok(Some(body)) => Ok((StatusCode::OK, [(header::CONTENT_TYPE, "text/csv"),
             (header::CONTENT_DISPOSITION, "attachment; filename=\"orders.csv\"; filename*=UTF-8''orders.csv")], body).into_response()),

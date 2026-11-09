@@ -1035,6 +1035,12 @@ pub fn migrate_copy(copy: &Opened) -> Result<Vec<String>, StoreError> {
     apply(&copy.primary, &REGISTRY)
 }
 
+/// Every pending migration of this build applied to `c`, as `migrate` applies them (`deltabadger export`'s copy and its
+/// canonical database, PLAN-B4b §2/§3). The caller holds the copy; nothing else is opened.
+pub fn apply_pending(c: &Connection) -> Result<Vec<String>, StoreError> {
+    apply(c, &REGISTRY)
+}
+
 /// Sets the connection timeout and foreign keys; Rails owns the journal mode.
 pub fn configure(c: &Connection) -> rusqlite::Result<()> {
     c.busy_timeout(std::time::Duration::from_millis(5_000))?;
