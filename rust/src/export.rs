@@ -15,7 +15,10 @@
 //! - D-EXPORT-READ-ONLY-SOURCE: the source is only read, and never opened by SQLite (Rails migrates and scrubs in place).
 //! - D-EXPORT-LEASE-KEPT: the engine lease stays (Rails deletes it), so 2.x Rails never adopts a Rust install.
 //! - D-EXPORT-REBALANCE-OFF: rebalancing off on every bot (A29's D-RESET-REBALANCE-OFF).
-//! - D-EXPORT-CREDENTIAL-BOUND: Rust's identity, IBKR and prepared-withdrawal rows and the identity key go.
+//! - D-EXPORT-ACCOUNT-ANCHORS-KEPT: which account each key, import and IBKR bot belongs to stays, with the identity key
+//!   that fingerprints it, readable under the shipped pair (the encryption reset clears them: its keys are gone), so a
+//!   restored bot refuses another account. Only the old key's observations, IBKR reservations and never-sent
+//!   withdrawals go.
 //! - D-EXPORT-NO-CACHE-CABLE: no cache or cable file in the download (D-BOOT-NO-CACHE-CABLE).
 //! - D-EXPORT-SCHEMA-RUST: the manifest's `schema_version` is this build's newest Rust migration.
 //! - D-EXPORT-EXIT-INCOMPATIBLE: 65 for a copy this build can't read; 1 for a refused environment; 2 otherwise.
@@ -297,8 +300,6 @@ pub enum Policy {
     FilterAppConfigs,
     /// Kept, for the reason given: it ships with the keys that read it.
     Keep(&'static str),
-    /// `rotation::clear_credential_bound`.
-    CredentialBound,
 }
 
 /// Every `rotation::COVERAGE` column's export policy (tests: the keys equal COVERAGE's exactly).
@@ -310,9 +311,11 @@ pub const POLICY: &[((&str, &str), Policy)] = &[
     (("app_configs", "value"), Policy::FilterAppConfigs),
     (("users", "otp_secret_key"), Policy::Keep("sign in with two-factor after a restore (Rails keeps it; the keys ship)")),
     (("rules", "address"), Policy::Keep("the owner's own withdrawal addresses (Rails keeps them; the keys ship)")),
-    (("exchange_accounts", "account_id_enc"), Policy::CredentialBound), (("exchange_account_credentials", "account_id_enc"), Policy::CredentialBound),
-    (("exchange_account_imports", "account_id_enc"), Policy::CredentialBound), (("ibkr_bindings", "account_id_enc"), Policy::CredentialBound),
-    (("ibkr_bot_accounts", "account_id_enc"), Policy::CredentialBound),
+    (("exchange_accounts", "account_id_enc"), Policy::Keep("the account a venue key belongs to: a key on another account shows as a conflict (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
+    (("exchange_account_credentials", "account_id_enc"), Policy::DeleteRows),
+    (("exchange_account_imports", "account_id_enc"), Policy::Keep("the account an imported history belongs to (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
+    (("ibkr_bindings", "account_id_enc"), Policy::Keep("the account an IBKR connection is bound to (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
+    (("ibkr_bot_accounts", "account_id_enc"), Policy::Keep("the account an IBKR bot belongs to: a restored bot refuses another (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
     (("rust_withdrawal_intents", "params_enc"), Policy::Keep("owed withdrawals (dispatched or unresolved), settled by hand after a restore; prepared ones are credential-bound")),
 ];
 
@@ -321,8 +324,7 @@ pub const SESSION_TABLES: [&str; 8] = ["oauth_access_grants", "oauth_access_toke
     "action_mcp_session_messages", "action_mcp_session_subscriptions", "action_mcp_session_tasks", "action_mcp_sessions"];
 /// Columns the scrub's own statements clear, besides POLICY and SESSION_TABLES.
 pub const CLEARED: &[(&str, &str)] = &[("users", "reset_password_token"), ("users", "confirmation_token"), ("users", "remember_created_at"),
-    ("bot_signals", "token"), ("exchange_accounts", "fingerprint"), ("exchange_account_credentials", "material_digest"),
-    ("exchange_account_credentials", "fingerprint"), ("exchange_account_imports", "fingerprint"), ("ibkr_bindings", "account_fingerprint")];
+    ("bot_signals", "token")];
 
 /// A secret-shaped column name the export keeps as it is, each with the reason it is no credential.
 pub const REVIEWED_PLAIN: &[((&str, &str), &str)] = &[
@@ -347,17 +349,18 @@ impl Key {
     pub fn matches(&self, key: &str) -> bool { match self { Key::Exact(k) => key == *k, Key::Prefix(p) => key.starts_with(p) } }
 }
 
-/// Rails' deletions (Export::Portable::APP_CONFIG_KEYS and its `proxy_`/`smtp_` prefixes), then the identity HMAC key.
+/// Rails' deletions (Export::Portable::APP_CONFIG_KEYS and its `proxy_`/`smtp_` prefixes).
 pub const APP_CONFIGS_DELETED: &[Key] = &[
     Key::Exact("coingecko_api_key"), Key::Exact("market_data_token"), Key::Exact("market_data_url"), Key::Exact("market_data_provider"),
     Key::Exact("platform_connected_at"), Key::Exact("alpaca_api_key"), Key::Exact("alpaca_api_secret"), Key::Exact("alpaca_mode"),
     Key::Exact("smtp_provider"), Key::Exact("smtp_username"), Key::Exact("smtp_password"), Key::Exact("smtp_host"), Key::Exact("smtp_port"),
-    Key::Prefix("proxy_"), Key::Prefix("smtp_"), Key::Exact(crate::identity::KEY_CONFIG),
+    Key::Prefix("proxy_"), Key::Prefix("smtp_"),
 ];
 
 /// D-EXPORT-APP-CONFIG-ALLOWLIST: the only app_configs rows a download keeps, each with why it is no credential. Any other
 /// key is deleted, so a secret stored later under a new key never ships unreviewed (tests scan the source's writers).
 pub const APP_CONFIGS: &[(Key, &str)] = &[
+    (Key::Exact(crate::identity::KEY_CONFIG), "the HMAC key of the kept account fingerprints; unread, startup clears them (D-EXPORT-ACCOUNT-ANCHORS-KEPT)"),
     (Key::Exact(crate::lease::KEY), "the engine lease: a restore is this engine starting again (D-EXPORT-LEASE-KEPT)"),
     (Key::Exact("registration_open"), "Rails' sign-up setting"),
     (Key::Exact("setup_sync_status"), "Rails' first-sync state"),
@@ -420,7 +423,9 @@ pub fn scrub(tx: &Connection, now: DateTime<Utc>) -> Result<(), ExportError> {
     tx.execute_batch("UPDATE users SET reset_password_token = NULL, confirmation_token = NULL, remember_created_at = NULL").map_err(&f)?;
     for t in SESSION_TABLES { tx.execute_batch(&format!("DELETE FROM {t}")).map_err(&f)?; }
     // Rust's own rows.
-    crate::rotation::clear_credential_bound(tx).map_err(&f)?;
+    // Rust's: the old key's observations, IBKR reservations and never-sent withdrawals go; the account anchors stay.
+    tx.execute_batch("DELETE FROM exchange_account_credentials; DELETE FROM ibkr_reservations; \
+                      DELETE FROM rust_withdrawal_intents WHERE state = 'prepared'").map_err(&f)?;
     crate::rotation::rebalancing_off(tx).map_err(&f)?;
     let engine = |e: crate::engine::EngineError| ExportError::Failed(format!("scrub: {e:?}"));
     let mut st = tx.prepare("SELECT id, transient_data FROM bots ORDER BY id").map_err(&f)?;

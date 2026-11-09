@@ -479,7 +479,7 @@ pub fn clear(tx: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Summary> {
     let rules_stopped = tx.execute(&format!("UPDATE rules SET status = 2, updated_at = ?1 WHERE status IN ({working})"), [&at])?;
     let withdrawal_addresses_cleared = tx.execute("UPDATE rules SET address = NULL WHERE type = 'Rules::Withdrawal' AND address IS NOT NULL", [])?;
     tx.execute("UPDATE account_transactions SET api_key_id = NULL WHERE api_key_id IS NOT NULL", [])?;
-    clear_credential_bound(tx)?;
+    if table(tx, "ibkr_reservations")? { tx.execute("DELETE FROM ibkr_reservations", [])?; }
     let api_keys_deleted = tx.execute("DELETE FROM api_keys", [])?;
     let fee_api_keys_deleted = tx.execute("DELETE FROM fee_api_keys", [])?;
     let mut app_configs_deleted = 0;
@@ -488,16 +488,6 @@ pub fn clear(tx: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Summary> {
     let two_factor_disabled = tx.execute("UPDATE users SET otp_secret_key = NULL, otp_module = 0 WHERE otp_secret_key IS NOT NULL OR otp_module <> 0", [])?;
     let oauth_tokens_deleted = tx.execute("DELETE FROM oauth_access_tokens", [])? + tx.execute("DELETE FROM oauth_access_grants", [])?;
     tx.execute("DELETE FROM connected_clients", [])?;
-    Ok(Summary { bots_stopped: bots.len(), rules_stopped, withdrawal_addresses_cleared, api_keys_deleted, fee_api_keys_deleted, app_configs_deleted,
-                 two_factor_disabled, oauth_tokens_deleted, ibkr_credentials_destroyed: ibkr, rebalancing_off })
-}
-
-/// "The credentials are gone" for Rust's own rows (D-RESET-RUST-ROWS, D-RESET-IBKR-BOT-ACCOUNT), one behaviour for the
-/// reset and the export (PLAN-B4b §3): IBKR reservations, the account identities and their credentials and imports
-/// (readable only under a key that goes), IBKR bindings and bot accounts, and the withdrawals never sent. A Rust table the
-/// install has not migrated to is skipped. Raw writes only.
-pub fn clear_credential_bound(tx: &Connection) -> rusqlite::Result<()> {
-    if table(tx, "ibkr_reservations")? { tx.execute("DELETE FROM ibkr_reservations", [])?; }
     if table(tx, "exchange_accounts")? {
         tx.execute("UPDATE exchange_accounts SET account_id_enc = NULL, fingerprint = NULL WHERE account_id_enc IS NOT NULL OR fingerprint IS NOT NULL", [])?;
         tx.execute("DELETE FROM exchange_account_credentials", [])?;
@@ -506,7 +496,8 @@ pub fn clear_credential_bound(tx: &Connection) -> rusqlite::Result<()> {
     if table(tx, "ibkr_bindings")? { tx.execute("DELETE FROM ibkr_bindings", [])?; tx.execute("DELETE FROM ibkr_bot_accounts", [])?; }
     // Never sent (dispatched is written before the request): the engine drops these itself. The rest are owed.
     if table(tx, "rust_withdrawal_intents")? { tx.execute("DELETE FROM rust_withdrawal_intents WHERE state = 'prepared'", [])?; }
-    Ok(())
+    Ok(Summary { bots_stopped: bots.len(), rules_stopped, withdrawal_addresses_cleared, api_keys_deleted, fee_api_keys_deleted, app_configs_deleted,
+                 two_factor_disabled, oauth_tokens_deleted, ibkr_credentials_destroyed: ibkr, rebalancing_off })
 }
 
 /// Rebalancing runs on stopped bots too (rebalance::candidate): turned off on every bot that has it on, so a replacement

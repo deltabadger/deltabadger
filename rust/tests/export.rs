@@ -234,7 +234,7 @@ fn policy_covers_coverage() {
 }
 
 /// Tables whose every row the scrub deletes.
-const DELETED_TABLES: [&str; 6] = ["fee_api_keys", "exchange_account_credentials", "exchange_account_imports", "ibkr_bindings", "ibkr_bot_accounts", "ibkr_reservations"];
+const DELETED_TABLES: [&str; 3] = ["fee_api_keys", "exchange_account_credentials", "ibkr_reservations"];
 
 #[test]
 fn every_secret_shaped_column_is_reviewed() {
@@ -269,7 +269,7 @@ fn credentials(c: &Connection, cipher: &Cipher, s: &seed::Seeded) -> (Vec<String
     let (fk, fs) = (enc("PLANTED-fee-key", &mut gone), enc("PLANTED-fee-secret", &mut gone));
     c.execute("INSERT INTO fee_api_keys (exchange_id, key, secret) VALUES (?1, ?2, ?3)", (s.exchange_id, fk, fs)).unwrap();
     for (k, v) in [("smtp_password", "PLANTED-smtp-password"), ("coingecko_api_key", "PLANTED-coingecko"), ("market_data_token", "PLANTED-market-token"),
-                   ("proxy_kraken", "PLANTED-proxy"), ("rust_account_identity_key_v1", "PLANTED-identity-key")] {
+                   ("proxy_kraken", "PLANTED-proxy")] {
         let e = enc(v, &mut gone);
         c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3)", (k, e, t)).unwrap();
     }
@@ -291,16 +291,18 @@ fn credentials(c: &Connection, cipher: &Cipher, s: &seed::Seeded) -> (Vec<String
     let bot = seed::insert_bot(c, s, &BotSpec::weekly(10.0, t));
     c.execute("INSERT INTO bot_signals (bot_id, amount, token, enabled, created_at, updated_at) VALUES (?1, 10, 'PLANTED-signal-token', 1, ?2, ?2)", (bot, t)).unwrap();
     gone.push("PLANTED-signal-token".into());
-    // Rust's own: an account identity, its credential digest, an IBKR binding, a prepared withdrawal; an owed one is kept.
-    let id_enc = enc("PLANTED-account-id", &mut gone);
+    // Rust's own: the account anchors (identity key, account identity, IBKR binding) are kept; the credential
+    // observation and a prepared withdrawal go; an owed withdrawal is kept.
+    let identity_key = cipher.encrypt(IDENTITY_KEY);
+    c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('rust_account_identity_key_v1', ?1, ?2, ?2)", (&identity_key, t)).unwrap();
+    let id_enc = cipher.encrypt("PLANTED-account-id");
     c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, fingerprint, account_id_enc, created_at, updated_at) VALUES (?1, ?2, 'PLANTED-fingerprint', ?3, ?4, ?4)",
               (s.user_id, s.exchange_id, &id_enc, t)).unwrap();
     c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, material_digest, account_id_enc) VALUES (?1, ?2, 'PLANTED-material-digest', ?3)",
               (s.api_key_id, s.exchange_id, &id_enc)).unwrap();
-    gone.extend(["PLANTED-fingerprint", "PLANTED-material-digest"].map(String::from));
-    let bind_enc = enc("PLANTED-ibkr-account", &mut gone);
+    gone.push("PLANTED-material-digest".into());
+    let bind_enc = cipher.encrypt("PLANTED-ibkr-account");
     c.execute("INSERT INTO ibkr_bindings (api_key_id, account_ref, account_fingerprint, account_id_enc, bound_at) VALUES (?1, 'ref', 'PLANTED-ibkr-fp', ?2, ?3)", (s.api_key_id, &bind_enc, t)).unwrap();
-    gone.push("PLANTED-ibkr-fp".into());
     let prepared = enc("PLANTED-prepared-params", &mut gone);
     let owed = cipher.encrypt(&json!({ "rule_id": rule, "user_id": s.user_id, "exchange_id": s.exchange_id, "asset_id": s.btc, "exchange": "Kraken",
         "symbol": "BTC", "coin": "XBT", "client_id": "cid", "destination": { "kind": "Kraken", "coin": "XBT", "key": "my-wallet", "address": "bc1qowed", "method": "Bitcoin" },
@@ -313,8 +315,11 @@ fn credentials(c: &Connection, cipher: &Cipher, s: &seed::Seeded) -> (Vec<String
     c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('rust_job.data_api_sync', ?1, ?2, ?2)",
               (json!({ "last_run_at": "2026-01-01T00:00:00Z", "last_error": "401 {\"error\":\"PLANTED-data-api-token\"}" }).to_string(), t)).unwrap();
     gone.push("PLANTED-data-api-token".into());
-    (gone, vec![otp, address, owed])
+    (gone, vec![otp, address, owed, identity_key, id_enc, bind_enc, "PLANTED-fingerprint".into(), "PLANTED-ibkr-fp".into()])
 }
+
+/// The planted identity key: 32 bytes, hex, as identity::key stores it.
+const IDENTITY_KEY: &str = "abababababababababababababababababababababababababababababababab";
 
 fn credential_install(b: &Box, cipher: &Cipher) -> (seed::Seeded, Vec<String>, Vec<String>) {
     let template = common::rails_install();
@@ -801,10 +806,11 @@ fn a_3_0_export_restores_on_3_0_signed_in_with_the_same_password_and_2fa() {
     assert_eq!(restored.decrypt(&address).unwrap(), "bc1qkeptaddress");
     let statuses: Vec<i64> = r.prepare("SELECT status FROM bots UNION SELECT status FROM rules").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
     assert!(statuses.iter().all(|s| [2, 3, 7].contains(s)), "{statuses:?}");
-    // No key material: the api_keys rows are kept, their columns empty (Rails), no fee key, no setting to re-enter.
+    // No key material: the api_keys rows are kept, their columns empty (Rails), no fee key, no setting to re-enter;
+    // the one setting a reset would clear is the kept identity key (D-EXPORT-ACCOUNT-ANCHORS-KEPT), no credential.
     let report = ok(&cli(to.path(), &env, &["encryption-report"]));
     assert!(report.contains("Every stored value still decrypts under the current secret"), "{report}");
-    assert!(report.contains("Fee API keys — will also be cleared: (none)") && report.contains("Settings that will reset:    (none)"), "{report}");
+    assert!(report.contains("Fee API keys — will also be cleared: (none)") && report.contains("Settings that will reset:    rust_account_identity_key_v1\n"), "{report}");
     assert_eq!(r.query_row("SELECT count(*) FROM api_keys WHERE coalesce(key, secret, passphrase, access_token, rsa_signature_key, rsa_encryption_key, dh_param) IS NOT NULL OR status <> 2", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
     // A session cookie sealed under the old SECRET_KEY_BASE is no session under the download's.
     let derive = |secret: &str| -> [u8; 32] {
@@ -817,6 +823,35 @@ fn a_3_0_export_restores_on_3_0_signed_in_with_the_same_password_and_2fa() {
     let cookie = deltabadger::web::session::seal(&derive(VECTOR_SECRET), &data, now());
     assert!(deltabadger::web::session::open(&derive(VECTOR_SECRET), &cookie, now()).is_some());
     assert!(deltabadger::web::session::open(&derive(&env[0].1), &cookie, now()).is_none());
+}
+
+/// D-EXPORT-ACCOUNT-ANCHORS-KEPT: the download keeps which account each bot and key belongs to, readable under the
+/// shipped pair, so a restored IBKR bot refuses a connection to another account instead of trading there.
+#[test]
+fn a_restored_bot_keeps_its_account_and_refuses_another() {
+    let keys = EncryptionKeys::resolve(&|_| None, VECTOR_SECRET).unwrap();
+    let cipher = Cipher::new(&keys);
+    let b = Box::new();
+    let (s, _, _) = credential_install(&b, &cipher);
+    let c = b.db();
+    c.execute("UPDATE exchanges SET type = 'Exchanges::Ibkr', name = 'Interactive Brokers' WHERE id = ?1", [s.exchange_id]).unwrap();
+    let bot = seed::insert_bot(&c, &s, &BotSpec::weekly(60.0, "2026-01-01 00:00:00"));
+    deltabadger::venue::ibkr_account::assign_bot_account(&c, bot, now()).unwrap();
+    drop(c);
+    b.exported();
+    let (to, env) = restore(&b, &keys);
+    ok(&cli(to.path(), &env, &["check"]));
+    let r = Connection::open(to.path().join("production.sqlite3")).unwrap();
+    let restored = Cipher::new(&EncryptionKeys { primary_key: env[1].1.clone(), key_derivation_salt: env[2].1.clone() });
+    assert!(deltabadger::identity::existing_key(&r, &restored).is_some(), "the identity key reads, so startup clears no identity");
+    let account: String = r.query_row("SELECT account_id_enc FROM exchange_accounts", [], |r| r.get(0)).unwrap();
+    assert_eq!(restored.decrypt(&account).unwrap(), "PLANTED-account-id");
+    assert_eq!(r.query_row("SELECT count(*) FROM exchange_account_credentials", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "observations of the old key go");
+    // The owner deletes the connection and connects another IBKR account: the bot refuses it.
+    deltabadger::venue::ibkr_account::forget(&r, s.api_key_id).unwrap();
+    deltabadger::venue::ibkr_account::bind(&r, &restored, s.api_key_id, "U7654321", now()).unwrap().unwrap();
+    let refused = deltabadger::venue::ibkr_account::check_bot_account(&r, &restored, bot).unwrap().unwrap_err();
+    assert!(refused.starts_with("This bot belongs to IBKR account PLANTED-ibkr-account"), "{refused}");
 }
 
 #[test]
