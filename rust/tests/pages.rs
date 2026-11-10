@@ -3367,6 +3367,7 @@ async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
         without_broker_gate(&mut expected["body"]);
         without_low_funds(&mut actual["body"]);
         without_split_item(&mut actual["body"]);
+        full_page_dialogs(&mut actual["body"]).unwrap_or_else(|e| panic!("{name}: D-FULL-PAGE-DIALOG-COMPLETE: {e}"));
         let _ = index_rules(&mut actual["body"]);
         let _ = signal_rules(&mut actual["body"]);
         theirs.push(expected);
