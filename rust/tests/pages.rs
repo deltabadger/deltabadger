@@ -874,6 +874,65 @@ fn only_the_settings_jobs_row_is_left_out() {
     }
 }
 
+/// Named divergence D-FULL-PAGE-DIALOG-COMPLETE: a full-page dialog (a `dialogview` straight inside the modal frame) opens
+/// its frame with `complete`, as Rails' small modals (layouts/modal/_base) do and its full-page layout does not. The modal
+/// CSS shows the card only in a `#modal[complete]` frame, and Turbo marks a frame complete only when it loads it itself, so a
+/// full-page answer (a refresh, a typed URL, a stream redirect) left the card invisible behind the open dialog. Puts this
+/// crate's frame back as Rails writes it; returns how many, or the line of one left without `complete`.
+fn full_page_dialogs(body: &mut Value) -> Result<usize, String> {
+    let Value::Array(lines) = body else { return Ok(0) };
+    let mut taken = 0;
+    for i in 0..lines.len() {
+        let line = lines[i].as_str().unwrap_or_default();
+        if !(line.trim_start().starts_with("<turbo-frame ") && attr(line, "id").as_deref() == Some("modal")) { continue; }
+        let Some(child) = lines[i + 1..].iter().find(|l| !is_space(l)).and_then(Value::as_str) else { continue };
+        let full_page = child.trim_start().starts_with("<dialog ") && attr(child, "class").is_some_and(|c| c.split(' ').any(|c| c == "dialogview"));
+        if !full_page { continue; }
+        if !line.contains(" complete=\"\"") { return Err(format!("a full-page dialog without complete stays invisible: {line}")); }
+        lines[i] = json!(line.replacen(" complete=\"\"", "", 1));
+        taken += 1;
+    }
+    Ok(taken)
+}
+
+#[test]
+fn full_page_dialogs_are_put_back_as_rails_writes_them() {
+    let page = |frame: &str, dialog: &str| json!(html::normalize(&format!("<html><body>{frame}\n  <dialog class=\"{dialog}\">\n    <div class=\"x\">a</div>\n  </dialog></turbo-frame></body></html>")));
+    let mut ours = page("<turbo-frame id=\"modal\" complete>", "dialogview");
+    assert_eq!((full_page_dialogs(&mut ours), &ours), (Ok(1), &page("<turbo-frame id=\"modal\">", "dialogview")));
+    assert!(full_page_dialogs(&mut page("<turbo-frame id=\"modal\">", "dialogview")).is_err(), "one without complete fails");
+    // A small modal keeps its complete (Rails writes it too); an empty or src frame has no dialog to show.
+    for frame in [page("<turbo-frame id=\"modal\" complete>", "dialog"), json!(html::normalize("<turbo-frame id=\"modal\"></turbo-frame>")),
+                  json!(html::normalize("<turbo-frame id=\"modal\" src=\"/bots/new\"></turbo-frame>"))] {
+        let mut ours = frame.clone();
+        assert_eq!((full_page_dialogs(&mut ours), &ours), (Ok(0), &frame));
+    }
+}
+
+/// D-FULL-PAGE-DIALOG-COMPLETE in the templates themselves, so a step no recorded scenario renders full page is held too.
+#[test]
+fn every_full_page_dialog_template_opens_its_frame_complete() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("templates");
+    let mut found = Vec::new();
+    let mut walk = vec![root.clone()];
+    while let Some(dir) = walk.pop() {
+        for entry in std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().path()) {
+            if entry.is_dir() { walk.push(entry); continue; }
+            let text = std::fs::read_to_string(&entry).unwrap();
+            let Some(at) = text.match_indices("<turbo-frame ").map(|(at, _)| at)
+                .find(|&at| text[at..at + text[at..].find('>').unwrap()].contains(" id=\"modal\"")) else { continue };
+            let open = &text[at..at + text[at..].find('>').unwrap() + 1];
+            let rest = text[at + open.len()..].trim_start();
+            if !(rest.starts_with("<dialog ") && rest[..rest.find('>').unwrap()].contains("class=\"dialogview\"")) { continue; }
+            let name = entry.strip_prefix(&root).unwrap().to_string_lossy().into_owned();
+            assert_eq!(open, "<turbo-frame complete=\"\" id=\"modal\">", "{name}");
+            found.push(name);
+        }
+    }
+    found.sort();
+    assert_eq!(found, ["bots/new.html", "settings/alpaca_full.html", "settings/pick_exchange.html", "wizard/full_page.html", "wizard/pick_buyable_asset.html", "wizard/pick_exchange.html"]);
+}
+
 /// This build's own tools: D-SPLIT-API's split_bots (under Control) and D-RAILS-UNRECORDED-API's answer_unrecorded_order
 /// (under Trade).
 const OWN_TOOLS: [&str; 2] = ["split_bots", "answer_unrecorded_order"];
@@ -2595,7 +2654,7 @@ async fn replay_page_shard(shard: usize) {
         let count = std::fs::read_dir("/proc/self/task").map_or(String::new(), |tasks| format!(", {} threads", tasks.count()));
         progress(format!("page shard {}: {name}/{scope} (+{:.1?}{count})", shard + 1, replay.elapsed()), false);
         let scenario = scenario(dir);
-        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows) = (0, 0, 0, 0, 0, 0);
+        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut full_page_frames) = (0, 0, 0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| rails_answer(answer, step)).collect();
         let rails_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
@@ -2625,13 +2684,15 @@ async fn replay_page_shard(shard: usize) {
             without_low_funds(&mut answer["body"]);
             split_menu_pages += without_split_item(&mut answer["body"]);
             jobs_rows += without_jobs_row(&mut answer["body"]);
+            match full_page_dialogs(&mut answer["body"]) { Ok(n) => full_page_frames += n, Err(e) => failures.push(format!("{name}/{scope}: D-FULL-PAGE-DIALOG-COMPLETE: {e}")) }
             index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty());
             signal_rule_pages += usize::from(signal_rules(&mut answer["body"]).is_some());
         }
         for (witness, count, divergence) in [("twin_index_member", index_rule_pages, "D-COND-FORMS-INDEX"),
                                              ("twin_signal_rules", signal_rule_pages, "D-COND-FORMS-SIGNAL"),
                                              ("twin_basket_member", split_menu_pages, "D-SPLIT-BOT-MENU"),
-                                             ("settings_page_account_pt", jobs_rows, "D-JOBS-SETTINGS-LINK")] {
+                                             ("settings_page_account_pt", jobs_rows, "D-JOBS-SETTINGS-LINK"),
+                                             ("wizard_chooser", full_page_frames, "D-FULL-PAGE-DIALOG-COMPLETE")] {
             if name == witness && count == 0 { failures.push(format!("{name}/{scope}: {divergence}: no rendered witness")); }
         }
         if name.starts_with("countdown_") {
