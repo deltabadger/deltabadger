@@ -2,7 +2,7 @@
 # Not "deltabadger": the engine (rust/) builds a binary of that name, and both share a target dir on CI caches and
 # developer machines. The bundled executable is Deltabadger (tauri.conf.json's mainBinaryName).
 name = "deltabadger-desktop"
-version = "3.0.0-beta.4"
+version = "3.0.0-beta.5"
 description = "DeltaBadger - Dollar Cost Averaging Bot"
 authors = ["DeltaBadger"]
 license = "MIT"
