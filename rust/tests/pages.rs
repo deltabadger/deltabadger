@@ -2969,44 +2969,42 @@ fn a20_divergences(name: &str, rails: &mut Value, rust: &mut Value) -> Result<()
     Ok(())
 }
 
+/// D-REFUSAL-KEEPS-NOTICE (merge_create_repeat): a second Confirm sent after the merge answered, before the redirect's visit
+/// read the flash. Rails' refusal renders the whole flash, so it shows the waiting "Bots merged." beside its alert on a page the
+/// visit is about to replace (writing the session to drop it), and the merged bot's page then shows none. This crate's refusal
+/// shows its alert alone and leaves the notice for the bot page, whose session write takes it. Compared as a move: the notice
+/// and the cookie Rails' refusal carries must be the ones this crate's bot page carries, and each answer is compared without them.
+fn merge_repeat_divergence(name: &str, rails: &mut Value, rust: &mut Value) -> Result<(), String> {
+    if name != "merge_create_repeat" { return Ok(()); }
+    // The notice's flash message, opening line through its closing tag at the same indent, with the text node that separated
+    // it from the next message; returned dedented, so a stream's and a page's compare.
+    fn take_notice(body: &mut Value) -> Result<Vec<String>, String> {
+        let lines = body.as_array_mut().ok_or("no body lines")?;
+        let start = lines.iter().position(|l| l.as_str().is_some_and(|l| l.contains("flash__message") && l.contains("salert--primary"))).ok_or("no notice")?;
+        let indent = |l: &Value| l.as_str().map_or(0, |l| l.len() - l.trim_start().len());
+        let open = indent(&lines[start]);
+        let end = (start + 1..lines.len()).find(|&i| indent(&lines[i]) == open && lines[i].as_str().is_some_and(|l| l.trim() == "</div>")).ok_or("unclosed notice")?;
+        let end = if lines.get(end + 1).and_then(Value::as_str).is_some_and(|l| l.trim() == "\" \"") { end + 1 } else { end };
+        Ok(lines.drain(start..=end).map(|l| l.as_str().unwrap_or_default().get(open..).unwrap_or_default().to_string()).collect())
+    }
+    let refusal = rails["responses"].as_array_mut().and_then(|r| r.get_mut(4)).ok_or("no Rails refusal")?;
+    let theirs = take_notice(&mut refusal["body"]).map_err(|e| format!("D-REFUSAL-KEEPS-NOTICE: Rails' refusal: {e}"))?;
+    let their_cookie = refusal["headers"].as_object_mut().ok_or("no Rails headers")?.remove("set-cookie").ok_or("D-REFUSAL-KEEPS-NOTICE: Rails' refusal kept the session")?;
+    let page = rust["responses"].as_array_mut().and_then(|r| r.get_mut(5)).ok_or("no bot page")?;
+    let ours = take_notice(&mut page["body"]).map_err(|e| format!("D-REFUSAL-KEEPS-NOTICE: this crate's bot page: {e}"))?;
+    let our_cookie = page["headers"].as_object_mut().ok_or("no bot page headers")?.remove("set-cookie").ok_or("D-REFUSAL-KEEPS-NOTICE: this crate's bot page kept the session")?;
+    if !theirs.iter().any(|l| l.contains("Bots merged.")) { return Err(format!("D-REFUSAL-KEEPS-NOTICE: Rails' notice is not the merge's: {theirs:?}")); }
+    if theirs != ours { return Err(format!("D-REFUSAL-KEEPS-NOTICE: the notice moved changed:\n  rails: {theirs:?}\n  rust:  {ours:?}")); }
+    if their_cookie != our_cookie { return Err(format!("D-REFUSAL-KEEPS-NOTICE: the session write moved changed: {their_cookie} / {our_cookie}")); }
+    Ok(())
+}
+
 /// D-OPEN-ORDERS-UNREAD-NAMED (3.0 A20c): Rails' ListOpen drops an exchange whose open orders it cannot list
 /// (`list_open.rb:64-65`); this build names it in `unavailable`. On an `api_` step the two answers may differ only by
 /// rows of that reason after Rails' own; Rails' body then takes them, and its weak tag (Rack::ETag over the body) follows.
 /// A body-less step (HEAD) that carried a rewritten tag takes the new tag too. The names each step adds are pinned
 /// (UNREAD_STEPS: scenario, step, exchanges in order): a step not listed may not differ, and a listed one must, so a
 /// wrong exchange, a missing one, or a Rails fix shows here.
-/// D-REFUSAL-KEEPS-NOTICE (merge_create_repeat): a second Confirm sent after the merge answered, before the redirect's visit
-/// read the flash. Rails' refusal renders the whole flash, so it shows the waiting "Bots merged." beside its alert on a page the
-/// visit is about to replace (writing the session to drop it), and the merged bot's page then shows none. This crate's refusal
-/// shows its alert alone and leaves the notice for the bot page. Compared as: Rails' refusal without the notice or a cookie,
-/// and this crate's bot page without the notice it keeps or the cookie that takes it.
-fn merge_repeat_divergence(name: &str, rails: &mut Value, rust: &mut Value) -> Result<(), String> {
-    const NOTICE: &str = "Bots merged.";
-    if name != "merge_create_repeat" { return Ok(()); }
-    // The notice's flash message, opening line through its closing tag at the same indent.
-    fn without_notice(body: &mut Value) -> Result<(), String> {
-        let lines = body.as_array_mut().ok_or("no body lines")?;
-        let start = lines.iter().position(|l| l.as_str().is_some_and(|l| l.contains("flash__message") && l.contains("salert--primary"))).ok_or("no notice")?;
-        let indent = |l: &Value| l.as_str().map_or(0, |l| l.len() - l.trim_start().len());
-        let open = indent(&lines[start]);
-        let end = (start + 1..lines.len()).find(|&i| indent(&lines[i]) == open && lines[i].as_str().is_some_and(|l| l.trim() == "</div>")).ok_or("unclosed notice")?;
-        if !lines[start..=end].iter().any(|l| l.as_str().is_some_and(|l| l.contains(NOTICE))) { return Err(format!("the notice is not {NOTICE:?}")); }
-        // With the text node that separated it from the next message.
-        let end = if lines.get(end + 1).and_then(Value::as_str).is_some_and(|l| l.trim() == "\" \"") { end + 1 } else { end };
-        lines.drain(start..=end);
-        Ok(())
-    }
-    let theirs = rails["responses"].as_array_mut().ok_or("no Rails responses")?;
-    let refusal = theirs.get_mut(4).ok_or("no Rails refusal")?;
-    without_notice(&mut refusal["body"]).map_err(|e| format!("D-REFUSAL-KEEPS-NOTICE: Rails' refusal: {e}"))?;
-    refusal["headers"].as_object_mut().ok_or("no Rails headers")?.remove("set-cookie").ok_or("D-REFUSAL-KEEPS-NOTICE: Rails' refusal kept the session")?;
-    let page = rust["responses"].as_array_mut().and_then(|r| r.get_mut(5)).ok_or("no bot page")?;
-    without_notice(&mut page["body"]).map_err(|e| format!("D-REFUSAL-KEEPS-NOTICE: this crate's bot page: {e}"))?;
-    // Taking the notice there is the session write Rails made on the refusal.
-    page["headers"].as_object_mut().ok_or("no bot page headers")?.remove("set-cookie").ok_or("D-REFUSAL-KEEPS-NOTICE: this crate's bot page kept the session")?;
-    Ok(())
-}
-
 fn a20c_divergences(name: &str, rails: &mut Value, rust: &Value) -> Result<(), String> {
     use sha2::{Digest, Sha256};
     const UNREAD: &str = "not read live on this build";
