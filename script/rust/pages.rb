@@ -796,6 +796,10 @@ module Pages
       'merge_create_refused_quote' => with_bots([basket, kraken], signed_in(get('/bots'), merge_post([1, 2], 1).merge('expect' => 422)), 'venues' => true),
       'merge_create_executing' => with_bots([basket, executing, wide], signed_in(get('/bots'), merge_post([1, 2], 1).merge('expect' => 422))),
       'merge_create_unlisted_venue' => with_bots([wide, index], signed_in(get('/bots'), merge_post([1, 2], 2).merge('expect' => 422))),
+      # Confirm clicked again after the merge answered (Turbo turns the button back on while the redirect's visit loads): the
+      # sources are deleted by then, so the repeat is refused as missing and nothing more is written.
+      'merge_create_repeat' => with_bots([basket, lone], signed_in(get('/bots'), merge_post([1, 2], 1).merge('expect' => 200),
+                                                                    merge_post([1, 2], 1).merge('expect' => 422), get('/bots/3'))),
       'merge_create_de' => with_bots([basket, lone], signed_in(get('/de/bots'), merge_post([1, 2], 1, path: '/de/bots/merge').merge('expect' => 200), get('/de/bots/3'))),
       'merge_create_no_csrf' => with_bots([basket, lone], signed_in(get('/bots'), merge_post([1, 2], 1).merge('csrf' => 'none'), get('/bots'))),
       'merge_create_signed_out' => with_bots([basket, lone], signed_in(get('/bots'), get('/login').merge('client' => 'signed_out'),
