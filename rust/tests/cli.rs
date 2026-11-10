@@ -463,6 +463,9 @@ async fn scheduler_process(command: &str, restart: bool) -> Result<(), Box<dyn s
         .expect(1..).mount(&server).await;
     let (dir, o, s) = common::install_alpaca();
     seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
+    // The tracker backfill (daily 03:00) runs before the crypto job (10:15) at start, one job at a time; with no current
+    // rate it downloads the ECB history from the internet first (tracker::fx::ensure_loaded), which on CI outran the wait.
+    o.primary.execute("INSERT INTO fx_rates (currency, date, rate) VALUES ('USD', ?1, 1.1)", [chrono::Utc::now().date_naive().to_string()])?;
     if restart {
         let paths = deltabadger::store::Paths::from_env(&|_| None, dir.path());
         let lock = deltabadger::lease::lock(&paths, chrono::Utc::now()).map_err(|e| format!("{e:?}"))?;
@@ -473,27 +476,38 @@ async fn scheduler_process(command: &str, restart: bool) -> Result<(), Box<dyn s
             .map_err(|e| format!("{e:?}"))?.notes.iter().any(|m| m.contains("reference data stale")));
     }
     drop(o);
+    // No update check: between 10:15 and 12:00 UTC its overdue midnight run comes before the crypto job and asks GitHub.
     let mut child = Running(cli(dir.path(), &[command]).env("MARKET_DATA_URL", server.uri()).env("MARKET_DATA_TOKEN", "tok")
-        .env("PORT", free_port().to_string()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn()?);
+        .env("DELTABADGER_UPDATE_CHECK", "false")
+        .env("PORT", free_port().to_string()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?);
+    // Both streams drained the whole run (a full pipe would block the child), and printed with any failure below.
+    let printed = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    let drain = |r: Box<dyn std::io::Read + Send>| { let printed = printed.clone();
+        std::thread::spawn(move || for l in std::io::BufReader::new(r).lines().map_while(Result::ok) { let mut p = printed.lock().unwrap(); p.push_str(&l); p.push('\n'); }) };
+    let drains = [drain(Box::new(child.0.stdout.take().unwrap())), drain(Box::new(child.0.stderr.take().unwrap()))];
+    let printed = || printed.lock().unwrap().clone();
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
     let state = loop {
-        assert!(child.0.try_wait()?.is_none(), "{command} exited before the scheduler ran (restart={restart})");
+        if child.0.try_wait()?.is_some() {
+            for d in drains { let _ = d.join(); } // the child is gone: its pipes close and both readers finish
+            panic!("{command} exited before the scheduler ran (restart={restart}):\n{}", printed());
+        }
         let c = rusqlite::Connection::open(dir.path().join("production.sqlite3"))?;
         let row: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key = ?1",
             ["rust_job.sync_alpaca_crypto_from_deltabadger_job"], |r| r.get(0)).optional()?;
         if let Some(v) = row.filter(|v| serde_json::from_str::<serde_json::Value>(v).is_ok_and(|j| j["last_error"].is_string())) { break v; }
-        assert!(std::time::Instant::now() < deadline, "the crypto job never recorded its run");
+        assert!(std::time::Instant::now() < deadline, "the crypto job never recorded its run:\n{}", printed());
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     };
-    assert!(state.contains("degraded listings payload"), "{state}");
+    assert!(state.contains("degraded listings payload"), "{state}\n{}", printed());
     assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status()?.success());
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
     let status = loop {
         if let Some(st) = child.0.try_wait()? { break st; }
-        assert!(std::time::Instant::now() < deadline, "{command} did not exit on SIGTERM");
+        assert!(std::time::Instant::now() < deadline, "{command} did not exit on SIGTERM:\n{}", printed());
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     };
-    assert_eq!(status.code(), Some(0), "the scheduler stops and the engine drains");
+    assert_eq!(status.code(), Some(0), "the scheduler stops and the engine drains:\n{}", printed());
     Ok(())
 }
 
