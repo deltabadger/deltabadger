@@ -141,6 +141,12 @@ fn order_row(r: &rusqlite::Row) -> Result<Order, rusqlite::Error> {
     })
 }
 
+/// One `bot_activity_logs` row as `id, created_at, event, message, details`.
+fn log_row(r: &rusqlite::Row) -> Result<Log, rusqlite::Error> {
+    Ok(Log { id: r.get(0)?, created_at: time(r.get(1)?)?, event: r.get(2)?, message: r.get(3)?,
+             details: r.get::<_, Option<String>>(4)?.and_then(|text| serde_json::from_str(&text).ok()).unwrap_or(Value::Null) })
+}
+
 fn load(c: &Connection, bot: &Bot, cursor: Option<&Cursor>) -> Result<Vec<Item>, WebError> {
     let mut items = vec![];
     let (condition, mut values) = before(cursor, false);
@@ -152,10 +158,7 @@ fn load(c: &Connection, bot: &Bot, cursor: Option<&Cursor>) -> Result<Vec<Item>,
     values.insert(0, rusqlite::types::Value::Integer(bot.id));
     let mut logs = c.prepare(&format!("SELECT id, created_at, event, message, details FROM bot_activity_logs WHERE bot_id = ?1 AND event NOT IN ('order_skipped', 'order_ignored'){condition} \
                                        ORDER BY created_at DESC, id DESC LIMIT {}", PAGE + 1))?;
-    let rows = logs.query_map(rusqlite::params_from_iter(values), |r| {
-        Ok(Log { id: r.get(0)?, created_at: time(r.get(1)?)?, event: r.get(2)?, message: r.get(3)?,
-                 details: r.get::<_, Option<String>>(4)?.and_then(|text| serde_json::from_str(&text).ok()).unwrap_or(Value::Null) })
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let rows = logs.query_map(rusqlite::params_from_iter(values), log_row)?.collect::<Result<Vec<_>, _>>()?;
     items.extend(rows.into_iter().map(Item::Log));
     items.sort_by_key(|item| std::cmp::Reverse(item.key()));
     Ok(items)
@@ -353,7 +356,15 @@ impl<'a> Rows<'a> {
                 key => event("stopped_with_reason", &[("reason", Arg::Text(&i18n::text(self.ctx.locale, &key, &[("reason", Arg::Text(&detail("reason")))])))]),
             },
             "liquidation_failed" | "redeploy_failed" => event(&log.event, &[("error", Arg::Text(&detail("reason")))]),
-            "liquidation_batch_cut_short" => event(&log.event, &[("bases", Arg::Text(&detail("bases")))]),
+            // D-LIQUIDATION-ONE-LINE: the stored reason, named; a legacy row with none, or an unknown one, keeps the shared line.
+            "liquidation_skipped" => i18n::text_chain(self.ctx.locale, &[format!("engine.liquidation_skipped.{}", detail("reason"))], &[("base", Arg::Text(&detail("base")))])
+                .unwrap_or_else(|| event(&log.event, &[])),
+            // `reason`: a code, an array of one code, or a staleness sentence; only a known code is named.
+            "liquidation_not_started" => {
+                let code = match log.details.get("reason") { Some(Value::String(code)) => Some(code.as_str()), Some(Value::Array(codes)) if codes.len() == 1 => codes[0].as_str(), _ => None };
+                code.and_then(|code| i18n::text_chain(self.ctx.locale, &[format!("engine.liquidation_not_started.{code}")], &[])).unwrap_or_else(|| event(&log.event, &[]))
+            }
+            "liquidation_batch_cut_short" =>event(&log.event, &[("bases", Arg::Text(&detail("bases")))]),
             "orders_below_minimum" => event(&log.event, &[("count", Arg::Count(log.details.get("count").and_then(Value::as_i64).unwrap_or(0))), ("bases", Arg::Text(&detail("bases")))]),
             "wash_sale_locked" => event(&log.event, &[("base", Arg::Text(&detail("base"))), ("until", Arg::Text(&detail("until")))]),
             "order_abandoned" => event(&log.event, &[("order_id", Arg::Text(&detail("order_id")))]),
@@ -476,6 +487,21 @@ pub fn feed(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User) -> Result<String,
         body.push_str(&turbo::stream("replace", "orders_pagination", &format!("\n    {frame}\n")));
     }
     Ok(body)
+}
+
+/// D-LIQUIDATION-ONE-LINE: the bot's activity lines above `after`, as the feed selects them, prepended oldest first (Turbo's
+/// prepend drops a child of the same id, so a line the feed also loaded is not doubled), then the filters. The highest id
+/// read, or `after`.
+pub fn new_lines(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, after: i64) -> Result<(Vec<(String, String)>, i64), WebError> {
+    let mut s = c.prepare("SELECT id, created_at, event, message, details FROM bot_activity_logs WHERE bot_id = ?1 AND id > ?2 AND event NOT IN ('order_skipped', 'order_ignored') ORDER BY id")?;
+    let logs = s.query_map([bot.id, after], log_row)?.collect::<Result<Vec<_>, _>>()?;
+    let Some(last) = logs.last().map(|log| log.id) else { return Ok((vec![], after)) };
+    let rows = Rows { broadcast: true, ..Rows::new(ctx, bot, user) };
+    let page = super::page::page_stream(bot);
+    let mut out = vec![(page.clone(), turbo::remove("orders_list_placeholder"))];
+    for log in &logs { out.push((page.clone(), turbo::stream("prepend", "orders_list", &rows.activity(log)?))); }
+    out.push((format!("user_{}:bot_updates", user.id), super::page::filters_broadcast(c, ctx, bot, user.hide_balances)?));
+    Ok((out, last))
 }
 
 /// One of the bot's orders, its amounts read; None once it is gone.

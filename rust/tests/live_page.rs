@@ -57,12 +57,12 @@ fn heard(rx: &mut tokio::sync::mpsc::UnboundedReceiver<EngineEvent>) -> Vec<Engi
     while let Ok(e) = rx.try_recv() { out.push(e); }
     out
 }
-/// (action, target) of each message.
+/// (action, target) of each message, without D-LIQUIDATION-ONE-LINE's two selling targets (tests/liquidation_web.rs pins them).
 fn shape(messages: &[(String, String)]) -> Vec<(String, String)> {
     messages.iter().map(|(_, html)| {
         let attr = |name: &str| html.split(&format!("{name}=\"")).nth(1).and_then(|s| s.split('"').next()).unwrap_or_default().to_string();
         (attr("action"), attr("target"))
-    }).collect()
+    }).filter(|(_, target)| !target.starts_with("orders_selling_") && !target.starts_with("selling_state_")).collect()
 }
 
 /// A follow-up fill that spends the amount limit stops the bot (Bot::StopJob → Bot#stop, an update! of the status): Rails'

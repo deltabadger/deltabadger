@@ -114,7 +114,7 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, holdings: &Value,
         let held = BigDec::parse(&held.to_d().map_err(data)?.to_s_f()).map_err(data)?;
         let free = tick::live_free_balance(c,venue,&claim.bot,ticker,ticker.base_asset_id).await?.map_err(data)?;
         let amount = held.min(free);
-        if !amount.is_positive() { skip(c,id,key,"unpriced",clock)?; continue; }
+        if !amount.is_positive() { skip(c,id,key,"no_free_balance",clock)?; continue; }
         let quote = &amount * &price;
         let (plan,below) = amount::size_order(ticker,Side::Sell,&price,&amount,&quote,venue.rules().minimum_logic,TxKind::Liquidation)?;
         let plan = plan.with_wire_price(venue.rules(),&price,true)?;

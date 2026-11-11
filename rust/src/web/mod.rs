@@ -411,6 +411,8 @@ pub struct Inner {
     /// The wake handle of the engine in this process, once `supervisor::serve` attaches it. Empty when the app runs
     /// alone (every router test).
     engine: std::sync::OnceLock<Arc<tokio::sync::Notify>>,
+    /// D-LIQUIDATION-ONE-LINE: the queue of the bot pages' one publisher (bot::live::follow), once `serve` starts it.
+    live: std::sync::OnceLock<tokio::sync::mpsc::UnboundedSender<crate::engine::events::EngineEvent>>,
 }
 
 pub type PasswordHook = Arc<dyn Fn() + Send + Sync>;
@@ -430,6 +432,22 @@ impl std::ops::Deref for App {
 }
 
 impl App {
+    /// The queue bot::live::follow reads beside the engine's events: what the web asks the bot page to redraw. Once.
+    pub fn attach_live(&self) -> Option<tokio::sync::mpsc::UnboundedReceiver<crate::engine::events::EngineEvent>> {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        self.live.set(tx).ok().map(|()| rx)
+    }
+
+    /// D-LIQUIDATION-ONE-LINE: the bot page hears `event` from its one publisher, in order with the engine's. With no
+    /// publisher running (an app alone, every router test) it is rendered and broadcast here, from `c` as committed.
+    pub fn announce(&self, c: &Connection, event: crate::engine::events::EngineEvent) {
+        if self.live.get().is_some_and(|tx| tx.send(event.clone()).is_ok()) { return; }
+        match bot::live::render(c, self, &event) {
+            Ok(messages) => for (stream, html) in messages { self.hub.broadcast(&stream, &html); },
+            Err(e) => crate::engine::log(&format!("[web] {event:?}: the bot page broadcast could not be rendered: {e:?}")),
+        }
+    }
+
     pub fn job_notifications(&self) -> crate::jobs::notifications::Notifications {
         let app = self.clone();
         let balances = self.clone();
@@ -454,7 +472,7 @@ impl App {
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None, mail_set_up: None,
             db: Mutex::new(primary), queue_path: None,
-            engine: std::sync::OnceLock::new(),
+            engine: std::sync::OnceLock::new(), live: std::sync::OnceLock::new(),
         })))
     }
 

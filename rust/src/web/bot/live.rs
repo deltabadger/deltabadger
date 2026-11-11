@@ -37,7 +37,7 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
     if bot.unrendered().is_some() { return Ok(vec![]); }
     let stream = format!("user_{}:bot_updates", owner.id);
     let state = || -> Result<status::Status, WebError> { status::broadcast(c, &ctx, &bot, bots::market_data(c, app)?.1) };
-    Ok(match event {
+    let mut out = match event {
         EngineEvent::StatusChanged { .. } => {
             let state = state()?;
             let mut out = action_view::bar_broadcasts(&stream, &bot, &state).to_vec();
@@ -92,27 +92,98 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
             }
         }
         _ => vec![],
-    })
+    };
+    if matches!(event, EngineEvent::StatusChanged { .. } | EngineEvent::TickEnded { .. } | EngineEvent::OrderRecorded { .. } | EngineEvent::OrderWritten { .. }) {
+        out.extend(selling_streams(c, &ctx, &bot, owner.hide_balances)?);
+    }
+    Ok(out)
 }
 
-/// The `live` service of `deltabadger serve`: each event the engine sends (EngineEvent::is_live) is rendered and broadcast in
-/// the order it was sent. A render that fails is logged and dropped, as a Rails broadcast job that raised is; the next
+/// The `live` service of `deltabadger serve`: each event the engine sends (EngineEvent::is_live), and each the web asks for
+/// (`web`, App::announce), is rendered and broadcast one at a time, so what the page last receives is what was last read
+/// (D-LIQUIDATION-ONE-LINE). A render that fails is logged and dropped, as a Rails broadcast job that raised is; the next
 /// event, or a reload, shows the bot as it is.
-pub async fn follow(app: App, mut events: tokio::sync::mpsc::UnboundedReceiver<EngineEvent>, mut stop: tokio::sync::watch::Receiver<bool>) -> Result<(), String> {
+pub async fn follow(app: App, mut events: tokio::sync::mpsc::UnboundedReceiver<EngineEvent>, mut web: Option<tokio::sync::mpsc::UnboundedReceiver<EngineEvent>>,
+                    mut stop: tokio::sync::watch::Receiver<bool>) -> Result<(), String> {
+    // The floor is read before the first event: a line that event's work wrote is above it.
+    let lines = Arc::new(std::sync::Mutex::new(match app.db(Lines::starting).await {
+        Ok(lines) => lines,
+        Err(err) => { crate::engine::log(&format!("[web] activity watermark unread, the first event reads it: {err:?}")); Lines::default() }
+    }));
     loop {
-        tokio::select! {
+        let event = tokio::select! {
             _ = stop.wait_for(|stopped| *stopped) => return Ok(()),
-            event = events.recv() => {
-                let Some(event) = event else { return Ok(()) };
-                let inner = app.clone();
-                let shown = event.clone();
-                match app.db(move |c| render(c, &inner, &event)).await {
-                    Ok(messages) => for (stream, html) in messages { app.hub.broadcast(&stream, &html); },
-                    Err(err) => crate::engine::log(&format!("[web] {shown:?}: the bot page broadcast could not be rendered: {err:?}")),
-                }
-            }
+            event = events.recv() => match event { Some(event) => event, None => return Ok(()) },
+            Some(event) = async { match web.as_mut() { Some(rx) => rx.recv().await, None => std::future::pending().await } } => event,
+        };
+        let (inner, lines) = (app.clone(), lines.clone());
+        let shown = event.clone();
+        match app.db(move |c| {
+            let mut out = render(c, &inner, &event)?;
+            out.extend(lines.lock().map_err(|_| WebError::Config("activity watermark poisoned".into()))?.announce(c, &inner, &event)?);
+            Ok(out)
+        }).await {
+            Ok(messages) => for (stream, html) in messages { app.hub.broadcast(&stream, &html); },
+            Err(err) => crate::engine::log(&format!("[web] {shown:?}: the bot page broadcast could not be rendered: {err:?}")),
         }
     }
+}
+
+/// D-LIQUIDATION-ONE-LINE: the activity lines already on the bot pages. A bot not seen yet starts at the table's max id
+/// read when the follower first renders; each live event prepends the bot's lines above its mark, as the feed selects them.
+#[derive(Default)]
+pub struct Lines { floor: Option<i64>, marks: std::collections::HashMap<i64, i64> }
+
+impl Lines {
+    /// Marks at the table's max id now.
+    pub fn starting(c: &Connection) -> Result<Self, WebError> {
+        Ok(Self { floor: Some(c.query_row("SELECT COALESCE(max(id), 0) FROM bot_activity_logs", [], |r| r.get(0))?), marks: Default::default() })
+    }
+
+    pub fn announce(&mut self, c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(String, String)>, WebError> {
+        let floor = match self.floor { Some(floor) => floor, None => *self.floor.insert(c.query_row("SELECT COALESCE(max(id), 0) FROM bot_activity_logs", [], |r| r.get(0))?) };
+        let (EngineEvent::StatusChanged { bot_id } | EngineEvent::TickEnded { bot_id } | EngineEvent::OrderRecorded { bot_id, .. } | EngineEvent::OrderWritten { bot_id, .. }) = event else { return Ok(vec![]) };
+        let mark = *self.marks.get(bot_id).unwrap_or(&floor);
+        let owner: Option<i64> = OptionalExtension::optional(c.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0)))?;
+        let Some(owner) = owner.and_then(|id| User::find(c, id).transpose()).transpose()? else { return Ok(vec![]) };
+        let ctx = owner_ctx(app, owner.clone());
+        let Some(bot) = Bot::find(c, owner.id, *bot_id, For::Page, ctx.locale)? else { return Ok(vec![]) };
+        if bot.unrendered().is_some() { return Ok(vec![]); }
+        let (messages, last) = orders::new_lines(c, &ctx, &bot, &owner, mark)?;
+        self.marks.insert(*bot_id, last.max(mark));
+        Ok(messages)
+    }
+}
+
+/// D-LIQUIDATION-ONE-LINE: a composition bot's "Selling …" rows and the state its Sell links read, as the page prints them
+/// (`selling_html`), each replacing its target on the owner's stream.
+pub fn selling_streams(c: &Connection, ctx: &Ctx, bot: &Bot, hidden: bool) -> Result<Vec<(String, String)>, WebError> {
+    if bot.kind == super::Kind::Signal { return Ok(vec![]); }
+    let stream = format!("user_{}:bot_updates", bot_owner(c, bot.id)?);
+    let (rows, state) = selling_html(c, ctx, bot, hidden)?;
+    Ok(vec![(stream.clone(), crate::web::turbo::stream("replace", &format!("orders_selling_{}", bot.id), &rows)),
+            (stream, crate::web::turbo::stream("replace", &format!("selling_state_{}", bot.id), &state))])
+}
+
+fn bot_owner(c: &Connection, id: i64) -> Result<i64, WebError> { Ok(c.query_row("SELECT user_id FROM bots WHERE id = ?1", [id], |r| r.get(0))?) }
+
+/// The `<tbody>` of "Selling ETH…" rows (one per asset, before the feed's `orders_list`) and the hidden state element.
+/// Empty strings for a signal bot.
+pub fn selling_html(c: &Connection, ctx: &Ctx, bot: &Bot, hidden: bool) -> Result<(String, String), WebError> {
+    use crate::web::i18n::{escape, text, Arg};
+    if bot.kind == super::Kind::Signal { return Ok((String::new(), String::new())); }
+    let selling = crate::engine::composition::selling(c, &crate::engine::model::load_bot(c, bot.id)?, ctx.now)?;
+    let mut rows = String::new();
+    for asset in &selling.assets {
+        let symbol: String = c.query_row("SELECT COALESCE(symbol, name, '') FROM assets WHERE id = ?1", [asset], |r| r.get(0)).optional()?.unwrap_or_default();
+        rows.push_str(&format!("\n  <tr class=\"text-inactive\" data-order-filter-target=\"row\" data-order-type=\"{}\">\n    <td scope=\"row\" class=\"table__when\">\
+            <div class=\"loader--small\" style=\"position: unset; float: left;\"></div></td>\n    <td colspan=\"{}\" class=\"table__sentence\">{}</td>\n  </tr>",
+            if hidden { "other" } else { "all" }, if hidden { 1 } else { 3 }, escape(&text(ctx.locale, "engine.liquidation_selling", &[("base", Arg::Text(&symbol))]))));
+    }
+    let tbody = format!("<tbody id=\"orders_selling_{}\">{rows}{}</tbody>", bot.id, if rows.is_empty() { "" } else { "\n" });
+    let state = format!("<div id=\"selling_state_{}\" hidden data-bot--selling-target=\"state\" data-assets=\"{}\" data-blocked=\"{}\"></div>",
+                        bot.id, escape(&serde_json::json!(selling.assets).to_string()), selling.blocked);
+    Ok((tbody, state))
 }
 
 /// D-LOW-FUNDS-STATUS: a key's synced balances became current or stopped being so (jobs::notifications): its owner's bots on
@@ -121,16 +192,12 @@ pub fn balances_changed(app: &App, key_id: i64) {
     let app = app.clone();
     tokio::spawn(async move {
         let inner = app.clone();
-        let rendered = app.db(move |c| {
+        let read = app.db(move |c| {
             let mut s = c.prepare("SELECT b.id FROM bots b JOIN api_keys k ON k.user_id = b.user_id AND k.exchange_id = b.exchange_id WHERE k.id = ?1 ORDER BY b.id")?;
             let ids = s.query_map([key_id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
-            let mut out = vec![];
-            for bot_id in ids { out.extend(render(c, &inner, &EngineEvent::TickEnded { bot_id })?); }
-            Ok(out)
+            for bot_id in ids { inner.announce(c, EngineEvent::TickEnded { bot_id }); }
+            Ok(())
         }).await;
-        match rendered {
-            Ok(messages) => for (stream, html) in messages { app.hub.broadcast(&stream, &html); },
-            Err(err) => crate::engine::log(&format!("[web] key {key_id}: the status bars could not be redrawn after its balances changed: {err:?}")),
-        }
+        if let Err(err) = read { crate::engine::log(&format!("[web] key {key_id}: the status bars could not be redrawn after its balances changed: {err:?}")); }
     });
 }

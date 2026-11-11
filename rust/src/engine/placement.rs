@@ -782,7 +782,8 @@ fn settle(tx: &Connection, bot_id: i64, intent: &Intent, settlement: Settlement,
             match settlement {
                 Settlement::Accepted(_) => {
                     model::merge_transient_compact(tx, bot_id, &[(&format!("{name}_pending"), Value::Null)])?;
-                    model::log_activity(tx, bot_id, &format!("{name}_placed"), Level::Info, intent.plan.log_details(), now)?;
+                    // D-LIQUIDATION-ONE-LINE: a sale's status is the page's "Selling …" row, resolved into the order's own row.
+                    if intent.plan.kind == TxKind::Redeploy { model::log_activity(tx, bot_id, &format!("{name}_placed"), Level::Info, intent.plan.log_details(), now)?; }
                 }
                 Settlement::NotPlaced(Reason::Rejected { safe: true, .. } | Reason::PreTransmission) => {
                     model::merge_transient_compact(tx, bot_id, &[(&format!("{name}_pending"), Value::Null)])?;

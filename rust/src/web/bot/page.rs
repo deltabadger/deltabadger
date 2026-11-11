@@ -83,6 +83,10 @@ struct Show<'a> {
     has_waiting: bool,
     bot_args: String,
     feed_empty: bool,
+    /// D-LIQUIDATION-ONE-LINE (live::selling_html): the "Selling …" rows' `<tbody>` and the Sell links' state; empty for a
+    /// signal bot.
+    selling_rows: String,
+    selling_state: String,
 }
 
 /// `[bot, :bot_updates]` as Turbo names it: the bot's GlobalID parameter, then the suffix.
@@ -93,7 +97,11 @@ pub(super) struct Filters { pub default_filter: &'static str, pub order_filter: 
 /// BotHelper#order_filter_tabs: [value, available?], and the tab the log opens on.
 pub(super) fn filters(c: &Connection, ctx: &Ctx, bot: &Bot, hide_money: bool) -> Result<Filters, WebError> {
     let exists = |sql: &str| -> Result<bool, WebError> { Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM {sql})"), [bot.id], |r| r.get(0))?) };
-    let activities = exists("bot_activity_logs WHERE bot_id = ?1 AND event NOT IN ('order_skipped', 'order_ignored')")?;
+    let mut activities = exists("bot_activity_logs WHERE bot_id = ?1 AND event NOT IN ('order_skipped', 'order_ignored')")?;
+    // D-LIQUIDATION-ONE-LINE: a "Selling …" row is a line of "Other" too.
+    if hide_money && !activities && bot.kind != Kind::Signal {
+        activities = !crate::engine::composition::selling(c, &crate::engine::model::load_bot(c, bot.id)?, ctx.now)?.assets.is_empty();
+    }
     let mut tabs: Vec<(&'static str, &'static str, bool)> = vec![];
     if !hide_money { tabs.push(("all", "order_filters.all", true)); }
     tabs.push(("successful", "order_filters.transactions", exists("transactions WHERE bot_id = ?1 AND status = 0 AND external_status = 2")?));
@@ -334,6 +342,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         // show.html.erb's catch-all seam for the wash-sale modal: the layout loads it, or a frame request carries it.
         let modal_src = super::wash::modal_src(c, ctx, user.id, bot.id)?;
         let prompt_stream = if ctx.turbo_frame.is_some() { super::wash::prompt_stream(c, ctx, csrf, user.id, bot.id)?.unwrap_or_default() } else { String::new() };
+        let (selling_rows, selling_state) = super::live::selling_html(c, ctx, &bot, hide_money)?;
         let body = Show {
             v: ctx, csrf, preferences: &preferences, bot_updates: &bot_updates, page_stream: &page_stream, prompt_stream, locked_table, path: path.clone(),
             label_id: bot.dom_id("label"), label: &bot.label, other_bots,
@@ -341,7 +350,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
             progress_bar: status.progress, status_bar: status.bar, status_button: status.button, chart: chart(ctx, &bot, hide_money)?, inline_chart, cached, columns_id: bot.dom_id("columns"), working: bot.working(),
             settings, hide_money, metrics, rebalance_halt, order_filter, order_filters_id: bot.dom_id("order_filters"), default_filter, order_filters,
             export_id: bot.dom_id("export"), import_id: bot.dom_id("import"), import_form_id: bot.dom_id("import_form"), has_waiting: bot.has_waiting_orders,
-            bot_args: json(&serde_json::json!({ "bot_id": bot.id })), feed_empty: !shown_orders && !activities,
+            bot_args: json(&serde_json::json!({ "bot_id": bot.id })), feed_empty: !shown_orders && !activities, selling_rows, selling_state,
         }.render()?;
         Ok((shell, body, modal_src))
     }).await;
