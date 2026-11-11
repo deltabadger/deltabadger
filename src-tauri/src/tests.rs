@@ -262,6 +262,15 @@ fn only_the_released_identifier_runs_on_the_production_data_dir() {
 }
 
 #[test]
+fn the_inspector_is_on_in_debug_builds_and_in_the_released_app_only_when_asked() {
+    assert!(devtools_enabled(true, None));
+    assert!(devtools_enabled(false, Some("1")));
+    assert!(!devtools_enabled(false, None));
+    assert!(!devtools_enabled(false, Some("0")));
+    assert!(!devtools_enabled(false, Some("")));
+}
+
+#[test]
 fn a_debug_build_never_runs_under_the_released_identifier() {
     assert_eq!(run_identifier(RELEASE_IDENTIFIER, true), "com.deltabadger.app.dev");
     assert_eq!(run_identifier(RELEASE_IDENTIFIER, false), RELEASE_IDENTIFIER);

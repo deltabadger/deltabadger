@@ -24,7 +24,8 @@ serde_json = "1.0"
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.10", features = ["macos-private-api", "unstable", "tray-icon", "image-png"] }
+tauri = { version = "2.10", features = ["macos-private-api", "unstable", "tray-icon", "image-png", "devtools"] }
+# "devtools": the released app's inspector, off unless started with DELTABADGER_DEVTOOLS=1 (lib.rs devtools_enabled).
 tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
