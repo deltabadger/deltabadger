@@ -120,16 +120,16 @@ pub async fn follow(app: App, mut events: tokio::sync::mpsc::UnboundedReceiver<E
         let shown = event.clone();
         match app.db(move |c| {
             let mut lines = lines.lock().map_err(|_| WebError::Config("activity watermark poisoned".into()))?;
+            // The marks move only with a batch that rendered whole: a failed one is tried again by the next event.
+            let saved = lines.clone();
             // An order's older lines go below it, so they are prepended first; any other event's lines go on top.
-            Ok(if matches!(event, EngineEvent::OrderRecorded { .. } | EngineEvent::OrderWritten { .. }) {
-                let mut out = lines.announce(c, &inner, &event)?;
-                out.extend(render(c, &inner, &event)?);
-                out
+            let batch = if matches!(event, EngineEvent::OrderRecorded { .. } | EngineEvent::OrderWritten { .. }) {
+                lines.announce(c, &inner, &event).and_then(|mut out| { out.extend(render(c, &inner, &event)?); Ok(out) })
             } else {
-                let mut out = render(c, &inner, &event)?;
-                out.extend(lines.announce(c, &inner, &event)?);
-                out
-            })
+                render(c, &inner, &event).and_then(|mut out| { out.extend(lines.announce(c, &inner, &event)?); Ok(out) })
+            };
+            if batch.is_err() { *lines = saved; }
+            batch
         }).await {
             Ok(messages) => for (stream, html) in messages { app.hub.broadcast(&stream, &html); },
             Err(err) => crate::engine::log(&format!("[web] {shown:?}: the bot page broadcast could not be rendered: {err:?}")),
@@ -139,7 +139,7 @@ pub async fn follow(app: App, mut events: tokio::sync::mpsc::UnboundedReceiver<E
 
 /// D-LIQUIDATION-ONE-LINE: the activity lines already on the bot pages. A bot not seen yet starts at the table's max id
 /// read when the follower first renders; each live event prepends the bot's lines above its mark, as the feed selects them.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Lines { floor: Option<i64>, marks: std::collections::HashMap<i64, i64> }
 
 impl Lines {

@@ -826,12 +826,15 @@ async fn run_bookings<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> 
     let polled: HashSet<i64> = e.polls.keys().copied().collect();
     let since = last_line(&e.primary);
     let served = super::rails_unrecorded::serve_bookings(&e.primary, &e.factory, &e.cipher, &|tx| polled.contains(&tx), clock.now()).await;
-    // A refusal's `rails_order_not_added` line has no order to announce it.
-    announce_lines(e, since);
+    // A refusal's `rails_order_not_added` line has no order to announce it; a booking's lines follow its order's event.
     let served = match served {
         Ok(served) => served,
-        Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
-        Err(err) => { super::log(&format!("[engine] Rails-unrecorded bookings deferred: {}", err.kind())); return Ok(()); }
+        Err(err) => {
+            announce_lines(e, since);
+            if matches!(err, EngineError::Lease(_) | EngineError::Store(_)) { return Err(err); }
+            super::log(&format!("[engine] Rails-unrecorded bookings deferred: {}", err.kind()));
+            return Ok(());
+        }
     };
     let now_us = clock.now().timestamp_micros();
     for ((bot, tx), at) in served.booked.iter().map(|r| (*r, now_us)).chain(served.watch.iter().map(|r| (*r, now_us + super::rails_unrecorded::WATCH_AFTER_US))) {
@@ -839,6 +842,7 @@ async fn run_bookings<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> 
         e.polls.insert(tx, model::Produced::new((bot, at, Attempts::default()), producer));
     }
     for &(bot_id, transaction_id) in &served.booked { e.events.send(EngineEvent::OrderRecorded { bot_id, transaction_id }); }
+    announce_lines(e, since);
     Ok(())
 }
 
