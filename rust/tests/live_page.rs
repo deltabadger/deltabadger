@@ -77,7 +77,8 @@ async fn a_follow_up_fill_that_stops_the_bot_redraws_its_status_and_unlocks_its_
     let mut e = r.engine(&t, "2026-09-01T10:00:06Z");
     let mut rx = e.subscribe_to(EngineEvent::is_live);
     run::step(&mut e, &FixedClock(at("2026-09-01T10:00:06Z"))).await.unwrap();
-    assert_eq!(heard(&mut rx), [EngineEvent::OrderWritten { bot_id: r.id, transaction_id: order }, EngineEvent::StatusChanged { bot_id: r.id }]);
+    // D-LIQUIDATION-ONE-LINE: the stop's line, newer than the order, is announced by a TickEnded at the polls' end.
+    assert_eq!(heard(&mut rx), [EngineEvent::OrderWritten { bot_id: r.id, transaction_id: order }, EngineEvent::StatusChanged { bot_id: r.id }, EngineEvent::TickEnded { bot_id: r.id }]);
     let dom = |name: &str| format!("{name}_bots_dca_multi_asset_{}", r.id);
     let pair = |a: &str, t: String| (a.to_string(), t);
     assert_eq!(shape(&r.render(&EngineEvent::StatusChanged { bot_id: r.id })), [pair("replace", dom("status_bar")), pair("replace", dom("progress_bar")),

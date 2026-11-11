@@ -911,8 +911,8 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         Ok(()) => { let mut bots:Vec<i64>=watched.iter().map(|(bot,_)|*bot).collect(); bots.dedup(); for bot_id in bots { e.events.send(EngineEvent::OrderUpdated { bot_id }); } }
         Err(err) => super::log(&format!("[engine] abandoned composition order halt: {err:?}")),
     }
-    // The halt's ambiguity line is written after each poll's OrderWritten.
-    if !watched.is_empty() { announce_lines(e, since); }
+    // A poll's own lines (an abandoned order, the halt's ambiguity) are newer than the order its OrderWritten names.
+    announce_lines(e, since);
     for state in e.polls.values() { *wake = (*wake).min(state.value.1); }
 }
 
