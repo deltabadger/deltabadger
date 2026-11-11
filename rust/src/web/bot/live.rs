@@ -119,9 +119,17 @@ pub async fn follow(app: App, mut events: tokio::sync::mpsc::UnboundedReceiver<E
         let (inner, lines) = (app.clone(), lines.clone());
         let shown = event.clone();
         match app.db(move |c| {
-            let mut out = render(c, &inner, &event)?;
-            out.extend(lines.lock().map_err(|_| WebError::Config("activity watermark poisoned".into()))?.announce(c, &inner, &event)?);
-            Ok(out)
+            let mut lines = lines.lock().map_err(|_| WebError::Config("activity watermark poisoned".into()))?;
+            // An order's older lines go below it, so they are prepended first; any other event's lines go on top.
+            Ok(if matches!(event, EngineEvent::OrderRecorded { .. } | EngineEvent::OrderWritten { .. }) {
+                let mut out = lines.announce(c, &inner, &event)?;
+                out.extend(render(c, &inner, &event)?);
+                out
+            } else {
+                let mut out = render(c, &inner, &event)?;
+                out.extend(lines.announce(c, &inner, &event)?);
+                out
+            })
         }).await {
             Ok(messages) => for (stream, html) in messages { app.hub.broadcast(&stream, &html); },
             Err(err) => crate::engine::log(&format!("[web] {shown:?}: the bot page broadcast could not be rendered: {err:?}")),
@@ -149,7 +157,15 @@ impl Lines {
         let ctx = owner_ctx(app, owner.clone());
         let Some(bot) = Bot::find(c, owner.id, *bot_id, For::Page, ctx.locale)? else { return Ok(vec![]) };
         if bot.unrendered().is_some() { return Ok(vec![]); }
-        let (messages, last) = orders::new_lines(c, &ctx, &bot, &owner, mark)?;
+        // On an order's event only the lines older than the order (feed order: newest first, a line above an order of its instant).
+        let before = match event {
+            EngineEvent::OrderRecorded { transaction_id, .. } | EngineEvent::OrderWritten { transaction_id, .. } => {
+                let at: Option<String> = OptionalExtension::optional(c.query_row("SELECT created_at FROM transactions WHERE id = ?1", [transaction_id], |r| r.get(0)))?;
+                Some(at.map(|at| crate::codec::parse_time(&at).map_err(|e| super::data(format!("{e:?}")))).transpose()?.unwrap_or(chrono::DateTime::<chrono::Utc>::MIN_UTC))
+            }
+            _ => None,
+        };
+        let (messages, last) = orders::new_lines(c, &ctx, &bot, &owner, mark, before)?;
         self.marks.insert(*bot_id, last.max(mark));
         Ok(messages)
     }
@@ -161,8 +177,11 @@ pub fn selling_streams(c: &Connection, ctx: &Ctx, bot: &Bot, hidden: bool) -> Re
     if bot.kind == super::Kind::Signal { return Ok(vec![]); }
     let stream = format!("user_{}:bot_updates", bot_owner(c, bot.id)?);
     let (rows, state) = selling_html(c, ctx, bot, hidden)?;
-    Ok(vec![(stream.clone(), crate::web::turbo::stream("replace", &format!("orders_selling_{}", bot.id), &rows)),
-            (stream, crate::web::turbo::stream("replace", &format!("selling_state_{}", bot.id), &state))])
+    let mut out = vec![(stream.clone(), crate::web::turbo::stream("replace", &format!("orders_selling_{}", bot.id), &rows)),
+                       (stream.clone(), crate::web::turbo::stream("replace", &format!("selling_state_{}", bot.id), &state))];
+    // With balances hidden a "Selling …" row may be what opens "Other" (page::filters), so the filters follow it.
+    if hidden { out.push((stream, super::page::filters_broadcast(c, ctx, bot, hidden)?)); }
+    Ok(out)
 }
 
 fn bot_owner(c: &Connection, id: i64) -> Result<i64, WebError> { Ok(c.query_row("SELECT user_id FROM bots WHERE id = ?1", [id], |r| r.get(0))?) }

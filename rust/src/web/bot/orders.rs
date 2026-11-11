@@ -490,12 +490,17 @@ pub fn feed(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User) -> Result<String,
 }
 
 /// D-LIQUIDATION-ONE-LINE: the bot's activity lines above `after`, as the feed selects them, prepended oldest first (Turbo's
-/// prepend drops a child of the same id, so a line the feed also loaded is not doubled), then the filters. The highest id
-/// read, or `after`.
-pub fn new_lines(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, after: i64) -> Result<(Vec<(String, String)>, i64), WebError> {
+/// prepend drops a child of the same id, so a line the feed also loaded is not doubled), then the filters. `before`: only the
+/// lines older than it, in id order up to the first that is not (an order about to be prepended goes above them; the rest
+/// wait for a later event). A28-2's `rails_order_open`/`listed` lines are not broadcast: their answers need the session's
+/// token, and a prepend would replace the feed's row carrying them. The highest id passed, or `after`.
+pub fn new_lines(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, after: i64, before: Option<DateTime<Utc>>) -> Result<(Vec<(String, String)>, i64), WebError> {
     let mut s = c.prepare("SELECT id, created_at, event, message, details FROM bot_activity_logs WHERE bot_id = ?1 AND id > ?2 AND event NOT IN ('order_skipped', 'order_ignored') ORDER BY id")?;
-    let logs = s.query_map([bot.id, after], log_row)?.collect::<Result<Vec<_>, _>>()?;
+    let mut logs = s.query_map([bot.id, after], log_row)?.collect::<Result<Vec<_>, _>>()?;
+    if let Some(before) = before { if let Some(at) = logs.iter().position(|log| log.created_at >= before) { logs.truncate(at); } }
     let Some(last) = logs.last().map(|log| log.id) else { return Ok((vec![], after)) };
+    logs.retain(|log| !matches!(log.event.as_str(), "rails_order_open" | "rails_order_listed"));
+    if logs.is_empty() { return Ok((vec![], last)); }
     let rows = Rows { broadcast: true, ..Rows::new(ctx, bot, user) };
     let page = super::page::page_stream(bot);
     let mut out = vec![(page.clone(), turbo::remove("orders_list_placeholder"))];

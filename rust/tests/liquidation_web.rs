@@ -401,3 +401,37 @@ async fn the_feed_names_each_reason_and_keeps_legacy_lines() {
     assert!(de.contains("ETH wurde nicht verkauft — es konnte kein Preis gelesen werden"),"{de}");
     assert!(de.contains("Nichts wurde verkauft — der Bot hat noch wartende Orders an der Börse"),"{de}");
 }
+
+#[tokio::test(flavor="current_thread")]
+async fn an_orders_event_announces_only_the_lines_below_it_and_never_the_rails_order_answers() {
+    let (_d,c,s,id,app,_)=install();
+    let mut lines=deltabadger::web::bot::live::Lines::starting(&c).unwrap();
+    // A batch: order A, then a skip, then order B a minute later; both orders' events are read after all three writes.
+    let a=liquidation_row(&c,&s,id,s.btc,1);
+    c.execute("UPDATE transactions SET external_id='LA' WHERE id=?1",[a]).unwrap();
+    let early=log(&c,id,"liquidation_skipped",json!({"base":"ETH","reason":"unavailable"}));
+    c.execute("UPDATE bot_activity_logs SET created_at='2026-09-01 12:00:30' WHERE id=?1",[early]).unwrap();
+    let b=liquidation_row(&c,&s,id,s.btc,1);
+    c.execute("UPDATE transactions SET created_at='2026-09-01 12:01:00' WHERE id=?1",[b]).unwrap();
+    let late=log(&c,id,"rails_order_open",json!({"when":"x","venue":"Alpaca","orders":"1","obligation":1}));
+    let prepended=|messages:&[(String,String)]|messages.iter().filter(|(_,html)|html.contains("action=\"prepend\"")).map(|(_,html)|html.clone()).collect::<Vec<_>>();
+    // A's event: nothing older than A.
+    assert_eq!(prepended(&lines.announce(&c,&app,&EngineEvent::OrderRecorded {bot_id:id,transaction_id:a}).unwrap()),Vec::<String>::new());
+    // B's event: the skip, older than B, goes first so B lands above it.
+    let at_b=prepended(&lines.announce(&c,&app,&EngineEvent::OrderRecorded {bot_id:id,transaction_id:b}).unwrap());
+    assert!(at_b.len()==1 && at_b[0].contains(&format!("bot_activity_log_{early}")),"{at_b:?}");
+    // The tick's end: the rest, except a line whose answers need the session.
+    let ended=lines.announce(&c,&app,&EngineEvent::TickEnded {bot_id:id}).unwrap();
+    assert!(!ended.iter().any(|(_,html)|html.contains(&format!("bot_activity_log_{late}"))),"{ended:?}");
+    assert_eq!(lines.announce(&c,&app,&EngineEvent::TickEnded {bot_id:id}).unwrap(),vec![]);
+}
+
+#[test]
+fn with_balances_hidden_the_selling_redraw_carries_the_filters() {
+    let (_d,c,s,id,app,_)=install();
+    let filters=|c:&Connection|deltabadger::web::bot::live::render(c,&app,&EngineEvent::TickEnded {bot_id:id}).unwrap().into_iter().filter(|(_,html)|html.contains("order_filters")).count();
+    assert_eq!(filters(&c),0);
+    c.execute("UPDATE users SET hide_balances=1 WHERE id=?1",[s.user_id]).unwrap();
+    model::merge_transient_compact(&c,id,&[("liquidation_selling_since",json!({"id":"x","at":0,"holdings":[["BTC",s.btc]]}))]).unwrap();
+    assert_eq!(filters(&c),1);
+}
