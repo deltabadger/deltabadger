@@ -653,13 +653,9 @@ pub fn run() {
                 )?;
             }
 
-            // The inspector, and tauri's Ctrl+Shift+I / Cmd+Opt+I script that opens it whatever .devtools says: its command
-            // is granted only when the inspector is on (capabilities/default.json never names it).
+            // The inspector. tauri's Ctrl+Shift+I / Cmd+Opt+I script opens it whatever .devtools says, so its command is
+            // denied in capabilities/default.json (core:default allows it): the webview's own ways in are the only ones.
             let devtools = devtools_enabled(cfg!(debug_assertions), std::env::var("DELTABADGER_DEVTOOLS").ok().as_deref());
-            if devtools {
-                app.add_capability(tauri::ipc::CapabilityBuilder::new("devtools").window("main").remote("http://127.0.0.1:*".into())
-                    .permission("core:webview:allow-internal-toggle-devtools"))?;
-            }
 
             // The window first, on the status page: whatever happens next is shown in it (r1.11).
             let (engine, handle) = (app.state::<Arc<Engine>>().inner().clone(), app.handle().clone());
