@@ -1210,7 +1210,10 @@ fn log_requests(env: &dyn Fn(&str) -> Option<String>) -> bool {
 /// token, OAuth codes and reset tokens ride there), and a signal hook's token masked (HookTokenFilter). Headers, bodies
 /// and cookies are never read.
 fn logged_path(path: &str) -> String {
-    let path = match path.find("/hook/") { Some(i) => format!("{}/hook/[FILTERED]", &path[..i]), None => path.to_string() };
+    // Judged on the path decoded and lowercased, so `/%68ook/…` and `/hook%2F…` are masked too; the token is never logged.
+    // A path that is no UTF-8 once unescaped can't be judged: none of it is logged.
+    let Some(decoded) = rest::unescape(path) else { return "/[FILTERED]".to_string() };
+    if decoded.to_ascii_lowercase().contains("/hook/") { return "/hook/[FILTERED]".to_string(); }
     // ponytail: a cap so a junk request can't write a huge line; raise it if real paths get cut.
     path.chars().take(256).collect()
 }
@@ -1230,8 +1233,10 @@ mod access_log_tests {
     #[test]
     fn a_path_is_logged_without_its_query_or_a_hook_token() {
         assert_eq!(logged_path("/bots/7"), "/bots/7");
-        assert_eq!(logged_path("/hook/s3cret"), "/hook/[FILTERED]");
-        assert_eq!(logged_path("/de/hook/s3cret.json"), "/de/hook/[FILTERED]");
+        for hook in ["/hook/s3cret", "/de/hook/s3cret.json", "/%68ook/s3cret", "/de/%68ook/s3cret", "/hook%2Fs3cret", "/HOOK/s3cret"] {
+            assert_eq!(logged_path(hook), "/hook/[FILTERED]", "{hook}");
+        }
+        assert_eq!(logged_path("/%68ook/%FF"), "/[FILTERED]");
         assert_eq!(logged_path(&"/a".repeat(500)).len(), 256);
     }
 

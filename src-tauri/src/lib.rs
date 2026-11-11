@@ -653,6 +653,14 @@ pub fn run() {
                 )?;
             }
 
+            // The inspector, and tauri's Ctrl+Shift+I / Cmd+Opt+I script that opens it whatever .devtools says: its command
+            // is granted only when the inspector is on (capabilities/default.json never names it).
+            let devtools = devtools_enabled(cfg!(debug_assertions), std::env::var("DELTABADGER_DEVTOOLS").ok().as_deref());
+            if devtools {
+                app.add_capability(tauri::ipc::CapabilityBuilder::new("devtools").window("main").remote("http://127.0.0.1:*".into())
+                    .permission("core:webview:allow-internal-toggle-devtools"))?;
+            }
+
             // The window first, on the status page: whatever happens next is shown in it (r1.11).
             let (engine, handle) = (app.state::<Arc<Engine>>().inner().clone(), app.handle().clone());
             let window_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
@@ -660,7 +668,7 @@ pub fn run() {
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(320.0, 600.0)
                 .center()
-                .devtools(devtools_enabled(cfg!(debug_assertions), std::env::var("DELTABADGER_DEVTOOLS").ok().as_deref()))
+                .devtools(devtools)
                 .initialization_script(initialization_script())
                 .on_navigation(move |url| match navigation(url, engine.launch().map(|(port, _)| port)) {
                     Navigation::Allow => true,

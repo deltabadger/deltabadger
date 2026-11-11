@@ -683,18 +683,20 @@ fn the_desktop_logs_each_request_without_its_query() {
         if asked { c.env("LOG_REQUESTS", "1"); } else { c.env_remove("LOG_REQUESTS"); }
         let mut e = start(&mut c, port);
         assert_eq!(e.ready(), format!("ready {TOKEN} app"), "{platform:?}: {}", data.log());
-        for path in ["/desktop/sign_in?ticket=TICKET-SECRET", "/?launch=LAUNCH-SECRET", "/hook/HOOK-SECRET"] { get(port, path).unwrap(); }
+        for path in ["/desktop/sign_in?ticket=TICKET-SECRET", "/?launch=LAUNCH-SECRET", "/hook/HOOK-SECRET", "/%68ook/ENCODED-SECRET"] { get(port, path).unwrap(); }
         e.close_stdin();
         assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
         let log = data.log();
-        for secret in ["TICKET-SECRET", "LAUNCH-SECRET", "HOOK-SECRET"] { assert!(!log.contains(secret), "{platform:?}: {secret}: {log}"); }
+        for secret in ["TICKET-SECRET", "LAUNCH-SECRET", "HOOK-SECRET", "ENCODED-SECRET"] { assert!(!log.contains(secret), "{platform:?}: {secret}: {log}"); }
         let line = log.lines().find(|l| l.contains(" GET /desktop/sign_in "));
         assert_eq!(line.is_some(), logged, "{platform:?} {asked}: {log}");
         if let Some(line) = line {
             let (_, rest) = line.split_once(" GET /desktop/sign_in ").unwrap();
             let (status, ms) = rest.split_once(' ').unwrap();
             assert!(status.parse::<u16>().is_ok() && ms.strip_suffix("ms").unwrap().parse::<u64>().is_ok(), "{line}");
-            assert!(log.contains(" GET / ") && log.contains(" GET /hook/[FILTERED] "), "{log}");
+            assert_eq!(log.matches(" GET /desktop/sign_in ").count(), 1, "{log}");
+            assert_eq!(log.matches(" GET / ").count(), 1, "{log}");
+            assert_eq!(log.matches(" GET /hook/[FILTERED] ").count(), 2, "{log}");
         }
     }
 }
