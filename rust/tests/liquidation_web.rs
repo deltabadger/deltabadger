@@ -45,7 +45,8 @@ async fn cold_modal_names_ledger_amount_and_web_intersects_then_refuses_double_p
     let second=b.send(&app,"POST",&path,Some(&form),Csrf::Header,HEADERS).await;
     assert_eq!(second.status,422,"{}",second.body);
     assert_eq!(model::load_bot(&c,id).unwrap().transient["liquidation_selling_since"],request);
-    assert_eq!(c.query_row("SELECT count(*) FROM bot_activity_logs WHERE event=\'liquidation_requested\'",[],|r|r.get::<_,i64>(0)).unwrap(),1);
+    // D-LIQUIDATION-ONE-LINE: the request writes no line; the page's "Selling …" row says it.
+    assert_eq!(c.query_row("SELECT count(*) FROM bot_activity_logs WHERE event=\'liquidation_requested\'",[],|r|r.get::<_,i64>(0)).unwrap(),0);
     let page=b.get(&app,&format!("/bots/{id}")).await;
     assert_eq!(status_text(&page.body,id),"Selling…");
 }
@@ -150,7 +151,7 @@ async fn rest_and_mcp_real_entry_points_queue_the_webs_rows_with_the_wash_sale_r
             assert_eq!(serde_json::from_str::<Value>(&body).unwrap()["data"]["symbols"],json!(["BTC"]));
         } else {let result=mcp(&app,id).await;assert!(result.get("isError").is_none(),"{result}");assert!(result["content"][0]["text"].as_str().unwrap().contains("Selling BTC"));}
         assert_eq!(model::load_bot(&c,id).unwrap().transient["liquidation_selling_since"]["holdings"],json!([["BTC",s.btc]]));
-        assert_eq!(c.query_row("SELECT count(*) FROM bot_activity_logs WHERE event='liquidation_requested'",[],|r|r.get::<_,i64>(0)).unwrap(),1);
+        assert_eq!(c.query_row("SELECT count(*) FROM bot_activity_logs WHERE event='liquidation_requested'",[],|r|r.get::<_,i64>(0)).unwrap(),0);
         assert_eq!(c.query_row("SELECT count(*) FROM transactions",[],|r|r.get::<_,i64>(0)).unwrap(),1,"only the engine places orders");
     }
 }
@@ -280,4 +281,157 @@ async fn stale_sell_while_rebalancing_logs_the_refusal_without_queuing() {
     assert_eq!(answer.status,422,"{}",answer.body);
     assert_eq!(c.query_row("SELECT count(*) FROM bot_activity_logs WHERE event='liquidation_not_started'",[],|r|r.get::<_,i64>(0)).unwrap(),1);
     assert!(model::load_bot(&c,id).unwrap().transient["liquidation_selling_since"].is_null());
+}
+
+// D-LIQUIDATION-ONE-LINE (PLAN-liquidation-one-line slice 1).
+use deltabadger::engine::{composition::{self,Selling},events::EngineEvent};
+fn selling(c:&Connection,id:i64)->Selling { composition::selling(c,&model::load_bot(c,id).unwrap(),NOW.parse().unwrap()).unwrap() }
+fn liquidation_row(c:&Connection,s:&seed::Seeded,id:i64,asset:i64,external_status:i64)->i64 {
+    let tx=seed::insert_row(c,s,id,asset,&json!({"external_id":format!("L{external_status}"),"external_status":external_status,"side":1,"amount":"0.01","price":"64000","quote_amount":"640","created_at":"2026-09-01 12:00:00"}));
+    c.execute("UPDATE transactions SET transaction_type='LIQUIDATION' WHERE id=?1",[tx]).unwrap();
+    tx
+}
+fn log(c:&Connection,id:i64,event:&str,details:Value)->i64 {
+    c.execute("INSERT INTO bot_activity_logs(bot_id,event,level,details,created_at) VALUES (?1,?2,0,?3,'2026-09-01 12:20:00')",(id,event,details.to_string())).unwrap();
+    c.last_insert_rowid()
+}
+
+#[test]
+fn selling_is_read_from_the_request_the_waiting_orders_and_every_blocker() {
+    let (_d,c,s,id,_,_)=install();
+    assert_eq!(selling(&c,id),Selling::default());
+    // The request's holdings by asset id: a ledger key like ABC#123 and two keys of one symbol stay distinct assets.
+    model::merge_transient_compact(&c,id,&[("liquidation_selling_since",json!({"id":"x","at":0,"holdings":[["BTC",s.btc],["ABC#123",901],["BTC",s.btc],["ABC",902]]}))]).unwrap();
+    assert_eq!(selling(&c,id),Selling {assets:vec![s.btc,901,902],blocked:true});
+    // The request cleared, its order still waiting on the venue.
+    model::merge_transient_compact(&c,id,&[("liquidation_selling_since",Value::Null)]).unwrap();
+    let tx=liquidation_row(&c,&s,id,s.btc,1);
+    assert_eq!(selling(&c,id),Selling {assets:vec![s.btc],blocked:true});
+    // An ambiguous placement and an abandoned unresolved order name nothing and still block.
+    c.execute("UPDATE transactions SET external_status=2 WHERE id=?1",[tx]).unwrap();
+    assert_eq!(selling(&c,id),Selling::default());
+    model::merge_transient_compact(&c,id,&[("liquidation_pending",json!({"id":"abc","state":"ambiguous","symbol":"BTC"}))]).unwrap();
+    assert_eq!(selling(&c,id),Selling {assets:vec![],blocked:true});
+    model::merge_transient_compact(&c,id,&[("liquidation_pending",Value::Null)]).unwrap();
+    c.execute("UPDATE transactions SET external_status=4 WHERE id=?1",[tx]).unwrap();
+    assert_eq!(selling(&c,id),Selling {assets:vec![],blocked:true});
+    // A rebalance in flight blocks too.
+    c.execute("UPDATE transactions SET external_status=2 WHERE id=?1",[tx]).unwrap();
+    model::merge_transient_compact(&c,id,&[("rebalance_pending",json!({"phase":"selling"}))]).unwrap();
+    assert_eq!(selling(&c,id),Selling {assets:vec![],blocked:true});
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn the_page_shows_selling_rows_and_state_and_every_live_event_redraws_them() {
+    let (_d,c,s,id,app,mut b)=install();
+    let page=b.get(&app,&format!("/bots/{id}")).await;
+    assert!(page.body.contains(&format!("<tbody id=\"orders_selling_{id}\"></tbody>")),"{}",page.body);
+    assert!(page.body.contains(&format!("id=\"selling_state_{id}\" hidden data-bot--selling-target=\"state\" data-assets=\"[]\" data-blocked=\"false\"")),"{}",page.body);
+    let answer=b.send(&app,"POST",&format!("/bots/{id}/liquidation"),Some(&[("symbol[]","BTC")]),Csrf::Header,HEADERS).await;
+    assert_eq!(answer.status,200,"{}",answer.body);
+    let page=b.get(&app,&format!("/bots/{id}")).await;
+    assert!(page.body.contains("Selling BTC…") && page.body.contains("loader--small"),"{}",page.body);
+    assert!(page.body.contains(&format!("data-assets=\"[{}]\" data-blocked=\"true\"",s.btc)),"{}",page.body);
+    for event in [EngineEvent::TickEnded {bot_id:id},EngineEvent::StatusChanged {bot_id:id}] {
+        let messages=deltabadger::web::bot::live::render(&c,&app,&event).unwrap();
+        let ours:Vec<_>=messages.iter().filter(|(_,html)|html.contains(&format!("target=\"orders_selling_{id}\""))||html.contains(&format!("target=\"selling_state_{id}\""))).collect();
+        assert_eq!(ours.len(),2,"{event:?}: {messages:?}");
+        assert!(ours.iter().all(|(stream,html)|*stream==format!("user_{}:bot_updates",s.user_id) && html.contains("action=\"replace\"")));
+        assert!(ours[0].1.contains("Selling BTC…"));
+    }
+    // The request is taken and cleared: the redraw empties the rows and lifts the block.
+    c.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.liquidation_selling_since') WHERE id=?1",[id]).unwrap();
+    let messages=deltabadger::web::bot::live::render(&c,&app,&EngineEvent::TickEnded {bot_id:id}).unwrap();
+    assert!(messages.iter().any(|(_,html)|html.contains(&format!("<tbody id=\"orders_selling_{id}\"></tbody>"))),"{messages:?}");
+    assert!(messages.iter().any(|(_,html)|html.contains("data-blocked=\"false\"")),"{messages:?}");
+}
+
+#[test]
+fn a_signal_bots_live_events_carry_no_selling_targets() {
+    let (_d,c,s,_,app,_)=install();
+    let signal=seed::insert_bot(&c,&s,&BotSpec {status:2,..BotSpec::weekly(60.0,"2026-09-01 10:00:00")});
+    c.execute("UPDATE bots SET type=?2 WHERE id=?1",(signal,deltabadger::engine::model::SIGNAL_TYPE)).unwrap();
+    let messages=deltabadger::web::bot::live::render(&c,&app,&EngineEvent::TickEnded {bot_id:signal}).unwrap();
+    assert!(!messages.iter().any(|(_,html)|html.contains("orders_selling_")||html.contains("selling_state_")),"{messages:?}");
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn new_lines_are_prepended_once_in_order_and_skipped_orders_never() {
+    let (_d,c,_s,id,app,mut b)=install();
+    let tick=EngineEvent::TickEnded {bot_id:id};
+    let old=log(&c,id,"liquidation_failed",json!({"reason":"old"}));
+    // The follower starts above what is already in the table: an old line is the feed's, not a broadcast.
+    let mut lines=deltabadger::web::bot::live::Lines::starting(&c).unwrap();
+    // The door refusal: a second Sell while the first waits.
+    for _ in 0..2 { b.send(&app,"POST",&format!("/bots/{id}/liquidation"),Some(&[("symbol[]","BTC")]),Csrf::Header,HEADERS).await; }
+    log(&c,id,"order_skipped",json!({}));
+    let skipped=log(&c,id,"liquidation_skipped",json!({"base":"ETH","reason":"no_free_balance"}));
+    let messages=lines.announce(&c,&app,&tick).unwrap();
+    let prepends:Vec<&String>=messages.iter().filter(|(_,html)|html.contains("action=\"prepend\"")).map(|(_,html)|html).collect();
+    assert_eq!(prepends.len(),2,"{messages:?}");
+    assert!(prepends[0].contains("Nothing was sold — the bot is still busy with an earlier sale or rebalance"),"{}",prepends[0]);
+    assert!(prepends[1].contains(&format!("bot_activity_log_{skipped}")) && prepends[1].contains("ETH was not sold — none of it is free to sell on the exchange"),"{}",prepends[1]);
+    assert!(!messages.iter().any(|(_,html)|html.contains(&format!("bot_activity_log_{old}"))));
+    assert!(messages.iter().any(|(_,html)|html.contains("action=\"remove\"") && html.contains("orders_list_placeholder")));
+    assert!(messages.iter().any(|(_,html)|html.contains("order_filters")));
+    // Announced once.
+    assert_eq!(lines.announce(&c,&app,&EngineEvent::OrderWritten {bot_id:id,transaction_id:0}).unwrap(),vec![]);
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn the_feed_names_each_reason_and_keeps_legacy_lines() {
+    let (_d,c,s,id,app,mut b)=install();
+    for (event,details) in [("liquidation_skipped",json!({"base":"ETH","reason":"unpriced"})),("liquidation_skipped",json!({"base":"SOL","reason":"no_free_balance"})),
+                            ("liquidation_skipped",json!({"base":"XRP"})),("liquidation_skipped",json!({"base":"ADA","reason":"something new"})),
+                            ("liquidation_not_started",json!({"reason":["orders_waiting"]})),("liquidation_not_started",json!({"reason":"archived"})),
+                            ("liquidation_not_started",json!({"reason":["prices are 3 hours old"]})),("liquidation_requested",json!({"base":"BTC"})),("liquidation_placed",json!({"base":"BTC"}))] {
+        log(&c,id,event,details);
+    }
+    let feed=|locale:&'static str|{c.execute("UPDATE users SET locale=?2 WHERE id=?1",(s.user_id,locale)).unwrap();};
+    feed("en");
+    let en=b.send(&app,"GET",&format!("/bots/{id}.turbo_stream"),None,Csrf::None,&[("Turbo-Frame","orders_pagination")]).await.body;
+    for text in ["ETH was not sold — no price could be read for it","SOL was not sold — none of it is free to sell on the exchange",
+                 "Nothing was sold — the bot has orders still waiting on the exchange","Nothing was sold — the bot is archived",
+                 "Selling a position at market","Selling a position"] { assert!(en.contains(text),"{text}: {en}"); }
+    // A legacy skip (no reason), an unknown code and a staleness sentence keep the shared lines.
+    assert_eq!(en.matches("A position could not be sold — left in place").count(),2,"{en}");
+    assert_eq!(en.matches("Nothing was sold — the bot was busy, or the index could not be refreshed").count(),1,"{en}");
+    feed("de");
+    let de=b.send(&app,"GET",&format!("/de/bots/{id}.turbo_stream"),None,Csrf::None,&[("Turbo-Frame","orders_pagination")]).await.body;
+    assert!(de.contains("ETH wurde nicht verkauft — es konnte kein Preis gelesen werden"),"{de}");
+    assert!(de.contains("Nichts wurde verkauft — der Bot hat noch wartende Orders an der Börse"),"{de}");
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn an_orders_event_announces_only_the_lines_below_it_and_never_the_rails_order_answers() {
+    let (_d,c,s,id,app,_)=install();
+    let mut lines=deltabadger::web::bot::live::Lines::starting(&c).unwrap();
+    // A batch: order A, then a skip, then order B a minute later; both orders' events are read after all three writes.
+    let a=liquidation_row(&c,&s,id,s.btc,1);
+    c.execute("UPDATE transactions SET external_id='LA' WHERE id=?1",[a]).unwrap();
+    let early=log(&c,id,"liquidation_skipped",json!({"base":"ETH","reason":"unavailable"}));
+    c.execute("UPDATE bot_activity_logs SET created_at='2026-09-01 12:00:30' WHERE id=?1",[early]).unwrap();
+    let b=liquidation_row(&c,&s,id,s.btc,1);
+    c.execute("UPDATE transactions SET created_at='2026-09-01 12:01:00' WHERE id=?1",[b]).unwrap();
+    let late=log(&c,id,"rails_order_open",json!({"when":"x","venue":"Alpaca","orders":"1","obligation":1}));
+    let prepended=|messages:&[(String,String)]|messages.iter().filter(|(_,html)|html.contains("action=\"prepend\"")).map(|(_,html)|html.clone()).collect::<Vec<_>>();
+    // A's event: nothing older than A.
+    assert_eq!(prepended(&lines.announce(&c,&app,&EngineEvent::OrderRecorded {bot_id:id,transaction_id:a}).unwrap()),Vec::<String>::new());
+    // B's event: the skip, older than B, goes first so B lands above it.
+    let at_b=prepended(&lines.announce(&c,&app,&EngineEvent::OrderRecorded {bot_id:id,transaction_id:b}).unwrap());
+    assert!(at_b.len()==1 && at_b[0].contains(&format!("bot_activity_log_{early}")),"{at_b:?}");
+    // The tick's end: the rest, except a line whose answers need the session.
+    let ended=lines.announce(&c,&app,&EngineEvent::TickEnded {bot_id:id}).unwrap();
+    assert!(!ended.iter().any(|(_,html)|html.contains(&format!("bot_activity_log_{late}"))),"{ended:?}");
+    assert_eq!(lines.announce(&c,&app,&EngineEvent::TickEnded {bot_id:id}).unwrap(),vec![]);
+}
+
+#[test]
+fn with_balances_hidden_the_selling_redraw_carries_the_filters() {
+    let (_d,c,s,id,app,_)=install();
+    let filters=|c:&Connection|deltabadger::web::bot::live::render(c,&app,&EngineEvent::TickEnded {bot_id:id}).unwrap().into_iter().filter(|(_,html)|html.contains("order_filters")).count();
+    assert_eq!(filters(&c),0);
+    c.execute("UPDATE users SET hide_balances=1 WHERE id=?1",[s.user_id]).unwrap();
+    model::merge_transient_compact(&c,id,&[("liquidation_selling_since",json!({"id":"x","at":0,"holdings":[["BTC",s.btc]]}))]).unwrap();
+    assert_eq!(filters(&c),1);
 }

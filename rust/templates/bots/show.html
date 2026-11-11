@@ -43,6 +43,7 @@
 </turbo-frame>
 {%- endif %}
     <div id="{{ columns_id }}" class="columns{% if working %} bot-locked{% endif %}">
+      {{ selling_state|safe }}
       <div class="column gap-1">
           {{ settings|safe }}
       </div>
@@ -116,6 +117,7 @@
           <th></th>
         </tr>
       </thead>
+      {{ selling_rows|safe }}
       <tbody id="orders_list">
 {% if feed_empty %}
           <tr id="orders_list_placeholder">

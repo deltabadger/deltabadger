@@ -359,7 +359,7 @@ async fn the_page_hears_the_first_tick_as_rails_broadcasts_it() {
         let action = html.split("action=\"").nth(1).and_then(|s| s.split('"').next()).unwrap_or_default().to_string();
         let target = html.split("target=\"").nth(1).and_then(|s| s.split('"').next()).unwrap_or_default().to_string();
         (if *stream == user { "user" } else if *stream == page { "page" } else { "?" }, action, target)
-    }).collect::<Vec<_>>();
+    }).filter(|(_, _, target)| !target.starts_with("orders_selling_") && !target.starts_with("selling_state_")).collect::<Vec<_>>();
     let dom = |name: &str| format!("{name}_bots_dca_index_{}", r.id);
     let owned = |v: &[(&'static str, &str, String)]| v.iter().map(|(s, a, t)| (*s, a.to_string(), t.clone())).collect::<Vec<_>>();
 

@@ -57,12 +57,12 @@ fn heard(rx: &mut tokio::sync::mpsc::UnboundedReceiver<EngineEvent>) -> Vec<Engi
     while let Ok(e) = rx.try_recv() { out.push(e); }
     out
 }
-/// (action, target) of each message.
+/// (action, target) of each message, without D-LIQUIDATION-ONE-LINE's two selling targets (tests/liquidation_web.rs pins them).
 fn shape(messages: &[(String, String)]) -> Vec<(String, String)> {
     messages.iter().map(|(_, html)| {
         let attr = |name: &str| html.split(&format!("{name}=\"")).nth(1).and_then(|s| s.split('"').next()).unwrap_or_default().to_string();
         (attr("action"), attr("target"))
-    }).collect()
+    }).filter(|(_, target)| !target.starts_with("orders_selling_") && !target.starts_with("selling_state_")).collect()
 }
 
 /// A follow-up fill that spends the amount limit stops the bot (Bot::StopJob → Bot#stop, an update! of the status): Rails'
@@ -77,7 +77,8 @@ async fn a_follow_up_fill_that_stops_the_bot_redraws_its_status_and_unlocks_its_
     let mut e = r.engine(&t, "2026-09-01T10:00:06Z");
     let mut rx = e.subscribe_to(EngineEvent::is_live);
     run::step(&mut e, &FixedClock(at("2026-09-01T10:00:06Z"))).await.unwrap();
-    assert_eq!(heard(&mut rx), [EngineEvent::OrderWritten { bot_id: r.id, transaction_id: order }, EngineEvent::StatusChanged { bot_id: r.id }]);
+    // D-LIQUIDATION-ONE-LINE: the stop's line, newer than the order, is announced by a TickEnded at the polls' end.
+    assert_eq!(heard(&mut rx), [EngineEvent::OrderWritten { bot_id: r.id, transaction_id: order }, EngineEvent::StatusChanged { bot_id: r.id }, EngineEvent::TickEnded { bot_id: r.id }]);
     let dom = |name: &str| format!("{name}_bots_dca_multi_asset_{}", r.id);
     let pair = |a: &str, t: String| (a.to_string(), t);
     assert_eq!(shape(&r.render(&EngineEvent::StatusChanged { bot_id: r.id })), [pair("replace", dom("status_bar")), pair("replace", dom("progress_bar")),

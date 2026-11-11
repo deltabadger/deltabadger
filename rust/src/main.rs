@@ -783,7 +783,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         let warnings = supervisor::Service { name: "bot warnings",
             run: Box::pin(deltabadger::web::below_minimum::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_warning), engine.stop_handle().subscribe())) };
         let live = supervisor::Service { name: "bot pages",
-            run: Box::pin(deltabadger::web::bot::live::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_live), engine.stop_handle().subscribe())) };
+            run: Box::pin(deltabadger::web::bot::live::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_live), app.attach_live(), engine.stop_handle().subscribe())) };
         // D-DESKTOP-NO-MAIL (PLAN-B6-3 §2.5): the desktop sends no mail, whatever SMTP settings a 2.x install left;
         // D-DESKTOP-NOTIFY (§3): its sender offers the account's bot alerts to the launcher instead, and expires every bot's.
         let mail = match (app.desktop_account(), app.desktop_outbox()) {

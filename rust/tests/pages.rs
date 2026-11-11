@@ -126,7 +126,9 @@ fn rails_answer(recorded: &Value, step: &Value) -> Value {
 fn rust_answer(answer: &Answer, step: &Value) -> Value {
     let mut headers: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (name, value) in &answer.headers { headers.entry(name.clone()).or_default().push(value.clone()); }
-    comparable(answer.status.into(), &headers, &answer.body, &extra_headers(step))
+    let mut ours = comparable(answer.status.into(), &headers, &answer.body, &extra_headers(step));
+    without_selling_targets(&mut ours["body"]);
+    ours
 }
 
 /// The Rails job a wake of this crate's runner stands for, for a step's `jobs` (pages.rb records the classes its
@@ -839,6 +841,42 @@ fn without_split_item(body: &mut Value) -> usize {
         i = start;
     }
     taken
+}
+
+/// Named divergence D-LIQUIDATION-ONE-LINE: a basket or index bot's page has a `<tbody id="orders_selling_<bot>">` before the
+/// feed (its "Selling …" rows) and a hidden `#selling_state_<bot>` the Sell links read; Rails has neither. Only those two
+/// subtrees, with the whitespace before each, are taken out of this crate's page; returns how many.
+fn without_selling_targets(body: &mut Value) -> usize {
+    let Value::Array(lines) = body else { return 0 };
+    let (mut taken, mut i) = (0, 0);
+    while i < lines.len() {
+        let line = lines[i].as_str().unwrap_or_default().trim_start();
+        let id = attr(line, "id").unwrap_or_default();
+        let target = (line.starts_with("<tbody ") && id.strip_prefix("orders_selling_").is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())))
+            || (line.starts_with("<div ") && id.strip_prefix("selling_state_").is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())));
+        if !target { i += 1; continue; }
+        let end = subtree_end(lines, i);
+        let start = if i > 0 && is_space(&lines[i - 1]) { i - 1 } else { i };
+        lines.drain(start..end);
+        taken += 1;
+        i = start;
+    }
+    taken
+}
+
+#[test]
+fn only_the_selling_targets_are_left_out() {
+    let rails = json!(["    <tbody id=\"orders_list\">", "    </tbody>"]);
+    let mut ours = json!(["    \" \"", "    <tbody id=\"orders_selling_7\">", "    </tbody>", "    <tbody id=\"orders_list\">", "    </tbody>"]);
+    assert_eq!((without_selling_targets(&mut ours), &ours), (1, &rails));
+    let rails = json!(["  <div class=\"columns\">", "  </div>"]);
+    let mut ours = json!(["  <div class=\"columns\">", "    \" \"", "    <div data-assets=\"[]\" data-blocked=\"false\" hidden=\"\" id=\"selling_state_7\">", "    </div>", "  </div>"]);
+    assert_eq!((without_selling_targets(&mut ours), &ours), (1, &rails));
+    for other in [r#"    <tbody id="orders_list">"#, r#"    <div id="selling_state_x">"#, r#"    <tr id="orders_selling_7">"#] {
+        let mut kept = json!([other, "    </tbody>"]);
+        let before = kept.clone();
+        assert_eq!((without_selling_targets(&mut kept), &kept), (0, &before), "{other}");
+    }
 }
 
 /// Named divergence D-JOBS-SETTINGS-LINK (A25): the admin's Settings has a Jobs row last in its Instance section, a link to
@@ -4250,6 +4288,7 @@ async fn rebalance_resolution_pages_match_rails_without_a_listener() {
                 // The existing D-SPLIT-BOT-MENU applies to these basket pages too.
                 let bot=deltabadger::engine::model::load_bot(&c,1).unwrap();
                 assert_eq!(without_split_item(&mut ours),usize::from(bot.transient["rebalance_pending"].is_null()),"{name:?}: Split is offered after the pending swap clears");
+                assert_eq!(without_selling_targets(&mut ours),2,"{name:?}: D-LIQUIDATION-ONE-LINE");
                 let ours=ours.as_array().unwrap().iter().map(|line|line.as_str().unwrap().to_string()).collect::<Vec<_>>();
                 if let Some(diff)=html::first_difference(&html::normalize(rails["body"].as_str().unwrap()),&ours) {panic!("{name:?}: {path}: {diff}")}
             }

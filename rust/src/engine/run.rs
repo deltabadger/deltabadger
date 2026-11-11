@@ -258,10 +258,26 @@ fn signal_marker(c: &Connection, id: i64) -> Result<Option<String>, EngineError>
     Ok(c.query_row(&format!("SELECT json_extract(transient_data, '$.{}') FROM bots WHERE id = ?1", super::signal::MARKER_KEY), [id], |r| r.get(0)).optional()?.flatten())
 }
 
+/// D-LIQUIDATION-ONE-LINE: the newest activity line, so a step that writes lines outside the bot page's live events can
+/// announce them (`announce_lines`).
+fn last_line(c: &Connection) -> i64 { c.query_row("SELECT COALESCE(max(id),0) FROM bot_activity_logs", [], |r| r.get(0)).unwrap_or(i64::MAX) }
+
+/// Each bot with an activity line above `since` gets a TickEnded: its page shows the line, as a reload would.
+fn announce_lines<F: VenueFactory>(e: &Engine<F>, since: i64) {
+    let bots = e.primary.prepare("SELECT DISTINCT bot_id FROM bot_activity_logs WHERE id > ?1 ORDER BY bot_id")
+        .and_then(|mut s| s.query_map([since], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>());
+    match bots {
+        Ok(bots) => for bot_id in bots { e.events.send(EngineEvent::TickEnded { bot_id }); },
+        Err(err) => super::log(&format!("[engine] new activity lines not announced: {err:?}")),
+    }
+}
+
 async fn reconcile_idle<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
     let marker = signal_marker(&e.primary, id)?;
+    let since = last_line(&e.primary);
     let result = reconcile_intent(e, id, clock, wake).await;
     if signal_marker(&e.primary, id)? != marker { e.events.send(EngineEvent::SignalMarkerChanged { bot_id: id }); }
+    announce_lines(e, since);
     result
 }
 
@@ -808,10 +824,17 @@ async fn refresh_open_orders<F: VenueFactory>(e: &mut Engine<F>, id: i64, versio
 /// announced as a recorded order, and a booked row no poll holds is enrolled again in an hour.
 async fn run_bookings<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<(), EngineError> {
     let polled: HashSet<i64> = e.polls.keys().copied().collect();
-    let served = match super::rails_unrecorded::serve_bookings(&e.primary, &e.factory, &e.cipher, &|tx| polled.contains(&tx), clock.now()).await {
+    let since = last_line(&e.primary);
+    let served = super::rails_unrecorded::serve_bookings(&e.primary, &e.factory, &e.cipher, &|tx| polled.contains(&tx), clock.now()).await;
+    // A refusal's `rails_order_not_added` line has no order to announce it; a booking's lines follow its order's event.
+    let served = match served {
         Ok(served) => served,
-        Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
-        Err(err) => { super::log(&format!("[engine] Rails-unrecorded bookings deferred: {}", err.kind())); return Ok(()); }
+        Err(err) => {
+            announce_lines(e, since);
+            if matches!(err, EngineError::Lease(_) | EngineError::Store(_)) { return Err(err); }
+            super::log(&format!("[engine] Rails-unrecorded bookings deferred: {}", err.kind()));
+            return Ok(());
+        }
     };
     let now_us = clock.now().timestamp_micros();
     for ((bot, tx), at) in served.booked.iter().map(|r| (*r, now_us)).chain(served.watch.iter().map(|r| (*r, now_us + super::rails_unrecorded::WATCH_AFTER_US))) {
@@ -819,6 +842,7 @@ async fn run_bookings<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> 
         e.polls.insert(tx, model::Produced::new((bot, at, Attempts::default()), producer));
     }
     for &(bot_id, transaction_id) in &served.booked { e.events.send(EngineEvent::OrderRecorded { bot_id, transaction_id }); }
+    announce_lines(e, since);
     Ok(())
 }
 
@@ -831,6 +855,7 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
     let mut watched=vec![];
     let ids:Vec<(i64,i64)>=entries.iter().map(|(tx,state)|(state.value.0,*tx)).collect();
     let before=super::composition::halted(&e.primary,&ids).unwrap_or_default();
+    let since=last_line(&e.primary);
     for (tx,state) in entries {
         if e.stopping() { break; }
         let (id,at,mut attempts)=state.value;
@@ -886,6 +911,8 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         Ok(()) => { let mut bots:Vec<i64>=watched.iter().map(|(bot,_)|*bot).collect(); bots.dedup(); for bot_id in bots { e.events.send(EngineEvent::OrderUpdated { bot_id }); } }
         Err(err) => super::log(&format!("[engine] abandoned composition order halt: {err:?}")),
     }
+    // A poll's own lines (an abandoned order, the halt's ambiguity) are newer than the order its OrderWritten names.
+    announce_lines(e, since);
     for state in e.polls.values() { *wake = (*wake).min(state.value.1); }
 }
 
@@ -1288,11 +1315,13 @@ async fn run_command<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, kind
         if let (Ok(before), Ok(after)) = (status_before, status_of(&e.primary)) { if before != after { e.events.send(EngineEvent::StatusChanged { bot_id: id }); } }
         // Compare-clear precedes propagation, including SQL, credential, and lease failures.
         clear(&e.primary,id,&request)?;
+        // D-LIQUIDATION-ONE-LINE: the failure line is written before the redraw that announces it.
+        let failed=match &outcome { Err(err)=>model::log_activity(&e.primary,id,&format!("{name}_failed"),model::Level::Error,serde_json::json!({"reason":format!("{err:?}")}),clock.now()), Ok(())=>Ok(()) };
         // D-6C-6: after_tick ran before compare-clear; redraw after it so the status bar ends with this request.
         e.events.send(EngineEvent::TickEnded {bot_id:id});
         e.events.send(EngineEvent::OrderUpdated {bot_id:id});
+        failed?;
         if let Err(err)=outcome {
-            model::log_activity(&e.primary,id,&format!("{name}_failed"),model::Level::Error,serde_json::json!({"reason":format!("{err:?}")}),clock.now())?;
             if matches!(err,EngineError::Lease(_) | EngineError::Store(_)) {return Err(err);}
             super::log(&format!("[engine] {name} bot={id}: {err:?}"));
         }

@@ -75,6 +75,7 @@ pub fn request(c:&Connection,ctx:&Ctx,user:i64,id:i64,params:&Value,web:bool)->R
     if engine::composition::in_flight(&tx,&bot,ctx.now)? {
         engine::liquidation::refuse(&tx,id,json!(["in_flight"]),ctx.app.clock.as_ref())?;
         tx.commit()?;
+        ctx.app.announce(c,engine::events::EngineEvent::TickEnded {bot_id:id});
         return Ok(Res::failure(Domain::Conflict,"write_refused",i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&i18n::text(ctx.locale,"errors.bots.index_switch.in_flight",&[])))])));
     }
     if let Some(res)=page_refused(&tx,ctx,id)? {return Ok(res)}
@@ -86,7 +87,6 @@ pub fn request(c:&Connection,ctx:&Ctx,user:i64,id:i64,params:&Value,web:bool)->R
         let mut changes:Vec<_>=bot.transient.as_object().into_iter().flatten().filter(|(_,v)|v.is_null()).map(|(k,_)|(k.as_str(),Value::Null)).collect();
         changes.push((engine::liquidation::REQUEST_KEY,json!({"id":uuid::Uuid::new_v4().to_string(),"at":ctx.now.timestamp(),"holdings":holdings})));
         model::merge_transient_compact(&tx,id,&changes)?;
-        model::log_activity(&tx,id,"liquidation_requested",model::Level::Info,json!({"user_id":user,"base":symbols.join(", ")}),ctx.now)?;
     }
     if let Err(refusal)=eligibility::guard(&tx,&ctx.app.cipher,Some(id)) {return Ok(Res::failure(Domain::Conflict,"write_refused",bot_api::refused(&refusal.reason())))}
     tx.commit()?;
@@ -224,8 +224,5 @@ pub async fn clear(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segm
 /// Render after commit from the current row: a request that already finished cannot repaint an old spinner.
 pub(super) fn changed(c:&Connection,ctx:&Ctx,id:i64) {
     ctx.app.wake_engine();ctx.app.figure_service.mark(id);
-    match super::live::render(c,&ctx.app,&engine::events::EngineEvent::TickEnded {bot_id:id}) {
-        Ok(messages)=>for (stream,html) in messages {ctx.app.hub.broadcast(&stream,&html);},
-        Err(e)=>engine::log(&format!("[web] composition status bot={id}: {e:?}")),
-    }
+    ctx.app.announce(c,engine::events::EngineEvent::TickEnded {bot_id:id});
 }

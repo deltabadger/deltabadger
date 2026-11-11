@@ -71,7 +71,8 @@ async fn caps_to_free_dedupes_and_ignores_fee_cutter() {
     assert_eq!(orders[0]["type"],"market");
     assert_eq!(orders[0]["qty"],"0.003000000");
     assert_eq!(one::<String>(&o,"SELECT transaction_type FROM transactions WHERE external_id='OTX-1'"),"LIQUIDATION");
-    assert!(logs(&o).iter().any(|(e,_)|e=="liquidation_placed"));
+    // D-LIQUIDATION-ONE-LINE: the sale's status is the page's "Selling …" row; no `liquidation_placed` line.
+    assert!(!logs(&o).iter().any(|(e,_)|e=="liquidation_placed"));
 }
 #[tokio::test(flavor="current_thread")]
 async fn renamed_asset_and_duplicate_name_cannot_sell_another_position() {
@@ -348,8 +349,30 @@ fn hyperliquid_ioc_expected(rails: &Value, rust: &Value) -> Value {
     expected
 }
 
+/// D-LIQUIDATION-ONE-LINE on Rails' side: its `liquidation_placed` lines go (later lines' ids move down with them), and a
+/// skip Rails calls `unpriced` where this crate read no free balance is named `no_free_balance`.
+#[cfg(unix)]
+fn one_line_expected(rails: &Value, rust: &Value) -> Value {
+    let mut expected = rails.clone();
+    let Some(logs) = expected["changes"]["bot_activity_logs"].as_array_mut() else { return expected };
+    let mut dropped = 0;
+    logs.retain_mut(|row| {
+        if row["after"]["event"] == "liquidation_placed" && row["before"].is_null() { dropped += 1; return false; }
+        if dropped > 0 { let id = row["id"].as_i64().unwrap() - dropped; row["id"] = json!(id); row["after"]["id"] = json!(id); }
+        true
+    });
+    for (i, row) in logs.iter_mut().enumerate() {
+        let ours = &rust["changes"]["bot_activity_logs"][i]["after"];
+        if row["after"]["event"] == "liquidation_skipped" && row["after"]["details"]["reason"] == "unpriced" && ours["details"]["reason"] == "no_free_balance" {
+            row["after"]["details"]["reason"] = json!("no_free_balance");
+        }
+    }
+    expected
+}
+
 #[cfg(unix)]
 fn liquidation_grid_difference(name: &str, _: &std::path::Path, rails: &Value, rust: &Value) -> Result<(),String> {
+    let rails = &one_line_expected(rails, rust);
     let mut expected=if name.contains("-hyperliquid-") { hyperliquid_ioc_expected(rails, rust) } else { rails.clone() };
     if name.ends_with("-split_unresolved") {
         // D-6C-SPLIT-HOLD (T3): refuse before sizing, with the explicit reconciliation reason.
@@ -418,7 +441,7 @@ fn liquidation_grid_difference(name: &str, _: &std::path::Path, rails: &Value, r
 #[tokio::test(flavor="current_thread")]
 async fn rails_liquidation_grid_matches_every_venue() {
     let outputs=common::venue_grid::run_venue_grid("grid-liquidation",450,&[common::venue_grid::Validator {
-        names:&|name|name.contains("-hyperliquid-") || ["-timeout","-pre_send","-split_unresolved"].iter().any(|suffix|name.ends_with(suffix)),
+        names:&|_|true,
         check:&liquidation_grid_difference,
     }]).await;
     for (name,out) in outputs {
