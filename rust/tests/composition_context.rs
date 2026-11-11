@@ -62,7 +62,10 @@ async fn outcome_matrix_by_kind_is_atomic_and_never_borrows_rebalance_state() {
                 }
                 assert!(s.get("rust_defer_until").is_none());
                 let event = match label { "accepted" => Some("placed"), "pre" => Some("skipped"), "safe" => None, _ => Some("ambiguous") };
+                // D-LIQUIDATION-ONE-LINE: an accepted sale writes no `_placed` line; its order is the line.
+                let event = event.filter(|e| !(kind == TxKind::Liquidation && *e == "placed"));
                 if let Some(event) = event { assert!(events(&o).contains(&format!("{prefix}_{event}")), "{kind:?} {label}"); }
+                if kind == TxKind::Liquidation { assert!(!events(&o).contains(&"liquidation_placed".into()), "{label}"); }
             }
         }
     }
@@ -248,7 +251,8 @@ fn accepted_row_and_pending_clear_roll_back_together_then_restart_settles_once()
     for kind in [TxKind::Liquidation,TxKind::Redeploy] {
         let (d,o,id,plan)=setup(kind);
         let intent=begin(&o,id,&plan,false);
-        o.primary.execute_batch("CREATE TRIGGER fail_log BEFORE INSERT ON bot_activity_logs BEGIN SELECT RAISE(ABORT,'crash'); END;").unwrap();
+        let key = if kind == TxKind::Liquidation { "liquidation_pending" } else { "redeploy_pending" };
+        o.primary.execute_batch(&format!("CREATE TRIGGER fail_log BEFORE UPDATE OF transient_data ON bots WHEN json_extract(OLD.transient_data,'$.{key}') IS NOT NULL AND json_extract(NEW.transient_data,'$.{key}') IS NULL BEGIN SELECT RAISE(ABORT,'crash'); END;")).unwrap();
         assert!(placement::record_accepted(&o.primary,&model::load_bot(&o.primary,id).unwrap(),&intent,"landed").is_err());
         assert_eq!(rows(&o),0);
         assert!(state(&o,id)["rust_placement"].is_object());
