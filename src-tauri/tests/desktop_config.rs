@@ -87,6 +87,9 @@ fn the_engines_pages_may_call_the_apps_commands() {
     assert_eq!(capability["remote"]["urls"], serde_json::json!(["http://127.0.0.1:*"]));
     let permissions = capability["permissions"].as_array().unwrap();
     assert!(permissions.contains(&serde_json::json!("allow-check-for-updates")), "{permissions:?}");
+    // tauri's inspector hotkey opens it whatever DELTABADGER_DEVTOOLS says (core:default allows its command): denied.
+    assert!(permissions.contains(&serde_json::json!("core:webview:deny-internal-toggle-devtools")), "{permissions:?}");
+    assert!(!permissions.contains(&serde_json::json!("core:webview:allow-internal-toggle-devtools")), "{permissions:?}");
     assert!(read("src-tauri/build.rs").contains("\"check_for_updates\""));
 }
 

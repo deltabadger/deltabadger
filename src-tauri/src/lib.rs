@@ -74,6 +74,12 @@ fn desktop_app_data_dir(default: PathBuf) -> Result<PathBuf, String> {
     Ok(default)
 }
 
+/// Whether the window's web inspector is on: always in debug builds; in the released app only when it was started with
+/// `DELTABADGER_DEVTOOLS=1` (manual/04), so support can read what a page did without a debug build.
+pub fn devtools_enabled(debug: bool, env: Option<&str>) -> bool {
+    debug || env.is_some_and(|v| v.trim() == "1")
+}
+
 /// The identifier a build runs under (PLAN-B6 r1.12): a debug build never runs as the released app, however it was
 /// started (`tauri dev` without bin/tauri-dev included), so it never meets an installed app's single instance.
 pub fn run_identifier(configured: &str, debug: bool) -> String {
@@ -647,6 +653,10 @@ pub fn run() {
                 )?;
             }
 
+            // The inspector. tauri's Ctrl+Shift+I / Cmd+Opt+I script opens it whatever .devtools says, so its command is
+            // denied in capabilities/default.json (core:default allows it): the webview's own ways in are the only ones.
+            let devtools = devtools_enabled(cfg!(debug_assertions), std::env::var("DELTABADGER_DEVTOOLS").ok().as_deref());
+
             // The window first, on the status page: whatever happens next is shown in it (r1.11).
             let (engine, handle) = (app.state::<Arc<Engine>>().inner().clone(), app.handle().clone());
             let window_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
@@ -654,7 +664,7 @@ pub fn run() {
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(320.0, 600.0)
                 .center()
-                .devtools(true)
+                .devtools(devtools)
                 .initialization_script(initialization_script())
                 .on_navigation(move |url| match navigation(url, engine.launch().map(|(port, _)| port)) {
                     Navigation::Allow => true,

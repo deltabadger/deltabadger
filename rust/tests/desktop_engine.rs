@@ -671,6 +671,36 @@ fn the_desktop_serves_the_retiring_worker_and_every_other_platform_todays() {
     }
 }
 
+/// The desktop logs one `METHOD path status ms` line per request, with no query (the sign-in ticket, the launch
+/// token) and no hook token; off the desktop nothing, unless LOG_REQUESTS=1.
+#[test]
+fn the_desktop_logs_each_request_without_its_query() {
+    for (platform, asked, logged) in [(Some("desktop"), false, true), (Some("docker"), false, false), (Some("docker"), true, true)] {
+        let data = Data::new();
+        let port = free_port();
+        let mut c = desktop(&data, port);
+        if let Some(p) = platform { c.env("DELTABADGER_PLATFORM", p); }
+        if asked { c.env("LOG_REQUESTS", "1"); } else { c.env_remove("LOG_REQUESTS"); }
+        let mut e = start(&mut c, port);
+        assert_eq!(e.ready(), format!("ready {TOKEN} app"), "{platform:?}: {}", data.log());
+        for path in ["/desktop/sign_in?ticket=TICKET-SECRET", "/?launch=LAUNCH-SECRET", "/hook/HOOK-SECRET", "/%68ook/ENCODED-SECRET"] { get(port, path).unwrap(); }
+        e.close_stdin();
+        assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
+        let log = data.log();
+        for secret in ["TICKET-SECRET", "LAUNCH-SECRET", "HOOK-SECRET", "ENCODED-SECRET"] { assert!(!log.contains(secret), "{platform:?}: {secret}: {log}"); }
+        let line = log.lines().find(|l| l.contains(" GET /desktop/sign_in "));
+        assert_eq!(line.is_some(), logged, "{platform:?} {asked}: {log}");
+        if let Some(line) = line {
+            let (_, rest) = line.split_once(" GET /desktop/sign_in ").unwrap();
+            let (status, ms) = rest.split_once(' ').unwrap();
+            assert!(status.parse::<u16>().is_ok() && ms.strip_suffix("ms").unwrap().parse::<u64>().is_ok(), "{line}");
+            assert_eq!(log.matches(" GET /desktop/sign_in ").count(), 1, "{log}");
+            assert_eq!(log.matches(" GET / ").count(), 1, "{log}");
+            assert_eq!(log.matches(" GET /hook/[FILTERED] ").count(), 2, "{log}");
+        }
+    }
+}
+
 /// `check` is the operator's: today's words under DELTABADGER_PLATFORM=desktop too.
 #[test]
 fn check_keeps_todays_words_on_the_desktop() {

@@ -71,6 +71,8 @@ STORAGE_DIR="$D/db" /Applications/Deltabadger.app/Contents/MacOS/deltabadger-eng
 
 `reset-password` is not needed on the desktop: the app has no password.
 
+The log in `log/deltabadger.log` has one line for each page or file the window asks for: the method, the path without what follows its `?`, the answer's status and how many milliseconds it took. Support may also ask you to start the app with its web inspector turned on, to see what a page did. Quit the app first, then on a Mac run `open -a Deltabadger --env DELTABADGER_DEVTOOLS=1` and open the inspector from Safari's **Develop** menu (turn the menu on in Safari's settings, under **Advanced**). On Windows or Linux, start Deltabadger from a terminal with the variable `DELTABADGER_DEVTOOLS` set to `1`, then right-click inside any text field and choose **Inspect** (on Linux, **Inspect Element**); on Windows, F12 also opens it. Started normally, the app has no inspector.
+
 ## Coming from 2.x
 
 Deltabadger 2.x had no released desktop app. A 2.x app you built yourself kept its data in the folder above only if it was a release build; Deltabadger 3 takes that data over on its first start, after saving a copy (see [Updating from 2.x](07-updating.md#updating-from-2x)). A development build kept its data in the source checkout, which the app doesn't read.

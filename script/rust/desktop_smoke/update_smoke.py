@@ -443,7 +443,7 @@ def scenario_p4_p6(name):
         engine_file = INST / "deltabadger-engine.exe" if WIN else s.ARGS.app
         stamp = (sha(engine_file), engine_file.stat().st_mtime_ns)
         replaced = Seen(installer_pids if WIN else (lambda: installed() != before))
-        win.click("[data-desktop-update-action]")
+        win.click("[data-desktop-update-action]", leaves=True)
         status_text(win, "U7", "Deltabadger is finishing its current work before updating and restarting.")
         end = time.monotonic() + 20
         while time.monotonic() < end:
@@ -499,7 +499,7 @@ def scenario_p3(name):
         check(s.http(engine_port(data), "/health-check") == 200, "P3: N's /health-check")
         publish("foreign")
         banner(win, "An update is ready.")
-        win.click("[data-desktop-update-action]")
+        win.click("[data-desktop-update-action]", leaves=True)
         got = banner(win, "The update couldn't be installed.")
         check(any("not installed: the package is not a" in x for x in s.lines(data)), "r5.1: no format refusal in the log")
         say(f"r5.1: another platform's signed package refused: {got['line']!r}")
@@ -549,7 +549,7 @@ def scenario_p8(name):
         try:
             start = s.wait_start(data, 0)
             banner(win, "An update is ready.")
-            win.click("[data-desktop-update-action]")
+            win.click("[data-desktop-update-action]", leaves=True)
             got = banner(win, "The update couldn't be installed.", seconds=240)
             say(f"P8: {got['line']!r}")
             until("P8: N's engine started again", 120, lambda: s.starts(data) >= 2)
@@ -577,7 +577,7 @@ def scenario_lock(name):
         cli = cli_engine(name, exe, **extra)
         cli_up(cli, "r5.2")
         banner(win, "An update is ready.")
-        win.click("[data-desktop-update-action]")
+        win.click("[data-desktop-update-action]", leaves=True)
         until("r5.2: U8", 120, lambda: "desktop: update: showing updating-long" in s.lines(data))
         status_text(win, "U8", "Deltabadger is finishing its current work before updating and restarting.")
         win.poll("U8's line", 30, "var e = document.getElementById('more'); return e && e.textContent.indexOf('The update is waiting') === 0;")
@@ -604,7 +604,7 @@ def ready_then(data, name, how, hooks=()):
         banner(win, "An update is ready.")
         seen = installer_seen()
         if how == "click":
-            win.click("[data-desktop-update-action]")
+            win.click("[data-desktop-update-action]", leaves=True)
         else:
             quit_from_tray(data)
         until(f"{name}: the app handed over to the installer", 180, lambda: not s.app_pids())
@@ -626,7 +626,7 @@ def scenario_refuse(name, how):
         banner(win, "An update is ready.")
         seen = Seen(installer_pids)
         if how == "click":
-            win.click("[data-desktop-update-action]")
+            win.click("[data-desktop-update-action]", leaves=True)
         else:
             quit_from_tray(data)
         until(f"{name}: the installer at the barrier", 180, lambda: (HOOKS / "waiting").exists())

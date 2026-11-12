@@ -371,6 +371,8 @@ pub struct Inner {
     pub(crate) update_platform: crate::jobs::app_update::Platform,
     /// The desktop's account, tickets and browser code (web::desktop); `None` on every other platform.
     pub(crate) desktop: Option<desktop::Desktop>,
+    /// One `METHOD path status ms` line per request (`access_log`): on the desktop, and under LOG_REQUESTS=1 elsewhere.
+    pub(crate) log_requests: bool,
     settings_market_provider_name:String,
     pub settings_key_hosts:crate::venue::alpaca::Hosts,
     /// Where a venue's own key check goes (the wizard's key step), by exchange type: a test server; else the registry's host.
@@ -467,7 +469,7 @@ impl App {
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
             settings_key_hosts:crate::venue::alpaca::Hosts::alpaca(),venue_key_urls:Vec::new(),settings_key_logger:settings::keys::logger(),settings_validation_observer:Mutex::new(None),
-            settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),update_platform:crate::jobs::app_update::platform(env),desktop:desktop::Desktop::from_env(crate::jobs::app_update::platform(env),env),settings_mailer:settings::mail::live(),account_mail_slots:Arc::new(Semaphore::new(settings::mail::ACCOUNT_MAILS_AT_ONCE)),reset_tokens:crate::crypto::ResetTokens::new(&config.secret_key_base),
+            settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),update_platform:crate::jobs::app_update::platform(env),desktop:desktop::Desktop::from_env(crate::jobs::app_update::platform(env),env),log_requests:log_requests(env),settings_mailer:settings::mail::live(),account_mail_slots:Arc::new(Semaphore::new(settings::mail::ACCOUNT_MAILS_AT_ONCE)),reset_tokens:crate::crypto::ResetTokens::new(&config.secret_key_base),
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None, mail_set_up: None,
@@ -1193,7 +1195,59 @@ pub(crate) fn router_with(app: App, body_read_timeout: Duration) -> Router {
 
 /// Compose the bounded transport with a router (also permits transport probes without enabling actions).
 pub fn router_with_routes(app: App, routes: Router, body_read_timeout: Duration) -> Router {
-    Router::new().fallback(entry).with_state(Entry { app, routes, body_read_timeout })
+    let log = app.log_requests;
+    let router = Router::new().fallback(entry).with_state(Entry { app, routes, body_read_timeout });
+    if log { router.layer(middleware::from_fn(access_log)) } else { router }
+}
+
+/// The desktop always; anywhere else only under LOG_REQUESTS=1, so Docker and Umbrel logs don't grow by default.
+fn log_requests(env: &dyn Fn(&str) -> Option<String>) -> bool {
+    crate::jobs::app_update::platform(env) == crate::jobs::app_update::Platform::Desktop
+        || env("LOG_REQUESTS").is_some_and(|v| v.trim() == "1")
+}
+
+/// The line `access_log` writes for a request's path: never its query (the desktop's sign-in `ticket`, the `launch`
+/// token, OAuth codes and reset tokens ride there), and a signal hook's token masked (HookTokenFilter). Headers, bodies
+/// and cookies are never read.
+fn logged_path(path: &str) -> String {
+    // Judged on the path decoded and lowercased, so `/%68ook/…` and `/hook%2F…` are masked too; the token is never logged.
+    // A path that is no UTF-8 once unescaped can't be judged: none of it is logged.
+    let Some(decoded) = rest::unescape(path) else { return "/[FILTERED]".to_string() };
+    if decoded.to_ascii_lowercase().contains("/hook/") { return "/hook/[FILTERED]".to_string(); }
+    // ponytail: a cap so a junk request can't write a huge line; raise it if real paths get cut.
+    path.chars().take(256).collect()
+}
+
+/// One line per request into the engine's log (the desktop's deltabadger.log, rotated by `logger`).
+async fn access_log(request: Request, next: Next) -> Response {
+    let (method, path, started) = (request.method().clone(), logged_path(request.uri().path()), std::time::Instant::now());
+    let response = next.run(request).await;
+    crate::engine::log(&format!("{method} {path} {} {}ms", response.status().as_u16(), started.elapsed().as_millis()));
+    response
+}
+
+#[cfg(test)]
+mod access_log_tests {
+    use super::*;
+
+    #[test]
+    fn a_path_is_logged_without_its_query_or_a_hook_token() {
+        assert_eq!(logged_path("/bots/7"), "/bots/7");
+        for hook in ["/hook/s3cret", "/de/hook/s3cret.json", "/%68ook/s3cret", "/de/%68ook/s3cret", "/hook%2Fs3cret", "/HOOK/s3cret"] {
+            assert_eq!(logged_path(hook), "/hook/[FILTERED]", "{hook}");
+        }
+        assert_eq!(logged_path("/%68ook/%FF"), "/[FILTERED]");
+        assert_eq!(logged_path(&"/a".repeat(500)).len(), 256);
+    }
+
+    #[test]
+    fn requests_are_logged_on_the_desktop_or_when_asked() {
+        let env = |pairs: &'static [(&'static str, &'static str)]| move |k: &str| pairs.iter().find(|(n, _)| *n == k).map(|(_, v)| v.to_string());
+        assert!(log_requests(&env(&[("DELTABADGER_PLATFORM", "desktop")])));
+        assert!(log_requests(&env(&[("DELTABADGER_PLATFORM", "docker"), ("LOG_REQUESTS", "1")])));
+        assert!(!log_requests(&env(&[("DELTABADGER_PLATFORM", "docker")])));
+        assert!(!log_requests(&env(&[("LOG_REQUESTS", "0")])));
+    }
 }
 
 /// D-DESKTOP-DOWNLOADS-INLINE (PLAN-B6 §7, r5.1): the desktop's WebView shows any type it can display, attachment or not,

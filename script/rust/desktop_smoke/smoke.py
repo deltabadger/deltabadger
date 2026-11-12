@@ -11,6 +11,7 @@ WebDriver, so its scenarios read the launcher log and the engine over HTTP. Pyth
 """
 import argparse
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -371,8 +372,20 @@ class Window:
         except urllib.error.HTTPError as e:
             raise Fail(f"WebDriver {method} {path}: {e.code} {e.read()[:300]!r}")
 
-    def js(self, script, *args):
-        return self.call("POST", f"/session/{self.sid}/execute/sync", {"script": script, "args": list(args)})
+    def js(self, script, *args, leaves=False):
+        """`leaves`: the script starts a navigation (a download included). WebKitWebDriver may close the request's connection
+        as the page goes, before it answers: that is the script done, not the driver gone (any later call says if it is)."""
+        return self._leaving(leaves, lambda: self.call("POST", f"/session/{self.sid}/execute/sync", {"script": script, "args": list(args)}))
+
+    @staticmethod
+    def _leaving(leaves, f):
+        try:
+            return f()
+        except http.client.RemoteDisconnected:
+            if not leaves:
+                raise
+            say("the page went before WebDriver answered (it navigated)")
+            return None
 
     def poll(self, what, seconds, script, *args):
         """`script`'s result once truthy; a navigation in between is a retry: no context (a WebDriver error), or, on
@@ -388,9 +401,10 @@ class Window:
     def url(self):
         return self.poll("the window's URL", 30, "return location.href;")
 
-    def click(self, css):
+    def click(self, css, leaves=False):
+        """`leaves`: as js's."""
         found = self.call("POST", f"/session/{self.sid}/element", {"using": "css selector", "value": css})
-        self.call("POST", f"/session/{self.sid}/element/{next(iter(found.values()))}/click", {})
+        self._leaving(leaves, lambda: self.call("POST", f"/session/{self.sid}/element/{next(iter(found.values()))}/click", {}))
 
     def close(self):
         try:
@@ -805,7 +819,7 @@ def scenario_downloads(name):
         page = win.url()
         before = {p.name for p in folder.iterdir()}
         # What tracker_export_controller.js does on Download with a date range: a navigation to the export URL.
-        win.js("location.href = '/tracker/export?from=2024-03-01&to=2024-09-30'; return true;")
+        win.js("location.href = '/tracker/export?from=2024-03-01&to=2024-09-30'; return true;", leaves=True)
         csv = new_file(folder, before, "deltabadger-transactions-")
         rows = csv.read_text(encoding="utf-8").splitlines()
         check(rows[0].startswith("date,type,base_currency,base_amount"), f"export header: {rows[:1]}")
@@ -818,7 +832,7 @@ def scenario_downloads(name):
         win.js("var a = document.createElement('a'); a.id = 'smoke-docs'; a.dataset.turbo = 'false';"
                " a.href = '/settings/download_api_docs'; a.textContent = 'deltabadger-api.md';"
                " a.style.cssText = 'position:fixed;left:40%;top:40%;padding:1em;z-index:2147483647;background:#fff'; document.body.append(a); return true;")
-        win.click("#smoke-docs")
+        win.click("#smoke-docs", leaves=True)
         docs = new_file(folder, before, "deltabadger-api")
         check(docs.read_bytes() == (REPO / "manual" / "api.md").read_bytes(), f"{docs.name} differs from manual/api.md")
         say(f"API docs saved as {docs.name}: byte-equal to manual/api.md ({docs.stat().st_size} bytes)")
