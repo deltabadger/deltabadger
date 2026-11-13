@@ -271,8 +271,8 @@ jobs:
           dbus-run-session -- xvfb-run -a python3 script/rust/desktop_smoke/smoke.py --kind appimage --app "$appimage" \
             --work "$RUNNER_TEMP/smoke" --fixture-2x "$RUNNER_TEMP/fixture/fixture-2x.tar" \
             fresh quit app-killed engine-killed refusals takeover downloads || status=1
-          for d in 0.05 0.1 0.15 0.2 0.3; do  # TEMPORARY (diagnosis): the race, forced
-            SMOKE_RACE=$d dbus-run-session -- xvfb-run -a python3 script/rust/desktop_smoke/smoke.py --kind appimage --app "$appimage" \
+          for d in 1 2 3 4 5 6 7 8; do  # TEMPORARY (diagnosis): downloads, repeated
+            dbus-run-session -- xvfb-run -a python3 script/rust/desktop_smoke/smoke.py --kind appimage --app "$appimage" \
               --work "$RUNNER_TEMP/smoke-race" downloads downloads || status=1
           done
           sudo apt-get install -y ./src-tauri/target/release/bundle/deb/*.deb

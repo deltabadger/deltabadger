@@ -783,12 +783,13 @@ def new_file(folder, before, prefix, seconds=30):
     return until(f"a new {prefix}* in {folder}", seconds, probe)[0]
 
 
-# The page is done loading: the empty state's wizard frame (layout's turbo-frame#modal src) is in, not in flight.
+# The page is done loading and the empty state's wizard frame (layout's turbo-frame#modal src) is not in flight.
 SETTLED = """
 var f = document.getElementById('modal');
-if (document.readyState !== 'complete' || (f && (f.hasAttribute('busy') || (f.hasAttribute('src') && !f.hasAttribute('complete'))))) { return null; }
+if (document.readyState !== 'complete' || (f && f.hasAttribute('busy'))) { return null; }
 window.__smokePage = window.__smokePage || String(Math.random());
 sessionStorage.removeItem('smokeHid');
+window.__smokeFired = false;
 if (!window.__smokeHooked) {
   window.__smokeHooked = true;
   addEventListener('pagehide', function () { sessionStorage.setItem('smokeHid', 'pagehide'); });
@@ -800,7 +801,7 @@ return window.__smokePage;
 # After a navigation that sent no request: was the page replaced (a reload), and what was in flight.
 LOST = """
 var f = document.getElementById('modal'), n = performance.getEntriesByType('navigation')[0];
-return JSON.stringify({same_page: window.__smokePage === arguments[0], hid: sessionStorage.getItem('smokeHid'),
+return JSON.stringify({same_page: window.__smokePage === arguments[0], fired: window.__smokeFired, hid: sessionStorage.getItem('smokeHid'),
   load: n ? n.type : null, controlled: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
   frame: f ? {src: f.getAttribute('src'), busy: f.hasAttribute('busy'), complete: f.hasAttribute('complete')} : null, url: location.href});
 """
@@ -814,9 +815,6 @@ def download(win, data, folder, prefix, path, fire, tries=3):
     before = {p.name for p in folder.iterdir()}
     for attempt in range(1, tries + 1):
         page = win.poll("the page settled", 30, SETTLED)
-        if attempt == 1 and os.environ.get("SMOKE_RACE"):  # TEMPORARY (diagnosis): fire while the page loads again
-            win.js("location.reload(); return true;", leaves=True)
-            time.sleep(float(os.environ["SMOKE_RACE"]))
         sent = lambda: sum(1 for x in since_start(data) if f" GET {path}" in x)
         n = sent()
         fire()
@@ -866,7 +864,7 @@ def scenario_downloads(name):
         page = win.url()
         # What tracker_export_controller.js does on Download with a date range: a navigation to the export URL.
         csv = download(win, data, folder, "deltabadger-transactions-", "/tracker/export",
-                       lambda: win.js("location.href = '/tracker/export?from=2024-03-01&to=2024-09-30'; return true;", leaves=True))
+                       lambda: win.js("window.__smokeFired = true; location.href = '/tracker/export?from=2024-03-01&to=2024-09-30'; return true;", leaves=True))
         rows = csv.read_text(encoding="utf-8").splitlines()
         check(rows[0].startswith("date,type,base_currency,base_amount"), f"export header: {rows[:1]}")
         check(len(rows) == 2 and "smoke-mid" in rows[1] and rows[1].startswith("2024-06-15T12:00:00Z"), f"export rows: {rows}")
@@ -878,7 +876,7 @@ def scenario_downloads(name):
         def docs_click():
             win.js("if (document.getElementById('smoke-docs')) { return true; }"
                    " var a = document.createElement('a'); a.id = 'smoke-docs'; a.dataset.turbo = 'false';"
-                   " a.href = '/settings/download_api_docs'; a.textContent = 'deltabadger-api.md';"
+                   " a.href = '/settings/download_api_docs'; a.textContent = 'deltabadger-api.md'; a.onclick = function () { window.__smokeFired = true; };"
                    " a.style.cssText = 'position:fixed;left:40%;top:40%;padding:1em;z-index:2147483647;background:#fff'; document.body.append(a); return true;")
             win.click("#smoke-docs", leaves=True)
         docs = download(win, data, folder, "deltabadger-api", "/settings/download_api_docs", docs_click)
