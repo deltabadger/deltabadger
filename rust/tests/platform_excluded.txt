@@ -162,3 +162,6 @@ tracker_writes
 venue_neutral
 web_actions
 withdrawal_engine
+
+# Browser: bun, headless Chrome and the built bundle (script/rust/build_assets.sh); the full suite runs it.
+selling_browser
