@@ -226,6 +226,9 @@ fn price(c: &Connection, app: &App, user: i64, id: i64, value: &Value) -> Result
     Ok(written(guarded(c, app, user, |c, owner, now| {
         let Some(row) = Row::load(c, owner, id)? else { return Ok(Step::Abort(not_found())) };
         if given.is_some() && row.counterpart(c)?.is_some() { return Ok(Step::Abort(failure(Domain::Conflict, "venue_valued", "The venue priced this row; it cannot be restated."))); }
+        if given.is_some() && matches!(super::row::source(c, &row, app.now().date_naive())?, super::row::Source::Waiting) {
+            return Ok(Step::Abort(failure(Domain::Conflict, "price_pending", "This row is priced when its day (UTC) is over; set a price after that.")));
+        }
         let stored = match &given {
             None => None,
             Some(Err(())) => return Ok(Step::Abort(invalid())),
