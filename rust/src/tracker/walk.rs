@@ -274,16 +274,13 @@ fn fiat_value(t: &Stored, leg: Option<&Leg>, ps: &mut PriceService, currency: &s
 /// (a stated price, else its fills' price, else the day's close), pro rata by the fills' amounts, the last fill taking
 /// what is left (Tax::Report#attribute_trade_fees' arithmetic).
 fn expense_share(e: &super::rows::Expense, ps: &mut PriceService, currency: &str) -> Result<Dec, FiguresError> {
-    let value = fiat_value(&e.fee, None, ps, currency)?;
-    let mut total = Dec::zero();
-    for w in &e.weights { total = (&total + w)?; }
+    let a = &e.of;
+    let value = fiat_value(&a.fee, None, ps, currency)?;
+    let share = |w: &Dec| -> Result<Dec, FiguresError> { Ok((&value * w)?.div(&a.total)?) };
+    if e.index + 1 < a.weights.len() { return share(&a.weights[e.index]); }
     let mut left = value.clone();
-    for (n, w) in e.weights.iter().enumerate() {
-        let share = if n == e.weights.len() - 1 { left.clone() } else { (&value * w)?.div(&total)? };
-        if n == e.index { return Ok(share); }
-        left = (&left - &share)?;
-    }
-    Ok(Dec::zero())
+    for w in &a.weights[..e.index] { left = (&left - &share(w)?)?; }
+    Ok(left)
 }
 
 /// `resolve_fee_fiat_value`.

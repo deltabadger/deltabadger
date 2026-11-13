@@ -87,9 +87,13 @@ pub struct Cfee {
     pub expenses: Vec<Expense>,
 }
 
-/// A CFEE carried as a fill's expense: the fee's row, its fills' amounts (the weights) and this fill's place among them.
+/// A CFEE carried as a fill's expense: the fee's attribution (shared by its fills) and this fill's place in it.
 #[derive(Clone, Debug)]
-pub struct Expense { pub fee: Box<Stored>, pub weights: Vec<Dec>, pub index: usize }
+pub struct Expense { pub of: std::sync::Arc<Attribution>, pub index: usize }
+
+/// A CFEE's row, its fills' amounts (the weights) and their sum.
+#[derive(Debug)]
+pub struct Attribution { pub fee: Stored, pub weights: Vec<Dec>, pub total: Dec }
 
 fn charged_on(fee: &Stored, r: &Stored) -> bool {
     matches!(r.kind, Kind::Buy | Kind::Sell) && r.venue == fee.venue && r.base == fee.base && r.amount.is_positive() && !r.borrowed()

@@ -1135,9 +1135,8 @@ fn fold_cfees(rows: &mut Vec<Stored>, expense: bool, folds: &dyn Fn(&Stored) -> 
         for w in &weights { total = (&total + w)?; }
         if !total.is_positive() { continue; }
         if expense {
-            for (index, &j) in fills.iter().enumerate() {
-                rows[j].cfee.expenses.push(rows::Expense { fee: Box::new(fee.clone()), weights: weights.clone(), index });
-            }
+            let of = std::sync::Arc::new(rows::Attribution { fee: fee.clone(), weights, total });
+            for (index, &j) in fills.iter().enumerate() { rows[j].cfee.expenses.push(rows::Expense { of: of.clone(), index }); }
             continue;
         }
         let mut left = fee.amount.clone();
