@@ -285,7 +285,7 @@ token).
 | GET | `/transactions/account` | `list_account_transactions` | Optional `?exchange_id=`, `?from_date=`, `?to_date=`, `?entry_type=`, `?limit=` (max 200). Each row carries `linked`, `linked_transaction_id`, `stated_price_usd` and `venue_valued` |
 | GET | `/transactions/export` | `export_transactions_csv` | **CSV** (see section 6) |
 | POST | `/transactions/account/:id/transfer_link` | `set_transfer_link` | Body `linked: true\|false` (required); give either side of the pair, the match is found within 14 days |
-| PATCH | `/transactions/account/:id/price` | `set_transaction_price` | Body `price_usd` (key required; `null` or `""` clears it); USD is the ledger's unit. A row whose own daily price can still come (its UTC day is not over) refuses a price with `price_pending` |
+| PATCH | `/transactions/account/:id/price` | `set_transaction_price` | Body `price_usd` (key required; `null` or `""` clears it); USD is the ledger's unit. A row whose own daily price can still come (its UTC day is not over) refuses a price with `price_pending`; an Alpaca crypto fee priced at the trades it was charged on (the day before its date) never waits |
 | POST | `/tracker/sync` | `sync_tracker` | 202; body-less. `501 not_ported` while you hold an Interactive Brokers key: its history is not synced yet |
 | GET | `/portfolio` | `get_portfolio_summary` | Returns `empty: true` for users with no bots. `501 not_ported` while a bot on an exchange other than Alpaca needs a live price |
 | GET | `/indices` | `list_indices` | Optional `?exchange_name=` |

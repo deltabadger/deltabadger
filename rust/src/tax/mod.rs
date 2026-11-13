@@ -6,8 +6,9 @@
 //! - D-TAX-UNLINKED-DISCLOSED: coin withdrawals not linked to a deposit keep their lots (as Rails) and are listed.
 //! - D-TAX-LOST: lost coins leave the lots with no disposal, and are listed (`tax_report.warnings.lost`).
 //! - D-TAX-FEES-DISCLOSED: every coin fee of a row of its own is named in one NOTE block (`tax_report.warnings.coin_fees`),
-//!   which replaces Rails' block of the Alpaca fees whose calendar day is ambiguous; such an Alpaca fee is walked after
-//!   its day's fills (`walk_standing_cfees_after_their_fills`).
+//!   which replaces Rails' block of the Alpaca fees whose calendar day is ambiguous.
+//! - D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE dated D is the fee on the trades of the UTC day before (`fold_cfees`); Rails
+//!   read day D, and only where the New York day agreed. It is worth what those trades were traded at (`rows::Cfee`).
 //! - D-TAX-STABLE-CASH: where swaps are not taxable and the user treats stablecoins as fiat, a stablecoin row is cash
 //!   and reaches no engine (Rails sold the stablecoins again, at a zero basis, after the coin that bought them was sold).
 //! - D-TAX-COIN-QUOTE: a coin-for-coin trade booked as one row quoted in a coin is read as its two swap legs
@@ -108,7 +109,7 @@ pub enum Prepared { Done(Outcome), Report(Box<Report>) }
 /// Every input of one report.
 pub struct Report {
     j: &'static Jurisdiction, year: i32, zone: String, stablecoin_as_fiat: bool, banners: Vec<String>, scoped: Vec<Stored>,
-    deposits: HashMap<i64, Dec>, reference: Reference, fx: crate::tracker::fx::FxTable, cfee: HashSet<i64>,
+    deposits: HashMap<i64, Dec>, reference: Reference, fx: crate::tracker::fx::FxTable,
     /// Poland's NBP rates (D-TAX-PL-NBP); None elsewhere.
     nbp: Option<nbp::Nbp>,
     /// Poland: column d as the user declared it, by year up to the report's (D-TAX-PL-DECLARED-CARRY).
@@ -145,6 +146,12 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     for r in all { if !stock.contains(&r.exchange_id) || scope.crypto(c, &r.base)? { rows.push(r); } }
 
     let zone: String = c.query_row("SELECT time_zone FROM users WHERE id = ?1", [user_id], |r| r.get(0))?;
+    // D-TAX-CFEE-PREVIOUS-DAY: on the whole history, before the year is cut, so every slice carries the same fold. Poland
+    // and the wealth reports keep every fee a row of its own, as they always have.
+    if j.code != "PL" && j.method != "wealth_snapshot" {
+        let it_from = (j.code == "IT").then(|| local_midnight(&zone, it::FIRST_YEAR)).flatten();
+        fold_cfees(&mut rows, matches!(j.code, "SE" | "GB"), &|fee| it_from.is_none_or(|from| fee.at.0 < from.0))?;
+    }
     // Tax::Report#rows_until: the end of the year in the user's zone, or in UTC where that is later.
     let utc_end = Utc.with_ymd_and_hms(year + 1, 1, 1, 0, 0, 0).single();
     let local_end = local_midnight(&zone, year + 1);
@@ -176,14 +183,12 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let mut reference = Reference::load(c, &Venue::alpaca(c)?, &symbols)?;
     reference.record_coins(c, user_id)?;
     let fx = crate::tracker::fx::FxTable::load(c)?;
-    let mut s = c.prepare("SELECT id FROM account_transactions WHERE json_extract(raw_data, '$.activity_type') = 'CFEE'")?;
-    let cfee: HashSet<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
     let nbp = if j.code == "PL" { Some(nbp::Nbp::load(c)?) } else { None };
     let carry = if j.code == "PL" { pl::declared(c, user_id, year)? } else { Default::default() };
     let cnb = if j.code == "CZ" { Some(cnb::Cnb::load(c)?) } else { None };
     let forks = if gb { fork_rows(c, user_id)? } else { HashSet::new() };
     let estv = if j.code == "CH" { Some(estv::Estv::load(c)?) } else { None };
-    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, cfee, nbp, carry, cnb, ahead, forks, estv })))
+    Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, nbp, carry, cnb, ahead, forks, estv })))
 }
 
 /// D-TAX-GB-AIRDROP (r3 item 3): the user's rows whose venue label names a fork: the row's own description (Binance's
@@ -248,8 +253,8 @@ struct AtNotes { speculation: Vec<(String, Dec)>, before_regime: Vec<(String, De
                  /// coins paid as fees (D-TAX-FR-NETWORK-FEE).
                  fr: Vec<fr::Cession>, fr_rewards: Vec<(String, Dec)>, fr_fees: Vec<String> }
 
-/// `Report::txs`: the rows kept, whether each was folded away, and what the engine walks.
-type Walked = (Vec<Entry>, Vec<bool>, Vec<fifo::Tx>);
+/// `Report::txs`: the rows kept and what the engine walks.
+type Walked = (Vec<Entry>, Vec<fifo::Tx>);
 
 /// An enriched row and what the report reads beside it.
 #[derive(Clone)]
@@ -406,12 +411,12 @@ impl Report {
         }
         let together: Vec<Entry>;
         let walked = if gb && !ahead.is_empty() { together = enriched.iter().chain(&ahead).cloned().collect(); &together } else { &enriched };
-        let (taxable, folded, mut txs) = self.txs(walked)?;
-        let standing_fees: Vec<&walk::Row> = taxable.iter().zip(&folded).filter(|(e, f)| !**f && e.row.kind == Kind::Fee && !fiat(&e.row.base) && e.row.amount.is_positive() && e.row.uid < next)
+        let (taxable, mut txs) = self.txs(walked)?;
+        let standing_fees: Vec<&walk::Row> = taxable.iter().filter(|e| e.row.kind == Kind::Fee && !fiat(&e.row.base) && e.row.amount.is_positive() && e.row.uid < next)
             // GB: a fee row of a swap is that swap's fee (D-TAX-GB-SWAP-FEE), not one matched to no trade.
-            .filter(|(e, _)| !(gb && e.row.group.is_some()))
-            .map(|(e, _)| &e.row).collect();
-        if !gb && !ahead.is_empty() { txs.extend(self.txs(&ahead)?.2); }
+            .filter(|e| !(gb && e.row.group.is_some()))
+            .map(|e| &e.row).collect();
+        if !gb && !ahead.is_empty() { txs.extend(self.txs(&ahead)?.1); }
         // D-TAX-FR-REWARDS (a reading): staking, lending, mining and other income add nothing to l. 220 (no legal tender paid),
         // on the engine's copy; an airdrop keeps its value (a gratuitous acquisition, III-B al. 2). Listed with their values.
         if fr {
@@ -575,26 +580,17 @@ impl Report {
     }
 
     /// Tax::Report#taxable_entries: no fiat row reaches the engine (D-TAX-STABLE-CASH: nor a stablecoin row where a
-    /// stablecoin is cash), and an Alpaca CFEE goes to its fills. Returns the rows kept, whether each was folded away, and
-    /// what the engine walks.
+    /// stablecoin is cash; an Alpaca CFEE went to its fills in `prepare`, `fold_cfees`). Returns the rows kept and what the
+    /// engine walks.
     fn txs(&self, enriched: &[Entry]) -> Result<Walked, FiguresError> {
         let stable_cash = !self.j.swaps_taxable() && self.stablecoin_as_fiat;
         // D-TAX-SE-SWAP-FEE, D-TAX-GB-SWAP-FEE: a fiat fee row of a group stays, as the swap's fee (it moves no coin).
         let swap_fee = |e: &Entry| matches!(self.j.code, "SE" | "GB") && e.row.kind == Kind::Fee && e.row.group.is_some();
-        let mut taxable: Vec<Entry> = enriched.iter().filter(|e| swap_fee(e) || !(fiat(&e.row.base) || stable_cash && stable(&e.row.base))).cloned().collect();
-        // D-TAX-IT-FEES: in Italy no CFEE joins its fill's cost; each walks after its fills as a coin fee.
-        // D-TAX-IT-FEES: from 2023 no CFEE joins its fill's cost; each walks after its fills as a coin fee. Before 2023 fees
-        // were costs (D-TAX-IT-PRE2023-BASIS) and fold as everywhere.
-        let cfee: HashSet<i64> = match (self.j.code == "IT").then(|| local_midnight(&self.zone, it::FIRST_YEAR)).flatten() {
-            Some(from) => taxable.iter().filter(|e| self.cfee.contains(&e.id) && e.row.at.0 < from.0).map(|e| e.id).collect(),
-            None => self.cfee.clone(),
-        };
-        // D-TAX-COIN-FEE, acquisitions (SE, GB): a CFEE is its fill's expense and a disposal of its own.
-        let folded = attribute_trade_fees(&cfee, &mut taxable, matches!(self.j.code, "SE" | "GB"))?;
+        let taxable: Vec<Entry> = enriched.iter().filter(|e| swap_fee(e) || !(fiat(&e.row.base) || stable_cash && stable(&e.row.base))).cloned().collect();
         let identity = |symbol: &str, r: &walk::Row| prices::coin_id(&self.reference, symbol, self.reference.venue(&r.exchange), Some(r.at.utc().date_naive()))
             .unwrap_or_else(|| format!("symbol:{symbol}"));
-        let mut entries: Vec<(i64, fifo::Tx)> = taxable.iter().zip(&folded).filter(|(_, f)| !**f)
-            .map(|(e, _)| (e.id, fifo::Tx { row: e.row.clone(), tx_id: e.tx_id.clone(), fiat_exit: e.row.quote.as_deref().is_some_and(fiat),
+        let mut entries: Vec<(i64, fifo::Tx)> = taxable.iter()
+            .map(|e| (e.id, fifo::Tx { row: e.row.clone(), tx_id: e.tx_id.clone(), fiat_exit: e.row.quote.as_deref().is_some_and(fiat),
                                             asset: identity(&e.row.base, &e.row),
                                             fee_asset: e.row.fee_currency.as_deref().filter(|f| !f.trim().is_empty()).map(|f| identity(f, &e.row)),
                                             cash_group: false })).collect();
@@ -602,9 +598,7 @@ impl Report {
         let cash_groups: HashSet<(String, String)> = enriched.iter().filter(|e| fiat(&e.row.base) && !swap_fee(e))
             .filter_map(|e| e.row.group.clone().map(|g| (e.row.exchange.clone(), g))).collect();
         for (_, t) in &mut entries { t.cash_group = t.row.group.as_ref().is_some_and(|g| cash_groups.contains(&(t.row.exchange.clone(), g.clone()))); }
-        let local_year = |at: At| self.local(at).year();
-        walk_standing_cfees_after_their_fills(&self.cfee, &mut entries, &local_year);
-        Ok((taxable, folded, entries.into_iter().map(|(_, t)| t).collect()))
+        Ok((taxable, entries.into_iter().map(|(_, t)| t).collect()))
     }
 
     fn austria(&self) -> Result<fifo::Austria, FiguresError> {
@@ -1034,25 +1028,6 @@ fn quote_stablecoin_legs(rows: &mut [Stored]) -> Result<(), FiguresError> {
     Ok(())
 }
 
-/// An Alpaca CFEE left standing (its day's fills differ in UTC and New York time) is dated midnight UTC; it is walked
-/// after the last fill of its coin on its venue in that UTC day and in the fee's own local tax year, so it takes lots its
-/// day's buys opened, and every year's report (each loads its whole local year) orders it alike. Its own date stays (the
-/// year, the holding days and the listing read it).
-fn walk_standing_cfees_after_their_fills(cfee: &HashSet<i64>, rows: &mut Vec<(i64, fifo::Tx)>, local_year: &dyn Fn(At) -> i32) {
-    let fees: Vec<i64> = rows.iter().filter(|(id, t)| cfee.contains(id) && t.row.kind == Kind::Fee).map(|(id, _)| *id).collect();
-    for fee in fees {
-        let Some(i) = rows.iter().position(|(id, _)| *id == fee) else { continue };
-        let f = &rows[i].1.row;
-        let day = f.at.utc().date_naive();
-        let last = rows.iter().rposition(|(_, t)| {
-            let r = &t.row;
-            matches!(r.kind, Kind::Buy | Kind::Sell) && r.exchange == f.exchange && r.base == f.base && r.amount.is_positive()
-                && r.at.utc().date_naive() == day && local_year(r.at) == local_year(f.at)
-        });
-        if let Some(last) = last.filter(|&l| l > i) { let moved = rows.remove(i); rows.insert(last, moved); }
-    }
-}
-
 /// Tax::CryptoScope#crypto? over the catalogue and the user's own classifications.
 pub(crate) struct CryptoScope { classified: HashSet<String>, memo: std::cell::RefCell<HashMap<String, bool>> }
 
@@ -1139,52 +1114,43 @@ fn sync_issues(c: &Connection, user_id: i64, locale: &str) -> Result<Vec<String>
     Ok(out)
 }
 
-/// Tax::Report#attribute_trade_fees over the taxable rows: an Alpaca CFEE (a coin fee of its own row, dated to the day)
-/// goes to that day's fills of the coin on its venue when the UTC and the New York calendars give the same fills, buys
-/// first (fewer coins, same cost), else sales (more coins out, same proceeds), pro rata by amount, the last fill taking
-/// what is left. Returns, per row, whether it was folded away.
-/// `expense` (SE, GB): the CFEE's value is shared to the fills as their fee instead (a buy's cost, a sale's deduction), and
-/// the CFEE stays a row of its own (a coin paid as a fee is a disposal).
-fn attribute_trade_fees(cfee: &HashSet<i64>, entries: &mut [Entry], expense: bool) -> Result<Vec<bool>, FiguresError> {
-    let new_york = |at: At| at.utc().with_timezone(&chrono_tz::America::New_York).date_naive();
-    let ids: Vec<i64> = entries.iter().map(|e| e.id).collect();
-    let mut rows: Vec<&mut walk::Row> = entries.iter_mut().map(|e| &mut e.row).collect();
-    let mut folded = vec![false; rows.len()];
-    for i in 0..rows.len() {
+/// D-TAX-CFEE-PREVIOUS-DAY: Tax::Report#attribute_trade_fees, on the stored rows of the whole history, before the
+/// report's year is cut from it. An Alpaca CFEE (a coin fee of its own row, dated 00:00 UTC the day after the trades it
+/// was charged on: `rows::cfee_fills`) goes to those fills, buys first (fewer coins, same cost), else sales (more coins
+/// out, same proceeds), pro rata by amount, the last fill taking what is left; the fee's row leaves. The amounts the
+/// rows are valued on stay (`Cfee::folded` is what the walk moves). Rails took the fee's own UTC day, and only when the
+/// New York day gave the same fills: a fee then went to the trades of the day after the right one, or to none.
+/// `expense` (SE, GB): the fee stays a row of its own (a coin paid as a fee is a disposal), and each fill carries its
+/// share of the fee's value as its expense instead. `folds(fee)`: whether this fee is attributed at all (IT: before 2023).
+fn fold_cfees(rows: &mut Vec<Stored>, expense: bool, folds: &dyn Fn(&Stored) -> bool) -> Result<(), FiguresError> {
+    let mut gone = HashSet::new();
+    for (i, fills) in rows::cfee_places(rows) {
+        crate::figures::budget::check()?;
         let fee = &rows[i];
-        if fee.kind != Kind::Fee || !cfee.contains(&ids[i]) || !fee.amount.is_positive() { continue; }
-        let (day, base, venue, amount, value) = (fee.at.utc().date_naive(), fee.base.clone(), fee.exchange.clone(), fee.amount.clone(), fee.fiat_value.clone());
-        let same_coin: Vec<usize> = (0..rows.len()).filter(|&j| {
-            let r = &rows[j];
-            matches!(r.kind, Kind::Buy | Kind::Sell) && r.exchange == venue && r.base == base && r.amount.is_positive()
-        }).collect();
-        let fills: Vec<usize> = same_coin.iter().copied().filter(|&j| rows[j].at.utc().date_naive() == day).collect();
-        let new_york_fills: Vec<usize> = same_coin.iter().copied().filter(|&j| new_york(rows[j].at) == day).collect();
-        if (fills.is_empty() && new_york_fills.is_empty()) || fills != new_york_fills { continue; }
-        let buys: Vec<usize> = fills.iter().copied().filter(|&j| rows[j].kind == Kind::Buy).collect();
-        let fills = if buys.is_empty() { fills } else { buys };
+        if !(fee.amount.is_positive() && folds(fee)) { continue; }
+        let fee = fee.clone();
+        let amount = |r: &Stored| r.cfee.folded.clone().unwrap_or_else(|| r.amount.clone());
+        let weights: Vec<Dec> = fills.iter().map(|&j| amount(&rows[j])).collect();
         let mut total = Dec::zero();
-        for &j in &fills { total = (&total + &rows[j].amount)?; }
+        for w in &weights { total = (&total + w)?; }
+        if !total.is_positive() { continue; }
         if expense {
-            let mut left = value.clone();
-            for (n, &j) in fills.iter().enumerate() {
-                let r = &mut *rows[j];
-                let share = if n == fills.len() - 1 { left.clone() } else { (&value * &r.amount)?.div(&total)? };
-                left = (&left - &share)?;
-                r.fee_fiat_value = (&r.fee_fiat_value + &share)?;
+            for (index, &j) in fills.iter().enumerate() {
+                rows[j].cfee.expenses.push(rows::Expense { fee: Box::new(fee.clone()), weights: weights.clone(), index });
             }
             continue;
         }
-        let mut left = amount.clone();
+        let mut left = fee.amount.clone();
         for (n, &j) in fills.iter().enumerate() {
-            let r = &mut *rows[j];
-            let share = if n == fills.len() - 1 { left.clone() } else { (&amount * &r.amount)?.div(&total)? };
+            let share = if n == fills.len() - 1 { left.clone() } else { (&fee.amount * &weights[n])?.div(&total)? };
             left = (&left - &share)?;
-            r.amount = if r.kind == Kind::Buy { let net = (&r.amount - &share)?; if net.is_negative() { Dec::zero() } else { net } } else { (&r.amount + &share)? };
+            let r = &mut rows[j];
+            r.cfee.folded = Some(if r.kind == Kind::Buy { let net = (&weights[n] - &share)?; if net.is_negative() { Dec::zero() } else { net } } else { (&weights[n] + &share)? });
         }
-        folded[i] = true;
+        gone.insert(fee.id);
     }
-    Ok(folded)
+    rows.retain(|r| !gone.contains(&r.id));
+    Ok(())
 }
 
 /// A cell as Ruby's CSV writes it through CsvSafe: a String (escaped when it reads as a formula after Ruby's lstrip, which

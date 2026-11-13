@@ -305,3 +305,104 @@ async fn a_row_waits_for_its_days_price_until_the_utc_day_is_over() {
     assert_eq!(answer.status, 200, "{}", answer.body);
     assert!(answer.body.contains("tracker-row__price--stated"), "{}", answer.body);
 }
+
+fn fill(c: &Connection, user: i64, kind: i64, base: &str, amount: &str, (quote, paid): (&str, &str), at: &str) -> i64 {
+    let id = row(c, user, kind, base, amount, at);
+    c.execute("UPDATE account_transactions SET quote_currency=?1, quote_amount=?2 WHERE id=?3", (quote, paid, id)).unwrap();
+    id
+}
+fn cfee(c: &Connection, user: i64, base: &str, amount: &str, at: &str) -> i64 {
+    let id = row(c, user, 10, base, amount, at);
+    c.execute("UPDATE account_transactions SET raw_data='{\"activity_type\":\"CFEE\"}' WHERE id=?1", [id]).unwrap();
+    id
+}
+fn fill_price(c: &Connection, owner: i64, id: i64) -> Option<(String, String)> {
+    let all = deltabadger::tracker::rows::load_all(c, owner).unwrap();
+    let mine = all.iter().find(|r| r.id == id).unwrap().cfee.fill_price.clone();
+    // The page reads the same rows on its own.
+    assert_eq!(deltabadger::tracker::rows::cfee_price(c, owner, id).unwrap(), mine);
+    mine.map(|(p, u)| (p.to_s_f(), u))
+}
+
+/// D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE dated D is priced at its coin's fills on the UTC day before (buys, else
+/// sales), Σquote / Σbase, when all are quoted in one cash currency (a stablecoin reads as dollars); no price otherwise.
+#[test]
+fn a_cfee_is_priced_at_the_fills_of_the_day_before() {
+    let (_dir, c, owner, _app, _b) = install();
+    let at = |day: u32, time: &str| format!("2026-09-{day:02} {time}");
+    // One buy.
+    fill(&c, owner, 0, "BTC", "0.5", ("USD", "30000"), &at(1, "10:00:00"));
+    let one = cfee(&c, owner, "BTC", "0.001", &at(2, "00:00:00"));
+    assert_eq!(fill_price(&c, owner, one), Some(("60000.0".into(), "USD".into())));
+    // Buys at two prices, a sale beside them, a stablecoin quote: the buys only, by amount.
+    fill(&c, owner, 0, "ETH", "1", ("USD", "2000"), &at(3, "00:00:00"));
+    fill(&c, owner, 0, "ETH", "3", ("USDC", "6600"), &at(3, "23:59:59"));
+    fill(&c, owner, 1, "ETH", "1", ("USD", "9999"), &at(3, "12:00:00"));
+    let buys = cfee(&c, owner, "ETH", "0.01", &at(4, "00:00:00"));
+    assert_eq!(fill_price(&c, owner, buys), Some(("2150.0".into(), "USD".into())));
+    // Only sales.
+    fill(&c, owner, 1, "SOL", "2", ("USD", "300"), &at(5, "08:00:00"));
+    let sold = cfee(&c, owner, "SOL", "0.1", &at(6, "00:00:00"));
+    assert_eq!(fill_price(&c, owner, sold), Some(("150.0".into(), "USD".into())));
+    // A fill on the fee's own day, or two days before, is not its fill.
+    fill(&c, owner, 0, "AVAX", "1", ("USD", "20"), &at(8, "00:00:00"));
+    fill(&c, owner, 0, "AVAX", "1", ("USD", "20"), &at(6, "23:59:59"));
+    let none = cfee(&c, owner, "AVAX", "0.1", &at(8, "00:00:00"));
+    assert_eq!(fill_price(&c, owner, none), None);
+    // Two cash currencies, or a buy quoted in a coin (buys first: the dollar sale beside it is not taken).
+    fill(&c, owner, 0, "DOT", "1", ("USD", "5"), &at(9, "10:00:00"));
+    fill(&c, owner, 0, "DOT", "1", ("EUR", "5"), &at(9, "11:00:00"));
+    let mixed = cfee(&c, owner, "DOT", "0.01", &at(10, "00:00:00"));
+    assert_eq!(fill_price(&c, owner, mixed), None);
+    fill(&c, owner, 0, "LINK", "1", ("BTC", "0.0002"), &at(11, "10:00:00"));
+    fill(&c, owner, 1, "LINK", "1", ("USD", "12"), &at(11, "11:00:00"));
+    let coin = cfee(&c, owner, "LINK", "0.01", &at(12, "00:00:00"));
+    assert_eq!(fill_price(&c, owner, coin), None);
+    // A fee row that is not a CFEE has none.
+    fill(&c, owner, 0, "ADA", "10", ("USD", "5"), &at(13, "10:00:00"));
+    let plain = row(&c, owner, 10, "ADA", "1", &at(14, "00:00:00"));
+    assert_eq!(fill_price(&c, owner, plain), None);
+}
+
+/// The walk values a priced CFEE at its fills' price, with no daily price fetched for it (NoFetch fails on any request),
+/// and keeps today's lookup for one with no fills.
+#[test]
+fn the_walk_values_a_cfee_at_its_fills_price_without_fetching() {
+    use deltabadger::tracker::{fx::FxTable, prices::{NoFetch, PriceService, Reference}, rows, walk};
+    let (_dir, c, owner, _app, _b) = install();
+    fill(&c, owner, 0, "BTC", "0.5", ("USD", "30000"), "2026-09-01 10:00:00");
+    fill(&c, owner, 0, "BTC", "0.5", ("USD", "31000"), "2026-09-01 20:00:00");
+    let fee = cfee(&c, owner, "BTC", "0.001", "2026-09-02 00:00:00");
+    let stored = rows::load(&c, owner).unwrap();
+    let deposits = stored.iter().map(|r| (r.id, r.amount.clone())).collect();
+    let (reference, table) = (Reference::default(), FxTable::default());
+    let mut none = NoFetch;
+    let mut ps = PriceService::new(&reference, &table, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap(), &mut none);
+    let w = walk::walk_rows(&stored, &deposits, &mut ps).unwrap();
+    let uid = stored.iter().position(|r| r.id == fee).unwrap();
+    let r = w.rows.iter().find(|r| r.uid == uid).unwrap();
+    assert_eq!((r.fiat_value.to_s_f(), r.price_missing), ("61.0".to_string(), false));
+    assert!(ps.warnings.is_empty(), "{:?}", ps.warnings);
+}
+
+/// The tracker row shows a priced CFEE's price as ours is shown, with its own explanation; a stated price still wins;
+/// with no fills it is the daily close, or waiting, as before.
+#[tokio::test(flavor = "current_thread")]
+async fn a_cfee_row_shows_its_fills_price() {
+    let (_dir, c, owner, app, mut b, _clock) = install_clocked();
+    c.execute("UPDATE users SET display_currency='USD'", []).unwrap();
+    fill(&c, owner, 0, "BTC", "0.5", ("USD", "30000"), "2026-09-09 10:00:00");
+    // Charged today, before today's close exists: priced at once, not waiting.
+    let fee = cfee(&c, owner, "BTC", "0.001", "2026-09-10 00:00:00");
+    let answer = patch(&app, &mut b, fee, "").await;
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    assert!(answer.body.contains("tracker-row__price--fills") && answer.body.contains("placeholder=\"60000.0\"")
+            && answer.body.contains("The price of the trades this fee was charged on."), "{}", answer.body);
+    assert!(answer.body.contains("<td class=\"tracker-row__value\">60.00</td>"), "{}", answer.body);
+    let answer = patch(&app, &mut b, fee, "55000").await;
+    assert!(answer.body.contains("tracker-row__price--stated") && answer.body.contains("value=\"55000"), "{}", answer.body);
+    // No fills the day before: today's own behaviour.
+    let alone = cfee(&c, owner, "ETH", "0.01", "2026-09-10 00:00:00");
+    let answer = patch(&app, &mut b, alone, "").await;
+    assert!(!answer.body.contains("--fills"), "{}", answer.body);
+}

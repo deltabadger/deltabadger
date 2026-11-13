@@ -172,7 +172,7 @@ mod tests {
     fn row(id: i64, kind: Kind, base: &str, amount: &str, day: i64) -> Stored {
         Stored { id, exchange_id: 1, venue: "kraken".into(), kind, base: base.into(), amount: d(amount), quote: None, quote_amount: None, fee_currency: None,
                  fee_amount: None, tx_id: None, group: None, at: At(day * 86_400_000_000_000), per_share: None, stated: None, linked_to: None, to_venue: None,
-                 to_exchange_id: None, base_asset: None }
+                 to_exchange_id: None, base_asset: None, cfee: Default::default() }
     }
     fn fee(mut r: Stored, coin: &str, amount: &str) -> Stored { (r.fee_currency, r.fee_amount) = (Some(coin.into()), Some(d(amount))); r }
     fn units(rows: &[Stored], until: i64) -> Vec<(String, String)> {

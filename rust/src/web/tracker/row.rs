@@ -46,15 +46,20 @@ impl Row {
 }
 
 /// Where a row's price comes from, in USD or the venue's own unit; display conversion is the caller's.
-pub enum Source { Cash, Exchange((Dec,String)), Stated(Dec), Ours(Dec), Waiting, None }
-/// The price precedence: cash, then a zero amount (unpriced), the venue's counterpart, the owner's stated price, our
-/// stored daily USD price for the row's UTC date. D-PRICE-WAITING: no stored price yet, and the row's UTC day is not
+pub enum Source { Cash, Exchange((Dec,String)), Stated(Dec), Fills(Dec), Ours(Dec), Waiting, None }
+/// The price precedence: cash, then a zero amount (unpriced), the venue's counterpart, the owner's stated price, an
+/// Alpaca CFEE's fills' price in dollars (D-TAX-CFEE-PREVIOUS-DAY: the walk values it so too), our stored daily USD price
+/// for the row's UTC date. D-PRICE-WAITING: no stored price yet, and the row's UTC day is not
 /// over (`today` from the app clock), for a key we have priced before → `Waiting`, not open to a stated price yet.
 pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate)->Result<Source,WebError>{
     if crate::tracker::cash(&row.base){return Ok(Source::Cash)}
     if row.amount.is_zero(){return Ok(Source::None)}
     if let Some(counterpart)=row.counterpart(c)?{return Ok(Source::Exchange(counterpart))}
     if let Some(stated)=row.manual.get("price").filter(|v|!super::blank(v)){return Ok(Source::Stated(number(Dec::to_d(stated))?))}
+    if row.kind==10 {
+        let fills=crate::tracker::rows::cfee_price(c,row.owner,row.id).map_err(|e|match e{crate::figures::FiguresError::Sqlite(e)=>WebError::from(e),_=>invalid()})?;
+        if let Some((usd,_))=fills.filter(|(_,unit)|unit=="USD"){return Ok(Source::Fills(usd))}
+    }
     // `tracker_price_key`: the key the figures stored this row's price under; none for a name still both a security and a coin.
     let day=row.at.date_naive();
     let Some(key)=crate::tracker::prices::row_price_key(c,row.owner,row.exchange,&row.venue,&row.base,row.asset,day)? else{return Ok(Source::None)};
@@ -137,6 +142,7 @@ pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination)->Result<String,We
         Source::Cash=>(in_display(c,&Dec::one(),&row.base,row.at.date_naive(),d)?,"cash",None),
         Source::Exchange((amount,currency))=>(None,"exchange",Some(figure(&number(amount.div(&absolute))?,&currency)?)),
         Source::Stated(usd)=>(Some(number(&usd * &d.rate)?),"stated",None),
+        Source::Fills(usd)=>(Some(number(&usd * &d.rate)?),"fills",None),
         Source::Ours(usd)=>(Some(number(&usd * &d.rate)?),"ours",None),
         Source::Waiting=>(None,"waiting",None),
         Source::None=>(None,"none",None),
@@ -157,7 +163,7 @@ pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination)->Result<String,We
         let suffix=matches!(d.currency.as_str(),"CHF"|"PLN");
         let title=ctx.t(&format!("tracker.price_source.{source}"));
         let value=if source=="stated"{format!(" value=\"{}\"",price.as_ref().map(Dec::to_s_f).ok_or_else(invalid)?)}else{String::new()};
-        let placeholder=match source{"ours"=>price.as_ref().map(Dec::to_s_f).ok_or_else(invalid)?,"waiting"=>ctx.t("tracker.price_waiting"),_=>"—".into()};
+        let placeholder=match source{"ours"|"fills"=>price.as_ref().map(Dec::to_s_f).ok_or_else(invalid)?,"waiting"=>ctx.t("tracker.price_waiting"),_=>"—".into()};
         let disabled=if source=="waiting"{" disabled"}else{""};
         let info=if matches!(source,"none"|"waiting"){format!("          <span class=\"tracker-row__info\" role=\"button\" tabindex=\"0\" aria-label=\"{title}\"\n                data-controller=\"tooltip\" data-tooltip-fixed-value=\"true\"\n                data-action=\"click->tooltip#toggle keydown.enter->tooltip#toggle keydown.space->tooltip#toggle:prevent focus->tooltip#showTooltip blur->tooltip#hideTooltip mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip\">\n            {}\n            <div class=\"tooltip tooltip--hint\">{title}</div>\n          </span>\n",include_str!("../../../templates/svg/_24x24_info.html"))}else{String::new()};
         format!("      <form data-controller=\"form--submit\" action=\"{}\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" />\n        {}\n        <input type=\"number\" name=\"price\" id=\"price\"{value} step=\"any\" min=\"0\"{disabled} placeholder=\"{placeholder}\" title=\"{title}\" class=\"tracker-row__price__input\" data-action=\"change-&gt;form--submit#submit\" />\n        {}\n{info}</form>",path("/price"),escape(&ctx.csrf_token()),if suffix{""}else{&unit},if suffix{&unit}else{""})

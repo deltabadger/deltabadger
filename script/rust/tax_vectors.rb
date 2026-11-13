@@ -264,14 +264,14 @@ module TaxVectors
       { name: 'never_held', expect: 'diverges: D-TAX-UNCOVERED', setup: lambda { |c|
         sell(c, 'ETH', '1', '300', '2026-01-06T10:00:00Z')
       } },
-      { name: 'cfee_into_buys', expect: 'parity', setup: lambda { |c|
+      { name: 'cfee_into_buys', expect: 'diverges: D-TAX-CFEE-PREVIOUS-DAY', setup: lambda { |c|
         price('BTC', '2026-01-05', '95000')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z')
         buy(c, 'BTC', '3', '330', '2026-01-05T15:00:00Z')
         row(c, :fee, 'BTC', '0.0025', '2026-01-05T00:00:00Z', description: 'CFEE', raw_data: { 'activity_type' => 'CFEE' })
         sell(c, 'BTC', '0.9975', '300', '2026-01-06T10:00:00Z')
       } },
-      { name: 'cfee_into_a_sale', expect: 'parity', setup: lambda { |c|
+      { name: 'cfee_into_a_sale', expect: 'diverges: D-TAX-CFEE-PREVIOUS-DAY', setup: lambda { |c|
         price('BTC', '2026-01-06', '95000')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z')
         sell(c, 'BTC', '0.5', '300', '2026-01-06T10:00:00Z')

@@ -462,7 +462,7 @@ mod tests {
     fn bought(symbol: &str) -> Stored {
         Stored { id: 1, exchange_id: 1, venue: "alpaca".into(), kind: Kind::Buy, base: symbol.into(), amount: Dec::one(), quote: Some("USD".into()), quote_amount: Some(Dec::one()),
                  fee_currency: None, fee_amount: None, tx_id: None, group: None, at: At::from_sql("2026-09-02 14:30:00").unwrap(), per_share: None, stated: None, linked_to: None,
-                 to_venue: None, to_exchange_id: None, base_asset: None }
+                 to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default() }
     }
 
     /// A coin a broker's rows named still takes the dated cut where its symbol changed coin (Terra's LUNA).

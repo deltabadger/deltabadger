@@ -1,0 +1,2 @@
+Date,Acquisition Date,Asset,Amount,Proceeds,Cost Basis,Gain/Loss,Currency,Holding Days,Fee,Exchange,Transaction ID,Cost Basis Complete,Data Incomplete,Term
+2026-01-06T10:00:00Z,2026-01-05T10:00:00Z,BTC,0.5,300.0,50.05,249.95,USD,1,0.0,alpaca,sell-BTC-2026-01-06T10:00:00Z,true,false,Short-term

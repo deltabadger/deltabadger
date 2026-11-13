@@ -264,8 +264,26 @@ fn fiat_value(t: &Stored, leg: Option<&Leg>, ps: &mut PriceService, currency: &s
     }
     if let Some(v) = leg.and_then(|l| l.fiat_value.clone()) { return Ok(v); }
     if let Some(price) = &t.stated { return ps.convert_fiat(&(price * &t.amount)?, "USD", currency, t.at); }
+    // D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE at what its fills were traded at.
+    if let Some((price, unit)) = &t.cfee.fill_price { return ps.convert_fiat(&(price * &t.amount)?, unit, currency, t.at); }
     let price = ps.price_at_recorded(&t.base, currency, t.at, Some(&t.venue), t.base_asset.as_ref())?;
     Ok((&price * &t.amount)?)
+}
+
+/// D-TAX-CFEE-PREVIOUS-DAY (SE, GB): a fill's share of a CFEE it carries as its expense: the fee valued as its own row is
+/// (a stated price, else its fills' price, else the day's close), pro rata by the fills' amounts, the last fill taking
+/// what is left (Tax::Report#attribute_trade_fees' arithmetic).
+fn expense_share(e: &super::rows::Expense, ps: &mut PriceService, currency: &str) -> Result<Dec, FiguresError> {
+    let value = fiat_value(&e.fee, None, ps, currency)?;
+    let mut total = Dec::zero();
+    for w in &e.weights { total = (&total + w)?; }
+    let mut left = value.clone();
+    for (n, w) in e.weights.iter().enumerate() {
+        let share = if n == e.weights.len() - 1 { left.clone() } else { (&value * w)?.div(&total)? };
+        if n == e.index { return Ok(share); }
+        left = (&left - &share)?;
+    }
+    Ok(Dec::zero())
 }
 
 /// `resolve_fee_fiat_value`.
@@ -289,7 +307,7 @@ pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Pri
     ps.record(stored);
     let legs = cash_leg_context(stored, ps, currency)?;
     // `(done.to_f / total * 21).to_i`
-    if prefetch { ps.prefetch(stored, currency, &|t| legs.get(&t.id).is_some_and(|l| l.fiat_value.is_some()), &mut |done, total| on_progress(if total > 0 { (done as f64 / total as f64 * 21.0) as u32 } else { 0 }))?; }
+    if prefetch { ps.prefetch(stored, currency, &|t| legs.get(&t.id).is_some_and(|l| l.fiat_value.is_some()) || t.cfee.fill_price.is_some(), &mut |done, total| on_progress(if total > 0 { (done as f64 / total as f64 * 21.0) as u32 } else { 0 }))?; }
     let total = stored.len();
     let links: HashMap<i64, i64> = stored.iter().filter_map(|t| t.linked_to.map(|d| (t.id, d))).collect();
     let linked_deposits: HashSet<i64> = links.values().copied().collect();
@@ -306,7 +324,8 @@ pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Pri
         } else { fiat_value(t, leg, ps, currency)? };
         let value_missing = ps.warnings.len() > before || leg.and_then(|l| l.price_missing) == Some(true);
         let before_fee = ps.warnings.len();
-        let fee_value = fee_fiat_value(t, ps, currency)?;
+        let mut fee_value = fee_fiat_value(t, ps, currency)?;
+        for e in &t.cfee.expenses { fee_value = (&fee_value + &expense_share(e, ps, currency)?)?; }
         let fee_missing = ps.warnings.len() > before_fee;
         let price_missing = value_missing || ps.warnings.len() > before;
         // `21 + ((index + 1).to_f / total * 79).to_i`
@@ -316,7 +335,7 @@ pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Pri
             _ => None,
         };
         rows.push(Row {
-            uid, kind: leg.and_then(|l| l.kind).unwrap_or(t.kind), base: t.base.clone(), amount: t.amount.clone(),
+            uid, kind: leg.and_then(|l| l.kind).unwrap_or(t.kind), base: t.base.clone(), amount: t.cfee.folded.clone().unwrap_or_else(|| t.amount.clone()),
             quote: leg.and_then(|l| l.quote.clone()).or_else(|| t.quote.clone()), quote_amount: t.quote_amount.clone(),
             fiat_value: value, fee_fiat_value: fee_value, fee_currency: t.fee_currency.clone(), fee_amount: t.fee_amount.clone(), at: t.at,
             group: t.group.clone(), price_missing, value_missing: Some(value_missing), exchange: t.venue.clone(),
