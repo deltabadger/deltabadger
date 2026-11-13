@@ -872,6 +872,9 @@ fn only_the_selling_targets_are_left_out() {
     let rails = json!(["  <div class=\"columns\">", "  </div>"]);
     let mut ours = json!(["  <div class=\"columns\">", "    \" \"", "    <div data-assets=\"[]\" data-blocked=\"false\" hidden=\"\" id=\"selling_state_7\">", "    </div>", "  </div>"]);
     assert_eq!((without_selling_targets(&mut ours), &ours), (1, &rails));
+    // The attributes go in the shared normalizer, so every Rails comparison drops them.
+    assert_eq!(html::normalize(r#"<div class="columns" data-controller="bot--selling"><a class="rbutton" data-bot--selling-target="sell" data-asset="3" href="/x">Sell</a><i data-asset="4"></i></div>"#),
+               html::normalize(r#"<div class="columns"><a class="rbutton" href="/x">Sell</a><i data-asset="4"></i></div>"#));
     for other in [r#"    <tbody id="orders_list">"#, r#"    <div id="selling_state_x">"#, r#"    <tr id="orders_selling_7">"#] {
         let mut kept = json!([other, "    </tbody>"]);
         let before = kept.clone();
@@ -2237,6 +2240,24 @@ const IBKR_RECONNECT: [&str; 13] = [
     "</form>",
 ];
 
+/// D-LIQUIDATION-ONE-LINE slice 2: a Sell link for a position no longer held answers 200 with a flash run from inside the
+/// modal frame, where Rails answers a bare 404. Everything before that answer, and the rows after it, compare in full.
+fn liquidation_gone_divergence(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    if name != "liquidation_missing" { return None; }
+    let responses = |v: &Value| v["responses"].as_array().unwrap().clone();
+    let (mut theirs, mut ours) = (responses(rails), responses(rust));
+    let (Some(rails_last), Some(rust_last)) = (theirs.pop(), ours.pop()) else { return Some(Err("no responses".into())) };
+    if let Some(message) = difference(name, &json!({ "responses": theirs, "users": rails["users"], "bots": rails["bots"] }), &json!({ "responses": ours, "users": rust["users"], "bots": rust["bots"] })) {
+        return Some(Err(message));
+    }
+    let body = match &rust_last["body"] { Value::Array(lines) => lines.iter().filter_map(Value::as_str).map(str::trim).collect::<Vec<_>>().join("\n"), other => other.as_str().unwrap_or_default().to_string() };
+    Some(if rails_last["status"] != 404 || rust_last["status"] != 200 {
+        Err(format!("expected Rails 404 and this crate 200: rails {}, rust {}", rails_last["status"], rust_last["status"]))
+    } else if !body.contains(r#"<turbo-stream action="prepend" target="flash">"#) || !body.contains("gone is no longer held.") {
+        Err(format!("expected the no-longer-held flash in the modal frame: {}", &body[..body.len().min(800)]))
+    } else { Ok(()) })
+}
+
 fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
     // A1 serves these historical grid names now: compare the empty rule list and
     // missing-rule delete with Rails in full, including headers and row snapshots.
@@ -2827,7 +2848,7 @@ async fn replay_page_shard(shard: usize) {
         if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut rails)).and_then(|()|without_history_generation(&name,&mut rust)).and_then(|()|tracker_api_difference(&name,&mut rails)).and_then(|()|tax_api_difference(&name,&mut rails)).and_then(|()|account_divergences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|market_data_divergences(&name,&mut rails,&mut rust)).and_then(|()|a18_divergences(&name,&mut rails,&mut rust)).and_then(|()|a20_divergences(&name,&mut rails,&mut rust)).and_then(|()|a20c_divergences(&name,&mut rails,&rust)).and_then(|()|merge_repeat_divergence(&name,&mut rails,&mut rust)) {
             failures.push(format!("{name}/{scope}: {error}")); continue;
         }
-        match unknown_origin_ring(&name, &rails, &rust).or_else(||desktop_divergence(&name, &scenario, &rails, &rust)).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
+        match unknown_origin_ring(&name, &rails, &rust).or_else(||desktop_divergence(&name, &scenario, &rails, &rust)).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||liquidation_gone_divergence(&name, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
             Some(Ok(())) => {}
             Some(Err(message)) => failures.push(format!("{name}/{scope} (listed divergence): {message}")),
             None => if let Some(message) = difference(&format!("{name}/{scope}"), &rails, &rust) { failures.push(message); },

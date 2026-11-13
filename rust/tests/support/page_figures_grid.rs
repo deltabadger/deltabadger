@@ -338,7 +338,6 @@ async fn figures_fragments_match_the_rails_page_partials() {
             assert_eq!(quantity(&normalized), vec![if name == "pair_row_open_partial" { "1.4" } else { "1.3" }]);
             expected = normalized;
         }
-        if name == "redeploy_halt" || name.starts_with("framed_rebalance_halt") { without_sell_while_halted(&mut expected); }
         if name.starts_with("fx_") { display_currency(name, &dir, &sc, &expected).await; currencies += 1; continue; }
         let c = rusqlite::Connection::open_with_flags(dir.join("production.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
         let now = At::from_utc(chrono::DateTime::parse_from_rfc3339(sc["at"].as_str().unwrap()).unwrap().to_utc()).unwrap();
@@ -1076,22 +1075,6 @@ const FRAMED_SIGNALS: [&str; 4] = ["signal_sell_only", "framed_signal_buys", "fr
 
 /// A pair panel's holdings table, which D4 leaves as Rails renders it.
 const GRID_TOKEN_FIELD: &str = "<input type=\"hidden\" name=\"authenticity_token\" value=\"token\" autocomplete=\"off\" />";
-/// D-6C-4: Rails offers Sell beside a halted redeploy and refuses it in the job; this build hides every Sell while the shared
-/// in-flight predicate holds. Rails' Sell controls must be there, and are taken out of what the rest is compared against.
-fn without_sell_while_halted(expected: &mut Value) {
-    let cells = regex::Regex::new(r#"(?s)\s*<t[hd] [^>]*class="table__action"[^>]*>.*?</t[hd]>|\s*<a [^>]*href="[^"]*/liquidation/new\?[^"]*"[^>]*>[^<]*</a>"#).unwrap();
-    let mut removed = 0;
-    let mut strip = |html: &mut Value| if let Some(text) = html.as_str() {
-        removed += cells.find_iter(text).count();
-        *html = json!(cells.replace_all(text, "").to_string());
-    };
-    for parts in expected["bots"].as_object_mut().unwrap().values_mut() { if let Some(metrics) = parts.get_mut("metrics") { strip(metrics); } }
-    for entry in expected["broadcasts"].as_array_mut().unwrap() { strip(&mut entry[1]); }
-    for state in ["cold","warm"] {
-        if let Some(bots)=expected[state]["bots"].as_object_mut() {for parts in bots.values_mut() {strip(&mut parts["page"]);}}
-    }
-    assert!(removed > 0, "D-6C-4: Rails no longer offers Sell beside a halted composition operation");
-}
 
 fn sell_only_table(html: &str) -> Vec<String> {
     let doc = scraper::Html::parse_fragment(html);
@@ -1668,8 +1651,7 @@ async fn rebalance_halted_pages_match_rails_cold_and_warm() {
     for name in ["framed_rebalance_halt","framed_rebalance_halt_off","framed_rebalance_halt_selling"] {
         let dir=scratch.path().join(name);
         let sc:Value=serde_json::from_slice(&std::fs::read(dir.join("scenario.json")).unwrap()).unwrap();
-        let mut expected:Value=serde_json::from_slice(&std::fs::read(dir.join("rails.json")).unwrap()).unwrap();
-        without_sell_while_halted(&mut expected);
+        let expected:Value=serde_json::from_slice(&std::fs::read(dir.join("rails.json")).unwrap()).unwrap();
         let env=common::web::env(common::web::SECRET);
         let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
         let user=sc["user_id"].as_i64().unwrap();

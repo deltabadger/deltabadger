@@ -50,7 +50,7 @@ fn table(c: &Connection, s: &Subject, rows: &[&Holding], body: &str, actions: bo
             let action = if let Some(id) = row.asset.filter(|_| row.can_sell) {
                 let query = form_urlencoded::Serializer::new(String::new()).append_pair("asset_id", &id.to_string()).append_pair("symbol", &row.key).finish();
                 let title = if row.harvest { format!(" title=\"{}\"", escape(&i18n::text(locale, "bot.liquidation.harvest_hint", &[]))) } else { String::new() };
-                format!("<a class=\"rbutton rbutton--small {}\"{title} data-turbo-frame=\"modal\" href=\"{}/bots/{}/liquidation/new?{}\">{}</a>", if row.harvest { "rbutton--success" } else { "rbutton--secondary" }, escape(prefix), s.bot.id, escape(&query), t(locale, "bot.liquidation.sell"))
+                format!("<a class=\"rbutton rbutton--small {}\"{title} data-bot--selling-target=\"sell\" data-asset=\"{id}\" data-turbo-frame=\"modal\" href=\"{}/bots/{}/liquidation/new?{}\">{}</a>", if row.harvest { "rbutton--success" } else { "rbutton--secondary" }, escape(prefix), s.bot.id, escape(&query), t(locale, "bot.liquidation.sell"))
             } else { String::new() };
             let lock = row.lock.as_ref().map(|(days, until, source)| {
                 let label = i18n::t(locale,"bot.liquidation.locked",&[("days",Arg::Count(*days))]);
@@ -256,7 +256,9 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     let settings: Value = serde_json::from_str(&settings).map_err(|_| FiguresError::Data("Invalid settings".into()))?;
     let engine_bot = crate::engine::model::load_bot(c, s.bot.id).map_err(|e| FiguresError::Data(format!("{e:?}")))?;
     let in_flight = crate::engine::composition::in_flight(c, &engine_bot, now.utc()).map_err(|e| FiguresError::Data(format!("{e:?}")))?;
-    let may_sell = !matches!(status, 3 | 7) && !in_flight;
+    // D-LIQUIDATION-ONE-LINE: an operation in flight no longer drops the links; bot--selling makes them inert from the
+    // page's selling state, and the door refusal stays the backstop.
+    let may_sell = !matches!(status, 3 | 7);
     let members: HashSet<i64> = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id=?1 AND in_index=1")?.query_map([s.bot.id], |r| r.get(0))?.collect::<Result<_,_>>()?;
     let mut rows = vec![];
     for (key, data) in &m.asset_values {
@@ -326,7 +328,7 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
             let mut q = form_urlencoded::Serializer::new(String::new());
             for row in &exited { if let Some(id) = row.asset { q.append_pair("asset_id[]", &id.to_string()); } }
             for row in &exited { q.append_pair("symbol[]", &row.key); }
-            out.push_str(&format!("<a class=\"rbutton rbutton--small rbutton--danger\" data-turbo-frame=\"modal\" href=\"{}/bots/{}/liquidation/new?{}\">{}</a>\n", escape(prefix),s.bot.id,escape(&q.finish()),t(locale,"bot.liquidation.sell_all")));
+            out.push_str(&format!("<a class=\"rbutton rbutton--small rbutton--danger\" data-bot--selling-target=\"sell\" data-turbo-frame=\"modal\" href=\"{}/bots/{}/liquidation/new?{}\">{}</a>\n", escape(prefix),s.bot.id,escape(&q.finish()),t(locale,"bot.liquidation.sell_all")));
         }
         out.push_str("</div>\n");
         if !exited.is_empty() { out.push_str(&table(c,s,&exited,"exited_metrics_list",actions,hidden,locale,prefix)?); }

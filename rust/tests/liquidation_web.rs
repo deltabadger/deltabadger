@@ -208,16 +208,34 @@ fn halt_controls_survive_cold_prices_and_only_name_the_rendered_snapshot() {
 }
 
 #[test]
-fn sell_links_disappear_for_the_shared_in_flight_predicate() {
+fn sell_links_stay_with_their_targets_while_anything_is_in_flight() {
     let (_d,c,s,id,_app,_)=install();
     let market=deltabadger::figures::scripted::Scripted::new(&json!({"GET data.alpaca.markets/v1beta3/crypto/us/latest/trades":{"body":{"trades":{"BTC/USD":{"p":64000},"ETH/USD":{"p":2000}}}}}),None);
     let render=||deltabadger::web::figure::metrics_panel(&c,id,&market,deltabadger::figures::at::At::from_sql(NOW).unwrap(),"en","").unwrap();
-    let shown=render();assert!(shown.contains("liquidation/new?"),"{shown}");
-    for (key,value) in [("liquidation_selling_since",json!({"id":"queued","at":1,"holdings":[["BTC",s.btc]]})),("rebalance_pending",json!({"phase":"selling"})),("liquidation_pending",json!({"id":"unknown","state":"ambiguous","symbol":"BTC"}))] {
+    let link=format!("data-bot--selling-target=\"sell\" data-asset=\"{}\" data-turbo-frame=\"modal\" href=\"/bots/{id}/liquidation/new?asset_id={}",s.btc,s.btc);
+    let shown=render();assert!(shown.contains(&link),"{shown}");
+    // D-LIQUIDATION-ONE-LINE: every blocker keeps the links; bot--selling makes them inert from the page's selling state.
+    for (key,value) in [("liquidation_selling_since",json!({"id":"queued","at":1,"holdings":[["BTC",s.btc]]})),("rebalance_pending",json!({"phase":"selling"})),("liquidation_pending",json!({"id":"unknown","state":"ambiguous","symbol":"BTC"})),("redeploy_pending",json!({"id":"r","state":"ambiguous"}))] {
         model::merge_transient_compact(&c,id,&[(key,value)]).unwrap();
-        assert!(!render().contains("liquidation/new?"),"{key}");
+        assert!(selling(&c,id).blocked,"{key}");
+        let shown=render();assert!(shown.contains(&link),"{key}: {shown}");
         model::merge_transient_compact(&c,id,&[(key,Value::Null)]).unwrap();
     }
+    for status in [3,7] {
+        c.execute("UPDATE bots SET status=?1 WHERE id=?2",(status,id)).unwrap();
+        assert!(!render().contains("liquidation/new?"),"{status}");
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn a_sell_link_for_a_position_no_longer_held_answers_with_a_flash_in_the_modal_frame() {
+    let (_d,_c,_s,id,app,mut b)=install();
+    let page=b.send(&app,"GET",&format!("/bots/{id}/liquidation/new?asset_id=999&symbol=DOGE"),None,Csrf::None,&[("Turbo-Frame","modal")]).await;
+    assert_eq!(page.status,200,"{}",page.body);
+    assert!(page.body.contains("<turbo-frame id=\"modal\"><turbo-stream action=\"prepend\" target=\"flash\"><template>"),"{}",page.body);
+    assert!(page.body.contains("DOGE is no longer held."),"{}",page.body);
+    // Nothing named at all is still a 404.
+    assert_eq!(b.get(&app,&format!("/bots/{id}/liquidation/new")).await.status,404);
 }
 
 
