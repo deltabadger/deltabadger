@@ -13,12 +13,14 @@ use tower::ServiceExt;
 const HEADERS: &[(&str, &str)] = &[("origin", "http://localhost:3000"), ("accept", "text/vnd.turbo-stream.html, text/html")];
 const TOOLS: [&str; 6] = ["list_account_transactions", "export_transactions_csv", "set_transfer_link", "set_transaction_price", "sync_tracker", "list_indices"];
 
-fn install() -> (tempfile::TempDir, Connection, i64, App, Browser) {
+fn install() -> (tempfile::TempDir, Connection, i64, App, Browser) { let (dir, c, owner, app, b, _) = install_clocked(); (dir, c, owner, app, b) }
+fn install_clocked() -> (tempfile::TempDir, Connection, i64, App, Browser, Arc<TestClock>) {
     let (dir, opened, seeded) = common::install_alpaca();
     let c = opened.primary;
     c.execute("UPDATE users SET confirmed_at=created_at, setup_completed=1, time_zone='UTC'", []).unwrap();
     let hash: String = c.query_row("SELECT encrypted_password FROM users WHERE id=?1", [seeded.user_id], |r| r.get(0)).unwrap();
-    let app = web::app(dir.path(), web::SECRET, TestClock::at("2026-09-10T12:00:30.123456Z"));
+    let clock = TestClock::at("2026-09-10T12:00:30.123456Z");
+    let app = web::app(dir.path(), web::SECRET, clock.clone());
     app.attach_jobs(deltabadger::jobs::Wakers::default()).unwrap();
     let token = csrf::new_token();
     let data = session::SessionData { user: Some((seeded.user_id, hash.chars().take(29).collect())), csrf: Some(token.clone()), ..Default::default() };
@@ -31,7 +33,7 @@ fn install() -> (tempfile::TempDir, Connection, i64, App, Browser) {
     c.execute("INSERT INTO connected_clients(user_id,oauth_application_id,mcp_tools,rest_tools,created_at,updated_at) VALUES (?1,?2,NULL,NULL,'2026-09-01 12:00:00','2026-09-01 12:00:00')", (seeded.user_id, application)).unwrap();
     let on: serde_json::Map<String, Value> = TOOLS.iter().map(|t| (t.to_string(), json!(true))).collect();
     c.execute("UPDATE users SET mcp_settings=?1,rest_settings=?1", [json!({"tool_permissions": on}).to_string()]).unwrap();
-    (dir, c, seeded.user_id, app, browser)
+    (dir, c, seeded.user_id, app, browser, clock)
 }
 
 fn exchange(c: &Connection) -> i64 { c.query_row("SELECT id FROM exchanges ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap() }
@@ -229,4 +231,77 @@ async fn the_mcp_list_is_bounded_at_64_kilobytes() {
     assert_eq!(text(&at_limit).0.len(), 65_536);
     c.execute("UPDATE account_transactions SET base_currency=?1 WHERE id=?2", ("B".repeat(fits + 1), id)).unwrap();
     assert_eq!(text(&mcp(&app, "list_account_transactions", json!({})).await), ("Read unavailable: response exceeds 65536 bytes", false));
+}
+
+async fn patch(app: &App, b: &mut Browser, id: i64, value: &str) -> web::Answer {
+    b.send(app, "PATCH", &format!("/tracker/transactions/{id}/price"), Some(&[("price", value)]), Csrf::Header, HEADERS).await
+}
+
+/// D-PRICE-WAITING: a row whose own daily price can still come (its UTC day is not over, and its key has been priced
+/// before) shows "Waiting…" with the box disabled and refuses a stated price on every surface, changing nothing. Once
+/// the day is over, or when waiting could never end, the box is open as before.
+#[tokio::test(flavor = "current_thread")]
+async fn a_row_waits_for_its_days_price_until_the_utc_day_is_over() {
+    let (_dir, c, owner, app, mut b, clock) = install_clocked();
+    c.execute("UPDATE users SET display_currency='USD', time_zone='Europe/Warsaw'", []).unwrap();
+    let venue: String = c.query_row("SELECT type FROM exchanges WHERE id=?1", [exchange(&c)], |r| r.get(0)).unwrap();
+    let key = |c: &Connection, base: &str| deltabadger::tracker::prices::row_price_key(c, owner, exchange(c), &venue, base, None, chrono::NaiveDate::from_ymd_opt(2026, 9, 10).unwrap()).unwrap().unwrap();
+    let price = |c: &Connection, asset: &str, currency: &str, date: &str, value: &str| { c.execute("INSERT INTO historical_prices(asset,currency,date,price) VALUES (?1,?2,?3,?4)", (asset, currency, date, value)).unwrap(); };
+    let eth = key(&c, "ETH");
+    price(&c, &eth, "USD", "2026-09-01", "2500");
+
+    // Today and a future day wait; every surface refuses, nothing changes, nothing wakes.
+    for at in ["2026-09-10 00:00:00", "2026-09-12 10:00:00"] {
+        let id = row(&c, owner, 10, "ETH", "0.01", at);
+        let (before, woken) = (stored(&c, id), wakes(&app));
+        let answer = patch(&app, &mut b, id, "5").await;
+        assert_eq!(answer.status, 422, "{at}: {}", answer.body);
+        let (status, body) = rest(&app, "PATCH", &format!("/api/v1/transactions/account/{id}/price"), Some(json!({"price_usd":"5"}))).await;
+        assert_eq!((status, body["error"]["code"].clone()), (409, json!("price_pending")), "{body}");
+        assert_eq!(text(&mcp(&app, "set_transaction_price", json!({"transaction_id":id,"price_usd":"5"})).await), (body["error"]["message"].as_str().unwrap(), true));
+        assert_eq!(stored(&c, id), before);
+        assert_eq!(wakes(&app), woken);
+        // Clearing is always allowed, and a cleared stated price goes back to waiting.
+        c.execute("UPDATE account_transactions SET manual_values='{\"price\":\"0\"}' WHERE id=?1", [id]).unwrap();
+        let answer = patch(&app, &mut b, id, "").await;
+        assert_eq!(answer.status, 200, "{}", answer.body);
+        assert!(answer.body.contains("tracker-row__price--waiting") && answer.body.contains(" disabled placeholder=\"Waiting…\"") && answer.body.contains("Waiting for the end-of-day price."), "{}", answer.body);
+        assert!(!answer.body.contains("could not price"), "{}", answer.body);
+        assert_eq!(rest(&app, "PATCH", &format!("/api/v1/transactions/account/{id}/price"), Some(json!({"price_usd":null}))).await.0, 200);
+        let cleared = mcp(&app, "set_transaction_price", json!({"transaction_id":id,"price_usd":""})).await;
+        assert!(!text(&cleared).1, "{cleared}");
+    }
+
+    // Open as before: yesterday's row, a zero amount, a key never priced, only zero or non-USD history, a stated price.
+    let yesterday = row(&c, owner, 10, "ETH", "0.01", "2026-09-09 23:59:59");
+    let zero = row(&c, owner, 10, "ETH", "0", "2026-09-10 10:00:00");
+    let unknown = row(&c, owner, 10, "ZZQX", "1", "2026-09-10 10:00:00");
+    let zeroed = row(&c, owner, 10, "ZZQY", "1", "2026-09-10 10:00:00");
+    price(&c, &key(&c, "ZZQY"), "USD", "2026-09-01", "0");
+    let euro = row(&c, owner, 10, "ZZQZ", "1", "2026-09-10 10:00:00");
+    price(&c, &key(&c, "ZZQZ"), "EUR", "2026-09-01", "3");
+    for id in [yesterday, zero, unknown, zeroed, euro] {
+        let answer = patch(&app, &mut b, id, "5").await;
+        assert_eq!(answer.status, 200, "{id}: {}", answer.body);
+        assert!(!answer.body.contains("--waiting"), "{}", answer.body);
+    }
+    let stated = row(&c, owner, 10, "ETH", "0.01", "2026-09-10 10:00:00");
+    c.execute("UPDATE account_transactions SET manual_values='{\"price\":\"7\"}' WHERE id=?1", [stated]).unwrap();
+    assert_eq!(rest(&app, "PATCH", &format!("/api/v1/transactions/account/{stated}/price"), Some(json!({"price_usd":"0"}))).await.0, 200, "a stated price is restated");
+
+    // A price we have for today is shown, never hidden behind waiting.
+    let priced = row(&c, owner, 10, "ETH", "0.01", "2026-09-10 11:00:00");
+    price(&c, &eth, "USD", "2026-09-10", "2600");
+    let answer = patch(&app, &mut b, priced, "").await;
+    assert!(answer.body.contains("tracker-row__price--ours") && answer.body.contains("placeholder=\"2600"), "{}", answer.body);
+    c.execute("DELETE FROM historical_prices WHERE date='2026-09-10'", []).unwrap();
+
+    // The UTC midnight decides, not the owner's zone (Warsaw is already on the 11th at 22:00Z).
+    let edge = row(&c, owner, 10, "ETH", "0.01", "2026-09-10 23:00:00");
+    clock.set(web::at("2026-09-10T23:59:59Z"));
+    assert_eq!(patch(&app, &mut b, edge, "5").await.status, 422);
+    clock.set(web::at("2026-09-11T00:00:00Z"));
+    let answer = patch(&app, &mut b, edge, "5").await;
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    assert!(answer.body.contains("tracker-row__price--stated"), "{}", answer.body);
 }

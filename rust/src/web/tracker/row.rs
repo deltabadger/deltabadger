@@ -45,6 +45,26 @@ impl Row {
     }
 }
 
+/// Where a row's price comes from, in USD or the venue's own unit; display conversion is the caller's.
+pub enum Source { Cash, Exchange((Dec,String)), Stated(Dec), Ours(Dec), Waiting, None }
+/// The price precedence: cash, then a zero amount (unpriced), the venue's counterpart, the owner's stated price, our
+/// stored daily USD price for the row's UTC date. D-PRICE-WAITING: no stored price yet, and the row's UTC day is not
+/// over (`today` from the app clock), for a key we have priced before → `Waiting`, not open to a stated price yet.
+pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate)->Result<Source,WebError>{
+    if crate::tracker::cash(&row.base){return Ok(Source::Cash)}
+    if row.amount.is_zero(){return Ok(Source::None)}
+    if let Some(counterpart)=row.counterpart(c)?{return Ok(Source::Exchange(counterpart))}
+    if let Some(stated)=row.manual.get("price").filter(|v|!super::blank(v)){return Ok(Source::Stated(number(Dec::to_d(stated))?))}
+    // `tracker_price_key`: the key the figures stored this row's price under; none for a name still both a security and a coin.
+    let day=row.at.date_naive();
+    let Some(key)=crate::tracker::prices::row_price_key(c,row.owner,row.exchange,&row.venue,&row.base,row.asset,day)? else{return Ok(Source::None)};
+    let stored:Option<rusqlite::types::Value>=c.query_row("SELECT price FROM historical_prices WHERE asset=?1 AND currency='USD' AND date=?2 LIMIT 1",(&key,day.to_string()),|r|r.get(0)).optional()?;
+    if let Some(p)=stored.map(|v|number(Dec::from_sql((&v).into()))).transpose()?.flatten().filter(Dec::is_positive){return Ok(Source::Ours(p))}
+    if day<today{return Ok(Source::None)}
+    let priced:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM historical_prices WHERE asset=?1 AND currency='USD' AND CAST(price AS REAL)>0)",[&key],|r|r.get(0))?;
+    Ok(if priced{Source::Waiting}else{Source::None})
+}
+
 
 fn amount(value:&Dec,currency:&str)->Result<String,WebError> {
     let absolute=if value.is_negative(){value.neg()}else{value.clone()};
@@ -110,21 +130,16 @@ pub(crate) fn asset_logo(image:Option<String>,color:Option<String>,symbol:String
 
 pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination)->Result<String,WebError>{
     let user=ctx.user().ok_or_else(invalid)?;
-    let cash=crate::tracker::cash(&row.base);
     let absolute=if row.amount.is_negative(){row.amount.neg()}else{row.amount.clone()};
     let counterpart=row.counterpart(c)?;
-    let (price,source,exchange_price)=if cash {
-        (in_display(c,&Dec::one(),&row.base,row.at.date_naive(),d)?,"cash",None)
-    }else if absolute.is_zero(){(None,"none",None)}else if let Some((amount,currency))=&counterpart{
-        (None,"exchange",Some(figure(&number(amount.div(&absolute))?,currency)?))
-    }else if let Some(stated)=row.manual.get("price").filter(|v|!super::blank(v)){
-        (Some(number(&number(Dec::to_d(stated))? * &d.rate)?),"stated",None)
-    }else{
-        // `tracker_price_key`: the key the figures stored this row's price under; none for a name still both a security and a coin.
-        let key=crate::tracker::prices::row_price_key(c,row.owner,row.exchange,&row.venue,&row.base,row.asset,row.at.date_naive())?;
-        let mut statement=c.prepare("SELECT price FROM historical_prices WHERE asset=?1 AND currency='USD' AND date=?2 LIMIT 1")?;
-        let historical=match key {None=>None,Some(key)=>{let mut rows=statement.query((&key,row.at.date_naive().to_string()))?; if let Some(r)=rows.next()?{number(Dec::from_sql(r.get_ref(0)?))?}else{None}}};
-        match historical.filter(Dec::is_positive){Some(p)=>(Some(number(&p * &d.rate)?),"ours",None),None=>(None,"none",None)}
+    let today=ctx.app.now().date_naive();
+    let (price,source,exchange_price)=match source(c,row,today)? {
+        Source::Cash=>(in_display(c,&Dec::one(),&row.base,row.at.date_naive(),d)?,"cash",None),
+        Source::Exchange((amount,currency))=>(None,"exchange",Some(figure(&number(amount.div(&absolute))?,&currency)?)),
+        Source::Stated(usd)=>(Some(number(&usd * &d.rate)?),"stated",None),
+        Source::Ours(usd)=>(Some(number(&usd * &d.rate)?),"ours",None),
+        Source::Waiting=>(None,"waiting",None),
+        Source::None=>(None,"none",None),
     };
     let value=if source=="exchange"{match &counterpart{Some((n,currency))=>in_display(c,n,currency,row.at.date_naive(),d)?,None=>None}}else{price.as_ref().map(|p|number(p * &row.amount)).transpose()?};
     let value=value.map(|v|number(v.round(2))).transpose()?;
@@ -142,9 +157,10 @@ pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination)->Result<String,We
         let suffix=matches!(d.currency.as_str(),"CHF"|"PLN");
         let title=ctx.t(&format!("tracker.price_source.{source}"));
         let value=if source=="stated"{format!(" value=\"{}\"",price.as_ref().map(Dec::to_s_f).ok_or_else(invalid)?)}else{String::new()};
-        let placeholder=if source=="ours"{price.as_ref().map(Dec::to_s_f).ok_or_else(invalid)?}else{"—".into()};
-        let info=if source=="none"{format!("          <span class=\"tracker-row__info\" role=\"button\" tabindex=\"0\" aria-label=\"{title}\"\n                data-controller=\"tooltip\" data-tooltip-fixed-value=\"true\"\n                data-action=\"click->tooltip#toggle keydown.enter->tooltip#toggle keydown.space->tooltip#toggle:prevent focus->tooltip#showTooltip blur->tooltip#hideTooltip mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip\">\n            {}\n            <div class=\"tooltip tooltip--hint\">{title}</div>\n          </span>\n",include_str!("../../../templates/svg/_24x24_info.html"))}else{String::new()};
-        format!("      <form data-controller=\"form--submit\" action=\"{}\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" />\n        {}\n        <input type=\"number\" name=\"price\" id=\"price\"{value} step=\"any\" min=\"0\" placeholder=\"{placeholder}\" title=\"{title}\" class=\"tracker-row__price__input\" data-action=\"change-&gt;form--submit#submit\" />\n        {}\n{info}</form>",path("/price"),escape(&ctx.csrf_token()),if suffix{""}else{&unit},if suffix{&unit}else{""})
+        let placeholder=match source{"ours"=>price.as_ref().map(Dec::to_s_f).ok_or_else(invalid)?,"waiting"=>ctx.t("tracker.price_waiting"),_=>"—".into()};
+        let disabled=if source=="waiting"{" disabled"}else{""};
+        let info=if matches!(source,"none"|"waiting"){format!("          <span class=\"tracker-row__info\" role=\"button\" tabindex=\"0\" aria-label=\"{title}\"\n                data-controller=\"tooltip\" data-tooltip-fixed-value=\"true\"\n                data-action=\"click->tooltip#toggle keydown.enter->tooltip#toggle keydown.space->tooltip#toggle:prevent focus->tooltip#showTooltip blur->tooltip#hideTooltip mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip\">\n            {}\n            <div class=\"tooltip tooltip--hint\">{title}</div>\n          </span>\n",include_str!("../../../templates/svg/_24x24_info.html"))}else{String::new()};
+        format!("      <form data-controller=\"form--submit\" action=\"{}\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" />\n        {}\n        <input type=\"number\" name=\"price\" id=\"price\"{value} step=\"any\" min=\"0\"{disabled} placeholder=\"{placeholder}\" title=\"{title}\" class=\"tracker-row__price__input\" data-action=\"change-&gt;form--submit#submit\" />\n        {}\n{info}</form>",path("/price"),escape(&ctx.csrf_token()),if suffix{""}else{&unit},if suffix{&unit}else{""})
     };
     let amount_cell=if user.hide_balances{String::new()}else{format!("<td>{}</td>",amount(&row.amount,&row.base)?)};
     let money=if user.hide_balances{String::new()}else{format!("    <td class=\"tracker-row__value\">{}</td>\n    <td class=\"tracker-row__fee\">{}</td>\n",value.as_ref().map(|v|amount(v,&d.currency)).transpose()?.unwrap_or(NO_VALUE.into()),row.fee.as_ref().map(|f|figure(f,row.fee_currency.as_deref().unwrap_or(""))).transpose()?.unwrap_or(NO_VALUE.into()))};
