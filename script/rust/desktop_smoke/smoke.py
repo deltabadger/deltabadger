@@ -11,7 +11,7 @@ WebDriver, so its scenarios read the launcher log and the engine over HTTP. Pyth
 """
 import argparse
 import hashlib
-import http.client
+from http.client import RemoteDisconnected  # `http` below is this script's own helper
 import json
 import os
 import re
@@ -381,7 +381,7 @@ class Window:
     def _leaving(leaves, f):
         try:
             return f()
-        except http.client.RemoteDisconnected:
+        except RemoteDisconnected:
             if not leaves:
                 raise
             say("the page went before WebDriver answered (it navigated)")
