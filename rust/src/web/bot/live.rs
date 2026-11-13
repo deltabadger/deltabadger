@@ -200,8 +200,8 @@ pub fn selling_html(c: &Connection, ctx: &Ctx, bot: &Bot, hidden: bool) -> Resul
             if hidden { "other" } else { "all" }, if hidden { 1 } else { 3 }, escape(&text(ctx.locale, "engine.liquidation_selling", &[("base", Arg::Text(&symbol))]))));
     }
     let tbody = format!("<tbody id=\"orders_selling_{}\">{rows}{}</tbody>", bot.id, if rows.is_empty() { "" } else { "\n" });
-    let state = format!("<div id=\"selling_state_{}\" hidden data-bot--selling-target=\"state\" data-assets=\"{}\" data-blocked=\"{}\"></div>",
-                        bot.id, escape(&serde_json::json!(selling.assets).to_string()), selling.blocked);
+    let state = format!("<div id=\"selling_state_{}\" hidden data-bot--selling-target=\"state\" data-assets=\"{}\" data-blocked=\"{}\" data-label=\"{}\"></div>",
+                        bot.id, escape(&serde_json::json!(selling.assets).to_string()), selling.blocked, escape(&text(ctx.locale, "bot.liquidation.selling", &[])));
     Ok((tbody, state))
 }
 

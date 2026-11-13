@@ -203,6 +203,13 @@
 // .loader--small is the app's existing grey ring (see _spinner.sass), already used by this very
 // table for its loading cells; it positions itself into a corner, which the descendant selector
 // below outranks. Sized down to sit with the row's 1.75rem text rather than above it.
+// A Sell link while a sale or another operation is running (bot--selling): kept, dimmed and inert.
+[data-bot--selling-target="sell"][aria-disabled="true"]
+  background: var(--steel)
+  cursor: not-allowed
+  pointer-events: none
+  box-shadow: none
+
 .table__busy
   position: relative
   display: inline-flex

@@ -42,7 +42,7 @@
         {{ chart|safe }}
 </turbo-frame>
 {%- endif %}
-    <div id="{{ columns_id }}" class="columns{% if working %} bot-locked{% endif %}">
+    <div id="{{ columns_id }}" class="columns{% if working %} bot-locked{% endif %}"{% if !selling_state.is_empty() %} data-controller="bot--selling"{% endif %}>
       {{ selling_state|safe }}
       <div class="column gap-1">
           {{ settings|safe }}

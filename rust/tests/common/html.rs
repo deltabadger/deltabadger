@@ -85,7 +85,15 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, lines: &mut Vec<String>
             if !shown.is_empty() { lines.push(format!("{indent}{shown:?}")); }
         }
         Node::Element(element) => {
-            let mut attributes: Vec<(&str, String)> = element.attrs().map(|(name, value)| (name, attribute(element, name, value))).collect();
+            // D-LIQUIDATION-ONE-LINE: the bot--selling controller on the columns wrapper, each Sell link's target and its asset
+            // id; Rails has none of them.
+            let sell = element.attr("data-bot--selling-target") == Some("sell");
+            let mut attributes: Vec<(&str, String)> = element.attrs()
+                .filter(|(name, value)| {
+                    let ours = (sell && matches!(*name, "data-bot--selling-target" | "data-asset")) || (*name == "data-controller" && *value == "bot--selling");
+                    !ours
+                })
+                .map(|(name, value)| (name, attribute(element, name, value))).collect();
             attributes.sort();
             let attributes: String = attributes.iter().map(|(name, value)| format!(" {name}={value:?}")).collect();
             lines.push(format!("{indent}<{}{attributes}>", element.name()));

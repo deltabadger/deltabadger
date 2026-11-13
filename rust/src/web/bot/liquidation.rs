@@ -121,7 +121,21 @@ pub async fn new(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segmen
         let tx=c.unchecked_transaction()?;
         let (found,_)=page::find(&tx,&inner,&owner,&segment,false,super::For::Settings,view.locale)?;
         let page::Found::Bot(bot)=found else {return Ok(Err(found))};
-        let selected=match selected(&tx,&held(&tx,id,view.now)?,params.value(),true)? {Ok(h)=>h,Err(_)=>return Ok(Err(page::Found::Missing))};
+        let selected=match selected(&tx,&held(&tx,id,view.now)?,params.value(),true)? {
+            Ok(h)=>h,
+            // D-LIQUIDATION-ONE-LINE: a Sell link left on a panel drawn before its position sold out answers with a flash,
+            // run from inside the modal frame it opened, instead of a silent 404.
+            Err(_)=>{
+                let names=strings(&params.value()["symbol"]).join(", ");
+                if names.is_empty() {return Ok(Err(page::Found::Missing))}
+                let text=i18n::text(view.locale,"bot.liquidation.no_longer_held",&[("base",i18n::Arg::Text(&names))]);
+                let body=format!("<turbo-frame id=\"modal\">{}</turbo-frame>",crate::web::turbo::prepend_flash(flash::render(&[flash::Message {style:"primary",text}])?.trim_end()));
+                let csrf=view.csrf_token();
+                let shell=Shell::load(&tx,&inner,&owner)?;
+                tx.commit()?;
+                return Ok(Ok((body,csrf,shell)));
+            }
+        };
         let (table,harvest,exited)=crate::web::figure::liquidation_table(&tx,&view,id,&selected).map_err(super::fill_error)?;
         let mut query=form_urlencoded::Serializer::new(String::new());
         // Rails route helper sorts the keys: asset_id, then symbol.

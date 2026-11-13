@@ -25,6 +25,9 @@ application.register("bot--allocation", Bot__AllocationController)
 import Bot__ChartController from "./bot/chart_controller"
 application.register("bot--chart", Bot__ChartController)
 
+import Bot__SellingController from "./bot/selling_controller"
+application.register("bot--selling", Bot__SellingController)
+
 import BotsMergeController from "./bots_merge_controller"
 application.register("bots-merge", BotsMergeController)
 import BotsSplitModalController from "./bots_split_modal_controller"
