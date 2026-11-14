@@ -357,12 +357,12 @@ impl<'a> Rows<'a> {
             },
             "liquidation_failed" | "redeploy_failed" => event(&log.event, &[("error", Arg::Text(&detail("reason")))]),
             // D-LIQUIDATION-ONE-LINE: the stored reason, named; a legacy row with none, or an unknown one, keeps the shared line.
-            "liquidation_skipped" => i18n::text_chain(self.ctx.locale, &[format!("engine.liquidation_skipped.{}", detail("reason"))], &[("base", Arg::Text(&detail("base")))])
+            "liquidation_skipped" | "redeploy_skipped" => i18n::text_chain(self.ctx.locale, &[format!("engine.{}.{}", log.event, detail("reason"))], &[("base", Arg::Text(&detail("base")))])
                 .unwrap_or_else(|| event(&log.event, &[])),
             // `reason`: a code, an array of one code, or a staleness sentence; only a known code is named.
-            "liquidation_not_started" => {
+            "liquidation_not_started" | "redeploy_not_started" => {
                 let code = match log.details.get("reason") { Some(Value::String(code)) => Some(code.as_str()), Some(Value::Array(codes)) if codes.len() == 1 => codes[0].as_str(), _ => None };
-                code.and_then(|code| i18n::text_chain(self.ctx.locale, &[format!("engine.liquidation_not_started.{code}")], &[])).unwrap_or_else(|| event(&log.event, &[]))
+                code.and_then(|code| i18n::text_chain(self.ctx.locale, &[format!("engine.{}.{code}", log.event)], &[])).unwrap_or_else(|| event(&log.event, &[]))
             }
             "liquidation_batch_cut_short" =>event(&log.event, &[("bases", Arg::Text(&detail("bases")))]),
             "orders_below_minimum" => event(&log.event, &[("count", Arg::Count(log.details.get("count").and_then(Value::as_i64).unwrap_or(0))), ("bases", Arg::Text(&detail("bases")))]),

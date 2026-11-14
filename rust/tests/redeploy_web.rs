@@ -9,6 +9,7 @@ const NOW: &str="2026-09-01T12:30:00Z";
 const HEADERS: &[(&str,&str)]=&[("origin","http://localhost:3000"),("accept","text/vnd.turbo-stream.html, text/html")];
 const STARTED: &str="Putting the money back into the basket.";
 const IN_FLIGHT: &str="A redeploy is still working. Try again once it settles.";
+const REDEPLOYING: &str="Redeploying the proceeds…";
 fn one<T:rusqlite::types::FromSql>(c:&Connection,sql:&str)->T { c.query_row(sql,[],|r|r.get(0)).unwrap() }
 fn at(s:&str)->chrono::DateTime<chrono::Utc> { s.parse().unwrap() }
 
@@ -58,13 +59,16 @@ async fn yes_swaps_the_actions_for_the_spinner_and_a_second_yes_is_refused() {
     assert!(first.body.contains(&format!("<turbo-stream action=\"update\" target=\"redeploy-prompt-actions\"><template><span class=\"loader--small\" role=\"status\" aria-label=\"{STARTED}\"></span></template></turbo-stream>")),"{}",first.body);
     let taken=request(c,id);
     assert!(uuid::Uuid::parse_str(taken["id"].as_str().unwrap()).is_ok() && taken["at"]==at(NOW).timestamp() && taken.as_object().unwrap().len()==2,"{taken}");
-    assert_eq!(events(c,"redeploy_requested"),1);
+    // D-LIQUIDATION-ONE-LINE: the Yes writes no line; the page's status row says it until the engine is done.
+    assert_eq!(events(c,"redeploy_requested"),0);
+    let page=b.get(&app,&format!("/bots/{id}")).await;
+    assert!(page.body.contains(REDEPLOYING),"{}",page.body);
     // D-6C-8: a second Yes before the engine took the first is refused, not queued again.
     let second=yes(&mut b,&app,id).await;
     assert_eq!(second.status,422,"{}",second.body);
     assert!(second.body.contains(IN_FLIGHT) && !second.body.contains("redeploy-prompt-actions"),"{}",second.body);
     assert_eq!(request(c,id),taken);
-    assert_eq!(events(c,"redeploy_requested"),1);
+    assert_eq!(events(c,"redeploy_requested"),0);
     // D-6C-6: the status bar says so while the request waits or runs, a taken one included.
     for taken_at in [None,Some(1)] {
         let mut shown=taken.clone(); if let Some(t)=taken_at {shown["taken_at"]=json!(t);}
@@ -117,6 +121,17 @@ async fn yes_and_no_race_through_the_web_in_either_order() {
         run::run_commands(&mut e,&FixedClock(at(NOW))).await.unwrap();
         assert_eq!(t.posted_orders().len(),usize::from(!no_first),"no_first={no_first}");
         assert!(request(&e.primary,id).is_null());
+        // D-LIQUIDATION-ONE-LINE: after the run the status row stays only while its order waits on the venue; a refused
+        // Yes (nothing left after the No) has none, and its line names why.
+        let waiting:bool=one(&e.primary,"SELECT EXISTS(SELECT 1 FROM transactions WHERE transaction_type='REDEPLOY' AND status=0 AND external_status IN (0,1))");
+        let shown=deltabadger::engine::composition::selling(&e.primary,&model::load_bot(&e.primary,id).unwrap(),at(NOW)).unwrap();
+        assert_eq!(shown.redeploying,waiting,"no_first={no_first}");
+        if no_first {
+            assert!(!waiting);
+            let reason:String=one(&e.primary,"SELECT details FROM bot_activity_logs WHERE event='redeploy_not_started' ORDER BY id DESC LIMIT 1");
+            assert_eq!(reason,json!({"reason":["nothing_to_redeploy"]}).to_string());
+        }
+        assert_eq!(events(&e.primary,"redeploy_placed"),0);
         let _=s;
     }
 }

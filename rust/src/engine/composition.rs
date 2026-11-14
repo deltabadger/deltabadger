@@ -44,7 +44,12 @@ pub(crate) fn unresolved_liquidations(c: &Connection, bot: &Bot) -> Result<bool,
 /// request's holdings, of waiting LIQUIDATION orders and of a liquidation intent being placed; `blocked`: any operation in
 /// flight (`in_flight`), so a Sell stays inert while nothing is named too (an ambiguous marker, an unresolved order).
 #[derive(Debug, Default, PartialEq)]
-pub struct Selling { pub assets: Vec<i64>, pub blocked: bool }
+pub struct Selling { pub assets: Vec<i64>, pub blocked: bool, pub redeploying: bool, pub rebalancing: bool }
+
+impl Selling {
+    /// Whether the page shows any status row ("Selling …", "Redeploying …", "Rebalancing …").
+    pub fn has_rows(&self) -> bool { !self.assets.is_empty() || self.redeploying || self.rebalancing }
+}
 
 pub fn selling(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Selling, EngineError> {
     let mut assets: Vec<i64> = vec![];
@@ -59,7 +64,12 @@ pub fn selling(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Selling,
         if let Some(intent) = super::placement::load_intent(c, bot, None)?.filter(|i| i.plan.kind == TxKind::Liquidation) { add(intent.plan.ticker.base_asset_id); }
     }
     let blocked = !assets.is_empty() || in_flight(c, bot, now)?;
-    Ok(Selling { assets, blocked })
+    // D-LIQUIDATION-ONE-LINE: a halted operation shows its own prompt and error line, not a status row.
+    let redeploying = bot.transient["redeploy_pending"]["state"] != "ambiguous"
+        && (bot.transient[super::redeploy::REQUEST_KEY].is_object() || bot.transient["redeploy_pending"]["state"] == "placing" || waiting(c, bot.id, "REDEPLOY")?);
+    let phase = &bot.transient["rebalance_pending"]["phase"];
+    let rebalancing = phase == super::rebalance::PHASE_SELLING || phase == super::rebalance::PHASE_BUYING;
+    Ok(Selling { assets, blocked, redeploying, rebalancing })
 }
 
 pub fn redeploy_in_flight(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {

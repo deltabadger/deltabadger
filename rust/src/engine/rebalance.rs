@@ -427,13 +427,13 @@ pub enum Outcome { Skipped(&'static str), Placed(i64), Failed(String) }
 pub enum Settlement { Accepted(i64), NotPlaced(super::wash::Reason), Halt(String) }
 
 /// Bot::Rebalancer#place_rebalance_order's outcomes after the venue answered (or provably was never reached):
-/// - Accepted: clear_rebalance_below_minimum!, carry_pending_forward, `rebalance_<side>_placed`.
+/// - Accepted: clear_rebalance_below_minimum!, carry_pending_forward (Rails also logs `rebalance_<side>_placed`; D-LIQUIDATION-ONE-LINE).
 /// - NotPlaced (the TransientNetworkError rescue, and a pre-trade rejection whose failed row the caller wrote): a sell owes
 ///   nothing (the state goes); a buy keeps what it owes, its attempt mark dropped.
 /// - Halt: halt_ambiguous!.
 ///
 /// A swap halted meanwhile stays halted; an accepted order's id is still recorded in it, for the user's resolution.
-/// A sell's wash-sale claim is settled last (wash::settle_claim): logged after `rebalance_sell_placed`, as Rails logs it.
+/// A sell's wash-sale claim is settled last (wash::settle_claim), as Rails logs it.
 pub(crate) fn settle(c: &Connection, bot_id: i64, plan: &OrderPlan, settlement: Settlement, now: chrono::DateTime<chrono::Utc>) -> Result<(), EngineError> {
     let bot = super::model::load_bot(c, bot_id)?;
     let current = pending(&bot.transient)?;
@@ -448,7 +448,7 @@ pub(crate) fn settle(c: &Connection, bot_id: i64, plan: &OrderPlan, settlement: 
             };
             clear_below_minimum(c, bot_id, &bot.transient)?;
             set_pending(c, bot_id, &next)?;
-            super::model::log_activity(c, bot_id, &format!("rebalance_{}_placed", plan.side.as_str()), Level::Info, plan.log_details(), now)?;
+            // D-LIQUIDATION-ONE-LINE: no `rebalance_<side>_placed` line; the page's "Rebalancing …" row says it.
             if sell { super::wash::settle_claim(c, bot_id, super::wash::Holder::RebalanceSell, super::wash::Reason::Accepted, now)?; }
             Ok(())
         }

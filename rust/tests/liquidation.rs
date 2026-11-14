@@ -349,18 +349,12 @@ fn hyperliquid_ioc_expected(rails: &Value, rust: &Value) -> Value {
     expected
 }
 
-/// D-LIQUIDATION-ONE-LINE on Rails' side: its `liquidation_placed` lines go (later lines' ids move down with them), and a
-/// skip Rails calls `unpriced` where this crate read no free balance is named `no_free_balance`.
+/// D-LIQUIDATION-ONE-LINE on Rails' side (its `liquidation_placed` lines go in common::decisions::status_lines_expected):
+/// a skip Rails calls `unpriced` where this crate read no free balance is named `no_free_balance`.
 #[cfg(unix)]
 fn one_line_expected(rails: &Value, rust: &Value) -> Value {
     let mut expected = rails.clone();
     let Some(logs) = expected["changes"]["bot_activity_logs"].as_array_mut() else { return expected };
-    let mut dropped = 0;
-    logs.retain_mut(|row| {
-        if row["after"]["event"] == "liquidation_placed" && row["before"].is_null() { dropped += 1; return false; }
-        if dropped > 0 { let id = row["id"].as_i64().unwrap() - dropped; row["id"] = json!(id); row["after"]["id"] = json!(id); }
-        true
-    });
     for (i, row) in logs.iter_mut().enumerate() {
         let ours = &rust["changes"]["bot_activity_logs"][i]["after"];
         if row["after"]["event"] == "liquidation_skipped" && row["after"]["details"]["reason"] == "unpriced" && ours["details"]["reason"] == "no_free_balance" {
