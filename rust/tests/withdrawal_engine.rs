@@ -4320,3 +4320,103 @@ async fn not_sent_and_candidate_text_obey_rule_log_secrets() {
         ]
     );
 }
+
+/// D-RULE-KRAKEN-DUST-QUOTE: Kraken refuses a WithdrawInfo quote for an amount at its fee (a balance of dust after a
+/// 100% withdrawal). The rule's last stored fee may turn exactly that refusal into the "below minimum" skip; anything
+/// else, and any case the stored fee does not prove too small, keeps the refusal. A stored fee never sizes a send.
+struct Dust {
+    balance: &'static str,
+    settings: Value,
+    /// None: no exchange_assets row. Some(None): a NULL fee.
+    stored: Option<Option<&'static str>>,
+    last_success_days_ago: Option<i64>,
+    reply: (u16, Value),
+}
+const INVALID: &str = "EFunding:Invalid arguments";
+fn dust(balance: &'static str) -> Dust {
+    Dust {
+        balance,
+        settings: json!({"address_name":"cold","withdrawal_percentage":"100","threshold_type":"fee_percentage","max_fee_percentage":"0.5"}),
+        stored: Some(Some("0.000015")),
+        last_success_days_ago: None,
+        reply: (200, json!({"error":[INVALID]})),
+    }
+}
+async fn run_dust(case: Dust) -> (i64, String) {
+    let d = kraken_db();
+    d.c.execute("UPDATE rules SET settings=?1", [case.settings.to_string()]).unwrap();
+    d.c.execute("UPDATE exchange_assets SET exchange_id=1,asset_id=1,withdrawal_fee=?1,withdrawal_fee_updated_at='stamped',updated_at='touched'", [case.stored.flatten()]).unwrap();
+    if case.stored.is_none() {
+        d.c.execute("DELETE FROM exchange_assets", []).unwrap();
+    }
+    if let Some(days) = case.last_success_days_ago {
+        d.c.execute("INSERT INTO rule_logs(rule_id,status,message,details,created_at) VALUES(1,1,'Withdrew','{}',?1)", [deltabadger::codec::format_time(now() - chrono::Duration::days(days))]).unwrap();
+    }
+    let before: Vec<(Option<String>, Option<String>, Option<String>)> = d.c.prepare("SELECT withdrawal_fee,withdrawal_fee_updated_at,updated_at FROM exchange_assets").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
+    let t = ScriptedTransport::default();
+    t.reply("POST /0/private/BalanceEx", 200, json!({"error":[],"result":{"XBT":{"balance":case.balance,"hold_trade":"0"}}}));
+    t.reply("POST /0/private/WithdrawAddresses", 200, json!({"error":[],"result":[{"address":"destination","key":"cold","method":"Bitcoin","verified":true}]}));
+    t.reply("POST /0/private/WithdrawInfo", case.reply.0, case.reply.1.clone());
+    let eval = d.eval();
+    assert!(w::evaluate(&d.c, &d.cipher, &kraken_adapter(&d, &t), eval, &FixedClock(now())).await.unwrap().is_none());
+    assert_eq!(kraken_sends(&t), 0);
+    assert_eq!(d.count("rust_withdrawal_intents"), 0);
+    assert_eq!(d.count("rust_rule_evaluations WHERE consumed_at IS NULL"), 0);
+    let quotes = t.requests().iter().filter(|r| r.path == "/0/private/WithdrawInfo").count();
+    assert_eq!(quotes, 1);
+    let after: Vec<(Option<String>, Option<String>, Option<String>)> = d.c.prepare("SELECT withdrawal_fee,withdrawal_fee_updated_at,updated_at FROM exchange_assets").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(before, after, "the stored fee is never re-stamped from itself");
+    d.c.query_row("SELECT status,message FROM rule_logs ORDER BY id DESC LIMIT 1", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+}
+
+#[tokio::test]
+async fn kraken_dust_refusal_with_stored_fee_logs_below_minimum() {
+    let refused = format!("Failed to refresh withdrawal fees: {INVALID}");
+    // The live case: 0.000015006 BTC left, the quote at 0.000015 refused; 0.000015 / 0.5% = 0.003.
+    assert_eq!(run_dust(dust("0.000015006")).await, (0, "Balance 0.000015006 BTC below minimum 0.003 BTC".into()));
+    // 50%: the minimum doubles.
+    let mut c = dust("0.000015006");
+    c.settings["withdrawal_percentage"] = json!("50");
+    assert_eq!(run_dust(c).await, (0, "Balance 0.000015006 BTC below minimum 0.006 BTC".into()));
+    // min_amount: the minimum is the rule's own.
+    let mut c = dust("0.000015006");
+    c.settings = json!({"address_name":"cold","withdrawal_percentage":"100","threshold_type":"min_amount","min_amount":"0.01"});
+    assert_eq!(run_dust(c).await, (0, "Balance 0.000015006 BTC below minimum 0.01 BTC".into()));
+
+    // No usable stored fee: the refusal stays.
+    for stored in [None, Some(None), Some(Some("abc")), Some(Some("-1"))] {
+        let mut c = dust("0.000015006");
+        c.stored = stored;
+        assert_eq!(run_dust(c).await, (2, refused.clone()), "{stored:?}");
+    }
+    // A stored fee of 0 proves no minimum: the refusal stays.
+    let mut c = dust("0.000015006");
+    c.stored = Some(Some("0"));
+    assert_eq!(run_dust(c).await, (2, refused.clone()));
+    // Not below by the stored fee (well above; exactly at fee = budget × max): the refusal stays, nothing is sized.
+    for balance in ["10", "0.003"] {
+        assert_eq!(run_dust(dust(balance)).await, (2, refused.clone()), "{balance}");
+    }
+    // max_interval elapsed (a success 100 days ago; none ever): the refusal stays.
+    for last in [Some(100), None] {
+        let mut c = dust("0.000015006");
+        c.settings["max_interval"] = json!("90");
+        c.last_success_days_ago = last;
+        assert_eq!(run_dust(c).await, (2, refused.clone()), "{last:?}");
+    }
+    // Any other answer keeps today's row.
+    for reply in [
+        (200, json!({"error":["EGeneral:Permission denied"]})),
+        (200, json!({"error":[INVALID, "EService:Unavailable"]})),
+        (429, json!({"error":[]})),
+        (500, json!({"error":[INVALID]})),
+    ] {
+        let mut c = dust("0.000015006");
+        c.reply = reply.clone();
+        let (status, message) = run_dust(c).await;
+        assert_eq!(status, 2, "{reply:?}");
+        assert!(message.starts_with("Failed to refresh withdrawal fees: "), "{message}");
+    }
+}
