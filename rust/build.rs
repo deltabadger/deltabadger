@@ -93,6 +93,7 @@ fn content_type(name: &str) -> &'static str {
         "ico" => "image/vnd.microsoft.icon",
         "woff2" => "font/woff2",
         "webmanifest" => "application/manifest+json",
+        "map" => "application/json",
         other => panic!("no content type is listed for .{other} ({name}); add it to build.rs"),
     }
 }
@@ -109,6 +110,7 @@ fn fingerprinted(logical: &str, bytes: &[u8]) -> String {
 /// The files `serve` hands out, embedded in the binary:
 /// - app/assets/builds/application.{js,css} (built by script/rust/build_assets.sh) and everything under
 ///   app/assets/images, at fingerprinted /assets/ paths, as Sprockets publishes them;
+/// - app/assets/builds/application.js.map, fingerprinted too, with the bundle's sourceMappingURL pointed at it;
 /// - `*.erb` among the images (the web manifest), with each `<%= asset_path '...' %>` replaced by that
 ///   file's fingerprinted path, which is all the ERB there does;
 /// - everything under public/ (fonts, service worker, error pages) at its own path, as Rails' static
@@ -139,6 +141,20 @@ fn assets(root: &Path, out: &Path) {
 
     // (url, logical name, file to embed)
     let mut embedded: Vec<(String, String, PathBuf)> = Vec::new();
+    // bun's --sourcemap=linked ends the bundle with `//# sourceMappingURL=/assets/application.js.map`. The map is
+    // embedded at a fingerprinted path like every asset (a year-long cache must never hand out an old map), and the
+    // bundle is pointed at it.
+    let linked = "//# sourceMappingURL=/assets/application.js.map";
+    let script = fs::read_to_string(builds.join("application.js")).expect("application.js is UTF-8");
+    if script.contains(linked) {
+        let map = builds.join("application.js.map");
+        let bytes = fs::read(&map).unwrap_or_else(|e| panic!("{}: {e}; application.js links it: run script/rust/build_assets.sh", map.display()));
+        let url = fingerprinted("application.js.map", &bytes);
+        let rendered = out.join("application.js");
+        fs::write(&rendered, script.replace(linked, &format!("//# sourceMappingURL={url}"))).unwrap();
+        embedded.push((url, "application.js.map".into(), map));
+        sources[0].1 = rendered;
+    }
     for (logical, path) in sources.iter().filter(|(name, _)| !name.ends_with(".erb")) {
         let bytes = fs::read(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         embedded.push((fingerprinted(logical, &bytes), logical.clone(), path.clone()));
