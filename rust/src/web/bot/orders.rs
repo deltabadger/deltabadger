@@ -255,7 +255,9 @@ impl<'a> Rows<'a> {
     fn order(&self, order: &Order) -> String {
         let executed = order.submitted() && order.closed();
         let amount = if executed { order.amount_exec.clone().or_else(|| order.amount.clone()) } else { order.amount.clone() };
-        let mut quote_amount = if executed { order.quote_amount_exec.clone().or_else(|| order.quote_amount.clone()) } else { order.quote_amount.clone() };
+        // D-WAITING-RESERVE-ZERO-QUOTE: a waiting limit order's quote of 0 (KuCoin's `funds "0"`) shows as amount × price.
+        let requested = order.quote_amount.clone().filter(BigDec::is_positive);
+        let mut quote_amount = if executed { order.quote_amount_exec.clone().or(requested) } else { requested };
         if quote_amount.is_none() {
             if let (Some(price), Some(amount)) = (&order.price, &amount) { quote_amount = Some(price * amount); }
         }

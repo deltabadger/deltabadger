@@ -312,6 +312,29 @@ fn unknown_type_wrapped(rails_out: &serde_json::Value, rust_out: &serde_json::Va
     Ok(())
 }
 
+/// D-WAITING-RESERVE-ZERO-QUOTE: KuCoin answers `funds "0"` for an order sized by `size`, and the poll writes that 0 over the
+/// waiting row's quote. Rails then reserves 0 for it (exchanges/kucoin.rb:685, bot/accountable.rb:111 `quote_amount ||
+/// (amount * price)`, 0 being truthy) and the next order buys the waiting amount again; Rust reserves amount × price. So
+/// Rust's next order is Rails' less that reserve, and nothing else differs.
+fn waiting_reserved(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    let rows = |out: &serde_json::Value| out["changes"]["transactions"].as_array().cloned().unwrap_or_default();
+    let zeroed: Vec<serde_json::Value> = rows(rails_out).into_iter()
+        .filter(|t| !t["before"].is_null() && matches!(t["after"]["external_status"].as_i64(), Some(0 | 1)) && num(&t["after"]["quote_amount"]) == Some(0.0)).collect();
+    if zeroed.is_empty() { return Err(format!("Rails' poll no longer leaves a waiting row at a quote of 0: drop the listed divergence\n  rails: {rails_out}")); }
+    let reserve: f64 = zeroed.iter().map(|t| num(&t["after"]["amount"]).unwrap_or(0.0) * num(&t["after"]["price"]).unwrap_or(0.0)).sum();
+    let placed = |out: &serde_json::Value| rows(out).into_iter().find(|t| t["before"].is_null()).ok_or_else(|| format!("no new order row: {out}"));
+    let (theirs, ours) = (placed(rails_out)?, placed(rust_out)?);
+    let (r, u) = (num(&theirs["after"]["quote_amount"]).ok_or("no Rails quote")?, num(&ours["after"]["quote_amount"]).ok_or("no Rust quote")?);
+    if ((r - u) - reserve).abs() > 0.01 { return Err(format!("Rust's next order {u} is not Rails' {r} less the waiting reserve {reserve}")); }
+    let mut patched = rust_out.clone();
+    patched["sent"] = rails_out["sent"].clone();
+    for t in patched["changes"]["transactions"].as_array_mut().unwrap().iter_mut().filter(|t| t["before"].is_null()) {
+        for k in ["amount", "quote_amount"] { t["after"][k] = theirs["after"][k].clone(); }
+    }
+    if patched != *rails_out { return Err(format!("differs past the next order's size\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+    Ok(())
+}
+
 /// D-KUCOIN-ZERO-FILL-FUNDS: a market buy KuCoin ended with nothing dealt (`isActive` and `cancelExist` false, nothing
 /// dealt) long before the run is KuCoin's out-of-funds answer. Rails reads it `:unknown`, so its sweep and its follow-up raise
 /// "status is unknown" at every run; Rust fails the row with KuCoin's insufficient-funds error ("Balance insufficient!") as a
@@ -338,6 +361,7 @@ async fn rails_and_rust_decide_identically_across_the_kucoin_grid() {
         Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_rails(r, u) },
         Validator { names: &ending(&["sweep_unknown_type"]), check: &|_, _, r, u| unknown_type_wrapped(r, u) },
         Validator { names: &ending(&["sweep_done_no_deal", "poll_done_no_deal"]), check: &zero_fill_settled },
+        Validator { names: &ending(&["sweep_active", "sweep_active_partial"]), check: &|_, _, r, u| waiting_reserved(r, u) },
     ]).await;
     // Pin what Rails does where a silent pair of sides would otherwise pass.
     for (name, rails_out) in &outputs {
@@ -1790,6 +1814,8 @@ async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
             Some(guard_trimmed(name, &rails_out, rust_out))
         } else if name.starts_with("limit-under_minimum-") || name == "limit-state-under_floor" || name == "limit-hyperliquid-guard-trim" {
             Some(remainder_stop(&rails_out, rust_out))
+        } else if name == "limit-kucoin-tally-open_limit" {
+            Some(waiting_reserved(&rails_out, rust_out))
         } else if name.starts_with("limit-gemini-") {
             Some(crossed_buy(name, dir, &rails_out, rust_out)) // D-679: a Gemini market buy is sized at the crossed ask
         } else if name == "limit-ambiguous_overspend" {

@@ -147,7 +147,8 @@ pub(super) fn orders(c: &Connection, bot_id: i64) -> Result<Vec<Order>, FiguresE
         let (price, amount) = (decimal(r, 3)?, decimal(r, 4)?);
         // Redeployable#executed_quote_total: what an abandoned row asked for, COALESCE(quote_amount, price * amount, 0).
         let abandoned_request = if status == Some(TxExternalStatus::Abandoned as i64) {
-            Some(match (decimal(r, 13)?, &price, &amount) {
+            // D-WAITING-RESERVE-ZERO-QUOTE: a quote of 0 is a venue's limit-order answer, not what the row asked for.
+            Some(match (decimal(r, 13)?.filter(super::dec::Dec::is_positive), &price, &amount) {
                 (Some(quote), _, _) => quote,
                 (None, Some(p), Some(a)) => (p * a)?,
                 _ => super::dec::Dec::zero(),
@@ -198,7 +199,11 @@ fn commitments_bounded(c: &Connection, bot_id: i64, since: &str, limit: Option<u
         let fill = parse_raw(&raw,status==2)?;
         require_closed_quantity(&raw, status==2)?;
         let value = if status==0 || status==1 {
-            match (super::db::decimal(r,1)?,&raw.amount,&raw.price) {
+            // D-WAITING-RESERVE-ZERO-QUOTE: a waiting row reserves its quote only when it is > 0. A venue that sizes a limit
+            // order by `size` answers a quote of 0 (KuCoin's `funds "0"`), and polling writes it over the placement's quote;
+            // Rails reserves that 0 (exchanges/kucoin.rb:685 `order_data['funds']&.to_d`, bot/accountable.rb:111
+            // `quote_amount || (amount * price)`, 0 being truthy), so the next tick buys the same amount again.
+            match (super::db::decimal(r,1)?.filter(Dec::is_positive),&raw.amount,&raw.price) {
                 (Some(q),_,_)=>q,
                 (None,Some(a),Some(p))=>(a*p)?,
                 _=>return Err(FiguresError::Data("waiting order with neither quote_amount nor amount×price".into())),

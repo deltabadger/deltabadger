@@ -200,7 +200,8 @@ fn final_buy_remainder(row: &crate::figures::fill::StoredOrder) -> Option<BigDec
     let price = row.price.clone().unwrap_or_else(BigDec::zero);
     let filled = row.quote_amount_exec.clone().unwrap_or_else(BigDec::zero).max(&exec * &price);
     // `quote_amount || (amount * price)`: Ruby raises on a nil there; such a row is never settled.
-    let requested = match (&row.quote_amount, &row.amount, &row.price) { (Some(q), _, _) => q.clone(), (None, Some(a), Some(p)) => a * p, _ => return None };
+    // D-WAITING-RESERVE-ZERO-QUOTE: a quote of 0 (a venue's limit-order answer) asks for amount × price.
+    let requested = match (row.quote_amount.as_ref().filter(|q| q.is_positive()), &row.amount, &row.price) { (Some(q), _, _) => q.clone(), (None, Some(a), Some(p)) => a * p, _ => return None };
     Some((&requested - &filled).max(BigDec::zero()))
 }
 
