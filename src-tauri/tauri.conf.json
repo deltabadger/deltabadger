@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Deltabadger",
   "mainBinaryName": "Deltabadger",
-  "version": "3.0.0-beta.5",
+  "version": "3.0.0-beta.6",
   "identifier": "com.deltabadger.app",
   "build": {
     "frontendDist": "ui",
