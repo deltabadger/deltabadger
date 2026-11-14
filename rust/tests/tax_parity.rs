@@ -5,7 +5,7 @@
 use deltabadger::figures::FiguresError;
 use deltabadger::tax::{crypto_report, Outcome};
 use rusqlite::{types::Value as Sql, Connection};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::path::PathBuf;
 
 fn vectors() -> Value {
@@ -317,4 +317,92 @@ async fn coingecko_reports_are_rails_own_or_the_429_stop() {
         assert!(rust.contains("2 values missing") && rails_csv.contains("1 values missing"), "{rust}");
         assert!(rails_csv.contains(",ETH,1.0,2600.0,2599.0,1.0,USD,") && rust.contains(",ETH,1.0,2600.0,0.0,2600.0,USD,"), "{rust}");
     }
+}
+
+/// D-TAX-CFEE-PREVIOUS-DAY: Rails folded a CFEE into the fills of its own day. Moved one day later, the same fee is
+/// read as charged on those same fills, and the report is the file Rails (or the reviewed divergence) wrote for them.
+#[test]
+fn a_cfee_dated_the_day_after_folds_as_rails_folded_it_on_the_day() {
+    let v = vectors();
+    // The scenarios whose fee folded on its day (or, GB, whose file prints no fee date); the others print the fee's date.
+    let names = ["cfee_into_buys", "cfee_into_a_sale", "it_pre2023_cfee", "gb_cfee_lookahead_end"];
+    let mut failures = vec![];
+    let mut seen = 0;
+    for s in v["scenarios"].as_array().unwrap() {
+        let name = s["name"].as_str().unwrap();
+        let has_cfee = s["tables"]["account_transactions"].as_array().is_some_and(|r| r.iter().any(|t| t["raw_data"].as_str().is_some_and(|d| d.contains("CFEE"))));
+        if !has_cfee || !names.contains(&name) { continue; }
+        seen += 1;
+        let mut tables = s["tables"].clone();
+        for t in tables["account_transactions"].as_array_mut().unwrap() {
+            if !t["raw_data"].as_str().is_some_and(|d| d.contains("CFEE")) { continue; }
+            let at = chrono::NaiveDateTime::parse_from_str(t["transacted_at"].as_str().unwrap(), "%Y-%m-%d %H:%M:%S").unwrap() + chrono::Duration::days(1);
+            t["transacted_at"] = Value::String(at.format("%Y-%m-%d %H:%M:%S").to_string());
+        }
+        let c = install(&tables);
+        nbp(&c, s);
+        let today = chrono::NaiveDate::parse_from_str(&s["now"].as_str().unwrap()[..10], "%Y-%m-%d").unwrap();
+        let got = crypto_report(&c, s["user_id"].as_i64().unwrap(), s["country"].as_str().unwrap(), s["year"].as_i64().unwrap() as i32,
+                                s["stablecoin_as_fiat"].as_bool().unwrap(), today).unwrap();
+        // What was written for the fee on its own day: Rails' file, or the file reviewed before D-TAX-CFEE-PREVIOUS-DAY.
+        let want = match name { "cfee_into_buys" | "cfee_into_a_sale" => rails(s), _ => Outcome::Csv(std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tax_cfee_day_of").join(format!("{name}.csv"))).unwrap()) };
+        if got != want { failures.push(format!("{name}\n--- want\n{want:?}\n--- got\n{got:?}")); }
+    }
+    assert_eq!(seen, names.len());
+    assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+}
+
+fn scenario(name: &str) -> Value { vectors()["scenarios"].as_array().unwrap().iter().find(|s| s["name"] == name).unwrap().clone() }
+fn report(s: &Value, tables: &Value, country: &str) -> String {
+    let c = install(tables);
+    nbp(&c, s);
+    let today = chrono::NaiveDate::parse_from_str(&s["now"].as_str().unwrap()[..10], "%Y-%m-%d").unwrap();
+    match crypto_report(&c, s["user_id"].as_i64().unwrap(), country, s["year"].as_i64().unwrap() as i32, s["stablecoin_as_fiat"].as_bool().unwrap(), today).unwrap() {
+        Outcome::Csv(csv) => csv,
+        other => panic!("{other:?}"),
+    }
+}
+fn set(tables: &mut Value, id: i64, field: &str, value: Value) {
+    let t = tables["account_transactions"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == id).unwrap();
+    t[field] = value;
+}
+
+/// D-TAX-CFEE-PREVIOUS-DAY: the fold runs on the whole history before the year is cut. A New York taxpayer's sale at
+/// 02:00 UTC on 1 January is in their 2024 year, and the fee Alpaca dates 2 January (past the year's rows) still goes
+/// to it: 0.15 ETH leave for the sale's 50 dollars.
+#[test]
+fn a_cfee_dated_past_the_year_end_still_folds_into_the_years_last_fills() {
+    let s = scenario("us_cfee_new_york_year_end");
+    let mut tables = s["tables"].clone();
+    set(&mut tables, 1, "entry_type", json!(1));
+    set(&mut tables, 2, "transacted_at", json!("2025-01-03 12:00:00"));
+    set(&mut tables, 4, "transacted_at", json!("2025-01-02 00:00:00"));
+    let csv = report(&s, &tables, "US");
+    assert!(csv.contains(",ETH,0.15,50.0,270.0,"), "{csv}");
+    assert!(!csv.contains("Fees paid in an asset"), "{csv}");
+}
+
+/// Expense mode (GB): each fill's share of the fee is the fee valued as its own row is: a stated price wins. At twice
+/// the fills' price, the 30-day match's share doubles from 98 to 196 pounds.
+#[test]
+fn a_cfee_expense_is_the_fee_valued_as_its_own_row() {
+    let s = scenario("gb_cfee_lookahead_end");
+    let mut tables = s["tables"].clone();
+    set(&mut tables, 5, "transacted_at", json!("2025-05-06 00:00:00"));
+    assert!(report(&s, &tables, "GB").contains(",BTC,0.49,15000.0,9898.0,"));
+    set(&mut tables, 5, "manual_values", json!("{\"price\":\"51764.72\"}"));
+    let csv = report(&s, &tables, "GB");
+    assert!(csv.contains(",BTC,0.49,15000.0,9996.0,"), "{csv}");
+}
+
+/// Poland and the wealth reports never folded a CFEE, and still do not: the Dutch file is the one for a plain fee row.
+#[test]
+fn poland_and_the_wealth_reports_keep_a_cfee_a_row_of_its_own() {
+    let s = scenario("cfee_into_buys");
+    let mut tables = s["tables"].clone();
+    set(&mut tables, 3, "transacted_at", json!("2026-01-06 00:00:00"));
+    let mut plain = tables.clone();
+    set(&mut plain, 3, "raw_data", json!("{}"));
+    assert_eq!(report(&s, &tables, "NL"), report(&s, &plain, "NL"));
+    assert!(report(&s, &tables, "PL").contains("0.0025"));
 }

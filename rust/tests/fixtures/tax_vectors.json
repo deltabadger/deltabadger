@@ -7121,7 +7121,7 @@
       "stablecoin_as_fiat": false,
       "now": "2026-10-01T03:00:00Z",
       "user_id": 1,
-      "expect": "parity",
+      "expect": "diverges: D-TAX-CFEE-PREVIOUS-DAY",
       "tables": {
         "users": [
           {
@@ -7582,7 +7582,7 @@
       "stablecoin_as_fiat": false,
       "now": "2026-10-01T03:00:00Z",
       "user_id": 1,
-      "expect": "parity",
+      "expect": "diverges: D-TAX-CFEE-PREVIOUS-DAY",
       "tables": {
         "users": [
           {

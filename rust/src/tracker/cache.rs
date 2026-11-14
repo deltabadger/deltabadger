@@ -11,8 +11,8 @@ pub const UNAVAILABLE: &str = "Tracker ledger unavailable: calculation failed";
 const TTL_DAYS: i64 = 30;
 /// The calculation a stored summary was made by: a summary of another one is cold (4: a broker name that is both a
 /// security and a coin is priced by the asset its rows recorded; 5: coin-quoted rows are two legs, transfers wait for their
-/// funds, a swap-in's fee joins its lots once).
-const SCHEMA: u64 = 5;
+/// funds, a swap-in's fee joins its lots once; 6: an Alpaca CFEE is valued at its fills' price, D-TAX-CFEE-PREVIOUS-DAY).
+const SCHEMA: u64 = 6;
 const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
 const MAX_COMPUTED_DECIMAL: usize = 1024 * 1024;
 /// Publication refusals: the walk computed, but its entry is too large to store. The previous entry is kept.
@@ -301,7 +301,7 @@ mod tests {
         let c=db();let v=version(&c,1).unwrap();publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
         assert!(matches!(read(&c,1,None,now()).unwrap(),State::Warm(_)));
         let mut raw:serde_json::Value=serde_json::from_str(&app_config::get_plain(&c,&key(1)).unwrap().unwrap()).unwrap();
-        raw["schema"]=serde_json::json!(4);app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
+        raw["schema"]=serde_json::json!(SCHEMA-1);app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
         c.pragma_update(None,"query_only",true).unwrap();let before=c.total_changes();
         assert_eq!(version(&c,1).unwrap(),v,"neither the rows nor the prices moved");
         assert!(matches!(read(&c,1,None,now()).unwrap(),State::Cold));
@@ -314,7 +314,7 @@ mod tests {
         // Each adjustment on its own day: same-day splits are netted into one restatement (D-ALPACA-SPLIT-GROUPING),
         // and the 287-character decimal needs three successive restatements.
         let row=|id,kind,amount:&str,value:&str,days:i64|Stored{id,exchange_id:7,venue:"alpaca".into(),kind,base:"AAPL".into(),amount:Dec::strict(amount).unwrap(),quote:Some("USD".into()),quote_amount:Some(Dec::strict(value).unwrap()),
-            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()-chrono::Duration::days(days)).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None};
+            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()-chrono::Duration::days(days)).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None,cfee:Default::default()};
         let mut rows=vec![row(1,Kind::Buy,"9","100",4)];
         for i in 0..3 {rows.push(row(2+i,Kind::Adjustment,"2","0",3-i));}
         let (r,fx)=(Reference::default(),FxTable::default());let mut none=NoFetch;

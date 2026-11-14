@@ -67,6 +67,89 @@ pub struct Stored {
     pub to_exchange_id: Option<i64>,
     /// `base_asset`: the asset the row recorded, as (id, external id, category).
     pub base_asset: Option<super::prices::Asset>,
+    /// D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE, and what the fold made of a fill it was charged on.
+    pub cfee: Cfee,
+}
+
+/// D-TAX-CFEE-PREVIOUS-DAY: Alpaca books its crypto fee as a `CFEE` activity of its own, a coin amount dated 00:00 UTC
+/// of the day AFTER the trades it was charged on (posted at the end of their day: Alpaca's activities API names the UTC
+/// day after the trade). Its fills are its coin's buys on its venue that UTC day before, or its sales where it bought
+/// none; it is worth what those fills were traded at.
+#[derive(Clone, Debug, Default)]
+pub struct Cfee {
+    /// The row is an Alpaca `CFEE` activity.
+    pub fee: bool,
+    /// On a CFEE: the price it was charged at (`fill_price`), and that price's currency (a stablecoin's is USD).
+    pub fill_price: Option<(Dec, String)>,
+    /// On a fill (the tax report's fold): its amount once its fees' shares are folded in. The row is valued on `amount`.
+    pub folded: Option<Dec>,
+    /// On a fill (SE, GB): the fees it carries as its expense, each valued as the fee's own row is.
+    pub expenses: Vec<Expense>,
+}
+
+/// A CFEE carried as a fill's expense: the fee's attribution (shared by its fills) and this fill's place in it.
+#[derive(Clone, Debug)]
+pub struct Expense { pub of: std::sync::Arc<Attribution>, pub index: usize }
+
+/// A CFEE's row, its fills' amounts (the weights) and their sum.
+#[derive(Debug)]
+pub struct Attribution { pub fee: Stored, pub weights: Vec<Dec>, pub total: Dec }
+
+fn charged_on(fee: &Stored, r: &Stored) -> bool {
+    matches!(r.kind, Kind::Buy | Kind::Sell) && r.venue == fee.venue && r.base == fee.base && r.amount.is_positive() && !r.borrowed()
+        && fee.date().pred_opt() == Some(r.date())
+}
+
+/// A CFEE's fills among `rows` (stored rows, before any leg split): the buys if any, else the sales.
+pub fn cfee_fills<'a>(fee: &Stored, rows: impl IntoIterator<Item = &'a Stored>) -> Vec<&'a Stored> {
+    let fills: Vec<&Stored> = rows.into_iter().filter(|r| charged_on(fee, r)).collect();
+    if fills.iter().any(|r| r.kind == Kind::Buy) { fills.into_iter().filter(|r| r.kind == Kind::Buy).collect() } else { fills }
+}
+
+/// The price `fills` were traded at, Σquote / Σbase, when every one is quoted in cash of one currency (a stablecoin reads
+/// as USD); None otherwise (a coin-quoted fill's price is a market estimate, so the fee keeps the daily close).
+pub fn fill_price(fills: &[&Stored]) -> Result<Option<(Dec, String)>, FiguresError> {
+    let (mut currency, mut quote, mut base) = (None::<&str>, Dec::zero(), Dec::zero());
+    for r in fills {
+        let (Some(c), Some(paid)) = (r.quote.as_deref().filter(|_| r.quoted()), r.quote_amount.as_ref()) else { return Ok(None) };
+        let c = if stable(c) { "USD" } else { c };
+        if currency.is_some_and(|known| known != c) { return Ok(None); }
+        currency = Some(c);
+        (quote, base) = ((&quote + paid)?, (&base + &r.amount)?);
+    }
+    match currency { Some(c) if base.is_positive() => Ok(Some((quote.div(&base)?, c.to_string()))), _ => Ok(None) }
+}
+
+/// Each CFEE of `rows` (time-ordered) with the places of its fills (`cfee_fills`), through one index of the trades.
+pub fn cfee_places(rows: &[Stored]) -> Vec<(usize, Vec<usize>)> {
+    let mut trades: std::collections::HashMap<(&str, &str, NaiveDate), Vec<usize>> = std::collections::HashMap::new();
+    for (i, r) in rows.iter().enumerate() { if matches!(r.kind, Kind::Buy | Kind::Sell) { trades.entry((&r.venue, &r.base, r.date())).or_default().push(i); } }
+    let place: std::collections::HashMap<i64, usize> = trades.values().flatten().map(|&i| (rows[i].id, i)).collect();
+    rows.iter().enumerate().filter(|(_, r)| r.cfee.fee && r.kind == Kind::Fee).filter_map(|(i, fee)| {
+        let pool = trades.get(&(fee.venue.as_str(), fee.base.as_str(), fee.date().pred_opt()?))?;
+        Some((i, cfee_fills(fee, pool.iter().map(|&j| &rows[j])).into_iter().map(|r| place[&r.id]).collect()))
+    }).collect()
+}
+
+/// Each CFEE of `rows` its `fill_price`.
+pub fn price_cfees(rows: &mut [Stored]) -> Result<(), FiguresError> {
+    for (i, fills) in cfee_places(rows) {
+        let price = fill_price(&fills.iter().map(|&j| &rows[j]).collect::<Vec<_>>())?;
+        rows[i].cfee.fill_price = price;
+    }
+    Ok(())
+}
+
+/// The fill price of the user's CFEE row `id` (the tracker row's display): `price_cfees` over that fee and the rows of
+/// its coin around its day. None for any other row.
+pub fn cfee_price(c: &Connection, user_id: i64, id: i64) -> Result<Option<(Dec, String)>, FiguresError> {
+    let Some(fee) = read(c, "t.user_id = ?1 AND t.id = ?2", rusqlite::params![user_id, id])?.pop().filter(|r| r.cfee.fee && r.kind == Kind::Fee) else { return Ok(None) };
+    let Some(day) = fee.date().pred_opt() else { return Ok(None) };
+    // A day's margin either side: the stored instant's text is compared, `charged_on` decides.
+    let (from, to) = (day.pred_opt().unwrap_or(day), fee.date().succ_opt().unwrap_or(fee.date()));
+    let rows = read(c, "t.user_id = ?1 AND t.base_currency = ?2 AND t.entry_type IN (0, 1) AND t.transacted_at >= ?3 AND t.transacted_at < ?4",
+                    rusqlite::params![user_id, fee.base, from.to_string(), to.to_string()])?;
+    fill_price(&cfee_fills(&fee, &rows))
 }
 
 impl Stored {
@@ -120,14 +203,23 @@ fn json_column(text: Option<String>) -> Result<Value, FiguresError> {
 /// Every row of the user, borrowed wallets' included, by instant then id (`by_date_asc`). Each row a step of the open
 /// budget scope, and the sort n log n.
 pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresError> {
-    let mut s = c.prepare(
+    let mut rows = read(c, "t.user_id = ?1", rusqlite::params![user_id])?;
+    crate::figures::budget::charge(sort_steps(rows.len()), 0)?;
+    rows.sort_by_key(|r| (r.at.0, r.id));
+    price_cfees(&mut rows)?;
+    Ok(rows)
+}
+
+/// The rows `filter` (over `t`) selects, by id, each a step of the open budget scope.
+fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result<Vec<Stored>, FiguresError> {
+    let mut s = c.prepare(&format!(
         "SELECT t.id, t.exchange_id, e.type, t.entry_type, t.base_currency, t.base_amount, t.quote_currency, t.quote_amount, \
                 t.fee_currency, t.fee_amount, t.tx_id, t.group_id, t.transacted_at, t.raw_data, t.manual_values, t.linked_transaction_id, \
                 le.type, l.exchange_id, ba.id, ba.external_id, ba.category \
          FROM account_transactions t JOIN exchanges e ON e.id = t.exchange_id LEFT JOIN assets ba ON ba.id = t.base_asset_id \
          LEFT JOIN account_transactions l ON l.id = t.linked_transaction_id LEFT JOIN exchanges le ON le.id = l.exchange_id \
-         WHERE t.user_id = ?1 ORDER BY t.id")?;
-    let mut q = s.query([user_id])?;
+         WHERE {filter} ORDER BY t.id"))?;
+    let mut q = s.query(params)?;
     let mut rows = vec![];
     while let Some(r) = q.next()? {
         crate::figures::budget::charge(1, 0)?;
@@ -148,10 +240,9 @@ pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresErro
             stated: json_number(manual.get("price"))?,
             linked_to: r.get(15)?, to_venue: to_type.as_deref().map(name_id), to_exchange_id: r.get(17)?,
             base_asset: r.get::<_, Option<i64>>(18)?.map(|id| -> rusqlite::Result<_> { Ok((id, r.get(19)?, r.get(20)?)) }).transpose()?,
+            cfee: Cfee { fee: raw.get("activity_type").and_then(Value::as_str) == Some("CFEE"), ..Cfee::default() },
         });
     }
-    crate::figures::budget::charge(sort_steps(rows.len()), 0)?;
-    rows.sort_by_key(|r| (r.at.0, r.id));
     Ok(rows)
 }
 
@@ -204,7 +295,7 @@ pub fn split_coin_quoted_trades(rows: Vec<Stored>, stable_cash: bool) -> Result<
             id: -r.id, kind: if buying { Kind::SwapOut } else { Kind::SwapIn }, base: quote, amount: paid, quote: None, quote_amount: None,
             fee_currency: if fee_on_quote { fee_currency.clone() } else { None }, fee_amount: if fee_on_quote { fee_amount.clone() } else { None },
             tx_id: r.tx_id.as_ref().map(|t| format!("{t}-quote")), group: group.clone(), stated: None, linked_to: None, to_venue: None,
-            to_exchange_id: None, base_asset: None, per_share: None, ..r.clone()
+            to_exchange_id: None, base_asset: None, per_share: None, cfee: Cfee::default(), ..r.clone()
         };
         let own = Stored { kind: if buying { Kind::SwapIn } else { Kind::SwapOut }, quote: None, quote_amount: None, group,
                            fee_currency: if fee_on_quote { None } else { fee_currency }, fee_amount: if fee_on_quote { None } else { fee_amount }, ..r };
@@ -255,7 +346,7 @@ mod tests {
     fn stored(id: i64, kind: Kind, group: Option<&str>, at: &str) -> Stored {
         Stored { id, exchange_id: 1, venue: "alpaca".into(), kind, base: "AAPL".into(), amount: Dec::one(), quote: None, quote_amount: None,
                  fee_currency: None, fee_amount: None, tx_id: None, group: group.map(String::from), at: At::from_sql(at).unwrap(), per_share: None,
-                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None }
+                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default() }
     }
 
     /// Tax::PriceService.ordered: by instant; a group where its first-stored leg was, its out-legs first; else by id.

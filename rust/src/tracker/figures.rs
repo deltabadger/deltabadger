@@ -111,7 +111,7 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
             id: r.get(8)?, exchange_id: exchange, venue: String::new(), kind, base: r.get(2)?, amount, quote: r.get(4)?, quote_amount: Dec::from_sql(r.get_ref(5)?)?,
             fee_currency: r.get(9)?, fee_amount: Dec::from_sql(r.get_ref(10)?)?, tx_id, group: r.get::<_, Option<String>>(11)?.filter(|g| !g.trim().is_empty()),
             at,
-            per_share: None, stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None,
+            per_share: None, stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(),
         });
     }
     let ids: HashSet<i64> = rows.iter().map(|r| r.id).collect();

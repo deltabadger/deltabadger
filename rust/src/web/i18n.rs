@@ -11,6 +11,22 @@ pub const DEFAULT: &str = "en";
 /// ActiveModel's "taken" message, and the dotiw gem's unit names (`distance_of_time_in_words`) in the
 /// ten of this app's locales the gem has a file for.
 const FROM_GEMS: &[(&str, &str)] = &[
+    // D-TAX-CFEE-PREVIOUS-DAY: Rust-only copy for an Alpaca fee priced at the trades it was charged on.
+    ("bg.tracker.price_source.fills", "Цената на сделките, за които е начислена тази такса. Въведи цена, за да я замениш."),
+    ("cs.tracker.price_source.fills", "Cena obchodů, za které byl tento poplatek účtován. Zadej cenu, která ji nahradí."),
+    ("da.tracker.price_source.fills", "Prisen på de handler, gebyret blev opkrævet for. Skriv en pris for at erstatte den."),
+    ("de.tracker.price_source.fills", "Der Kurs der Trades, für die diese Gebühr berechnet wurde. Gib einen Kurs ein, um ihn zu ersetzen."),
+    ("el.tracker.price_source.fills", "Η τιμή των συναλλαγών για τις οποίες χρεώθηκε αυτή η χρέωση. Γράψε μια τιμή για να την αντικαταστήσεις."),
+    ("en.tracker.price_source.fills", "The price of the trades this fee was charged on. Type a price to replace it."),
+    ("es.tracker.price_source.fills", "El precio de las operaciones por las que se cobró esta comisión. Escribe un precio para sustituirlo."),
+    ("fr.tracker.price_source.fills", "Le cours des transactions sur lesquelles ces frais ont été prélevés. Saisis un cours pour le remplacer."),
+    ("it.tracker.price_source.fills", "Il prezzo delle operazioni su cui è stata addebitata questa commissione. Inserisci un prezzo per sostituirlo."),
+    ("nl.tracker.price_source.fills", "De prijs van de trades waarvoor deze kosten zijn gerekend. Typ een prijs om die te vervangen."),
+    ("pl.tracker.price_source.fills", "Cena transakcji, za które pobrano tę opłatę. Wpisz cenę, aby ją zastąpić."),
+    ("pt.tracker.price_source.fills", "O preço das operações em que esta comissão foi cobrada. Escreve um preço para o substituir."),
+    ("ru.tracker.price_source.fills", "Цена сделок, за которые взята эта комиссия. Введите цену, чтобы заменить её."),
+    ("sk.tracker.price_source.fills", "Cena obchodov, za ktoré bol tento poplatok účtovaný. Zadaj cenu, ktorou ju nahradíš."),
+    ("sv.tracker.price_source.fills", "Priset på de affärer som avgiften togs ut för. Skriv ett pris för att ersätta det."),
     // D-PRICE-WAITING: Rust-only copy for a tracker row whose own daily price can still come.
     ("bg.tracker.price_source.waiting", "Изчакваме цената в края на деня."),
     ("bg.tracker.price_waiting", "Изчакване…"),
