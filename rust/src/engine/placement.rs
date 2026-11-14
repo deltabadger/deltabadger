@@ -780,12 +780,8 @@ fn settle(tx: &Connection, bot_id: i64, intent: &Intent, settlement: Settlement,
         TxKind::Liquidation | TxKind::Redeploy => {
             let name = super::composition::name(intent.plan.kind).expect("composition kind");
             match settlement {
-                Settlement::Accepted(_) => {
-                    model::merge_transient_compact(tx, bot_id, &[(&format!("{name}_pending"), Value::Null)])?;
-                    // D-LIQUIDATION-ONE-LINE: a sale's status is the page's "Selling …" row, resolved into the order's own row.
-                    if intent.plan.kind == TxKind::Redeploy { model::log_activity(tx, bot_id, &format!("{name}_placed"), Level::Info, intent.plan.log_details(), now)?; }
-                }
-                Settlement::NotPlaced(Reason::Rejected { safe: true, .. } | Reason::PreTransmission) => {
+                // D-LIQUIDATION-ONE-LINE: no `_placed` line; the page's status row resolves into the order's own row.
+                Settlement::Accepted(_) | Settlement::NotPlaced(Reason::Rejected { safe: true, .. } | Reason::PreTransmission) => {
                     model::merge_transient_compact(tx, bot_id, &[(&format!("{name}_pending"), Value::Null)])?;
                 }
                 Settlement::Halt(message) => { super::composition::halt(tx, bot_id, intent.plan.kind, &message, intent.plan.log_details(), now)?; }

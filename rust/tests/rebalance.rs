@@ -91,7 +91,7 @@ async fn a_stopped_bot_sells_the_overweight_member_then_buys_the_underweight_one
     assert_eq!(posted(&t), vec![("BTC/USD".into(), "sell".into(), "0.004218750".into())]);
     let sell: i64 = one(&o, "SELECT id FROM transactions WHERE external_id = 'OTX-1'");
     assert_eq!(pending(&o, id), json!({ "phase": "selling", "sell_transaction_id": sell, "buy_transaction_id": null, "remaining_quote_amount": null, "buy_attempted": false }));
-    assert_eq!(events(&o), vec!["rebalance_sell_placed"]);
+    assert!(events(&o).is_empty(), "D-LIQUIDATION-ONE-LINE: no `rebalance_sell_placed`");
     // The next fire: the sell filled, its 270 USD go to ETH, the most underweight.
     assert!(matches!(evaluate(&o, &t, id, at(T0) + Duration::hours(4)).await, Outcome::Placed(_)));
     assert_eq!(posted(&t)[1], ("ETH/USD".into(), "buy".into(), "270.00".into()));
@@ -246,7 +246,7 @@ async fn an_owed_buy_under_the_floor_is_dust_said_once() {
     evaluate(&o, &t, id, at(T0)).await;
     assert_eq!(evaluate(&o, &t, id, at(T0) + Duration::hours(4)).await, Outcome::Skipped("below_minimum"));
     assert_eq!(pending(&o, id), Value::Null);
-    assert_eq!(events(&o), vec!["rebalance_sell_placed", "rebalance_dust"]);
+    assert_eq!(events(&o), vec!["rebalance_dust"]);
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -948,14 +948,14 @@ async fn a_loss_rebalance_sell_claims_in_its_keys_and_an_acceptance_logs_and_cle
     assert_eq!(claim_keys(&o, id), (Value::Null, json!(token.clone().unwrap()), json!(s.btc)), "§7: while held, the key's token is the row's");
     assert!(intent.wash_claim.is_none() && model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap().get("wash_claim").is_none(), "Rails' keys, not the intent");
     assert!(matches!(send(&o, &script(json!({})), id, &intent).await, placement::Sent::Accepted(_)));
-    assert_eq!(events(&o), vec!["rebalance_sell_placed", "wash_sale_locked"], "logged after the placement, as Rails");
+    assert_eq!(events(&o), vec!["wash_sale_locked"], "logged after the placement, as Rails");
     assert_eq!(claim_keys(&o, id), (Value::Null, Value::Null, Value::Null), "cleared on acceptance");
     assert_eq!(lock_row(&o, s.btc).unwrap().2, token, "the lock itself stands");
     // The rule off, through the whole pass: no verdict, no keys, no row.
     let (_d, o, id, s) = loss_swap();
     o.primary.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();
     assert!(matches!(evaluate(&o, &script(json!({})), id, at(T0)).await, Outcome::Placed(_)));
-    assert_eq!((events(&o), lock_row(&o, s.btc), claim_keys(&o, id)), (vec!["rebalance_sell_placed".to_string()], None, (Value::Null, Value::Null, Value::Null)));
+    assert_eq!((events(&o), lock_row(&o, s.btc), claim_keys(&o, id)), (Vec::<String>::new(), None, (Value::Null, Value::Null, Value::Null)));
 }
 
 /// §6 restart vectors: an unknown outcome keeps the claim and its keys; recovery, which reads the keys back from the row (as
@@ -973,7 +973,7 @@ async fn an_unknown_rebalance_sell_keeps_its_claim_until_recovery_settles_it() {
     landed(&o, id, &t, &order("OTX-9", "filled", "BTC/USD", "sell", Some("0.00421875"), None, "0.00421875", Some("64000")));
     let bot = model::load_bot(&o.primary, id).unwrap();
     assert!(matches!(placement::recover(&o.primary, &venue(&t), &bot, &FixedClock(at(T0) + Duration::minutes(1))).await.unwrap(), placement::Recovery::Recorded(_)));
-    assert_eq!(events(&o), vec!["rebalance_sell_placed", "wash_sale_locked"]);
+    assert_eq!(events(&o), vec!["wash_sale_locked"]);
     assert_eq!(claim_keys(&o, id), (Value::Null, Value::Null, Value::Null));
 
     for operator in [false, true] {

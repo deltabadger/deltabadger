@@ -85,7 +85,8 @@ async fn yes_buys_the_underweight_member_with_the_offer() {
     assert_eq!(posted.len(), 1);
     assert_eq!((posted[0]["symbol"].as_str(), posted[0]["side"].as_str(), posted[0]["type"].as_str(), posted[0]["notional"].as_str()), (Some("ETH/USD"), Some("buy"), Some("market"), Some("100.00")));
     assert_eq!(one::<String>(&e.primary, "SELECT transaction_type FROM transactions WHERE external_id='OTX-1'"), "REDEPLOY");
-    assert!(logs(&e.primary).iter().any(|(event, _)| event == "redeploy_placed"));
+    // D-LIQUIDATION-ONE-LINE: the order row is the line; no `redeploy_placed`.
+    assert!(!logs(&e.primary).iter().any(|(event, _)| event == "redeploy_placed"));
     assert!(model::load_bot(&e.primary, id).unwrap().transient[redeploy::PENDING_KEY].is_null());
 }
 
@@ -410,10 +411,12 @@ fn redeploy_grid_difference(name: &str, _: &std::path::Path, rails: &Value, rust
             assert_eq!(row["after"]["quote_amount"], ours["quote_amount"], "{name}: the share is the same");
             for key in ["amount", "price", "order_type"] { row["after"][key] = ours[key].clone(); }
         }
-        let log = &mut expected["changes"]["bot_activity_logs"][0]["after"]["details"];
-        let ours = &rust["changes"]["bot_activity_logs"][0]["after"]["details"];
-        assert_eq!(log["quote_amount"], ours["quote_amount"], "{name}: the share is the same");
-        for key in ["amount", "price"] { log[key] = ours[key].clone(); }
+        // A line carrying the order's sizing (an accepted buy's `redeploy_placed` is gone, D-LIQUIDATION-ONE-LINE).
+        if let Some(log) = expected["changes"]["bot_activity_logs"].get_mut(0).map(|l| &mut l["after"]["details"]).filter(|l| !l["quote_amount"].is_null()) {
+            let ours = &rust["changes"]["bot_activity_logs"][0]["after"]["details"];
+            assert_eq!(log["quote_amount"], ours["quote_amount"], "{name}: the share is the same");
+            for key in ["amount", "price"] { log[key] = ours[key].clone(); }
+        }
     }
     // Alpaca proves a refused connection sent nothing, on both sides alike.
     if timeout || (pre_send && !alpaca) {

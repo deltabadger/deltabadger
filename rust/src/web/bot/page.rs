@@ -98,9 +98,9 @@ pub(super) struct Filters { pub default_filter: &'static str, pub order_filter: 
 pub(super) fn filters(c: &Connection, ctx: &Ctx, bot: &Bot, hide_money: bool) -> Result<Filters, WebError> {
     let exists = |sql: &str| -> Result<bool, WebError> { Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM {sql})"), [bot.id], |r| r.get(0))?) };
     let mut activities = exists("bot_activity_logs WHERE bot_id = ?1 AND event NOT IN ('order_skipped', 'order_ignored')")?;
-    // D-LIQUIDATION-ONE-LINE: a "Selling …" row is a line of "Other" too.
+    // D-LIQUIDATION-ONE-LINE: a status row ("Selling …", "Redeploying …", "Rebalancing …") is a line of "Other" too.
     if hide_money && !activities && bot.kind != Kind::Signal {
-        activities = !crate::engine::composition::selling(c, &crate::engine::model::load_bot(c, bot.id)?, ctx.now)?.assets.is_empty();
+        activities = crate::engine::composition::selling(c, &crate::engine::model::load_bot(c, bot.id)?, ctx.now)?.has_rows();
     }
     let mut tabs: Vec<(&'static str, &'static str, bool)> = vec![];
     if !hide_money { tabs.push(("all", "order_filters.all", true)); }

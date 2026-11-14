@@ -320,23 +320,41 @@ fn selling_is_read_from_the_request_the_waiting_orders_and_every_blocker() {
     assert_eq!(selling(&c,id),Selling::default());
     // The request's holdings by asset id: a ledger key like ABC#123 and two keys of one symbol stay distinct assets.
     model::merge_transient_compact(&c,id,&[("liquidation_selling_since",json!({"id":"x","at":0,"holdings":[["BTC",s.btc],["ABC#123",901],["BTC",s.btc],["ABC",902]]}))]).unwrap();
-    assert_eq!(selling(&c,id),Selling {assets:vec![s.btc,901,902],blocked:true});
+    assert_eq!(selling(&c,id),Selling {assets:vec![s.btc,901,902],blocked:true,..Selling::default()});
     // The request cleared, its order still waiting on the venue.
     model::merge_transient_compact(&c,id,&[("liquidation_selling_since",Value::Null)]).unwrap();
     let tx=liquidation_row(&c,&s,id,s.btc,1);
-    assert_eq!(selling(&c,id),Selling {assets:vec![s.btc],blocked:true});
+    assert_eq!(selling(&c,id),Selling {assets:vec![s.btc],blocked:true,..Selling::default()});
     // An ambiguous placement and an abandoned unresolved order name nothing and still block.
     c.execute("UPDATE transactions SET external_status=2 WHERE id=?1",[tx]).unwrap();
     assert_eq!(selling(&c,id),Selling::default());
     model::merge_transient_compact(&c,id,&[("liquidation_pending",json!({"id":"abc","state":"ambiguous","symbol":"BTC"}))]).unwrap();
-    assert_eq!(selling(&c,id),Selling {assets:vec![],blocked:true});
+    assert_eq!(selling(&c,id),Selling {blocked:true,..Selling::default()});
     model::merge_transient_compact(&c,id,&[("liquidation_pending",Value::Null)]).unwrap();
     c.execute("UPDATE transactions SET external_status=4 WHERE id=?1",[tx]).unwrap();
-    assert_eq!(selling(&c,id),Selling {assets:vec![],blocked:true});
+    assert_eq!(selling(&c,id),Selling {blocked:true,..Selling::default()});
     // A rebalance in flight blocks too.
     c.execute("UPDATE transactions SET external_status=2 WHERE id=?1",[tx]).unwrap();
-    model::merge_transient_compact(&c,id,&[("rebalance_pending",json!({"phase":"selling"}))]).unwrap();
-    assert_eq!(selling(&c,id),Selling {assets:vec![],blocked:true});
+    // D-LIQUIDATION-ONE-LINE slice 3: a rebalance selling or buying has its row; a halted one has its prompt instead.
+    let rebalancing=Selling {blocked:true,rebalancing:true,..Selling::default()};
+    for (phase,expected) in [("selling",&rebalancing),("buying",&rebalancing),("ambiguous",&Selling {blocked:true,..Selling::default()})] {
+        model::merge_transient_compact(&c,id,&[("rebalance_pending",json!({"phase":phase}))]).unwrap();
+        assert_eq!(&selling(&c,id),expected,"{phase}");
+    }
+    model::merge_transient_compact(&c,id,&[("rebalance_pending",Value::Null)]).unwrap();
+    // A redeploy queued, taken, placing or with an order waiting has its row; an ambiguous one never, whatever else is there.
+    let redeploying=Selling {blocked:true,redeploying:true,..Selling::default()};
+    model::merge_transient_compact(&c,id,&[("rust_redeploy_request",json!({"id":"r","at":1}))]).unwrap();
+    assert_eq!(selling(&c,id),redeploying);
+    model::merge_transient_compact(&c,id,&[("rust_redeploy_request",json!({"id":"r","at":1,"taken_at":2}))]).unwrap();
+    assert_eq!(selling(&c,id),redeploying);
+    model::merge_transient_compact(&c,id,&[("rust_redeploy_request",Value::Null),("redeploy_pending",json!({"id":"p","state":"placing"}))]).unwrap();
+    assert_eq!(selling(&c,id),redeploying);
+    model::merge_transient_compact(&c,id,&[("redeploy_pending",Value::Null)]).unwrap();
+    c.execute("UPDATE transactions SET transaction_type='REDEPLOY',side=0,external_status=1 WHERE id=?1",[tx]).unwrap();
+    assert_eq!(selling(&c,id),redeploying);
+    model::merge_transient_compact(&c,id,&[("rust_redeploy_request",json!({"id":"r","at":1})),("redeploy_pending",json!({"id":"p","state":"ambiguous"}))]).unwrap();
+    assert_eq!(selling(&c,id),Selling {blocked:true,..Selling::default()});
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -452,4 +470,59 @@ fn with_balances_hidden_the_selling_redraw_carries_the_filters() {
     c.execute("UPDATE users SET hide_balances=1 WHERE id=?1",[s.user_id]).unwrap();
     model::merge_transient_compact(&c,id,&[("liquidation_selling_since",json!({"id":"x","at":0,"holdings":[["BTC",s.btc]]}))]).unwrap();
     assert_eq!(filters(&c),1);
+}
+
+// D-LIQUIDATION-ONE-LINE slice 3: a redeploy's and a rebalance's status rows, live, and with balances hidden.
+#[tokio::test(flavor="current_thread")]
+async fn redeploy_and_rebalance_have_status_rows_that_open_other_with_balances_hidden() {
+    let (_d,c,s,id,app,mut b)=install();
+    c.execute("UPDATE users SET hide_balances=1 WHERE id=?1",[s.user_id]).unwrap();
+    // No order and no line: only a status row can open a tab.
+    c.execute("DELETE FROM bot_activity_logs",[]).unwrap();
+    c.execute("DELETE FROM transactions",[]).unwrap();
+    // With balances hidden and nothing else to show, "Other" is the tab the log opens on.
+    let tab_open=|html:&str|html.contains("data-order-filter-default=\"other\"");
+    let page=b.get(&app,&format!("/bots/{id}")).await;
+    assert!(page.body.contains(&format!("<tbody id=\"orders_selling_{id}\"></tbody>")),"{}",page.body);
+    for (key,value,text) in [("rust_redeploy_request",json!({"id":"r","at":1}),"Redeploying the proceeds…"),("rebalance_pending",json!({"phase":"buying"}),"Rebalancing…")] {
+        model::merge_transient_compact(&c,id,&[(key,value)]).unwrap();
+        let page=b.get(&app,&format!("/bots/{id}")).await;
+        let rows=page.body.split(&format!("<tbody id=\"orders_selling_{id}\">")).nth(1).unwrap().split("</tbody>").next().unwrap().to_string();
+        assert!(rows.contains(text) && rows.contains("data-order-type=\"other\"") && rows.contains("loader--small"),"{key}: {rows}");
+        assert!(tab_open(&page.body),"{key}: Other opens on the status row alone: {}",page.body);
+        let messages=deltabadger::web::bot::live::render(&c,&app,&EngineEvent::TickEnded {bot_id:id}).unwrap();
+        assert!(messages.iter().any(|(_,html)|html.contains(&format!("target=\"orders_selling_{id}\"")) && html.contains(text)),"{key}: {messages:?}");
+        assert!(messages.iter().any(|(_,html)|html.contains("order_filters") && tab_open(html)),"{key}: {messages:?}");
+        model::merge_transient_compact(&c,id,&[(key,Value::Null)]).unwrap();
+        let messages=deltabadger::web::bot::live::render(&c,&app,&EngineEvent::TickEnded {bot_id:id}).unwrap();
+        assert!(messages.iter().any(|(_,html)|html.contains(&format!("<tbody id=\"orders_selling_{id}\"></tbody>"))),"{key} done: {messages:?}");
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn the_feed_names_each_redeploy_reason_and_keeps_legacy_lines() {
+    let (_d,c,s,id,app,mut b)=install();
+    // Ten lines: the feed's first page.
+    for (event,details) in [("redeploy_skipped",json!({"base":"ETH","reason":"unpriced"})),("redeploy_skipped",json!({"base":"SOL","reason":"budget_exhausted"})),
+                            ("redeploy_skipped",json!({"base":"ADA","reason":"below_minimum"})),("redeploy_skipped",json!({"base":"XRP"})),
+                            ("redeploy_not_started",json!({"reason":["market_closed"]})),("redeploy_not_started",json!({"reason":"api_key_pending"})),
+                            ("redeploy_not_started",json!({"reason":["in_flight"]})),("redeploy_not_started",json!({"reason":["No assets in composition"]})),
+                            ("redeploy_requested",json!({"user_id":1})),("rebalance_sell_placed",json!({"base":"BTC"}))] {
+        log(&c,id,event,details);
+    }
+    c.execute("UPDATE users SET locale='en' WHERE id=?1",[s.user_id]).unwrap();
+    let en=b.send(&app,"GET",&format!("/bots/{id}.turbo_stream"),None,Csrf::None,&[("Turbo-Frame","orders_pagination")]).await.body;
+    for text in ["ETH was not bought — no price could be read","SOL was not bought — the proceeds ran out","ADA: Amount below minimum.",
+                 "Nothing was redeployed — the market is closed","Nothing was redeployed — the bot&#39;s API key is still being checked",
+                 "Nothing was redeployed — a redeploy was still working",
+                 "Putting the proceeds back into the basket","Rebalancing — selling the overweight asset"] {
+        assert!(en.contains(text),"{text}: {en}");
+    }
+    // A legacy skip (no reason) and free text keep the shared lines.
+    assert_eq!(en.matches("Part of the proceeds could not be redeployed — left as cash").count(),1,"{en}");
+    assert_eq!(en.matches("Nothing was redeployed — the bot was busy, or there was nothing left to redeploy").count(),1,"{en}");
+    c.execute("UPDATE users SET locale='de' WHERE id=?1",[s.user_id]).unwrap();
+    let de=b.send(&app,"GET",&format!("/de/bots/{id}.turbo_stream"),None,Csrf::None,&[("Turbo-Frame","orders_pagination")]).await.body;
+    assert!(de.contains("ETH wurde nicht gekauft — es konnte kein Preis gelesen werden"),"{de}");
+    assert!(de.contains("Nichts wurde neu verteilt — der Markt ist geschlossen"),"{de}");
 }

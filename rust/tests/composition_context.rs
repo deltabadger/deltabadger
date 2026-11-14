@@ -62,10 +62,10 @@ async fn outcome_matrix_by_kind_is_atomic_and_never_borrows_rebalance_state() {
                 }
                 assert!(s.get("rust_defer_until").is_none());
                 let event = match label { "accepted" => Some("placed"), "pre" => Some("skipped"), "safe" => None, _ => Some("ambiguous") };
-                // D-LIQUIDATION-ONE-LINE: an accepted sale writes no `_placed` line; its order is the line.
-                let event = event.filter(|e| !(kind == TxKind::Liquidation && *e == "placed"));
+                // D-LIQUIDATION-ONE-LINE: an accepted sale or redeploy writes no `_placed` line; its order is the line.
+                let event = event.filter(|e| *e != "placed");
                 if let Some(event) = event { assert!(events(&o).contains(&format!("{prefix}_{event}")), "{kind:?} {label}"); }
-                if kind == TxKind::Liquidation { assert!(!events(&o).contains(&"liquidation_placed".into()), "{label}"); }
+                assert!(!events(&o).contains(&format!("{prefix}_placed")), "{kind:?} {label}");
             }
         }
     }

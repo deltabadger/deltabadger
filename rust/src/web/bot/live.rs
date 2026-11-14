@@ -186,18 +186,25 @@ pub fn selling_streams(c: &Connection, ctx: &Ctx, bot: &Bot, hidden: bool) -> Re
 
 fn bot_owner(c: &Connection, id: i64) -> Result<i64, WebError> { Ok(c.query_row("SELECT user_id FROM bots WHERE id = ?1", [id], |r| r.get(0))?) }
 
-/// The `<tbody>` of "Selling ETH…" rows (one per asset, before the feed's `orders_list`) and the hidden state element.
+/// The `<tbody>` of status rows ("Selling ETH…" per asset, then "Redeploying…" and "Rebalancing…"; before the feed's
+/// `orders_list`) and the hidden state element.
 /// Empty strings for a signal bot.
 pub fn selling_html(c: &Connection, ctx: &Ctx, bot: &Bot, hidden: bool) -> Result<(String, String), WebError> {
     use crate::web::i18n::{escape, text, Arg};
     if bot.kind == super::Kind::Signal { return Ok((String::new(), String::new())); }
     let selling = crate::engine::composition::selling(c, &crate::engine::model::load_bot(c, bot.id)?, ctx.now)?;
-    let mut rows = String::new();
+    let mut lines = vec![];
     for asset in &selling.assets {
         let symbol: String = c.query_row("SELECT COALESCE(symbol, name, '') FROM assets WHERE id = ?1", [asset], |r| r.get(0)).optional()?.unwrap_or_default();
+        lines.push(text(ctx.locale, "engine.liquidation_selling", &[("base", Arg::Text(&symbol))]));
+    }
+    if selling.redeploying { lines.push(text(ctx.locale, "engine.redeploying", &[])); }
+    if selling.rebalancing { lines.push(text(ctx.locale, "engine.rebalancing", &[])); }
+    let mut rows = String::new();
+    for line in lines {
         rows.push_str(&format!("\n  <tr class=\"text-inactive\" data-order-filter-target=\"row\" data-order-type=\"{}\">\n    <td scope=\"row\" class=\"table__when\">\
             <div class=\"loader--small\" style=\"position: unset; float: left;\"></div></td>\n    <td colspan=\"{}\" class=\"table__sentence\">{}</td>\n  </tr>",
-            if hidden { "other" } else { "all" }, if hidden { 1 } else { 3 }, escape(&text(ctx.locale, "engine.liquidation_selling", &[("base", Arg::Text(&symbol))]))));
+            if hidden { "other" } else { "all" }, if hidden { 1 } else { 3 }, escape(&line)));
     }
     let tbody = format!("<tbody id=\"orders_selling_{}\">{rows}{}</tbody>", bot.id, if rows.is_empty() { "" } else { "\n" });
     let state = format!("<div id=\"selling_state_{}\" hidden data-bot--selling-target=\"state\" data-assets=\"{}\" data-blocked=\"{}\" data-label=\"{}\"></div>",

@@ -37,7 +37,7 @@ pub fn answer(c:&Connection,ctx:&Ctx,user:i64,id:i64,accept:Option<bool>,dry:boo
             return Ok(in_flight());
         }
         model::merge_transient_compact(&tx,id,&[(redeploy::REQUEST_KEY,json!({"id":uuid::Uuid::new_v4().to_string(),"at":ctx.now.timestamp()}))])?;
-        model::log_activity(&tx,id,"redeploy_requested",model::Level::Info,json!({"user_id":user}),ctx.now)?;
+        // D-LIQUIDATION-ONE-LINE: no `redeploy_requested` line; the page's "Redeploying …" row says it.
         if let Err(refusal)=eligibility::guard(&tx,&ctx.app.cipher,Some(id)) {return Ok(Res::failure(Domain::Conflict,"write_refused",bot_api::refused(&refusal.reason())))}
         tx.commit()?;
     } else {

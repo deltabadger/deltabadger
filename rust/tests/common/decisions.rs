@@ -110,7 +110,22 @@ pub fn r5_cleanup_expected(rails: &serde_json::Value, rust: &serde_json::Value) 
     // A row whose only change was that flag is no change at all once it is kept.
     expected["changes"]["bots"].as_array_mut().unwrap().retain(|row| row["before"] != row["after"]);
     sell_row_cadence_expected(&mut expected, rust);
+    status_lines_expected(&mut expected);
     expected
+}
+
+/// D-LIQUIDATION-ONE-LINE: Rails' status lines beside an order (`liquidation_placed`, `redeploy_placed`,
+/// `rebalance_<side>_placed`) are the page's status rows in Rust, never written. Rails' inserted rows of them go; later
+/// lines' ids move down with them.
+pub fn status_lines_expected(expected: &mut serde_json::Value) {
+    const DROPPED: [&str; 4] = ["liquidation_placed", "redeploy_placed", "rebalance_sell_placed", "rebalance_buy_placed"];
+    let Some(logs) = expected["changes"]["bot_activity_logs"].as_array_mut() else { return };
+    let mut dropped = 0;
+    logs.retain_mut(|row| {
+        if row["before"].is_null() && row["after"]["event"].as_str().is_some_and(|e| DROPPED.contains(&e)) { dropped += 1; return false; }
+        if dropped > 0 && row["before"].is_null() { let id = row["id"].as_i64().unwrap() - dropped; row["id"] = serde_json::json!(id); row["after"]["id"] = serde_json::json!(id); }
+        true
+    });
 }
 
 /// D-SELL-ROW-CADENCE: a selling bot's new REGULAR sell row records the sell cadence and the sell amount; Rails writes the
