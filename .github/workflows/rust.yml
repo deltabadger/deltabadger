@@ -446,6 +446,13 @@ jobs:
         working-directory: .
         run: script/rust/repin --check || { echo "::error::Rails files pinned by Rust fixtures changed. Run script/rust/repin and commit what it changes."; exit 1; }
 
+      # Defender scans every file the build and the tests write (each test makes its own SQLite files): the Windows
+      # leg ran twice as long as Linux, near its 60-minute timeout. The runner is thrown away after the job.
+      - name: Stop real-time scanning (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
+
       - name: Install Rust 1.94.0
         shell: bash
         run: |
