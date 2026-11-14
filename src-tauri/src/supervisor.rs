@@ -552,9 +552,10 @@ enum Ready {
     Page(&'static str),
 }
 
-/// `/ui-ready` of this start's engine: only an answer with its own token counts (r1.4).
-fn ready(client: &reqwest::blocking::Client, port: u16, token: &str) -> Option<Ready> {
-    let response = client.get(format!("http://{HOST}:{port}/ui-ready")).send().ok()?;
+/// `/ui-ready` of this start's engine: only an answer with its own token counts (r1.4). It carries the launcher's header
+/// so the engine leaves this poll out of its request log.
+fn ready(client: &reqwest::blocking::Client, port: u16, token: &str, launcher: &str) -> Option<Ready> {
+    let response = client.get(format!("http://{HOST}:{port}/ui-ready")).header("X-Deltabadger-Launcher", launcher).send().ok()?;
     if response.status() != reqwest::StatusCode::OK {
         return None;
     }
@@ -635,7 +636,7 @@ fn watch(engine: &Engine, view: &dyn View, show: &dyn Fn(Page), log: &Path, port
                 *status = Some(page);
             }
         };
-        match client.as_ref().and_then(|c| ready(c, port, token)) {
+        match client.as_ref().and_then(|c| ready(c, port, token, launcher)) {
             Some(Ready::Starting) => {
                 failed = 0;
                 let long = !served && started.elapsed() >= STILL_STARTING_AFTER;

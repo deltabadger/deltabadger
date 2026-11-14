@@ -675,7 +675,7 @@ fn the_desktop_serves_the_retiring_worker_and_every_other_platform_todays() {
 }
 
 /// The desktop logs one `METHOD path status ms` line per request, with no query (the sign-in ticket, the launch
-/// token) and no hook token; off the desktop nothing, unless LOG_REQUESTS=1.
+/// token) and no hook token; off the desktop nothing, unless LOG_REQUESTS=1. The launcher's own calls write none.
 #[test]
 fn the_desktop_logs_each_request_without_its_query() {
     for (platform, asked, logged) in [(Some("desktop"), false, true), (Some("docker"), false, false), (Some("docker"), true, true)] {
@@ -687,6 +687,9 @@ fn the_desktop_logs_each_request_without_its_query() {
         let mut e = start(&mut c, port);
         assert_eq!(e.ready(), format!("ready {TOKEN} app"), "{platform:?}: {}", data.log());
         for path in ["/desktop/sign_in?ticket=TICKET-SECRET", "/?launch=LAUNCH-SECRET", "/hook/HOOK-SECRET", "/%68ook/ENCODED-SECRET"] { get(port, path).unwrap(); }
+        // The launcher's own calls (its header) write no line; this test's own `/ui-ready` polls, without it, did.
+        let polled = data.log().matches(" GET /ui-ready ").count();
+        for path in ["/ui-ready", "/desktop/notices"] { request(port, "GET", path, &[("X-Deltabadger-Launcher", "any")]); }
         e.close_stdin();
         assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
         let log = data.log();
@@ -700,6 +703,9 @@ fn the_desktop_logs_each_request_without_its_query() {
             assert_eq!(log.matches(" GET /desktop/sign_in ").count(), 1, "{log}");
             assert_eq!(log.matches(" GET / ").count(), 1, "{log}");
             assert_eq!(log.matches(" GET /hook/[FILTERED] ").count(), 2, "{log}");
+            assert!(polled > 0, "{log}");
+            assert_eq!(log.matches(" GET /ui-ready ").count(), polled, "{log}");
+            assert!(!log.contains(" GET /desktop/notices "), "{log}");
         }
     }
 }

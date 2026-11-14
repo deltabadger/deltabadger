@@ -1218,8 +1218,11 @@ fn logged_path(path: &str) -> String {
     path.chars().take(256).collect()
 }
 
-/// One line per request into the engine's log (the desktop's deltabadger.log, rotated by `logger`).
+/// One line per request into the engine's log (the desktop's deltabadger.log, rotated by `logger`). The launcher's own
+/// calls (its `/ui-ready` poll, the notices, the ticket: the ones with its header) write none, or a desktop log would be
+/// mostly `/ui-ready` and rotate the lines support needs away within a day. Only the header's presence is read.
 async fn access_log(request: Request, next: Next) -> Response {
+    if request.headers().contains_key(desktop::LAUNCHER_HEADER) { return next.run(request).await; }
     let (method, path, started) = (request.method().clone(), logged_path(request.uri().path()), std::time::Instant::now());
     let response = next.run(request).await;
     crate::engine::log(&format!("{method} {path} {} {}ms", response.status().as_u16(), started.elapsed().as_millis()));
