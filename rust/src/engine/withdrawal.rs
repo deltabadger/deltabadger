@@ -821,8 +821,8 @@ pub async fn evaluate<A: Adapter>(
     let budget = v::floor_p(&(&free * &fraction), multiple);
     let first = a.fee(&destination, &budget).await;
     fence(c, &version, &r)?;
-    let first_fee = match first {
-        Ok(Some(fee)) if fee >= BigDec::zero() => fee,
+    let (first_fee, refused) = match first {
+        Ok(Some(fee)) if fee >= BigDec::zero() => (fee, None),
         Ok(_) => {
             outcome(
                 c,
@@ -840,24 +840,28 @@ pub async fn evaluate<A: Adapter>(
             )?;
             return Ok(None);
         }
-        Err(e) => {
-            let (s, m) = read_error(e, "Failed to refresh withdrawal fees");
-            outcome(
-                c,
-                cipher,
-                &r,
-                evaluation,
-                Some(&version),
-                s,
-                &m,
-                json!({"free_balance":free.to_s_f()}),
-                clock.now(),
-            )?;
-            return Ok(None);
-        }
+        Err(e) => match v::kraken_dust_fee(c, kind, &e, r.exchange, r.asset)? {
+            // D-RULE-KRAKEN-DUST-QUOTE: the stored fee may only prove the balance too small; the refusal is kept.
+            Some(stored) => (stored, Some(e)),
+            None => {
+                let (s, m) = read_error(e, "Failed to refresh withdrawal fees");
+                outcome(
+                    c,
+                    cipher,
+                    &r,
+                    evaluation,
+                    Some(&version),
+                    s,
+                    &m,
+                    json!({"free_balance":free.to_s_f()}),
+                    clock.now(),
+                )?;
+                return Ok(None);
+            }
+        },
     };
-    // Fees are refreshed for every evaluation, including one below the threshold.
-    {
+    // Fees are refreshed for every evaluation, including one below the threshold; a stored fee is not re-stamped.
+    if refused.is_none() {
         let tx = model::immediate(c)?;
         fence(&tx, &version, &r)?;
         if rule(&tx, cipher, r.id)? != r {
@@ -938,6 +942,21 @@ pub async fn evaluate<A: Adapter>(
                 minimum.to_s_f(),
                 r.symbol
             ),
+            json!({"free_balance":free.to_s_f()}),
+            clock.now(),
+        )?;
+        return Ok(None);
+    }
+    if let Some(e) = refused {
+        let (s, m) = read_error(e, "Failed to refresh withdrawal fees");
+        outcome(
+            c,
+            cipher,
+            &r,
+            evaluation,
+            Some(&version),
+            s,
+            &m,
             json!({"free_balance":free.to_s_f()}),
             clock.now(),
         )?;

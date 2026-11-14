@@ -14,6 +14,10 @@
 //! - D-RULE-GEMINI-MEMO: Gemini lists through Rails' NETWORK_MAP, but only the memo-free networks are a destination.
 //! - D-RULE-KRAKEN-QUOTE: Kraken's fee is a `WithdrawInfo` quote for the exact amount (Rails reads WithdrawMethods' first
 //!   method and drops percentage fees); a quote whose net is not `amount − fee` is fee unknown.
+//! - D-RULE-KRAKEN-DUST-QUOTE: Kraken refuses a quote for an amount at its fee (`EFunding:Invalid arguments`, the dust a
+//!   100% withdrawal leaves). For exactly that 200 refusal the rule's last stored fee (per exchange and asset, not per
+//!   destination or account) is a skip heuristic only: it may turn the refusal into the "below minimum" row, never size a
+//!   send; when it does not prove the balance too small the refusal is logged as before.
 //! - D-RULE-GEMINI-FEE-ESTIMATE: Gemini's fee is `feeEstimate` (Rails knows no Gemini fee).
 //! - D-RULE-FEE-FALLBACK (Q1): the rules page's fee display reads Binance's and MEXC's coin list with the FeeApiKey, else
 //!   the rule's own withdrawal key. The engine always sizes with the withdrawal key: its account pays the fee and is the
@@ -342,6 +346,17 @@ pub fn kraken_quote(body: &Value, requested: &BigDec) -> Result<Option<BigDec>, 
 pub fn gemini_fee(body: &Value, ticker: &str) -> Option<BigDec> {
     if !body["currency"].as_str().is_some_and(|c| c.eq_ignore_ascii_case(ticker)) { return None; }
     known_fee(&body["fee"])
+}
+
+/// D-RULE-KRAKEN-DUST-QUOTE: the stored fee to judge a refused Kraken quote by, only for a 200 answer of exactly
+/// `["EFunding:Invalid arguments"]` (a non-2xx keeps its raw body text, so it never matches) and a known stored fee.
+pub fn kraken_dust_fee(c: &Connection, kind: Kind, e: &VenueError, exchange_id: i64, asset_id: i64) -> rusqlite::Result<Option<BigDec>> {
+    if kind != Kind::Kraken || !matches!(e, VenueError::Rejected(errors) if errors.len() == 1 && errors[0] == "EFunding:Invalid arguments") {
+        return Ok(None);
+    }
+    let fee: Option<String> = c.query_row("SELECT withdrawal_fee FROM exchange_assets WHERE exchange_id = ?1 AND asset_id = ?2",
+                                          params![exchange_id, asset_id], |r| r.get(0)).optional()?.flatten();
+    Ok(fee.and_then(|f| known_fee(&Value::String(f))))
 }
 
 /// What a fee read writes back (D-RULE-FEE-STAMP): the exchange_assets columns Rails keeps, for the rule's asset.
