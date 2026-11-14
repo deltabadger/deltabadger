@@ -882,8 +882,11 @@ def scenario_downloads(name):
         docs = download(win, data, folder, "deltabadger-api", "/settings/download_api_docs", docs_click)
         check(docs.read_bytes() == (REPO / "manual" / "api.md").read_bytes(), f"{docs.name} differs from manual/api.md")
         say(f"API docs saved as {docs.name}: byte-equal to manual/api.md ({docs.stat().st_size} bytes)")
-        saved = [x for x in since_start(data) if x == "desktop: download saved"]
-        check(len(saved) == 2, f"download lines: {saved}")
+        # The file is whole before the app's Finished event writes its line; then a third line would be a repeat.
+        until("the app's 2 download lines", 10, lambda: since_start(data).count("desktop: download saved") >= 2)
+        time.sleep(1)
+        saved = [x for x in since_start(data) if x.startswith("desktop: download")]
+        check(saved == ["desktop: download saved"] * 2, f"download lines: {saved}")
         stop_hard_and_drain(data, start, "end")
     finally:
         win.close()
