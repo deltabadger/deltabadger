@@ -427,7 +427,7 @@ jobs:
       matrix:
         # macos-arm64 (Apple Silicon; Intel Macs are not supported) runs only when the workflow is started by hand
         # (`gh workflow run rust.yml --ref <branch>`): development runs on a Mac, and the leg queued up to an hour per PR.
-        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64","os":"windows-2025"},{"name":"macos-arm64","os":"macos-15"}]' || '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64","os":"windows-2025"}]') }}
+        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64 (1/2)","os":"windows-2025","part":"1/2"},{"name":"windows-x86_64 (2/2)","os":"windows-2025","part":"2/2"},{"name":"macos-arm64","os":"macos-15"}]' || '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64 (1/2)","os":"windows-2025","part":"1/2"},{"name":"windows-x86_64 (2/2)","os":"windows-2025","part":"2/2"}]') }}
     defaults:
       run:
         working-directory: rust
@@ -455,9 +455,10 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust
-          key: ${{ matrix.name }}
-          # Pull requests restore main's cache and save none of their own (the cache budget is 10 GB).
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          key: ${{ matrix.part && 'windows-x86_64' || matrix.name }}
+          # Pull requests restore main's cache and save none of their own (the cache budget is 10 GB). Windows' two halves
+          # share one cache, saved by the half that also builds the release.
+          save-if: ${{ github.ref == 'refs/heads/main' && matrix.part != '2/2' }}
 
       - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
         with:
@@ -473,9 +474,12 @@ jobs:
         working-directory: .
         run: bash script/rust/build_assets.sh
 
-      - run: cargo build --release --locked
+      # Windows runs its tests in two halves (one took 50 of the 60 minutes, twice Linux's time); one half builds these.
+      - if: matrix.part != '2/2'
+        run: cargo build --release --locked
 
-      - run: cargo clippy --all-targets --locked -- -D warnings
+      - if: matrix.part != '2/2'
+        run: cargo clippy --all-targets --locked -- -D warnings
 
       # Every test file except those rust/tests/platform_excluded.txt names for this OS, with the reason they can't run
       # here (Rails, Ruby, Docker). Only the selected targets are built: nextest builds every target it is given
@@ -483,6 +487,7 @@ jobs:
       - name: Test
         shell: bash
         env:
+          PART: ${{ matrix.part }}
           # About 65 test binaries, each linking the whole crate: no debuginfo, as in the full suite.
           CARGO_PROFILE_DEV_DEBUG: 'false'
           CARGO_PROFILE_DEV_STRIP: debuginfo
@@ -507,6 +512,7 @@ jobs:
           ( while :; do df -k . | tail -1 | awk '{print "free KB", $4}'; sleep 15; done ) > "$dflog" &
           sampler=$!
           status=0
+          [ -z "$PART" ] || args+=(--partition "count:$PART")
           cargo nextest run --locked --no-fail-fast --lib --bins "${args[@]}" || status=$?
           kill "$sampler" || true
           echo "least free KB during build and run: $(awk '{print $3}' "$dflog" | sort -n | head -1)"
