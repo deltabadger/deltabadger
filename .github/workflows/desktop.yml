@@ -265,12 +265,16 @@ jobs:
           echo "XDG_DOWNLOAD_DIR=\"$SMOKE_DOWNLOADS\"" > "$XDG_CONFIG_HOME/user-dirs.dirs"
           export TAURI_DRIVER=$HOME/.cargo/bin/tauri-driver
           appimage=$(ls "$PWD"/src-tauri/target/release/bundle/appimage/*.AppImage)
+          # The .deb is installed and smoked whatever the AppImage's outcome: the update proofs' deb leg needs it, and
+          # one AppImage failure shows as one failure, not also as a missing /usr/bin/Deltabadger.
+          status=0
           dbus-run-session -- xvfb-run -a python3 script/rust/desktop_smoke/smoke.py --kind appimage --app "$appimage" \
             --work "$RUNNER_TEMP/smoke" --fixture-2x "$RUNNER_TEMP/fixture/fixture-2x.tar" \
-            fresh quit app-killed engine-killed refusals takeover downloads
+            fresh quit app-killed engine-killed refusals takeover downloads || status=1
           sudo apt-get install -y ./src-tauri/target/release/bundle/deb/*.deb
           dbus-run-session -- xvfb-run -a python3 script/rust/desktop_smoke/smoke.py --kind deb --app /usr/bin/Deltabadger \
-            --work "$RUNNER_TEMP/smoke-deb" fresh
+            --work "$RUNNER_TEMP/smoke-deb" fresh || status=1
+          exit $status
 
       # ---------------- Updates (PLAN-B7 §9 B7-2), Windows and Linux ----------------
       # N is the build above. N+1 = this tree with its version bumped and one proof migration, built in place, signed

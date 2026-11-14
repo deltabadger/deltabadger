@@ -783,6 +783,51 @@ def new_file(folder, before, prefix, seconds=30):
     return until(f"a new {prefix}* in {folder}", seconds, probe)[0]
 
 
+# The page is done loading and the empty state's wizard frame (layout's turbo-frame#modal src) is not in flight.
+SETTLED = """
+var f = document.getElementById('modal');
+if (document.readyState !== 'complete' || (f && f.hasAttribute('busy'))) { return null; }
+window.__smokePage = window.__smokePage || String(Math.random());
+sessionStorage.removeItem('smokeHid');
+window.__smokeFired = false;
+if (!window.__smokeHooked) {
+  window.__smokeHooked = true;
+  addEventListener('pagehide', function () { sessionStorage.setItem('smokeHid', 'pagehide'); });
+  if (navigator.serviceWorker) { navigator.serviceWorker.addEventListener('controllerchange', function () { sessionStorage.setItem('smokeHid', 'controllerchange'); }); }
+}
+return window.__smokePage;
+"""
+
+# After a navigation that sent no request: was the page replaced (a reload), and what was in flight.
+LOST = """
+var f = document.getElementById('modal'), n = performance.getEntriesByType('navigation')[0];
+return JSON.stringify({same_page: window.__smokePage === arguments[0], fired: window.__smokeFired, hid: sessionStorage.getItem('smokeHid'),
+  load: n ? n.type : null, controlled: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
+  frame: f ? {src: f.getAttribute('src'), busy: f.hasAttribute('busy'), complete: f.hasAttribute('complete')} : null, url: location.href});
+"""
+
+
+def download(win, data, folder, prefix, path, fire, tries=3):
+    """`fire` starts a download of `path`; the new file in `folder`. Fired once the page is settled. A navigation the
+    page drops before its request goes out (WebKitGTK, while the page is still settling) leaves no `GET path` in the
+    engine's request log within 30 s (it writes the line once the response is done; these answer in milliseconds): then
+    it is fired again. A response slower than that is repeated, and its second file fails the download-lines check."""
+    before = {p.name for p in folder.iterdir()}
+    for attempt in range(1, tries + 1):
+        page = win.poll("the page settled", 30, SETTLED)
+        sent = lambda: sum(1 for x in since_start(data) if f" GET {path}" in x)
+        n = sent()
+        fire()
+        try:
+            until(f"the request for {path}", 30, lambda: sent() > n)
+            return new_file(folder, before, prefix)
+        except Fail as e:
+            if sent() > n:
+                raise
+            say(f"try {attempt}: no GET {path} reached the engine ({e}); the page: {win.poll('the page', 10, LOST, page)}")
+    raise Fail(f"{path}: {tries} tries, no request reached the engine")
+
+
 SIGNED_IN = """
 var path = location.pathname;
 if (document.readyState !== 'complete' || document.querySelector('form input[type=password], [data-desktop-sign-in]')) { return null; }
@@ -817,27 +862,31 @@ def scenario_downloads(name):
         c.commit()
         c.close()
         page = win.url()
-        before = {p.name for p in folder.iterdir()}
         # What tracker_export_controller.js does on Download with a date range: a navigation to the export URL.
-        win.js("location.href = '/tracker/export?from=2024-03-01&to=2024-09-30'; return true;", leaves=True)
-        csv = new_file(folder, before, "deltabadger-transactions-")
+        csv = download(win, data, folder, "deltabadger-transactions-", "/tracker/export",
+                       lambda: win.js("window.__smokeFired = true; location.href = '/tracker/export?from=2024-03-01&to=2024-09-30'; return true;", leaves=True))
         rows = csv.read_text(encoding="utf-8").splitlines()
         check(rows[0].startswith("date,type,base_currency,base_amount"), f"export header: {rows[:1]}")
         check(len(rows) == 2 and "smoke-mid" in rows[1] and rows[1].startswith("2024-06-15T12:00:00Z"), f"export rows: {rows}")
         time.sleep(1)
         check(win.url() == page, f"the export navigated the window away: {win.url()}")
         say(f"tracker export saved as {csv.name}: {rows[1]}; the window stayed at {page}")
-        before = {p.name for p in folder.iterdir()}
+
         # A click, as on the Settings button: WebView2 blocks a second download a page starts without a user gesture.
-        win.js("var a = document.createElement('a'); a.id = 'smoke-docs'; a.dataset.turbo = 'false';"
-               " a.href = '/settings/download_api_docs'; a.textContent = 'deltabadger-api.md';"
-               " a.style.cssText = 'position:fixed;left:40%;top:40%;padding:1em;z-index:2147483647;background:#fff'; document.body.append(a); return true;")
-        win.click("#smoke-docs", leaves=True)
-        docs = new_file(folder, before, "deltabadger-api")
+        def docs_click():
+            win.js("if (document.getElementById('smoke-docs')) { return true; }"
+                   " var a = document.createElement('a'); a.id = 'smoke-docs'; a.dataset.turbo = 'false';"
+                   " a.href = '/settings/download_api_docs'; a.textContent = 'deltabadger-api.md'; a.onclick = function () { window.__smokeFired = true; };"
+                   " a.style.cssText = 'position:fixed;left:40%;top:40%;padding:1em;z-index:2147483647;background:#fff'; document.body.append(a); return true;")
+            win.click("#smoke-docs", leaves=True)
+        docs = download(win, data, folder, "deltabadger-api", "/settings/download_api_docs", docs_click)
         check(docs.read_bytes() == (REPO / "manual" / "api.md").read_bytes(), f"{docs.name} differs from manual/api.md")
         say(f"API docs saved as {docs.name}: byte-equal to manual/api.md ({docs.stat().st_size} bytes)")
-        saved = [x for x in since_start(data) if x == "desktop: download saved"]
-        check(len(saved) == 2, f"download lines: {saved}")
+        # The file is whole before the app's Finished event writes its line; then a third line would be a repeat.
+        until("the app's 2 download lines", 10, lambda: since_start(data).count("desktop: download saved") >= 2)
+        time.sleep(1)
+        saved = [x for x in since_start(data) if x.startswith("desktop: download")]
+        check(saved == ["desktop: download saved"] * 2, f"download lines: {saved}")
         stop_hard_and_drain(data, start, "end")
     finally:
         win.close()
