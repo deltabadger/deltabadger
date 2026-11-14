@@ -24,15 +24,18 @@ impl Drop for Engine {
 }
 
 impl Engine {
-    /// The next line naming `what` within 60 s (every line before it is skipped).
-    fn line(&self, what: &str) -> String {
+    /// The next line naming `what` within 60 s (every line before it is skipped, and shown if it never comes).
+    fn line(&mut self, what: &str) -> String {
         let deadline = Instant::now() + Duration::from_secs(60);
+        let mut skipped = Vec::new();
         loop {
             let left = deadline.saturating_duration_since(Instant::now());
             match self.lines.recv_timeout(left) {
                 Ok(l) if l.contains(what) => return l,
-                Ok(_) => {}
-                Err(_) => panic!("no line with {what:?} within 60 s"),
+                Ok(l) => skipped.push(l),
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => panic!("no line with {what:?} within 60 s; it said:\n{}", skipped.join("\n")),
+                // Both pipes closed: the engine exited without it.
+                Err(_) => panic!("the engine exited ({:?}) without a line with {what:?}; it said:\n{}", self.child.wait().ok().and_then(|s| s.code()), skipped.join("\n")),
             }
         }
     }
