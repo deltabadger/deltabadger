@@ -810,8 +810,8 @@ return JSON.stringify({same_page: window.__smokePage === arguments[0], fired: wi
 def download(win, data, folder, prefix, path, fire, tries=3):
     """`fire` starts a download of `path`; the new file in `folder`. Fired once the page is settled. A navigation the
     page drops before its request goes out (WebKitGTK, while the page is still settling) leaves no `GET path` in the
-    engine's request log: then it is fired again. A request that went out is never repeated, and a slow file still
-    fails new_file's deadline."""
+    engine's request log within 30 s (it writes the line once the response is done; these answer in milliseconds): then
+    it is fired again. A response slower than that is repeated, and its second file fails the download-lines check."""
     before = {p.name for p in folder.iterdir()}
     for attempt in range(1, tries + 1):
         page = win.poll("the page settled", 30, SETTLED)
@@ -819,7 +819,7 @@ def download(win, data, folder, prefix, path, fire, tries=3):
         n = sent()
         fire()
         try:
-            until(f"the request for {path}", 10, lambda: sent() > n)
+            until(f"the request for {path}", 30, lambda: sent() > n)
             return new_file(folder, before, prefix)
         except Fail as e:
             if sent() > n:
