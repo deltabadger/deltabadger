@@ -691,3 +691,51 @@ fn the_engine_loads_a_kucoin_keys_stored_passphrase() {
     c.execute("UPDATE exchanges SET type = 'Exchanges::Kraken', name = 'Kraken'", []).unwrap();
     assert_eq!(deltabadger::engine::model::credentials_for(c, &cipher, &bot).unwrap().expect("the key").passphrase, None);
 }
+
+// ---- D-WAITING-RESERVE-ZERO-QUOTE: KuCoin answers `funds "0"` for a limit order (it is sized by `size`); polling writes that
+// 0 over the placement's quote, and a waiting row must still reserve amount × price, or the next tick buys the same amount again.
+
+/// A daily 3 EUR KuCoin bot started at 2026-09-01 10:00 UTC.
+fn daily_kucoin() -> (tempfile::TempDir, store::Opened, seed::Seeded, i64) {
+    let dir = common::baseline_install();
+    let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    o.primary.execute_batch("UPDATE exchanges SET type = 'Exchanges::Kucoin', name = 'KuCoin'; UPDATE tickers SET ticker = 'BTC-EUR', base = 'BTC'").unwrap();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(3.0, "2026-09-01 10:00:00").with("interval", json!("day")));
+    (dir, o, s, id)
+}
+/// The recorded shape of a waiting KuCoin limit buy: `funds "0"`, sized by `size`, nothing or `deal_size` dealt.
+fn waiting_limit(id: &str, deal_size: &str, deal_funds: &str) -> Value {
+    json!({ "id": id, "symbol": "BTC-EUR", "opType": "DEAL", "type": "limit", "side": "buy", "price": "2028.71", "size": "0.0014787", "funds": "0",
+            "dealFunds": deal_funds, "dealSize": deal_size, "fee": "0", "feeCurrency": "EUR", "clientOid": format!("cl-{id}"),
+            "isActive": true, "cancelExist": false, "createdAt": 1790000000000u64 })
+}
+/// Places the waiting row as the placement writes it (amount × price as its quote), then polls KuCoin's answer onto it.
+async fn polled_waiting(o: &store::Opened, s: &seed::Seeded, bot: i64, id: &'static str, created: &str, answer: Value) -> i64 {
+    let row = seed::insert_tx(&o.primary, s, bot, &seed::TxSpec { status: 0, external_status: Some(0), external_id: Some(id.into()), order_type: 1,
+        amount: Some("0.0014787"), quote_amount: Some("2.999853477"), price: Some("2028.71"), quote_amount_exec: None, amount_exec: None, created_at: created.into() });
+    let t = ScriptedTransport::from_script(&json!({ format!("GET /api/v1/orders/{id}"): [r200(json!({ "code": "200000", "data": answer }))] }));
+    deltabadger::engine::polling::refresh(&o.primary, &kv(&t), bot, row, format!("{}Z", created.replace(' ', "T")).parse::<DateTime<Utc>>().unwrap() + Duration::seconds(5)).await.unwrap();
+    let quote: f64 = o.primary.query_row("SELECT quote_amount FROM transactions WHERE id = ?1", [row], |r| r.get(0)).unwrap();
+    assert_eq!(quote, 0.0, "the venue's funds 0 is written over the placement's quote, as update_with_order_data writes it");
+    row
+}
+fn owed(o: &store::Opened, bot: i64, now: &str) -> BigDec {
+    amount::pending_quote_amount(&o.primary, &model::load_bot(&o.primary, bot).unwrap(), now.parse::<DateTime<Utc>>().unwrap().timestamp_micros()).unwrap()
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_waiting_limit_buy_with_zero_funds_reserves_amount_times_price_and_the_next_day_owes_one_amount() {
+    let (_d, o, s, bot) = daily_kucoin();
+    polled_waiting(&o, &s, bot, "D1", "2026-09-01 10:00:01", waiting_limit("D1", "0", "0")).await;
+    assert_eq!(owed(&o, bot, "2026-09-02T10:00:00.5Z"), bd("3.000146523"), "6 − 0.0014787 × 2028.71: day 2 owes 3, not 6");
+    polled_waiting(&o, &s, bot, "D2", "2026-09-02 10:00:01", waiting_limit("D2", "0", "0")).await;
+    assert_eq!(owed(&o, bot, "2026-09-03T10:00:00.5Z"), bd("3.000293046"), "9 − 2 × 2.999853477: two waiting days: day 3 owes 3, not 9");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_part_filled_waiting_limit_buy_still_reserves_its_full_size() {
+    let (_d, o, s, bot) = daily_kucoin();
+    polled_waiting(&o, &s, bot, "P1", "2026-09-01 10:00:01", waiting_limit("P1", "0.0007", "1.420097")).await;
+    assert_eq!(owed(&o, bot, "2026-09-02T10:00:00.5Z"), bd("3.000146523"), "6 − the full 2.999853477");
+}

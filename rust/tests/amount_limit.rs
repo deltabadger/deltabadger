@@ -1113,3 +1113,14 @@ fn an_unreadable_base_cap_is_refused() {
     // Unreadable as a time: an error, never a cap read as unset.
     assert!(eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).map_or(true, |r| r.iter().any(|r| r.contains("base_amount_limit_enabled_at"))));
 }
+
+/// D-WAITING-RESERVE-ZERO-QUOTE: a waiting limit buy whose venue answered a quote of 0 (KuCoin's `funds "0"`) counts toward
+/// the cap at amount × price, not at 0.
+#[test]
+fn a_waiting_limit_buy_with_a_zero_quote_counts_toward_the_cap_at_amount_times_price() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &limited(json!(500.0)));
+    seed::insert_tx(&o.primary, &s, id, &tx(0, Some(0), Some("OZ"), 1, Some("0.001"), Some("0"), Some("64150"), Some("0"), Some("0"), IN));
+    seed::insert_tx(&o.primary, &s, id, &tx(0, Some(1), Some("OY"), 1, Some("0.001"), Some("0"), Some("64150"), None, None, IN));
+    assert_eq!(available(&o, id), Some(bd("371.7")), "500 − 2 × 64.15");
+}
