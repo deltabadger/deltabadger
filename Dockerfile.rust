@@ -21,7 +21,7 @@ RUN apt-get update -qq && \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .
-COPY --from=assets /src/app/assets/builds/application.js /src/app/assets/builds/application.css app/assets/builds/
+COPY --from=assets /src/app/assets/builds/application.js /src/app/assets/builds/application.js.map /src/app/assets/builds/application.css app/assets/builds/
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/rust/target \
     cd rust && cargo build --release --locked && cp target/release/deltabadger /usr/local/bin/deltabadger

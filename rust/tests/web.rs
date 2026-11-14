@@ -37,6 +37,20 @@ mod embedded_assets {
     }
 
     #[test]
+    fn the_bundle_links_its_embedded_source_map() {
+        built();
+        let script = std::str::from_utf8(assets::find(assets::path("application.js")).unwrap().body).unwrap();
+        let url = script.rsplit_once("//# sourceMappingURL=").unwrap().1.trim();
+        assert_eq!(url, assets::path("application.js.map"));
+        let map = assets::find(url).unwrap_or_else(|| panic!("{url} is not embedded"));
+        assert_eq!(map.content_type, "application/json");
+        assert_eq!(assets::respond(map, false).status(), 200);
+        let map: serde_json::Value = serde_json::from_slice(map.body).unwrap();
+        let sources = map["sources"].as_array().unwrap();
+        assert!(!sources.is_empty() && sources.iter().all(|s| s.as_str().is_some_and(|s| !s.starts_with('/'))), "no absolute build paths");
+    }
+
+    #[test]
     fn public_files_keep_their_own_paths_and_types() {
         built();
         for (path, content_type) in [("/fonts/Dosis-digits.woff2", "font/woff2"), ("/service-worker.js", "text/javascript; charset=utf-8"),
