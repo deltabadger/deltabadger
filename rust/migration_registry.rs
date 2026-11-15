@@ -46,7 +46,13 @@ pub fn load(dir: &Path, rails_versions: &[String]) -> Result<Vec<(String, String
 pub fn check_tables(sql: &str, created: &mut std::collections::BTreeSet<String>) -> Result<Vec<(String, bool)>, String> {
     let mut here = std::collections::BTreeSet::new();
     let mut drops = Vec::new();
-    for statement in statements(sql) {
+    let statements = statements(sql);
+    // SQLite reads a non-ASCII character as part of a name, and skips a byte-order mark between tokens: a scan that
+    // misreads either could authorise the wrong table. Rust's migrations are ASCII outside comments and quoted text.
+    if let Some(c) = statements.iter().flatten().find_map(|t| match t { Token::Punct(c) if !c.is_ascii() => Some(*c), _ => None }) {
+        return Err(format!("a non-ASCII character ({c:?}) outside comments and quoted text is not allowed"));
+    }
+    for statement in statements {
         let word = |i: usize| match statement.get(i) { Some(Token::Word(w)) => Some(w.to_ascii_uppercase()), _ => None };
         let bare = |i: usize| match (statement.get(i), statement.get(i + 1)) {
             (Some(Token::Word(w)), next) if !w.starts_with(|c: char| c.is_ascii_digit()) && next != Some(&Token::Punct('.')) => Some(w.to_ascii_lowercase()),
@@ -77,7 +83,7 @@ fn transaction_control(sql: &str) -> Option<String> {
 
 #[derive(Debug, PartialEq)]
 enum Token {
-    /// A run of identifier characters as SQLite reads them (`[A-Za-z0-9_$]` and every non-ASCII character), as written.
+    /// A run of `[A-Za-z0-9_$]`, as written.
     Word(String),
     /// A quoted string or name ('…', "…", `…`, […]), as written.
     Quoted(String),
@@ -89,10 +95,10 @@ fn text(statement: &[Token]) -> String {
     statement.iter().map(|t| match t { Token::Word(w) | Token::Quoted(w) => w.clone(), Token::Punct(c) => c.to_string() }).collect::<Vec<_>>().join(" ")
 }
 
-/// Each statement's tokens, comments left out; statements end at a `;` outside quotes. A byte-order mark is whitespace
-/// wherever it stands (SQLite skips one between tokens; inside a name it splits it, which only refuses more).
+/// Each statement's tokens, comments left out; statements end at a `;` outside quotes. A non-ASCII character is a
+/// token of its own (`check_tables` refuses it).
 fn statements(sql: &str) -> Vec<Vec<Token>> {
-    let word = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$' || (!c.is_ascii() && c != '\u{feff}');
+    let word = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';
     let mut out = vec![Vec::new()];
     let mut chars = sql.chars().peekable();
     while let Some(c) = chars.next() {
@@ -112,7 +118,7 @@ fn statements(sql: &str) -> Vec<Vec<Token>> {
                 while let Some(&d) = chars.peek().filter(|d| word(**d)) { name.push(d); chars.next(); }
                 tokens.push(Token::Word(name));
             }
-            c if c.is_ascii_whitespace() || c == '\u{feff}' => {}
+            c if c.is_ascii_whitespace() => {}
             c => tokens.push(Token::Punct(c)),
         }
     }

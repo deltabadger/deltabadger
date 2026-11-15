@@ -262,11 +262,12 @@ fn the_build_refuses_a_misnamed_or_repeated_version_a_rails_version_a_transactio
         ("DROP before a later file's CREATE", &[("20990101000001_a.sql", "DROP TABLE x;"), ("20990101000002_b.sql", "CREATE TABLE x (id INTEGER);")], "no earlier Rust migration created"),
         ("DROP twice", &[("20990101000001_t.sql", "CREATE TABLE x (id INTEGER); DROP TABLE x; DROP TABLE x;")], "no earlier Rust migration created"),
         ("a longer name authorises nothing", &[("20990101000001_t.sql", "CREATE TABLE bots$copy (id INTEGER); DROP TABLE bots;")], "no earlier Rust migration created"),
-        ("a non-ASCII name authorises nothing", &[("20990101000001_t.sql", "CREATE TABLE botsé (id INTEGER); DROP TABLE bots;")], "no earlier Rust migration created"),
-        ("after a byte-order mark", &[("20990101000001_t.sql", "\u{feff}DROP TABLE bots;")], "no earlier Rust migration created"),
-        ("after a byte-order mark past a statement", &[("20990101000001_t.sql", "SELECT 1;\u{feff}DROP TABLE bots;")], "no earlier Rust migration created"),
-        ("after a byte-order mark past a comment", &[("20990101000001_t.sql", "-- x\n\u{feff}ALTER TABLE bots ADD COLUMN y TEXT;")], "ALTER TABLE"),
-        ("BEGIN after a byte-order mark", &[("20990101000001_t.sql", "\u{feff}BEGIN; CREATE TABLE t (id INTEGER);")], "BEGIN"),
+        ("a non-ASCII name authorises nothing", &[("20990101000001_t.sql", "CREATE TABLE botsé (id INTEGER); DROP TABLE bots;")], "non-ASCII"),
+        ("after a byte-order mark", &[("20990101000001_t.sql", "\u{feff}DROP TABLE bots;")], "non-ASCII"),
+        ("after a byte-order mark past a statement", &[("20990101000001_t.sql", "SELECT 1;\u{feff}DROP TABLE bots;")], "non-ASCII"),
+        ("a byte-order mark inside a name", &[("20990101000001_t.sql", "CREATE TABLE bots\u{feff}copy (id INTEGER); DROP TABLE bots;")], "non-ASCII"),
+        ("after a byte-order mark past a comment", &[("20990101000001_t.sql", "-- x\n\u{feff}ALTER TABLE bots ADD COLUMN y TEXT;")], "non-ASCII"),
+        ("BEGIN after a byte-order mark", &[("20990101000001_t.sql", "\u{feff}BEGIN; CREATE TABLE t (id INTEGER);")], "non-ASCII"),
         ("DROP of two names", &[("20990101000001_t.sql", "CREATE TABLE x (id INTEGER); DROP TABLE x, bots;")], "no earlier Rust migration created"),
     ];
     for (name, files, says) in refused {
@@ -283,7 +284,7 @@ fn the_build_refuses_a_misnamed_or_repeated_version_a_rails_version_a_transactio
     // A table an earlier file created, a hop table an earlier statement created (any case: SQLite's names are), and a
     // table created again after its drop.
     let replaced = dir_with(&[("20990101000001_a.sql", "CREATE TABLE x (id INTEGER);"),
-        ("20990101000002_b.sql", "CREATE TABLE Hop (id INTEGER);\nINSERT INTO hop SELECT id FROM x;\ndrop  table x;\n\
+        ("20990101000002_b.sql", "-- the hop, ‘in transit’\nCREATE TABLE Hop (id INTEGER, note TEXT DEFAULT 'café');\nINSERT INTO hop SELECT id FROM x;\ndrop  table x;\n\
           CREATE TABLE x (id INTEGER, note TEXT);\nINSERT INTO x (id) SELECT id FROM hop;\nDROP TABLE hop;")]);
     assert_eq!(test_support::load(replaced.path()).unwrap().len(), 2);
 }
