@@ -77,7 +77,7 @@ fn transaction_control(sql: &str) -> Option<String> {
 
 #[derive(Debug, PartialEq)]
 enum Token {
-    /// A run of `[A-Za-z0-9_]`, as written.
+    /// A run of identifier characters as SQLite reads them (`[A-Za-z0-9_$]` and every non-ASCII character), as written.
     Word(String),
     /// A quoted string or name ('…', "…", `…`, […]), as written.
     Quoted(String),
@@ -89,10 +89,11 @@ fn text(statement: &[Token]) -> String {
     statement.iter().map(|t| match t { Token::Word(w) | Token::Quoted(w) => w.clone(), Token::Punct(c) => c.to_string() }).collect::<Vec<_>>().join(" ")
 }
 
-/// Each statement's tokens, comments left out; statements end at a `;` outside quotes.
+/// Each statement's tokens, comments and a leading byte-order mark left out; statements end at a `;` outside quotes.
 fn statements(sql: &str) -> Vec<Vec<Token>> {
+    let word = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$' || !c.is_ascii();
     let mut out = vec![Vec::new()];
-    let mut chars = sql.chars().peekable();
+    let mut chars = sql.strip_prefix('\u{feff}').unwrap_or(sql).chars().peekable();
     while let Some(c) = chars.next() {
         let tokens = out.last_mut().unwrap();
         match c {
@@ -105,12 +106,12 @@ fn statements(sql: &str) -> Vec<Vec<Token>> {
                 tokens.push(Token::Quoted(quoted));
             }
             ';' => out.push(Vec::new()),
-            c if c.is_ascii_alphanumeric() || c == '_' => {
-                let mut word = c.to_string();
-                while let Some(&d) = chars.peek().filter(|d| d.is_ascii_alphanumeric() || **d == '_') { word.push(d); chars.next(); }
-                tokens.push(Token::Word(word));
+            c if word(c) => {
+                let mut name = c.to_string();
+                while let Some(&d) = chars.peek().filter(|d| word(**d)) { name.push(d); chars.next(); }
+                tokens.push(Token::Word(name));
             }
-            c if c.is_whitespace() => {}
+            c if c.is_ascii_whitespace() => {}
             c => tokens.push(Token::Punct(c)),
         }
     }

@@ -261,6 +261,10 @@ fn the_build_refuses_a_misnamed_or_repeated_version_a_rails_version_a_transactio
         ("DROP before its CREATE", &[("20990101000001_t.sql", "DROP TABLE x; CREATE TABLE x (id INTEGER);")], "no earlier Rust migration created"),
         ("DROP before a later file's CREATE", &[("20990101000001_a.sql", "DROP TABLE x;"), ("20990101000002_b.sql", "CREATE TABLE x (id INTEGER);")], "no earlier Rust migration created"),
         ("DROP twice", &[("20990101000001_t.sql", "CREATE TABLE x (id INTEGER); DROP TABLE x; DROP TABLE x;")], "no earlier Rust migration created"),
+        ("a longer name authorises nothing", &[("20990101000001_t.sql", "CREATE TABLE bots$copy (id INTEGER); DROP TABLE bots;")], "no earlier Rust migration created"),
+        ("a non-ASCII name authorises nothing", &[("20990101000001_t.sql", "CREATE TABLE botsé (id INTEGER); DROP TABLE bots;")], "no earlier Rust migration created"),
+        ("after a byte-order mark", &[("20990101000001_t.sql", "\u{feff}DROP TABLE bots;")], "no earlier Rust migration created"),
+        ("BEGIN after a byte-order mark", &[("20990101000001_t.sql", "\u{feff}BEGIN; CREATE TABLE t (id INTEGER);")], "BEGIN"),
         ("DROP of two names", &[("20990101000001_t.sql", "CREATE TABLE x (id INTEGER); DROP TABLE x, bots;")], "no earlier Rust migration created"),
     ];
     for (name, files, says) in refused {
