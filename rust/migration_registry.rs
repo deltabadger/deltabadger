@@ -19,49 +19,100 @@ pub fn load(dir: &Path, rails_versions: &[String]) -> Result<Vec<(String, String
             .filter(|(version, name)| version.len() == 14 && version.bytes().all(|b| b.is_ascii_digit()) && !name.is_empty());
         let Some((version, name)) = parsed else { return Err(format!("{file}: a Rust migration is named <14-digit version>_<name>.sql")) };
         if rails_versions.iter().any(|v| v == version) { return Err(format!("{file}: version {version} is a Rails migration's")); }
-        let sql = std::fs::read_to_string(&path).map_err(|e| format!("{file}: {e}"))?;
-        if let Some(statement) = transaction_control(&sql) { return Err(format!("{file}: `{statement}` controls the transaction; the migrator runs each file in its own")); }
-        if let Some(statement) = alters_a_table(&sql) { return Err(format!("{file}: `{statement}` is not allowed yet; the first migration that must alter or drop a table needs its own plan (B1 r3.1)")); }
         found.push((version.to_string(), name.to_string(), path));
     }
     found.sort();
     if let Some(pair) = found.windows(2).find(|pair| pair[0].0 == pair[1].0) {
         return Err(format!("version {} is used by two Rust migrations", pair[0].0));
     }
+    // In version order: a DROP TABLE may name only a table an earlier file or statement created.
+    let mut created = std::collections::BTreeSet::new();
+    for (version, name, path) in &found {
+        let file = format!("{version}_{name}.sql");
+        let sql = std::fs::read_to_string(path).map_err(|e| format!("{file}: {e}"))?;
+        if let Some(statement) = transaction_control(&sql) { return Err(format!("{file}: `{statement}` controls the transaction; the migrator runs each file in its own")); }
+        check_tables(&sql, &mut created).map_err(|e| format!("{file}: {e}"))?;
+    }
     Ok(found)
 }
 
-/// The first `ALTER TABLE` or `DROP TABLE` statement. Contracts mark every contracted table as Rust's (store::Registry::
-/// owned_tables), so altering a Rails-born table would also drop it from the parity snapshots; until a migration needs it,
-/// none may.
-fn alters_a_table(sql: &str) -> Option<String> {
-    statements(sql).into_iter().find_map(|words| match words.as_slice() {
-        [first, second, ..] if (first == "ALTER" || first == "DROP") && second == "TABLE" => Some(format!("{first} {second}")),
-        _ => None,
-    })
+/// D-B11-9-DROP-OWN-TABLE. Every `ALTER TABLE` is refused, and `DROP TABLE` of anything but a bare name (unquoted,
+/// unqualified, no IF EXISTS) that an earlier file (`created`, which this extends) or an earlier statement of this one
+/// created with a plain `CREATE TABLE <name>`: so a migration replaces only Rust's own tables (create the new one, copy,
+/// drop the old), never a Rails-born one, and a missing table fails the migration loudly. Returns each dropped table
+/// (lower-cased) and whether this file created it (a hop table). A plain CREATE fails on an existing table, so only a
+/// table the migration really made is authorised; CREATE TEMP, IF NOT EXISTS and quoted names authorise nothing.
+// ponytail: a token scan, not a parser; a trigger body's statements are scanned as statements, which only refuses more.
+pub fn check_tables(sql: &str, created: &mut std::collections::BTreeSet<String>) -> Result<Vec<(String, bool)>, String> {
+    let mut here = std::collections::BTreeSet::new();
+    let mut drops = Vec::new();
+    for statement in statements(sql) {
+        let word = |i: usize| match statement.get(i) { Some(Token::Word(w)) => Some(w.to_ascii_uppercase()), _ => None };
+        let bare = |i: usize| match (statement.get(i), statement.get(i + 1)) {
+            (Some(Token::Word(w)), next) if !w.starts_with(|c: char| c.is_ascii_digit()) && next != Some(&Token::Punct('.')) => Some(w.to_ascii_lowercase()),
+            _ => None,
+        };
+        match (word(0).as_deref(), word(1).as_deref()) {
+            (Some("ALTER"), Some("TABLE")) => return Err(format!("ALTER TABLE is not allowed (`{}`): a migration replaces a table instead (CREATE TABLE the new one, copy its rows, DROP TABLE the old one)", text(&statement))),
+            (Some("DROP"), Some("TABLE")) if word(2).as_deref() == Some("IF") =>
+                return Err(format!("DROP TABLE IF EXISTS is not allowed (`{}`): a table a migration replaces must be there", text(&statement))),
+            (Some("DROP"), Some("TABLE")) => match bare(2).filter(|name| statement.len() == 3 && created.contains(name)) {
+                Some(name) => { created.remove(&name); drops.push((name.clone(), here.remove(&name))); }
+                None => return Err(format!("DROP TABLE of a table no earlier Rust migration created (`{}`): a migration drops only a bare name it or an earlier one made with CREATE TABLE <name>", text(&statement))),
+            },
+            (Some("CREATE"), Some("TABLE")) if word(2).as_deref() != Some("IF") => if let Some(name) = bare(2) { created.insert(name.clone()); here.insert(name); },
+            _ => {}
+        }
+    }
+    Ok(drops)
 }
 
 /// The first statement that begins with BEGIN, COMMIT, ROLLBACK, SAVEPOINT or RELEASE, ignoring comments and quoted
 /// text. A bare END is left out: it also closes a trigger body (`… BEGIN …; END;`).
 // ponytail: a keyword scan, not a parser; store::apply also refuses a file that leaves its transaction (END included).
 fn transaction_control(sql: &str) -> Option<String> {
-    statements(sql).into_iter().filter_map(|words| words.into_iter().next())
+    statements(sql).into_iter().filter_map(|tokens| match tokens.into_iter().next() { Some(Token::Word(w)) => Some(w.to_ascii_uppercase()), _ => None })
         .find(|word| ["BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE"].contains(&word.as_str()))
 }
 
-/// Each statement's words, upper-cased, with comments and quoted text blanked.
-fn statements(sql: &str) -> Vec<Vec<String>> {
-    let mut code = String::new();
+#[derive(Debug, PartialEq)]
+enum Token {
+    /// A run of `[A-Za-z0-9_]`, as written.
+    Word(String),
+    /// A quoted string or name ('…', "…", `…`, […]), as written.
+    Quoted(String),
+    Punct(char),
+}
+
+/// A statement's tokens, for a refusal's text.
+fn text(statement: &[Token]) -> String {
+    statement.iter().map(|t| match t { Token::Word(w) | Token::Quoted(w) => w.clone(), Token::Punct(c) => c.to_string() }).collect::<Vec<_>>().join(" ")
+}
+
+/// Each statement's tokens, comments left out; statements end at a `;` outside quotes.
+fn statements(sql: &str) -> Vec<Vec<Token>> {
+    let mut out = vec![Vec::new()];
     let mut chars = sql.chars().peekable();
     while let Some(c) = chars.next() {
+        let tokens = out.last_mut().unwrap();
         match c {
-            '-' if chars.peek() == Some(&'-') => { for c in chars.by_ref() { if c == '\n' { break; } } code.push(' '); }
-            '/' if chars.peek() == Some(&'*') => { chars.next(); let mut last = ' '; for c in chars.by_ref() { if last == '*' && c == '/' { break; } last = c; } code.push(' '); }
-            '\'' | '"' | '`' | '[' => { let close = if c == '[' { ']' } else { c }; for d in chars.by_ref() { if d == close { break; } } code.push_str(" x "); }
-            c => code.push(c),
+            '-' if chars.peek() == Some(&'-') => { for c in chars.by_ref() { if c == '\n' { break; } } }
+            '/' if chars.peek() == Some(&'*') => { chars.next(); let mut last = ' '; for c in chars.by_ref() { if last == '*' && c == '/' { break; } last = c; } }
+            '\'' | '"' | '`' | '[' => {
+                let close = if c == '[' { ']' } else { c };
+                let mut quoted = c.to_string();
+                for d in chars.by_ref() { quoted.push(d); if d == close { break; } }
+                tokens.push(Token::Quoted(quoted));
+            }
+            ';' => out.push(Vec::new()),
+            c if c.is_ascii_alphanumeric() || c == '_' => {
+                let mut word = c.to_string();
+                while let Some(&d) = chars.peek().filter(|d| d.is_ascii_alphanumeric() || **d == '_') { word.push(d); chars.next(); }
+                tokens.push(Token::Word(word));
+            }
+            c if c.is_whitespace() => {}
+            c => tokens.push(Token::Punct(c)),
         }
     }
-    code.split(';')
-        .map(|statement| statement.split(|c: char| !c.is_ascii_alphabetic()).filter(|w| !w.is_empty()).map(str::to_ascii_uppercase).collect())
-        .collect()
+    out
 }

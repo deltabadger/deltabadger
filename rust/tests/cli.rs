@@ -1612,3 +1612,98 @@ mod reset_password {
         }
     }
 }
+
+/// PLAN-B11-9 §5 (#2, #6): the frozen beta fixture's takeover installs, written by this build's (pre-rename) writers:
+/// `B11_9_FREEZE=1 cargo test --test cli freeze_b11_9 -- --ignored`. One 2.x install with Rails' withdrawal rule (a
+/// recorded withdrawal, an attempt `resolve-withdrawal --rails` settles), a ready rule job, a failed fan-out, a signal bot
+/// with a waiting and a claimed signal job, and tracker jobs for a user without a key; then `mid_takeover` (killed after
+/// the claim committed, Rails' rows still queued) and `takeover` (claimed, plus the A28 report job's state and a job
+/// whose last run failed in Rails' words, by the scheduler's own writers).
+#[cfg(all(unix, debug_assertions))]
+#[test]
+#[ignore = "B11_9_FREEZE=1 writes tests/fixtures/b11_9_beta; pre-rename writers only"]
+fn freeze_b11_9_takeover_installs() {
+    use deltabadger::codec::format_time;
+    let build = || {
+        let (dir, user, _) = two_x_install_with_tracker_jobs();
+        let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
+        let q = rusqlite::Connection::open(dir.path().join(DATABASES[1])).unwrap();
+        let (exchange, btc, quote): (i64, i64, i64) = c.query_row("SELECT exchange_id, base_asset_id, quote_asset_id FROM tickers ORDER BY id LIMIT 1", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+        let at = format_time(chrono::Utc::now());
+        c.execute("INSERT INTO rules(type,status,user_id,exchange_id,asset_id,settings,created_at,updated_at) VALUES('Rules::Withdrawal',2,?1,?2,?3,'{}',?4,?4)", rusqlite::params![user, exchange, btc, at]).unwrap();
+        let rule = c.last_insert_rowid();
+        c.execute("INSERT INTO rule_logs(rule_id,status,message,details,created_at) VALUES(?1,1,'Withdrew 0.9 BTC','{\"withdrawal_id\":\"X\",\"amount\":\"0.9\"}',?2)", rusqlite::params![rule, at]).unwrap();
+        c.execute("INSERT INTO rule_logs(rule_id,status,message,details,created_at) VALUES(?1,2,'Unexpected error: unreadable','{}',?2)", rusqlite::params![rule, at]).unwrap();
+        let attempt = c.last_insert_rowid().to_string();
+        // Rails' last sync of Alpaca's crypto catalogue (staleness::ALPACA_CRYPTO_TICKERS): the takeover reads it as a job's `rails_at`.
+        c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Alpaca', 'Alpaca', '0.15', '0.25', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", []).unwrap();
+        let alpaca = c.last_insert_rowid();
+        for asset in [btc, quote] {
+            c.execute("INSERT INTO exchange_assets (exchange_id, asset_id, available, created_at, updated_at) VALUES (?1, ?2, 1, '2026-01-01 00:00:00', '2026-09-29 10:15:00')", [alpaca, asset]).unwrap();
+        }
+        c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('alpaca_crypto_listings_last_good_count', '1', '2026-09-29 10:15:00', '2026-09-29 10:15:00')", []).unwrap();
+        c.execute("INSERT INTO bots (id, type, status, exchange_id, user_id, settings, transient_data, started_at, created_at, updated_at) \
+                   VALUES (1, 'Bots::Signal', 1, ?1, ?2, ?3, '{}', '2026-08-25 09:00:00', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+                  rusqlite::params![exchange, user, serde_json::json!({ "base_asset_id": btc, "quote_asset_id": quote }).to_string()]).unwrap();
+        for signal in 1..=5 {
+            c.execute("INSERT INTO bot_signals (id, bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) \
+                       VALUES (?1, 1, 0, 0, '100', 1, ?2, '2026-08-25 09:00:00', '2026-08-25 09:00:00')", rusqlite::params![signal, format!("tok-{signal}")]).unwrap();
+        }
+        let fixture: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/signal_jobs.json")).unwrap()).unwrap();
+        let insert = |table: &str, row: &serde_json::Map<String, serde_json::Value>| {
+            let columns: Vec<&String> = row.keys().collect();
+            let sql = format!("INSERT INTO {table} ({}) VALUES ({})", columns.iter().map(|c| c.as_str()).collect::<Vec<_>>().join(", "), vec!["?"; columns.len()].join(", "));
+            let values: Vec<rusqlite::types::Value> = row.values().map(|v| match v {
+                serde_json::Value::Null => rusqlite::types::Value::Null,
+                serde_json::Value::Number(n) => rusqlite::types::Value::Integer(n.as_i64().unwrap()),
+                serde_json::Value::String(s) => rusqlite::types::Value::Text(s.clone()),
+                other => rusqlite::types::Value::Text(other.to_string()),
+            }).collect();
+            q.execute(&sql, rusqlite::params_from_iter(values)).unwrap();
+        };
+        for (name, claimed) in [("ready", false), ("blocked", true)] {
+            let job = &fixture["jobs"][name];
+            insert("solid_queue_jobs", job["row"].as_object().unwrap());
+            let id = q.last_insert_rowid();
+            if claimed { q.execute("INSERT INTO solid_queue_claimed_executions (job_id, process_id, created_at) VALUES (?1, 7, '2026-09-30 11:00:00')", [id]).unwrap(); }
+            else {
+                let mut row = job["execution"].as_object().unwrap().clone();
+                row.insert("job_id".into(), serde_json::json!(id));
+                insert(&format!("solid_queue_{}_executions", job["state"].as_str().unwrap()), &row);
+            }
+        }
+        for (class, args, exec) in [("Rule::ExecuteJob", serde_json::json!([{ "_aj_globalid": format!("gid://deltabadger/Rules::Withdrawal/{rule}") }]), "ready"),
+                                    ("Rule::EvaluateAllJob", serde_json::json!([]), "failed")] {
+            q.execute("INSERT INTO solid_queue_jobs (queue_name, class_name, arguments, active_job_id, priority, created_at, updated_at) VALUES ('default', ?1, ?2, ?3, 0, '2026-09-30 11:00:00', '2026-09-30 11:00:00')",
+                      rusqlite::params![class, serde_json::json!({ "job_class": class, "arguments": args }).to_string(), format!("job-{class}")]).unwrap();
+            let id = q.last_insert_rowid();
+            let sql = if exec == "ready" { "INSERT INTO solid_queue_ready_executions (job_id, queue_name, priority, created_at) VALUES (?1, 'default', 0, '2026-09-30 11:00:00')" }
+                      else { "INSERT INTO solid_queue_failed_executions (job_id, error, created_at) VALUES (?1, 'pruned', '2026-09-30 11:00:00')" };
+            q.execute(sql, [id]).unwrap();
+        }
+        let resolved = Command::new(env!("CARGO_BIN_EXE_deltabadger")).args(["resolve-withdrawal", "--rails", &attempt, "--sent", "new-id", "--amount", "0.9"])
+            .env("STORAGE_DIR", dir.path()).env("SECRET_KEY_BASE", "engine-test-secret").env_remove("DATABASE_PATH").env_remove("QUEUE_DATABASE_PATH")
+            .env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT").env_remove("ACTIVE_RECORD_ENCRYPTION_KEYS_EXTERNAL").output().unwrap();
+        assert!(resolved.status.success(), "{}", stderr(&resolved));
+        (dir, user)
+    };
+    let open = |dir: &Path| (rusqlite::Connection::open(dir.join(DATABASES[0])).unwrap(), rusqlite::Connection::open(dir.join(DATABASES[1])).unwrap());
+
+    let (mid, _) = build();
+    let out = bare(mid.path(), &["run"]).env("DELTABADGER_TEST_ABORT", "after-queue-commit").output().unwrap();
+    assert!(!out.status.success(), "aborted: {}", stderr(&out));
+    let (c, q) = open(mid.path());
+    let queued: i64 = q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get(0)).unwrap();
+    assert!(queued > 0, "Rails' rows still queued");
+    common::freeze::freeze("mid_takeover", &c, Some(&q));
+
+    let (settled, user) = build();
+    let claimed = run_to_claim(settled.path());
+    assert!(claimed.contains("took over"), "{claimed}");
+    let (c, q) = open(settled.path());
+    let now = chrono::Utc::now();
+    deltabadger::jobs::state::record_success(&c, deltabadger::engine::rails_unrecorded::JOB, None, now).unwrap();
+    // tracker/rows.rs's own words for a JSON column it can't read.
+    deltabadger::jobs::state::record_error(&c, "tracker_ledger", Some(&user.to_string()), now, "a JSON column Rails did not write").unwrap();
+    common::freeze::freeze("takeover", &c, Some(&q));
+}

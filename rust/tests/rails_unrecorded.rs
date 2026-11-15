@@ -339,6 +339,7 @@ fn a_trade_no_bot_recorded_in_the_window_is_listed_with_its_fills_summed() {
     fill(&c, &s, 12, 5, true, "0.0002", "10.01", "2026-09-29T14:03:06Z");
     let (event, details) = reported(&c, &s, b);
     assert_eq!(event, ru::CANDIDATES);
+    common::freeze::freeze("a28_candidates", &c, None);
     assert_eq!(details, json!({ "when": "around 2026-09-29 14:03 UTC", "venue": "Binance", "count": 1,
                                 "trades": "bought 0.0004 BTC for 20.01 EUR on 2026-09-29 14:03:05 UTC (filled)" }));
 }
@@ -587,6 +588,7 @@ fn a_source_time_that_cant_be_read_gets_its_line_and_the_others_still_get_theirs
     assert_eq!(ru::report(&c, now()).unwrap(), 2);
     let l = lines(&c, b);
     assert_eq!((l[0].1["reason"].as_str(), l[1].0.as_str()), (Some("time"), ru::NONE_SEEN));
+    common::freeze::freeze("a28_time_none_seen", &c, None);
 }
 
 // ---- Codex branch r4 ---------------------------------------------------------------------------------------------------

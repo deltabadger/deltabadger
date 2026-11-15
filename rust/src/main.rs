@@ -468,6 +468,7 @@ fn explain(e: StoreError, paths: &Paths, env: &dyn Fn(&str) -> Option<String>) -
         StoreError::Unsupported { unknown } => format!("this data has migrations this build does not know ({}); use a newer build", unknown.join(", ")),
         StoreError::Diverged { .. } => "this data's migration history differs from this build's; refusing".into(),
         StoreError::Incompatible { problems } => format!("this data's structure differs from what this build expects:\n{}", problems.join("\n")),
+        StoreError::ReplacementPending { versions, tables } => format!("this data needs this build's migrations first (Rust migration(s) {} replace {}): start Deltabadger once (or run the build that last ran it), then run this again", versions.join(", "), tables.join(", ")),
         StoreError::Migration { version, name, error } => format!("Rust migration {version}_{name} failed and was rolled back: {error}\nthe migrations before it stay applied; start again once it is fixed"),
         e => format!("{e:?}"),
     }

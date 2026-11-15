@@ -2986,6 +2986,7 @@ async fn a_takeover_marker_without_side_shows_and_resolves() {
     assert_eq!(answer.status, 302);
     let (left, lines): (String, i64) = c.query_row("SELECT transient_data, (SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1) FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!((serde_json::from_str::<serde_json::Value>(&left).unwrap(), lines), (json!({}), 1), "lifted with its line");
+    common::freeze::freeze("signal_resolved", c, Some(&opened.queue));
 }
 
 /// Slice 8c-2: a signal bot's Stop from its page commits even where another of the owner's bots cannot be drawn (a stored

@@ -2,6 +2,7 @@
 
 #[cfg(unix)]
 pub mod decisions;
+pub mod freeze;
 #[cfg(unix)]
 pub mod venue_grid;
 pub mod html;

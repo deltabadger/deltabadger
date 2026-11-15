@@ -394,6 +394,7 @@ async fn a_booking_writes_rails_accepted_row_and_the_follow_up_settles_it() {
     f.report().await;
     let (obligation, offers) = f.offers();
     assert_eq!(f.request(obligation, offers[0].0), Ok(()));
+    common::freeze::freeze("a28_requested", &f.c, None);
     let served = f.serve().await;
     let tx = served.booked[0].1;
     assert_eq!(served.booked, [(f.b, tx)]);
@@ -411,6 +412,7 @@ async fn a_booking_writes_rails_accepted_row_and_the_follow_up_settles_it() {
     assert_eq!(recovered, [json!({ "obligation": obligation, "transaction_id": tx, "venue_created_at": "2026-09-29 14:03:05",
                                    "order": "bought 0.0004 BTC for 20 EUR (filled), placed 2026-09-29 14:03:05 UTC" })]);
     assert_eq!(model::load_bot(&f.c, f.b).unwrap().transient[model::HISTORY_GENERATION], json!(1));
+    common::freeze::freeze("a28_booked", &f.c, None);
     // FetchAndUpdateOrderJob: GET order, then its trades with a quote commission.
     f.tr.reply("GET /api/v3/order", 200, binance_row(&o(7, St::Filled, "0.0004", "20")));
     f.tr.reply("GET /api/v3/myTrades", 200, json!([trade(50, 7, "0.0004", "20", "0.02", "EUR", "2026-09-29T14:03:06Z")]));
@@ -507,6 +509,7 @@ async fn every_refusal_writes_nothing_but_its_line() {
         assert_eq!(refused.len(), 1, "{name}");
         assert_eq!(refused[0]["reason"], reason, "{name}");
         assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_requests"), 0, "{name}: the request goes");
+        if reason == "nothing_filled" { common::freeze::freeze("a28_not_added", &f.c, None); }
         if reason != "deleted" { assert_eq!(f.request(obligation, offers[0].0), Ok(()), "{name}: the offer can be asked for again"); }
     }
 }
@@ -623,6 +626,7 @@ async fn none_was_mine_resolves_the_group_with_one_line_and_no_row() {
     assert_eq!(lines(&f.c, f.b, ru::NOT_MINE), [json!({ "obligation": obligation })]);
     assert_eq!(f.request(obligation, offers[0].0), Err(Refused::Decided));
     assert!(ru::offers_for(&f.c, f.b, &[obligation], now()).unwrap()[0].resolved);
+    common::freeze::freeze("a28_not_mine", &f.c, None);
 }
 
 // ---- the carry (§4, r1.7) ------------------------------------------------------------------------------------------------
@@ -730,6 +734,7 @@ async fn a_booked_row_no_poll_holds_is_enrolled_again_and_after_seven_days_unset
     pass(now() + Duration::days(8), true).await.unwrap();
     assert_eq!(lines(&f.c, f.b, ru::UNSETTLED), [json!({ "transaction_id": tx, "venue": "Binance", "placed": "2026-09-29 14:03:05 UTC" })]);
     assert_eq!(f.row(tx)["external_status"], json!(0), "never abandoned or removed");
+    common::freeze::freeze("a28_unsettled", &f.c, None);
     // A deleted bot's row is not watched.
     f.c.execute("UPDATE bots SET status = 3 WHERE id = ?1", [f.b]).unwrap();
     assert_eq!(pass(now(), false).await.unwrap().watch, []);
@@ -782,6 +787,7 @@ async fn an_answer_below_what_the_owner_confirmed_is_held_and_a_consistent_one_a
     f.follow_up(tx, now() + Duration::days(7)).await.unwrap();
     f.follow_up(tx, now() + Duration::days(8)).await.unwrap();
     assert_eq!(lines(&f.c, f.b, ru::SETTLED_LOWER).len(), 1);
+    common::freeze::freeze("a28_held", &f.c, None);
     // A consistent answer (0.1 % commission in BTC, within the taker fee) applies and ends the hold.
     f.tr = ScriptedTransport::default();
     f.tr.reply("GET /api/v3/order", 200, binance_row(&o(7, St::Filled, "0.0004", "20")));
