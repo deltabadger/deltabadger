@@ -103,9 +103,49 @@ fn empty_dashboard_button(body: &str) -> String {
     format!("{}{}", &body[..at], form.replace(&body[at..], r#"<a class="sbutton sbutton--sky" data-turbo-frame="modal" aria-label="$2" href="$1">$3</a>"#))
 }
 
+/// D-NO-WIZARD-AUTO-OPEN: the bots page never opens the new-bot wizard by itself. Rails' first empty bots page after a
+/// sign-in hides its chrome and loads the exchange step into the modal frame with `?auto_open=true`, whose dialog then
+/// closes to nowhere; this crate's page is the plain empty dashboard, and that step's dialog closes to the bots page.
+fn no_wizard_auto_open(body: &str, step: &Value) -> String {
+    let frame = regex::Regex::new(r#"<turbo-frame id="modal" src="[^"]*\?auto_open=true"></turbo-frame>"#).unwrap();
+    let body = frame.replace(body, r#"<turbo-frame id="modal"></turbo-frame>"#);
+    let body = body.replace(" class=\"hide-chrome\">", ">").replace(" class=\"hide-chrome ", " class=\"");
+    let path = step["path"].as_str().unwrap_or_default();
+    if !path.contains("auto_open=true") { return body; }
+    let locale = path.split('/').nth(1).filter(|segment| segment.len() == 2).map(|l| format!("/{l}")).unwrap_or_default();
+    body.replace("data-modal--base-close-url-value=\"\"", &format!("data-modal--base-close-url-value=\"{locale}/bots\""))
+}
+
+/// D-NO-WIZARD-AUTO-OPEN: Rails' first empty bots page after a sign-in starts every wizard over (`bot_config = {}`); this
+/// crate drops a wizard at the sign-in itself and the bots page leaves the session alone, so that page's session is
+/// compared by tests/web.rs, not against Rails, and so is whether that answer writes the session cookie.
+fn session_compared(step: &Value) -> bool {
+    let path = step["path"].as_str().unwrap_or_default();
+    !(step["method"] == "GET" && regex::Regex::new(r"^(/[a-z]{2})?/bots$").unwrap().is_match(path))
+}
+
+/// D-NO-WIZARD-AUTO-OPEN: the `{}` Rails' bots page left behind stays in its session on the steps after it, where this
+/// crate's session has no wizard: the same empty wizard, until either side writes one. The step where this crate starts
+/// that empty wizard writes the cookie Rails wrote on the bots page.
+fn no_wizard_reset(scenario: &Value, rails: &mut Value, rust: &mut Value) {
+    let mut carried = false;
+    for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
+        if !session_compared(step) { carried = true; continue; }
+        if !carried { continue; }
+        let ours = rust["responses"].get(index).and_then(|a| a.get("session")).and_then(|s| s.get("bot_config")).cloned();
+        let Some(theirs) = rails["responses"].get_mut(index).and_then(|a| a.get_mut("session")).and_then(|s| s.get_mut("bot_config")) else { continue };
+        if *theirs == json!({}) && ours == Some(Value::Null) { *theirs = Value::Null; continue; }
+        carried = false;
+        let rails_cookie = rails["responses"][index]["headers"].get("set-cookie").is_some();
+        if ours == Some(json!({})) && rails["responses"][index]["session"]["bot_config"] == json!({}) && !rails_cookie {
+            if let Some(headers) = rust["responses"].get_mut(index).and_then(|a| a.get_mut("headers")).and_then(Value::as_object_mut) { headers.remove("set-cookie"); }
+        }
+    }
+}
+
 fn rails_answer(recorded: &Value, step: &Value) -> Value {
     let changed = recorded["session_changed"].as_bool().expect("pages.rb records whether the session's content changed");
-    let headers = recorded["headers"].as_object().unwrap().iter().filter(|(name, _)| changed || name.as_str() != "set-cookie").map(|(name, value)| {
+    let headers = recorded["headers"].as_object().unwrap().iter().filter(|(name, _)| (changed && session_compared(step)) || name.as_str() != "set-cookie").map(|(name, value)| {
         let values = match value {
             Value::Array(all) => all.iter().map(|v| v.as_str().unwrap().to_string()).collect(),
             one => vec![one.as_str().unwrap().to_string()],
@@ -115,7 +155,7 @@ fn rails_answer(recorded: &Value, step: &Value) -> Value {
     let status = recorded["status"].as_u64().unwrap_or_else(|| panic!("recorded response has no status"));
     let body = recorded["body"].as_str().unwrap_or_else(|| panic!("recorded response has no body"));
     // The listed 3.0 bot-list frame (tabs_3_0), applied before the page is normalised.
-    let safe_body=empty_dashboard_button(&tabs::bots_page(body).unwrap_or_else(|e| panic!("{e}")));
+    let safe_body=no_wizard_auto_open(&empty_dashboard_button(&tabs::bots_page(body).unwrap_or_else(|e| panic!("{e}"))), step);
     // #498 and locale filtering are now the oracle: compare the rendered bytes directly.
     let mut answer = comparable(status, &headers, &safe_body, &extra_headers(step));
     // A tracker index (the listed 3.0 tabs): which shape it takes is the page this crate served, read once both exist.
@@ -123,9 +163,10 @@ fn rails_answer(recorded: &Value, step: &Value) -> Value {
         answer["tracker_raw"] = json!(safe_body);
     }
     for key in ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "exception", "settings_rows", "broadcasts",
-                "venue_requests", "may_mutate", "raw_rows", "session", "job_classes", "tax_files", "mails", "account_rows"] {
+                "venue_requests", "may_mutate", "raw_rows", "job_classes", "tax_files", "mails", "account_rows"] {
         if let Some(value) = recorded.get(key) { answer[key] = value.clone(); }
     }
+    if let Some(value) = recorded.get("session").filter(|_| session_compared(step)) { answer["session"] = value.clone(); }
     if let Some(keys) = recorded.get("jobs").and_then(rails_sync_keys) { answer["sync_keys"] = keys; }
     if let Some(asked) = recorded.get("jobs").and_then(rails_tax_jobs) { answer["tax_jobs"] = asked; }
     answer
@@ -133,7 +174,9 @@ fn rails_answer(recorded: &Value, step: &Value) -> Value {
 
 fn rust_answer(answer: &Answer, step: &Value) -> Value {
     let mut headers: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for (name, value) in &answer.headers { headers.entry(name.clone()).or_default().push(value.clone()); }
+    for (name, value) in answer.headers.iter().filter(|(name, _)| session_compared(step) || name.as_str() != "set-cookie") {
+        headers.entry(name.clone()).or_default().push(value.clone());
+    }
     let mut ours = comparable(answer.status.into(), &headers, &answer.body, &extra_headers(step));
     without_selling_targets(&mut ours["body"]);
     ours
@@ -629,7 +672,7 @@ async fn run(dir: &Path) -> Value {
         if !requests.is_empty() { response["venue_requests"] = json!(requests); }
         if let Some(tables) = step.get("may_mutate") { response["may_mutate"] = tables.clone(); }
         if let Some(spec) = step["raw_rows"].as_object() { response["raw_rows"] = raw_rows(dir, spec, &step["raw_clock"]); }
-        if let Some(keys) = step["session"].as_array() {
+        if let Some(keys) = step["session"].as_array().filter(|_| session_compared(step)) {
             let data = browser.cookie.as_deref().and_then(|cookie| session::open(&app.keys.session, cookie, now)).unwrap_or_default();
             response["session"] = keys.iter().filter_map(Value::as_str).map(|key| (key.to_string(), session_value(&data, key))).collect::<serde_json::Map<_, _>>().into();
         }
@@ -1772,7 +1815,6 @@ fn raw_rows(dir: &Path, spec: &serde_json::Map<String, Value>, clock: &Value) ->
 fn session_value(data: &session::SessionData, key: &str) -> Value {
     match key {
         "tracker_connect" => data.tracker_connect.map_or(Value::Null, |id| json!({ "exchange_id": id })),
-        "auto_open_bot_wizard" => if data.auto_open_bot_wizard { json!(true) } else { Value::Null },
         "bot_config" => data.bot_config.clone().unwrap_or(Value::Null),
         "withdrawal_rule_config" => data.withdrawal_rule_config.clone().unwrap_or(Value::Null),
         other => panic!("session key {other} has no counterpart in this crate's session"),
@@ -2739,6 +2781,7 @@ async fn replay_page_shard(shard: usize) {
         let mut rust = run(&rust_root.path().join(&name).join(scope)).await;
         // The listed 3.0 tracker tabs (tabs_3_0): the populated index in its scope frame, or the first-sync page.
         let mut rails = rails;
+        no_wizard_reset(&scenario, &mut rails, &mut rust);
         settings_as_read(&scenario, &mut rails, &mut rust);
         let framed: Vec<bool> = rust["responses"].as_array().unwrap().iter().map(|a| a["body"].as_array().is_some_and(|lines| lines.iter().any(|l| l.as_str().is_some_and(|l| l.contains("id=\"tracker_scope\""))))).collect();
         for (answer, framed) in rails["responses"].as_array_mut().unwrap().iter_mut().zip(framed.into_iter().chain(std::iter::repeat(false))) {

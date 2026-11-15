@@ -343,10 +343,11 @@ pub(crate) fn busy() -> Response {
 }
 
 /// Devise's sign_in as this app follows it: the session now belongs to the account whose id and
-/// `encrypted_password` are given, and the bots page will open the wizard.
+/// `encrypted_password` are given. D-NO-WIZARD-AUTO-OPEN: the bots page never opens the wizard by itself (Rails opens it on
+/// the first empty bots page after a sign-in); a wizard begun in this browser before the sign-in is dropped here instead.
 pub(crate) fn sign_in(session: &mut SessionData, id: i64, encrypted_password: &str, new_csrf_token: bool) {
     session.user = Some((id, encrypted_password.get(..29).unwrap_or(encrypted_password).to_string()));
-    session.auto_open_bot_wizard = true;
+    session.bot_config = None;
     // A second-factor step left open in this browser, for whichever account, ends with any sign-in:
     // it must not be usable afterwards to turn this session into that account's. (Rails keeps it.)
     session.pending = None;

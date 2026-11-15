@@ -12,7 +12,7 @@ Pick the interface language from the dropdown at the top; it is saved with the a
 
 Fill in **Name**, **Email** and **Password**. The password needs at least 8 characters, an uppercase and a lowercase letter, a digit and a symbol; the checklist under the field turns green as you type. Press **Continue**.
 
-This account is the admin: confirmed immediately, no email sent, and the only account that can set up market data, email notifications, the stock catalog and sign-up for other people (see [Multiple users](27-multiple-users.md)). After **Continue** you are signed in and land on the **Bots** page with the new-bot wizard already open. Close it if you want to look around first; **New bot** brings it back.
+This account is the admin: confirmed immediately, no email sent, and the only account that can set up market data, email notifications, the stock catalog and sign-up for other people (see [Multiple users](27-multiple-users.md)). After **Continue** you are signed in and land on the **Bots** page. **New bot** opens the new-bot wizard when you're ready.
 
 ## Have a Deltabadger.com subscription?
 

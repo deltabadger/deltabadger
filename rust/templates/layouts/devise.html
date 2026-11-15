@@ -16,9 +16,11 @@
 <meta name="csrf-token" content="{{ csrf }}" />
     <meta name="csp-nonce" content="{{ v.nonce }}" />
     {{- v.desktop_launch_meta()|safe }}
+    {%- if v.desktop() %}{% include "layouts/_desktop_intro_head.html" %}{% endif %}
   </head>
 
   <body data-controller="hotwire-animations">
+    {% if v.desktop() %}{% include "layouts/_desktop_intro.html" %}{% endif -%}
     <div data-tauri-drag-region class="titlebar-drag-region"></div>
     <div class="devise">
 

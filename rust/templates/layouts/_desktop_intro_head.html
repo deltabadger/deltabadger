@@ -1,0 +1,19 @@
+<script nonce="{{ v.nonce }}" data-turbo-eval="false" data-desktop-intro>
+      // D-INTRO-COLD-START: the launch intro plays once per window (its sessionStorage), never under reduced motion,
+      // and its class goes on the first of: the icon's own end, a Turbo render or cache, four and a half seconds.
+      (function () {
+        var html = document.documentElement, events = ["animationend", "turbo:before-render", "turbo:before-cache"];
+        try {
+          if (matchMedia("(prefers-reduced-motion: reduce)").matches || sessionStorage.getItem("desktop-intro")) return;
+          sessionStorage.setItem("desktop-intro", "1");
+        } catch (e) { return; }
+        html.classList.add("desktop-intro--on");
+        function done(e) {
+          if (e && e.type === "animationend" && e.animationName !== "desktop-intro-icon") return;
+          html.classList.remove("desktop-intro--on");
+          events.forEach(function (t) { document.removeEventListener(t, done); });
+        }
+        events.forEach(function (t) { document.addEventListener(t, done); });
+        setTimeout(done, 4500);
+      })();
+    </script>

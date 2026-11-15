@@ -385,21 +385,8 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
     let body = match listing {
         Listing::Body(body) => body,
         Listing::Empty => {
-            // The first bots page after a sign-in with no bots opens the new-bot wizard over hidden chrome, and every wizard
-            // begun before it starts over (`session.delete(:auto_open_bot_wizard)`, then `session[:bot_config] = {}`).
-            let opening = {
-                let mut session = ctx.session.lock();
-                let opening = std::mem::take(&mut session.auto_open_bot_wizard);
-                if opening { session.bot_config = Some(serde_json::json!({})); }
-                opening
-            };
             let (preferences, bot_updates) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id));
-            let body = EmptyView { v: &ctx, preferences: &preferences, bot_updates: &bot_updates }.render()?;
-            if opening {
-                let src = format!("{}?auto_open=true", ctx.path("/bots/dca_single_assets/pick_exchange/new"));
-                return shell::application_opening(&ctx, &ctx.csrf_token(), &user, &shell, Page { status: StatusCode::OK, body, flash_now: Vec::new() }, src);
-            }
-            body
+            EmptyView { v: &ctx, preferences: &preferences, bot_updates: &bot_updates }.render()?
         }
     };
     shell::application(&ctx, &ctx.csrf_token(), &user, &shell, Page { status: StatusCode::OK, body, flash_now: Vec::new() })

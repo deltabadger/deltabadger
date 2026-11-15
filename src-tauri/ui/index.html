@@ -8,8 +8,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Deltabadger</title>
 <style>
-  :root { color-scheme: light dark; --bg: #ffffff; --fg: #1d1d1f; --muted: #6e6e73; --box: #f2f2f4; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #1c1c1e; --fg: #f5f5f7; --muted: #a1a1a6; --box: #2c2c2e; } }
+  :root { color-scheme: light dark; --bg: #f5f6f8; --fg: #1d1d1f; --muted: #6e6e73; --box: #e9ebef; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #001933; --fg: #f5f5f7; --muted: #a3b1c2; --box: #0b2a4a; } }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
   body { font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; display: flex; flex-direction: column; }
   .drag { height: 32px; flex: none; }
@@ -19,11 +19,17 @@
   .muted { color: var(--muted); }
   details { margin-top: 1rem; }
   summary { cursor: pointer; color: var(--muted); }
+  /* D-INTRO-OVER-APP: while starting, the Dock's icon is the message. It pops in where the engine's first page holds it. */
+  #logo { position: fixed; top: 50%; left: 50%; width: min(14vmin, 100px); height: auto; margin: calc(min(14vmin, 100px) / -2) 0 0 calc(min(14vmin, 100px) / -2);
+    animation: pop 0.5s ease-out both; }
+  @keyframes pop { 0% { transform: scale(.2); opacity: 0; } 55% { transform: scale(1.12); opacity: 1; } 80% { transform: scale(.95); } 100% { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { #logo { animation: none; } }
   pre { background: var(--box); padding: 0.75rem; border-radius: 6px; overflow: auto; max-height: 40vh; font-size: 12px; white-space: pre-wrap; word-break: break-word; user-select: text; }
 </style>
 </head>
 <body>
 <div class="drag" data-tauri-drag-region></div>
+<img id="logo" src="logo.png" alt="Deltabadger" hidden>
 <main>
   <p id="lead"></p>
   <p id="more" class="muted"></p>
@@ -42,7 +48,7 @@
       return "Quit Deltabadger and open it again. If this keeps happening, contact support and send them the files in " + log + ".";
     }
     var PAGES = {
-      "starting": function () { return [STARTING, ""]; },
+      "starting": function () { return ["", ""]; },
       "still-starting": function () {
         return [STARTING, "Still starting. The first start after an update can take a few minutes while Deltabadger saves a copy of your data and updates it. Leave Deltabadger open."];
       },
@@ -85,6 +91,7 @@
       document.getElementById("lead").textContent = text[0];
       document.getElementById("more").textContent = text[1];
       document.getElementById("link").hidden = !text[2];
+      document.getElementById("logo").hidden = text[0] !== "";
       var details = params.details || "";
       document.getElementById("lines").textContent = details;
       document.getElementById("details").hidden = details === "";
