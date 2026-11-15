@@ -1,6 +1,6 @@
 // The desktop app's launch intro (D-INTRO-OVER-APP). The starting page (src-tauri/ui/index.html) pops the Dock's icon
 // in at the centre; the engine's first page holds it there, then it lifts off while the page comes forward from
-// slightly behind and fades in. layouts/_desktop_intro_head.html puts the class on <html> on a cold start.
+// behind and fades in. layouts/_desktop_intro_head.html puts the class on <html> on a cold start.
 .desktop-intro
   display: none
 
@@ -18,28 +18,30 @@ html.desktop-intro--on .desktop-intro
   // The Dock's own image (src-tauri/icons/icon_1024.png, its margin and shadow included), at the starting page's size.
   width: min(14vmin, 100px)
   height: auto
-  animation: desktop-intro-icon 2.7s both
+  animation: desktop-intro-icon 3.2s both
 
 // The page: everything but the intro and the alerts (on the login page, its form row).
 html.desktop-intro--on body > :not(.desktop-intro, .flash-stack, .devise),
 html.desktop-intro--on .devise__row
   transform-origin: 50% 40vh
-  animation: desktop-intro-page 2.7s both
+  animation: desktop-intro-page 3.2s both
 
+// 3.2 s: held 2 s, a crouch, the lift-off; the page starts once the logo is half out of the window (81%, measured) and
+// comes forward from behind for the last 0.6 s.
 @keyframes desktop-intro-icon
-  0%, 74%
+  0%, 62.5%
     transform: none
-  79%
+  66.5%
     transform: translateY(5%) scale(1.08, .88)
     animation-timing-function: cubic-bezier(.5, 0, .9, .4)
-  100%
+  84%, 100%
     transform: translateY(-100vh) scale(.92, 1.08)
 
 @keyframes desktop-intro-page
-  0%, 76%
-    transform: scale(.94)
+  0%, 81%
+    transform: scale(.85)
     opacity: 0
-    animation-timing-function: cubic-bezier(.2, .7, .3, 1)
+    animation-timing-function: cubic-bezier(.2, 0, .2, 1)
   100%
     transform: none
     opacity: 1
