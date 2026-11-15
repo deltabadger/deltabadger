@@ -16,15 +16,13 @@
         cursor: pointer
     // On the first step a placeholder slot doubles as the order switch; on the asset step, once
     // something is chosen, it advances instead.
+    // No opacity change on hover: in WebKit (the desktop app) a fading pill re-layers the dialog and its backdrop blur blinks.
     .ticker--switch, .ticker--advance
         cursor: pointer
-        transition: opacity 0.15s ease
         input
             cursor: pointer
             &::placeholder
                 color: var(--concrete) !important
-        &:hover
-            opacity: 0.85
     &__link--placeholder
         color: var(--concrete)
         opacity: 0.7
