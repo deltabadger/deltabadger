@@ -89,11 +89,12 @@ fn text(statement: &[Token]) -> String {
     statement.iter().map(|t| match t { Token::Word(w) | Token::Quoted(w) => w.clone(), Token::Punct(c) => c.to_string() }).collect::<Vec<_>>().join(" ")
 }
 
-/// Each statement's tokens, comments and a leading byte-order mark left out; statements end at a `;` outside quotes.
+/// Each statement's tokens, comments left out; statements end at a `;` outside quotes. A byte-order mark is whitespace
+/// wherever it stands (SQLite skips one between tokens; inside a name it splits it, which only refuses more).
 fn statements(sql: &str) -> Vec<Vec<Token>> {
-    let word = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$' || !c.is_ascii();
+    let word = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$' || (!c.is_ascii() && c != '\u{feff}');
     let mut out = vec![Vec::new()];
-    let mut chars = sql.strip_prefix('\u{feff}').unwrap_or(sql).chars().peekable();
+    let mut chars = sql.chars().peekable();
     while let Some(c) = chars.next() {
         let tokens = out.last_mut().unwrap();
         match c {
@@ -111,7 +112,7 @@ fn statements(sql: &str) -> Vec<Vec<Token>> {
                 while let Some(&d) = chars.peek().filter(|d| word(**d)) { name.push(d); chars.next(); }
                 tokens.push(Token::Word(name));
             }
-            c if c.is_ascii_whitespace() => {}
+            c if c.is_ascii_whitespace() || c == '\u{feff}' => {}
             c => tokens.push(Token::Punct(c)),
         }
     }

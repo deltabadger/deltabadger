@@ -264,6 +264,8 @@ fn the_build_refuses_a_misnamed_or_repeated_version_a_rails_version_a_transactio
         ("a longer name authorises nothing", &[("20990101000001_t.sql", "CREATE TABLE bots$copy (id INTEGER); DROP TABLE bots;")], "no earlier Rust migration created"),
         ("a non-ASCII name authorises nothing", &[("20990101000001_t.sql", "CREATE TABLE botsé (id INTEGER); DROP TABLE bots;")], "no earlier Rust migration created"),
         ("after a byte-order mark", &[("20990101000001_t.sql", "\u{feff}DROP TABLE bots;")], "no earlier Rust migration created"),
+        ("after a byte-order mark past a statement", &[("20990101000001_t.sql", "SELECT 1;\u{feff}DROP TABLE bots;")], "no earlier Rust migration created"),
+        ("after a byte-order mark past a comment", &[("20990101000001_t.sql", "-- x\n\u{feff}ALTER TABLE bots ADD COLUMN y TEXT;")], "ALTER TABLE"),
         ("BEGIN after a byte-order mark", &[("20990101000001_t.sql", "\u{feff}BEGIN; CREATE TABLE t (id INTEGER);")], "BEGIN"),
         ("DROP of two names", &[("20990101000001_t.sql", "CREATE TABLE x (id INTEGER); DROP TABLE x, bots;")], "no earlier Rust migration created"),
     ];
