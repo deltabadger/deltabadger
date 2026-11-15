@@ -181,6 +181,35 @@ async fn low_funds_record_the_notification_time_like_fundable() {
     assert_eq!(one::<Option<String>>(&o, &format!("SELECT last_end_of_funds_notification FROM bots WHERE id = {id}")).as_deref(), Some("2026-09-01 10:00:01"));
 }
 
+/// D-FUNDS-BUFFER-CAP: with the spending cap on, the buffer is no more than what the cap still allows (Rails'
+/// Bot::Fundable#required_balance_buffer, fundable.rb:46, asks for 3 days of spend whatever the cap).
+#[tokio::test(flavor = "current_thread")]
+async fn a_capped_bot_is_low_only_under_what_its_cap_still_allows() {
+    let stamped = |balance: &str, limit: Option<f64>| {
+        let balance = balance.to_string();
+        async move {
+            let mut spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00");
+            if let Some(limit) = limit {
+                spec = spec.with("quote_amount_limited", json!(true)).with("quote_amount_limit", json!(limit))
+                    .transient("quote_amount_limit_enabled_at", json!("2026-09-01T10:00:00.000Z"));
+            }
+            let (_d, o, id) = setup(spec);
+            let v = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("ZEUR", &balance, "0");
+            assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:01Z").await, TickOutcome::Done { placed: true }));
+            let t = transient(&o, id);
+            let mailed = t.get(notice::FUNDS).is_some();
+            let stamp = one::<Option<String>>(&o, &format!("SELECT last_end_of_funds_notification FROM bots WHERE id = {id}"));
+            assert_eq!(mailed, stamp.is_some(), "the stamp and the mail marker go together");
+            mailed
+        }
+    };
+    // 60/week × 3 days ≈ 25.7; a cap of 75 has 15 left after the first buy.
+    assert!(!stamped("20", Some(75.0)).await, "20 covers the 15 the cap still allows");
+    assert!(stamped("10", Some(75.0)).await, "10 is under the 15 left");
+    assert!(stamped("20", None).await, "cap off: the 3-day buffer");
+    assert!(!stamped("0", Some(60.0)).await, "cap reached: never low");
+}
+
 // ---- The mail budget, as Rails stamps it, and the mail it owes (engine::notice) ----
 
 fn transient(o: &store::Opened, id: i64) -> serde_json::Value { bot(o, id).transient }

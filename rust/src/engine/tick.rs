@@ -704,7 +704,8 @@ async fn fundable<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model:
     let funds_origin=funds.origin().clone();
     match funds.value {
         Ok(free) => {
-            let buffer = super::accounting::funds_buffer(bot.quote_amount().unwrap_or_default(), bot.interval().map(|i| i.as_str()))?;
+            let buffer = super::accounting::funds_buffer(bot.quote_amount().unwrap_or_default(), bot.interval().map(|i| i.as_str()),
+                                                         super::accounting::funds_cap_left(c, bot)?)?;
             if free < buffer && !notified_in_last_day(c, bot, clock)? {
                 // `update!(last_end_of_funds_notification:)` then notify_end_of_funds.
                 model::run_credential_write(c, bot, &funds_origin, |tx| stamp_funds_low(tx, bot, clock.now(), true))?;
