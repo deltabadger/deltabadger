@@ -722,9 +722,26 @@ fn web_tally(c: &Connection, bot: &WebBot, now: DateTime<Utc>, basis_at: Option<
 
 /// Bot::Fundable#required_balance_buffer: `quote_amount / interval_duration.to_f * 3.days.to_f`, the interval as Rails'
 /// ActiveSupport durations count it (a month is 2,629,746 s). Shared by the engine's check and the status bar's.
-pub fn funds_buffer(quote_amount: f64, interval: Option<&str>) -> Result<BigDec, EngineError> {
+/// D-FUNDS-BUFFER-CAP: Rails asks for 3 days of spend whatever the spending cap (fundable.rb:46), so a 2-hourly bot capped
+/// at 20 was told to add 144. With the cap on, the buffer is no more than `cap_left`, what the cap still allows (0 once
+/// reached: never low; the bot stops on its cap with its own mail). None: no cap, or its spend unknown: the 3 days.
+pub fn funds_buffer(quote_amount: f64, interval: Option<&str>, cap_left: Option<BigDec>) -> Result<BigDec, EngineError> {
     let interval_seconds = match interval { Some("hour") => 3_600.0, Some("day") => 86_400.0, Some("week") => 604_800.0, _ => 2_629_746.0 };
-    BigDec::from_f64(quote_amount / interval_seconds * 259_200.0).map_err(data)
+    let three_days = BigDec::from_f64(quote_amount / interval_seconds * 259_200.0).map_err(data)?;
+    Ok(match cap_left { Some(left) if left < three_days => left, _ => three_days })
+}
+/// `funds_buffer`'s `cap_left` for the engine: the remainder the engine sizes with (`quote_amount_available`), 0 once reached.
+pub fn funds_cap_left(c: &Connection, bot: &Bot) -> Result<Option<BigDec>, EngineError> {
+    if quote_amount_limit_reached(c, bot)? { return Ok(Some(BigDec::zero())); }
+    quote_amount_available(c, bot)
+}
+/// The same for the status bar, from the start validation's tally (`web_amount_limit`), converted as the engine converts it.
+pub fn web_funds_cap_left(c: &Connection, bot: &WebBot) -> Result<Option<BigDec>, WebError> {
+    Ok(match web_amount_limit(c, bot)? {
+        Some(start::Limit { reached: true, .. }) => Some(BigDec::zero()),
+        Some(start::Limit { left: Some(left), .. }) => Some(core(left).to_dec().map_err(data)?),
+        _ => None,
+    })
 }
 pub fn sell_minimum(amount: f64, seconds: f64, decimals: u8) -> start::Minimum {
     let frequency = if amount > 0.0 && seconds > 0.0 { amount / seconds * 300.0 } else { 0.0 };

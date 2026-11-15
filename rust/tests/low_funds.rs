@@ -451,6 +451,27 @@ async fn low_funds_shows_only_from_a_complete_current_sync() {
     assert_eq!(prefix(&k.bar()), none, "replaced key");
 }
 
+/// D-FUNDS-BUFFER-CAP on the status bar: the same buffer as the engine's, no more than what the cap still allows.
+#[tokio::test(flavor = "current_thread")]
+async fn a_capped_bot_shows_low_funds_only_under_what_its_cap_still_allows() {
+    let low = ("Low funds".to_string(), false);
+    let none = (String::new(), true);
+    for (spent, eur, want, why) in [(false, "20", &none, "20 covers the 10 left"), (false, "5", &low, "5 is under the 10 left"),
+                                    (true, "1", &none, "cap reached: never low")] {
+        let (k, limit) = (install(1), 10.0);
+        if spent {
+            seed::insert_tx(&k.o.primary, &k.s, k.bot, &TxSpec { status: 0, external_status: Some(2), external_id: Some("closed-1".into()), order_type: 0,
+                amount: None, quote_amount: Some("10"), price: Some("50000"), quote_amount_exec: Some("10"), amount_exec: Some("0.0002"),
+                created_at: "2026-10-01 10:00:00".into() });
+        }
+        k.o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true'), '$.quote_amount_limit', ?2), \
+                             transient_data = json_set(transient_data, '$.quote_amount_limit_enabled_at', '2026-09-01T10:00:00.000Z') WHERE id = ?1",
+                            rusqlite::params![k.bot, limit]).unwrap();
+        k.synced(Some(eur)).await;
+        assert_eq!(&prefix(&k.bar()), want, "{why}");
+    }
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn retrying_keeps_its_explanation_market_closed_comes_first_and_a_seller_never_shows_it() {
     let k = install(5);

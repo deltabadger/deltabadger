@@ -303,7 +303,8 @@ pub fn next_action_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<O
 }
 
 /// D-LOW-FUNDS-STATUS: Bot::Fundable#funds_are_low? read from the synced balances, never a live call: the quote asset's
-/// free balance under `quote_amount / interval × 3 days` (accounting::funds_buffer). Only from a complete balance sync by
+/// free balance under `quote_amount / interval × 3 days`, or what the spending cap still allows when less
+/// (accounting::funds_buffer, D-FUNDS-BUFFER-CAP). Only from a complete balance sync by
 /// the user's current reading key on this venue (sync::cache::stale) whose job left nothing incomplete (it marks the job
 /// before fetching, while the stamp turns incomplete only before writes); there a missing row is 0, as a sync deletes
 /// zero balances. Never synced, interrupted or by a replaced key: not said. Alpaca spends buying power, which no sync
@@ -318,7 +319,8 @@ pub fn low_funds(c: &Connection, bot: &Bot) -> Result<bool, WebError> {
     let free = c.query_row("SELECT free FROM account_balances WHERE user_id = ?1 AND exchange_id = ?2 AND asset_id = ?3", [user, bot.exchange.id, quote.id],
                            |r| Ok(crate::ruby::from_sql(r.get_ref(0)?))).optional()?
         .map(|free| free.map_err(|e| super::data(format!("{e:?}")))).transpose()?.flatten().unwrap_or_else(crate::ruby::BigDec::zero);
-    let buffer = crate::engine::accounting::funds_buffer(bot.number("quote_amount").map_or(0.0, |n| n.to_f()), bot.text("interval"))?;
+    let buffer = crate::engine::accounting::funds_buffer(bot.number("quote_amount").map_or(0.0, |n| n.to_f()), bot.text("interval"),
+                                                         crate::engine::accounting::web_funds_cap_left(c, bot)?)?;
     Ok(free < buffer)
 }
 
