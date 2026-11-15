@@ -47,10 +47,11 @@ pub fn check_tables(sql: &str, created: &mut std::collections::BTreeSet<String>)
     let mut here = std::collections::BTreeSet::new();
     let mut drops = Vec::new();
     let statements = statements(sql);
-    // SQLite reads a non-ASCII character as part of a name, and skips a byte-order mark between tokens: a scan that
-    // misreads either could authorise the wrong table. Rust's migrations are ASCII outside comments and quoted text.
-    if let Some(c) = statements.iter().flatten().find_map(|t| match t { Token::Punct(c) if !c.is_ascii() => Some(*c), _ => None }) {
-        return Err(format!("a non-ASCII character ({c:?}) outside comments and quoted text is not allowed"));
+    // SQLite reads a non-ASCII character or `$` as part of a name, skips a byte-order mark between tokens and reads a
+    // bind parameter (`$x(…)` included) as one token: a scan that misreads any of them could authorise the wrong table.
+    // Rust's migrations use none of them outside comments and quoted text.
+    if let Some(c) = statements.iter().flatten().find_map(|t| match t { Token::Punct(c) if !c.is_ascii() || "$?:@#".contains(*c) => Some(*c), _ => None }) {
+        return Err(format!("{c:?} outside comments and quoted text is not allowed (a non-ASCII character or a bind parameter)"));
     }
     for statement in statements {
         let word = |i: usize| match statement.get(i) { Some(Token::Word(w)) => Some(w.to_ascii_uppercase()), _ => None };
@@ -83,7 +84,7 @@ fn transaction_control(sql: &str) -> Option<String> {
 
 #[derive(Debug, PartialEq)]
 enum Token {
-    /// A run of `[A-Za-z0-9_$]`, as written.
+    /// A run of `[A-Za-z0-9_]`, as written.
     Word(String),
     /// A quoted string or name ('…', "…", `…`, […]), as written.
     Quoted(String),
@@ -96,9 +97,9 @@ fn text(statement: &[Token]) -> String {
 }
 
 /// Each statement's tokens, comments left out; statements end at a `;` outside quotes. A non-ASCII character is a
-/// token of its own (`check_tables` refuses it).
+/// token of its own, as are `$ ? : @ #` (`check_tables` refuses both).
 fn statements(sql: &str) -> Vec<Vec<Token>> {
-    let word = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';
+    let word = |c: char| c.is_ascii_alphanumeric() || c == '_';
     let mut out = vec![Vec::new()];
     let mut chars = sql.chars().peekable();
     while let Some(c) = chars.next() {

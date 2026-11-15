@@ -658,10 +658,18 @@ fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError>
         let run = || -> Result<(), String> {
             let tx = rusqlite::Transaction::new_unchecked(c, rusqlite::TransactionBehavior::Immediate).map_err(|e| e.to_string())?;
             tx.execute_batch(CREATE_RUST_MIGRATIONS_TABLE).map_err(|e| e.to_string())?;
+            let others = || not_rust(&tx, registry).map_err(|e| e.to_string());
+            let before = others()?;
             tx.commit_hook(Some(|| true)); // a COMMIT inside the file becomes a ROLLBACK
             let ran = tx.execute_batch(m.sql);
             tx.commit_hook(None::<fn() -> bool>);
             ran.map_err(|e| e.to_string())?;
+            // D-B11-9-DROP-OWN-TABLE at run time, whatever the build's scan read: every table no Rust contract names
+            // (Rails-born) is still there as it was.
+            let after = others()?;
+            if let Some((name, _)) = before.iter().find(|t| !after.contains(t)) {
+                return Err(format!("it dropped or rebuilt {name}, which is not a Rust table; it was rolled back"));
+            }
             // Tests (debug builds): this migration's body fails inside its own transaction (PLAN-B6 r3.5).
             #[cfg(debug_assertions)]
             if std::env::var("DELTABADGER_TEST_FAIL_MIGRATION").is_ok_and(|v| v == m.version) {
@@ -681,6 +689,14 @@ fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError>
         if applied.len() == 1 { abort_point("mid-migrate"); }
     }
     Ok(applied)
+}
+
+/// (name, sql) of every table in `c` that `registry` does not own.
+fn not_rust(c: &Connection, registry: &Registry) -> rusqlite::Result<Vec<(String, String)>> {
+    let owned = registry.owned_tables();
+    let mut s = c.prepare("SELECT name, coalesce(sql, '') FROM sqlite_master WHERE type = 'table' ORDER BY name")?;
+    let all = s.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(all.into_iter().filter(|(name, _)| !owned.contains(&name.as_str())).collect())
 }
 
 /// For the tests: Rust-side fixtures brought up to date the way startup migrates (the same code, without the lock),

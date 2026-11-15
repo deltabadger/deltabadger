@@ -261,13 +261,16 @@ fn the_build_refuses_a_misnamed_or_repeated_version_a_rails_version_a_transactio
         ("DROP before its CREATE", &[("20990101000001_t.sql", "DROP TABLE x; CREATE TABLE x (id INTEGER);")], "no earlier Rust migration created"),
         ("DROP before a later file's CREATE", &[("20990101000001_a.sql", "DROP TABLE x;"), ("20990101000002_b.sql", "CREATE TABLE x (id INTEGER);")], "no earlier Rust migration created"),
         ("DROP twice", &[("20990101000001_t.sql", "CREATE TABLE x (id INTEGER); DROP TABLE x; DROP TABLE x;")], "no earlier Rust migration created"),
-        ("a longer name authorises nothing", &[("20990101000001_t.sql", "CREATE TABLE bots$copy (id INTEGER); DROP TABLE bots;")], "no earlier Rust migration created"),
+        ("a longer name authorises nothing", &[("20990101000001_t.sql", "CREATE TABLE bots$copy (id INTEGER); DROP TABLE bots;")], "bind parameter"),
         ("a non-ASCII name authorises nothing", &[("20990101000001_t.sql", "CREATE TABLE botsé (id INTEGER); DROP TABLE bots;")], "non-ASCII"),
         ("after a byte-order mark", &[("20990101000001_t.sql", "\u{feff}DROP TABLE bots;")], "non-ASCII"),
         ("after a byte-order mark past a statement", &[("20990101000001_t.sql", "SELECT 1;\u{feff}DROP TABLE bots;")], "non-ASCII"),
         ("a byte-order mark inside a name", &[("20990101000001_t.sql", "CREATE TABLE bots\u{feff}copy (id INTEGER); DROP TABLE bots;")], "non-ASCII"),
         ("after a byte-order mark past a comment", &[("20990101000001_t.sql", "-- x\n\u{feff}ALTER TABLE bots ADD COLUMN y TEXT;")], "non-ASCII"),
         ("BEGIN after a byte-order mark", &[("20990101000001_t.sql", "\u{feff}BEGIN; CREATE TABLE t (id INTEGER);")], "non-ASCII"),
+        ("a bind parameter", &[("20990101000001_t.sql", "SELECT $x(;CREATE/**/TABLE/**/bots); DROP TABLE bots;")], "bind parameter"),
+        ("a ? parameter", &[("20990101000001_t.sql", "SELECT ?1; CREATE TABLE x (id INTEGER);")], "bind parameter"),
+        ("a :name parameter", &[("20990101000001_t.sql", "SELECT :x; CREATE TABLE x (id INTEGER);")], "bind parameter"),
         ("DROP of two names", &[("20990101000001_t.sql", "CREATE TABLE x (id INTEGER); DROP TABLE x, bots;")], "no earlier Rust migration created"),
     ];
     for (name, files, says) in refused {
@@ -697,4 +700,21 @@ fn the_frozen_beta_fixture_holds_every_stored_name_the_rename_moves() {
     let (_, mid) = installs.iter().find(|(name, _)| name == "mid_takeover").expect("a mid-takeover install");
     let q = Connection::open(paths(mid.path()).queue).unwrap();
     assert!(q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get::<_, i64>(0)).unwrap() > 0, "Rails' rows still queued");
+}
+
+/// The migrator's own guard, whatever the build's scan let through: a file that drops or rebuilds a table no Rust
+/// contract names (a Rails-born one) is rolled back and refused.
+#[test]
+fn a_migration_that_drops_or_rebuilds_a_rails_table_is_rolled_back() {
+    for sql in ["DROP TABLE rules;", "DROP TABLE rules; CREATE TABLE rules (id INTEGER PRIMARY KEY, status INTEGER NOT NULL);"] {
+        let dir = common::rails_install_unmigrated();
+        let p = paths(dir.path());
+        let before = contents(&p);
+        let migrations = [Migration { version: "20990101000001", name: "unsafe", sql }];
+        match store::migrate_with(&p, &lock(&p), &Registry { migrations: &migrations, tables: &[], retired: &[] }) {
+            Err(StoreError::Migration { error, .. }) => assert!(error.contains("rules, which is not a Rust table"), "{sql}: {error}"),
+            other => panic!("{sql}: expected the refusal, got {other:?}"),
+        }
+        assert_eq!(contents(&p), before, "{sql}: rolled back");
+    }
 }
