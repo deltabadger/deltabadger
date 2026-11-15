@@ -17,7 +17,7 @@ On a Mac, open the `.dmg` and drag Deltabadger into **Applications**, then open 
 
 ## The first start
 
-The window shows **Starting Deltabadger…** and then the dashboard, already signed in. There is no setup page, no sign-up and no password: the app makes one account the first time it starts, in your computer's language and time zone (both can be changed under [Account settings](24-account-settings.md)).
+The window shows the Deltabadger logo and then the dashboard, already signed in. There is no setup page, no sign-up and no password: the app makes one account the first time it starts, in your computer's language and time zone (both can be changed under [Account settings](24-account-settings.md)).
 
 The desktop app sends no email. Bot alerts appear as your computer's notifications, and on the bot's own page. See [Email notifications](28-email-notifications.md#desktop-app).
 
@@ -33,7 +33,7 @@ While the app is quit, nothing trades. After you quit, the engine finishes what 
 
 | Window says | What it means |
 |---|---|
-| **Starting Deltabadger…** | The app is starting. After a minute it adds that the first start after an update can take a few minutes while Deltabadger saves a copy of your data and updates it. Leave it open. |
+| The Deltabadger logo | The app is starting. After a minute the window says **Starting Deltabadger…** and adds that the first start after an update can take a few minutes while Deltabadger saves a copy of your data and updates it. Leave it open. |
 | **Deltabadger is finishing its previous run.** | The last run is still closing. If this doesn't change, Deltabadger may be open in another program on this computer, for example in a terminal. Close it, or restart your computer. |
 | **Deltabadger stopped unexpectedly.** | Your bots are paused until it runs again. Quit Deltabadger and open it again. |
 | **Deltabadger didn't start.** followed by a reason | The reason says what to do, and most also say whether your data was changed. |
