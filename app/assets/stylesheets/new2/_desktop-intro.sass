@@ -1,0 +1,61 @@
+// The desktop app's launch intro (D-INTRO-OVER-APP): the icon pops in, crouches and lifts off, pulling the cover up
+// like a curtain over the page it opens on. layouts/_desktop_intro_head.html puts the class on <html> on a cold start.
+.desktop-intro
+  display: none
+
+html.desktop-intro--on .desktop-intro
+  display: grid
+  place-items: center
+  position: fixed
+  inset: 0
+  // Below .flash-stack (9999999999): an alert, an update error among them, shows through the intro.
+  z-index: 999999
+  pointer-events: none
+  overflow: hidden
+
+.desktop-intro__cover
+  position: absolute
+  inset: 0
+  background: var(--paper)
+  animation: desktop-intro-cover 1.45s both
+
+.desktop-intro__icon
+  position: relative
+  width: min(22vmin, 160px)
+  aspect-ratio: 1
+  filter: drop-shadow(0 6px 12px rgb(20 20 120 / .28))
+  animation: desktop-intro-icon 1.45s ease-out both
+  svg
+    display: block
+    width: 100%
+    height: 100%
+
+@keyframes desktop-intro-icon
+  0%
+    transform: scale(.2)
+    opacity: 0
+  25%
+    transform: scale(1.12)
+    opacity: 1
+  36%
+    transform: scale(.95)
+  45%, 56%
+    transform: none
+  64%
+    transform: translateY(5%) scale(1.08, .88)
+    animation-timing-function: cubic-bezier(.5, 0, .9, .4)
+  100%
+    transform: translateY(-100vh) scale(.92, 1.08)
+    opacity: 1
+
+@keyframes desktop-intro-cover
+  0%, 68%
+    transform: none
+    animation-timing-function: cubic-bezier(.65, 0, .35, 1)
+  100%
+    transform: translateY(-100%)
+
+// D-INTRO-REDUCED-MOTION-NONE, also when the setting changes mid-intro.
+@media (prefers-reduced-motion: reduce)
+  .desktop-intro
+    display: none !important

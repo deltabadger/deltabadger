@@ -608,3 +608,40 @@ async fn the_desktop_window_reaches_the_jobs_page_from_settings() {
     assert_eq!(jobs.status, 200, "{}", jobs.body);
     assert!(jobs.body.contains("<h1>Jobs</h1>"));
 }
+
+// ---- the launch intro (D-INTRO-OVER-APP, D-INTRO-COLD-START) ----
+
+/// The page's intro: its head script, nonce'd with the page's own CSP nonce, and the overlay first in the body.
+fn assert_intro(page: &str) {
+    let nonce = page.split("<meta name=\"csp-nonce\" content=\"").nth(1).and_then(|s| s.split('"').next()).expect("a nonce");
+    let script = format!("<script nonce=\"{nonce}\" data-turbo-eval=\"false\" data-desktop-intro>");
+    let (head, body) = page.split_once("</head>").expect("a head");
+    assert!(head.contains(&script), "{head}");
+    assert!(head.contains("sessionStorage.getItem(\"desktop-intro\")") && head.contains("prefers-reduced-motion"), "{head}");
+    let first = body.split_once('>').unwrap().1.trim_start();
+    assert!(first.starts_with("<div class=\"desktop-intro\" aria-hidden=\"true\">"), "{first}");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_window_s_first_page_after_a_launch_carries_the_intro_signed_in_or_out() {
+    let dir = install();
+    let app = desktop_app(&dir, TestClock::at(NOW)).await;
+    // The real launch path: the launcher's ticket, then the dashboard.
+    let mut b = signed_in_window(&app).await;
+    let bots = b.get(&app, "/bots").await;
+    assert_eq!(bots.status, 200, "{}", bots.body);
+    assert_intro(&bots.body);
+    // Signed out, the window opens on the login page (devise layout).
+    let login = Browser::default().get(&app, "/login").await;
+    assert_eq!(login.status, 200);
+    assert_intro(&login.body);
+}
+
+/// The error states are never under the intro: the refusal page and the launcher's starting page (didn't start,
+/// stopped unexpectedly, finishing its previous run, the update states) carry none of it.
+#[test]
+fn the_error_pages_carry_no_intro() {
+    for page in [web::refused::page("a reason"), include_str!("../../src-tauri/ui/index.html").to_string()] {
+        assert!(!page.contains("desktop-intro"), "{page}");
+    }
+}
