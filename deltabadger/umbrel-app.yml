@@ -2,7 +2,7 @@ manifestVersion: 1
 id: deltabadger
 name: Deltabadger
 category: finance
-version: "2.70.21-1"
+version: "3.0.0-beta.2"
 tagline: DCA bot for crypto
 icon: https://raw.githubusercontent.com/deltabadger/deltabadger/refs/heads/main/deltabadger/icon.svg
 description: >-
@@ -26,7 +26,7 @@ gallery:
 path: ""
 defaultPassword: ""
 releaseNotes: >-
-  Deltabadger will now stay on the version you install until you update it in Umbrel.
+  A new, lighter Deltabadger. Your bots, keys and history move over by themselves the first time it starts, and a copy of your data is kept. If you haven't updated in a while, it first brings your data up to date, which can take a few minutes.
 submitter: Deltabadger
 submission: https://github.com/deltabadger/deltabadger
 compose: "docker-compose.yml"
