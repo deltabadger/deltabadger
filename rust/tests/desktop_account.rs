@@ -633,6 +633,8 @@ async fn the_window_s_first_page_after_a_launch_carries_the_intro_signed_in_or_o
     let bots = b.get(&app, "/bots").await;
     assert_eq!(bots.status, 200, "{}", bots.body);
     assert_intro(&bots.body);
+    // D-NO-WIZARD-AUTO-OPEN: the launch's sign-in lands on the plain empty dashboard; the wizard waits for New bot.
+    assert!(bots.body.contains("<turbo-frame id=\"modal\"></turbo-frame>") && !bots.body.contains("auto_open") && !bots.body.contains("hide-chrome"), "{}", bots.body);
     // Signed out, the window opens on the login page (devise layout).
     let login = Browser::default().get(&app, "/login").await;
     assert_eq!(login.status, 200);

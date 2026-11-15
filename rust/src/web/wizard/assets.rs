@@ -111,7 +111,7 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool
     let exchange = super::exchange_name(c, chosen.venue)?;
     let sentence = sentence(ctx, &csrf, SentenceOf { order: &order, step: Step::Currencies, multi: !chosen.chips.is_empty(), chips: chips(c, &chosen.ids)?, exchange })?;
     let body = New {
-        v: ctx, csrf: &csrf, close_url: super::close_url(ctx), progress: progress(ctx, &order, Step::Currencies)?, sentence,
+        v: ctx, csrf: &csrf, close_url: ctx.path("/bots"), progress: progress(ctx, &order, Step::Currencies)?, sentence,
         basket_open: params.query("basket") == Some("open"),
         remove_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/remove"), remove_title: ctx.t("bot.dca_multi_asset.remove_asset"),
         no_common_exchange,

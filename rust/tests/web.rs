@@ -238,7 +238,7 @@ mod sessions {
         SessionData {
             user: Some((7, "$2a$11$abcdefghijklmnopqrstuv".into())), csrf: Some("c3Jm".into()),
             flash: vec![("alert".into(), "Zażółć \"it\"".into()), ("notice".into(), "ok".into())],
-            pending: Some(Pending { user_id: 7, started_at: 1_789_041_630, salt: "$2a$11$abcdefghijklmnopqrstuv".into() }), return_to: Some("/bots?filter=active".into()), auto_open_bot_wizard: true, tracker_connect: Some(3),
+            pending: Some(Pending { user_id: 7, started_at: 1_789_041_630, salt: "$2a$11$abcdefghijklmnopqrstuv".into() }), return_to: Some("/bots?filter=active".into()), tracker_connect: Some(3),
             setup_token: Some("expected-token".into()), platform_identity: Some((Some("Owner".into()), None)),
             bot_config: Some(serde_json::json!({ "flow": "asset_first", "settings": { "base_asset_ids": [3] } })),
             withdrawal_rule_config: Some(serde_json::json!({ "exchange_id": "3", "asset_id": "1" })),
@@ -268,7 +268,8 @@ mod sessions {
         use aes_gcm::aead::{Aead, KeyInit, Payload};
         use base64::Engine;
         let (key, now) = ([3u8; 32], at("2026-09-10T12:00:30Z"));
-        let plain = serde_json::json!({ "exp": now.timestamp() + 60, "data": { "csrf": "c3Jm" } }).to_string();
+        // D-NO-WIZARD-AUTO-OPEN: a cookie written before 3.0 dropped the wizard's auto-open still carries its flag; it is ignored.
+        let plain = serde_json::json!({ "exp": now.timestamp() + 60, "data": { "csrf": "c3Jm", "auto_open_bot_wizard": true } }).to_string();
         let sealed_for = |name: &str| {
             let nonce = [9u8; 12];
             let sealed = aes_gcm::Aes256Gcm::new(&key.into()).encrypt(aes_gcm::Nonce::from_slice(&nonce), Payload { msg: plain.as_bytes(), aad: name.as_bytes() }).unwrap();

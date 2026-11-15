@@ -136,30 +136,23 @@ pub fn application(ctx: &Ctx, csrf: &str, user: &User, shell: &Shell, page: Page
 
 /// The tracker supplies Rails' content_for(:flash_extra), outside the permanent flash target.
 pub fn application_with_flash_extra(ctx: &Ctx, csrf: &str, user: &User, shell: &Shell, page: Page, flash_extra: &str) -> Result<Response, WebError> {
-    layout(ctx, csrf, user, shell, page, flash_extra, None, false)
+    layout(ctx, csrf, user, shell, page, flash_extra, None)
 }
 
 /// A page that sets `content_for :modal_src` when it has a modal to open (the bot page's wash-sale modal).
 pub fn application_with_modal(ctx: &Ctx, csrf: &str, user: &User, shell: &Shell, page: Page, src: Option<String>) -> Result<Response, WebError> {
-    layout(ctx, csrf, user, shell, page, "", src, false)
+    layout(ctx, csrf, user, shell, page, "", src)
 }
 
-/// bots/index on the first visit after a sign-in with no bots: the page's chrome hidden (`content_for :hide_chrome`) and the
-/// new-bot wizard opened in the modal frame from `src` (`content_for :modal_src`).
-pub fn application_opening(ctx: &Ctx, csrf: &str, user: &User, shell: &Shell, page: Page, src: String) -> Result<Response, WebError> {
-    layout(ctx, csrf, user, shell, page, "", Some(src), true)
-}
-
-#[allow(clippy::too_many_arguments)]
-fn layout(ctx: &Ctx, csrf: &str, user: &User, shell: &Shell, page: Page, flash_extra: &str, modal_src: Option<String>, hide_chrome: bool) -> Result<Response, WebError> {
+fn layout(ctx: &Ctx, csrf: &str, user: &User, shell: &Shell, page: Page, flash_extra: &str, modal_src: Option<String>) -> Result<Response, WebError> {
     if ctx.turbo_frame.is_some() {
         return frame(csrf, &page);
     }
     let flash = flash::render(&flash::take(&ctx.session, &page.flash_now))?;
     let size = bot_count_font_size(shell.bot_count);
     let navbar = Navbar { v: ctx, csrf, user, shell, currencies: &CURRENCIES, bot_count_font_size: size, bot_count_baseline: bot_count_baseline(size), on_bot_page: on_bot_page(ctx) }.render()?;
-    let body_class = [hide_chrome.then_some("hide-chrome"), user.hide_balances.then_some("hide-balances")].into_iter().flatten().collect::<Vec<_>>().join(" ");
+    let body_class = if user.hide_balances { "hide-balances" } else { "" };
     let modal_src = modal_src.or_else(|| ctx.settings_reopen_src());
-    let layout = ApplicationLayout { v: ctx, csrf, body_class: &body_class, flash: &flash, shell, navbar: &navbar, body: &page.body, flash_extra, modal_src };
+    let layout = ApplicationLayout { v: ctx, csrf, body_class, flash: &flash, shell, navbar: &navbar, body: &page.body, flash_extra, modal_src };
     Ok(html(page.status, layout.render()?))
 }

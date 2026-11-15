@@ -353,11 +353,6 @@ pub fn sentence(ctx: &Ctx, csrf: &str, of: SentenceOf) -> Result<String, WebErro
     Ok(SentenceView { s: &s }.render()?)
 }
 
-/// The step pages' dialog closes to the bots page, or, opened by the bots page itself (`?auto_open=`), nowhere.
-pub fn close_url(ctx: &Ctx) -> String {
-    if ctx.params.query.iter().any(|(name, _)| name == "auto_open") { String::new() } else { ctx.path("/bots") }
-}
-
 /// Bots::WizardSessionGuard#redirect_if_session_expired: a guarded POST with no wizard begun (`session[:bot_config].blank?`) is
 /// sent to the root by a turbo-stream redirect.
 pub fn expired(ctx: &Ctx) -> Option<Response> {

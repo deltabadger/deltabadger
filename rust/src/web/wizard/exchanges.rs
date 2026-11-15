@@ -126,7 +126,7 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, namespace: Namespace)
     let table = Table { action: ctx.path(&format!("{}/pick_exchange", namespace.base())), csrf, param_name: namespace.param().into(), venues,
                         unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
     Ok(New {
-        close_url: if namespace == Namespace::Single { super::close_url(ctx) } else { ctx.path("/bots") },
+        close_url: ctx.path("/bots"),
         progress: progress(ctx, &order, Step::Exchange)?, sentence, table,
     }.render()?)
 }
