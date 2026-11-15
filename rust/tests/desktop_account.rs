@@ -620,6 +620,8 @@ fn assert_intro(page: &str) {
     assert!(head.contains("sessionStorage.getItem(\"desktop-intro\")") && head.contains("prefers-reduced-motion"), "{head}");
     let first = body.split_once('>').unwrap().1.trim_start();
     assert!(first.starts_with("<div class=\"desktop-intro\" aria-hidden=\"true\">"), "{first}");
+    // The Dock's own image, served from the engine's assets.
+    assert!(first.contains("<img class=\"desktop-intro__icon\" src=\"/assets/desktop-intro-"), "{first}");
 }
 
 #[tokio::test(flavor = "current_thread")]

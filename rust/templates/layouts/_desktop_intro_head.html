@@ -1,6 +1,6 @@
 <script nonce="{{ v.nonce }}" data-turbo-eval="false" data-desktop-intro>
       // D-INTRO-COLD-START: the launch intro plays once per window (its sessionStorage), never under reduced motion,
-      // and its class goes on the first of: the cover's own end, a Turbo render or cache, two seconds.
+      // and its class goes on the first of: the cover's own end, a Turbo render or cache, three seconds.
       (function () {
         var html = document.documentElement, events = ["animationend", "turbo:before-render", "turbo:before-cache"];
         try {
@@ -14,6 +14,6 @@
           events.forEach(function (t) { document.removeEventListener(t, done); });
         }
         events.forEach(function (t) { document.addEventListener(t, done); });
-        setTimeout(done, 2000);
+        setTimeout(done, 3000);
       })();
     </script>

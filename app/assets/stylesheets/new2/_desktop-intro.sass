@@ -17,29 +17,25 @@ html.desktop-intro--on .desktop-intro
   position: absolute
   inset: 0
   background: var(--paper)
-  animation: desktop-intro-cover 1.45s both
+  animation: desktop-intro-cover 2.1s both
 
 .desktop-intro__icon
   position: relative
-  width: min(22vmin, 160px)
-  aspect-ratio: 1
-  filter: drop-shadow(0 6px 12px rgb(20 20 120 / .28))
-  animation: desktop-intro-icon 1.45s ease-out both
-  svg
-    display: block
-    width: 100%
-    height: 100%
+  // The Dock's own image (src-tauri/icons/icon_1024.png, its margin and shadow included): the tile is 80% of it.
+  width: min(14vmin, 100px)
+  height: auto
+  animation: desktop-intro-icon 2.1s ease-out both
 
 @keyframes desktop-intro-icon
   0%
     transform: scale(.2)
     opacity: 0
-  25%
+  15%
     transform: scale(1.12)
     opacity: 1
-  36%
+  22%
     transform: scale(.95)
-  45%, 56%
+  28%, 58%
     transform: none
   64%
     transform: translateY(5%) scale(1.08, .88)
