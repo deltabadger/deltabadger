@@ -125,15 +125,21 @@ fn session_compared(step: &Value) -> bool {
 }
 
 /// D-NO-WIZARD-AUTO-OPEN: the `{}` Rails' bots page left behind stays in its session on the steps after it, where this
-/// crate's session has no wizard: the same empty wizard, until either side writes one.
-fn no_wizard_reset(scenario: &Value, rails: &mut Value, rust: &Value) {
+/// crate's session has no wizard: the same empty wizard, until either side writes one. The step where this crate starts
+/// that empty wizard writes the cookie Rails wrote on the bots page.
+fn no_wizard_reset(scenario: &Value, rails: &mut Value, rust: &mut Value) {
     let mut carried = false;
     for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
         if !session_compared(step) { carried = true; continue; }
         if !carried { continue; }
         let ours = rust["responses"].get(index).and_then(|a| a.get("session")).and_then(|s| s.get("bot_config")).cloned();
         let Some(theirs) = rails["responses"].get_mut(index).and_then(|a| a.get_mut("session")).and_then(|s| s.get_mut("bot_config")) else { continue };
-        if *theirs == json!({}) && ours == Some(Value::Null) { *theirs = Value::Null; } else { carried = false; }
+        if *theirs == json!({}) && ours == Some(Value::Null) { *theirs = Value::Null; continue; }
+        carried = false;
+        let rails_cookie = rails["responses"][index]["headers"].get("set-cookie").is_some();
+        if ours == Some(json!({})) && rails["responses"][index]["session"]["bot_config"] == json!({}) && !rails_cookie {
+            if let Some(headers) = rust["responses"].get_mut(index).and_then(|a| a.get_mut("headers")).and_then(Value::as_object_mut) { headers.remove("set-cookie"); }
+        }
     }
 }
 
@@ -2775,7 +2781,7 @@ async fn replay_page_shard(shard: usize) {
         let mut rust = run(&rust_root.path().join(&name).join(scope)).await;
         // The listed 3.0 tracker tabs (tabs_3_0): the populated index in its scope frame, or the first-sync page.
         let mut rails = rails;
-        no_wizard_reset(&scenario, &mut rails, &rust);
+        no_wizard_reset(&scenario, &mut rails, &mut rust);
         settings_as_read(&scenario, &mut rails, &mut rust);
         let framed: Vec<bool> = rust["responses"].as_array().unwrap().iter().map(|a| a["body"].as_array().is_some_and(|lines| lines.iter().any(|l| l.as_str().is_some_and(|l| l.contains("id=\"tracker_scope\""))))).collect();
         for (answer, framed) in rails["responses"].as_array_mut().unwrap().iter_mut().zip(framed.into_iter().chain(std::iter::repeat(false))) {
