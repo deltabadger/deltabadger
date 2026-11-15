@@ -124,6 +124,19 @@ fn session_compared(step: &Value) -> bool {
     !(step["method"] == "GET" && regex::Regex::new(r"^(/[a-z]{2})?/bots$").unwrap().is_match(path))
 }
 
+/// D-NO-WIZARD-AUTO-OPEN: the `{}` Rails' bots page left behind stays in its session on the steps after it, where this
+/// crate's session has no wizard: the same empty wizard, until either side writes one.
+fn no_wizard_reset(scenario: &Value, rails: &mut Value, rust: &Value) {
+    let mut carried = false;
+    for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
+        if !session_compared(step) { carried = true; continue; }
+        if !carried { continue; }
+        let ours = rust["responses"].get(index).and_then(|a| a.get("session")).and_then(|s| s.get("bot_config")).cloned();
+        let Some(theirs) = rails["responses"].get_mut(index).and_then(|a| a.get_mut("session")).and_then(|s| s.get_mut("bot_config")) else { continue };
+        if *theirs == json!({}) && ours == Some(Value::Null) { *theirs = Value::Null; } else { carried = false; }
+    }
+}
+
 fn rails_answer(recorded: &Value, step: &Value) -> Value {
     let changed = recorded["session_changed"].as_bool().expect("pages.rb records whether the session's content changed");
     let headers = recorded["headers"].as_object().unwrap().iter().filter(|(name, _)| (changed && session_compared(step)) || name.as_str() != "set-cookie").map(|(name, value)| {
@@ -2762,6 +2775,7 @@ async fn replay_page_shard(shard: usize) {
         let mut rust = run(&rust_root.path().join(&name).join(scope)).await;
         // The listed 3.0 tracker tabs (tabs_3_0): the populated index in its scope frame, or the first-sync page.
         let mut rails = rails;
+        no_wizard_reset(&scenario, &mut rails, &rust);
         settings_as_read(&scenario, &mut rails, &mut rust);
         let framed: Vec<bool> = rust["responses"].as_array().unwrap().iter().map(|a| a["body"].as_array().is_some_and(|lines| lines.iter().any(|l| l.as_str().is_some_and(|l| l.contains("id=\"tracker_scope\""))))).collect();
         for (answer, framed) in rails["responses"].as_array_mut().unwrap().iter_mut().zip(framed.into_iter().chain(std::iter::repeat(false))) {
