@@ -95,6 +95,14 @@ fn without_countdown(body: &mut Value) -> Vec<String> {
 /// where pages.rb recorded that the content changed (`session_changed`). The comparison then demands
 /// both directions: where Rails' session changed, this crate must set a cookie with the same
 /// attributes; where it did not, this crate must set none.
+/// D-EMPTY-DASHBOARD-BUTTON (styling only): the empty bots page's New bot is the big sky link the tracker's and rules'
+/// welcome screens show, where Rails' bots/_new_menu_start has an rbutton--primary button_to.
+fn empty_dashboard_button(body: &str) -> String {
+    let Some(at) = body.find("<div class=\"welcome-screen\">") else { return body.to_string() };
+    let form = regex::Regex::new(r#"(?s)<form class="button_to" method="get" action="([^"]*/bots/new)"><button class="rbutton rbutton--primary" data-turbo-frame="modal" aria-label="([^"]*)" type="submit">(.*?)</button></form>"#).unwrap();
+    format!("{}{}", &body[..at], form.replace(&body[at..], r#"<a class="sbutton sbutton--sky" data-turbo-frame="modal" aria-label="$2" href="$1">$3</a>"#))
+}
+
 fn rails_answer(recorded: &Value, step: &Value) -> Value {
     let changed = recorded["session_changed"].as_bool().expect("pages.rb records whether the session's content changed");
     let headers = recorded["headers"].as_object().unwrap().iter().filter(|(name, _)| changed || name.as_str() != "set-cookie").map(|(name, value)| {
@@ -107,7 +115,7 @@ fn rails_answer(recorded: &Value, step: &Value) -> Value {
     let status = recorded["status"].as_u64().unwrap_or_else(|| panic!("recorded response has no status"));
     let body = recorded["body"].as_str().unwrap_or_else(|| panic!("recorded response has no body"));
     // The listed 3.0 bot-list frame (tabs_3_0), applied before the page is normalised.
-    let safe_body=tabs::bots_page(body).unwrap_or_else(|e| panic!("{e}"));
+    let safe_body=empty_dashboard_button(&tabs::bots_page(body).unwrap_or_else(|e| panic!("{e}")));
     // #498 and locale filtering are now the oracle: compare the rendered bytes directly.
     let mut answer = comparable(status, &headers, &safe_body, &extra_headers(step));
     // A tracker index (the listed 3.0 tabs): which shape it takes is the page this crate served, read once both exist.

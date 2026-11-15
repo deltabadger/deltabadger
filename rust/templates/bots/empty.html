@@ -3,6 +3,6 @@
 
   <div class="welcome-screen">
     <p>{{ v.t("bot.welcome.pick_exchange_first")|safe }}</p>
-    <form class="button_to" method="get" action="{{ v.path("/bots/new") }}"><button class="rbutton rbutton--primary" data-turbo-frame="modal" aria-label="{{ v.t("bot.new")|safe }}" type="submit">
-        {% include "svg/_24x24_plus.html" %}
-</button></form></div>
+    <a class="sbutton sbutton--sky" data-turbo-frame="modal" aria-label="{{ v.t("bot.new")|safe }}" href="{{ v.path("/bots/new") }}">
+      {% include "svg/_24x24_plus.html" %}
+</a></div>
