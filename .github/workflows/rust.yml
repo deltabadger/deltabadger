@@ -12,11 +12,9 @@ on:
     paths:
       - 'rust/**'
       - '.github/workflows/rust.yml'
-      # The 3.0 image (Dockerfile.rust) and its entrypoint, whose secrets block copies docker-entrypoint.sh's
-      # (rust/tests/entrypoint.rs checks the copy; the Rails tests of the original live in test/config).
+      # The 3.0 image (Dockerfile.rust) and its entrypoint.
       - 'Dockerfile.rust'
       - 'docker/**'
-      - 'docker-entrypoint.sh'
       - '.dockerignore'
       # The compose files the image tests run (tests/image.rs), and the Umbrel app tests/umbrel.rs checks.
       - 'docker-compose.yml'
@@ -29,14 +27,9 @@ on:
       - 'script/release/**'
       - 'script/release.sh'
       - 'script/release_test.sh'
-      - 'test/config/docker_entrypoint_secrets_test.rb'
-      # Read by the build too: the app version the binary embeds, and build.rs's gates.
+      # Read by the build too: the app version the binary embeds, build.rs's gates and the asset build.
       - 'src-tauri/Cargo.toml'
       - 'script/rust/**'
-      # Rails-side inputs the build and the drift tests read: build.rs and store.rs read db/migrate, codec.rs
-      # Gemfile.lock, venue_rules.rs hashes the ported Ruby (keep in sync with ruby_vectors.json "ported_sources").
-      - 'db/migrate/**'
-      - 'Gemfile.lock'
       # The web UI the binary embeds (rust/build.rs): the JavaScript and stylesheets that
       # script/rust/build_assets.sh builds (app/javascript, app/assets, and what package.json and bun.lock
       # resolve, dart-sass among them), the images under app/assets/images, the static
@@ -47,174 +40,13 @@ on:
       - 'config/locales/**'
       - 'package.json'
       - 'bun.lock*'
-      - 'script/rust/build_assets.sh'
-      - 'script/rust/histories_accounting_gate.py'
-      - 'script/rust/histories_arithmetic_primitives.json'
-      - 'app/models/client.rb'
-      - 'app/models/clients/alpaca.rb'
-      - 'app/models/clients/ibkr/oauth.rb'
-      - 'app/models/clients/ibkr/session.rb'
-      - 'app/models/exchange.rb'
-      - 'app/models/exchanges/alpaca.rb'
-      - 'app/models/exchanges/kraken.rb'
-      # What store::seed mirrors (rust/tests/seeds.rs checks seeds_rails.json "sources" and the bundle against db/seed_data).
-      - 'db/seeds.rb'
-      - 'db/seed_data/**'
-      - 'app/models/market_data.rb'
-      - 'app/models/market_data_settings.rb'
-      - 'app/models/asset.rb'
-      - 'script/rust/record_seeds.rb'
-      - 'script/rust/schema_template.rb'
-      # What rust/src/figures mirrors (keep in sync with figures_vectors.json "ported_sources").
-      - 'app/models/bot/composition/measurable.rb'
-      - 'app/models/bot/composition/holding_keys.rb'
-      - 'app/models/bot/composition/allocatable.rb'
-      - 'app/models/bot/rebalance_accounting.rb'
-      - 'app/models/bot/tax_lots.rb'
-      - 'app/models/bot/restatable.rb'
-      - 'app/models/bot/chart_series.rb'
-      - 'app/models/candle_series_cache.rb'
-      - 'app/models/user/pnl_history.rb'
-      - 'app/models/utilities/currency.rb'
-      - 'app/models/denomination.rb'
-      - 'app/views/bots/_pnl_spark.html.erb'
-      - 'app/views/bots/_global_pnl.html.erb'
-      - 'app/views/bots/bot_tile/_bot_tile_pnl.html.erb'
-      - 'app/views/bots/_assets_table.html.erb'
-      - 'app/views/bots/composition/_locked_table.html.erb'
-      - 'app/views/bots/composition/_assets_table.html.erb'
-      - 'app/views/bots/composition/_metrics.html.erb'
-      - 'app/helpers/bot_helper.rb'
-      - 'app/models/bot/wash_sale_guard.rb'
-      - 'app/models/bot/composition/redeployable.rb'
-      - 'app/models/bot/composition/liquidatable.rb'
-      - 'app/views/bots/_chart.html.erb'
-      # The web layer's host check mirrors lines of this file (rust/tests/web.rs `host_authorization`).
-      - 'config/environments/production.rb'
-      # The OAuth provider mirrors these three (rust/tests/web.rs `oauth_sources` reads them).
-      - 'app/models/app_config.rb'
-      - 'config/initializers/doorkeeper.rb'
-      - 'config/initializers/rack_attack.rb'
-      # What rust/src/mail mirrors (rust/tests/fixtures/mail_vectors.json "ported_sources"): a change to a mailer, a
-      # mail view or the notification rules must run rust/tests/mail.rs, which then asks for a re-recording.
-      - 'app/mailers/**'
-      - 'app/views/layouts/mailers/**'
-      - 'app/views/bot_alerts_mailer/**'
-      - 'app/views/test_mailer/**'
-      - 'app/views/devise/mailer/**'
-      - 'app/models/bot/notifyable.rb'
-      - 'app/models/bot/failable.rb'
-      - 'app/models/bot/fundable.rb'
-      - 'app/models/smtp_settings.rb'
-      - 'config/initializers/smtp_settings.rb'
-      - 'app/jobs/application_mail_delivery_job.rb'
-      # The tracker's syncs (rust/src/sync) port these; rust/tests/sync_vectors.rs hashes them (sync_vectors.json "ported_sources").
-      - 'app/services/account_transaction_sync.rb'
-      - 'app/services/account_balance/sync.rb'
-      - 'app/services/transfer_matcher.rb'
-      - 'app/jobs/account_transaction/sync_job.rb'
-      - 'app/jobs/account_transaction/sync_all_job.rb'
-      - 'app/jobs/account_balance/sync_job.rb'
-      - 'app/jobs/account_balance/sync_all_job.rb'
-      - 'app/models/api_key.rb'
-      - 'app/models/concerns/api_key_failure_handling.rb'
-      - 'app/models/ticker.rb'
-      - 'app/models/account_transaction.rb'
-      - 'config/initializers/oj.rb'
-      # M4 control schemas, coercions and lifecycle callbacks are drift checked.
-      - 'app/mcp/tools/*_bot*_tool.rb'
-      - 'app/services/bot_api/bots/**'
-      - 'app/services/bot_api/number.rb'
-      - 'script/rust/histories*'
-      - 'script/rust/verify_histories.sh'
-      - 'script/rust/record_vectors.rb'
-      - 'script/rust/record_run_ownership.rb'
-      - 'script/rust/record_histories.rb'
-      - 'script/rust/histories_normalized.rb'
-      - 'script/rust/figures_normalized.rb'
-      - 'app/models/bot/merge.rb'
-      - 'app/models/bot/accountable.rb'
-      - 'app/models/bot/lifecycle.rb'
-      # What the starting time ports (rust/tests/fixtures/start_time_vectors.json "ported_sources").
-      - 'app/models/bot/startable.rb'
-      - 'app/models/automation/schedulable.rb'
-      - 'app/jobs/bot/action_job.rb'
-      - 'script/rust/start_time.rb'
-      - 'app/controllers/tracker_controller.rb'
-      - 'app/views/tracker/**'
-      # The tracker's connect flow (rust/tests/fixtures/tracker_connect_sources.json).
-      - 'app/controllers/tracker/**'
-      - 'app/controllers/concerns/retired_exchange_guard.rb'
-      - 'app/controllers/concerns/bots/searchable.rb'
-      - 'app/views/bots/pick_exchanges/_table.html.erb'
-      - 'app/views/bots/_new_step_progress_bar.html.erb'
-      - 'app/views/shared/_api_key_form.html.erb'
-      - 'app/views/svg/exchanges/**'
-      - 'config/routes.rb'
-      - 'app/views/shared/_segmented.html.erb'
-      - 'app/views/bots/_metrics_item.html.erb'
-      - 'app/views/svg/_24x24_sync.html.haml'
-      - 'app/helpers/tracker_helper.rb'
-      - 'db/schema.rb'
-      - 'app/models/user.rb'
-      - 'app/models/market_data_settings.rb'
-      - 'app/views/layouts/**'
-      - 'script/rust/pages_tracker_index.rb'
-      - 'script/rust/pages_tracker_first_sync.rb'
-      - 'script/rust/pages_tracker_holdings.rb'
-      - 'script/rust/pages_tracker_populated.rb'
-      - 'app/jobs/tax/generate_report_job.rb'
-      - 'app/helpers/application_helper.rb'
-      - 'app/views/assets/_logo.html.erb'
-      - 'script/rust/tracker_completion.rb'
-      - 'app/jobs/tracker/ledger_job.rb'
-      - 'app/models/account_balance.rb'
-      - 'app/models/portfolio_snapshot.rb'
-      - 'app/models/portfolio_venue_snapshot.rb'
-      - 'app/models/tracker/figures.rb'
-      - 'app/models/tracker/ledger.rb'
-      - 'app/models/historical_price.rb'
-      - 'app/views/tracker/index.html.erb'
-      - 'app/views/tracker/_exchange_filters.html.erb'
-      - 'app/views/tracker/_tiles.html.erb'
-      - 'app/views/tracker/_holdings.html.erb'
-      - 'app/views/tracker/_chart.html.erb'
-      - 'app/views/tracker/_record.html.erb'
-      - 'app/controllers/application_controller.rb'
-      # The first-run setup (rust/tests/fixtures/setup_vectors.json "sources").
-      - 'app/controllers/setup_controller.rb'
-      - 'app/controllers/errors_controller.rb'
-      - 'app/views/setup/**'
-      - 'app/views/layouts/_language_dropdown_full.html.erb'
-      - 'app/models/user.rb'
-      - 'app/models/user/**'
-      - 'config/initializers/devise.rb'
-      - 'app/services/platform/redeem_claim.rb'
-      - 'app/models/clients/launchpad.rb'
-      - 'app/jobs/setup/seed_and_sync_job.rb'
-      - 'script/rust/setup.rb'
-      # The B2b index-history oracle (rust/tests/fixtures/index_histories.json "ported_sources").
-      - 'script/rust/index_histories*'
-      - 'app/models/transaction.rb'
-      - 'app/models/bot/liquidation_state.rb'
-      - 'app/models/bot/rebalanceable.rb'
-      - 'app/models/bot/rebalancer.rb'
-      - 'app/models/bot/composition/rebalancer.rb'
-      - 'app/jobs/bot/evaluate_rebalancers_job.rb'
-      - 'app/models/bot/composition/order_setter.rb'
-      - 'app/models/bot/order_setter.rb'
-      - 'app/models/bot/limit_orderable.rb'
-      - 'app/models/bots/dca_index.rb'
-      - 'app/models/bot/order_creator.rb'
   pull_request:
     paths:
       - 'rust/**'
       - '.github/workflows/rust.yml'
-      # The 3.0 image (Dockerfile.rust) and its entrypoint, whose secrets block copies docker-entrypoint.sh's
-      # (rust/tests/entrypoint.rs checks the copy; the Rails tests of the original live in test/config).
+      # The 3.0 image (Dockerfile.rust) and its entrypoint.
       - 'Dockerfile.rust'
       - 'docker/**'
-      - 'docker-entrypoint.sh'
       - '.dockerignore'
       # The compose files the image tests run (tests/image.rs), and the Umbrel app tests/umbrel.rs checks.
       - 'docker-compose.yml'
@@ -227,14 +59,9 @@ on:
       - 'script/release/**'
       - 'script/release.sh'
       - 'script/release_test.sh'
-      - 'test/config/docker_entrypoint_secrets_test.rb'
-      # Read by the build too: the app version the binary embeds, and build.rs's gates.
+      # Read by the build too: the app version the binary embeds, build.rs's gates and the asset build.
       - 'src-tauri/Cargo.toml'
       - 'script/rust/**'
-      # Rails-side inputs the build and the drift tests read: build.rs and store.rs read db/migrate, codec.rs
-      # Gemfile.lock, venue_rules.rs hashes the ported Ruby (keep in sync with ruby_vectors.json "ported_sources").
-      - 'db/migrate/**'
-      - 'Gemfile.lock'
       # The web UI the binary embeds (rust/build.rs): the JavaScript and stylesheets that
       # script/rust/build_assets.sh builds (app/javascript, app/assets, and what package.json and bun.lock
       # resolve, dart-sass among them), the images under app/assets/images, the static
@@ -245,165 +72,6 @@ on:
       - 'config/locales/**'
       - 'package.json'
       - 'bun.lock*'
-      - 'script/rust/build_assets.sh'
-      - 'script/rust/histories_accounting_gate.py'
-      - 'script/rust/histories_arithmetic_primitives.json'
-      - 'app/models/client.rb'
-      - 'app/models/clients/alpaca.rb'
-      - 'app/models/clients/ibkr/oauth.rb'
-      - 'app/models/clients/ibkr/session.rb'
-      - 'app/models/exchange.rb'
-      - 'app/models/exchanges/alpaca.rb'
-      - 'app/models/exchanges/kraken.rb'
-      # What store::seed mirrors (rust/tests/seeds.rs checks seeds_rails.json "sources" and the bundle against db/seed_data).
-      - 'db/seeds.rb'
-      - 'db/seed_data/**'
-      - 'app/models/market_data.rb'
-      - 'app/models/market_data_settings.rb'
-      - 'app/models/asset.rb'
-      - 'script/rust/record_seeds.rb'
-      - 'script/rust/schema_template.rb'
-      # What rust/src/figures mirrors (keep in sync with figures_vectors.json "ported_sources").
-      - 'app/models/bot/composition/measurable.rb'
-      - 'app/models/bot/composition/holding_keys.rb'
-      - 'app/models/bot/composition/allocatable.rb'
-      - 'app/models/bot/rebalance_accounting.rb'
-      - 'app/models/bot/tax_lots.rb'
-      - 'app/models/bot/restatable.rb'
-      - 'app/models/bot/chart_series.rb'
-      - 'app/models/candle_series_cache.rb'
-      - 'app/models/user/pnl_history.rb'
-      - 'app/models/utilities/currency.rb'
-      - 'app/models/denomination.rb'
-      - 'app/views/bots/_pnl_spark.html.erb'
-      - 'app/views/bots/_global_pnl.html.erb'
-      - 'app/views/bots/bot_tile/_bot_tile_pnl.html.erb'
-      - 'app/views/bots/_assets_table.html.erb'
-      - 'app/views/bots/composition/_locked_table.html.erb'
-      - 'app/views/bots/composition/_assets_table.html.erb'
-      - 'app/views/bots/composition/_metrics.html.erb'
-      - 'app/helpers/bot_helper.rb'
-      - 'app/models/bot/wash_sale_guard.rb'
-      - 'app/models/bot/composition/redeployable.rb'
-      - 'app/models/bot/composition/liquidatable.rb'
-      - 'app/views/bots/_chart.html.erb'
-      # The web layer's host check mirrors lines of this file (rust/tests/web.rs `host_authorization`).
-      - 'config/environments/production.rb'
-      # The OAuth provider mirrors these three (rust/tests/web.rs `oauth_sources` reads them).
-      - 'app/models/app_config.rb'
-      - 'config/initializers/doorkeeper.rb'
-      - 'config/initializers/rack_attack.rb'
-      # What rust/src/mail mirrors (rust/tests/fixtures/mail_vectors.json "ported_sources"): a change to a mailer, a
-      # mail view or the notification rules must run rust/tests/mail.rs, which then asks for a re-recording.
-      - 'app/mailers/**'
-      - 'app/views/layouts/mailers/**'
-      - 'app/views/bot_alerts_mailer/**'
-      - 'app/views/test_mailer/**'
-      - 'app/views/devise/mailer/**'
-      - 'app/models/bot/notifyable.rb'
-      - 'app/models/bot/failable.rb'
-      - 'app/models/bot/fundable.rb'
-      - 'app/models/smtp_settings.rb'
-      - 'config/initializers/smtp_settings.rb'
-      - 'app/jobs/application_mail_delivery_job.rb'
-      # The tracker's syncs (rust/src/sync) port these; rust/tests/sync_vectors.rs hashes them (sync_vectors.json "ported_sources").
-      - 'app/services/account_transaction_sync.rb'
-      - 'app/services/account_balance/sync.rb'
-      - 'app/services/transfer_matcher.rb'
-      - 'app/jobs/account_transaction/sync_job.rb'
-      - 'app/jobs/account_transaction/sync_all_job.rb'
-      - 'app/jobs/account_balance/sync_job.rb'
-      - 'app/jobs/account_balance/sync_all_job.rb'
-      - 'app/models/api_key.rb'
-      - 'app/models/concerns/api_key_failure_handling.rb'
-      - 'app/models/ticker.rb'
-      - 'app/models/account_transaction.rb'
-      - 'config/initializers/oj.rb'
-      # M4 control schemas, coercions and lifecycle callbacks are drift checked.
-      - 'app/mcp/tools/*_bot*_tool.rb'
-      - 'app/services/bot_api/bots/**'
-      - 'app/services/bot_api/number.rb'
-      - 'script/rust/histories*'
-      - 'script/rust/verify_histories.sh'
-      - 'script/rust/record_vectors.rb'
-      - 'script/rust/record_run_ownership.rb'
-      - 'script/rust/record_histories.rb'
-      - 'script/rust/histories_normalized.rb'
-      - 'script/rust/figures_normalized.rb'
-      - 'app/models/bot/merge.rb'
-      - 'app/models/bot/accountable.rb'
-      - 'app/models/bot/lifecycle.rb'
-      # What the starting time ports (rust/tests/fixtures/start_time_vectors.json "ported_sources").
-      - 'app/models/bot/startable.rb'
-      - 'app/models/automation/schedulable.rb'
-      - 'app/jobs/bot/action_job.rb'
-      - 'script/rust/start_time.rb'
-      - 'app/controllers/tracker_controller.rb'
-      - 'app/views/tracker/**'
-      # The tracker's connect flow (rust/tests/fixtures/tracker_connect_sources.json).
-      - 'app/controllers/tracker/**'
-      - 'app/controllers/concerns/retired_exchange_guard.rb'
-      - 'app/controllers/concerns/bots/searchable.rb'
-      - 'app/views/bots/pick_exchanges/_table.html.erb'
-      - 'app/views/bots/_new_step_progress_bar.html.erb'
-      - 'app/views/shared/_api_key_form.html.erb'
-      - 'app/views/svg/exchanges/**'
-      - 'config/routes.rb'
-      - 'app/views/shared/_segmented.html.erb'
-      - 'app/views/bots/_metrics_item.html.erb'
-      - 'app/views/svg/_24x24_sync.html.haml'
-      - 'app/helpers/tracker_helper.rb'
-      - 'db/schema.rb'
-      - 'app/models/user.rb'
-      - 'app/models/market_data_settings.rb'
-      - 'app/views/layouts/**'
-      - 'script/rust/pages_tracker_index.rb'
-      - 'script/rust/pages_tracker_first_sync.rb'
-      - 'script/rust/pages_tracker_holdings.rb'
-      - 'script/rust/pages_tracker_populated.rb'
-      - 'app/jobs/tax/generate_report_job.rb'
-      - 'app/helpers/application_helper.rb'
-      - 'app/views/assets/_logo.html.erb'
-      - 'script/rust/tracker_completion.rb'
-      - 'app/jobs/tracker/ledger_job.rb'
-      - 'app/models/account_balance.rb'
-      - 'app/models/portfolio_snapshot.rb'
-      - 'app/models/portfolio_venue_snapshot.rb'
-      - 'app/models/tracker/figures.rb'
-      - 'app/models/tracker/ledger.rb'
-      - 'app/models/historical_price.rb'
-      - 'app/views/tracker/index.html.erb'
-      - 'app/views/tracker/_exchange_filters.html.erb'
-      - 'app/views/tracker/_tiles.html.erb'
-      - 'app/views/tracker/_holdings.html.erb'
-      - 'app/views/tracker/_chart.html.erb'
-      - 'app/views/tracker/_record.html.erb'
-      - 'app/controllers/application_controller.rb'
-      # The first-run setup (rust/tests/fixtures/setup_vectors.json "sources").
-      - 'app/controllers/setup_controller.rb'
-      - 'app/controllers/errors_controller.rb'
-      - 'app/views/setup/**'
-      - 'app/views/layouts/_language_dropdown_full.html.erb'
-      - 'app/models/user.rb'
-      - 'app/models/user/**'
-      - 'config/initializers/devise.rb'
-      - 'app/services/platform/redeem_claim.rb'
-      - 'app/models/clients/launchpad.rb'
-      - 'app/jobs/setup/seed_and_sync_job.rb'
-      - 'script/rust/setup.rb'
-      # The B2b index-history oracle (rust/tests/fixtures/index_histories.json "ported_sources").
-      - 'script/rust/index_histories*'
-      - 'app/models/transaction.rb'
-      - 'app/models/bot/liquidation_state.rb'
-      - 'app/models/bot/rebalanceable.rb'
-      - 'app/models/bot/rebalancer.rb'
-      - 'app/models/bot/composition/rebalancer.rb'
-      - 'app/jobs/bot/evaluate_rebalancers_job.rb'
-      - 'app/models/bot/composition/order_setter.rb'
-      - 'app/models/bot/order_setter.rb'
-      - 'app/models/bot/limit_orderable.rb'
-      - 'app/models/bots/dca_index.rb'
-      - 'app/models/bot/order_creator.rb'
 
 permissions:
   contents: read
@@ -432,19 +100,13 @@ jobs:
       run:
         working-directory: rust
     steps:
-      # venue_rules hashes the ported Ruby files byte for byte; Windows runners default to CRLF checkouts.
+      # Fixtures and recorded answers are compared byte for byte; Windows runners default to CRLF checkouts.
       - name: Check out LF line endings
         shell: bash
         working-directory: .
         run: git config --global core.autocrlf false
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # A Rails edit that moves a pinned file fails here, once, instead of in ten test binaries later.
-      - name: Rails pins are current
-        if: runner.os != 'Windows'
-        working-directory: .
-        run: script/rust/repin --check || { echo "::error::Rails files pinned by Rust fixtures changed. Run script/rust/repin and commit what it changes."; exit 1; }
 
       - name: Install Rust 1.94.0
         shell: bash
@@ -482,7 +144,7 @@ jobs:
         run: cargo clippy --all-targets --locked -- -D warnings
 
       # Every test file except those rust/tests/platform_excluded.txt names for this OS, with the reason they can't run
-      # here (Rails, Ruby, Docker). Only the selected targets are built: nextest builds every target it is given
+      # here (Docker, Unix-only, or full suite only). Only the selected targets are built: nextest builds every target it is given
       # before it filters. macOS's bash is 3.2 (no ${v,,}, no mapfile).
       - name: Test
         shell: bash
@@ -537,9 +199,10 @@ jobs:
       # The command tests run Umbrel's and the own-server compose files through the Compose v2 the runners ship.
       - name: Docker Compose
         run: docker compose version
-      # The takeover tests start on volumes made by the last 2.x image and by Rails itself (rails_install); the Behind
-      # guard's tests on volumes made by 2.34.0 and 2.60.0, and run the guard on 2.70.21 pinned by digest (this pull
-      # records that digest, so the compose finds it).
+      # The takeover tests start on volumes made by the last 2.x image and on the install 2.x prepared (rails_install,
+      # frozen); the Behind guard's tests on volumes made by 2.34.0 and 2.60.0, and run the guard on 2.70.21 pinned by
+      # digest (this pull records that digest, so the compose finds it). The 2.x interop tests (PLAN-B11 T8) run 2.70.21
+      # on what this build writes.
       - name: Pull the 2.x images
         run: for tag in 2.70.21 2.60.0 2.34.0; do docker pull "ghcr.io/deltabadger/deltabadger:$tag"; done
       # release.yml's gate before each 3.0 push (PLAN-B3 r1.8), on the same platforms: run here so a change to
@@ -552,14 +215,6 @@ jobs:
         run: |
           docker info -f 'image store: {{.Driver}} {{json .DriverStatus}}'
           bash script/rust/image_config_digest.sh deltabadger:ci
-      - name: Install native gem dependencies
-        run: sudo apt-get update -qq && sudo apt-get install -y libsqlite3-dev libvips-dev libsodium-dev libyaml-dev libcurl4-openssl-dev
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '4.0.7'
-          bundler-cache: true
-      - name: Create Rails' development secret
-        run: mkdir -p tmp && { [ -s tmp/local_secret.txt ] || openssl rand -hex 64 > tmp/local_secret.txt; }
       - name: Install Rust 1.94.0
         run: |
           rustup toolchain install 1.94.0 --profile minimal
@@ -569,11 +224,22 @@ jobs:
           workspaces: rust
           key: image-${{ matrix.arch }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        with:
+          tool: cargo-nextest@0.9.146
+      # The interop tests serve this build's pages (mcp, oauth), which embed the web assets the image built inside Docker.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - name: Build the web assets
+        run: bash script/rust/build_assets.sh
+      # The image and entrypoint tests, and the 2.x interop tests: rust/.config/nextest.toml `[profile.image]`.
       - name: Test the image
         working-directory: rust
         env:
           DELTABADGER_IMAGE: deltabadger:ci
-        run: cargo test --locked --test image --test entrypoint
+          CARGO_PROFILE_DEV_DEBUG: 'false'
+          CARGO_PROFILE_DEV_STRIP: debuginfo
+        # Only the profile's binaries are built (nextest builds every target it is given before it filters).
+        run: cargo nextest run --locked --no-fail-fast --profile image --test image --test entrypoint --test account_identity --test handover --test mcp --test mcp_control_races --test web_actions --test mcp_reads --test oauth --test rebalance --test sync_parity --test venue_signing
 
   # PLAN-B8 r1.6: release.yml's rules (desktop assets and signatures, latest.json, the image tags per tag and
   # LATEST_MAJOR, never moving a shared tag backward, version files) as script/release/validate_test.sh's cases.
@@ -636,18 +302,18 @@ jobs:
           echo "smoked $smoked, exported $PUSHED, the load build's own metadata '${METADATA}'"
           [ -n "$PUSHED" ] && [ "$smoked" = "$PUSHED" ]
 
+  # Every test, on Linux, with no Ruby on the runner: nothing reaches Rails or Ruby (PLAN-B11 B11-3). The 2.x interop
+  # tests skip here (no DELTABADGER_IMAGE) and run in the image job.
   full-suite:
     if: github.event_name != 'schedule'
-    name: Full Rust suite with Rails parity (${{ matrix.partition }}/5)
+    name: Full Rust suite (${{ matrix.partition }}/4)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        partition: [1, 2, 3, 4, 5]
+        partition: [1, 2, 3, 4]
     env:
-      APP_ROOT_URL: http://localhost:3000
-      SKIP_TEST_DATABASE: 'true'
       # About 200 test binaries, each linking the whole crate: with line tables (profile.dev) they took ~44 GB of
       # target, more than some runners have free, and rust-lld died mid-link (SIGBUS, "No space left on device").
       # No debuginfo in CI's test builds; panics keep their file:line. Local builds and the release are unchanged.
@@ -661,12 +327,6 @@ jobs:
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
           df -h /
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install native gem dependencies
-        run: sudo apt-get update -qq && sudo apt-get install -y libsqlite3-dev libvips-dev libsodium-dev libyaml-dev libcurl4-openssl-dev gdb
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '4.0.7'
-          bundler-cache: true
       - name: Install Rust 1.94.0
         run: |
           rustup toolchain install 1.94.0 --profile minimal
@@ -676,53 +336,6 @@ jobs:
           workspaces: rust
           key: full-suite
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
-        with:
-          tool: cargo-nextest@0.9.146
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-      - name: Build the web assets
-        run: bash script/rust/build_assets.sh
-      # The same tests as `cargo test` (the crate has no doctests), each in its own process, spread over five
-      # runners; every test lands in exactly one partition, and rust/.config/nextest.toml applies as it does locally.
-      # Rails writes tmp/local_secret.txt on its first development boot, not atomically: tests that boot Rails at the
-      # same moment can read it empty ("secret_key_base ... got: \"\""). Written once here, before any of them.
-      - name: Create Rails' development secret
-        working-directory: .
-        run: mkdir -p tmp && { [ -s tmp/local_secret.txt ] || openssl rand -hex 64 > tmp/local_secret.txt; }
-      - name: Test the full Rust suite
-        working-directory: rust
-        run: cargo nextest run --locked --no-fail-fast --partition count:${{ matrix.partition }}/5
-
-  # PLAN-B11 B11-1: the tests that read Rails' frozen answers (rust/tests/recorded/) pass with no Ruby on the runner and
-  # bin/rails not executable, so nothing reaches Rails. The tests that still call Rails live (Rust→Rails interop, until
-  # B11-3) are kept out by the ruby-absent profile (rust/.config/nextest.toml) and run in full-suite as before.
-  ruby-absent:
-    if: github.event_name != 'schedule'
-    name: Rust suite with Ruby absent (${{ matrix.partition }}/3)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        partition: [1, 2, 3]
-    env:
-      CARGO_PROFILE_DEV_DEBUG: 'false'
-      CARGO_PROFILE_DEV_STRIP: debuginfo
-    steps:
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
-          df -h /
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install Rust 1.94.0
-        run: |
-          rustup toolchain install 1.94.0 --profile minimal
-          rustup default 1.94.0
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: rust
-          key: full-suite
-          save-if: false
       - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
         with:
           tool: cargo-nextest@0.9.146
@@ -746,6 +359,8 @@ jobs:
           chmod -x bin/rails
           left=$(for dir in "${dirs[@]}"; do [ -d "$dir" ] && ls "$dir"; done | grep -E "$ruby_named" || true)
           [ -z "$left" ] && [ ! -x bin/rails ] && ! ruby -v 2>/dev/null && echo "no Ruby anywhere on PATH; bin/rails is not executable" || { echo "still here: $left"; exit 1; }
-      - name: Test the suite on rust/tests/recorded only
+      # The same tests as `cargo test` (the crate has no doctests), each in its own process, spread over four runners;
+      # every test lands in exactly one partition, and rust/.config/nextest.toml applies as it does locally.
+      - name: Test the full Rust suite
         working-directory: rust
-        run: cargo nextest run --locked --no-fail-fast --profile ruby-absent --partition count:${{ matrix.partition }}/3
+        run: cargo nextest run --locked --no-fail-fast --partition count:${{ matrix.partition }}/4

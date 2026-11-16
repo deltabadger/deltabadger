@@ -4687,17 +4687,5 @@
   "return_of_capital": 14,
   "adjustment": 15,
   "unsupported_activity": 16
-},
-  "ported_sources": {
-    "app/models/import/binance_csv.rb": "136aa501d0d9068c7253a94060346731640b46faa523fc9cdb87c3454e6f2f8d",
-    "app/models/import/deltabadger_csv.rb": "c6ac982c93096876bb38da7e1dfc243db343c6e85dc217a16e7112ee8b97b74c",
-    "app/models/import/run.rb": "949236726b669f5cac06a862af2a3b5b39e11011c340f3eebe950281803cef2d",
-    "app/controllers/tracker/imports_controller.rb": "5281234ab0a1ec6442f75d2161e4ab9d682c9e8cf91a0b6ffb0ac1b785cccd86",
-    "app/models/account_transaction.rb": "27e1f816648843e735c5a5d0751e4d95afa52ffd266632d2458ac8f95e4aa500",
-    "app/models/concerns/csv_safe.rb": "83041a76c2334e9d9aae1606e8ef6c0b0c4673b5573ceaff012dd713a954a544"
-  },
-  "gems": {
-    "csv": "3.3.6",
-    "bigdecimal": "4.1.3"
-  }
+}
 }

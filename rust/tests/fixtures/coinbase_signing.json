@@ -1,15 +1,4 @@
 {
-  "sources": {
-    "script/rust/record_venue_signing.rb": "0a16e616d09b1ae4254f0849fd5495e7582b45b44231c05294d90138ad6118c2"
-  },
-  "gems": {
-    "honeymaker": "0.12.5",
-    "hyperliquid-rb": "0.1.1",
-    "jwt": "2.10.3",
-    "rbnacl": "7.1.2",
-    "eth": "0.5.18",
-    "msgpack": "1.8.5"
-  },
   "api_key": "organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678",
   "secrets": {
     "es256": "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIMFTz7EqPCw/LWAEfvFmbyk59sPmhzbnkj6aV7BoJqu0oAoGCCqGSM49\nAwEHoUQDQgAEb3vZdG1GH6yn5IcQnkHYCkWhJOvHJS93DJisoZR2O0hubksq23ml\nEsxmvwYgoIA3BO1Vfbohnb1Y/FjSIXax5A==\n-----END EC PRIVATE KEY-----\n",

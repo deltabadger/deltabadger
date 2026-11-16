@@ -30,16 +30,8 @@ fn fixture(name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name)).unwrap()).unwrap()
 }
 
-/// Rails' recorded verdicts, their pins checked.
-fn verdicts() -> Value {
-    use sha2::{Digest, Sha256};
-    let recorded = fixture("ibkr_key_verdicts.json");
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in recorded["sources"].as_object().unwrap() {
-        assert_eq!(&json!(format!("{:x}", Sha256::digest(std::fs::read(root.join(path)).unwrap()))), hash, "{path}: re-record ibkr_key_verdicts.json (script/rust/repin)");
-    }
-    recorded
-}
+/// Rails' recorded verdicts.
+fn verdicts() -> Value { fixture("ibkr_key_verdicts.json") }
 
 fn material() -> Material {
     let k = fixture("ibkr_test_keys.json");

@@ -91,7 +91,7 @@ async fn four_reads_match_rails() {
     for name in ALL_READS {assert_eq!(deltabadger::web::mcp::tools::NAMES.contains(name),EXPECTED_READS.contains(name),"registry stage: {name}");}
     let root=tempfile::tempdir().unwrap();
     // The grid is Rails' own (frozen); Rails plays it in `record` on its own copy, keeping only its answers (rails.json).
-    let grid=common::frozen("mcp-reads-grid",common::has_subdirs,|out|common::rails(tempfile::tempdir().unwrap().path(),"test",&["runner","script/rust/mcp.rb","reads_grid",out.to_str().unwrap()]));
+    let grid=common::frozen("mcp-reads-grid",common::has_subdirs);
     common::copy_tree(&grid,root.path());
     let mut actual=vec![];
     for e in std::fs::read_dir(root.path()).unwrap() {
@@ -117,7 +117,7 @@ async fn four_reads_match_rails() {
         actual.push((dir,steps,got));
     }
     assert_eq!(actual.len(),104,"all recorded M3 scenarios (3.0 A20c: m3_unread_venue)");
-    let recorded=common::frozen("mcp-reads",common::has_subdirs,|out|{common::copy_tree(&grid,out);common::rails(tempfile::tempdir().unwrap().path(),"test",&["runner","script/rust/mcp.rb","record",out.to_str().unwrap()]);common::freeze::keep_only(out,"rails.json");});
+    let recorded=common::frozen("mcp-reads",common::has_subdirs);
     common::copy_tree(&recorded,root.path());
     if let Ok(root)=std::env::var("M3_RECORDINGS"){
         for (dir,_,got) in &actual {
@@ -333,6 +333,7 @@ async fn bounds_transport(dir:&Path,steps:&Value){
 
 #[tokio::test(flavor="current_thread")]
 async fn polled_open_market_zero_price_uses_the_nil_branch() {
+    if !common::v2::enabled() { return; }
     use common::seed::{self,BotSpec,TxSpec};
     use deltabadger::{engine::polling,venue::alpaca::parse_order,web::mcp::{reads,tools::Called}};
     let (dir,o,s)=common::install_alpaca();
@@ -351,10 +352,12 @@ async fn polled_open_market_zero_price_uses_the_nil_branch() {
     let Called::Fetch(fetch)=reads::plan(&o.primary,&app,s.user_id,"list_open_orders",&json!({})).unwrap() else{panic!("orders fetch")};
     let got=reads::finish(&o.primary,reads::fetch(&app,fetch).await).unwrap();
     assert_eq!(got["content"][0]["text"],format!("Open orders (1):\n- [2026-09-10 12:00] #{tx} BUY 2.0 BTC/USD  (Market order) | Alpaca | ext: polled-market"));
-    // Read the actual engine-polled database through the unchanged Rails service/presenter.
+    // Read the actual engine-polled database through 2.70.21's own service/presenter (the published image: common::v2).
+    o.primary.execute_batch("PRAGMA wal_checkpoint(TRUNCATE)").unwrap(); // the container reads the file, not this process's WAL
     let boot=tempfile::tempdir().unwrap();
-    let oracle=dir.path().join("polled-rails.json");
-    common::rails(boot.path(),"test",&["runner",r#"ActiveRecord::Base.establish_connection(adapter: 'sqlite3',database: File.join(ARGV[0],'production.sqlite3')); Time.zone='UTC'; order=BotApi::Orders::ListOpen.call(user: User.find(ARGV[1])).data[:orders].sole; presenter=ListOpenOrdersTool.allocate; File.write(ARGV[2],JSON.generate(zero: presenter.send(:db_line,order),nil: presenter.send(:db_line,order.merge(price: nil))))"#,dir.path().to_str().unwrap(),&s.user_id.to_string(),oracle.to_str().unwrap()]);
+    let oracle=boot.path().join("polled-rails.json");
+    let out=common::v2::rails(dir.path(),boot.path(),"engine-test-secret",&["runner",r#"Time.zone='UTC'; order=BotApi::Orders::ListOpen.call(user: User.find(ARGV[0])).data[:orders].sole; presenter=ListOpenOrdersTool.allocate; File.write('/x/polled-rails.json',JSON.generate(zero: presenter.send(:db_line,order),nil: presenter.send(:db_line,order.merge(price: nil))))"#,&s.user_id.to_string()]);
+    assert!(out.status.success(),"2.70.21's ListOpen: {}",String::from_utf8_lossy(&out.stderr));
     let rails=read(&oracle);
     let line=got["content"][0]["text"].as_str().unwrap().strip_prefix("Open orders (1):\n").unwrap();
     assert!(rails["zero"].as_str().unwrap().contains("@ 0.0"));

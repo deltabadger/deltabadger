@@ -1,6 +1,7 @@
 //! The 3.0 image's entrypoint (docker/entrypoint.sh) provisions /app/storage/.secrets exactly as the 2.x image's
-//! (docker-entrypoint.sh) does (PLAN-B3 §2): its secrets block is a copy, checked line for line below, and the cases of
-//! test/config/docker_entrypoint_secrets_test.rb run against it here, under bash, without Docker or Ruby.
+//! (docker-entrypoint.sh) did (PLAN-B3 §2): its secrets block is a copy (D-B3-SECRETS-COMMENT: one comment line names the
+//! Rust command), and the cases of the 2.x Rails test docker_entrypoint_secrets_test.rb run against it here, under bash,
+//! without Docker or Ruby.
 #![cfg(unix)]
 
 use std::collections::HashMap;
@@ -38,26 +39,6 @@ fn provision(dir: &Path, env: &[(&str, &str)]) -> HashMap<String, String> {
 }
 
 fn secrets_file(dir: &Path) -> String { std::fs::read_to_string(dir.join(".secrets")).unwrap() }
-
-#[test]
-fn the_secrets_block_is_the_2x_entrypoints_but_for_one_comment_line() {
-    let old = std::fs::read_to_string(root().join("docker-entrypoint.sh")).unwrap();
-    let new = std::fs::read_to_string(script()).unwrap();
-    // From the SECRETS_FILE line to the end of setup_secrets, in each file.
-    let block = |text: &str| {
-        let lines: Vec<&str> = text.lines().collect();
-        let start = lines.iter().position(|l| l.starts_with("SECRETS_FILE=")).expect("SECRETS_FILE line");
-        let setup = lines.iter().position(|l| *l == "setup_secrets() {").expect("setup_secrets");
-        let end = setup + lines[setup..].iter().position(|l| *l == "}").expect("its end");
-        lines[start..=end].join("\n")
-    };
-    // D-B3-SECRETS-COMMENT: the 2.x line names the Rails task; 3.0's names the command that replaces it (PLAN-A29).
-    let expected = block(&old).replace(
-        "            echo \"# here. Run 'rake deltabadger:encryption:derived_keys' to move off that.\"",
-        "            echo \"# here. Run 'deltabadger encryption-derived-keys' to move off that.\"");
-    assert_ne!(expected, block(&old), "the one changed line is still in docker-entrypoint.sh");
-    assert_eq!(block(&new), expected);
-}
 
 #[test]
 fn a_fresh_install_is_provisioned_with_all_three_values() {

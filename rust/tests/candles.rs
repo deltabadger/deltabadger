@@ -79,18 +79,6 @@ fn row(c: &Candle) -> Value {
     serde_json::json!([c.at.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string(), c.open.to_s_f(), c.high.to_s_f(), c.low.to_s_f(), c.close.to_s_f(), c.volume.to_s_f()])
 }
 
-#[test]
-fn the_fixtures_are_recorded_from_the_current_rails_sources() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-    for &(venue, _) in VENUES {
-        for (file, recorded) in fixture(venue)["sources"].as_object().unwrap() {
-            use sha2::Digest;
-            let now = hex::encode(sha2::Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-            assert_eq!(recorded.as_str().unwrap(), now, "{file} changed: re-record with script/rust/repin");
-        }
-    }
-}
-
 #[tokio::test(flavor = "current_thread")]
 async fn every_recorded_candle_read_is_answered_as_rails_answers_it() {
     let (mut failures, mut unreadable, mut envelope, mut throttled, mut total) = (vec![], 0, 0, 0, 0);

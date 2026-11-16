@@ -328,16 +328,6 @@ async fn idle_recovery_halts_unknown_intents_once_at_the_margin() {
 }
 
 #[test]
-fn composition_context_uses_the_pinned_rails_oracle() {
-    use sha2::{Digest,Sha256};
-    let fixture:Value=serde_json::from_str(include_str!("fixtures/index_histories.json")).unwrap();
-    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for file in ["app/models/bot/liquidation_state.rb","app/models/bot/composition/liquidatable.rb","app/models/bot/composition/redeployable.rb","app/models/bot/rebalanceable.rb"] {
-        assert_eq!(hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap())),fixture["ported_sources"][file].as_str().unwrap(),"{file}: re-record and re-check the composition context");
-    }
-}
-
-#[test]
 fn fenced_operation_claims_allow_stopped_bots_and_commit_no_dca_run() {
     for kind in [TxKind::Liquidation,TxKind::Redeploy] {
         let (_d,o,id,plan)=setup(kind);

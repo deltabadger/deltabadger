@@ -52,17 +52,6 @@ use deltabadger::ruby::BigDec;
 fn fixture() -> Value { serde_json::from_str(include_str!("fixtures/bybit_signing.json")).unwrap() }
 fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/bybit_vectors.json")).unwrap() }
 fn lower(h: &[(String, String)]) -> Vec<(String, String)> { let mut h: Vec<_> = h.iter().map(|(k,v)| (k.to_ascii_lowercase(),v.clone())).collect(); h.sort(); h }
-#[test]
-fn the_fixtures_are_recorded_from_the_current_rails_sources() {
-    use sha2::Digest;
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-    for f in [fixture(), vectors()] {
-        for (file, recorded) in f["sources"].as_object().unwrap() {
-            let now = hex::encode(sha2::Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-            assert_eq!(recorded.as_str().unwrap(), now, "{file} changed: re-record with script/rust/repin");
-        }
-    }
-}
 
 /// Honeymaker::Clients::Bybit#signed_headers, byte for byte under a frozen #timestamp_ms: GETs with and without a query, an
 /// escaped one, POSTs (the JSON body as sent, nils compacted), and the public reads (no signature).

@@ -1,20 +1,5 @@
 {
   "synthetic_only": true,
-  "ported_sources": {
-    "app/models/bot/exportable.rb": "ba23a91b0205087b4442cb0445c72f54f72f502172401c8dfaf5e0125e5a2ad8",
-    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
-    "app/models/bot/quote_amount_limitable.rb": "164d4fa19650fe3faecba512de5031aaf057f7bd48d0699e88a1ba46d121f220",
-    "app/models/bot/base_amount_limitable.rb": "0ae736fa810fe2977c54a0da02f7d863e84789a29596b9ecb317902d37066295",
-    "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
-    "app/models/bot/composition/order_setter.rb": "8f189ecf4245935df07c66cde3df103cf84afd3b6a786617384b323169ee4e28",
-    "app/models/bot/rebalancer.rb": "aa1b95a2d20476d4ecd27222cd039d5a45188f0baca13f23b33abb1278f3a30f",
-    "app/models/bot/reversible.rb": "dc751df2041cd682b24a6d384ee612884191caa379decfe77f8210a4f8a2ec60",
-    "app/models/transaction.rb": "6cf7b7b31ab5a20b40615f7c8a4d6c8fca4fb4005cd42044a6695f09e862ad7b",
-    "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
-    "script/rust/figures_normalized.rb": "b0eec148d3d3e4f4f57f605c9756bab24abbb0cc900c6db9d9c1a24e502a0eb7",
-    "script/rust/histories_normalized.rb": "a187a0e90f9a216e68c98d9cf4ead49f9a6e97b63a318be75091db514873c8da",
-    "script/rust/record_histories_imported.rb": "e95c0030784d77f02d8b6fe9b68e61f732fd9928c16058b28d480b7b7e8401f8"
-  },
   "cases": [
     {
       "name": "carry_before",

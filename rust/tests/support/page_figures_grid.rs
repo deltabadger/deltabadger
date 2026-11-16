@@ -292,25 +292,9 @@ impl Transport for Wire {
         Ok(HttpResponse { status: reply["status"].as_u64().unwrap_or(200) as u16, body: reply["body"].as_str().map(str::to_string).unwrap_or_else(|| reply["body"].to_string()) })
     }
 }
-/// `script/rust/pages.rb <command> <scratch>`, as pages.rs runs Rails: the test environment, booted against scratch
-/// databases only. Development would check the checkout's own databases for pending migrations on every page and answer
-/// 500 where they are missing (CI).
-/// Frozen (common::freeze::step): Rails runs only in a freeze run.
+/// `script/rust/pages.rb <command> <scratch>`'s answer, frozen (common::freeze::step).
 fn record(scratch: &tempfile::TempDir, command: &str) {
-    let path = scratch.path().to_str().unwrap();
-    common::freeze::step(&[command, path], || record_live(scratch, command));
-}
-fn record_live(scratch: &tempfile::TempDir, command: &str) {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let boot = tempfile::tempdir().unwrap();
-    let mut cmd = std::process::Command::new(root.join("bin/rails"));
-    cmd.current_dir(root).args(["runner", "script/rust/pages.rb", command, scratch.path().to_str().unwrap()]).env_remove("DATABASE_URL")
-        .env("RAILS_ENV", "test").env("SECRET_KEY_BASE",common::web::SECRET).env("APP_ROOT_URL", "http://localhost:3000").env("SKIP_TEST_DATABASE", "true");
-    for db in ["primary", "queue", "cache", "cable"] {
-        cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", boot.path().display()));
-    }
-    let out = cmd.output().unwrap();
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    common::freeze::step(&[command, scratch.path().to_str().unwrap()]);
 }
 #[tokio::test]
 async fn figures_fragments_match_the_rails_page_partials() {

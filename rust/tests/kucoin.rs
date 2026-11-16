@@ -51,16 +51,6 @@ fn pairs_of(v: &[(&str, &str)]) -> Vec<(String, String)> { v.iter().map(|(k, v)|
 
 // ---- the pins: the fixture is Rails' and honeymaker's, recorded from the files it names
 
-#[test]
-fn the_fixture_is_recorded_from_the_current_rails_sources() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-    for (file, recorded) in fixture()["sources"].as_object().unwrap() {
-        use sha2::Digest;
-        let now = hex::encode(sha2::Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-        assert_eq!(recorded.as_str().unwrap(), now, "{file} changed: re-record with script/rust/repin");
-    }
-}
-
 // ---- K1: signing, byte-identical to Honeymaker::Clients::Kucoin#signed_headers under a frozen #timestamp_ms
 
 #[test]

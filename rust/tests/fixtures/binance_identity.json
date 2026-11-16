@@ -1,16 +1,4 @@
 {
-  "sources": {
-    "script/rust/record_binance_identity.rb": "a93e0fcc77b351763b9ff2ba4e23e2de2c206186b28545f6e0366e5a41fff6c4",
-    "app/models/exchanges/binance.rb": "72139d578fcf6df45576eb7e648185e71d7fad7b8be456bf4438af7dada57649",
-    "app/models/exchanges/binance_us.rb": "0a7814fb073bf00733986d2fb4a9c2d69d9a3be5e78c068aca153bc5966a16f7",
-    "app/services/account_transaction_sync.rb": "b9c77c65b07bdedb77dafd2b13dc222ca8fd29b910b9ee3b7c37537a490dcba7",
-    "app/models/account_transaction.rb": "27e1f816648843e735c5a5d0751e4d95afa52ffd266632d2458ac8f95e4aa500",
-    "app/models/tracker/ledger.rb": "9b3d4ccb01c46e07099549bb4f58b6b37beca774ae48f17a1f54be4b3ac0fd86",
-    "app/models/tax/methods/fifo.rb": "0eaaab43c43312e2c3fd335e301bd76d07e96f7c4e4e69a578042b818825df5e",
-    "app/models/tax/methods/acquisition_fee.rb": "297b34726a574b2b7f0ef008998377e16f5becbdabfd8684d0960fc5cae4e968",
-    "app/models/tax/methods/return_of_capital.rb": "c65096951e43050cd2d6dd6fb6d11229b578635d285bd4348c702a11797f0ee6",
-    "db/schema.rb": "4ccf4a2a776830d15f5da917eb7b5930801b5c5c6d325b169cc823fd2a9a48d0"
-  },
   "collisions": [
     {
       "name": "deposits_same",

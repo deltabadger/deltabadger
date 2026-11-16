@@ -705,6 +705,11 @@ fn not_rust(c: &Connection, registry: &Registry) -> rusqlite::Result<Vec<(String
 pub mod test_support {
     use super::*;
 
+    /// `seed` from the seed bundle `gz` instead of the embedded one (tests/seeds.rs: the bundle frozen with Rails' answer).
+    pub fn seed_bundle(c: &Connection, cipher: &crate::crypto::Cipher, env: &dyn Fn(&str) -> Option<String>, now: chrono::DateTime<chrono::Utc>, gz: &[u8]) -> Result<(), String> {
+        seed_from(c, cipher, env, now, gz)
+    }
+
     /// Applies `REGISTRY`'s pending migrations to a fixture's primary database.
     pub fn migrate(c: &Connection) -> Result<Vec<String>, StoreError> {
         apply(c, &REGISTRY)
@@ -852,9 +857,9 @@ pub fn bootstrap(paths: &Paths, lock: &EngineLock, cipher: &crate::crypto::Ciphe
     Ok(true)
 }
 
-/// The reference data a fresh install is seeded with: one gzip of db/seed_data's assets.json, indices.json and every
-/// tickers/*.json, keyed by that path, each file's text verbatim. Generated and proved equal to db/seed_data by
-/// tests/seeds.rs (B1_REGENERATE=1 rewrites it).
+/// The reference data a fresh install is seeded with: one gzip of assets.json, indices.json and every tickers/*.json,
+/// keyed by that path, each file's text verbatim (first generated from 2.x's db/seed_data; the release refreshes it).
+/// tests/seeds.rs checks its shape and floors.
 const SEED_DATA: &[u8] = include_bytes!("../seed/seed_data.json.gz");
 
 /// db/seeds.rb's 15 exchanges, in its order: (type, name, maker_fee, taker_fee).
@@ -870,10 +875,13 @@ const EXCHANGES: [(&str, &str, &str, &str); 15] = [
 ];
 
 /// The seed bundle's files, by path in byte order (Ruby's sorted glob: binance.json before binance_us.json).
-pub fn seed_files() -> Result<std::collections::BTreeMap<String, serde_json::Value>, String> {
+pub fn seed_files() -> Result<std::collections::BTreeMap<String, serde_json::Value>, String> { bundle_files(SEED_DATA) }
+
+/// A seed bundle's files (`seed_files`), from its gzip.
+fn bundle_files(gz: &[u8]) -> Result<std::collections::BTreeMap<String, serde_json::Value>, String> {
     use std::io::Read;
     let mut json = Vec::new();
-    flate2::read::GzDecoder::new(SEED_DATA).read_to_end(&mut json).map_err(|e| format!("seed bundle: {e}"))?;
+    flate2::read::GzDecoder::new(gz).read_to_end(&mut json).map_err(|e| format!("seed bundle: {e}"))?;
     serde_json::from_slice(&json).map_err(|e| format!("seed bundle: {e}"))
 }
 
@@ -883,6 +891,11 @@ pub fn seed_files() -> Result<std::collections::BTreeMap<String, serde_json::Val
 /// (a file without one is skipped), each planned on this connection right before its write; then the two app_configs
 /// defaults. Every stamp is `now`. No user, nothing enqueued.
 pub fn seed(c: &Connection, cipher: &crate::crypto::Cipher, env: &dyn Fn(&str) -> Option<String>, now: chrono::DateTime<chrono::Utc>) -> Result<(), String> {
+    seed_from(c, cipher, env, now, SEED_DATA)
+}
+
+/// `seed` from the bundle `gz` (`SEED_DATA` in an install; a frozen one in tests/seeds.rs).
+fn seed_from(c: &Connection, cipher: &crate::crypto::Cipher, env: &dyn Fn(&str) -> Option<String>, now: chrono::DateTime<chrono::Utc>, gz: &[u8]) -> Result<(), String> {
     use crate::jobs::import;
     let sql = |e: rusqlite::Error| format!("seed: {e}");
     let t = crate::codec::format_time(now);
@@ -891,7 +904,7 @@ pub fn seed(c: &Connection, cipher: &crate::crypto::Cipher, env: &dyn Fn(&str) -
         c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
                   (ty, name, maker, taker, &t)).map_err(sql)?;
     }
-    let files = seed_files()?;
+    let files = bundle_files(gz)?;
     let data = |path: &str| files.get(path).map(|f| &f["data"]).and_then(|d| d.as_array()).map_or(&[][..], |a| a.as_slice());
     // `return if assets_data.blank?`. No public URL: the bundle carries no logo_url (tests/seeds.rs holds it to that).
     let assets = data("assets.json");

@@ -142,7 +142,7 @@ async fn populated_regions_match_rails() {
     let root = match std::env::var("D5_POPULATED_GRID") {
         Ok(root) => root,
         Err(_) => {
-            generated = common::recording("pages_tracker_populated", common::has_subdirs, |out| common::record_grid("script/rust/pages_tracker_populated.rb", out));
+            generated = common::recording("pages_tracker_populated", common::has_subdirs);
             generated.path.to_str().unwrap().to_string()
         }
     };
@@ -263,17 +263,6 @@ fn history_gap_absent(c: &Connection, name: &str, owner: i64, at: chrono::DateTi
         let row: serde_json::Value = serde_json::from_str(&deltabadger::app_config::get_plain(c, &gaps::key(owner)).unwrap().unwrap()).unwrap();
         assert_eq!(row["gaps"], json!([]), "{name}");
     }
-}
-
-/// The Rails files the grid was recorded from: a change to one is recorded again with the Rust side in the same change.
-#[test]
-fn populated_sources_and_ci_are_pinned() {
-    use sha2::{Digest, Sha256};
-    let sources: Value = serde_json::from_str(include_str!("fixtures/tracker_populated_sources.json")).unwrap();
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in sources.as_object().unwrap() { assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(path)).unwrap())), hash.as_str().unwrap(), "{path}: record the populated grid again"); }
-    let workflow = include_str!("../../.github/workflows/rust.yml");
-    for path in ["script/rust/pages_tracker_populated.rb", "app/jobs/tax/generate_report_job.rb"] { assert_eq!(workflow.matches(&format!("- '{path}'")).count(), 2, "both CI events cover {path}"); }
 }
 
 const AT: &str = "2026-09-20T02:00:00Z";

@@ -1,10 +1,4 @@
 {
-  "sources": {
-    "app/models/utilities/image.rb": "2971baad29a08fd14f3d07984eb138f6f3759bb0d7e02c6d9e62239777f91ee9",
-    "app/models/asset.rb": "cf19d01807d40340626cb55125bbb91c8cc90117f75123afea862e822223e71b",
-    "app/jobs/asset/infer_color_from_image_job.rb": "b48414a6430ffa45b7d2084d274c9127a187d86df636d90fdb75cabbde47375f",
-    "app/models/market_data_settings.rb": "bfce12f2ccc37d11ef7ef9261850fc86d47cf5554877750059b42e81e62f66fa"
-  },
   "imagemagick": "Version: ImageMagick 7.1.2-12 Q16-HDRI aarch64 23490 https://imagemagick.org",
   "overrides": {
     "ripple": "#6366F1",

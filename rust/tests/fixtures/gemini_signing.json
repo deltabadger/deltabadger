@@ -1,15 +1,4 @@
 {
-  "sources": {
-    "script/rust/record_venue_signing.rb": "0a16e616d09b1ae4254f0849fd5495e7582b45b44231c05294d90138ad6118c2"
-  },
-  "gems": {
-    "honeymaker": "0.12.5",
-    "hyperliquid-rb": "0.1.1",
-    "jwt": "2.10.3",
-    "rbnacl": "7.1.2",
-    "eth": "0.5.18",
-    "msgpack": "1.8.5"
-  },
   "api_key": "account-Zq8XtV2bLm4N7cRk",
   "api_secret": "3xQnTq9hKpZ2vYw8RcLm5Fd7JgBs",
   "signing": [

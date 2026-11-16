@@ -1,22 +1,4 @@
 {
-  "sources": {
-    "app/controllers/setup_controller.rb": "d2dc081055c5f7f60bcf534dd7e9011059c9e3e373b0f98f4b6baf31165d48b9",
-    "app/controllers/application_controller.rb": "4c951eb16b7ef40f6b3916e05362a23626b71c7137a805675786f5d40acfc41d",
-    "app/controllers/errors_controller.rb": "7dbb12a71e58e041b89b36f84c85da1e4ca22f564ae704203e76b9d8f0b5ae71",
-    "app/views/setup/new.html.erb": "89eca02322451614f5c0cfceb6c0b8d589362ff1a761b8a3f21cb39b2f462178",
-    "app/views/setup/locked.html.erb": "6739a1fa628a0c573632e5437238c7db832826634b3a00aae8a198ccb69e7945",
-    "app/views/setup/_identity_fields.html.erb": "4e306eb06353f7f5a44ef4b549a8a283f64490f347cc6d2edf7d9b43504975c1",
-    "app/views/setup/_connect_platform.html.erb": "588270f124bd63b62d14f0057cbae8528e94ac068b1107a582d7e9d485f94e52",
-    "app/views/layouts/_language_dropdown_full.html.erb": "aa3ebc124b09ce153f50ab1cc57ce395a8a8eb98e547e462541612b52bca76e4",
-    "app/models/user.rb": "889b7a23dc922b8f655a546e1e10613ed664d0e9f68a90c22985ef0b589461c4",
-    "app/models/user/name.rb": "ec1a90e3066845320f81636e6193be62f787c180fb0aa30c9fbc9b7f51206354",
-    "app/models/user/email.rb": "251af4f6f4414955efefff16824f532fa546fbd990c86438409aa35725496bfc",
-    "app/models/user/password.rb": "fd7bf7525ee80a8a6ea1fb7ee7e2b9edac8cdc1fcfa825687a500771114f1a99",
-    "config/initializers/devise.rb": "ad4247d33c714ab9599c3ffe29af48bd6df6417cbe9716534a2a859ada4edfd3",
-    "app/services/platform/redeem_claim.rb": "8a40912d1388491bf24b5f527fe382b0bf72034d148d91ee6f59306a527d689a",
-    "app/models/clients/launchpad.rb": "75d630534f78db3f7f7a24eb5fdc5fc4cd53095ac35ff6ac0757e3ed441c7466",
-    "app/jobs/setup/seed_and_sync_job.rb": "cc23ff102b0c3d77e542d24394720d8115511aa82d4c87f708528ff4edca39e8"
-  },
   "at": "2026-09-10T12:00:30.123456Z",
   "secret_key_base": "a292ca3fe9aaaa6da5d17aae4f4b5aacf52ea08706ca6b96d4cd4426b0c55a033cf89517dce260461c6c611261b4bc61f77d65164f0928c0d174f4fc200e17a9",
   "patterns": {

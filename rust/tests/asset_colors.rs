@@ -44,11 +44,6 @@ fn pick_of(name: &str) -> Option<String> { colors_of(name).and_then(|c| asset_co
 
 #[test]
 fn pins_and_overrides_are_rails() {
-    use sha2::{Digest, Sha256};
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in recorded()["sources"].as_object().unwrap() {
-        assert_eq!(hex::encode(Sha256::digest(std::fs::read(root.join(path)).unwrap())), hash.as_str().unwrap(), "re-record {path}: script/rust/repin");
-    }
     let ours: serde_json::Map<String, Value> = asset_color::OVERRIDES.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
     assert_eq!(Value::Object(ours), recorded()["overrides"]);
 }

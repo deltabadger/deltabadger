@@ -503,17 +503,6 @@ async fn stopped_missing_order_becomes_one_abandoned_halt_and_stays_blocked() {
     assert!(bot.transient["liquidation_pending"].is_null(),"the unresolved row is the halt");
 }
 
-#[test]
-fn liquidation_sources_match_the_live_rails_grid_oracle() {
-    use sha2::{Digest,Sha256};
-    let pins:Value=serde_json::from_str(include_str!("fixtures/liquidation_sources.json")).unwrap();
-    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    assert_eq!(pins.as_object().unwrap().len(),13);
-    for (file,hash) in pins.as_object().unwrap() {
-        assert_eq!(hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap())),hash.as_str().unwrap(),"{file}: re-record grid-liquidation and check the engine");
-    }
-}
-
 #[tokio::test(flavor="current_thread")]
 async fn expired_crypto_catalogue_refuses_liquidation_before_sizing() {
     let (_d,o,id,s,_)=swap_bot(stopped());

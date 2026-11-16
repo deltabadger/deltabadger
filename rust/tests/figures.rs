@@ -1,11 +1,10 @@
-#![cfg(unix)] // shells out to bin/rails
+#![cfg(unix)] // Unix only: it ran Rails until B11 froze its answers into tests/recorded
 //! Figures parity: Rails' metrics, live figures, chart and account totals against this library's, on identical
 //! databases built through the Rails models, with the market scripted on both sides and the clock frozen
 //! (script/rust/figures.rb is the Rails half, deltabadger::figures::parity the Rust half).
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::OnceLock;
 mod common;
 
@@ -21,20 +20,6 @@ const SCENARIOS: usize = 183;
 /// D-SPLIT-NEVER-A-COIN (`crypto_security_split_nameonly`): Rails restates the coin by a security's split; asserted in
 /// `a_security_split_never_restates_the_coin`.
 const DIVERGENT: [&str; 4] = ["pair_row_requested_fallback", "pair_row_zero_price", "pair_row_null_price_reported", "crypto_security_split_nameonly"];
-
-fn rails(args: &[&str]) {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let scratch = tempfile::tempdir().unwrap();
-    let mut cmd = Command::new(root.join("bin/rails"));
-    cmd.current_dir(root).args(["runner", "script/rust/figures.rb"]).args(args).env_remove("DATABASE_URL")
-        .env("APP_ROOT_URL", "http://localhost:3000") // config/environments/development.rb requires it
-        .env("SKIP_TEST_DATABASE", "true");
-    for db in ["primary", "queue", "cache", "cable"] { // boot Rails against scratch databases only
-        cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", scratch.path().display()));
-    }
-    let out = cmd.output().expect("bin/rails runs");
-    assert!(out.status.success(), "bin/rails runner script/rust/figures.rb {args:?} failed:\n{}", String::from_utf8_lossy(&out.stderr));
-}
 
 fn sha(path: &Path) -> String { hex::encode(Sha256::digest(std::fs::read(path).unwrap())) }
 
@@ -79,17 +64,7 @@ struct Grid { scenarios: Vec<Scenario> }
 fn grid() -> &'static Grid {
     static GRID: OnceLock<Grid> = OnceLock::new();
     GRID.get_or_init(|| {
-        let recorded = common::frozen("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
-            let (rails_root, rust_root) = (out.join("rails"), out.join("rust"));
-            std::fs::create_dir_all(&rails_root).unwrap();
-            rails(&["grid", rails_root.to_str().unwrap()]);
-            for dir in std::fs::read_dir(&rails_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("scenario.json").exists()) {
-                let copy = rust_root.join(dir.file_name().unwrap());
-                std::fs::create_dir_all(&copy).unwrap();
-                for file in ["production.sqlite3", "scenario.json"] { std::fs::copy(dir.join(file), copy.join(file)).unwrap(); }
-            }
-            rails(&["record", rails_root.to_str().unwrap()]);
-        });
+        let recorded = common::frozen("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir());
         let rails_root = recorded.join("rails");
         let rust_root = tempfile::tempdir().unwrap();
         common::copy_tree(&recorded.join("rust"), rust_root.path());
@@ -657,7 +632,7 @@ fn coingecko_accounts_convert_through_the_web_as_rails_does() {
     tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(coingecko_accounts_convert());
 }
 async fn coingecko_accounts_convert() {
-    let recorded = common::frozen("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |_| unreachable!("built by grid()"));
+    let recorded = common::frozen("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir());
     for name in ["account_coingecko", "account_string_price_coingecko"] {
         let rails = &grid().scenarios.iter().find(|s| s.name == name).unwrap().rails;
         let dir = tempfile::tempdir().unwrap();

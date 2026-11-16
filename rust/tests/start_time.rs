@@ -8,19 +8,6 @@ use serde_json::Value;
 fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/start_time_vectors.json")).unwrap() }
 fn iso(us: i64) -> String { DateTime::from_timestamp_micros(us).unwrap().format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string() }
 
-#[test]
-fn the_ruby_being_mirrored_has_not_changed() {
-    use sha2::{Digest, Sha256};
-    let v = vectors();
-    let pinned = v["ported_sources"].as_object().unwrap();
-    assert_eq!(pinned.len(), 5);
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, sum) in pinned {
-        let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
-        assert_eq!(hex::encode(Sha256::digest(&bytes)), sum.as_str().unwrap(), "{path} changed since the vectors were recorded");
-    }
-}
-
 fn rust(case: &[Value]) -> Result<DateTime<Utc>, &'static str> {
     let (zone, now, mode, value) = (case[0].as_str().unwrap(), case[1].as_str().unwrap(), case[2].as_str(), case[3].as_str());
     let now: DateTime<Utc> = now.parse().unwrap();
