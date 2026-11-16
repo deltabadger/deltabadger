@@ -105,9 +105,20 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, lines: &mut Vec<String>
 }
 
 pub fn normalize(body: &str) -> Vec<String> {
+    let body = login_icon_as_rails(body);
     let mut lines = Vec::new();
-    walk(Html::parse_document(body).tree.root(), 0, &mut lines);
+    walk(Html::parse_document(&body).tree.root(), 0, &mut lines);
     lines
+}
+
+/// Named divergence D-LOGIN-APP-ICON: the login page shows the app's icon (the desktop intro's image) where Rails draws the
+/// signet; it is put back as the signet Rails writes there, so the rest of the page is still compared. Rails never writes
+/// the icon, so its bodies pass through unchanged.
+fn login_icon_as_rails(body: &str) -> std::borrow::Cow<'_, str> {
+    const ICON: &str = "<img class=\"devise__icon\" src=\"";
+    let Some(start) = body.find(ICON) else { return body.into() };
+    let Some(end) = body[start..].find('>').map(|at| start + at + 1) else { return body.into() };
+    format!("{}{}{}", &body[..start], include_str!("../../templates/svg/_40x30_logo.html").trim_end_matches('\n'), &body[end..]).into()
 }
 
 /// The `content` of the first `<meta name="NAME">`: how the tests read the nonce a page carries.

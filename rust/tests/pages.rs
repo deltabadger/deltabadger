@@ -959,6 +959,33 @@ fn without_jobs_row(body: &mut Value) -> usize {
     taken
 }
 
+/// Named divergence D-MARKET-DATA-NO-SWITCH: the Market Data widget has no on/off switch (market data is on once a provider
+/// is connected), so its frame's contents are this build's own, pinned in tests/settings.rs; the frame itself, and every
+/// other line of the page, is still compared. Applied to both sides; returns how many frames were emptied.
+fn without_market_data_contents(body: &mut Value) -> usize {
+    let Value::Array(lines) = body else { return 0 };
+    let (mut taken, mut i) = (0, 0);
+    while i < lines.len() {
+        let line = lines[i].as_str().unwrap_or_default();
+        if !(line.trim_start().starts_with("<turbo-frame ") && attr(line, "id").as_deref() == Some("market_data_settings")) { i += 1; continue; }
+        let end = subtree_end(lines, i);
+        if end > i + 2 { lines.drain(i + 1..end - 1); }
+        taken += 1;
+        i += 2;
+    }
+    taken
+}
+
+#[test]
+fn only_the_market_data_frames_contents_are_left_out() {
+    let mut page = json!(["    <div>", "      <turbo-frame id=\"market_data_settings\">", "        <form class=\"sswitch\">", "        </form>", "      </turbo-frame>", "      <div id=\"other\">", "      </div>", "    </div>"]);
+    assert_eq!(without_market_data_contents(&mut page), 1);
+    assert_eq!(page, json!(["    <div>", "      <turbo-frame id=\"market_data_settings\">", "      </turbo-frame>", "      <div id=\"other\">", "      </div>", "    </div>"]));
+    let mut other = json!(["      <turbo-frame id=\"api_keys\">", "        <div>", "        </div>", "      </turbo-frame>"]);
+    let before = other.clone();
+    assert_eq!((without_market_data_contents(&mut other), &other), (0, &before));
+}
+
 #[test]
 fn only_the_settings_jobs_row_is_left_out() {
     let rails = json!(["      </turbo-frame>", "      \" \"", "    </div>"]);
@@ -2781,7 +2808,7 @@ async fn replay_page_shard(shard: usize) {
         let count = std::fs::read_dir("/proc/self/task").map_or(String::new(), |tasks| format!(", {} threads", tasks.count()));
         progress(format!("page shard {}: {name}/{scope} (+{:.1?}{count})", shard + 1, replay.elapsed()), false);
         let scenario = scenario(dir);
-        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut full_page_frames) = (0, 0, 0, 0, 0, 0, 0);
+        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut full_page_frames, mut market_data_frames) = (0, 0, 0, 0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| rails_answer(answer, step)).collect();
         let rails_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
@@ -2808,7 +2835,9 @@ async fn replay_page_shard(shard: usize) {
             let page = if framed { tabs::tracker_page(raw) } else { tabs::first_sync_page(raw) }.unwrap_or_else(|e| panic!("{name}/{scope}: {e}"));
             answer["body"] = json!(html::normalize(&page));
         }
+        for answer in rails["responses"].as_array_mut().unwrap() { without_market_data_contents(&mut answer["body"]); }
         for answer in rust["responses"].as_array_mut().unwrap() {
+            market_data_frames += without_market_data_contents(&mut answer["body"]);
             without_low_funds(&mut answer["body"]);
             split_menu_pages += without_split_item(&mut answer["body"]);
             jobs_rows += without_jobs_row(&mut answer["body"]);
@@ -2820,6 +2849,7 @@ async fn replay_page_shard(shard: usize) {
                                              ("twin_signal_rules", signal_rule_pages, "D-COND-FORMS-SIGNAL"),
                                              ("twin_basket_member", split_menu_pages, "D-SPLIT-BOT-MENU"),
                                              ("settings_page_account_pt", jobs_rows, "D-JOBS-SETTINGS-LINK"),
+                                             ("settings_page_connect_en", market_data_frames, "D-MARKET-DATA-NO-SWITCH"),
                                              ("wizard_chooser", full_page_frames, "D-FULL-PAGE-DIALOG-COMPLETE")] {
             if name == witness && count == 0 { failures.push(format!("{name}/{scope}: {divergence}: no rendered witness")); }
         }

@@ -262,21 +262,19 @@ pub fn account(ctx: &Ctx, a: &Account) -> String {
         .admin
         .map(|(registration, email, update)| format!("\n  <h3 class=\"settings__heading\">{}</h3>\n  {registration}\n  {email}\n  \n{update}{}", ctx.t("settings.sections.instance"), jobs(ctx)))
         .unwrap_or_default();
-    format!(
-        "  <h3 class=\"settings__heading settings__heading--first\">{}</h3>\n{}\n{}\n{}\n\n<h3 class=\"settings__heading\">{}</h3>\n{}\n{}\n\n<h3 class=\"settings__heading\">{}</h3>\n{}\n\n<h3 class=\"settings__heading\">{}</h3>\n{}\n{}\n{instance}",
-        ctx.t("settings.sections.profile"),
-        a.name,
-        a.email,
-        a.password,
-        ctx.t("settings.sections.preferences"),
-        a.locale,
-        a.time_zone,
-        ctx.t("settings.sections.security"),
-        a.two_fa,
-        ctx.t("links.bots"),
-        a.advanced,
-        a.wash
-    )
+    // D-DESKTOP-NO-ACCOUNT-PAGES: a section with no rows (the desktop's Profile and Security) has no heading either.
+    let sections = [
+        ("settings.sections.profile", format!("{}\n{}\n{}", a.name, a.email, a.password)),
+        ("settings.sections.preferences", format!("{}\n{}", a.locale, a.time_zone)),
+        ("settings.sections.security", a.two_fa.clone()),
+        ("links.bots", format!("{}\n{}", a.advanced, a.wash)),
+    ];
+    let mut out = String::new();
+    for (heading, rows) in sections.iter().filter(|(_, rows)| !rows.trim().is_empty()) {
+        let first = if out.is_empty() { "  <h3 class=\"settings__heading settings__heading--first\">" } else { "\n\n<h3 class=\"settings__heading\">" };
+        out.push_str(&format!("{first}{}</h3>\n{rows}", ctx.t(heading)));
+    }
+    format!("{out}\n{instance}")
 }
 
 /// A25 (D-JOBS-SETTINGS-LINK): the admin's way to /jobs, last in the Instance section, on every platform (the desktop
@@ -429,7 +427,6 @@ pub struct Market<'a> {
     /// "coingecko", "deltabadger", or "" when off.
     pub selected: &'a str,
     pub coingecko_configured: bool,
-    pub coingecko_key_blank: bool,
     pub platform_connected: bool,
     pub platform_note: &'a str,
     pub coingecko_instructions: &'a str,
@@ -441,24 +438,21 @@ pub fn market_data(ctx: &Ctx, csrf: &str, m: &Market) -> String {
     if let Some(note) = m.hosted {
         return format!("<turbo-frame id=\"market_data_settings\">\n\n    {}\n</turbo-frame>", row(&label, Some(note), "srow--heading", "", None, None));
     }
-    let on = !m.selected.is_empty();
-    let turn_on = if on { "" } else if m.platform_connected { "deltabadger" } else { "coingecko" };
-    let switch = format!(
-        "\n        {}\n",
-        switch(csrf, &ctx.path("/settings/update_market_data"), "market_data_settings", "market_data_provider", turn_on, if on { "on" } else { "off" }, Some(&label), &[])
-    );
+    // D-MARKET-DATA-NO-SWITCH: no on/off switch; market data is on once a provider is connected. With none, the picker
+    // stands on the one to connect (the claimed platform, else CoinGecko) and shows its connect card.
+    let selected = if !m.selected.is_empty() { m.selected } else if m.platform_connected { "deltabadger" } else { "coingecko" };
     let mut body = format!(
         "\n\n    <div data-controller=\"form--market-data\" data-action=\"segmented:change->form--market-data#select\"\n         data-form--market-data-platform-connected-value=\"{}\">\n      {}\n",
         m.platform_connected,
-        row(&label, None, "srow--heading", "", None, Some(&switch))
+        row(&label, None, "srow--heading", "", None, None)
     );
-    if on {
+    {
         let provider = ctx.t("settings.sections.provider");
         let control = format!(
             "\n          {}\n            {}            <input value=\"{}\" data-form--market-data-target=\"provider\" type=\"hidden\" name=\"market_data_provider\" id=\"market_data_provider\" />\n</form>",
             form_open(" data-form--market-data-target=\"providerForm\" data-turbo-frame=\"market_data_settings\"", &ctx.path("/settings/update_market_data"), "patch", csrf),
-            segmented(&provider, true, &[("coingecko", "CoinGecko".into(), m.selected == "coingecko"), ("deltabadger", ctx.t("settings.platform.option"), m.selected == "deltabadger")]),
-            m.selected
+            segmented(&provider, true, &[("coingecko", "CoinGecko".into(), selected == "coingecko"), ("deltabadger", ctx.t("settings.platform.option"), selected == "deltabadger")]),
+            selected
         );
         body.push_str(&format!("        {}\n", row(&provider, None, "", "", None, Some(&control))));
         let connect = ctx.t("button.connect");
@@ -471,7 +465,7 @@ pub fn market_data(ctx: &Ctx, csrf: &str, m: &Market) -> String {
                 super::dialog::confirm(csrf, &ctx.t("settings.market_data.disconnect"), &ctx.t("settings.index.api_key_confirmation"), &ctx.t("settings.market_data.disconnect"), &ctx.path("/settings/disconnect_market_data"), "delete", &[])
             );
             format!("\n            {}", row("CoinGecko", Some(&ctx.t("settings.market_data.coingecko_configured")), "", "", None, Some(&control)))
-        } else if m.coingecko_key_blank {
+        } else {
             let key = ctx.t("setup.coingecko_api_key");
             format!(
                 "\n            {}\n              <input value=\"coingecko\" type=\"hidden\" name=\"market_data_provider\" id=\"market_data_provider\" />\n              <input required=\"required\" autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"{key}\" aria-label=\"{key}\" type=\"text\" name=\"coingecko_api_key\" id=\"coingecko_api_key\" />\n              {}\n              <details class=\"shelp\">\n                <summary>{}</summary>\n                <div class=\"settings__prose\">{}</div>\n              </details>\n</form>",
@@ -480,15 +474,22 @@ pub fn market_data(ctx: &Ctx, csrf: &str, m: &Market) -> String {
                 crate::web::i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", crate::web::i18n::Arg::Text("CoinGecko"))]),
                 m.coingecko_instructions
             )
-        } else {
-            String::new()
         };
         body.push_str(&format!(
             "        <div class=\"sitem\" data-form--market-data-target=\"coingeckoFields\" {}>{coingecko}\n        </div>\n\n",
-            if m.selected == "coingecko" { "" } else { "hidden" }
+            if selected == "coingecko" { "" } else { "hidden" }
         ));
         let claim = if m.platform_connected {
-            String::new()
+            // Claimed but not the provider (CoinGecko was disconnected, or the old switch turned it off): one button.
+            if m.selected == "deltabadger" {
+                String::new()
+            } else {
+                format!(
+                    "\n            {}\n              <input value=\"deltabadger\" type=\"hidden\" name=\"market_data_provider\" />\n              {}\n</form>",
+                    form_open(" class=\"sform sform--stack sform--inset sitem\" data-turbo-frame=\"market_data_settings\"", &ctx.path("/settings/update_market_data"), "patch", csrf),
+                    submit(&connect, "")
+                )
+            }
         } else {
             let code = ctx.t("settings.platform.code");
             format!(
@@ -501,7 +502,7 @@ pub fn market_data(ctx: &Ctx, csrf: &str, m: &Market) -> String {
         };
         body.push_str(&format!(
             "        <div class=\"sitem\" data-form--market-data-target=\"deltabadgerButtons\" {}>{claim}        </div>\n",
-            if m.selected == "deltabadger" { "" } else { "hidden" }
+            if selected == "deltabadger" { "" } else { "hidden" }
         ));
     }
     if m.platform_connected {
