@@ -541,6 +541,13 @@ pl:
             no_balances: Nie znaleziono sald na podłączonych giełdach.
             only_cash: "Tylko gotówka i stablecoiny — włącz Pokaż gotówkę, aby je zobaczyć."
             unpriced: 'Cena niedostępna dla: %{assets}'
+        # "CoinGecko" is a product name: keep it verbatim in every locale.
+        prices:
+            missing: "Brak ceny rynkowej dla %{assets} na %{venue}."
+            missing_anywhere: "Brak ceny rynkowej dla %{assets}."
+            chart_missing: "Wykres nie pokazuje wartości rynkowej %{assets} na %{venue} w dniach bez ceny."
+            chart_incomplete: "Niektóre dni na wykresie są niekompletne."
+            connect_coingecko: "Połącz darmowe konto CoinGecko, aby otrzymywać ceny rynkowe."
         sync: 'Synchronizuj'
         sync_started: 'Synchronizacja transakcji z twoich giełd...'
         importing_from: 'Importowanie danych z %{exchange}…'

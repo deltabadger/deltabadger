@@ -541,6 +541,13 @@ el:
             no_balances: Δεν βρέθηκαν υπόλοιπα στα συνδεδεμένα ανταλλακτήρια.
             only_cash: "Μόνο μετρητά και stablecoins — ενεργοποιήστε την Εμφάνιση μετρητών για να τα δείτε."
             unpriced: 'Μη διαθέσιμη τιμή για: %{assets}'
+        # "CoinGecko" is a product name: keep it verbatim in every locale.
+        prices:
+            missing: "Δεν υπάρχει τιμή αγοράς για %{assets} στο %{venue}."
+            missing_anywhere: "Δεν υπάρχει τιμή αγοράς για %{assets}."
+            chart_missing: "Το γράφημα δεν δείχνει την αγοραία αξία των %{assets} στο %{venue} για ημέρες χωρίς τιμή."
+            chart_incomplete: "Ορισμένες ημέρες στο γράφημα είναι ελλιπείς."
+            connect_coingecko: "Σύνδεσε έναν δωρεάν λογαριασμό CoinGecko για να λαμβάνεις τιμές αγοράς."
         sync: 'Συγχρονισμός'
         sync_started: 'Συγχρονισμός συναλλαγών από τα ανταλλακτήριά σου...'
         importing_from: 'Εισαγωγή δεδομένων από %{exchange}…'

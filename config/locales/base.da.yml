@@ -541,6 +541,13 @@ da:
             no_balances: Ingen saldi fundet på dine tilknyttede børser.
             only_cash: "Kun kontanter og stablecoins — slå Vis kontanter til for at se dem."
             unpriced: 'Pris ikke tilgængelig for: %{assets}'
+        # "CoinGecko" is a product name: keep it verbatim in every locale.
+        prices:
+            missing: "Ingen markedspris for %{assets} på %{venue}."
+            missing_anywhere: "Ingen markedspris for %{assets}."
+            chart_missing: "Diagrammet viser ikke markedsværdien af %{assets} på %{venue} på dage uden pris."
+            chart_incomplete: "Nogle dage i diagrammet er ufuldstændige."
+            connect_coingecko: "Forbind en gratis CoinGecko-konto for at få markedspriser."
         sync: 'Synkronisér'
         sync_started: 'Synkroniserer transaktioner fra dine børser...'
         importing_from: 'Importerer data fra %{exchange}…'

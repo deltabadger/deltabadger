@@ -153,10 +153,12 @@ fn positions(c: &Connection, owner: i64, scope: Option<i64>, figures: &Figures, 
     for h in &figures.holdings {
         let symbol = h.symbol.clone();
         let per_unit = |d: &Dec| -> Result<Option<Dec>, WebError> { if h.quantity.is_positive() { Ok(Some(num(d.div(&h.quantity))?)) } else { Ok(None) } };
-        let price = per_unit(&h.value)?;
+        // A holding valued without a market price states no price, return or gain (PLAN-venue-prices S1).
+        let price = if h.priced { per_unit(&h.value)? } else { None };
         rows.push(match &h.cost {
             Some(cost) => Position { status: "open", symbol: symbol.clone(), asset: h.asset, opened: ledger.positions.iter().find(|p| p.symbol == symbol).and_then(|p| p.opened_at),
-                                     closed: None, invested: Some(cost.clone()), avg_buy: per_unit(cost)?, price, percent: h.percent().map_err(|_| invalid())?, cash: h.unrealised.clone() },
+                                     closed: None, invested: Some(cost.clone()), avg_buy: per_unit(cost)?, price,
+                                     percent: if h.priced { h.percent().map_err(|_| invalid())? } else { None }, cash: if h.priced { h.unrealised.clone() } else { None } },
             None => Position { status: "cash", symbol, asset: h.asset, opened: None, closed: None, invested: None, avg_buy: None, price, percent: None, cash: None },
         });
     }

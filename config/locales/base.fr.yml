@@ -539,6 +539,13 @@ fr:
             no_balances: Aucun solde trouvé sur vos plateformes connectées.
             only_cash: "Uniquement des liquidités et des stablecoins — activez Afficher les liquidités pour les voir."
             unpriced: 'Prix indisponible pour : %{assets}'
+        # "CoinGecko" is a product name: keep it verbatim in every locale.
+        prices:
+            missing: "Aucun prix de marché pour %{assets} sur %{venue}."
+            missing_anywhere: "Aucun prix de marché pour %{assets}."
+            chart_missing: "Le graphique n'affiche pas la valeur de marché de %{assets} sur %{venue} les jours sans prix."
+            chart_incomplete: "Certains jours du graphique sont incomplets."
+            connect_coingecko: "Connectez un compte CoinGecko gratuit pour obtenir les prix du marché."
         sync: 'Synchroniser'
         sync_started: 'Synchronisation des transactions depuis vos plateformes...'
         importing_from: 'Importation des données depuis %{exchange}…'

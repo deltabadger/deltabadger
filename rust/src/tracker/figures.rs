@@ -130,7 +130,12 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
 /// One holding: what the venue holds of a symbol (and what arrived since its sync), what it is worth, and its cost
 /// against the history (none for cash).
 #[derive(Clone, Debug)]
-pub struct Holding { pub asset: Option<i64>, pub symbol: String, pub quantity: Dec, pub value: Dec, pub cost: Option<Dec>, pub cash: bool, pub unrealised: Option<Dec>, pub note: Option<Note> }
+pub struct Holding { pub asset: Option<i64>, pub symbol: String, pub quantity: Dec, pub value: Dec, pub cost: Option<Dec>, pub cash: bool, pub unrealised: Option<Dec>, pub note: Option<Note>,
+    /// Whether `value` is a market value (Rust only, PLAN-venue-prices S1): false when it stands in for one (a coin the
+    /// venue reports at cost for want of a price, other cash at par for want of an ECB rate). A coin arrived since the
+    /// sync, at cost under its `since_sync` note, counts as priced. The arithmetic is Rails'; the page shows
+    /// no number for an unpriced holding.
+    pub priced: bool }
 
 impl Holding {
     /// `Holding#percent`: the gain on its cost, none without one.
@@ -181,6 +186,9 @@ impl Figures {
         for h in self.holdings.iter().filter(|h| h.cash) { idle = (&idle + &h.value)?; }
         Ok(((&self.value - &idle)?, (&self.invested - &idle)?))
     }
+
+    /// Whether every holding has a market value (`Holding::priced`).
+    pub fn all_priced(&self) -> bool { self.holdings.iter().all(|h| h.priced) }
 
     /// `Result#without_cash` as the page reads it: the cash rows gone, and taken off the value and money in.
     pub fn without_cash_result(&self) -> Result<Figures, FiguresError> {
@@ -298,9 +306,12 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
             values = (&values + r.usd_value.as_ref().unwrap_or(&zero))?;
         }
         let price = if prices.is_positive() { Some(values.div(&units)?) } else { None };
+        // A row of the symbol with no value leaves the symbol's price short of it: the whole holding is unpriced.
+        let every_row_valued = rows.iter().all(|r| r.usd_value.as_ref().is_some_and(Dec::is_positive));
         if cash(&symbol) {
+            let priced = symbol == "USD" || stable(&symbol) || (price.is_some() && every_row_valued) || fx.rate(&symbol, "USD", today)?.is_some();
             let value = if stable(&symbol) { held.clone() } else { (&held * &match &price { Some(p) => p.clone(), None => rate(&symbol, fx, today, &mut notes)? })? };
-            holdings.push(Holding { asset, symbol, quantity: held, value, cost: None, cash: true, unrealised: None, note: None });
+            holdings.push(Holding { asset, symbol, quantity: held, value, cost: None, cash: true, unrealised: None, note: None, priced });
             continue;
         }
         let position = position_of.get(symbol.as_str()).copied();
@@ -336,7 +347,10 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
         // A coin the venue has not reported yet is held at cost until it does, and says so whatever else was assumed.
         let note = match note { None if since_sync => notes.note("since_sync", &symbol, exchange, Some(&history), Some(&held), cost.clone(), true), note => note };
         let value = match &price { Some(p) => (&held * p)?, None => cost.clone() };
-        holdings.push(Holding { asset, symbol, quantity: held, unrealised: Some((&value - &cost)?), value, cost: Some(cost), cash: false, note });
+        // A coin arrived since the sync is held at cost under its own note until the venue reports it (Rails' reading,
+        // kept: a bot's buy between two syncs is not a missing price).
+        let priced = (price.is_some() || since_sync) && every_row_valued;
+        holdings.push(Holding { asset, symbol, quantity: held, unrealised: Some((&value - &cost)?), value, cost: Some(cost), cash: false, note, priced });
     }
     // `sort_by { -value }`.
     holdings.sort_by(|a, b| b.value.cmp(&a.value));
@@ -400,3 +414,41 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
 
 /// Page-specific cold results share this service and its decimal boundary.
 pub mod page;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn balance(symbol: &str, category: &str, exchange: &str, value: Option<&str>) -> Balance {
+        Balance { asset: 1, category: Some(category.into()), symbol: symbol.into(), exchange: exchange.into(), free: Dec::one(), locked: Dec::zero(),
+                  usd_price: value.map(|v| Dec::strict(v).unwrap()), usd_value: value.map(|v| Dec::strict(v).unwrap()), priced_at: None, synced_at: None }
+    }
+
+    fn priced(balances: &[Balance], pending: &[(String, Dec)]) -> Vec<(String, bool)> {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch("CREATE TABLE assets (id INTEGER PRIMARY KEY, symbol TEXT, category TEXT);
+                         CREATE TABLE account_transactions (user_id INTEGER, base_currency TEXT, base_asset_id INTEGER, exchange_id INTEGER);
+                         CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, asset_id INTEGER);
+                         CREATE TABLE exchanges (id INTEGER PRIMARY KEY, name TEXT);
+                         INSERT INTO assets VALUES (1, 'BTC', 'Cryptocurrency'), (2, 'SOL', 'Cryptocurrency'), (3, 'EUR', 'Fiat');").unwrap();
+        let f = crate::figures::budget::within(|| compute_on(&c, 1, &Summary::empty(), balances, pending, &FxTable::default(), NaiveDate::from_ymd_opt(2026, 11, 16).unwrap())).unwrap();
+        let mut out: Vec<(String, bool)> = f.holdings.iter().map(|h| (h.symbol.clone(), h.priced)).collect();
+        out.sort();
+        out
+    }
+
+    /// PLAN-venue-prices S1: a holding is priced only when its value is a market value: a coin with a value on every one
+    /// of its balance rows, cash at a balance price or an ECB rate; other cash at par for want of a rate is not. A coin
+    /// arrived since the sync keeps Rails' labelled cost reading.
+    #[test]
+    fn a_holding_valued_without_a_market_price_is_not_priced() {
+        assert_eq!(priced(&[balance("BTC", "Cryptocurrency", "Kraken", Some("60000"))], &[]), [("BTC".to_string(), true)]);
+        assert_eq!(priced(&[balance("BTC", "Cryptocurrency", "Alpaca", None)], &[]), [("BTC".to_string(), false)]);
+        assert_eq!(priced(&[balance("BTC", "Cryptocurrency", "Kraken", Some("60000")), balance("BTC", "Cryptocurrency", "Alpaca", None)], &[]),
+                   [("BTC".to_string(), false)], "one venue's row with no value");
+        assert_eq!(priced(&[], &[("SOL".to_string(), Dec::one())]), [("SOL".to_string(), true)], "arrived since the sync: at cost under its own note");
+        assert_eq!(priced(&[balance("EUR", "Fiat", "Kraken", None)], &[]), [("EUR".to_string(), false)], "no ECB rate: at par");
+        assert_eq!(priced(&[balance("USD", "Fiat", "Kraken", None), balance("USDT", "Cryptocurrency", "Kraken", None)], &[]),
+                   [("USD".to_string(), true), ("USDT".to_string(), true)]);
+    }
+}

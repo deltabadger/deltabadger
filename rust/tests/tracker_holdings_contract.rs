@@ -26,7 +26,16 @@ fn cold_figures_owner_scope_cash_and_asset_identity_are_exact(){
     }
     assert_eq!(before,c.total_changes());c.pragma_update(None,"query_only",false).unwrap();
     c.execute_batch("INSERT INTO account_balances VALUES(7,2,1,4,1,0,100,'2026-10-08 12:00:00','2026-10-08 12:00:00'),(7,1,3,5,1,0,20,'2026-10-08 12:00:00','2026-10-08 12:00:00')").unwrap();
-    let result=holdings::cold(&c,7,None,false).unwrap();assert_eq!(result.holdings.len(),2,"cold Rails groups by asset identity");assert_eq!(result.holdings[0].value.to_s_f(),"300.0");
+    let result=holdings::cold(&c,7,None,false).unwrap();assert_eq!(result.holdings.len(),2,"cold Rails groups by asset identity");assert_eq!(result.holdings[0].value.as_ref().unwrap().to_s_f(),"300.0");
+}
+/// PLAN-venue-prices S1: an unpriced holding is kept and listed after the priced ones, with no value.
+#[test]
+fn cold_unpriced_holdings_are_listed_without_a_value(){
+    let c=db();c.execute_batch("INSERT INTO assets VALUES(4,'BTC','Bitcoin','Cryptocurrency',NULL,NULL);INSERT INTO account_balances VALUES(7,1,4,4,1,0,NULL,NULL,'2026-10-08 12:00:00')").unwrap();
+    let result=holdings::cold(&c,7,None,true).unwrap();
+    assert_eq!(result.reason,Some(holdings::UNPRICED));assert!(result.value.is_none());
+    assert_eq!(result.holdings.iter().map(|h|(h.symbol.as_str(),h.value.as_ref().map(|v|v.to_s_f()))).collect::<Vec<_>>(),vec![("AAPL",Some("200.0".to_string())),("USD",Some("50.0".to_string())),("BTC",None)]);
+    assert_eq!(result.unpriced,vec!["BTC".to_string()]);
 }
 #[test]
 fn cold_missing_or_stale_values_never_become_money(){

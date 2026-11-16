@@ -539,6 +539,13 @@ de:
             no_balances: Keine Guthaben auf deinen verbundenen Börsen gefunden.
             only_cash: "Nur Bargeld und Stablecoins — schalte Bargeld anzeigen ein, um sie zu sehen."
             unpriced: 'Preis nicht verfügbar für: %{assets}'
+        # "CoinGecko" is a product name: keep it verbatim in every locale.
+        prices:
+            missing: "Kein Marktpreis für %{assets} auf %{venue}."
+            missing_anywhere: "Kein Marktpreis für %{assets}."
+            chart_missing: "Das Diagramm zeigt den Marktwert von %{assets} auf %{venue} an Tagen ohne Preis nicht."
+            chart_incomplete: "Einige Tage im Diagramm sind unvollständig."
+            connect_coingecko: "Verbinde ein kostenloses CoinGecko-Konto, um Marktpreise zu erhalten."
         sync: 'Synchronisieren'
         sync_started: 'Transaktionen werden von deinen Börsen synchronisiert...'
         importing_from: 'Daten werden von %{exchange} importiert…'

@@ -3,7 +3,10 @@ use crate::figures::{dec::Dec,FiguresError};
 use rusqlite::Connection;
 use chrono::{DateTime,Utc};
 #[derive(Clone,Debug)]
-pub struct Holding {pub asset:i64,pub symbol:String,pub name:String,pub category:Option<String>,pub color:Option<String>,pub image:Option<String>,pub value:Dec}
+/// `value`: None when any of the asset's balance rows has no value (PLAN-venue-prices S1: shown, with no number).
+pub struct Holding {pub asset:i64,pub symbol:String,pub name:String,pub category:Option<String>,pub color:Option<String>,pub image:Option<String>,pub value:Option<Dec>}
+/// The reason the figures are withheld when a holding has no value.
+pub const UNPRICED:&str="Tracker figures unavailable: unpriced holdings";
 #[derive(Clone,Debug)]
 pub struct Cold {pub holdings:Vec<Holding>,pub value:Option<Dec>,pub synced:Option<DateTime<Utc>>,pub stale:bool,pub unpriced:Vec<String>,pub only_cash:bool,pub reason:Option<&'static str>}
 fn time(raw:Option<String>)->Result<Option<DateTime<Utc>>,FiguresError>{raw.map(|s|crate::codec::parse_time(&s).map_err(|_|FiguresError::Data("unreadable balance timestamp".into()))).transpose()}
@@ -23,9 +26,9 @@ pub fn cold(c:&Connection,owner:i64,exchange:Option<i64>,show_cash:bool)->Result
         if value.as_ref().is_some_and(Dec::is_positive){
             if let Some(at)=price_time {oldest=Some(oldest.map_or(at,|old:DateTime<Utc>|old.min(at)));}else{missing_time=true;}
         }else if !unpriced_assets.contains(&id){unpriced_assets.push(id);unpriced.push(symbol.clone());}
-        // A missing amount remains unavailable. The placeholder is never summed or displayed.
-        let Some(value)=value else {continue};
-        if let Some(h)=holdings.iter_mut().find(|h|h.asset==id){h.value=(&h.value+&value)?;}else{
+        // A missing amount remains unavailable: never summed or displayed, and it leaves its asset's total unknown.
+        let value=value.filter(Dec::is_positive);
+        if let Some(h)=holdings.iter_mut().find(|h|h.asset==id){h.value=match (&h.value,&value){(Some(a),Some(b))=>Some((a+b)?),_=>None};}else{
             holdings.push(Holding{asset:id,symbol,name:r.get::<_,Option<String>>(2)?.unwrap_or_default(),category:r.get(3)?,color:r.get(4)?,image:r.get(5)?,value});
         }
     }
@@ -34,12 +37,13 @@ pub fn cold(c:&Connection,owner:i64,exchange:Option<i64>,show_cash:bool)->Result
     let stale=oldest.zip(synced).is_some_and(|(p,s)|s.signed_duration_since(p)>chrono::Duration::seconds(300));
     // Balances not produced by a completed sync of the current key are what the navbar already withholds.
     let unsynced=crate::sync::cache::stale(c,owner,exchange).map_err(|_|FiguresError::Data("balance cache provenance unavailable".into()))?;
-    let reason=if unsynced{Some("Tracker figures unavailable: balances not yet synced with the current key")}else if stale{Some("Tracker figures unavailable: stale prices")}else if missing_time{Some("Tracker figures unavailable: price timestamp missing")}else if !unpriced.is_empty(){Some("Tracker figures unavailable: unpriced holdings")}else{None};
-    holdings.sort_by(|a,b|b.value.cmp(&a.value));
+    let reason=if unsynced{Some("Tracker figures unavailable: balances not yet synced with the current key")}else if stale{Some("Tracker figures unavailable: stale prices")}else if missing_time{Some("Tracker figures unavailable: price timestamp missing")}else if !unpriced.is_empty(){Some(UNPRICED)}else{None};
+    // Priced rows by value, then the unpriced ones by symbol.
+    holdings.sort_by(|a,b|match (&a.value,&b.value){(Some(x),Some(y))=>y.cmp(x),(Some(_),None)=>std::cmp::Ordering::Less,(None,Some(_))=>std::cmp::Ordering::Greater,(None,None)=>a.symbol.cmp(&b.symbol)});
     let had_holdings=!holdings.is_empty();
     if !show_cash{holdings.retain(|h|!super::super::cash(&h.symbol));}
     let only_cash=had_holdings && holdings.is_empty();
-    let value=if reason.is_some(){None}else{Some(holdings.iter().try_fold(Dec::zero(),|sum,h|&sum+&h.value)?)};
+    let value=if reason.is_some(){None}else{Some(holdings.iter().try_fold(Dec::zero(),|sum,h|&sum+h.value.as_ref().unwrap_or(&Dec::zero()))?)};
     Ok(Cold{holdings,value,synced,stale,unpriced,only_cash,reason})
 }
 

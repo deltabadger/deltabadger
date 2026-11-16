@@ -541,6 +541,13 @@ bg:
             no_balances: Не са намерени баланси на свързаните борси.
             only_cash: "Само парични средства и стейбълкойни — включете „Покажи паричните средства“, за да ги видите."
             unpriced: 'Цена не е налична за: %{assets}'
+        # "CoinGecko" is a product name: keep it verbatim in every locale.
+        prices:
+            missing: "Няма пазарна цена за %{assets} в %{venue}."
+            missing_anywhere: "Няма пазарна цена за %{assets}."
+            chart_missing: "Графиката не показва пазарната стойност на %{assets} в %{venue} за дните без цена."
+            chart_incomplete: "Някои дни в графиката са непълни."
+            connect_coingecko: "Свържи безплатен акаунт в CoinGecko, за да получаваш пазарни цени."
         sync: 'Синхронизирай'
         sync_started: 'Синхронизиране на транзакции от борсите ви...'
         importing_from: 'Импортиране на данни от %{exchange}…'

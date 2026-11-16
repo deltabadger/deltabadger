@@ -541,6 +541,13 @@ sv:
             no_balances: Inga saldon hittades på dina anslutna börser.
             only_cash: "Endast kontanter och stablecoins — slå på Visa kontanter för att se dem."
             unpriced: 'Pris saknas för: %{assets}'
+        # "CoinGecko" is a product name: keep it verbatim in every locale.
+        prices:
+            missing: "Inget marknadspris för %{assets} på %{venue}."
+            missing_anywhere: "Inget marknadspris för %{assets}."
+            chart_missing: "Diagrammet visar inte marknadsvärdet för %{assets} på %{venue} för dagar utan pris."
+            chart_incomplete: "Vissa dagar i diagrammet är ofullständiga."
+            connect_coingecko: "Anslut ett gratis CoinGecko-konto för att få marknadspriser."
         sync: 'Synka'
         sync_started: 'Synkroniserar transaktioner från dina börser...'
         importing_from: 'Importerar data från %{exchange}…'
