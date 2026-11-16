@@ -26,16 +26,43 @@ pub struct Migration<'a> {
     pub sql: &'a str,
 }
 
-/// Rust's migrations, and the structure of each table one creates, keyed by that migration's version.
+/// Rust's migrations, the structure of each table one creates (a rebuild adds the table's new contract at its own
+/// version), keyed by that migration's version, and each (version, table) a migration removes (a rename's old name).
 pub struct Registry<'a> {
     pub migrations: &'a [Migration<'a>],
     pub tables: &'a [(&'a str, TableContract)],
+    pub retired: &'a [(&'a str, &'a str)],
 }
 
 impl Registry<'_> {
-    /// Every table Rust owns: its migrations table and each table a migration creates.
+    /// Every table Rust owns: its migrations table and each table a migration creates, retired ones included (they are
+    /// Rust-born: a copy from before their retirement still has them).
     pub fn owned_tables(&self) -> Vec<&str> {
-        std::iter::once(RUST_MIGRATIONS_TABLE).chain(self.tables.iter().map(|(_, t)| t.name)).collect()
+        let mut seen = BTreeSet::new();
+        std::iter::once(RUST_MIGRATIONS_TABLE).chain(self.tables.iter().map(|(_, t)| t.name)).filter(|t| seen.insert(*t)).collect()
+    }
+
+    /// `owned_tables` that the newest migrations leave: the ones not retired after their newest contract.
+    pub fn live_tables(&self) -> Vec<&str> {
+        self.owned_tables().into_iter().filter(|t| {
+            let created = self.tables.iter().filter(|(_, c)| c.name == *t).map(|(v, _)| *v).max();
+            let retired = self.retired.iter().filter(|(_, r)| r == t).map(|(v, _)| *v).max();
+            retired.is_none_or(|r| created.is_some_and(|c| c > r))
+        }).collect()
+    }
+
+    /// The tables pending migrations replace (a retirement, or a new contract for a table an earlier one contracts) that
+    /// `c` has now, with those migrations' versions (D-B11-9-REPLACEMENT-PENDING).
+    fn replaced_now(&self, c: &Connection, pending: &[String]) -> rusqlite::Result<(Vec<String>, Vec<String>)> {
+        let (mut versions, mut tables) = (BTreeSet::new(), BTreeSet::new());
+        let rebuilt = self.tables.iter().filter(|(v, t)| self.tables.iter().any(|(w, u)| u.name == t.name && w < v)).map(|(v, t)| (*v, t.name));
+        for (version, table) in self.retired.iter().copied().chain(rebuilt).filter(|(v, _)| pending.iter().any(|p| p == v)) {
+            if c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)", [table], |r| r.get(0))? {
+                versions.insert(version.to_string());
+                tables.insert(table.to_string());
+            }
+        }
+        Ok((versions.into_iter().collect(), tables.into_iter().collect()))
     }
 }
 
@@ -141,7 +168,11 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
 ];
 
 /// What this build migrates.
-pub const REGISTRY: Registry<'static> = Registry { migrations: RUST_MIGRATIONS, tables: RUST_TABLES };
+pub const REGISTRY: Registry<'static> = Registry { migrations: RUST_MIGRATIONS, tables: RUST_TABLES, retired: RUST_RETIRED };
+
+// (version, table): migration `version` removes `table` (D-B11-9-RETIRED-CONTRACT). Its contracts above stay, for the
+// installs between versions. Extend with every migration that renames or drops a Rust table.
+const RUST_RETIRED: &[(&str, &str)] = &[];
 
 /// The table the migrator records Rust migrations in, created in the transaction of the first one it applies.
 pub const RUST_MIGRATIONS_TABLE: &str = "rust_schema_migrations";
@@ -209,6 +240,9 @@ pub enum StoreError {
     },
     /// Tables used by Rust do not satisfy its structural contract.
     Incompatible { problems: Vec<String> },
+    /// A pending Rust migration replaces tables this install still has (their rows not yet moved): a command that does
+    /// not migrate would read the new names and find nothing (D-B11-9-REPLACEMENT-PENDING).
+    ReplacementPending { versions: Vec<String>, tables: Vec<String> },
     /// A Rust migration failed and was rolled back; the ones before it stay applied.
     Migration { version: String, name: String, error: String },
     /// SQLite could not open or inspect a database or configure a connection.
@@ -554,9 +588,19 @@ pub fn check_with(paths: &Paths, registry: &Registry) -> Result<Report, StoreErr
     if !unknown.is_empty() {
         return Err(StoreError::Unsupported { unknown }); // a newer binary migrated this install
     }
-    for (version, table) in registry.tables {
-        if recorded.contains(*version) {
-            check_structure(&primary, std::slice::from_ref(table), &mut problems)?;
+    // D-B11-9-RETIRED-CONTRACT: of each table's recorded contracts and retirements the newest applies: a contract is
+    // checked (only it), a retirement means the table is gone. A table with nothing recorded is not checked.
+    let mut names = BTreeSet::new();
+    for name in registry.tables.iter().map(|(_, t)| t.name).chain(registry.retired.iter().map(|(_, t)| *t)).filter(|t| names.insert(*t)) {
+        let contract = registry.tables.iter().filter(|(v, t)| t.name == name && recorded.contains(*v)).max_by_key(|(v, _)| *v);
+        let retired = registry.retired.iter().filter(|(v, t)| *t == name && recorded.contains(*v)).map(|(v, _)| *v).max();
+        match (contract, retired) {
+            (Some((version, table)), r) if r.is_none_or(|r| *version > r) => check_structure(&primary, std::slice::from_ref(table), &mut problems)?,
+            (_, Some(r)) => {
+                let present: bool = primary.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name = ?1)", [name], |row| row.get(0))?;
+                if present { problems.push(format!("{name} should be gone (retired by {r})")); }
+            }
+            _ => {}
         }
     }
     if !problems.is_empty() {
@@ -614,10 +658,18 @@ fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError>
         let run = || -> Result<(), String> {
             let tx = rusqlite::Transaction::new_unchecked(c, rusqlite::TransactionBehavior::Immediate).map_err(|e| e.to_string())?;
             tx.execute_batch(CREATE_RUST_MIGRATIONS_TABLE).map_err(|e| e.to_string())?;
+            let others = || not_rust(&tx, registry).map_err(|e| e.to_string());
+            let before = others()?;
             tx.commit_hook(Some(|| true)); // a COMMIT inside the file becomes a ROLLBACK
             let ran = tx.execute_batch(m.sql);
             tx.commit_hook(None::<fn() -> bool>);
             ran.map_err(|e| e.to_string())?;
+            // D-B11-9-DROP-OWN-TABLE at run time, whatever the build's scan read: every table no Rust contract names
+            // (Rails-born) is still there as it was.
+            let after = others()?;
+            if let Some((name, _)) = before.iter().find(|t| !after.contains(t)) {
+                return Err(format!("it dropped or rebuilt {name}, which is not a Rust table; it was rolled back"));
+            }
             // Tests (debug builds): this migration's body fails inside its own transaction (PLAN-B6 r3.5).
             #[cfg(debug_assertions)]
             if std::env::var("DELTABADGER_TEST_FAIL_MIGRATION").is_ok_and(|v| v == m.version) {
@@ -639,6 +691,14 @@ fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError>
     Ok(applied)
 }
 
+/// (name, sql) of every table in `c` that `registry` does not own.
+fn not_rust(c: &Connection, registry: &Registry) -> rusqlite::Result<Vec<(String, String)>> {
+    let owned = registry.owned_tables();
+    let mut s = c.prepare("SELECT name, coalesce(sql, '') FROM sqlite_master WHERE type = 'table' ORDER BY name")?;
+    let all = s.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(all.into_iter().filter(|(name, _)| !owned.contains(&name.as_str())).collect())
+}
+
 /// For the tests: Rust-side fixtures brought up to date the way startup migrates (the same code, without the lock),
 /// and fixture migration directories loaded as build.rs loads rust/migrations.
 #[doc(hidden)]
@@ -648,6 +708,19 @@ pub mod test_support {
     /// Applies `REGISTRY`'s pending migrations to a fixture's primary database.
     pub fn migrate(c: &Connection) -> Result<Vec<String>, StoreError> {
         apply(c, &REGISTRY)
+    }
+
+    /// Each (version, table, a hop table: created earlier in the same file) that `migrations` drop, in order, read as
+    /// the build reads them (D-B11-9-DROP-OWN-TABLE), or the build's refusal.
+    pub fn drops(migrations: &[Migration]) -> Result<Vec<(String, String, bool)>, String> {
+        let mut created = BTreeSet::new();
+        let mut out = Vec::new();
+        for m in migrations {
+            for (table, hop) in migration_registry::check_tables(m.sql, &mut created).map_err(|e| format!("{}: {e}", m.version))? {
+                out.push((m.version.to_string(), table, hop));
+            }
+        }
+        Ok(out)
     }
 
     /// (version, name, sql) of each migration in `dir`, or the build's own refusal of it.
@@ -852,9 +925,26 @@ pub struct Opened {
     pub queue: Connection,
 }
 
-/// Opens an install for writes only after both databases pass the read-only check.
+/// `check` as `open` runs it: also refused while a pending migration replaces a table the install still has
+/// (D-B11-9-REPLACEMENT-PENDING), so a command that does not migrate never reads the new names over the old rows. A 2.x
+/// install never has such a table; `run`, `serve` and `resolve-withdrawal` migrate before they open.
+pub fn check_open_with(paths: &Paths, registry: &Registry) -> Result<Report, StoreError> {
+    let report = check_with(paths, registry)?;
+    if !report.pending_rust.is_empty() {
+        let (versions, tables) = registry.replaced_now(&read_only(&paths.primary)?, &report.pending_rust)?;
+        if !tables.is_empty() { return Err(StoreError::ReplacementPending { versions, tables }); }
+    }
+    Ok(report)
+}
+
+/// Opens an install for writes only after both databases pass the read-only check (`check_open_with`).
 pub fn open(paths: &Paths) -> Result<Opened, StoreError> {
-    check(paths)?;
+    open_with(paths, &REGISTRY)
+}
+
+/// `open` against `registry` (see `check_with`).
+pub fn open_with(paths: &Paths, registry: &Registry) -> Result<Opened, StoreError> {
+    check_open_with(paths, registry)?;
     let primary = Connection::open_with_flags(&paths.primary, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
     let queue = Connection::open_with_flags(&paths.queue, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
     configure(&primary)?;

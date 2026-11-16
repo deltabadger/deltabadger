@@ -350,7 +350,7 @@ async fn each_order_state_is_named_as_the_venue_lists_it() {
         (o(7, St::Cancelled, "0", "0"), ru::LIVE_LISTED, "buy of 20 EUR cancelled, nothing filled"),
     ];
     for kind in SERVED {
-        for (order, event, text) in &cases {
+        for (i, (order, event, text)) in cases.iter().enumerate() {
             // D-HISTORY-NO-LEDGER-BASIS: with no ledger, "nothing filled" is never claimed.
             let text = if kind.no_ledger() { text.strip_suffix(", nothing filled").unwrap_or(text) } else { text };
             let f = fx(kind);
@@ -362,6 +362,7 @@ async fn each_order_state_is_named_as_the_venue_lists_it() {
                        "{kind:?}");
             assert_eq!(f.pass(now() + Duration::hours(1)).await, 0, "one line, ever");
             assert_eq!(f.requests(), kind.reads(), "{kind:?}: read once");
+            if kind == SERVED[0] && i < 2 { common::freeze::freeze(["a28_live_listed", "a28_live_open"][i], &f.c, None); }
         }
     }
 }
@@ -674,6 +675,7 @@ async fn a_refusal_writes_a28_1s_line_and_after_a_crash_is_never_asked_again() {
             assert_eq!(f.pass(now()).await, 1);
             assert_eq!(f.one(), oracle, "{kind:?} {http}");
             assert_eq!(f.requests(), 1);
+            if kind == SERVED_ALL[0] && !http { common::freeze::freeze("a28_live_refused", &f.c, None); }
             // The line's transaction lost (a crash after the refusal was stored), then a restart with the same key.
             f.c.execute_batch("UPDATE rust_rails_unrecorded SET reported_at = NULL, outcome = NULL; DELETE FROM bot_activity_logs WHERE event LIKE 'rails_order_%'").unwrap();
             assert_eq!(f.pass(now() + Duration::hours(1)).await, 1);
