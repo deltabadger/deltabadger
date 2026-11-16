@@ -31,10 +31,10 @@ pids+=($!)
 mkdir -p "$storage"
 # One secret per dev install, kept beside it: the install's encrypted columns need the same one on every start.
 [ -s "$storage/.dev-secret" ] || openssl rand -hex 64 > "$storage/.dev-secret"
-echo "rust-dev: http://localhost:$port (install in $storage)"
+echo "rust-dev: http://127.0.0.1:$port (install in $storage)"
 DELTABADGER_DEV_ASSETS="$root/app/assets/builds" \
   STORAGE_DIR="$storage" DATABASE_PATH="$storage/production.sqlite3" QUEUE_DATABASE_PATH="$storage/production_queue.sqlite3" \
-  SECRET_KEY_BASE="$(cat "$storage/.dev-secret")" PORT="$port" APP_ROOT_URL="http://localhost:$port" \
+  SECRET_KEY_BASE="$(cat "$storage/.dev-secret")" PORT="$port" APP_ROOT_URL="http://127.0.0.1:$port" \
   "$target_dir/debug/deltabadger" serve &
 pids+=($!)
 wait "${pids[@]}"
