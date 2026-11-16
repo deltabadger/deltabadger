@@ -2251,3 +2251,56 @@ async fn kraken_pairs_missing_from_its_bulk_ticker_never_cost_the_ones_it_priced
     assert_eq!(found.len(), 1, "the forty never priced");
     assert!(wire.requests().len() <= 1 + 3 * 32, "{} requests", wire.requests().len());
 }
+
+/// PLAN-venue-prices S3: a coin's days from the venue's daily candles: Alpaca's BTC/USD bars, each day's price the open of
+/// the bar opening at that day's midnight UTC; a bar opening at another hour is no day's price; days already stored are
+/// not asked for; a throttled venue says to ask again.
+#[tokio::test(flavor = "current_thread")]
+async fn a_coins_days_come_from_the_venues_daily_candles() {
+    use deltabadger::sync::venue_history::Segment;
+    let (_dir, db, s) = install();
+    let btc: i64 = db.run(|c, _| Ok(c.query_row("SELECT id FROM assets WHERE symbol = 'BTC' ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap())).await.unwrap();
+    let day = |d: &str| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").unwrap();
+    let bars = json!({ "bars": { "BTC/USD": [
+        { "t": "2026-11-10T00:00:00Z", "o": 75260.83, "c": 73698.0 }, { "t": "2026-11-11T05:00:00Z", "o": 1.0, "c": 1.0 },
+        { "t": "2026-11-12T00:00:00Z", "o": 73921.239, "c": 71372.674 }] }, "next_page_token": null });
+    let wire = ScriptedTransport::from_script(&json!({ "GET /v1beta3/crypto/us/bars": [ok(bars)] }));
+    let quotes = deltabadger::sync::venue_quotes::Quotes::new(Box::new({ let wire = wire.clone(); move |_, _| wire.clone() }), None);
+    let segments = vec![Segment { from: day("2026-11-10"), to: day("2026-11-12"), asset: btc }];
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
+    let q: &dyn deltabadger::sync::venue_quotes::VenueQuotes = &quotes;
+    let days = q.history(&db, s.exchange_id, Some(s.api_key_id), segments.clone(), Default::default(), deadline).await;
+    assert_eq!(days.prices.iter().map(|(d, p)| (d.to_string(), p.to_s_f())).collect::<Vec<_>>(),
+               [("2026-11-10".to_string(), "75260.83".to_string()), ("2026-11-12".to_string(), "73921.239".to_string())]);
+    assert!(!days.retry);
+    assert!(days.version.is_some(), "read with the account's key: stored fenced on it");
+    // A throttled venue: no days, and the sweep is to ask again.
+    let throttled = ScriptedTransport::from_script(&json!({ "GET /v1beta3/crypto/us/bars": [{ "status": 429, "body": "slow down" }] }));
+    let quotes = deltabadger::sync::venue_quotes::Quotes::new(Box::new({ let wire = throttled.clone(); move |_, _| wire.clone() }), None);
+    let q: &dyn deltabadger::sync::venue_quotes::VenueQuotes = &quotes;
+    let days = q.history(&db, s.exchange_id, Some(s.api_key_id), segments, Default::default(), deadline).await;
+    assert!(days.prices.is_empty() && days.retry);
+}
+
+/// A coin's days already stored are not asked for again: the candles start at the first day missing, and a span stored
+/// whole asks nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_venue_history_read_starts_at_the_first_missing_day() {
+    use deltabadger::sync::venue_history::Segment;
+    let (_dir, db, s) = install();
+    let btc: i64 = db.run(|c, _| Ok(c.query_row("SELECT id FROM assets WHERE symbol = 'BTC' ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap())).await.unwrap();
+    let day = |d: &str| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").unwrap();
+    let wire = ScriptedTransport::from_script(&json!({ "GET /v1beta3/crypto/us/bars": [ok(json!({ "bars": { "BTC/USD": [{ "t": "2026-11-12T00:00:00Z", "o": 70000.0 }] }, "next_page_token": null }))] }));
+    let quotes = deltabadger::sync::venue_quotes::Quotes::new(Box::new({ let wire = wire.clone(); move |_, _| wire.clone() }), None);
+    let q: &dyn deltabadger::sync::venue_quotes::VenueQuotes = &quotes;
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
+    let segments = vec![Segment { from: day("2026-11-01"), to: day("2026-11-12"), asset: btc }];
+    let stored: std::collections::HashSet<_> = (1..=11).map(|d| day(&format!("2026-11-{d:02}"))).collect();
+    let days = q.history(&db, s.exchange_id, Some(s.api_key_id), segments.clone(), stored, deadline).await;
+    assert_eq!(days.prices.keys().map(|d| d.to_string()).collect::<Vec<_>>(), ["2026-11-12"]);
+    assert!(wire.requests()[0].query.iter().any(|(k, v)| *k == "start" && v.starts_with("2026-11-12")), "{:?}", wire.requests()[0].query);
+    let all: std::collections::HashSet<_> = (1..=12).map(|d| day(&format!("2026-11-{d:02}"))).collect();
+    let before = wire.requests().len();
+    assert!(q.history(&db, s.exchange_id, Some(s.api_key_id), segments, all, deadline).await.prices.is_empty());
+    assert_eq!(wire.requests().len(), before, "a span stored whole asks nothing");
+}

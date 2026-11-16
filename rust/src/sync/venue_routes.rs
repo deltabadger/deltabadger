@@ -78,6 +78,49 @@ pub fn candidates(pairs: &[Pair], quotes: &HashMap<String, BigDec>, ends: &HashM
     Graph::new(pairs, quotes).candidates(ends, from, legs)
 }
 
+/// One leg of a route chosen from the venue's listings alone (Rust only, PLAN-venue-prices S3): the pair, and whether it
+/// is walked base→quote (at its price) or quote→base (at its inverse).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Leg { pub pair: i64, pub code: String, pub forward: bool }
+
+/// A route from the listings: its legs and the fiat asset it ends at.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Route { pub legs: Vec<Leg>, pub end: i64 }
+
+/// Routes from `from` to a fiat of `fiat` (asset → whether it is the dollar) over every listed pair, whatever its price
+/// today: a delisted pair keeps its history. Fewer legs first, a dollar end first, then the pairs' ids; at most `max`.
+pub fn topology(pairs: &[Pair], fiat: &HashMap<i64, bool>, from: i64, max: usize) -> Vec<Route> {
+    if fiat.contains_key(&from) { return vec![]; }
+    let mut steps: BTreeMap<i64, Vec<(i64, i64, bool, &str)>> = BTreeMap::new();
+    for p in pairs.iter().filter(|p| p.base != p.quote) {
+        steps.entry(p.base).or_default().push((p.id, p.quote, true, p.code.as_str()));
+        steps.entry(p.quote).or_default().push((p.id, p.base, false, p.code.as_str()));
+    }
+    for list in steps.values_mut() { list.sort_by_key(|(id, ..)| *id); }
+    let mut routes: Vec<(usize, bool, Vec<i64>, Route)> = vec![];
+    let mut frontier: Vec<(i64, Vec<i64>, Vec<Leg>)> = vec![(from, vec![from], vec![])];
+    let mut expanded = 0usize;
+    for depth in 1..=MAX_LEGS {
+        let mut next = vec![];
+        for (at, seen, legs) in frontier {
+            for (pair, to, forward, code) in steps.get(&at).map(Vec::as_slice).unwrap_or(&[]) {
+                expanded += 1;
+                if expanded > MAX_EXPANSIONS { break; }
+                if seen.contains(to) { continue; }
+                let mut path = legs.clone();
+                path.push(Leg { pair: *pair, code: code.to_string(), forward: *forward });
+                match fiat.get(to) {
+                    Some(usd) => routes.push((depth, !usd, path.iter().map(|l| l.pair).collect(), Route { legs: path, end: *to })),
+                    None => if depth < MAX_LEGS { let mut s = seen.clone(); s.push(*to); next.push((*to, s, path)); },
+                }
+            }
+        }
+        frontier = next;
+    }
+    routes.sort_by(|a, b| (a.0, a.1, &a.2).cmp(&(b.0, b.1, &b.2)));
+    routes.into_iter().take(max).map(|(.., r)| r).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -142,5 +185,17 @@ mod tests {
         let found = candidates(&pairs, &quotes(&q), &ends(), 1, 2);
         assert_eq!(found.len(), 5);
         assert_eq!(found[3].legs, vec![13, 23]);
+    }
+
+    #[test]
+    fn routes_from_the_listings_carry_their_direction_and_end() {
+        let fiat = HashMap::from([(2, true), (3, false)]);
+        // EURUSDT walked backwards from USDT; BTC/USD forwards; the delisted pair still counts.
+        let pairs = [pair(1, "BTCUSDT", 1, 4), pair(2, "EURUSDT", 3, 4), pair(3, "BTC/USD", 1, 2)];
+        let routes = topology(&pairs, &fiat, 1, 3);
+        assert_eq!(routes[0], Route { legs: vec![Leg { pair: 3, code: "BTC/USD".into(), forward: true }], end: 2 });
+        assert_eq!(routes[1], Route { legs: vec![Leg { pair: 1, code: "BTCUSDT".into(), forward: true }, Leg { pair: 2, code: "EURUSDT".into(), forward: false }], end: 3 });
+        assert_eq!(topology(&pairs, &fiat, 1, 1).len(), 1);
+        assert!(topology(&pairs, &fiat, 2, 3).is_empty(), "a fiat has no route");
     }
 }

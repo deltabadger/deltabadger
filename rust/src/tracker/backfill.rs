@@ -26,9 +26,12 @@ pub fn rate_limited_key(user_id: i64) -> String { format!("rust_snapshot_prices_
 /// The calculation a stored history was swept by (Rust's own key; Rails has none): a history of another one is swept again.
 /// 2: coin-quoted single rows are two legs (D-TRACKER-COIN-QUOTE), transfers wait for their funds (D-TRACKER-TRANSFER-ORDER),
 /// a non-cash sale's own fee leaves (D-TRACKER-HISTORY-SELL-FEE). 3: the sweep records what it could not price
-/// (`tracker::unpriced`, PLAN-venue-prices S1), so every stored history is swept once more to get that record.
-pub const CALCULATION: &str = "3";
+/// (`tracker::unpriced`, PLAN-venue-prices S1), so every stored history is swept once more to get that record. 4: a coin's
+/// days the provider left unstored are asked of its venues (D-VENUE-HISTORY-FALLBACK).
+pub const CALCULATION: &str = "4";
 pub fn calculation_key(user_id: i64) -> String { format!("snapshot_calculation_version_{user_id}") }
+/// Where a sweep's venue history reads resume after the budget cut one off (Rust only, D-VENUE-HISTORY-FALLBACK).
+pub fn venue_cursor_key(user_id: i64) -> String { format!("rust_venue_history_cursor_{user_id}") }
 /// Records that the user's history is this calculation's.
 pub fn mark_calculated(c: &Connection, cipher: &Cipher, user_id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<(), FiguresError> {
     crate::app_config::set(c, cipher, &calculation_key(user_id), CALCULATION, now).map_err(FiguresError::Data)
@@ -92,7 +95,8 @@ pub fn wanted(c: &Connection, cipher: &Cipher, user_id: i64, today: NaiveDate) -
 /// day it was touched, the venue that touched it first (its identity is read off that venue), and for a coin the one
 /// coin its identity names (its external id), if one is named.
 #[derive(Clone, Debug)]
-pub struct Instrument { pub key: String, pub symbol: String, pub stock: bool, pub from: NaiveDate, pub venue: Venue, pub coin: Option<Option<String>> }
+/// `sources` (Rust only, PLAN-venue-prices S3): every venue that touched the key, in first-touch order, `venue` first.
+pub struct Instrument { pub key: String, pub symbol: String, pub stock: bool, pub from: NaiveDate, pub venue: Venue, pub coin: Option<Option<String>>, pub sources: Vec<Venue> }
 
 /// A stock (true) or a coin with the one class it names.
 type Identity = (bool, Option<Option<String>>);
@@ -142,14 +146,20 @@ fn coins_of(reference: &prices::Reference, i: &Instrument, last: NaiveDate) -> V
 #[derive(Clone, Debug)]
 pub struct Bars { pub api_key_id: i64, pub symbol: String, pub from: NaiveDate, pub to: NaiveDate }
 
-/// One fetch of `load_prices`: a coin's range from data-api, or a stock's closes from the broker.
+/// A coin's days the provider left unstored, asked of the venues that held it, in first-touch order (Rust only,
+/// D-VENUE-HISTORY-FALLBACK): each `(exchange id, the user's first key of it)`, and its dated spans as assets.
 #[derive(Clone, Debug)]
-pub enum Close { Range(Fetch), Bars(Bars) }
+pub struct VenueHistory { pub key: String, pub sources: Vec<(i64, Option<i64>)>, pub segments: Vec<crate::sync::venue_history::Segment> }
+
+/// One fetch of `load_prices`: a coin's range from data-api, a stock's closes from the broker, or a coin's remaining
+/// days from its venues.
+#[derive(Clone, Debug)]
+pub enum Close { Range(Fetch), Bars(Bars), Venue(VenueHistory) }
 
 /// What `load_prices` fetches before it reads, instrument by instrument, and the key each venue's symbol is priced
 /// under (`@price_keys`: none for a name that is both a stock and a coin, whose days are unpriced).
 #[derive(Clone, Debug, Default)]
-pub struct Plan { pub instruments: Vec<Instrument>, pub fetches: Vec<Close>, pub keys: HashMap<(String, String), Option<String>> }
+pub struct Plan { pub instruments: Vec<Instrument>, pub fetches: Vec<Close>, pub keys: HashMap<(String, String), Option<String>>, pub user_id: i64 }
 
 /// `touched`, `identity_of` and the instruments over every row: per venue and symbol (cash left out) the first day it
 /// was touched there, a linked transfer touching its destination too; on a crypto venue a symbol is a coin, on a stock
@@ -173,7 +183,7 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
             }
         }
     }
-    let mut plan = Plan::default();
+    let mut plan = Plan { user_id, ..Plan::default() };
     let mut index: HashMap<String, usize> = HashMap::new();
     for ((venue_name, symbol), from, _) in touched {
         crate::figures::budget::charge(1, 0)?;
@@ -187,15 +197,33 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
                 let known = &mut plan.instruments[i];
                 known.from = known.from.min(from);
                 if known.coin.is_none() { known.coin = coin; }
+                if !known.sources.iter().any(|v| v.id == venue.id) { known.sources.push(venue); }
             }
-            None => { index.insert(key.clone(), plan.instruments.len()); plan.instruments.push(Instrument { key, symbol, stock, from, venue, coin }); }
+            None => { index.insert(key.clone(), plan.instruments.len()); plan.instruments.push(Instrument { key, symbol, stock, from, sources: vec![venue.clone()], venue, coin }); }
         }
     }
     for i in &plan.instruments {
         crate::figures::budget::charge(1, 0)?;
         if !i.stock {
-            for (from, to, coin) in coins_of(&reference, i, last) {
-                plan.fetches.push(Close::Range(Fetch::usd(coin, i.symbol.clone(), from, to)));
+            let spans = coins_of(&reference, i, last);
+            for (from, to, coin) in &spans {
+                plan.fetches.push(Close::Range(Fetch::usd(coin.clone(), i.symbol.clone(), *from, *to)));
+            }
+            // The venues' own days after the provider's (D-VENUE-HISTORY-FALLBACK): each span's coin as its one asset (a
+            // coin id two assets carry is not guessed at).
+            let mut segments = vec![];
+            for (from, to, coin) in spans {
+                let mut s = c.prepare_cached("SELECT id FROM assets WHERE external_id = ?1 LIMIT 2")?;
+                let ids: Vec<i64> = s.query_map([&coin], |r| r.get(0))?.collect::<Result<_, _>>()?;
+                if let [asset] = ids.as_slice() { segments.push(crate::sync::venue_history::Segment { from, to, asset: *asset }); }
+            }
+            if !segments.is_empty() {
+                let mut sources = vec![];
+                for v in &i.sources {
+                    let key: Option<i64> = c.query_row("SELECT id FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY id LIMIT 1", [user_id, v.id], |r| r.get(0)).optional()?;
+                    sources.push((v.id, key));
+                }
+                plan.fetches.push(Close::Venue(VenueHistory { key: i.key.clone(), sources, segments }));
             }
             continue;
         }
@@ -478,7 +506,7 @@ mod tests {
         let mut luna = bought("LUNA");
         luna.at = At::from_sql("2022-05-20 12:00:00").unwrap();
         let planned = plan(&c, 1, &[luna], day("2022-05-20"), day("2022-06-02")).unwrap();
-        let ranges: Vec<(String, NaiveDate, NaiveDate)> = planned.fetches.iter().filter_map(|f| match f { Close::Range(f) => Some((f.coin.clone(), f.from, f.to)), Close::Bars(_) => None }).collect();
+        let ranges: Vec<(String, NaiveDate, NaiveDate)> = planned.fetches.iter().filter_map(|f| match f { Close::Range(f) => Some((f.coin.clone(), f.from, f.to)), _ => None }).collect();
         assert_eq!(ranges, [("terra-luna".to_string(), day("2022-05-20"), day("2022-05-27")), ("terra-luna-2".to_string(), day("2022-05-28"), day("2022-06-02"))]);
     }
 
@@ -509,6 +537,23 @@ mod tests {
         let swept = sweep(&planned, &prices_by_day(&c, &planned, day("2026-09-03")).unwrap(), &[bought("BTC")], &[], day("2026-09-02"), day("2026-09-03"), &super::super::fx::FxTable::default(), &alpaca_ids()).unwrap();
         assert!(swept.whole.iter().all(|(_, d)| d.partial && d.held_value.as_ref().is_some_and(Dec::is_zero)), "unpriced, not valued at either close");
         assert_eq!(swept.unpriced, super::super::unpriced::ByVenue::from([(1, ["BTC".to_string()].into())]), "and recorded as unpriced on its venue");
+    }
+
+    /// PLAN-venue-prices S3: a coin's venue history is asked of every venue that touched it, in first-touch order, with each
+    /// venue's key, over its coin as its one asset; a coin id two assets carry gets no venue history.
+    #[test]
+    fn a_coins_venue_history_asks_its_venues_in_first_touch_order() {
+        let c = install();
+        c.execute_batch("INSERT INTO exchanges VALUES (2, 'Exchanges::Kraken');").unwrap();
+        let rows = [leg(2, "kraken", Kind::Deposit, "BTC", "1", "2026-09-01 10:00:00"), bought("BTC")];
+        let planned = plan(&c, 1, &rows, day("2026-09-01"), day("2026-09-03")).unwrap();
+        let venue: Vec<&VenueHistory> = planned.fetches.iter().filter_map(|f| match f { Close::Venue(v) => Some(v), _ => None }).collect();
+        assert_eq!(venue.len(), 1);
+        assert_eq!((venue[0].key.as_str(), venue[0].sources.clone()), ("BTC", vec![(2, None), (1, Some(1))]));
+        assert_eq!(venue[0].segments.iter().map(|s| (s.asset, s.from, s.to)).collect::<Vec<_>>(), vec![(1, day("2026-09-01"), day("2026-09-03"))]);
+        c.execute("INSERT INTO assets VALUES (9, 'bitcoin', 'Cryptocurrency', 'WBTC', NULL)", []).unwrap();
+        let planned = plan(&c, 1, &rows, day("2026-09-01"), day("2026-09-03")).unwrap();
+        assert!(!planned.fetches.iter().any(|f| matches!(f, Close::Venue(_))), "a coin id two assets carry is not guessed at");
     }
 
     /// PLAN-venue-prices S1: the sweep records, per venue, each holding it found no price for: a coin with no close, cash
@@ -625,7 +670,7 @@ mod tests {
     fn the_closes_by_day_hold_only_prices_and_every_day_walked_is_charged() {
         let c = install();
         c.execute("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('stock:AAPL', 'USD', '2026-09-01', 228.5)", []).unwrap();
-        let instrument = |n: usize| { let symbol = if n == 0 { "AAPL".to_string() } else { format!("S{n}") }; Instrument { key: format!("stock:{symbol}"), symbol, stock: true, from: day("2016-10-01"), venue: Venue { id: 1, name_id: "alpaca".into(), stock: true }, coin: None } };
+        let instrument = |n: usize| { let symbol = if n == 0 { "AAPL".to_string() } else { format!("S{n}") }; Instrument { key: format!("stock:{symbol}"), symbol, stock: true, from: day("2016-10-01"), venue: Venue { id: 1, name_id: "alpaca".into(), stock: true }, coin: None, sources: vec![] } };
         let plan = Plan { instruments: (0..500).map(instrument).collect(), ..Plan::default() };
         let (by_day, used) = budget::scope(budget::FIGURE, || prices_by_day(&c, &plan, day("2026-09-30")));
         let by_day = by_day.unwrap();
