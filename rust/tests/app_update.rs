@@ -18,6 +18,12 @@ fn db() -> (tempfile::TempDir, Connection) {
     (dir, o.primary)
 }
 
+#[test]
+fn the_ttl_and_the_compose_command_are_the_recorded_ones() {
+    assert_eq!(vectors()["cache_ttl_secs"], json!(app_update::ttl().num_seconds()));
+    assert_eq!(vectors()["compose_command"], json!(app_update::COMPOSE_COMMAND));
+}
+
 /// The answers record_app_update.rb scripts, in its order: `(case, status, content type, body)`, or None for its timeout.
 /// `(status, content type, body)`.
 type Answer = (u16, &'static str, String);

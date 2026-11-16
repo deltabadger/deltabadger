@@ -227,6 +227,10 @@ jobs:
       - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
         with:
           tool: cargo-nextest@0.9.146
+      # The interop tests serve this build's pages (mcp, oauth), which embed the web assets the image built inside Docker.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - name: Build the web assets
+        run: bash script/rust/build_assets.sh
       # The image and entrypoint tests, and the 2.x interop tests: rust/.config/nextest.toml `[profile.image]`.
       - name: Test the image
         working-directory: rust
