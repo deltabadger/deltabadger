@@ -32,7 +32,7 @@ fn the_bundle_carries_the_engine_and_the_catalogue_and_nothing_of_rails() {
     let bundle = &config["bundle"];
     assert_eq!(bundle["externalBin"], serde_json::json!(["binaries/deltabadger-engine"]));
     let resources = bundle["resources"].as_object().unwrap();
-    assert_eq!(resources["../db/seed_data/catalogue.json.gz"], "db/seed_data/catalogue.json.gz");
+    assert_eq!(resources["../rust/seed/catalogue.json.gz"], "db/seed_data/catalogue.json.gz");
     assert!(resources.keys().all(|k| !k.contains("_bundle")), "{resources:?}");
     assert_eq!(bundle["macOS"]["minimumSystemVersion"], "11.3");
     assert_eq!(config["build"]["frontendDist"], "ui");

@@ -7,7 +7,7 @@
 # Stage 1: the web assets the binary embeds (rust/build.rs): bun + dart-sass, no Ruby.
 FROM oven/bun:1.3-slim AS assets
 WORKDIR /src
-COPY package.json bun.lock Gemfile.lock ./
+COPY package.json bun.lock ./
 COPY script/rust/build_assets.sh script/rust/build_assets.sh
 COPY app/javascript app/javascript
 COPY app/assets app/assets
@@ -25,8 +25,9 @@ COPY --from=assets /src/app/assets/builds/application.js /src/app/assets/builds/
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/rust/target \
     cd rust && cargo build --release --locked && cp target/release/deltabadger /usr/local/bin/deltabadger
-# The release's catalogue snapshot, when the build has one (docker-publish.yml's release-catalogue job).
-RUN mkdir -p /out/seed_data && { cp db/seed_data/catalogue.json.gz /out/seed_data/ 2>/dev/null || true; }
+# The release's catalogue snapshot, when the build has one: release.yml's draft job downloads it to
+# rust/seed/catalogue.json.gz (a local build: curl it there); installed as /app/db/seed_data/catalogue.json.gz.
+RUN mkdir -p /out/seed_data && { cp rust/seed/catalogue.json.gz /out/seed_data/ 2>/dev/null || true; }
 
 # Stage 3: runtime. CA certificates for venue and mail TLS; curl for the health checks (the image's
 # own and the ones existing compose files run). Time zones are compiled into the binary.

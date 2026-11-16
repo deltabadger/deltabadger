@@ -78,5 +78,5 @@ spring/*.pid
 /graphify-out/
 __pycache__/
 
-# The catalogue bundle: a release asset, downloaded at release time (db/seed_data/AGENTS.md)
-/db/seed_data/catalogue.json.gz
+# The catalogue bundle: a release asset, downloaded at build time; installed as db/seed_data/catalogue.json.gz
+/rust/seed/catalogue.json.gz
