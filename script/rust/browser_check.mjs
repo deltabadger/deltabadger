@@ -262,7 +262,7 @@ try {
     await new Promise((resolve, reject) => { second.onopen = resolve; second.onerror = reject; });
     let secondId = 0;
     const pending = new Map();
-    second.onmessage = event => { const message = JSON.parse(event.data); pending.get(message.id)?.(message); };
+    second.onmessage = event => { const message = JSON.parse(event.data); const settle = pending.get(message.id); if (typeof settle === "function") settle(message); };
     const secondEvaluate = expression => new Promise((resolve, reject) => {
       const id = ++secondId;
       const timer = setTimeout(() => { pending.delete(id); reject(new Error("second-tab DevTools timeout")); }, 5000);
