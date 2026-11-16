@@ -2211,7 +2211,8 @@ async fn configured_connections_show_provider_state_without_stock_rows_or_echoed
     // D-BROKERS-AS-VENUES: Connect holds the admin's market data and nothing broker-only.
     for gone in ["stocks_settings","/settings/update_stocks","/settings/disconnect_stocks","ibkr_settings","settings__heading--first"]{assert!(!answer.body.contains(gone),"no stock row on Connect: {gone}");}
     let market=answer.body.split("id=\"market_data_settings\"").nth(1).unwrap().split("</turbo-frame>").next().unwrap();
-    assert!(market.contains("id=\"switch-settings-update_market_data\" checked"),"the market data switch is on");assert!(market.contains("/settings/disconnect_market_data"));
+    // D-MARKET-DATA-NO-SWITCH: no switch; the configured provider is the one picked.
+    assert!(!market.contains("switch-settings-update_market_data"),"no market data switch");assert!(market.contains("aria-checked=\"true\" tabindex=\"0\" data-value=\"coingecko\""),"CoinGecko is picked");assert!(market.contains("/settings/disconnect_market_data"));
     for value in ["catalog-key-placeholder","catalog-secret-placeholder","coingecko-key-placeholder"]{assert!(!answer.body.contains(value),"stored credential must never enter a page");}
     assert!(server.received_requests().await.unwrap().is_empty());
 }
@@ -2239,6 +2240,33 @@ async fn a_market_data_save_asks_for_the_setup_run_and_a_failed_key_check_writes
     assert_eq!(resync.status,200);assert!(resync.body.contains("flash-syncing"));
     assert_eq!(deltabadger::app_config::get(&h.c,&h.app.cipher,"setup_sync_status").unwrap().as_deref(),Some("in_progress"));
     assert_eq!((requested(&h).as_deref(),woken(&h)),(Some("2"),2));
+}
+
+/// D-MARKET-DATA-NO-SWITCH: Connect has no market data switch. With no provider the picker stands on the one to connect and
+/// shows its card: CoinGecko's key form, or for a claimed platform one Connect button that makes it the provider.
+#[tokio::test(flavor="current_thread")]
+async fn market_data_has_no_switch_and_an_unconnected_install_shows_what_to_connect(){
+    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    let market=|body:&str|body.split("id=\"market_data_settings\"").nth(1).unwrap().split("</turbo-frame>").next().unwrap().to_string();
+    let picked=|market:&str,provider:&str|market.contains(&format!("aria-checked=\"true\" tabindex=\"0\" data-value=\"{provider}\""));
+    deltabadger::app_config::delete(&h.c,"market_data_provider").unwrap();
+    let page=market(&h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await.body);
+    assert!(!page.contains("sswitch"),"no switch: {page}");
+    assert!(picked(&page,"coingecko"),"CoinGecko is picked: {page}");
+    assert!(page.contains("data-form--market-data-target=\"coingeckoFields\" >")&&page.contains("name=\"coingecko_api_key\""),"its key form shows: {page}");
+    // A claimed platform that is not the provider (CoinGecko was disconnected): it is picked, with one Connect button.
+    for (key,value) in [("platform_connected_at","2026-01-01 00:00:00"),("market_data_url","http://data-api.invalid"),("market_data_token","platform-token")]{
+        deltabadger::app_config::set(&h.c,&h.app.cipher,key,value,h.app.now()).unwrap();
+    }
+    let page=market(&h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await.body);
+    assert!(picked(&page,"deltabadger")&&!page.contains("name=\"claim_code\""),"the platform is picked, no claim form: {page}");
+    let buttons=page.split("data-form--market-data-target=\"deltabadgerButtons\" >").nth(1).expect("its card shows");
+    assert!(buttons.contains("<input value=\"deltabadger\" type=\"hidden\" name=\"market_data_provider\" />"),"{buttons}");
+    let saved=h.submit("PATCH","/settings/update_market_data",&[("market_data_provider","deltabadger")],Csrf::Header).await;
+    assert_eq!(saved.status,200);
+    assert_eq!(deltabadger::app_config::get(&h.c,&h.app.cipher,"market_data_provider").unwrap().as_deref(),Some("deltabadger"));
+    let page=market(&saved.body);
+    assert!(picked(&page,"deltabadger")&&!page.contains("value=\"deltabadger\" type=\"hidden\" name=\"market_data_provider\" />\n"),"connected: no button left: {page}");
 }
 
 /// D-BROKERS-AS-VENUES and D-STOCKS-NO-GATE: no stock catalog on the install, a member holding an IBKR key. Rails gates stocks
