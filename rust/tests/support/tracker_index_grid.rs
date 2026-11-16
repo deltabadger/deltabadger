@@ -9,7 +9,7 @@ use serde_json::{json, Map, Value};
 use std::path::Path;
 #[allow(dead_code)]
 #[derive(Clone,Copy)]
-pub enum Mode { Exact, BadRequest, FirstSync, Holdings, Served }
+pub enum Mode { Exact, BadRequest, FirstSync, Holdings, Served, ServerError }
 pub fn snapshot(c: &Connection) -> Value {
     let names: Vec<String> = c.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap()
         .query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
@@ -142,6 +142,24 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         same_rows(snapshot(&c),before,&name);assert_eq!(snapshot(&queue),queue_before,"{name}: queue changed");
         // A populated page this grid's fixture cannot prepare (no Rust ledger cache, no sync stamps): served, and compared
         // byte for byte by tracker_populated, whose fixtures are.
+        // D-TRACKER-NO-PROVIDER-WALL: a page Rails served as the welcome screen now reads the account (an unreadable colour
+        // in it is the error Rails' own full layout gives).
+        if matches!(mode(&name),Mode::ServerError) {
+            assert_eq!((answer.status,answer.body.as_str()),(500,include_str!("../../../public/500.html")),"{name}");continue;
+        }
+        // D-TRACKER-NO-PROVIDER-WALL: where Rails answered with the welcome screen that asks for CoinGecko, Rust serves the
+        // account's tracker page (its banner offers CoinGecko instead).
+        let walled=expected["status"]==json!(200) && expected["body"].as_str().is_some_and(|b|b.contains("<div class=\"welcome-screen\">") && b.contains("tracker/connect_market_data\""));
+        if walled {
+            // A filter the welcome screen never read is now read as on any account's page: an unknown venue is the 404, a
+            // window this build does not read the 400.
+            match answer.status {
+                404=>{assert_eq!(answer.body,include_str!("../../../public/404.html"),"{name}");continue}
+                400=>{assert_eq!(answer.body,include_str!("../../../public/400.html"),"{name}");continue}
+                status=>assert_eq!(status,200,"{name}: served"),
+            }
+            assert!(!answer.body.contains("<div class=\"welcome-screen\">") && answer.body.contains("<div class=\"tracker"),"{name}: the tracker page, not the welcome screen");continue;
+        }
         if matches!(mode(&name),Mode::Served) {
             assert_eq!(answer.status,200,"{name}: the populated page is served");assert!(answer.body.contains("  <div class=\"tracker\">\n"),"{name}");continue;
         }
