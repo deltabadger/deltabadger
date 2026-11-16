@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# The Rust app for frontend work: Sass and the JS bundle rebuild on save, and a debug `serve` reads them from disk
+# (DELTABADGER_DEV_ASSETS, src/web/assets.rs), so a style or script change shows on the next browser reload with no
+# cargo build. Templates and Rust still need one: stop this, run it again.
+#   bin/rust-dev
+# PORT (default 3001), STORAGE_DIR (default tmp/rust-dev: the install survives restarts; delete it for a fresh one),
+# CARGO (default cargo) and CARGO_TARGET_DIR (default rust/target) as cargo itself reads them.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+root=$PWD
+cargo=${CARGO:-cargo}
+port=${PORT:-3001}
+storage=${STORAGE_DIR:-$root/tmp/rust-dev}
+
+# The first build of both files; the debug binary embeds them too, so it must find them.
+script/rust/build_assets.sh
+(cd rust && "$cargo" build --bin deltabadger)
+target_dir=${CARGO_TARGET_DIR:-target}
+case "$target_dir" in /*) ;; *) target_dir="rust/$target_dir" ;; esac
+
+pids=()
+trap 'kill "${pids[@]}" 2>/dev/null; wait' EXIT INT TERM
+sass_version=$(sed -n 's/^    sass-embedded (\([0-9][0-9.]*\)-.*/\1/p' Gemfile.lock | head -n 1)
+bunx "sass@$sass_version" --watch --no-source-map \
+  --load-path app/assets/stylesheets --load-path node_modules --load-path app/assets/fonts \
+  app/assets/stylesheets/application.scss:app/assets/builds/application.css &
+pids+=($!)
+bun run build:watch &
+pids+=($!)
+
+mkdir -p "$storage"
+# One secret per dev install, kept beside it: the install's encrypted columns need the same one on every start.
+[ -s "$storage/.dev-secret" ] || openssl rand -hex 64 > "$storage/.dev-secret"
+echo "rust-dev: http://localhost:$port (install in $storage)"
+DELTABADGER_DEV_ASSETS="$root/app/assets/builds" \
+  STORAGE_DIR="$storage" DATABASE_PATH="$storage/production.sqlite3" QUEUE_DATABASE_PATH="$storage/production_queue.sqlite3" \
+  SECRET_KEY_BASE="$(cat "$storage/.dev-secret")" PORT="$port" APP_ROOT_URL="http://localhost:$port" \
+  "$target_dir/debug/deltabadger" serve &
+pids+=($!)
+wait "${pids[@]}"

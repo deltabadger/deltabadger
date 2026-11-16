@@ -1052,6 +1052,9 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         if full_path == "/service-worker.js" && entry.app.update_platform == crate::jobs::app_update::Platform::Desktop {
             return assets::retiring_worker(parts.method == Method::HEAD);
         }
+        if let Some(response) = assets::dev(&full_path, parts.method == Method::HEAD) {
+            return response;
+        }
         if let Some(file) = assets::find(&full_path) {
             return assets::respond(file, parts.method == Method::HEAD);
         }

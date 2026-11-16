@@ -24,6 +24,48 @@ pub fn require() -> Result<(), super::WebError> {
     if BUILT { Ok(()) } else { Err(super::WebError::Config(MISSING.into())) }
 }
 
+/// The built files a dev server reads from disk instead (`dev`).
+const DEV_FILES: [(&str, &str); 3] = [
+    ("application.css", "text/css; charset=utf-8"),
+    ("application.js", "text/javascript; charset=utf-8"),
+    ("application.js.map", "application/json"),
+];
+
+/// Debug builds only: `DELTABADGER_DEV_ASSETS` names the folder the watchers write (app/assets/builds, bin/rust-dev).
+/// Its built files are then read on every request at plain /assets/<name>, never cached, so a saved stylesheet shows
+/// on the next reload. A release build has no such path: it serves only what it embedded.
+#[cfg(debug_assertions)]
+fn dev_dir() -> Option<&'static std::path::Path> {
+    static DIR: std::sync::OnceLock<Option<std::path::PathBuf>> = std::sync::OnceLock::new();
+    DIR.get_or_init(|| std::env::var_os("DELTABADGER_DEV_ASSETS").filter(|d| !d.is_empty()).map(Into::into)).as_deref()
+}
+#[cfg(not(debug_assertions))]
+fn dev_dir() -> Option<&'static std::path::Path> {
+    None
+}
+
+/// The response for `url` when it is one of the dev server's files (`dev_dir`); `None` otherwise.
+pub fn dev(url: &str, head: bool) -> Option<Response<Body>> {
+    dev_file(dev_dir()?, url, head)
+}
+
+fn dev_file(dir: &std::path::Path, url: &str, head: bool) -> Option<Response<Body>> {
+    let name = url.strip_prefix("/assets/")?;
+    let (name, content_type) = DEV_FILES.into_iter().find(|(file, _)| *file == name)?;
+    let (status, body) = match std::fs::read(dir.join(name)) {
+        Ok(bytes) => (StatusCode::OK, bytes),
+        Err(error) => (StatusCode::NOT_FOUND, format!("{}: {error}", dir.join(name).display()).into_bytes()),
+    };
+    let length = body.len();
+    let mut response = Response::new(if head { Body::empty() } else { Body::from(body) });
+    *response.status_mut() = status;
+    let headers = response.headers_mut();
+    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type));
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    headers.insert(header::CONTENT_LENGTH, HeaderValue::from(length));
+    Some(response)
+}
+
 pub fn find(url: &str) -> Option<&'static Embedded> {
     EMBEDDED.binary_search_by(|file| file.url.cmp(url)).ok().map(|i| &EMBEDDED[i])
 }
@@ -32,6 +74,13 @@ pub fn find(url: &str) -> Option<&'static Embedded> {
 /// path nothing is served at, so the mistake shows as one missing file; tests/web.rs checks every
 /// name the templates use.
 pub fn path(logical: &str) -> &'static str {
+    if dev_dir().is_some() {
+        match logical {
+            "application.css" => return "/assets/application.css",
+            "application.js" => return "/assets/application.js",
+            _ => {}
+        }
+    }
     EMBEDDED.iter().find(|file| file.logical == logical).map_or("/assets/missing", |file| file.url)
 }
 
@@ -71,4 +120,27 @@ pub fn retiring_worker(head: bool) -> Response<Body> {
     headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     headers.insert(header::CONTENT_LENGTH, HeaderValue::from(RETIRING_WORKER.len()));
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dev_files_are_read_from_disk_on_every_request_and_never_cached() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("application.css"), "a{}").unwrap();
+        let response = dev_file(dir.path(), "/assets/application.css", false).unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        assert_eq!(response.headers()[header::CONTENT_LENGTH], "3");
+        std::fs::write(dir.path().join("application.css"), "b{color:red}").unwrap();
+        assert_eq!(dev_file(dir.path(), "/assets/application.css", true).unwrap().headers()[header::CONTENT_LENGTH], "12");
+        // Not yet written by the watcher: a 404 that names the file.
+        assert_eq!(dev_file(dir.path(), "/assets/application.js", false).unwrap().status(), StatusCode::NOT_FOUND);
+        // Only the built files: nothing else in the folder, and no way out of it.
+        assert!(dev_file(dir.path(), "/assets/../Cargo.toml", false).is_none());
+        assert!(dev_file(dir.path(), "/assets/other.css", false).is_none());
+        assert!(dev_file(dir.path(), "/application.css", false).is_none());
+    }
 }
