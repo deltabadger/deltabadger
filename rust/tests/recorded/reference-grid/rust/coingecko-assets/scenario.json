@@ -1,0 +1,79 @@
+{
+  "parity_scratch": true,
+  "job": "fetch_all_assets_data_from_coingecko_job",
+  "at": "2026-10-02T10:31:00.123456Z",
+  "env": {},
+  "script": {
+    "GET /api/v3/ping": [
+      {
+        "status": 401,
+        "body": {
+          "error": "invalid key"
+        }
+      }
+    ],
+    "GET /api/v3/coins/markets?ids=bitcoin,ethereum,pax-gold,covalent,nameless&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd": [
+      {
+        "status": 200,
+        "body": [
+          {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "BTC",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png",
+            "current_price": 1.5,
+            "market_cap": 123456789.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "ethereum",
+            "symbol": "eth",
+            "name": "ETH",
+            "image": null,
+            "current_price": 1.5,
+            "market_cap": 420000000000.0,
+            "market_cap_rank": 2,
+            "circulating_supply": 120000000.1234568
+          },
+          {
+            "id": "covalent",
+            "symbol": "cqt",
+            "name": "CQT",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/covalent.png",
+            "current_price": 1.5,
+            "market_cap": 123456789.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "nameless",
+            "symbol": "nl",
+            "name": null,
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/nameless.png",
+            "current_price": 1.5,
+            "market_cap": 123456789.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "bitcoin",
+            "symbol": "dup-ignored",
+            "name": "DUP-IGNORED",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png",
+            "current_price": 1.5,
+            "market_cap": 123456789.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          }
+        ]
+      }
+    ]
+  },
+  "raises": false,
+  "asset": null,
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  }
+}

@@ -1,0 +1,214 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /openApi/api/v3/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "signature",
+              "92ae8aa919356610f1c81ac7062ce7f1704c5d8600e733b5af7842f404809e47"
+            ],
+            [
+              "startTime",
+              "1789340400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /openApi/api/v3/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "signature",
+              "92ae8aa919356610f1c81ac7062ce7f1704c5d8600e733b5af7842f404809e47"
+            ],
+            [
+              "startTime",
+              "1789340400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /openApi/spot/v1/account/balance",
+          [
+            [
+              "signature",
+              "f190ed9bd373255fcd0df00f4e0e7d255735fc1713e5f235b7ba240321aa3fc3"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /openApi/spot/v1/common/symbols",
+          []
+        ],
+        [
+          "GET /openApi/spot/v1/trade/myTrades",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "500"
+            ],
+            [
+              "signature",
+              "594da280d0254f26d53a1b8fe3424eb6d14ccd67b7fe33cb6f77aa6fed4335c5"
+            ],
+            [
+              "startTime",
+              "1789340400000"
+            ],
+            [
+              "symbol",
+              "ETH-USDT"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": [
+        [
+          1,
+          0
+        ]
+      ]
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3f50624dd2f1a9fc"
+          },
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 0,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3f847ae147ae147b"
+          },
+          "fee_currency": "USDT",
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": 64,
+          "quote_currency": "USDT",
+          "raw_data": {
+            "symbol": "BTC-USDT",
+            "id": "t1",
+            "orderId": "C02__t1",
+            "orderListId": -1,
+            "price": "64000",
+            "qty": "0.001",
+            "quoteQty": "64.0",
+            "commission": "-0.01",
+            "commissionAsset": "USDT",
+            "time": 1789689600000,
+            "isBuyer": true,
+            "isMaker": false,
+            "isBestMatch": true,
+            "isSelfTrade": false,
+            "clientOrderId": null
+          },
+          "transacted_at": "2026-09-18 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "t1",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"symbol\":\"BTC-USDT\",\"id\":\"t1\",\"orderId\":\"C02__t1\",\"orderListId\":-1,\"price\":\"64000\",\"qty\":\"0.001\",\"quoteQty\":\"64.0\",\"commission\":\"-0.01\",\"commissionAsset\":\"USDT\",\"time\":1789689600000,\"isBuyer\":true,\"isMaker\":false,\"isBestMatch\":true,\"isSelfTrade\":false,\"clientOrderId\":null}"
+        }
+      }
+    ],
+    "account_balances": [],
+    "api_keys": [
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": "2026-09-15 00:00:00",
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        },
+        "after": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": "2026-09-18 00:00:00",
+          "status": 1,
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1
+        }
+      }
+    ],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

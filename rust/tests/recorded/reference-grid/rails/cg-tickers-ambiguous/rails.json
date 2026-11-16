@@ -1,0 +1,233 @@
+{
+  "requests": [
+    "GET api.kraken.com/0/public/AssetPairs?aclass_base=all",
+    "GET pro-api.coingecko.com/api/v3/ping",
+    "GET api.coingecko.com/api/v3/exchanges/kraken/tickers?depth=false&include_exchange_logo=false&order=base_asset&page=1",
+    "GET api.coinbase.com/api/v3/brokerage/market/products"
+  ],
+  "retry": false,
+  "changes": {
+    "assets": [
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "category": "Cryptocurrency",
+          "circulating_supply": null,
+          "color": null,
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "external_id": "good-a",
+          "image_url": null,
+          "instrument_type": null,
+          "isin": null,
+          "market_cap": null,
+          "market_cap_rank": null,
+          "name": null,
+          "symbol": null,
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "url": null
+        }
+      },
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "category": "Cryptocurrency",
+          "circulating_supply": null,
+          "color": null,
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "external_id": "sym-one",
+          "image_url": null,
+          "instrument_type": null,
+          "isin": null,
+          "market_cap": null,
+          "market_cap_rank": null,
+          "name": null,
+          "symbol": null,
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "url": null
+        }
+      },
+      {
+        "id": 5,
+        "before": null,
+        "after": {
+          "id": 5,
+          "category": "Cryptocurrency",
+          "circulating_supply": null,
+          "color": null,
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "external_id": "shared-id",
+          "image_url": null,
+          "instrument_type": null,
+          "isin": null,
+          "market_cap": null,
+          "market_cap_rank": null,
+          "name": null,
+          "symbol": null,
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "url": null
+        }
+      }
+    ],
+    "tickers": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "ath": null,
+          "ath_updated_at": null,
+          "available": 1,
+          "base": "AAA",
+          "base_asset_id": 3,
+          "base_decimals": 8,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "maximum_base_size": null,
+          "maximum_quote_size": null,
+          "minimum_base_size": {
+            "f": "3f1a36e2eb1c432d"
+          },
+          "minimum_quote_size": 5,
+          "price_decimals": 1,
+          "quote": "USD",
+          "quote_asset_id": 2,
+          "quote_decimals": 5,
+          "ticker": "AAAUSD",
+          "trading_enabled": 1,
+          "updated_at": "2026-10-02 10:31:00.123456"
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "ath": null,
+          "ath_updated_at": null,
+          "available": 1,
+          "base": "SYM",
+          "base_asset_id": 4,
+          "base_decimals": 8,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "maximum_base_size": null,
+          "maximum_quote_size": null,
+          "minimum_base_size": {
+            "f": "3f1a36e2eb1c432d"
+          },
+          "minimum_quote_size": 5,
+          "price_decimals": 1,
+          "quote": "USD",
+          "quote_asset_id": 2,
+          "quote_decimals": 5,
+          "ticker": "SYMUSD",
+          "trading_enabled": 1,
+          "updated_at": "2026-10-02 10:31:00.123456"
+        }
+      },
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "ath": null,
+          "ath_updated_at": null,
+          "available": 1,
+          "base": "ONE",
+          "base_asset_id": 5,
+          "base_decimals": 8,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "maximum_base_size": null,
+          "maximum_quote_size": null,
+          "minimum_base_size": {
+            "f": "3f1a36e2eb1c432d"
+          },
+          "minimum_quote_size": 5,
+          "price_decimals": 1,
+          "quote": "USD",
+          "quote_asset_id": 2,
+          "quote_decimals": 5,
+          "ticker": "ONEUSD",
+          "trading_enabled": 1,
+          "updated_at": "2026-10-02 10:31:00.123456"
+        }
+      }
+    ],
+    "exchange_assets": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "asset_id": 3,
+          "available": 1,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "withdrawal_chains": null,
+          "withdrawal_fee": null,
+          "withdrawal_fee_updated_at": null
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "asset_id": 2,
+          "available": 1,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "withdrawal_chains": null,
+          "withdrawal_fee": null,
+          "withdrawal_fee_updated_at": null
+        }
+      },
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "asset_id": 4,
+          "available": 1,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "withdrawal_chains": null,
+          "withdrawal_fee": null,
+          "withdrawal_fee_updated_at": null
+        }
+      },
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "asset_id": 5,
+          "available": 1,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "withdrawal_chains": null,
+          "withdrawal_fee": null,
+          "withdrawal_fee_updated_at": null
+        }
+      }
+    ],
+    "indices": [],
+    "bot_activity_logs": [],
+    "app_configs": []
+  }
+}

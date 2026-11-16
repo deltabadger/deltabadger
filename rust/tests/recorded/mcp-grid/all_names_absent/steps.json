@@ -1,0 +1,419 @@
+[
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"m2\",\"version\":\"1\"}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_bot_details\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_exchange_balances\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_portfolio_summary\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"create_bot\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"start_bot\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"stop_bot\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"update_bot_settings\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"start_rule\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"stop_rule\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"update_rule_settings\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"list_open_orders\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"market_buy\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"market_sell\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"limit_buy\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"limit_sell\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"cancel_order\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"generate_tax_report\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_tax_report_status\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"download_tax_report\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"export_transactions_csv\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"list_account_transactions\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"list_rules\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"create_rule\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"delete_rule\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"list_indices\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"create_index_bot\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"create_signal_bot\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"delete_bot\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"archive_bot\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"unarchive_bot\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"liquidate_exited_asset\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"answer_redeploy_offer\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"sync_tracker\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"set_transfer_link\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"set_transaction_price\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  }
+]

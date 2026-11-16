@@ -1,0 +1,67 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T14:00:01.250000Z",
+  "venue": "kraken",
+  "script": {
+    "kraken_http": {
+      "GET /0/public/Ticker?pair=XBTEUR": [
+        {
+          "network": "kraken_pre_send",
+          "message": "Faraday::ConnectionFailed: Connection refused - connect(2) for \"api.kraken.com\" port 443"
+        }
+      ],
+      "POST /0/private/BalanceEx": [
+        {
+          "status": 200,
+          "body": {
+            "error": [],
+            "result": {
+              "ZEUR": {
+                "balance": "10000",
+                "hold_trade": "0"
+              },
+              "XXBT": {
+                "balance": "0.5",
+                "hold_trade": "0"
+              }
+            }
+          }
+        }
+      ],
+      "POST /0/private/AddOrder": [
+        {
+          "status": 200,
+          "body": {
+            "error": [],
+            "result": {
+              "txid": [
+                "OTX-1"
+              ]
+            }
+          }
+        }
+      ],
+      "POST /0/private/TradesHistory": [
+        {
+          "status": 200,
+          "body": {
+            "error": [],
+            "result": {
+              "trades": {},
+              "count": 0
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "api": [
+    {
+      "side": "buy",
+      "amount": "100",
+      "amount_type": "quote"
+    }
+  ]
+}

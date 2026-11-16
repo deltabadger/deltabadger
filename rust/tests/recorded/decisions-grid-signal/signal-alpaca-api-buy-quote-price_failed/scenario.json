@@ -1,0 +1,72 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T14:00:01.250000Z",
+  "venue": "alpaca",
+  "script": {
+    "alpaca": {
+      "GET /v1beta3/crypto/us/latest/quotes": [
+        {
+          "network": "pre_send_data",
+          "message": "Faraday::ConnectionFailed: Connection refused - connect(2) for \"data.alpaca.markets\" port 443"
+        }
+      ],
+      "GET /v2/account": [
+        {
+          "status": 200,
+          "body": {
+            "id": "paper-account",
+            "status": "ACTIVE",
+            "currency": "USD",
+            "cash": "10000",
+            "buying_power": "20000.0",
+            "non_marginable_buying_power": "4000"
+          }
+        }
+      ],
+      "GET /v2/positions": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "symbol": "BTCUSD",
+              "asset_class": "crypto",
+              "qty": "0.5",
+              "qty_available": "0.5",
+              "side": "long"
+            }
+          ]
+        }
+      ],
+      "POST /v2/orders": [
+        {
+          "status": 200,
+          "body": {
+            "id": "OTX-1",
+            "client_order_id": "rails-OTX-1",
+            "symbol": "BTC/USD",
+            "asset_class": "crypto",
+            "notional": "60",
+            "qty": null,
+            "filled_qty": "0",
+            "filled_avg_price": null,
+            "order_type": "market",
+            "type": "market",
+            "side": "buy",
+            "time_in_force": "gtc",
+            "limit_price": null,
+            "status": "pending_new"
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "api": [
+    {
+      "side": "buy",
+      "amount": "100",
+      "amount_type": "quote"
+    }
+  ]
+}

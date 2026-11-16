@@ -1,0 +1,21 @@
+{
+  "sent": [],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "api": [
+    {
+      "status": "conflict",
+      "code": "wash_sale_locked",
+      "message": "BTC is locked until 2026-09-30 after a sale at a loss. Change this in account settings.",
+      "data": null
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

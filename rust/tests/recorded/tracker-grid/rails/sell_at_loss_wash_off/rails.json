@@ -1,0 +1,941 @@
+{
+  "ledger": {
+    "whole": {
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": "1.0",
+          "cost": "200.0",
+          "avg_cost": "200.0",
+          "opened_at": "2026-09-02T14:30:00.000000Z",
+          "estimated": false,
+          "unpriced": "0.0"
+        }
+      ],
+      "round_trips": [
+        {
+          "symbol": "AAPL",
+          "opened_at": "2026-09-02T14:30:00.000000Z",
+          "closed_at": "2026-09-20T14:30:00.000000Z",
+          "quantity": "1.0",
+          "invested": "200.0",
+          "proceeds": "150.0",
+          "fees": "0.0",
+          "realised": "-50.0",
+          "incomplete": false
+        }
+      ],
+      "total_invested": "1000.0",
+      "received": "0.0",
+      "realised": "-50.0",
+      "fees": "0.0",
+      "cash_usd": "750.0",
+      "unpriced_proceeds": "0.0",
+      "openings": [],
+      "cash": [
+        [
+          "USD",
+          "750.0"
+        ]
+      ],
+      "cash_basis": [
+        [
+          "USD",
+          "750.0"
+        ]
+      ],
+      "incomplete": false,
+      "loss_sales": [
+        [
+          "AAPL",
+          "2026-09-20"
+        ]
+      ]
+    },
+    "venues": {
+      "1": {
+        "positions": [
+          {
+            "symbol": "AAPL",
+            "quantity": "1.0",
+            "cost": "200.0",
+            "avg_cost": "200.0",
+            "opened_at": "2026-09-02T14:30:00.000000Z",
+            "estimated": false,
+            "unpriced": "0.0"
+          }
+        ],
+        "round_trips": [
+          {
+            "symbol": "AAPL",
+            "opened_at": "2026-09-02T14:30:00.000000Z",
+            "closed_at": "2026-09-20T14:30:00.000000Z",
+            "quantity": "1.0",
+            "invested": "200.0",
+            "proceeds": "150.0",
+            "fees": "0.0",
+            "realised": "-50.0",
+            "incomplete": false
+          }
+        ],
+        "total_invested": "1000.0",
+        "received": "0.0",
+        "realised": "-50.0",
+        "fees": "0.0",
+        "cash_usd": "750.0",
+        "unpriced_proceeds": "0.0",
+        "openings": [],
+        "cash": [
+          [
+            "USD",
+            "750.0"
+          ]
+        ],
+        "cash_basis": [
+          [
+            "USD",
+            "750.0"
+          ]
+        ],
+        "incomplete": false,
+        "loss_sales": []
+      }
+    },
+    "figures": {
+      "whole": {
+        "value": "910.0",
+        "invested": "1000.0",
+        "held_value": "160.0",
+        "held_cost": "250.0",
+        "fees": "0.0",
+        "realised": "-50.0",
+        "unrealised": "-40.0",
+        "total": "-90.0",
+        "holdings": [
+          {
+            "symbol": "AAPL",
+            "quantity": "1.0",
+            "value": "160.0",
+            "cost": "200.0",
+            "unrealised": "-40.0",
+            "percent": "-20.0",
+            "note": null
+          },
+          {
+            "symbol": "USD",
+            "quantity": "750.0",
+            "value": "750.0",
+            "cost": null,
+            "unrealised": null,
+            "percent": null,
+            "note": null
+          }
+        ],
+        "notes": []
+      },
+      "1": {
+        "value": "910.0",
+        "invested": "1000.0",
+        "held_value": "160.0",
+        "held_cost": "250.0",
+        "fees": "0.0",
+        "realised": "-50.0",
+        "unrealised": "-40.0",
+        "total": "-90.0",
+        "holdings": [
+          {
+            "symbol": "AAPL",
+            "quantity": "1.0",
+            "value": "160.0",
+            "cost": "200.0",
+            "unrealised": "-40.0",
+            "percent": "-20.0",
+            "note": null
+          },
+          {
+            "symbol": "USD",
+            "quantity": "750.0",
+            "value": "750.0",
+            "cost": null,
+            "unrealised": null,
+            "percent": null,
+            "note": null
+          }
+        ],
+        "notes": []
+      }
+    }
+  },
+  "ledger_error": null,
+  "backfill_error": null,
+  "tables": {
+    "portfolio_snapshots": [
+      {
+        "date": "2026-09-01",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2026-09-02",
+        "held_cost_usd": 400,
+        "held_value_usd": 400,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2026-09-03",
+        "held_cost_usd": 400,
+        "held_value_usd": 402,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1002
+      },
+      {
+        "date": "2026-09-04",
+        "held_cost_usd": 400,
+        "held_value_usd": 404,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1004
+      },
+      {
+        "date": "2026-09-05",
+        "held_cost_usd": 400,
+        "held_value_usd": 404,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1004
+      },
+      {
+        "date": "2026-09-06",
+        "held_cost_usd": 400,
+        "held_value_usd": 404,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1004
+      },
+      {
+        "date": "2026-09-07",
+        "held_cost_usd": 400,
+        "held_value_usd": 406,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1006
+      },
+      {
+        "date": "2026-09-08",
+        "held_cost_usd": 400,
+        "held_value_usd": 408,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1008
+      },
+      {
+        "date": "2026-09-09",
+        "held_cost_usd": 400,
+        "held_value_usd": 410,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1010
+      },
+      {
+        "date": "2026-09-10",
+        "held_cost_usd": 400,
+        "held_value_usd": 412,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1012
+      },
+      {
+        "date": "2026-09-11",
+        "held_cost_usd": 400,
+        "held_value_usd": 414,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1014
+      },
+      {
+        "date": "2026-09-12",
+        "held_cost_usd": 400,
+        "held_value_usd": 414,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1014
+      },
+      {
+        "date": "2026-09-13",
+        "held_cost_usd": 400,
+        "held_value_usd": 414,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1014
+      },
+      {
+        "date": "2026-09-14",
+        "held_cost_usd": 400,
+        "held_value_usd": 416,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1016
+      },
+      {
+        "date": "2026-09-15",
+        "held_cost_usd": 400,
+        "held_value_usd": 418,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1018
+      },
+      {
+        "date": "2026-09-16",
+        "held_cost_usd": 400,
+        "held_value_usd": 420,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1020
+      },
+      {
+        "date": "2026-09-17",
+        "held_cost_usd": 400,
+        "held_value_usd": 422,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1022
+      },
+      {
+        "date": "2026-09-18",
+        "held_cost_usd": 400,
+        "held_value_usd": 424,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1024
+      },
+      {
+        "date": "2026-09-19",
+        "held_cost_usd": 400,
+        "held_value_usd": 424,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1024
+      },
+      {
+        "date": "2026-09-20",
+        "held_cost_usd": 250,
+        "held_value_usd": 212,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 962
+      },
+      {
+        "date": "2026-09-21",
+        "held_cost_usd": 250,
+        "held_value_usd": 213,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 963
+      },
+      {
+        "date": "2026-09-22",
+        "held_cost_usd": 250,
+        "held_value_usd": 214,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 964
+      },
+      {
+        "date": "2026-09-23",
+        "held_cost_usd": 250,
+        "held_value_usd": 215,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 965
+      },
+      {
+        "date": "2026-09-24",
+        "held_cost_usd": 250,
+        "held_value_usd": 216,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 966
+      },
+      {
+        "date": "2026-09-25",
+        "held_cost_usd": 250,
+        "held_value_usd": 217,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 967
+      },
+      {
+        "date": "2026-09-26",
+        "held_cost_usd": 250,
+        "held_value_usd": 217,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 967
+      },
+      {
+        "date": "2026-09-27",
+        "held_cost_usd": 250,
+        "held_value_usd": 217,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 967
+      },
+      {
+        "date": "2026-09-28",
+        "held_cost_usd": 250,
+        "held_value_usd": 218,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 968
+      },
+      {
+        "date": "2026-09-29",
+        "held_cost_usd": 250,
+        "held_value_usd": 219,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 969
+      },
+      {
+        "date": "2026-09-30",
+        "held_cost_usd": 250,
+        "held_value_usd": 220,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 970
+      },
+      {
+        "date": "2026-10-01",
+        "held_cost_usd": 250,
+        "held_value_usd": 160,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 910
+      }
+    ],
+    "portfolio_venue_snapshots": [
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-01",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-02",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 400,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-03",
+        "value_usd": 1002,
+        "invested_usd": 1000,
+        "held_value_usd": 402,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-04",
+        "value_usd": 1004,
+        "invested_usd": 1000,
+        "held_value_usd": 404,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-05",
+        "value_usd": 1004,
+        "invested_usd": 1000,
+        "held_value_usd": 404,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-06",
+        "value_usd": 1004,
+        "invested_usd": 1000,
+        "held_value_usd": 404,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-07",
+        "value_usd": 1006,
+        "invested_usd": 1000,
+        "held_value_usd": 406,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-08",
+        "value_usd": 1008,
+        "invested_usd": 1000,
+        "held_value_usd": 408,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-09",
+        "value_usd": 1010,
+        "invested_usd": 1000,
+        "held_value_usd": 410,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-10",
+        "value_usd": 1012,
+        "invested_usd": 1000,
+        "held_value_usd": 412,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-11",
+        "value_usd": 1014,
+        "invested_usd": 1000,
+        "held_value_usd": 414,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-12",
+        "value_usd": 1014,
+        "invested_usd": 1000,
+        "held_value_usd": 414,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-13",
+        "value_usd": 1014,
+        "invested_usd": 1000,
+        "held_value_usd": 414,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-14",
+        "value_usd": 1016,
+        "invested_usd": 1000,
+        "held_value_usd": 416,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-15",
+        "value_usd": 1018,
+        "invested_usd": 1000,
+        "held_value_usd": 418,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-16",
+        "value_usd": 1020,
+        "invested_usd": 1000,
+        "held_value_usd": 420,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-17",
+        "value_usd": 1022,
+        "invested_usd": 1000,
+        "held_value_usd": 422,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-18",
+        "value_usd": 1024,
+        "invested_usd": 1000,
+        "held_value_usd": 424,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-19",
+        "value_usd": 1024,
+        "invested_usd": 1000,
+        "held_value_usd": 424,
+        "held_cost_usd": 400,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-20",
+        "value_usd": 962,
+        "invested_usd": 1000,
+        "held_value_usd": 212,
+        "held_cost_usd": 250,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-21",
+        "value_usd": 963,
+        "invested_usd": 1000,
+        "held_value_usd": 213,
+        "held_cost_usd": 250,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-22",
+        "value_usd": 964,
+        "invested_usd": 1000,
+        "held_value_usd": 214,
+        "held_cost_usd": 250,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-23",
+        "value_usd": 965,
+        "invested_usd": 1000,
+        "held_value_usd": 215,
+        "held_cost_usd": 250,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-24",
+        "value_usd": 966,
+        "invested_usd": 1000,
+        "held_value_usd": 216,
+        "held_cost_usd": 250,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-25",
+        "value_usd": 967,
+        "invested_usd": 1000,
+        "held_value_usd": 217,
+        "held_cost_usd": 250,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-26",
+        "value_usd": 967,
+        "invested_usd": 1000,
+        "held_value_usd": 217,
+        "held_cost_usd": 250,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-27",
+        "value_usd": 967,
+        "invested_usd": 1000,
+        "held_value_usd": 217,
+        "held_cost_usd": 250,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-28",
+        "value_usd": 968,
+        "invested_usd": 1000,
+        "held_value_usd": 218,
+        "held_cost_usd": 250,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-29",
+        "value_usd": 969,
+        "invested_usd": 1000,
+        "held_value_usd": 219,
+        "held_cost_usd": 250,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-30",
+        "value_usd": 970,
+        "invested_usd": 1000,
+        "held_value_usd": 220,
+        "held_cost_usd": 250,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-10-01",
+        "value_usd": 910,
+        "invested_usd": 1000,
+        "held_value_usd": 160,
+        "held_cost_usd": 250,
+        "partial": 0
+      }
+    ],
+    "wash_sale_locks": [],
+    "historical_prices": [
+      {
+        "id": 1,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-02",
+        "price": 200
+      },
+      {
+        "id": 2,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-03",
+        "price": 201
+      },
+      {
+        "id": 3,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-04",
+        "price": 202
+      },
+      {
+        "id": 4,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-07",
+        "price": 203
+      },
+      {
+        "id": 5,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-08",
+        "price": 204
+      },
+      {
+        "id": 6,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-09",
+        "price": 205
+      },
+      {
+        "id": 7,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-10",
+        "price": 206
+      },
+      {
+        "id": 8,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-11",
+        "price": 207
+      },
+      {
+        "id": 9,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-14",
+        "price": 208
+      },
+      {
+        "id": 10,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-15",
+        "price": 209
+      },
+      {
+        "id": 11,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-16",
+        "price": 210
+      },
+      {
+        "id": 12,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-17",
+        "price": 211
+      },
+      {
+        "id": 13,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-18",
+        "price": 212
+      },
+      {
+        "id": 14,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-21",
+        "price": 213
+      },
+      {
+        "id": 15,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-22",
+        "price": 214
+      },
+      {
+        "id": 16,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-23",
+        "price": 215
+      },
+      {
+        "id": 17,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-24",
+        "price": 216
+      },
+      {
+        "id": 18,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-25",
+        "price": 217
+      },
+      {
+        "id": 19,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-28",
+        "price": 218
+      },
+      {
+        "id": 20,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-29",
+        "price": 219
+      },
+      {
+        "id": 21,
+        "asset": "stock:AAPL",
+        "currency": "USD",
+        "date": "2026-09-30",
+        "price": 220
+      }
+    ],
+    "snapshot_history_version_1": "1_3_2026-09-01T09:00:00.000000Z",
+    "snapshot_price_generation_1": "21"
+  },
+  "requests": {
+    "market": [],
+    "alpaca": [
+      [
+        "GET /v2/stocks/AAPL/bars",
+        [
+          [
+            "limit",
+            "10000"
+          ],
+          [
+            "start",
+            "2026-09-02T00:00:00Z"
+          ],
+          [
+            "timeframe",
+            "1Day"
+          ]
+        ]
+      ]
+    ],
+    "ecb": []
+  }
+}

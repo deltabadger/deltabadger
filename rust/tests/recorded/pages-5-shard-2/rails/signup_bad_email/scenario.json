@@ -1,0 +1,28 @@
+{
+  "page_parity_scratch": true,
+  "at": "2026-09-10T12:00:30.123456Z",
+  "secret_key_base": "61a30e26004ff1e25ced6c8a0629bdcef5e7bdf90db030ffb7d5f8045d9b04d14c830dfd2fd0312fe655dcbd6f9287a4777420c0f285baf8bf8363797db44997",
+  "steps": [
+    {
+      "method": "GET",
+      "path": "/signup",
+      "headers": {}
+    },
+    {
+      "method": "POST",
+      "path": "/signup",
+      "form": {
+        "user[name]": "Ann Example",
+        "user[email]": "not-an-email",
+        "user[password]": "Correct-horse-9"
+      },
+      "csrf": "form",
+      "headers": {},
+      "mails": true,
+      "account_rows": "SELECT id, name, email, encrypted_password, admin, setup_completed, locale, time_zone, display_currency, CASE WHEN confirmation_token IS NULL THEN NULL ELSE 'minted:' || length(confirmation_token) END AS confirmation_token, confirmation_sent_at, confirmed_at, unconfirmed_email, CASE WHEN reset_password_token IS NULL THEN NULL WHEN reset_password_token = 'f25bf3163e26cbf2b993de13b1380f9f2d521fbdf723fce0caf972c13d1fdcf1' THEN 'seeded' ELSE 'minted:' || length(reset_password_token) END AS reset_password_token, reset_password_sent_at, failed_attempts, locked_at, otp_module, otp_secret_key IS NOT NULL AS otp_seeded, last_otp_at, remember_created_at, created_at, updated_at FROM users ORDER BY id",
+      "expect": 422
+    }
+  ],
+  "expect_users": {},
+  "jobs": {}
+}

@@ -1,0 +1,74 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T14:00:01.250000Z",
+  "venue": "bitrue",
+  "script": {
+    "bitrue": {
+      "GET /api/v1/ticker/bookTicker": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "bidPrice": "64000.10",
+            "bidQty": "1.5",
+            "askPrice": "64000.11",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v1/ticker/price": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "price": "64000.05"
+          }
+        }
+      ],
+      "POST /api/v1/order": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": "100",
+            "orderListId": -1,
+            "price": "0",
+            "origQty": "0",
+            "type": "MARKET",
+            "side": "BUY",
+            "transactTime": 1788000000000
+          }
+        }
+      ],
+      "GET /api/v1/account": [
+        {
+          "status": 200,
+          "body": {
+            "canTrade": true,
+            "balances": [
+              {
+                "asset": "btc",
+                "free": "0.5",
+                "locked": "0.1"
+              },
+              {
+                "asset": "usdt",
+                "free": "10000",
+                "locked": "500"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "api": [
+    {
+      "side": "buy",
+      "amount": "0.01",
+      "amount_type": "quote"
+    }
+  ]
+}

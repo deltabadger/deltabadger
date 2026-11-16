@@ -1,0 +1,217 @@
+{
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  },
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-08T14:00:01.123456Z",
+  "venue": "alpaca",
+  "script": {
+    "alpaca": {
+      "GET /v2/clock": [
+        {
+          "status": 200,
+          "body": {
+            "timestamp": "2026-09-08T14:00:01.123456Z",
+            "is_open": true,
+            "next_open": "2026-09-09T09:30:00-04:00",
+            "next_close": "2026-09-08T16:00:00-04:00"
+          }
+        }
+      ],
+      "GET /v2/account": [
+        {
+          "status": 200,
+          "body": {
+            "id": "paper-account",
+            "status": "ACTIVE",
+            "currency": "USD",
+            "cash": "100000",
+            "buying_power": "200000",
+            "non_marginable_buying_power": "100000"
+          }
+        }
+      ],
+      "GET /v2/positions": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "POST /v2/orders": [
+        {
+          "status": 200,
+          "body": {
+            "id": "OTX-1",
+            "client_order_id": "rails-OTX-1",
+            "symbol": "AAPL",
+            "asset_class": "us_equity",
+            "notional": "60",
+            "qty": null,
+            "filled_qty": "0",
+            "filled_avg_price": null,
+            "order_type": "market",
+            "type": "market",
+            "side": "buy",
+            "time_in_force": "day",
+            "limit_price": null,
+            "status": "new"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "id": "OTX-2",
+            "client_order_id": "rails-OTX-2",
+            "symbol": "AAPL",
+            "asset_class": "us_equity",
+            "notional": "60",
+            "qty": null,
+            "filled_qty": "0",
+            "filled_avg_price": null,
+            "order_type": "market",
+            "type": "market",
+            "side": "buy",
+            "time_in_force": "day",
+            "limit_price": null,
+            "status": "new"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "id": "OTX-3",
+            "client_order_id": "rails-OTX-3",
+            "symbol": "AAPL",
+            "asset_class": "us_equity",
+            "notional": "60",
+            "qty": null,
+            "filled_qty": "0",
+            "filled_avg_price": null,
+            "order_type": "market",
+            "type": "market",
+            "side": "buy",
+            "time_in_force": "day",
+            "limit_price": null,
+            "status": "new"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "id": "OTX-4",
+            "client_order_id": "rails-OTX-4",
+            "symbol": "AAPL",
+            "asset_class": "us_equity",
+            "notional": "60",
+            "qty": null,
+            "filled_qty": "0",
+            "filled_avg_price": null,
+            "order_type": "market",
+            "type": "market",
+            "side": "buy",
+            "time_in_force": "day",
+            "limit_price": null,
+            "status": "new"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "id": "OTX-5",
+            "client_order_id": "rails-OTX-5",
+            "symbol": "AAPL",
+            "asset_class": "us_equity",
+            "notional": "60",
+            "qty": null,
+            "filled_qty": "0",
+            "filled_avg_price": null,
+            "order_type": "market",
+            "type": "market",
+            "side": "buy",
+            "time_in_force": "day",
+            "limit_price": null,
+            "status": "new"
+          }
+        }
+      ],
+      "GET /v2/stocks/AAA/quotes/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "AAA",
+            "quote": {
+              "ap": 100,
+              "as": 100,
+              "bp": 100,
+              "bs": 100,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/BBB/quotes/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BBB",
+            "quote": {
+              "ap": 200,
+              "as": 100,
+              "bp": 200,
+              "bs": 100,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/CCC/quotes/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "CCC",
+            "quote": {
+              "ap": 0,
+              "as": 100,
+              "bp": 0,
+              "bs": 100,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/DDD/quotes/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "DDD",
+            "quote": {
+              "ap": 400,
+              "as": 100,
+              "bp": 400,
+              "bs": 100,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/EEE/quotes/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "EEE",
+            "quote": {
+              "ap": 500,
+              "as": 100,
+              "bp": 500,
+              "bs": 100,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": true
+}

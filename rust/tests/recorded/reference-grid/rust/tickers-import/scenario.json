@@ -1,0 +1,120 @@
+{
+  "parity_scratch": true,
+  "job": "sync_all_tickers_and_assets_job",
+  "at": "2026-10-02T10:31:00.123456Z",
+  "env": {
+    "MARKET_DATA_URL": "http://data-api:3000",
+    "MARKET_DATA_TOKEN": "parity-token"
+  },
+  "script": {
+    "GET /api/v1/tickers/kraken": [
+      {
+        "status": 200,
+        "body": {
+          "data": [
+            {
+              "ticker": "XBTEUR",
+              "base": "XBT",
+              "quote": "EUR",
+              "base_external_id": "bitcoin",
+              "quote_external_id": "EUR.FOREX",
+              "base_decimals": 8,
+              "quote_decimals": 2,
+              "price_decimals": 1,
+              "minimum_base_size": 1,
+              "minimum_quote_size": 0.3,
+              "maximum_base_size": null,
+              "maximum_quote_size": "1000000"
+            },
+            {
+              "ticker": "ETHEUR",
+              "base": "ETH",
+              "quote": "EUR",
+              "base_external_id": "ethereum",
+              "quote_external_id": "EUR.FOREX",
+              "base_decimals": 8,
+              "quote_decimals": 2,
+              "price_decimals": 1,
+              "minimum_base_size": "0.0001",
+              "minimum_quote_size": "0.5",
+              "maximum_base_size": null,
+              "maximum_quote_size": "1000000",
+              "trading_enabled": false
+            },
+            {
+              "ticker": "ETHEUR",
+              "base": "ETH",
+              "quote": "EUR",
+              "base_external_id": "ethereum",
+              "quote_external_id": "EUR.FOREX",
+              "base_decimals": 8,
+              "quote_decimals": 2,
+              "price_decimals": 1,
+              "minimum_base_size": "0.0001",
+              "minimum_quote_size": "0.5",
+              "maximum_base_size": null,
+              "maximum_quote_size": "1000000"
+            },
+            {
+              "ticker": "SOLEUR",
+              "base": "SOL",
+              "quote": "EUR",
+              "base_external_id": "solana",
+              "quote_external_id": "EUR.FOREX",
+              "base_decimals": 8,
+              "quote_decimals": 2,
+              "price_decimals": null,
+              "minimum_base_size": "0.0001",
+              "minimum_quote_size": "0.5",
+              "maximum_base_size": null,
+              "maximum_quote_size": "1000000"
+            },
+            {
+              "ticker": "XDGEUR",
+              "base": "XDG",
+              "quote": "EUR",
+              "base_external_id": "dogecoin",
+              "quote_external_id": "EUR.FOREX",
+              "base_decimals": 8,
+              "quote_decimals": 2,
+              "price_decimals": 1,
+              "minimum_base_size": "0.0001",
+              "minimum_quote_size": "0.5",
+              "maximum_base_size": null,
+              "maximum_quote_size": "1000000"
+            }
+          ]
+        }
+      }
+    ],
+    "GET /api/v1/tickers/binance": [
+      {
+        "status": 200,
+        "body": {
+          "data": [
+            {
+              "ticker": "BTCUSD",
+              "base": "BTC",
+              "quote": "USD",
+              "base_external_id": "bitcoin",
+              "quote_external_id": "usd",
+              "base_decimals": 8,
+              "quote_decimals": 2,
+              "price_decimals": 1,
+              "minimum_base_size": 1e-05,
+              "minimum_quote_size": "0.5",
+              "maximum_base_size": null,
+              "maximum_quote_size": "1000000"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "raises": false,
+  "asset": null,
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  }
+}

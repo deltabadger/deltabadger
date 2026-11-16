@@ -1,0 +1,160 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "coinbase": {
+        "GET /api/v3/brokerage/orders/historical/fills": [
+          {
+            "status": 200,
+            "body": {
+              "fills": [
+                {
+                  "trade_id": "f1",
+                  "entry_id": "entry-f1",
+                  "product_id": "ETH-EUR",
+                  "size": "0.1",
+                  "price": "2385.55",
+                  "commission": "0.05",
+                  "size_in_quote": false,
+                  "side": "BUY",
+                  "trade_type": "FILL",
+                  "trade_time": "2026-09-19T01:00:00Z"
+                }
+              ],
+              "cursor": "next"
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "fills": [
+                {
+                  "trade_id": "f2",
+                  "entry_id": "entry-f2",
+                  "product_id": "ETH-EUR",
+                  "size": "0.1",
+                  "price": "2385.55",
+                  "commission": "0.05",
+                  "size_in_quote": false,
+                  "side": "BUY",
+                  "trade_type": "FILL",
+                  "trade_time": "2026-09-19T01:00:00Z"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v3/brokerage/accounts": [
+          {
+            "status": 200,
+            "body": {
+              "accounts": [
+                {
+                  "uuid": "a"
+                }
+              ],
+              "has_next": true,
+              "cursor": "next"
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "accounts": [
+                {
+                  "uuid": "b"
+                }
+              ],
+              "has_next": false
+            }
+          }
+        ],
+        "GET /v2/accounts/a/transactions": [
+          {
+            "status": 200,
+            "body": {
+              "data": [
+                {
+                  "id": "d",
+                  "type": "receive",
+                  "amount": {
+                    "amount": "1",
+                    "currency": "ETH"
+                  },
+                  "created_at": "2026-09-19T02:00:00Z",
+                  "description": "transfer",
+                  "network": {
+                    "transaction_fee": {
+                      "amount": "0.001",
+                      "currency": "ETH"
+                    }
+                  }
+                }
+              ],
+              "pagination": {
+                "next_starting_after": "next"
+              }
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "data": [
+                {
+                  "id": "w",
+                  "type": "send",
+                  "amount": {
+                    "amount": "-0.5",
+                    "currency": "ETH"
+                  },
+                  "created_at": "2026-09-19T02:00:00Z",
+                  "description": "transfer",
+                  "network": {
+                    "transaction_fee": {
+                      "amount": "0.001",
+                      "currency": "ETH"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "GET /v2/accounts/b/transactions": [
+          {
+            "status": 200,
+            "body": {
+              "data": [
+                {
+                  "id": "positive",
+                  "type": "send",
+                  "amount": {
+                    "amount": "0.2",
+                    "currency": "ETH"
+                  },
+                  "created_at": "2026-09-19T02:00:00Z",
+                  "description": "transfer",
+                  "network": {
+                    "transaction_fee": {
+                      "amount": "0.001",
+                      "currency": "ETH"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

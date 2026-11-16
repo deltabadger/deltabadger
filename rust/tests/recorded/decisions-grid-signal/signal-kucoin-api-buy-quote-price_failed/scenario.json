@@ -1,0 +1,76 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T14:00:01.250000Z",
+  "venue": "kucoin",
+  "script": {
+    "kucoin": {
+      "GET /api/v1/market/orderbook/level2_20": [
+        {
+          "network": "kucoin_pre_send",
+          "message": "Faraday::ConnectionFailed: Connection refused - connect(2) for \"api.kucoin.com\" port 443"
+        }
+      ],
+      "GET /api/v1/accounts": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": [
+              {
+                "id": "a1",
+                "currency": "BTC",
+                "type": "trade",
+                "balance": "0.5",
+                "available": "0.5",
+                "holds": "0"
+              },
+              {
+                "id": "a2",
+                "currency": "USDT",
+                "type": "trade",
+                "balance": "10000",
+                "available": "10000",
+                "holds": "0"
+              }
+            ]
+          }
+        }
+      ],
+      "POST /api/v1/orders": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c5"
+            }
+          }
+        }
+      ],
+      "GET /api/v1/fills": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "currentPage": 1,
+              "pageSize": 500,
+              "totalNum": 0,
+              "totalPage": 0,
+              "items": []
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "api": [
+    {
+      "side": "buy",
+      "amount": "100",
+      "amount_type": "quote"
+    }
+  ]
+}

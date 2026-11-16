@@ -1,0 +1,85 @@
+[
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"m2\",\"version\":\"1\"}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    },
+    "sql": [
+      "UPDATE connected_clients SET mcp_tools = NULL, rest_tools = NULL",
+      "UPDATE users SET mcp_settings = '{\"tool_permissions\":{\"list_bots\":true,\"get_bot_details\":false,\"list_exchanges\":true,\"get_exchange_balances\":false,\"get_portfolio_summary\":false,\"list_transactions\":false,\"create_bot\":false,\"start_bot\":false,\"stop_bot\":false,\"update_bot_settings\":false,\"start_rule\":false,\"stop_rule\":false,\"update_rule_settings\":false,\"list_open_orders\":false,\"market_buy\":false,\"market_sell\":false,\"limit_buy\":false,\"limit_sell\":false,\"cancel_order\":false,\"list_tax_jurisdictions\":false,\"generate_tax_report\":false,\"get_tax_report_status\":false,\"download_tax_report\":false,\"export_transactions_csv\":false,\"list_account_transactions\":false,\"list_rules\":false,\"create_rule\":false,\"delete_rule\":false,\"list_indices\":false,\"create_index_bot\":false,\"create_signal_bot\":false,\"delete_bot\":false,\"archive_bot\":false,\"unarchive_bot\":false,\"liquidate_exited_asset\":false,\"answer_redeploy_offer\":false,\"sync_tracker\":false,\"set_transfer_link\":false,\"set_transaction_price\":false}}'"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"list_bots\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    },
+    "sql": [
+      "UPDATE users SET mcp_settings = '{\"tool_permissions\":{\"list_bots\":false,\"get_bot_details\":false,\"list_exchanges\":true,\"get_exchange_balances\":false,\"get_portfolio_summary\":false,\"list_transactions\":false,\"create_bot\":false,\"start_bot\":false,\"stop_bot\":false,\"update_bot_settings\":false,\"start_rule\":false,\"stop_rule\":false,\"update_rule_settings\":false,\"list_open_orders\":false,\"market_buy\":false,\"market_sell\":false,\"limit_buy\":false,\"limit_sell\":false,\"cancel_order\":false,\"list_tax_jurisdictions\":true,\"generate_tax_report\":false,\"get_tax_report_status\":false,\"download_tax_report\":false,\"export_transactions_csv\":false,\"list_account_transactions\":false,\"list_rules\":false,\"create_rule\":false,\"delete_rule\":false,\"list_indices\":false,\"create_index_bot\":false,\"create_signal_bot\":false,\"delete_bot\":false,\"archive_bot\":false,\"unarchive_bot\":false,\"liquidate_exited_asset\":false,\"answer_redeploy_offer\":false,\"sync_tracker\":false,\"set_transfer_link\":false,\"set_transaction_price\":false}}'"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"list_bots\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"list_tax_jurisdictions\",\"arguments\":{}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  }
+]

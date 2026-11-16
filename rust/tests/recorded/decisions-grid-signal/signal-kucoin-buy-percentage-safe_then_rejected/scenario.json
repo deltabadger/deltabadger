@@ -1,0 +1,98 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T14:00:01.250000Z",
+  "venue": "kucoin",
+  "script": {
+    "kucoin": {
+      "GET /api/v1/market/orderbook/level2_20": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "64000.1",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "64000.2",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/accounts": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": [
+              {
+                "id": "a1",
+                "currency": "BTC",
+                "type": "trade",
+                "balance": "0.5",
+                "available": "0.5",
+                "holds": "0"
+              },
+              {
+                "id": "a2",
+                "currency": "USDT",
+                "type": "trade",
+                "balance": "10000",
+                "available": "10000",
+                "holds": "0"
+              }
+            ]
+          }
+        }
+      ],
+      "POST /api/v1/orders": [
+        {
+          "status": 200,
+          "body": {
+            "code": "400002",
+            "msg": "Invalid KC-API-TIMESTAMP"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "code": "200004",
+            "msg": "Balance insufficient!"
+          }
+        }
+      ],
+      "GET /api/v1/fills": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "currentPage": 1,
+              "pageSize": 500,
+              "totalNum": 0,
+              "totalPage": 0,
+              "items": []
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "signals": [
+    {
+      "signal_id": 1,
+      "triggered_at": "2026-09-01T14:00:01.250000Z"
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:30:00.750000Z",
+      "bitvavo": {
+        "GET /v2/balance": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTC",
+                "available": "0.5",
+                "inOrder": "0.1"
+              },
+              {
+                "symbol": "ETH",
+                "available": "2",
+                "inOrder": "0"
+              },
+              {
+                "symbol": "EUR",
+                "available": "100.5",
+                "inOrder": "0"
+              },
+              {
+                "symbol": "ADA",
+                "available": "3",
+                "inOrder": "0"
+              },
+              {
+                "symbol": "DOGE",
+                "available": "0",
+                "inOrder": "0"
+              }
+            ]
+          }
+        ]
+      },
+      "market": {
+        "GET /api/v1/exchange_rates": [
+          {
+            "status": 200,
+            "body": {
+              "data": {
+                "btc": {
+                  "value": 1
+                },
+                "usd": {
+                  "value": 60000.5
+                },
+                "eur": {
+                  "value": 55000.25
+                }
+              }
+            }
+          }
+        ],
+        "GET /api/v1/prices": [
+          {
+            "status": 200,
+            "body": {
+              "data": {
+                "bitcoin": {
+                  "usd": 60000.5
+                },
+                "ethereum": {
+                  "usd": 2500.25
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

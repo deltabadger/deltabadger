@@ -1,0 +1,110 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "bitrue": {
+        "GET /api/v1/account": [
+          {
+            "status": 200,
+            "body": {
+              "canTrade": true,
+              "accountType": "SPOT",
+              "balances": [
+                {
+                  "asset": "btc",
+                  "free": "1",
+                  "locked": "0"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v1/exchangeInfo": [
+          {
+            "status": 200,
+            "body": {
+              "symbols": null
+            }
+          }
+        ],
+        "GET /api/v2/myTrades": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "id": 1,
+                "orderId": "1",
+                "orderListId": -1,
+                "price": "64000",
+                "qty": "0.001",
+                "commission": "0.06",
+                "commissionAsset": "usdt",
+                "time": 1789689600000,
+                "isBuyer": true,
+                "isMaker": false,
+                "isBestMatch": true,
+                "isSelfTrade": false,
+                "clientOrderId": null
+              },
+              {
+                "symbol": "BTCUSDT",
+                "id": 2,
+                "orderId": "2",
+                "orderListId": -1,
+                "price": "64000",
+                "qty": "0.001",
+                "commission": "0.06",
+                "commissionAsset": null,
+                "time": 1789689600000,
+                "isBuyer": false,
+                "isMaker": false,
+                "isBestMatch": true,
+                "isSelfTrade": false,
+                "clientOrderId": null,
+                "commissionAssert": "btc"
+              }
+            ]
+          }
+        ],
+        "GET /api/v1/deposit/history": [
+          {
+            "status": 200,
+            "body": {
+              "code": 200,
+              "msg": "succ",
+              "data": [
+                {
+                  "id": "d1",
+                  "symbol": "BTC",
+                  "amount": "1.25",
+                  "createdAt": 1789689600000,
+                  "txid": "txd1"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v1/withdraw/history": [
+          {
+            "status": 200,
+            "body": {
+              "code": 200,
+              "msg": "succ",
+              "data": []
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

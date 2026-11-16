@@ -1,0 +1,35 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:30:00.750000Z",
+      "bitget": {
+        "GET /api/v2/spot/account/assets": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": [
+                {
+                  "coin": "BTC",
+                  "available": "1"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "market": {}
+    }
+  ]
+}

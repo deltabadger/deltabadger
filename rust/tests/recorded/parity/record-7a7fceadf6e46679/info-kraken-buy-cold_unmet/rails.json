@@ -1,0 +1,20 @@
+{
+  "sent": [],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "checks": [],
+  "infos": [
+    [
+      {
+        "target": "settings-price-limit-info",
+        "html": "<small id=\"settings-price-limit-info\" class=\"small-info\">\n<div class=\"\">\nCurrent BTC price is 49995.3 EUR\n</div>\n</small>"
+      }
+    ]
+  ]
+}

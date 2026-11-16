@@ -1,0 +1,625 @@
+{
+  "page_parity_scratch": true,
+  "at": "2026-09-10T12:00:30.123456Z",
+  "secret_key_base": "61a30e26004ff1e25ced6c8a0629bdcef5e7bdf90db030ffb7d5f8045d9b04d14c830dfd2fd0312fe655dcbd6f9287a4777420c0f285baf8bf8363797db44997",
+  "steps": [
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?exchange_id=3",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?exchange_id=1abc",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?exchange_id=abc",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?exchange_id=999",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?exchange_id=",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?from_date=2026-09-02",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?to_date=2026-09-03",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?from_date=2026-09-02&to_date=2026-09-05&exchange_id=1",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?from_date=2026-09-05&to_date=2026-09-02",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?from_date=invalid",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?to_date=2024-13-01",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?from_date=2024-02-30",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?exchange_id=999&from_date=invalid",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?from_date=%20",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?entry_type=deposit",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?entry_type=withdrawal&limit=2",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?entry_type=staking_reward",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?entry_type=",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?limit=1",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?limit=0",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?limit=-3",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?limit=500",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?limit=abc",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?limit=2abc",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"limit\":2,\"entry_type\":\"buy\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account?limit=1",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"limit\":3}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"limit\":null,\"exchange_id\":null}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"exchange_id\":3.7}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account",
+      "headers": {
+        "Authorization": "Bearer second-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions/account.json",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "HEAD",
+      "path": "/api/v1/transactions/account",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    }
+  ],
+  "expect_users": {},
+  "jobs": {}
+}

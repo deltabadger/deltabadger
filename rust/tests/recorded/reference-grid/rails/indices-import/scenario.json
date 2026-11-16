@@ -1,0 +1,128 @@
+{
+  "parity_scratch": true,
+  "job": "sync_indices_from_coingecko_job",
+  "at": "2026-10-02T10:31:00.123456Z",
+  "env": {
+    "MARKET_DATA_URL": "http://data-api:3000",
+    "MARKET_DATA_TOKEN": "parity-token"
+  },
+  "script": {
+    "GET /api/v2/indices": [
+      {
+        "status": 200,
+        "body": {
+          "data": [
+            {
+              "external_id": "nasdaq-100",
+              "source": "deltabadger",
+              "name": "Nasdaq 100",
+              "description": "The 100 largest",
+              "top_coins": [
+                "AAPL.US",
+                "MSFT.US"
+              ],
+              "top_coins_by_exchange": null,
+              "available_exchanges": {
+                "Exchanges::Alpaca": 100
+              },
+              "market_cap": 25000000000000.0,
+              "weight": 0,
+              "weights": {
+                "AAPL.US": 0.0812,
+                "MSFT.US": 0.0799,
+                "T&<>.US": 0.01
+              }
+            },
+            {
+              "external_id": "layer-1",
+              "source": "coingecko",
+              "name": "Layer 1",
+              "description": "L1s",
+              "top_coins": null,
+              "market_cap": "123.5"
+            },
+            {
+              "external_id": "meme-token",
+              "source": "coingecko",
+              "name": "Meme",
+              "weight": null,
+              "market_cap": 42
+            },
+            {
+              "external_id": "other",
+              "source": "coingecko",
+              "name": "Other",
+              "market_cap": null
+            },
+            {
+              "external_id": "cap-prefix",
+              "source": "coingecko",
+              "name": "prefix",
+              "market_cap": "1.5abc"
+            },
+            {
+              "external_id": "cap-garbage",
+              "source": "coingecko",
+              "name": "garbage",
+              "market_cap": "abc"
+            },
+            {
+              "external_id": "cap-blank",
+              "source": "coingecko",
+              "name": "blank",
+              "market_cap": ""
+            },
+            {
+              "external_id": "cap-exponent",
+              "source": "coingecko",
+              "name": "exponent",
+              "market_cap": "1e5x"
+            },
+            {
+              "external_id": "cap-spaced",
+              "source": "coingecko",
+              "name": "spaced",
+              "market_cap": " 2"
+            },
+            {
+              "external_id": "cap-underscored",
+              "source": "coingecko",
+              "name": "underscored",
+              "market_cap": "1_000.2_5x"
+            },
+            {
+              "external_id": "cap-dot",
+              "source": "coingecko",
+              "name": "dot",
+              "market_cap": "1.e2"
+            },
+            {
+              "external_id": "cap-signs",
+              "source": "coingecko",
+              "name": "signs",
+              "market_cap": "--1"
+            },
+            {
+              "external_id": "cap-bare-dot",
+              "source": "coingecko",
+              "name": "bare-dot",
+              "market_cap": ".e2"
+            },
+            {
+              "external_id": "cap-lead-dot",
+              "source": "coingecko",
+              "name": "lead-dot",
+              "market_cap": "-.5e1_0"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "raises": false,
+  "asset": null,
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  }
+}

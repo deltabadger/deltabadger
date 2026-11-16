@@ -1,0 +1,23 @@
+{
+  "bots": {
+    "1": {
+      "metrics": "{\"chart\":{\"labels\":[],\"series\":[[],[]],\"extra_series\":[],\"invested_series\":[],\"cash_series\":[]},\"total_quote_amount_invested\":0,\"total_amount_value_in_quote\":0,\"rebalance_cash\":0,\"estimated_proceeds\":0,\"realised_pnl\":0,\"pnl\":null,\"asset_breakdown\":{},\"asset_values\":{},\"key_assets\":{},\"key_strings\":{},\"num_assets\":0}",
+      "live": "{\"chart\":{\"labels\":[],\"series\":[[],[]],\"extra_series\":[],\"invested_series\":[],\"cash_series\":[]},\"total_quote_amount_invested\":0,\"total_amount_value_in_quote\":0,\"rebalance_cash\":0,\"estimated_proceeds\":0,\"realised_pnl\":0,\"pnl\":null,\"asset_breakdown\":{},\"asset_values\":{},\"key_assets\":{},\"key_strings\":{},\"num_assets\":0}",
+      "marked": "{\"chart\":{\"labels\":[],\"series\":[[],[]],\"extra_series\":[],\"invested_series\":[],\"cash_series\":[]},\"total_quote_amount_invested\":0,\"total_amount_value_in_quote\":0,\"rebalance_cash\":0,\"estimated_proceeds\":0,\"realised_pnl\":0,\"pnl\":null,\"asset_breakdown\":{},\"asset_values\":{},\"key_assets\":{},\"key_strings\":{},\"num_assets\":0}",
+      "chart": null,
+      "profit_in_usd": "\"0.0\""
+    },
+    "2": {
+      "metrics": "{\"chart\":{\"labels\":[],\"series\":[[],[]],\"extra_series\":[],\"invested_series\":[],\"cash_series\":[]},\"total_quote_amount_invested\":0,\"total_amount_value_in_quote\":0,\"rebalance_cash\":0,\"estimated_proceeds\":0,\"realised_pnl\":0,\"pnl\":null,\"asset_breakdown\":{},\"asset_values\":{},\"key_assets\":{},\"key_strings\":{},\"num_assets\":0}",
+      "live": "{\"chart\":{\"labels\":[],\"series\":[[],[]],\"extra_series\":[],\"invested_series\":[],\"cash_series\":[]},\"total_quote_amount_invested\":0,\"total_amount_value_in_quote\":0,\"rebalance_cash\":0,\"estimated_proceeds\":0,\"realised_pnl\":0,\"pnl\":null,\"asset_breakdown\":{},\"asset_values\":{},\"key_assets\":{},\"key_strings\":{},\"num_assets\":0}",
+      "marked": "{\"chart\":{\"labels\":[],\"series\":[[],[]],\"extra_series\":[],\"invested_series\":[],\"cash_series\":[]},\"total_quote_amount_invested\":0,\"total_amount_value_in_quote\":0,\"rebalance_cash\":0,\"estimated_proceeds\":0,\"realised_pnl\":0,\"pnl\":null,\"asset_breakdown\":{},\"asset_values\":{},\"key_assets\":{},\"key_strings\":{},\"num_assets\":0}",
+      "chart": null,
+      "profit_in_usd": "\"0.0\""
+    }
+  },
+  "global_pnl": "null",
+  "global_pnl_snapshot": "{\"result\":null,\"loading\":false}",
+  "pnl_history": "{\"result\":null,\"loading\":false}",
+  "denomination": "{\"currency\":\"USD\",\"rate\":\"1.0\"}",
+  "requests": []
+}

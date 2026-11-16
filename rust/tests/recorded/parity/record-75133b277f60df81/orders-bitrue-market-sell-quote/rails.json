@@ -1,0 +1,57 @@
+{
+  "sent": [
+    {
+      "quantity": "0.001562",
+      "recvWindow": "5000",
+      "side": "SELL",
+      "symbol": "BTCUSDT",
+      "type": "MARKET"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Bitrue",
+        "base_asset": "BTC",
+        "quote_asset": "USDT",
+        "amount": 100,
+        "amount_type": "quote"
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "Bitrue",
+          "pair": "BTC/USDT",
+          "side": "sell",
+          "order_type": "market",
+          "amount": 100.0,
+          "amount_type": "quote",
+          "upstream": {
+            "order_id": "BTCUSDT-100"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Market sell order placed on Bitrue: 100.0 USDT of BTC/USDT. {order_id: \"BTCUSDT-100\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

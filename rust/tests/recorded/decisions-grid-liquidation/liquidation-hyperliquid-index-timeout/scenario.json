@@ -1,0 +1,149 @@
+{
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  },
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-02T10:00:01.123456Z",
+  "venue": "hyperliquid",
+  "script": {
+    "hyperliquid": {
+      "POST /info l2Book": [
+        {
+          "status": 200,
+          "body": {
+            "coin": "@142",
+            "time": 1788000000000,
+            "levels": [
+              [
+                {
+                  "px": "64000.5",
+                  "sz": "10",
+                  "n": 1
+                }
+              ],
+              [
+                {
+                  "px": "64012.7",
+                  "sz": "10",
+                  "n": 1
+                }
+              ]
+            ]
+          }
+        }
+      ],
+      "POST /info allMids": [
+        {
+          "status": 200,
+          "body": {
+            "@142": "64006.1",
+            "@143": "2500.5"
+          }
+        }
+      ],
+      "POST /info spotClearinghouseState": [
+        {
+          "status": 200,
+          "body": {
+            "balances": [
+              {
+                "coin": "USDC",
+                "token": 0,
+                "hold": "0",
+                "total": "10000",
+                "entryNtl": "0.0"
+              },
+              {
+                "coin": "BTC",
+                "token": 1,
+                "hold": "0.0",
+                "total": "0.5",
+                "entryNtl": "0.0"
+              }
+            ]
+          }
+        }
+      ],
+      "POST /info meta": [
+        {
+          "status": 200,
+          "body": {
+            "universe": []
+          }
+        }
+      ],
+      "POST /info spotMeta": [
+        {
+          "status": 200,
+          "body": {
+            "tokens": [
+              {
+                "name": "USDC",
+                "index": 0,
+                "szDecimals": 8
+              },
+              {
+                "name": "BTC",
+                "index": 1,
+                "szDecimals": 5
+              },
+              {
+                "name": "ETH",
+                "index": 2,
+                "szDecimals": 5
+              }
+            ],
+            "universe": [
+              {
+                "name": "@142",
+                "tokens": [
+                  1,
+                  0
+                ],
+                "index": 142
+              },
+              {
+                "name": "@143",
+                "tokens": [
+                  2,
+                  0
+                ],
+                "index": 143
+              }
+            ]
+          }
+        }
+      ],
+      "POST /info perpDexs": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "POST /exchange": [
+        {
+          "network": "post_send",
+          "message": "Faraday::TimeoutError: Net::ReadTimeout"
+        }
+      ],
+      "POST /info userFillsByTime": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "liquidation": {
+    "at": "2026-09-02T10:00:01.123456Z",
+    "holdings": [
+      [
+        "BTC",
+        1
+      ]
+    ]
+  }
+}

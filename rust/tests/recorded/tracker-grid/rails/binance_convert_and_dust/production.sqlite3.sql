@@ -1,0 +1,613 @@
+-- Rails' answer, frozen from the commit tagged rails-oracle-final (PLAN-B11 B11-1).
+PRAGMA foreign_keys=OFF;
+BEGIN TRANSACTION;
+CREATE TABLE "action_mcp_sessions" ("id" varchar NOT NULL PRIMARY KEY, "client_capabilities" json, "client_info" json, "consents" json DEFAULT '{}' NOT NULL, "created_at" datetime(6) NOT NULL, "ended_at" datetime(6), "initialized" boolean DEFAULT FALSE NOT NULL, "messages_count" integer DEFAULT 0 NOT NULL, "prompt_registry" json DEFAULT '[]', "protocol_version" varchar, "resource_registry" json DEFAULT '[]', "role" varchar DEFAULT 'server' NOT NULL, "server_capabilities" json, "server_info" json, "session_data" json DEFAULT '{}' NOT NULL, "status" varchar DEFAULT 'pre_initialize' NOT NULL, "tool_registry" json DEFAULT '[]', "updated_at" datetime(6) NOT NULL);
+CREATE TABLE "app_configs" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "key" varchar NOT NULL, "updated_at" datetime(6) NOT NULL, "value" text);
+INSERT INTO "app_configs" (rowid, "id", "created_at", "key", "updated_at", "value") VALUES (1, 1, '2026-10-01 03:00:00', 'snapshot_history_version_1', '2026-10-01 03:00:00', '{"p":"skyRI9qe64vPfvK2V0SNQWP7ARqwjkjujaTNaSRssA==","h":{"iv":"QFHLWbEC+Y95Hc5y","at":"NFkqHX6U8lBxVeFGWxMlvA=="}}');
+INSERT INTO "app_configs" (rowid, "id", "created_at", "key", "updated_at", "value") VALUES (2, 2, '2026-10-01 03:00:00', 'snapshot_price_generation_1', '2026-10-01 03:00:00', '{"p":"oNlb","h":{"iv":"fn1ttlgeKpQ8NQ/2","at":"MFBcLDI25se71mblvqtijg==","e":"VVMtQVNDSUk="}}');
+CREATE TABLE "assets" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "category" varchar, "circulating_supply" decimal(30,8), "color" varchar, "country" varchar, "country_exchange" varchar, "created_at" datetime(6) NOT NULL, "external_id" varchar NOT NULL, "image_url" varchar, "instrument_type" varchar, "isin" varchar, "market_cap" bigint, "market_cap_rank" integer, "name" varchar, "symbol" varchar, "updated_at" datetime(6) NOT NULL, "url" varchar);
+INSERT INTO "assets" (rowid, "id", "category", "circulating_supply", "color", "country", "country_exchange", "created_at", "external_id", "image_url", "instrument_type", "isin", "market_cap", "market_cap_rank", "name", "symbol", "updated_at", "url") VALUES (1, 1, 'Fiat', NULL, NULL, NULL, NULL, '2026-09-01 09:00:00', 'usd', NULL, NULL, NULL, NULL, NULL, 'US Dollar', 'USD', '2026-09-01 09:00:00', NULL);
+INSERT INTO "assets" (rowid, "id", "category", "circulating_supply", "color", "country", "country_exchange", "created_at", "external_id", "image_url", "instrument_type", "isin", "market_cap", "market_cap_rank", "name", "symbol", "updated_at", "url") VALUES (2, 2, 'Stock', NULL, NULL, NULL, NULL, '2026-09-01 09:00:00', 'AAPL.US', NULL, NULL, NULL, NULL, NULL, 'Apple', 'AAPL', '2026-09-01 09:00:00', NULL);
+INSERT INTO "assets" (rowid, "id", "category", "circulating_supply", "color", "country", "country_exchange", "created_at", "external_id", "image_url", "instrument_type", "isin", "market_cap", "market_cap_rank", "name", "symbol", "updated_at", "url") VALUES (3, 3, 'Stock', NULL, NULL, NULL, NULL, '2026-09-01 09:00:00', 'KLAC.US', NULL, NULL, NULL, NULL, NULL, 'KLA', 'KLAC', '2026-09-01 09:00:00', NULL);
+INSERT INTO "assets" (rowid, "id", "category", "circulating_supply", "color", "country", "country_exchange", "created_at", "external_id", "image_url", "instrument_type", "isin", "market_cap", "market_cap_rank", "name", "symbol", "updated_at", "url") VALUES (4, 4, 'Stock', NULL, NULL, NULL, NULL, '2026-09-01 09:00:00', 'QQQM.US', NULL, NULL, NULL, NULL, NULL, 'Invesco NASDAQ 100', 'QQQM', '2026-09-01 09:00:00', NULL);
+INSERT INTO "assets" (rowid, "id", "category", "circulating_supply", "color", "country", "country_exchange", "created_at", "external_id", "image_url", "instrument_type", "isin", "market_cap", "market_cap_rank", "name", "symbol", "updated_at", "url") VALUES (5, 5, 'Cryptocurrency', NULL, NULL, NULL, NULL, '2026-09-01 09:00:00', 'bitcoin', NULL, NULL, NULL, NULL, NULL, 'Bitcoin', 'BTC', '2026-09-01 09:00:00', NULL);
+INSERT INTO "assets" (rowid, "id", "category", "circulating_supply", "color", "country", "country_exchange", "created_at", "external_id", "image_url", "instrument_type", "isin", "market_cap", "market_cap_rank", "name", "symbol", "updated_at", "url") VALUES (6, 6, 'Cryptocurrency', NULL, NULL, NULL, NULL, '2026-09-01 09:00:00', 'ethereum', NULL, NULL, NULL, NULL, NULL, 'Ethereum', 'ETH', '2026-09-01 09:00:00', NULL);
+INSERT INTO "assets" (rowid, "id", "category", "circulating_supply", "color", "country", "country_exchange", "created_at", "external_id", "image_url", "instrument_type", "isin", "market_cap", "market_cap_rank", "name", "symbol", "updated_at", "url") VALUES (7, 7, 'Cryptocurrency', NULL, NULL, NULL, NULL, '2026-09-01 09:00:00', 'usd-coin', NULL, NULL, NULL, NULL, NULL, 'USD Coin', 'USDC', '2026-09-01 09:00:00', NULL);
+INSERT INTO "assets" (rowid, "id", "category", "circulating_supply", "color", "country", "country_exchange", "created_at", "external_id", "image_url", "instrument_type", "isin", "market_cap", "market_cap_rank", "name", "symbol", "updated_at", "url") VALUES (8, 8, 'Cryptocurrency', NULL, NULL, NULL, NULL, '2026-09-01 09:00:00', 'tether', NULL, NULL, NULL, NULL, NULL, 'USDT', 'USDT', '2026-09-01 09:00:00', NULL);
+INSERT INTO "assets" (rowid, "id", "category", "circulating_supply", "color", "country", "country_exchange", "created_at", "external_id", "image_url", "instrument_type", "isin", "market_cap", "market_cap_rank", "name", "symbol", "updated_at", "url") VALUES (9, 9, 'Cryptocurrency', NULL, NULL, NULL, NULL, '2026-09-01 09:00:00', 'shiba-inu', NULL, NULL, NULL, NULL, NULL, 'SHIB', 'SHIB', '2026-09-01 09:00:00', NULL);
+INSERT INTO "assets" (rowid, "id", "category", "circulating_supply", "color", "country", "country_exchange", "created_at", "external_id", "image_url", "instrument_type", "isin", "market_cap", "market_cap_rank", "name", "symbol", "updated_at", "url") VALUES (10, 10, 'Cryptocurrency', NULL, NULL, NULL, NULL, '2026-09-01 09:00:00', 'dogecoin', NULL, NULL, NULL, NULL, NULL, 'DOGE', 'DOGE', '2026-09-01 09:00:00', NULL);
+INSERT INTO "assets" (rowid, "id", "category", "circulating_supply", "color", "country", "country_exchange", "created_at", "external_id", "image_url", "instrument_type", "isin", "market_cap", "market_cap_rank", "name", "symbol", "updated_at", "url") VALUES (11, 11, 'Cryptocurrency', NULL, NULL, NULL, NULL, '2026-09-01 09:00:00', 'binancecoin', NULL, NULL, NULL, NULL, NULL, 'BNB', 'BNB', '2026-09-01 09:00:00', NULL);
+CREATE TABLE "exchanges" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "available" boolean DEFAULT TRUE, "created_at" datetime NOT NULL, "maker_fee" varchar, "name" varchar, "taker_fee" varchar, "type" varchar, "updated_at" datetime NOT NULL);
+INSERT INTO "exchanges" (rowid, "id", "available", "created_at", "maker_fee", "name", "taker_fee", "type", "updated_at") VALUES (1, 1, 1, '2026-09-01 09:00:00', '0.15', 'Alpaca', '0.25', 'Exchanges::Alpaca', '2026-09-01 09:00:00');
+INSERT INTO "exchanges" (rowid, "id", "available", "created_at", "maker_fee", "name", "taker_fee", "type", "updated_at") VALUES (2, 2, 1, '2026-09-01 09:00:00', '0.1', 'Binance', '0.1', 'Exchanges::Binance', '2026-09-01 09:00:00');
+CREATE TABLE "fx_rates" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "currency" varchar NOT NULL, "date" date NOT NULL, "rate" decimal NOT NULL);
+INSERT INTO "fx_rates" (rowid, "id", "currency", "date", "rate") VALUES (1, 1, 'USD', '2026-09-30', 1.17);
+CREATE TABLE "historical_prices" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "asset" varchar NOT NULL, "currency" varchar NOT NULL, "date" date NOT NULL, "price" decimal NOT NULL);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (1, 1, 'USDT', 'USD', '2026-09-01', 1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (2, 2, 'USDT', 'USD', '2026-09-02', 1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (3, 3, 'USDT', 'USD', '2026-09-03', 1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (4, 4, 'USDT', 'USD', '2026-09-04', 1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (5, 5, 'USDT', 'USD', '2026-09-05', 1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (6, 6, 'SHIB', 'USD', '2026-09-02', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (7, 7, 'SHIB', 'USD', '2026-09-03', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (8, 8, 'SHIB', 'USD', '2026-09-04', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (9, 9, 'SHIB', 'USD', '2026-09-05', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (10, 10, 'SHIB', 'USD', '2026-09-06', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (11, 11, 'SHIB', 'USD', '2026-09-07', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (12, 12, 'SHIB', 'USD', '2026-09-08', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (13, 13, 'SHIB', 'USD', '2026-09-09', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (14, 14, 'SHIB', 'USD', '2026-09-10', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (15, 15, 'DOGE', 'USD', '2026-09-02', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (16, 16, 'DOGE', 'USD', '2026-09-03', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (17, 17, 'DOGE', 'USD', '2026-09-04', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (18, 18, 'DOGE', 'USD', '2026-09-05', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (19, 19, 'DOGE', 'USD', '2026-09-06', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (20, 20, 'DOGE', 'USD', '2026-09-07', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (21, 21, 'DOGE', 'USD', '2026-09-08', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (22, 22, 'DOGE', 'USD', '2026-09-09', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (23, 23, 'DOGE', 'USD', '2026-09-10', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (24, 24, 'BNB', 'USD', '2026-09-10', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (25, 25, 'SHIB', 'USD', '2026-09-11', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (26, 26, 'SHIB', 'USD', '2026-09-12', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (27, 27, 'SHIB', 'USD', '2026-09-13', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (28, 28, 'SHIB', 'USD', '2026-09-14', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (29, 29, 'SHIB', 'USD', '2026-09-15', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (30, 30, 'SHIB', 'USD', '2026-09-16', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (31, 31, 'SHIB', 'USD', '2026-09-17', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (32, 32, 'SHIB', 'USD', '2026-09-18', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (33, 33, 'SHIB', 'USD', '2026-09-19', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (34, 34, 'SHIB', 'USD', '2026-09-20', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (35, 35, 'SHIB', 'USD', '2026-09-21', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (36, 36, 'SHIB', 'USD', '2026-09-22', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (37, 37, 'SHIB', 'USD', '2026-09-23', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (38, 38, 'SHIB', 'USD', '2026-09-24', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (39, 39, 'SHIB', 'USD', '2026-09-25', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (40, 40, 'SHIB', 'USD', '2026-09-26', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (41, 41, 'SHIB', 'USD', '2026-09-27', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (42, 42, 'SHIB', 'USD', '2026-09-28', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (43, 43, 'SHIB', 'USD', '2026-09-29', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (44, 44, 'SHIB', 'USD', '2026-09-30', 1e-5);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (45, 45, 'DOGE', 'USD', '2026-09-11', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (46, 46, 'DOGE', 'USD', '2026-09-12', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (47, 47, 'DOGE', 'USD', '2026-09-13', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (48, 48, 'DOGE', 'USD', '2026-09-14', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (49, 49, 'DOGE', 'USD', '2026-09-15', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (50, 50, 'DOGE', 'USD', '2026-09-16', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (51, 51, 'DOGE', 'USD', '2026-09-17', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (52, 52, 'DOGE', 'USD', '2026-09-18', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (53, 53, 'DOGE', 'USD', '2026-09-19', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (54, 54, 'DOGE', 'USD', '2026-09-20', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (55, 55, 'DOGE', 'USD', '2026-09-21', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (56, 56, 'DOGE', 'USD', '2026-09-22', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (57, 57, 'DOGE', 'USD', '2026-09-23', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (58, 58, 'DOGE', 'USD', '2026-09-24', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (59, 59, 'DOGE', 'USD', '2026-09-25', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (60, 60, 'DOGE', 'USD', '2026-09-26', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (61, 61, 'DOGE', 'USD', '2026-09-27', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (62, 62, 'DOGE', 'USD', '2026-09-28', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (63, 63, 'DOGE', 'USD', '2026-09-29', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (64, 64, 'DOGE', 'USD', '2026-09-30', 0.1);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (65, 65, 'ETH', 'USD', '2026-09-05', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (66, 66, 'ETH', 'USD', '2026-09-06', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (67, 67, 'ETH', 'USD', '2026-09-07', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (68, 68, 'ETH', 'USD', '2026-09-08', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (69, 69, 'ETH', 'USD', '2026-09-09', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (70, 70, 'ETH', 'USD', '2026-09-10', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (71, 71, 'ETH', 'USD', '2026-09-11', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (72, 72, 'ETH', 'USD', '2026-09-12', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (73, 73, 'ETH', 'USD', '2026-09-13', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (74, 74, 'ETH', 'USD', '2026-09-14', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (75, 75, 'ETH', 'USD', '2026-09-15', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (76, 76, 'ETH', 'USD', '2026-09-16', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (77, 77, 'ETH', 'USD', '2026-09-17', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (78, 78, 'ETH', 'USD', '2026-09-18', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (79, 79, 'ETH', 'USD', '2026-09-19', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (80, 80, 'ETH', 'USD', '2026-09-20', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (81, 81, 'ETH', 'USD', '2026-09-21', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (82, 82, 'ETH', 'USD', '2026-09-22', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (83, 83, 'ETH', 'USD', '2026-09-23', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (84, 84, 'ETH', 'USD', '2026-09-24', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (85, 85, 'ETH', 'USD', '2026-09-25', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (86, 86, 'ETH', 'USD', '2026-09-26', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (87, 87, 'ETH', 'USD', '2026-09-27', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (88, 88, 'ETH', 'USD', '2026-09-28', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (89, 89, 'ETH', 'USD', '2026-09-29', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (90, 90, 'ETH', 'USD', '2026-09-30', 2500);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (91, 91, 'BNB', 'USD', '2026-09-11', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (92, 92, 'BNB', 'USD', '2026-09-12', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (93, 93, 'BNB', 'USD', '2026-09-13', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (94, 94, 'BNB', 'USD', '2026-09-14', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (95, 95, 'BNB', 'USD', '2026-09-15', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (96, 96, 'BNB', 'USD', '2026-09-16', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (97, 97, 'BNB', 'USD', '2026-09-17', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (98, 98, 'BNB', 'USD', '2026-09-18', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (99, 99, 'BNB', 'USD', '2026-09-19', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (100, 100, 'BNB', 'USD', '2026-09-20', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (101, 101, 'BNB', 'USD', '2026-09-21', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (102, 102, 'BNB', 'USD', '2026-09-22', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (103, 103, 'BNB', 'USD', '2026-09-23', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (104, 104, 'BNB', 'USD', '2026-09-24', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (105, 105, 'BNB', 'USD', '2026-09-25', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (106, 106, 'BNB', 'USD', '2026-09-26', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (107, 107, 'BNB', 'USD', '2026-09-27', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (108, 108, 'BNB', 'USD', '2026-09-28', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (109, 109, 'BNB', 'USD', '2026-09-29', 310);
+INSERT INTO "historical_prices" (rowid, "id", "asset", "currency", "date", "price") VALUES (110, 110, 'BNB', 'USD', '2026-09-30', 310);
+CREATE TABLE "ibkr_locks" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "expires_at" datetime(6) NOT NULL, "key" varchar NOT NULL, "owner" varchar NOT NULL, "updated_at" datetime(6) NOT NULL);
+CREATE TABLE "indices" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "available_exchanges" json DEFAULT '{}', "created_at" datetime(6) NOT NULL, "description" text, "external_id" varchar, "market_cap" decimal, "name" varchar, "source" varchar, "top_coins" json, "top_coins_by_exchange" json DEFAULT '{}', "updated_at" datetime(6) NOT NULL, "weight" integer DEFAULT 0 NOT NULL, "weights" json DEFAULT '{}');
+CREATE TABLE "oauth_access_grants" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "application_id" integer NOT NULL, "code_challenge" varchar, "code_challenge_method" varchar, "created_at" datetime(6) NOT NULL, "expires_in" integer NOT NULL, "redirect_uri" text NOT NULL, "resource_owner_id" integer NOT NULL, "revoked_at" datetime(6), "scopes" varchar DEFAULT '' NOT NULL, "token" varchar NOT NULL);
+CREATE TABLE "oauth_access_tokens" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "application_id" integer NOT NULL, "created_at" datetime(6) NOT NULL, "expires_in" integer, "previous_refresh_token" varchar DEFAULT '' NOT NULL, "refresh_token" varchar, "resource_owner_id" integer, "revoked_at" datetime(6), "scopes" varchar DEFAULT '' NOT NULL, "token" varchar NOT NULL);
+CREATE TABLE "portfolio_snapshots" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "date" date NOT NULL, "held_cost_usd" decimal(20,8), "held_value_usd" decimal(20,8), "invested_usd" decimal(20,8) DEFAULT 0.0 NOT NULL, "partial" boolean DEFAULT FALSE NOT NULL, "updated_at" datetime(6) NOT NULL, "user_id" integer NOT NULL, "value_usd" decimal(20,8) DEFAULT 0.0 NOT NULL);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (1, 1, '2026-11-16 07:49:45.626', '2026-10-01', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.626', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (2, 2, '2026-11-16 07:49:45.685', '2026-09-01', 0, 0, 1000, 0, '2026-11-16 07:49:45.685', 1, 1000);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (3, 3, '2026-11-16 07:49:45.685', '2026-09-02', 1.01, 1.01, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1001.01);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (4, 4, '2026-11-16 07:49:45.685', '2026-09-03', 1.01, 1.01, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1001.01);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (5, 5, '2026-11-16 07:49:45.685', '2026-09-04', 1.01, 1.01, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1001.01);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (6, 6, '2026-11-16 07:49:45.685', '2026-09-05', 101.01, 101.01, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1001.01);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (7, 7, '2026-11-16 07:49:45.685', '2026-09-06', 101.01, 101.01, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1001.01);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (8, 8, '2026-11-16 07:49:45.685', '2026-09-07', 101.01, 101.01, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1001.01);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (9, 9, '2026-11-16 07:49:45.685', '2026-09-08', 101.01, 101.01, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1001.01);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (10, 10, '2026-11-16 07:49:45.685', '2026-09-09', 101.01, 101.01, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1001.01);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (11, 11, '2026-11-16 07:49:45.685', '2026-09-10', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (12, 12, '2026-11-16 07:49:45.685', '2026-09-11', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (13, 13, '2026-11-16 07:49:45.685', '2026-09-12', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (14, 14, '2026-11-16 07:49:45.685', '2026-09-13', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (15, 15, '2026-11-16 07:49:45.685', '2026-09-14', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (16, 16, '2026-11-16 07:49:45.685', '2026-09-15', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (17, 17, '2026-11-16 07:49:45.685', '2026-09-16', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (18, 18, '2026-11-16 07:49:45.685', '2026-09-17', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (19, 19, '2026-11-16 07:49:45.685', '2026-09-18', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (20, 20, '2026-11-16 07:49:45.685', '2026-09-19', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (21, 21, '2026-11-16 07:49:45.685', '2026-09-20', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (22, 22, '2026-11-16 07:49:45.685', '2026-09-21', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (23, 23, '2026-11-16 07:49:45.685', '2026-09-22', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (24, 24, '2026-11-16 07:49:45.685', '2026-09-23', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (25, 25, '2026-11-16 07:49:45.685', '2026-09-24', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (26, 26, '2026-11-16 07:49:45.685', '2026-09-25', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (27, 27, '2026-11-16 07:49:45.685', '2026-09-26', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (28, 28, '2026-11-16 07:49:45.685', '2026-09-27', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (29, 29, '2026-11-16 07:49:45.685', '2026-09-28', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (30, 30, '2026-11-16 07:49:45.685', '2026-09-29', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+INSERT INTO "portfolio_snapshots" (rowid, "id", "created_at", "date", "held_cost_usd", "held_value_usd", "invested_usd", "partial", "updated_at", "user_id", "value_usd") VALUES (31, 31, '2026-11-16 07:49:45.685', '2026-09-30', 101.01, 103.038, 1001.01, 0, '2026-11-16 07:49:45.685', 1, 1003.038);
+CREATE TABLE "portfolio_venue_snapshots" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "user_id" integer NOT NULL, "exchange_id" integer NOT NULL, "date" date NOT NULL, "value_usd" decimal(20,8) DEFAULT 0.0 NOT NULL, "invested_usd" decimal(20,8) DEFAULT 0.0 NOT NULL, "held_value_usd" decimal(20,8), "held_cost_usd" decimal(20,8), "partial" boolean DEFAULT FALSE NOT NULL, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL);
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (1, 1, 1, 2, '2026-10-01', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.636', '2026-11-16 07:49:45.636');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (2, 2, 1, 2, '2026-09-01', 1000, 1000, 0, 0, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (3, 3, 1, 2, '2026-09-02', 1001.01, 1001.01, 1.01, 1.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (4, 4, 1, 2, '2026-09-03', 1001.01, 1001.01, 1.01, 1.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (5, 5, 1, 2, '2026-09-04', 1001.01, 1001.01, 1.01, 1.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (6, 6, 1, 2, '2026-09-05', 1001.01, 1001.01, 101.01, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (7, 7, 1, 2, '2026-09-06', 1001.01, 1001.01, 101.01, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (8, 8, 1, 2, '2026-09-07', 1001.01, 1001.01, 101.01, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (9, 9, 1, 2, '2026-09-08', 1001.01, 1001.01, 101.01, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (10, 10, 1, 2, '2026-09-09', 1001.01, 1001.01, 101.01, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (11, 11, 1, 2, '2026-09-10', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (12, 12, 1, 2, '2026-09-11', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (13, 13, 1, 2, '2026-09-12', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (14, 14, 1, 2, '2026-09-13', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (15, 15, 1, 2, '2026-09-14', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (16, 16, 1, 2, '2026-09-15', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (17, 17, 1, 2, '2026-09-16', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (18, 18, 1, 2, '2026-09-17', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (19, 19, 1, 2, '2026-09-18', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (20, 20, 1, 2, '2026-09-19', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (21, 21, 1, 2, '2026-09-20', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (22, 22, 1, 2, '2026-09-21', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (23, 23, 1, 2, '2026-09-22', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (24, 24, 1, 2, '2026-09-23', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (25, 25, 1, 2, '2026-09-24', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (26, 26, 1, 2, '2026-09-25', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (27, 27, 1, 2, '2026-09-26', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (28, 28, 1, 2, '2026-09-27', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (29, 29, 1, 2, '2026-09-28', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (30, 30, 1, 2, '2026-09-29', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+INSERT INTO "portfolio_venue_snapshots" (rowid, "id", "user_id", "exchange_id", "date", "value_usd", "invested_usd", "held_value_usd", "held_cost_usd", "partial", "created_at", "updated_at") VALUES (31, 31, 1, 2, '2026-09-30', 1003.038, 1001.01, 103.038, 101.01, 0, '2026-11-16 07:49:45.687', '2026-11-16 07:49:45.687');
+CREATE TABLE "setting_flags" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "name" varchar, "value" boolean);
+CREATE TABLE "users" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "admin" boolean DEFAULT FALSE NOT NULL, "advanced_bots_enabled" boolean DEFAULT FALSE NOT NULL, "confirmation_sent_at" datetime, "confirmation_token" varchar, "confirmed_at" datetime, "created_at" datetime NOT NULL, "display_currency" varchar DEFAULT 'USD' NOT NULL, "email" varchar DEFAULT '' NOT NULL, "encrypted_password" varchar DEFAULT '' NOT NULL, "failed_attempts" integer DEFAULT 0 NOT NULL, "hide_balances" boolean DEFAULT FALSE NOT NULL, "last_otp_at" datetime, "locale" varchar, "locked_at" datetime(6), "mcp_settings" json DEFAULT '{}', "name" varchar, "otp_module" integer DEFAULT 0, "otp_secret_key" varchar, "remember_created_at" datetime, "reset_password_sent_at" datetime, "reset_password_token" varchar, "rest_settings" json DEFAULT '{}', "setup_completed" boolean DEFAULT FALSE NOT NULL, "show_smart_intervals_info" boolean DEFAULT TRUE NOT NULL, "subscribed_to_email_marketing" boolean DEFAULT TRUE, "time_zone" varchar DEFAULT 'UTC' NOT NULL, "tracker_settings" json DEFAULT '{}', "unconfirmed_email" varchar, "updated_at" datetime NOT NULL, "wash_sale_enabled" boolean, "wash_sale_jurisdiction" varchar, "wash_sale_selling_warned_at" datetime(6));
+INSERT INTO "users" (rowid, "id", "admin", "advanced_bots_enabled", "confirmation_sent_at", "confirmation_token", "confirmed_at", "created_at", "display_currency", "email", "encrypted_password", "failed_attempts", "hide_balances", "last_otp_at", "locale", "locked_at", "mcp_settings", "name", "otp_module", "otp_secret_key", "remember_created_at", "reset_password_sent_at", "reset_password_token", "rest_settings", "setup_completed", "show_smart_intervals_info", "subscribed_to_email_marketing", "time_zone", "tracker_settings", "unconfirmed_email", "updated_at", "wash_sale_enabled", "wash_sale_jurisdiction", "wash_sale_selling_warned_at") VALUES (1, 1, 1, 0, NULL, NULL, '2026-09-01 09:00:00', '2026-09-01 09:00:00', 'USD', 'owner@example.com', '$2a$11$7A74cn/fwBlWT3P0V8/8kOOzMhyI/1ANVIDIyOhEWBav8e8/hnl72', 0, 0, NULL, NULL, NULL, '{}', 'Owner', 0, '{"p":"Fzgu23rKgpQFVsyy+KaMNSSlkRrLL+e/iQ0VCDRjtgg=","h":{"iv":"dThuUJpjdp5rxPie","at":"6yXAnO8sQ2yolrbfQUR9/A==","e":"QVNDSUktOEJJVA=="}}', NULL, NULL, NULL, '{}', 1, 1, 1, 'UTC', '{}', NULL, '2026-09-01 09:00:00', NULL, NULL, NULL);
+CREATE TABLE "account_balances" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "asset_id" integer NOT NULL, "created_at" datetime(6) NOT NULL, "exchange_id" integer NOT NULL, "free" decimal(32,16) DEFAULT 0.0 NOT NULL, "locked" decimal(32,16) DEFAULT 0.0 NOT NULL, "priced_at" datetime(6), "synced_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, "usd_price" decimal(20,8), "usd_value" decimal(20,8), "user_id" integer NOT NULL, CONSTRAINT "fk_rails_4c03793396"
+FOREIGN KEY ("exchange_id")
+  REFERENCES "exchanges" ("id")
+, CONSTRAINT "fk_rails_c4876d5668"
+FOREIGN KEY ("asset_id")
+  REFERENCES "assets" ("id")
+, CONSTRAINT "fk_rails_30b52bf707"
+FOREIGN KEY ("user_id")
+  REFERENCES "users" ("id")
+);
+INSERT INTO "account_balances" (rowid, "id", "asset_id", "created_at", "exchange_id", "free", "locked", "priced_at", "synced_at", "updated_at", "usd_price", "usd_value", "user_id") VALUES (1, 1, 8, '2026-10-01 02:30:00', 2, 900, 0, '2026-10-01 02:30:00', '2026-10-01 02:30:00', '2026-10-01 02:30:00', 1, 900, 1);
+INSERT INTO "account_balances" (rowid, "id", "asset_id", "created_at", "exchange_id", "free", "locked", "priced_at", "synced_at", "updated_at", "usd_price", "usd_value", "user_id") VALUES (2, 2, 6, '2026-10-01 02:30:00', 2, 0.04, 0, '2026-10-01 02:30:00', '2026-10-01 02:30:00', '2026-10-01 02:30:00', 2500, 100, 1);
+INSERT INTO "account_balances" (rowid, "id", "asset_id", "created_at", "exchange_id", "free", "locked", "priced_at", "synced_at", "updated_at", "usd_price", "usd_value", "user_id") VALUES (3, 3, 11, '2026-10-01 02:30:00', 2, 0.0098, 0, '2026-10-01 02:30:00', '2026-10-01 02:30:00', '2026-10-01 02:30:00', 310, 3.038, 1);
+CREATE TABLE "account_transactions" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "api_key_id" integer, "base_amount" decimal NOT NULL, "base_asset_id" integer, "base_currency" varchar NOT NULL, "created_at" datetime(6) NOT NULL, "description" varchar, "entry_type" integer NOT NULL, "exchange_id" integer NOT NULL, "fee_amount" decimal, "fee_currency" varchar, "group_id" varchar, "linked_transaction_id" integer, "manual_values" json DEFAULT '{}', "quote_amount" decimal, "quote_currency" varchar, "raw_data" json DEFAULT '{}', "transacted_at" datetime(6) NOT NULL, "transaction_id" integer, "transfer_link_rejected" boolean DEFAULT FALSE NOT NULL, "tx_id" varchar, "updated_at" datetime(6) NOT NULL, "user_id" integer NOT NULL, CONSTRAINT "fk_rails_51e23281dc"
+FOREIGN KEY ("transaction_id")
+  REFERENCES "transactions" ("id")
+, CONSTRAINT "fk_rails_6cc5ad0293"
+FOREIGN KEY ("api_key_id")
+  REFERENCES "api_keys" ("id")
+, CONSTRAINT "fk_rails_e38912f087"
+FOREIGN KEY ("exchange_id")
+  REFERENCES "exchanges" ("id")
+, CONSTRAINT "fk_rails_5ab9b90923"
+FOREIGN KEY ("user_id")
+  REFERENCES "users" ("id")
+);
+INSERT INTO "account_transactions" (rowid, "id", "api_key_id", "base_amount", "base_asset_id", "base_currency", "created_at", "description", "entry_type", "exchange_id", "fee_amount", "fee_currency", "group_id", "linked_transaction_id", "manual_values", "quote_amount", "quote_currency", "raw_data", "transacted_at", "transaction_id", "transfer_link_rejected", "tx_id", "updated_at", "user_id") VALUES (1, 1, 2, 1000, NULL, 'USDT', '2026-09-01 09:00:00', NULL, 4, 2, NULL, NULL, NULL, NULL, '{}', NULL, NULL, '{}', '2026-09-01 10:00:00', NULL, 0, 'deposit-USDT-2026-09-01T10:00:00Z', '2026-09-01 09:00:00', 1);
+INSERT INTO "account_transactions" (rowid, "id", "api_key_id", "base_amount", "base_asset_id", "base_currency", "created_at", "description", "entry_type", "exchange_id", "fee_amount", "fee_currency", "group_id", "linked_transaction_id", "manual_values", "quote_amount", "quote_currency", "raw_data", "transacted_at", "transaction_id", "transfer_link_rejected", "tx_id", "updated_at", "user_id") VALUES (2, 2, 2, 1000, NULL, 'SHIB', '2026-09-01 09:00:00', NULL, 8, 2, NULL, NULL, NULL, NULL, '{}', NULL, NULL, '{}', '2026-09-02 10:00:00', NULL, 0, 'airdrop-SHIB-2026-09-02T10:00:00Z', '2026-09-01 09:00:00', 1);
+INSERT INTO "account_transactions" (rowid, "id", "api_key_id", "base_amount", "base_asset_id", "base_currency", "created_at", "description", "entry_type", "exchange_id", "fee_amount", "fee_currency", "group_id", "linked_transaction_id", "manual_values", "quote_amount", "quote_currency", "raw_data", "transacted_at", "transaction_id", "transfer_link_rejected", "tx_id", "updated_at", "user_id") VALUES (3, 3, 2, 10, NULL, 'DOGE', '2026-09-01 09:00:00', NULL, 8, 2, NULL, NULL, NULL, NULL, '{}', NULL, NULL, '{}', '2026-09-02 11:00:00', NULL, 0, 'airdrop-DOGE-2026-09-02T11:00:00Z', '2026-09-01 09:00:00', 1);
+INSERT INTO "account_transactions" (rowid, "id", "api_key_id", "base_amount", "base_asset_id", "base_currency", "created_at", "description", "entry_type", "exchange_id", "fee_amount", "fee_currency", "group_id", "linked_transaction_id", "manual_values", "quote_amount", "quote_currency", "raw_data", "transacted_at", "transaction_id", "transfer_link_rejected", "tx_id", "updated_at", "user_id") VALUES (4, 4, 2, 100, NULL, 'USDT', '2026-09-01 09:00:00', NULL, 3, 2, NULL, NULL, 'convert_1', NULL, '{}', NULL, NULL, '{}', '2026-09-05 10:00:00', NULL, 0, 'convert_1-out', '2026-09-01 09:00:00', 1);
+INSERT INTO "account_transactions" (rowid, "id", "api_key_id", "base_amount", "base_asset_id", "base_currency", "created_at", "description", "entry_type", "exchange_id", "fee_amount", "fee_currency", "group_id", "linked_transaction_id", "manual_values", "quote_amount", "quote_currency", "raw_data", "transacted_at", "transaction_id", "transfer_link_rejected", "tx_id", "updated_at", "user_id") VALUES (5, 5, 2, 0.04, NULL, 'ETH', '2026-09-01 09:00:00', NULL, 2, 2, NULL, NULL, 'convert_1', NULL, '{}', NULL, NULL, '{}', '2026-09-05 10:00:00', NULL, 0, 'convert_1-in', '2026-09-01 09:00:00', 1);
+INSERT INTO "account_transactions" (rowid, "id", "api_key_id", "base_amount", "base_asset_id", "base_currency", "created_at", "description", "entry_type", "exchange_id", "fee_amount", "fee_currency", "group_id", "linked_transaction_id", "manual_values", "quote_amount", "quote_currency", "raw_data", "transacted_at", "transaction_id", "transfer_link_rejected", "tx_id", "updated_at", "user_id") VALUES (6, 6, 2, 1000, NULL, 'SHIB', '2026-09-01 09:00:00', NULL, 3, 2, NULL, NULL, 'dust_1', NULL, '{}', NULL, NULL, '{}', '2026-09-10 10:00:00', NULL, 0, 'dust_1-SHIB', '2026-09-01 09:00:00', 1);
+INSERT INTO "account_transactions" (rowid, "id", "api_key_id", "base_amount", "base_asset_id", "base_currency", "created_at", "description", "entry_type", "exchange_id", "fee_amount", "fee_currency", "group_id", "linked_transaction_id", "manual_values", "quote_amount", "quote_currency", "raw_data", "transacted_at", "transaction_id", "transfer_link_rejected", "tx_id", "updated_at", "user_id") VALUES (7, 7, 2, 10, NULL, 'DOGE', '2026-09-01 09:00:00', NULL, 3, 2, NULL, NULL, 'dust_1', NULL, '{}', NULL, NULL, '{}', '2026-09-10 10:00:00', NULL, 0, 'dust_1-DOGE', '2026-09-01 09:00:00', 1);
+INSERT INTO "account_transactions" (rowid, "id", "api_key_id", "base_amount", "base_asset_id", "base_currency", "created_at", "description", "entry_type", "exchange_id", "fee_amount", "fee_currency", "group_id", "linked_transaction_id", "manual_values", "quote_amount", "quote_currency", "raw_data", "transacted_at", "transaction_id", "transfer_link_rejected", "tx_id", "updated_at", "user_id") VALUES (8, 8, 2, 0.01, NULL, 'BNB', '2026-09-01 09:00:00', NULL, 2, 2, 0.0002, 'BNB', 'dust_1', NULL, '{}', NULL, NULL, '{}', '2026-09-10 10:00:00', NULL, 0, 'dust_1-BNB', '2026-09-01 09:00:00', 1);
+CREATE TABLE "action_mcp_session_messages" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "direction" varchar DEFAULT 'client' NOT NULL, "is_ping" boolean DEFAULT FALSE NOT NULL, "jsonrpc_id" varchar, "message_json" json, "message_type" varchar NOT NULL, "request_acknowledged" boolean DEFAULT FALSE NOT NULL, "request_cancelled" boolean DEFAULT FALSE NOT NULL, "session_id" varchar NOT NULL, "updated_at" datetime(6) NOT NULL, CONSTRAINT "fk_rails_8d204792c3"
+FOREIGN KEY ("session_id")
+  REFERENCES "action_mcp_sessions" ("id")
+ ON DELETE CASCADE ON UPDATE CASCADE);
+CREATE TABLE "action_mcp_session_subscriptions" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "last_notification_at" datetime(6), "session_id" varchar NOT NULL, "updated_at" datetime(6) NOT NULL, "uri" varchar NOT NULL, CONSTRAINT "fk_rails_a643941a8d"
+FOREIGN KEY ("session_id")
+  REFERENCES "action_mcp_sessions" ("id")
+ ON DELETE CASCADE);
+CREATE TABLE "action_mcp_session_tasks" ("id" varchar NOT NULL PRIMARY KEY, "continuation_state" json DEFAULT '{}', "created_at" datetime(6) NOT NULL, "last_step_at" datetime(6), "last_updated_at" datetime(6) NOT NULL, "poll_interval" integer, "progress_message" varchar, "progress_percent" integer, "request_method" varchar, "request_name" varchar, "request_params" json, "result_payload" json, "session_id" varchar NOT NULL, "status" varchar DEFAULT 'working' NOT NULL, "status_message" varchar, "ttl" integer, "updated_at" datetime(6) NOT NULL, CONSTRAINT "fk_rails_a7fc0e6f31"
+FOREIGN KEY ("session_id")
+  REFERENCES "action_mcp_sessions" ("id")
+ ON DELETE CASCADE ON UPDATE CASCADE);
+CREATE TABLE "api_keys" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "access_token" text, "balances_synced_at" datetime(6), "created_at" datetime NOT NULL, "dh_param" text, "exchange_id" bigint NOT NULL, "german_trading_agreement" boolean, "ibkr_realm" varchar, "key" varchar, "key_type" integer DEFAULT 0 NOT NULL, "last_sync_error" varchar, "last_synced_at" datetime(6), "passphrase" varchar, "rsa_encryption_key" text, "rsa_signature_key" text, "secret" varchar, "status" integer DEFAULT 0 NOT NULL, "updated_at" datetime NOT NULL, "user_id" bigint NOT NULL, CONSTRAINT "fk_rails_7601a65574"
+FOREIGN KEY ("exchange_id")
+  REFERENCES "exchanges" ("id")
+, CONSTRAINT "fk_rails_32c28d0dc2"
+FOREIGN KEY ("user_id")
+  REFERENCES "users" ("id")
+);
+INSERT INTO "api_keys" (rowid, "id", "access_token", "balances_synced_at", "created_at", "dh_param", "exchange_id", "german_trading_agreement", "ibkr_realm", "key", "key_type", "last_sync_error", "last_synced_at", "passphrase", "rsa_encryption_key", "rsa_signature_key", "secret", "status", "updated_at", "user_id") VALUES (1, 1, NULL, '2026-10-01 02:30:00', '2026-09-01 09:00:00', NULL, 1, NULL, NULL, 'PKPARITY7KEY4TEST2ID', 0, NULL, '2026-10-01 02:30:00', 'paper', NULL, NULL, 'parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4', 1, '2026-09-01 09:00:00', 1);
+INSERT INTO "api_keys" (rowid, "id", "access_token", "balances_synced_at", "created_at", "dh_param", "exchange_id", "german_trading_agreement", "ibkr_realm", "key", "key_type", "last_sync_error", "last_synced_at", "passphrase", "rsa_encryption_key", "rsa_signature_key", "secret", "status", "updated_at", "user_id") VALUES (2, 2, NULL, '2026-10-01 02:30:00', '2026-09-01 09:00:00', NULL, 2, NULL, NULL, 'PKPARITY7KEY4TEST2ID', 0, NULL, '2026-10-01 02:30:00', 'paper', NULL, NULL, 'parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4', 1, '2026-09-01 09:00:00', 1);
+CREATE TABLE "bot_activity_logs" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "bot_id" integer NOT NULL, "created_at" datetime(6) NOT NULL, "details" json DEFAULT '{}' NOT NULL, "event" varchar NOT NULL, "level" integer DEFAULT 0 NOT NULL, "message" varchar, CONSTRAINT "fk_rails_88c7e92778"
+FOREIGN KEY ("bot_id")
+  REFERENCES "bots" ("id")
+);
+CREATE TABLE "bot_index_assets" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "asset_id" integer NOT NULL, "bot_id" integer NOT NULL, "created_at" datetime(6) NOT NULL, "current_allocation" decimal(10,6), "entered_at" datetime(6), "exited_at" datetime(6), "in_index" boolean DEFAULT TRUE, "target_allocation" decimal(10,6), "ticker_id" integer NOT NULL, "updated_at" datetime(6) NOT NULL, CONSTRAINT "fk_rails_57052ee8e9"
+FOREIGN KEY ("bot_id")
+  REFERENCES "bots" ("id")
+, CONSTRAINT "fk_rails_cd91323d9c"
+FOREIGN KEY ("asset_id")
+  REFERENCES "assets" ("id")
+, CONSTRAINT "fk_rails_cf136c56e9"
+FOREIGN KEY ("ticker_id")
+  REFERENCES "tickers" ("id")
+);
+CREATE TABLE "bot_signals" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "amount" decimal NOT NULL, "amount_type" integer DEFAULT 0 NOT NULL, "bot_id" integer NOT NULL, "created_at" datetime(6) NOT NULL, "direction" integer DEFAULT 0 NOT NULL, "enabled" boolean DEFAULT TRUE NOT NULL, "last_triggered_at" datetime(6), "token" varchar NOT NULL, "updated_at" datetime(6) NOT NULL, CONSTRAINT "fk_rails_37f3232e3f"
+FOREIGN KEY ("bot_id")
+  REFERENCES "bots" ("id")
+);
+CREATE TABLE "bots" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "account_balance" decimal DEFAULT 0.0, "created_at" datetime NOT NULL, "current_delay" integer DEFAULT 0 NOT NULL, "delay" integer DEFAULT 0 NOT NULL, "exchange_id" bigint, "fetch_restarts" integer DEFAULT 0 NOT NULL, "label" varchar, "last_end_of_funds_notification" datetime, "position" integer DEFAULT 0 NOT NULL, "redeploy_declined_offset" decimal DEFAULT 0.0 NOT NULL, "restarts" integer DEFAULT 0 NOT NULL, "restatement_generation" integer DEFAULT 0 NOT NULL, "settings" json DEFAULT '{}' NOT NULL, "settings_changed_at" datetime, "started_at" datetime, "status" integer DEFAULT 0 NOT NULL, "stop_message_key" varchar, "stopped_at" datetime, "transient_data" json DEFAULT '{}' NOT NULL, "type" varchar, "updated_at" datetime NOT NULL, "user_id" bigint, CONSTRAINT "fk_rails_331fb6c3bc"
+FOREIGN KEY ("exchange_id")
+  REFERENCES "exchanges" ("id")
+, CONSTRAINT "fk_rails_16b7e3780a"
+FOREIGN KEY ("user_id")
+  REFERENCES "users" ("id")
+);
+CREATE TABLE "connected_clients" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "mcp_tools" json DEFAULT '[]', "oauth_application_id" integer NOT NULL, "rest_tools" json DEFAULT '[]', "updated_at" datetime(6) NOT NULL, "user_id" integer NOT NULL, CONSTRAINT "fk_rails_bfae147170"
+FOREIGN KEY ("oauth_application_id")
+  REFERENCES "oauth_applications" ("id")
+ ON DELETE CASCADE, CONSTRAINT "fk_rails_cc7e236a30"
+FOREIGN KEY ("user_id")
+  REFERENCES "users" ("id")
+);
+CREATE TABLE "exchange_assets" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "asset_id" bigint NOT NULL, "available" boolean DEFAULT TRUE, "created_at" datetime(6) NOT NULL, "exchange_id" bigint NOT NULL, "updated_at" datetime(6) NOT NULL, "withdrawal_chains" json, "withdrawal_fee" varchar, "withdrawal_fee_updated_at" datetime(6), CONSTRAINT "fk_rails_a579cc966e"
+FOREIGN KEY ("asset_id")
+  REFERENCES "assets" ("id")
+, CONSTRAINT "fk_rails_eb1e7ee730"
+FOREIGN KEY ("exchange_id")
+  REFERENCES "exchanges" ("id")
+);
+INSERT INTO "exchange_assets" (rowid, "id", "asset_id", "available", "created_at", "exchange_id", "updated_at", "withdrawal_chains", "withdrawal_fee", "withdrawal_fee_updated_at") VALUES (1, 1, 1, 1, '2026-09-01 09:00:00', 1, '2026-09-01 09:00:00', NULL, NULL, NULL);
+INSERT INTO "exchange_assets" (rowid, "id", "asset_id", "available", "created_at", "exchange_id", "updated_at", "withdrawal_chains", "withdrawal_fee", "withdrawal_fee_updated_at") VALUES (2, 2, 2, 1, '2026-09-01 09:00:00', 1, '2026-09-01 09:00:00', NULL, NULL, NULL);
+INSERT INTO "exchange_assets" (rowid, "id", "asset_id", "available", "created_at", "exchange_id", "updated_at", "withdrawal_chains", "withdrawal_fee", "withdrawal_fee_updated_at") VALUES (3, 3, 3, 1, '2026-09-01 09:00:00', 1, '2026-09-01 09:00:00', NULL, NULL, NULL);
+INSERT INTO "exchange_assets" (rowid, "id", "asset_id", "available", "created_at", "exchange_id", "updated_at", "withdrawal_chains", "withdrawal_fee", "withdrawal_fee_updated_at") VALUES (4, 4, 4, 1, '2026-09-01 09:00:00', 1, '2026-09-01 09:00:00', NULL, NULL, NULL);
+INSERT INTO "exchange_assets" (rowid, "id", "asset_id", "available", "created_at", "exchange_id", "updated_at", "withdrawal_chains", "withdrawal_fee", "withdrawal_fee_updated_at") VALUES (5, 5, 5, 1, '2026-09-01 09:00:00', 1, '2026-09-01 09:00:00', NULL, NULL, NULL);
+INSERT INTO "exchange_assets" (rowid, "id", "asset_id", "available", "created_at", "exchange_id", "updated_at", "withdrawal_chains", "withdrawal_fee", "withdrawal_fee_updated_at") VALUES (6, 6, 6, 1, '2026-09-01 09:00:00', 1, '2026-09-01 09:00:00', NULL, NULL, NULL);
+INSERT INTO "exchange_assets" (rowid, "id", "asset_id", "available", "created_at", "exchange_id", "updated_at", "withdrawal_chains", "withdrawal_fee", "withdrawal_fee_updated_at") VALUES (7, 7, 7, 1, '2026-09-01 09:00:00', 1, '2026-09-01 09:00:00', NULL, NULL, NULL);
+CREATE TABLE "fee_api_keys" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "exchange_id" bigint NOT NULL, "key" varchar, "passphrase" varchar, "secret" varchar, CONSTRAINT "fk_rails_8ea676a1dd"
+FOREIGN KEY ("exchange_id")
+  REFERENCES "exchanges" ("id")
+);
+CREATE TABLE "fund_classifications" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "fund_category" integer, "isin" varchar, "kind" integer NOT NULL, "symbol" varchar NOT NULL, "updated_at" datetime(6) NOT NULL, "user_id" integer NOT NULL, CONSTRAINT "fk_rails_a0cdc917d1"
+FOREIGN KEY ("user_id")
+  REFERENCES "users" ("id")
+);
+CREATE TABLE "idempotency_keys" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "key" varchar NOT NULL, "locked_at" datetime(6) NOT NULL, "request_fingerprint" varchar NOT NULL, "response_body" text, "response_status" integer, "state" varchar DEFAULT 'in_progress' NOT NULL, "updated_at" datetime(6) NOT NULL, "user_id" integer NOT NULL, CONSTRAINT "fk_rails_96c4cbd0a9"
+FOREIGN KEY ("user_id")
+  REFERENCES "users" ("id")
+);
+CREATE TABLE "oauth_applications" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "confidential" boolean DEFAULT FALSE NOT NULL, "created_at" datetime(6) NOT NULL, "grant_types" varchar DEFAULT 'authorization_code', "name" varchar NOT NULL, "personal_access_token" boolean DEFAULT FALSE NOT NULL, "personal_owner_id" integer, "redirect_uri" text, "registration_access_token" varchar, "response_types" varchar DEFAULT 'code', "scopes" varchar DEFAULT '' NOT NULL, "secret" varchar, "token_endpoint_auth_method" varchar DEFAULT 'none', "uid" varchar NOT NULL, "updated_at" datetime(6) NOT NULL, CONSTRAINT "fk_rails_8a5753f0c3"
+FOREIGN KEY ("personal_owner_id")
+  REFERENCES "users" ("id")
+);
+CREATE TABLE "rule_logs" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "details" json DEFAULT '{}' NOT NULL, "message" varchar, "rule_id" integer NOT NULL, "status" integer DEFAULT 0 NOT NULL, CONSTRAINT "fk_rails_7035e950ff"
+FOREIGN KEY ("rule_id")
+  REFERENCES "rules" ("id")
+);
+CREATE TABLE "rules" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "address" varchar, "asset_id" integer, "created_at" datetime(6) NOT NULL, "exchange_id" integer, "settings" json DEFAULT '{}' NOT NULL, "settings_changed_at" datetime(6), "status" integer DEFAULT 0 NOT NULL, "type" varchar NOT NULL, "updated_at" datetime(6) NOT NULL, "user_id" integer NOT NULL, CONSTRAINT "fk_rails_06866b945b"
+FOREIGN KEY ("exchange_id")
+  REFERENCES "exchanges" ("id")
+, CONSTRAINT "fk_rails_d61e693d2f"
+FOREIGN KEY ("asset_id")
+  REFERENCES "assets" ("id")
+, CONSTRAINT "fk_rails_f5e7d217a1"
+FOREIGN KEY ("user_id")
+  REFERENCES "users" ("id")
+);
+CREATE TABLE "tickers" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "ath" decimal, "ath_updated_at" datetime, "available" boolean DEFAULT TRUE, "base" varchar NOT NULL, "base_asset_id" bigint NOT NULL, "base_decimals" integer NOT NULL, "created_at" datetime(6) NOT NULL, "exchange_id" bigint NOT NULL, "maximum_base_size" decimal, "maximum_quote_size" decimal, "minimum_base_size" decimal NOT NULL, "minimum_quote_size" decimal NOT NULL, "price_decimals" integer NOT NULL, "quote" varchar NOT NULL, "quote_asset_id" bigint NOT NULL, "quote_decimals" integer NOT NULL, "ticker" varchar NOT NULL, "trading_enabled" boolean DEFAULT TRUE NOT NULL, "updated_at" datetime(6) NOT NULL, CONSTRAINT "fk_rails_3d0bf94439"
+FOREIGN KEY ("quote_asset_id")
+  REFERENCES "assets" ("id")
+, CONSTRAINT "fk_rails_f8d93e4e0f"
+FOREIGN KEY ("base_asset_id")
+  REFERENCES "assets" ("id")
+, CONSTRAINT "fk_rails_a0c7510cbd"
+FOREIGN KEY ("exchange_id")
+  REFERENCES "exchanges" ("id")
+);
+INSERT INTO "tickers" (rowid, "id", "ath", "ath_updated_at", "available", "base", "base_asset_id", "base_decimals", "created_at", "exchange_id", "maximum_base_size", "maximum_quote_size", "minimum_base_size", "minimum_quote_size", "price_decimals", "quote", "quote_asset_id", "quote_decimals", "ticker", "trading_enabled", "updated_at") VALUES (1, 1, NULL, NULL, 1, 'AAPL', 2, 9, '2026-09-01 09:00:00', 1, NULL, NULL, 1e-9, 1, 2, 'USD', 1, 2, 'AAPL', 1, '2026-09-01 09:00:00');
+INSERT INTO "tickers" (rowid, "id", "ath", "ath_updated_at", "available", "base", "base_asset_id", "base_decimals", "created_at", "exchange_id", "maximum_base_size", "maximum_quote_size", "minimum_base_size", "minimum_quote_size", "price_decimals", "quote", "quote_asset_id", "quote_decimals", "ticker", "trading_enabled", "updated_at") VALUES (2, 2, NULL, NULL, 1, 'KLAC', 3, 9, '2026-09-01 09:00:00', 1, NULL, NULL, 1e-9, 1, 2, 'USD', 1, 2, 'KLAC', 1, '2026-09-01 09:00:00');
+INSERT INTO "tickers" (rowid, "id", "ath", "ath_updated_at", "available", "base", "base_asset_id", "base_decimals", "created_at", "exchange_id", "maximum_base_size", "maximum_quote_size", "minimum_base_size", "minimum_quote_size", "price_decimals", "quote", "quote_asset_id", "quote_decimals", "ticker", "trading_enabled", "updated_at") VALUES (3, 3, NULL, NULL, 1, 'QQQM', 4, 9, '2026-09-01 09:00:00', 1, NULL, NULL, 1e-9, 1, 2, 'USD', 1, 2, 'QQQM', 1, '2026-09-01 09:00:00');
+INSERT INTO "tickers" (rowid, "id", "ath", "ath_updated_at", "available", "base", "base_asset_id", "base_decimals", "created_at", "exchange_id", "maximum_base_size", "maximum_quote_size", "minimum_base_size", "minimum_quote_size", "price_decimals", "quote", "quote_asset_id", "quote_decimals", "ticker", "trading_enabled", "updated_at") VALUES (4, 4, NULL, NULL, 1, 'BTC', 5, 9, '2026-09-01 09:00:00', 1, NULL, NULL, 1e-9, 1, 2, 'USD', 1, 2, 'BTC/USD', 1, '2026-09-01 09:00:00');
+INSERT INTO "tickers" (rowid, "id", "ath", "ath_updated_at", "available", "base", "base_asset_id", "base_decimals", "created_at", "exchange_id", "maximum_base_size", "maximum_quote_size", "minimum_base_size", "minimum_quote_size", "price_decimals", "quote", "quote_asset_id", "quote_decimals", "ticker", "trading_enabled", "updated_at") VALUES (5, 5, NULL, NULL, 1, 'ETH', 6, 9, '2026-09-01 09:00:00', 1, NULL, NULL, 1e-9, 1, 2, 'USD', 1, 2, 'ETH/USD', 1, '2026-09-01 09:00:00');
+INSERT INTO "tickers" (rowid, "id", "ath", "ath_updated_at", "available", "base", "base_asset_id", "base_decimals", "created_at", "exchange_id", "maximum_base_size", "maximum_quote_size", "minimum_base_size", "minimum_quote_size", "price_decimals", "quote", "quote_asset_id", "quote_decimals", "ticker", "trading_enabled", "updated_at") VALUES (6, 6, NULL, NULL, 1, 'USDC', 7, 9, '2026-09-01 09:00:00', 1, NULL, NULL, 1e-9, 1, 2, 'USD', 1, 2, 'USDC/USD', 1, '2026-09-01 09:00:00');
+CREATE TABLE "transactions" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "amount" decimal, "amount_exec" decimal, "base" varchar, "base_asset_id" integer, "bot_id" bigint, "bot_interval" varchar DEFAULT '' NOT NULL, "bot_quote_amount" decimal DEFAULT 0.0 NOT NULL, "created_at" datetime NOT NULL, "error_messages" json DEFAULT '[]' NOT NULL, "exchange_id" bigint NOT NULL, "external_id" varchar, "external_status" integer, "order_type" integer, "price" decimal, "quote" varchar, "quote_amount" decimal, "quote_amount_exec" decimal, "quote_asset_id" integer, "side" integer, "status" integer, "transaction_type" varchar DEFAULT 'REGULAR' NOT NULL, "updated_at" datetime NOT NULL, "run_identity" json, CONSTRAINT "fk_rails_d4bc8411ec"
+FOREIGN KEY ("bot_id")
+  REFERENCES "bots" ("id")
+, CONSTRAINT "fk_rails_e7352b1d47"
+FOREIGN KEY ("exchange_id")
+  REFERENCES "exchanges" ("id")
+);
+CREATE TABLE "wash_sale_locks" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "asset_id" integer NOT NULL, "buy_locked_until" datetime(6), "claim_token" varchar, "confirmed_locked_until" datetime(6), "created_at" datetime(6) NOT NULL, "source" varchar DEFAULT 'bot' NOT NULL, "updated_at" datetime(6) NOT NULL, "user_id" integer NOT NULL, CONSTRAINT "fk_rails_52739acead"
+FOREIGN KEY ("asset_id")
+  REFERENCES "assets" ("id")
+, CONSTRAINT "fk_rails_482271be5e"
+FOREIGN KEY ("user_id")
+  REFERENCES "users" ("id")
+);
+CREATE TABLE "schema_migrations" ("version" varchar NOT NULL PRIMARY KEY);
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (1, '20261017100000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (2, '20261016140000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (3, '20261016130000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (4, '20261016120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (5, '20261015120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (6, '20261014120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (7, '20261011170000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (8, '20261009130000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (9, '20261009120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (10, '20261006100000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (11, '20260929120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (12, '20260928120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (13, '20260921180000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (14, '20260921120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (15, '20260918150000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (16, '20260918120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (17, '20260918090000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (18, '20260908130000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (19, '20260908120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (20, '20260908091000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (21, '20260908090000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (22, '20260907110000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (23, '20260907100000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (24, '20260905190000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (25, '20260830230000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (26, '20260830210000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (27, '20260830120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (28, '20260829132450');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (29, '20260828175918');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (30, '20260828095813');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (31, '20260828094446');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (32, '20260826140000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (33, '20260826090000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (34, '20260825200000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (35, '20260825120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (36, '20260825060000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (37, '20260824140000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (38, '20260824130000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (39, '20260824120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (40, '20260823120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (41, '20260822100000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (42, '20260821220432');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (43, '20260821120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (44, '20260818120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (45, '20260815170100');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (46, '20260815170000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (47, '20260815160000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (48, '20260815150100');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (49, '20260815150060');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (50, '20260815150050');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (51, '20260815150000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (52, '20260815140000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (53, '20260815130000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (54, '20260815120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (55, '20260810120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (56, '20260808230550');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (57, '20260808225248');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (58, '20260806001012');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (59, '20260727120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (60, '20260706170000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (61, '20260624081139');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (62, '20260603234747');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (63, '20260603231515');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (64, '20260603222643');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (65, '20260530000000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (66, '20260529001000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (67, '20260527002000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (68, '20260527001000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (69, '20260527000000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (70, '20260524000000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (71, '20260520000000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (72, '20260413150000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (73, '20260413140000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (74, '20260413120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (75, '20260325221615');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (76, '20260325183549');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (77, '20260324132010');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (78, '20260323052902');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (79, '20260322140051');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (80, '20260320042623');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (81, '20260316000001');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (82, '20260311145662');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (83, '20260311145661');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (84, '20260311145660');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (85, '20260311145659');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (86, '20260311145658');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (87, '20260311145657');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (88, '20260311145656');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (89, '20260311145655');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (90, '20260311145654');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (91, '20260308090843');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (92, '20260228152720');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (93, '20260228145540');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (94, '20260228130833');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (95, '20260227171710');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (96, '20260226000000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (97, '20260224065811');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (98, '20260219130000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (99, '20260219120000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (100, '20260219110000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (101, '20260219100000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (102, '20260217100001');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (103, '20260217100000');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (104, '20260208114731');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (105, '20260203191449');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (106, '20260130114825');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (107, '20260129142740');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (108, '20260129111946');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (109, '20260128000001');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (110, '20260127164433');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (111, '20260127112431');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (112, '20260126145012');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (113, '20260126141242');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (114, '20260114154223');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (115, '20260114145256');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (116, '20260109050047');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (117, '20260106162140');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (118, '20260106115209');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (119, '20260106111302');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (120, '20260106111301');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (121, '20260104194208');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (122, '20260103000001');
+INSERT INTO "schema_migrations" (rowid, "version") VALUES (123, '20260102171555');
+CREATE TABLE "ar_internal_metadata" ("key" varchar NOT NULL PRIMARY KEY, "value" varchar, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL);
+INSERT INTO "ar_internal_metadata" (rowid, "key", "value", "created_at", "updated_at") VALUES (1, 'environment', 'production', '2026-11-16 07:49:30.660', '2026-11-16 07:49:30.660');
+DELETE FROM sqlite_sequence;
+INSERT INTO sqlite_sequence (name, seq) VALUES ('account_balances', 3);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('account_transactions', 8);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('action_mcp_session_messages', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('action_mcp_session_subscriptions', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('api_keys', 2);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('bot_activity_logs', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('bot_index_assets', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('bot_signals', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('bots', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('connected_clients', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('exchange_assets', 7);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('fee_api_keys', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('fund_classifications', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('idempotency_keys', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('oauth_applications', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('rule_logs', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('rules', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('tickers', 6);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('transactions', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('wash_sale_locks', 0);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('users', 1);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('exchanges', 2);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('assets', 11);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('fx_rates', 1);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('historical_prices', 110);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('portfolio_snapshots', 31);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('portfolio_venue_snapshots', 31);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('app_configs', 2);
+CREATE UNIQUE INDEX "index_app_configs_on_key" ON "app_configs" ("key");
+CREATE UNIQUE INDEX "index_assets_on_external_id" ON "assets" ("external_id");
+CREATE INDEX "index_assets_on_isin" ON "assets" ("isin");
+CREATE INDEX "index_assets_on_name" ON "assets" ("name");
+CREATE INDEX "index_assets_on_symbol" ON "assets" ("symbol");
+CREATE UNIQUE INDEX "index_exchanges_on_type" ON "exchanges" ("type");
+CREATE UNIQUE INDEX "index_fx_rates_on_currency_and_date" ON "fx_rates" ("currency", "date");
+CREATE UNIQUE INDEX "index_historical_prices_on_asset_and_currency_and_date" ON "historical_prices" ("asset", "currency", "date");
+CREATE INDEX "index_ibkr_locks_on_expires_at" ON "ibkr_locks" ("expires_at");
+CREATE UNIQUE INDEX "index_ibkr_locks_on_key" ON "ibkr_locks" ("key");
+CREATE UNIQUE INDEX "index_indices_on_external_id_and_source" ON "indices" ("external_id", "source");
+CREATE INDEX "index_indices_on_weight" ON "indices" ("weight");
+CREATE INDEX "index_oauth_access_grants_on_application_id" ON "oauth_access_grants" ("application_id");
+CREATE INDEX "index_oauth_access_grants_on_resource_owner_id" ON "oauth_access_grants" ("resource_owner_id");
+CREATE UNIQUE INDEX "index_oauth_access_grants_on_token" ON "oauth_access_grants" ("token");
+CREATE INDEX "index_oauth_access_tokens_on_application_id" ON "oauth_access_tokens" ("application_id");
+CREATE UNIQUE INDEX "index_oauth_access_tokens_on_refresh_token" ON "oauth_access_tokens" ("refresh_token");
+CREATE INDEX "index_oauth_access_tokens_on_resource_owner_id" ON "oauth_access_tokens" ("resource_owner_id");
+CREATE UNIQUE INDEX "index_oauth_access_tokens_on_token" ON "oauth_access_tokens" ("token");
+CREATE UNIQUE INDEX "index_portfolio_snapshots_on_user_id_and_date" ON "portfolio_snapshots" ("user_id", "date");
+CREATE INDEX "index_portfolio_snapshots_on_user_id" ON "portfolio_snapshots" ("user_id");
+CREATE UNIQUE INDEX "idx_on_user_id_exchange_id_date_16fb7188ca" ON "portfolio_venue_snapshots" ("user_id", "exchange_id", "date");
+CREATE UNIQUE INDEX "index_users_on_confirmation_token" ON "users" ("confirmation_token");
+CREATE UNIQUE INDEX "index_users_on_email" ON "users" ("email");
+CREATE UNIQUE INDEX "index_users_on_reset_password_token" ON "users" ("reset_password_token");
+CREATE INDEX "index_account_balances_on_asset_id" ON "account_balances" ("asset_id");
+CREATE INDEX "index_account_balances_on_exchange_id" ON "account_balances" ("exchange_id");
+CREATE UNIQUE INDEX "idx_account_balances_user_exchange_asset" ON "account_balances" ("user_id", "exchange_id", "asset_id");
+CREATE INDEX "index_account_balances_on_user_id" ON "account_balances" ("user_id");
+CREATE INDEX "index_account_transactions_on_api_key_id_and_transacted_at" ON "account_transactions" ("api_key_id", "transacted_at");
+CREATE INDEX "index_account_transactions_on_api_key_id" ON "account_transactions" ("api_key_id");
+CREATE INDEX "index_account_transactions_on_exchange_id" ON "account_transactions" ("exchange_id");
+CREATE INDEX "index_account_transactions_on_group_id" ON "account_transactions" ("group_id");
+CREATE UNIQUE INDEX "index_account_transactions_on_linked_transaction_id" ON "account_transactions" ("linked_transaction_id");
+CREATE INDEX "index_account_transactions_on_transacted_at" ON "account_transactions" ("transacted_at");
+CREATE INDEX "index_account_transactions_on_transaction_id" ON "account_transactions" ("transaction_id");
+CREATE UNIQUE INDEX "index_account_transactions_on_user_exchange_tx_id" ON "account_transactions" ("user_id", "exchange_id", "tx_id") WHERE tx_id IS NOT NULL;
+CREATE INDEX "index_account_transactions_on_user_id" ON "account_transactions" ("user_id");
+CREATE INDEX "index_action_mcp_session_messages_on_session_id" ON "action_mcp_session_messages" ("session_id");
+CREATE INDEX "index_action_mcp_session_subscriptions_on_session_id" ON "action_mcp_session_subscriptions" ("session_id");
+CREATE INDEX "index_action_mcp_session_tasks_on_created_at" ON "action_mcp_session_tasks" ("created_at");
+CREATE INDEX "index_action_mcp_session_tasks_on_session_id_and_status" ON "action_mcp_session_tasks" ("session_id", "status");
+CREATE INDEX "index_action_mcp_session_tasks_on_session_id" ON "action_mcp_session_tasks" ("session_id");
+CREATE INDEX "index_action_mcp_session_tasks_on_status" ON "action_mcp_session_tasks" ("status");
+CREATE INDEX "index_api_keys_on_exchange_id" ON "api_keys" ("exchange_id");
+CREATE INDEX "index_api_keys_on_user_id" ON "api_keys" ("user_id");
+CREATE INDEX "index_bot_activity_logs_on_bot_id_and_created_at" ON "bot_activity_logs" ("bot_id", "created_at");
+CREATE INDEX "index_bot_activity_logs_on_bot_id" ON "bot_activity_logs" ("bot_id");
+CREATE INDEX "index_bot_index_assets_on_asset_id" ON "bot_index_assets" ("asset_id");
+CREATE UNIQUE INDEX "index_bot_index_assets_on_bot_id_and_asset_id" ON "bot_index_assets" ("bot_id", "asset_id");
+CREATE INDEX "index_bot_index_assets_on_bot_id" ON "bot_index_assets" ("bot_id");
+CREATE INDEX "index_bot_index_assets_on_ticker_id" ON "bot_index_assets" ("ticker_id");
+CREATE INDEX "index_bot_signals_on_bot_id" ON "bot_signals" ("bot_id");
+CREATE UNIQUE INDEX "index_bot_signals_on_token" ON "bot_signals" ("token");
+CREATE INDEX "index_bots_on_exchange_id" ON "bots" ("exchange_id");
+CREATE INDEX "index_bots_on_user_id" ON "bots" ("user_id");
+CREATE INDEX "index_connected_clients_on_oauth_application_id" ON "connected_clients" ("oauth_application_id");
+CREATE UNIQUE INDEX "index_connected_clients_on_user_and_application" ON "connected_clients" ("user_id", "oauth_application_id");
+CREATE INDEX "index_connected_clients_on_user_id" ON "connected_clients" ("user_id");
+CREATE UNIQUE INDEX "index_exchange_assets_on_asset_id_and_exchange_id" ON "exchange_assets" ("asset_id", "exchange_id");
+CREATE INDEX "index_exchange_assets_on_asset_id" ON "exchange_assets" ("asset_id");
+CREATE INDEX "index_exchange_assets_on_exchange_id" ON "exchange_assets" ("exchange_id");
+CREATE INDEX "index_fee_api_keys_on_exchange_id" ON "fee_api_keys" ("exchange_id");
+CREATE UNIQUE INDEX "index_fund_classifications_on_user_id_and_symbol" ON "fund_classifications" ("user_id", "symbol");
+CREATE INDEX "index_idempotency_keys_on_created_at" ON "idempotency_keys" ("created_at");
+CREATE UNIQUE INDEX "index_idempotency_keys_on_user_id_and_key" ON "idempotency_keys" ("user_id", "key");
+CREATE INDEX "index_idempotency_keys_on_user_id" ON "idempotency_keys" ("user_id");
+CREATE UNIQUE INDEX "index_oauth_applications_unique_personal_owner" ON "oauth_applications" ("personal_owner_id") WHERE personal_access_token = 1;
+CREATE UNIQUE INDEX "index_oauth_applications_on_registration_access_token" ON "oauth_applications" ("registration_access_token");
+CREATE UNIQUE INDEX "index_oauth_applications_on_uid" ON "oauth_applications" ("uid");
+CREATE INDEX "index_rule_logs_on_rule_id_and_created_at" ON "rule_logs" ("rule_id", "created_at");
+CREATE INDEX "index_rule_logs_on_rule_id" ON "rule_logs" ("rule_id");
+CREATE INDEX "index_rules_on_asset_id" ON "rules" ("asset_id");
+CREATE INDEX "index_rules_on_exchange_id" ON "rules" ("exchange_id");
+CREATE UNIQUE INDEX "idx_rules_user_type_exchange_asset" ON "rules" ("user_id", "type", "exchange_id", "asset_id");
+CREATE INDEX "index_rules_on_user_id" ON "rules" ("user_id");
+CREATE INDEX "index_tickers_on_base_asset_id" ON "tickers" ("base_asset_id");
+CREATE UNIQUE INDEX "index_exchange_tickers_on_unique_base_asset_and_quote_asset" ON "tickers" ("exchange_id", "base_asset_id", "quote_asset_id");
+CREATE UNIQUE INDEX "index_exchange_tickers_on_unique_ticker" ON "tickers" ("exchange_id", "ticker");
+CREATE INDEX "index_tickers_on_exchange_id" ON "tickers" ("exchange_id");
+CREATE INDEX "index_tickers_on_quote_asset_id" ON "tickers" ("quote_asset_id");
+CREATE INDEX "index_transactions_on_bot_id_and_created_at" ON "transactions" ("bot_id", "created_at");
+CREATE INDEX "index_transactions_on_bot_id_and_status_and_created_at" ON "transactions" ("bot_id", "status", "created_at");
+CREATE INDEX "index_bot_type_created_at" ON "transactions" ("bot_id", "transaction_type", "created_at");
+CREATE INDEX "index_transactions_on_bot_id" ON "transactions" ("bot_id");
+CREATE INDEX "index_transactions_on_created_at" ON "transactions" ("created_at");
+CREATE UNIQUE INDEX "index_transactions_on_exchange_id_and_external_id" ON "transactions" ("exchange_id", "external_id");
+CREATE INDEX "index_transactions_on_exchange_id" ON "transactions" ("exchange_id");
+CREATE INDEX "index_wash_sale_locks_on_asset_id" ON "wash_sale_locks" ("asset_id");
+CREATE UNIQUE INDEX "index_wash_sale_locks_on_user_id_and_asset_id" ON "wash_sale_locks" ("user_id", "asset_id");
+COMMIT;

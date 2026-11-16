@@ -1,0 +1,18 @@
+# Values Rails draws fresh on every run. `script/rust/freeze --compare A B` blanks them before it compares two freezes
+# (PLAN-B11 R6). Each line is `<file regex> <value regex>  # why`. `repin:` marks a class script/rust/repin already masks.
+# `reported:` marks a class that only the B11-1 freeze found unstable; PLAN-B11 r7 names it for Jan.
+. \$2a\$\d\d\$[./A-Za-z0-9]{22,53}  # repin: bcrypt salts (users.encrypted_password, bcrypt/hash; the salt alone in Devise's session key)
+. \{\\*"p\\*":\\*"[^"\\]*\\*",\\*"h\\*":\{[^}]*\}\}  # repin: ciphertexts (api_keys key/secret/passphrase, otp_secret_key, app_configs.value)
+. \b[A-Z2-7]{32}\b  # repin: otp_secret_key in the clear
+. (?<=['\"])(?![a-z_]{20})[A-Za-z0-9_-]{20}(?=\\*['\"])  # repin: confirmation_token (and reset tokens of the same shape); never a lower_snake name
+. 127\.0\.0\.1:\d+|localhost:\d{4,5}  # repin: fake-server ports
+. \b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b|dry-order-[0-9a-f-]+  # reported: job ids, paper order ids
+. (?:(?<="id":")|(?<="id": ")|(?<=\\"id\\":\\"))[0-9a-f]{12}(?=\\?")  # reported: SecureRandom.hex(6) ids under "id" (redeploy_pending, liquidation_selling_since), all-digit ones too
+. \b(?=[0-9a-f]*[a-f])[0-9a-f]{16,}\b  # repin: secret_key_base; reported: scenario encryption keys and salt, MCP session ids, reset_password_token, wash_sale_locks.claim_token (16 hex); shorter hex is masked only under "id"
+. \d{4}-\d\d-\d\d[ T]\d\d:\d\d:\d\d\.\d+  # repin: stopped_at, ar_internal_metadata; reported: every created_at/updated_at/…_at Rails stamps from the clock
+. (?:(?<![A-Za-z0-9_-])|(?<=\\n))(?![a-z_]{43})[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])  # reported: bot_signals.token and REST API tokens (webhook URLs, the settings token row); never a lower_snake name
+. _deltabadger_session=[^;"\\]+  # reported: the session cookie
+. (csrf-token\\*" content=\\*"|authenticity_token\\*" value=\\*"|"authenticity_token":"|_csrf_token: &quot;|HTTP_X_CSRF_TOKEN: &quot;)[^"\\&]*  # reported: CSRF tokens (also in Rails' debug-page session dump)
+. nonce-[A-Za-z0-9+/=]+|csp-nonce\\*" content=\\*"[^"\\]*|nonce=\\*"[^"\\]*  # reported: CSP nonces
+. Message-ID: <[^>]*>  # reported: a mail's Message-ID (mail_parity sets it aside too)
+. "seconds": [0-9.]+  # reported: how long a figures recording took

@@ -1,0 +1,13 @@
+{
+  "parity_scratch": true,
+  "job": "sync_stocks_from_deltabadger_job",
+  "at": "2026-10-02T10:31:00.123456Z",
+  "env": {},
+  "script": {},
+  "raises": false,
+  "asset": null,
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  }
+}

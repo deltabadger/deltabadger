@@ -1,0 +1,71 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T14:00:01.250000Z",
+  "venue": "alpaca",
+  "script": {
+    "alpaca": {
+      "GET /v1beta3/crypto/us/latest/quotes": [
+        {
+          "status": 200,
+          "body": {
+            "quotes": {
+              "BTC/USD": {
+                "ap": 64321.47,
+                "as": 0.5,
+                "bp": 64300.25,
+                "bs": 0.4,
+                "t": "2026-09-01T14:00:00Z"
+              }
+            }
+          }
+        }
+      ],
+      "GET /v2/account": [
+        {
+          "status": 200,
+          "body": {
+            "id": "paper-account",
+            "status": "ACTIVE",
+            "currency": "USD",
+            "cash": "10000",
+            "buying_power": "20000.0",
+            "non_marginable_buying_power": "4000"
+          }
+        }
+      ],
+      "GET /v2/positions": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "symbol": "BTCUSD",
+              "asset_class": "crypto",
+              "qty": "0.5",
+              "qty_available": "0.5",
+              "side": "long"
+            }
+          ]
+        }
+      ],
+      "POST /v2/orders": [
+        {
+          "status": 500,
+          "body": {
+            "code": 50010000,
+            "message": "internal server error"
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "orders": [
+    {
+      "order_type": "market",
+      "side": "buy",
+      "amount": "100",
+      "amount_type": "quote"
+    }
+  ]
+}

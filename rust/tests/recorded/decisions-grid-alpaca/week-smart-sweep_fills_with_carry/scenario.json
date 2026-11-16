@@ -1,0 +1,112 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-08T10:00:01.123456Z",
+  "venue": "alpaca",
+  "script": {
+    "alpaca": {
+      "GET /v1beta3/crypto/us/latest/quotes": [
+        {
+          "status": 200,
+          "body": {
+            "quotes": {
+              "BTC/USD": {
+                "ap": 64321.479,
+                "as": 0.5,
+                "bp": 64300.25,
+                "bs": 0.4,
+                "t": "2026-09-01T10:00:00Z"
+              }
+            }
+          }
+        }
+      ],
+      "GET /v1beta3/crypto/us/latest/trades": [
+        {
+          "status": 200,
+          "body": {
+            "trades": {
+              "BTC/USD": {
+                "p": 64310.75,
+                "s": 0.01,
+                "t": "2026-09-01T10:00:00Z",
+                "i": 1,
+                "tks": "B"
+              }
+            }
+          }
+        }
+      ],
+      "POST /v2/orders": [
+        {
+          "status": 200,
+          "body": {
+            "id": "OTX-1",
+            "client_order_id": "rails-OTX-1",
+            "symbol": "BTC/USD",
+            "asset_class": "crypto",
+            "notional": "60",
+            "qty": null,
+            "filled_qty": "0",
+            "filled_avg_price": null,
+            "order_type": "market",
+            "type": "market",
+            "side": "buy",
+            "time_in_force": "gtc",
+            "limit_price": null,
+            "status": "pending_new"
+          }
+        }
+      ],
+      "GET /v2/account": [
+        {
+          "status": 200,
+          "body": {
+            "id": "paper-account",
+            "status": "ACTIVE",
+            "currency": "USD",
+            "cash": "100000",
+            "buying_power": "200000.0",
+            "non_marginable_buying_power": "100000"
+          }
+        }
+      ],
+      "GET /v2/positions": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "symbol": "BTCUSD",
+              "asset_class": "crypto",
+              "qty": "0.0015",
+              "qty_available": "0.0015",
+              "side": "long"
+            }
+          ]
+        }
+      ],
+      "GET /v2/orders/OMKT-2": [
+        {
+          "status": 200,
+          "body": {
+            "id": "OMKT-2",
+            "client_order_id": "rails-OMKT-2",
+            "symbol": "BTC/USD",
+            "asset_class": "crypto",
+            "notional": "60",
+            "qty": null,
+            "filled_qty": "0.000932719",
+            "filled_avg_price": "64328.1",
+            "order_type": "market",
+            "type": "market",
+            "side": "buy",
+            "time_in_force": "gtc",
+            "limit_price": null,
+            "status": "filled"
+          }
+        }
+      ]
+    }
+  },
+  "tick": true
+}

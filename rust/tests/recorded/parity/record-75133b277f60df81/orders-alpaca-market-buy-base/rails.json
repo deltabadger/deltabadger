@@ -1,0 +1,57 @@
+{
+  "sent": [
+    {
+      "symbol": "BTC/USD",
+      "side": "buy",
+      "type": "market",
+      "time_in_force": "gtc",
+      "qty": "0.001500000"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Alpaca",
+        "base_asset": "BTC",
+        "quote_asset": "USD",
+        "amount": 0.0015,
+        "amount_type": "base"
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "Alpaca",
+          "pair": "BTC/USD",
+          "side": "buy",
+          "order_type": "market",
+          "amount": 0.0015,
+          "amount_type": "base",
+          "upstream": {
+            "order_id": "OTX-1"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Market buy order placed on Alpaca: 0.0015 BTC of BTC/USD. {order_id: \"OTX-1\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

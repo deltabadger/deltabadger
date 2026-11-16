@@ -1,0 +1,123 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-08T10:00:01.123456Z",
+  "venue": "bingx",
+  "script": {
+    "bingx": {
+      "GET /openApi/spot/v1/market/depth": [
+        {
+          "status": 200,
+          "body": {
+            "code": 0,
+            "data": {
+              "bids": [
+                [
+                  "64000.10",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "64000.11",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /openApi/spot/v2/market/ticker": [
+        {
+          "status": 200,
+          "body": {
+            "code": 0,
+            "data": [
+              {
+                "symbol": "BTC-USDT",
+                "lastPrice": "64000.05"
+              }
+            ]
+          }
+        }
+      ],
+      "POST /openApi/spot/v1/trade/order": [
+        {
+          "status": 200,
+          "body": {
+            "code": 0,
+            "data": {
+              "symbol": "BTC-USDT",
+              "orderId": "100",
+              "orderListId": -1,
+              "price": "0",
+              "origQty": "0",
+              "type": "MARKET",
+              "side": "BUY",
+              "transactTime": 1788000000000
+            }
+          }
+        }
+      ],
+      "GET /openApi/spot/v1/account/balance": [
+        {
+          "status": 200,
+          "body": {
+            "code": 0,
+            "data": {
+              "canTrade": true,
+              "canWithdraw": true,
+              "canDeposit": true,
+              "accountType": "SPOT",
+              "balances": [
+                {
+                  "asset": "BTC",
+                  "free": "0.5",
+                  "locked": "0"
+                },
+                {
+                  "asset": "USDT",
+                  "free": "100000",
+                  "locked": "0"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "GET /openApi/spot/v1/trade/query": [
+        {
+          "status": 400,
+          "body": {
+            "code": 100404,
+            "msg": "Order does not exist"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "code": 0,
+            "data": {
+              "symbol": "BTC-USDT",
+              "orderId": "215",
+              "orderListId": -1,
+              "clientOrderId": "",
+              "price": "0",
+              "origQty": "0",
+              "executedQty": "0.00093",
+              "cummulativeQuoteQty": "59.52",
+              "status": "FILLED",
+              "type": "MARKET",
+              "side": "BUY",
+              "time": 1788000000000,
+              "updateTime": 1788000000000,
+              "isWorking": true,
+              "origQuoteOrderQty": "60"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": true
+}

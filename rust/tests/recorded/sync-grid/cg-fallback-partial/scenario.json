@@ -1,0 +1,90 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:30:00.750000Z",
+      "binance": {
+        "GET /api/v3/account": [
+          {
+            "status": 200,
+            "body": {
+              "makerCommission": 10,
+              "canTrade": true,
+              "accountType": "SPOT",
+              "balances": [
+                {
+                  "asset": "BTC",
+                  "free": "0.50000000",
+                  "locked": "0.10000000"
+                },
+                {
+                  "asset": "ETH",
+                  "free": "2.00000000",
+                  "locked": "0.00000000"
+                },
+                {
+                  "asset": "USDT",
+                  "free": "100.50000000",
+                  "locked": "0.00000000"
+                },
+                {
+                  "asset": "EUR",
+                  "free": "50.00",
+                  "locked": "0.00000000"
+                }
+              ],
+              "permissions": [
+                "SPOT"
+              ],
+              "uid": 354937868
+            }
+          }
+        ]
+      },
+      "market": {
+        "GET /api/v1/exchange_rates": [
+          {
+            "status": 200,
+            "body": {
+              "data": {
+                "btc": {
+                  "value": 1
+                },
+                "usd": {
+                  "value": 60000.5
+                },
+                "eur": {
+                  "value": 55000.25
+                }
+              }
+            }
+          }
+        ],
+        "GET /api/v1/prices": [
+          {
+            "status": 200,
+            "body": {
+              "data": {
+                "bitcoin": {
+                  "usd": 60000.5
+                },
+                "tether": {
+                  "usd": 1.0001
+                }
+              }
+            }
+          }
+        ]
+      },
+      "coingecko": {}
+    }
+  ]
+}

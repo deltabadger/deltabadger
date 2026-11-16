@@ -1,0 +1,140 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-08T10:00:01.123456Z",
+  "venue": "binance_us",
+  "script": {
+    "binance_us": {
+      "GET /api/v3/ticker/bookTicker": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "bidPrice": "64000.10000000",
+            "bidQty": "1.5",
+            "askPrice": "64000.11000000",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "price": "64000.05000000"
+          }
+        }
+      ],
+      "POST /api/v3/order": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28457,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        }
+      ],
+      "GET /api/v3/account": [
+        {
+          "status": 200,
+          "body": {
+            "makerCommission": 10,
+            "canTrade": true,
+            "balances": [
+              {
+                "asset": "BTC",
+                "free": "0.5",
+                "locked": "0"
+              },
+              {
+                "asset": "USDT",
+                "free": "100000.00000000",
+                "locked": "0"
+              }
+            ]
+          }
+        }
+      ],
+      "GET /api/v3/allOrders": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "symbol": "BTCUSDT",
+              "orderId": 204,
+              "orderListId": -1,
+              "clientOrderId": "web_204",
+              "price": "0.00000000",
+              "origQty": "0.00000000",
+              "executedQty": "3.0",
+              "cummulativeQuoteQty": "60.00000000",
+              "status": "FILLED",
+              "timeInForce": "GTC",
+              "type": "MARKET",
+              "side": "BUY",
+              "origQuoteOrderQty": "60.00000000",
+              "time": 1788000000000
+            }
+          ]
+        }
+      ],
+      "GET /api/v3/myTrades": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "symbol": "BTCUSDT",
+              "id": 1,
+              "orderId": 204,
+              "orderListId": -1,
+              "price": "1.00",
+              "qty": "1",
+              "quoteQty": "1.0",
+              "commission": "0",
+              "commissionAsset": "BNB",
+              "time": 1788000000001,
+              "isBuyer": true,
+              "isMaker": false,
+              "isBestMatch": true
+            },
+            {
+              "symbol": "BTCUSDT",
+              "id": 2,
+              "orderId": 204,
+              "orderListId": -1,
+              "price": "1.01",
+              "qty": "1",
+              "quoteQty": "1.01",
+              "commission": "0",
+              "commissionAsset": "BNB",
+              "time": 1788000000002,
+              "isBuyer": true,
+              "isMaker": false,
+              "isBestMatch": true
+            },
+            {
+              "symbol": "BTCUSDT",
+              "id": 3,
+              "orderId": 204,
+              "orderListId": -1,
+              "price": "1.00",
+              "qty": "1",
+              "quoteQty": "1.0",
+              "commission": "0",
+              "commissionAsset": "BNB",
+              "time": 1788000000003,
+              "isBuyer": true,
+              "isMaker": false,
+              "isBestMatch": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "tick": true
+}

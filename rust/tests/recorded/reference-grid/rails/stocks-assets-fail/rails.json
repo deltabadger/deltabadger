@@ -1,0 +1,25 @@
+{
+  "requests": [
+    "GET /api/v2/assets?include=identifiers&type=stock,etf"
+  ],
+  "retry": false,
+  "changes": {
+    "assets": [],
+    "tickers": [],
+    "exchange_assets": [],
+    "indices": [],
+    "bot_activity_logs": [],
+    "app_configs": [
+      {
+        "id": "stock_canonical_backfill_completed_at",
+        "before": null,
+        "after": {
+          "created_at": "2026-10-02 10:31:00.123456",
+          "key": "stock_canonical_backfill_completed_at",
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "value": "2026-10-02T10:31:00Z"
+        }
+      }
+    ]
+  }
+}

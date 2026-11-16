@@ -1,0 +1,167 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 1,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:30:00.750000Z",
+      "alpaca": {
+        "GET /v2/account": [
+          {
+            "status": 200,
+            "body": {
+              "id": "paper-account",
+              "account_number": "PA0000000000",
+              "status": "ACTIVE",
+              "currency": "USD",
+              "cash": "99123.45",
+              "buying_power": "200000",
+              "non_marginable_buying_power": "100000",
+              "portfolio_value": "100000"
+            }
+          }
+        ],
+        "GET /v2/positions": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "asset_id": "asset-AAPL",
+                "symbol": "AAPL",
+                "exchange": "NASDAQ",
+                "asset_class": "us_equity",
+                "asset_marginable": true,
+                "qty": "10.5",
+                "qty_available": "10.5",
+                "avg_entry_price": "100",
+                "side": "long",
+                "market_value": "0",
+                "cost_basis": "0",
+                "current_price": "100"
+              },
+              {
+                "asset_id": "asset-KLAC",
+                "symbol": "KLAC",
+                "exchange": "NASDAQ",
+                "asset_class": "us_equity",
+                "asset_marginable": true,
+                "qty": "0.359712230",
+                "qty_available": "0.359712230",
+                "avg_entry_price": "100",
+                "side": "long",
+                "market_value": "0",
+                "cost_basis": "0",
+                "current_price": "100"
+              },
+              {
+                "asset_id": "asset-QQQM",
+                "symbol": "QQQM",
+                "exchange": "NASDAQ",
+                "asset_class": "us_equity",
+                "asset_marginable": true,
+                "qty": "3",
+                "qty_available": "3",
+                "avg_entry_price": "100",
+                "side": "long",
+                "market_value": "0",
+                "cost_basis": "0",
+                "current_price": "100"
+              },
+              {
+                "asset_id": "asset-BTCUSD",
+                "symbol": "BTCUSD",
+                "exchange": "CRYPTO",
+                "asset_class": "crypto",
+                "asset_marginable": false,
+                "qty": "0.001130165",
+                "qty_available": "0.001130165",
+                "avg_entry_price": "100",
+                "side": "long",
+                "market_value": "0",
+                "cost_basis": "0",
+                "current_price": "100"
+              },
+              {
+                "asset_id": "asset-ETHUSD",
+                "symbol": "ETHUSD",
+                "exchange": "CRYPTO",
+                "asset_class": "crypto",
+                "asset_marginable": false,
+                "qty": "1.25",
+                "qty_available": "1.25",
+                "avg_entry_price": "100",
+                "side": "long",
+                "market_value": "0",
+                "cost_basis": "0",
+                "current_price": "100"
+              }
+            ]
+          }
+        ],
+        "GET /v2/stocks/snapshots": [
+          {
+            "status": 200,
+            "body": {
+              "AAPL": {
+                "latestTrade": {
+                  "p": 227.52,
+                  "s": 100,
+                  "t": "2026-09-18T19:59:59.5Z",
+                  "x": "V"
+                },
+                "dailyBar": {
+                  "c": 227.52
+                }
+              },
+              "KLAC": {
+                "latestTrade": {
+                  "p": 701.5,
+                  "s": 100,
+                  "t": "2026-09-18T19:59:59.5Z",
+                  "x": "V"
+                },
+                "dailyBar": {
+                  "c": 701.5
+                }
+              },
+              "QQQM": {
+                "latestTrade": {
+                  "p": 201.379999,
+                  "s": 100,
+                  "t": "2026-09-18T19:59:59.5Z",
+                  "x": "V"
+                },
+                "dailyBar": {
+                  "c": 201.379999
+                }
+              }
+            }
+          }
+        ]
+      },
+      "market": {
+        "GET /api/v1/prices": [
+          {
+            "status": 200,
+            "body": {
+              "data": {
+                "bitcoin": {
+                  "usd": 64321.123456789
+                },
+                "ethereum": {
+                  "usd": 0.3
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

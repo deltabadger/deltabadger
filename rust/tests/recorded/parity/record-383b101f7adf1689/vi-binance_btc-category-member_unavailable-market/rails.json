@@ -1,0 +1,283 @@
+{
+  "sent": [
+    {
+      "quoteOrderQty": "0.0009644",
+      "recvWindow": "5000",
+      "selfTradePreventionMode": "EXPIRE_MAKER",
+      "side": "BUY",
+      "symbol": "ETHBTC",
+      "type": "MARKET"
+    }
+  ],
+  "changes": {
+    "bots": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:17.781375",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "Crypto index",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "quote_asset_id": 1,
+            "quote_amount": 0.001,
+            "interval": "day",
+            "index_type": "category",
+            "index_category_id": "layer-1",
+            "num_coins": 3,
+            "allocation_flattening": 0.0,
+            "hold_all": false,
+            "smart_intervaled": false,
+            "smart_interval_quote_amount": 0.001,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001
+          },
+          "settings_changed_at": null,
+          "started_at": "2026-09-01 10:00:00.123456",
+          "status": 1,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "missed_quote_amount": 0,
+            "missed_quote_amount_was_set": null
+          },
+          "type": "Bots::DcaIndex",
+          "updated_at": "2026-11-16 07:47:17.781375",
+          "user_id": 1
+        },
+        "after": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:17.781375",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "Crypto index",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "quote_asset_id": 1,
+            "quote_amount": 0.001,
+            "interval": "day",
+            "index_type": "category",
+            "index_category_id": "layer-1",
+            "num_coins": 3,
+            "allocation_flattening": 0.0,
+            "hold_all": false,
+            "smart_intervaled": false,
+            "smart_interval_quote_amount": 0.001,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001
+          },
+          "settings_changed_at": null,
+          "started_at": "2026-09-01 10:00:00.123456",
+          "status": 1,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "missed_quote_amount": 0,
+            "missed_quote_amount_was_set": null,
+            "last_action_job_at": "2026-09-02T10:00:01.123Z"
+          },
+          "type": "Bots::DcaIndex",
+          "updated_at": "2026-09-02 10:00:01.123456",
+          "user_id": 1
+        }
+      }
+    ],
+    "transactions": [
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "amount": {
+            "f": "3f9950bece9de1ab"
+          },
+          "amount_exec": null,
+          "base": "ETH",
+          "base_asset_id": 2,
+          "bot_id": 1,
+          "bot_interval": "day",
+          "bot_quote_amount": {
+            "f": "3f50624dd2f1a9fc"
+          },
+          "created_at": "2026-09-02 10:00:01.123456",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "ETHBTC-28457",
+          "external_status": 0,
+          "order_type": 0,
+          "price": {
+            "f": "3fa3f91e646f1562"
+          },
+          "quote": "BTC",
+          "quote_amount": {
+            "f": "3f4f9a0b451922fa"
+          },
+          "quote_amount_exec": null,
+          "quote_asset_id": 1,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-02 10:00:01.123456"
+        }
+      }
+    ],
+    "bot_activity_logs": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "bot_id": 1,
+          "created_at": "2026-09-02 10:00:01.123456",
+          "details": {
+            "count": 1,
+            "bases": "AVAX"
+          },
+          "event": "orders_below_minimum",
+          "level": 0,
+          "message": null
+        }
+      }
+    ],
+    "bot_index_assets": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "asset_id": 2,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fe999999999999a"
+          },
+          "ticker_id": 1,
+          "updated_at": "2026-08-01 00:00:00"
+        },
+        "after": {
+          "id": 1,
+          "asset_id": 2,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fea1f59ccfaeff6"
+          },
+          "ticker_id": 1,
+          "updated_at": "2026-09-02 10:00:01.123456"
+        }
+      },
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "asset_id": 5,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fc47ae147ae147b"
+          },
+          "ticker_id": 2,
+          "updated_at": "2026-08-01 00:00:00"
+        },
+        "after": {
+          "id": 2,
+          "asset_id": 5,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fc4e5de15ca6ca0"
+          },
+          "ticker_id": 2,
+          "updated_at": "2026-09-02 10:00:01.123456"
+        }
+      },
+      {
+        "id": 3,
+        "before": {
+          "id": 3,
+          "asset_id": 6,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fa47ae147ae147b"
+          },
+          "ticker_id": 3,
+          "updated_at": "2026-08-01 00:00:00"
+        },
+        "after": {
+          "id": 3,
+          "asset_id": 6,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": "2026-09-02 10:00:01.123456",
+          "in_index": 0,
+          "target_allocation": {
+            "f": "3fa47ae147ae147b"
+          },
+          "ticker_id": 3,
+          "updated_at": "2026-08-01 00:00:00"
+        }
+      },
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "asset_id": 7,
+          "bot_id": 1,
+          "created_at": "2026-09-02 10:00:01.123456",
+          "current_allocation": null,
+          "entered_at": "2026-09-02 10:00:01.123456",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3f94e5d5b24e9c45"
+          },
+          "ticker_id": 4,
+          "updated_at": "2026-09-02 10:00:01.123456"
+        }
+      }
+    ],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}

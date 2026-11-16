@@ -1,0 +1,131 @@
+{
+  "parity_scratch": true,
+  "job": "sync_all_tickers_and_assets_job",
+  "at": "2026-10-02T10:31:00.123456Z",
+  "env": {},
+  "script": {
+    "GET /api/v3/ping": [
+      {
+        "status": 401,
+        "body": {
+          "error": "invalid key"
+        }
+      }
+    ],
+    "GET api.kraken.com/0/public/AssetPairs?aclass_base=all": [
+      {
+        "status": 200,
+        "body": {
+          "error": [],
+          "result": {
+            "XAAAZUSD": {
+              "altname": "AAAUSD",
+              "wsname": "AAA/USD",
+              "aclass_base": "currency",
+              "base": "AAA",
+              "quote": "USD",
+              "lot_decimals": 8,
+              "cost_decimals": 5,
+              "pair_decimals": 1,
+              "ordermin": "0.0001",
+              "costmin": "0.45",
+              "status": "online"
+            },
+            "XSYMZUSD": {
+              "altname": "SYMUSD",
+              "wsname": "SYM/USD",
+              "aclass_base": "currency",
+              "base": "SYM",
+              "quote": "USD",
+              "lot_decimals": 8,
+              "cost_decimals": 5,
+              "pair_decimals": 1,
+              "ordermin": "0.0001",
+              "costmin": "0.45",
+              "status": "online"
+            },
+            "XONEZUSD": {
+              "altname": "ONEUSD",
+              "wsname": "ONE/USD",
+              "aclass_base": "currency",
+              "base": "ONE",
+              "quote": "USD",
+              "lot_decimals": 8,
+              "cost_decimals": 5,
+              "pair_decimals": 1,
+              "ordermin": "0.0001",
+              "costmin": "0.45",
+              "status": "online"
+            },
+            "XTWOZUSD": {
+              "altname": "TWOUSD",
+              "wsname": "TWO/USD",
+              "aclass_base": "currency",
+              "base": "TWO",
+              "quote": "USD",
+              "lot_decimals": 8,
+              "cost_decimals": 5,
+              "pair_decimals": 1,
+              "ordermin": "0.0001",
+              "costmin": "0.45",
+              "status": "online"
+            }
+          }
+        }
+      }
+    ],
+    "GET /api/v3/exchanges/kraken/tickers?depth=false&include_exchange_logo=false&order=base_asset&page=1": [
+      {
+        "status": 200,
+        "body": {
+          "tickers": [
+            {
+              "base": "AAA",
+              "target": "USD",
+              "coin_id": "good-a",
+              "target_coin_id": null
+            },
+            {
+              "base": "SYM",
+              "target": "USD",
+              "coin_id": "sym-one",
+              "target_coin_id": null
+            },
+            {
+              "base": "SYM",
+              "target": "USD",
+              "coin_id": "sym-two",
+              "target_coin_id": null
+            },
+            {
+              "base": "ONE",
+              "target": "USD",
+              "coin_id": "shared-id",
+              "target_coin_id": null
+            },
+            {
+              "base": "TWO",
+              "target": "USD",
+              "coin_id": "shared-id",
+              "target_coin_id": null
+            }
+          ]
+        }
+      }
+    ],
+    "GET api.coinbase.com/api/v3/brokerage/market/products": [
+      {
+        "status": 200,
+        "body": {
+          "products": []
+        }
+      }
+    ]
+  },
+  "raises": false,
+  "asset": null,
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  }
+}

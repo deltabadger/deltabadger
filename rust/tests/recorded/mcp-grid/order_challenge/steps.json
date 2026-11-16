@@ -1,0 +1,13 @@
+[
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{",
+    "headers": {
+      "Authorization": null,
+      "Content-Type": "text/plain",
+      "Accept": null,
+      "Origin": "https://evil.example"
+    }
+  }
+]

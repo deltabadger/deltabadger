@@ -1,0 +1,69 @@
+{
+  "sent": [],
+  "changes": {
+    "bots": [],
+    "transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "amount": {
+            "f": "3e6ad7f29abcaf48"
+          },
+          "amount_exec": 0,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": null,
+          "external_status": null,
+          "order_type": 0,
+          "price": {
+            "f": "40ef400333333333"
+          },
+          "quote": "USDT",
+          "quote_amount": {
+            "f": "3f6a36e59a4e1f73"
+          },
+          "quote_amount_exec": 0,
+          "quote_asset_id": 2,
+          "side": 1,
+          "status": 2,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 14:00:01.250000"
+        }
+      }
+    ],
+    "bot_activity_logs": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "bot_id": 1,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "details": {
+            "base": "BTC",
+            "quote": "USDT",
+            "amount": "0.00000005",
+            "quote_amount": "0.003200005",
+            "price": "64000.1"
+          },
+          "event": "order_skipped",
+          "level": 1,
+          "message": null
+        }
+      }
+    ],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}

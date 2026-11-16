@@ -1,0 +1,131 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "bybit": {
+        "GET /v5/execution/list": [
+          {
+            "status": 200,
+            "body": {
+              "retCode": 0,
+              "retMsg": "OK",
+              "result": {
+                "list": [
+                  {
+                    "symbol": "BTCUSDT",
+                    "side": "Buy",
+                    "execQty": "0.001",
+                    "execValue": "60",
+                    "execFee": "-0.06",
+                    "feeCurrency": "USDT",
+                    "execId": "f1",
+                    "execTime": "2026000"
+                  }
+                ],
+                "nextPageCursor": ""
+              }
+            }
+          }
+        ],
+        "GET /v5/asset/deposit/query-record": [
+          {
+            "status": 200,
+            "body": {
+              "retCode": 0,
+              "retMsg": "OK",
+              "result": {
+                "rows": [
+                  {
+                    "coin": "USDT",
+                    "amount": "100",
+                    "status": 3,
+                    "txID": "d1",
+                    "successAt": "2026000"
+                  },
+                  {
+                    "coin": "USDT",
+                    "amount": "100",
+                    "status": 70012,
+                    "txID": "rollback",
+                    "successAt": "2026000"
+                  },
+                  {
+                    "coin": "USDT",
+                    "amount": "100",
+                    "status": 10012,
+                    "txID": "ignored",
+                    "successAt": "2026000"
+                  }
+                ],
+                "nextPageCursor": ""
+              }
+            }
+          }
+        ],
+        "GET /v5/asset/deposit/query-internal-record": [
+          {
+            "status": 200,
+            "body": {
+              "retCode": 0,
+              "retMsg": "OK",
+              "result": {
+                "rows": [
+                  {
+                    "coin": "USDT",
+                    "amount": "100",
+                    "status": 2,
+                    "txID": "i1",
+                    "successAt": "2026000",
+                    "createdTime": "1789812000"
+                  }
+                ],
+                "nextPageCursor": ""
+              }
+            }
+          }
+        ],
+        "GET /v5/asset/withdraw/query-record": [
+          {
+            "status": 200,
+            "body": {
+              "retCode": 0,
+              "retMsg": "OK",
+              "result": {
+                "rows": [
+                  {
+                    "coin": "USDT",
+                    "amount": "100",
+                    "status": "success",
+                    "txID": "w1",
+                    "successAt": "2026000",
+                    "withdrawFee": "1",
+                    "updateTime": "2026000"
+                  },
+                  {
+                    "coin": "USDT",
+                    "amount": "100",
+                    "status": "BlockchainConfirmed",
+                    "txID": "ignored",
+                    "successAt": "2026000",
+                    "withdrawFee": "1",
+                    "updateTime": "2026000"
+                  }
+                ],
+                "nextPageCursor": ""
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

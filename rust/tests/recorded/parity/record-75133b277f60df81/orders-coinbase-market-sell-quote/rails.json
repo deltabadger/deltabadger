@@ -1,0 +1,59 @@
+{
+  "sent": [
+    {
+      "product_id": "BTC-EUR",
+      "side": "SELL",
+      "order_configuration": {
+        "market_market_ioc": {
+          "quote_size": "100.0"
+        }
+      }
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Coinbase",
+        "base_asset": "BTC",
+        "quote_asset": "EUR",
+        "amount": 100,
+        "amount_type": "quote"
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "Coinbase",
+          "pair": "BTC/EUR",
+          "side": "sell",
+          "order_type": "market",
+          "amount": 100.0,
+          "amount_type": "quote",
+          "upstream": {
+            "order_id": "cb-1"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Market sell order placed on Coinbase: 100.0 EUR of BTC/EUR. {order_id: \"cb-1\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

@@ -1,0 +1,8 @@
+{
+  "page_size": 4096,
+  "auto_vacuum": 0,
+  "encoding": "UTF-8",
+  "user_version": 0,
+  "application_id": 0,
+  "journal_mode": "delete"
+}

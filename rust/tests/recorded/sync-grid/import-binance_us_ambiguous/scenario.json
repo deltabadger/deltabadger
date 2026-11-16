@@ -1,0 +1,35 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 3,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "import",
+      "at": "2026-09-19T12:00:00.500000Z",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202609190000(UTC+0)-part1-of1.csv",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2026-08-01 10:00:46,Spot,Deposit,USDT,1000,\n1,2026-08-02 09:03:00,Spot,Deposit,BTC,0.1,\n1,2026-08-10 12:12:00,Spot,Withdraw,BTC,-0.0505,Withdraw fee is included"
+    },
+    {
+      "kind": "import",
+      "at": "2026-09-19T12:00:00.500000Z",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202609190000(UTC+0)-part1-of1.csv",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2026-08-01 10:00:46,Spot,Deposit,USDT,1000,\n1,2026-08-02 09:03:00,Spot,Deposit,BTC,0.1,\n1,2026-08-10 12:12:00,Spot,Withdraw,BTC,-0.0505,Withdraw fee is included",
+      "answer": "Exchanges::Alpaca"
+    },
+    {
+      "kind": "import",
+      "at": "2026-09-20T03:00:00.500000Z",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202609190000(UTC+0)-part1-of1.csv",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2026-08-01 10:00:46,Spot,Deposit,USDT,1000,\n1,2026-08-02 09:03:00,Spot,Deposit,BTC,0.1,\n1,2026-08-10 12:12:00,Spot,Withdraw,BTC,-0.0505,Withdraw fee is included",
+      "answer": "Exchanges::BinanceUs"
+    }
+  ]
+}

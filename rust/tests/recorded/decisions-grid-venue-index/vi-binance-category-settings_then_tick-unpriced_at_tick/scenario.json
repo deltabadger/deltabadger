@@ -1,0 +1,280 @@
+{
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  },
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-02T10:00:01.123456Z",
+  "venue": "binance",
+  "script": {
+    "binance": {
+      "POST /api/v3/order": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28457,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28458,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28459,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28460,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28461,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28462,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        }
+      ],
+      "GET /api/v3/account": [
+        {
+          "status": 200,
+          "body": {
+            "makerCommission": 10,
+            "canTrade": true,
+            "balances": [
+              {
+                "asset": "USDT",
+                "free": "100000.00000000",
+                "locked": "0"
+              }
+            ]
+          }
+        }
+      ],
+      "GET /api/v3/allOrders": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "GET /api/v3/myTrades": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "GET /api/v3/ticker/price": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "symbol": "BTCUSDT",
+              "price": "64000.05"
+            },
+            {
+              "symbol": "ETHUSDT",
+              "price": "2500.47"
+            },
+            {
+              "symbol": "USDCUSDT",
+              "price": "1.0"
+            },
+            {
+              "symbol": "SOLUSDT",
+              "price": "150.123"
+            },
+            {
+              "symbol": "ADAUSDT",
+              "price": "0.45"
+            },
+            {
+              "symbol": "AVAXUSDT",
+              "price": "27.0"
+            }
+          ]
+        }
+      ],
+      "GET /api/v3/ticker/bookTicker?symbol=BTCUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "bidPrice": "64000.05",
+            "bidQty": "1.5",
+            "askPrice": "64000.11",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price?symbol=BTCUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "price": "64000.05"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/bookTicker?symbol=ETHUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "ETHUSDT",
+            "bidPrice": "2500.47",
+            "bidQty": "1.5",
+            "askPrice": "2500.51",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price?symbol=ETHUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "ETHUSDT",
+            "price": "2500.47"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/bookTicker?symbol=USDCUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "USDCUSDT",
+            "bidPrice": "1.0",
+            "bidQty": "1.5",
+            "askPrice": "1.0001",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price?symbol=USDCUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "USDCUSDT",
+            "price": "1.0"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/bookTicker?symbol=SOLUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "SOLUSDT",
+            "bidPrice": "150.123",
+            "bidQty": "1.5",
+            "askPrice": "150.125",
+            "askQty": "0.2"
+          }
+        },
+        {
+          "status": 400,
+          "body": {
+            "code": -1121,
+            "msg": "Invalid symbol."
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price?symbol=SOLUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "SOLUSDT",
+            "price": "150.123"
+          }
+        },
+        {
+          "status": 400,
+          "body": {
+            "code": -1121,
+            "msg": "Invalid symbol."
+          }
+        }
+      ],
+      "GET /api/v3/ticker/bookTicker?symbol=ADAUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "ADAUSDT",
+            "bidPrice": "0.45",
+            "bidQty": "1.5",
+            "askPrice": "0.4501",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price?symbol=ADAUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "ADAUSDT",
+            "price": "0.45"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/bookTicker?symbol=AVAXUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "AVAXUSDT",
+            "bidPrice": "27.0",
+            "bidQty": "1.5",
+            "askPrice": "27.01",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price?symbol=AVAXUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "AVAXUSDT",
+            "price": "27.0"
+          }
+        }
+      ]
+    }
+  },
+  "tick": true,
+  "resync_at": "2026-09-01T11:00:00.123456Z",
+  "trigger": [
+    "UPDATE bots SET settings = json_set(settings, '$.num_coins', 3)"
+  ]
+}

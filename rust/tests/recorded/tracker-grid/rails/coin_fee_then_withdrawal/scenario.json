@@ -1,0 +1,30 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "at": "2026-10-01T03:00:00Z",
+  "market": {
+    "GET /api/v1/historical_prices": [
+      {
+        "status": 200,
+        "body": {
+          "prices": [
+            [
+              1788393600000,
+              100
+            ],
+            [
+              1788480000000,
+              150
+            ],
+            [
+              1788566400000,
+              200
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "alpaca": {},
+  "ecb": {}
+}

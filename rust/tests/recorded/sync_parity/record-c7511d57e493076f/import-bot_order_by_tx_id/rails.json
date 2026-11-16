@@ -1,0 +1,72 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [],
+      "raised": false,
+      "generations": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "import": {
+        "imported": 1,
+        "duplicates": 0,
+        "skipped": 0,
+        "unrecognised": [],
+        "unrouted": [],
+        "error": null,
+        "ambiguous": null
+      }
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3f847ae147ae147b"
+          },
+          "base_asset_id": 5,
+          "base_currency": "BTC",
+          "created_at": "2026-09-19 12:00:00.500000",
+          "description": null,
+          "entry_type": 0,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": 600,
+          "quote_currency": "USDT",
+          "raw_data": {},
+          "transacted_at": "2026-08-05 10:00:00",
+          "transaction_id": 2,
+          "transfer_link_rejected": 0,
+          "tx_id": "order-591",
+          "updated_at": "2026-09-19 12:00:00.500000",
+          "user_id": 1,
+          "raw_data_text": "{}"
+        }
+      }
+    ],
+    "account_balances": [],
+    "api_keys": [],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

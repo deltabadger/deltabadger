@@ -1,0 +1,82 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /v5/execution/list",
+          [
+            [
+              "category",
+              "spot"
+            ],
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "startTime",
+              "1789520400249"
+            ]
+          ]
+        ],
+        [
+          "GET /v5/asset/deposit/query-record",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "startTime",
+              "1789520400249"
+            ]
+          ]
+        ],
+        [
+          "GET /v5/asset/deposit/query-internal-record",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "startTime",
+              "1789520400249"
+            ]
+          ]
+        ],
+        [
+          "GET /v5/asset/withdraw/query-record",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "startTime",
+              "1789520400249"
+            ],
+            [
+              "withdrawType",
+              "2"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [],
+    "account_balances": [],
+    "api_keys": [],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

@@ -1,0 +1,190 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /api/v1/account",
+          [
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "e31530c7b7b45a836b70547aa63c1d44652c78232e6413b2f0e4b7aeefb8bde8"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v1/exchangeInfo",
+          []
+        ],
+        [
+          "GET /api/v2/myTrades",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "8a426c1af64aa6add7d216e7f415bcac02e224236c3e52383dc6807438367aaa"
+            ],
+            [
+              "startTime",
+              "1789340400000"
+            ],
+            [
+              "symbol",
+              "BTCUSDT"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v1/deposit/history",
+          [
+            [
+              "coin",
+              "btc"
+            ],
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "eb68bd0cc7a0d1e7d7a600ae35a6efdc70754457deb1ba8653a41e6e540be951"
+            ],
+            [
+              "startTime",
+              "1789340400000"
+            ],
+            [
+              "status",
+              "1"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v1/deposit/history",
+          [
+            [
+              "coin",
+              "btc"
+            ],
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "b63ad220100c59a1fd6b16fffb523080705c7f54afa5b6f69c6b5c5237823705"
+            ],
+            [
+              "startTime",
+              "1789340400000"
+            ],
+            [
+              "status",
+              "1"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ]
+      ],
+      "raised": true,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [],
+    "account_balances": [],
+    "api_keys": [
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": "2026-09-15 00:00:00",
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        },
+        "after": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": "NameError: undefined local variable or method 'path' for an instance of Exchanges::Bitrue",
+          "last_synced_at": "2026-09-15 00:00:00",
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        }
+      }
+    ],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

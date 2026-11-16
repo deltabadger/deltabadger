@@ -1,0 +1,64 @@
+{
+  "sent": [
+    {
+      "quantity": "0.001562",
+      "recvWindow": "5000",
+      "side": "SELL",
+      "symbol": "BTCUSDT",
+      "type": "MARKET"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "amount": {
+            "f": "3f599996fa832d37"
+          },
+          "amount_exec": 0,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "error_messages": [
+            "Insufficient account balance."
+          ],
+          "exchange_id": 1,
+          "external_id": null,
+          "external_status": null,
+          "order_type": 0,
+          "price": {
+            "f": "40ef400333333333"
+          },
+          "quote": "USDT",
+          "quote_amount": 100,
+          "quote_amount_exec": 0,
+          "quote_asset_id": 2,
+          "side": 1,
+          "status": 1,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 14:00:01.250000"
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [
+    {
+      "mail": "notify_about_error",
+      "errors": [
+        "Not enough funds on your Bitrue account."
+      ]
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

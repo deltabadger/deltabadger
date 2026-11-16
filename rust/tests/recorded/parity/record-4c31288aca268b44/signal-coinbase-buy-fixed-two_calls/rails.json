@@ -1,0 +1,99 @@
+{
+  "sent": [
+    {
+      "product_id": "BTC-EUR",
+      "side": "BUY",
+      "order_configuration": {
+        "market_market_ioc": {
+          "quote_size": "100.0"
+        }
+      }
+    },
+    {
+      "product_id": "BTC-EUR",
+      "side": "BUY",
+      "order_configuration": {
+        "market_market_ioc": {
+          "quote_size": "100.0"
+        }
+      }
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "amount": {
+            "f": "3f599996b7675d22"
+          },
+          "amount_exec": null,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "cb-1",
+          "external_status": 0,
+          "order_type": 0,
+          "price": {
+            "f": "40ef4003851eb852"
+          },
+          "quote": "EUR",
+          "quote_amount": 100,
+          "quote_amount_exec": null,
+          "quote_asset_id": 2,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 14:00:01.250000"
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "amount": {
+            "f": "3f599996b7675d22"
+          },
+          "amount_exec": null,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "cb-2",
+          "external_status": 0,
+          "order_type": 0,
+          "price": {
+            "f": "40ef4003851eb852"
+          },
+          "quote": "EUR",
+          "quote_amount": 100,
+          "quote_amount_exec": null,
+          "quote_asset_id": 2,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 14:00:01.250000"
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}

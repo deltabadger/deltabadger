@@ -1,0 +1,217 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-02T10:00:01.123456Z",
+  "venue": "kucoin",
+  "script": {
+    "kucoin": {
+      "POST /api/v1/orders": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c1"
+            }
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c2"
+            }
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c3"
+            }
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c4"
+            }
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c5"
+            }
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c6"
+            }
+          }
+        }
+      ],
+      "GET /api/v1/fills": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "currentPage": 1,
+              "pageSize": 500,
+              "totalNum": 0,
+              "totalPage": 0,
+              "items": []
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/orderbook/level2_20?symbol=BTC-USDT": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "64000.1",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "64000.2",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/orderbook/level2_20?symbol=ETH-USDT": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "2500.5",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "2500.51",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/orderbook/level2_20?symbol=SOL-USDT": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "150.124",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "150.125",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/accounts": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": [
+              {
+                "id": "btc",
+                "currency": "BTC",
+                "type": "trade",
+                "balance": "0.001",
+                "available": "0.001",
+                "holds": "0"
+              },
+              {
+                "id": "eth",
+                "currency": "ETH",
+                "type": "trade",
+                "balance": "0.02",
+                "available": "0.02",
+                "holds": "0"
+              },
+              {
+                "id": "usdt",
+                "currency": "USDT",
+                "type": "trade",
+                "balance": "100000",
+                "available": "100000",
+                "holds": "0"
+              }
+            ]
+          }
+        }
+      ],
+      "GET /api/v1/market/allTickers": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "ticker": [
+                {
+                  "symbol": "BTC-USDT",
+                  "last": "64000.15"
+                },
+                {
+                  "symbol": "ETH-USDT",
+                  "last": "2500.47"
+                },
+                {
+                  "symbol": "SOL-USDT",
+                  "last": "150.123"
+                },
+                {
+                  "symbol": "ADA-USDT",
+                  "last": "0.4"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": true
+}

@@ -1,0 +1,63 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-08T10:00:01.123456Z",
+  "venue": "bitvavo",
+  "script": {
+    "bitvavo": {
+      "GET /v2/ticker/book": [
+        {
+          "status": 200,
+          "body": {
+            "market": "BTC-EUR",
+            "bid": "64000",
+            "bidSize": "1.5",
+            "ask": "64001",
+            "askSize": "0.2"
+          }
+        }
+      ],
+      "GET /v2/ticker/price": [
+        {
+          "status": 200,
+          "body": {
+            "market": "BTC-EUR",
+            "price": "64000"
+          }
+        }
+      ],
+      "POST /v2/order": [
+        {
+          "status": 200,
+          "body": {
+            "market": "BTC-EUR"
+          }
+        }
+      ],
+      "GET /v2/balance": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "symbol": "BTC",
+              "available": "0.5",
+              "inOrder": "0"
+            },
+            {
+              "symbol": "EUR",
+              "available": "100000",
+              "inOrder": "0"
+            }
+          ]
+        }
+      ],
+      "GET /v2/trades": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ]
+    }
+  },
+  "tick": true
+}

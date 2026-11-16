@@ -1,0 +1,28 @@
+{
+  "page_parity_scratch": true,
+  "at": "2026-09-10T12:00:30.123456Z",
+  "secret_key_base": "61a30e26004ff1e25ced6c8a0629bdcef5e7bdf90db030ffb7d5f8045d9b04d14c830dfd2fd0312fe655dcbd6f9287a4777420c0f285baf8bf8363797db44997",
+  "steps": [
+    {
+      "method": "GET",
+      "path": "/api/v1/bots",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    }
+  ],
+  "expect_users": {},
+  "jobs": {}
+}

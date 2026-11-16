@@ -1,0 +1,136 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-08T10:00:01.123456Z",
+  "venue": "kucoin",
+  "script": {
+    "kucoin": {
+      "GET /api/v1/market/orderbook/level2_20": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "64000.1",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "64000.2",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/allTickers": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "ticker": [
+                {
+                  "symbol": "ETH-USDT",
+                  "last": "2500"
+                },
+                {
+                  "symbol": "BTC-USDT",
+                  "last": "64000.05"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "POST /api/v1/orders": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c5"
+            }
+          }
+        }
+      ],
+      "GET /api/v1/accounts": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": [
+              {
+                "id": "a1",
+                "currency": "BTC",
+                "type": "trade",
+                "balance": "0.5",
+                "available": "0.5",
+                "holds": "0"
+              },
+              {
+                "id": "a2",
+                "currency": "USDT",
+                "type": "trade",
+                "balance": "100000",
+                "available": "100000",
+                "holds": "0"
+              }
+            ]
+          }
+        }
+      ],
+      "GET /api/v1/fills": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "currentPage": 1,
+              "pageSize": 500,
+              "totalNum": 0,
+              "totalPage": 0,
+              "items": []
+            }
+          }
+        }
+      ],
+      "GET /api/v1/orders/KC-403": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "id": "KC-403",
+              "symbol": "BTC-USDT",
+              "opType": "DEAL",
+              "type": "market",
+              "side": "buy",
+              "price": "0",
+              "size": "0",
+              "funds": "60",
+              "dealFunds": "0",
+              "dealSize": "0",
+              "fee": "0",
+              "feeCurrency": "USDT",
+              "clientOid": "web-x",
+              "isActive": false,
+              "cancelExist": false,
+              "cancelReason": "",
+              "createdAt": 1788000000000
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "poll": "KC-403"
+}

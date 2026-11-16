@@ -1,0 +1,3323 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1506556800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "1b553fdb0cf3279649d4521db9a0527e00f611ad0614aeb6b03075f19465bca4"
+            ],
+            [
+              "startTime",
+              "1498867200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1506556800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "1b553fdb0cf3279649d4521db9a0527e00f611ad0614aeb6b03075f19465bca4"
+            ],
+            [
+              "startTime",
+              "1498867200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1514246400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "214352871c70011c2c7a87adae37065b6c090cded7e74c7d0e821fc711102a70"
+            ],
+            [
+              "startTime",
+              "1506556800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1514246400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "214352871c70011c2c7a87adae37065b6c090cded7e74c7d0e821fc711102a70"
+            ],
+            [
+              "startTime",
+              "1506556800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1521936000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "a3e3cd81fc81a02a3a6e7da0c0066c190710e85ad29cd23ababc87f8ec066eb8"
+            ],
+            [
+              "startTime",
+              "1514246400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1521936000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "a3e3cd81fc81a02a3a6e7da0c0066c190710e85ad29cd23ababc87f8ec066eb8"
+            ],
+            [
+              "startTime",
+              "1514246400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1529625600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "07bea8dc9d1c704805e3f62d43c9236b0f85cb0b77ba74fc7307d7408959699d"
+            ],
+            [
+              "startTime",
+              "1521936000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1529625600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "07bea8dc9d1c704805e3f62d43c9236b0f85cb0b77ba74fc7307d7408959699d"
+            ],
+            [
+              "startTime",
+              "1521936000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1537315200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "678c9daf021e7f608c7ab2cbfe3f2df0218d7e0bee240b32578b148d368194a2"
+            ],
+            [
+              "startTime",
+              "1529625600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1537315200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "678c9daf021e7f608c7ab2cbfe3f2df0218d7e0bee240b32578b148d368194a2"
+            ],
+            [
+              "startTime",
+              "1529625600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1545004800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "3e1e92d738fd73668b0a65e99e0b686b66caf82c93ca351525d12e741425b416"
+            ],
+            [
+              "startTime",
+              "1537315200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1545004800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "3e1e92d738fd73668b0a65e99e0b686b66caf82c93ca351525d12e741425b416"
+            ],
+            [
+              "startTime",
+              "1537315200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1552694400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "2c799b3b64b64a2d693324b8634cfdf59207c58dfcfefa9be377a9c86e16c1e7"
+            ],
+            [
+              "startTime",
+              "1545004800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1552694400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "2c799b3b64b64a2d693324b8634cfdf59207c58dfcfefa9be377a9c86e16c1e7"
+            ],
+            [
+              "startTime",
+              "1545004800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1560384000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "de94c058709377c7f7273a0721956e79c0543e1525a75a4b3fadc840d76b9d39"
+            ],
+            [
+              "startTime",
+              "1552694400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1560384000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "de94c058709377c7f7273a0721956e79c0543e1525a75a4b3fadc840d76b9d39"
+            ],
+            [
+              "startTime",
+              "1552694400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1568073600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "3e4b85f4b107999404efc97cb9e20c3ba069027281a0743f52e3fc515aeb28a2"
+            ],
+            [
+              "startTime",
+              "1560384000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1568073600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "3e4b85f4b107999404efc97cb9e20c3ba069027281a0743f52e3fc515aeb28a2"
+            ],
+            [
+              "startTime",
+              "1560384000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1575763200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "81342c88e02aab43a5dc3bfb264830a81092d60d32272b323fcc0f9287423c90"
+            ],
+            [
+              "startTime",
+              "1568073600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1575763200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "81342c88e02aab43a5dc3bfb264830a81092d60d32272b323fcc0f9287423c90"
+            ],
+            [
+              "startTime",
+              "1568073600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1583452800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "2b7f8b9b61bd0604a0678a9e2a35d35340a34c13344c1d27c580f22782f4f4c4"
+            ],
+            [
+              "startTime",
+              "1575763200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1583452800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "2b7f8b9b61bd0604a0678a9e2a35d35340a34c13344c1d27c580f22782f4f4c4"
+            ],
+            [
+              "startTime",
+              "1575763200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1591142400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "d5c7ab3b8ae419e5e90a71fa43fe5c3347d424620f6daacfcd867edbe85c8f27"
+            ],
+            [
+              "startTime",
+              "1583452800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1591142400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "d5c7ab3b8ae419e5e90a71fa43fe5c3347d424620f6daacfcd867edbe85c8f27"
+            ],
+            [
+              "startTime",
+              "1583452800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1598832000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "7ec22b5d7d4f7655bd62fdaed932c3f1e8511e2bbe9ccb8cffbce2b7df46b8fb"
+            ],
+            [
+              "startTime",
+              "1591142400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1598832000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "7ec22b5d7d4f7655bd62fdaed932c3f1e8511e2bbe9ccb8cffbce2b7df46b8fb"
+            ],
+            [
+              "startTime",
+              "1591142400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1606521600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "a896dc9639b84517df2c9f51e8e24f2c6951566ffd4da8c45d19e79f2f481883"
+            ],
+            [
+              "startTime",
+              "1598832000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1606521600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "a896dc9639b84517df2c9f51e8e24f2c6951566ffd4da8c45d19e79f2f481883"
+            ],
+            [
+              "startTime",
+              "1598832000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1614211200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "11da9fc74ebd32d58533d46c96f3d3b05711375e9bbfe001f0de8f90a5dc8a03"
+            ],
+            [
+              "startTime",
+              "1606521600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1614211200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "11da9fc74ebd32d58533d46c96f3d3b05711375e9bbfe001f0de8f90a5dc8a03"
+            ],
+            [
+              "startTime",
+              "1606521600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1621900800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "3fd5fbd7e280e5c0bb670e16e7b3354d5e8b1f751f5e8110bec634f441dffad3"
+            ],
+            [
+              "startTime",
+              "1614211200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1621900800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "3fd5fbd7e280e5c0bb670e16e7b3354d5e8b1f751f5e8110bec634f441dffad3"
+            ],
+            [
+              "startTime",
+              "1614211200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1629590400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "394e0eb0c14b0c85d3a448a3086733ce1a8e4858e9119639978e4e9a3a2a1f4f"
+            ],
+            [
+              "startTime",
+              "1621900800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1629590400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "394e0eb0c14b0c85d3a448a3086733ce1a8e4858e9119639978e4e9a3a2a1f4f"
+            ],
+            [
+              "startTime",
+              "1621900800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1637280000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "5ac3e8a83d285163fce656cc6320955dd308f9cd98d9e1e32cd686afa203d7f0"
+            ],
+            [
+              "startTime",
+              "1629590400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1637280000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "5ac3e8a83d285163fce656cc6320955dd308f9cd98d9e1e32cd686afa203d7f0"
+            ],
+            [
+              "startTime",
+              "1629590400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1644969600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "61f2f8fd570cb93fdf32aa19fbe4d13d11697cdd8e8d8e084822e1d734b6abf0"
+            ],
+            [
+              "startTime",
+              "1637280000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1644969600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "61f2f8fd570cb93fdf32aa19fbe4d13d11697cdd8e8d8e084822e1d734b6abf0"
+            ],
+            [
+              "startTime",
+              "1637280000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1652659200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "ed20249aab47a9004ce2c201940d36c45b6999d6703ba9b803749b2a6ecfc7af"
+            ],
+            [
+              "startTime",
+              "1644969600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1652659200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "ed20249aab47a9004ce2c201940d36c45b6999d6703ba9b803749b2a6ecfc7af"
+            ],
+            [
+              "startTime",
+              "1644969600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1660348800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "d80acbb55f4a352fd7087e62e4d903a57bd6d9cf2ed519a09a2632e95875b511"
+            ],
+            [
+              "startTime",
+              "1652659200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1660348800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "d80acbb55f4a352fd7087e62e4d903a57bd6d9cf2ed519a09a2632e95875b511"
+            ],
+            [
+              "startTime",
+              "1652659200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1668038400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "b9061c2afbc4dd8a7aa6671cf230bb967f5706ceae7b6c0e55204b37d9a492c5"
+            ],
+            [
+              "startTime",
+              "1660348800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1668038400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "b9061c2afbc4dd8a7aa6671cf230bb967f5706ceae7b6c0e55204b37d9a492c5"
+            ],
+            [
+              "startTime",
+              "1660348800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1675728000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "e8a5490abbc7490ed4dee8cb951d31f031aa355caede6b0025ac8a8db8e8a706"
+            ],
+            [
+              "startTime",
+              "1668038400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1675728000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "e8a5490abbc7490ed4dee8cb951d31f031aa355caede6b0025ac8a8db8e8a706"
+            ],
+            [
+              "startTime",
+              "1668038400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1683417600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "b9b725dfb9ec1ebd3b02e2463b0cfab91a7d971758cef5342cb3b79c4677cc4a"
+            ],
+            [
+              "startTime",
+              "1675728000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1683417600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "b9b725dfb9ec1ebd3b02e2463b0cfab91a7d971758cef5342cb3b79c4677cc4a"
+            ],
+            [
+              "startTime",
+              "1675728000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1691107200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "df6be5e28b34210666f16a662b4471a8a29cc76ee1d29e6ac15b682b1f1ac700"
+            ],
+            [
+              "startTime",
+              "1683417600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1691107200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "df6be5e28b34210666f16a662b4471a8a29cc76ee1d29e6ac15b682b1f1ac700"
+            ],
+            [
+              "startTime",
+              "1683417600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1698796800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "575df75004d1f8f18d471c2ced8bd8407e886c50cd08384c921a41beeb8bb9be"
+            ],
+            [
+              "startTime",
+              "1691107200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1698796800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "575df75004d1f8f18d471c2ced8bd8407e886c50cd08384c921a41beeb8bb9be"
+            ],
+            [
+              "startTime",
+              "1691107200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1706486400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "cf711261202d8874724609f3883227312d6d51b5bdf14a936c6b94de23d010a9"
+            ],
+            [
+              "startTime",
+              "1698796800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1706486400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "cf711261202d8874724609f3883227312d6d51b5bdf14a936c6b94de23d010a9"
+            ],
+            [
+              "startTime",
+              "1698796800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1714176000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "8cc63df0ca692aaf4f81857d5fcd3f512c96a370a2f7b91b1f4d6d0058761cb0"
+            ],
+            [
+              "startTime",
+              "1706486400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1714176000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "8cc63df0ca692aaf4f81857d5fcd3f512c96a370a2f7b91b1f4d6d0058761cb0"
+            ],
+            [
+              "startTime",
+              "1706486400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1721865600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "b18910fd7814c91a0c89893eeae7361b824b5fbe8673491b8ba3c104cc92cdde"
+            ],
+            [
+              "startTime",
+              "1714176000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1721865600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "b18910fd7814c91a0c89893eeae7361b824b5fbe8673491b8ba3c104cc92cdde"
+            ],
+            [
+              "startTime",
+              "1714176000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1729555200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "03ec9bdbaadd8d1e87ccbc8f58f5a4dc43fd9736c83c04312ad57e5706fd2c29"
+            ],
+            [
+              "startTime",
+              "1721865600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1729555200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "03ec9bdbaadd8d1e87ccbc8f58f5a4dc43fd9736c83c04312ad57e5706fd2c29"
+            ],
+            [
+              "startTime",
+              "1721865600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1737244800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "159b7ea716123eaad853e5d336cdad75e6a1d2f9a2f7645e4139b3663a1eed90"
+            ],
+            [
+              "startTime",
+              "1729555200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1737244800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "159b7ea716123eaad853e5d336cdad75e6a1d2f9a2f7645e4139b3663a1eed90"
+            ],
+            [
+              "startTime",
+              "1729555200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1744934400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "ad452f49dbaabf1bcf0ac6c254afd619fd26c675dec82c0dd0a64e13c391ff45"
+            ],
+            [
+              "startTime",
+              "1737244800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1744934400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "ad452f49dbaabf1bcf0ac6c254afd619fd26c675dec82c0dd0a64e13c391ff45"
+            ],
+            [
+              "startTime",
+              "1737244800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1752624000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "f12420f35c862020dc65ebd1e4a8b690b50fdfcd500178d127535924b819458c"
+            ],
+            [
+              "startTime",
+              "1744934400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1752624000000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "f12420f35c862020dc65ebd1e4a8b690b50fdfcd500178d127535924b819458c"
+            ],
+            [
+              "startTime",
+              "1744934400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1760313600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "5d2482ad950255aa9268b6336d30784aebfbaa71d209f61b8ee94440e59c19d8"
+            ],
+            [
+              "startTime",
+              "1752624000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1760313600000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "5d2482ad950255aa9268b6336d30784aebfbaa71d209f61b8ee94440e59c19d8"
+            ],
+            [
+              "startTime",
+              "1752624000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1768003200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "a22a04c528e827e9608bcf2fc7f38c6fb0fb56ef71b76c5ab564ab113da005d3"
+            ],
+            [
+              "startTime",
+              "1760313600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1768003200000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "a22a04c528e827e9608bcf2fc7f38c6fb0fb56ef71b76c5ab564ab113da005d3"
+            ],
+            [
+              "startTime",
+              "1760313600000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1775692800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "366a23671dc3a7a96d8317dfc20b01b2e02cde36fa03a482c2b86d54ebe0cf7a"
+            ],
+            [
+              "startTime",
+              "1768003200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1775692800000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "366a23671dc3a7a96d8317dfc20b01b2e02cde36fa03a482c2b86d54ebe0cf7a"
+            ],
+            [
+              "startTime",
+              "1768003200000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1783382400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "de893d4c7e3cb688bcaad9eeb989b44994fb926b1ae1cbfead590a0d1f46cae7"
+            ],
+            [
+              "startTime",
+              "1775692800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1783382400000"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "de893d4c7e3cb688bcaad9eeb989b44994fb926b1ae1cbfead590a0d1f46cae7"
+            ],
+            [
+              "startTime",
+              "1775692800000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "7c45ac69189037fc084cdaa8ccc0e2c243f62a99e20f73bc113109b7467508f0"
+            ],
+            [
+              "startTime",
+              "1783382400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "7c45ac69189037fc084cdaa8ccc0e2c243f62a99e20f73bc113109b7467508f0"
+            ],
+            [
+              "startTime",
+              "1783382400000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/account",
+          [
+            [
+              "omitZeroBalances",
+              "true"
+            ],
+            [
+              "recvWindow",
+              "60000"
+            ],
+            [
+              "signature",
+              "6cd8cb36cdcfa9a4da3e1da1dbe06b50994b5121b83a9c1c65574e4e8d500835"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/exchangeInfo",
+          []
+        ],
+        [
+          "GET /api/v3/myTrades",
+          [
+            [
+              "limit",
+              "500"
+            ],
+            [
+              "recvWindow",
+              "60000"
+            ],
+            [
+              "signature",
+              "fe816836bbdfe213aee87d8e0dbe64abb24366470f6cbf6c811d60346aba09c3"
+            ],
+            [
+              "symbol",
+              "BTCUSDT"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/myTrades",
+          [
+            [
+              "limit",
+              "500"
+            ],
+            [
+              "recvWindow",
+              "60000"
+            ],
+            [
+              "signature",
+              "0efc4a1b6a067470d7fad5b15b3b8a569649c4d7f3189ec0ec9b0db3efc979a0"
+            ],
+            [
+              "symbol",
+              "ETHUSDT"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/myTrades",
+          [
+            [
+              "limit",
+              "500"
+            ],
+            [
+              "recvWindow",
+              "60000"
+            ],
+            [
+              "signature",
+              "ed3e503ef2333274c20a3753193e915630f008b15ab6bf8dc74bae8ac40e7a8a"
+            ],
+            [
+              "symbol",
+              "ETHBTC"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/myTrades",
+          [
+            [
+              "limit",
+              "500"
+            ],
+            [
+              "recvWindow",
+              "60000"
+            ],
+            [
+              "signature",
+              "950cca3e53c9837d40e0394705d8f5edf22df0ff3277db2a50ab8a774c70aa8c"
+            ],
+            [
+              "symbol",
+              "BTCEUR"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/asset/assetDividend",
+          [
+            [
+              "limit",
+              "500"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "107853a16edb7b6488a98c00e0862f8ce3f45182bf064b3ad679ea3e49386ba8"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    },
+    {
+      "requests": [
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1790042400249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "71accd7e49ff3134e40a920302bab70e3718895c32549ee32eeed427757d2519"
+            ],
+            [
+              "startTime",
+              "1786964400000"
+            ],
+            [
+              "timestamp",
+              "1790042400249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1790042400249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "71accd7e49ff3134e40a920302bab70e3718895c32549ee32eeed427757d2519"
+            ],
+            [
+              "startTime",
+              "1786964400000"
+            ],
+            [
+              "timestamp",
+              "1790042400249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/myTrades",
+          [
+            [
+              "limit",
+              "500"
+            ],
+            [
+              "recvWindow",
+              "60000"
+            ],
+            [
+              "signature",
+              "5f8ac1b55c7ed53ad945d6f663644003c9d2342093b45224d4b389f0b7fdcd25"
+            ],
+            [
+              "startTime",
+              "1786964400000"
+            ],
+            [
+              "symbol",
+              "BTCUSDT"
+            ],
+            [
+              "timestamp",
+              "1790042400249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/asset/assetDividend",
+          [
+            [
+              "limit",
+              "500"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "8adcf735bd74e0c32cb0ba5afe2a2fbe91a653f7caf4de8a06237c39d7133fbf"
+            ],
+            [
+              "startTime",
+              "1786964400000"
+            ],
+            [
+              "timestamp",
+              "1790042400249"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "api_key_id": 2,
+          "base_amount": 1000,
+          "base_asset_id": 7,
+          "base_currency": "USDT",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 4,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "1",
+            "amount": "1000",
+            "coin": "USDT",
+            "network": "USDT",
+            "status": 1,
+            "address": "addr",
+            "addressTag": "",
+            "txId": "0xd1",
+            "insertTime": 1785578400123,
+            "transferType": 0,
+            "confirmTimes": "1/1",
+            "unlockConfirm": 0,
+            "walletType": 0
+          },
+          "transacted_at": "2026-08-01 10:00:00.122999",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "0xd1",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"1\",\"amount\":\"1000\",\"coin\":\"USDT\",\"network\":\"USDT\",\"status\":1,\"address\":\"addr\",\"addressTag\":\"\",\"txId\":\"0xd1\",\"insertTime\":1785578400123,\"transferType\":0,\"confirmTimes\":\"1/1\",\"unlockConfirm\":0,\"walletType\":0}"
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3fb999999999999a"
+          },
+          "base_asset_id": 5,
+          "base_currency": "BTC",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 4,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "2",
+            "amount": "0.1",
+            "coin": "BTC",
+            "network": "BTC",
+            "status": 1,
+            "address": "addr",
+            "addressTag": "",
+            "txId": "0xd2",
+            "insertTime": 1785661200000,
+            "transferType": 0,
+            "confirmTimes": "1/1",
+            "unlockConfirm": 0,
+            "walletType": 0
+          },
+          "transacted_at": "2026-08-02 09:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "0xd2",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"2\",\"amount\":\"0.1\",\"coin\":\"BTC\",\"network\":\"BTC\",\"status\":1,\"address\":\"addr\",\"addressTag\":\"\",\"txId\":\"0xd2\",\"insertTime\":1785661200000,\"transferType\":0,\"confirmTimes\":\"1/1\",\"unlockConfirm\":0,\"walletType\":0}"
+        }
+      },
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3fa999999999999a"
+          },
+          "base_asset_id": 5,
+          "base_currency": "BTC",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 5,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3f40624dd2f1a9fc"
+          },
+          "fee_currency": "BTC",
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "w1",
+            "amount": "0.05",
+            "transactionFee": "0.0005",
+            "coin": "BTC",
+            "status": 6,
+            "address": "addr",
+            "txId": "0xw1",
+            "applyTime": "2026-08-10 12:00:00",
+            "network": "BTC",
+            "transferType": 0
+          },
+          "transacted_at": "2026-08-10 12:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "0xw1",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"w1\",\"amount\":\"0.05\",\"transactionFee\":\"0.0005\",\"coin\":\"BTC\",\"status\":6,\"address\":\"addr\",\"txId\":\"0xw1\",\"applyTime\":\"2026-08-10 12:00:00\",\"network\":\"BTC\",\"transferType\":0}"
+        }
+      },
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "api_key_id": 2,
+          "base_amount": 10,
+          "base_asset_id": 7,
+          "base_currency": "USDT",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 5,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "w3",
+            "amount": "10",
+            "coin": "USDT",
+            "status": 6,
+            "address": "addr",
+            "txId": "0xw3",
+            "applyTime": "2026-08-12 00:00:00",
+            "network": "USDT",
+            "transferType": 0
+          },
+          "transacted_at": "2026-08-12 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "0xw3",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"w3\",\"amount\":\"10\",\"coin\":\"USDT\",\"status\":6,\"address\":\"addr\",\"txId\":\"0xw3\",\"applyTime\":\"2026-08-12 00:00:00\",\"network\":\"USDT\",\"transferType\":0}"
+        }
+      },
+      {
+        "id": 5,
+        "before": null,
+        "after": {
+          "id": 5,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3f847ae147ae147b"
+          },
+          "base_asset_id": 5,
+          "base_currency": "BTC",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 0,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3ee4f8b588e368f1"
+          },
+          "fee_currency": "BTC",
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": 600,
+          "quote_currency": "USDT",
+          "raw_data": {
+            "id": 100,
+            "orderId": 10,
+            "orderListId": -1,
+            "price": "60000.00",
+            "qty": "0.01000000",
+            "quoteQty": "600.0",
+            "commission": "0.00001000",
+            "commissionAsset": "BTC",
+            "time": 1785924000123,
+            "isBuyer": true,
+            "isMaker": false,
+            "isBestMatch": true
+          },
+          "transacted_at": "2026-08-05 10:00:00.122999",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "BTCUSDT-10-100",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":100,\"orderId\":10,\"orderListId\":-1,\"price\":\"60000.00\",\"qty\":\"0.01000000\",\"quoteQty\":\"600.0\",\"commission\":\"0.00001000\",\"commissionAsset\":\"BTC\",\"time\":1785924000123,\"isBuyer\":true,\"isMaker\":false,\"isBestMatch\":true}"
+        }
+      },
+      {
+        "id": 6,
+        "before": null,
+        "after": {
+          "id": 6,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3f747ae147ae147b"
+          },
+          "base_asset_id": 5,
+          "base_currency": "BTC",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 1,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fd3851eb851eb85"
+          },
+          "fee_currency": "USDT",
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": {
+            "f": "4073100a3d70a3d7"
+          },
+          "quote_currency": "USDT",
+          "raw_data": {
+            "id": 101,
+            "orderId": 11,
+            "orderListId": -1,
+            "price": "61000.50",
+            "qty": "0.00500000",
+            "quoteQty": "305.0025",
+            "commission": "0.30500000",
+            "commissionAsset": "USDT",
+            "time": 1786010400987,
+            "isBuyer": false,
+            "isMaker": false,
+            "isBestMatch": true
+          },
+          "transacted_at": "2026-08-06 10:00:00.986999",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "BTCUSDT-11-101",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":101,\"orderId\":11,\"orderListId\":-1,\"price\":\"61000.50\",\"qty\":\"0.00500000\",\"quoteQty\":\"305.0025\",\"commission\":\"0.30500000\",\"commissionAsset\":\"USDT\",\"time\":1786010400987,\"isBuyer\":false,\"isMaker\":false,\"isBestMatch\":true}"
+        }
+      },
+      {
+        "id": 7,
+        "before": null,
+        "after": {
+          "id": 7,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3fe0000000000000"
+          },
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 2,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3f40624dd2f1a9fc"
+          },
+          "fee_currency": "ETH",
+          "group_id": "swap_ETHBTC-3-7",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": 7,
+            "orderId": 3,
+            "orderListId": -1,
+            "price": "0.04000000",
+            "qty": "0.50000000",
+            "quoteQty": "0.02",
+            "commission": "0.00050000",
+            "commissionAsset": "ETH",
+            "time": 1786096800500,
+            "isBuyer": true,
+            "isMaker": false,
+            "isBestMatch": true
+          },
+          "transacted_at": "2026-08-07 10:00:00.500000",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "ETHBTC-3-7-in",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":7,\"orderId\":3,\"orderListId\":-1,\"price\":\"0.04000000\",\"qty\":\"0.50000000\",\"quoteQty\":\"0.02\",\"commission\":\"0.00050000\",\"commissionAsset\":\"ETH\",\"time\":1786096800500,\"isBuyer\":true,\"isMaker\":false,\"isBestMatch\":true}"
+        }
+      },
+      {
+        "id": 8,
+        "before": null,
+        "after": {
+          "id": 8,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3f947ae147ae147b"
+          },
+          "base_asset_id": 5,
+          "base_currency": "BTC",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 3,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": "swap_ETHBTC-3-7",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": 7,
+            "orderId": 3,
+            "orderListId": -1,
+            "price": "0.04000000",
+            "qty": "0.50000000",
+            "quoteQty": "0.02",
+            "commission": "0.00050000",
+            "commissionAsset": "ETH",
+            "time": 1786096800500,
+            "isBuyer": true,
+            "isMaker": false,
+            "isBestMatch": true
+          },
+          "transacted_at": "2026-08-07 10:00:00.500000",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "ETHBTC-3-7-out",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":7,\"orderId\":3,\"orderListId\":-1,\"price\":\"0.04000000\",\"qty\":\"0.50000000\",\"quoteQty\":\"0.02\",\"commission\":\"0.00050000\",\"commissionAsset\":\"ETH\",\"time\":1786096800500,\"isBuyer\":true,\"isMaker\":false,\"isBestMatch\":true}"
+        }
+      },
+      {
+        "id": 9,
+        "before": null,
+        "after": {
+          "id": 9,
+          "api_key_id": 2,
+          "base_amount": 10,
+          "base_asset_id": null,
+          "base_currency": "BNB",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": "BNB Vault",
+          "entry_type": 8,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": 1637366104,
+            "amount": "10.00000000",
+            "asset": "BNB",
+            "divTime": 1787054400000,
+            "enInfo": "BNB Vault",
+            "tranId": 2968885920,
+            "direction": 1
+          },
+          "transacted_at": "2026-08-18 12:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "dividend-1637366104",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":1637366104,\"amount\":\"10.00000000\",\"asset\":\"BNB\",\"divTime\":1787054400000,\"enInfo\":\"BNB Vault\",\"tranId\":2968885920,\"direction\":1}"
+        }
+      },
+      {
+        "id": 10,
+        "before": null,
+        "after": {
+          "id": 10,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3f50624dd2f1a9fc"
+          },
+          "base_asset_id": 5,
+          "base_currency": "BTC",
+          "created_at": "2026-09-22 02:00:00.250000",
+          "description": null,
+          "entry_type": 0,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3f1a36e2eb1c432d"
+          },
+          "fee_currency": "BNB",
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": 62,
+          "quote_currency": "USDT",
+          "raw_data": {
+            "id": 102,
+            "orderId": 12,
+            "orderListId": -1,
+            "price": "62000",
+            "qty": "0.001",
+            "quoteQty": "62.0",
+            "commission": "0.0001",
+            "commissionAsset": "BNB",
+            "time": 1789851600000,
+            "isBuyer": true,
+            "isMaker": false,
+            "isBestMatch": true
+          },
+          "transacted_at": "2026-09-19 21:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "BTCUSDT-12-102",
+          "updated_at": "2026-09-22 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":102,\"orderId\":12,\"orderListId\":-1,\"price\":\"62000\",\"qty\":\"0.001\",\"quoteQty\":\"62.0\",\"commission\":\"0.0001\",\"commissionAsset\":\"BNB\",\"time\":1789851600000,\"isBuyer\":true,\"isMaker\":false,\"isBestMatch\":true}"
+        }
+      },
+      {
+        "id": 11,
+        "before": null,
+        "after": {
+          "id": 11,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "4004000000000000"
+          },
+          "base_asset_id": null,
+          "base_currency": "BNB",
+          "created_at": "2026-09-22 02:00:00.250000",
+          "description": "BNB Vault",
+          "entry_type": 8,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": 1637366105,
+            "amount": "2.5",
+            "asset": "BNB",
+            "divTime": 1789948800000,
+            "enInfo": "BNB Vault",
+            "tranId": 2968885920,
+            "direction": 1
+          },
+          "transacted_at": "2026-09-21 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "dividend-1637366105",
+          "updated_at": "2026-09-22 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":1637366105,\"amount\":\"2.5\",\"asset\":\"BNB\",\"divTime\":1789948800000,\"enInfo\":\"BNB Vault\",\"tranId\":2968885920,\"direction\":1}"
+        }
+      }
+    ],
+    "account_balances": [],
+    "api_keys": [
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": null,
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        },
+        "after": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": "2026-09-21 00:00:00",
+          "status": 1,
+          "updated_at": "2026-09-22 02:00:00.250000",
+          "user_id": 1
+        }
+      }
+    ],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

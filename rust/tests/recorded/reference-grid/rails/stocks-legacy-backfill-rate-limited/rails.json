@@ -1,0 +1,14 @@
+{
+  "requests": [
+    "GET /api/v2/assets?include=identifiers&type=stock,etf"
+  ],
+  "retry": true,
+  "changes": {
+    "assets": [],
+    "tickers": [],
+    "exchange_assets": [],
+    "indices": [],
+    "bot_activity_logs": [],
+    "app_configs": []
+  }
+}

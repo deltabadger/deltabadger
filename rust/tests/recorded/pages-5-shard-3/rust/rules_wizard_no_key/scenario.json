@@ -1,0 +1,184 @@
+{
+  "page_parity_scratch": true,
+  "at": "2026-09-10T12:00:30.123456Z",
+  "secret_key_base": "61a30e26004ff1e25ced6c8a0629bdcef5e7bdf90db030ffb7d5f8045d9b04d14c830dfd2fd0312fe655dcbd6f9287a4777420c0f285baf8bf8363797db44997",
+  "steps": [
+    {
+      "method": "GET",
+      "path": "/login",
+      "headers": {}
+    },
+    {
+      "method": "POST",
+      "path": "/login",
+      "form": {
+        "user[email]": "owner@example.com",
+        "user[password]": "Correct-horse-9",
+        "user[remember_me]": "0"
+      },
+      "csrf": "form",
+      "headers": {}
+    },
+    {
+      "method": "GET",
+      "path": "/bots",
+      "headers": {}
+    },
+    {
+      "method": "GET",
+      "path": "/rules/withdrawals/pick_exchange/new",
+      "headers": {},
+      "raw_rows": {
+        "rules": [
+          "id",
+          "user_id",
+          "type",
+          "status",
+          "exchange_id",
+          "asset_id",
+          "settings"
+        ],
+        "rule_logs": "*"
+      },
+      "may_mutate": [
+        "rules"
+      ],
+      "session": [
+        "withdrawal_rule_config"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/rules/withdrawals/pick_exchange",
+      "form": {
+        "bots_dca_single_asset[exchange_id]": "3"
+      },
+      "csrf": "header",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "raw_rows": {
+        "rules": [
+          "id",
+          "user_id",
+          "type",
+          "status",
+          "exchange_id",
+          "asset_id",
+          "settings"
+        ],
+        "rule_logs": "*"
+      },
+      "may_mutate": [
+        "rules"
+      ],
+      "session": [
+        "withdrawal_rule_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/rules/withdrawals/add_api_key/new",
+      "headers": {},
+      "raw_rows": {
+        "rules": [
+          "id",
+          "user_id",
+          "type",
+          "status",
+          "exchange_id",
+          "asset_id",
+          "settings"
+        ],
+        "rule_logs": "*"
+      },
+      "may_mutate": [
+        "rules"
+      ],
+      "session": [
+        "withdrawal_rule_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/rules/withdrawals/pick_asset/new",
+      "headers": {},
+      "raw_rows": {
+        "rules": [
+          "id",
+          "user_id",
+          "type",
+          "status",
+          "exchange_id",
+          "asset_id",
+          "settings"
+        ],
+        "rule_logs": "*"
+      },
+      "may_mutate": [
+        "rules"
+      ],
+      "session": [
+        "withdrawal_rule_config"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/rules/withdrawals/pick_asset",
+      "form": {
+        "bots_dca_single_asset[asset_id]": "1"
+      },
+      "csrf": "header",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "raw_rows": {
+        "rules": [
+          "id",
+          "user_id",
+          "type",
+          "status",
+          "exchange_id",
+          "asset_id",
+          "settings"
+        ],
+        "rule_logs": "*"
+      },
+      "may_mutate": [
+        "rules"
+      ],
+      "session": [
+        "withdrawal_rule_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/rules/withdrawals/add_api_key/new",
+      "headers": {},
+      "raw_rows": {
+        "rules": [
+          "id",
+          "user_id",
+          "type",
+          "status",
+          "exchange_id",
+          "asset_id",
+          "settings"
+        ],
+        "rule_logs": "*"
+      },
+      "may_mutate": [
+        "rules"
+      ],
+      "session": [
+        "withdrawal_rule_config"
+      ]
+    }
+  ],
+  "expect_users": {},
+  "jobs": {}
+}

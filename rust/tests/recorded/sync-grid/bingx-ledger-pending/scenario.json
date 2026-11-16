@@ -1,0 +1,93 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "bingx": {
+        "GET /openApi/api/v3/capital/deposit/hisrec": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "coin": "USDTTRC20",
+                "network": "TRC20",
+                "amount": "12.5",
+                "txId": "dep1",
+                "status": 0,
+                "insertTime": 1789689600000
+              }
+            ]
+          }
+        ],
+        "GET /openApi/api/v3/capital/withdraw/history": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "id": "w1",
+                "txId": "batched",
+                "coin": "USDTTRC20",
+                "network": "TRC20",
+                "amount": "3",
+                "transactionFee": "1",
+                "status": 0,
+                "applyTime": "2026-09-18T04:00:00+02:00"
+              }
+            ]
+          }
+        ],
+        "GET /openApi/spot/v1/account/balance": [
+          {
+            "status": 200,
+            "body": {
+              "code": 0,
+              "data": {
+                "balances": [
+                  {
+                    "asset": "BTC",
+                    "free": "1",
+                    "locked": "0"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "GET /openApi/spot/v1/common/symbols": [
+          {
+            "status": 200,
+            "body": {
+              "code": 0,
+              "data": {
+                "symbols": [
+                  {
+                    "symbol": "BTC-USDT"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "GET /openApi/spot/v1/trade/myTrades": [
+          {
+            "status": 200,
+            "body": {
+              "code": 0,
+              "data": {
+                "fills": []
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

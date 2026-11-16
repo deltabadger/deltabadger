@@ -1,0 +1,177 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-g2QQ7C5vH4o3+2Yjuq+VfA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=845VKxQVQjdsNK8jqTIKDj4y9aI6tbHKFIuNxALgQw3%2BOqz7W21IzbWN1SG6HD%2FiH1VmZY20WyZMcoo2dmbKx%2FT3ii14YWara4%2BUd0fRH7LkNmAL91KTPa6vyPvL0MEqXQw9I35ZmT5bRfH8pbJItoOYsAfJJ8URdeHF8Y5qgAUSpvg2CMxneImGbew77RFg%2Fj6Z9ylEnoXicvZ2X83EA8qlk3b7ppprTX29kneq9kOXgvxRgZGaRsFfkRb7wxhHO2bDsjkU0MHS6i0Qrlez7XjcnAfo1h%2FdwXWTZx3KTIsb3G922AzMUdQ9qhXMBQzUEa4%3D--1CtCVUJejImDF1i7--M35YbdXAwRhXkm9%2BG16Gkg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-6290d549af80caa2fb7df4035451b122ac9f284c34459a922e1ae88d558e3008.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-55216d29feb9cbe3040956a80263e39ee90e0e1f1554dc6c4a8b67cec79947a7.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"FT1ztP6Go5rjBRTse2tepNbxhQ03PG_nGRvETzMA0bRp3jokliL0YGGB3EtbaYnLSNQVfbWsXbwvsZwyZuJJBw\" />\n    <meta name=\"csp-nonce\" content=\"g2QQ7C5vH4o3+2Yjuq+VfA==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-controller=\"form--html5-validations form--label-animations\" action=\"/login\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"9ggvlCZXS4Vn4ZlXeQqe8ebKhXci9hQM5gK507W-ZK0Icc5YSC0zMBqc9xXaeXnaBFOt-EO9-NNmnBR70ERURA\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <h1>Welcome back!</h1>\n\n  <div class=\"form__row\">\n    <input autofocus=\"autofocus\" autocomplete=\"email\" class=\"form__input form__input--large\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email invalid!\" type=\"email\" value=\"\" name=\"user[email]\" id=\"user_email\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"current-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" type=\"password\" name=\"user[password]\" id=\"user_password\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n\n      <div class=\"form__info form__info--right\">\n        <a href=\"/password/new\">Forgot password?</a>\n      </div>\n</div>\n    <div class=\"toggle\">\n      <input name=\"user[remember_me]\" type=\"hidden\" value=\"0\" /><input type=\"checkbox\" value=\"1\" name=\"user[remember_me]\" id=\"user_remember_me\" />\n      <div class=\"toggle__style\"></div>\n      <label class=\"label\" for=\"user_remember_me\">Remember me</label>\n      \n    </div>\n\n  <div class=\"form__row form__row--final-button\">\n    <input type=\"submit\" name=\"commit\" value=\"Log In\" class=\"button button--sky button--large\" data-disable-with=\"Log In\" />\n  </div>\n\n  <div class=\"devise__links\">\n\n\n    <a class=\"button button--link\" href=\"/confirmation/new\">Resend link</a>\n    <span class=\"db-middot\">●</span>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"dropdown-wrapper dropdown-wrapper--right dropdown-wrapper--up\" style=\"font-weight: 600; color: var(--link)\">\n  EN\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/de/login\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/nl/login\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/fr/login\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/es/login\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pt/login\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/it/login\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pl/login\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/ru/login\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/cs/login\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sk/login\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/da/login\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sv/login\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/el/login\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/bg/login\">🇧🇬 Български</a>\n  </div>\n</div>\n</div>\n</form>\n\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+      "session_changed": true
+    },
+    {
+      "status": 303,
+      "headers": {
+        "location": "http://localhost:3000/",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-PFV7tL4WYSPMEUI3ITK7ow=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=I26QGUdCYOqlVyul4PGWO395FcLOmFfvKd1USnXbz3lg268Ltdxi4DEb2yfMlkwBOP%2FzWGk2gUz8bAp8TuV3svJ7l7%2Bb6vb6CCuc9i7sqqBpC83fbSTpq%2F9BU85Tw9tBRMODLdY7qsyUtq78SHX%2BE4uwByQNkIVtcZc4TkJmt3DAT%2FEpP1wh%2BKCIbQXQCQoOplViJ5Ec%2B8rHhiCS%2FGMMRcyXRag0Joen%2FxPVXxywa5QI3Wj2OU%2BGvnxoq5QfdY4lZEk%2F9D8%2FTh4ULsOyPKyuf3zasReJljMz%2F28LoZqmHzsWt9wa37neruCOXJidUwId5kyItmqi9ZsG4Yuw9of1SGUGZifgCOT0jGtOPFIbSHN7UwcXvXk%3D--yPPUcnMkXP5xzCnH--szlfID3j1WtpiGK6wOBmHw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-fgoNg8TcD6LxIliKEGVeXQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=B5of50sV72tJdQ9uWNvb6AJ5Ox9J8hdSGH2FdfZSwFnFmvnJ3CXRF%2B4XSq%2F0oLU2DLYYorbWKFEwKF8fEiOcknoSKq6oPOV86uHfJzRN5L9mjrtbiHk55sWWqFZ%2BRpg0caO4M2EJ4A%2BCWj58CzJgFhU1NFL9Pwttr9yrKr5dlJ88Vdro4Eu3LVq7gTcaMi7e6yEXzpGzN4YlCkUyu6d4W4fs0XWp%2F2xJWdDmrTXSLIxVC1%2BSDntQr%2Fn0yrYPgyYd8%2BS6WV1YIN1sJ84YPf7%2BsljBTMSNfOSFryFF2TvRaKFE2uzYEymuU6ZFsz6nPySA8JW1qGPIIkdU51j8KKEhO4c7i%2FlaOf0vgMvYEWXyM2l6kI8U%2Buw%3D--hoPpRmnK40oKaN2p--rJOPABrFXptrARKh6O2S5Q%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo tooltip--ticker__logo--fallback\" style=\"background: #f7931a\">BT</span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">Bitcoin</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">btc</span>\n      &middot; \n        <span class=\"tooltip--ticker__info\">Crypto</span>\n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-dhrpl1o5M1X3805t8hLp+Q=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=FpEMViGejZe3Xr4vYh7D540edTrCb9zL%2Fjy%2Fah629WMVIgb9BUP8oXOUqrqyVZoBU9vtzAnFaV%2BxH%2BPp908nBgS0WaWllyGZrNE7Dar932NLjrW%2F2pHQ9q6Nqwp8FGnQssvc7QclrjiLkx3XensXKVV0knAQb8gIwPvCEzd9bRVwCC2TN9z%2FszSPhQs68ujovdg6qjGIj%2F%2BDPyg9Jy20qMU9oeGK2zL8wTieFZS1oKta%2BTZi90UTqdaWD2%2FJejVSu1j2A%2BmhFms2UezMxUyp8x1kPwOL0tHi%2FLfwXiWygrrlsNRY%2F50nLhzPxtjcIdiAuzlKzkcWhgnhayGlyphYw6cIGDBHxAao6dnK6%2FnO%2FO4LYfnS9X8%3D--%2B5%2FBdRPJPVm0GkxM--VueQIeSXq5Ag25jegndMeg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo tooltip--ticker__logo--fallback\" style=\"background: #f7931a\">BT</span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">Bitcoin</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">btc</span>\n      &middot; \n        <span class=\"tooltip--ticker__info\">Crypto</span>\n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-C/K9KOBjsRcOYB6PR3JG8g=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=nIr96JUXSU5vAhWSBwINACzcjKsbNy%2FvNEZP7n31XhPFXGECQ9rnHXW1P96gYYSXxJRlEKSyLvBTYdhjKB9gZP5lI7XIvw3gRAYzcTKt6ROxipNDD2V2Osn4w2%2FEWZiqrPhpd%2Fw4UahCumYWQVxfl0GWNSEs%2FimioG2FIJS7FMnNNvQ1uVoYqzQGKXema8gvmMli4ruQJHdFvLsPclHp%2Fc11BNjqbhB7Ae6ZQaKw9%2BhiYpkt%2BCQ4b5PoeS6%2B5OSLR0V7mSTHJf4mWvPDLPNI07tqn67m2eh5TmJvwDSx5Z4tNdhKfV8hBnID4K6NwEwXIA%2FSLue2YxLz%2B1JPneWGiVYCI9CxPCd5nTMIUE%2BoPohsBsI1nSg%3D--ClQFch52yHU%2Fg3AV--t3PRfpXgeIFtJnRTUnInAA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo\">\n      <img class=\"tooltip--ticker__logo-img\" src=\"/assets/flags/eu-bd3a39fb54baac6594fea6c3ec8767e76079493825f6cdf22ae02ddf93d31215.svg\" alt=\"\" loading=\"lazy\">\n    </span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">Euro</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">EUR</span>\n      &middot; \n        <span class=\"tooltip--ticker__info\">Cash</span>\n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-vabtASDZTI+fLLHE8gLuxQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=rJPuJymAI3t7ZWVqN5XHXbS%2BanxaUko%2B6RPMnvhWouUJpJgfqf66DXfh98RrYy6UN5Eq2mLOxcn9gacL5b7UqXgc%2FFNMAmz%2FK9UQzW%2BRdkky02HONK81iHGJy0T7W25hAJ72olm8%2BOlXhYkm8zLDEtW0b3oe5JknpUPhJDkdGXI4c1m7EzZv%2FbbRDhdhVAqPxPWm2zvcIW60wDxdLFAkBdZ9l9oNckX3H9NMOu5to%2BEw410ia2AOnMUIXq2hNeX6flMIcOIgpObYYhm4FuNDZkG05iUZTfBl%2F2c60iOeDBk5YCg6vEXdQBYTQ21NIeKCSCUjMOO7Iy7Mt091vGVxLJAOql4H7OCiRPSyslGlPPxb%2F2B1oxs%3D--GB86jpOien3IVspB--Dn2zSz1O4qsF3Zcmw%2F0RfA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo tooltip--ticker__logo--fallback\" style=\"background: #8a9ba8\">NO</span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">No &lt;Picture&gt;</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">NOPIC</span>\n      &middot; \n        <span class=\"tooltip--ticker__info\">ETF</span>\n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-hEZD90TnYVitVlcniCpUig=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=UlM%2BlnA8AaJdGwafYXBaLmP2RBJcbglWnC9m8e1eTSL3HxoVVPQkg%2BfxsNJMiI8AM9vw83Wh77LpD6sWMLYOQPGlwHT6x09zgYiNwATKb5o9taB%2FntbkBVvFcqoy8%2BuW1yimv1opnKplYyVSjaM9jvoC%2BTVpjjK9bA7nPen1KQOjjmeRrJNoRlIrn66mJ%2FpzvzUSkkZV0ebHAKt58wWcAST4wNXtn2jcaAwlTkKsjpjl2wuceKsneERImyzEbiFzBtXqmlG3BPmu%2By%2F3j9zZ67HIKm8DvmkWQ5HzokTg6Eci5QSfF3Z4oBTj0xQ5zy30Zdit%2BBO7owqljbgfDK0klAT%2Bj5OW%2FxZNC%2FNqXJWOLh%2FWLjB5JW4%3D--icIoIGzqCvsZgv%2F2--g1sYTyxEbOii%2F0etRbVusw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo tooltip--ticker__logo--fallback\" style=\"background: #f7931a\">BT</span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">Bitcoin</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">btc</span>\n      &middot; \n        <span class=\"tooltip--ticker__info\">Crypto</span>\n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-/dJxHlX9NxVAcZ/f1KCvag=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=Es1OGeJAdyQ6mOA6OpGmRsWlJVjJMlhM39JqK7VYQUuICOGRCdL19J72F4WRqIAWh2943ZePbe0Xvl6Xu6S%2Fwq6t8aY7B4%2FMhh48bfP77CRswmrMO%2BxRHDsX2%2BJaUC0riM5XOV5I7nMwcgCM%2BEW%2Fg3a6lClnUSWBRUcYsWQkmicwC6yNE4S03Vx4MYkLfrmDCNBbiR9kFYfvQMl%2FrFSVXvETtyXrmbQUGy6azpLQq%2FqGPiNdkBOCE68Hs%2Fgz1ejtzn4Xrb%2B0v%2FDa0PM%2BXb59PsHS3MrfMhA9w4YWP8SlycAwQIgVk%2F1RS8vJhFONgTl0Bsp12yD1iAv%2BWFagtFXfp%2FkzfH5IYpDF1h1assi%2F%2B7F0ZBrZAqU%3D--lI8hhl98YEV1dWRk--7kzRDcgzeWAwTNNRxxCx%2BQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo tooltip--ticker__logo--fallback\" style=\"background: #f7931a\">BT</span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">Bitcoin</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">btc</span>\n      &middot; \n        <span class=\"tooltip--ticker__info\">Crypto</span>\n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-1Nii7gn8bMW1uh2aMMIpoQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=4S%2BF%2Bwp95O0XtVEaaXLBViQSjKODXiWaOcJjfVAbVGK9TC9Tp0BX9dTnRHEh69nnD1cPOCI3sW8HA8lZ2IBV6W1yOv3eQrl0dEA01rkcRibkFQDbp7PGZwco%2Ftn4fkBe5cTQaBm%2BD2eBffrhnMlESVn1pH8Qc%2F9SXwoNA7XhmYOtJCKwBB%2Fm1FygKmFLZC%2FUR6oEF36jXjfzKyYtUt8LVPHqWRUlpfzk8d2RnebFI00EFOFmCHaaWHWv075L96bErHb9SHkxSgoiN1fHbGH5t4%2Btq0ALqGoImfgjvQvm0jDGrqgRpqXIJMLtrfVYd260fZK2TBTfYrpLWSYZLugidHGhwvKXJFwuy1OCVzzxiXuUcnY%2FvXI%3D--IY87UNTwVKxlUvqm--Mb2w0BrNFWacZmlg1Flv%2Bw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo tooltip--ticker__logo--fallback\" style=\"background: #f7931a\">BT</span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">Bitcoin</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">btc</span>\n      &middot; \n        <span class=\"tooltip--ticker__info\">Crypto</span>\n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-TUrBTsxAH/awRKciSxVsZQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=rP5LIbOg7wv%2BWGJsi%2FvUNW9HKq94AiFjGUyhnU7Zm33hUf6rRas3cEWp%2B5YyJvq4%2Byi2tjH1FR94lGEyCldUFDU%2BzkQ8nAPLgF5Zp5MnaMrX8VsSQIowA62%2FLzSaImoHMle7xkxHu%2FQcq%2Fji4KEc4CJ3j5RK1k4fTpmHHahNOKtFCZfrMxx7cRb%2B4zf3c77xZCO2CJsju8orq5myO2WfBy%2B48LBHCCTYM3ZyfowYSJBt%2BXL%2FnlARYlEP4RpPctqCKN2fyO4ypY6tSm%2B2ZalOFuqz4EjZsF3pt%2F27Ra6pYdufGU4ejuve%2FtuQwkIIQleHjRPO4LPzfEtYPqNV10MmaFUpTLmMHBA9VzcEWgP3YVf%2BT%2FvO7qc%3D--akfrWfQSGXNhwvM8--De1KR6YsPZGWmH220iPK3Q%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo\">\n      <img class=\"tooltip--ticker__logo-img\" src=\"/assets/flags/us-689b9e9a26648d5e7c30eef90fe43772c8f033192a73a5bf8568021c4f3669ec.svg\" alt=\"\" loading=\"lazy\">\n    </span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">Dollar</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">USD</span>\n      &middot; \n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "failed_attempts": 0,
+      "locked_at": null,
+      "last_otp_at": null,
+      "remember_created_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "bots": [],
+  "network": []
+}

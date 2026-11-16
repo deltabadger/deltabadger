@@ -1,0 +1,39 @@
+[
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"m2\",\"version\":\"1\"}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"update_bot_settings\",\"arguments\":{\"bot_id\":1,\"weighting\":\"manual\"}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    },
+    "sql": [
+      "UPDATE assets SET market_cap=CASE symbol WHEN 'BTC' THEN 1300000000000 WHEN 'ETH' THEN 400000000000 END WHERE symbol IN ('BTC','ETH')",
+      "UPDATE bots SET settings=json_set(settings,'$.weighting','market_cap') WHERE id=1",
+      "UPDATE bot_index_assets SET target_allocation=0.764706 WHERE bot_id=1 AND asset_id=(SELECT id FROM assets WHERE symbol='BTC')"
+    ]
+  }
+]

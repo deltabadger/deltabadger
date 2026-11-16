@@ -1,0 +1,36 @@
+{
+  "ledger": {
+    "whole": {
+      "positions": [],
+      "round_trips": [],
+      "total_invested": "0.0",
+      "received": "0.0",
+      "realised": "0.0",
+      "fees": "0.0",
+      "cash_usd": "0.0",
+      "unpriced_proceeds": "0.0",
+      "openings": [],
+      "cash": [],
+      "cash_basis": [],
+      "incomplete": false,
+      "loss_sales": []
+    },
+    "venues": {},
+    "figures": {}
+  },
+  "ledger_error": null,
+  "backfill_error": null,
+  "tables": {
+    "portfolio_snapshots": [],
+    "portfolio_venue_snapshots": [],
+    "wash_sale_locks": [],
+    "historical_prices": [],
+    "snapshot_history_version_1": "1_0_",
+    "snapshot_price_generation_1": null
+  },
+  "requests": {
+    "market": [],
+    "alpaca": [],
+    "ecb": []
+  }
+}

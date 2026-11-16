@@ -1,0 +1,35 @@
+[
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"m2\",\"version\":\"1\"}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"update_bot_settings\",\"arguments\":{\"bot_id\":2,\"indicator_limit_mode\":\"flip\"}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    },
+    "sql": []
+  }
+]

@@ -1,0 +1,60 @@
+{
+  "sent": [
+    {
+      "symbol": "btcusd",
+      "amount": "0.00157828",
+      "price": "63360.0",
+      "side": "sell",
+      "type": "exchange limit",
+      "options": [
+        "immediate-or-cancel"
+      ]
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Gemini",
+        "base_asset": "BTC",
+        "quote_asset": "USD",
+        "amount": 100,
+        "amount_type": "quote"
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "Gemini",
+          "pair": "BTC/USD",
+          "side": "sell",
+          "order_type": "market",
+          "amount": 100.0,
+          "amount_type": "quote",
+          "upstream": {
+            "order_id": "7612345678"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Market sell order placed on Gemini: 100.0 USD of BTC/USD. {order_id: \"7612345678\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

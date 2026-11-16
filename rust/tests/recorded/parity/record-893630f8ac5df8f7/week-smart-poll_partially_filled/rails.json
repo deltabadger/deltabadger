@@ -1,0 +1,75 @@
+{
+  "sent": [],
+  "changes": {
+    "bots": [],
+    "transactions": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "amount": {
+            "f": "3f4ea35935fc3b4f"
+          },
+          "amount_exec": 0,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "week",
+          "bot_quote_amount": 60,
+          "created_at": "2026-09-01 10:00:01",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "OOPEN-5",
+          "external_status": 1,
+          "order_type": 1,
+          "price": 64150,
+          "quote": "USD",
+          "quote_amount": null,
+          "quote_amount_exec": 0,
+          "quote_asset_id": 2,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 10:00:01"
+        },
+        "after": {
+          "id": 1,
+          "amount": {
+            "f": "3f4ea35935fc3b4f"
+          },
+          "amount_exec": {
+            "f": "3f3a36e2eb1c432d"
+          },
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "week",
+          "bot_quote_amount": 60,
+          "created_at": "2026-09-01 10:00:01",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "OOPEN-5",
+          "external_status": 1,
+          "order_type": 1,
+          "price": 64150,
+          "quote": "USD",
+          "quote_amount": null,
+          "quote_amount_exec": {
+            "f": "4039a8f5c28f5c29"
+          },
+          "quote_asset_id": 2,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-08 10:00:06.123456"
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}

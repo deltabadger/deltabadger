@@ -1,0 +1,595 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "mcp-session-id": "c6222b99ee7c820a2838c89110326149",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-kCEa2YG493b5oMqAbUEfNw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-11-25\",\"serverInfo\":{\"name\":\"Deltabadger\",\"version\":\"3.0.0-beta.8\"},\"capabilities\":{\"tools\":{\"listChanged\":false},\"logging\":{},\"completions\":{}},\"instructions\":\"Deltabadger is a user's personal investing server. Available exchanges: Alpaca, Interactive Brokers.\\nSupports both cryptocurrency and stocks/ETFs (via Alpaca).\\nTrading is available either via DCA bots, or by direct access to connected exchanges\\nWhen the user asks to trade stocks or ETFs (e.g., QQQM, SPY, AAPL), use the Alpaca exchange.\\nUse list_exchanges to see which exchanges the user has connected before placing orders.\"}}"
+    },
+    {
+      "status": 202,
+      "headers": {
+        "content-type": "application/json",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-yQlSNrNdz2ZQ9CtoaQfONQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": ""
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "mcp-protocol-version": "2025-11-25",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-DOlVKRvIk3jgXRdrWRo7fA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Bot 'Index' settings updated: num_coins.\"}]}}"
+    }
+  ],
+  "session": "c6222b99ee7c820a2838c89110326149",
+  "rows": {
+    "action_mcp_sessions": [
+      {
+        "id": "c6222b99ee7c820a2838c89110326149",
+        "client_capabilities": "{}",
+        "client_info": "{\"name\":\"m2\",\"version\":\"1\"}",
+        "consents": "{}",
+        "created_at": "2026-09-10 12:00:30.123456",
+        "ended_at": null,
+        "initialized": 1,
+        "messages_count": 5,
+        "prompt_registry": "[\"*\"]",
+        "protocol_version": "2025-11-25",
+        "resource_registry": "[\"*\"]",
+        "role": "server",
+        "server_capabilities": "{\"tools\":{\"listChanged\":false},\"logging\":{},\"completions\":{}}",
+        "server_info": "{\"name\":\"Deltabadger\",\"version\":\"3.0.0-beta.8\"}",
+        "session_data": "{\"user_id\":1}",
+        "status": "initialized",
+        "tool_registry": "[\"create_bot\",\"start_bot\",\"stop_bot\",\"update_bot_settings\",\"create_index_bot\",\"create_signal_bot\",\"delete_bot\",\"archive_bot\",\"unarchive_bot\"]",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      }
+    ],
+    "action_mcp_session_messages": [
+      {
+        "id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": "1",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"m2\",\"version\":\"1\"}}}",
+        "message_type": "request",
+        "request_acknowledged": 1,
+        "request_cancelled": 0,
+        "session_id": "c6222b99ee7c820a2838c89110326149",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "client",
+        "is_ping": 0,
+        "jsonrpc_id": "1",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-11-25\",\"serverInfo\":{\"name\":\"Deltabadger\",\"version\":\"3.0.0-beta.8\"},\"capabilities\":{\"tools\":{\"listChanged\":false},\"logging\":{},\"completions\":{}},\"instructions\":\"Deltabadger is a user's personal investing server. Available exchanges: Alpaca, Interactive Brokers.\\nSupports both cryptocurrency and stocks/ETFs (via Alpaca).\\nTrading is available either via DCA bots, or by direct access to connected exchanges\\nWhen the user asks to trade stocks or ETFs (e.g., QQQM, SPY, AAPL), use the Alpaca exchange.\\nUse list_exchanges to see which exchanges the user has connected before placing orders.\"}}",
+        "message_type": "response",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "c6222b99ee7c820a2838c89110326149",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 3,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": null,
+        "message_json": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}",
+        "message_type": "notification",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "c6222b99ee7c820a2838c89110326149",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 4,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"update_bot_settings\",\"arguments\":{\"bot_id\":2,\"num_coins\":13}}}",
+        "message_type": "request",
+        "request_acknowledged": 1,
+        "request_cancelled": 0,
+        "session_id": "c6222b99ee7c820a2838c89110326149",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 5,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "client",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Bot 'Index' settings updated: num_coins.\"}]}}",
+        "message_type": "response",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "c6222b99ee7c820a2838c89110326149",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      }
+    ],
+    "action_mcp_session_subscriptions": [],
+    "oauth_access_tokens": [
+      {
+        "id": 1,
+        "application_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": null,
+        "resource_owner_id": 1,
+        "revoked_at": null,
+        "scopes": "mcp",
+        "token": "m2-token"
+      },
+      {
+        "id": 2,
+        "application_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": null,
+        "resource_owner_id": 1,
+        "revoked_at": null,
+        "scopes": "api",
+        "token": "api-token"
+      },
+      {
+        "id": 3,
+        "application_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": null,
+        "resource_owner_id": 2,
+        "revoked_at": null,
+        "scopes": "mcp",
+        "token": "second-token"
+      }
+    ],
+    "connected_clients": [
+      {
+        "id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "mcp_tools": "[\"stop_bot\",\"archive_bot\",\"unarchive_bot\",\"delete_bot\",\"update_bot_settings\",\"start_bot\",\"create_bot\",\"create_index_bot\",\"create_signal_bot\"]",
+        "oauth_application_id": 1,
+        "rest_tools": "[]",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "user_id": 1
+      },
+      {
+        "id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "mcp_tools": "[\"stop_bot\",\"archive_bot\",\"unarchive_bot\",\"delete_bot\",\"update_bot_settings\",\"start_bot\",\"create_bot\",\"create_index_bot\",\"create_signal_bot\"]",
+        "oauth_application_id": 1,
+        "rest_tools": "[]",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "user_id": 2
+      }
+    ],
+    "bots": [
+      {
+        "id": 1,
+        "account_balance": 0,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_delay": 0,
+        "delay": 0,
+        "exchange_id": 1,
+        "fetch_restarts": 0,
+        "label": "Control",
+        "last_end_of_funds_notification": null,
+        "position": 1,
+        "redeploy_declined_offset": 0,
+        "restarts": 0,
+        "restatement_generation": 0,
+        "settings": {
+          "quote_asset_id": 1,
+          "quote_amount": 20,
+          "interval": "hour",
+          "allocations": {
+            "16": 0.7,
+            "17": 0.3
+          },
+          "smart_intervaled": false,
+          "smart_interval_quote_amount": 16.7,
+          "limit_ordered": false,
+          "limit_order_pcnt_distance": 0.001,
+          "quote_amount_limited": false,
+          "quote_amount_limit": 1000,
+          "price_limited": false,
+          "price_limit": 1000000,
+          "price_limit_range_lower_bound": 0,
+          "price_limit_range_upper_bound": 1000000,
+          "price_limit_timing_condition": "while",
+          "price_limit_value_condition": "below",
+          "price_limit_in_ticker_id": 17,
+          "price_drop_limited": false,
+          "price_drop_limit": 0.2,
+          "price_drop_limit_time_window_condition": "ath",
+          "price_drop_limit_in_ticker_id": 17,
+          "moving_average_limited": false,
+          "moving_average_limit_timing_condition": "while",
+          "moving_average_limit_value_condition": "below",
+          "moving_average_limit_in_ticker_id": 17,
+          "moving_average_limit_in_ma_type": "sma",
+          "moving_average_limit_in_timeframe": "one_day",
+          "moving_average_limit_in_period": 9,
+          "indicator_limited": false,
+          "indicator_limit": 30,
+          "indicator_limit_timing_condition": "while",
+          "indicator_limit_value_condition": "below",
+          "indicator_limit_in_ticker_id": 17,
+          "indicator_limit_in_indicator": "rsi",
+          "indicator_limit_in_timeframe": "one_day",
+          "sell_price_limit_in_ticker_id": 17,
+          "sell_price_drop_limit_in_ticker_id": 17,
+          "sell_moving_average_limit_in_ticker_id": 17,
+          "sell_indicator_limit_in_ticker_id": 17
+        },
+        "settings_changed_at": "2026-09-10 12:00:30.123456",
+        "started_at": null,
+        "status": 2,
+        "stop_message_key": null,
+        "stopped_at": null,
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "type": "Bots::DcaMultiAsset",
+        "updated_at": "2026-01-01 00:00:00",
+        "user_id": 1
+      },
+      {
+        "id": 2,
+        "account_balance": 0,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_delay": 0,
+        "delay": 0,
+        "exchange_id": 1,
+        "fetch_restarts": 0,
+        "label": "Index",
+        "last_end_of_funds_notification": null,
+        "position": 2,
+        "redeploy_declined_offset": 0,
+        "restarts": 0,
+        "restatement_generation": 0,
+        "settings": {
+          "quote_asset_id": 1,
+          "quote_amount": 100,
+          "interval": "week",
+          "num_coins": 13,
+          "hold_all": true,
+          "index_type": "category",
+          "index_category_id": "nasdaq-100",
+          "index_name": "Nasdaq 100",
+          "index_name_prefix": "ND",
+          "allocation_flattening": 0.25,
+          "smart_intervaled": false,
+          "smart_interval_quote_amount": 10.0,
+          "limit_ordered": false,
+          "limit_order_pcnt_distance": 0.001
+        },
+        "settings_changed_at": "2026-09-10 12:00:30.123456",
+        "started_at": null,
+        "status": 2,
+        "stop_message_key": null,
+        "stopped_at": null,
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "type": "Bots::DcaIndex",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "user_id": 1
+      }
+    ],
+    "transactions": [],
+    "api_keys": [
+      {
+        "id": 1,
+        "access_token": null,
+        "balances_synced_at": null,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "dh_param": null,
+        "exchange_id": 1,
+        "german_trading_agreement": null,
+        "ibkr_realm": null,
+        "key": "{\"p\":\"ZzAn90AJ\",\"h\":{\"iv\":\"sETbKlctezXf3Xuf\",\"at\":\"zrZP5KpUi6vmsO04KkRMQQ==\"}}",
+        "key_type": 0,
+        "last_sync_error": null,
+        "last_synced_at": null,
+        "passphrase": "{\"p\":\"EK/ipwA=\",\"h\":{\"iv\":\"g1RkwztnsypOmAY0\",\"at\":\"hJ+Of171Y/jTtqVkG4S8Rg==\"}}",
+        "rsa_encryption_key": null,
+        "rsa_signature_key": null,
+        "secret": "{\"p\":\"WiZWgfy7\",\"h\":{\"iv\":\"Kqa0+mYSejz4Pwfu\",\"at\":\"F15yhUaA+W2B5LHXaZhvJw==\"}}",
+        "status": 1,
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "user_id": 1
+      }
+    ],
+    "bot_index_assets": [
+      {
+        "id": 1,
+        "asset_id": 16,
+        "bot_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_allocation": null,
+        "entered_at": "2026-09-10 12:00:30.123456",
+        "exited_at": null,
+        "in_index": 1,
+        "target_allocation": {
+          "float_bits": "3fe6666666666666"
+        },
+        "ticker_id": 17,
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 2,
+        "asset_id": 17,
+        "bot_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_allocation": null,
+        "entered_at": "2026-09-10 12:00:30.123456",
+        "exited_at": null,
+        "in_index": 1,
+        "target_allocation": {
+          "float_bits": "3fd3333333333333"
+        },
+        "ticker_id": 18,
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 3,
+        "asset_id": 4,
+        "bot_id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_allocation": null,
+        "entered_at": "2026-09-10 12:00:30.123456",
+        "exited_at": null,
+        "in_index": 1,
+        "target_allocation": {
+          "float_bits": "3fc0841ede1198af"
+        },
+        "ticker_id": 5,
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 4,
+        "asset_id": 5,
+        "bot_id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_allocation": null,
+        "entered_at": "2026-09-10 12:00:30.123456",
+        "exited_at": null,
+        "in_index": 1,
+        "target_allocation": {
+          "float_bits": "3fbf6177ea1c68ec"
+        },
+        "ticker_id": 6,
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 5,
+        "asset_id": 6,
+        "bot_id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_allocation": null,
+        "entered_at": "2026-09-10 12:00:30.123456",
+        "exited_at": null,
+        "in_index": 1,
+        "target_allocation": {
+          "float_bits": "3fbdbaa1511dffc5"
+        },
+        "ticker_id": 7,
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 6,
+        "asset_id": 7,
+        "bot_id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_allocation": null,
+        "entered_at": "2026-09-10 12:00:30.123456",
+        "exited_at": null,
+        "in_index": 1,
+        "target_allocation": {
+          "float_bits": "3fbc13cab81f969e"
+        },
+        "ticker_id": 8,
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 7,
+        "asset_id": 8,
+        "bot_id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_allocation": null,
+        "entered_at": "2026-09-10 12:00:30.123456",
+        "exited_at": null,
+        "in_index": 1,
+        "target_allocation": {
+          "float_bits": "3fba6d04e618ce2d"
+        },
+        "ticker_id": 9,
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 8,
+        "asset_id": 9,
+        "bot_id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_allocation": null,
+        "entered_at": "2026-09-10 12:00:30.123456",
+        "exited_at": null,
+        "in_index": 1,
+        "target_allocation": {
+          "float_bits": "3fb8c62e4d1a6506"
+        },
+        "ticker_id": 10,
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 9,
+        "asset_id": 10,
+        "bot_id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_allocation": null,
+        "entered_at": "2026-09-10 12:00:30.123456",
+        "exited_at": null,
+        "in_index": 1,
+        "target_allocation": {
+          "float_bits": "3fb71f687b139c95"
+        },
+        "ticker_id": 11,
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 10,
+        "asset_id": 11,
+        "bot_id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_allocation": null,
+        "entered_at": "2026-09-10 12:00:30.123456",
+        "exited_at": null,
+        "in_index": 1,
+        "target_allocation": {
+          "float_bits": "3fb57891e215336e"
+        },
+        "ticker_id": 12,
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 11,
+        "asset_id": 12,
+        "bot_id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_allocation": null,
+        "entered_at": "2026-09-10 12:00:30.123456",
+        "exited_at": null,
+        "in_index": 1,
+        "target_allocation": {
+          "float_bits": "3fb3d1bb4916ca47"
+        },
+        "ticker_id": 13,
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 12,
+        "asset_id": 13,
+        "bot_id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_allocation": null,
+        "entered_at": "2026-09-10 12:00:30.123456",
+        "exited_at": null,
+        "in_index": 1,
+        "target_allocation": {
+          "float_bits": "3fb22af5771001d6"
+        },
+        "ticker_id": 14,
+        "updated_at": "2026-09-10 12:00:30.123456"
+      }
+    ],
+    "bot_activity_logs": [],
+    "users": [
+      {
+        "id": 1,
+        "admin": 1,
+        "advanced_bots_enabled": 0,
+        "confirmation_sent_at": null,
+        "confirmation_token": null,
+        "confirmed_at": "2026-01-01 00:00:00",
+        "created_at": "2026-09-10 12:00:30.123456",
+        "display_currency": "USD",
+        "email": "owner@example.com",
+        "encrypted_password": "$2a$04$yRmF720V7b3sm/PsXMs8GObJjoEHvMpGw00Vr02038aLVwUUT4TNq",
+        "failed_attempts": 0,
+        "hide_balances": 0,
+        "last_otp_at": null,
+        "locale": null,
+        "locked_at": null,
+        "mcp_settings": "{\"tool_permissions\":{\"stop_bot\":true,\"archive_bot\":true,\"unarchive_bot\":true,\"delete_bot\":true,\"update_bot_settings\":true,\"start_bot\":true,\"create_bot\":true,\"create_index_bot\":true,\"create_signal_bot\":true},\"dry_run\":false}",
+        "name": "Owner",
+        "otp_module": 0,
+        "otp_secret_key": "{\"p\":\"SH4NoN7Krwp1KFxev/k6uDzME2Cm9ITn5/8cVUP3QWQ=\",\"h\":{\"iv\":\"DqksuyCj8YYSVxF8\",\"at\":\"FVnnhScp7eKYAoM93sazOg==\",\"e\":\"QVNDSUktOEJJVA==\"}}",
+        "remember_created_at": null,
+        "reset_password_sent_at": null,
+        "reset_password_token": null,
+        "rest_settings": "{}",
+        "setup_completed": 1,
+        "show_smart_intervals_info": 1,
+        "subscribed_to_email_marketing": 1,
+        "time_zone": "Tallinn",
+        "tracker_settings": "{}",
+        "unconfirmed_email": null,
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "wash_sale_enabled": 0,
+        "wash_sale_jurisdiction": null,
+        "wash_sale_selling_warned_at": null
+      },
+      {
+        "id": 2,
+        "admin": 1,
+        "advanced_bots_enabled": 0,
+        "confirmation_sent_at": null,
+        "confirmation_token": null,
+        "confirmed_at": "2026-01-01 00:00:00",
+        "created_at": "2026-09-10 12:00:30.123456",
+        "display_currency": "USD",
+        "email": "second@example.com",
+        "encrypted_password": "$2a$04$ooiM2fQhPPi8QFVgSYcsUOCpGcGsSXTAIl69Bs6C004LHmZuhUCem",
+        "failed_attempts": 0,
+        "hide_balances": 0,
+        "last_otp_at": null,
+        "locale": null,
+        "locked_at": null,
+        "mcp_settings": "{\"tool_permissions\":{\"stop_bot\":true,\"archive_bot\":true,\"unarchive_bot\":true,\"delete_bot\":true,\"update_bot_settings\":true,\"start_bot\":true}}",
+        "name": "Owner",
+        "otp_module": 0,
+        "otp_secret_key": "{\"p\":\"RhauGP0xKKl9frKylsauwAmw7QTbTnDdKHzGqAzSL0A=\",\"h\":{\"iv\":\"ELslP5rQPLSzng1B\",\"at\":\"ws1vwPSkGPFmCP2ngHJUYA==\",\"e\":\"QVNDSUktOEJJVA==\"}}",
+        "remember_created_at": null,
+        "reset_password_sent_at": null,
+        "reset_password_token": null,
+        "rest_settings": "{}",
+        "setup_completed": 1,
+        "show_smart_intervals_info": 1,
+        "subscribed_to_email_marketing": 1,
+        "time_zone": "Tallinn",
+        "tracker_settings": "{}",
+        "unconfirmed_email": null,
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "wash_sale_enabled": 0,
+        "wash_sale_jurisdiction": null,
+        "wash_sale_selling_warned_at": null
+      }
+    ],
+    "account_transactions": []
+  }
+}

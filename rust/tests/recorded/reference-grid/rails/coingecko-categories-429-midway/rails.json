@@ -1,0 +1,164 @@
+{
+  "requests": [
+    "GET pro-api.coingecko.com/api/v3/ping",
+    "GET api.coingecko.com/api/v3/coins/categories?order=market_cap_desc",
+    "GET api.coingecko.com/api/v3/coins/markets?category=payments&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd",
+    "GET api.coingecko.com/api/v3/coins/markets?category=music&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd",
+    "GET api.coingecko.com/api/v3/coins/markets?category=pump-fun&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd"
+  ],
+  "retry": false,
+  "changes": {
+    "assets": [],
+    "tickers": [],
+    "exchange_assets": [],
+    "indices": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "available_exchanges": {},
+          "created_at": "2026-09-01 00:00:00",
+          "description": "old-category",
+          "external_id": "old-category",
+          "market_cap": null,
+          "name": "old-category",
+          "source": "coingecko",
+          "top_coins": [
+            "coin-01"
+          ],
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-09-01 00:00:00",
+          "weight": 0,
+          "weights": {}
+        },
+        "after": null
+      },
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "available_exchanges": {
+            "Exchanges::Kraken": 3
+          },
+          "created_at": "2026-09-01 00:00:00",
+          "description": "data-style",
+          "external_id": "data-style",
+          "market_cap": null,
+          "name": "data-style",
+          "source": "coingecko",
+          "top_coins": [
+            "coin-01",
+            "coin-02",
+            "coin-03"
+          ],
+          "top_coins_by_exchange": {
+            "Exchanges::Kraken": [
+              "coin-01",
+              "coin-02",
+              "coin-03"
+            ]
+          },
+          "updated_at": "2026-09-01 00:00:00",
+          "weight": 0,
+          "weights": {
+            "coin-01": 0.1,
+            "coin-02": 0.1,
+            "coin-03": 0.1
+          }
+        },
+        "after": null
+      },
+      {
+        "id": 3,
+        "before": {
+          "id": 3,
+          "available_exchanges": {},
+          "created_at": "2026-09-01 00:00:00",
+          "description": "meme-token",
+          "external_id": "meme-token",
+          "market_cap": null,
+          "name": "meme-token",
+          "source": "coingecko",
+          "top_coins": [
+            "coin-01",
+            "coin-02",
+            "coin-03"
+          ],
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-09-01 00:00:00",
+          "weight": 0,
+          "weights": {}
+        },
+        "after": {
+          "id": 3,
+          "available_exchanges": {
+            "Exchanges::Kraken": 3
+          },
+          "created_at": "2026-09-01 00:00:00",
+          "description": "meme-token",
+          "external_id": "meme-token",
+          "market_cap": null,
+          "name": "meme-token",
+          "source": "coingecko",
+          "top_coins": [
+            "coin-01",
+            "coin-02",
+            "coin-03"
+          ],
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {}
+        }
+      },
+      {
+        "id": 6,
+        "before": null,
+        "after": {
+          "id": 6,
+          "available_exchanges": {
+            "Exchanges::Kraken": 10
+          },
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": "Payment coins",
+          "external_id": "payments",
+          "market_cap": 1500000000,
+          "name": "Payments",
+          "source": "coingecko",
+          "top_coins": [
+            "coin-01",
+            "coin-02",
+            "coin-03",
+            "coin-04",
+            "coin-05",
+            "coin-06",
+            "coin-07",
+            "coin-08",
+            "coin-09",
+            "coin-10"
+          ],
+          "top_coins_by_exchange": {
+            "Exchanges::Kraken": [
+              "coin-01",
+              "coin-02",
+              "coin-03",
+              "coin-04",
+              "coin-05",
+              "coin-06",
+              "coin-07",
+              "coin-08",
+              "coin-09",
+              "coin-10"
+            ],
+            "Exchanges::Binance": []
+          },
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {}
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "app_configs": []
+  }
+}

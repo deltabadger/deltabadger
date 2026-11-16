@@ -1,0 +1,56 @@
+{
+  "sent": [
+    {
+      "side": "sell",
+      "symbol": "BTC-USDT",
+      "type": "market",
+      "size": "0.0015"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "KuCoin",
+        "base_asset": "BTC",
+        "quote_asset": "USDT",
+        "amount": 0.0015,
+        "amount_type": "base"
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "KuCoin",
+          "pair": "BTC/USDT",
+          "side": "sell",
+          "order_type": "market",
+          "amount": 0.0015,
+          "amount_type": "base",
+          "upstream": {
+            "order_id": "6716f0a2c1b6d10007a3b1c5"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Market sell order placed on KuCoin: 0.0015 BTC of BTC/USDT. {order_id: \"6716f0a2c1b6d10007a3b1c5\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

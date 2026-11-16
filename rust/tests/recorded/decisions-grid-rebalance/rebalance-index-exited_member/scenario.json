@@ -1,0 +1,266 @@
+{
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  },
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-08T16:30:00.000000Z",
+  "venue": "alpaca",
+  "script": {
+    "alpaca": {
+      "GET /v2/clock": [
+        {
+          "status": 200,
+          "body": {
+            "timestamp": "2026-09-08T16:30:00.000000Z",
+            "is_open": true,
+            "next_open": "2026-09-09T09:30:00-04:00",
+            "next_close": "2026-09-08T16:00:00-04:00"
+          }
+        }
+      ],
+      "GET /v2/account": [
+        {
+          "status": 200,
+          "body": {
+            "id": "paper-account",
+            "status": "ACTIVE",
+            "currency": "USD",
+            "cash": "100000",
+            "buying_power": "200000",
+            "non_marginable_buying_power": "100000"
+          }
+        }
+      ],
+      "GET /v2/positions": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "symbol": "AAA",
+              "asset_class": "us_equity",
+              "qty": "1.0",
+              "qty_available": "1.0"
+            },
+            {
+              "symbol": "BBB",
+              "asset_class": "us_equity",
+              "qty": "0.3",
+              "qty_available": "0.3"
+            },
+            {
+              "symbol": "CCC",
+              "asset_class": "us_equity",
+              "qty": "0.5",
+              "qty_available": "0.5"
+            },
+            {
+              "symbol": "DDD",
+              "asset_class": "us_equity",
+              "qty": "0.01",
+              "qty_available": "0.01"
+            }
+          ]
+        }
+      ],
+      "GET /v2/stocks/snapshots": [
+        {
+          "status": 200,
+          "body": {
+            "AAA": {
+              "latestTrade": {
+                "p": 100
+              }
+            },
+            "BBB": {
+              "latestTrade": {
+                "p": 200
+              }
+            },
+            "CCC": {
+              "latestTrade": {
+                "p": 300
+              }
+            },
+            "DDD": {
+              "latestTrade": {
+                "p": 400
+              }
+            },
+            "EEE": {
+              "latestTrade": {
+                "p": 500
+              }
+            }
+          }
+        }
+      ],
+      "POST /v2/orders": [
+        {
+          "status": 200,
+          "body": {
+            "id": "OTX-1",
+            "client_order_id": "rails-OTX-1",
+            "symbol": "AAA",
+            "asset_class": "us_equity",
+            "notional": null,
+            "qty": null,
+            "filled_qty": "0",
+            "filled_avg_price": null,
+            "order_type": "market",
+            "type": "market",
+            "side": "sell",
+            "time_in_force": "day",
+            "limit_price": null,
+            "status": "new"
+          }
+        }
+      ],
+      "GET /v2/stocks/AAA/quotes/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "AAA",
+            "quote": {
+              "ap": 100,
+              "as": 100,
+              "bp": 100,
+              "bs": 100,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/AAA/trades/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "AAA",
+            "trade": {
+              "p": 100,
+              "s": 10,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/BBB/quotes/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BBB",
+            "quote": {
+              "ap": 200,
+              "as": 100,
+              "bp": 200,
+              "bs": 100,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/BBB/trades/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BBB",
+            "trade": {
+              "p": 200,
+              "s": 10,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/CCC/quotes/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "CCC",
+            "quote": {
+              "ap": 300,
+              "as": 100,
+              "bp": 300,
+              "bs": 100,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/CCC/trades/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "CCC",
+            "trade": {
+              "p": 300,
+              "s": 10,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/DDD/quotes/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "DDD",
+            "quote": {
+              "ap": 400,
+              "as": 100,
+              "bp": 400,
+              "bs": 100,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/DDD/trades/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "DDD",
+            "trade": {
+              "p": 400,
+              "s": 10,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/EEE/quotes/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "EEE",
+            "quote": {
+              "ap": 500,
+              "as": 100,
+              "bp": 500,
+              "bs": 100,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/EEE/trades/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "EEE",
+            "trade": {
+              "p": 500,
+              "s": 10,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "rebalance_at": [
+    "2026-09-08T16:30:00.000000Z"
+  ]
+}

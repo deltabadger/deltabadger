@@ -1,0 +1,66 @@
+{
+  "sent": [
+    {
+      "symbol": "AAPL",
+      "side": "sell",
+      "type": "market",
+      "time_in_force": "day",
+      "qty": "1.500000000"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "amount": {
+            "f": "3ff8000000000000"
+          },
+          "amount_exec": 0,
+          "base": "AAPL",
+          "base_asset_id": 2,
+          "bot_id": 1,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "error_messages": [
+            "insufficient buying power"
+          ],
+          "exchange_id": 1,
+          "external_id": null,
+          "external_status": null,
+          "order_type": 0,
+          "price": {
+            "f": "40676d1eb851eb85"
+          },
+          "quote": "USD",
+          "quote_amount": {
+            "f": "407191d70a3d70a4"
+          },
+          "quote_amount_exec": 0,
+          "quote_asset_id": 1,
+          "side": 1,
+          "status": 1,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 14:00:01.250000"
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [
+    {
+      "mail": "notify_about_error",
+      "errors": [
+        "Not enough funds on your Alpaca account."
+      ]
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

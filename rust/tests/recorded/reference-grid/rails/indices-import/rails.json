@@ -1,0 +1,312 @@
+{
+  "requests": [
+    "GET /api/v2/indices"
+  ],
+  "retry": false,
+  "changes": {
+    "assets": [],
+    "tickers": [],
+    "exchange_assets": [],
+    "indices": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "available_exchanges": {},
+          "created_at": "2026-09-01 00:00:00",
+          "description": null,
+          "external_id": "layer-1",
+          "market_cap": null,
+          "name": "L1",
+          "source": "coingecko",
+          "top_coins": [
+            "a"
+          ],
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-09-01 00:00:00",
+          "weight": 12,
+          "weights": {}
+        },
+        "after": {
+          "id": 1,
+          "available_exchanges": {},
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": "L1s",
+          "external_id": "layer-1",
+          "market_cap": {
+            "f": "405ee00000000000"
+          },
+          "name": "Layer 1",
+          "source": "coingecko",
+          "top_coins": null,
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 12,
+          "weights": {}
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "available_exchanges": {
+            "Exchanges::Alpaca": 100
+          },
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": "The 100 largest",
+          "external_id": "nasdaq-100",
+          "market_cap": 25000000000000,
+          "name": "Nasdaq 100",
+          "source": "deltabadger",
+          "top_coins": [
+            "AAPL.US",
+            "MSFT.US"
+          ],
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {
+            "AAPL.US": 0.0812,
+            "MSFT.US": 0.0799,
+            "T&<>.US": 0.01
+          }
+        }
+      },
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "available_exchanges": {},
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": null,
+          "external_id": "meme-token",
+          "market_cap": 42,
+          "name": "Meme",
+          "source": "coingecko",
+          "top_coins": null,
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 10,
+          "weights": {}
+        }
+      },
+      {
+        "id": 5,
+        "before": null,
+        "after": {
+          "id": 5,
+          "available_exchanges": {},
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": null,
+          "external_id": "other",
+          "market_cap": null,
+          "name": "Other",
+          "source": "coingecko",
+          "top_coins": null,
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {}
+        }
+      },
+      {
+        "id": 6,
+        "before": null,
+        "after": {
+          "id": 6,
+          "available_exchanges": {},
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": null,
+          "external_id": "cap-prefix",
+          "market_cap": {
+            "f": "3ff8000000000000"
+          },
+          "name": "prefix",
+          "source": "coingecko",
+          "top_coins": null,
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {}
+        }
+      },
+      {
+        "id": 7,
+        "before": null,
+        "after": {
+          "id": 7,
+          "available_exchanges": {},
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": null,
+          "external_id": "cap-garbage",
+          "market_cap": 0,
+          "name": "garbage",
+          "source": "coingecko",
+          "top_coins": null,
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {}
+        }
+      },
+      {
+        "id": 8,
+        "before": null,
+        "after": {
+          "id": 8,
+          "available_exchanges": {},
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": null,
+          "external_id": "cap-blank",
+          "market_cap": null,
+          "name": "blank",
+          "source": "coingecko",
+          "top_coins": null,
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {}
+        }
+      },
+      {
+        "id": 9,
+        "before": null,
+        "after": {
+          "id": 9,
+          "available_exchanges": {},
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": null,
+          "external_id": "cap-exponent",
+          "market_cap": 100000,
+          "name": "exponent",
+          "source": "coingecko",
+          "top_coins": null,
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {}
+        }
+      },
+      {
+        "id": 10,
+        "before": null,
+        "after": {
+          "id": 10,
+          "available_exchanges": {},
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": null,
+          "external_id": "cap-spaced",
+          "market_cap": 2,
+          "name": "spaced",
+          "source": "coingecko",
+          "top_coins": null,
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {}
+        }
+      },
+      {
+        "id": 11,
+        "before": null,
+        "after": {
+          "id": 11,
+          "available_exchanges": {},
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": null,
+          "external_id": "cap-underscored",
+          "market_cap": {
+            "f": "408f420000000000"
+          },
+          "name": "underscored",
+          "source": "coingecko",
+          "top_coins": null,
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {}
+        }
+      },
+      {
+        "id": 12,
+        "before": null,
+        "after": {
+          "id": 12,
+          "available_exchanges": {},
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": null,
+          "external_id": "cap-dot",
+          "market_cap": 100,
+          "name": "dot",
+          "source": "coingecko",
+          "top_coins": null,
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {}
+        }
+      },
+      {
+        "id": 13,
+        "before": null,
+        "after": {
+          "id": 13,
+          "available_exchanges": {},
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": null,
+          "external_id": "cap-signs",
+          "market_cap": 0,
+          "name": "signs",
+          "source": "coingecko",
+          "top_coins": null,
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {}
+        }
+      },
+      {
+        "id": 14,
+        "before": null,
+        "after": {
+          "id": 14,
+          "available_exchanges": {},
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": null,
+          "external_id": "cap-bare-dot",
+          "market_cap": 0,
+          "name": "bare-dot",
+          "source": "coingecko",
+          "top_coins": null,
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {}
+        }
+      },
+      {
+        "id": 15,
+        "before": null,
+        "after": {
+          "id": 15,
+          "available_exchanges": {},
+          "created_at": "2026-10-02 10:31:00.123456",
+          "description": null,
+          "external_id": "cap-lead-dot",
+          "market_cap": -5000000000,
+          "name": "lead-dot",
+          "source": "coingecko",
+          "top_coins": null,
+          "top_coins_by_exchange": {},
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "weight": 0,
+          "weights": {}
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "app_configs": []
+  }
+}

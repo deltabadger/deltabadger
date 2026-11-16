@@ -1,0 +1,57 @@
+{
+  "sent": [
+    {
+      "ordertype": "limit",
+      "type": "buy",
+      "volume": "0.001",
+      "pair": "XBTEUR",
+      "price": "49000.3"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Kraken",
+        "base_asset": "BTC",
+        "quote_asset": "EUR",
+        "amount": 0.001,
+        "amount_type": "base",
+        "price": 49000.37
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "Kraken",
+          "pair": "BTC/EUR",
+          "side": "buy",
+          "order_type": "limit",
+          "amount": 0.001,
+          "amount_type": "base",
+          "price": 49000.37,
+          "upstream": {
+            "order_id": "OTX-1"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Limit buy order placed on Kraken: BTC/EUR @ 49000.37. {order_id: \"OTX-1\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

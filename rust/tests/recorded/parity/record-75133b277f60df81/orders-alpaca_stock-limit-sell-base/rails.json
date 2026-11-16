@@ -1,0 +1,60 @@
+{
+  "sent": [
+    {
+      "symbol": "AAPL",
+      "side": "sell",
+      "type": "limit",
+      "time_in_force": "day",
+      "qty": "2.000000000",
+      "limit_price": "195.00"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Alpaca",
+        "base_asset": "AAPL",
+        "quote_asset": "USD",
+        "amount": 2,
+        "amount_type": "base",
+        "price": 195
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "Alpaca",
+          "pair": "AAPL/USD",
+          "side": "sell",
+          "order_type": "limit",
+          "amount": 2.0,
+          "amount_type": "base",
+          "price": 195.0,
+          "upstream": {
+            "order_id": "OTX-1"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Limit sell order placed on Alpaca: AAPL/USD @ 195.0. {order_id: \"OTX-1\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

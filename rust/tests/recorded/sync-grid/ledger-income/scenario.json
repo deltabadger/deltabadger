@@ -1,0 +1,107 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 1,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "alpaca": {
+        "GET /v2/account/activities": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "id": "div-1",
+                "activity_type": "DIV",
+                "net_amount": "1.23",
+                "symbol": "AAPL",
+                "qty": "4",
+                "per_share_amount": "0.3075",
+                "date": "2026-09-01",
+                "group_id": "pay-1",
+                "status": "executed"
+              },
+              {
+                "id": "divcgl-1",
+                "activity_type": "DIVCGL",
+                "net_amount": "0.5",
+                "symbol": "QQQM",
+                "date": "2026-09-02",
+                "status": "executed"
+              },
+              {
+                "id": "divcgs-1",
+                "activity_type": "DIVCGS",
+                "net_amount": "0.25",
+                "symbol": "QQQM",
+                "date": "2026-09-02",
+                "status": "executed"
+              },
+              {
+                "id": "cgd-1",
+                "activity_type": "CGD",
+                "net_amount": "0.125",
+                "symbol": "QQQM",
+                "date": "2026-09-03",
+                "status": "executed"
+              },
+              {
+                "id": "divtxex-1",
+                "activity_type": "DIVTXEX",
+                "net_amount": "2",
+                "symbol": "QQQM",
+                "date": "2026-09-03",
+                "status": "executed"
+              },
+              {
+                "id": "div-reversal",
+                "activity_type": "DIV",
+                "net_amount": "-0.41",
+                "symbol": "AAPL",
+                "date": "2026-09-04",
+                "status": "executed"
+              },
+              {
+                "id": "int-1",
+                "activity_type": "INT",
+                "net_amount": "0.07",
+                "date": "2026-09-05",
+                "status": "executed"
+              },
+              {
+                "id": "ptr-1",
+                "activity_type": "PTR",
+                "net_amount": "0.01",
+                "date": "2026-09-06",
+                "status": "executed"
+              },
+              {
+                "id": "roc-qty",
+                "activity_type": "DIVROC",
+                "net_amount": "7.25",
+                "symbol": "QQQM",
+                "qty": "2",
+                "date": "2026-09-07",
+                "status": "executed"
+              },
+              {
+                "id": "roc-no-qty",
+                "activity_type": "DIVROC",
+                "net_amount": "-3.5",
+                "symbol": "QQQM",
+                "date": "2026-09-08",
+                "status": "executed"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

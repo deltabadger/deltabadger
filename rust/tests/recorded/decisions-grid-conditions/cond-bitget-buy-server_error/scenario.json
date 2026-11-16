@@ -1,0 +1,90 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-02T10:00:01.123456Z",
+  "venue": "bitget",
+  "script": {
+    "bitget": {
+      "GET /api/v2/spot/market/orderbook": [
+        {
+          "status": 200,
+          "body": {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1788000000000,
+            "data": {
+              "asks": [
+                [
+                  "64001.37",
+                  "0.2"
+                ]
+              ],
+              "bids": [
+                [
+                  "64000",
+                  "1.5"
+                ]
+              ],
+              "ts": "1788000000000"
+            }
+          }
+        }
+      ],
+      "POST /api/v2/spot/trade/place-order": [
+        {
+          "status": 200,
+          "body": {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1788000000000,
+            "data": {
+              "orderId": "1234567890123456789",
+              "clientOid": "x"
+            }
+          }
+        }
+      ],
+      "GET /api/v2/spot/account/assets": [
+        {
+          "status": 200,
+          "body": {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1788000000000,
+            "data": [
+              {
+                "coin": "BTC",
+                "available": "0.5",
+                "frozen": "0",
+                "locked": "0",
+                "limitAvailable": "0",
+                "uTime": "1788000000000"
+              },
+              {
+                "coin": "USDT",
+                "available": "100000",
+                "frozen": "0",
+                "locked": "0",
+                "limitAvailable": "0",
+                "uTime": "1788000000000"
+              }
+            ]
+          }
+        }
+      ],
+      "GET /api/v2/spot/market/tickers": [
+        {
+          "status": 500,
+          "body": {
+            "code": "50001",
+            "msg": "Internal server error",
+            "requestTime": 1788000000000,
+            "data": null
+          }
+        }
+      ]
+    }
+  },
+  "tick": true,
+  "conditions": true
+}

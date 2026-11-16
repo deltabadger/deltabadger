@@ -1,0 +1,136 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "kucoin": {
+        "GET /api/v1/fills": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "currentPage": 1,
+                "pageSize": 500,
+                "totalNum": 2,
+                "totalPage": 2,
+                "items": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "tradeId": "9001",
+                    "orderId": "o9001",
+                    "side": "buy",
+                    "type": "market",
+                    "price": "60500.0",
+                    "size": "0.001",
+                    "funds": "60.5",
+                    "fee": "0.06",
+                    "feeCurrency": "USDT",
+                    "createdAt": 1789552800000
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "currentPage": 2,
+                "pageSize": 500,
+                "totalNum": 2,
+                "totalPage": 2,
+                "items": [
+                  {
+                    "symbol": "ETH-USDT",
+                    "tradeId": "9001",
+                    "orderId": "o9001",
+                    "side": "sell",
+                    "type": "market",
+                    "price": "2500.0",
+                    "size": "0.2",
+                    "funds": "500",
+                    "fee": "0.06",
+                    "feeCurrency": "USDT",
+                    "createdAt": 1789700000123
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "GET /api/v1/deposits": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "currentPage": 1,
+                "pageSize": 500,
+                "totalNum": 2,
+                "totalPage": 2,
+                "items": [
+                  {
+                    "id": "d1",
+                    "currency": "USDT",
+                    "amount": "1000",
+                    "fee": "0.5",
+                    "walletTxId": "0xkd1",
+                    "status": "SUCCESS",
+                    "createdAt": 1789473600000
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "currentPage": 2,
+                "pageSize": 500,
+                "totalNum": 2,
+                "totalPage": 2,
+                "items": [
+                  {
+                    "currency": "BTC",
+                    "amount": "0.01",
+                    "fee": "0",
+                    "walletTxId": "0xidless",
+                    "status": "SUCCESS",
+                    "createdAt": 1789516800000
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "GET /api/v1/withdrawals": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "currentPage": 1,
+                "pageSize": 500,
+                "totalNum": 0,
+                "totalPage": 0,
+                "items": []
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

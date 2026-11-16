@@ -1,0 +1,60 @@
+{
+  "sent": [
+    {
+      "symbol": "BTC/USD",
+      "side": "sell",
+      "type": "limit",
+      "time_in_force": "gtc",
+      "qty": "0.001500000",
+      "limit_price": "70000.00"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Alpaca",
+        "base_asset": "BTC",
+        "quote_asset": "USD",
+        "amount": 0.0015,
+        "amount_type": "base",
+        "price": 70000
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "Alpaca",
+          "pair": "BTC/USD",
+          "side": "sell",
+          "order_type": "limit",
+          "amount": 0.0015,
+          "amount_type": "base",
+          "price": 70000.0,
+          "upstream": {
+            "order_id": "OTX-1"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Limit sell order placed on Alpaca: BTC/USD @ 70000.0. {order_id: \"OTX-1\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

@@ -1,0 +1,21 @@
+{
+  "sent": [],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "api": [
+    {
+      "status": "conflict",
+      "code": "placement_unresolved",
+      "message": "An earlier order from bot 1 may or may not have been placed; check Bitrue and resolve it on the bot page.",
+      "data": null
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

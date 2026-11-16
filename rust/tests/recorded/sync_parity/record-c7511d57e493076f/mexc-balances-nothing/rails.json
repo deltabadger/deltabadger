@@ -1,0 +1,96 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /api/v3/account",
+          [
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "bdfb4e3db4e33aac360d4579fc578373e21c09b0702d4b94d1a5693f1cac702c"
+            ],
+            [
+              "timestamp",
+              "1789871400750"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [],
+    "account_balances": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "asset_id": 5,
+          "created_at": "2026-09-10 02:30:00",
+          "exchange_id": 2,
+          "free": {
+            "f": "3fd999999999999a"
+          },
+          "locked": 0,
+          "priced_at": "2026-09-10 02:30:00",
+          "synced_at": "2026-09-10 02:30:00",
+          "updated_at": "2026-09-10 02:30:00",
+          "usd_price": {
+            "f": "40eccf1000000000"
+          },
+          "usd_value": {
+            "f": "40d70c0ccccccccd"
+          },
+          "user_id": 1
+        },
+        "after": null
+      }
+    ],
+    "api_keys": [
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": null,
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        },
+        "after": {
+          "id": 2,
+          "balances_synced_at": "2026-09-20 02:30:00.750000",
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": null,
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        }
+      }
+    ],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

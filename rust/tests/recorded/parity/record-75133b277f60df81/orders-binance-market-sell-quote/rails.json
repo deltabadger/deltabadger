@@ -1,0 +1,58 @@
+{
+  "sent": [
+    {
+      "quoteOrderQty": "100.0",
+      "recvWindow": "5000",
+      "selfTradePreventionMode": "EXPIRE_MAKER",
+      "side": "SELL",
+      "symbol": "BTCUSDT",
+      "type": "MARKET"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Binance",
+        "base_asset": "BTC",
+        "quote_asset": "USDT",
+        "amount": 100,
+        "amount_type": "quote"
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "Binance",
+          "pair": "BTC/USDT",
+          "side": "sell",
+          "order_type": "market",
+          "amount": 100.0,
+          "amount_type": "quote",
+          "upstream": {
+            "order_id": "BTCUSDT-28457"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Market sell order placed on Binance: 100.0 USDT of BTC/USDT. {order_id: \"BTCUSDT-28457\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

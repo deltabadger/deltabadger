@@ -1,0 +1,270 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "binance_state": {
+        "symbols": [
+          [
+            "BTCUSDT",
+            "BTC",
+            "USDT"
+          ],
+          [
+            "ETHUSDT",
+            "ETH",
+            "USDT"
+          ],
+          [
+            "ETHBTC",
+            "ETH",
+            "BTC"
+          ],
+          [
+            "BTCEUR",
+            "BTC",
+            "EUR"
+          ],
+          [
+            "BNBUSDT",
+            "BNB",
+            "USDT"
+          ],
+          [
+            "XRPUSDT",
+            "XRP",
+            "USDT",
+            "BREAK"
+          ]
+        ],
+        "balances": [
+          [
+            "BTC",
+            "0.04"
+          ],
+          [
+            "USDT",
+            "400"
+          ],
+          [
+            "ETH",
+            "0.4995"
+          ]
+        ],
+        "deposits": [
+          {
+            "id": "1",
+            "amount": "1000",
+            "coin": "USDT",
+            "network": "USDT",
+            "status": 1,
+            "address": "addr",
+            "addressTag": "",
+            "txId": "0xd1",
+            "insertTime": 1785578400123,
+            "transferType": 0,
+            "confirmTimes": "1/1",
+            "unlockConfirm": 0,
+            "walletType": 0
+          },
+          {
+            "id": "2",
+            "amount": "0.1",
+            "coin": "BTC",
+            "network": "BTC",
+            "status": 1,
+            "address": "addr",
+            "addressTag": "",
+            "txId": "0xd2",
+            "insertTime": 1785661200000,
+            "transferType": 0,
+            "confirmTimes": "1/1",
+            "unlockConfirm": 0,
+            "walletType": 0
+          },
+          {
+            "id": "3",
+            "amount": "50",
+            "coin": "USDT",
+            "network": "USDT",
+            "status": 2,
+            "address": "addr",
+            "addressTag": "",
+            "txId": "0xd3",
+            "insertTime": 1785715200000,
+            "transferType": 0,
+            "confirmTimes": "1/1",
+            "unlockConfirm": 0,
+            "walletType": 0
+          }
+        ],
+        "withdrawals": [
+          {
+            "id": "w1",
+            "amount": "0.05",
+            "transactionFee": "0.0005",
+            "coin": "BTC",
+            "status": 6,
+            "address": "addr",
+            "txId": "0xw1",
+            "applyTime": "2026-08-10 12:00:00",
+            "network": "BTC",
+            "transferType": 0
+          },
+          {
+            "id": "w2",
+            "amount": "0.01",
+            "transactionFee": "0.0005",
+            "coin": "BTC",
+            "status": 3,
+            "address": "addr",
+            "txId": "0xw2",
+            "applyTime": "2026-08-11 00:00:00",
+            "network": "BTC",
+            "transferType": 0
+          },
+          {
+            "id": "w3",
+            "amount": "10",
+            "coin": "USDT",
+            "status": 6,
+            "address": "addr",
+            "txId": "0xw3",
+            "applyTime": "2026-08-12 00:00:00",
+            "network": "USDT",
+            "transferType": 0
+          }
+        ],
+        "trades": {
+          "BTCUSDT": [
+            {
+              "id": 100,
+              "orderId": 10,
+              "orderListId": -1,
+              "price": "60000.00",
+              "qty": "0.01000000",
+              "quoteQty": "600.0",
+              "commission": "0.00001000",
+              "commissionAsset": "BTC",
+              "time": 1785924000123,
+              "isBuyer": true,
+              "isMaker": false,
+              "isBestMatch": true
+            },
+            {
+              "id": 101,
+              "orderId": 11,
+              "orderListId": -1,
+              "price": "61000.50",
+              "qty": "0.00500000",
+              "quoteQty": "305.0025",
+              "commission": "0.30500000",
+              "commissionAsset": "USDT",
+              "time": 1786010400987,
+              "isBuyer": false,
+              "isMaker": false,
+              "isBestMatch": true
+            }
+          ],
+          "ETHBTC": [
+            {
+              "id": 7,
+              "orderId": 3,
+              "orderListId": -1,
+              "price": "0.04000000",
+              "qty": "0.50000000",
+              "quoteQty": "0.02",
+              "commission": "0.00050000",
+              "commissionAsset": "ETH",
+              "time": 1786096800500,
+              "isBuyer": true,
+              "isMaker": false,
+              "isBestMatch": true
+            }
+          ]
+        },
+        "earn": {
+          "locked_rewardsRecord": [
+            {
+              "positionId": "123123",
+              "time": 1787184000000,
+              "asset": "BNB",
+              "lockPeriod": "30",
+              "amount": "0.00120069",
+              "type": "Locked Rewards"
+            }
+          ],
+          "flexible_subscriptionRecord": [
+            {
+              "amount": "100.00000000",
+              "asset": "USDT",
+              "time": 1787270400000,
+              "purchaseId": 26055,
+              "productId": "USDT001",
+              "type": "AUTO",
+              "sourceAccount": "SPOT",
+              "amtFromSpot": "100",
+              "amtFromFunding": "0",
+              "status": "SUCCESS"
+            }
+          ],
+          "flexible_redemptionRecord": [
+            {
+              "amount": "10.54000000",
+              "asset": "USDT",
+              "time": 1787356800000,
+              "productId": "USDT001",
+              "redeemId": 40607,
+              "destAccount": "SPOT",
+              "status": "PAID"
+            }
+          ],
+          "locked_subscriptionRecord": [
+            {
+              "positionId": "123124",
+              "purchaseId": "26056",
+              "projectId": "BNB30",
+              "time": 1787443200000,
+              "asset": "BNB",
+              "amount": "0.5",
+              "lockPeriod": "30",
+              "type": "NORMAL",
+              "sourceAccount": "SPOT",
+              "status": "SUCCESS"
+            }
+          ],
+          "locked_redemptionRecord": [
+            {
+              "positionId": "123124",
+              "redeemId": "40608",
+              "time": 1788307200000,
+              "asset": "BNB",
+              "lockPeriod": "30",
+              "amount": "0.5",
+              "type": "MATURE",
+              "deliverDate": "1788307200000",
+              "status": "PAID"
+            }
+          ]
+        },
+        "fail": {
+          "/sapi/v1/simple-earn/locked/history/rewardsRecord": {
+            "status": 400,
+            "body": {
+              "code": -1003,
+              "msg": "Too many requests."
+            }
+          }
+        }
+      }
+    }
+  ]
+}

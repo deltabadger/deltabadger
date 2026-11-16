@@ -1,0 +1,99 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T14:00:01.250000Z",
+  "venue": "mexc",
+  "script": {
+    "mexc": {
+      "GET /api/v3/ticker/bookTicker": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "bidPrice": "64000.10",
+            "bidQty": "1.5",
+            "askPrice": "64000.11",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "price": "64000.05"
+          }
+        }
+      ],
+      "POST /api/v3/order": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": "C02__100",
+            "orderListId": -1,
+            "price": "0",
+            "origQty": "0",
+            "type": "MARKET",
+            "side": "BUY",
+            "transactTime": 1788000000000
+          }
+        }
+      ],
+      "GET /api/v3/account": [
+        {
+          "status": 200,
+          "body": {
+            "canTrade": true,
+            "canWithdraw": true,
+            "canDeposit": true,
+            "accountType": "SPOT",
+            "balances": [
+              {
+                "asset": "BTC",
+                "free": "0.5",
+                "locked": "0.1"
+              },
+              {
+                "asset": "USDT",
+                "free": "10000",
+                "locked": "500"
+              }
+            ]
+          }
+        }
+      ],
+      "GET /api/v3/order": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": "C02__100",
+            "orderListId": -1,
+            "clientOrderId": "",
+            "price": "0",
+            "origQty": "0",
+            "executedQty": "0.00156",
+            "cummulativeQuoteQty": "99.84",
+            "status": "FILLED",
+            "type": "MARKET",
+            "side": "BUY",
+            "time": 1788000000000,
+            "updateTime": 1788000000000,
+            "isWorking": true,
+            "origQuoteOrderQty": "60"
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "poll": "BTCUSDT-C02__100",
+  "signals": [
+    {
+      "signal_id": 1,
+      "triggered_at": "2026-09-01T14:00:01.250000Z"
+    }
+  ]
+}

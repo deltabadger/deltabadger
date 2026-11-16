@@ -1,0 +1,150 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-02T14:00:01.000000Z",
+  "venue": "alpaca",
+  "script": {
+    "alpaca": {
+      "GET /v2/clock": [
+        {
+          "status": 200,
+          "body": {
+            "timestamp": "2026-09-02T14:00:01.000000Z",
+            "is_open": true,
+            "next_open": "2026-09-03T09:30:00-04:00",
+            "next_close": "2026-09-02T16:00:00-04:00"
+          }
+        }
+      ],
+      "GET /v2/stocks/AAPL/quotes/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "AAPL",
+            "quote": {
+              "ap": 187.43,
+              "as": 100,
+              "bp": 187.43,
+              "bs": 100,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/AAPL/trades/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "AAPL",
+            "trade": {
+              "p": 187.41,
+              "s": 10,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/MSFT/quotes/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "MSFT",
+            "quote": {
+              "ap": 401.25,
+              "as": 100,
+              "bp": 401.25,
+              "bs": 100,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/stocks/MSFT/trades/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "MSFT",
+            "trade": {
+              "p": 401.2,
+              "s": 10,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "POST /v2/orders": [
+        {
+          "status": 200,
+          "body": {
+            "id": "OTX-1",
+            "client_order_id": "rails-OTX-1",
+            "symbol": "AAPL",
+            "asset_class": "us_equity",
+            "notional": "60",
+            "qty": null,
+            "filled_qty": "0",
+            "filled_avg_price": null,
+            "order_type": "market",
+            "type": "market",
+            "side": "buy",
+            "time_in_force": "day",
+            "limit_price": null,
+            "status": "new"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "id": "OTX-2",
+            "client_order_id": "rails-OTX-2",
+            "symbol": "MSFT",
+            "asset_class": "us_equity",
+            "notional": "60",
+            "qty": null,
+            "filled_qty": "0",
+            "filled_avg_price": null,
+            "order_type": "market",
+            "type": "market",
+            "side": "buy",
+            "time_in_force": "day",
+            "limit_price": null,
+            "status": "new"
+          }
+        }
+      ],
+      "GET /v2/account": [
+        {
+          "status": 200,
+          "body": {
+            "id": "paper-account",
+            "status": "ACTIVE",
+            "currency": "USD",
+            "cash": "100000",
+            "buying_power": "200000",
+            "non_marginable_buying_power": "100000"
+          }
+        }
+      ],
+      "GET /v2/positions": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "symbol": "AAPL",
+              "asset_class": "us_equity",
+              "qty": "1.28",
+              "qty_available": "1.28"
+            },
+            {
+              "symbol": "MSFT",
+              "asset_class": "us_equity",
+              "qty": "0.15",
+              "qty_available": "0.15"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "tick": true
+}

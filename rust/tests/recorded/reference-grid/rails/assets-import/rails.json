@@ -1,0 +1,199 @@
+{
+  "requests": [
+    "GET /api/v1/assets"
+  ],
+  "retry": false,
+  "changes": {
+    "assets": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "category": "Cryptocurrency",
+          "circulating_supply": null,
+          "color": null,
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-09-01 00:00:00",
+          "external_id": "bitcoin",
+          "image_url": null,
+          "instrument_type": "tokenized",
+          "isin": null,
+          "market_cap": 1,
+          "market_cap_rank": null,
+          "name": "BTC",
+          "symbol": "BTC",
+          "updated_at": "2026-09-01 00:00:00",
+          "url": null
+        },
+        "after": {
+          "id": 1,
+          "category": "Cryptocurrency",
+          "circulating_supply": {
+            "f": "4172f4abf1f9add4"
+          },
+          "color": "#112233",
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "external_id": "bitcoin",
+          "image_url": "https://img.example/bitcoin.png",
+          "instrument_type": null,
+          "isin": null,
+          "market_cap": 2500000000000,
+          "market_cap_rank": 10,
+          "name": "BTC",
+          "symbol": "BTC",
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "url": "https://bitcoin.example"
+        }
+      },
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "category": "Cryptocurrency",
+          "circulating_supply": null,
+          "color": null,
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-09-01 00:00:00",
+          "external_id": "pax-gold",
+          "image_url": null,
+          "instrument_type": null,
+          "isin": null,
+          "market_cap": null,
+          "market_cap_rank": null,
+          "name": "PAXG",
+          "symbol": "PAXG",
+          "updated_at": "2026-09-01 00:00:00",
+          "url": null
+        },
+        "after": {
+          "id": 2,
+          "category": "Cryptocurrency",
+          "circulating_supply": null,
+          "color": null,
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-09-01 00:00:00",
+          "external_id": "pax-gold",
+          "image_url": null,
+          "instrument_type": "tokenized",
+          "isin": null,
+          "market_cap": null,
+          "market_cap_rank": null,
+          "name": "PAXG",
+          "symbol": "PAXG",
+          "updated_at": "2026-09-01 00:00:00",
+          "url": null
+        }
+      },
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "category": "Cryptocurrency",
+          "circulating_supply": {
+            "f": "408f440000000000"
+          },
+          "color": "#112233",
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "external_id": "new-coin",
+          "image_url": "https://data.deltabadger.com/logos/ab/new.png",
+          "instrument_type": null,
+          "isin": null,
+          "market_cap": 1000000,
+          "market_cap_rank": 7,
+          "name": "NEW",
+          "symbol": "NEW",
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "url": "https://new-coin.example"
+        }
+      },
+      {
+        "id": 5,
+        "before": null,
+        "after": {
+          "id": 5,
+          "category": "Cryptocurrency",
+          "circulating_supply": {
+            "f": "408f440000000000"
+          },
+          "color": "#112233",
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "external_id": "nvda-xstock",
+          "image_url": "https://img.example/nvda-xstock.png",
+          "instrument_type": "tokenized",
+          "isin": null,
+          "market_cap": 1000000,
+          "market_cap_rank": 10,
+          "name": "NVDAX",
+          "symbol": "NVDAX",
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "url": "https://nvda-xstock.example"
+        }
+      },
+      {
+        "id": 6,
+        "before": null,
+        "after": {
+          "id": 6,
+          "category": "Cryptocurrency",
+          "circulating_supply": {
+            "f": "408f440000000000"
+          },
+          "color": "#112233",
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "external_id": "ondo-thing",
+          "image_url": "https://img.example/ondo-thing.png",
+          "instrument_type": "tokenized",
+          "isin": null,
+          "market_cap": 1000000,
+          "market_cap_rank": 10,
+          "name": "OT",
+          "symbol": "OT",
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "url": "https://ondo-thing.example"
+        }
+      },
+      {
+        "id": 7,
+        "before": null,
+        "after": {
+          "id": 7,
+          "category": "Cryptocurrency",
+          "circulating_supply": {
+            "f": "419cb819547e6b76"
+          },
+          "color": "#112233",
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "external_id": "tether-gold",
+          "image_url": "https://img.example/tether-gold.png",
+          "instrument_type": "tokenized",
+          "isin": null,
+          "market_cap": 1000000,
+          "market_cap_rank": 10,
+          "name": "XAUT",
+          "symbol": "XAUT",
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "url": "https://tether-gold.example"
+        }
+      }
+    ],
+    "tickers": [],
+    "exchange_assets": [],
+    "indices": [],
+    "bot_activity_logs": [],
+    "app_configs": []
+  }
+}

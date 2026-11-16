@@ -1,0 +1,182 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-02T10:00:01.123456Z",
+  "venue": "hyperliquid",
+  "script": {
+    "hyperliquid": {
+      "POST /info l2Book": [
+        {
+          "status": 200,
+          "body": {
+            "coin": "@333",
+            "time": 1788000000000,
+            "levels": [
+              [
+                {
+                  "px": "40.121",
+                  "sz": "10",
+                  "n": 1
+                }
+              ],
+              [
+                {
+                  "px": "40.124",
+                  "sz": "10",
+                  "n": 1
+                }
+              ]
+            ]
+          }
+        }
+      ],
+      "POST /info allMids": [
+        {
+          "status": 200,
+          "body": {
+            "@333": "40.1225",
+            "@1": "7.5"
+          }
+        }
+      ],
+      "POST /info spotClearinghouseState": [
+        {
+          "status": 200,
+          "body": {
+            "balances": [
+              {
+                "coin": "USDC",
+                "token": 0,
+                "hold": "0",
+                "total": "100000",
+                "entryNtl": "0.0"
+              },
+              {
+                "coin": "MU",
+                "token": 1,
+                "hold": "0.0",
+                "total": "0.5",
+                "entryNtl": "0.0"
+              }
+            ]
+          }
+        }
+      ],
+      "POST /info meta": [
+        {
+          "status": 200,
+          "body": {
+            "universe": [
+              {
+                "name": "MU",
+                "szDecimals": 5
+              }
+            ]
+          }
+        }
+      ],
+      "POST /info spotMeta": [
+        {
+          "status": 200,
+          "body": {
+            "tokens": [
+              {
+                "name": "USDC",
+                "index": 0,
+                "szDecimals": 8
+              },
+              {
+                "name": "MU",
+                "index": 1,
+                "szDecimals": 2
+              }
+            ],
+            "universe": [
+              {
+                "name": "@333",
+                "tokens": [
+                  1,
+                  0
+                ],
+                "index": 142
+              }
+            ]
+          }
+        }
+      ],
+      "POST /info perpDexs": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "POST /exchange": [
+        {
+          "status": 200,
+          "body": {
+            "status": "ok",
+            "response": {
+              "type": "order",
+              "data": {
+                "statuses": [
+                  {
+                    "filled": {
+                      "totalSz": "1.48",
+                      "avgPx": "40.124",
+                      "oid": 77738308
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "POST /info userFillsByTime": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "coin": "@333",
+              "px": "40.022",
+              "sz": "1.0",
+              "side": "B",
+              "time": 1788000000100,
+              "startPosition": "0.0",
+              "dir": "Buy",
+              "closedPnl": "0.0",
+              "hash": "0xh9204",
+              "oid": 204,
+              "crossed": true,
+              "fee": "0.0005",
+              "tid": 9204,
+              "feeToken": "MU"
+            }
+          ]
+        }
+      ],
+      "POST /info orderStatus": [
+        {
+          "status": 200,
+          "body": {
+            "status": "order",
+            "order": {
+              "order": {
+                "coin": "@333",
+                "side": "B",
+                "limitPx": "40.022",
+                "sz": "0.49",
+                "oid": 204,
+                "timestamp": 1788000000000,
+                "origSz": "1.49"
+              },
+              "status": "open",
+              "statusTimestamp": 1788000000500
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": true
+}

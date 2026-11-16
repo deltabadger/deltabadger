@@ -1,0 +1,1383 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "kraken": {
+        "POST /0/private/Ledgers?ofs=0&start=1789340400": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LY1": {
+                    "refid": "Y1",
+                    "time": 1789516860,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "1",
+                    "fee": "0.01",
+                    "balance": "0"
+                  },
+                  "LY2": {
+                    "refid": "Y2",
+                    "time": 1789516920,
+                    "type": "spend",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-1",
+                    "fee": "0.01",
+                    "balance": "0"
+                  },
+                  "LY3": {
+                    "refid": "Y3",
+                    "time": 1789516980,
+                    "type": "receive",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.01",
+                    "fee": "0.02",
+                    "balance": "0"
+                  },
+                  "LY4": {
+                    "refid": "Y4",
+                    "time": 1789517040,
+                    "type": "adjustment",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0",
+                    "fee": "0.02",
+                    "balance": "0"
+                  },
+                  "LY5": {
+                    "refid": "Y5",
+                    "time": 1789517100,
+                    "type": "conversion",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LY6": {
+                    "refid": "Y6",
+                    "time": 1789517160,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "1",
+                    "fee": "-0.01",
+                    "balance": "0"
+                  },
+                  "LY7": {
+                    "refid": "Y7",
+                    "time": 1789517220,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-1",
+                    "fee": "-0.01",
+                    "balance": "0"
+                  },
+                  "LY8": {
+                    "refid": "Y8",
+                    "time": 1789517280,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0",
+                    "fee": "-0.01",
+                    "balance": "0"
+                  },
+                  "LY9": {
+                    "refid": "Y9",
+                    "time": 1789517340,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY10": {
+                    "refid": "Y10",
+                    "time": 1789517400,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY11": {
+                    "refid": "Y11",
+                    "time": 1789517460,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY12": {
+                    "refid": "Y12",
+                    "time": 1789517520,
+                    "type": "withdrawal",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY13": {
+                    "refid": "Y13",
+                    "time": 1789517580,
+                    "type": "withdrawal",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY14": {
+                    "refid": "Y14",
+                    "time": 1789517640,
+                    "type": "withdrawal",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY15": {
+                    "refid": "Y15",
+                    "time": 1789517700,
+                    "type": "staking",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY16": {
+                    "refid": "Y16",
+                    "time": 1789517760,
+                    "type": "staking",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY17": {
+                    "refid": "Y17",
+                    "time": 1789517820,
+                    "type": "staking",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY18": {
+                    "refid": "Y18",
+                    "time": 1789517880,
+                    "type": "reward",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY19": {
+                    "refid": "Y19",
+                    "time": 1789517940,
+                    "type": "reward",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY20": {
+                    "refid": "Y20",
+                    "time": 1789518000,
+                    "type": "reward",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY21": {
+                    "refid": "Y21",
+                    "time": 1789518060,
+                    "type": "earn",
+                    "subtype": "reward",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY22": {
+                    "refid": "Y22",
+                    "time": 1789518120,
+                    "type": "earn",
+                    "subtype": "reward",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY23": {
+                    "refid": "Y23",
+                    "time": 1789518180,
+                    "type": "earn",
+                    "subtype": "reward",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY24": {
+                    "refid": "Y24",
+                    "time": 1789518240,
+                    "type": "dividend",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY25": {
+                    "refid": "Y25",
+                    "time": 1789518300,
+                    "type": "dividend",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY26": {
+                    "refid": "Y26",
+                    "time": 1789518360,
+                    "type": "dividend",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY27": {
+                    "refid": "Y27",
+                    "time": 1789518420,
+                    "type": "rollover",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY28": {
+                    "refid": "Y28",
+                    "time": 1789518480,
+                    "type": "rollover",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY29": {
+                    "refid": "Y29",
+                    "time": 1789518540,
+                    "type": "rollover",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY30": {
+                    "refid": "Y30",
+                    "time": 1789518600,
+                    "type": "creator_fee",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY31": {
+                    "refid": "Y31",
+                    "time": 1789518660,
+                    "type": "creator_fee",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY32": {
+                    "refid": "Y32",
+                    "time": 1789518720,
+                    "type": "creator_fee",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY33": {
+                    "refid": "Y33",
+                    "time": 1789518780,
+                    "type": "nftcreatorfee",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY34": {
+                    "refid": "Y34",
+                    "time": 1789518840,
+                    "type": "nftcreatorfee",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY35": {
+                    "refid": "Y35",
+                    "time": 1789518900,
+                    "type": "nftcreatorfee",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY36": {
+                    "refid": "Y36",
+                    "time": 1789518960,
+                    "type": "earn",
+                    "subtype": "allocation",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY37": {
+                    "refid": "Y37",
+                    "time": 1789519020,
+                    "type": "earn",
+                    "subtype": "allocation",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY38": {
+                    "refid": "Y38",
+                    "time": 1789519080,
+                    "type": "earn",
+                    "subtype": "allocation",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY39": {
+                    "refid": "Y39",
+                    "time": 1789519140,
+                    "type": "transfer",
+                    "subtype": "spottostaking",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY40": {
+                    "refid": "Y40",
+                    "time": 1789519200,
+                    "type": "transfer",
+                    "subtype": "spottostaking",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY41": {
+                    "refid": "Y41",
+                    "time": 1789519260,
+                    "type": "transfer",
+                    "subtype": "spottostaking",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY42": {
+                    "refid": "Y42",
+                    "time": 1789519320,
+                    "type": "transfer",
+                    "subtype": "spottofutures",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY43": {
+                    "refid": "Y43",
+                    "time": 1789519380,
+                    "type": "transfer",
+                    "subtype": "spottofutures",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY44": {
+                    "refid": "Y44",
+                    "time": 1789519440,
+                    "type": "transfer",
+                    "subtype": "spottofutures",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY45": {
+                    "refid": "Y45",
+                    "time": 1789519500,
+                    "type": "transfer",
+                    "subtype": "airdrop",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY46": {
+                    "refid": "Y46",
+                    "time": 1789519560,
+                    "type": "transfer",
+                    "subtype": "airdrop",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY47": {
+                    "refid": "Y47",
+                    "time": 1789519620,
+                    "type": "transfer",
+                    "subtype": "airdrop",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY48": {
+                    "refid": "Y48",
+                    "time": 1789519680,
+                    "type": "margin",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY49": {
+                    "refid": "Y49",
+                    "time": 1789519740,
+                    "type": "margin",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY50": {
+                    "refid": "Y50",
+                    "time": 1789519800,
+                    "type": "margin",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  }
+                },
+                "count": 59
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?ofs=50&start=1789340400": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LY51": {
+                    "refid": "Y51",
+                    "time": 1789519860,
+                    "type": "settled",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY52": {
+                    "refid": "Y52",
+                    "time": 1789519920,
+                    "type": "settled",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY53": {
+                    "refid": "Y53",
+                    "time": 1789519980,
+                    "type": "settled",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY54": {
+                    "refid": "Y54",
+                    "time": 1789520040,
+                    "type": "sale",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY55": {
+                    "refid": "Y55",
+                    "time": 1789520100,
+                    "type": "sale",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY56": {
+                    "refid": "Y56",
+                    "time": 1789520160,
+                    "type": "sale",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY57": {
+                    "refid": "Y57",
+                    "time": 1789520220,
+                    "type": "none",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY58": {
+                    "refid": "Y58",
+                    "time": 1789520280,
+                    "type": "none",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY59": {
+                    "refid": "Y59",
+                    "time": 1789520340,
+                    "type": "none",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  }
+                },
+                "count": 59
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?start=1789340400&with_cursor=true": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LY1": {
+                    "refid": "Y1",
+                    "time": 1789516860,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "1",
+                    "fee": "0.01",
+                    "balance": "0"
+                  },
+                  "LY2": {
+                    "refid": "Y2",
+                    "time": 1789516920,
+                    "type": "spend",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-1",
+                    "fee": "0.01",
+                    "balance": "0"
+                  },
+                  "LY3": {
+                    "refid": "Y3",
+                    "time": 1789516980,
+                    "type": "receive",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.01",
+                    "fee": "0.02",
+                    "balance": "0"
+                  },
+                  "LY4": {
+                    "refid": "Y4",
+                    "time": 1789517040,
+                    "type": "adjustment",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0",
+                    "fee": "0.02",
+                    "balance": "0"
+                  },
+                  "LY5": {
+                    "refid": "Y5",
+                    "time": 1789517100,
+                    "type": "conversion",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LY6": {
+                    "refid": "Y6",
+                    "time": 1789517160,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "1",
+                    "fee": "-0.01",
+                    "balance": "0"
+                  },
+                  "LY7": {
+                    "refid": "Y7",
+                    "time": 1789517220,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-1",
+                    "fee": "-0.01",
+                    "balance": "0"
+                  },
+                  "LY8": {
+                    "refid": "Y8",
+                    "time": 1789517280,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0",
+                    "fee": "-0.01",
+                    "balance": "0"
+                  },
+                  "LY9": {
+                    "refid": "Y9",
+                    "time": 1789517340,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY10": {
+                    "refid": "Y10",
+                    "time": 1789517400,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY11": {
+                    "refid": "Y11",
+                    "time": 1789517460,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY12": {
+                    "refid": "Y12",
+                    "time": 1789517520,
+                    "type": "withdrawal",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY13": {
+                    "refid": "Y13",
+                    "time": 1789517580,
+                    "type": "withdrawal",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY14": {
+                    "refid": "Y14",
+                    "time": 1789517640,
+                    "type": "withdrawal",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY15": {
+                    "refid": "Y15",
+                    "time": 1789517700,
+                    "type": "staking",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY16": {
+                    "refid": "Y16",
+                    "time": 1789517760,
+                    "type": "staking",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY17": {
+                    "refid": "Y17",
+                    "time": 1789517820,
+                    "type": "staking",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY18": {
+                    "refid": "Y18",
+                    "time": 1789517880,
+                    "type": "reward",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY19": {
+                    "refid": "Y19",
+                    "time": 1789517940,
+                    "type": "reward",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY20": {
+                    "refid": "Y20",
+                    "time": 1789518000,
+                    "type": "reward",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY21": {
+                    "refid": "Y21",
+                    "time": 1789518060,
+                    "type": "earn",
+                    "subtype": "reward",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY22": {
+                    "refid": "Y22",
+                    "time": 1789518120,
+                    "type": "earn",
+                    "subtype": "reward",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY23": {
+                    "refid": "Y23",
+                    "time": 1789518180,
+                    "type": "earn",
+                    "subtype": "reward",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY24": {
+                    "refid": "Y24",
+                    "time": 1789518240,
+                    "type": "dividend",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY25": {
+                    "refid": "Y25",
+                    "time": 1789518300,
+                    "type": "dividend",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY26": {
+                    "refid": "Y26",
+                    "time": 1789518360,
+                    "type": "dividend",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY27": {
+                    "refid": "Y27",
+                    "time": 1789518420,
+                    "type": "rollover",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY28": {
+                    "refid": "Y28",
+                    "time": 1789518480,
+                    "type": "rollover",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY29": {
+                    "refid": "Y29",
+                    "time": 1789518540,
+                    "type": "rollover",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY30": {
+                    "refid": "Y30",
+                    "time": 1789518600,
+                    "type": "creator_fee",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY31": {
+                    "refid": "Y31",
+                    "time": 1789518660,
+                    "type": "creator_fee",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY32": {
+                    "refid": "Y32",
+                    "time": 1789518720,
+                    "type": "creator_fee",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY33": {
+                    "refid": "Y33",
+                    "time": 1789518780,
+                    "type": "nftcreatorfee",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY34": {
+                    "refid": "Y34",
+                    "time": 1789518840,
+                    "type": "nftcreatorfee",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY35": {
+                    "refid": "Y35",
+                    "time": 1789518900,
+                    "type": "nftcreatorfee",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY36": {
+                    "refid": "Y36",
+                    "time": 1789518960,
+                    "type": "earn",
+                    "subtype": "allocation",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY37": {
+                    "refid": "Y37",
+                    "time": 1789519020,
+                    "type": "earn",
+                    "subtype": "allocation",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY38": {
+                    "refid": "Y38",
+                    "time": 1789519080,
+                    "type": "earn",
+                    "subtype": "allocation",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY39": {
+                    "refid": "Y39",
+                    "time": 1789519140,
+                    "type": "transfer",
+                    "subtype": "spottostaking",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY40": {
+                    "refid": "Y40",
+                    "time": 1789519200,
+                    "type": "transfer",
+                    "subtype": "spottostaking",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY41": {
+                    "refid": "Y41",
+                    "time": 1789519260,
+                    "type": "transfer",
+                    "subtype": "spottostaking",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY42": {
+                    "refid": "Y42",
+                    "time": 1789519320,
+                    "type": "transfer",
+                    "subtype": "spottofutures",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY43": {
+                    "refid": "Y43",
+                    "time": 1789519380,
+                    "type": "transfer",
+                    "subtype": "spottofutures",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY44": {
+                    "refid": "Y44",
+                    "time": 1789519440,
+                    "type": "transfer",
+                    "subtype": "spottofutures",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY45": {
+                    "refid": "Y45",
+                    "time": 1789519500,
+                    "type": "transfer",
+                    "subtype": "airdrop",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY46": {
+                    "refid": "Y46",
+                    "time": 1789519560,
+                    "type": "transfer",
+                    "subtype": "airdrop",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY47": {
+                    "refid": "Y47",
+                    "time": 1789519620,
+                    "type": "transfer",
+                    "subtype": "airdrop",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY48": {
+                    "refid": "Y48",
+                    "time": 1789519680,
+                    "type": "margin",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY49": {
+                    "refid": "Y49",
+                    "time": 1789519740,
+                    "type": "margin",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY50": {
+                    "refid": "Y50",
+                    "time": 1789519800,
+                    "type": "margin",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  }
+                },
+                "count": null,
+                "cursor": {
+                  "next": "c1"
+                }
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?cursor=c1&start=1789340400&with_cursor=true": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LY51": {
+                    "refid": "Y51",
+                    "time": 1789519860,
+                    "type": "settled",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY52": {
+                    "refid": "Y52",
+                    "time": 1789519920,
+                    "type": "settled",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY53": {
+                    "refid": "Y53",
+                    "time": 1789519980,
+                    "type": "settled",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY54": {
+                    "refid": "Y54",
+                    "time": 1789520040,
+                    "type": "sale",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY55": {
+                    "refid": "Y55",
+                    "time": 1789520100,
+                    "type": "sale",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY56": {
+                    "refid": "Y56",
+                    "time": 1789520160,
+                    "type": "sale",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY57": {
+                    "refid": "Y57",
+                    "time": 1789520220,
+                    "type": "none",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY58": {
+                    "refid": "Y58",
+                    "time": 1789520280,
+                    "type": "none",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "-2",
+                    "fee": "0.5",
+                    "balance": "0"
+                  },
+                  "LY59": {
+                    "refid": "Y59",
+                    "time": 1789520340,
+                    "type": "none",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.5",
+                    "fee": "0.5",
+                    "balance": "0"
+                  }
+                },
+                "count": null
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?aclass=tokenized_asset&start=1789340400&with_cursor=true": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {},
+                "count": null
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

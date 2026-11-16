@@ -1,0 +1,48 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "coinbase": {
+        "GET /api/v3/brokerage/orders/historical/fills": [
+          {
+            "status": 200,
+            "body": {
+              "fills": [
+                {
+                  "trade_id": "swap",
+                  "entry_id": "entry-swap",
+                  "product_id": "ETH-BTC",
+                  "size": "0.01",
+                  "price": "0.03",
+                  "commission": "0.05",
+                  "size_in_quote": true,
+                  "side": "BUY",
+                  "trade_type": "FILL",
+                  "trade_time": "2026-09-19T01:00:00Z"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v3/brokerage/accounts": [
+          {
+            "status": 200,
+            "body": {
+              "accounts": [],
+              "has_next": false
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

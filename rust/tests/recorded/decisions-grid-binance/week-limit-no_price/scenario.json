@@ -1,0 +1,74 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-08T10:00:01.123456Z",
+  "venue": "binance",
+  "script": {
+    "binance": {
+      "GET /api/v3/ticker/bookTicker": [
+        {
+          "status": 400,
+          "body": {
+            "code": -1121,
+            "msg": "Invalid symbol."
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price": [
+        {
+          "status": 400,
+          "body": {
+            "code": -1121,
+            "msg": "Invalid symbol."
+          }
+        }
+      ],
+      "POST /api/v3/order": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28457,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        }
+      ],
+      "GET /api/v3/account": [
+        {
+          "status": 200,
+          "body": {
+            "makerCommission": 10,
+            "canTrade": true,
+            "balances": [
+              {
+                "asset": "BTC",
+                "free": "0.5",
+                "locked": "0"
+              },
+              {
+                "asset": "USDT",
+                "free": "100000.00000000",
+                "locked": "0"
+              }
+            ]
+          }
+        }
+      ],
+      "GET /api/v3/allOrders": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "GET /api/v3/myTrades": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ]
+    }
+  },
+  "tick": true
+}

@@ -1,0 +1,378 @@
+{
+  "page_parity_scratch": true,
+  "at": "2026-09-10T12:00:30.123456Z",
+  "secret_key_base": "61a30e26004ff1e25ced6c8a0629bdcef5e7bdf90db030ffb7d5f8045d9b04d14c830dfd2fd0312fe655dcbd6f9287a4777420c0f285baf8bf8363797db44997",
+  "steps": [
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?bot_id=1",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?bot_id=2&limit=1",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?bot_id=999",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?bot_id=abc",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?bot_id=",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?bot_id=4",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?limit=0",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?limit=-3",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?limit=2abc",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?limit=500",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?limit=1e2",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?limit=99999999999999999999",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?bot_id=1&bot_id=2",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions?bot_id=1",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"bot_id\":2,\"limit\":1}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"bot_id\":2,\"limit\":1.9}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"bot_id\":null,\"limit\":null}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"bot_id\":\"2\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transactions",
+      "headers": {
+        "Authorization": "Bearer second-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    }
+  ],
+  "expect_users": {},
+  "jobs": {}
+}

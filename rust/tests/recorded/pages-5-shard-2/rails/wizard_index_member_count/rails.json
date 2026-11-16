@@ -1,0 +1,3252 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-hP+n66eL8YnBQR6MeY9HkQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=UuizkYLE892ZNFGsEF9xaU%2Fvz%2BIW3dEL3VDGQbH3KT4K9rxWgFP63T9annopqNflF4OmsOfB2vwVutABQeEXZT2RqzqS3kmH8iaqGXu2jQdIio0rggDiUVtCvHDe7qiJag87%2FilPS2oKPaXh1mFaVoSJAOVZUGQri8JrBchTicpb4WKU0YSiqOIBWiGV8u33Rz6YgkN6%2BaRPuuCQ%2F2HyxfZfDqXfShau5rpbRRPE1P%2FQKSLDQUDMQjdhTfOuAsBUBcekouCWdlKXRnYdLSlNhUnrwBszbyCBAkkvfSnZ3K%2F17%2FVjDr5cAM%2FHQq8w20O2DjI%3D--AdGfCH6m0qQ4vG4i--rKMEIzupmup%2FoD8jEsMd0A%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-6290d549af80caa2fb7df4035451b122ac9f284c34459a922e1ae88d558e3008.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-55216d29feb9cbe3040956a80263e39ee90e0e1f1554dc6c4a8b67cec79947a7.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"8_lqBm1EkhFa9mk4pzz3QUP1V2KUdwEt7uf6p8ntQcalAnjLJCnEiyDTGyrPWxSXgLnWMYiZUaItlhWZSZtMLQ\" />\n    <meta name=\"csp-nonce\" content=\"hP+n66eL8YnBQR6MeY9HkQ==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-controller=\"form--html5-validations form--label-animations\" action=\"/login\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"24CiQ75BvUXeTA9EZBBh3OzIGXazU6PmiJQETOEXggfBEQEuGkF50AoZSLiY65yQ7kpQVcVVgfOh3RRsHjWaEA\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <h1>Welcome back!</h1>\n\n  <div class=\"form__row\">\n    <input autofocus=\"autofocus\" autocomplete=\"email\" class=\"form__input form__input--large\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email invalid!\" type=\"email\" value=\"\" name=\"user[email]\" id=\"user_email\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"current-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" type=\"password\" name=\"user[password]\" id=\"user_password\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n\n      <div class=\"form__info form__info--right\">\n        <a href=\"/password/new\">Forgot password?</a>\n      </div>\n</div>\n    <div class=\"toggle\">\n      <input name=\"user[remember_me]\" type=\"hidden\" value=\"0\" /><input type=\"checkbox\" value=\"1\" name=\"user[remember_me]\" id=\"user_remember_me\" />\n      <div class=\"toggle__style\"></div>\n      <label class=\"label\" for=\"user_remember_me\">Remember me</label>\n      \n    </div>\n\n  <div class=\"form__row form__row--final-button\">\n    <input type=\"submit\" name=\"commit\" value=\"Log In\" class=\"button button--sky button--large\" data-disable-with=\"Log In\" />\n  </div>\n\n  <div class=\"devise__links\">\n\n\n    <a class=\"button button--link\" href=\"/confirmation/new\">Resend link</a>\n    <span class=\"db-middot\">●</span>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"dropdown-wrapper dropdown-wrapper--right dropdown-wrapper--up\" style=\"font-weight: 600; color: var(--link)\">\n  EN\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/de/login\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/nl/login\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/fr/login\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/es/login\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pt/login\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/it/login\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pl/login\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/ru/login\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/cs/login\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sk/login\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/da/login\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sv/login\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/el/login\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/bg/login\">🇧🇬 Български</a>\n  </div>\n</div>\n</div>\n</form>\n\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+      "session_changed": true
+    },
+    {
+      "status": 303,
+      "headers": {
+        "location": "http://localhost:3000/",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-JB8JEbRnzIgCKQgTsV0X0A=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=Z1%2FXgB%2BArPvxpHAl1xA%2BioeFYAtdLxoTkiuVLw0RWOIA%2FvzP5RXk%2Fe2IxTpMDNJCw%2BTFdEqFtLZ2LuOyX8d2fOFBAtcHvFfU8vb7w1N%2Fu%2B7qwFKuUSZSt9Lg66sVZJ5LuotC%2FGddfyg8K2AIDp07Lq1nxSrQcqisf6YS%2BZCNhK1ywn5LNLz4lnvqxnous3bY1QXfybcMckp8mNkA5mw1BkezCq%2FomIgkiel2Rj%2BgWWTn48%2FPxbeD263Ac4ih1PDI11%2BXMUtZtOpudR27ukvd3CYqMmedAHoYEirIJ9Y74uKYmllDK%2FdxKCXFfzXPPJC8DgJMgdPlW5h0rvyTz4v2DLwFBV8eZq0L9wYIuzsPlrdtbyWKGRo%3D--%2FMZ70uIWSOyLakUM--merYTLGlvWKeX7nnXh4JjQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-m6ayiabznLeqZesFjQLv5Q=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=GJ%2BWdFsICw082I4mAY%2FmRjC3ogC8RqmIDUB8zPqmtnRRCQn6vT0%2BfjvEW4%2Fq5d7rJkMXGO4WTgdhegY6z80s%2BzbLx%2FQUjBZOeoha5XDNeZApWzRRxZvi1zGXxCwAX6zbjAO6yVmJQ%2BuTowM%2F8J29kgLsVJrctfia3V0O%2FPHnfkiyWHxXyySKFqxS%2FQkqkrBDZcsTkI06dYL%2BmkTApwly%2BhxR7y9d0lsEib3Y%2FZjMP%2B0hUR1xhoN8UzlzMjfI55GPROYfz2CeGBda80omK6CpVNz94ywEkNwvZQTq2wuZvClP94WnN8I4BbOxLl8ylAeyARHWre4%2FB4RHBIdZa7KOzGeLiLZ9CQiD%2B7iKlskSNpumG9jXKxq8lEgpRM3cwo%2F83R3Ew28zWKJ3N8O5sYOvp%2FpsAvdNCadulpupxWVnVoAe84rCoDTHtKz7Z9QKaaktsC11RLnmYgdje%2BqgstlnkWmo34g%2FsO5p1SBP0IwCxr7btwF%2BXd3mbmbdgRLNQA%3D%3D--CIrJaKb23t5nX%2Fza--n6WDkyYChknPYJOkfY11Pg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<html>\n  <head>\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"uPpsulGe6ho8etANfPm2rtysxNlNhPcjaGCLuGn3BEr8r11bXrFrcYxZ5_XqH1zHM_bZbVa306qdaqOmMdymuQ\" />\n    \n  </head>\n  <body>\n    <turbo-frame id=\"modal\">\n  <dialog data-controller=\"modal--base\" data-modal--base-close-url-value=\"/bots\" class=\"dialogview\" data-hw-animate-in=\"animate-modal-in\" data-hw-animate-out=\"animate-modal-out\">\n    <div class=\"dialogview__vertical-center\">\n      <button name=\"button\" type=\"button\" class=\"modal__close\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>      <turbo-frame id=\"modal_content\">\n        \n  <div class=\"bot-creation-layout bot-type-chooser\" data-dialog-size=\"bare\">\n    <div class=\"introtiles\">\n\n        <a class=\"itile itile--bot-type\" data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\" href=\"/bots/dca_single_assets/pick_exchange/new\">\n            <div class=\"index-title\">DCA / Rebalance</div>\n            <div class=\"index-info\">Pick one or more assets</div>\n</a>\n        <a class=\"itile itile--bot-type\" data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\" href=\"/bots/dca_indexes/setup_coingecko/new\">\n            <div class=\"index-title\">Index</div>\n            <div class=\"index-info\">Build your personal ETF</div>\n</a>\n\n    </div>\n  </div>\n\n</turbo-frame>    </div>\n  </dialog>\n</turbo-frame>\n  </body>\n</html>\n",
+      "session_changed": true,
+      "session": {
+        "bot_config": {}
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-28two9O1+BStHuYs9lRSSA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=roC5p%2B%2FJG%2BGhcuMbovDB4IwN3LG3FFXCY21Lk%2FC2h8cNGNlkIGc9jxXY9cR9rpzP%2FdzrsR17ddQe4ceJOV4nBMnazCv100YlZMDN5NjQiNtffGz59vNAJxxDt19lpGLd5AGRPqXq3Ed144PQhom%2FwvExSf7yOJMIDHizEs%2BKgmXlVIOCCCopm2yFLB0mnIxD1YjBcIG8tGs4uIQzukppzk0Dua09tD9hUFtfmtSce9Z8%2BD2Ab5Ac6li5qKZWKh%2BBj%2FDhMNMdg%2BF82jomhZR40e%2BwCGjCl3Lz0M1IY2RmrHA7dllINebGpIZpu3do0r%2F9AD56yZzR9NpfXYPBCkbgjkSLsbA%2B01f1R7iNunNywvw8htMx3nHSl7mbAATjobAvw3kpbbE%2F%2Bf7WWxPFXxVD8UGobtTjHTOwGENAcK52x0kNwu02TPOJ9YqzAw%2BotHExw32kXOi0sbgAbqYaagehPOj9SSuAjGaPrt5sk4t1vMYDNFSLr%2FQnBIIS%2Fpk5yA%3D%3D--kWOQdV9sjeTE7vxh--g9v%2Fe4BtT%2BWqd8DJJsbr5g%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<html>\n  <head>\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"nRMUN_RNZqVkMejfm3MaC7mQYtXFeDM0hyJ7njGTAvvZRiXW-2LnztQS3ycNlfBiVsp_Yd5LF71yKFOAabigCA\" />\n    \n  </head>\n  <body>\n    <turbo-frame id=\"modal\">\n  <dialog data-controller=\"modal--base\" data-modal--base-close-url-value=\"/bots\" class=\"dialogview\" data-hw-animate-in=\"animate-modal-in\" data-hw-animate-out=\"animate-modal-out\">\n    <div class=\"dialogview__vertical-center\">\n      <button name=\"button\" type=\"button\" class=\"modal__close\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>      <turbo-frame id=\"modal_content\">\n        \n  <div class=\"bot-creation-layout index-picker-layout\" data-controller=\"index-filter\" data-dialog-size=\"wide\">\n    \n<div class=\"process-progress\">\n  <h4>Pick index</h4>\n  <div class=\"slider\">\n    <div class=\"slider__style\">\n      <div class=\"slider__style__track\">\n        <div class=\"slider__style__progress\" style=\"width: 40%\"></div>\n      </div>\n    </div>\n  </div>\n</div>\n\n\n\n    <div class=\"index-search\">\n  <input type=\"text\"\n         class=\"index-search__input\"\n         placeholder=\"Search for an index…\"\n         autocomplete=\"off\"\n         autofocus\n         data-index-filter-target=\"input\"\n         data-action=\"input->index-filter#filter\">\n</div>\n\n<form class=\"itiles selectable-options\" data-turbo-frame=\"modal_content\" action=\"/bots/dca_indexes/pick_index\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"zqtc8zMGOpeRSCRnMByJ-_AGHYqQQFDF8uJFLvNqdVbAmCxcbgOfI7bjzGsx5b98OgocA7Y-X1M-7oZjKCdkCQ\" />\n      <button type=\"submit\"\n              name=\"index_type\"\n              value=\"category\"\n              class=\"itile \"\n              data-index-filter-target=\"tile\"\n              data-index-order=\"0\"\n              data-index-name=\"ND100\"\n              data-index-category-id=\"nasdaq-100\"\n              data-index-description=\"\"\n              data-action=\"click->index-filter#select\">\n        <h4>ND100</h4>\n        <p></p>\n          <div class=\"ticker-group ticker-group--many\">\n                <span class=\"ticker\" style=\"background-color: #76b900\" data-ticker-symbol=\"NVDA\" data-ticker-asset-id=\"4\">NVDA</span>\n                <span class=\"ticker\" style=\"background-color: #8a9ba8\" data-ticker-symbol=\"MSFT\" data-ticker-asset-id=\"5\">MSFT</span>\n                <span class=\"ticker\" style=\"background-color: #c4c4c6\" data-ticker-symbol=\"AAPL\" data-ticker-asset-id=\"6\">AAPL</span>\n                <span class=\"ticker\" style=\"background-color: #8a9ba8\" data-ticker-symbol=\"AMZN\" data-ticker-asset-id=\"7\">AMZN</span>\n                <span class=\"ticker\" style=\"background-color: #1f77e4\" data-ticker-symbol=\"META\" data-ticker-asset-id=\"8\">META</span>\n          </div>\n      </button>\n  <input type=\"hidden\" name=\"index_category_id\" id=\"index_category_id\" value=\"\" data-index-filter-target=\"categoryIdField\" />\n  <input type=\"hidden\" name=\"index_name\" id=\"index_name\" value=\"\" data-index-filter-target=\"nameField\" />\n</form>\n<div class=\"index-search__empty\" data-index-filter-target=\"empty\" style=\"display: none;\">\n  <p>No results found</p>\n</div>\n\n  </div>\n\n</turbo-frame>    </div>\n  </dialog>\n</turbo-frame>\n  </body>\n</html>\n",
+      "session_changed": false,
+      "session": {
+        "bot_config": {}
+      }
+    },
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/bots/dca_indexes/pick_exchange/new",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-e/xdVEOTG6nU5BNsHs5JgQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=46y8o%2Bz6lRCMMiViP%2BQhnSOqOTmJOj%2BQeSuhraZPt1m6SmORx1FaTKKCce6OZpZHhk08%2FsVNnrA3OOY8bzKkjnr6NeI23%2FgehReA3evewbuJlDGNSxGSqNtcrPRKyyqU5IXPa%2F3uj%2Bj7S6rrPdlyJ7fr0%2Fs%2B9ycioAhYqU6mWN6tIslRC5JhK%2FeJptHM7NN1GyuXZue1jiWRx3nVqH11oiI0hIlWyPqgl7K6gwTAUWo7qCvN2SIyForCehGdR42OFKMIkVb5Jjilcl7308QsHFUrp9dh%2FQ7DdT5stCVV50lehZ3A%2Bh%2F19bxtvXSyJ6mNJnZhu7n%2FMuUTQmkiDjO8yIDobOy6xGtIg%2BT7xd9PLotCsq4A%2FTJ%2FRsMSBTCP6GtMLDFrHub%2BfYjI4P0SXWP%2B1vJYhiCAH1qk9gYygEzkjHqD0zMaYGaxGkOouZHAQdxvlWuR79WVCL4gf8Sz4184yqhIblv%2B4uxIieN7e8XhOGfgmJxQm3Hn8mWTlWLwqL219KEQ8AAR8yqTyJjtv5tFL6dOaXsvyFoBDoVqtq%2FkySF6VfpnsnrpxwJAQYqMSQL2UF1W%2BrsSNILgnZgn%2BH9T0zjJZsAGQ74pBl%2FffTqJ5Y85PKqAFjTwtPcxKnIxnd5h2IEFp0rWO%2FGXSj50sJmPc5wd4kpGcW%2FFiGNinFoENBMghLCh6Zd0wiEkB7A8BeCRcvvXeM9K--qFy7vGZ7mu09mmyL--21wO4bAh44zS3NU%2BfXdBUg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true,
+      "session": {
+        "bot_config": {
+          "settings": {
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "index_name": "ND100",
+            "index_name_prefix": "ND"
+          }
+        }
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-Xkez88kRi3Y8j0vTcCC3lg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=yJe%2FJK3ZBbnohctNB%2FYdJLRCk3ighrI%2BdGvL%2FLdGL4qZf2xHO95qZBvK46lPg9Xe4eAs%2Buk1TTH%2Fyp%2BKs8Yp1l6wFdn6Phkdtjo4jJEmR8MYjXB7sfjpE9P0ZfSxUqHTopBrGcRVP%2B1SuE2Ok9RbELzSPFy%2BvtlbZ5MXnyN%2BH72YQw4wrwxHUGIw3wImKUwaD4KyN83EUPBusAN6svoZWJLjDqM%2F%2BXBUV6lwVSvdk3Kg%2F1BnNPadxvAReOe9yRrbWzc8vRAemYG8YLaQAwnQzbzvfUOK%2BFwApCmFuBL29GG%2FZNx4S%2BD9wKcp8h7vDuvVWKC6U4N0DWC3vLWZdn7%2FQs5kp%2F2FKM6YPatWs83%2FEHU2EqOrQI5CDWYAgwQHEeTO14cslqvqx5o0iGPPA%2F3SgfMHRjIte5AbJoCWV9S9G%2FLl6rSAWT%2BYKl4TSV%2Bbptfcatg6BFJqh8HmFXayGm0EL9%2B583rEboLXrrwuKEDoIVWK9REkxZe0eBNPY0dFFqwBDXYLZHepQniBF0AV2Ouy7z4JstIRYF1OkYVePIqmMX3Zog7Jl0SlIhC3EqxfrhRljkFDSJ0iF0VrzzSBsEwPjoB%2BvXe%2FcXVG5nneaFNSvHihVmFN0BwHBjyyouJlFmLPT%2BOrU9WjxDELsi6J4qGlz6e2UUzcF%2FX5s5qdhILgq7ggndLJGc08zcDTZmHsYDqJGh6FFB0D--AfRdnZ4CBY0czLbW--d4mvj98EzlwL%2Bu6Yjv7ghA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<html>\n  <head>\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"CvPXU6yUF0JSKIj6XQbQepVBRobQfm-vo5XX0ajr4N9Opuayo7uWKeILvwLL4DoTehtbMstNSyZWn__P8MBCLA\" />\n    \n  </head>\n  <body>\n    <turbo-frame id=\"modal\">\n  <dialog data-controller=\"modal--base\" data-modal--base-close-url-value=\"/bots\" class=\"dialogview\" data-hw-animate-in=\"animate-modal-in\" data-hw-animate-out=\"animate-modal-out\">\n    <div class=\"dialogview__vertical-center\">\n      <button name=\"button\" type=\"button\" class=\"modal__close\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>      <turbo-frame id=\"modal_content\">\n        \n  <div class=\"bot-creation-layout\">\n    \n<div class=\"process-progress\">\n  <h4>Exchange</h4>\n  <div class=\"slider\">\n    <div class=\"slider__style\">\n      <div class=\"slider__style__track\">\n        <div class=\"slider__style__progress\" style=\"width: 60%\"></div>\n      </div>\n    </div>\n  </div>\n</div>\n\n\n\n    <div class=\"conversational conversational--bot-setup\">\n      Invest in\n      <a data-turbo-frame=\"modal_content\" class=\"conversational__link\" href=\"/bots/dca_indexes/pick_index/new\">ND10</a>\n      portfolio\n      at\n      <form data-controller=\"form--submit-after-delay\" data-turbo-frame=\"exchange-picker\" action=\"/bots/dca_indexes/pick_exchange/new\" accept-charset=\"UTF-8\" method=\"get\">\n        <input autofocus=\"autofocus\" autocomplete=\"off\" placeholder=\"...\" data-action=\"input-&gt;form--submit-after-delay#submit\" class=\"conversational__input sinput\" type=\"text\" name=\"query\" id=\"query\" />\n</form>    </div>\n\n    <turbo-frame data-action=\"keydown@window-&gt;arrow-keys-navigation#navigate\" data-controller=\"arrow-keys-navigation\" class=\"selectable-options\" id=\"exchange-picker\">\n  <form action=\"/bots/dca_indexes/pick_exchange\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"e82l2ntSzo67ratg_jxt9LT-rCrwwy8VRuQ8v2Gvez0JPW2nD9mSkQ60EyIL5Q2Jk_3U8OGIu7TGLmspkXDmNw\" />\n    <div class=\"exchange-grid\">\n        <div class=\"exchange-grid__option\">\n          <button name=\"bots_dca_index[exchange_id]\" type=\"submit\" value=\"1\" class=\"exchange-grid__item\" data-arrow-keys-navigation-target=\"item button\" data-turbo-frame=\"modal_content\">\n            <svg viewBox=\"0 0 152 46\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M68.8585 34.3337L67.4321 30.0499H58.3032L56.8771 34.3337H52.7246L60.6171 11.4426H65.1182L73.0107 34.3337H68.8585ZM59.4445 26.5181H66.2911L62.9311 16.3806H62.8043L59.4445 26.5181Z\" fill=\"var(--concrete)\"/>\n<path d=\"M75.2332 34.3337V11.4426H79.0367V34.3337H75.2332Z\" fill=\"var(--concrete)\"/>\n<path d=\"M91.552 18.2773C93.5382 18.2773 95.1865 19.0404 96.4966 20.5665C97.8279 22.0926 98.4935 24.0764 98.4935 26.5182C98.4935 28.9381 97.8279 30.9111 96.4966 32.4371C95.1654 33.9632 93.5171 34.7262 91.552 34.7262C90.5375 34.7262 89.6184 34.5191 88.7944 34.105C87.9701 33.6689 87.3573 33.1129 86.9558 32.4371H86.8607V41.659H83.0571V18.6698H86.5121L86.6707 20.6646H86.7975C87.1989 19.9451 87.8329 19.3674 88.6992 18.9314C89.5656 18.4954 90.5166 18.2773 91.552 18.2773ZM90.6645 31.2271C91.8479 31.2271 92.7986 30.8022 93.5171 29.9519C94.2567 29.1017 94.6265 27.9572 94.6265 26.5182C94.6265 25.0575 94.2567 23.902 93.5171 23.0518C92.7986 22.2015 91.8479 21.7764 90.6645 21.7764C89.5868 21.7764 88.6781 22.1361 87.9385 22.8556C87.22 23.5532 86.8607 24.4144 86.8607 25.439V27.5646C86.8607 28.5892 87.22 29.4614 87.9385 30.1807C88.6781 30.8785 89.5868 31.2271 90.6645 31.2271Z\" fill=\"var(--concrete)\"/>\n<path d=\"M112.81 18.6698H116.265V34.3338H112.81L112.619 32.339H112.524C112.102 33.0586 111.457 33.6363 110.591 34.0724C109.746 34.5082 108.805 34.7262 107.77 34.7262C105.784 34.7262 104.125 33.9632 102.793 32.4371C101.462 30.9111 100.796 28.9381 100.796 26.5182C100.796 24.0983 101.462 22.1252 102.793 20.5992C104.125 19.0513 105.784 18.2773 107.77 18.2773C108.805 18.2773 109.746 18.4954 110.591 18.9314C111.457 19.3674 112.102 19.9451 112.524 20.6646H112.619L112.81 18.6698ZM112.461 27.5646V25.439C112.461 24.4144 112.091 23.5532 111.352 22.8556C110.633 22.1361 109.725 21.7764 108.626 21.7764C107.463 21.7764 106.512 22.2015 105.773 23.0518C105.033 23.902 104.663 25.0575 104.663 26.5182C104.663 27.9572 105.033 29.1017 105.773 29.9519C106.512 30.8022 107.463 31.2271 108.626 31.2271C109.725 31.2271 110.633 30.8785 111.352 30.1807C112.091 29.4614 112.461 28.5892 112.461 27.5646Z\" fill=\"var(--concrete)\"/>\n<path d=\"M127.158 34.7262C124.897 34.7262 123.038 33.9632 121.58 32.4371C120.143 30.9111 119.424 28.9381 119.424 26.5182C119.424 24.0983 120.143 22.1252 121.58 20.5992C123.038 19.0513 124.908 18.2773 127.19 18.2773C129.113 18.2773 130.74 18.8224 132.071 19.9124C133.403 20.9807 134.206 22.4196 134.48 24.229L130.645 24.8504C130.497 23.9129 130.096 23.1717 129.441 22.6267C128.806 22.0598 128.046 21.7764 127.158 21.7764C126.038 21.7764 125.109 22.2124 124.369 23.0845C123.65 23.9347 123.291 25.0793 123.291 26.5182C123.291 27.9572 123.65 29.1017 124.369 29.9519C125.109 30.8022 126.049 31.2271 127.19 31.2271C128.078 31.2271 128.849 30.9657 129.504 30.4424C130.18 29.8973 130.603 29.156 130.772 28.2186L134.48 28.84C134.206 30.606 133.392 32.0339 132.04 33.1238C130.687 34.1922 129.06 34.7262 127.158 34.7262Z\" fill=\"var(--concrete)\"/>\n<path d=\"M148.516 18.6698H151.971V34.3338H148.516L148.326 32.339H148.231C147.808 33.0586 147.164 33.6363 146.297 34.0724C145.452 34.5082 144.512 34.7262 143.476 34.7262C141.49 34.7262 139.831 33.9632 138.5 32.4371C137.168 30.9111 136.503 28.9381 136.503 26.5182C136.503 24.0983 137.168 22.1252 138.5 20.5992C139.831 19.0513 141.49 18.2773 143.476 18.2773C144.512 18.2773 145.452 18.4954 146.297 18.9314C147.164 19.3674 147.808 19.9451 148.231 20.6646H148.326L148.516 18.6698ZM148.167 27.5646V25.439C148.167 24.4144 147.798 23.5532 147.058 22.8556C146.34 22.1361 145.431 21.7764 144.332 21.7764C143.17 21.7764 142.219 22.2015 141.479 23.0518C140.74 23.902 140.37 25.0575 140.37 26.5182C140.37 27.9572 140.74 29.1017 141.479 29.9519C142.219 30.8022 143.17 31.2271 144.332 31.2271C145.431 31.2271 146.34 30.8785 147.058 30.1807C147.798 29.4614 148.167 28.5892 148.167 27.5646Z\" fill=\"var(--concrete)\"/>\n<path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M15.1067 44.9709L16.823 26.641H16.6669C15.2924 26.6412 14.1555 26.1443 13.1094 25.2396C12.0632 24.3349 11.3689 23.0814 11.1511 21.7042L14.3912 19.5785V19.5521C14.3911 18.1033 14.9422 16.7105 15.9294 15.6641C16.9168 14.6176 18.264 13.9985 19.6902 13.9358V13.9299H20.6537V10.5077C21.3367 10.5077 21.9977 10.7532 22.5194 11.2006C23.0411 11.6481 23.3897 12.2686 23.5036 12.9521H23.544V10.5077C24.0575 10.5077 24.5617 10.6465 25.0047 10.9098C25.4478 11.1732 25.8137 11.5515 26.0649 12.006C26.3161 12.4605 26.4434 12.9746 26.434 13.4956C26.4243 14.0166 26.2781 14.5256 26.0106 14.9702C26.8808 15.5474 27.5954 16.3357 28.0902 17.2638C28.5847 18.1918 28.8435 19.2303 28.843 20.2854V42.4075C28.843 42.7318 28.97 43.0427 29.1957 43.2717C29.4217 43.5011 29.728 43.6297 30.0473 43.6297H31.4757C29.4696 44.6632 27.2843 45.3889 24.9791 45.7464C35.3846 44.1329 43.3557 35.0111 43.3557 23.9999C43.3557 11.8497 33.6501 2 21.6778 2C9.70548 2 0 11.8497 0 23.9999C0 33.8255 6.34679 42.1466 15.1067 44.9709ZM17.6563 20.116C17.5323 20.242 17.4625 20.4127 17.4622 20.5908L17.4015 21.2637H18.7262C19.0776 21.2637 19.4146 21.122 19.663 20.8698C19.9114 20.6176 20.051 20.2756 20.051 19.9189H18.1241C17.9486 19.9192 17.7804 19.9901 17.6563 20.116Z\" fill=\"var(--concrete)\"/>\n</svg>\n\n</button>        </div>\n        <div class=\"exchange-grid__option\">\n          <button name=\"bots_dca_index[exchange_id]\" type=\"submit\" value=\"2\" class=\"exchange-grid__item\" data-arrow-keys-navigation-target=\"item button\" data-turbo-frame=\"modal_content\">\n            <svg viewBox=\"0 0 248 46\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M219.26 21.458C220.308 21.3476 221.246 21.5685 222.184 22.0654C223.121 22.5072 223.838 23.1147 224.279 23.8877C224.721 24.6055 225.052 25.4334 225.218 26.3721C225.383 27.0346 225.438 28.0285 225.438 29.4639H215.288C215.343 30.8995 215.674 32.0042 216.281 32.8877C216.888 33.771 217.881 34.1572 219.149 34.1572C220.363 34.1572 221.356 33.7706 222.073 32.9424C222.459 32.4455 222.791 31.9486 222.956 31.2861H225.272C225.217 31.7831 224.997 32.3907 224.666 32.998C224.335 33.6053 223.949 34.1574 223.508 34.5439C222.791 35.2617 221.907 35.7034 220.859 35.9795C220.308 36.1451 219.646 36.2002 218.929 36.2002C217.219 36.2001 215.729 35.5931 214.516 34.3232C213.302 33.0533 212.695 31.2862 212.695 29.0225C212.695 26.7589 213.302 24.937 214.516 23.5566C215.729 22.1763 217.329 21.458 219.26 21.458ZM241.932 21.3477C244.083 21.3477 245.628 21.9547 246.565 23.2246C247.172 23.9976 247.448 24.8812 247.448 25.7646H245.241C245.186 25.2125 245.02 24.7708 244.689 24.3291C244.138 23.7219 243.2 23.3906 241.821 23.3906C240.939 23.3906 240.222 23.5564 239.78 23.8877C239.339 24.219 239.063 24.6608 239.063 25.2129C239.064 25.8201 239.394 26.3172 240.001 26.6484C240.332 26.8693 240.884 27.0346 241.546 27.2002L243.146 27.5869C244.855 27.9734 246.013 28.4153 246.62 28.8018C247.558 29.4091 248 30.3474 248 31.6172C248 32.8871 247.503 33.9369 246.565 34.8203C245.628 35.7036 244.138 36.2001 242.208 36.2002C240.112 36.2002 238.622 35.7033 237.739 34.7646C236.857 33.8261 236.416 32.6668 236.306 31.2314H238.456V31.2861C238.511 32.0591 238.733 32.6667 239.063 33.1084C239.67 33.8813 240.719 34.2676 242.208 34.2676C243.09 34.2675 243.862 34.1021 244.579 33.7158C245.241 33.3294 245.572 32.7772 245.572 31.9492C245.572 31.3419 245.297 30.8997 244.745 30.5684C244.414 30.4027 243.697 30.1823 242.704 29.9062L240.828 29.4092C239.615 29.1332 238.733 28.8014 238.126 28.415C237.078 27.7525 236.581 26.9242 236.581 25.7646C236.581 24.4395 237.078 23.3907 238.016 22.5625C238.953 21.7343 240.277 21.3477 241.932 21.3477ZM64.6396 21.0166C65.853 21.0167 66.9564 21.2927 67.9492 21.7344C68.942 22.1761 69.7698 22.8935 70.4316 23.832C71.0384 24.6602 71.3692 25.6545 71.5898 26.7588C71.7001 27.4213 71.7553 28.3598 71.7002 29.5742H61.3291C61.3843 31.0097 61.8807 32.0045 62.8184 32.5566C63.3699 32.8879 64.0873 33.1083 64.8594 33.1084C65.6865 33.1084 66.4039 32.8877 66.9004 32.4463C67.1761 32.2255 67.4522 31.8937 67.6729 31.4521H71.4795C71.3691 32.2802 70.9278 33.1636 70.1006 34.0469C68.8318 35.4273 67.0659 36.1455 64.749 36.1455C62.8737 36.1454 61.1636 35.5374 59.7295 34.3779C58.2955 33.2184 57.5782 31.2862 57.5781 28.6914C57.5781 26.2067 58.2406 24.3291 59.5645 23.0039C60.8883 21.6788 62.5435 21.0166 64.6396 21.0166ZM104.963 21.0713C106.728 21.0713 108.218 21.4579 109.321 22.2861C110.424 23.1144 111.142 24.4952 111.362 26.5381H107.556C107.501 25.986 107.335 25.5442 107.004 25.1025C106.563 24.5504 105.956 24.2188 105.073 24.2188C103.805 24.2188 102.977 24.826 102.48 26.0957C102.26 26.7582 102.095 27.6419 102.095 28.7461C102.095 29.795 102.205 30.6236 102.48 31.2861C102.922 32.4457 103.75 33.0537 105.019 33.0537C105.901 33.0537 106.507 32.8319 106.894 32.335C107.28 31.8381 107.5 31.2313 107.556 30.5137H111.362C111.252 31.6731 110.865 32.722 110.148 33.7158C108.99 35.317 107.28 36.1455 104.963 36.1455C102.646 36.1454 100.992 35.4826 99.8887 34.1025C98.7854 32.7222 98.2334 31.0103 98.2334 28.8018C98.2334 26.3723 98.8406 24.4394 99.999 23.1143C101.213 21.7342 102.812 21.0714 104.963 21.0713ZM150.417 21.0166C151.575 21.0166 152.734 21.2927 153.727 21.7344C154.719 22.1761 155.547 22.8935 156.209 23.832C156.816 24.6603 157.148 25.6545 157.368 26.7588C157.478 27.4213 157.534 28.3598 157.479 29.5742H147.107C147.163 31.0098 147.659 32.0045 148.597 32.5566C149.148 32.8879 149.866 33.1084 150.638 33.1084C151.465 33.1084 152.182 32.8878 152.679 32.4463C152.954 32.2255 153.231 31.8938 153.451 31.4521H157.258C157.147 32.2803 156.705 33.1635 155.878 34.0469C154.609 35.4272 152.844 36.1455 150.527 36.1455C148.652 36.1455 146.942 35.5374 145.508 34.3779C144.074 33.2184 143.356 31.2863 143.356 28.6914C143.356 26.2067 144.019 24.3291 145.343 23.0039C146.667 21.679 148.321 21.0167 150.417 21.0166ZM191.733 21.2373C193.554 21.2925 195.099 21.8448 196.312 23.0596C197.526 24.2743 198.188 26.0415 198.188 28.3604C198.187 30.6239 197.636 32.501 196.533 33.9365C195.43 35.4273 193.775 36.1455 191.458 36.1455C189.527 36.1455 188.038 35.4828 186.935 34.2129C185.831 32.8878 185.225 31.1762 185.225 28.9678C185.225 26.5935 185.832 24.7706 186.99 23.335C188.149 21.9549 189.748 21.2374 191.733 21.2373ZM89.8486 21.0713C91.3931 21.0713 92.8275 21.4025 94.041 22.0098C95.2545 22.6171 95.8612 23.7768 95.8613 25.4883V33.6602C95.8613 34.1569 95.9717 34.4886 96.082 34.6543C96.1924 34.8199 96.4131 34.9862 96.6338 35.0967V35.6484H92.6064C92.4962 35.3725 92.4419 35.0963 92.3867 34.8203C92.3316 34.5442 92.3315 34.2678 92.2764 33.9365C91.7799 34.4886 91.1727 34.9856 90.5107 35.3721C89.6834 35.8137 88.8009 36.0898 87.7529 36.0898C86.4842 36.0898 85.3802 35.7032 84.5527 34.9854C83.7257 34.2676 83.2843 33.2188 83.2842 31.8389C83.2842 30.072 83.9462 28.8013 85.3252 28.0283C86.0974 27.5866 87.1456 27.3107 88.6348 27.0898L89.8486 26.9795C90.5655 26.8691 91.062 26.7588 91.3379 26.6484C91.8893 26.4276 92.1658 26.0963 92.166 25.5996C92.166 24.9922 91.9447 24.6056 91.5586 24.3848C91.1725 24.1639 90.5657 24.0527 89.7383 24.0527C88.8558 24.0528 88.1943 24.2742 87.8633 24.7158C87.5875 25.0471 87.4218 25.4889 87.3115 26.041H83.7256C83.7807 24.7713 84.1668 23.7774 84.7734 22.9492C85.7663 21.6793 87.4767 21.0713 89.8486 21.0713ZM54.2139 21.5684H56.5303V24.2188H54.2139V31.7275C54.2139 32.3349 54.2691 32.6664 54.4346 32.832C54.6001 32.9976 55.0413 33.0527 55.8135 33.0527H56.5859V35.8145L54.8203 35.8691C53.0551 35.9244 51.8412 35.6485 51.2344 34.9307C50.7931 34.4889 50.6279 33.8258 50.6279 32.9424V24.2188H48.5322V21.5684H50.5176V17.5928H54.2139V21.5684ZM118.258 21.5684H120.574V24.2188H118.258V31.7275C118.258 32.3349 118.313 32.6664 118.479 32.832C118.644 32.9976 119.085 33.0527 119.857 33.0527H120.63V35.8145L118.864 35.8691C117.099 35.9244 115.885 35.6485 115.278 34.9307C114.837 34.4889 114.672 33.8258 114.672 32.9424V24.2188H112.576V21.5684H114.562V17.5928H118.258V21.5684ZM183.735 21.4023C183.846 21.4023 184.011 21.4028 184.287 21.458V23.9424C184.122 23.9424 184.011 23.8877 183.9 23.8877H183.515C182.356 23.8877 181.418 24.2739 180.812 25.0469C180.15 25.8199 179.874 26.7034 179.874 27.6973V35.7588H177.502V21.6787H179.708V24.1084C179.873 23.6115 180.315 23.0591 181.032 22.3965C181.749 21.7339 182.577 21.4023 183.515 21.4023H183.735ZM234.43 21.4023C234.54 21.4023 234.706 21.4028 234.981 21.458V23.9424C234.816 23.9424 234.705 23.8877 234.595 23.8877H234.209C233.051 23.8877 232.113 24.2739 231.506 25.0469C230.844 25.8199 230.568 26.7034 230.568 27.6973V35.7588H228.196V21.6787H230.402V24.1084C230.568 23.6115 231.009 23.0591 231.727 22.3965C232.444 21.7339 233.271 21.4023 234.209 21.4023H234.43ZM168.18 16.4883C170.441 16.4883 172.041 17.1515 172.979 18.4766C173.53 19.2495 173.806 20.1883 173.806 21.2373C173.806 22.4519 173.475 23.4458 172.758 24.2188C172.427 24.6052 171.875 24.992 171.213 25.3232C172.206 25.7097 172.923 26.0959 173.42 26.5928C174.302 27.421 174.688 28.5806 174.688 30.0713C174.688 31.2859 174.302 32.4456 173.53 33.4395C172.372 34.9302 170.496 35.7031 167.959 35.7031H159.795V16.4883H168.18ZM5.2334 24.0303L15.7656 35.6484H0.0996094V18.3662L15.7656 0.200195L5.2334 24.0303ZM30.4385 35.6484H26.4668V16.3779H30.4385V35.6484ZM41.7471 21.0713C43.2364 21.0713 44.45 21.4585 45.3877 22.2314C46.3253 23.0045 46.7666 24.2743 46.7666 26.041V35.6484H42.9609V26.9795C42.9609 26.2065 42.8501 25.6541 42.6846 25.2676C42.2985 24.55 41.6366 24.1632 40.5889 24.1631C39.3202 24.1631 38.4926 24.7157 37.9961 25.7646C37.7755 26.3168 37.6094 27.0346 37.6094 27.918V35.6484H33.9141V21.458H37.499V23.5566C37.9954 22.8389 38.4371 22.2864 38.8232 21.9551C39.5955 21.4029 40.5335 21.0713 41.7471 21.0713ZM82.0703 24.9365C81.8498 24.9364 81.6292 24.8809 81.4639 24.8809H81.0225C79.5332 24.8809 78.5399 25.3788 77.9883 26.3174C77.7127 26.8695 77.5479 27.6975 77.5479 28.8564V35.6484H73.7969V21.4023H77.3271V23.8877C77.8788 22.949 78.3751 22.2864 78.8164 21.9551C79.5335 21.3477 80.4163 21.0713 81.5195 21.0713H82.0703V24.9365ZM126.753 35.6484H123.002V21.4023H126.753V35.6484ZM135.854 31.8936L138.833 21.4023H142.805L137.675 35.6484H133.758L128.684 21.4023H132.875L135.854 31.8936ZM203.098 27.6416L209.11 21.6787H212.089L206.738 26.8691L212.42 35.6484H209.441L205.028 28.5254L203.098 30.4033V35.6484H200.836V16.4883H203.098V27.6416ZM191.789 23.335C190.355 23.335 189.362 23.8879 188.7 24.9922C188.038 26.0965 187.707 27.4218 187.707 28.9678C187.707 30.4584 188.038 31.6732 188.7 32.667C189.362 33.6606 190.355 34.1572 191.789 34.1572C193.223 34.1572 194.271 33.5501 194.878 32.3906C195.43 31.2312 195.761 29.9062 195.761 28.4707C195.761 27.1455 195.54 26.0958 195.154 25.2676C194.492 23.9977 193.389 23.335 191.789 23.335ZM92.1104 28.7461C91.8898 28.9117 91.6142 29.0224 91.3936 29.1328C91.1729 29.2432 90.8417 29.2987 90.4004 29.4092L89.5732 29.5742C88.8013 29.7398 88.1943 29.9057 87.8633 30.0713C87.2565 30.4026 86.9805 30.955 86.9805 31.6729C86.9805 32.3354 87.1461 32.7776 87.5322 33.0537C87.8631 33.3295 88.3042 33.495 88.8555 33.4951C89.6828 33.4951 90.4002 33.2741 91.1172 32.7773C91.7791 32.2804 92.166 31.4516 92.166 30.1816V28.7461H92.1104ZM162.442 33.4395H168.069C169.669 33.4394 170.827 32.9981 171.489 32.0596C171.931 31.4522 172.151 30.7892 172.151 29.9609C172.151 28.5807 171.544 27.642 170.275 27.0898C169.613 26.8138 168.731 26.7031 167.628 26.7031H162.442V33.4395ZM219.149 23.3906C218.101 23.3907 217.163 23.7768 216.446 24.5498C215.729 25.3227 215.343 26.3167 215.288 27.5312H223.011C222.9 26.5376 222.68 25.7098 222.349 25.1025C221.687 23.943 220.639 23.3906 219.149 23.3906ZM13.5586 17.9238C16.1481 17.9238 18.2469 20.0253 18.2471 22.6172C18.2471 25.2092 16.1482 27.3105 13.5586 27.3105C10.9691 27.3105 8.87012 25.2092 8.87012 22.6172C8.87027 20.0253 10.9692 17.9239 13.5586 17.9238ZM64.6396 24.1084C63.6467 24.1084 62.9291 24.3844 62.4326 24.9365C61.881 25.4887 61.5498 26.2069 61.4395 27.1455H67.8389C67.7837 26.1516 67.4525 25.433 66.8457 24.8809C66.2391 24.3841 65.5219 24.1085 64.6396 24.1084ZM150.362 24.1084C149.425 24.1084 148.652 24.3844 148.155 24.9365C147.604 25.4887 147.273 26.2069 147.163 27.1455H153.562C153.506 26.1516 153.175 25.433 152.568 24.8809C151.962 24.3841 151.245 24.1084 150.362 24.1084ZM162.442 24.6055H167.241C168.344 24.6055 169.227 24.4391 169.834 24.1631C170.827 23.6661 171.269 22.8383 171.269 21.5684C171.269 20.2984 170.772 19.47 169.724 19.0283C169.117 18.8075 168.289 18.6416 167.131 18.6416H162.442V24.6055ZM126.753 19.7461H123.002V16.3232H126.753V19.7461Z\" fill=\"var(--concrete)\"/>\n</svg>\n\n</button>        </div>\n    </div>\n</form></turbo-frame>\n  </div>\n\n</turbo-frame>    </div>\n  </dialog>\n</turbo-frame>\n  </body>\n</html>\n",
+      "session_changed": false,
+      "session": {
+        "bot_config": {
+          "settings": {
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "index_name": "ND100",
+            "index_name_prefix": "ND"
+          }
+        }
+      }
+    },
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/bots/dca_indexes/add_api_key/new",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-ncIzQNp+w6j96UvooW6hoA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=hX9SyyJm1MoNF3cnr5hUfZyZkOKmC%2BS0BFIl7dhM4mhSVYiE0mKjrPn9CqJJx5DRNiNGTGraDpmUzJUu9Ssx5r63%2B8%2BOKC6mlIYsymJfKlQS%2FZDUx06Oj4PirUHDo4mQ671eJ43kX3qzfA8oxAftwV7WE9pJSVQwyasFyN2tC7wJ6LTBSRf4b3%2FqFS9nFXXkjkPdIW5WDGHOSYtH946j0kAFqmzvgWuvePuHZPon5h05hrwowwVpZMSjAxNVUHwMBa7K8yHhrnqrZBSRQQQdUiOcPtKMPCIhIFd12wdENLz6T5TTw%2Bdt0WM9bH3nZVYcah7Udg05AFFRqWg7MiMaOHdnC0cJTEK9Vt2G%2BAWevYxgRJrHICyLqK%2Fe2ULCoRF7lGqguZ%2Fp9P6D3OVZNGr2d%2B6zWS2Iew%2FW32CUrBp40l1gpnbOKWBrfjpjLuLEp2N2b1TYiD%2B1EpgNjHaEVGN5k%2FKAwm6X%2FxaAKqSjF4vcysyQowj9xnk3pOPHWTRb4gQwcPwZ3N6BsPG1dbPgVpwfVcaWtUwIONMQp4q%2B1m%2FDJ1KeWRsR2Lha19pd4%2BxBE2Ryo7yf4tCrr%2FBOzBIcs7GJd6nhKc7mU1C2PVphI0XEF1cbPLI1S71vU1cDAHMSqwFKmxa3%2BnySwMflrIMIbl7CFm0gkIvRJbFFqMMkJGkplbeNNW67bW6t3g8Ifkl0R5ap9KBke%2BlADDKJSGp3%2BgdhnSuPhL43%2FlltWHzieXGT--Idy89tAqJ9wASJVZ--XfU5soJLJPihfREJPbY9ww%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true,
+      "session": {
+        "bot_config": {
+          "settings": {
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "index_name": "ND100",
+            "index_name_prefix": "ND"
+          },
+          "exchange_id": "1"
+        }
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-TLMIC2szcc81Alv3sEkVkg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=qjUmGoufw0hmNf7FPOgL0jw48KkOb%2FeKS6d3jle3i1Q0Y5CbucRXVCoPwR7cg4xTAQki6KPiddjnOXcocnUFKtqzJcrbWbv8eqnXKAjt5SSWI6yE9oFmm8uErzYEwdalvf204CBmX47XFWlZry9DjK%2B3QES5kjdMK7RsT4211q0xhwEiTZWFyhKINpQHFjlrGlu7tqH4QCB5OAISjJIEC9lsOZIroyax6fEQWicnCspr31ZXbNGiguUCY79l2Iq%2FHskThgem%2Bn18Mh8v%2FKbh0BisrXIupJ2g3t2xI504d3mYwq3r44NzKZ4xsIzYQUrLSGGC2zCX7FbUZadTJLgmJqsA%2F%2BvPkI3yBDumB%2Bl74KafMzw1jQw864Q2d%2Bh5BzkRv%2F%2FMRkY7HMLFKkO8ABquBSS4eQ%2FqjkfD2U10%2FuKqLAdcDzHgu3T2hFlYRjFlivqqQaFANYB1SCERMAwOFAwAhS3xs4O4jXJN29F2bV40mDtE%2FHQmrSu1O6Ilt4xUg0UXQM0BAwsgWYamqK6xyS9kpqS3G0fTcQegTM69dZJlFkgr%2FXa3g8MxJwyPfpWRoPqcuddogfU3Hk2aO5Stbg771S0ksPzN9mKTPERV7daNCzxp0CVVf3iwNzBL7oIZ7PxP%2BzogtSWBmP%2Bf6yuSa3f%2FUBK8QikdlciWEUgfRNLyW8c65v3ieEeFThiNAebjnmrFszhcUQwZ3IJxaREixVCydOetKq7LtN6jSbVACjdb--jW0aqphvnv%2FXxBJE--f3dekerHP3WB9cZQPY7e4Q%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<html>\n  <head>\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"sMcQ_flBr1HdVxw-gHo17NRpgxVsTG2bY0qoX-wpWlv0kiEc9m4uOm10K8YWnN-FOzOeoXd_SRKWQIBBtAL4qA\" />\n    \n  </head>\n  <body>\n    <turbo-frame id=\"modal\">\n  <dialog data-controller=\"modal--base\" data-modal--base-close-url-value=\"/bots\" class=\"dialogview\" data-hw-animate-in=\"animate-modal-in\" data-hw-animate-out=\"animate-modal-out\">\n    <div class=\"dialogview__vertical-center\">\n      <button name=\"button\" type=\"button\" class=\"modal__close\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>      <turbo-frame id=\"modal_content\">\n        \n  <div class=\"bot-creation-layout\">\n    \n<div class=\"process-progress\">\n  <h4>Currency</h4>\n  <div class=\"slider\">\n    <div class=\"slider__style\">\n      <div class=\"slider__style__track\">\n        <div class=\"slider__style__progress\" style=\"width: 100%\"></div>\n      </div>\n    </div>\n  </div>\n</div>\n\n\n\n    <div class=\"conversational conversational--bot-setup\">\n      Invest in\n      <a data-turbo-frame=\"modal_content\" class=\"conversational__link\" href=\"/bots/dca_indexes/pick_index/new\">ND10</a>\n      portfolio\n      at\n      <a data-turbo-frame=\"modal_content\" class=\"sbutton sbutton--exchange sbutton--exchange--alpaca\" href=\"/bots/dca_indexes/pick_exchange/new\">\n        <svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M8.6656 23L9.5365 13.6156H9.45729C8.75983 13.6157 8.18293 13.3613 7.65211 12.8981C7.12123 12.4349 6.76893 11.7931 6.65841 11.088L8.30253 9.99974V9.98623C8.30248 9.24448 8.58213 8.5314 9.08306 7.99567C9.5841 7.45989 10.2677 7.14292 10.9914 7.11082V7.1078H11.4803V5.3557C11.8269 5.35571 12.1623 5.4814 12.427 5.71049C12.6918 5.93959 12.8686 6.25726 12.9264 6.60719H12.9469V5.3557C13.2075 5.35571 13.4634 5.42678 13.6881 5.5616C13.913 5.69643 14.0987 5.89013 14.2261 6.12282C14.3536 6.35551 14.4182 6.61871 14.4134 6.88545C14.4085 7.15219 14.3343 7.41279 14.1986 7.64041C14.6401 7.93592 15.0027 8.33951 15.2538 8.81467C15.5047 9.28979 15.6361 9.82147 15.6358 10.3617V21.6876C15.6358 21.8536 15.7003 22.0128 15.8148 22.1301C15.9295 22.2475 16.0849 22.3133 16.2469 22.3133H16.9717C20.524 20.4117 23 16.6355 23 12.2634C23 6.0428 18.0751 1 12 1C5.92486 1 1 6.0428 1 12.2634C1 17.2938 4.22055 21.554 8.6656 23ZM9.95934 10.2749C9.89642 10.3394 9.861 10.4268 9.86085 10.518L9.83005 10.8625H10.5022C10.6806 10.8625 10.8516 10.79 10.9776 10.6609C11.1036 10.5317 11.1745 10.3566 11.1745 10.174H10.1967C10.1077 10.1742 10.0223 10.2105 9.95934 10.2749Z\"/>\n</svg>\n\n        <span class=\"hide-on-mobile\">Alpaca</span>\n</a>      spending\n      <form class=\"ticker active\" data-controller=\"form--submit-after-delay\" data-turbo-frame=\"asset-picker\" action=\"/bots/dca_indexes/pick_spendable_asset/new\" accept-charset=\"UTF-8\" method=\"get\">\n        <input autofocus=\"autofocus\" autocomplete=\"off\" placeholder=\"...\" data-action=\"input-&gt;form--submit-after-delay#submit\" type=\"text\" name=\"query\" id=\"query\" />\n</form>    </div>\n\n    <turbo-frame data-action=\"keydown@window-&gt;arrow-keys-navigation#navigate\" data-controller=\"arrow-keys-navigation\" class=\"modal--search__assets selectable-options\" id=\"asset-picker\">\n      <form action=\"/bots/dca_indexes/pick_spendable_asset\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"1jPEBhhOKY5XSZQU0LGEKn-1_gfEyjlyo13lOypQxbbQDYw08OrJJ0yc6AX6oNo6cdWveVsx4YKSyUgUJcWGjQ\" />\n          <div class=\"modal--search__assets__item modal--search__assets__item--with-coins\" data-arrow-keys-navigation-target=\"item\">\n  <button name=\"bots_dca_index[quote_asset_id]\" type=\"submit\" value=\"1\" data-arrow-keys-navigation-target=\"button\" data-turbo-frame=\"modal_content\">\n    <div class=\"modal--search__cell modal--search__cell--ticker\">\n      <div class=\"ticker\" style=\"background: #8a9ba8\" data-ticker-symbol=\"USD\" data-ticker-asset-id=\"1\">USD</div>\n    </div>\n    <div class=\"modal--search__cell modal--search__cell--name\">\n        <img class=\"asset-logo\" src=\"/assets/flags/us-689b9e9a26648d5e7c30eef90fe43772c8f033192a73a5bf8568021c4f3669ec.svg\" alt=\"\" loading=\"lazy\">\n\n      <span class=\"modal--search__cell--name__label\">US Dollar</span>\n    </div>\n    <div class=\"modal--search__cell modal--search__cell--exchanges\">\n        <div class=\"ticker-group ticker-group--many\">\n            <span class=\"ticker\" style=\"background-color: #76b900\" data-ticker-symbol=\"NVDA\" data-ticker-asset-id=\"4\">NVDA</span>\n            <span class=\"ticker\" style=\"background-color: #8a9ba8\" data-ticker-symbol=\"MSFT\" data-ticker-asset-id=\"5\">MSFT</span>\n            <span class=\"ticker\" style=\"background-color: #c4c4c6\" data-ticker-symbol=\"AAPL\" data-ticker-asset-id=\"6\">AAPL</span>\n            <span class=\"ticker\" style=\"background-color: #8a9ba8\" data-ticker-symbol=\"AMZN\" data-ticker-asset-id=\"7\">AMZN</span>\n            <span class=\"ticker\" style=\"background-color: #1f77e4\" data-ticker-symbol=\"META\" data-ticker-asset-id=\"8\">META</span>\n            <span class=\"ticker\" style=\"background-color: #8a9ba8\" data-ticker-symbol=\"AVGO\" data-ticker-asset-id=\"9\">AVGO</span>\n            <span class=\"ticker ticker--more\">+6</span>\n        </div>\n    </div>\n</button></div>\n\n</form></turbo-frame>\n  </div>\n\n</turbo-frame>    </div>\n  </dialog>\n</turbo-frame>\n  </body>\n</html>\n",
+      "session_changed": false,
+      "session": {
+        "bot_config": {
+          "settings": {
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "index_name": "ND100",
+            "index_name_prefix": "ND"
+          },
+          "exchange_id": "1"
+        }
+      }
+    },
+    {
+      "status": 422,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-XcaCL3ZoJ7ARcf6MgnURZg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=CudY6IhGytA7SxHhFjjlWDqRvfX844lBVMYzwizAyJurfhqyziV3fYNl9o1d%2BwHq4N7fHul9N0vG3qV06RXbO17WL31KcGeSYhq8hjOGdaWFZXPU2UCTI6duEqiIfz%2BdJWb0cJCe%2FMYUo%2BTSCUo8IlQ1R1fBbbBw8RfRwF1BulIRTtKX2RFUQOfJjQdvesCW1au0N4GwRtiG9HZYYomJ4fXRJGMibnwDYRPj3tkqGz30oBjCmT8pmTJL20EV6GAWvTZRytsm5Pk415kO2wvupNXHhESxunu%2F8BcqYB3FiXJ797sH%2ByPsmLJuYVYQQl5NXacdYGTiST%2BiX1N90iUne9O%2BmAvKdXBWrdxORiuzK4S7uiObUUwHQxvZwZDMEClZcF%2B8oWKQEyNeONtBW7OYD8nwS2QyXpcS42%2FJS6biyQtR%2BwKTEwi73TMsR0IK3kdc5QmNbC%2FuUNxjDc1X644WV2PDcTmKtFybdg2hcCOl3I0VBLP5rxzdtR%2F3FkLe2rWfLYTnedPlri4CWeeCX9BH9505cgvE95WXVMbOI0QbTQPd65eNfsrwwwcbrpm%2BTfg6U1okuprBxBEcBLMJ8G8zfqvzHC8wJh6V0kmFVLzfVzigp491Li9VfOT2dNbKRr2GXCdlZAkHBOVWr4rBJK4sB8A811zwGxsZ73XcCpnyruWN1kaWXzEr33DFTncchbQKhnYZoai%2Fi5%2BbK6Gv95rSJeFoDEl2isNcTu5Xxbphmao4UhM6dc23moEx%2FPZjvIW1iBhPe8b7nOhTs%2F%2B1jlTZ%2BnDVGsGChfinwtRCzu%2BKa3uM%2F%2Bzju9HVvP7pKRBSnRj%2BonQCBq5e%2BpLEQ2tcmdNypvweeGesT8Vmu1ywSm6GOgap%2FS%2B1ogKHA3WtiEc0IQ%3D%3D--y%2FnSM1Ix%2FMp8xvlv--%2B%2B4%2F0DfNis38hGAFmocVlQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"color-scheme\" content=\"dark light\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"YohRN1e-wfPD1xdGw3YVMtWAaZlOtEUhYmVHcjzBIQsm3WDWWJFAmHP0IL5VkP9bOtp0LVWHYaiXb29sZOqD-A\" />\n    <meta name=\"csp-nonce\" content=\"XcaCL3ZoJ7ARcf6MgnURZg==\" />\n    <meta name=\"turbo-prefetch\" content=\"false\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-6290d549af80caa2fb7df4035451b122ac9f284c34459a922e1ae88d558e3008.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-55216d29feb9cbe3040956a80263e39ee90e0e1f1554dc6c4a8b67cec79947a7.js\" data-turbo-track=\"reload\" type=\"module\"></script>\n\n    \n  </head>\n\n  <body data-controller=\"hotwire-animations app-wake ticker-tooltips reveal-chrome coarse-slider\" data-locale=\"en\">\n\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n\n    <div class=\"flash-stack\">\n      <div id=\"flash\" data-turbo-permanent>\n          <div class=\"flash__message salert salert--danger\" data-controller=\"removals\" role=\"alert\">\n    <button name=\"button\" type=\"submit\" class=\"modal__close\" data-action=\"removals#remove\">\n      <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>    must be greater than or equal to 2\n</div>\n        \n      </div>\n      \n    </div>\n\n    <input data-turbo-permanent id=\"hamburger\" type=\"checkbox\">\n<div class=\"hamburger hamburger__a\"></div>\n<div class=\"hamburger hamburger__b\"></div>\n<div class=\"menu-mobile\" data-action=\"click-&gt;menu-mobile#close\" data-controller=\"menu-mobile\">\n<a class=\"menu-mobile__item menu-mobile__item--bots \" href=\"/bots\">Bots\n</a><a class=\"menu-mobile__item menu-mobile__item--tracker \" href=\"/tracker\">Tracker\n</a><a class=\"menu-mobile__item menu-mobile__item--rules \" href=\"/rules\">Rules\n</a><a class=\"menu-mobile__item menu-mobile__item--settings\" data-turbo-frame=\"modal\" href=\"/settings/account\">Settings\n</a><form class=\"switch-row-form\" data-controller=\"form--submit\" action=\"/settings/update_hide_balances\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"a9WluTFhTyWZ6ERgj_-pYSfHnUnsAxz4WGc838U2wzjoZi0RbawlRy7BA_g8ndILpky9YTs1w9iXyRpXNpNVoQ\" /><label class=\"menu-mobile__item menu-mobile__item--switch\" data-dropdown-keep-open>\n<span>Hide balances</span>\n<div class=\"toggle toggle--small\">\n<input type=\"hidden\" name=\"hide_balances\" id=\"hide_balances\" value=\"0\" />\n<input type=\"checkbox\" name=\"hide_balances\" id=\"hide_balances\" value=\"1\" data-action=\"change-&gt;form--submit#submit\" />\n<div class=\"toggle__style\"></div>\n</div>\n</label>\n</form>\n<form class=\"switch-row-form\" data-controller=\"form--segmented-field form--submit\" data-action=\"segmented:change-&gt;form--segmented-field#set segmented:change-&gt;form--submit#submit\" action=\"/settings/update_display_currency\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"S3QXz6nNhWAt0Fu0_uav7Y0lR7Qo9cKrvklK4JHB4_YKAKEC-VzYEf7AApws1p5vTGIlXG-DAt--cBSjukx0_Q\" /><div class=\"menu-mobile__item menu-mobile__item--currency\" data-dropdown-keep-open title=\"Profits and portfolio totals are shown in this currency. Bots keep trading in their own quote asset.\">\n\n<div class=\"segmented segmented--fluid\" role=\"radiogroup\" aria-label=\"Display currency\" data-controller=\"segmented\" data-action=\"click-&gt;segmented#toggle\" data-currency=\"true\">\n  <span class=\"segmented__thumb\" data-segmented-target=\"thumb\"></span>\n  <div class=\"segmented__dropdown dropdown\" data-segmented-target=\"dropdown\">\n    <div class=\"segmented__panes\">\n      <div class=\"segmented__pane segmented__menu\">\n            <button type=\"button\" class=\"segmented__option is-on\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" data-value=\"USD\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">$</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"EUR\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">€</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"GBP\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">£</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"CHF\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">Fr.</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"PLN\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">zł</button>\n      </div>\n    </div>\n  </div>\n  <span class=\"segmented__caret\" aria-hidden=\"true\">\n    <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</span></div>\n</div>\n<input data-form--segmented-field-target=\"field\" type=\"hidden\" value=\"USD\" name=\"user[display_currency]\" />\n</form>\n<div class=\"menu-mobile__divider\"></div>\n<form class=\"button_to\" method=\"post\" action=\"/logout\"><input type=\"hidden\" name=\"_method\" value=\"delete\" /><button class=\"menu-mobile__item menu-mobile__button\" data-turbo=\"false\" type=\"submit\">Logout\n</button><input type=\"hidden\" name=\"authenticity_token\" value=\"pB1IcvMFfz8whY7RE-jwQCeH9qrtTMplB9IB52uKb2-YSOwTSxl-M49xfrKpp3sTDGnX2qbeW1CHT7bSlWRS3A\" /></form></div>\n<div class=\"menu\">\n<div class=\"menu__section menu__section--top menu__section--logo\">\n<a class=\"menu__logo\" aria-label=\"Deltabadger\" href=\"/bots\"><svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n</a></div>\n<div class=\"menu__section menu__section--top menu__section--main-menu\" data-controller=\"menu\">\n<a class=\"menu__item menu__item--bots \" aria-label=\"Bots\" data-action=\"click-&gt;menu#select\" data-menu-target=\"tile\" data-tile=\"bots\" href=\"/bots\"><svg id=\"bot-count\" class=\"icon-24 icon-24--count\" viewbox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n  <text class=\"fill--icon\" x=\"12\" y=\"18.94\" text-anchor=\"middle\"\n        font-size=\"19\">0</text>\n</svg>\n\n<svg class=\"icon-24 icon-24--previous\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--icon\" d=\"M7.17774 12.5684C6.92433 12.2023 6.94176 11.707 7.23145 11.3594L12.2314 5.35938C12.585 4.93519 13.2164 4.87791 13.6406 5.23145C14.0648 5.58503 14.1221 6.21638 13.7686 6.64063L9.30176 12L13.7686 17.3594C14.1221 17.7836 14.0648 18.415 13.6406 18.7686C13.2164 19.1221 12.585 19.0648 12.2314 18.6406L7.23145 12.6406L7.17774 12.5684Z\"></path>\n</svg>\n\n</a><a class=\"menu__item menu__item--tracker \" aria-label=\"Tracker\" data-action=\"click-&gt;menu#select\" data-menu-target=\"tile\" data-tile=\"tracker\" href=\"/tracker\"><svg class=\"icon-24 icon-24--allocation\" viewbox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n    <circle class=\"stroke--icon\" cx=\"12\" cy=\"12\" r=\"9\"\n            fill=\"none\" stroke-width=\"2\"/>\n</svg>\n\n</a><a class=\"menu__item menu__item--rules \" aria-label=\"Rules\" data-action=\"click-&gt;menu#select\" data-menu-target=\"tile\" data-tile=\"rules\" href=\"/rules\"><svg fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--icon\" clip-rule=\"evenodd\" d=\"M8.9663 10.7464C9.10637 11.2806 8.78684 11.8272 8.25262 11.9673C6.86941 12.33 5.76524 12.8731 5.02881 13.4871C4.29134 14.102 4 14.7142 4 15.2532C4 16.0091 4.59887 16.9321 6.10255 17.7252C7.56058 18.4942 9.64396 19 12 19C14.356 19 16.4394 18.4942 17.8974 17.7252C19.4011 16.9321 20 16.0091 20 15.2532C20 14.7142 19.7087 14.102 18.9712 13.4871C18.2348 12.8731 17.1306 12.33 15.7474 11.9673C15.2132 11.8272 14.8936 11.2806 15.0337 10.7464C15.1738 10.2122 15.7204 9.89263 16.2546 10.0327C17.8343 10.4469 19.2296 11.0986 20.252 11.951C21.2733 12.8026 22 13.9285 22 15.2532C22 17.1189 20.5841 18.5693 18.8305 19.4942C17.0311 20.4432 14.6145 21 12 21C9.38547 21 6.96885 20.4432 5.16952 19.4942C3.41585 18.5693 2 17.1189 2 15.2532C2 13.9285 2.72671 12.8026 3.74802 11.951C4.77037 11.0986 6.16569 10.4469 7.74538 10.0327C8.27961 9.89263 8.82623 10.2122 8.9663 10.7464Z\" fill-rule=\"evenodd\"></path>\n<path class=\"fill--icon\" clip-rule=\"evenodd\" d=\"M11.2929 2.29289C11.6834 1.90237 12.3166 1.90237 12.7071 2.29289L16.7071 6.29289C17.0976 6.68342 17.0976 7.31658 16.7071 7.70711C16.3166 8.09763 15.6834 8.09763 15.2929 7.70711L13 5.41421V15C13 15.5523 12.5523 16 12 16C11.4477 16 11 15.5523 11 15V5.41421L8.70711 7.70711C8.31658 8.09763 7.68342 8.09763 7.29289 7.70711C6.90237 7.31658 6.90237 6.68342 7.29289 6.29289L11.2929 2.29289Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</a><div class=\"menu__chip\" data-menu-target=\"chip\"></div>\n</div>\n<div class=\"menu__section menu__section--bottom\">\n<div class=\"dropdown-wrapper dropdown-wrapper--bottom-left\" data-action=\"click-&gt;dropdown#toggle\" data-controller=\"dropdown\" data-dropdown-active-class=\"menu__item--active\" data-dropdown-target=\"wrapper\" data-turbo-permanent id=\"settings-menu\">\n<div class=\"menu__item menu__button\" data-dropdown-target=\"trigger\">\n<svg fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--icon\" clip-rule=\"evenodd\" d=\"M8 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM4 8h1.17a3 3 0 0 1 5.66 0H20a1 1 0 1 1 0 2h-9.17a3 3 0 0 1-5.66 0H4a1 1 0 0 1 0-2Zm12 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM4 14h9.17a3 3 0 0 1 5.66 0H20a1 1 0 1 1 0 2h-1.17a3 3 0 0 1-5.66 0H4a1 1 0 1 1 0-2Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</div>\n<div class=\"dropdown\">\n<a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/settings/account\">Settings</a>\n<form class=\"switch-row-form\" data-controller=\"form--submit\" action=\"/settings/update_hide_balances\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"KOiI_-UnLZHeMefx1a3BEVQJJ4Oo3ubsoLI6Bljb6tqrWwBXuepH82kYoGlmz7p71YIHq3_oOcxvHByOq358Qw\" /><label class=\"dropdown__item dropdown__item--switch\" data-dropdown-keep-open>\n<span>Hide balances</span>\n<div class=\"toggle toggle--small\">\n<input type=\"hidden\" name=\"hide_balances\" id=\"hide_balances\" value=\"0\" />\n<input type=\"checkbox\" name=\"hide_balances\" id=\"hide_balances\" value=\"1\" data-action=\"change-&gt;form--submit#submit\" />\n<div class=\"toggle__style\"></div>\n</div>\n</label>\n</form>\n<form class=\"switch-row-form\" data-controller=\"form--segmented-field form--submit\" data-action=\"segmented:change-&gt;form--segmented-field#set segmented:change-&gt;form--submit#submit\" action=\"/settings/update_display_currency\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"LobnxCl2hWt_T4fohDZYm7yG00LjPuao5W_y5HQCOMFv8lEJeefYGqxf3sBWBmkZfcGxqqRIJtzlVqynX4-vyg\" /><div class=\"dropdown__item dropdown__item--currency\" data-dropdown-keep-open title=\"Profits and portfolio totals are shown in this currency. Bots keep trading in their own quote asset.\">\n\n<div class=\"segmented segmented--fluid\" role=\"radiogroup\" aria-label=\"Display currency\" data-controller=\"segmented\" data-action=\"click-&gt;segmented#toggle\" data-currency=\"true\">\n  <span class=\"segmented__thumb\" data-segmented-target=\"thumb\"></span>\n  <div class=\"segmented__dropdown dropdown\" data-segmented-target=\"dropdown\">\n    <div class=\"segmented__panes\">\n      <div class=\"segmented__pane segmented__menu\">\n            <button type=\"button\" class=\"segmented__option is-on\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" data-value=\"USD\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">$</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"EUR\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">€</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"GBP\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">£</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"CHF\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">Fr.</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"PLN\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">zł</button>\n      </div>\n    </div>\n  </div>\n  <span class=\"segmented__caret\" aria-hidden=\"true\">\n    <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</span></div>\n</div>\n<input data-form--segmented-field-target=\"field\" type=\"hidden\" value=\"USD\" name=\"user[display_currency]\" />\n</form>\n<div class=\"dropdown__item dropdown__item--divider\"></div>\n<form class=\"button_to\" method=\"post\" action=\"/logout\"><input type=\"hidden\" name=\"_method\" value=\"delete\" /><button class=\"dropdown__item dropdown__item--danger\" data-turbo=\"false\" type=\"submit\">Logout\n</button><input type=\"hidden\" name=\"authenticity_token\" value=\"7DFGfD82qrLezuRV_bKb2qwE93e0nqx4YdhOIUGo_EjQZOIdhyqrvmE6FDZH_RCJh-rWB_8MPU3hRfkUv0bB-w\" /></form></div>\n</div>\n</div>\n</div>\n\n\n\n    <main class=\"main\">\n      <div class=\"main-content\">\n        <turbo-frame id=\"modal\">\n  <dialog data-controller=\"modal--base\" data-modal--base-close-url-value=\"/bots\" class=\"dialogview\" data-hw-animate-in=\"animate-modal-in\" data-hw-animate-out=\"animate-modal-out\">\n    <div class=\"dialogview__vertical-center\">\n      <button name=\"button\" type=\"button\" class=\"modal__close\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>      <turbo-frame id=\"modal_content\">\n        \n  <div class=\"bot-creation-layout\">\n    \n<div class=\"process-progress\">\n  <h4>Currency</h4>\n  <div class=\"slider\">\n    <div class=\"slider__style\">\n      <div class=\"slider__style__track\">\n        <div class=\"slider__style__progress\" style=\"width: 100%\"></div>\n      </div>\n    </div>\n  </div>\n</div>\n\n\n\n    <div class=\"conversational conversational--bot-setup\">\n      Invest in\n      <a data-turbo-frame=\"modal_content\" class=\"conversational__link\" href=\"/bots/dca_indexes/pick_index/new\">ND1</a>\n      portfolio\n      at\n      <a data-turbo-frame=\"modal_content\" class=\"sbutton sbutton--exchange sbutton--exchange--alpaca\" href=\"/bots/dca_indexes/pick_exchange/new\">\n        <svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M8.6656 23L9.5365 13.6156H9.45729C8.75983 13.6157 8.18293 13.3613 7.65211 12.8981C7.12123 12.4349 6.76893 11.7931 6.65841 11.088L8.30253 9.99974V9.98623C8.30248 9.24448 8.58213 8.5314 9.08306 7.99567C9.5841 7.45989 10.2677 7.14292 10.9914 7.11082V7.1078H11.4803V5.3557C11.8269 5.35571 12.1623 5.4814 12.427 5.71049C12.6918 5.93959 12.8686 6.25726 12.9264 6.60719H12.9469V5.3557C13.2075 5.35571 13.4634 5.42678 13.6881 5.5616C13.913 5.69643 14.0987 5.89013 14.2261 6.12282C14.3536 6.35551 14.4182 6.61871 14.4134 6.88545C14.4085 7.15219 14.3343 7.41279 14.1986 7.64041C14.6401 7.93592 15.0027 8.33951 15.2538 8.81467C15.5047 9.28979 15.6361 9.82147 15.6358 10.3617V21.6876C15.6358 21.8536 15.7003 22.0128 15.8148 22.1301C15.9295 22.2475 16.0849 22.3133 16.2469 22.3133H16.9717C20.524 20.4117 23 16.6355 23 12.2634C23 6.0428 18.0751 1 12 1C5.92486 1 1 6.0428 1 12.2634C1 17.2938 4.22055 21.554 8.6656 23ZM9.95934 10.2749C9.89642 10.3394 9.861 10.4268 9.86085 10.518L9.83005 10.8625H10.5022C10.6806 10.8625 10.8516 10.79 10.9776 10.6609C11.1036 10.5317 11.1745 10.3566 11.1745 10.174H10.1967C10.1077 10.1742 10.0223 10.2105 9.95934 10.2749Z\"/>\n</svg>\n\n        <span class=\"hide-on-mobile\">Alpaca</span>\n</a>      spending\n      <form class=\"ticker active\" data-controller=\"form--submit-after-delay\" data-turbo-frame=\"asset-picker\" action=\"/bots/dca_indexes/pick_spendable_asset/new\" accept-charset=\"UTF-8\" method=\"get\">\n        <input autofocus=\"autofocus\" autocomplete=\"off\" placeholder=\"...\" data-action=\"input-&gt;form--submit-after-delay#submit\" type=\"text\" name=\"query\" id=\"query\" />\n</form>    </div>\n\n    <turbo-frame data-action=\"keydown@window-&gt;arrow-keys-navigation#navigate\" data-controller=\"arrow-keys-navigation\" class=\"modal--search__assets selectable-options\" id=\"asset-picker\">\n      <form action=\"/bots/dca_indexes/pick_spendable_asset\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"Ys3LqOAQacv2wSoJosQ9QpUMPjokA7kKwHxvJfyy2Ttk84OaCLSJYu0UVhiI1WNSm2xvRLv4Yfrx6MIK8yeaAA\" /></form></turbo-frame>\n  </div>\n\n</turbo-frame>    </div>\n  </dialog>\n</turbo-frame>\n      </div>\n    </main>\n\n    <turbo-frame id=\"modal\"></turbo-frame>\n\n</body></html>",
+      "session_changed": true,
+      "action_snapshot": true,
+      "rows_before": {
+        "bots": [],
+        "bot_index_assets": [],
+        "bot_activity_logs": [],
+        "transactions": [],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-01 00:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": "PKTEST",
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": "paper",
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": "secret",
+            "status": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          }
+        ],
+        "users": [
+          {
+            "id": 1,
+            "admin": 1,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-01 00:00:00",
+            "created_at": "2026-01-01 00:00:00",
+            "display_currency": "USD",
+            "email": "owner@example.com",
+            "encrypted_password": "$2a$04$6lHT6e2m7Ieuk9XDVnx9EeEZr8M9sbJ1q3uDj3f6b0pqCsQbL/9Ha",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Owner",
+            "otp_module": 0,
+            "otp_secret_key": "KHP2LDC3QN3JKHWTRRCTUIKGAWERCCVV",
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 1,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "Tallinn",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-01 00:00:00",
+            "wash_sale_enabled": 0,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ]
+      },
+      "rows_after": {
+        "bots": [],
+        "bot_index_assets": [],
+        "bot_activity_logs": [],
+        "transactions": [],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-01 00:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": "PKTEST",
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": "paper",
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": "secret",
+            "status": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          }
+        ],
+        "users": [
+          {
+            "id": 1,
+            "admin": 1,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-01 00:00:00",
+            "created_at": "2026-01-01 00:00:00",
+            "display_currency": "USD",
+            "email": "owner@example.com",
+            "encrypted_password": "$2a$04$6lHT6e2m7Ieuk9XDVnx9EeEZr8M9sbJ1q3uDj3f6b0pqCsQbL/9Ha",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Owner",
+            "otp_module": 0,
+            "otp_secret_key": "KHP2LDC3QN3JKHWTRRCTUIKGAWERCCVV",
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 1,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "Tallinn",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-01 00:00:00",
+            "wash_sale_enabled": 0,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ]
+      },
+      "other_rows_before": {
+        "account_balances": [],
+        "account_transactions": [],
+        "action_mcp_session_messages": [],
+        "action_mcp_session_subscriptions": [],
+        "action_mcp_session_tasks": [],
+        "action_mcp_sessions": [],
+        "app_configs": [
+          {
+            "id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_provider",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"lG83WVZyCOwZSu4=\",\"h\":{\"iv\":\"KJVQ84CgWIvc113t\",\"at\":\"Vq8fpZ3Czs9LanOdX1eB7Q==\"}}"
+          },
+          {
+            "id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_url",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"G+IHKysrAD7hCzglulDbTG8sdp8=\",\"h\":{\"iv\":\"m87rgilyuLxDtNXy\",\"at\":\"AWUQKr0XHVx4cUGlQzXniA==\"}}"
+          },
+          {
+            "id": 3,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_token",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"csxgQ/0=\",\"h\":{\"iv\":\"0SnciZV+08q/anDM\",\"at\":\"izQVPdzn2GyxUvyLdzwQig==\"}}"
+          }
+        ],
+        "ar_internal_metadata": [
+          {
+            "key": "environment",
+            "value": "production",
+            "created_at": "2026-11-16 07:39:04.148",
+            "updated_at": "2026-11-16 07:39:04.148"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Currency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "US Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#1A2B3C",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "qqqm.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "QQQM Inc",
+            "symbol": "QQQM",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 3,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "ibit.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "IBIT Inc",
+            "symbol": "IBIT",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 4,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#76B900",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "nvda.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "NVDA Inc",
+            "symbol": "NVDA",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 5,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "msft.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "MSFT Inc",
+            "symbol": "MSFT",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 6,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#F5F5F7",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "aapl.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AAPL Inc",
+            "symbol": "AAPL",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 7,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "amzn.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AMZN Inc",
+            "symbol": "AMZN",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 8,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#0668E1",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "meta.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "META Inc",
+            "symbol": "META",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 9,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "avgo.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AVGO Inc",
+            "symbol": "AVGO",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 10,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#050505",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "googl.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "GOOGL Inc",
+            "symbol": "GOOGL",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 11,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "tsla.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "TSLA Inc",
+            "symbol": "TSLA",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 12,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#E31837",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "cost.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "COST Inc",
+            "symbol": "COST",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 13,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "nflx.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "NFLX Inc",
+            "symbol": "NFLX",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 14,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#ED1C24",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "amd.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AMD Inc",
+            "symbol": "AMD",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 15,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "pep.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "PEP Inc",
+            "symbol": "PEP",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 16,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": "#F7931A",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "btc",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": 1300000000000,
+            "market_cap_rank": null,
+            "name": "BTC",
+            "symbol": "BTC",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 17,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": "#627EEA",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "eth",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": 400000000000,
+            "market_cap_rank": null,
+            "name": "ETH",
+            "symbol": "ETH",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          }
+        ],
+        "bot_signals": [],
+        "connected_clients": [],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 3,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 4,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 5,
+            "asset_id": 3,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 6,
+            "asset_id": 3,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 7,
+            "asset_id": 4,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 8,
+            "asset_id": 5,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 9,
+            "asset_id": 6,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 10,
+            "asset_id": 7,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 11,
+            "asset_id": 8,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 12,
+            "asset_id": 9,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 13,
+            "asset_id": 10,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 14,
+            "asset_id": 11,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 15,
+            "asset_id": 12,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 16,
+            "asset_id": 13,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 17,
+            "asset_id": 14,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 18,
+            "asset_id": 15,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 19,
+            "asset_id": 16,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 20,
+            "asset_id": 17,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0.15",
+            "name": "Alpaca",
+            "taker_fee": "0.25",
+            "type": "Exchanges::Alpaca",
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 2,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0.05",
+            "name": "Interactive Brokers",
+            "taker_fee": "0.05",
+            "type": "Exchanges::Ibkr",
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "fee_api_keys": [],
+        "fund_classifications": [],
+        "fx_rates": [],
+        "historical_prices": [],
+        "ibkr_locks": [],
+        "idempotency_keys": [],
+        "indices": [
+          {
+            "id": 1,
+            "available_exchanges": "{}",
+            "created_at": "2026-01-01 00:00:00",
+            "description": null,
+            "external_id": "nasdaq-100",
+            "market_cap": null,
+            "name": "Nasdaq 100",
+            "source": "deltabadger",
+            "top_coins": "[\"nvda.us\"]",
+            "top_coins_by_exchange": "{}",
+            "updated_at": "2026-01-01 00:00:00",
+            "weight": 0,
+            "weights": "{\"nvda.us\":20,\"msft.us\":19,\"aapl.us\":18,\"amzn.us\":17,\"meta.us\":16,\"avgo.us\":15,\"googl.us\":14,\"tsla.us\":13,\"cost.us\":12,\"nflx.us\":11,\"amd.us\":10,\"pep.us\":9}"
+          }
+        ],
+        "oauth_access_grants": [],
+        "oauth_access_tokens": [],
+        "oauth_applications": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "rule_logs": [],
+        "rules": [],
+        "schema_migrations": [
+          {
+            "version": "20260102171555"
+          },
+          {
+            "version": "20260103000001"
+          },
+          {
+            "version": "20260104194208"
+          },
+          {
+            "version": "20260106111301"
+          },
+          {
+            "version": "20260106111302"
+          },
+          {
+            "version": "20260106115209"
+          },
+          {
+            "version": "20260106162140"
+          },
+          {
+            "version": "20260109050047"
+          },
+          {
+            "version": "20260114145256"
+          },
+          {
+            "version": "20260114154223"
+          },
+          {
+            "version": "20260126141242"
+          },
+          {
+            "version": "20260126145012"
+          },
+          {
+            "version": "20260127112431"
+          },
+          {
+            "version": "20260127164433"
+          },
+          {
+            "version": "20260128000001"
+          },
+          {
+            "version": "20260129111946"
+          },
+          {
+            "version": "20260129142740"
+          },
+          {
+            "version": "20260130114825"
+          },
+          {
+            "version": "20260203191449"
+          },
+          {
+            "version": "20260208114731"
+          },
+          {
+            "version": "20260217100000"
+          },
+          {
+            "version": "20260217100001"
+          },
+          {
+            "version": "20260219100000"
+          },
+          {
+            "version": "20260219110000"
+          },
+          {
+            "version": "20260219120000"
+          },
+          {
+            "version": "20260219130000"
+          },
+          {
+            "version": "20260224065811"
+          },
+          {
+            "version": "20260226000000"
+          },
+          {
+            "version": "20260227171710"
+          },
+          {
+            "version": "20260228130833"
+          },
+          {
+            "version": "20260228145540"
+          },
+          {
+            "version": "20260228152720"
+          },
+          {
+            "version": "20260308090843"
+          },
+          {
+            "version": "20260311145654"
+          },
+          {
+            "version": "20260311145655"
+          },
+          {
+            "version": "20260311145656"
+          },
+          {
+            "version": "20260311145657"
+          },
+          {
+            "version": "20260311145658"
+          },
+          {
+            "version": "20260311145659"
+          },
+          {
+            "version": "20260311145660"
+          },
+          {
+            "version": "20260311145661"
+          },
+          {
+            "version": "20260311145662"
+          },
+          {
+            "version": "20260316000001"
+          },
+          {
+            "version": "20260320042623"
+          },
+          {
+            "version": "20260322140051"
+          },
+          {
+            "version": "20260323052902"
+          },
+          {
+            "version": "20260324132010"
+          },
+          {
+            "version": "20260325183549"
+          },
+          {
+            "version": "20260325221615"
+          },
+          {
+            "version": "20260413120000"
+          },
+          {
+            "version": "20260413140000"
+          },
+          {
+            "version": "20260413150000"
+          },
+          {
+            "version": "20260520000000"
+          },
+          {
+            "version": "20260524000000"
+          },
+          {
+            "version": "20260527000000"
+          },
+          {
+            "version": "20260527001000"
+          },
+          {
+            "version": "20260527002000"
+          },
+          {
+            "version": "20260529001000"
+          },
+          {
+            "version": "20260530000000"
+          },
+          {
+            "version": "20260603222643"
+          },
+          {
+            "version": "20260603231515"
+          },
+          {
+            "version": "20260603234747"
+          },
+          {
+            "version": "20260624081139"
+          },
+          {
+            "version": "20260706170000"
+          },
+          {
+            "version": "20260727120000"
+          },
+          {
+            "version": "20260806001012"
+          },
+          {
+            "version": "20260808225248"
+          },
+          {
+            "version": "20260808230550"
+          },
+          {
+            "version": "20260810120000"
+          },
+          {
+            "version": "20260815120000"
+          },
+          {
+            "version": "20260815130000"
+          },
+          {
+            "version": "20260815140000"
+          },
+          {
+            "version": "20260815150000"
+          },
+          {
+            "version": "20260815150050"
+          },
+          {
+            "version": "20260815150060"
+          },
+          {
+            "version": "20260815150100"
+          },
+          {
+            "version": "20260815160000"
+          },
+          {
+            "version": "20260815170000"
+          },
+          {
+            "version": "20260815170100"
+          },
+          {
+            "version": "20260818120000"
+          },
+          {
+            "version": "20260821120000"
+          },
+          {
+            "version": "20260821220432"
+          },
+          {
+            "version": "20260822100000"
+          },
+          {
+            "version": "20260823120000"
+          },
+          {
+            "version": "20260824120000"
+          },
+          {
+            "version": "20260824130000"
+          },
+          {
+            "version": "20260824140000"
+          },
+          {
+            "version": "20260825060000"
+          },
+          {
+            "version": "20260825120000"
+          },
+          {
+            "version": "20260825200000"
+          },
+          {
+            "version": "20260826090000"
+          },
+          {
+            "version": "20260826140000"
+          },
+          {
+            "version": "20260828094446"
+          },
+          {
+            "version": "20260828095813"
+          },
+          {
+            "version": "20260828175918"
+          },
+          {
+            "version": "20260829132450"
+          },
+          {
+            "version": "20260830120000"
+          },
+          {
+            "version": "20260830210000"
+          },
+          {
+            "version": "20260830230000"
+          },
+          {
+            "version": "20260905190000"
+          },
+          {
+            "version": "20260907100000"
+          },
+          {
+            "version": "20260907110000"
+          },
+          {
+            "version": "20260908090000"
+          },
+          {
+            "version": "20260908091000"
+          },
+          {
+            "version": "20260908120000"
+          },
+          {
+            "version": "20260908130000"
+          },
+          {
+            "version": "20260918090000"
+          },
+          {
+            "version": "20260918120000"
+          },
+          {
+            "version": "20260918150000"
+          },
+          {
+            "version": "20260921120000"
+          },
+          {
+            "version": "20260921180000"
+          },
+          {
+            "version": "20260928120000"
+          },
+          {
+            "version": "20260929120000"
+          },
+          {
+            "version": "20261006100000"
+          },
+          {
+            "version": "20261009120000"
+          },
+          {
+            "version": "20261009130000"
+          },
+          {
+            "version": "20261011170000"
+          },
+          {
+            "version": "20261014120000"
+          },
+          {
+            "version": "20261015120000"
+          },
+          {
+            "version": "20261016120000"
+          },
+          {
+            "version": "20261016130000"
+          },
+          {
+            "version": "20261016140000"
+          },
+          {
+            "version": "20261017100000"
+          }
+        ],
+        "setting_flags": [],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "QQQM",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 2,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "QQQM",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 3,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "IBIT",
+            "base_asset_id": 3,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "IBIT",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 4,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "IBIT",
+            "base_asset_id": 3,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "IBIT",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 5,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "NVDA",
+            "base_asset_id": 4,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "NVDA",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 6,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "MSFT",
+            "base_asset_id": 5,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "MSFT",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 7,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AAPL",
+            "base_asset_id": 6,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AAPL",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 8,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AMZN",
+            "base_asset_id": 7,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AMZN",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 9,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "META",
+            "base_asset_id": 8,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "META",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 10,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AVGO",
+            "base_asset_id": 9,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AVGO",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 11,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "GOOGL",
+            "base_asset_id": 10,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "GOOGL",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 12,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "TSLA",
+            "base_asset_id": 11,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "TSLA",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 13,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "COST",
+            "base_asset_id": 12,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "COST",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 14,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "NFLX",
+            "base_asset_id": 13,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "NFLX",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 15,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AMD",
+            "base_asset_id": 14,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AMD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 16,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "PEP",
+            "base_asset_id": 15,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "PEP",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 17,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "BTC",
+            "base_asset_id": 16,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 2.7e-05,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "BTC/USD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 18,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "ETH",
+            "base_asset_id": 17,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 2.7e-05,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "ETH/USD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "wash_sale_locks": []
+      },
+      "other_rows_after": {
+        "account_balances": [],
+        "account_transactions": [],
+        "action_mcp_session_messages": [],
+        "action_mcp_session_subscriptions": [],
+        "action_mcp_session_tasks": [],
+        "action_mcp_sessions": [],
+        "app_configs": [
+          {
+            "id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_provider",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"lG83WVZyCOwZSu4=\",\"h\":{\"iv\":\"KJVQ84CgWIvc113t\",\"at\":\"Vq8fpZ3Czs9LanOdX1eB7Q==\"}}"
+          },
+          {
+            "id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_url",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"G+IHKysrAD7hCzglulDbTG8sdp8=\",\"h\":{\"iv\":\"m87rgilyuLxDtNXy\",\"at\":\"AWUQKr0XHVx4cUGlQzXniA==\"}}"
+          },
+          {
+            "id": 3,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_token",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"csxgQ/0=\",\"h\":{\"iv\":\"0SnciZV+08q/anDM\",\"at\":\"izQVPdzn2GyxUvyLdzwQig==\"}}"
+          }
+        ],
+        "ar_internal_metadata": [
+          {
+            "key": "environment",
+            "value": "production",
+            "created_at": "2026-11-16 07:39:04.148",
+            "updated_at": "2026-11-16 07:39:04.148"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Currency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "US Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#1A2B3C",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "qqqm.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "QQQM Inc",
+            "symbol": "QQQM",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 3,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "ibit.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "IBIT Inc",
+            "symbol": "IBIT",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 4,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#76B900",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "nvda.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "NVDA Inc",
+            "symbol": "NVDA",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 5,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "msft.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "MSFT Inc",
+            "symbol": "MSFT",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 6,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#F5F5F7",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "aapl.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AAPL Inc",
+            "symbol": "AAPL",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 7,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "amzn.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AMZN Inc",
+            "symbol": "AMZN",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 8,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#0668E1",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "meta.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "META Inc",
+            "symbol": "META",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 9,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "avgo.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AVGO Inc",
+            "symbol": "AVGO",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 10,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#050505",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "googl.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "GOOGL Inc",
+            "symbol": "GOOGL",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 11,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "tsla.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "TSLA Inc",
+            "symbol": "TSLA",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 12,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#E31837",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "cost.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "COST Inc",
+            "symbol": "COST",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 13,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "nflx.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "NFLX Inc",
+            "symbol": "NFLX",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 14,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#ED1C24",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "amd.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AMD Inc",
+            "symbol": "AMD",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 15,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "pep.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "PEP Inc",
+            "symbol": "PEP",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 16,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": "#F7931A",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "btc",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": 1300000000000,
+            "market_cap_rank": null,
+            "name": "BTC",
+            "symbol": "BTC",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 17,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": "#627EEA",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "eth",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": 400000000000,
+            "market_cap_rank": null,
+            "name": "ETH",
+            "symbol": "ETH",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          }
+        ],
+        "bot_signals": [],
+        "connected_clients": [],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 3,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 4,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 5,
+            "asset_id": 3,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 6,
+            "asset_id": 3,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 7,
+            "asset_id": 4,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 8,
+            "asset_id": 5,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 9,
+            "asset_id": 6,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 10,
+            "asset_id": 7,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 11,
+            "asset_id": 8,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 12,
+            "asset_id": 9,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 13,
+            "asset_id": 10,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 14,
+            "asset_id": 11,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 15,
+            "asset_id": 12,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 16,
+            "asset_id": 13,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 17,
+            "asset_id": 14,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 18,
+            "asset_id": 15,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 19,
+            "asset_id": 16,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 20,
+            "asset_id": 17,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0.15",
+            "name": "Alpaca",
+            "taker_fee": "0.25",
+            "type": "Exchanges::Alpaca",
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 2,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0.05",
+            "name": "Interactive Brokers",
+            "taker_fee": "0.05",
+            "type": "Exchanges::Ibkr",
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "fee_api_keys": [],
+        "fund_classifications": [],
+        "fx_rates": [],
+        "historical_prices": [],
+        "ibkr_locks": [],
+        "idempotency_keys": [],
+        "indices": [
+          {
+            "id": 1,
+            "available_exchanges": "{}",
+            "created_at": "2026-01-01 00:00:00",
+            "description": null,
+            "external_id": "nasdaq-100",
+            "market_cap": null,
+            "name": "Nasdaq 100",
+            "source": "deltabadger",
+            "top_coins": "[\"nvda.us\"]",
+            "top_coins_by_exchange": "{}",
+            "updated_at": "2026-01-01 00:00:00",
+            "weight": 0,
+            "weights": "{\"nvda.us\":20,\"msft.us\":19,\"aapl.us\":18,\"amzn.us\":17,\"meta.us\":16,\"avgo.us\":15,\"googl.us\":14,\"tsla.us\":13,\"cost.us\":12,\"nflx.us\":11,\"amd.us\":10,\"pep.us\":9}"
+          }
+        ],
+        "oauth_access_grants": [],
+        "oauth_access_tokens": [],
+        "oauth_applications": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "rule_logs": [],
+        "rules": [],
+        "schema_migrations": [
+          {
+            "version": "20260102171555"
+          },
+          {
+            "version": "20260103000001"
+          },
+          {
+            "version": "20260104194208"
+          },
+          {
+            "version": "20260106111301"
+          },
+          {
+            "version": "20260106111302"
+          },
+          {
+            "version": "20260106115209"
+          },
+          {
+            "version": "20260106162140"
+          },
+          {
+            "version": "20260109050047"
+          },
+          {
+            "version": "20260114145256"
+          },
+          {
+            "version": "20260114154223"
+          },
+          {
+            "version": "20260126141242"
+          },
+          {
+            "version": "20260126145012"
+          },
+          {
+            "version": "20260127112431"
+          },
+          {
+            "version": "20260127164433"
+          },
+          {
+            "version": "20260128000001"
+          },
+          {
+            "version": "20260129111946"
+          },
+          {
+            "version": "20260129142740"
+          },
+          {
+            "version": "20260130114825"
+          },
+          {
+            "version": "20260203191449"
+          },
+          {
+            "version": "20260208114731"
+          },
+          {
+            "version": "20260217100000"
+          },
+          {
+            "version": "20260217100001"
+          },
+          {
+            "version": "20260219100000"
+          },
+          {
+            "version": "20260219110000"
+          },
+          {
+            "version": "20260219120000"
+          },
+          {
+            "version": "20260219130000"
+          },
+          {
+            "version": "20260224065811"
+          },
+          {
+            "version": "20260226000000"
+          },
+          {
+            "version": "20260227171710"
+          },
+          {
+            "version": "20260228130833"
+          },
+          {
+            "version": "20260228145540"
+          },
+          {
+            "version": "20260228152720"
+          },
+          {
+            "version": "20260308090843"
+          },
+          {
+            "version": "20260311145654"
+          },
+          {
+            "version": "20260311145655"
+          },
+          {
+            "version": "20260311145656"
+          },
+          {
+            "version": "20260311145657"
+          },
+          {
+            "version": "20260311145658"
+          },
+          {
+            "version": "20260311145659"
+          },
+          {
+            "version": "20260311145660"
+          },
+          {
+            "version": "20260311145661"
+          },
+          {
+            "version": "20260311145662"
+          },
+          {
+            "version": "20260316000001"
+          },
+          {
+            "version": "20260320042623"
+          },
+          {
+            "version": "20260322140051"
+          },
+          {
+            "version": "20260323052902"
+          },
+          {
+            "version": "20260324132010"
+          },
+          {
+            "version": "20260325183549"
+          },
+          {
+            "version": "20260325221615"
+          },
+          {
+            "version": "20260413120000"
+          },
+          {
+            "version": "20260413140000"
+          },
+          {
+            "version": "20260413150000"
+          },
+          {
+            "version": "20260520000000"
+          },
+          {
+            "version": "20260524000000"
+          },
+          {
+            "version": "20260527000000"
+          },
+          {
+            "version": "20260527001000"
+          },
+          {
+            "version": "20260527002000"
+          },
+          {
+            "version": "20260529001000"
+          },
+          {
+            "version": "20260530000000"
+          },
+          {
+            "version": "20260603222643"
+          },
+          {
+            "version": "20260603231515"
+          },
+          {
+            "version": "20260603234747"
+          },
+          {
+            "version": "20260624081139"
+          },
+          {
+            "version": "20260706170000"
+          },
+          {
+            "version": "20260727120000"
+          },
+          {
+            "version": "20260806001012"
+          },
+          {
+            "version": "20260808225248"
+          },
+          {
+            "version": "20260808230550"
+          },
+          {
+            "version": "20260810120000"
+          },
+          {
+            "version": "20260815120000"
+          },
+          {
+            "version": "20260815130000"
+          },
+          {
+            "version": "20260815140000"
+          },
+          {
+            "version": "20260815150000"
+          },
+          {
+            "version": "20260815150050"
+          },
+          {
+            "version": "20260815150060"
+          },
+          {
+            "version": "20260815150100"
+          },
+          {
+            "version": "20260815160000"
+          },
+          {
+            "version": "20260815170000"
+          },
+          {
+            "version": "20260815170100"
+          },
+          {
+            "version": "20260818120000"
+          },
+          {
+            "version": "20260821120000"
+          },
+          {
+            "version": "20260821220432"
+          },
+          {
+            "version": "20260822100000"
+          },
+          {
+            "version": "20260823120000"
+          },
+          {
+            "version": "20260824120000"
+          },
+          {
+            "version": "20260824130000"
+          },
+          {
+            "version": "20260824140000"
+          },
+          {
+            "version": "20260825060000"
+          },
+          {
+            "version": "20260825120000"
+          },
+          {
+            "version": "20260825200000"
+          },
+          {
+            "version": "20260826090000"
+          },
+          {
+            "version": "20260826140000"
+          },
+          {
+            "version": "20260828094446"
+          },
+          {
+            "version": "20260828095813"
+          },
+          {
+            "version": "20260828175918"
+          },
+          {
+            "version": "20260829132450"
+          },
+          {
+            "version": "20260830120000"
+          },
+          {
+            "version": "20260830210000"
+          },
+          {
+            "version": "20260830230000"
+          },
+          {
+            "version": "20260905190000"
+          },
+          {
+            "version": "20260907100000"
+          },
+          {
+            "version": "20260907110000"
+          },
+          {
+            "version": "20260908090000"
+          },
+          {
+            "version": "20260908091000"
+          },
+          {
+            "version": "20260908120000"
+          },
+          {
+            "version": "20260908130000"
+          },
+          {
+            "version": "20260918090000"
+          },
+          {
+            "version": "20260918120000"
+          },
+          {
+            "version": "20260918150000"
+          },
+          {
+            "version": "20260921120000"
+          },
+          {
+            "version": "20260921180000"
+          },
+          {
+            "version": "20260928120000"
+          },
+          {
+            "version": "20260929120000"
+          },
+          {
+            "version": "20261006100000"
+          },
+          {
+            "version": "20261009120000"
+          },
+          {
+            "version": "20261009130000"
+          },
+          {
+            "version": "20261011170000"
+          },
+          {
+            "version": "20261014120000"
+          },
+          {
+            "version": "20261015120000"
+          },
+          {
+            "version": "20261016120000"
+          },
+          {
+            "version": "20261016130000"
+          },
+          {
+            "version": "20261016140000"
+          },
+          {
+            "version": "20261017100000"
+          }
+        ],
+        "setting_flags": [],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "QQQM",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 2,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "QQQM",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 3,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "IBIT",
+            "base_asset_id": 3,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "IBIT",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 4,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "IBIT",
+            "base_asset_id": 3,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "IBIT",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 5,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "NVDA",
+            "base_asset_id": 4,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "NVDA",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 6,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "MSFT",
+            "base_asset_id": 5,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "MSFT",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 7,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AAPL",
+            "base_asset_id": 6,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AAPL",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 8,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AMZN",
+            "base_asset_id": 7,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AMZN",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 9,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "META",
+            "base_asset_id": 8,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "META",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 10,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AVGO",
+            "base_asset_id": 9,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AVGO",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 11,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "GOOGL",
+            "base_asset_id": 10,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "GOOGL",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 12,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "TSLA",
+            "base_asset_id": 11,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "TSLA",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 13,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "COST",
+            "base_asset_id": 12,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "COST",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 14,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "NFLX",
+            "base_asset_id": 13,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "NFLX",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 15,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AMD",
+            "base_asset_id": 14,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AMD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 16,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "PEP",
+            "base_asset_id": 15,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "PEP",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 17,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "BTC",
+            "base_asset_id": 16,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 2.7e-05,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "BTC/USD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 18,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "ETH",
+            "base_asset_id": 17,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 2.7e-05,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "ETH/USD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "wash_sale_locks": []
+      },
+      "jobs": [],
+      "may_mutate": [
+        "bots",
+        "bot_index_assets"
+      ],
+      "raw_rows": {
+        "bots": [],
+        "bot_index_assets": []
+      },
+      "session": {
+        "bot_config": {
+          "settings": {
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "index_name": "ND100",
+            "index_name_prefix": "ND",
+            "quote_asset_id": 1,
+            "quote_amount": 100,
+            "interval": "week",
+            "allocation_flattening": 0.0
+          },
+          "exchange_id": "1"
+        }
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-zU1xwUMs+wQYyJegdFfmJA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=LS%2FnPeKLg0JBQUrMyPuycMYaQko0BYUcvApAUwGuOKs7baU7dYw0SAEYRPBObdAbEzd%2BXRjaVYCc2FENVrrhxGm%2F%2BQO%2BuTSsOWqmrk41VKVLSig6bdGWwix6HJTIHhFCLUzoWBA6XMdRJ64nqsbkTjIXkVkLEtZV352s8wM6RFxdzx%2Fs8Z8mkt8bQL2uRsibnQRYlpYaspPESYEyX45wLQvKSuSpxFCe%2FhLc3QIsT2%2BxsZXXm3Md9XEoReLHz6YC07VLcm7lI2tOurk7rQV6nAKJ6WPmVUSN0qfCpSciw%2BucXwr1G6O5WUp8R6X5MSfXSJTxX9l29JZYM7J5w2VLPiW9iRbQp2C%2BB8fkGxaeHLUfJ2TCpgpmOai4DDK1rQqxOT1NJcKdNuNINPtXxlTwDCCKTxh%2FfWhZA5vNnREo6mSE4ViGlWH4xQmoIINXPm1%2F2ZSDC1OrEOl95VhnsxTyuRJmHuJmCuirts4CVKlNa0xsEZ88Gms4yYnBXb0hOnP4i8XBaFC9oywDlJyEFMPYLCs7tmvSDY8bhq%2F65cdAS65XZPvH62nXuFSvx1x6nADfxO%2Fjzr7cS7OkykWm%2FXmyRg%2FTC7hFLHjSLZyJ1n0LIXmouvDr3%2F%2Fo7kHiNwzKweztXDUqu1H1vtPHKS%2BDcN%2FR86GP%2BiLEZBvvSF%2B2XR7KT%2FMDAWjYpnuXHpRZGyJT4jrs%2Fd9xa9nT1yEa4gSN7h9q3Csyiuha86N0Iyp%2FQsZ%2BLMcFCIY4B9OH%2BSVIyg2YqnwsTSWSB6wB%2FCUWPEsCpG3AQ%2FewnGihgC9tRkhghOvTnVV4FizbvevWbatb85UBsw51nGQ67POBS%2BcXjBi51uh4V22Kd70QAPDDO4m0RZi4tRF5Oh%2FWpQQFHkD4bW5LfA%3D%3D--Bk9Mb4RZwgcgp%2Fib--tKG1c7Zn3ntBiFq4Fdek5w%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<html>\n  <head>\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"N8vNALpepoc46g8g-pOxqpYjIRn21P8_9KJA525zhRpznvzhtXEn7IjJONhsdVvDeXk8re3n27YBqGj5Nlgn6Q\" />\n    \n  </head>\n  <body>\n    <turbo-frame id=\"modal\">\n  <dialog data-controller=\"modal--base\" data-modal--base-close-url-value=\"/bots\" class=\"dialogview\" data-hw-animate-in=\"animate-modal-in\" data-hw-animate-out=\"animate-modal-out\">\n    <div class=\"dialogview__vertical-center\">\n      <button name=\"button\" type=\"button\" class=\"modal__close\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>      <turbo-frame id=\"modal_content\">\n        \n  <div class=\"bot-creation-layout\">\n    \n<div class=\"process-progress\">\n  <h4>Currency</h4>\n  <div class=\"slider\">\n    <div class=\"slider__style\">\n      <div class=\"slider__style__track\">\n        <div class=\"slider__style__progress\" style=\"width: 100%\"></div>\n      </div>\n    </div>\n  </div>\n</div>\n\n\n\n    <div class=\"conversational conversational--bot-setup\">\n      Invest in\n      <a data-turbo-frame=\"modal_content\" class=\"conversational__link\" href=\"/bots/dca_indexes/pick_index/new\">ND1</a>\n      portfolio\n      at\n      <a data-turbo-frame=\"modal_content\" class=\"sbutton sbutton--exchange sbutton--exchange--alpaca\" href=\"/bots/dca_indexes/pick_exchange/new\">\n        <svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M8.6656 23L9.5365 13.6156H9.45729C8.75983 13.6157 8.18293 13.3613 7.65211 12.8981C7.12123 12.4349 6.76893 11.7931 6.65841 11.088L8.30253 9.99974V9.98623C8.30248 9.24448 8.58213 8.5314 9.08306 7.99567C9.5841 7.45989 10.2677 7.14292 10.9914 7.11082V7.1078H11.4803V5.3557C11.8269 5.35571 12.1623 5.4814 12.427 5.71049C12.6918 5.93959 12.8686 6.25726 12.9264 6.60719H12.9469V5.3557C13.2075 5.35571 13.4634 5.42678 13.6881 5.5616C13.913 5.69643 14.0987 5.89013 14.2261 6.12282C14.3536 6.35551 14.4182 6.61871 14.4134 6.88545C14.4085 7.15219 14.3343 7.41279 14.1986 7.64041C14.6401 7.93592 15.0027 8.33951 15.2538 8.81467C15.5047 9.28979 15.6361 9.82147 15.6358 10.3617V21.6876C15.6358 21.8536 15.7003 22.0128 15.8148 22.1301C15.9295 22.2475 16.0849 22.3133 16.2469 22.3133H16.9717C20.524 20.4117 23 16.6355 23 12.2634C23 6.0428 18.0751 1 12 1C5.92486 1 1 6.0428 1 12.2634C1 17.2938 4.22055 21.554 8.6656 23ZM9.95934 10.2749C9.89642 10.3394 9.861 10.4268 9.86085 10.518L9.83005 10.8625H10.5022C10.6806 10.8625 10.8516 10.79 10.9776 10.6609C11.1036 10.5317 11.1745 10.3566 11.1745 10.174H10.1967C10.1077 10.1742 10.0223 10.2105 9.95934 10.2749Z\"/>\n</svg>\n\n        <span class=\"hide-on-mobile\">Alpaca</span>\n</a>      spending\n      <form class=\"ticker active\" data-controller=\"form--submit-after-delay\" data-turbo-frame=\"asset-picker\" action=\"/bots/dca_indexes/pick_spendable_asset/new\" accept-charset=\"UTF-8\" method=\"get\">\n        <input autofocus=\"autofocus\" autocomplete=\"off\" placeholder=\"...\" data-action=\"input-&gt;form--submit-after-delay#submit\" type=\"text\" name=\"query\" id=\"query\" />\n</form>    </div>\n\n    <turbo-frame data-action=\"keydown@window-&gt;arrow-keys-navigation#navigate\" data-controller=\"arrow-keys-navigation\" class=\"modal--search__assets selectable-options\" id=\"asset-picker\">\n      <form action=\"/bots/dca_indexes/pick_spendable_asset\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"tcD1IBcO2vWaEaA2xj39VoNQTIMDj9VcsyjRSodNWouz_r0S_6o6XIHE3CfsLKNGjTAd_Zx0DayCvHxliNgZsA\" /></form></turbo-frame>\n  </div>\n\n</turbo-frame>    </div>\n  </dialog>\n</turbo-frame>\n  </body>\n</html>\n",
+      "session_changed": false,
+      "session": {
+        "bot_config": {
+          "settings": {
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "index_name": "ND100",
+            "index_name_prefix": "ND",
+            "quote_asset_id": 1,
+            "quote_amount": 100,
+            "interval": "week",
+            "allocation_flattening": 0.0
+          },
+          "exchange_id": "1"
+        }
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-xAvkPAVl91QjM1/U1Hg2Jg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=seE8TCoPgTx%2Fn2ZbCuBP4ob%2BEnGAtpPeR0CSdBasIT9tJckECxMeQjJZAIutm%2Fqe0PJeClNhwyiG%2FWAY%2FBEP7%2Bk1DJoyWpYIW0Otp8w7EmlPstJ5dc82WkOkyQAJ3odDbSlGgm3zVFgQOP34AdBrgwxQevCNX%2BHECU5YjSxG3iVGdy9nwhchUYVEJlTodl9YGTMNfcvyZ%2FnBgl4ZzQjdmCUa3EASzsr5qRC8Pi5eQ7I5mCm47i7WCZs2ubCiKU0C%2FC9ZzlCFaX1gRzn15pNg2B616enqkVN8BPmDQ1MR6cuu7xpiHyYa5g40cg610mXZ4eMzzALkk4MwnP%2FGY%2Bi5qAFDFStK1Q1Rx7XLyMw56tk%2B8sWV3kCUw8bxG%2Fua6xRXG6g2qFr%2BByZDzyAHdce%2Bo75VZe6%2FhbcL1XXq9EMmAWyWmyyBz4p41MUitFDu7LMszET1nY%2BTT8eMFbSWkF%2Bc68zp1608Q4XhH6ptEPwwI8Bh8xedjHT65TxyTODk4%2BoB2OXWKnaUs3JLSzaS9%2FthTxkI%2BsGFMQsyPWrKfXFAFaRiCKQKZEbpAPz2fe0WlOigNZBss6tH%2BnncdYQ9ujVLJXfYPPMUPXg%2FrGC%2FWlqU2Bt423D%2Bl%2FgnDfd9dvd126mTds7oygSoRS0kqDNVMgZZywpXvQQ4rd%2FbH4aYZFnltOiXa3z5%2FMdrVjSgzRZIDqBCci0ofdmIJ0TI5ztRhdyD6Pvg8rebQqWV20tPBfli8Xrf6mfRMjs7y3rZfc%2BHVsBEbjypqNl%2Fa391xdBNiQ89Z6L3L30h5DhyP6DLhO55mGr%2F3VPKBYBH4LSscrauAGNCEm7aOmneBqdX46OBYs%2BhcmrGoYxMOyqU8VCCVDCVduqqnZ78ZDZ7r9RFQnhoIg%3D%3D--8YIXGF7EX6gX0wba--xyiGkSXUN%2BB48doSYiRl6w%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<html>\n  <head>\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"O__0wmVehVOPimRl-otw3dBhCAtvqqBUV9TKOOwpth1_qsUjanEEOD-pU51sbZq0PzsVv3SZhN2i3uImtAIU7g\" />\n    \n  </head>\n  <body>\n    <turbo-frame id=\"modal\">\n  <dialog data-controller=\"modal--base\" data-modal--base-close-url-value=\"/pl/bots\" class=\"dialogview\" data-hw-animate-in=\"animate-modal-in\" data-hw-animate-out=\"animate-modal-out\">\n    <div class=\"dialogview__vertical-center\">\n      <button name=\"button\" type=\"button\" class=\"modal__close\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>      <turbo-frame id=\"modal_content\">\n        \n  <div class=\"bot-creation-layout\">\n    \n<div class=\"process-progress\">\n  <h4>Waluta</h4>\n  <div class=\"slider\">\n    <div class=\"slider__style\">\n      <div class=\"slider__style__track\">\n        <div class=\"slider__style__progress\" style=\"width: 100%\"></div>\n      </div>\n    </div>\n  </div>\n</div>\n\n\n\n    <div class=\"conversational conversational--bot-setup\">\n      Inwestuj w\n      <a data-turbo-frame=\"modal_content\" class=\"conversational__link\" href=\"/pl/bots/dca_indexes/pick_index/new\">ND1</a>\n      portfel\n      na\n      <a data-turbo-frame=\"modal_content\" class=\"sbutton sbutton--exchange sbutton--exchange--alpaca\" href=\"/pl/bots/dca_indexes/pick_exchange/new\">\n        <svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M8.6656 23L9.5365 13.6156H9.45729C8.75983 13.6157 8.18293 13.3613 7.65211 12.8981C7.12123 12.4349 6.76893 11.7931 6.65841 11.088L8.30253 9.99974V9.98623C8.30248 9.24448 8.58213 8.5314 9.08306 7.99567C9.5841 7.45989 10.2677 7.14292 10.9914 7.11082V7.1078H11.4803V5.3557C11.8269 5.35571 12.1623 5.4814 12.427 5.71049C12.6918 5.93959 12.8686 6.25726 12.9264 6.60719H12.9469V5.3557C13.2075 5.35571 13.4634 5.42678 13.6881 5.5616C13.913 5.69643 14.0987 5.89013 14.2261 6.12282C14.3536 6.35551 14.4182 6.61871 14.4134 6.88545C14.4085 7.15219 14.3343 7.41279 14.1986 7.64041C14.6401 7.93592 15.0027 8.33951 15.2538 8.81467C15.5047 9.28979 15.6361 9.82147 15.6358 10.3617V21.6876C15.6358 21.8536 15.7003 22.0128 15.8148 22.1301C15.9295 22.2475 16.0849 22.3133 16.2469 22.3133H16.9717C20.524 20.4117 23 16.6355 23 12.2634C23 6.0428 18.0751 1 12 1C5.92486 1 1 6.0428 1 12.2634C1 17.2938 4.22055 21.554 8.6656 23ZM9.95934 10.2749C9.89642 10.3394 9.861 10.4268 9.86085 10.518L9.83005 10.8625H10.5022C10.6806 10.8625 10.8516 10.79 10.9776 10.6609C11.1036 10.5317 11.1745 10.3566 11.1745 10.174H10.1967C10.1077 10.1742 10.0223 10.2105 9.95934 10.2749Z\"/>\n</svg>\n\n        <span class=\"hide-on-mobile\">Alpaca</span>\n</a>      wydając\n      <form class=\"ticker active\" data-controller=\"form--submit-after-delay\" data-turbo-frame=\"asset-picker\" action=\"/pl/bots/dca_indexes/pick_spendable_asset/new\" accept-charset=\"UTF-8\" method=\"get\">\n        <input autofocus=\"autofocus\" autocomplete=\"off\" placeholder=\"...\" data-action=\"input-&gt;form--submit-after-delay#submit\" type=\"text\" name=\"query\" id=\"query\" />\n</form>    </div>\n\n    <turbo-frame data-action=\"keydown@window-&gt;arrow-keys-navigation#navigate\" data-controller=\"arrow-keys-navigation\" class=\"modal--search__assets selectable-options\" id=\"asset-picker\">\n      <form action=\"/pl/bots/dca_indexes/pick_spendable_asset\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"E0mgz6yHeEv0ZeoTjhOXpqM2_lXIbOz_h5lxNvIUnEbzL3wt1n9N4k7s7WNb3dvL2BF6kt_Hvv_bALXAqGAFfg\" /></form></turbo-frame>\n  </div>\n\n</turbo-frame>    </div>\n  </dialog>\n</turbo-frame>\n  </body>\n</html>\n",
+      "session_changed": false,
+      "session": {
+        "bot_config": {
+          "settings": {
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "index_name": "ND100",
+            "index_name_prefix": "ND",
+            "quote_asset_id": 1,
+            "quote_amount": 100,
+            "interval": "week",
+            "allocation_flattening": 0.0
+          },
+          "exchange_id": "1"
+        }
+      }
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "failed_attempts": 0,
+      "locked_at": null,
+      "last_otp_at": null,
+      "remember_created_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "bots": [],
+  "network": []
+}

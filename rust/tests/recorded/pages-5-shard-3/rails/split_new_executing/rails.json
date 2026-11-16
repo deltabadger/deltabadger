@@ -1,0 +1,88 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-YEd4tIsJ3YGDCtXKHN8aDg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=8FVDEpigeO7sYUGUyZ9TPx%2BzzYY058hakLb%2BkasApR1pyzW5sprM2FVXab11JM8KhOLRy60lxqZl3WG%2BVicx0iBSJJnpX%2FsDEtPerZuIy%2FwVVxcnPv0F1R8k9vYKa%2FCLoHmutwT%2FAcFA1A3iPZwNlFm6TXs8%2BCltJI6t3MnigPP2uO7%2Fs%2BqUE7BvRkZiX6fVsV2rcSsn3CMdvdQELRF7nbjYZV9HZCKqaKFn694AWPwtdDoG%2BR56rb5kqAJcDUn%2BJ2twFtWsoj6f8AVl3LJ5tU1ZCrmbjvNHyZDrUQDm%2FpCPcuRcsuzkE4h1nvrCc5ZIBp0%3D--cOlB1fDH19o0FN2z--1fseV29HQftZaGao3FZcQw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-6290d549af80caa2fb7df4035451b122ac9f284c34459a922e1ae88d558e3008.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-55216d29feb9cbe3040956a80263e39ee90e0e1f1554dc6c4a8b67cec79947a7.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"PABSKoL1yPFQCKOPAdzxzU7f9BTP_PonYn9K4L-HHRNm69XQgf29eZYLtP2Nc-axOK_CeZPj3NX7BaIkI-Jtfg\" />\n    <meta name=\"csp-nonce\" content=\"YEd4tIsJ3YGDCtXKHN8aDg==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-controller=\"form--html5-validations form--label-animations\" action=\"/login\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"VZbU6RWKQ1AlqGXUYrqVt5EGpA3p4VIJnLbXVD6h98zMmnPQbEf9X4AIPgV0bDjPEt6Mvfk9JdTnlPjgzbZ3jQ\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <h1>Welcome back!</h1>\n\n  <div class=\"form__row\">\n    <input autofocus=\"autofocus\" autocomplete=\"email\" class=\"form__input form__input--large\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email invalid!\" type=\"email\" value=\"\" name=\"user[email]\" id=\"user_email\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"current-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" type=\"password\" name=\"user[password]\" id=\"user_password\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n\n      <div class=\"form__info form__info--right\">\n        <a href=\"/password/new\">Forgot password?</a>\n      </div>\n</div>\n    <div class=\"toggle\">\n      <input name=\"user[remember_me]\" type=\"hidden\" value=\"0\" /><input type=\"checkbox\" value=\"1\" name=\"user[remember_me]\" id=\"user_remember_me\" />\n      <div class=\"toggle__style\"></div>\n      <label class=\"label\" for=\"user_remember_me\">Remember me</label>\n      \n    </div>\n\n  <div class=\"form__row form__row--final-button\">\n    <input type=\"submit\" name=\"commit\" value=\"Log In\" class=\"button button--sky button--large\" data-disable-with=\"Log In\" />\n  </div>\n\n  <div class=\"devise__links\">\n\n\n    <a class=\"button button--link\" href=\"/confirmation/new\">Resend link</a>\n    <span class=\"db-middot\">●</span>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"dropdown-wrapper dropdown-wrapper--right dropdown-wrapper--up\" style=\"font-weight: 600; color: var(--link)\">\n  EN\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/de/login\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/nl/login\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/fr/login\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/es/login\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pt/login\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/it/login\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pl/login\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/ru/login\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/cs/login\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sk/login\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/da/login\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sv/login\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/el/login\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/bg/login\">🇧🇬 Български</a>\n  </div>\n</div>\n</div>\n</form>\n\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+      "session_changed": true
+    },
+    {
+      "status": 303,
+      "headers": {
+        "location": "http://localhost:3000/",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-Qit4YZbqXyzKUae8LN53/g=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=9XzstNXOC%2BY12VwYM6ewQ0p1djgPIktyRpPW8Jiz4SgVw0S0FWpXEFBRX9Qar%2BZ9y7lG99HEks9fv7LUIMpdra3fC294sGlrdqoVNxkA9MbMhEtNkV4LBH5rLlTBXWb9j9iHarYuhQclCzusuPvS8%2FFkeSkcmGTtIsclkx1McBHEiZqEYEQ%2Fn1M1lHdVSGHT8nFJs%2FtzaDw1dxSAi0vmNtwHHnvWKTrd%2B77hFP9HZYC26MacJHRhl3HtJwqcK%2BLqs078vQzKZnNGVWhyRpNN9U2Fp%2BEX0aEiyEYE8jflRnRq2ePVOuWhhPeqXbFB88%2Fwdg1UBflQnj9WaUvTPXFy4LD9G%2FW56sovn90oEsXjTOQBthJR0XM%3D--OyAoSKtv4Y6IFIb1--fHQaTL86w6sTRHz67YROZQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-RY4aD0p4uS83Fh5HJ0XEig=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=asziULTKQgkkgUct07vcQvqjFllWezjgNnvBx0SAckF1hdlokq3Xw1pismFWhWrN%2BxOo6RZ2CVR8xmo8jn3kDwYwE63IA6H6S%2BVPllbZJhP5Mk4X5s8fDX9ZgFXOQh50rxiAThf%2Bpe2u9dD0xueuLXxJmRVTvKYqBk%2Fyg45HCS902jQ7A%2F0j2wAxj2LAr9TCctnXwj%2FartBCnut%2BGKKzyihOXjt3oMWducQzzE4aHnQxWYhg%2BH5VLrIwTw6RJ8ibhrwfK17uCipLR0w6wVZrq601fCwQTiZVqH%2Fnsuml3HsDYRSqaDrKpVPIesl4bNbW6eBWe1eS6uXqUtiZX9NEgxbC8qvfg4TTVcXavxVwb7JBohp5nK0l%2F1QR3PIWjsk5XQZeHhJKyu%2BWXA4hwgDLdb9TkGlCHlwJJhCJhx%2BAMViPJoC8CfDJeRmFiEuqPYPbRM2JRGTYRDJI%2FEyI33Y%2FCbF95q7ZOQ%3D%3D--hZer5%2FOuK1xvldUR--E51wHNs%2BcuRmL%2FEu%2BGBp2A%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<html>\n  <head>\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"xmus7p-BMDOMIFq9XalvGLTBNMmTR0jp2IEqnCj1yICVOj1VIdVW9ixQuamvuSF4QRP7KOtMJre3FwOHivu6gA\" />\n    \n  </head>\n  <body>\n    <turbo-frame complete=\"\" id=\"modal\">\n  <dialog data-controller=\"modal--base\" data-action=\"click->modal--base#clickOutside\" class=\"dialog\" data-hw-animate-in=\"animate-modal-in\" data-hw-animate-out=\"animate-modal-out\">\n    <div class=\"dialog__vertical-center\">\n      \n  <div class=\"modal\" data-controller=\"bots-split-modal\" data-bots-split-modal-url-value=\"/bots/split/new?ids%5B%5D=2\">\n    <turbo-frame id=\"split_modal\">\n      <button name=\"button\" type=\"button\" class=\"modal__close\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>      <div class=\"modal__header\">\n        <h1 class=\"modal__title\">Split</h1>\n      </div>\n      <div class=\"modal__body\">\n          <p>QQQM, IBIT, NVDA + 1 can&#39;t be split right now.</p>\n          <div class=\"modal__footer\">\n            <button name=\"button\" type=\"button\" class=\"rbutton rbutton--secondary\" data-action=\"modal--base#animateOutCloseAndCleanUp\">Close</button>\n          </div>\n      </div>\n</turbo-frame></div>\n    </div>\n  </dialog>\n</turbo-frame>\n  </body>\n</html>\n",
+      "session_changed": true
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "failed_attempts": 0,
+      "locked_at": null,
+      "last_otp_at": null,
+      "remember_created_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "bots": [
+    {
+      "id": 1,
+      "status": 2,
+      "label": "QQQM, IBIT",
+      "position": 1,
+      "settings": "{\"quote_asset_id\":1,\"quote_amount\":50,\"interval\":\"day\",\"allocations\":{\"2\":0.6,\"3\":0.4},\"limit_ordered\":true,\"limit_order_pcnt_distance\":0.01,\"smart_intervaled\":true,\"smart_interval_quote_amount\":5,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":3,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":3,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":3,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":3,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":3,\"sell_price_drop_limit_in_ticker_id\":3,\"sell_moving_average_limit_in_ticker_id\":3,\"sell_indicator_limit_in_ticker_id\":3}",
+      "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+      "stop_message_key": null,
+      "started_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    },
+    {
+      "id": 2,
+      "status": 4,
+      "label": "QQQM, IBIT, NVDA + 1",
+      "position": 2,
+      "settings": "{\"quote_asset_id\":1,\"quote_amount\":200,\"interval\":\"month\",\"allocations\":{\"2\":0.25,\"3\":0.25,\"4\":0.25,\"5\":0.25},\"smart_intervaled\":false,\"smart_interval_quote_amount\":20.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":3,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":3,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":3,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":3,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":3,\"sell_price_drop_limit_in_ticker_id\":3,\"sell_moving_average_limit_in_ticker_id\":3,\"sell_indicator_limit_in_ticker_id\":3}",
+      "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+      "stop_message_key": null,
+      "started_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "network": []
+}

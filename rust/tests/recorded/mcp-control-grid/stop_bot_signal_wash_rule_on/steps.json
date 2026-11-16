@@ -1,0 +1,40 @@
+[
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"m2\",\"version\":\"1\"}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"stop_bot\",\"arguments\":{\"bot_id\":2}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    },
+    "sql": [
+      "UPDATE bots SET type='Bots::Signal', status=1, started_at='2026-09-09 12:00:00', transient_data='{}', settings=json_object('base_asset_id', 17, 'quote_asset_id', json_extract((SELECT settings FROM bots WHERE id=1), '$.quote_asset_id')) WHERE id=2",
+      "DELETE FROM bot_index_assets WHERE bot_id=2",
+      "INSERT INTO bot_signals (bot_id, amount, amount_type, direction, enabled, token, created_at, updated_at) VALUES (2, 10, 0, 0, 1, 'mcp-wash-buy', '2026-09-01 00:00:00', '2026-09-01 00:00:00'), (2, 50, 1, 1, 1, 'mcp-wash-sell', '2026-09-01 00:00:00', '2026-09-01 00:00:00')",
+      "UPDATE users SET wash_sale_enabled=1 WHERE email='owner@example.com'"
+    ]
+  }
+]

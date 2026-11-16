@@ -1,0 +1,269 @@
+{
+  "sent": [
+    {
+      "symbol": "AAA",
+      "side": "sell",
+      "type": "market",
+      "time_in_force": "day",
+      "qty": "0.088888160"
+    }
+  ],
+  "changes": {
+    "bots": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:51.285558",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "ND100",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "quote_asset_id": 1,
+            "quote_amount": 60.0,
+            "interval": "week",
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "num_coins": 3,
+            "allocation_flattening": 0.0,
+            "hold_all": false,
+            "rebalance_enabled": true,
+            "smart_intervaled": false,
+            "smart_interval_quote_amount": 10.0,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001
+          },
+          "settings_changed_at": null,
+          "started_at": "2026-09-01 14:00:00.123456",
+          "status": 2,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "missed_quote_amount": 0,
+            "missed_quote_amount_was_set": null
+          },
+          "type": "Bots::DcaIndex",
+          "updated_at": "2026-11-16 07:47:51.285558",
+          "user_id": 1
+        },
+        "after": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:51.285558",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "ND100",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "quote_asset_id": 1,
+            "quote_amount": 60.0,
+            "interval": "week",
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "num_coins": 3,
+            "allocation_flattening": 0.0,
+            "hold_all": false,
+            "rebalance_enabled": true,
+            "smart_intervaled": false,
+            "smart_interval_quote_amount": 10.0,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001
+          },
+          "settings_changed_at": null,
+          "started_at": "2026-09-01 14:00:00.123456",
+          "status": 2,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "missed_quote_amount": 0,
+            "rebalance_pending": {
+              "phase": "selling",
+              "sell_transaction_id": 5,
+              "buy_transaction_id": null,
+              "remaining_quote_amount": null,
+              "buy_attempted": false
+            }
+          },
+          "type": "Bots::DcaIndex",
+          "updated_at": "2026-11-16 07:47:51.285558",
+          "user_id": 1
+        }
+      }
+    ],
+    "transactions": [
+      {
+        "id": 5,
+        "before": null,
+        "after": {
+          "id": 5,
+          "amount": {
+            "f": "3fb6c15fdc339d10"
+          },
+          "amount_exec": null,
+          "base": "AAA",
+          "base_asset_id": 2,
+          "bot_id": 1,
+          "bot_interval": "week",
+          "bot_quote_amount": 60,
+          "created_at": "2026-09-08 16:30:00",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "OTX-1",
+          "external_status": 0,
+          "order_type": 0,
+          "price": 100,
+          "quote": "USD",
+          "quote_amount": {
+            "f": "4021c712e40852b5"
+          },
+          "quote_amount_exec": null,
+          "quote_asset_id": 1,
+          "side": 1,
+          "status": 0,
+          "transaction_type": "REBALANCE",
+          "updated_at": "2026-09-08 16:30:00"
+        }
+      }
+    ],
+    "bot_activity_logs": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "bot_id": 1,
+          "created_at": "2026-09-08 16:30:00",
+          "details": {
+            "base": "AAA",
+            "quote": "USD",
+            "amount": "0.08888816",
+            "quote_amount": "8.888816",
+            "price": "100.0"
+          },
+          "event": "rebalance_sell_placed",
+          "level": 0,
+          "message": null
+        }
+      }
+    ],
+    "bot_index_assets": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "asset_id": 2,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fe0000000000000"
+          },
+          "ticker_id": 1,
+          "updated_at": "2026-08-01 00:00:00"
+        },
+        "after": {
+          "id": 1,
+          "asset_id": 2,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fe1c71d60631727"
+          },
+          "ticker_id": 1,
+          "updated_at": "2026-09-08 16:30:00"
+        }
+      },
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "asset_id": 3,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fd3333333333333"
+          },
+          "ticker_id": 2,
+          "updated_at": "2026-08-01 00:00:00"
+        },
+        "after": {
+          "id": 2,
+          "asset_id": 3,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fd55553ef6b5d46"
+          },
+          "ticker_id": 2,
+          "updated_at": "2026-09-08 16:30:00"
+        }
+      },
+      {
+        "id": 4,
+        "before": {
+          "id": 4,
+          "asset_id": 5,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fc999999999999a"
+          },
+          "ticker_id": 4,
+          "updated_at": "2026-08-01 00:00:00"
+        },
+        "after": {
+          "id": 4,
+          "asset_id": 5,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fbc71c53f39d1b3"
+          },
+          "ticker_id": 4,
+          "updated_at": "2026-09-08 16:30:00"
+        }
+      }
+    ],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}

@@ -1,0 +1,310 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-8S2oK2ZeOSIZT95lF6cVkw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=K6h%2F5m0QPE4TkVVB2cC3rWZ2jIS%2FtpNbDioRy3H9jVsoUDyVtbpTopolW%2BzNkzFQ4SjWTdK7QptJffTvw8FPsnfumYHpuzAVvzyx5eMpXBU94ISo00Bj%2FrItjgYo6qdt%2F%2BfaOj%2F%2FlUR92%2FFkWrPQskNuBh1a9DSpaSaAwk4MJaeC%2FCFVy3RmGBns3GGQyUy3ow%2F85l3z9cqvG5zkts%2FyYHkkPtMOMED%2B%2FXuoZkHy%2Blv4nwEa84mkZouOOcGluJ6LS1ypf9clpmSRVlCyztUbRjquMcpXMFI6emCK4zfAu%2Bop%2Fnwp6GszhczNLT6ELFa5GB0%3D--t%2FDaPgaUeTLICIHH--pdPcgnW103Gc5yt41J18Ig%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-6290d549af80caa2fb7df4035451b122ac9f284c34459a922e1ae88d558e3008.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-55216d29feb9cbe3040956a80263e39ee90e0e1f1554dc6c4a8b67cec79947a7.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"EB8C8KyN7t474jZSCw3CONLgqHMKdumx_UsjcMnxt47Yj3xd5fGdbImA490rL6a2HXET_BoBBC6hEnPdf6UQnA\" />\n    <meta name=\"csp-nonce\" content=\"8S2oK2ZeOSIZT95lF6cVkw==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-controller=\"form--html5-validations form--label-animations\" action=\"/login\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"RFz1Z4_iBkZ6EwXn12lj3pzXXEtGYha97Ugsg6PibXICOCaAQwhizi3bZvjPxnKfd3QplY8hTG2cmLBJg2uiag\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <h1>Welcome back!</h1>\n\n  <div class=\"form__row\">\n    <input autofocus=\"autofocus\" autocomplete=\"email\" class=\"form__input form__input--large\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email invalid!\" type=\"email\" value=\"\" name=\"user[email]\" id=\"user_email\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"current-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" type=\"password\" name=\"user[password]\" id=\"user_password\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n\n      <div class=\"form__info form__info--right\">\n        <a href=\"/password/new\">Forgot password?</a>\n      </div>\n</div>\n    <div class=\"toggle\">\n      <input name=\"user[remember_me]\" type=\"hidden\" value=\"0\" /><input type=\"checkbox\" value=\"1\" name=\"user[remember_me]\" id=\"user_remember_me\" />\n      <div class=\"toggle__style\"></div>\n      <label class=\"label\" for=\"user_remember_me\">Remember me</label>\n      \n    </div>\n\n  <div class=\"form__row form__row--final-button\">\n    <input type=\"submit\" name=\"commit\" value=\"Log In\" class=\"button button--sky button--large\" data-disable-with=\"Log In\" />\n  </div>\n\n  <div class=\"devise__links\">\n\n\n    <a class=\"button button--link\" href=\"/confirmation/new\">Resend link</a>\n    <span class=\"db-middot\">●</span>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"dropdown-wrapper dropdown-wrapper--right dropdown-wrapper--up\" style=\"font-weight: 600; color: var(--link)\">\n  EN\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/de/login\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/nl/login\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/fr/login\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/es/login\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pt/login\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/it/login\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pl/login\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/ru/login\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/cs/login\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sk/login\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/da/login\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sv/login\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/el/login\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/bg/login\">🇧🇬 Български</a>\n  </div>\n</div>\n</div>\n</form>\n\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+      "session_changed": true
+    },
+    {
+      "status": 303,
+      "headers": {
+        "location": "http://localhost:3000/",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-uSKFZqBQgtATmwyeoRDgBA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=zVJKNNk4T%2FSL%2FqfbYOCPBq%2BD3YvI35EYn%2B0u40piwV5fao7sZq6xbAZYIzdwlytC4wabygNpVCoskhgu%2FdaK2EQgwnFa2Mc4VAXUT5lMYzuPuhgB90rj09fs8qkShyEqDvcDnzdQGe4ekDqWmWGkoxPvo12BLJy2GsgKg4Tc3q1lz%2BuFLMleonIfdJXow0AlihdZs1NL89kRY3UjzH9yPq6gI2MAwwUxyFwkFiqu9I4sFzHacOD%2FDqMZUV18MPl2yT0jXT6JPR8DO7oRKmPl0We66rdJ6uuqqUppuW%2FIoXnqcLW1Ep9m%2BZoCbLxJOmgqZTsyvcDSiIhlcPDFnSrX%2BFV3gWJoW4UXb0ruDoe370jhdIlWxMo%3D--BgWTcXnha6FSBNNy--9HiFcDWFJT7GRzAB0h0h3g%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-XDJtVSzQhALvqhc1NEmWbg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=Wu34MBM1hiR6G31x6AAn%2BGf1zDi%2FquOMau0i7yumvxK23xyFcnI9acV7Omjgugald2fqWTmD9bef3Y8bAQ%2FyfL1g%2B7ALCPnLP%2BpeCWJzS%2BOkLQmKKnH4HxHlkYIGEeh4Sf1XNp854SbfS4ju7K%2B9AaQoJWwS8Dgkc%2FbV%2Blr1PrGhrOHdkXh0aNVFT0%2FeaHXVE2bTOPJNvrPFKPAcJbYMCttZWmWpgV%2Fk5k5FLjz2RcGGcWBfteL1%2FCgmEQOUZWt913ur4D5iJ3kO3tKf9LyypzL3e56INES6sBkY3rX4oC1PY3bFcwoDklMGrcQxgbjenVI%2F4UOSRq1TnumGhZQ%2BGddeQbbM0Xe%2Fbyw5Ad48MFtDFLQes%2F1PVYxLvoSGipmyQmBzNFJz1%2BqRSlIX7V356DHdhnyFoTZ8td7zInlqVydbdl71loPg1J3zjduBQLfZ4gKtUUKGB0hAxbJdoJRPwOfcRrwGByn8Rlyp3hlC5FHa%2BEeGVUMVSE47FJm%2Fkw%3D%3D--JcbIGvyrE4GTahxI--i7YkfcGS8I9UFVsaKLwHiw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<html>\n  <head>\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"HC0Ma_0L9bkb4MudueMtnOyi6CBXIrZz6jmU1iKYXMGWbCm-jKmKS2Opo9m7GW8tDKxRjZRIgEuutq1h2x0-Ww\" />\n    \n  </head>\n  <body>\n    <turbo-frame id=\"modal\">\n  <dialog data-controller=\"modal--base\" data-modal--base-close-url-value=\"/bots\" class=\"dialogview\" data-hw-animate-in=\"animate-modal-in\" data-hw-animate-out=\"animate-modal-out\">\n    <div class=\"dialogview__vertical-center\">\n      <button name=\"button\" type=\"button\" class=\"modal__close\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>      <turbo-frame id=\"modal_content\">\n        \n  <div class=\"bot-creation-layout bot-type-chooser\" data-dialog-size=\"bare\">\n    <div class=\"introtiles\">\n\n        <a class=\"itile itile--bot-type\" data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\" href=\"/bots/dca_single_assets/pick_exchange/new\">\n            <div class=\"index-title\">DCA / Rebalance</div>\n            <div class=\"index-info\">Pick one or more assets</div>\n</a>\n        <a class=\"itile itile--bot-type\" data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\" href=\"/bots/dca_indexes/setup_coingecko/new\">\n            <div class=\"index-title\">Index</div>\n            <div class=\"index-info\">Build your personal ETF</div>\n</a>\n\n    </div>\n  </div>\n\n</turbo-frame>    </div>\n  </dialog>\n</turbo-frame>\n  </body>\n</html>\n",
+      "session_changed": true,
+      "session": {
+        "bot_config": {}
+      }
+    },
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/bots/dca_indexes/pick_index/new",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-g3RJd9NjMLn/T8KYEXFuFw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=g8h6c6lG2rePGGAg3e6I2BW4PvIQpEPKrPGvYXfO%2FhNleZXyQxL4xDAZZZ8LKkLq1SOvFV9nf%2F9VwwFUlhKUUc069wHEtfiHnAY4FAhWlVUK12zsY6oX%2B1C9FXgzrzavswK1Za4vzWIvdOOFtZFRXplI1fOyTrUBVio91%2B000ON7g6a2ztTIrAUzR5RydhqcTWZCBlGK1QRgEUPPzmajXqqmvZnsXZWvbXKQMmCvXHmrH5zjL%2F1U9yl4n8IU1uPKD2jD5AdEHSMpcnhBMcifA80%2B%2BqaycLGvk1zjXNYCotEM%2F3ioUwhoH5T6SYV5i%2BFUNgyUob%2BMYHSE9vpdb4npctL%2BuYb41wIBMVgwcveuDuYOsuL%2BQZco3K%2BfrRC0LlXFIthNAjCwhkcMn0HCziH7r%2FYswb0wf1ovULuGnBKLDdEkH6LAz687qWJ9jI14B7A9QQ5lQDshWaMW7HrFkDorn%2FxsS1YSoeHUG4Jo75jNCluPQ2YYO9h9NNDtWNiY0g%3D%3D--T0R6pMXhnBd4hD8t--IFCsiGQNSjCRFVXsmma3rg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": false,
+      "session": {
+        "bot_config": {}
+      }
+    },
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/bots/dca_indexes/pick_exchange/new",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-hXFOd5K0GX9lQHW9kOQUVw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=%2BkNpECVD6d8Eks%2BH%2B%2FAvAqNiua%2Bsefg22RyUTXvTRgArbzKOeKYImLfKQhqdQ7STzBvjt81DXyz8gH7JSw9xdBQK%2FWH1dQzImTu2bFQCkDwfiK4Go%2Fb3AupAlUe50ihVC7DYrRQIVT2GDKG6IWbDDR5sris7Q5M6smkgA6%2FcVYw1hYO7ureiWWLkhfRKZyuJlaoubgiJQiowcg8mzzoCLxssHgiv8wEnUro10Sk3H3ZAi6Wy%2FG3zL2ZuqaiUge02tig%2BvOzkruj%2BlkwZCggcoEtKGGCW8NkmdVbL%2B20%2FAIFHfvxZ9NsCIrnf9%2FEFdy6ksHpA0pjxxyEeljkJF%2F5qvCRRaQBUcqokbY9VtSxXN1CaVrids%2Ffm8pa4HHo4Fd3qIeAw%2BAQ6MGiNBCPuT3Fgkt0uT7vNT1De8OBJnRv3HTRSAIXnGYypbFQIG4XDCM9pgdsdDgKNWQYgtU3%2BSW9xJ2bcf2cRyIZI9kDpvP9XbK267BfhZCuc8Mhd5vor%2BQ%3D%3D--cjQmnNkickmlaiB4--iUhD6Veb2ptb0TrXwPIzGw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": false,
+      "session": {
+        "bot_config": {}
+      }
+    },
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/bots/dca_indexes/add_api_key/new",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-jgsMbuKhfSbhRIgKX4qqhA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=wpEfV3VYg%2FfqGZ3JKDrGMJlKH8MDzAzzlwF9iWnZ1aNIOPDP%2BXaw3SAf%2BdM092Yw5MzQPewNFZ%2BOvW52zMFj%2FPCBKJxb70%2FXP0hOIHpHKv0LoGqsvbroFIphAnpLIuJq%2BsEh8JcTXKr04Skzi%2BtplnPp5ANqHIjqPxTL%2BSQyBkf5RDLlCzYa3WMJbZVRSYrE%2Bt%2BDurzZuZIAkfixZpaPcZKRWFWWSZjI0BK6JhCLKPcyILn3uHTkSQJJ3xpOZRaMr1bMjY%2F9BU2iuh%2FlKbXqCXoltnt%2BgxvkOmy83VDykB7DvESKDqYJambJ3BQf0lNondo0yxbFv4f8csFZw042tOY8vI96ndg4m9iL4zku1nTtQKHTNGs6S8vdtrDBFveirqyUeZpp7CzHrlMk9iMX7wi8LiXYp2Ew7BTNhiq%2BMVzEhSZ1ohSieO8%2BGWMeacy8ereeeaYMffWeunfWGHveWxBfQcvWysfuPBLQx3xdPHaWr5GlWl6tk1Etaqm52Q%3D%3D--qCyWqTWwgxy8TkYM--xOMOCRtfJHKskOh2K3Rmtw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": false,
+      "session": {
+        "bot_config": {}
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-Zy75rEzHvLhalygvKSHoQw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=NEdllz3l3EyQ1%2FIlplcM546qQABjNXMcobm1B0UqtaOgVnWrqankd7XQ%2BlzUpsJrQhIj3hhO9nD%2FNg8ynATuC14mW4kHmaXc1VZu1MuBEXba4b1W7vyfrcPimilQO98dj2w%2BrCmK6o9KTIZBNhL30t2%2FmY6HYdIQ23HfoqTGGVRnU%2FSR7ztBkWFLGDDjM6cjGwxMH0dEwA7uwDa6a%2B3eVMwL4iBiUQSyOvtYFyJgCucN9bQgf83xQ3nHe9WK0mQNpNwjASYDWAQBrvNP2tf5b8pskx5aBfTpmJC5617a2Uk3xz%2B5fMBz%2FpnNPrBFbeAN4CvXi4GksJk%2FCc80HEgr57YwdOo1WzsttVlU9dhaDdEQvmPARCYqpqRabulfQU6Y5J%2Fxaw6E%2F0%2FRYtW0lNWLaAmQHI0RBWF4g5NsU2F8k6vINRrlR1MuuujPKZkKbCY0Fr%2BjI44g%2FImklHdlZmIP8jm2hk1iN2PktNTTlkXD%2BSlLudScDkNjzsjjkmo83A%3D%3D--6n8PUwa0HgfmwyjS--%2BwVekNCQVAgvcoOAiIN7aQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<html>\n  <head>\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"6F7h5ps-VY9idavL7_Tb2YPmGTUopzR-dqDNlYIV0VliH8Qz6pwqfRo8w4_tDploY-igmOvNAkYyL_Qie5Czww\" />\n    \n  </head>\n  <body>\n    <turbo-frame id=\"modal\">\n  <dialog data-controller=\"modal--base\" data-modal--base-close-url-value=\"/de/bots\" class=\"dialogview\" data-hw-animate-in=\"animate-modal-in\" data-hw-animate-out=\"animate-modal-out\">\n    <div class=\"dialogview__vertical-center\">\n      <button name=\"button\" type=\"button\" class=\"modal__close\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>      <turbo-frame id=\"modal_content\">\n        \n  <div class=\"bot-creation-layout index-picker-layout\" data-controller=\"index-filter\" data-dialog-size=\"wide\">\n    \n<div class=\"process-progress\">\n  <h4>Index wählen</h4>\n  <div class=\"slider\">\n    <div class=\"slider__style\">\n      <div class=\"slider__style__track\">\n        <div class=\"slider__style__progress\" style=\"width: 40%\"></div>\n      </div>\n    </div>\n  </div>\n</div>\n\n\n\n    <div class=\"index-search\">\n  <input type=\"text\"\n         class=\"index-search__input\"\n         placeholder=\"Nach einem Index suchen…\"\n         autocomplete=\"off\"\n         autofocus\n         data-index-filter-target=\"input\"\n         data-action=\"input->index-filter#filter\">\n</div>\n\n<form class=\"itiles selectable-options\" data-turbo-frame=\"modal_content\" action=\"/de/bots/dca_indexes/pick_index\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"e_yaxsJClOBA5AvjYinAzNZmhH89z1KTrBg0BfsBvdcRfVZlmShKGiYin8PhO1HB5oxRrD3skM7xLb4RM-Xijg\" />\n      <button type=\"submit\"\n              name=\"index_type\"\n              value=\"category\"\n              class=\"itile \"\n              data-index-filter-target=\"tile\"\n              data-index-order=\"0\"\n              data-index-name=\"ND100\"\n              data-index-category-id=\"nasdaq-100\"\n              data-index-description=\"\"\n              data-action=\"click->index-filter#select\">\n        <h4>ND100</h4>\n        <p></p>\n          <div class=\"ticker-group ticker-group--many\">\n                <span class=\"ticker\" style=\"background-color: #76b900\" data-ticker-symbol=\"NVDA\" data-ticker-asset-id=\"4\">NVDA</span>\n                <span class=\"ticker\" style=\"background-color: #8a9ba8\" data-ticker-symbol=\"MSFT\" data-ticker-asset-id=\"5\">MSFT</span>\n                <span class=\"ticker\" style=\"background-color: #c4c4c6\" data-ticker-symbol=\"AAPL\" data-ticker-asset-id=\"6\">AAPL</span>\n                <span class=\"ticker\" style=\"background-color: #8a9ba8\" data-ticker-symbol=\"AMZN\" data-ticker-asset-id=\"7\">AMZN</span>\n                <span class=\"ticker\" style=\"background-color: #1f77e4\" data-ticker-symbol=\"META\" data-ticker-asset-id=\"8\">META</span>\n          </div>\n      </button>\n  <input type=\"hidden\" name=\"index_category_id\" id=\"index_category_id\" value=\"\" data-index-filter-target=\"categoryIdField\" />\n  <input type=\"hidden\" name=\"index_name\" id=\"index_name\" value=\"\" data-index-filter-target=\"nameField\" />\n</form>\n<div class=\"index-search__empty\" data-index-filter-target=\"empty\" style=\"display: none;\">\n  <p>Keine Ergebnisse gefunden</p>\n</div>\n\n  </div>\n\n</turbo-frame>    </div>\n  </dialog>\n</turbo-frame>\n  </body>\n</html>\n",
+      "session_changed": false,
+      "session": {
+        "bot_config": {}
+      }
+    },
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/de/bots/dca_indexes/pick_exchange/new",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-x9W+TBJYaoXPDJbWzEByGg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=tlw8L%2F8aTK4%2FwcoyDnlrqFjyuij3h4lVXJc1AzNwx5DLyB2tPZ2y1NfZJCBjNcqXSGNzvztmiCpBCQzc%2FKNT0QcluiXAWie5AIufCjiDdZ57YW1untwIrjmCIX0vBqetyvG4GH4IhEOoDiGJW2NX6aBfIn8wVDDzYn4TGhuvvtPlpyJmjHeZWnHYHFT7qcg1sRVKy3TkhsD42Ym7JUpIrmJaX1%2FJQq7Z%2Bmq3nXWULXcXyyPX6T8cKdUpXQEg%2BrT5MQmqm29ZnBf8CfrHPnElvQ3VYU7Cgl2NLJotVjeljwj%2FquFlpYmgBg%2FBZHl%2Bgd5lJ01NEd9IE8NwV4klvsq%2BEA%2BDGZmDtUGSo0KjOqij8ht7SgoIVWyU5uGoDRlnh7hWMfthx%2Bz1Q6ieb4WQrpiJU8XueX2DWB5R5jAkBklf0ak%2BbQlIWFPvdW1Ykg0IttLN9nqMcnbRj0c6vbRMfWzNNKrwEeEc5fOLHUbmUSDQqEy2gnefDesDJ1BSXP0mNRRGngCxZk8khpqa7LvzzxGvgeVh%2FxCwFUuU5AE38B9zjV8inSUJmXQzcpQ0jxGN%2FBQBOebvizdJxkmR5zJpt8h0IBlEV7BXN8VP7rQryiPOVZboupHrRYLPl7de23Ef5cE5PBYX6K%2BPwziqgWUelxXCi9fZvHn2YdN%2BPAMibA7kldtiEWayrQ5NTB2OEB29%2BCgbNYzWhDel--nhnqX76CmiKWwjhQ--MQ6DNM0sLT6ExbwEIxd%2Feg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true,
+      "session": {
+        "bot_config": {
+          "settings": {
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "index_name": "ND100",
+            "index_name_prefix": "ND"
+          }
+        }
+      }
+    },
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/bots/dca_indexes/pick_exchange/new",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-LHFjSsqgd9umHXTqT/onaA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=G3EyCGHfCNfF7A1OcQ8L8FCzsao2GD7COUWQhhmakflL0K84Pem2RMHgmfwerWnyfxKVpP1S0BkiRnp6YkGqAFxa294rqtmAgTxjDhVyClE8T0twJTd%2BMvu3dqP%2BKntgVSJDAxsL9r6q%2FRYg4dIpr%2BFxyD9Eguji4UabDFFuFFuRsPUdRZHdY5J%2FzEp1bUJ7JWWWP4qLox8RpII9eeY8uXJDdOKu%2B4xt1%2FbA3zGs44GAKmn9fFbqKB1RIevYrnllsHrkzNJK1FCfk%2BUWjgqvX%2BauDkxcAnj8c8EZSebwk8P1fIxIPUKnb%2FyETFNr2RJ0Eu0oiE7CTf9QyCS9aorWuk323UQILW%2BH6OW8mx1inmHN19sQyilVlmy0rxYKvrbdQC3GIKpZG2pjmuQuw5t4HXzhROFX%2FHm1O2EHPO0P1wPS5PvEGdc8gp7T8kQ%2BZBEkt2z3TDl6Vg9URJvLBirT%2BgsB3xtYHeekSgAuxSpnC79EBMU19sZIxHse2p0FlVYSdw%2BPJ9WdLm6AobZukWLiWG5mOyuVG4Lg%2Fvr3KlUiz3Ke8PyM%2FNkSB29g8GR6%2BL7Ce2zuD51CzyypVgQsSwMFBxq7Mb6%2BbtCLAw3O%2BNvjo0j2pATLLiQdjeH1LFy9fvTXS60e5wHk%2Fk%2BTD%2Bkk%2BtjFXyXvkI%2B8OPmNdhAKddCMBKw2JFpqZODC29rjTIZH26PUpjiHR3oR--1kjSxBFheKdMYyCu--Gv57D0n5BgKRo6HwVYGxxA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": false,
+      "session": {
+        "bot_config": {
+          "settings": {
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "index_name": "ND100",
+            "index_name_prefix": "ND"
+          }
+        }
+      }
+    },
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/bots/dca_indexes/add_api_key/new",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-kAT8RWKQhEG57ItJrEsKrw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=TFTHTtquxdhGq%2FwUDD%2Bu20Y6x8FZrlgvMg7GuP2njjV8ljQGG6k40CcPsA%2FNKWXInGDvxPhtkpnAlIpXr0gR9mg4Gpgz4i8mGceK7GRiwpDfdD97ilBww3L9fk4RkbLglYkujrtRlZTCLqCwqVvFMzbjQ23bNwGQX%2FSn%2BRqSgXXPdolMQ9b0S3wDMjxoR3OSykiK1B%2FthwbFmU9Rq%2BUTp6RH%2FE5KFrFoDQfld0FkYWKDEiBqQeOtSagmxZ6cYmCihpkDECZBtPr0Lg2qLNHt2ndu5JDNQxifjGBUhkYNuls8Vm4weIW%2B0GPvdFJvQQG8nCEkOnNweUQQy%2B8H%2FKIP%2BSja8h%2Bsr62h%2FYSlmJFpDsxzoGQL1rGs5fuA5A1QZfz0fz%2BhhNE0Es46P9DXhCnn7rFw2MhT4Q7aYU2gS%2FTXZqxhj0swlQmVMgEje0QiHVOkK4iLCL8LY9DOGZAy1ng6ItXYvcfck1zToOq%2FACMCK1Ck12fTbZ6zHUktl2mT%2F3vDERG4QUdkp6dpP4Zg6XVlBTdtIECchTsCHKBgVHHH6E7BoZhCMCA3lMEo2r%2BJIG1rrUlEJOIF446X9czbBhg6SXL8gkNzUUz01g4dYSUf%2FJ64AvLkIoWuUJzYqkNuWFtOWo8CeIFmflsQnQ9shoCBKtAqXLFLps3ixpXQyDL50CAqmWzGHLHgp3IVPm3Nz%2BP7KBaBzQ5r--gL6j5xg4%2FiFSFW5%2B--8zDtzh0HZUU1xTAYNv6OYw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": false,
+      "session": {
+        "bot_config": {
+          "settings": {
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "index_name": "ND100",
+            "index_name_prefix": "ND"
+          }
+        }
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-wHTni35V8nY4Vr8JbLCwuA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=iPe0tNVRv9v1uqy6cTBU%2FD5qzjgs0EPxF1TTiHsAGCxROYI%2FH4R6flYgiuOTxqDAuP60cj8iPpOTsVSeFuCZEeHnz6tDMq9rgeMd07KTbilCEU8WssmuwYyu25QT9EyTBMWbRhSNNLo6nM6ew3dbjBOKmmLQE8maCUoKfSJRBvqKgNROD6fdXkUejWjNDxcOeIxTCLzmqSONQpjZBOAVC6rQPRNat8WBsu3snmmval%2FzXLrlQ51n5xXQTwWAY6g2qATRFrtFvzTdbWEwpW83kvn6QdhlE%2B%2BzSGDdws%2F%2Bb3t6ah96tzgKDpROB9X7ICrNAs%2BQGIX26BPaT00NsZ1jNZpxya64moJ%2BySAllxF0i%2BTypUaIjyplqdX4HTtI2nIDHdIfuJ%2F%2FgXLClnS616AA2P%2F7ze%2BeMK8jGbdBrsFc34PI4PEPCIUtwv3ohV6mEmO0%2BHA974mC5i%2Bkll42qg1YquMDQk2%2FJonzgVzxOD6SCR1n5RvpU5NnThw5IkPq2dC%2FvA5Tk4hI6GaX5F0SVh8GweG1Vt6YbtYQGSwIicSdadYrWKJw3BdsnBe9l8YY6JHF%2BB6RWlHiwOWyEwNt%2FOw%2FKAhbortYbAEPoacOcbMGJRPxmOd96SzGlfvtVH9pI%2FjNTqBEV8un4bb5wjgZs9%2BEgOtgk%2FHs5NeFpgcImgcC1yuCwmw%2FcLG6qHvMrDs%2FbvF%2FIjVRD4UF--hf1tF1QRFtMb9Y3c--cNPlfsyiUnAEmXixAA59Dw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<html>\n  <head>\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"p_OSaX8oMXkOi20Q7qreL9RPpLHlbqVS7S064C3R3wEtsre8DopOi3bCBVTsUJyeNEEdHCYEk2qpogNX1FS9mw\" />\n    \n  </head>\n  <body>\n    <turbo-frame id=\"modal\">\n  <dialog data-controller=\"modal--base\" data-modal--base-close-url-value=\"/bots\" class=\"dialogview\" data-hw-animate-in=\"animate-modal-in\" data-hw-animate-out=\"animate-modal-out\">\n    <div class=\"dialogview__vertical-center\">\n      <button name=\"button\" type=\"button\" class=\"modal__close\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>      <turbo-frame id=\"modal_content\">\n        \n  <div class=\"bot-creation-layout\">\n    \n<div class=\"process-progress\">\n  <h4>Exchange</h4>\n  <div class=\"slider\">\n    <div class=\"slider__style\">\n      <div class=\"slider__style__track\">\n        <div class=\"slider__style__progress\" style=\"width: 60%\"></div>\n      </div>\n    </div>\n  </div>\n</div>\n\n\n\n    <div class=\"conversational conversational--bot-setup\">\n      Invest in\n      <a data-turbo-frame=\"modal_content\" class=\"conversational__link\" href=\"/bots/dca_indexes/pick_index/new\">ND10</a>\n      portfolio\n      at\n      <form data-controller=\"form--submit-after-delay\" data-turbo-frame=\"exchange-picker\" action=\"/bots/dca_indexes/pick_exchange/new\" accept-charset=\"UTF-8\" method=\"get\">\n        <input autofocus=\"autofocus\" autocomplete=\"off\" placeholder=\"...\" data-action=\"input-&gt;form--submit-after-delay#submit\" class=\"conversational__input sinput\" type=\"text\" name=\"query\" id=\"query\" />\n</form>    </div>\n\n    <turbo-frame data-action=\"keydown@window-&gt;arrow-keys-navigation#navigate\" data-controller=\"arrow-keys-navigation\" class=\"selectable-options\" id=\"exchange-picker\">\n  <form action=\"/bots/dca_indexes/pick_exchange\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"MvENoVLmodKTGWEbi2IrlgCGTyt5I-uQySeqNzVcw0PdlqQju0hXltip7INn7vjatnRLEaOrJe3L773nowjOjQ\" />\n    <div class=\"exchange-grid\">\n        <div class=\"exchange-grid__option\">\n          <button name=\"bots_dca_index[exchange_id]\" type=\"submit\" value=\"1\" class=\"exchange-grid__item\" data-arrow-keys-navigation-target=\"item button\" data-turbo-frame=\"modal_content\">\n            <svg viewBox=\"0 0 152 46\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M68.8585 34.3337L67.4321 30.0499H58.3032L56.8771 34.3337H52.7246L60.6171 11.4426H65.1182L73.0107 34.3337H68.8585ZM59.4445 26.5181H66.2911L62.9311 16.3806H62.8043L59.4445 26.5181Z\" fill=\"var(--concrete)\"/>\n<path d=\"M75.2332 34.3337V11.4426H79.0367V34.3337H75.2332Z\" fill=\"var(--concrete)\"/>\n<path d=\"M91.552 18.2773C93.5382 18.2773 95.1865 19.0404 96.4966 20.5665C97.8279 22.0926 98.4935 24.0764 98.4935 26.5182C98.4935 28.9381 97.8279 30.9111 96.4966 32.4371C95.1654 33.9632 93.5171 34.7262 91.552 34.7262C90.5375 34.7262 89.6184 34.5191 88.7944 34.105C87.9701 33.6689 87.3573 33.1129 86.9558 32.4371H86.8607V41.659H83.0571V18.6698H86.5121L86.6707 20.6646H86.7975C87.1989 19.9451 87.8329 19.3674 88.6992 18.9314C89.5656 18.4954 90.5166 18.2773 91.552 18.2773ZM90.6645 31.2271C91.8479 31.2271 92.7986 30.8022 93.5171 29.9519C94.2567 29.1017 94.6265 27.9572 94.6265 26.5182C94.6265 25.0575 94.2567 23.902 93.5171 23.0518C92.7986 22.2015 91.8479 21.7764 90.6645 21.7764C89.5868 21.7764 88.6781 22.1361 87.9385 22.8556C87.22 23.5532 86.8607 24.4144 86.8607 25.439V27.5646C86.8607 28.5892 87.22 29.4614 87.9385 30.1807C88.6781 30.8785 89.5868 31.2271 90.6645 31.2271Z\" fill=\"var(--concrete)\"/>\n<path d=\"M112.81 18.6698H116.265V34.3338H112.81L112.619 32.339H112.524C112.102 33.0586 111.457 33.6363 110.591 34.0724C109.746 34.5082 108.805 34.7262 107.77 34.7262C105.784 34.7262 104.125 33.9632 102.793 32.4371C101.462 30.9111 100.796 28.9381 100.796 26.5182C100.796 24.0983 101.462 22.1252 102.793 20.5992C104.125 19.0513 105.784 18.2773 107.77 18.2773C108.805 18.2773 109.746 18.4954 110.591 18.9314C111.457 19.3674 112.102 19.9451 112.524 20.6646H112.619L112.81 18.6698ZM112.461 27.5646V25.439C112.461 24.4144 112.091 23.5532 111.352 22.8556C110.633 22.1361 109.725 21.7764 108.626 21.7764C107.463 21.7764 106.512 22.2015 105.773 23.0518C105.033 23.902 104.663 25.0575 104.663 26.5182C104.663 27.9572 105.033 29.1017 105.773 29.9519C106.512 30.8022 107.463 31.2271 108.626 31.2271C109.725 31.2271 110.633 30.8785 111.352 30.1807C112.091 29.4614 112.461 28.5892 112.461 27.5646Z\" fill=\"var(--concrete)\"/>\n<path d=\"M127.158 34.7262C124.897 34.7262 123.038 33.9632 121.58 32.4371C120.143 30.9111 119.424 28.9381 119.424 26.5182C119.424 24.0983 120.143 22.1252 121.58 20.5992C123.038 19.0513 124.908 18.2773 127.19 18.2773C129.113 18.2773 130.74 18.8224 132.071 19.9124C133.403 20.9807 134.206 22.4196 134.48 24.229L130.645 24.8504C130.497 23.9129 130.096 23.1717 129.441 22.6267C128.806 22.0598 128.046 21.7764 127.158 21.7764C126.038 21.7764 125.109 22.2124 124.369 23.0845C123.65 23.9347 123.291 25.0793 123.291 26.5182C123.291 27.9572 123.65 29.1017 124.369 29.9519C125.109 30.8022 126.049 31.2271 127.19 31.2271C128.078 31.2271 128.849 30.9657 129.504 30.4424C130.18 29.8973 130.603 29.156 130.772 28.2186L134.48 28.84C134.206 30.606 133.392 32.0339 132.04 33.1238C130.687 34.1922 129.06 34.7262 127.158 34.7262Z\" fill=\"var(--concrete)\"/>\n<path d=\"M148.516 18.6698H151.971V34.3338H148.516L148.326 32.339H148.231C147.808 33.0586 147.164 33.6363 146.297 34.0724C145.452 34.5082 144.512 34.7262 143.476 34.7262C141.49 34.7262 139.831 33.9632 138.5 32.4371C137.168 30.9111 136.503 28.9381 136.503 26.5182C136.503 24.0983 137.168 22.1252 138.5 20.5992C139.831 19.0513 141.49 18.2773 143.476 18.2773C144.512 18.2773 145.452 18.4954 146.297 18.9314C147.164 19.3674 147.808 19.9451 148.231 20.6646H148.326L148.516 18.6698ZM148.167 27.5646V25.439C148.167 24.4144 147.798 23.5532 147.058 22.8556C146.34 22.1361 145.431 21.7764 144.332 21.7764C143.17 21.7764 142.219 22.2015 141.479 23.0518C140.74 23.902 140.37 25.0575 140.37 26.5182C140.37 27.9572 140.74 29.1017 141.479 29.9519C142.219 30.8022 143.17 31.2271 144.332 31.2271C145.431 31.2271 146.34 30.8785 147.058 30.1807C147.798 29.4614 148.167 28.5892 148.167 27.5646Z\" fill=\"var(--concrete)\"/>\n<path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M15.1067 44.9709L16.823 26.641H16.6669C15.2924 26.6412 14.1555 26.1443 13.1094 25.2396C12.0632 24.3349 11.3689 23.0814 11.1511 21.7042L14.3912 19.5785V19.5521C14.3911 18.1033 14.9422 16.7105 15.9294 15.6641C16.9168 14.6176 18.264 13.9985 19.6902 13.9358V13.9299H20.6537V10.5077C21.3367 10.5077 21.9977 10.7532 22.5194 11.2006C23.0411 11.6481 23.3897 12.2686 23.5036 12.9521H23.544V10.5077C24.0575 10.5077 24.5617 10.6465 25.0047 10.9098C25.4478 11.1732 25.8137 11.5515 26.0649 12.006C26.3161 12.4605 26.4434 12.9746 26.434 13.4956C26.4243 14.0166 26.2781 14.5256 26.0106 14.9702C26.8808 15.5474 27.5954 16.3357 28.0902 17.2638C28.5847 18.1918 28.8435 19.2303 28.843 20.2854V42.4075C28.843 42.7318 28.97 43.0427 29.1957 43.2717C29.4217 43.5011 29.728 43.6297 30.0473 43.6297H31.4757C29.4696 44.6632 27.2843 45.3889 24.9791 45.7464C35.3846 44.1329 43.3557 35.0111 43.3557 23.9999C43.3557 11.8497 33.6501 2 21.6778 2C9.70548 2 0 11.8497 0 23.9999C0 33.8255 6.34679 42.1466 15.1067 44.9709ZM17.6563 20.116C17.5323 20.242 17.4625 20.4127 17.4622 20.5908L17.4015 21.2637H18.7262C19.0776 21.2637 19.4146 21.122 19.663 20.8698C19.9114 20.6176 20.051 20.2756 20.051 19.9189H18.1241C17.9486 19.9192 17.7804 19.9901 17.6563 20.116Z\" fill=\"var(--concrete)\"/>\n</svg>\n\n</button>        </div>\n        <div class=\"exchange-grid__option\">\n          <button name=\"bots_dca_index[exchange_id]\" type=\"submit\" value=\"2\" class=\"exchange-grid__item\" data-arrow-keys-navigation-target=\"item button\" data-turbo-frame=\"modal_content\">\n            <svg viewBox=\"0 0 248 46\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M219.26 21.458C220.308 21.3476 221.246 21.5685 222.184 22.0654C223.121 22.5072 223.838 23.1147 224.279 23.8877C224.721 24.6055 225.052 25.4334 225.218 26.3721C225.383 27.0346 225.438 28.0285 225.438 29.4639H215.288C215.343 30.8995 215.674 32.0042 216.281 32.8877C216.888 33.771 217.881 34.1572 219.149 34.1572C220.363 34.1572 221.356 33.7706 222.073 32.9424C222.459 32.4455 222.791 31.9486 222.956 31.2861H225.272C225.217 31.7831 224.997 32.3907 224.666 32.998C224.335 33.6053 223.949 34.1574 223.508 34.5439C222.791 35.2617 221.907 35.7034 220.859 35.9795C220.308 36.1451 219.646 36.2002 218.929 36.2002C217.219 36.2001 215.729 35.5931 214.516 34.3232C213.302 33.0533 212.695 31.2862 212.695 29.0225C212.695 26.7589 213.302 24.937 214.516 23.5566C215.729 22.1763 217.329 21.458 219.26 21.458ZM241.932 21.3477C244.083 21.3477 245.628 21.9547 246.565 23.2246C247.172 23.9976 247.448 24.8812 247.448 25.7646H245.241C245.186 25.2125 245.02 24.7708 244.689 24.3291C244.138 23.7219 243.2 23.3906 241.821 23.3906C240.939 23.3906 240.222 23.5564 239.78 23.8877C239.339 24.219 239.063 24.6608 239.063 25.2129C239.064 25.8201 239.394 26.3172 240.001 26.6484C240.332 26.8693 240.884 27.0346 241.546 27.2002L243.146 27.5869C244.855 27.9734 246.013 28.4153 246.62 28.8018C247.558 29.4091 248 30.3474 248 31.6172C248 32.8871 247.503 33.9369 246.565 34.8203C245.628 35.7036 244.138 36.2001 242.208 36.2002C240.112 36.2002 238.622 35.7033 237.739 34.7646C236.857 33.8261 236.416 32.6668 236.306 31.2314H238.456V31.2861C238.511 32.0591 238.733 32.6667 239.063 33.1084C239.67 33.8813 240.719 34.2676 242.208 34.2676C243.09 34.2675 243.862 34.1021 244.579 33.7158C245.241 33.3294 245.572 32.7772 245.572 31.9492C245.572 31.3419 245.297 30.8997 244.745 30.5684C244.414 30.4027 243.697 30.1823 242.704 29.9062L240.828 29.4092C239.615 29.1332 238.733 28.8014 238.126 28.415C237.078 27.7525 236.581 26.9242 236.581 25.7646C236.581 24.4395 237.078 23.3907 238.016 22.5625C238.953 21.7343 240.277 21.3477 241.932 21.3477ZM64.6396 21.0166C65.853 21.0167 66.9564 21.2927 67.9492 21.7344C68.942 22.1761 69.7698 22.8935 70.4316 23.832C71.0384 24.6602 71.3692 25.6545 71.5898 26.7588C71.7001 27.4213 71.7553 28.3598 71.7002 29.5742H61.3291C61.3843 31.0097 61.8807 32.0045 62.8184 32.5566C63.3699 32.8879 64.0873 33.1083 64.8594 33.1084C65.6865 33.1084 66.4039 32.8877 66.9004 32.4463C67.1761 32.2255 67.4522 31.8937 67.6729 31.4521H71.4795C71.3691 32.2802 70.9278 33.1636 70.1006 34.0469C68.8318 35.4273 67.0659 36.1455 64.749 36.1455C62.8737 36.1454 61.1636 35.5374 59.7295 34.3779C58.2955 33.2184 57.5782 31.2862 57.5781 28.6914C57.5781 26.2067 58.2406 24.3291 59.5645 23.0039C60.8883 21.6788 62.5435 21.0166 64.6396 21.0166ZM104.963 21.0713C106.728 21.0713 108.218 21.4579 109.321 22.2861C110.424 23.1144 111.142 24.4952 111.362 26.5381H107.556C107.501 25.986 107.335 25.5442 107.004 25.1025C106.563 24.5504 105.956 24.2188 105.073 24.2188C103.805 24.2188 102.977 24.826 102.48 26.0957C102.26 26.7582 102.095 27.6419 102.095 28.7461C102.095 29.795 102.205 30.6236 102.48 31.2861C102.922 32.4457 103.75 33.0537 105.019 33.0537C105.901 33.0537 106.507 32.8319 106.894 32.335C107.28 31.8381 107.5 31.2313 107.556 30.5137H111.362C111.252 31.6731 110.865 32.722 110.148 33.7158C108.99 35.317 107.28 36.1455 104.963 36.1455C102.646 36.1454 100.992 35.4826 99.8887 34.1025C98.7854 32.7222 98.2334 31.0103 98.2334 28.8018C98.2334 26.3723 98.8406 24.4394 99.999 23.1143C101.213 21.7342 102.812 21.0714 104.963 21.0713ZM150.417 21.0166C151.575 21.0166 152.734 21.2927 153.727 21.7344C154.719 22.1761 155.547 22.8935 156.209 23.832C156.816 24.6603 157.148 25.6545 157.368 26.7588C157.478 27.4213 157.534 28.3598 157.479 29.5742H147.107C147.163 31.0098 147.659 32.0045 148.597 32.5566C149.148 32.8879 149.866 33.1084 150.638 33.1084C151.465 33.1084 152.182 32.8878 152.679 32.4463C152.954 32.2255 153.231 31.8938 153.451 31.4521H157.258C157.147 32.2803 156.705 33.1635 155.878 34.0469C154.609 35.4272 152.844 36.1455 150.527 36.1455C148.652 36.1455 146.942 35.5374 145.508 34.3779C144.074 33.2184 143.356 31.2863 143.356 28.6914C143.356 26.2067 144.019 24.3291 145.343 23.0039C146.667 21.679 148.321 21.0167 150.417 21.0166ZM191.733 21.2373C193.554 21.2925 195.099 21.8448 196.312 23.0596C197.526 24.2743 198.188 26.0415 198.188 28.3604C198.187 30.6239 197.636 32.501 196.533 33.9365C195.43 35.4273 193.775 36.1455 191.458 36.1455C189.527 36.1455 188.038 35.4828 186.935 34.2129C185.831 32.8878 185.225 31.1762 185.225 28.9678C185.225 26.5935 185.832 24.7706 186.99 23.335C188.149 21.9549 189.748 21.2374 191.733 21.2373ZM89.8486 21.0713C91.3931 21.0713 92.8275 21.4025 94.041 22.0098C95.2545 22.6171 95.8612 23.7768 95.8613 25.4883V33.6602C95.8613 34.1569 95.9717 34.4886 96.082 34.6543C96.1924 34.8199 96.4131 34.9862 96.6338 35.0967V35.6484H92.6064C92.4962 35.3725 92.4419 35.0963 92.3867 34.8203C92.3316 34.5442 92.3315 34.2678 92.2764 33.9365C91.7799 34.4886 91.1727 34.9856 90.5107 35.3721C89.6834 35.8137 88.8009 36.0898 87.7529 36.0898C86.4842 36.0898 85.3802 35.7032 84.5527 34.9854C83.7257 34.2676 83.2843 33.2188 83.2842 31.8389C83.2842 30.072 83.9462 28.8013 85.3252 28.0283C86.0974 27.5866 87.1456 27.3107 88.6348 27.0898L89.8486 26.9795C90.5655 26.8691 91.062 26.7588 91.3379 26.6484C91.8893 26.4276 92.1658 26.0963 92.166 25.5996C92.166 24.9922 91.9447 24.6056 91.5586 24.3848C91.1725 24.1639 90.5657 24.0527 89.7383 24.0527C88.8558 24.0528 88.1943 24.2742 87.8633 24.7158C87.5875 25.0471 87.4218 25.4889 87.3115 26.041H83.7256C83.7807 24.7713 84.1668 23.7774 84.7734 22.9492C85.7663 21.6793 87.4767 21.0713 89.8486 21.0713ZM54.2139 21.5684H56.5303V24.2188H54.2139V31.7275C54.2139 32.3349 54.2691 32.6664 54.4346 32.832C54.6001 32.9976 55.0413 33.0527 55.8135 33.0527H56.5859V35.8145L54.8203 35.8691C53.0551 35.9244 51.8412 35.6485 51.2344 34.9307C50.7931 34.4889 50.6279 33.8258 50.6279 32.9424V24.2188H48.5322V21.5684H50.5176V17.5928H54.2139V21.5684ZM118.258 21.5684H120.574V24.2188H118.258V31.7275C118.258 32.3349 118.313 32.6664 118.479 32.832C118.644 32.9976 119.085 33.0527 119.857 33.0527H120.63V35.8145L118.864 35.8691C117.099 35.9244 115.885 35.6485 115.278 34.9307C114.837 34.4889 114.672 33.8258 114.672 32.9424V24.2188H112.576V21.5684H114.562V17.5928H118.258V21.5684ZM183.735 21.4023C183.846 21.4023 184.011 21.4028 184.287 21.458V23.9424C184.122 23.9424 184.011 23.8877 183.9 23.8877H183.515C182.356 23.8877 181.418 24.2739 180.812 25.0469C180.15 25.8199 179.874 26.7034 179.874 27.6973V35.7588H177.502V21.6787H179.708V24.1084C179.873 23.6115 180.315 23.0591 181.032 22.3965C181.749 21.7339 182.577 21.4023 183.515 21.4023H183.735ZM234.43 21.4023C234.54 21.4023 234.706 21.4028 234.981 21.458V23.9424C234.816 23.9424 234.705 23.8877 234.595 23.8877H234.209C233.051 23.8877 232.113 24.2739 231.506 25.0469C230.844 25.8199 230.568 26.7034 230.568 27.6973V35.7588H228.196V21.6787H230.402V24.1084C230.568 23.6115 231.009 23.0591 231.727 22.3965C232.444 21.7339 233.271 21.4023 234.209 21.4023H234.43ZM168.18 16.4883C170.441 16.4883 172.041 17.1515 172.979 18.4766C173.53 19.2495 173.806 20.1883 173.806 21.2373C173.806 22.4519 173.475 23.4458 172.758 24.2188C172.427 24.6052 171.875 24.992 171.213 25.3232C172.206 25.7097 172.923 26.0959 173.42 26.5928C174.302 27.421 174.688 28.5806 174.688 30.0713C174.688 31.2859 174.302 32.4456 173.53 33.4395C172.372 34.9302 170.496 35.7031 167.959 35.7031H159.795V16.4883H168.18ZM5.2334 24.0303L15.7656 35.6484H0.0996094V18.3662L15.7656 0.200195L5.2334 24.0303ZM30.4385 35.6484H26.4668V16.3779H30.4385V35.6484ZM41.7471 21.0713C43.2364 21.0713 44.45 21.4585 45.3877 22.2314C46.3253 23.0045 46.7666 24.2743 46.7666 26.041V35.6484H42.9609V26.9795C42.9609 26.2065 42.8501 25.6541 42.6846 25.2676C42.2985 24.55 41.6366 24.1632 40.5889 24.1631C39.3202 24.1631 38.4926 24.7157 37.9961 25.7646C37.7755 26.3168 37.6094 27.0346 37.6094 27.918V35.6484H33.9141V21.458H37.499V23.5566C37.9954 22.8389 38.4371 22.2864 38.8232 21.9551C39.5955 21.4029 40.5335 21.0713 41.7471 21.0713ZM82.0703 24.9365C81.8498 24.9364 81.6292 24.8809 81.4639 24.8809H81.0225C79.5332 24.8809 78.5399 25.3788 77.9883 26.3174C77.7127 26.8695 77.5479 27.6975 77.5479 28.8564V35.6484H73.7969V21.4023H77.3271V23.8877C77.8788 22.949 78.3751 22.2864 78.8164 21.9551C79.5335 21.3477 80.4163 21.0713 81.5195 21.0713H82.0703V24.9365ZM126.753 35.6484H123.002V21.4023H126.753V35.6484ZM135.854 31.8936L138.833 21.4023H142.805L137.675 35.6484H133.758L128.684 21.4023H132.875L135.854 31.8936ZM203.098 27.6416L209.11 21.6787H212.089L206.738 26.8691L212.42 35.6484H209.441L205.028 28.5254L203.098 30.4033V35.6484H200.836V16.4883H203.098V27.6416ZM191.789 23.335C190.355 23.335 189.362 23.8879 188.7 24.9922C188.038 26.0965 187.707 27.4218 187.707 28.9678C187.707 30.4584 188.038 31.6732 188.7 32.667C189.362 33.6606 190.355 34.1572 191.789 34.1572C193.223 34.1572 194.271 33.5501 194.878 32.3906C195.43 31.2312 195.761 29.9062 195.761 28.4707C195.761 27.1455 195.54 26.0958 195.154 25.2676C194.492 23.9977 193.389 23.335 191.789 23.335ZM92.1104 28.7461C91.8898 28.9117 91.6142 29.0224 91.3936 29.1328C91.1729 29.2432 90.8417 29.2987 90.4004 29.4092L89.5732 29.5742C88.8013 29.7398 88.1943 29.9057 87.8633 30.0713C87.2565 30.4026 86.9805 30.955 86.9805 31.6729C86.9805 32.3354 87.1461 32.7776 87.5322 33.0537C87.8631 33.3295 88.3042 33.495 88.8555 33.4951C89.6828 33.4951 90.4002 33.2741 91.1172 32.7773C91.7791 32.2804 92.166 31.4516 92.166 30.1816V28.7461H92.1104ZM162.442 33.4395H168.069C169.669 33.4394 170.827 32.9981 171.489 32.0596C171.931 31.4522 172.151 30.7892 172.151 29.9609C172.151 28.5807 171.544 27.642 170.275 27.0898C169.613 26.8138 168.731 26.7031 167.628 26.7031H162.442V33.4395ZM219.149 23.3906C218.101 23.3907 217.163 23.7768 216.446 24.5498C215.729 25.3227 215.343 26.3167 215.288 27.5312H223.011C222.9 26.5376 222.68 25.7098 222.349 25.1025C221.687 23.943 220.639 23.3906 219.149 23.3906ZM13.5586 17.9238C16.1481 17.9238 18.2469 20.0253 18.2471 22.6172C18.2471 25.2092 16.1482 27.3105 13.5586 27.3105C10.9691 27.3105 8.87012 25.2092 8.87012 22.6172C8.87027 20.0253 10.9692 17.9239 13.5586 17.9238ZM64.6396 24.1084C63.6467 24.1084 62.9291 24.3844 62.4326 24.9365C61.881 25.4887 61.5498 26.2069 61.4395 27.1455H67.8389C67.7837 26.1516 67.4525 25.433 66.8457 24.8809C66.2391 24.3841 65.5219 24.1085 64.6396 24.1084ZM150.362 24.1084C149.425 24.1084 148.652 24.3844 148.155 24.9365C147.604 25.4887 147.273 26.2069 147.163 27.1455H153.562C153.506 26.1516 153.175 25.433 152.568 24.8809C151.962 24.3841 151.245 24.1084 150.362 24.1084ZM162.442 24.6055H167.241C168.344 24.6055 169.227 24.4391 169.834 24.1631C170.827 23.6661 171.269 22.8383 171.269 21.5684C171.269 20.2984 170.772 19.47 169.724 19.0283C169.117 18.8075 168.289 18.6416 167.131 18.6416H162.442V24.6055ZM126.753 19.7461H123.002V16.3232H126.753V19.7461Z\" fill=\"var(--concrete)\"/>\n</svg>\n\n</button>        </div>\n    </div>\n</form></turbo-frame>\n  </div>\n\n</turbo-frame>    </div>\n  </dialog>\n</turbo-frame>\n  </body>\n</html>\n",
+      "session_changed": false,
+      "session": {
+        "bot_config": {
+          "settings": {
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "index_name": "ND100",
+            "index_name_prefix": "ND"
+          }
+        }
+      }
+    },
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/bots/dca_indexes/add_api_key/new",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-VxKCDJo1u4XadGJJ8yU/hA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=icy7zMhzyiYeoEm7vuQf%2FFut7gDPbbFAro%2B9CbSq0D0FetyBFSS8oaVO5VFlcQEBR%2Bq0LVYdunqZbChlS%2FcN7mJUpVQPmx5%2BeSc7Re8LDeAxeiSOjNszzgehkgJQB4rjMskmGNl8fVY8%2Fl9SgLdGie%2FvgMIU6JW0ngREV94QKT4cGSS7Bqcqdlz5NUoWJ8g32TYqjc0mnqY2pnOoc0Fl2oELGrsZ8injtAIeHsUV593438tLFlRN61baFJ3mgtaV6uNFsXkNI0K1mptWUUIs9ogZfHeE61amtI6ZHjFoMM42A6RzWya1mFbCAZgXInG%2FQ1WxaGeN38EF25z4BppEZSPP0MGLlqOG3cBfq1M7Rw1igf937Uc5NlCOCAfSt8Jh%2F1ecYdeOaOlIsDUhQQUZqNQ44yaCcu9hnmrjTK4ZbMZuuf69ei0G9zT2casAXobbWii8A4XuOc0ZGNZlqE%2BG6RMy9dzL1PedNZQkl5zE%2FzHISuUPef5G2%2FuFGv9r8j7DzZIPIJckd2LMIMGesbIfVfpPmrt6g%2FiZiqtwtz8d3vqR3YIA10cnWnyoQmjI8muX68GUlBiymluPAhvTf9C1gt2aXohLHwTZQUFf%2B1OrvB9%2FHGw%2BREjDYgX%2B0hQgxmW85QlzvFwlucq6fi%2FHGqcrB67oyqAW3axB3rVKCxVyUWQwrrGTBhp7Vgnhnid1Sz4cp6FjP9PJWV8U23D28y4656BrdKCHksvLF7BlhiZd--iGO1mtKIdy9QXaJG--gMbQcoAREI%2FkBwXdlRP%2FoQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true,
+      "session": {
+        "bot_config": {
+          "settings": {
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "index_name": "ND100",
+            "index_name_prefix": "ND"
+          },
+          "exchange_id": "1"
+        }
+      }
+    },
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/bots/dca_indexes/add_api_key/new",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-/tnysRCbf1Q2jM84vvDDpw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=Rbl%2BLIZ5sVayxWZhtjR%2BNpSGxWmkwmlOOvlw9dMXXw3iftdCQPd1x%2FHtR63eER7HKR0h0PIPXOdJbF2l3vWz10XQWrAemcdpJpcPvrKY%2BLJz9W24HtylT0RYv1GOZ8b4W0syYEedQh9d4yO19btWjG3g61shmLKt%2Fhh1nO83UPVVP%2BbXVDCWhD7Rk82VZiHP8h9M3kTMhQB9vAdfFwrknZNtfUpQlH2n6WJru9Xe5Vkwbmy34W3%2BLt82aP4MSBU%2Fb53o0h%2FTP8Qa4sD61HksqrdBf%2B53oYcg2lkgtEdwgDrCaqtT5BiaqaBcyVt5%2B0COTJh3IMmtN7ew%2BWtlGjBb52u4foX0s4nhO74vfBdf963yWW94Dx0HEnMlHQAdnL91e9vbRBoaX1vcRdd2b6qH1yXzu6fu6T8qIYIzS9KdhAaAyMvCf%2FLBZbOTpT9qVd4ROgw3GA5So7T0q0QVqRsJfyhO%2FMatNa99wbyq%2BailL%2FlVv0MgqUvBA%2BhP%2B%2FUlQ1HLr7HJLKFM8p683%2FJ6FjMJd3NpIMRGc8JO%2BQZvPBDBO2FhfYGo28kGEJut60EVo0B6TXsVEZsMJtjZEqwVnPe5ynVDJghtVN1rovBg5SUd677qO3y5r1dRd0if67rR6tYxNnPdShnd8sg6ey%2FN0CPK5ofs%2FIrY3e7SZ0PPzLpzEQGfx9vESzFVBQWQFgldYde9BL1IWpfbxFZ9feKugievynRKDf2ViKaWBBc4Ifbh--e64jGG5MrGd6Pjll--01%2BHus53qFDN%2BpwZlLgUMQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": false,
+      "session": {
+        "bot_config": {
+          "settings": {
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "index_name": "ND100",
+            "index_name_prefix": "ND"
+          },
+          "exchange_id": "1"
+        }
+      }
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "failed_attempts": 0,
+      "locked_at": null,
+      "last_otp_at": null,
+      "remember_created_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "bots": [],
+  "network": []
+}

@@ -1,0 +1,193 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [],
+      "raised": false,
+      "generations": [],
+      "import": {
+        "imported": 5,
+        "duplicates": 0,
+        "skipped": 0,
+        "unrecognised": [],
+        "unrouted": [],
+        "error": null,
+        "ambiguous": null
+      }
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3feccccccccccccd"
+          },
+          "base_asset_id": 7,
+          "base_currency": "USDT",
+          "created_at": "2026-09-19 12:00:00.500000",
+          "description": null,
+          "entry_type": 3,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": "dustcsv_USDT to BNB_1786960801",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {},
+          "transacted_at": "2026-08-17 10:00:01",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": null,
+          "updated_at": "2026-09-19 12:00:00.500000",
+          "user_id": 1,
+          "raw_data_text": "{}"
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3f3c4fc1df3300de"
+          },
+          "base_asset_id": null,
+          "base_currency": "BNB",
+          "created_at": "2026-09-19 12:00:00.500000",
+          "description": null,
+          "entry_type": 2,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": "dustcsv_USDT to BNB_1786960801",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {},
+          "transacted_at": "2026-08-17 10:00:01",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": null,
+          "updated_at": "2026-09-19 12:00:00.500000",
+          "user_id": 1,
+          "raw_data_text": "{}"
+        }
+      },
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3ff8000000000000"
+          },
+          "base_asset_id": null,
+          "base_currency": "XRP",
+          "created_at": "2026-09-19 12:00:00.500000",
+          "description": null,
+          "entry_type": 3,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": "dustcsv_XRP to BNB_1786960801",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {},
+          "transacted_at": "2026-08-17 10:00:01",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": null,
+          "updated_at": "2026-09-19 12:00:00.500000",
+          "user_id": 1,
+          "raw_data_text": "{}"
+        }
+      },
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3f3c4fc1df3300de"
+          },
+          "base_asset_id": null,
+          "base_currency": "BNB",
+          "created_at": "2026-09-19 12:00:00.500000",
+          "description": null,
+          "entry_type": 2,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": "dustcsv_XRP to BNB_1786960801",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {},
+          "transacted_at": "2026-08-17 10:00:01",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": null,
+          "updated_at": "2026-09-19 12:00:00.500000",
+          "user_id": 1,
+          "raw_data_text": "{}"
+        }
+      },
+      {
+        "id": 5,
+        "before": null,
+        "after": {
+          "id": 5,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3f1a36e2eb1c432d"
+          },
+          "base_asset_id": null,
+          "base_currency": "BNB",
+          "created_at": "2026-09-19 12:00:00.500000",
+          "description": "Small Assets Exchange BNB",
+          "entry_type": 11,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "operation": "Small Assets Exchange BNB"
+          },
+          "transacted_at": "2026-08-18 10:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": null,
+          "updated_at": "2026-09-19 12:00:00.500000",
+          "user_id": 1,
+          "raw_data_text": "{\"operation\":\"Small Assets Exchange BNB\"}"
+        }
+      }
+    ],
+    "account_balances": [],
+    "api_keys": [],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

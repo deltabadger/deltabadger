@@ -1,0 +1,73 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /api/v2/spot/trade/fills",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789340400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789340400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789340400000"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [],
+    "account_balances": [],
+    "api_keys": [],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

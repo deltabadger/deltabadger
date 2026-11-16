@@ -1,0 +1,80 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T14:00:01.250000Z",
+  "venue": "alpaca",
+  "script": {
+    "alpaca": {
+      "GET /v2/clock": [
+        {
+          "status": 200,
+          "body": {
+            "timestamp": "2026-09-01T14:00:01.250000Z",
+            "is_open": true,
+            "next_open": "2026-09-02T09:30:00-04:00",
+            "next_close": "2026-09-01T16:00:00-04:00"
+          }
+        }
+      ],
+      "GET /v2/stocks/AAPL/quotes/latest": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "AAPL",
+            "quote": {
+              "ap": 187.43,
+              "as": 100,
+              "bp": 187.41,
+              "bs": 100,
+              "t": "2026-09-01T14:00:00Z"
+            }
+          }
+        }
+      ],
+      "GET /v2/account": [
+        {
+          "status": 200,
+          "body": {
+            "id": "paper-account",
+            "status": "ACTIVE",
+            "currency": "USD",
+            "cash": "10000",
+            "buying_power": "20000",
+            "non_marginable_buying_power": "10000"
+          }
+        }
+      ],
+      "GET /v2/positions": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "symbol": "AAPL",
+              "asset_class": "us_equity",
+              "qty": "3",
+              "qty_available": "3",
+              "side": "long"
+            }
+          ]
+        }
+      ],
+      "POST /v2/orders": [
+        {
+          "status": 500,
+          "body": {
+            "code": 50010000,
+            "message": "internal server error"
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "api": [
+    {
+      "side": "buy",
+      "amount": "100",
+      "amount_type": "quote"
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-08T10:00:01.123456Z",
+  "venue": "bybit",
+  "script": {
+    "bybit": {
+      "GET /v5/market/orderbook": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "a": [
+                [
+                  "64001.37",
+                  "1"
+                ]
+              ],
+              "b": [
+                [
+                  "64000",
+                  "1"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /v5/market/tickers": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "list": [
+                {
+                  "symbol": "BTCUSDT",
+                  "lastPrice": "64000.12"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "POST /v5/order/create": [
+        {
+          "network": "post_send",
+          "message": "Faraday::TimeoutError: Net::ReadTimeout"
+        }
+      ],
+      "GET /v5/account/wallet-balance": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "list": [
+                {
+                  "coin": [
+                    {
+                      "coin": "USDT",
+                      "walletBalance": "100000",
+                      "locked": "0",
+                      "spotBorrow": "0"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "GET /v5/order/realtime": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "list": [
+                {
+                  "orderId": "7612345679",
+                  "symbol": "BTCUSDT",
+                  "orderType": "Market",
+                  "side": "Buy",
+                  "qty": "0.00093",
+                  "price": "64000",
+                  "avgPrice": "64000",
+                  "cumExecQty": "0.001875",
+                  "cumExecValue": "120",
+                  "orderStatus": "Filled",
+                  "rejectReason": "EC_NoError",
+                  "orderLinkId": "$client_order_id"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "GET /v5/order/history": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "list": []
+            }
+          }
+        }
+      ]
+    }
+  },
+  "recover_at": "2026-09-08T10:01:01.123456Z"
+}

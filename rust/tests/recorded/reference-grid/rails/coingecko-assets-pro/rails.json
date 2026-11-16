@@ -1,0 +1,100 @@
+{
+  "requests": [
+    "GET pro-api.coingecko.com/api/v3/ping",
+    "GET pro-api.coingecko.com/api/v3/coins/markets?ids=bitcoin,ethereum,pax-gold,covalent,nameless&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd"
+  ],
+  "retry": false,
+  "changes": {
+    "assets": [
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "category": "Cryptocurrency",
+          "circulating_supply": null,
+          "color": null,
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-09-01 00:00:00",
+          "external_id": "ethereum",
+          "image_url": null,
+          "instrument_type": null,
+          "isin": null,
+          "market_cap": null,
+          "market_cap_rank": null,
+          "name": "ETH",
+          "symbol": "ETH",
+          "updated_at": "2026-09-01 00:00:00",
+          "url": null
+        },
+        "after": {
+          "id": 2,
+          "category": "Cryptocurrency",
+          "circulating_supply": {
+            "f": "419c9c38007e6b76"
+          },
+          "color": null,
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-09-01 00:00:00",
+          "external_id": "ethereum",
+          "image_url": null,
+          "instrument_type": null,
+          "isin": null,
+          "market_cap": 420000000000,
+          "market_cap_rank": 2,
+          "name": "ETH",
+          "symbol": "ETH",
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "url": "https://www.coingecko.com/coins/ethereum"
+        }
+      },
+      {
+        "id": 3,
+        "before": {
+          "id": 3,
+          "category": "Cryptocurrency",
+          "circulating_supply": null,
+          "color": null,
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-09-01 00:00:00",
+          "external_id": "pax-gold",
+          "image_url": null,
+          "instrument_type": null,
+          "isin": null,
+          "market_cap": null,
+          "market_cap_rank": null,
+          "name": "PAXG",
+          "symbol": "PAXG",
+          "updated_at": "2026-09-01 00:00:00",
+          "url": null
+        },
+        "after": {
+          "id": 3,
+          "category": "Cryptocurrency",
+          "circulating_supply": null,
+          "color": null,
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-09-01 00:00:00",
+          "external_id": "pax-gold",
+          "image_url": null,
+          "instrument_type": "tokenized",
+          "isin": null,
+          "market_cap": null,
+          "market_cap_rank": null,
+          "name": "PAXG",
+          "symbol": "PAXG",
+          "updated_at": "2026-09-01 00:00:00",
+          "url": null
+        }
+      }
+    ],
+    "tickers": [],
+    "exchange_assets": [],
+    "indices": [],
+    "bot_activity_logs": [],
+    "app_configs": []
+  }
+}

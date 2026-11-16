@@ -1,0 +1,53 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-08T10:00:01.123456Z",
+  "script": {
+    "http": {
+      "/0/public/Ticker": [
+        {
+          "error": [
+            "EGeneral:Internal error"
+          ]
+        }
+      ],
+      "/0/private/AddOrder": [
+        {
+          "error": [],
+          "result": {
+            "txid": [
+              "OTX-1"
+            ]
+          }
+        }
+      ],
+      "/0/private/BalanceEx": [
+        {
+          "error": [],
+          "result": {
+            "ZEUR": {
+              "balance": "100000",
+              "hold_trade": "0"
+            }
+          }
+        }
+      ],
+      "/0/private/QueryOrders": [
+        {
+          "error": [],
+          "result": {}
+        }
+      ],
+      "/0/private/TradesHistory": [
+        {
+          "error": [],
+          "result": {
+            "trades": {},
+            "count": 0
+          }
+        }
+      ]
+    }
+  },
+  "tick": true
+}

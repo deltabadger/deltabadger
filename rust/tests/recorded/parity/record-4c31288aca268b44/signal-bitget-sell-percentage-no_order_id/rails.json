@@ -1,0 +1,109 @@
+{
+  "sent": [
+    {
+      "symbol": "BTCUSDT",
+      "side": "sell",
+      "orderType": "market",
+      "size": "0.25",
+      "force": "ioc"
+    }
+  ],
+  "changes": {
+    "bots": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:39.325996",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "Bitcoin",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "base_asset_id": 1,
+            "quote_asset_id": 2
+          },
+          "settings_changed_at": "2026-11-16 07:47:39.325795",
+          "started_at": "2026-08-25 09:00:00.123456",
+          "status": 1,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {},
+          "type": "Bots::Signal",
+          "updated_at": "2026-11-16 07:47:39.325996",
+          "user_id": 1
+        },
+        "after": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:39.325996",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "Bitcoin",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "base_asset_id": 1,
+            "quote_asset_id": 2
+          },
+          "settings_changed_at": "2026-11-16 07:47:39.325795",
+          "started_at": "2026-08-25 09:00:00.123456",
+          "status": 1,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "signal_placement_unresolved": {
+              "id": "595345b5-73a2-45c6-8d78-94220d88ea21",
+              "at": "2026-09-01T14:00:01Z",
+              "side": "sell",
+              "error": "the venue accepted the order but returned no order id"
+            }
+          },
+          "type": "Bots::Signal",
+          "updated_at": "2026-11-16 07:47:39.325996",
+          "user_id": 1
+        }
+      }
+    ],
+    "transactions": [],
+    "bot_activity_logs": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "bot_id": 1,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "details": {
+            "base": "BTC",
+            "quote": "USDT",
+            "amount": "0.25",
+            "quote_amount": "16000.0",
+            "price": "64000.0",
+            "error": "the venue accepted the order but returned no order id"
+          },
+          "event": "placement_ambiguous",
+          "level": 1,
+          "message": null
+        }
+      }
+    ],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}

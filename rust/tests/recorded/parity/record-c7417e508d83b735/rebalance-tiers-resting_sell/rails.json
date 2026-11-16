@@ -1,0 +1,233 @@
+{
+  "sent": [
+    {
+      "symbol": "BTC/USD",
+      "side": "sell",
+      "type": "market",
+      "time_in_force": "gtc",
+      "qty": "0.003984528"
+    }
+  ],
+  "changes": {
+    "bots": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:49.397753",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "BTC, ETH, SOL",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "quote_asset_id": 2,
+            "quote_amount": 60.0,
+            "interval": "day",
+            "weighting": "manual",
+            "allocations": {
+              "1": 0.5,
+              "3": 0.3,
+              "4": 0.2
+            },
+            "rebalance_enabled": true,
+            "smart_intervaled": false,
+            "smart_interval_quote_amount": 6.0,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_limit_in_ticker_id": 1,
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "price_drop_limit_in_ticker_id": 1,
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ticker_id": 1,
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_ticker_id": 1,
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day",
+            "sell_price_limit_in_ticker_id": 1,
+            "sell_price_drop_limit_in_ticker_id": 1,
+            "sell_moving_average_limit_in_ticker_id": 1,
+            "sell_indicator_limit_in_ticker_id": 1
+          },
+          "settings_changed_at": null,
+          "started_at": "2026-09-01 10:00:00.123456",
+          "status": 2,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "missed_quote_amount": 0,
+            "missed_quote_amount_was_set": null
+          },
+          "type": "Bots::DcaMultiAsset",
+          "updated_at": "2026-11-16 07:47:49.397753",
+          "user_id": 1
+        },
+        "after": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:49.397753",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "BTC, ETH, SOL",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "quote_asset_id": 2,
+            "quote_amount": 60.0,
+            "interval": "day",
+            "weighting": "manual",
+            "allocations": {
+              "1": 0.5,
+              "3": 0.3,
+              "4": 0.2
+            },
+            "rebalance_enabled": true,
+            "smart_intervaled": false,
+            "smart_interval_quote_amount": 6.0,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_limit_in_ticker_id": 1,
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "price_drop_limit_in_ticker_id": 1,
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ticker_id": 1,
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_ticker_id": 1,
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day",
+            "sell_price_limit_in_ticker_id": 1,
+            "sell_price_drop_limit_in_ticker_id": 1,
+            "sell_moving_average_limit_in_ticker_id": 1,
+            "sell_indicator_limit_in_ticker_id": 1
+          },
+          "settings_changed_at": null,
+          "started_at": "2026-09-01 10:00:00.123456",
+          "status": 2,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "missed_quote_amount": 0,
+            "rebalance_pending": {
+              "phase": "selling",
+              "sell_transaction_id": 4,
+              "buy_transaction_id": null,
+              "remaining_quote_amount": null,
+              "buy_attempted": false
+            }
+          },
+          "type": "Bots::DcaMultiAsset",
+          "updated_at": "2026-11-16 07:47:49.397753",
+          "user_id": 1
+        }
+      }
+    ],
+    "transactions": [
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "amount": {
+            "f": "3f7147b734f1349c"
+          },
+          "amount_exec": 0,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "day",
+          "bot_quote_amount": 60,
+          "created_at": "2026-09-01 12:30:00",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "OTX-1",
+          "external_status": 1,
+          "order_type": 0,
+          "price": 0,
+          "quote": "USD",
+          "quote_amount": {
+            "f": "406fdf0a3d70a3d7"
+          },
+          "quote_amount_exec": 0,
+          "quote_asset_id": 2,
+          "side": 1,
+          "status": 0,
+          "transaction_type": "REBALANCE",
+          "updated_at": "2026-09-01 16:30:00"
+        }
+      }
+    ],
+    "bot_activity_logs": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "bot_id": 1,
+          "created_at": "2026-09-01 12:30:00",
+          "details": {
+            "base": "BTC",
+            "quote": "USD",
+            "amount": "0.0039845288326300984528832630098453",
+            "quote_amount": "254.970000000000000000000000000000747",
+            "price": "63990.0"
+          },
+          "event": "rebalance_sell_placed",
+          "level": 0,
+          "message": null
+        }
+      }
+    ],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}

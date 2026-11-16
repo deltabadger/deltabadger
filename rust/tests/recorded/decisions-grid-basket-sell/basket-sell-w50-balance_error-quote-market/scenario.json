@@ -1,0 +1,163 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-02T10:00:01.123456Z",
+  "venue": "alpaca",
+  "script": {
+    "alpaca": {
+      "GET /v1beta3/crypto/us/latest/quotes": [
+        {
+          "status": 200,
+          "body": {
+            "quotes": {
+              "BTC/USD": {
+                "ap": 64000.0,
+                "as": 0.5,
+                "bp": 63990.0,
+                "bs": 0.4,
+                "t": "2026-09-01T10:00:00Z"
+              },
+              "ETH/USD": {
+                "ap": 2500.0,
+                "as": 0.5,
+                "bp": 2499.5,
+                "bs": 0.4,
+                "t": "2026-09-01T10:00:00Z"
+              },
+              "SOL/USD": {
+                "ap": 150.0,
+                "as": 0.5,
+                "bp": 149.9,
+                "bs": 0.4,
+                "t": "2026-09-01T10:00:00Z"
+              }
+            }
+          }
+        }
+      ],
+      "GET /v1beta3/crypto/us/latest/trades": [
+        {
+          "status": 200,
+          "body": {
+            "trades": {
+              "BTC/USD": {
+                "p": 63990.0,
+                "s": 0.01,
+                "t": "2026-09-01T10:00:00Z",
+                "i": 1,
+                "tks": "B"
+              },
+              "ETH/USD": {
+                "p": 2499.5,
+                "s": 0.01,
+                "t": "2026-09-01T10:00:00Z",
+                "i": 1,
+                "tks": "B"
+              },
+              "SOL/USD": {
+                "p": 149.9,
+                "s": 0.01,
+                "t": "2026-09-01T10:00:00Z",
+                "i": 1,
+                "tks": "B"
+              }
+            }
+          }
+        }
+      ],
+      "POST /v2/orders": [
+        {
+          "status": 200,
+          "body": {
+            "id": "OTX-1",
+            "client_order_id": "rails-OTX-1",
+            "symbol": "BTC/USD",
+            "asset_class": "crypto",
+            "notional": null,
+            "qty": null,
+            "filled_qty": "0",
+            "filled_avg_price": null,
+            "order_type": "market",
+            "type": "market",
+            "side": "sell",
+            "time_in_force": "gtc",
+            "limit_price": null,
+            "status": "pending_new"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "id": "OTX-2",
+            "client_order_id": "rails-OTX-2",
+            "symbol": "ETH/USD",
+            "asset_class": "crypto",
+            "notional": null,
+            "qty": null,
+            "filled_qty": "0",
+            "filled_avg_price": null,
+            "order_type": "market",
+            "type": "market",
+            "side": "sell",
+            "time_in_force": "gtc",
+            "limit_price": null,
+            "status": "pending_new"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "id": "OTX-3",
+            "client_order_id": "rails-OTX-3",
+            "symbol": "SOL/USD",
+            "asset_class": "crypto",
+            "notional": null,
+            "qty": null,
+            "filled_qty": "0",
+            "filled_avg_price": null,
+            "order_type": "market",
+            "type": "market",
+            "side": "sell",
+            "time_in_force": "gtc",
+            "limit_price": null,
+            "status": "pending_new"
+          }
+        }
+      ],
+      "GET /v2/account": [
+        {
+          "status": 200,
+          "body": {
+            "id": "paper-account",
+            "status": "ACTIVE",
+            "currency": "USD",
+            "cash": "100000",
+            "buying_power": "200000.0",
+            "non_marginable_buying_power": "100000"
+          }
+        }
+      ],
+      "GET /v2/positions": [
+        {
+          "status": 403,
+          "body": {
+            "code": 40310000,
+            "message": "forbidden."
+          }
+        }
+      ],
+      "GET /v2/clock": [
+        {
+          "status": 200,
+          "body": {
+            "timestamp": "2026-09-01T06:00:00-04:00",
+            "is_open": true,
+            "next_open": "2026-09-08T09:30:00-04:00",
+            "next_close": "2026-09-01T16:00:00-04:00"
+          }
+        }
+      ]
+    }
+  },
+  "tick": true
+}

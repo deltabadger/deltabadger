@@ -1,0 +1,63 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T14:00:01.250000Z",
+  "venue": "gemini",
+  "script": {
+    "gemini": {
+      "GET /v1/pubticker/btcusd": [
+        {
+          "status": 200,
+          "body": {
+            "bid": "64000.01",
+            "ask": "64000.11",
+            "last": "64000.05",
+            "volume": {
+              "BTC": "10",
+              "USD": "640000",
+              "timestamp": 1788000000000
+            }
+          }
+        }
+      ],
+      "POST /v1/order/new": [
+        {
+          "status": 500,
+          "body": {
+            "result": "error",
+            "reason": "System",
+            "message": "We are experiencing technical issues"
+          }
+        }
+      ],
+      "POST /v1/balances": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "type": "exchange",
+              "currency": "BTC",
+              "amount": "0.6",
+              "available": "0.5",
+              "availableForWithdrawal": "0.5"
+            },
+            {
+              "type": "exchange",
+              "currency": "USD",
+              "amount": "10500.0",
+              "available": "10000",
+              "availableForWithdrawal": "10000"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "signals": [
+    {
+      "signal_id": 1,
+      "triggered_at": "2026-09-01T14:00:01.250000Z"
+    }
+  ]
+}

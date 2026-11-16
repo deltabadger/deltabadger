@@ -1,0 +1,311 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "bitget": {
+        "GET /api/v2/spot/trade/fills": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": [
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o9003",
+                  "tradeId": "9003",
+                  "orderType": "market",
+                  "side": "sell",
+                  "priceAvg": "64100",
+                  "size": "0.001",
+                  "amount": "64.1",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789812000000",
+                  "uTime": "1789812000000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "ETHBTC",
+                  "orderId": "o9002",
+                  "tradeId": "9002",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "0.031",
+                  "size": "0.5",
+                  "amount": "0.0155",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "ETH",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.0005"
+                  },
+                  "cTime": "1789722000000",
+                  "uTime": "1789722000000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "NEWUSDT",
+                  "orderId": "o9001",
+                  "tradeId": "9001",
+                  "orderType": "market",
+                  "side": "Buy",
+                  "priceAvg": "1.5",
+                  "size": "10",
+                  "amount": "15.0",
+                  "tradeScope": "taker",
+                  "cTime": "1789603200000",
+                  "uTime": "1789603200000",
+                  "fee": "-0.015"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v2/spot/wallet/deposit-records": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": [
+                {
+                  "orderId": "d3",
+                  "tradeId": "0xd3",
+                  "coin": "USDT",
+                  "type": "deposit",
+                  "size": "1000",
+                  "status": "success",
+                  "toAddress": "TXabc",
+                  "dest": "on_chain",
+                  "chain": "TRC20",
+                  "cTime": "1789732800000",
+                  "uTime": "1789732800000"
+                },
+                {
+                  "orderId": "d2",
+                  "tradeId": "0xd2",
+                  "coin": "BTC",
+                  "type": "deposit",
+                  "size": "0.01",
+                  "status": "pending",
+                  "toAddress": "TXabc",
+                  "dest": "on_chain",
+                  "chain": "TRC20",
+                  "cTime": "1789603200000",
+                  "uTime": "1789603200000"
+                },
+                {
+                  "orderId": "d1",
+                  "tradeId": "1234567",
+                  "coin": "ETH",
+                  "type": "deposit",
+                  "size": "2",
+                  "status": "success",
+                  "toAddress": "TXabc",
+                  "dest": "on_chain",
+                  "chain": "TRC20",
+                  "cTime": "1789516800000",
+                  "uTime": "1789516800000"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v2/spot/wallet/withdrawal-records": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "ledger",
+      "at": "2026-09-21T02:00:00.250000Z",
+      "bitget": {
+        "GET /api/v2/spot/trade/fills": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": [
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o9003",
+                  "tradeId": "9003",
+                  "orderType": "market",
+                  "side": "sell",
+                  "priceAvg": "64100",
+                  "size": "0.001",
+                  "amount": "64.1",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789812000000",
+                  "uTime": "1789812000000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "ETHBTC",
+                  "orderId": "o9002",
+                  "tradeId": "9002",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "0.031",
+                  "size": "0.5",
+                  "amount": "0.0155",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "ETH",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.0005"
+                  },
+                  "cTime": "1789722000000",
+                  "uTime": "1789722000000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "NEWUSDT",
+                  "orderId": "o9001",
+                  "tradeId": "9001",
+                  "orderType": "market",
+                  "side": "Buy",
+                  "priceAvg": "1.5",
+                  "size": "10",
+                  "amount": "15.0",
+                  "tradeScope": "taker",
+                  "cTime": "1789603200000",
+                  "uTime": "1789603200000",
+                  "fee": "-0.015"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v2/spot/wallet/deposit-records": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": [
+                {
+                  "orderId": "d3",
+                  "tradeId": "0xd3",
+                  "coin": "USDT",
+                  "type": "deposit",
+                  "size": "1000",
+                  "status": "success",
+                  "toAddress": "TXabc",
+                  "dest": "on_chain",
+                  "chain": "TRC20",
+                  "cTime": "1789732800000",
+                  "uTime": "1789732800000"
+                },
+                {
+                  "orderId": "d2",
+                  "tradeId": "0xd2",
+                  "coin": "BTC",
+                  "type": "deposit",
+                  "size": "0.01",
+                  "status": "pending",
+                  "toAddress": "TXabc",
+                  "dest": "on_chain",
+                  "chain": "TRC20",
+                  "cTime": "1789603200000",
+                  "uTime": "1789603200000"
+                },
+                {
+                  "orderId": "d1",
+                  "tradeId": "1234567",
+                  "coin": "ETH",
+                  "type": "deposit",
+                  "size": "2",
+                  "status": "success",
+                  "toAddress": "TXabc",
+                  "dest": "on_chain",
+                  "chain": "TRC20",
+                  "cTime": "1789516800000",
+                  "uTime": "1789516800000"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v2/spot/wallet/withdrawal-records": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": [
+                {
+                  "orderId": "w2",
+                  "tradeId": "0xw2",
+                  "coin": "USDT",
+                  "type": "withdraw",
+                  "size": "50",
+                  "status": "success",
+                  "toAddress": "TXabc",
+                  "dest": "on_chain",
+                  "chain": "TRC20",
+                  "fee": "-1.00000000",
+                  "cTime": "1789776000000",
+                  "uTime": "1789776000000"
+                },
+                {
+                  "orderId": "w1",
+                  "tradeId": "0xw1",
+                  "coin": "BTC",
+                  "type": "withdraw",
+                  "size": "0.002",
+                  "status": "fail",
+                  "toAddress": "TXabc",
+                  "dest": "on_chain",
+                  "chain": "TRC20",
+                  "fee": "-0.0001",
+                  "cTime": "1789689600000",
+                  "uTime": "1789689600000"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

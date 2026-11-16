@@ -1,0 +1,103 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /v5/account/wallet-balance",
+          [
+            [
+              "accountType",
+              "UNIFIED"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v1/prices",
+          [
+            [
+              "coin_ids",
+              "bitcoin"
+            ],
+            [
+              "vs_currencies",
+              "usd"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [],
+    "account_balances": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "asset_id": 5,
+          "created_at": "2026-09-20 02:00:00.250000",
+          "exchange_id": 2,
+          "free": {
+            "f": "3fd6666666666666"
+          },
+          "locked": {
+            "f": "3fb999999999999a"
+          },
+          "priced_at": "2026-09-20 02:00:00.250000",
+          "synced_at": "2026-09-20 02:00:00.250000",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "usd_price": {
+            "f": "40ed4c1000000000"
+          },
+          "usd_value": {
+            "f": "40da5e0e66666666"
+          },
+          "user_id": 1
+        }
+      }
+    ],
+    "api_keys": [
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": null,
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        },
+        "after": {
+          "id": 2,
+          "balances_synced_at": "2026-09-20 02:00:00.250000",
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": null,
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        }
+      }
+    ],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

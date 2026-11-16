@@ -1,0 +1,59 @@
+{
+  "sent": [
+    {
+      "side": "sell",
+      "symbol": "BTC-USDT",
+      "type": "limit",
+      "size": "0.00142857",
+      "price": "70000.0"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "KuCoin",
+        "base_asset": "BTC",
+        "quote_asset": "USDT",
+        "amount": 100,
+        "amount_type": "quote",
+        "price": 70000
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "KuCoin",
+          "pair": "BTC/USDT",
+          "side": "sell",
+          "order_type": "limit",
+          "amount": 100.0,
+          "amount_type": "quote",
+          "price": 70000.0,
+          "upstream": {
+            "order_id": "6716f0a2c1b6d10007a3b1c5"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Limit sell order placed on KuCoin: BTC/USDT @ 70000.0. {order_id: \"6716f0a2c1b6d10007a3b1c5\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

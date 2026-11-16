@@ -1,0 +1,17 @@
+{
+  "sent": [],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "checks": [],
+  "infos": [
+    []
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

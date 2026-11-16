@@ -1,0 +1,34 @@
+{
+  "reading": [
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /v2/account/activities",
+          [
+            [
+              "direction",
+              "asc"
+            ],
+            [
+              "page_size",
+              "100"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [],
+    "account_balances": [],
+    "api_keys": [],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

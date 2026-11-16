@@ -1,0 +1,320 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "mcp-session-id": "f668665af87ff42a1b8b3ebe9b00a29f",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-8CwWDPwUsan91ppBjSKgyQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-11-25\",\"serverInfo\":{\"name\":\"Deltabadger\",\"version\":\"3.0.0-beta.8\"},\"capabilities\":{\"tools\":{\"listChanged\":false},\"logging\":{},\"completions\":{}},\"instructions\":\"Deltabadger is a user's personal investing server. Available exchanges: Alpaca.\\nSupports both cryptocurrency and stocks/ETFs (via Alpaca).\\nTrading is available either via DCA bots, or by direct access to connected exchanges\\nWhen the user asks to trade stocks or ETFs (e.g., QQQM, SPY, AAPL), use the Alpaca exchange.\\nUse list_exchanges to see which exchanges the user has connected before placing orders.\"}}"
+    },
+    {
+      "status": 202,
+      "headers": {
+        "content-type": "application/json",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-s9+/jYpmHdvgwbngdLViUw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": ""
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "mcp-protocol-version": "2025-11-25",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-P4eSVTGr/wrr6L/kVVnE6w=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"No transactions found.\"}]}}"
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "mcp-protocol-version": "2025-11-25",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-hBHWKRpZFjHy0d7NN2Hx/g=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"No bots found.\"}]}}"
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "mcp-protocol-version": "2025-11-25",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-NeOgV+ruit70woKxJPbORw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"No exchanges connected. Add an API key when creating a bot.\"}]}}"
+    }
+  ],
+  "session": "f668665af87ff42a1b8b3ebe9b00a29f",
+  "rows": {
+    "action_mcp_sessions": [
+      {
+        "id": "f668665af87ff42a1b8b3ebe9b00a29f",
+        "client_capabilities": "{}",
+        "client_info": "{\"name\":\"m2\",\"version\":\"1\"}",
+        "consents": "{}",
+        "created_at": "2026-09-10 12:00:30.123456",
+        "ended_at": null,
+        "initialized": 1,
+        "messages_count": 9,
+        "prompt_registry": "[\"*\"]",
+        "protocol_version": "2025-11-25",
+        "resource_registry": "[\"*\"]",
+        "role": "server",
+        "server_capabilities": "{\"tools\":{\"listChanged\":false},\"logging\":{},\"completions\":{}}",
+        "server_info": "{\"name\":\"Deltabadger\",\"version\":\"3.0.0-beta.8\"}",
+        "session_data": "{\"user_id\":1}",
+        "status": "initialized",
+        "tool_registry": "[\"list_bots\",\"list_exchanges\",\"list_transactions\",\"list_tax_jurisdictions\"]",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      }
+    ],
+    "action_mcp_session_messages": [
+      {
+        "id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": "1",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"m2\",\"version\":\"1\"}}}",
+        "message_type": "request",
+        "request_acknowledged": 1,
+        "request_cancelled": 0,
+        "session_id": "f668665af87ff42a1b8b3ebe9b00a29f",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "client",
+        "is_ping": 0,
+        "jsonrpc_id": "1",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-11-25\",\"serverInfo\":{\"name\":\"Deltabadger\",\"version\":\"3.0.0-beta.8\"},\"capabilities\":{\"tools\":{\"listChanged\":false},\"logging\":{},\"completions\":{}},\"instructions\":\"Deltabadger is a user's personal investing server. Available exchanges: Alpaca.\\nSupports both cryptocurrency and stocks/ETFs (via Alpaca).\\nTrading is available either via DCA bots, or by direct access to connected exchanges\\nWhen the user asks to trade stocks or ETFs (e.g., QQQM, SPY, AAPL), use the Alpaca exchange.\\nUse list_exchanges to see which exchanges the user has connected before placing orders.\"}}",
+        "message_type": "response",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "f668665af87ff42a1b8b3ebe9b00a29f",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 3,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": null,
+        "message_json": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}",
+        "message_type": "notification",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "f668665af87ff42a1b8b3ebe9b00a29f",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 4,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"list_transactions\",\"arguments\":{}}}",
+        "message_type": "request",
+        "request_acknowledged": 1,
+        "request_cancelled": 0,
+        "session_id": "f668665af87ff42a1b8b3ebe9b00a29f",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 5,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "client",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"No transactions found.\"}]}}",
+        "message_type": "response",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "f668665af87ff42a1b8b3ebe9b00a29f",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 6,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"list_bots\",\"arguments\":{}}}",
+        "message_type": "request",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "f668665af87ff42a1b8b3ebe9b00a29f",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 7,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "client",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"No bots found.\"}]}}",
+        "message_type": "response",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "f668665af87ff42a1b8b3ebe9b00a29f",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 8,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"list_exchanges\",\"arguments\":{}}}",
+        "message_type": "request",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "f668665af87ff42a1b8b3ebe9b00a29f",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 9,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "client",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"No exchanges connected. Add an API key when creating a bot.\"}]}}",
+        "message_type": "response",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "f668665af87ff42a1b8b3ebe9b00a29f",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      }
+    ],
+    "action_mcp_session_subscriptions": [],
+    "oauth_access_tokens": [
+      {
+        "id": 1,
+        "application_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": "refresh-m2-token",
+        "resource_owner_id": 1,
+        "revoked_at": null,
+        "scopes": "mcp",
+        "token": "m2-token"
+      },
+      {
+        "id": 2,
+        "application_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": "refresh-api-token",
+        "resource_owner_id": 1,
+        "revoked_at": null,
+        "scopes": "api",
+        "token": "api-token"
+      },
+      {
+        "id": 3,
+        "application_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": "refresh-revoked-token",
+        "resource_owner_id": 1,
+        "revoked_at": "2026-09-10 12:00:30.123456",
+        "scopes": "mcp",
+        "token": "revoked-token"
+      },
+      {
+        "id": 4,
+        "application_id": 1,
+        "created_at": "2026-09-10 10:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": "refresh-expired-token",
+        "resource_owner_id": 1,
+        "revoked_at": null,
+        "scopes": "mcp",
+        "token": "expired-token"
+      },
+      {
+        "id": 5,
+        "application_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": "refresh-orphan-token",
+        "resource_owner_id": null,
+        "revoked_at": null,
+        "scopes": "mcp",
+        "token": "orphan-token"
+      },
+      {
+        "id": 6,
+        "application_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": null,
+        "resource_owner_id": 2,
+        "revoked_at": null,
+        "scopes": "mcp",
+        "token": "second-token"
+      }
+    ],
+    "connected_clients": [
+      {
+        "id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "mcp_tools": "[\"list_bots\",\"list_exchanges\",\"list_transactions\",\"list_tax_jurisdictions\"]",
+        "oauth_application_id": 1,
+        "rest_tools": "[]",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "user_id": 2
+      },
+      {
+        "id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "mcp_tools": "[\"list_bots\",\"list_exchanges\",\"list_transactions\",\"list_tax_jurisdictions\"]",
+        "oauth_application_id": 1,
+        "rest_tools": "[]",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "user_id": 1
+      }
+    ],
+    "bots": [],
+    "transactions": [],
+    "api_keys": []
+  }
+}

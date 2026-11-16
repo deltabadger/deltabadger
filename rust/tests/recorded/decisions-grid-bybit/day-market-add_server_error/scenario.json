@@ -1,0 +1,103 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-02T10:00:01.123456Z",
+  "venue": "bybit",
+  "script": {
+    "bybit": {
+      "GET /v5/market/orderbook": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "a": [
+                [
+                  "64001.37",
+                  "1"
+                ]
+              ],
+              "b": [
+                [
+                  "64000",
+                  "1"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /v5/market/tickers": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "list": [
+                {
+                  "symbol": "BTCUSDT",
+                  "lastPrice": "64000.12"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "POST /v5/order/create": [
+        {
+          "status": 503,
+          "body": "<html>upstream</html>"
+        }
+      ],
+      "GET /v5/account/wallet-balance": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "list": [
+                {
+                  "coin": [
+                    {
+                      "coin": "USDT",
+                      "walletBalance": "100000",
+                      "locked": "0",
+                      "spotBorrow": "0"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "GET /v5/order/realtime": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "list": []
+            }
+          }
+        }
+      ],
+      "GET /v5/order/history": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "list": []
+            }
+          }
+        }
+      ]
+    }
+  }
+}

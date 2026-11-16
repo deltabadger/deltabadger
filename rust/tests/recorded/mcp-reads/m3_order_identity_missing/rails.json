@@ -1,0 +1,1823 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "mcp-session-id": "282aaf429816befe47aa904133a65bfe",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-oB4Fn55vzQV6Hh/cagqwoA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-11-25\",\"serverInfo\":{\"name\":\"Deltabadger\",\"version\":\"3.0.0-beta.8\"},\"capabilities\":{\"tools\":{\"listChanged\":false},\"logging\":{},\"completions\":{}},\"instructions\":\"Deltabadger is a user's personal investing server. Available exchanges: Alpaca.\\nSupports both cryptocurrency and stocks/ETFs (via Alpaca).\\nTrading is available either via DCA bots, or by direct access to connected exchanges\\nWhen the user asks to trade stocks or ETFs (e.g., QQQM, SPY, AAPL), use the Alpaca exchange.\\nUse list_exchanges to see which exchanges the user has connected before placing orders.\"}}"
+    },
+    {
+      "status": 202,
+      "headers": {
+        "content-type": "application/json",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-fD3RPtYL+UuleDXKxaF61g=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": ""
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "mcp-protocol-version": "2025-11-25",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-8Z0i/81JVB6MG80M6qEN2w=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Open orders (3):\\n- [2026-03-02 15:32] #7 BUY 1.0 AAA/USD @ 100.25 (Limit order) | Alpaca | ext: Limited-2\\n- [2026-03-02 15:31] #6 BUY 1.0 AAA/USD @ 101.0 (Limit order) | Alpaca | ext: Limited-1\\n- BUY 2.0 __stale_1_AAA/USD @ 100.0 (Limit order) | Alpaca | ext: known-tombstone\"}]}}"
+    }
+  ],
+  "session": "282aaf429816befe47aa904133a65bfe",
+  "rows": {
+    "action_mcp_sessions": [
+      {
+        "id": "282aaf429816befe47aa904133a65bfe",
+        "client_capabilities": "{}",
+        "client_info": "{\"name\":\"m2\",\"version\":\"1\"}",
+        "consents": "{}",
+        "created_at": "2026-09-10 12:00:30.123456",
+        "ended_at": null,
+        "initialized": 1,
+        "messages_count": 5,
+        "prompt_registry": "[\"*\"]",
+        "protocol_version": "2025-11-25",
+        "resource_registry": "[\"*\"]",
+        "role": "server",
+        "server_capabilities": "{\"tools\":{\"listChanged\":false},\"logging\":{},\"completions\":{}}",
+        "server_info": "{\"name\":\"Deltabadger\",\"version\":\"3.0.0-beta.8\"}",
+        "session_data": "{\"user_id\":1}",
+        "status": "initialized",
+        "tool_registry": "[\"list_bots\",\"get_bot_details\",\"list_exchanges\",\"get_exchange_balances\",\"get_portfolio_summary\",\"list_transactions\",\"list_open_orders\",\"list_tax_jurisdictions\"]",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      }
+    ],
+    "action_mcp_session_messages": [
+      {
+        "id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": "1",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"m2\",\"version\":\"1\"}}}",
+        "message_type": "request",
+        "request_acknowledged": 1,
+        "request_cancelled": 0,
+        "session_id": "282aaf429816befe47aa904133a65bfe",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "client",
+        "is_ping": 0,
+        "jsonrpc_id": "1",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-11-25\",\"serverInfo\":{\"name\":\"Deltabadger\",\"version\":\"3.0.0-beta.8\"},\"capabilities\":{\"tools\":{\"listChanged\":false},\"logging\":{},\"completions\":{}},\"instructions\":\"Deltabadger is a user's personal investing server. Available exchanges: Alpaca.\\nSupports both cryptocurrency and stocks/ETFs (via Alpaca).\\nTrading is available either via DCA bots, or by direct access to connected exchanges\\nWhen the user asks to trade stocks or ETFs (e.g., QQQM, SPY, AAPL), use the Alpaca exchange.\\nUse list_exchanges to see which exchanges the user has connected before placing orders.\"}}",
+        "message_type": "response",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "282aaf429816befe47aa904133a65bfe",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 3,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": null,
+        "message_json": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}",
+        "message_type": "notification",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "282aaf429816befe47aa904133a65bfe",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 4,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"list_open_orders\",\"arguments\":{}}}",
+        "message_type": "request",
+        "request_acknowledged": 1,
+        "request_cancelled": 0,
+        "session_id": "282aaf429816befe47aa904133a65bfe",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 5,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "client",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Open orders (3):\\n- [2026-03-02 15:32] #7 BUY 1.0 AAA/USD @ 100.25 (Limit order) | Alpaca | ext: Limited-2\\n- [2026-03-02 15:31] #6 BUY 1.0 AAA/USD @ 101.0 (Limit order) | Alpaca | ext: Limited-1\\n- BUY 2.0 __stale_1_AAA/USD @ 100.0 (Limit order) | Alpaca | ext: known-tombstone\"}]}}",
+        "message_type": "response",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "282aaf429816befe47aa904133a65bfe",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      }
+    ],
+    "action_mcp_session_subscriptions": [],
+    "oauth_access_tokens": [
+      {
+        "id": 1,
+        "application_id": 1,
+        "created_at": "2026-11-16 07:56:33.499142",
+        "expires_in": null,
+        "previous_refresh_token": "",
+        "refresh_token": null,
+        "resource_owner_id": 1,
+        "revoked_at": null,
+        "scopes": "mcp",
+        "token": "m2-token"
+      }
+    ],
+    "connected_clients": [
+      {
+        "id": 1,
+        "created_at": "2026-11-16 07:56:33.500373",
+        "mcp_tools": "[\"list_bots\",\"list_exchanges\",\"list_transactions\",\"list_tax_jurisdictions\",\"get_exchange_balances\",\"list_open_orders\",\"get_bot_details\",\"get_portfolio_summary\"]",
+        "oauth_application_id": 1,
+        "rest_tools": "[]",
+        "updated_at": "2026-11-16 07:56:33.500373",
+        "user_id": 1
+      }
+    ],
+    "bots": [
+      {
+        "id": 1,
+        "account_balance": 0,
+        "created_at": "2026-11-16 07:56:33.441753",
+        "current_delay": 0,
+        "delay": 0,
+        "exchange_id": 1,
+        "fetch_restarts": 0,
+        "label": "Basket",
+        "last_end_of_funds_notification": null,
+        "position": 1,
+        "redeploy_declined_offset": 0,
+        "restarts": 0,
+        "restatement_generation": 0,
+        "settings": "{\"quote_asset_id\":1,\"quote_amount\":100.0,\"interval\":\"week\",\"weighting\":\"manual\",\"allocations\":{\"2\":0.6,\"3\":0.4},\"limit_ordered\":true,\"smart_intervaled\":true,\"smart_interval_quote_amount\":10.0,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":1,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":1,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":1,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":1,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":1,\"sell_price_drop_limit_in_ticker_id\":1,\"sell_moving_average_limit_in_ticker_id\":1,\"sell_indicator_limit_in_ticker_id\":1}",
+        "settings_changed_at": "2026-11-16 07:56:33.441710",
+        "started_at": "2026-03-02 14:30:00",
+        "status": 1,
+        "stop_message_key": null,
+        "stopped_at": null,
+        "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+        "type": "Bots::DcaMultiAsset",
+        "updated_at": "2026-11-16 07:56:33.441753",
+        "user_id": 1
+      },
+      {
+        "id": 2,
+        "account_balance": 0,
+        "created_at": "2026-11-16 07:56:33.456402",
+        "current_delay": 0,
+        "delay": 0,
+        "exchange_id": 1,
+        "fetch_restarts": 0,
+        "label": "Limited",
+        "last_end_of_funds_notification": null,
+        "position": 2,
+        "redeploy_declined_offset": 0,
+        "restarts": 0,
+        "restatement_generation": 0,
+        "settings": "{\"quote_asset_id\":1,\"quote_amount\":100.0,\"interval\":\"week\",\"weighting\":\"manual\",\"allocations\":{\"2\":1.0},\"quote_amount_limited\":true,\"quote_amount_limit\":1000,\"limit_ordered\":true,\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_order_pcnt_distance\":0.001,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":1,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":1,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":1,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":1,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":1,\"sell_price_drop_limit_in_ticker_id\":1,\"sell_moving_average_limit_in_ticker_id\":1,\"sell_indicator_limit_in_ticker_id\":1}",
+        "settings_changed_at": "2026-11-16 07:56:33.456334",
+        "started_at": "2026-03-02 14:30:00",
+        "status": 1,
+        "stop_message_key": null,
+        "stopped_at": null,
+        "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null,\"quote_amount_limit_enabled_at\":\"2026-11-16T07:56:33.455Z\"}",
+        "type": "Bots::DcaMultiAsset",
+        "updated_at": "2026-11-16 07:56:33.456402",
+        "user_id": 1
+      },
+      {
+        "id": 3,
+        "account_balance": 0,
+        "created_at": "2026-11-16 07:56:33.465005",
+        "current_delay": 0,
+        "delay": 0,
+        "exchange_id": 1,
+        "fetch_restarts": 0,
+        "label": "ND100",
+        "last_end_of_funds_notification": null,
+        "position": 3,
+        "redeploy_declined_offset": 0,
+        "restarts": 0,
+        "restatement_generation": 0,
+        "settings": "{\"quote_asset_id\":1,\"quote_amount\":100.0,\"interval\":\"week\",\"num_coins\":10,\"allocation_flattening\":0.0,\"index_type\":\"category\",\"index_category_id\":\"nasdaq-100\",\"index_name\":\"ND100\",\"limit_ordered\":false,\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_order_pcnt_distance\":0.001}",
+        "settings_changed_at": "2026-11-16 07:56:33.464965",
+        "started_at": "2026-03-02 14:30:00",
+        "status": 1,
+        "stop_message_key": null,
+        "stopped_at": null,
+        "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+        "type": "Bots::DcaIndex",
+        "updated_at": "2026-11-16 07:56:33.465005",
+        "user_id": 1
+      },
+      {
+        "id": 4,
+        "account_balance": 0,
+        "created_at": "2026-11-16 07:56:33.492176",
+        "current_delay": 0,
+        "delay": 0,
+        "exchange_id": 1,
+        "fetch_restarts": 0,
+        "label": "Other user",
+        "last_end_of_funds_notification": null,
+        "position": 1,
+        "redeploy_declined_offset": 0,
+        "restarts": 0,
+        "restatement_generation": 0,
+        "settings": "{\"quote_asset_id\":1,\"quote_amount\":100.0,\"interval\":\"week\",\"weighting\":\"manual\",\"allocations\":{\"2\":0.6,\"3\":0.4},\"limit_ordered\":true,\"smart_intervaled\":true,\"smart_interval_quote_amount\":10.0,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":1,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":1,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":1,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":1,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":1,\"sell_price_drop_limit_in_ticker_id\":1,\"sell_moving_average_limit_in_ticker_id\":1,\"sell_indicator_limit_in_ticker_id\":1}",
+        "settings_changed_at": "2026-11-16 07:56:33.492123",
+        "started_at": "2026-03-02 14:30:00",
+        "status": 1,
+        "stop_message_key": null,
+        "stopped_at": null,
+        "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+        "type": "Bots::DcaMultiAsset",
+        "updated_at": "2026-11-16 07:56:33.492176",
+        "user_id": 2
+      }
+    ],
+    "transactions": [
+      {
+        "id": 1,
+        "amount": {
+          "float_bits": "3fe2f0c5965de118"
+        },
+        "amount_exec": {
+          "float_bits": "3fe2f0c5965de118"
+        },
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 1,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Basket-0",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "405957ae147ae148"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "404dfffffff77ef8"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 2,
+        "amount": {
+          "float_bits": "3fe72f281bd2ef51"
+        },
+        "amount_exec": {
+          "float_bits": "3fe72f281bd2ef51"
+        },
+        "base": "BBB",
+        "base_asset_id": 3,
+        "bot_id": 1,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:01",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Basket-1",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "404b9ae147ae147b"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "404400000000a4ed"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:01",
+        "run_identity": null
+      },
+      {
+        "id": 3,
+        "amount": {
+          "float_bits": "3fe29ef2aabe1560"
+        },
+        "amount_exec": {
+          "float_bits": "3fe29ef2aabe1560"
+        },
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 1,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-09 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Basket-2",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4059c70a3d70a3d7"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "404dffffffcd5cc2"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-09 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 4,
+        "amount": {
+          "float_bits": "3fe7b1e6c9f070e3"
+        },
+        "amount_exec": {
+          "float_bits": "3fe7b1e6c9f070e3"
+        },
+        "base": "BBB",
+        "base_asset_id": 3,
+        "bot_id": 1,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-09 14:30:01",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Basket-3",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "404b028f5c28f5c3"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "40440000000ca090"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-09 14:30:01",
+        "run_identity": null
+      },
+      {
+        "id": 5,
+        "amount": 1,
+        "amount_exec": 1,
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 2,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Limited-0",
+        "external_status": 2,
+        "order_type": 0,
+        "price": 100,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": 100,
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 6,
+        "amount": 1,
+        "amount_exec": {
+          "float_bits": "3fd999999999999a"
+        },
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 2,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:31:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Limited-1",
+        "external_status": 1,
+        "order_type": 1,
+        "price": 101,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4044333333333333"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:31:00",
+        "run_identity": null
+      },
+      {
+        "id": 7,
+        "amount": 1,
+        "amount_exec": {
+          "float_bits": "3fd999999999999a"
+        },
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 2,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:32:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Limited-2",
+        "external_status": 1,
+        "order_type": 1,
+        "price": {
+          "float_bits": "4059100000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "40440ccccccccccd"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:32:00",
+        "run_identity": null
+      },
+      {
+        "id": 8,
+        "amount": 1,
+        "amount_exec": 0,
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 2,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:33:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Limited-3",
+        "external_status": 3,
+        "order_type": 0,
+        "price": 99,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": 0,
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:33:00",
+        "run_identity": null
+      },
+      {
+        "id": 9,
+        "amount": 1,
+        "amount_exec": null,
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 2,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:34:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Limited-4",
+        "external_status": 3,
+        "order_type": 0,
+        "price": 99,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": null,
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:34:00",
+        "run_identity": null
+      },
+      {
+        "id": 10,
+        "amount": {
+          "float_bits": "3fe0000000000000"
+        },
+        "amount_exec": null,
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 2,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:35:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Limited-5",
+        "external_status": 2,
+        "order_type": 0,
+        "price": 100,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": 50,
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:35:00",
+        "run_identity": null
+      },
+      {
+        "id": 11,
+        "amount": {
+          "float_bits": "3fd3333333333333"
+        },
+        "amount_exec": {
+          "float_bits": "3fd3333333333333"
+        },
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 2,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:36:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Limited-6",
+        "external_status": 2,
+        "order_type": 0,
+        "price": 102,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "403e99999999999a"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:36:00",
+        "run_identity": null
+      },
+      {
+        "id": 12,
+        "amount": 1,
+        "amount_exec": 1,
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 2,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:39:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Limited-7",
+        "external_status": 2,
+        "order_type": 0,
+        "price": 98,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": 98,
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:39:00",
+        "run_identity": null
+      },
+      {
+        "id": 13,
+        "amount": 1,
+        "amount_exec": 1,
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 2,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:40:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Limited-8",
+        "external_status": 2,
+        "order_type": 0,
+        "price": 98,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": 98,
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:40:00",
+        "run_identity": null
+      },
+      {
+        "id": 14,
+        "amount": {
+          "float_bits": "3fd0000000000000"
+        },
+        "amount_exec": {
+          "float_bits": "3fd0000000000000"
+        },
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 2,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:41:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Limited-9",
+        "external_status": 0,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4059e00000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4039e00000000000"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:41:00",
+        "run_identity": null
+      },
+      {
+        "id": 15,
+        "amount": {
+          "float_bits": "3fc0000000000000"
+        },
+        "amount_exec": {
+          "float_bits": "3fc0000000000000"
+        },
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 2,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:42:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Limited-10",
+        "external_status": 4,
+        "order_type": 0,
+        "price": 104,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": 13,
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:42:00",
+        "run_identity": null
+      },
+      {
+        "id": 16,
+        "amount": {
+          "float_bits": "3fe0000000000000"
+        },
+        "amount_exec": {
+          "float_bits": "3fd0000000000000"
+        },
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 2,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:43:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Limited-11",
+        "external_status": 3,
+        "order_type": 0,
+        "price": 104,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "403a028f5c28f5c3"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:43:00",
+        "run_identity": null
+      },
+      {
+        "id": 17,
+        "amount": {
+          "float_bits": "3fc999999999999a"
+        },
+        "amount_exec": {
+          "float_bits": "3fc999999999999a"
+        },
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 2,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:44:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Limited-12",
+        "external_status": 2,
+        "order_type": 0,
+        "price": 105,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": 21,
+        "quote_asset_id": 1,
+        "side": null,
+        "status": 0,
+        "transaction_type": "ODD",
+        "updated_at": "2026-03-02 14:44:00",
+        "run_identity": null
+      },
+      {
+        "id": 18,
+        "amount": {
+          "float_bits": "3fc999999999999a"
+        },
+        "amount_exec": {
+          "float_bits": "3fc999999999999a"
+        },
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-0",
+        "external_status": 2,
+        "order_type": 0,
+        "price": 50,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": 10,
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 19,
+        "amount": {
+          "float_bits": "3fc432e6abb4e8ef"
+        },
+        "amount_exec": {
+          "float_bits": "3fc432e6abb4e8ef"
+        },
+        "base": "BBB",
+        "base_asset_id": 3,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-1",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "404faf5c28f5c28f"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4024000000043585"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 20,
+        "amount": {
+          "float_bits": "3fc0ae00aa860c2f"
+        },
+        "amount_exec": {
+          "float_bits": "3fc0ae00aa860c2f"
+        },
+        "base": "CCC",
+        "base_asset_id": 4,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-2",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "40532f5c28f5c28f"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023ffffffab21a6"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 21,
+        "amount": {
+          "float_bits": "3fbc68e37f7cf403"
+        },
+        "amount_exec": {
+          "float_bits": "3fbc68e37f7cf403"
+        },
+        "base": "DDD",
+        "base_asset_id": 5,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-3",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4056870a3d70a3d7"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023fffffebac8fb"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 22,
+        "amount": {
+          "float_bits": "3fb8bd3457ba3ff1"
+        },
+        "amount_exec": {
+          "float_bits": "3fb8bd3457ba3ff1"
+        },
+        "base": "EEE",
+        "base_asset_id": 6,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-4",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4059deb851eb851f"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023fffffeec175f"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 23,
+        "amount": {
+          "float_bits": "3fb5e88ed7154787"
+        },
+        "amount_exec": {
+          "float_bits": "3fb5e88ed7154787"
+        },
+        "base": "FFF",
+        "base_asset_id": 7,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-5",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "405d366666666666"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023ffffff58ecff"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 24,
+        "amount": {
+          "float_bits": "3fb3a8b6bea9afa3"
+        },
+        "amount_exec": {
+          "float_bits": "3fb3a8b6bea9afa3"
+        },
+        "base": "GGG",
+        "base_asset_id": 8,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-6",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4060470a3d70a3d7"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023fffffe8796cd"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 25,
+        "amount": {
+          "float_bits": "3fb1d41b2ca3996f"
+        },
+        "amount_exec": {
+          "float_bits": "3fb1d41b2ca3996f"
+        },
+        "base": "HHH",
+        "base_asset_id": 9,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-7",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4061f2e147ae147b"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "40240000010e5343"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 26,
+        "amount": {
+          "float_bits": "3fb04f54cd9de946"
+        },
+        "amount_exec": {
+          "float_bits": "3fb04f54cd9de946"
+        },
+        "base": "III",
+        "base_asset_id": 10,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-8",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "40639eb851eb851f"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023fffffd6aeb2c"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 27,
+        "amount": {
+          "float_bits": "3fae0f2e12af5189"
+        },
+        "amount_exec": {
+          "float_bits": "3fae0f2e12af5189"
+        },
+        "base": "JJJ",
+        "base_asset_id": 11,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-9",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "40654a8f5c28f5c3"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "40240000013644b8"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 28,
+        "amount": {
+          "float_bits": "3fc8dab7eb830a25"
+        },
+        "amount_exec": {
+          "float_bits": "3fc8dab7eb830a25"
+        },
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-09 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-10",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4049c00000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023ffffff83722a"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-09 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 29,
+        "amount": {
+          "float_bits": "3fc3bb555c8f0857"
+        },
+        "amount_exec": {
+          "float_bits": "3fc3bb555c8f0857"
+        },
+        "base": "BBB",
+        "base_asset_id": 3,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-09 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-11",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "405037ae147ae148"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "40240000007f3789"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-09 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 30,
+        "amount": {
+          "float_bits": "3fc05c239984984d"
+        },
+        "amount_exec": {
+          "float_bits": "3fc05c239984984d"
+        },
+        "base": "CCC",
+        "base_asset_id": 4,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-09 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-12",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "40538f5c28f5c28f"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "402400000027db78"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-09 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 31,
+        "amount": {
+          "float_bits": "3fbbf1cdded6cbba"
+        },
+        "amount_exec": {
+          "float_bits": "3fbbf1cdded6cbba"
+        },
+        "base": "DDD",
+        "base_asset_id": 5,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-09 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-13",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4056e70a3d70a3d7"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "40240000008bee17"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-09 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 32,
+        "amount": {
+          "float_bits": "3fb862b67f3eb5af"
+        },
+        "amount_exec": {
+          "float_bits": "3fb862b67f3eb5af"
+        },
+        "base": "EEE",
+        "base_asset_id": 6,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-09 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-14",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "405a3eb851eb851f"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023ffffff003116"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-09 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 33,
+        "amount": {
+          "float_bits": "3fb5a1793f8f9592"
+        },
+        "amount_exec": {
+          "float_bits": "3fb5a1793f8f9592"
+        },
+        "base": "FFF",
+        "base_asset_id": 7,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-09 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-15",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "405d966666666666"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4024000001de7598"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-09 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 34,
+        "amount": {
+          "float_bits": "3fb36f6700952642"
+        },
+        "amount_exec": {
+          "float_bits": "3fb36f6700952642"
+        },
+        "base": "GGG",
+        "base_asset_id": 8,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-09 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-16",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4060770a3d70a3d7"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023fffffeeb6773"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-09 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 35,
+        "amount": {
+          "float_bits": "3fb1a4eba9a928a5"
+        },
+        "amount_exec": {
+          "float_bits": "3fb1a4eba9a928a5"
+        },
+        "base": "HHH",
+        "base_asset_id": 9,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-09 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-17",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "406222e147ae147b"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4024000001e4a4e4"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-09 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 36,
+        "amount": {
+          "float_bits": "3fb027cea1ca50d8"
+        },
+        "amount_exec": {
+          "float_bits": "3fb027cea1ca50d8"
+        },
+        "base": "III",
+        "base_asset_id": 10,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-09 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-18",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4063ceb851eb851f"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "402400000102e690"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-09 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 37,
+        "amount": {
+          "float_bits": "3fadcc011fe5a388"
+        },
+        "amount_exec": {
+          "float_bits": "3fadcc011fe5a388"
+        },
+        "base": "KKK",
+        "base_asset_id": 12,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-09 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-19",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "40657a8f5c28f5c3"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023fffffeadfc6f"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-09 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 38,
+        "amount": {
+          "float_bits": "3fca0429a14a4e3e"
+        },
+        "amount_exec": {
+          "float_bits": "3fca0429a14a4e3e"
+        },
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-16 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-20",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "404899999999999a"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4024000000cab8f3"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-16 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 39,
+        "amount": {
+          "float_bits": "3fc47503b81b64e0"
+        },
+        "amount_exec": {
+          "float_bits": "3fc47503b81b64e0"
+        },
+        "base": "BBB",
+        "base_asset_id": 3,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-16 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-21",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "404f48f5c28f5c29"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023fffffefe4d4d"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-16 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 40,
+        "amount": {
+          "float_bits": "3fc0dafc4ba6adba"
+        },
+        "amount_exec": {
+          "float_bits": "3fc0dafc4ba6adba"
+        },
+        "base": "CCC",
+        "base_asset_id": 4,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-16 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-22",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4052fc28f5c28f5c"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "40240000011fef42"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-16 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 41,
+        "amount": {
+          "float_bits": "3fbcaa0939a0c6c6"
+        },
+        "amount_exec": {
+          "float_bits": "3fbcaa0939a0c6c6"
+        },
+        "base": "DDD",
+        "base_asset_id": 5,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-16 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-23",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "405653d70a3d70a4"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023ffffff2628c5"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-16 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 42,
+        "amount": {
+          "float_bits": "3fb8ee8c35ea02fa"
+        },
+        "amount_exec": {
+          "float_bits": "3fb8ee8c35ea02fa"
+        },
+        "base": "EEE",
+        "base_asset_id": 6,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-16 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-24",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4059ab851eb851ec"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023fffffec4ebd4"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-16 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 43,
+        "amount": {
+          "float_bits": "3fb60f38935598f5"
+        },
+        "amount_exec": {
+          "float_bits": "3fb60f38935598f5"
+        },
+        "base": "FFF",
+        "base_asset_id": 7,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-16 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-25",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "405d033333333333"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023fffffe611b2d"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-16 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 44,
+        "amount": {
+          "float_bits": "3fb3c7d2bcfbc965"
+        },
+        "amount_exec": {
+          "float_bits": "3fb3c7d2bcfbc965"
+        },
+        "base": "GGG",
+        "base_asset_id": 8,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-16 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-26",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "40602d70a3d70a3d"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023ffffff00051b"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-16 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 45,
+        "amount": {
+          "float_bits": "3fb1edad57918c5a"
+        },
+        "amount_exec": {
+          "float_bits": "3fb1edad57918c5a"
+        },
+        "base": "HHH",
+        "base_asset_id": 9,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-16 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-27",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4061d947ae147ae1"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023fffffdbf2f97"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-16 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 46,
+        "amount": {
+          "float_bits": "3fb064b8a6d00df5"
+        },
+        "amount_exec": {
+          "float_bits": "3fb064b8a6d00df5"
+        },
+        "base": "III",
+        "base_asset_id": 10,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-16 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-28",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "4063851eb851eb85"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023fffffeb62582"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-16 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 47,
+        "amount": {
+          "float_bits": "3fae337e31b42d19"
+        },
+        "amount_exec": {
+          "float_bits": "3fae337e31b42d19"
+        },
+        "base": "KKK",
+        "base_asset_id": 12,
+        "bot_id": 3,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-16 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "ND100-29",
+        "external_status": 2,
+        "order_type": 0,
+        "price": {
+          "float_bits": "406530f5c28f5c29"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "4023ffffffc6728b"
+        },
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-16 14:30:00",
+        "run_identity": null
+      }
+    ],
+    "api_keys": [
+      {
+        "id": 1,
+        "access_token": null,
+        "balances_synced_at": null,
+        "created_at": "2026-11-16 07:56:32.071729",
+        "dh_param": null,
+        "exchange_id": 1,
+        "german_trading_agreement": null,
+        "ibkr_realm": null,
+        "key": "M3-key",
+        "key_type": 0,
+        "last_sync_error": null,
+        "last_synced_at": null,
+        "passphrase": "paper",
+        "rsa_encryption_key": null,
+        "rsa_signature_key": null,
+        "secret": "M3-secret",
+        "status": 1,
+        "updated_at": "2026-11-16 07:56:32.071729",
+        "user_id": 1
+      }
+    ]
+  }
+}

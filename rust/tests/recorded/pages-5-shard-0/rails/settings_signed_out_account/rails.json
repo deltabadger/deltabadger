@@ -1,0 +1,28 @@
+{
+  "responses": [
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/login",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-6K4lQ2fKrIYvU9itVPGI2Q=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=9hIA%2FkjNGuXfOqlVc3areTnsS6kgWl7y6aZgKQQy6e%2FyVvOHPbzAXctex9RAVTK8GVxNCv4NJIM1tsbezKfoKiyk7aAKhYhuCZfUL6tvjTRg6Yw0eMu6OX83Gr1eQMSlCMHeLBN2Jb%2FRPYej9MnhsZ9Jh2uhqGwIwO3B6RZxn3YrING0X3uFmIbKiSvOQ53cN8tGuS6D6bdOqOOM0uJZrhNftCrZ2gpGdZdrjSfQbN6NwoHnlK6OATSsdM2DA6BhPHXJNWWZZALXUr7qvBfEsJes74NJ3C4IPJuA1hiMNz84f9O1DBRGcHOXp4w9Dfoj5ZGi8tz5DuFvcsgYTZ3e08ScbanOoqCtK%2BwUgPAy5kzsOC7bv94ZneMhrEbv8cvrSa3sjqht95po8ovjSb0jqh5f1dcwko57WC5xjVaQFw5WcVGl7l3k0UUJj9crJzOebno%3D--5I3KWcF9G%2Fugy5MF--%2FwQMzKHgAYjt6FFjBZJFnQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "failed_attempts": 0,
+      "locked_at": null,
+      "last_otp_at": null,
+      "remember_created_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "bots": [],
+  "network": []
+}

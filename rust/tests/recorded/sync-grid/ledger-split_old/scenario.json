@@ -1,0 +1,43 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 1,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "alpaca": {
+        "GET /v2/account/activities": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "id": "klac-remove",
+                "activity_type": "SPLIT",
+                "symbol": "KLAC",
+                "qty": "-10",
+                "net_amount": "0",
+                "date": "2026-05-01",
+                "status": "executed"
+              },
+              {
+                "id": "klac-add",
+                "activity_type": "SPLIT",
+                "symbol": "KLAC",
+                "qty": "100",
+                "net_amount": "0",
+                "date": "2026-05-01",
+                "status": "executed"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

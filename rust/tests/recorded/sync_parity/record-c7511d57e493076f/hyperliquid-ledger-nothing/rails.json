@@ -1,0 +1,56 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "POST /info",
+          [
+            [
+              "startTime",
+              "1789340400000"
+            ],
+            [
+              "type",
+              "userFillsByTime"
+            ],
+            [
+              "user",
+              "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+            ]
+          ]
+        ],
+        [
+          "POST /info",
+          [
+            [
+              "startTime",
+              "1789340400000"
+            ],
+            [
+              "type",
+              "userNonFundingLedgerUpdates"
+            ],
+            [
+              "user",
+              "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [],
+    "account_balances": [],
+    "api_keys": [],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

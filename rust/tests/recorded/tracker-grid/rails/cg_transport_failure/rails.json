@@ -1,0 +1,69 @@
+{
+  "ledger": null,
+  "ledger_error": "Client::TransientNetworkError: Faraday::ConnectionFailed: Failed to open TCP connection to api.coingecko.com:443 (Connection refused - connect(2))",
+  "backfill_error": "Client::TransientNetworkError: Faraday::ConnectionFailed: Failed to open TCP connection to api.coingecko.com:443 (Connection refused - connect(2))",
+  "tables": {
+    "portfolio_snapshots": [],
+    "portfolio_venue_snapshots": [],
+    "wash_sale_locks": [],
+    "historical_prices": [],
+    "snapshot_history_version_1": null,
+    "snapshot_price_generation_1": null
+  },
+  "requests": {
+    "market": [
+      [
+        "GET /api/v3/coins/bitcoin/market_chart/range",
+        [
+          [
+            "from",
+            "1788998400"
+          ],
+          [
+            "interval",
+            "daily"
+          ],
+          [
+            "precision",
+            "full"
+          ],
+          [
+            "to",
+            "1789084800"
+          ],
+          [
+            "vs_currency",
+            "usd"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v3/coins/bitcoin/market_chart/range",
+        [
+          [
+            "from",
+            "1788393600"
+          ],
+          [
+            "interval",
+            "daily"
+          ],
+          [
+            "precision",
+            "full"
+          ],
+          [
+            "to",
+            "1790812800"
+          ],
+          [
+            "vs_currency",
+            "usd"
+          ]
+        ]
+      ]
+    ],
+    "alpaca": [],
+    "ecb": []
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "bots": {
+    "1": {
+      "metrics": "{\"chart\":{\"labels\":[\"2026-03-02T14:30:00.000000000Z\",\"2026-03-02T14:30:01.000000000Z\",\"2026-03-09T14:30:00.000000000Z\",\"2026-03-09T14:30:01.000000000Z\"],\"series\":[[\"59.99999999604\",\"99.99999999634\",\"161.02989047284\",\"200.16772782702\"],[\"59.99999999604\",\"99.99999999634\",\"159.99999997276\",\"199.99999997864\"]],\"extra_series\":[{\"AAA\":\"0.591891092\"},{\"AAA\":\"0.591891092\",\"BBB\":\"0.72450643\"},{\"AAA\":\"1.173793914\",\"BBB\":\"0.72450643\"},{\"AAA\":\"1.173793914\",\"BBB\":\"1.464972924\"}],\"invested_series\":[{\"AAA\":\"59.99999999604\"},{\"AAA\":\"59.99999999604\",\"BBB\":\"40.0000000003\"},{\"AAA\":\"119.99999997246\",\"BBB\":\"40.0000000003\"},{\"AAA\":\"119.99999997246\",\"BBB\":\"80.00000000618\"}],\"cash_series\":[0,0,0,0]},\"total_quote_amount_invested\":\"199.99999997864\",\"total_amount_value_in_quote\":\"200.16772782702\",\"rebalance_cash\":0,\"estimated_proceeds\":0,\"realised_pnl\":0,\"pnl\":\"0.00083863924198956667104448572046755\",\"asset_breakdown\":{\"AAA\":{\"amount\":\"1.173793914\",\"quote_invested\":\"119.99999997246\",\"tax_basis\":\"119.99999997246\",\"tax_units\":\"1.173793914\",\"tax_cost_unknown\":false},\"BBB\":{\"amount\":\"1.464972924\",\"quote_invested\":\"80.00000000618\",\"tax_basis\":\"80.00000000618\",\"tax_units\":\"1.464972924\",\"tax_cost_unknown\":false}},\"asset_values\":{},\"key_assets\":{\"AAA\":2,\"BBB\":3},\"key_strings\":{\"AAA\":[\"AAA\"],\"BBB\":[\"BBB\"]},\"num_assets\":2,\"shadowed_by\":{},\"realised_cash\":0,\"asset_lots\":{\"AAA\":[{\"amount\":\"0.591891092\",\"cost\":\"59.99999999604\"},{\"amount\":\"0.581902822\",\"cost\":\"59.99999997642\"}],\"BBB\":[{\"amount\":\"0.72450643\",\"cost\":\"40.0000000003\"},{\"amount\":\"0.740466494\",\"cost\":\"40.00000000588\"}]},\"tax_pnl_by_transaction\":{},\"loss_lot_by_transaction\":{}}",
+      "live": "{\"raised\":\"Client::TransientNetworkError: Faraday::ConnectionFailed: Connection refused - connect(2) for \\\"data.alpaca.markets\\\" port 443\"}",
+      "marked": "{\"raised\":\"Client::TransientNetworkError: Faraday::ConnectionFailed: Connection refused - connect(2) for \\\"data.alpaca.markets\\\" port 443\"}",
+      "chart": null,
+      "profit_in_usd": "{\"raised\":\"Client::TransientNetworkError: Faraday::ConnectionFailed: Connection refused - connect(2) for \\\"data.alpaca.markets\\\" port 443\"}"
+    }
+  },
+  "global_pnl": "{\"raised\":\"Client::TransientNetworkError: Faraday::ConnectionFailed: Connection refused - connect(2) for \\\"data.alpaca.markets\\\" port 443\"}",
+  "global_pnl_snapshot": "{\"result\":null,\"loading\":true}",
+  "pnl_history": "{\"raised\":\"Client::TransientNetworkError: Faraday::ConnectionFailed: Connection refused - connect(2) for \\\"data.alpaca.markets\\\" port 443\"}",
+  "denomination": "{\"currency\":\"USD\",\"rate\":\"1.0\"}",
+  "requests": [
+    "GET data.alpaca.markets/v2/stocks/snapshots?symbols=AAA,BBB"
+  ],
+  "seconds": 0.015
+}

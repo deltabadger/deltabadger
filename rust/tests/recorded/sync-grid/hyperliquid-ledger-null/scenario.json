@@ -1,0 +1,47 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123",
+    "secret": "0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318",
+    "passphrase": null
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "hyperliquid": {
+        "POST /info userFillsByTime": [
+          {
+            "status": 200,
+            "body": null
+          }
+        ],
+        "POST /info userNonFundingLedgerUpdates": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "time": 1789516800000,
+                "hash": "0xa1",
+                "delta": {
+                  "type": "spotTransfer",
+                  "token": "USDT",
+                  "amount": "100.0",
+                  "usdcValue": "100.0",
+                  "user": "0X7F2E1A6C9B3D4E5F60718293A4B5C6D7E8F90123",
+                  "destination": "0xother",
+                  "fee": "1.0",
+                  "nativeTokenFee": "0.0",
+                  "nonce": null,
+                  "feeToken": "USDT"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

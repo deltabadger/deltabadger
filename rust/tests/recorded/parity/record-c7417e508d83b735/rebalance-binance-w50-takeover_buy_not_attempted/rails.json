@@ -1,0 +1,239 @@
+{
+  "sent": [
+    {
+      "quoteOrderQty": "120.0",
+      "recvWindow": "5000",
+      "selfTradePreventionMode": "EXPIRE_MAKER",
+      "side": "BUY",
+      "symbol": "ETHUSDT",
+      "type": "MARKET"
+    }
+  ],
+  "changes": {
+    "bots": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:57.933029",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "BTC, ETH",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "quote_asset_id": 2,
+            "quote_amount": 60.0,
+            "interval": "day",
+            "weighting": "manual",
+            "allocations": {
+              "1": 0.5,
+              "3": 0.5
+            },
+            "rebalance_enabled": true,
+            "smart_intervaled": false,
+            "smart_interval_quote_amount": 6.0,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_limit_in_ticker_id": 1,
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "price_drop_limit_in_ticker_id": 1,
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ticker_id": 1,
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_ticker_id": 1,
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day",
+            "sell_price_limit_in_ticker_id": 1,
+            "sell_price_drop_limit_in_ticker_id": 1,
+            "sell_moving_average_limit_in_ticker_id": 1,
+            "sell_indicator_limit_in_ticker_id": 1
+          },
+          "settings_changed_at": null,
+          "started_at": "2026-09-01 10:00:00.123456",
+          "status": 2,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "missed_quote_amount": 0,
+            "missed_quote_amount_was_set": null,
+            "rebalance_pending": {
+              "phase": "buying",
+              "sell_transaction_id": null,
+              "buy_transaction_id": null,
+              "remaining_quote_amount": "120.0",
+              "buy_attempted": false
+            }
+          },
+          "type": "Bots::DcaMultiAsset",
+          "updated_at": "2026-11-16 07:47:57.933029",
+          "user_id": 1
+        },
+        "after": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:57.933029",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "BTC, ETH",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "quote_asset_id": 2,
+            "quote_amount": 60.0,
+            "interval": "day",
+            "weighting": "manual",
+            "allocations": {
+              "1": 0.5,
+              "3": 0.5
+            },
+            "rebalance_enabled": true,
+            "smart_intervaled": false,
+            "smart_interval_quote_amount": 6.0,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_limit_in_ticker_id": 1,
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "price_drop_limit_in_ticker_id": 1,
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ticker_id": 1,
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_ticker_id": 1,
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day",
+            "sell_price_limit_in_ticker_id": 1,
+            "sell_price_drop_limit_in_ticker_id": 1,
+            "sell_moving_average_limit_in_ticker_id": 1,
+            "sell_indicator_limit_in_ticker_id": 1
+          },
+          "settings_changed_at": null,
+          "started_at": "2026-09-01 10:00:00.123456",
+          "status": 2,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "missed_quote_amount": 0,
+            "rebalance_pending": {
+              "phase": "buying",
+              "sell_transaction_id": null,
+              "buy_transaction_id": 3,
+              "remaining_quote_amount": "120.0",
+              "buy_attempted": true
+            }
+          },
+          "type": "Bots::DcaMultiAsset",
+          "updated_at": "2026-11-16 07:47:57.933029",
+          "user_id": 1
+        }
+      }
+    ],
+    "transactions": [
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "amount": {
+            "f": "3fa8922c3cee9488"
+          },
+          "amount_exec": null,
+          "base": "ETH",
+          "base_asset_id": 3,
+          "bot_id": 1,
+          "bot_interval": "day",
+          "bot_quote_amount": 60,
+          "created_at": "2026-09-01 12:30:00",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "ETHUSDT-28457",
+          "external_status": 0,
+          "order_type": 0,
+          "price": {
+            "f": "40a389051eb851ec"
+          },
+          "quote": "USDT",
+          "quote_amount": 120,
+          "quote_amount_exec": null,
+          "quote_asset_id": 2,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REBALANCE",
+          "updated_at": "2026-09-01 12:30:00"
+        }
+      }
+    ],
+    "bot_activity_logs": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "bot_id": 1,
+          "created_at": "2026-09-01 12:30:00",
+          "details": {
+            "base": "ETH",
+            "quote": "USDT",
+            "amount": "0.047990209997160579241834665728191",
+            "quote_amount": "120.0",
+            "price": "2500.51"
+          },
+          "event": "rebalance_buy_placed",
+          "level": 0,
+          "message": null
+        }
+      }
+    ],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}

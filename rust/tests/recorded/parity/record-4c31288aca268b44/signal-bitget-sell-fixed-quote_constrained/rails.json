@@ -1,0 +1,53 @@
+{
+  "sent": [
+    {
+      "symbol": "BTCUSDT",
+      "side": "sell",
+      "orderType": "market",
+      "size": "0.001562",
+      "force": "ioc"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "amount": {
+            "f": "3f5999999999999a"
+          },
+          "amount_exec": null,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "BTCUSDT-1234567890123456789",
+          "external_status": 0,
+          "order_type": 0,
+          "price": 64000,
+          "quote": "USDT",
+          "quote_amount": 100,
+          "quote_amount_exec": null,
+          "quote_asset_id": 2,
+          "side": 1,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 14:00:01.250000"
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}

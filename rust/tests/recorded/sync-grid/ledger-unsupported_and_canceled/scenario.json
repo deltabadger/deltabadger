@@ -1,0 +1,89 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 1,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "alpaca": {
+        "GET /v2/account/activities": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "id": "ma-1",
+                "activity_type": "MA",
+                "symbol": "KLAC",
+                "qty": "-3",
+                "net_amount": "2100.75",
+                "date": "2026-09-01",
+                "status": "executed"
+              },
+              {
+                "id": "reo-1",
+                "activity_type": "REO",
+                "date": "2026-09-02",
+                "status": "executed"
+              },
+              {
+                "id": "zqxx-1",
+                "activity_type": "ZQXX",
+                "symbol": "AAPL",
+                "qty": 2,
+                "net_amount": 1e-05,
+                "date": "2026-09-03",
+                "description": "A <b>new</b> & odd \"type\" — zażółć",
+                "detail": {
+                  "legs": [
+                    1,
+                    2.5,
+                    null,
+                    true
+                  ],
+                  "big": 1e+20
+                },
+                "status": "executed"
+              },
+              {
+                "id": "div-canceled",
+                "activity_type": "DIV",
+                "net_amount": "9.99",
+                "symbol": "AAPL",
+                "date": "2026-09-04",
+                "status": "canceled"
+              },
+              {
+                "id": "fill-canceled",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-05T14:30:00Z",
+                "type": "fill",
+                "price": "100",
+                "qty": "1",
+                "side": "buy",
+                "symbol": "AAPL",
+                "leaves_qty": "0",
+                "order_id": "order-fill-canceled",
+                "cum_qty": "1",
+                "order_status": "filled",
+                "status": "canceled"
+              },
+              {
+                "id": "int-correct",
+                "activity_type": "INT",
+                "net_amount": "0.5",
+                "date": "2026-09-06",
+                "status": "correct"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

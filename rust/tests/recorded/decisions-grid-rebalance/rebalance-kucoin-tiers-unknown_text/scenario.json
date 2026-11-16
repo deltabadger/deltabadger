@@ -1,0 +1,181 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T12:30:00.000000Z",
+  "venue": "kucoin",
+  "script": {
+    "kucoin": {
+      "POST /api/v1/orders": [
+        {
+          "status": 200,
+          "body": {
+            "code": "500000",
+            "msg": "Internal Server Error"
+          }
+        }
+      ],
+      "GET /api/v1/fills": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "currentPage": 1,
+              "pageSize": 500,
+              "totalNum": 0,
+              "totalPage": 0,
+              "items": []
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/orderbook/level2_20?symbol=BTC-USDT": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "64000.1",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "64000.2",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/orderbook/level2_20?symbol=ETH-USDT": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "2500.5",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "2500.51",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/orderbook/level2_20?symbol=SOL-USDT": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "150.124",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "150.125",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/accounts": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": [
+              {
+                "id": "btc",
+                "currency": "BTC",
+                "type": "trade",
+                "balance": "0.01",
+                "available": "0.01",
+                "holds": "0"
+              },
+              {
+                "id": "eth",
+                "currency": "ETH",
+                "type": "trade",
+                "balance": "0.04",
+                "available": "0.04",
+                "holds": "0"
+              },
+              {
+                "id": "sol",
+                "currency": "SOL",
+                "type": "trade",
+                "balance": "0.02",
+                "available": "0.02",
+                "holds": "0"
+              },
+              {
+                "id": "usdt",
+                "currency": "USDT",
+                "type": "trade",
+                "balance": "100000",
+                "available": "100000",
+                "holds": "0"
+              }
+            ]
+          }
+        }
+      ],
+      "GET /api/v1/market/allTickers": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "ticker": [
+                {
+                  "symbol": "BTC-USDT",
+                  "last": "64000.15"
+                },
+                {
+                  "symbol": "ETH-USDT",
+                  "last": "2500.47"
+                },
+                {
+                  "symbol": "SOL-USDT",
+                  "last": "150.123"
+                },
+                {
+                  "symbol": "ADA-USDT",
+                  "last": "0.4"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "rebalance_at": [
+    "2026-09-01T12:30:00.000000Z"
+  ]
+}

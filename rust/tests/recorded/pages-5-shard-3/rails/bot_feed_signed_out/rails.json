@@ -1,0 +1,62 @@
+{
+  "responses": [
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/login",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-YAxSmHsCFTqHesCt271VSg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=uMm7PvqtmMi41Ug%2Bf9qlVJU9%2BSq97TK8ohUJZsGA0A%2FqpqGr1HjqQGIxJjfrwJNkFedmsynbQ3L%2BGqQlXQL9a6sKINtd4q8Gp%2BuZACUhjjQmJT9HWEhUAoUDA6vSS59ILaQ4DH4iZViPqPjJAzOsjReKe7NTnEaIUDGQHj2%2F6YguPQEh66RtPkFUbObOJNMfCvaWXb%2BCaTu2epQBkvYxuxmUQp69MO0G7gt3dK4MyPTjRjejLouFZi4Gcj3Aur48IoG6GZZmhfnqTekoFokL87ehQPVgc8QdzfwIcHQ32JQHbAxsnneQiw6u1c3iQU%2BR0P6ru78QganHFVSxoE64KFsv4AxWAZck8MFIlV2dqwcqTWp8iq2ds6ScWjMFixhqPjyQHk7eWjh7DHV1oXukblIqx0j3WAj0E17RwcEGT%2BSCv9JmPhor7Piqn782GnusmKW8dByo--f%2BRC8qaUFaptVySh--jvC9A8ZzEAT1DdohMozWbw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "failed_attempts": 0,
+      "locked_at": null,
+      "last_otp_at": null,
+      "remember_created_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "bots": [
+    {
+      "id": 1,
+      "status": 0,
+      "label": "Basket",
+      "position": 1,
+      "settings": "{\"quote_asset_id\":1,\"quote_amount\":50,\"interval\":\"day\",\"allocations\":{\"2\":0.6,\"3\":0.4},\"limit_ordered\":true,\"limit_order_pcnt_distance\":0.01,\"smart_intervaled\":true,\"smart_interval_quote_amount\":5,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":3,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":3,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":3,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":3,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":3,\"sell_price_drop_limit_in_ticker_id\":3,\"sell_moving_average_limit_in_ticker_id\":3,\"sell_indicator_limit_in_ticker_id\":3}",
+      "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+      "stop_message_key": null,
+      "started_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    },
+    {
+      "id": 2,
+      "status": 0,
+      "label": "QQQM Inc",
+      "position": 2,
+      "settings": "{\"quote_asset_id\":1,\"quote_amount\":25.5,\"interval\":\"day\",\"allocations\":{\"2\":1.0},\"limit_ordered\":true,\"limit_order_pcnt_distance\":0.005,\"quote_amount_limited\":true,\"quote_amount_limit\":1000,\"smart_intervaled\":false,\"smart_interval_quote_amount\":2.55,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":1,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":1,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":1,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":1,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":1,\"sell_price_drop_limit_in_ticker_id\":1,\"sell_moving_average_limit_in_ticker_id\":1,\"sell_indicator_limit_in_ticker_id\":1}",
+      "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null,\"quote_amount_limit_enabled_at\":\"2026-01-01T00:00:00.000Z\"}",
+      "stop_message_key": null,
+      "started_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    },
+    {
+      "id": 3,
+      "status": 0,
+      "label": "ND10",
+      "position": 3,
+      "settings": "{\"quote_asset_id\":1,\"quote_amount\":100,\"interval\":\"week\",\"num_coins\":10,\"hold_all\":false,\"index_type\":\"category\",\"index_category_id\":\"nasdaq-100\",\"index_name\":\"Nasdaq 100\",\"index_name_prefix\":\"ND\",\"allocation_flattening\":0.25,\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001}",
+      "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+      "stop_message_key": null,
+      "started_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "network": []
+}

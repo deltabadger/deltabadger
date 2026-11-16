@@ -1,0 +1,107 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 1,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "alpaca": {
+        "GET /v2/account/activities": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "id": "divnra-1",
+                "activity_type": "DIVNRA",
+                "net_amount": "-0.18",
+                "symbol": "AAPL",
+                "date": "2026-09-01",
+                "group_id": "pay-1",
+                "status": "executed"
+              },
+              {
+                "id": "divft-1",
+                "activity_type": "DIVFT",
+                "net_amount": "-0.2",
+                "symbol": "AAPL",
+                "date": "2026-09-01",
+                "status": "executed"
+              },
+              {
+                "id": "divtw-1",
+                "activity_type": "DIVTW",
+                "net_amount": "-0.3",
+                "symbol": "AAPL",
+                "date": "2026-09-01",
+                "status": "executed"
+              },
+              {
+                "id": "intnra-1",
+                "activity_type": "INTNRA",
+                "net_amount": "-0.02",
+                "date": "2026-09-02",
+                "status": "executed"
+              },
+              {
+                "id": "inttw-1",
+                "activity_type": "INTTW",
+                "net_amount": "-0.03",
+                "symbol": null,
+                "date": "2026-09-02",
+                "status": "executed"
+              },
+              {
+                "id": "fee-1",
+                "activity_type": "FEE",
+                "net_amount": "-0.01",
+                "date": "2026-09-03",
+                "status": "executed"
+              },
+              {
+                "id": "divfee-1",
+                "activity_type": "DIVFEE",
+                "net_amount": "-0.05",
+                "symbol": "AAPL",
+                "date": "2026-09-03",
+                "status": "executed"
+              },
+              {
+                "id": "ptc-1",
+                "activity_type": "PTC",
+                "net_amount": "-0.000123",
+                "date": "2026-09-03",
+                "status": "executed"
+              },
+              {
+                "id": "cfee-1",
+                "activity_type": "CFEE",
+                "net_amount": "0",
+                "symbol": "ETHUSD",
+                "qty": "-0.000195",
+                "price": "1884.5",
+                "date": "2026-09-04",
+                "status": "executed"
+              },
+              {
+                "id": "cfee-2",
+                "activity_type": "CFEE",
+                "net_amount": "0",
+                "symbol": "UNKNOWNUSD",
+                "qty": "-0.5",
+                "price": "10.0",
+                "date": "2026-09-04",
+                "status": "executed"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

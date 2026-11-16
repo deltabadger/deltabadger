@@ -1,0 +1,1968 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-CF6tMIvY9ioxMw5h6PToYg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=L%2B%2B%2BDibSpRPYz0LiHR1RVY76H9UfqgchjF0aPcIuBrAVKVm%2FZJwylxYSFj6toWMrGL7%2BL%2Bs3aExIjlOLSoBGgfMqa%2B%2FFs96cvYrQl13%2BLjpRadqgLsXED3n9sYqB7OL%2FOIZpyzb0849wDbi%2BHA5X%2FEpz3zVqkvzunrj0Gl%2FJ81JjWOMhhjYAjjj1M85AZ498UX4SJZhwZNj%2BNgP8Zje6IKuKBx3uAgX41fURwsqTg9J9F2lm%2BQRHs48qIsyMVjcPuPplb0xxJKOlYjtrzYS6gn57%2F97TVNzj0eSPKJ4oOK54Th872%2B6Frm67ZuhpFcfkuCE%3D--bmOiqFPP4bOjYIsp--BFvMBKTkM5kbyfeOtwScOA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-6290d549af80caa2fb7df4035451b122ac9f284c34459a922e1ae88d558e3008.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-55216d29feb9cbe3040956a80263e39ee90e0e1f1554dc6c4a8b67cec79947a7.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"A6t5LgwMC9p5XIQ_aNxi8y0Hz33yjAVUqRUI8mpAMXiDcTpicsR_GQKtVQilRAV19qtXw7rYnW7lNhnCuOtAfQ\" />\n    <meta name=\"csp-nonce\" content=\"CF6tMIvY9ioxMw5h6PToYg==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-controller=\"form--html5-validations form--label-animations\" action=\"/login\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"9ort1eCKLGH8uvj84VnCrXhm66WrdFl5QUQSUKvCg1HkU3dU5h_4tFtnLrdFY6Er9Pua1tqA4IOBoH3TY_xCOA\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <h1>Welcome back!</h1>\n\n  <div class=\"form__row\">\n    <input autofocus=\"autofocus\" autocomplete=\"email\" class=\"form__input form__input--large\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email invalid!\" type=\"email\" value=\"\" name=\"user[email]\" id=\"user_email\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"current-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" type=\"password\" name=\"user[password]\" id=\"user_password\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n\n      <div class=\"form__info form__info--right\">\n        <a href=\"/password/new\">Forgot password?</a>\n      </div>\n</div>\n    <div class=\"toggle\">\n      <input name=\"user[remember_me]\" type=\"hidden\" value=\"0\" /><input type=\"checkbox\" value=\"1\" name=\"user[remember_me]\" id=\"user_remember_me\" />\n      <div class=\"toggle__style\"></div>\n      <label class=\"label\" for=\"user_remember_me\">Remember me</label>\n      \n    </div>\n\n  <div class=\"form__row form__row--final-button\">\n    <input type=\"submit\" name=\"commit\" value=\"Log In\" class=\"button button--sky button--large\" data-disable-with=\"Log In\" />\n  </div>\n\n  <div class=\"devise__links\">\n\n\n    <a class=\"button button--link\" href=\"/confirmation/new\">Resend link</a>\n    <span class=\"db-middot\">●</span>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"dropdown-wrapper dropdown-wrapper--right dropdown-wrapper--up\" style=\"font-weight: 600; color: var(--link)\">\n  EN\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/de/login\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/nl/login\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/fr/login\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/es/login\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pt/login\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/it/login\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pl/login\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/ru/login\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/cs/login\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sk/login\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/da/login\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sv/login\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/el/login\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/bg/login\">🇧🇬 Български</a>\n  </div>\n</div>\n</div>\n</form>\n\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+      "session_changed": true
+    },
+    {
+      "status": 303,
+      "headers": {
+        "location": "http://localhost:3000/",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-2D69ap/oECsjckAnan4xng=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=vYGIm%2BW2jn1RJeLGhOTyq0HVps5Ue%2B%2BzSveLza5Wakqe7rxdzO8kgUy2wbpzLq4WNSzMJP5mhxWJxSgDIqas2xDZe0er5Rj%2Fyn0pR3xKjb1gghUD5Te%2FqL5nU6glxopT0BYX3gIfQxiN3HqqcJrR5PNFwG9IgmEW5AjlZbDait8G%2B1TXC3tQMauo3Eod5cLzl7uMoj5BVTWIcdk3UkZ6PHUyMmOutDdP1%2FUyX76c5849EW0VkyHzsL2hOZDLK4cwAlXpISqKjg0a4uuDZ7%2B5nbDEOidzECkt2sNaHw%2BYK3vtfYhZNoVtT%2BYqbCatoTUWoo9uYYTRhKp%2F8RfkzbCobOO37ZTBukp0umdv6axovdHK%2B%2BKSqrM%3D--U6HWd9OghVPrLhuC--oxpv8v30PfSRWR02je%2FOBA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-vPjO3maKgjLG21wmeCx1BQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=H8C3Nxzn2YWCOHtYehhYVohfT9quKNhKrSE06jDIlsEM24vnA589UVc3ywIYMgvR3RgFV4qryC0JjZHY5kDQB4k%2B%2FJL2S63TqWMojPlTGNINNfmsiaI3HdylpV%2BWN8e2%2FvmqXVT7rgFPuuyxPms%2BBxQ3A8oeP9hCnZIqL2mag5JK42PfrvSjkzQpE0clnqCvOsml%2FPeT6YozONPEqPCm1x%2F%2F37sBoV7lUR3nBX%2BH0jvNK949NbxzG7D4O8gIqUIUTKwwmaMEDU5SVFr9CFm6Mn98k%2FitE0JUYaTYwm7ZN3TEUUbrAn0dcDEXPLbDxv38tgVtd5QCLrofDm6Uzf%2F%2FiVu3S0DOfCjLBdTDmLXilETzl225WbmTouqt6j5Re6r8PIKR3tNveohG3TnJBp0UQolfhYg1q3bZv%2FSgiiI3b2FhODp1g3aLxzIkIYUTYWlWi43dwY1nOy8NEj7a%2BoYR8wX0IoVqiA%3D%3D--DGYhOhcKrBPz7bMi--qHq4FtmvPyjK94iymHIJmA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<html>\n  <head>\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"G1YJ8ET3j6EGCj-51MHYtBwzKv3ETu5A1xuyCKCgihLaBGRD0FVG1KQYHHUwydHtgThjGeCLbpJqe7BuF6b6ww\" />\n    \n  </head>\n  <body>\n    <turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfMTpwcmVmZXJlbmNlcyI=--602c96b2848ec68f7e5b6958aa61b93aafcd8abe7a2549e6a95425833ce5cb85\"></turbo-cable-stream-source>\n<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfMTp0YXhfcmVwb3J0Ig==--be2157cfb0a9cea8f22d50b0a8f797ad7f8eddb7c64fe5435b7df5e9f6824298\"></turbo-cable-stream-source>\n<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfMTpzeW5jIg==--fb6b5090443b26fe696634887f4ad9a5588bae2e6e9829374bfef8a628e8d47d\"></turbo-cable-stream-source>\n  <div class=\"tracker\">\n    <div class=\"tracker-exchanges\">\n  <div class=\"filters\">\n      <a class=\"rbutton rbutton--icon\" data-turbo-frame=\"modal\" aria-label=\"Connecter une plateforme\" href=\"/fr/tracker/pick_exchange/new\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M13 4a1 1 0 1 0-2 0v7H4a1 1 0 1 0 0 2h7v7a1 1 0 1 0 2 0v-7h7a1 1 0 1 0 0-2h-7V4Z\"></path>\n</svg>\n\n</a>  </div>\n\n  <div class=\"tracker-exchanges__end buttons-no-outline\">\n    <div class=\"tracker-exchanges__sync\">\n        <span class=\"label tracker-sync \">\n          <i class=\"tracker-sync__dot\"></i>Synchronisé il y a moins de 1 seconde\n        </span>\n        <form class=\"button_to\" method=\"post\" action=\"/fr/tracker/sync\"><button class=\"rbutton rbutton--icon rbutton--secondary\" aria-label=\"Synchroniser\" type=\"submit\">\n          <svg class=\"icon-24 icon-24--sync\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--icon\" d=\"M3.9 14.5a1 1 0 0 0-.9 1V20a1 1 0 0 0 2 0v-2.08a9.2 9.2 0 0 0 9.33 2.77c3.73-1 6.2-4.03 6.66-7.56a1 1 0 0 0-1.98-.26 7 7 0 0 1-5.2 5.9 7.2 7.2 0 0 1-7.4-2.27H8.5a1 1 0 1 0 0-2H3.9M9.67 3.3a9 9 0 0 0-6.66 7.57 1 1 0 0 0 1.98.26 7 7 0 0 1 5.2-5.9 7.2 7.2 0 0 1 7.4 2.27H15.5a1 1 0 0 0 0 2H20a1 1 0 0 0 1-1V4a1 1 0 0 0-2 0v2.08a9.2 9.2 0 0 0-9.33-2.77\"></path>\n</svg>\n\n</button><input type=\"hidden\" name=\"authenticity_token\" value=\"aUPJHv-2Ui6Ru1CkkX5S1kxNZ0vvxdgUpocSUF8aAx6z_sulUtyIVkJXCxhCjwVRqMrR4zcFx4hP-rZpVDjUsQ\" /></form>    </div>\n\n      <a class=\"rbutton rbutton--secondary\" data-turbo-frame=\"modal\" href=\"/fr/tracker/export_modal\">Rapport fiscal</a>\n\n    <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right\">\n      <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M14 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z\"></path>\n</svg>\n\n      <div class=\"dropdown\">\n        <form class=\"switch-row-form\" data-controller=\"form--submit\" action=\"/fr/settings/update_show_cash\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"Jq2dk_CQIJi18AsOzYGGpb_UIhQjml-oQ_jBJzGZw2ZuLCsnQ2Drri1bL7xkjqJ4QKbyb74xHScacz3WeZCqWw\" />\n          <label class=\"dropdown__item dropdown__item--switch\" data-dropdown-keep-open>\n            <span>Afficher les liquidités</span>\n            <div class=\"toggle toggle--small\">\n              <input type=\"hidden\" name=\"show_cash\" id=\"show_cash\" value=\"0\" />\n              <input type=\"checkbox\" name=\"show_cash\" id=\"show_cash\" value=\"1\" data-action=\"change-&gt;form--submit#submit\" />\n              <div class=\"toggle__style\"></div>\n            </div>\n          </label>\n</form>        <div class=\"dropdown__item dropdown__item--divider\"></div>\n        <a class=\"dropdown__item\" href=\"/fr/tracker/export\">Exporter</a>\n        <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/fr/tracker/import/new\">Importer</a>\n      </div>\n    </div>\n  </div>\n</div>\n\n    \n    \n    <div class=\"widget tracker-holdings tracker-holdings--anon\">\n  <div class=\"tracker-holdings__head\">\n    <span class=\"label\">Avoirs · 6</span>\n    <span class=\"label\">Stock 56% · ETF 33% · Crypto 11%</span>\n  </div>\n\n    <div class=\"tracker-holdings__comp\">\n      <div class=\"tracker-holdings__ring\">\n        <svg viewBox=\"0 0 230 230\" role=\"img\" aria-label=\"Avoirs\">\n            <circle cx=\"115\" cy=\"115\"\n                    r=\"100\" fill=\"none\" stroke=\"#707a85\"\n                    stroke-width=\"7\" stroke-linecap=\"round\"\n                    stroke-dasharray=\"331.2 297.12\" stroke-dashoffset=\"-5.75\"><title>AAPL</title></circle>\n            <circle cx=\"115\" cy=\"115\"\n                    r=\"100\" fill=\"none\" stroke=\"#707a85\"\n                    stroke-width=\"7\" stroke-linecap=\"round\"\n                    stroke-dasharray=\"194.12 434.2\" stroke-dashoffset=\"-348.45\"><title>VTI</title></circle>\n            <circle cx=\"115\" cy=\"115\"\n                    r=\"100\" fill=\"none\" stroke=\"#707a85\"\n                    stroke-width=\"7\" stroke-linecap=\"round\"\n                    stroke-dasharray=\"57.04 571.28\" stroke-dashoffset=\"-554.07\"><title>BTC</title></circle>\n            <circle cx=\"115\" cy=\"115\"\n                    r=\"100\" fill=\"none\" stroke=\"#8a9ba8\"\n                    stroke-width=\"7\" stroke-linecap=\"round\"\n                    stroke-dasharray=\"0.0 628.32\" stroke-dashoffset=\"-622.62\"><title>Autres</title></circle>\n        </svg>\n        <div class=\"tracker-holdings__centre\">\n          <span class=\"tracker-holdings__centre-value \">\n            —\n          </span>\n          <span class=\"label\">Latent</span>\n        </div>\n      </div>\n\n      <div class=\"tracker-holdings__list\">\n        <div class=\"tracker-holdings__rows\">\n            <div class=\"tracker-holdings__row\">\n  <span class=\"tracker-holdings__name\">\n      <span class=\"asset-logo\" style=\"background: #707a85\"></span>\n\n    <b>AAPL</b>\n    <span class=\"tracker-holdings__full\">AAPL &lt;&amp;&gt; holding</span>\n  </span>\n  <span class=\"tracker-holdings__type\"><span class=\"pill pill--quiet\">Stock</span></span>\n  <span class=\"slider\">\n    <span class=\"slider__style\">\n      <span class=\"slider__style__track\" style=\"border-left-color: #707a85; grid-template-columns: 54.76% auto;\">\n        <span class=\"slider__style__progress\" style=\"background-color: #707a85;\"></span>\n      </span>\n    </span>\n  </span>\n  <span class=\"tracker-holdings__pct\">54.8%</span>\n    <span class=\"tracker-holdings__pl\" title=\"Aucun prix de revient pour cet avoir : la performance n&#39;est pas affichée.\"><span class=\"no-value\">—</span></span>\n    <span class=\"tracker-holdings__spacer\"></span>\n</div>\n\n            <div class=\"tracker-holdings__row\">\n  <span class=\"tracker-holdings__name\">\n      <span class=\"asset-logo\" style=\"background: #707a85\"></span>\n\n    <b>VTI</b>\n    <span class=\"tracker-holdings__full\">VTI &lt;&amp;&gt; holding</span>\n  </span>\n  <span class=\"tracker-holdings__type\"><span class=\"pill pill--quiet\">ETF</span></span>\n  <span class=\"slider\">\n    <span class=\"slider__style\">\n      <span class=\"slider__style__track\" style=\"border-left-color: #707a85; grid-template-columns: 32.86% auto;\">\n        <span class=\"slider__style__progress\" style=\"background-color: #707a85;\"></span>\n      </span>\n    </span>\n  </span>\n  <span class=\"tracker-holdings__pct\">32.9%</span>\n    <span class=\"tracker-holdings__pl\" title=\"Aucun prix de revient pour cet avoir : la performance n&#39;est pas affichée.\"><span class=\"no-value\">—</span></span>\n    <span class=\"tracker-holdings__spacer\"></span>\n</div>\n\n            <div class=\"tracker-holdings__row\">\n  <span class=\"tracker-holdings__name\">\n      <span class=\"asset-logo\" style=\"background: #707a85\"></span>\n\n    <b>BTC</b>\n    <span class=\"tracker-holdings__full\">BTC &lt;&amp;&gt; holding</span>\n  </span>\n  <span class=\"tracker-holdings__type\"><span class=\"pill pill--quiet\">Crypto</span></span>\n  <span class=\"slider\">\n    <span class=\"slider__style\">\n      <span class=\"slider__style__track\" style=\"border-left-color: #707a85; grid-template-columns: 10.95% auto;\">\n        <span class=\"slider__style__progress\" style=\"background-color: #707a85;\"></span>\n      </span>\n    </span>\n  </span>\n  <span class=\"tracker-holdings__pct\">11.0%</span>\n    <span class=\"tracker-holdings__pl\" title=\"Aucun prix de revient pour cet avoir : la performance n&#39;est pas affichée.\"><span class=\"no-value\">—</span></span>\n    <span class=\"tracker-holdings__spacer\"></span>\n</div>\n\n            <div class=\"tracker-holdings__row\">\n  <span class=\"tracker-holdings__name\">\n      <span class=\"asset-logo\" style=\"background: #707a85\"></span>\n\n    <b>MSFT</b>\n    <span class=\"tracker-holdings__full\">MSFT &lt;&amp;&gt; holding</span>\n  </span>\n  <span class=\"tracker-holdings__type\"><span class=\"pill pill--quiet\">Stock</span></span>\n  <span class=\"slider\">\n    <span class=\"slider__style\">\n      <span class=\"slider__style__track\" style=\"border-left-color: #707a85; grid-template-columns: 1.1% auto;\">\n        <span class=\"slider__style__progress\" style=\"background-color: #707a85;\"></span>\n      </span>\n    </span>\n  </span>\n  <span class=\"tracker-holdings__pct\">1.1%</span>\n    <span class=\"tracker-holdings__pl\" title=\"Aucun prix de revient pour cet avoir : la performance n&#39;est pas affichée.\"><span class=\"no-value\">—</span></span>\n    <span class=\"tracker-holdings__spacer\"></span>\n</div>\n\n            <div class=\"tracker-holdings__row\">\n  <span class=\"tracker-holdings__name\">\n      <span class=\"asset-logo\" style=\"background: #707a85\"></span>\n\n    <b>NVDA</b>\n    <span class=\"tracker-holdings__full\">NVDA &lt;&amp;&gt; holding</span>\n  </span>\n  <span class=\"tracker-holdings__type\"><span class=\"pill pill--quiet\">Stock</span></span>\n  <span class=\"slider\">\n    <span class=\"slider__style\">\n      <span class=\"slider__style__track\" style=\"border-left-color: #707a85; grid-template-columns: 0.22% auto;\">\n        <span class=\"slider__style__progress\" style=\"background-color: #707a85;\"></span>\n      </span>\n    </span>\n  </span>\n  <span class=\"tracker-holdings__pct\">0.2%</span>\n    <span class=\"tracker-holdings__pl\" title=\"Aucun prix de revient pour cet avoir : la performance n&#39;est pas affichée.\"><span class=\"no-value\">—</span></span>\n    <span class=\"tracker-holdings__spacer\"></span>\n</div>\n\n            <div class=\"tracker-holdings__row\">\n  <span class=\"tracker-holdings__name\">\n      <span class=\"asset-logo\" style=\"background: #707a85\"></span>\n\n    <b>AMZN</b>\n    <span class=\"tracker-holdings__full\">AMZN &lt;&amp;&gt; holding</span>\n  </span>\n  <span class=\"tracker-holdings__type\"><span class=\"pill pill--quiet\">Stock</span></span>\n  <span class=\"slider\">\n    <span class=\"slider__style\">\n      <span class=\"slider__style__track\" style=\"border-left-color: #707a85; grid-template-columns: 0.11% auto;\">\n        <span class=\"slider__style__progress\" style=\"background-color: #707a85;\"></span>\n      </span>\n    </span>\n  </span>\n  <span class=\"tracker-holdings__pct\">0.1%</span>\n    <span class=\"tracker-holdings__pl\" title=\"Aucun prix de revient pour cet avoir : la performance n&#39;est pas affichée.\"><span class=\"no-value\">—</span></span>\n    <span class=\"tracker-holdings__spacer\"></span>\n</div>\n\n        </div>\n      </div>\n    </div>\n\n</div>\n\n    <div class=\"tracker-record\" data-controller=\"tracker--record\">\n  <div class=\"tracker-record__switch filters\" data-action=\"segmented:change->tracker--record#mark segmented:change->tracker--record#show segmented:change->tracker--record#hold\">\n    \n<div class=\"segmented segmented--fluid\" role=\"radiogroup\" aria-label=\"Positions\" data-controller=\"segmented\" data-action=\"click-&gt;segmented#toggle\" data-segmented-key=\"tracker-record\">\n  <span class=\"segmented__thumb\" data-segmented-target=\"thumb\"></span>\n  <div class=\"segmented__dropdown dropdown\" data-segmented-target=\"dropdown\">\n    <div class=\"segmented__panes\">\n      <div class=\"segmented__pane segmented__menu\">\n            <button type=\"button\" class=\"segmented__option is-on\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" data-value=\"pos\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">Positions</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"tx\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">Transactions</button>\n      </div>\n    </div>\n  </div>\n  <span class=\"segmented__caret\" aria-hidden=\"true\">\n    <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</span></div>\n  </div>\n\n  <div class=\"tracker-record__pane tracker-record__pane--off\" data-pane=\"tx\"\n       data-controller=\"order-filter\" data-tracker--record-target=\"pane\">\n    <div class=\"tracker-record__filters filters\" data-action=\"segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold\">\n    </div>\n    <div class=\"tracker-record__table widget widget--table\" data-controller=\"table-fit\">\n        <p class=\"tracker-empty\">Aucune transaction trouvée pour les filtres sélectionnés.</p>\n    </div>\n  </div>\n\n  <div class=\"tracker-record__pane\" data-pane=\"pos\"\n       data-controller=\"order-filter\" data-tracker--record-target=\"pane\">\n    <div class=\"tracker-record__filters filters\" data-action=\"segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold\">\n    </div>\n    <div class=\"tracker-record__table widget widget--table tracker-positions\" data-controller=\"table-fit\">\n        <div class=\"loader--small\" style=\"position: unset; margin: 2rem auto;\"></div>\n    </div>\n  </div>\n\n  <div class=\"tracker-record__actions\">\n    <form class=\"tracker-date-range\" data-controller=\"form--submit\" action=\"/fr/tracker\" accept-charset=\"UTF-8\" method=\"get\">\n      <input type=\"date\" name=\"from\" value=\"\" class=\"rinput\" data-action=\"change->form--submit#submit\">\n      <input type=\"date\" name=\"to\" value=\"2026-09-10\" class=\"rinput\" data-action=\"change->form--submit#submit\">\n</form>  </div>\n</div>\n\n  </div>\n\n  </body>\n</html>\n",
+      "session_changed": true,
+      "action_snapshot": true,
+      "rows_before": {
+        "bots": [],
+        "bot_index_assets": [],
+        "bot_activity_logs": [],
+        "transactions": [],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": "2026-09-10 12:00:30.123456",
+            "created_at": "2026-01-01 00:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": "synthetic-d5-paper-key",
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": "synthetic-d5-paper-secret",
+            "status": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          }
+        ],
+        "users": [
+          {
+            "id": 1,
+            "admin": 1,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-01 00:00:00",
+            "created_at": "2026-01-01 00:00:00",
+            "display_currency": "USD",
+            "email": "owner@example.com",
+            "encrypted_password": "$2a$04$CrIt4wgalD4tUg6IYpSla.zJX87BzbiIIhP25Se8DJzWuKNywz01W",
+            "failed_attempts": 0,
+            "hide_balances": 1,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Owner",
+            "otp_module": 0,
+            "otp_secret_key": "X4T7NLRWUHFORRIXLUAZLHHRNFIT5TOI",
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 1,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "Tallinn",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-01 00:00:00",
+            "wash_sale_enabled": 0,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "account_transactions": [],
+        "account_balances": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 1,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 500,
+            "usd_value": 500,
+            "user_id": 1
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 2,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 150,
+            "usd_value": 300,
+            "user_id": 1
+          },
+          {
+            "id": 3,
+            "asset_id": 3,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 3,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "4040aaaaaaa38226"
+            },
+            "usd_value": 100,
+            "user_id": 1
+          },
+          {
+            "id": 4,
+            "asset_id": 4,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 4,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 15,
+            "usd_value": 60,
+            "user_id": 1
+          },
+          {
+            "id": 5,
+            "asset_id": 5,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 5,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 8,
+            "usd_value": 40,
+            "user_id": 1
+          },
+          {
+            "id": 6,
+            "asset_id": 6,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 6,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "3ffaaaaaab8fbb49"
+            },
+            "usd_value": 10,
+            "user_id": 1
+          },
+          {
+            "id": 7,
+            "asset_id": 7,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 7,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "3fd2492496e330e7"
+            },
+            "usd_value": 2,
+            "user_id": 1
+          },
+          {
+            "id": 8,
+            "asset_id": 8,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 8,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "3fc0000000000000"
+            },
+            "usd_value": 1,
+            "user_id": 1
+          }
+        ],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "fund_classifications": [],
+        "historical_prices": [],
+        "fx_rates": [
+          {
+            "id": 1,
+            "currency": "USD",
+            "date": "2026-09-10",
+            "rate": {
+              "__sqlite_real__": "3ff199999999999a"
+            }
+          }
+        ]
+      },
+      "rows_after": {
+        "bots": [],
+        "bot_index_assets": [],
+        "bot_activity_logs": [],
+        "transactions": [],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": "2026-09-10 12:00:30.123456",
+            "created_at": "2026-01-01 00:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": "synthetic-d5-paper-key",
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": "synthetic-d5-paper-secret",
+            "status": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          }
+        ],
+        "users": [
+          {
+            "id": 1,
+            "admin": 1,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-01 00:00:00",
+            "created_at": "2026-01-01 00:00:00",
+            "display_currency": "USD",
+            "email": "owner@example.com",
+            "encrypted_password": "$2a$04$CrIt4wgalD4tUg6IYpSla.zJX87BzbiIIhP25Se8DJzWuKNywz01W",
+            "failed_attempts": 0,
+            "hide_balances": 1,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Owner",
+            "otp_module": 0,
+            "otp_secret_key": "X4T7NLRWUHFORRIXLUAZLHHRNFIT5TOI",
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 1,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "Tallinn",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-01 00:00:00",
+            "wash_sale_enabled": 0,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "account_transactions": [],
+        "account_balances": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 1,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 500,
+            "usd_value": 500,
+            "user_id": 1
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 2,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 150,
+            "usd_value": 300,
+            "user_id": 1
+          },
+          {
+            "id": 3,
+            "asset_id": 3,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 3,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "4040aaaaaaa38226"
+            },
+            "usd_value": 100,
+            "user_id": 1
+          },
+          {
+            "id": 4,
+            "asset_id": 4,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 4,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 15,
+            "usd_value": 60,
+            "user_id": 1
+          },
+          {
+            "id": 5,
+            "asset_id": 5,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 5,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 8,
+            "usd_value": 40,
+            "user_id": 1
+          },
+          {
+            "id": 6,
+            "asset_id": 6,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 6,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "3ffaaaaaab8fbb49"
+            },
+            "usd_value": 10,
+            "user_id": 1
+          },
+          {
+            "id": 7,
+            "asset_id": 7,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 7,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "3fd2492496e330e7"
+            },
+            "usd_value": 2,
+            "user_id": 1
+          },
+          {
+            "id": 8,
+            "asset_id": 8,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 8,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "3fc0000000000000"
+            },
+            "usd_value": 1,
+            "user_id": 1
+          }
+        ],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "fund_classifications": [],
+        "historical_prices": [],
+        "fx_rates": [
+          {
+            "id": 1,
+            "currency": "USD",
+            "date": "2026-09-10",
+            "rate": {
+              "__sqlite_real__": "3ff199999999999a"
+            }
+          }
+        ]
+      },
+      "other_rows_before": {
+        "account_balances": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 1,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 500,
+            "usd_value": 500,
+            "user_id": 1
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 2,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 150,
+            "usd_value": 300,
+            "user_id": 1
+          },
+          {
+            "id": 3,
+            "asset_id": 3,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 3,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "4040aaaaaaa38226"
+            },
+            "usd_value": 100,
+            "user_id": 1
+          },
+          {
+            "id": 4,
+            "asset_id": 4,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 4,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 15,
+            "usd_value": 60,
+            "user_id": 1
+          },
+          {
+            "id": 5,
+            "asset_id": 5,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 5,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 8,
+            "usd_value": 40,
+            "user_id": 1
+          },
+          {
+            "id": 6,
+            "asset_id": 6,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 6,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "3ffaaaaaab8fbb49"
+            },
+            "usd_value": 10,
+            "user_id": 1
+          },
+          {
+            "id": 7,
+            "asset_id": 7,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 7,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "3fd2492496e330e7"
+            },
+            "usd_value": 2,
+            "user_id": 1
+          },
+          {
+            "id": 8,
+            "asset_id": 8,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 8,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "3fc0000000000000"
+            },
+            "usd_value": 1,
+            "user_id": 1
+          }
+        ],
+        "account_transactions": [],
+        "action_mcp_session_messages": [],
+        "action_mcp_session_subscriptions": [],
+        "action_mcp_session_tasks": [],
+        "action_mcp_sessions": [],
+        "app_configs": [
+          {
+            "id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_provider",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"+XZ5BTMpwPUb/LQ=\",\"h\":{\"iv\":\"lCJg+vYEros7eQ/z\",\"at\":\"NXPgwgO8Wz1MuBvk5+2+rA==\"}}"
+          },
+          {
+            "id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_url",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"7lVPHfqxDbdx+s45d41NpUam\",\"h\":{\"iv\":\"wBcOg8245MqWFiew\",\"at\":\"NGQk1on3oI8dzsu/DjsPIQ==\"}}"
+          },
+          {
+            "id": 3,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_token",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"rqFO/TxelPA9Qig3QH/fC1HuKjYqE+LN7Q==\",\"h\":{\"iv\":\"VijRytq14UP5r5+g\",\"at\":\"AEfKRfPzbjySZAXgqiIj8w==\"}}"
+          }
+        ],
+        "ar_internal_metadata": [
+          {
+            "key": "environment",
+            "value": "production",
+            "created_at": "2026-11-16 08:01:55.390",
+            "updated_at": "2026-11-16 08:01:55.390"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-AAPL",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AAPL <&> holding",
+            "symbol": "AAPL",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "ETF",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-VTI",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "VTI <&> holding",
+            "symbol": "VTI",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 3,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-BTC",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "BTC <&> holding",
+            "symbol": "BTC",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 4,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-USDC",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "USDC <&> holding",
+            "symbol": "USDC",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 5,
+            "category": "Currency",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-USD",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "USD <&> holding",
+            "symbol": "USD",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 6,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-MSFT",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "MSFT <&> holding",
+            "symbol": "MSFT",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 7,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-NVDA",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "NVDA <&> holding",
+            "symbol": "NVDA",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 8,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-AMZN",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AMZN <&> holding",
+            "symbol": "AMZN",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          }
+        ],
+        "bot_signals": [],
+        "connected_clients": [],
+        "exchange_assets": [],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0",
+            "name": "Alpaca",
+            "taker_fee": "0",
+            "type": "Exchanges::Alpaca",
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "fee_api_keys": [],
+        "fund_classifications": [],
+        "fx_rates": [
+          {
+            "id": 1,
+            "currency": "USD",
+            "date": "2026-09-10",
+            "rate": {
+              "__sqlite_real__": "3ff199999999999a"
+            }
+          }
+        ],
+        "historical_prices": [],
+        "ibkr_locks": [],
+        "idempotency_keys": [],
+        "indices": [],
+        "oauth_access_grants": [],
+        "oauth_access_tokens": [],
+        "oauth_applications": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "rule_logs": [],
+        "rules": [],
+        "schema_migrations": [
+          {
+            "version": "20260102171555"
+          },
+          {
+            "version": "20260103000001"
+          },
+          {
+            "version": "20260104194208"
+          },
+          {
+            "version": "20260106111301"
+          },
+          {
+            "version": "20260106111302"
+          },
+          {
+            "version": "20260106115209"
+          },
+          {
+            "version": "20260106162140"
+          },
+          {
+            "version": "20260109050047"
+          },
+          {
+            "version": "20260114145256"
+          },
+          {
+            "version": "20260114154223"
+          },
+          {
+            "version": "20260126141242"
+          },
+          {
+            "version": "20260126145012"
+          },
+          {
+            "version": "20260127112431"
+          },
+          {
+            "version": "20260127164433"
+          },
+          {
+            "version": "20260128000001"
+          },
+          {
+            "version": "20260129111946"
+          },
+          {
+            "version": "20260129142740"
+          },
+          {
+            "version": "20260130114825"
+          },
+          {
+            "version": "20260203191449"
+          },
+          {
+            "version": "20260208114731"
+          },
+          {
+            "version": "20260217100000"
+          },
+          {
+            "version": "20260217100001"
+          },
+          {
+            "version": "20260219100000"
+          },
+          {
+            "version": "20260219110000"
+          },
+          {
+            "version": "20260219120000"
+          },
+          {
+            "version": "20260219130000"
+          },
+          {
+            "version": "20260224065811"
+          },
+          {
+            "version": "20260226000000"
+          },
+          {
+            "version": "20260227171710"
+          },
+          {
+            "version": "20260228130833"
+          },
+          {
+            "version": "20260228145540"
+          },
+          {
+            "version": "20260228152720"
+          },
+          {
+            "version": "20260308090843"
+          },
+          {
+            "version": "20260311145654"
+          },
+          {
+            "version": "20260311145655"
+          },
+          {
+            "version": "20260311145656"
+          },
+          {
+            "version": "20260311145657"
+          },
+          {
+            "version": "20260311145658"
+          },
+          {
+            "version": "20260311145659"
+          },
+          {
+            "version": "20260311145660"
+          },
+          {
+            "version": "20260311145661"
+          },
+          {
+            "version": "20260311145662"
+          },
+          {
+            "version": "20260316000001"
+          },
+          {
+            "version": "20260320042623"
+          },
+          {
+            "version": "20260322140051"
+          },
+          {
+            "version": "20260323052902"
+          },
+          {
+            "version": "20260324132010"
+          },
+          {
+            "version": "20260325183549"
+          },
+          {
+            "version": "20260325221615"
+          },
+          {
+            "version": "20260413120000"
+          },
+          {
+            "version": "20260413140000"
+          },
+          {
+            "version": "20260413150000"
+          },
+          {
+            "version": "20260520000000"
+          },
+          {
+            "version": "20260524000000"
+          },
+          {
+            "version": "20260527000000"
+          },
+          {
+            "version": "20260527001000"
+          },
+          {
+            "version": "20260527002000"
+          },
+          {
+            "version": "20260529001000"
+          },
+          {
+            "version": "20260530000000"
+          },
+          {
+            "version": "20260603222643"
+          },
+          {
+            "version": "20260603231515"
+          },
+          {
+            "version": "20260603234747"
+          },
+          {
+            "version": "20260624081139"
+          },
+          {
+            "version": "20260706170000"
+          },
+          {
+            "version": "20260727120000"
+          },
+          {
+            "version": "20260806001012"
+          },
+          {
+            "version": "20260808225248"
+          },
+          {
+            "version": "20260808230550"
+          },
+          {
+            "version": "20260810120000"
+          },
+          {
+            "version": "20260815120000"
+          },
+          {
+            "version": "20260815130000"
+          },
+          {
+            "version": "20260815140000"
+          },
+          {
+            "version": "20260815150000"
+          },
+          {
+            "version": "20260815150050"
+          },
+          {
+            "version": "20260815150060"
+          },
+          {
+            "version": "20260815150100"
+          },
+          {
+            "version": "20260815160000"
+          },
+          {
+            "version": "20260815170000"
+          },
+          {
+            "version": "20260815170100"
+          },
+          {
+            "version": "20260818120000"
+          },
+          {
+            "version": "20260821120000"
+          },
+          {
+            "version": "20260821220432"
+          },
+          {
+            "version": "20260822100000"
+          },
+          {
+            "version": "20260823120000"
+          },
+          {
+            "version": "20260824120000"
+          },
+          {
+            "version": "20260824130000"
+          },
+          {
+            "version": "20260824140000"
+          },
+          {
+            "version": "20260825060000"
+          },
+          {
+            "version": "20260825120000"
+          },
+          {
+            "version": "20260825200000"
+          },
+          {
+            "version": "20260826090000"
+          },
+          {
+            "version": "20260826140000"
+          },
+          {
+            "version": "20260828094446"
+          },
+          {
+            "version": "20260828095813"
+          },
+          {
+            "version": "20260828175918"
+          },
+          {
+            "version": "20260829132450"
+          },
+          {
+            "version": "20260830120000"
+          },
+          {
+            "version": "20260830210000"
+          },
+          {
+            "version": "20260830230000"
+          },
+          {
+            "version": "20260905190000"
+          },
+          {
+            "version": "20260907100000"
+          },
+          {
+            "version": "20260907110000"
+          },
+          {
+            "version": "20260908090000"
+          },
+          {
+            "version": "20260908091000"
+          },
+          {
+            "version": "20260908120000"
+          },
+          {
+            "version": "20260908130000"
+          },
+          {
+            "version": "20260918090000"
+          },
+          {
+            "version": "20260918120000"
+          },
+          {
+            "version": "20260918150000"
+          },
+          {
+            "version": "20260921120000"
+          },
+          {
+            "version": "20260921180000"
+          },
+          {
+            "version": "20260928120000"
+          },
+          {
+            "version": "20260929120000"
+          },
+          {
+            "version": "20261006100000"
+          },
+          {
+            "version": "20261009120000"
+          },
+          {
+            "version": "20261009130000"
+          },
+          {
+            "version": "20261011170000"
+          },
+          {
+            "version": "20261014120000"
+          },
+          {
+            "version": "20261015120000"
+          },
+          {
+            "version": "20261016120000"
+          },
+          {
+            "version": "20261016130000"
+          },
+          {
+            "version": "20261016140000"
+          },
+          {
+            "version": "20261017100000"
+          }
+        ],
+        "setting_flags": [],
+        "tickers": [],
+        "wash_sale_locks": []
+      },
+      "other_rows_after": {
+        "account_balances": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 1,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 500,
+            "usd_value": 500,
+            "user_id": 1
+          },
+          {
+            "id": 2,
+            "asset_id": 2,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 2,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 150,
+            "usd_value": 300,
+            "user_id": 1
+          },
+          {
+            "id": 3,
+            "asset_id": 3,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 3,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "4040aaaaaaa38226"
+            },
+            "usd_value": 100,
+            "user_id": 1
+          },
+          {
+            "id": 4,
+            "asset_id": 4,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 4,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 15,
+            "usd_value": 60,
+            "user_id": 1
+          },
+          {
+            "id": 5,
+            "asset_id": 5,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 5,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": 8,
+            "usd_value": 40,
+            "user_id": 1
+          },
+          {
+            "id": 6,
+            "asset_id": 6,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 6,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "3ffaaaaaab8fbb49"
+            },
+            "usd_value": 10,
+            "user_id": 1
+          },
+          {
+            "id": 7,
+            "asset_id": 7,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 7,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "3fd2492496e330e7"
+            },
+            "usd_value": 2,
+            "user_id": 1
+          },
+          {
+            "id": 8,
+            "asset_id": 8,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "exchange_id": 1,
+            "free": 8,
+            "locked": 0,
+            "priced_at": "2026-09-10 12:00:30.123456",
+            "synced_at": "2026-09-10 12:00:30.123456",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "usd_price": {
+              "__sqlite_real__": "3fc0000000000000"
+            },
+            "usd_value": 1,
+            "user_id": 1
+          }
+        ],
+        "account_transactions": [],
+        "action_mcp_session_messages": [],
+        "action_mcp_session_subscriptions": [],
+        "action_mcp_session_tasks": [],
+        "action_mcp_sessions": [],
+        "app_configs": [
+          {
+            "id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_provider",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"+XZ5BTMpwPUb/LQ=\",\"h\":{\"iv\":\"lCJg+vYEros7eQ/z\",\"at\":\"NXPgwgO8Wz1MuBvk5+2+rA==\"}}"
+          },
+          {
+            "id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_url",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"7lVPHfqxDbdx+s45d41NpUam\",\"h\":{\"iv\":\"wBcOg8245MqWFiew\",\"at\":\"NGQk1on3oI8dzsu/DjsPIQ==\"}}"
+          },
+          {
+            "id": 3,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_token",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"rqFO/TxelPA9Qig3QH/fC1HuKjYqE+LN7Q==\",\"h\":{\"iv\":\"VijRytq14UP5r5+g\",\"at\":\"AEfKRfPzbjySZAXgqiIj8w==\"}}"
+          }
+        ],
+        "ar_internal_metadata": [
+          {
+            "key": "environment",
+            "value": "production",
+            "created_at": "2026-11-16 08:01:55.390",
+            "updated_at": "2026-11-16 08:01:55.390"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-AAPL",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AAPL <&> holding",
+            "symbol": "AAPL",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "ETF",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-VTI",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "VTI <&> holding",
+            "symbol": "VTI",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 3,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-BTC",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "BTC <&> holding",
+            "symbol": "BTC",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 4,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-USDC",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "USDC <&> holding",
+            "symbol": "USDC",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 5,
+            "category": "Currency",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-USD",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "USD <&> holding",
+            "symbol": "USD",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 6,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-MSFT",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "MSFT <&> holding",
+            "symbol": "MSFT",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 7,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-NVDA",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "NVDA <&> holding",
+            "symbol": "NVDA",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          },
+          {
+            "id": 8,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#112233",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "external_id": "holdings-AMZN",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AMZN <&> holding",
+            "symbol": "AMZN",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "url": null
+          }
+        ],
+        "bot_signals": [],
+        "connected_clients": [],
+        "exchange_assets": [],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0",
+            "name": "Alpaca",
+            "taker_fee": "0",
+            "type": "Exchanges::Alpaca",
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "fee_api_keys": [],
+        "fund_classifications": [],
+        "fx_rates": [
+          {
+            "id": 1,
+            "currency": "USD",
+            "date": "2026-09-10",
+            "rate": {
+              "__sqlite_real__": "3ff199999999999a"
+            }
+          }
+        ],
+        "historical_prices": [],
+        "ibkr_locks": [],
+        "idempotency_keys": [],
+        "indices": [],
+        "oauth_access_grants": [],
+        "oauth_access_tokens": [],
+        "oauth_applications": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "rule_logs": [],
+        "rules": [],
+        "schema_migrations": [
+          {
+            "version": "20260102171555"
+          },
+          {
+            "version": "20260103000001"
+          },
+          {
+            "version": "20260104194208"
+          },
+          {
+            "version": "20260106111301"
+          },
+          {
+            "version": "20260106111302"
+          },
+          {
+            "version": "20260106115209"
+          },
+          {
+            "version": "20260106162140"
+          },
+          {
+            "version": "20260109050047"
+          },
+          {
+            "version": "20260114145256"
+          },
+          {
+            "version": "20260114154223"
+          },
+          {
+            "version": "20260126141242"
+          },
+          {
+            "version": "20260126145012"
+          },
+          {
+            "version": "20260127112431"
+          },
+          {
+            "version": "20260127164433"
+          },
+          {
+            "version": "20260128000001"
+          },
+          {
+            "version": "20260129111946"
+          },
+          {
+            "version": "20260129142740"
+          },
+          {
+            "version": "20260130114825"
+          },
+          {
+            "version": "20260203191449"
+          },
+          {
+            "version": "20260208114731"
+          },
+          {
+            "version": "20260217100000"
+          },
+          {
+            "version": "20260217100001"
+          },
+          {
+            "version": "20260219100000"
+          },
+          {
+            "version": "20260219110000"
+          },
+          {
+            "version": "20260219120000"
+          },
+          {
+            "version": "20260219130000"
+          },
+          {
+            "version": "20260224065811"
+          },
+          {
+            "version": "20260226000000"
+          },
+          {
+            "version": "20260227171710"
+          },
+          {
+            "version": "20260228130833"
+          },
+          {
+            "version": "20260228145540"
+          },
+          {
+            "version": "20260228152720"
+          },
+          {
+            "version": "20260308090843"
+          },
+          {
+            "version": "20260311145654"
+          },
+          {
+            "version": "20260311145655"
+          },
+          {
+            "version": "20260311145656"
+          },
+          {
+            "version": "20260311145657"
+          },
+          {
+            "version": "20260311145658"
+          },
+          {
+            "version": "20260311145659"
+          },
+          {
+            "version": "20260311145660"
+          },
+          {
+            "version": "20260311145661"
+          },
+          {
+            "version": "20260311145662"
+          },
+          {
+            "version": "20260316000001"
+          },
+          {
+            "version": "20260320042623"
+          },
+          {
+            "version": "20260322140051"
+          },
+          {
+            "version": "20260323052902"
+          },
+          {
+            "version": "20260324132010"
+          },
+          {
+            "version": "20260325183549"
+          },
+          {
+            "version": "20260325221615"
+          },
+          {
+            "version": "20260413120000"
+          },
+          {
+            "version": "20260413140000"
+          },
+          {
+            "version": "20260413150000"
+          },
+          {
+            "version": "20260520000000"
+          },
+          {
+            "version": "20260524000000"
+          },
+          {
+            "version": "20260527000000"
+          },
+          {
+            "version": "20260527001000"
+          },
+          {
+            "version": "20260527002000"
+          },
+          {
+            "version": "20260529001000"
+          },
+          {
+            "version": "20260530000000"
+          },
+          {
+            "version": "20260603222643"
+          },
+          {
+            "version": "20260603231515"
+          },
+          {
+            "version": "20260603234747"
+          },
+          {
+            "version": "20260624081139"
+          },
+          {
+            "version": "20260706170000"
+          },
+          {
+            "version": "20260727120000"
+          },
+          {
+            "version": "20260806001012"
+          },
+          {
+            "version": "20260808225248"
+          },
+          {
+            "version": "20260808230550"
+          },
+          {
+            "version": "20260810120000"
+          },
+          {
+            "version": "20260815120000"
+          },
+          {
+            "version": "20260815130000"
+          },
+          {
+            "version": "20260815140000"
+          },
+          {
+            "version": "20260815150000"
+          },
+          {
+            "version": "20260815150050"
+          },
+          {
+            "version": "20260815150060"
+          },
+          {
+            "version": "20260815150100"
+          },
+          {
+            "version": "20260815160000"
+          },
+          {
+            "version": "20260815170000"
+          },
+          {
+            "version": "20260815170100"
+          },
+          {
+            "version": "20260818120000"
+          },
+          {
+            "version": "20260821120000"
+          },
+          {
+            "version": "20260821220432"
+          },
+          {
+            "version": "20260822100000"
+          },
+          {
+            "version": "20260823120000"
+          },
+          {
+            "version": "20260824120000"
+          },
+          {
+            "version": "20260824130000"
+          },
+          {
+            "version": "20260824140000"
+          },
+          {
+            "version": "20260825060000"
+          },
+          {
+            "version": "20260825120000"
+          },
+          {
+            "version": "20260825200000"
+          },
+          {
+            "version": "20260826090000"
+          },
+          {
+            "version": "20260826140000"
+          },
+          {
+            "version": "20260828094446"
+          },
+          {
+            "version": "20260828095813"
+          },
+          {
+            "version": "20260828175918"
+          },
+          {
+            "version": "20260829132450"
+          },
+          {
+            "version": "20260830120000"
+          },
+          {
+            "version": "20260830210000"
+          },
+          {
+            "version": "20260830230000"
+          },
+          {
+            "version": "20260905190000"
+          },
+          {
+            "version": "20260907100000"
+          },
+          {
+            "version": "20260907110000"
+          },
+          {
+            "version": "20260908090000"
+          },
+          {
+            "version": "20260908091000"
+          },
+          {
+            "version": "20260908120000"
+          },
+          {
+            "version": "20260908130000"
+          },
+          {
+            "version": "20260918090000"
+          },
+          {
+            "version": "20260918120000"
+          },
+          {
+            "version": "20260918150000"
+          },
+          {
+            "version": "20260921120000"
+          },
+          {
+            "version": "20260921180000"
+          },
+          {
+            "version": "20260928120000"
+          },
+          {
+            "version": "20260929120000"
+          },
+          {
+            "version": "20261006100000"
+          },
+          {
+            "version": "20261009120000"
+          },
+          {
+            "version": "20261009130000"
+          },
+          {
+            "version": "20261011170000"
+          },
+          {
+            "version": "20261014120000"
+          },
+          {
+            "version": "20261015120000"
+          },
+          {
+            "version": "20261016120000"
+          },
+          {
+            "version": "20261016130000"
+          },
+          {
+            "version": "20261016140000"
+          },
+          {
+            "version": "20261017100000"
+          }
+        ],
+        "setting_flags": [],
+        "tickers": [],
+        "wash_sale_locks": []
+      },
+      "jobs": [
+        {
+          "job_class": "Tracker::LedgerJob",
+          "job_id": "cb700fe1-dbaf-4710-8f04-74fda57a4847",
+          "provider_job_id": null,
+          "queue_name": "low_priority",
+          "priority": null,
+          "arguments": [
+            1
+          ],
+          "executions": 0,
+          "exception_executions": {},
+          "locale": "fr",
+          "timezone": "UTC",
+          "enqueued_at": "2026-09-10T12:00:30.123456000Z",
+          "scheduled_at": null,
+          "args": [
+            1
+          ],
+          "queue": "low_priority",
+          "priority": null
+        },
+        {
+          "job_class": "PortfolioSnapshot::BackfillJob",
+          "job_id": "82cc4bdd-29d4-4e27-8de0-2caddf23f516",
+          "provider_job_id": null,
+          "queue_name": "low_priority",
+          "priority": null,
+          "arguments": [
+            1
+          ],
+          "executions": 0,
+          "exception_executions": {},
+          "locale": "fr",
+          "timezone": "UTC",
+          "enqueued_at": "2026-09-10T12:00:30.123456000Z",
+          "scheduled_at": null,
+          "args": [
+            1
+          ],
+          "queue": "low_priority",
+          "priority": null
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "failed_attempts": 0,
+      "locked_at": null,
+      "last_otp_at": null,
+      "remember_created_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "bots": [],
+  "network": []
+}

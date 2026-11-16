@@ -1,0 +1,295 @@
+{
+  "sent": [
+    {
+      "quoteOrderQty": "0.00056666",
+      "recvWindow": "5000",
+      "selfTradePreventionMode": "EXPIRE_MAKER",
+      "side": "BUY",
+      "symbol": "ETHBTC",
+      "type": "MARKET"
+    },
+    {
+      "quoteOrderQty": "0.00024666",
+      "recvWindow": "5000",
+      "selfTradePreventionMode": "EXPIRE_MAKER",
+      "side": "BUY",
+      "symbol": "SOLBTC",
+      "type": "MARKET"
+    },
+    {
+      "quoteOrderQty": "0.00018666",
+      "recvWindow": "5000",
+      "selfTradePreventionMode": "EXPIRE_MAKER",
+      "side": "BUY",
+      "symbol": "ADABTC",
+      "type": "MARKET"
+    }
+  ],
+  "changes": {
+    "bots": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:36.869216",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "Crypto index",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "quote_asset_id": 1,
+            "quote_amount": 0.001,
+            "interval": "day",
+            "index_type": "category",
+            "index_category_id": "layer-1",
+            "num_coins": 3,
+            "allocation_flattening": 0.5,
+            "hold_all": false,
+            "smart_intervaled": false,
+            "smart_interval_quote_amount": 0.001,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001
+          },
+          "settings_changed_at": null,
+          "started_at": "2026-09-01 10:00:00.123456",
+          "status": 1,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "missed_quote_amount": 0,
+            "missed_quote_amount_was_set": null
+          },
+          "type": "Bots::DcaIndex",
+          "updated_at": "2026-11-16 07:47:36.869216",
+          "user_id": 1
+        },
+        "after": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:36.869216",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "Crypto index",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "quote_asset_id": 1,
+            "quote_amount": 0.001,
+            "interval": "day",
+            "index_type": "category",
+            "index_category_id": "layer-1",
+            "num_coins": 3,
+            "allocation_flattening": 0.5,
+            "hold_all": false,
+            "smart_intervaled": false,
+            "smart_interval_quote_amount": 0.001,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001
+          },
+          "settings_changed_at": null,
+          "started_at": "2026-09-01 10:00:00.123456",
+          "status": 1,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "missed_quote_amount": 0,
+            "missed_quote_amount_was_set": null,
+            "last_action_job_at": "2026-09-01T10:00:00.623Z"
+          },
+          "type": "Bots::DcaIndex",
+          "updated_at": "2026-09-01 10:00:00.623456",
+          "user_id": 1
+        }
+      }
+    ],
+    "transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "amount": {
+            "f": "3f8dbfe765c195d4"
+          },
+          "amount_exec": null,
+          "base": "ETH",
+          "base_asset_id": 2,
+          "bot_id": 1,
+          "bot_interval": "day",
+          "bot_quote_amount": {
+            "f": "3f50624dd2f1a9fc"
+          },
+          "created_at": "2026-09-01 10:00:00.623456",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "ETHBTC-28457",
+          "external_status": 0,
+          "order_type": 0,
+          "price": {
+            "f": "3fa3f91e646f1562"
+          },
+          "quote": "BTC",
+          "quote_amount": {
+            "f": "3f42918ae642a35d"
+          },
+          "quote_amount_exec": null,
+          "quote_asset_id": 1,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 10:00:00.623456"
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "amount": {
+            "f": "3fbb71724c65ffac"
+          },
+          "amount_exec": null,
+          "base": "SOL",
+          "base_asset_id": 5,
+          "bot_id": 1,
+          "bot_interval": "day",
+          "bot_quote_amount": {
+            "f": "3f50624dd2f1a9fc"
+          },
+          "created_at": "2026-09-01 10:00:00.623456",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "SOLBTC-28458",
+          "external_status": 0,
+          "order_type": 0,
+          "price": {
+            "f": "3f62d98bf7f06706"
+          },
+          "quote": "BTC",
+          "quote_amount": {
+            "f": "3f302a61a379c4d2"
+          },
+          "quote_amount_exec": null,
+          "quote_asset_id": 1,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 10:00:00.623456"
+        }
+      },
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "amount": {
+            "f": "403aa0eefd648569"
+          },
+          "amount_exec": null,
+          "base": "ADA",
+          "base_asset_id": 6,
+          "bot_id": 1,
+          "bot_interval": "day",
+          "bot_quote_amount": {
+            "f": "3f50624dd2f1a9fc"
+          },
+          "created_at": "2026-09-01 10:00:00.623456",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "ADABTC-28459",
+          "external_status": 0,
+          "order_type": 0,
+          "price": {
+            "f": "3edd66ee20af77fd"
+          },
+          "quote": "BTC",
+          "quote_amount": {
+            "f": "3f28777fb78f38ed"
+          },
+          "quote_amount_exec": null,
+          "quote_asset_id": 1,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 10:00:00.623456"
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "bot_index_assets": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "asset_id": 2,
+          "bot_id": 1,
+          "created_at": "2026-09-01 10:00:00.623456",
+          "current_allocation": null,
+          "entered_at": "2026-09-01 10:00:00.623456",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fe22222d5171e2a"
+          },
+          "ticker_id": 1,
+          "updated_at": "2026-09-01 10:00:00.623456"
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "asset_id": 5,
+          "bot_id": 1,
+          "created_at": "2026-09-01 10:00:00.623456",
+          "current_allocation": null,
+          "entered_at": "2026-09-01 10:00:00.623456",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fcf92c8c5004fb1"
+          },
+          "ticker_id": 2,
+          "updated_at": "2026-09-01 10:00:00.623456"
+        }
+      },
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "asset_id": 6,
+          "bot_id": 1,
+          "created_at": "2026-09-01 10:00:00.623456",
+          "current_allocation": null,
+          "entered_at": "2026-09-01 10:00:00.623456",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fc7e4b44a1f0803"
+          },
+          "ticker_id": 3,
+          "updated_at": "2026-09-01 10:00:00.623456"
+        }
+      }
+    ],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}

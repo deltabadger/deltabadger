@@ -1,0 +1,120 @@
+{
+  "requests": [
+    "GET api.kraken.com/0/public/AssetPairs?aclass_base=all",
+    "GET api.coinbase.com/api/v3/brokerage/market/products",
+    "GET pro-api.coingecko.com/api/v3/ping",
+    "GET api.coingecko.com/api/v3/exchanges/gdax/tickers?depth=false&include_exchange_logo=false&order=base_asset&page=1"
+  ],
+  "retry": false,
+  "changes": {
+    "assets": [],
+    "tickers": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "ath": null,
+          "ath_updated_at": null,
+          "available": 1,
+          "base": "RNDR",
+          "base_asset_id": 3,
+          "base_decimals": 8,
+          "created_at": "2026-09-01 00:00:00",
+          "exchange_id": 2,
+          "maximum_base_size": null,
+          "maximum_quote_size": null,
+          "minimum_base_size": {
+            "f": "3f1a36e2eb1c432d"
+          },
+          "minimum_quote_size": 1,
+          "price_decimals": 2,
+          "quote": "USD",
+          "quote_asset_id": 2,
+          "quote_decimals": 2,
+          "ticker": "RNDR-USD",
+          "trading_enabled": 1,
+          "updated_at": "2026-09-01 00:00:00"
+        },
+        "after": {
+          "id": 1,
+          "ath": null,
+          "ath_updated_at": null,
+          "available": 1,
+          "base": "RENDER",
+          "base_asset_id": 3,
+          "base_decimals": 8,
+          "created_at": "2026-09-01 00:00:00",
+          "exchange_id": 2,
+          "maximum_base_size": 3400,
+          "maximum_quote_size": 150000000,
+          "minimum_base_size": {
+            "f": "3e45798ee2308c3a"
+          },
+          "minimum_quote_size": 1,
+          "price_decimals": 3,
+          "quote": "USD",
+          "quote_asset_id": 2,
+          "quote_decimals": 2,
+          "ticker": "RENDER-USD",
+          "trading_enabled": 1,
+          "updated_at": "2026-10-02 10:31:00.123456"
+        }
+      },
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "ath": null,
+          "ath_updated_at": null,
+          "available": 1,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "base_decimals": 8,
+          "created_at": "2026-09-01 00:00:00",
+          "exchange_id": 2,
+          "maximum_base_size": null,
+          "maximum_quote_size": null,
+          "minimum_base_size": {
+            "f": "3f1a36e2eb1c432d"
+          },
+          "minimum_quote_size": 1,
+          "price_decimals": 2,
+          "quote": "USD",
+          "quote_asset_id": 2,
+          "quote_decimals": 2,
+          "ticker": "BTC-USD",
+          "trading_enabled": 1,
+          "updated_at": "2026-09-01 00:00:00"
+        },
+        "after": {
+          "id": 2,
+          "ath": null,
+          "ath_updated_at": null,
+          "available": 1,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "base_decimals": 8,
+          "created_at": "2026-09-01 00:00:00",
+          "exchange_id": 2,
+          "maximum_base_size": 3400,
+          "maximum_quote_size": 150000000,
+          "minimum_base_size": {
+            "f": "3e45798ee2308c3a"
+          },
+          "minimum_quote_size": 1,
+          "price_decimals": 3,
+          "quote": "USD",
+          "quote_asset_id": 2,
+          "quote_decimals": 2,
+          "ticker": "BTC-USD",
+          "trading_enabled": 1,
+          "updated_at": "2026-10-02 10:31:00.123456"
+        }
+      }
+    ],
+    "exchange_assets": [],
+    "indices": [],
+    "bot_activity_logs": [],
+    "app_configs": []
+  }
+}

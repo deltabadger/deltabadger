@@ -1,0 +1,45 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123",
+    "secret": "0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318",
+    "passphrase": null
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:30:00.750000Z",
+      "hyperliquid": {
+        "POST /info spotClearinghouseState": [
+          {
+            "status": 200,
+            "body": {
+              "balances": [
+                {
+                  "coin": "BTC",
+                  "token": 0,
+                  "hold": "0.0",
+                  "total": "0.45",
+                  "entryNtl": "0.0"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "market": {
+        "GET /api/v1/prices": [
+          {
+            "status": 500,
+            "body": {
+              "code": 50010000,
+              "message": "internal server error"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

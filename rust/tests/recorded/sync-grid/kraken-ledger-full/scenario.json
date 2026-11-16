@@ -1,0 +1,296 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "kraken": {
+        "POST /0/private/Ledgers?ofs=0": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LD1": {
+                    "refid": "D1",
+                    "time": 1789376400,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "ZUSD",
+                    "amount": "1000.0000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LT1": {
+                    "refid": "T1",
+                    "time": 1789466400,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "ZUSD",
+                    "amount": "-600.0000",
+                    "fee": "1.2000",
+                    "balance": "0"
+                  }
+                },
+                "count": 6
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?ofs=2": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LT2": {
+                    "refid": "T1",
+                    "time": 1789466400,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XXBT",
+                    "amount": "0.0100000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LS1": {
+                    "refid": "S1",
+                    "time": 1789520400,
+                    "type": "staking",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.0500000000",
+                    "fee": "0",
+                    "balance": "0"
+                  }
+                },
+                "count": 6
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?ofs=4": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LW1": {
+                    "refid": "W1",
+                    "time": 1789614000,
+                    "type": "withdrawal",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XXBT",
+                    "amount": "-0.0020000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LT3": {
+                    "refid": "T2",
+                    "time": 1789732800,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "ZUSD",
+                    "amount": "-270.0000",
+                    "fee": "0",
+                    "balance": "0"
+                  }
+                },
+                "count": 6
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?with_cursor=true": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LD1": {
+                    "refid": "D1",
+                    "time": 1789376400,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "ZUSD",
+                    "amount": "1000.0000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LT1": {
+                    "refid": "T1",
+                    "time": 1789466400,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "ZUSD",
+                    "amount": "-600.0000",
+                    "fee": "1.2000",
+                    "balance": "0"
+                  }
+                },
+                "count": null,
+                "cursor": {
+                  "next": "c1"
+                }
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?cursor=c1&with_cursor=true": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LT2": {
+                    "refid": "T1",
+                    "time": 1789466400,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XXBT",
+                    "amount": "0.0100000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LS1": {
+                    "refid": "S1",
+                    "time": 1789520400,
+                    "type": "staking",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XETH",
+                    "amount": "0.0500000000",
+                    "fee": "0",
+                    "balance": "0"
+                  }
+                },
+                "count": null,
+                "cursor": {
+                  "next": "c2"
+                }
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?cursor=c2&with_cursor=true": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LW1": {
+                    "refid": "W1",
+                    "time": 1789614000,
+                    "type": "withdrawal",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XXBT",
+                    "amount": "-0.0020000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LT3": {
+                    "refid": "T2",
+                    "time": 1789732800,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "ZUSD",
+                    "amount": "-270.0000",
+                    "fee": "0",
+                    "balance": "0"
+                  }
+                },
+                "count": null
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?aclass=tokenized_asset&with_cursor=true": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LX1": {
+                    "refid": "T2",
+                    "time": 1789732800,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "tokenized_asset",
+                    "asset": "NVDAx",
+                    "amount": "1.5000000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LX2": {
+                    "refid": "T3",
+                    "time": 1789819200,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "tokenized_asset",
+                    "asset": "NVDAx",
+                    "amount": "-0.5000000000",
+                    "fee": "0.0010000000",
+                    "balance": "0"
+                  }
+                },
+                "count": null,
+                "cursor": {
+                  "next": "t1"
+                }
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?aclass=tokenized_asset&cursor=t1&with_cursor=true": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LX3": {
+                    "refid": "T3",
+                    "time": 1789819200,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "tokenized_asset",
+                    "asset": "ZUSD",
+                    "amount": "90.0000",
+                    "fee": "0",
+                    "balance": "0"
+                  }
+                },
+                "count": null
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

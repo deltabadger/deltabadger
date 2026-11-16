@@ -1,0 +1,1424 @@
+{
+  "ledger": {
+    "whole": {
+      "positions": [
+        {
+          "symbol": "BTC",
+          "quantity": "0.002",
+          "cost": "120.0",
+          "avg_cost": "60000.0",
+          "opened_at": "2026-09-26T10:00:00.000000Z",
+          "estimated": true,
+          "unpriced": "0.002"
+        }
+      ],
+      "round_trips": [],
+      "total_invested": "232.0",
+      "received": "0.0",
+      "realised": "-19.2",
+      "fees": "0.0",
+      "cash_usd": "0.0",
+      "unpriced_proceeds": "0.0",
+      "openings": [],
+      "cash": [
+        [
+          "EUR",
+          "80.0"
+        ]
+      ],
+      "cash_basis": [
+        [
+          "EUR",
+          "92.8"
+        ]
+      ],
+      "incomplete": true,
+      "loss_sales": []
+    },
+    "venues": {
+      "2": {
+        "positions": [
+          {
+            "symbol": "BTC",
+            "quantity": "0.002",
+            "cost": "120.0",
+            "avg_cost": "60000.0",
+            "opened_at": "2026-09-26T10:00:00.000000Z",
+            "estimated": true,
+            "unpriced": "0.002"
+          }
+        ],
+        "round_trips": [],
+        "total_invested": "232.0",
+        "received": "0.0",
+        "realised": "-19.2",
+        "fees": "0.0",
+        "cash_usd": "0.0",
+        "unpriced_proceeds": "0.0",
+        "openings": [],
+        "cash": [
+          [
+            "EUR",
+            "80.0"
+          ]
+        ],
+        "cash_basis": [
+          [
+            "EUR",
+            "92.8"
+          ]
+        ],
+        "incomplete": true,
+        "loss_sales": []
+      }
+    },
+    "figures": {
+      "whole": {
+        "value": "215.6",
+        "invested": "232.0",
+        "held_value": "122.0",
+        "held_cost": "138.4",
+        "fees": "0.0",
+        "realised": "-19.2",
+        "unrealised": "2.8",
+        "total": "-16.4",
+        "holdings": [
+          {
+            "symbol": "BTC",
+            "quantity": "0.002",
+            "value": "122.0",
+            "cost": "120.0",
+            "unrealised": "2.0",
+            "percent": "1.66666666666666666666666666667",
+            "note": {
+              "kind": "unpriced_held",
+              "symbol": "BTC",
+              "exchange": "Binance",
+              "history": "0.002",
+              "held": "0.002",
+              "amount": "122.0"
+            }
+          },
+          {
+            "symbol": "EUR",
+            "quantity": "80.0",
+            "value": "93.6",
+            "cost": null,
+            "unrealised": null,
+            "percent": null,
+            "note": null
+          }
+        ],
+        "notes": [
+          {
+            "kind": "unpriced_held",
+            "symbol": "BTC",
+            "exchange": "Binance",
+            "history": "0.002",
+            "held": "0.002",
+            "amount": "122.0"
+          }
+        ]
+      },
+      "2": {
+        "value": "215.6",
+        "invested": "232.0",
+        "held_value": "122.0",
+        "held_cost": "138.4",
+        "fees": "0.0",
+        "realised": "-19.2",
+        "unrealised": "2.8",
+        "total": "-16.4",
+        "holdings": [
+          {
+            "symbol": "BTC",
+            "quantity": "0.002",
+            "value": "122.0",
+            "cost": "120.0",
+            "unrealised": "2.0",
+            "percent": "1.66666666666666666666666666667",
+            "note": {
+              "kind": "unpriced_held",
+              "symbol": "BTC",
+              "exchange": "Binance",
+              "history": "0.002",
+              "held": "0.002",
+              "amount": "122.0"
+            }
+          },
+          {
+            "symbol": "EUR",
+            "quantity": "80.0",
+            "value": "93.6",
+            "cost": null,
+            "unrealised": null,
+            "percent": null,
+            "note": null
+          }
+        ],
+        "notes": [
+          {
+            "kind": "unpriced_held",
+            "symbol": "BTC",
+            "exchange": "Binance",
+            "history": "0.002",
+            "held": "0.002",
+            "amount": "122.0"
+          }
+        ]
+      }
+    }
+  },
+  "ledger_error": null,
+  "backfill_error": null,
+  "tables": {
+    "portfolio_snapshots": [
+      {
+        "date": "2026-09-25",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": {
+          "f": "406d59999999999a"
+        },
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "406d59999999999a"
+        }
+      },
+      {
+        "date": "2026-09-26",
+        "held_cost_usd": {
+          "f": "40619c28f5c28f5c"
+        },
+        "held_value_usd": 120,
+        "invested_usd": {
+          "f": "406d59999999999a"
+        },
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "406abd70a3d70a3d"
+        }
+      },
+      {
+        "date": "2026-09-27",
+        "held_cost_usd": {
+          "f": "40619c28f5c28f5c"
+        },
+        "held_value_usd": 120,
+        "invested_usd": {
+          "f": "406d59999999999a"
+        },
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "406abd70a3d70a3d"
+        }
+      },
+      {
+        "date": "2026-09-28",
+        "held_cost_usd": {
+          "f": "406199999999999a"
+        },
+        "held_value_usd": 120,
+        "invested_usd": {
+          "f": "406d59999999999a"
+        },
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 214
+      },
+      {
+        "date": "2026-09-29",
+        "held_cost_usd": {
+          "f": "4061970a3d70a3d7"
+        },
+        "held_value_usd": 120,
+        "invested_usd": {
+          "f": "406d59999999999a"
+        },
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "406ac28f5c28f5c3"
+        }
+      },
+      {
+        "date": "2026-09-30",
+        "held_cost_usd": {
+          "f": "4061947ae147ae14"
+        },
+        "held_value_usd": 120,
+        "invested_usd": {
+          "f": "406d59999999999a"
+        },
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "406ac51eb851eb85"
+        }
+      },
+      {
+        "date": "2026-10-01",
+        "held_cost_usd": {
+          "f": "40614ccccccccccd"
+        },
+        "held_value_usd": 122,
+        "invested_usd": 232,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": {
+          "f": "406af33333333333"
+        }
+      }
+    ],
+    "portfolio_venue_snapshots": [
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-25",
+        "value_usd": {
+          "f": "406d59999999999a"
+        },
+        "invested_usd": {
+          "f": "406d59999999999a"
+        },
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-26",
+        "value_usd": {
+          "f": "406abd70a3d70a3d"
+        },
+        "invested_usd": {
+          "f": "406d59999999999a"
+        },
+        "held_value_usd": 120,
+        "held_cost_usd": {
+          "f": "40619c28f5c28f5c"
+        },
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-27",
+        "value_usd": {
+          "f": "406abd70a3d70a3d"
+        },
+        "invested_usd": {
+          "f": "406d59999999999a"
+        },
+        "held_value_usd": 120,
+        "held_cost_usd": {
+          "f": "40619c28f5c28f5c"
+        },
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-28",
+        "value_usd": 214,
+        "invested_usd": {
+          "f": "406d59999999999a"
+        },
+        "held_value_usd": 120,
+        "held_cost_usd": {
+          "f": "406199999999999a"
+        },
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-29",
+        "value_usd": {
+          "f": "406ac28f5c28f5c3"
+        },
+        "invested_usd": {
+          "f": "406d59999999999a"
+        },
+        "held_value_usd": 120,
+        "held_cost_usd": {
+          "f": "4061970a3d70a3d7"
+        },
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-30",
+        "value_usd": {
+          "f": "406ac51eb851eb85"
+        },
+        "invested_usd": {
+          "f": "406d59999999999a"
+        },
+        "held_value_usd": 120,
+        "held_cost_usd": {
+          "f": "4061947ae147ae14"
+        },
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-10-01",
+        "value_usd": {
+          "f": "406af33333333333"
+        },
+        "invested_usd": 232,
+        "held_value_usd": 122,
+        "held_cost_usd": {
+          "f": "40614ccccccccccd"
+        },
+        "partial": 1
+      }
+    ],
+    "wash_sale_locks": [],
+    "historical_prices": [
+      {
+        "id": 1,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-01",
+        "price": 60000
+      },
+      {
+        "id": 2,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-02",
+        "price": 60000
+      },
+      {
+        "id": 3,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-03",
+        "price": 60000
+      },
+      {
+        "id": 4,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-04",
+        "price": 60000
+      },
+      {
+        "id": 5,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-05",
+        "price": 60000
+      },
+      {
+        "id": 6,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-06",
+        "price": 60000
+      },
+      {
+        "id": 7,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-07",
+        "price": 60000
+      },
+      {
+        "id": 8,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-08",
+        "price": 60000
+      },
+      {
+        "id": 9,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-09",
+        "price": 60000
+      },
+      {
+        "id": 10,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-10",
+        "price": 60000
+      },
+      {
+        "id": 11,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-11",
+        "price": 60000
+      },
+      {
+        "id": 12,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-12",
+        "price": 60000
+      },
+      {
+        "id": 13,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-13",
+        "price": 60000
+      },
+      {
+        "id": 14,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-14",
+        "price": 60000
+      },
+      {
+        "id": 15,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-15",
+        "price": 60000
+      },
+      {
+        "id": 16,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-16",
+        "price": 60000
+      },
+      {
+        "id": 17,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-17",
+        "price": 60000
+      },
+      {
+        "id": 18,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-18",
+        "price": 60000
+      },
+      {
+        "id": 19,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-19",
+        "price": 60000
+      },
+      {
+        "id": 20,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-20",
+        "price": 60000
+      },
+      {
+        "id": 21,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-21",
+        "price": 60000
+      },
+      {
+        "id": 22,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-22",
+        "price": 60000
+      },
+      {
+        "id": 23,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-23",
+        "price": 60000
+      },
+      {
+        "id": 24,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-24",
+        "price": 60000
+      },
+      {
+        "id": 25,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-25",
+        "price": 60000
+      },
+      {
+        "id": 26,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-26",
+        "price": 60000
+      },
+      {
+        "id": 27,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-27",
+        "price": 60000
+      },
+      {
+        "id": 28,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-28",
+        "price": 60000
+      },
+      {
+        "id": 29,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-29",
+        "price": 60000
+      },
+      {
+        "id": 30,
+        "asset": "BTC",
+        "currency": "EUR",
+        "date": "2026-09-30",
+        "price": 60000
+      },
+      {
+        "id": 31,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-01",
+        "price": 60000
+      },
+      {
+        "id": 32,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-02",
+        "price": 60000
+      },
+      {
+        "id": 33,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-03",
+        "price": 60000
+      },
+      {
+        "id": 34,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-04",
+        "price": 60000
+      },
+      {
+        "id": 35,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-05",
+        "price": 60000
+      },
+      {
+        "id": 36,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-06",
+        "price": 60000
+      },
+      {
+        "id": 37,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-07",
+        "price": 60000
+      },
+      {
+        "id": 38,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-08",
+        "price": 60000
+      },
+      {
+        "id": 39,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-09",
+        "price": 60000
+      },
+      {
+        "id": 40,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-10",
+        "price": 60000
+      },
+      {
+        "id": 41,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-11",
+        "price": 60000
+      },
+      {
+        "id": 42,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-12",
+        "price": 60000
+      },
+      {
+        "id": 43,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-13",
+        "price": 60000
+      },
+      {
+        "id": 44,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-14",
+        "price": 60000
+      },
+      {
+        "id": 45,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-15",
+        "price": 60000
+      },
+      {
+        "id": 46,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-16",
+        "price": 60000
+      },
+      {
+        "id": 47,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-17",
+        "price": 60000
+      },
+      {
+        "id": 48,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-18",
+        "price": 60000
+      },
+      {
+        "id": 49,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-19",
+        "price": 60000
+      },
+      {
+        "id": 50,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-20",
+        "price": 60000
+      },
+      {
+        "id": 51,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-21",
+        "price": 60000
+      },
+      {
+        "id": 52,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-22",
+        "price": 60000
+      },
+      {
+        "id": 53,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-23",
+        "price": 60000
+      },
+      {
+        "id": 54,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-24",
+        "price": 60000
+      },
+      {
+        "id": 55,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-25",
+        "price": 60000
+      },
+      {
+        "id": 56,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-26",
+        "price": 60000
+      },
+      {
+        "id": 57,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-27",
+        "price": 60000
+      },
+      {
+        "id": 58,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-28",
+        "price": 60000
+      },
+      {
+        "id": 59,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-29",
+        "price": 60000
+      },
+      {
+        "id": 60,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-30",
+        "price": 60000
+      }
+    ],
+    "snapshot_history_version_1": "1_2_2026-09-01T09:00:00.000000Z",
+    "snapshot_price_generation_1": "60"
+  },
+  "requests": {
+    "market": [
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "bitcoin"
+          ],
+          [
+            "currency",
+            "eur"
+          ],
+          [
+            "from",
+            "1780444800"
+          ],
+          [
+            "to",
+            "1790899200"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "bitcoin"
+          ],
+          [
+            "currency",
+            "usd"
+          ],
+          [
+            "from",
+            "1780444800"
+          ],
+          [
+            "to",
+            "1790899200"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "bitcoin"
+          ],
+          [
+            "currency",
+            "eur"
+          ],
+          [
+            "from",
+            "1780444800"
+          ],
+          [
+            "to",
+            "1790899200"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "bitcoin"
+          ],
+          [
+            "currency",
+            "usd"
+          ],
+          [
+            "from",
+            "1780444800"
+          ],
+          [
+            "to",
+            "1790899200"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "bitcoin"
+          ],
+          [
+            "currency",
+            "eur"
+          ],
+          [
+            "from",
+            "1780444800"
+          ],
+          [
+            "to",
+            "1790899200"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "bitcoin"
+          ],
+          [
+            "currency",
+            "usd"
+          ],
+          [
+            "from",
+            "1780444800"
+          ],
+          [
+            "to",
+            "1790899200"
+          ]
+        ]
+      ]
+    ],
+    "alpaca": [],
+    "ecb": [
+      [
+        "GET /service/data/EXR/D.USD+GBP+CHF+SEK+DKK+CZK+PLN+NOK+HUF+RON+BGN.EUR.SP00.A",
+        [
+          [
+            "format",
+            "csvdata"
+          ],
+          [
+            "startPeriod",
+            "1999-01-01"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.USD.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.GBP.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.CHF.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.SEK.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.DKK.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.CZK.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.PLN.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.NOK.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.HUF.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.RON.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.BGN.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /service/data/EXR/D.USD+GBP+CHF+SEK+DKK+CZK+PLN+NOK+HUF+RON+BGN.EUR.SP00.A",
+        [
+          [
+            "format",
+            "csvdata"
+          ],
+          [
+            "startPeriod",
+            "1999-01-01"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.USD.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.GBP.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.CHF.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.SEK.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.DKK.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.CZK.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.PLN.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.NOK.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.HUF.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.RON.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.BGN.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /service/data/EXR/D.USD+GBP+CHF+SEK+DKK+CZK+PLN+NOK+HUF+RON+BGN.EUR.SP00.A",
+        [
+          [
+            "format",
+            "csvdata"
+          ],
+          [
+            "startPeriod",
+            "1999-01-01"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.USD.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.GBP.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.CHF.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.SEK.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.DKK.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.CZK.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.PLN.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.NOK.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.HUF.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.RON.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /rest/download/BBEX3/D.BGN.EUR.BB.AC.000",
+        [
+          [
+            "format",
+            "csv"
+          ],
+          [
+            "lang",
+            "en"
+          ]
+        ]
+      ],
+      [
+        "GET /service/data/EXR/D.USD+GBP+CHF+SEK+DKK+CZK+PLN+NOK+HUF+RON+BGN.EUR.SP00.A",
+        [
+          [
+            "format",
+            "csvdata"
+          ],
+          [
+            "startPeriod",
+            "1999-01-01"
+          ]
+        ]
+      ]
+    ]
+  }
+}

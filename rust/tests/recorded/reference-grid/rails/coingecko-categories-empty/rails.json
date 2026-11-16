@@ -1,0 +1,15 @@
+{
+  "requests": [
+    "GET pro-api.coingecko.com/api/v3/ping",
+    "GET api.coingecko.com/api/v3/coins/categories?order=market_cap_desc"
+  ],
+  "retry": false,
+  "changes": {
+    "assets": [],
+    "tickers": [],
+    "exchange_assets": [],
+    "indices": [],
+    "bot_activity_logs": [],
+    "app_configs": []
+  }
+}

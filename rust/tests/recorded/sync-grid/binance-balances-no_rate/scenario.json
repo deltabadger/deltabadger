@@ -1,0 +1,70 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:30:00.750000Z",
+      "binance": {
+        "GET /api/v3/account": [
+          {
+            "status": 200,
+            "body": {
+              "makerCommission": 10,
+              "canTrade": true,
+              "accountType": "SPOT",
+              "balances": [
+                {
+                  "asset": "EUR",
+                  "free": "50",
+                  "locked": "0.00000000"
+                },
+                {
+                  "asset": "BTC",
+                  "free": "0.1",
+                  "locked": "0.00000000"
+                }
+              ],
+              "permissions": [
+                "SPOT"
+              ],
+              "uid": 354937868
+            }
+          }
+        ]
+      },
+      "market": {
+        "GET /api/v1/exchange_rates": [
+          {
+            "status": 500,
+            "body": {
+              "code": 50010000,
+              "message": "internal server error"
+            }
+          }
+        ],
+        "GET /api/v1/prices": [
+          {
+            "status": 200,
+            "body": {
+              "data": {
+                "bitcoin": {
+                  "usd": 60000.5
+                },
+                "eur": {
+                  "usd": 0.0004
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

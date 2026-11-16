@@ -1,0 +1,83 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 1,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "alpaca": {
+        "GET /v2/account/activities": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "id": "good-early",
+                "activity_type": "INT",
+                "net_amount": "1",
+                "date": "2026-05-15",
+                "status": "executed"
+              },
+              {
+                "id": "split-no-symbol",
+                "activity_type": "SPLIT",
+                "qty": "5",
+                "net_amount": "0",
+                "date": "2026-05-16",
+                "status": "executed"
+              },
+              {
+                "id": "roc-no-symbol",
+                "activity_type": "DIVROC",
+                "qty": "2",
+                "net_amount": "7.25",
+                "date": "2026-05-17",
+                "status": "executed"
+              },
+              {
+                "id": "int-no-time",
+                "activity_type": "INT",
+                "net_amount": "1.15",
+                "status": "executed"
+              },
+              {
+                "id": "fill-no-symbol",
+                "activity_type": "FILL",
+                "transaction_time": "2026-05-17T10:00:00Z",
+                "type": "fill",
+                "price": "2",
+                "qty": "1",
+                "side": "buy",
+                "symbol": null,
+                "leaves_qty": "0",
+                "order_id": "order-fill-no-symbol",
+                "cum_qty": "1",
+                "order_status": "filled"
+              },
+              {
+                "id": "cfee-blank-symbol",
+                "activity_type": "CFEE",
+                "symbol": " ",
+                "qty": "-1",
+                "date": "2026-05-17",
+                "status": "executed"
+              },
+              {
+                "id": "good-late",
+                "activity_type": "INT",
+                "net_amount": "2.35",
+                "date": "2026-05-18",
+                "status": "executed"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

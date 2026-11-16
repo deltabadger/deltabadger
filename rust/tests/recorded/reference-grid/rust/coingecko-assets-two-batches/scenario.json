@@ -1,0 +1,56 @@
+{
+  "parity_scratch": true,
+  "job": "fetch_all_assets_data_from_coingecko_job",
+  "at": "2026-10-02T10:31:00.123456Z",
+  "env": {},
+  "script": {
+    "GET /api/v3/ping": [
+      {
+        "status": 401,
+        "body": {
+          "error": "invalid key"
+        }
+      }
+    ],
+    "GET /api/v3/coins/markets?ids=coin-001,coin-002,coin-003,coin-004,coin-005,coin-006,coin-007,coin-008,coin-009,coin-010,coin-011,coin-012,coin-013,coin-014,coin-015,coin-016,coin-017,coin-018,coin-019,coin-020,coin-021,coin-022,coin-023,coin-024,coin-025,coin-026,coin-027,coin-028,coin-029,coin-030,coin-031,coin-032,coin-033,coin-034,coin-035,coin-036,coin-037,coin-038,coin-039,coin-040,coin-041,coin-042,coin-043,coin-044,coin-045,coin-046,coin-047,coin-048,coin-049,coin-050,coin-051,coin-052,coin-053,coin-054,coin-055,coin-056,coin-057,coin-058,coin-059,coin-060,coin-061,coin-062,coin-063,coin-064,coin-065,coin-066,coin-067,coin-068,coin-069,coin-070,coin-071,coin-072,coin-073,coin-074,coin-075,coin-076,coin-077,coin-078,coin-079,coin-080,coin-081,coin-082,coin-083,coin-084,coin-085,coin-086,coin-087,coin-088,coin-089,coin-090,coin-091,coin-092,coin-093,coin-094,coin-095,coin-096,coin-097,coin-098,coin-099,coin-100,coin-101,coin-102,coin-103,coin-104,coin-105,coin-106,coin-107,coin-108,coin-109,coin-110,coin-111,coin-112,coin-113,coin-114,coin-115,coin-116,coin-117,coin-118,coin-119,coin-120,coin-121,coin-122,coin-123,coin-124,coin-125,coin-126,coin-127,coin-128,coin-129,coin-130,coin-131,coin-132,coin-133,coin-134,coin-135,coin-136,coin-137,coin-138,coin-139,coin-140,coin-141,coin-142,coin-143,coin-144,coin-145,coin-146,coin-147,coin-148,coin-149,coin-150,coin-151,coin-152,coin-153,coin-154,coin-155,coin-156,coin-157,coin-158,coin-159,coin-160,coin-161,coin-162,coin-163,coin-164,coin-165,coin-166,coin-167,coin-168,coin-169,coin-170,coin-171,coin-172,coin-173,coin-174,coin-175,coin-176,coin-177,coin-178,coin-179,coin-180,coin-181,coin-182,coin-183,coin-184,coin-185,coin-186,coin-187,coin-188,coin-189,coin-190,coin-191,coin-192,coin-193,coin-194,coin-195,coin-196,coin-197,coin-198,coin-199,coin-200,coin-201,coin-202,coin-203,coin-204,coin-205,coin-206,coin-207,coin-208,coin-209,coin-210,coin-211,coin-212,coin-213,coin-214,coin-215,coin-216,coin-217,coin-218,coin-219,coin-220,coin-221,coin-222,coin-223,coin-224,coin-225,coin-226,coin-227,coin-228,coin-229,coin-230,coin-231,coin-232,coin-233,coin-234,coin-235,coin-236,coin-237,coin-238,coin-239,coin-240,coin-241,coin-242,coin-243,coin-244,coin-245,coin-246,coin-247,coin-248,coin-249,coin-250&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd": [
+      {
+        "status": 200,
+        "body": [
+          {
+            "id": "coin-001",
+            "symbol": "c1",
+            "name": "C1",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-001.png",
+            "current_price": 1.5,
+            "market_cap": 123456789.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          }
+        ]
+      }
+    ],
+    "GET /api/v3/coins/markets?ids=coin-251&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd": [
+      {
+        "status": 200,
+        "body": [
+          {
+            "id": "coin-251",
+            "symbol": "c251",
+            "name": "C251",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-251.png",
+            "current_price": 1.5,
+            "market_cap": 123456789.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          }
+        ]
+      }
+    ]
+  },
+  "raises": false,
+  "asset": null,
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  }
+}

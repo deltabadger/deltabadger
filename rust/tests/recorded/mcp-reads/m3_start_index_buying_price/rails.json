@@ -1,0 +1,377 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "mcp-session-id": "7da590f9913337d68f7074b63df8e7b9",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-3hxHKW07GSc5OwDVnYRBIg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-11-25\",\"serverInfo\":{\"name\":\"Deltabadger\",\"version\":\"3.0.0-beta.8\"},\"capabilities\":{\"tools\":{\"listChanged\":false},\"logging\":{},\"completions\":{}},\"instructions\":\"Deltabadger is a user's personal investing server. Available exchanges: Alpaca.\\nSupports both cryptocurrency and stocks/ETFs (via Alpaca).\\nTrading is available either via DCA bots, or by direct access to connected exchanges\\nWhen the user asks to trade stocks or ETFs (e.g., QQQM, SPY, AAPL), use the Alpaca exchange.\\nUse list_exchanges to see which exchanges the user has connected before placing orders.\"}}"
+    },
+    {
+      "status": 202,
+      "headers": {
+        "content-type": "application/json",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-Ml1ZJLdAycA/XK9VEJKbTg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": ""
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "mcp-protocol-version": "2025-11-25",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-bfQSwhWHcrXN5Q5lB5AIGA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Bot: Basket (ID 1)\\nType: Dca Index\\nStatus: scheduled\\nExchange: Alpaca\\nHoldings (sellable with liquidate_exited_asset): AAA\\nInterval: week\\nAmount per order: 100.0 USD\\nOrders executed: 2\\nStarted: 2026-03-02 15:30 CET\\n\\n--- Performance ---\\nTotal invested: 200.0 USD\\nCurrent value: 220.0 USD\\nP/L: +10.0%\"}]}}"
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "mcp-protocol-version": "2025-11-25",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-h+dLLTHm9N1hI7sqYJRoTQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Bot: Basket (ID 1)\\nType: Dca Index\\nStatus: scheduled\\nExchange: Alpaca\\nHoldings (sellable with liquidate_exited_asset): AAA\\nInterval: week\\nAmount per order: 100.0 USD\\nOrders executed: 2\\nStarted: 2026-03-02 15:30 CET\\n\\n--- Performance ---\\nTotal invested: 200.0 USD\\nCurrent value: 220.0 USD\\nP/L: +10.0%\"}]}}"
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "mcp-protocol-version": "2025-11-25",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-u418AEj6amcf7OrHd5x2zw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Bot: Basket (ID 1)\\nType: Dca Index\\nStatus: scheduled\\nExchange: Alpaca\\nHoldings (sellable with liquidate_exited_asset): AAA\\nInterval: week\\nAmount per order: 100.0 USD\\nOrders executed: 2\\nStarted: 2026-03-02 15:30 CET\\n\\n--- Performance ---\\nTotal invested: 200.0 USD\\nCurrent value: 220.0 USD\\nP/L: +10.0%\"}]}}"
+    }
+  ],
+  "session": "7da590f9913337d68f7074b63df8e7b9",
+  "rows": {
+    "action_mcp_sessions": [
+      {
+        "id": "7da590f9913337d68f7074b63df8e7b9",
+        "client_capabilities": "{}",
+        "client_info": "{\"name\":\"m2\",\"version\":\"1\"}",
+        "consents": "{}",
+        "created_at": "2026-09-10 12:00:30.123456",
+        "ended_at": null,
+        "initialized": 1,
+        "messages_count": 9,
+        "prompt_registry": "[\"*\"]",
+        "protocol_version": "2025-11-25",
+        "resource_registry": "[\"*\"]",
+        "role": "server",
+        "server_capabilities": "{\"tools\":{\"listChanged\":false},\"logging\":{},\"completions\":{}}",
+        "server_info": "{\"name\":\"Deltabadger\",\"version\":\"3.0.0-beta.8\"}",
+        "session_data": "{\"user_id\":1}",
+        "status": "initialized",
+        "tool_registry": "[\"list_bots\",\"get_bot_details\",\"list_exchanges\",\"get_exchange_balances\",\"get_portfolio_summary\",\"list_transactions\",\"list_open_orders\",\"list_tax_jurisdictions\"]",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      }
+    ],
+    "action_mcp_session_messages": [
+      {
+        "id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": "1",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"m2\",\"version\":\"1\"}}}",
+        "message_type": "request",
+        "request_acknowledged": 1,
+        "request_cancelled": 0,
+        "session_id": "7da590f9913337d68f7074b63df8e7b9",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "client",
+        "is_ping": 0,
+        "jsonrpc_id": "1",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-11-25\",\"serverInfo\":{\"name\":\"Deltabadger\",\"version\":\"3.0.0-beta.8\"},\"capabilities\":{\"tools\":{\"listChanged\":false},\"logging\":{},\"completions\":{}},\"instructions\":\"Deltabadger is a user's personal investing server. Available exchanges: Alpaca.\\nSupports both cryptocurrency and stocks/ETFs (via Alpaca).\\nTrading is available either via DCA bots, or by direct access to connected exchanges\\nWhen the user asks to trade stocks or ETFs (e.g., QQQM, SPY, AAPL), use the Alpaca exchange.\\nUse list_exchanges to see which exchanges the user has connected before placing orders.\"}}",
+        "message_type": "response",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "7da590f9913337d68f7074b63df8e7b9",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 3,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": null,
+        "message_json": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}",
+        "message_type": "notification",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "7da590f9913337d68f7074b63df8e7b9",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 4,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_bot_details\",\"arguments\":{\"bot_id\":1}}}",
+        "message_type": "request",
+        "request_acknowledged": 1,
+        "request_cancelled": 0,
+        "session_id": "7da590f9913337d68f7074b63df8e7b9",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 5,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "client",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Bot: Basket (ID 1)\\nType: Dca Index\\nStatus: scheduled\\nExchange: Alpaca\\nHoldings (sellable with liquidate_exited_asset): AAA\\nInterval: week\\nAmount per order: 100.0 USD\\nOrders executed: 2\\nStarted: 2026-03-02 15:30 CET\\n\\n--- Performance ---\\nTotal invested: 200.0 USD\\nCurrent value: 220.0 USD\\nP/L: +10.0%\"}]}}",
+        "message_type": "response",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "7da590f9913337d68f7074b63df8e7b9",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 6,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_bot_details\",\"arguments\":{\"bot_id\":1}}}",
+        "message_type": "request",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "7da590f9913337d68f7074b63df8e7b9",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 7,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "client",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Bot: Basket (ID 1)\\nType: Dca Index\\nStatus: scheduled\\nExchange: Alpaca\\nHoldings (sellable with liquidate_exited_asset): AAA\\nInterval: week\\nAmount per order: 100.0 USD\\nOrders executed: 2\\nStarted: 2026-03-02 15:30 CET\\n\\n--- Performance ---\\nTotal invested: 200.0 USD\\nCurrent value: 220.0 USD\\nP/L: +10.0%\"}]}}",
+        "message_type": "response",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "7da590f9913337d68f7074b63df8e7b9",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 8,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "server",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_bot_details\",\"arguments\":{\"bot_id\":1}}}",
+        "message_type": "request",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "7da590f9913337d68f7074b63df8e7b9",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      },
+      {
+        "id": 9,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "direction": "client",
+        "is_ping": 0,
+        "jsonrpc_id": "2",
+        "message_json": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Bot: Basket (ID 1)\\nType: Dca Index\\nStatus: scheduled\\nExchange: Alpaca\\nHoldings (sellable with liquidate_exited_asset): AAA\\nInterval: week\\nAmount per order: 100.0 USD\\nOrders executed: 2\\nStarted: 2026-03-02 15:30 CET\\n\\n--- Performance ---\\nTotal invested: 200.0 USD\\nCurrent value: 220.0 USD\\nP/L: +10.0%\"}]}}",
+        "message_type": "response",
+        "request_acknowledged": 0,
+        "request_cancelled": 0,
+        "session_id": "7da590f9913337d68f7074b63df8e7b9",
+        "updated_at": "2026-09-10 12:00:30.123456"
+      }
+    ],
+    "action_mcp_session_subscriptions": [],
+    "oauth_access_tokens": [
+      {
+        "id": 1,
+        "application_id": 1,
+        "created_at": "2026-11-16 07:56:36.909295",
+        "expires_in": null,
+        "previous_refresh_token": "",
+        "refresh_token": null,
+        "resource_owner_id": 1,
+        "revoked_at": null,
+        "scopes": "mcp",
+        "token": "m2-token"
+      }
+    ],
+    "connected_clients": [
+      {
+        "id": 1,
+        "created_at": "2026-11-16 07:56:36.910027",
+        "mcp_tools": "[\"list_bots\",\"list_exchanges\",\"list_transactions\",\"list_tax_jurisdictions\",\"get_exchange_balances\",\"list_open_orders\",\"get_bot_details\",\"get_portfolio_summary\"]",
+        "oauth_application_id": 1,
+        "rest_tools": "[]",
+        "updated_at": "2026-11-16 07:56:36.910027",
+        "user_id": 1
+      }
+    ],
+    "bots": [
+      {
+        "id": 1,
+        "account_balance": 0,
+        "created_at": "2026-11-16 07:56:36.900945",
+        "current_delay": 0,
+        "delay": 0,
+        "exchange_id": 1,
+        "fetch_restarts": 0,
+        "label": "Basket",
+        "last_end_of_funds_notification": null,
+        "position": 1,
+        "redeploy_declined_offset": 0,
+        "restarts": 0,
+        "restatement_generation": 0,
+        "settings": "{\"quote_asset_id\":1,\"quote_amount\":100.0,\"interval\":\"week\",\"num_coins\":1,\"allocation_flattening\":0.0,\"index_type\":\"category\",\"index_category_id\":\"nasdaq-100\",\"index_name\":\"ND100\",\"limit_ordered\":false,\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_order_pcnt_distance\":0.001,\"direction\":\"buying\",\"price_limited\":true}",
+        "settings_changed_at": "2026-11-16 07:56:36.900912",
+        "started_at": "2026-03-02 14:30:00",
+        "status": 1,
+        "stop_message_key": null,
+        "stopped_at": null,
+        "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null,\"price_limit_condition_met_at\":\"2026-01-01T00:00:00Z\"}",
+        "type": "Bots::DcaIndex",
+        "updated_at": "2026-11-16 07:56:36.900945",
+        "user_id": 1
+      },
+      {
+        "id": 2,
+        "account_balance": 0,
+        "created_at": "2026-11-16 07:56:36.908116",
+        "current_delay": 0,
+        "delay": 0,
+        "exchange_id": 1,
+        "fetch_restarts": 0,
+        "label": "Other user",
+        "last_end_of_funds_notification": null,
+        "position": 1,
+        "redeploy_declined_offset": 0,
+        "restarts": 0,
+        "restatement_generation": 0,
+        "settings": "{\"quote_asset_id\":1,\"quote_amount\":100.0,\"interval\":\"week\",\"num_coins\":1,\"allocation_flattening\":0.0,\"index_type\":\"category\",\"index_category_id\":\"nasdaq-100\",\"index_name\":\"ND100\",\"limit_ordered\":false,\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_order_pcnt_distance\":0.001}",
+        "settings_changed_at": "2026-11-16 07:56:36.908092",
+        "started_at": "2026-03-02 14:30:00",
+        "status": 1,
+        "stop_message_key": null,
+        "stopped_at": null,
+        "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+        "type": "Bots::DcaIndex",
+        "updated_at": "2026-11-16 07:56:36.908116",
+        "user_id": 2
+      }
+    ],
+    "transactions": [
+      {
+        "id": 1,
+        "amount": 2,
+        "amount_exec": 2,
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 1,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:30:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Basket-0",
+        "external_status": 2,
+        "order_type": 0,
+        "price": 100,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": 200,
+        "quote_asset_id": 1,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:30:00",
+        "run_identity": null
+      },
+      {
+        "id": 2,
+        "amount": 1,
+        "amount_exec": 1,
+        "base": "AAA",
+        "base_asset_id": 2,
+        "bot_id": 1,
+        "bot_interval": "week",
+        "bot_quote_amount": 100,
+        "created_at": "2026-03-02 14:31:00",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": "Basket-1",
+        "external_status": 2,
+        "order_type": 0,
+        "price": 110,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": 110,
+        "quote_asset_id": 1,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-03-02 14:31:00",
+        "run_identity": null
+      }
+    ],
+    "api_keys": [
+      {
+        "id": 1,
+        "access_token": null,
+        "balances_synced_at": null,
+        "created_at": "2026-11-16 07:56:32.071729",
+        "dh_param": null,
+        "exchange_id": 1,
+        "german_trading_agreement": null,
+        "ibkr_realm": null,
+        "key": "M3-key",
+        "key_type": 0,
+        "last_sync_error": null,
+        "last_synced_at": null,
+        "passphrase": "paper",
+        "rsa_encryption_key": null,
+        "rsa_signature_key": null,
+        "secret": "M3-secret",
+        "status": 1,
+        "updated_at": "2026-11-16 07:56:32.071729",
+        "user_id": 1
+      }
+    ]
+  }
+}

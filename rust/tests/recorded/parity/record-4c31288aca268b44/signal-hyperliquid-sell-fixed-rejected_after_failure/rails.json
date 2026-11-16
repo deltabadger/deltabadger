@@ -1,0 +1,60 @@
+{
+  "sent": [
+    {
+      "a": 10142,
+      "b": false,
+      "p": "63360",
+      "s": "0.00157",
+      "r": false,
+      "t": {
+        "limit": {
+          "tif": "Gtc"
+        }
+      }
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "amount": {
+            "f": "3f59dbcc48676f30"
+          },
+          "amount_exec": 0,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "error_messages": [
+            "Hyperliquid order failed: Insufficient spot balance"
+          ],
+          "exchange_id": 1,
+          "external_id": null,
+          "external_status": null,
+          "order_type": 0,
+          "price": 63360,
+          "quote": "USDC",
+          "quote_amount": 100,
+          "quote_amount_exec": 0,
+          "quote_asset_id": 2,
+          "side": 1,
+          "status": 1,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 14:00:01.250000"
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}
