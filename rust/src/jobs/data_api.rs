@@ -216,6 +216,9 @@ pub trait PriceSource {
     }
     /// Where Utilities::Currency.exchange_rate keeps the rates it computed; none: every sync asks again.
     fn rate_cache(&self) -> Option<&RateCache> { None }
+    /// The venue's own prices, asked for what the provider left unpriced (Rust only, D-VENUE-PRICE-FALLBACK); none by
+    /// default.
+    fn venue_quotes(&self) -> Option<&dyn crate::sync::venue_quotes::VenueQuotes> { None }
 }
 
 /// Utilities::Currency.exchange_rate's Rails.cache entries for fiat into USD: a successful rate is held

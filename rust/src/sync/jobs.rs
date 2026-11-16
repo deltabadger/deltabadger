@@ -36,6 +36,9 @@ pub trait Connect {
     /// Where the tracker loads the ECB's rates from (Tax::EcbFxRates.ensure_loaded!, whatever the market-data provider):
     /// the network for the live factory; by default nowhere, so a test reaches no public host.
     fn ecb(&self) -> Option<crate::tracker::fx::Source> { None }
+    /// The venues' own prices for a balance sync's holdings the provider left unpriced (D-VENUE-PRICE-FALLBACK): the
+    /// live factory's read every venue's public market data; by default none, so a test reaches no public host.
+    fn venue_quotes(&self) -> Option<Box<dyn crate::sync::venue_quotes::VenueQuotes>> { None }
     /// The host a Binance or Binance.US key's reads go to (`venue::binance::host`); a test points it at a local server.
     fn binance_base(&self, exchange_type: &str) -> Option<String> {
         crate::venue::binance::host(exchange_type).map(|(base, _)| base.to_string())
@@ -113,6 +116,7 @@ impl Connect for LiveFactory {
         Ok((base.into(), client))
     }
     fn ecb(&self) -> Option<crate::tracker::fx::Source> { Some(crate::tracker::fx::Source::Live(crate::tracker::fx::Plain::default())) }
+    fn venue_quotes(&self) -> Option<Box<dyn crate::sync::venue_quotes::VenueQuotes>> { Some(Box::new(crate::sync::venue_quotes::Quotes::live())) }
     type T = ReqwestTransport;
     fn connect(&self, credentials: &Credentials) -> AlpacaVenue<ReqwestTransport> { self.alpaca(Some(credentials.clone()), Vec::new()) }
     fn binance_transport(&self, credentials: &Credentials, proxy: Option<&str>) -> ReqwestTransport {

@@ -2132,3 +2132,51 @@ mod coingecko_prices {
         assert_eq!(asked(&cg, CG_RATES), 3, "asked again once the minute is over");
     }
 }
+
+/// A provider (or none) with the venue's own prices behind it (D-VENUE-PRICE-FALLBACK): `wire` answers the venue's
+/// market data and records what was asked.
+struct WithVenue { inner: Box<dyn PriceSource>, venue: deltabadger::sync::venue_quotes::Quotes<ScriptedTransport> }
+impl WithVenue {
+    fn new(inner: Box<dyn PriceSource>, wire: &ScriptedTransport) -> Self {
+        let wire = wire.clone();
+        WithVenue { inner, venue: deltabadger::sync::venue_quotes::Quotes::new(Box::new(move |_, _| wire.clone()), None) }
+    }
+}
+impl PriceSource for WithVenue {
+    fn prices<'a>(&'a self, ids: &'a [String], currency: &'a str) -> PriceFuture<'a> { self.inner.prices(ids, currency) }
+    fn venue_quotes(&self) -> Option<&dyn deltabadger::sync::venue_quotes::VenueQuotes> { Some(&self.venue) }
+}
+
+fn btc_row(c: &Connection) -> (Option<f64>, Option<f64>) {
+    c.query_row("SELECT b.usd_price, b.usd_value FROM account_balances b JOIN assets a ON a.id = b.asset_id WHERE a.symbol = 'BTC'", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+}
+
+/// PLAN-venue-prices S2: with no provider, Alpaca's bitcoin is priced from Alpaca's own crypto trades (BTC/USD), its
+/// stocks from their snapshots as before; with a provider pricing it, the venue is never asked; a venue that does not
+/// answer leaves it unpriced and the sync still succeeds.
+#[tokio::test(flavor = "current_thread")]
+async fn a_holding_the_provider_cannot_price_is_priced_from_the_venue() {
+    let trades = "GET /v1beta3/crypto/us/latest/trades";
+    let (_dir, db, s) = install();
+    let wire = ScriptedTransport::from_script(&json!({ trades: [ok(json!({ "trades": { "BTC/USD": { "p": 64000.0 } } }))] }));
+    let (_, v) = venue(balances_script());
+    let summary = balances::sync(&db, &v, &WithVenue::new(Box::new(NoPrices), &wire), s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    assert_eq!((summary.synced, summary.priced_fresh, summary.unpriced), (3, 3, 0));
+    assert_eq!(db.run(|c, _| Ok(btc_row(c))).await.unwrap(), (Some(64000.0), Some(32000.0)));
+    assert_eq!(wire.requests().iter().map(|r| (r.path.clone(), r.query.clone())).collect::<Vec<_>>(), vec![(trades[4..].to_string(), vec![("symbols", "BTC/USD".to_string())])]);
+
+    let (_dir, db, s) = install();
+    let unasked = ScriptedTransport::default();
+    let provider = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 65000.0 } } }))] }));
+    let (_, v) = venue(balances_script());
+    balances::sync(&db, &v, &WithVenue::new(Box::new(provider), &unasked), s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    assert_eq!(db.run(|c, _| Ok(btc_row(c))).await.unwrap().0, Some(65000.0), "the provider's price");
+    assert!(unasked.requests().is_empty(), "the venue is not asked for what the provider priced");
+
+    let (_dir, db, s) = install();
+    let down = ScriptedTransport::from_script(&json!({ trades: [{ "status": 503, "body": "down" }] }));
+    let (_, v) = venue(balances_script());
+    let summary = balances::sync(&db, &v, &WithVenue::new(Box::new(NoPrices), &down), s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    assert_eq!((summary.synced, summary.unpriced), (3, 1));
+    assert_eq!(db.run(|c, _| Ok(btc_row(c))).await.unwrap(), (None, None));
+}

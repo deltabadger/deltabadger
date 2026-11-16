@@ -97,7 +97,8 @@ impl<C: Connect + Clone + 'static, T: Transport + 'static> Job for Configured<C,
                 let only = crate::market_data::Settings { provider: crate::market_data::Provider::CoinGecko { key: Some(key.into()) }, ..settings.clone() };
                 match (self.feeds)(&only, self.rates.clone()) { Some(Feed::CoinGecko(cg)) => cg, _ => unreachable!("a CoinGecko provider makes a CoinGecko feed") }
             };
-            let prices = Rc::new(crate::sync::balances::MarketPrices::new(&settings, (self.feeds)(&settings, self.rates.clone()), fallback, self.rates.clone()));
+            let prices = Rc::new(crate::sync::balances::MarketPrices::new(&settings, (self.feeds)(&settings, self.rates.clone()), fallback, self.rates.clone())
+                .with_venue_quotes(self.venues.venue_quotes()));
             let spec = self.spec();
             let resolve = all_with(self.venues.clone(), api, feed, prices, tracker::jobs::system_wall());
             match resolve(spec.name, spec.scope.as_deref()) {
