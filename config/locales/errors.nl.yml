@@ -76,6 +76,8 @@ nl:
             permission_denied: "De API-sleutel mist een recht dat %{exchange} hiervoor nodig heeft."
             restricted: "%{exchange} staat handel in deze asset vanuit jouw regio niet toe."
             rate_limited: "%{exchange} beperkt het aantal verzoeken. De bot probeert het automatisch opnieuw."
+            order_too_large: "De order is groter dan %{exchange} toestaat. Verlaag het bedrag of verdeel het over meer bots."
+            order_too_large_limit: "%{exchange} neemt maximaal %{limit} per order aan. Verlaag het bedrag of verdeel het over meer bots."
         bots:
             split:
                 busy: "%{exchange} verwerkt nog een andere order. Probeer het zo opnieuw."

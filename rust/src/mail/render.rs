@@ -213,7 +213,7 @@ fn classify_kraken(message: &str) -> Option<(&'static str, Vec<(&'static str, St
 }
 
 /// Exchange#humanize_error in `locale`: the venue's own classifier (only Kraken has patterns), then the generic sentence
-/// for the failure kind (Exchange::KIND_ERROR_KEYS), then the raw message.
+/// for the failure kind (Exchange::KIND_ERROR_KEYS), then D-ORDER-TOO-LARGE-COPY's sentence, then the raw message.
 pub fn humanize_error(exchange_type: &str, exchange_name: &str, locale: &str, message: &str) -> String {
     let translate = |code: &str, named: &[(&'static str, String)]| {
         let mut args: Vec<(&str, Arg)> = named.iter().map(|(k, v)| (*k, Arg::Text(v.as_str()))).collect();
@@ -228,8 +228,53 @@ pub fn humanize_error(exchange_type: &str, exchange_name: &str, locale: &str, me
         Some("throttle") => translate("rate_limited", &[]),
         Some("transient") => translate("transient_unavailable", &[]),
         Some(kind) => translate(kind, &[]),
-        None => message.to_string(),
+        None => match too_large(exchange_type, message) {
+            Some(Some(limit)) => translate("order_too_large_limit", &[("limit", limit)]),
+            Some(None) => translate("order_too_large", &[]),
+            None => message.to_string(),
+        },
     }
+}
+
+/// D-ORDER-TOO-LARGE-COPY: the texts a venue refuses an order above its per-order maximum with, each from a cited source.
+/// Display only: the engine never sees this classification (no `VenueRules::kinds` entry), so the refusal is retried and
+/// notified exactly as any refusal of no known kind. Asked only for a text no kind names. Bitvavo is matched by its body's
+/// `errorCode` (`too_large`).
+const ORDER_TOO_LARGE: &[(&str, &str)] = &[
+    // Alpaca's 403 to a crypto order above its $200k cap: "order notional 1000000 exceeds max notional per order 200000"
+    // (B12 Stage F, a paper bot); Alpaca docs, Crypto Spot Trading: an order must not exceed $200k in notional, per order.
+    ("Exchanges::Alpaca", "exceeds max notional per order"),
+    // Bybit v5 docs, Error codes, Spot Trade (the stored text is `retMsg`): 170124 "Order amount too large.",
+    // 170381/170382 "Order quantity too large.", 170341 "Request order quantity exceeds maximum limit", 170228 "The purchase
+    // amount of each order exceeds the estimated maximum purchase amount.", 170229 "The sell quantity per order exceeds the
+    // estimated maximum sell quantity.". Not 170197-170200 ("Your order quantity to buy is too large."): price-deviation
+    // protection, another answer.
+    ("Exchanges::Bybit", "Order amount too large."),
+    ("Exchanges::Bybit", "Order quantity too large."),
+    ("Exchanges::Bybit", "Request order quantity exceeds maximum limit"),
+    ("Exchanges::Bybit", "exceeds the estimated maximum purchase amount"),
+    ("Exchanges::Bybit", "exceeds the estimated maximum sell quantity"),
+    // KuCoin docs, Spot error codes: 102434 "Exceeds the maximum order size for the currency" (stored as kucoin::api_error
+    // writes it, "KuCoin API error 102434: …").
+    ("Exchanges::Kucoin", "Exceeds the maximum order size for the currency"),
+];
+/// Bitvavo docs, Errors: 210 "`amount` exceeds the maximum for this market." (the stored text is the body).
+const BITVAVO_AMOUNT_ABOVE_MAXIMUM: i64 = 210;
+/// Alpaca's text ends with its cap: "… exceeds max notional per order 200000".
+const ALPACA_LIMIT_PREFIX: &str = "exceeds max notional per order ";
+
+/// Is this an order-above-the-maximum refusal, and the cap when the text carries one? Alpaca's cap is quoted only when the
+/// text ends with a plain number (digits, at most one '.' between digits); any other ending gives the sentence without it.
+fn too_large(exchange_type: &str, message: &str) -> Option<Option<String>> {
+    let listed = ORDER_TOO_LARGE.iter().any(|(venue, text)| *venue == exchange_type && message.contains(text))
+        || (exchange_type == "Exchanges::Bitvavo" && crate::venue::bitvavo::error_code(message) == Some(BITVAVO_AMOUNT_ABOVE_MAXIMUM));
+    if !listed { return None; }
+    let plain = |s: &str| {
+        let mut parts = s.split('.');
+        let digits = |p: Option<&str>| p.is_some_and(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()));
+        digits(parts.next()) && match parts.next() { None => true, part => digits(part) && parts.next().is_none() }
+    };
+    Some(message.rsplit_once(ALPACA_LIMIT_PREFIX).map(|(_, limit)| limit).filter(|l| exchange_type == "Exchanges::Alpaca" && plain(l)).map(str::to_string))
 }
 
 /// The most a label or a name may be in a mail; longer ones are cut, with an ellipsis (a listed divergence: Rails has

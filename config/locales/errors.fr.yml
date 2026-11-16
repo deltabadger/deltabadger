@@ -60,6 +60,8 @@ fr:
             permission_denied: "Il manque à la clé API une autorisation dont %{exchange} a besoin pour cela."
             restricted: "%{exchange} n'autorise pas le trading de cet actif depuis votre pays."
             rate_limited: "%{exchange} limite le nombre de requêtes. Le bot réessaiera automatiquement."
+            order_too_large: "L'ordre dépasse ce que %{exchange} autorise. Baissez le montant ou répartissez-le sur plusieurs bots."
+            order_too_large_limit: "%{exchange} accepte au plus %{limit} par ordre. Baissez le montant ou répartissez-le sur plusieurs bots."
         bots:
             split:
                 busy: "%{exchange} traite un autre ordre. Réessayez dans un instant."

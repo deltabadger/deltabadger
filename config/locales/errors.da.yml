@@ -69,6 +69,8 @@ da:
             permission_denied: "API-nøglen mangler en tilladelse, som %{exchange} kræver til det her."
             restricted: "%{exchange} tillader ikke handel med dette aktiv fra din region."
             rate_limited: "%{exchange} begrænser antallet af anmodninger. Botten prøver automatisk igen."
+            order_too_large: "Ordren er større, end %{exchange} tillader. Sænk beløbet, eller fordel det på flere botter."
+            order_too_large_limit: "%{exchange} tager højst %{limit} pr. ordre. Sænk beløbet, eller fordel det på flere botter."
         bots:
             split:
                 busy: "%{exchange} behandler en anden ordre. Prøv igen om et øjeblik."
