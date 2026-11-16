@@ -176,7 +176,8 @@ fn bitvavo_sent(t: &ScriptedTransport) -> Vec<Value> {
 }
 
 /// The mails this engine owes since `before`, in the shape Rails' harness reports the mails it enqueued: the mailer action,
-/// the error sentence Bot::ActionJob.humanized_errors hands it (in the user's language), the quote asset's symbol.
+/// the error sentence Bot::ActionJob.humanized_errors hands it (in the user's language; Rails' reading, before
+/// D-RAW-REFUSALS-COPY, which tests/raw_refusals.rs pins), the quote asset's symbol.
 fn mails(c: &Connection, before: &[Pending]) -> Result<Value, EngineError> {
     let mut out = vec![];
     for p in notice::all_pending(c)?.into_iter().filter(|p| !before.contains(p)) {
@@ -189,7 +190,7 @@ fn mails(c: &Connection, before: &[Pending]) -> Result<Value, EngineError> {
             // Rust-only (D-UPGRADE-SET-ASIDE): Rails never sends it, so no recording has it.
             Notice::SetAside { reasons } => mail["reasons"] = reasons.clone().into(),
             Notice::Error { error, .. } | Notice::StoppedByError { error } => {
-                mail["errors"] = json!([crate::mail::render::humanize_error(&exchange_type, &exchange_name, crate::mail::render::user_locale(locale.as_deref()), error)]);
+                mail["errors"] = json!([crate::mail::render::humanize_error_before_raw_refusals(&exchange_type, &exchange_name, crate::mail::render::user_locale(locale.as_deref()), error)]);
             }
             // Bot::Notifyable#notify_stopped_by_amount_limit hands the mailer the bot's quote symbol.
             Notice::StoppedByAmountLimit => mail["quote"] = c.query_row(

@@ -71,6 +71,9 @@ da:
             rate_limited: "%{exchange} begrænser antallet af anmodninger. Botten prøver automatisk igen."
             order_too_large: "Ordren er større, end %{exchange} tillader. Sænk beløbet, eller fordel det på flere botter."
             order_too_large_limit: "%{exchange} tager højst %{limit} pr. ordre. Sænk beløbet, eller fordel det på flere botter."
+            order_too_small: "Ordren er under det minimum, %{exchange} tager imod. Hæv beløbet."
+            order_too_small_limit: "%{exchange} tager imod ordrer på mindst %{minimum}. Hæv beløbet."
+            order_size_out_of_range: "Ordren er uden for den størrelse, %{exchange} tillader. Tjek beløbet."
         bots:
             split:
                 busy: "%{exchange} behandler en anden ordre. Prøv igen om et øjeblik."

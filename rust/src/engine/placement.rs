@@ -541,43 +541,109 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, claim: C
 #[derive(Debug)]
 pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String), Fenced, BelowMinimum(Vec<String>) }
 
-/// D-BELOW-MIN-REJECTION's table: (exchanges.type, structured code, message prefix). An entry with a code matches a
-/// `VenueError::Coded` refusal with that code whose text starts with the prefix ("" for any); one without matches the text's
-/// prefix alone. Only definitive refusals are asked (after `add_outcome_unknown` and the adapters' own ambiguity), and every
-/// message of a refusal must match: a mixed refusal stays a failure. Upper limits and precision failures never match.
-/// Venues not listed (KuCoin, Bitget, BingX, Bitrue, Coinbase, Gemini) have no cited too-small answer yet: theirs stay
-/// failed rows.
-const BELOW_MINIMUM: &[(&str, Option<&str>, &str)] = &[
+/// How the display (D-RAW-REFUSALS-COPY) finds a BELOW_MINIMUM row in a STORED refusal text, which is not what the engine
+/// asks: the adapters store the venue's message without its code (Binance `msg`, MEXC `msg`, Bybit `retMsg`), or the whole
+/// body (Bitvavo, Bitget's non-2xx answers).
+#[derive(Clone, Copy)]
+enum Shown {
+    /// The stored text contains it.
+    Text(&'static str),
+    /// The stored text is a JSON body whose `key` is the row's code.
+    BodyCode(&'static str),
+}
+
+/// One "order too small" answer, as two readers use it.
+struct BelowMinimum {
+    venue: &'static str,
+    /// The engine's match (D-BELOW-MIN-REJECTION): a `VenueError::Coded` refusal with this code whose text starts with
+    /// `prefix` ("" for any); without a code, the text's prefix alone.
+    code: Option<&'static str>,
+    prefix: &'static str,
+    /// The display's match, and whether the text continues with the minimum ("…less than :1USDT").
+    shown: Shown,
+    minimum: bool,
+    /// Whether the engine skips a scheduled DCA buy leg so refused. False: a display-only row the engine never classified
+    /// (adding it to the skip would change what the engine does).
+    skips: bool,
+}
+const fn row(venue: &'static str, code: Option<&'static str>, prefix: &'static str, shown: Shown, minimum: bool, skips: bool) -> BelowMinimum {
+    BelowMinimum { venue, code, prefix, shown, minimum, skips }
+}
+use Shown::{BodyCode, Text};
+
+/// D-BELOW-MIN-REJECTION's table (the `skips` rows), which D-RAW-REFUSALS-COPY also reads to word a too-small refusal the
+/// engine does not skip (a sell, a signal order, a rebalance leg, a display-only venue). Only definitive refusals are asked
+/// by the engine (after `add_outcome_unknown` and the adapters' own ambiguity), and every message of a refusal must match:
+/// a mixed refusal stays a failure. Upper limits and precision failures never match. Venues without a `skips` row (KuCoin,
+/// Bitget, BingX, Bitrue, Coinbase, Gemini) have no cited too-small answer the engine skips: theirs stay failed rows.
+const BELOW_MINIMUM: &[BelowMinimum] = &[
     // Binance spot API docs, Errors → Filter failures (-1013): "MIN_NOTIONAL: price * quantity is too low"; Rails' own
     // fixture of the answer (test/models/exchanges/binance_test.rb, action_job_test.rb). Not "Filter failure: NOTIONAL",
     // whose range also has a maximum, nor LOT_SIZE (too high or too low, or off the step).
-    ("Exchanges::Binance", Some("-1013"), "Filter failure: MIN_NOTIONAL"),
-    ("Exchanges::BinanceUs", Some("-1013"), "Filter failure: MIN_NOTIONAL"),
-    // MEXC spot v3 docs, Error Code: 30002 "The minimum transaction volume cannot be less than :" (30003 is the maximum).
-    ("Exchanges::Mexc", Some("30002"), ""),
+    row("Exchanges::Binance", Some("-1013"), "Filter failure: MIN_NOTIONAL", Text("Filter failure: MIN_NOTIONAL"), false, true),
+    row("Exchanges::BinanceUs", Some("-1013"), "Filter failure: MIN_NOTIONAL", Text("Filter failure: MIN_NOTIONAL"), false, true),
+    // MEXC spot v3 docs, Error Code: 30002 "The minimum transaction volume cannot be less than :" (30003 is the maximum),
+    // followed by the minimum.
+    row("Exchanges::Mexc", Some("30002"), "", Text("The minimum transaction volume cannot be less than :"), true, true),
     // Bybit v5 docs, Error codes (spot): 170140 "Order value exceeded lower limit", 170136 "Order quantity lower than the
     // minimum." (170137/170148 are precision).
-    ("Exchanges::Bybit", Some("170140"), ""),
-    ("Exchanges::Bybit", Some("170136"), ""),
+    row("Exchanges::Bybit", Some("170140"), "", Text("Order value exceeded lower limit"), false, true),
+    row("Exchanges::Bybit", Some("170136"), "", Text("Order quantity lower than the minimum."), false, true),
     // Bitvavo docs, Errors: 217 "`amountQuote` is below the minimum for this market", 212 "`amount` is below the minimum for
-    // this market" (210 is the maximum).
-    ("Exchanges::Bitvavo", Some("217"), ""),
-    ("Exchanges::Bitvavo", Some("212"), ""),
+    // this market" (210 is the maximum). The stored text is the body: matched by its `errorCode`.
+    row("Exchanges::Bitvavo", Some("217"), "", BodyCode("errorCode"), false, true),
+    row("Exchanges::Bitvavo", Some("212"), "", BodyCode("errorCode"), false, true),
     // Kraken support, "API error messages": "EOrder:Order minimum not met (volume too low)".
-    ("Exchanges::Kraken", None, "EOrder:Order minimum not met"),
+    row("Exchanges::Kraken", None, "EOrder:Order minimum not met", Text("EOrder:Order minimum not met"), false, true),
     // Hyperliquid docs, Error responses: MinTradeNtl "Order must have minimum value of $10.", MinTradeSpotNtl "… of 10
     // {quote_token}." (Rails test/models/bot/order_setter_test.rb records the latter as a hard rejection); as the status
     // error hyperliquid::add_order words it.
-    ("Exchanges::Hyperliquid", None, "Hyperliquid order failed: Order must have minimum value of "),
+    row("Exchanges::Hyperliquid", None, "Hyperliquid order failed: Order must have minimum value of ",
+        Text("Hyperliquid order failed: Order must have minimum value of "), true, true),
     // Alpaca's 403 to a crypto buy under its $10 floor: "cost basis must be >= minimal amount of order 10". Its numeric code
     // (40310000) is shared with other refusals (insufficient buying power), so the text decides.
-    ("Exchanges::Alpaca", None, "cost basis must be >= minimal amount of order"),
+    row("Exchanges::Alpaca", None, "cost basis must be >= minimal amount of order", Text("cost basis must be >= minimal amount of order "), true, true),
+    // Display only. Bitget docs, Error codes: 45110 "Less than the minimum order amount" (the scripted Rails recordings
+    // word it "less than the minimum order quantity": the code decides). A non-2xx answer is stored as its body; a 2xx
+    // error envelope as bitget::api_error writes it, "Bitget API error 45110: …".
+    row("Exchanges::Bitget", Some("45110"), "", BodyCode("code"), false, false),
+    row("Exchanges::Bitget", Some("45110"), "", Text("Bitget API error 45110: "), false, false),
+    // Display only. KuCoin docs, Spot error codes: 102435 "Below the minimum order size for the currency" (stored as
+    // kucoin::api_error writes it, "KuCoin API error 102435: …"). Not in kucoin.rs HF_REFUSALS: that is an engine change.
+    row("Exchanges::Kucoin", Some("102435"), "", Text("KuCoin API error 102435: Below the minimum order size for the currency"), false, false),
 ];
 
-/// Is this definitive refusal the venue's "order too small" answer (BELOW_MINIMUM)?
+/// Is this definitive refusal the venue's "order too small" answer (BELOW_MINIMUM's `skips` rows)?
 pub fn below_minimum(exchange_type: &str, code: Option<&str>, errors: &[String]) -> bool {
-    !errors.is_empty() && errors.iter().all(|m| BELOW_MINIMUM.iter().any(|(venue, want, prefix)| *venue == exchange_type
-        && want.is_none_or(|w| code == Some(w)) && m.starts_with(prefix)))
+    !errors.is_empty() && errors.iter().all(|m| BELOW_MINIMUM.iter().filter(|r| r.skips).any(|r| r.venue == exchange_type
+        && r.code.is_none_or(|w| code == Some(w)) && m.starts_with(r.prefix)))
+}
+
+/// D-RAW-REFUSALS-COPY (display only): is this stored refusal text one of BELOW_MINIMUM's answers, and the minimum it
+/// quotes? The minimum is the text after the row's, up to the first ". " or the end with one trailing "." cut, and only
+/// when that is wholly an amount: an optional "$", digits, an optional fraction, then optionally one space and 1–10 ASCII
+/// letters ("1USDT", "$10", "10 USD", "10"). Anything else gives the sentence without it.
+pub fn shown_below_minimum(exchange_type: &str, message: &str) -> Option<Option<String>> {
+    let found = BELOW_MINIMUM.iter().filter(|r| r.venue == exchange_type).find(|r| match r.shown {
+        Text(t) => message.contains(t),
+        BodyCode(key) => crate::venue::binance::body_code(message, key).as_deref() == r.code,
+    })?;
+    let Text(t) = found.shown else { return Some(None) };
+    if !found.minimum { return Some(None); }
+    let rest = message.split_once(t).map(|(_, rest)| rest).unwrap_or_default();
+    let rest = rest.split_once(". ").map_or(rest, |(head, _)| head);
+    let rest = rest.strip_suffix('.').unwrap_or(rest);
+    Some(plain_amount(rest).then(|| rest.to_string()))
+}
+
+fn plain_amount(s: &str) -> bool {
+    let s = s.strip_prefix('$').unwrap_or(s);
+    let number_end = s.find(|c: char| !(c.is_ascii_digit() || c == '.')).unwrap_or(s.len());
+    let (number, unit) = s.split_at(number_end);
+    let digits = |p: &str| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit());
+    let number_ok = match number.split_once('.') { None => digits(number), Some((whole, fraction)) => digits(whole) && digits(fraction) };
+    let unit = unit.strip_prefix(' ').unwrap_or(unit);
+    number_ok && unit.len() <= 10 && unit.bytes().all(|b| b.is_ascii_alphabetic())
 }
 
 /// OM3b's scope: a scheduled DCA, basket or index BUY leg. Out of scope, as before: sells (selling freezes the buy carry),

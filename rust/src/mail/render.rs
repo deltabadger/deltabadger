@@ -212,9 +212,19 @@ fn classify_kraken(message: &str) -> Option<(&'static str, Vec<(&'static str, St
     None
 }
 
-/// Exchange#humanize_error in `locale`: the venue's own classifier (only Kraken has patterns), then the generic sentence
-/// for the failure kind (Exchange::KIND_ERROR_KEYS), then D-ORDER-TOO-LARGE-COPY's sentence, then the raw message.
+/// What the bot page, the orders list, the mail and the desktop notice show for a stored error: the reading below, then,
+/// where it leaves the text raw, D-RAW-REFUSALS-COPY's.
 pub fn humanize_error(exchange_type: &str, exchange_name: &str, locale: &str, message: &str) -> String {
+    let before = humanize_error_before_raw_refusals(exchange_type, exchange_name, locale, message);
+    if before != message { return before; }
+    raw_refusal(exchange_type, exchange_name, locale, message).unwrap_or(before)
+}
+
+/// Exchange#humanize_error in `locale`: the venue's own classifier (only Kraken has patterns), then the generic sentence
+/// for the failure kind (Exchange::KIND_ERROR_KEYS), then D-ORDER-TOO-LARGE-COPY's sentence, then the raw message. The
+/// parity harness compares mails through this (Rails' reading plus #1029's, absent from every recording); the shown
+/// text is `humanize_error`.
+pub fn humanize_error_before_raw_refusals(exchange_type: &str, exchange_name: &str, locale: &str, message: &str) -> String {
     let translate = |code: &str, named: &[(&'static str, String)]| {
         let mut args: Vec<(&str, Arg)> = named.iter().map(|(k, v)| (*k, Arg::Text(v.as_str()))).collect();
         args.push(("exchange", Arg::Text(exchange_name)));
@@ -235,6 +245,41 @@ pub fn humanize_error(exchange_type: &str, exchange_name: &str, locale: &str, me
         },
     }
 }
+
+/// D-RAW-REFUSALS-COPY: a sentence for a refusal the reading above leaves raw. Display only: the engine never sees it.
+/// In order: our own transport errors (whatever the venue's `is_transient` matches), too small (placement::BELOW_MINIMUM,
+/// the engine's skip table and its display-only rows), a Binance-style size filter, and a JSON body's message field.
+fn raw_refusal(exchange_type: &str, exchange_name: &str, locale: &str, message: &str) -> Option<String> {
+    let translate = |code: &str, named: &[(&str, &str)]| {
+        let mut args: Vec<(&str, Arg)> = named.iter().map(|(k, v)| (*k, Arg::Text(v))).collect();
+        args.push(("exchange", Arg::Text(exchange_name)));
+        i18n::text(locale, &format!("errors.exchange.{code}"), &args)
+    };
+    if venue_rules::for_exchange(exchange_type).is_some_and(|rules| rules.is_transient(std::slice::from_ref(&message.to_string()))) {
+        return Some(translate("transient_unavailable", &[]));
+    }
+    if let Some(minimum) = crate::engine::placement::shown_below_minimum(exchange_type, message) {
+        return Some(match minimum { Some(m) => translate("order_too_small_limit", &[("minimum", &m)]), None => translate("order_too_small", &[]) });
+    }
+    if SIZE_FILTER_VENUES.contains(&exchange_type) && SIZE_FILTERS.contains(&message) { return Some(translate("order_size_out_of_range", &[])); }
+    let field = match exchange_type {
+        "Exchanges::Gemini" | "Exchanges::Coinbase" => "message",
+        "Exchanges::Bitvavo" => "error",
+        "Exchanges::Bitget" => "msg",
+        _ => return None,
+    };
+    match serde_json::from_str::<Value>(message).ok()?.get(field)? {
+        Value::String(s) if !crate::ruby::blank(s) => Some(s.clone()),
+        _ => None,
+    }
+}
+
+/// Binance spot API docs, Errors → Filter failures (-1013): NOTIONAL "price * quantity is outside the allowed range",
+/// LOT_SIZE "quantity is too high or too low" (or off the step size, which the engine floors every amount to first). The
+/// same answer for too small and too big, so the sentence names neither. Bitrue answers Binance's filters (the Rails
+/// parity recordings, scripted: `signal-bitrue-*-min_rejected`) under Binance's API, which it mirrors.
+const SIZE_FILTER_VENUES: &[&str] = &["Exchanges::Binance", "Exchanges::BinanceUs", "Exchanges::Bitrue"];
+const SIZE_FILTERS: &[&str] = &["Filter failure: NOTIONAL", "Filter failure: LOT_SIZE"];
 
 /// D-ORDER-TOO-LARGE-COPY: the texts a venue refuses an order above its per-order maximum with, each from a cited source.
 /// Display only: the engine never sees this classification (no `VenueRules::kinds` entry), so the refusal is retried and

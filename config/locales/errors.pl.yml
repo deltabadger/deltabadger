@@ -78,6 +78,9 @@ pl:
             rate_limited: "%{exchange} ogranicza liczbę żądań. Bot automatycznie ponowi próbę."
             order_too_large: "Zlecenie jest większe, niż pozwala %{exchange}. Zmniejsz kwotę albo rozłóż ją na więcej botów."
             order_too_large_limit: "%{exchange} przyjmuje najwyżej %{limit} na jedno zlecenie. Zmniejsz kwotę albo rozłóż ją na więcej botów."
+            order_too_small: "Zlecenie jest poniżej minimum, które przyjmuje %{exchange}. Zwiększ kwotę."
+            order_too_small_limit: "%{exchange} przyjmuje zlecenia od %{minimum}. Zwiększ kwotę."
+            order_size_out_of_range: "Zlecenie jest poza zakresem wielkości, na który pozwala %{exchange}. Sprawdź kwotę."
         bots:
             split:
                 busy: "%{exchange} obsługuje teraz inne zlecenie. Spróbuj za chwilę."
