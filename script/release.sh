@@ -9,14 +9,16 @@
 #   script/release.sh umbrel X.Y.Z [LINE] open the Umbrel release PR pinning that published image (3.0.1 and later)
 #
 # A release bumps src-tauri/Cargo.toml, src-tauri/tauri.conf.json and the lock's deltabadger-desktop entry, commits
-# them to main, fast-forwards nightly, and pushes a signed annotated tag whose message carries the notes and, with
-# --critical, the trailer `Critical: true`. release.yml builds and publishes from the tag. From a beta, the bump that
+# them to main with the day's seed snapshot (rust/seed/seed_data.json.gz, PLAN-B8 r2.6), and pushes a signed annotated
+# tag whose message carries the notes and, with --critical, the trailer `Critical: true`. release.yml builds and publishes from the tag. From a beta, the bump that
 # reaches its version drops the suffix (3.0.0-beta.4 + major → 3.0.0); any other bump is refused.
 set -euo pipefail
 die() { echo "release: $*" >&2; exit 1; }
 cd "$(git rev-parse --show-toplevel)"
 VALIDATE=script/release/validate.sh
-FILES=(src-tauri/Cargo.toml src-tauri/tauri.conf.json src-tauri/Cargo.lock)
+SEED=rust/seed/seed_data.json.gz
+SEED_URL=https://data.deltabadger.com/public/v1/seed_data.json.gz
+FILES=(src-tauri/Cargo.toml src-tauri/tauri.conf.json src-tauri/Cargo.lock "$SEED")
 IMAGE=ghcr.io/deltabadger/deltabadger
 
 # Everything is judged on the remote's refs (r3.1).
@@ -188,24 +190,28 @@ nothing here is user-facing, output nothing at all."
 $log" < /dev/null 2>/dev/null || true)
   fi
 fi
-message=$(mktemp); trap 'rm -f "$message"' EXIT
+message=$(mktemp); snapshot=$(mktemp); trap 'rm -f "$message" "$snapshot"' EXIT
+# The reference data a fresh install of this release starts with: committed in the bump commit, so the tag holds it and
+# release.yml attaches that file, not a second fetch (PLAN-B8 r2.6, PLAN-B11 r1.4).
+curl -fsSL --retry 5 --retry-all-errors --max-filesize 67108864 -o "$snapshot" "$SEED_URL" || die "could not download $SEED_URL"
+bash "$VALIDATE" seed "$snapshot" > /dev/null || die "the downloaded seed snapshot is not a seed bundle; nothing was changed"
 { echo "$tag"; [ -z "$notes" ] || printf '\n%s\n' "$notes"; } > "$message"
 # Only --critical marks a release critical: notes (written or generated) that git would read as a Critical trailer are refused.
 ! git interpret-trailers --parse < "$message" | grep -qi '^critical *:' || die "the notes end in a 'Critical:' trailer; use --critical instead"
 [ "$critical" = false ] || printf '\nCritical: true\n' >> "$message"
 
 echo "$current → $new$([ "$critical" = true ] && echo ' (critical)')"
+echo "seed snapshot: $(cmp -s "$snapshot" "$SEED" && echo unchanged || echo changed)"
 echo "--- tag message"; cat "$message"; echo "---"
 printf 'Proceed? (y/n) '
 read -r answer || true
 [[ $answer =~ ^[yY]$ ]] || die "aborted; nothing was changed"
 
 bash "$VALIDATE" set-version "$new"
+cp "$snapshot" "$SEED"
 git add -- "${FILES[@]}"
 git commit -q -m "Release $tag" -- "${FILES[@]}"
 git push -q origin main
-# nightly never sits behind a release (as release.rake did).
-git push -q origin main:nightly
 git tag -s --cleanup=whitespace "$tag" -F "$message" # keeps Markdown headings
 git push -q origin "$tag"
 echo "Pushed $tag; release.yml builds and publishes it: gh run list --workflow release.yml --limit 1"

@@ -114,4 +114,13 @@ done
 gzip -dc "$good" | { cat; echo; gzip -dc "$good"; } | gzip > "$work/seed.gz"
 refuses "two good bundles in one file fail" "not one JSON object" v seed "$work/seed.gz"
 
+# ---- the attached seed is the tagged one (PLAN-B8 r2.6, PLAN-B11 r1.4): release.yml compares sha256 with the commit's
+mkdir -p "$tree/rust/seed"; cp "$good" "$tree/rust/seed/"
+cp "$good" "$work/asset.gz"; passes "same-seed: the committed snapshot, attached" v same-seed "$work/asset.gz"
+gzip -dc "$good" | jq -c '.["tickers/kraken.json"].data += [.["tickers/kraken.json"].data[0] | .ticker = "B114TESTEUR"]' | gzip -n > "$work/extra.gz"
+passes "a snapshot with an extra ticker is a seed bundle (the floors)" v seed "$work/extra.gz"
+refuses "same-seed: a snapshot that is not the committed one fails" "is not the committed rust/seed/seed_data.json.gz" v same-seed "$work/extra.gz"
+cp "$work/extra.gz" "$tree/rust/seed/seed_data.json.gz"; passes "same-seed: once committed, it is the one" v same-seed "$work/extra.gz"
+refuses "same-seed: a missing asset fails" "no such file" v same-seed "$work/none.gz"
+
 [ "$failures" = 0 ] && echo "all passed" || { echo "$failures failed"; exit 1; }
