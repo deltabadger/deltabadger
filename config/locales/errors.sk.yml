@@ -69,6 +69,8 @@ sk:
             permission_denied: "API kľúču chýba oprávnenie, ktoré %{exchange} na toto potrebuje."
             restricted: "%{exchange} neumožňuje obchodovať toto aktívum z vašej krajiny."
             rate_limited: "%{exchange} obmedzuje počet požiadaviek. Bot to automaticky skúsi znova."
+            order_too_large: "Príkaz je väčší, než %{exchange} povoľuje. Znížte sumu alebo ju rozdeľte medzi viac botov."
+            order_too_large_limit: "%{exchange} prijíma najviac %{limit} na jeden príkaz. Znížte sumu alebo ju rozdeľte medzi viac botov."
         bots:
             split:
                 busy: "%{exchange} práve spracúva iný pokyn. Skúste to o chvíľu."

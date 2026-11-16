@@ -69,6 +69,8 @@ cs:
             permission_denied: "API klíči chybí oprávnění, které k tomu %{exchange} potřebuje."
             restricted: "%{exchange} neumožňuje obchodovat toto aktivum z vašeho regionu."
             rate_limited: "%{exchange} omezuje počet požadavků. Bot to automaticky zkusí znovu."
+            order_too_large: "Příkaz je větší, než %{exchange} povoluje. Snižte částku nebo ji rozdělte mezi více botů."
+            order_too_large_limit: "%{exchange} přijímá nejvýše %{limit} na jeden příkaz. Snižte částku nebo ji rozdělte mezi více botů."
         bots:
             split:
                 busy: "%{exchange} právě zpracovává jiný pokyn. Zkuste to za chvíli."
