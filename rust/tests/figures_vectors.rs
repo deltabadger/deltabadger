@@ -281,28 +281,13 @@ fn the_profit_ratio_is_rubys_float_or_bigdecimal_as_rails_computes_it() {
     for c in cases { assert_eq!(tagged(&walk::pnl(&num(&c[0]), &num(&c[1])).unwrap()), c[2], "{c}"); }
 }
 
-/// The Ruby this library mirrors, by content: a change to any of these files fails here until the port is checked
-/// against it and the vectors are recorded again (script/rust/record_figures_vectors.rb).
+/// AccountTransaction.entry_types[:adjustment], as recorded.
 #[test]
-fn the_ruby_being_mirrored_has_not_changed() {
-    use sha2::{Digest, Sha256};
-    let v = vectors();
-    let pinned = v["ported_sources"].as_object().unwrap();
-    assert_eq!(pinned.len(), 12);
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, sum) in pinned {
-        let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
-        assert_eq!(hex::encode(Sha256::digest(&bytes)), sum.as_str().unwrap(), "{path} changed since the vectors were recorded");
-    }
-    assert_eq!(v["account_transaction_adjustment"], deltabadger::figures::db::ADJUSTMENT, "AccountTransaction.entry_types[:adjustment]");
-    let lockfile = std::fs::read_to_string(root.join("Gemfile.lock")).expect("Gemfile.lock is readable");
-    let bigdecimal = lockfile.lines().find_map(|line| line.strip_prefix("    bigdecimal (").and_then(|version| version.strip_suffix(')')))
-        .expect("Gemfile.lock pins BigDecimal");
-    assert_eq!(v["versions"]["bigdecimal"], bigdecimal, "BigDecimal's division precision is the gem's: record again and re-run the grid when it moves");
+fn the_adjustment_entry_type_is_the_recorded_one() {
+    assert_eq!(vectors()["account_transaction_adjustment"], deltabadger::figures::db::ADJUSTMENT, "AccountTransaction.entry_types[:adjustment]");
 }
 
 // ---- Bot::ChartSeries: the timeframe, reading a grid, thinning the buy marks, marking a chart at market ----
-
 use deltabadger::figures::chart::{self, BuyMark};
 use deltabadger::figures::walk::Chart;
 

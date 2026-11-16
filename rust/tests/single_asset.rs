@@ -15,20 +15,6 @@ fn now() -> DateTime<Utc> { fixture()["now"].as_str().unwrap().parse().unwrap() 
 fn scenarios() -> Vec<Value> { fixture()["scenarios"].as_array().unwrap().clone() }
 fn scenario(name: &str) -> Value { scenarios().into_iter().find(|s| s["name"] == name).unwrap_or_else(|| panic!("no scenario {name}")) }
 
-/// The Rails sources the vectors were recorded from, unchanged since.
-#[test]
-fn ported_sources_are_unchanged() {
-    use sha2::{Digest, Sha256};
-    let f = fixture();
-    let pinned = f["ported_sources"].as_object().unwrap();
-    assert_eq!(pinned.len(), 8);
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, sum) in pinned {
-        let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
-        assert_eq!(hex::encode(Sha256::digest(&bytes)), sum.as_str().unwrap(), "{path} changed since the vectors were recorded");
-    }
-}
-
 const TABLES: [&str; 9] = ["users", "exchanges", "assets", "exchange_assets", "tickers", "api_keys", "bots", "transactions", "bot_index_assets"];
 
 /// A fresh install holding the scenario's `before` rows verbatim; the API keys re-encrypted with the test secret.

@@ -10445,14 +10445,5 @@
     "--dash--": "dash",
     "Ünïcödé ñ": "unicode-n",
     "Ĳssel ŀl": "ijssel-ll"
-  },
-  "sources": {
-    "app/services/export/portable.rb": "df3069b26352ca1dcffe7d6f320d4d73e69d5f75dcdb01edd8e04de50611f324",
-    "lib/export_scratch.rb": "b2aae4e1968f9cbfd2b6b01c1a584ba08be2f0b9b38337993cef6232d052f445",
-    "app/models/account_transaction.rb": "27e1f816648843e735c5a5d0751e4d95afa52ffd266632d2458ac8f95e4aa500",
-    "app/models/bot/exportable.rb": "ba23a91b0205087b4442cb0445c72f54f72f502172401c8dfaf5e0125e5a2ad8",
-    "app/models/concerns/csv_safe.rb": "83041a76c2334e9d9aae1606e8ef6c0b0c4673b5573ceaff012dd713a954a544",
-    "test/support/portable_export_process.rb": "dfb8a1b08859c7c37de2c4366f38e6e2ed171df2734e3516610c689aa01f99f2",
-    "lib/tasks/export.rake": "492fe1bf029a90a9a0240d7693eeaa4d7be12b4fd2eeceb2437c52b576636983"
   }
 }

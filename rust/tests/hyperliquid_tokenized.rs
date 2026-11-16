@@ -1,7 +1,7 @@
 //! Plan B2: a Hyperliquid tokenized stock (an RWA spot listing, category Tokenized Stock) traded by Rails and by Rust over the
 //! same bodies: script/rust/decisions.rb's grid-hyperliquid-tokenized, the Hyperliquid grid's scenarios on MU's pair @333.
 //! Rails has no tokenized path on Hyperliquid, so every scenario is compared whole, with no listed divergence.
-#![cfg(unix)] // shells out to bin/rails
+#![cfg(unix)] // Unix only: it ran Rails until B11 froze its answers into tests/recorded
 mod common;
 
 #[tokio::test(flavor = "current_thread")]

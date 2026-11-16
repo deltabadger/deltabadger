@@ -17,18 +17,6 @@ fn vectors() -> &'static Value {
     V.get_or_init(|| serde_json::from_str(include_str!("fixtures/setup_vectors.json")).unwrap())
 }
 
-#[test]
-fn the_rails_being_mirrored_has_not_changed() {
-    use sha2::{Digest, Sha256};
-    let pinned = vectors()["sources"].as_object().unwrap();
-    assert_eq!(pinned.len(), 16);
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, sum) in pinned {
-        let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
-        assert_eq!(hex::encode(Sha256::digest(&bytes)), sum.as_str().unwrap(), "{path} changed since the vectors were recorded: re-run script/rust/setup.rb");
-    }
-}
-
 /// An install as `db:prepare` leaves it (the exported schema), with no users.
 fn install() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();

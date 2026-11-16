@@ -1,8 +1,4 @@
 {
-  "sources": {
-    "app/models/fiat.rb": "0048cd2d88df87988d658eecbc3aadda6286fad3d7b0a1de3b676e24bc121777",
-    "app/models/exchange/synchronizer.rb": "676dadb6ac6914b15e06d275fff8167ebd5a0073d339ef98ee320c89bdc348c5"
-  },
   "currencies": [
     {
       "external_id": "USD.FOREX",

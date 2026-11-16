@@ -41,12 +41,3 @@ fn decimals_written_as_text_become_real_under_numeric_affinity() {
     let ty: String = db.query_row("SELECT typeof(amount) FROM t", [], |r| r.get(0)).unwrap();
     assert_eq!(ty, "real");
 }
-
-#[test]
-fn the_ruby_gems_the_vectors_came_from_are_the_ones_in_the_lockfile() {
-    let lock = include_str!("../../Gemfile.lock");
-    for (gem, version) in common::vectors()["gems"].as_object().unwrap() {
-        let line = format!("    {gem} ({})", version.as_str().unwrap());
-        assert!(lock.contains(&line), "{gem} moved: re-run script/rust/record_vectors.rb and re-prove (expected `{line}`)");
-    }
-}

@@ -1,7 +1,6 @@
-//! The schema Rust creates (rust/schema/baseline.sql, queue_baseline.sql) is the one Rails builds
-//! (script/rust/prepare_install.rb), compared after this build's Rust migrations on both primaries (PLAN-B1 §7 T1).
-//! `B1_REGENERATE=1` rewrites both files from the Rails-built databases and fails, so the result is reviewed and
-//! committed; CI never sets it. Plus: no Rust migration adds an object to, or rebuilds, a table baseline.sql creates.
+//! The schema Rust creates (rust/schema/baseline.sql, queue_baseline.sql) is the one Rails built (the install frozen at
+//! the oracle commit, recorded/rails-install), compared after this build's Rust migrations on both primaries (PLAN-B1 §7
+//! T1). `EXPECTED_REWRITE=1` rewrites both files from those databases and fails (common::expected). Plus: no Rust migration adds an object to, or rebuilds, a table baseline.sql creates.
 mod common;
 use common::schema::{ident, lit, next_ids, rows, snapshot, tables, texts, Rows};
 use deltabadger::store;
@@ -43,10 +42,8 @@ fn generate(rails: &Connection) -> String {
 fn rust_equals_rails(file: &str, baseline: &str, create: fn(&Connection) -> rusqlite::Result<()>, migrate: bool) {
     let rails_dir = common::rails_install_unmigrated();
     let rails = Connection::open(rails_dir.path().join(file)).unwrap();
-    if std::env::var("B1_REGENERATE").is_ok_and(|v| v == "1") {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("schema").join(baseline);
-        std::fs::write(&path, generate(&rails)).unwrap();
-        panic!("B1_REGENERATE=1: rewrote {}; review and commit it, then run without B1_REGENERATE", path.display());
+    if common::expected::rewriting() {
+        common::expected::rewrite(&Path::new(env!("CARGO_MANIFEST_DIR")).join("schema").join(baseline), generate(&rails).as_bytes());
     }
     let rust_dir = tempfile::tempdir().unwrap();
     let rust = Connection::open(rust_dir.path().join(file)).unwrap();

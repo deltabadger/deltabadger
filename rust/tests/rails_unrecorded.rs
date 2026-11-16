@@ -276,19 +276,6 @@ fn every_line_renders_in_english_without_a_missing_key() {
 
 fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/rails_unrecorded_vectors.json")).unwrap() }
 
-#[test]
-fn the_ruby_being_mirrored_has_not_changed() {
-    use sha2::{Digest, Sha256};
-    let v = vectors();
-    let pinned = v["ported_sources"].as_object().unwrap();
-    assert_eq!(pinned.len(), 8);
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, sum) in pinned {
-        let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
-        assert_eq!(hex::encode(Sha256::digest(&bytes)), sum.as_str().unwrap(), "{path} changed since the vectors were recorded");
-    }
-}
-
 /// r3.3: the saved text alone gives Rails' verdict (Client.network_failure + the placement guard) on every recorded failure.
 #[test]
 fn the_saved_error_text_reads_as_rails_decided_the_failure() {

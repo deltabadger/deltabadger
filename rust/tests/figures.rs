@@ -1,4 +1,4 @@
-#![cfg(unix)] // shells out to bin/rails
+#![cfg(unix)] // Unix only: it ran Rails until B11 froze its answers into tests/recorded
 //! Figures parity: Rails' metrics, live figures, chart and account totals against this library's, on identical
 //! databases built through the Rails models, with the market scripted on both sides and the clock frozen
 //! (script/rust/figures.rb is the Rails half, deltabadger::figures::parity the Rust half).

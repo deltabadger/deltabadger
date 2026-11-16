@@ -9,24 +9,11 @@ use deltabadger::venue::signers::{coinbase, gemini, hyperliquid, ibkr, Nonce};
 use hyperliquid::{Action, OrderWire};
 use serde_json::Value;
 
+mod common;
+
 fn fixture(name: &str) -> Value {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(format!("{name}_signing.json"));
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
-}
-
-#[test]
-fn the_fixtures_are_recorded_from_the_current_recorder() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-    for name in ["gemini", "coinbase", "hyperliquid", "ibkr"] {
-        let f = fixture(name);
-        for (file, recorded) in f["sources"].as_object().unwrap() {
-            use sha2::Digest;
-            let now = hex::encode(sha2::Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-            assert_eq!(recorded.as_str().unwrap(), now, "{file} changed: re-record with script/rust/repin");
-        }
-        assert_eq!(f["gems"]["honeymaker"], "0.12.5");
-        assert_eq!(f["gems"]["hyperliquid-rb"], "0.1.1");
-    }
 }
 
 // ---- the nonce: max(now_ms, last + 1), shared by every caller
@@ -367,11 +354,12 @@ fn ibkr_refuses_unreadable_key_material() {
     assert_eq!(ibkr::Signer::new(&bad_secret).unwrap().prepend(), None, "a secret that does not decrypt");
 }
 
-/// The connect wizard's keys (I3) as Ruby's OpenSSL reads them: Rust's PKCS#8 private PEM and SPKI public PEM load in
+/// The connect wizard's keys (I3) as Ruby's OpenSSL reads them (2.70.21's own ruby, in the published image: common::v2): Rust's PKCS#8 private PEM and SPKI public PEM load in
 /// `OpenSSL::PKey::RSA.new` and agree, ffdhe2048 loads in `OpenSSL::PKey::DH.new` with Rails' own p and g, and the key
 /// Ruby writes back (`to_pem`, PKCS#1, what Rails stores) signs in Rust byte-equal to Ruby's signature.
 #[test]
 fn ibkr_generated_keys_round_trip_through_ruby_openssl() {
+    if !common::v2::enabled() { return; }
     let (private, public) = ibkr::generate_rsa();
     assert!(private.starts_with("-----BEGIN PRIVATE KEY-----\n") && public.starts_with("-----BEGIN PUBLIC KEY-----\n"));
     let dir = tempfile::tempdir().unwrap();
@@ -388,10 +376,8 @@ fn ibkr_generated_keys_round_trip_through_ruby_openssl() {
                             public_pem: key.public_key.to_pem, pkcs1_pem: key.to_pem, dh_p: dh.p.to_s(16).downcase, dh_g: dh.g.to_i,
                             dh_pem: dh.to_pem, signature: Base64.strict_encode64(key.sign(OpenSSL::Digest.new("SHA256"), msg)))
     "##;
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-    let out = std::process::Command::new("ruby").current_dir(&root).args(["-ropenssl", "-rjson", "-rbase64", "-e", RUBY])
-        .arg(dir.path()).output().expect("ruby runs");
-    assert!(out.status.success(), "ruby: {}", String::from_utf8_lossy(&out.stderr));
+    let out = common::v2::run(&[(dir.path(), "/d")], &[("SNIPPET", RUBY)], r#"ruby -ropenssl -rjson -rbase64 -e "$SNIPPET" /d"#);
+    assert!(out.status.success(), "2.70.21's ruby: {}", String::from_utf8_lossy(&out.stderr));
     let r: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!((r["private"].as_bool(), r["bits"].as_u64(), r["public_matches"].as_bool()), (Some(true), Some(2048), Some(true)));
     assert_eq!(r["public_pem"].as_str().unwrap(), public, "Ruby's public_key.to_pem, byte for byte");

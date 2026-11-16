@@ -4,7 +4,6 @@ use deltabadger::sync::activities::Entry;
 use deltabadger::tracker::import::{binance, csv, deltabadger as own};
 use deltabadger::web::tracker::{row::TYPES, CSV_HEADERS};
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 
 fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/import_vectors.json")).expect("import_vectors.json parses") }
 fn b64(v: &Value) -> Vec<u8> { base64::engine::general_purpose::STANDARD.decode(v.as_str().unwrap()).unwrap() }
@@ -25,18 +24,10 @@ fn serialize(e: &Entry, exchange: Option<&Option<String>>) -> Value {
     out
 }
 
+/// The constants the import port shares with Rails' parser, as recorded.
 #[test]
-fn the_ported_ruby_is_the_ruby_that_was_recorded() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+fn the_ported_constants_are_the_recorded_ones() {
     let v = vectors();
-    for (file, recorded) in v["ported_sources"].as_object().unwrap() {
-        let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-        assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-record script/rust/record_import_vectors.rb and re-check rust/src/tracker/import");
-    }
-    let lock = std::fs::read_to_string(root.join("Gemfile.lock")).unwrap();
-    for (gem, version) in v["gems"].as_object().unwrap() {
-        assert!(lock.contains(&format!("    {gem} ({})\n", version.as_str().unwrap())), "Gemfile.lock moved {gem}: re-record the import vectors");
-    }
     let ops: Vec<Value> = binance::OPERATIONS.iter().map(|(op, kind)| json!([op, kind])).collect();
     let recorded: Vec<Value> = v["operations"].as_object().unwrap().iter().map(|(op, kind)| json!([op, kind])).collect();
     assert_eq!(ops, recorded);

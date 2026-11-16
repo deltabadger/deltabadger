@@ -73,25 +73,6 @@ async fn every_recorded_catalogue_reads_as_rails() {
     }
 }
 
-/// The vectors are Rails' answers only while the Rails sources and the honeymaker gem they came from are unchanged.
-#[test]
-fn the_vectors_are_recorded_from_the_current_rails_sources() {
-    use sha2::Digest;
-    let vectors: Value = serde_json::from_str(include_str!("fixtures/catalogue_vectors.json")).unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-    let sources = vectors["sources"].as_object().unwrap();
-    assert!(sources.contains_key("app/models/utilities/number.rb") && sources.contains_key("app/models/exchanges/gemini.rb"));
-    for (file, recorded) in sources {
-        let now = hex::encode(sha2::Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-        assert_eq!(recorded.as_str().unwrap(), now, "{file} changed: re-record with script/rust/repin");
-    }
-    let lock = std::fs::read_to_string(root.join("Gemfile.lock")).unwrap();
-    for (gem, version) in vectors["gems"].as_object().unwrap() {
-        let pinned = format!("    {gem} ({})\n", version.as_str().unwrap());
-        assert!(lock.contains(&pinned), "Gemfile.lock no longer has {gem} {version}: re-record with script/rust/repin");
-    }
-}
-
 #[tokio::test]
 async fn a_retired_stock_or_unknown_venue_has_no_catalogue() {
     let t = ScriptedTransport::default();

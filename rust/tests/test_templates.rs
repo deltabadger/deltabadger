@@ -1,20 +1,10 @@
-#![cfg(unix)] // shells out to bin/rails and kills a process group
-//! The two templates the Rails side of the suite copies instead of rebuilding: the recorders' empty databases
-//! (script/rust/schema_template.rb) and the install rails_install hands to every test (common::install_template_for).
+//! The install template the suite copies instead of rebuilding (common::shared_template): the frozen Rails install
+//! rails_install hands to every test (common::install_template_for).
 mod common;
 use sha2::{Digest, Sha256};
-use std::os::unix::process::CommandExt;
 use std::path::Path;
 
 fn digest(path: &Path) -> String { format!("{:x}", Sha256::digest(std::fs::read(path).unwrap())) }
-
-#[test]
-fn a_copied_schema_template_is_the_install_a_per_scenario_schema_load_gives() {
-    let scratch = tempfile::tempdir().unwrap();
-    let out = tempfile::tempdir().unwrap();
-    // Raises unless schema, rows, pragmas, sqlite_sequence and the next ids are the same.
-    common::rails(scratch.path(), "development", &["runner", "script/rust/schema_template_check.rb", out.path().to_str().unwrap()]);
-}
 
 #[test]
 fn changing_one_install_leaves_the_template_and_every_other_install_as_they_were() {
@@ -32,12 +22,16 @@ fn changing_one_install_leaves_the_template_and_every_other_install_as_they_were
     assert_eq!(seen, 0);
 }
 
-/// The child half of the next test: builds a template in TEMPLATE_BUILD_CHILD="<base>\n<run>", to be killed part-way.
+/// The child half of the next test: in TEMPLATE_BUILD_CHILD="<base>\n<run>", starts the template's build, copies one
+/// of its two files and never finishes, to be killed there.
 #[test]
 fn template_build_child() {
     let Ok(spec) = std::env::var("TEMPLATE_BUILD_CHILD") else { return };
     let (base, run) = spec.split_once('\n').unwrap();
-    common::install_template_for(Path::new(base), run);
+    common::shared_template(Path::new(base), &format!("rails-install-{run}"), |_| true, |out| {
+        std::fs::copy(common::rails_install_template().join(common::INSTALL_FILES[0]), out.join(common::INSTALL_FILES[0])).unwrap();
+        loop { std::thread::park(); }
+    });
 }
 
 #[test]
@@ -47,7 +41,6 @@ fn a_template_build_killed_part_way_is_never_handed_out_and_the_next_build_repla
     let mut child = std::process::Command::new(std::env::current_exe().unwrap())
         .args(["--exact", "template_build_child", "--nocapture"])
         .env("TEMPLATE_BUILD_CHILD", format!("{}\n{run}", base.path().display()))
-        .process_group(0) // its bin/rails dies with it
         .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null())
         .spawn().unwrap();
     let staging = |dir: &Path| std::fs::read_dir(dir).unwrap().flatten().any(|e| e.file_name().to_string_lossy().contains(".staging-"));
@@ -56,8 +49,7 @@ fn a_template_build_killed_part_way_is_never_handed_out_and_the_next_build_repla
         assert!(started.elapsed() < std::time::Duration::from_secs(120), "the child never started a build");
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
-    let pgid = format!("-{}", child.id());
-    assert!(std::process::Command::new("kill").args(["-KILL", "--", &pgid]).status().unwrap().success());
+    child.kill().unwrap();
     child.wait().unwrap();
     let published = base.path().join(format!("rails-install-{run}"));
     assert!(!published.exists(), "the build finished before it was killed; nothing was tested");

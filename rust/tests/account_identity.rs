@@ -213,16 +213,17 @@ fn no_raw_account_id_reaches_the_database() {
     assert_eq!(fx.cipher.decrypt(&String::from_utf8(encrypted).unwrap()).unwrap(), A, "the id is kept, in the credential envelope");
 }
 
-/// The actual Rails recovery (EncryptedCredentials::Reset, as `deltabadger:encryption:reset` runs it), then Rust's start.
+/// The actual 2.70.21 recovery (EncryptedCredentials::Reset, as `deltabadger:encryption:reset` runs it, in the published
+/// image: common::v2) on the install Rust made, then Rust's start.
 #[test]
 fn rust_handles_the_reset_rails_actually_makes() {
+    if !common::v2::enabled() { return; }
     let (fx, _) = established();
-    let scratch = tempfile::tempdir().unwrap();
     drop(fx.c);
-    std::fs::copy(fx.dir.path().join("production.sqlite3"), scratch.path().join("primary.sqlite3")).unwrap();
-    std::fs::copy(fx.dir.path().join("production_queue.sqlite3"), scratch.path().join("queue.sqlite3")).unwrap();
-    common::rails(scratch.path(), "test", &["runner", "EncryptedCredentials::Reset.new.call"]);
-    let c = Connection::open(scratch.path().join("primary.sqlite3")).unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let out = common::v2::rails(fx.dir.path(), scratch.path(), "engine-test-secret", &["runner", "EncryptedCredentials::Reset.new.call"]);
+    assert!(out.status.success(), "2.70.21's reset: {}", String::from_utf8_lossy(&out.stderr));
+    let c = Connection::open(fx.dir.path().join("production.sqlite3")).unwrap();
     assert!(!deltabadger::app_config::exists(&c, identity::KEY_CONFIG).unwrap(), "Rails deleted every app_configs row");
     identity::initialize(&c, &fx.cipher, now()).unwrap();
     let fx = Fx { dir: fx.dir, c, cipher: fx.cipher, user: fx.user };

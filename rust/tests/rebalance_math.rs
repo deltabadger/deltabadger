@@ -9,7 +9,6 @@ use deltabadger::figures::walk::{AssetValue, Breakdown, Metrics};
 use deltabadger::ruby::BigDec;
 use rusqlite::types::ValueRef;
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 
 fn bd(s: &str) -> BigDec { BigDec::parse(s).unwrap() }
 
@@ -115,16 +114,6 @@ fn every_recorded_rails_rebalance_valuation_and_ranking_is_reproduced() {
     // The grid holds what it says it holds.
     assert!(cases.len() >= 10_000 && targeted > 5_000 && due > 1_000 && ties > 200 && sold > 1_000 && bought > 1_000,
             "{} cases, {targeted} targeted, {due} due, {ties} with tied deviations, {sold} sells, {bought} buys", cases.len());
-}
-
-#[test]
-fn the_rebalance_port_is_the_ruby_that_was_recorded() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/rebalance_math.json")).unwrap();
-    for (file, recorded) in fixture["sources"].as_object().unwrap() {
-        let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-        assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-record with script/rust/repin and re-check the rebalance port");
-    }
 }
 
 // ---- 6b T5: the pending state in Rails' exact shape ----

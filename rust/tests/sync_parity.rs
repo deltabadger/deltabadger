@@ -1,33 +1,12 @@
-#![cfg(unix)] // shells out to bin/rails
+#![cfg(unix)] // the interop test runs 2.70.21 in Docker
 //! Row parity for the tracker's syncs: Rails' real jobs (AccountTransaction::SyncJob, AccountBalance::SyncJob) and the
 //! Rust syncs run on copies of one install over the same scripted Alpaca and market-data bodies; the changed rows of
 //! account_transactions, account_balances, api_keys, bots and bot_activity_logs, the requests sent and the key Rails
 //! would read with must be identical, except in the listed divergences, where Rails' result and Rust's are each asserted.
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
-fn try_rails(args: &[&str]) -> Result<(), String> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let scratch = tempfile::tempdir().unwrap();
-    let run = |rails_args: &[&str]| -> Result<(), String> {
-        let mut cmd = Command::new(root.join("bin/rails"));
-        cmd.current_dir(root).args(rails_args).env_remove("DATABASE_URL")
-            .env("APP_ROOT_URL", "http://localhost:3000") // config/environments/development.rb requires it
-            .env("SKIP_TEST_DATABASE", "true") // schema:load in development also purges the repo's storage/test*.sqlite3
-            .env("TZ", "UTC"); // as the hosted containers run: Rails reads a Binance applyTime in the process's zone
-        for db in ["primary", "queue", "cache", "cable"] {
-            cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", scratch.path().display()));
-        }
-        let out = cmd.output().expect("bin/rails runs");
-        if out.status.success() { Ok(()) } else { Err(format!("bin/rails {rails_args:?} failed:\n{}", String::from_utf8_lossy(&out.stderr))) }
-    };
-    run(&["runner", "script/rust/schema_template.rb"])?; // the oracle's own queue, cache and cable databases must exist
-    let mut full = vec!["runner", "script/rust/sync.rb"];
-    full.extend_from_slice(args);
-    run(&full)
-}
 mod common;
 
 /// The sync grid, as `rails(&["grid", into])` builds it: frozen (common::frozen), and copied into `into` for every
@@ -40,7 +19,14 @@ fn built_grid(into: &Path) {
 /// `sync.rb <args>`'s answer (the last arg is the directory it wrote to), frozen (common::freeze::step).
 fn rails(args: &[&str]) { common::freeze::step(args) }
 
-fn live(args: &[&str]) { if let Err(e) = try_rails(args) { panic!("{e}"); } }
+/// 2.70.21 (the published image, common::v2) runs fixtures/v2/sync.rb `record` (sync.rb at the oracle tag) over every
+/// scenario under `root`: Rails acts on what Rust wrote, so it is run live, never frozen.
+fn live_record(root: &Path) {
+    let boot = common::rails_install_unmigrated(); // the boot's own databases; each scenario connects to its own install
+    std::fs::write(root.join("sync.rb"), include_str!("fixtures/v2/sync.rb")).unwrap();
+    let out = common::v2::rails(boot.path(), root, "sync-parity", &["runner", "/x/sync.rb", "record", "/x"]);
+    assert!(out.status.success(), "2.70.21's sync.rb record: {}", String::from_utf8_lossy(&out.stderr));
+}
 
 fn copy_dir(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
@@ -1135,10 +1121,11 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
 }
 
 /// PLAN-B11 r2.2: the sync grid's Rust→Rails half, apart from the frozen comparisons above. Rails runs a second night on
-/// installs Rust synced (and Rust on one Rails synced): an interop check, so Rails is called live, never frozen; B11-3
-/// moves it to the 2.70.21 image.
+/// installs Rust synced (and Rust on one Rails synced): an interop check, so 2.70.21 is run live in the published image
+/// (common::v2), never frozen.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_write_identical_rows_across_the_sync_grid_interop() -> Result<(), Box<dyn std::error::Error>> {
+    if !common::v2::enabled() { return Ok(()); }
     let rails_root = tempfile::tempdir().unwrap();
     let handback = tempfile::tempdir().unwrap();
     built_grid(rails_root.path());
@@ -1173,7 +1160,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid_interop() -> R
     // (no watermark of its own, so the whole history) reads everything again over Rails' rows.
     let (over_dir, only) = hand_back("binance-ledger-two_nights");
     only(&over_dir, 0);
-    live(&["record", handback.path().to_str().unwrap()]); // Rails acts on what Rust wrote: live, never frozen
+    live_record(handback.path()); // Rails acts on what Rust wrote: live, never frozen
     only(&over_dir, 1);
     let rust_over = deltabadger::sync::parity::run(&over_dir, cipher.clone()).await.unwrap();
     let inserted = rows(&rust_over, "account_transactions");

@@ -19,16 +19,6 @@ const OMITTED: [(&str, &str, &str); 7] = [
     ("kucoin", "string_12x", "BTC-USDT"), ("kucoin", "string_infinity", "BTC-USDT"),
 ];
 
-#[test]
-fn the_fixture_is_recorded_from_the_current_rails_sources() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-    for (file, recorded) in fixture()["sources"].as_object().unwrap() {
-        use sha2::Digest;
-        let now = hex::encode(sha2::Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-        assert_eq!(recorded.as_str().unwrap(), now, "{file} changed: re-record with script/rust/repin");
-    }
-}
-
 async fn answer(venue: &str, transport: ScriptedTransport, symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
     match venue {
         "kraken" => KrakenVenue::new(transport).tickers_prices(symbols).await,

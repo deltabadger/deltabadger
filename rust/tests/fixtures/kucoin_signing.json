@@ -1,14 +1,4 @@
 {
-  "sources": {
-    "app/models/exchanges/kucoin.rb": "a4dd07679ac5297f73d7713a812122728872629f60c13cf82d5f1b5c205fef45",
-    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
-    "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
-    "app/models/ticker.rb": "1ae4dac68cab58acaa6679c9bca83e700212ad4baf19e2d8c0946b07eaaabbbc",
-    "script/rust/record_venue_signing.rb": "0a16e616d09b1ae4254f0849fd5495e7582b45b44231c05294d90138ad6118c2"
-  },
-  "gems": {
-    "honeymaker": "0.12.5"
-  },
   "api_key": [
     "6716e9b2a1c3f00001a2b3c4",
     "4f1e8a2c-7b3d-4e6f-9a1b-2c3d4e5f6a7b",

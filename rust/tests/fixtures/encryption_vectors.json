@@ -1,13 +1,4 @@
 {
-  "sources": {
-    "lib/tasks/encryption.rake": "41598898511356bada111fa4f889d8c24187ee5bbdfe079e82415d5ec08a6619",
-    "app/services/encrypted_credentials.rb": "0b0d7469e75bf71aa5eef9ffd95fba7df62db4e8439bf67803c0bb2d90743463",
-    "app/services/encrypted_credentials/report.rb": "e95c184180cf53b5c865bf1d8acb08098b7f6c217569f05fcc682fc355cb107b",
-    "app/services/encrypted_credentials/reset.rb": "b89500f0e2c76aad50b425a7b3a97c37dea041ef738a98229defa05f883ef69b",
-    "config/initializers/secret_key_base_guard.rb": "55c7b5a1648298833d661e1192190f0e20cc4ec8bc4aa844c10656a3c9c47bc1",
-    "config/initializers/active_record_encryption.rb": "403643f5ddf3264d73d92aaed7183a9cee4496b833566e4b420c99950d68d7cb",
-    "config/initializers/encryption_key_check.rb": "c2a1dc85c05d524b2ca1f890c6c5aef8445f55e0800d6f08ed658a027d546682"
-  },
   "secret_key_base": "43a7b23946bbdf7beb504a00208af4b3f9dcef27996551396c9d78f6c65b585a61055db94a3c08361cee3a416be24cc40f55a0842bdd22c71a38d3783f7f0eb0",
   "independent": false,
   "before": {

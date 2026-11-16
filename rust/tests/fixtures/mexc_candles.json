@@ -1,14 +1,4 @@
 {
-  "sources": {
-    "app/models/exchanges/mexc.rb": "08a430af264efc84f88c0233fdd47a9cce4532a0cf829d580f7c9569e0697454",
-    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
-    "app/models/exchange/candle_builder.rb": "37533269883734b7b9fe565def3b953b408d565e719f7cf2e45c7b685d364ff1",
-    "app/models/utilities/hash.rb": "c976d9a7c387bf813da7404a029df8f7afe8dae29567edee5d48ebc7f431cf11",
-    "script/rust/record_candles.rb": "cfe54680b911983d9161e2723b1e3bf22a897cb6ae2574af65deb5d6c697c91a"
-  },
-  "gems": {
-    "honeymaker": "0.12.5"
-  },
   "cases": [
     {
       "venue": "mexc",

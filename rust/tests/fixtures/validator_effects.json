@@ -1,14 +1,4 @@
 {
-  "sources": {
-    "app/jobs/api_key_validator_job.rb": "bae28705fa6c3798785907827847598c841ed5f93cdd3c9b603f89406fbcd417",
-    "app/services/api_key_validator.rb": "d7d01a549dc633d199e0b93c0788e345655f339398f6d2dd046a21648753da13",
-    "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
-    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
-    "app/models/exchanges/kraken.rb": "232820af94e9247375162d361eaff6437ae3f2c95b236bf3114b748026d2d902",
-    "app/models/exchanges/binance.rb": "72139d578fcf6df45576eb7e648185e71d7fad7b8be456bf4438af7dada57649",
-    "app/models/exchanges/kucoin.rb": "a4dd07679ac5297f73d7713a812122728872629f60c13cf82d5f1b5c205fef45",
-    "script/rust/record_validator_effects.rb": "a3d76d31567b9672843a3a34fe39d4debec12372ed392e5ad2e8534fafd011a5"
-  },
   "honeymaker": "0.12.5",
   "cases": [
     {

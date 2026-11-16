@@ -1048,12 +1048,16 @@ fn one_signal_admission_rule_for_engine_and_pages() {
     for venue in [Some("Exchanges::Ibkr"), Some("Exchanges::Unknown"), None] {
         assert_eq!(signal_admission(venue), Some("a signal bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX"), "{venue:?}");
     }
-    let grid = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/decisions.rb")).unwrap();
-    let start = grid.find("def signal_venues").unwrap();
-    let venues = &grid[start..grid[start..].find("def signal_scenarios").unwrap() + start];
-    for key in ["kraken", "binance", "binance_us", "kucoin", "bitvavo", "gemini", "bitget", "mexc", "hyperliquid", "bybit", "bitrue", "coinbase", "bingx", "alpaca"] {
-        assert!(venues.contains(&format!("'{key}' =>")), "the signal grid records {key}");
-    }
+    // Every admitted venue has at least one frozen signal-grid scenario (r2.3: the grid is rust/tests/recorded since B11).
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/recorded/decisions-grid-signal");
+    let recorded: std::collections::BTreeSet<String> = std::fs::read_dir(&dir).unwrap().flatten().filter(|e| e.path().is_dir()).map(|e| {
+        let scenario: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(e.path().join("scenario.json")).unwrap()).unwrap();
+        scenario["venue"].as_str().unwrap().to_string()
+    }).collect();
+    let key = |class: &str| class.trim_start_matches("Exchanges::").chars().enumerate()
+        .flat_map(|(i, c)| (i > 0 && c.is_uppercase()).then_some('_').into_iter().chain(c.to_lowercase())).collect::<String>();
+    let missing: Vec<&str> = SIGNAL_VENUES.into_iter().filter(|v| signal_admission(Some(v)).is_none() && !recorded.contains(&key(v))).collect();
+    assert!(missing.is_empty(), "admitted with no recorded signal scenario: {missing:?}");
 }
 
 /// Plan A5 r1.7: no per-venue "not recorded" signal refusal is left in the source.

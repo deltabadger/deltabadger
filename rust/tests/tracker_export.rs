@@ -86,13 +86,3 @@ async fn export_requires_a_signed_in_user_and_writes_nothing_without_one() {
     assert_eq!(after, before);
 }
 
-/// The Ruby this export mirrors, by content: a change fails here until the vectors are recorded again (script/rust/repin).
-#[test]
-fn the_ruby_being_mirrored_has_not_changed() {
-    use sha2::{Digest, Sha256};
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, sum) in vectors()["ported_sources"].as_object().unwrap() {
-        let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
-        assert_eq!(hex::encode(Sha256::digest(&bytes)), sum.as_str().unwrap(), "{path} changed since the export vectors were recorded");
-    }
-}

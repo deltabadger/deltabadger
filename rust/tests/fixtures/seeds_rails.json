@@ -22350,31 +22350,5 @@
   
       }
     }
-  ],
-  "sources": {
-    "db/seeds.rb": "9fe1823dbf19de6f53f90a3064da0d05d9fef570da91a2c2cd8291aae5f01db4",
-    "app/models/market_data.rb": "6bbe6ff26e48136d21747aa356afe9aba71d1e4bc2b75f0daea8c4da8afe96d7",
-    "app/models/app_config.rb": "0d9af05433ada1382be6acd3267477ce465c81d21aac2d8f56f520fa126082b3",
-    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
-    "app/models/asset.rb": "cf19d01807d40340626cb55125bbb91c8cc90117f75123afea862e822223e71b",
-    "app/models/market_data_settings.rb": "bfce12f2ccc37d11ef7ef9261850fc86d47cf5554877750059b42e81e62f66fa",
-    "rust/schema/baseline.sql": "22965f77a374f6911b15a92fc0c3f5566299842fb3bce82487e9e389d507c48f",
-    "script/rust/record_seeds.rb": "8aff32cea6ec6e97d945bbd1c0388b473670e1020a8c92f66914aeb19c7ea1b0",
-    "script/rust/schema_template.rb": "3341f739a2e1d29414e1717cf6080b6cb514bd4366d64f7379fc2d49dbd38a8c",
-    "db/seed_data/assets.json": "14c08bfb06ba8c04b932f15bd7ef67b03c8cd5a4d9d7a04989e5c89506419e46",
-    "db/seed_data/indices.json": "6d61e0444dd93a0c9b8cd1d4598760fc076bed5ab1a8a73201442dc85f2f9abf",
-    "db/seed_data/tickers/binance.json": "00b25adb2d18a653da041ace63494855392832235c459426884fe22b070be2d9",
-    "db/seed_data/tickers/binance_us.json": "a63ab835fb183cb3fa7ef64c2322c13eb5d63c26f060155a92fe3df05e5da219",
-    "db/seed_data/tickers/bingx.json": "ddf3fa40ec87cf807d39fd7b963d49d9b910b57f396693f8fb26561e81ac8f77",
-    "db/seed_data/tickers/bitget.json": "f13416a96be1deadc7789fac7db0f54244d1ab07d6ddf7f8fc06f0488ef941ab",
-    "db/seed_data/tickers/bitrue.json": "bd219bdf86b165086eafbe5990eb3c4bb2c05166b87cf1bec5729943cd7bff2f",
-    "db/seed_data/tickers/bitvavo.json": "751dbe4e84be8effb9d87bcac2c94c6009590f92342ad0182e257f9e2b49c9d3",
-    "db/seed_data/tickers/bybit.json": "6a827e811f4072a3ad9c26ecbffddbcd8f7743d4ebd1bb04f67b4e89b63e3b60",
-    "db/seed_data/tickers/coinbase.json": "26286c16a985c60b7686666d4da826331b3e647f8967eb96f5b7b0a2b4220b57",
-    "db/seed_data/tickers/gemini.json": "a6936c9311c726ed528eade6f3e693959711f60fc56bd44414018ba270eeefb9",
-    "db/seed_data/tickers/hyperliquid.json": "8af26ca3818a692668e97c3f01b40112770db8b3431d29540c789f4bca4193da",
-    "db/seed_data/tickers/kraken.json": "f23578ba5a823ab937e3c0c34bafe7e67dc1d4ef05ad9912766ed89f064ff6de",
-    "db/seed_data/tickers/kucoin.json": "d25ac563403da0adcb9928c5175dab88c16cfddea5b17c4d3e2fd0433768ea96",
-    "db/seed_data/tickers/mexc.json": "a33e69177dcac4abb7bdbd708ed728c8874506ec3f1d7762ff7de614fd478574"
-  }
+  ]
 }

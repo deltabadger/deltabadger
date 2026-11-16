@@ -768,11 +768,5 @@
       "settings_after": "{\"export_type\":\"transactions\"}",
       "touched": true
     }
-  ],
-  "ported_sources": {
-    "app/controllers/tracker_controller.rb": "f1dc9709d464882d2b7e23dc32c512d464e47509a057b28bb1538b7e8e4b2c78",
-    "app/models/account_transaction.rb": "27e1f816648843e735c5a5d0751e4d95afa52ffd266632d2458ac8f95e4aa500",
-    "app/models/concerns/csv_safe.rb": "83041a76c2334e9d9aae1606e8ef6c0b0c4673b5573ceaff012dd713a954a544",
-    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7"
-  }
+  ]
 }

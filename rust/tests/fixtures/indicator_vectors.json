@@ -1,17 +1,4 @@
 {
-  "sources": {
-    "app/models/ticker/technically_analyzable.rb": "5030ce212a78ff7165f271bde7a84cbd8759f0ea2911525f16de277b6af33c56",
-    "app/models/utilities/time.rb": "c990f47276bf6617cb2403c1c1ee41460281d275a4842ace14d8cf26bc168959",
-    "app/models/ticker.rb": "1ae4dac68cab58acaa6679c9bca83e700212ad4baf19e2d8c0946b07eaaabbbc",
-    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
-    "app/models/exchanges/alpaca.rb": "75dec9187bd8b25f5a54d1dec62943f6de8ced4a8bc72242a0ad150fdd3f1381",
-    "app/models/bot/price_drop_limitable.rb": "565381b74942747e8d56e47cd393c211d83ff5de961d8cfb3fb58c163767d070",
-    "script/rust/record_indicator_vectors.rb": "5b79d56e8358d059221cbfe6a714306db4c6866199fcdf0025a32d44f9338cbd"
-  },
-  "gems": {
-    "ruby-technical-analysis": "1.0.4",
-    "bigdecimal": "4.1.3"
-  },
   "now": "2026-09-02T10:00:01.123456789Z",
   "series": [
     {

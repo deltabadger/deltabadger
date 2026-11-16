@@ -8,15 +8,6 @@ fn vectors() -> Value {
 }
 
 #[test]
-fn recorded_from_the_rails_files_of_this_tree() {
-    use sha2::{Digest, Sha256};
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in vectors()["sources"].as_object().unwrap() {
-        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(path)).unwrap())), hash.as_str().unwrap(), "{path}: script/rust/repin");
-    }
-}
-
-#[test]
 fn jaro_winkler_scores_as_the_gem() {
     let rows = vectors()["jaro_winkler"].as_array().unwrap().clone();
     assert!(rows.len() >= 497);

@@ -2,6 +2,7 @@
 
 #[cfg(unix)]
 pub mod decisions;
+pub mod expected;
 pub mod freeze;
 pub use freeze::frozen;
 #[cfg(unix)]
@@ -12,6 +13,7 @@ pub mod schema;
 pub mod scripted;
 pub mod smtp;
 pub mod web;
+pub mod v2;
 
 type OrderCommitHook = Box<dyn FnMut() -> rusqlite::Result<()>>;
 thread_local! {
@@ -40,20 +42,6 @@ use std::sync::OnceLock;
 
 pub fn vectors() -> serde_json::Value {
     serde_json::from_str(include_str!("../fixtures/ruby_vectors.json")).expect("ruby_vectors.json parses")
-}
-
-/// B11-3 TEMPORARY: the last live repo-Rails runner, for the r7.2 tests still moving to the 2.70.21 image (T8). Deleted
-/// before the PR.
-pub fn rails(scratch: &Path, rails_env: &str, args: &[&str]) {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let mut cmd = std::process::Command::new(root.join("bin/rails"));
-    cmd.current_dir(root).args(args).env_remove("DATABASE_URL")
-        .env("RAILS_ENV", rails_env).env("SKIP_TEST_DATABASE", "true").env("APP_ROOT_URL", "http://localhost:3000");
-    for db in ["primary", "queue", "cache", "cable"] {
-        cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", scratch.display()));
-    }
-    let out = cmd.output().expect("bin/rails runs");
-    assert!(out.status.success(), "bin/rails {args:?} failed:\n{}", String::from_utf8_lossy(&out.stderr));
 }
 
 pub const INSTALL_FILES: [&str; 2] = ["production.sqlite3", "production_queue.sqlite3"];
@@ -211,15 +199,9 @@ pub fn install_alpaca() -> (tempfile::TempDir, deltabadger::store::Opened, seed:
     (dir, o, s)
 }
 
-/// Named run-ownership divergence witnesses recorded from unchanged main Rails.
-/// Pin both sides: a future Rails fix must update the explicitly stricter comparison.
+/// Named run-ownership divergence witnesses recorded from Rails at the oracle commit.
 pub fn ownership_case(name: &str) -> serde_json::Value {
-    use sha2::{Digest, Sha256};
     let fixture: serde_json::Value = serde_json::from_str(include_str!("../fixtures/run_ownership.json")).unwrap();
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in fixture["sources"].as_object().unwrap() {
-        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(path)).unwrap())), hash.as_str().unwrap(), "{path}: re-record run-ownership witnesses from Rails");
-    }
     fixture["cases"].get(name).unwrap().clone()
 }
 

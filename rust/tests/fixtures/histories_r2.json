@@ -1,20 +1,5 @@
 {
   "synthetic_only": true,
-  "sources": {
-    "app/models/bot/composition/order_setter.rb": "8f189ecf4245935df07c66cde3df103cf84afd3b6a786617384b323169ee4e28",
-    "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
-    "app/models/bot/order_setter.rb": "8ab21b724aa9195484cfdde5ae476ea006c3da1e5ab65cffc086d304c0f24dff",
-    "app/models/bot/order_creator.rb": "2187adb422ff1dd324fcf0d0b14a10d079ab35ba38ce60b53e78dd82e53d776c",
-    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
-    "app/models/bot/quote_amount_limitable.rb": "164d4fa19650fe3faecba512de5031aaf057f7bd48d0699e88a1ba46d121f220",
-    "app/models/ticker.rb": "1ae4dac68cab58acaa6679c9bca83e700212ad4baf19e2d8c0946b07eaaabbbc",
-    "app/models/exchanges/alpaca.rb": "75dec9187bd8b25f5a54d1dec62943f6de8ced4a8bc72242a0ad150fdd3f1381",
-    "app/views/bots/composition/_warning_below_minimums.html.erb": "6e83095760edbb9e9232a63d6cf5e4b6987a79a41191b17d7b2a39788c226200",
-    "app/views/bots/dca_single_assets/_warning_below_minimums.html.erb": "255505a6dfd6f03b0ca82f60d4e3c221807cd2dd012a7f51d6868dd2c509959a",
-    "app/views/layouts/modal/_base.html.erb": "18048e5c421ecf9cf1226b4f1fa988e95978b00db500f69795c44ad9735dceba",
-    "app/views/svg/_24x24_close.html.haml": "e3bb0cf70e778ad35afa6366b249cb32df15415e1e553a76c9f7004185213cdb",
-    "script/rust/record_histories_r2.rb": "c5227f2745e2ce332854b7ab5e5c7be6a3accd01d4f4dffbbfbc5fa2ce72b734"
-  },
   "cases": [
     {
       "name": "exact_cost",

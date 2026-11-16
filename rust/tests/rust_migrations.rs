@@ -329,23 +329,6 @@ fn the_kucoin_cutoffs_move_from_app_configs_to_their_own_table() {
     assert_eq!(keys, ["rust_sync.ledger:1"]);
 }
 
-/// `create_table "<name>"` lines in a schema dump for any of `tables`.
-fn leaked(schema: &str, tables: &[&str]) -> Vec<String> {
-    tables.iter().filter(|t| schema.contains(&format!("create_table \"{t}\""))).map(|t| t.to_string()).collect()
-}
-
-/// Rails' db:schema:dump includes every table it finds; db/schema.rb must never carry Rust's.
-#[test]
-fn db_schema_rb_holds_no_rust_table() {
-    let schema = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../db/schema.rb")).unwrap();
-    let probe = Registry { migrations: &[], tables: PROBE_TABLES, retired: &[] };
-    for tables in [REGISTRY.owned_tables(), probe.owned_tables()] {
-        assert_eq!(leaked(&schema, &tables), Vec::<String>::new(), "db/schema.rb was dumped from a Rust-migrated database");
-    }
-    let dumped = format!("{schema}\n  create_table \"rust_migration_probe\", force: :cascade do |t|\n  end\n");
-    assert_eq!(leaked(&dumped, &probe.owned_tables()), vec!["rust_migration_probe".to_string()], "a leaked dump is caught");
-}
-
 const STRAY: &str = "20261025000001";
 
 /// An unmigrated install brought up to just before the stray-conditions migration, opened, with the Kraken fixtures seeded.

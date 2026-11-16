@@ -249,16 +249,6 @@ async fn failed_refresh_and_hostile_bare_numbers_never_become_prices() {
     }
 }
 
-#[test]
-fn the_rails_sources_of_the_page_figures_are_pinned() {
-    use sha2::{Digest,Sha256};
-    let files:serde_json::Value=serde_json::from_str(include_str!("fixtures/page_figure_sources.json")).unwrap();
-    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (file,hash) in files.as_object().unwrap(){
-        assert_eq!(hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap())),hash.as_str().unwrap(),"{file}: record the page parity grid after checking its port");
-    }
-}
-
 struct Reply(Result<HttpResponse, TransportError>);
 impl Transport for Reply {
     async fn send(&self, _: &HttpRequest) -> Result<HttpResponse, TransportError> { self.0.clone() }

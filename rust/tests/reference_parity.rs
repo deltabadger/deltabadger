@@ -1,4 +1,4 @@
-#![cfg(unix)] // shells out to bin/rails, as rust/tests/parity.rs does
+#![cfg(unix)] // Unix only, as rust/tests/parity.rs is
 //! The reference-data jobs write exactly the rows Rails writes, for every scripted data-api payload of the grid
 //! (script/rust/reference_data.rb is the Rails half).
 use serde_json::Value;

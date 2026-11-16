@@ -45,18 +45,6 @@ fn order(kind: OrderKind, quote: bool, volume: &str, side: Side) -> NewOrder {
                deadline: "2026-09-01T10:00:10Z".parse().unwrap(), day: false }
 }
 
-#[test]
-fn the_fixtures_are_recorded_from_the_current_rails_sources() {
-    use sha2::Digest;
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-    for f in [fixture(), vectors()] {
-        for (file, recorded) in f["sources"].as_object().unwrap() {
-            let now = hex::encode(sha2::Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-            assert_eq!(recorded.as_str().unwrap(), now, "{file} changed: re-record with script/rust/repin");
-        }
-    }
-}
-
 /// Honeymaker::Clients::Bitget#signed_headers, byte for byte under a frozen #timestamp_ms: GETs with and without a query, an
 /// escaped one, POSTs (the JSON body as sent, nils compacted), and the public reads (no signature).
 #[test]

@@ -1,4 +1,4 @@
-#![cfg(unix)] // shells out to bin/rails
+#![cfg(unix)] // Unix only: it ran Rails until B11 froze its answers into tests/recorded
 //! Value parity for the tracker's walk, figures, snapshots and wash-sale locks: Rails' real jobs (Tracker::LedgerJob,
 //! PortfolioSnapshot::BackfillJob) and the Rust jobs run on copies of one install over the same scripted data-api and
 //! Alpaca bodies, at one instant. The scopes the walk stated, the figures of each of today's rows, the snapshot rows,

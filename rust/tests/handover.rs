@@ -110,6 +110,7 @@ fn a_takeover_repeated_after_a_failure_following_the_claim_finishes_the_job() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn an_unresolved_order_blocks_handback_and_rails_keeps_refusing() {
+    if !common::v2::enabled() { return; }
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
@@ -133,6 +134,7 @@ async fn an_unresolved_order_blocks_handback_and_rails_keeps_refusing() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_completed_handback_is_adopted_by_rails() {
+    if !common::v2::enabled() { return; }
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
@@ -148,39 +150,29 @@ async fn a_completed_handback_is_adopted_by_rails() {
     assert_eq!(count(&q, "SELECT count(*) FROM solid_queue_jobs WHERE class_name = 'Bot::RepairOrphanedBotsJob'"), 1, "adopted: repair enqueued");
 }
 
-/// Boots the real Rails app (development env, not test, so the engine-lease initializers run) against this
+/// Boots 2.70.21 (the published image, common::v2; production env, so the engine-lease initializers run) against this
 /// install's files, with the test cipher's keys, and reports whether it started.
 fn rails_boot(dir: &std::path::Path) -> (bool, String) { rails_boot_running(dir, "") }
 
 /// `rails_boot`, running `script` (Ruby) in the booted app.
 fn rails_boot_running(dir: &std::path::Path, script: &str) -> (bool, String) {
     let scratch = tempfile::tempdir().unwrap();
-    let file = scratch.path().join("script.rb"); // a file, so a raise shows its backtrace
-    std::fs::write(&file, format!("{script}\nputs :booted\n")).unwrap();
-    let out = rails_on(dir, scratch.path(), &["runner", file.to_str().unwrap()]).output().expect("bin/rails runs");
+    std::fs::write(scratch.path().join("script.rb"), format!("{script}\nputs :booted\n")).unwrap(); // a file, so a raise shows its backtrace
+    let out = rails_on(dir, scratch.path(), &["runner", "/x/script.rb"]);
     (out.status.success() && String::from_utf8_lossy(&out.stdout).contains("booted"), String::from_utf8_lossy(&out.stderr).into_owned())
 }
 
-/// `bin/rails <args>` in the development env against this install's files (cache and cable in `scratch`), with the
-/// test cipher's keys. A schema dump goes to `scratch`, never to db/.
-fn rails_on(dir: &std::path::Path, scratch: &std::path::Path, args: &[&str]) -> Command {
-    let keys = deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "engine-test-secret").unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let mut command = Command::new(root.join("bin/rails"));
-    command.current_dir(root).args(args).env("SCHEMA", scratch.join("schema.rb"))
-        .env("RAILS_ENV", "development").env_remove("DATABASE_URL").env("APP_ROOT_URL", "http://localhost:3000")
-        .env("PRIMARY_DATABASE_URL", format!("sqlite3:{}", dir.join("production.sqlite3").display()))
-        .env("QUEUE_DATABASE_URL", format!("sqlite3:{}", dir.join("production_queue.sqlite3").display()))
-        .env("CACHE_DATABASE_URL", format!("sqlite3:{}/cache.sqlite3", scratch.display()))
-        .env("CABLE_DATABASE_URL", format!("sqlite3:{}/cable.sqlite3", scratch.display()))
-        .env("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY", keys.primary_key).env("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT", keys.key_derivation_salt);
-    command
+/// 2.70.21's `rails <args>` against this install's files (cache, cable and any schema dump in `scratch`, at /x), with
+/// the test cipher's keys.
+fn rails_on(dir: &std::path::Path, scratch: &std::path::Path, args: &[&str]) -> std::process::Output {
+    common::v2::rails(dir, scratch, "engine-test-secret", args)
 }
 
 /// Rails runs on an install Rust migrated: it ignores rust_schema_migrations and Rust's tables in db:migrate,
 /// db:migrate:status and a boot after a handback, and leaves them as they were.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
+    if !common::v2::enabled() { return; }
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
@@ -200,7 +192,7 @@ async fn rails_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
     drop((l, o));
     let scratch = tempfile::tempdir().unwrap();
     for task in ["db:migrate", "db:migrate:status:primary"] {
-        let out = rails_on(dir.path(), scratch.path(), &[task]).output().expect("bin/rails runs");
+        let out = rails_on(dir.path(), scratch.path(), &[task]);
         assert!(out.status.success(), "{task}: {}", String::from_utf8_lossy(&out.stderr));
         let stdout = String::from_utf8_lossy(&out.stdout);
         assert!(!stdout.contains(" down ") && !stdout.contains("NO FILE"), "{task}: {stdout}");
@@ -390,6 +382,7 @@ async fn crash_then_handback(raised: bool) {
 /// checkpoint, so Rails does not buy the remainder early either.
 #[tokio::test(flavor = "current_thread")]
 async fn a_deferral_crash_then_handback_then_rails_tick_buys_nothing_before_the_next_checkpoint() {
+    if !common::v2::enabled() { return; }
     let at: DateTime<Utc> = "2026-09-01T10:30:00Z".parse().unwrap();
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
@@ -481,6 +474,7 @@ fn an_index_bots_rails_jobs_are_removed_at_takeover() {
 /// `scheduled` would trade it at the next checkpoint whatever the price.
 #[tokio::test(flavor = "current_thread")]
 async fn a_price_paused_bot_is_handed_over_paused_and_rails_restarts_its_check() {
+    if !common::v2::enabled() { return; }
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
@@ -511,6 +505,7 @@ async fn a_price_paused_bot_is_handed_over_paused_and_rails_restarts_its_check()
 /// Rust reclaim finds them, and Rails' adoption enqueues one job per marked bot however many handbacks came first.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_pending_resyncs_become_markers_at_takeover_and_rails_adopts_them_once_after_handbacks() {
+    if !common::v2::enabled() { return; }
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
@@ -561,13 +556,7 @@ async fn rails_pending_resyncs_become_markers_at_takeover_and_rails_adopts_them_
 // ---- Plan 8d: a signal bot's webhook calls across the handover (T2 takeover import, T3 handback) ----------------------
 
 fn signal_jobs_fixture() -> serde_json::Value {
-    use sha2::{Digest, Sha256};
-    let fixture: serde_json::Value = serde_json::from_str(include_str!("fixtures/signal_jobs.json")).unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in fixture["sources"].as_object().unwrap() {
-        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(path)).unwrap())), hash.as_str().unwrap(), "{path}: script/rust/repin");
-    }
-    fixture
+    serde_json::from_str(include_str!("fixtures/signal_jobs.json")).unwrap()
 }
 
 /// `row` as an INSERT into `table`, its keys the columns.
@@ -1630,6 +1619,7 @@ async fn each_refusing_state_refuses_the_handback_and_writes_nothing() {
 /// carried tax costs intact.
 #[tokio::test(flavor = "current_thread")]
 async fn a_handback_keeps_rust_state_for_a_reclaim_and_2x_shows_rust_texts_untranslated() {
+    if !common::v2::enabled() { return; }
     use handover::{Handback, Held};
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
@@ -1688,9 +1678,8 @@ async fn a_handback_keeps_rust_state_for_a_reclaim_and_2x_shows_rust_texts_untra
     let script = format!("[{aside}, {bot}].each do |id|\n  b = Bot.find(id)\n  puts \"STATUS #{{id}} \" + ApplicationController.render(partial: 'bots/status/status_bar', locals: {{ bot: b }}).squish\n  \
                           BotActivityLog.where(bot_id: id).order(:id).each {{ |a| puts \"EVENT #{{a.event}} \" + ApplicationController.helpers.bot_activity_summary(a).to_s.squish }}\nend\nputs :rendered");
     let scratch = tempfile::tempdir().unwrap();
-    let file = scratch.path().join("render.rb");
-    std::fs::write(&file, script).unwrap();
-    let out = rails_on(dir.path(), scratch.path(), &["runner", file.to_str().unwrap()]).output().expect("bin/rails runs");
+    std::fs::write(scratch.path().join("render.rb"), script).unwrap();
+    let out = rails_on(dir.path(), scratch.path(), &["runner", "/x/render.rb"]);
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(out.status.success() && stdout.contains("rendered"), "2.x raises on a Rust-only text: {}\n{stdout}", String::from_utf8_lossy(&out.stderr));
     // D-HANDBACK-RUST-TEXT: no raise, a missing translation (an inherited display gap; no Rails polish).

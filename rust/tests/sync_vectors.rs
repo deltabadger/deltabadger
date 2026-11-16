@@ -6,7 +6,6 @@ use deltabadger::sync::activities::{self, CryptoPair, CryptoPairs, Raw};
 use deltabadger::sync::wire::{self, Budget, Node, Refused};
 use deltabadger::sync::{number, scrub, SYNC_ERROR_LIMIT};
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 
 fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/sync_vectors.json")).expect("sync_vectors.json parses") }
 fn list(v: &Value) -> Vec<Value> { v.as_array().expect("a list").clone() }
@@ -14,25 +13,6 @@ fn float(hex: &Value) -> f64 { f64::from_bits(u64::from_str_radix(hex.as_str().u
 fn bd(s: &str) -> BigDec { BigDec::parse(s).unwrap() }
 fn report(what: &str, failures: Vec<String>, total: usize) {
     assert!(failures.is_empty(), "{} of {total} {what} differ:\n{}", failures.len(), failures[..failures.len().min(10)].join("\n"));
-}
-
-#[test]
-fn the_ported_ruby_is_the_ruby_that_was_recorded() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (file, recorded) in vectors()["ported_sources"].as_object().unwrap() {
-        let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-        assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-record script/rust/record_sync_vectors.rb and re-check rust/src/sync against it");
-    }
-    // The JSON vectors are the app's parser, which is Oj (config/initializers/oj.rb, pinned above), not the json gem
-    // on its own: the two disagree on a key written twice. Both gems' versions are pinned with the vectors.
-    let parser = &vectors()["json_parser"];
-    assert_eq!(parser["json_parse_is_oj"], true, "the vectors must be recorded inside the app (bin/rails runner)");
-    let lock = std::fs::read_to_string(root.join("Gemfile.lock")).unwrap();
-    for (gem, version) in parser["gems"].as_object().unwrap() {
-        let pinned = format!("    {gem} ({})\n", version.as_str().unwrap());
-        assert!(lock.contains(&pinned), "Gemfile.lock no longer has {}: re-record the vectors and re-check sync::wire against them", pinned.trim());
-    }
-    assert_eq!(parser["gems"].as_object().unwrap().keys().collect::<Vec<_>>(), ["json", "oj"]);
 }
 
 #[test]

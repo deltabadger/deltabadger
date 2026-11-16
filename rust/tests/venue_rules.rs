@@ -1,6 +1,5 @@
 mod common;
 use deltabadger::engine::venue_rules::{for_exchange, AmountLogic, MinimumLogic, WireFormat, ALPACA, KRAKEN, NETWORK_TRANSIENT_PATTERNS};
-use sha2::{Digest, Sha256};
 
 #[test]
 fn every_recorded_rails_classification_is_reproduced() {
@@ -35,15 +34,6 @@ fn each_venue_carries_rails_minimum_logic_wire_and_absence_window() {
     assert_eq!(for_exchange("Exchanges::Alpaca").unwrap().name, "Alpaca");
 }
 
-#[test]
-fn the_ported_ruby_is_the_ruby_that_was_recorded() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (file, recorded) in common::vectors()["ported_sources"].as_object().unwrap() {
-        let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-        assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-record script/rust/record_vectors.rb and re-check the Alpaca port against it");
-    }
-}
-
 #[tokio::test(flavor = "current_thread")]
 async fn every_recorded_venue_order_number_is_accepted_or_refused_as_in_rails() {
     use deltabadger::venue::{alpaca, fake::FakeVenue, Venue};
@@ -67,15 +57,6 @@ async fn every_recorded_venue_order_number_is_accepted_or_refused_as_in_rails() 
 // ---- plan VB slice P: Exchange#adjusted_price and #market_price_for, recorded from Rails (record_venue_vectors.rb prices)
 
 fn prices_fixture() -> serde_json::Value { serde_json::from_str(include_str!("fixtures/prices_vectors.json")).unwrap() }
-
-#[test]
-fn the_price_fixture_is_recorded_from_the_current_rails_sources() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (file, recorded) in prices_fixture()["sources"].as_object().unwrap() {
-        let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-        assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-record with script/rust/repin");
-    }
-}
 
 #[test]
 fn every_recorded_adjusted_and_market_price_is_reproduced() {

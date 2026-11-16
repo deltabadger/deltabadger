@@ -10,20 +10,9 @@ use deltabadger::venue::alpaca::{AlpacaVenue, LiveFactory, Urls};
 use deltabadger::venue::http::ScriptedTransport;
 use deltabadger::venue::{NewOrder, OrderKind, PriceSide, Venue};
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 use std::path::Path;
 
 fn grid() -> Value { serde_json::from_str(include_str!("fixtures/alpaca_hosts.json")).unwrap() }
-
-#[test]
-fn the_recorded_rails_sources_are_unchanged() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let pins = grid()["ported_sources"].clone();
-    let client = std::fs::read(root.join("app/models/clients/alpaca.rb")).unwrap();
-    assert_eq!(hex::encode(Sha256::digest(&client)), pins["app/models/clients/alpaca.rb"], "app/models/clients/alpaca.rb changed: re-record script/rust/record_alpaca_hosts.rb");
-    let exchange = std::fs::read(root.join("app/models/exchanges/alpaca.rb")).unwrap();
-    assert_eq!(hex::encode(Sha256::digest(&exchange)), pins["app/models/exchanges/alpaca.rb"], "app/models/exchanges/alpaca.rb changed: re-record script/rust/record_alpaca_hosts.rb");
-}
 
 fn btc_usd() -> Ticker {
     let bd = |s: &str| BigDec::parse(s).unwrap();

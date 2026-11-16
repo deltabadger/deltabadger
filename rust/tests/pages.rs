@@ -4004,65 +4004,6 @@ impl ActionObserver {
 #[path = "support/page_figures_grid.rs"]
 mod page_figures_grid;
 
-/// The Rails files the wizard's served steps port (chooser, order switch, asset and exchange steps): a change to one of them
-/// re-records the wizard_ scenarios and updates rust/src/web/wizard in the same change.
-#[test]
-fn wizard_oracle_sources_stay_pinned() {
-    use sha2::{Digest, Sha256};
-    let pins: std::collections::BTreeMap<String, String> = serde_json::from_str(include_str!("fixtures/wizard_sources.json")).unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in pins {
-        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(&path)).unwrap())), hash, "{path}: record the wizard_ page grid again (script/rust/repin)");
-    }
-}
-
-/// The Rails files the REST routes this build serves port (web::rest, web::bot_api, and the MCP list tools that format
-/// bot_api's data): a change to one of them re-records the api_ page grid and updates the Rust side in the same change.
-#[test]
-fn api_oracle_sources_stay_pinned() {
-    use sha2::{Digest, Sha256};
-    let pins: std::collections::BTreeMap<String, String> = serde_json::from_str(include_str!("fixtures/api_sources.json")).unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in pins {
-        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(&path)).unwrap())), hash, "{path}: record the api_ page grid again (script/rust/repin)");
-    }
-}
-
-/// The Rails sources the dashboard's Split (split_, refused_web_split_; rust/src/web/bot/split.rs) ports: a
-/// change to one of them re-records the grid and updates split.rs in the same change.
-#[test]
-fn split_oracle_sources_stay_pinned() {
-    use sha2::{Digest, Sha256};
-    let pins: std::collections::BTreeMap<String, String> = serde_json::from_str(include_str!("fixtures/split_sources.json")).unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in pins {
-        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(&path)).unwrap())), hash, "{path}: record the split_ page grid again (script/rust/repin)");
-    }
-}
-
-/// The Rails sources the webhook's scenarios (hook_, missing_hook_, refused_hook_) were recorded from.
-#[test]
-fn hook_oracle_sources_stay_pinned() {
-    use sha2::{Digest, Sha256};
-    let pins: std::collections::BTreeMap<String, String> = serde_json::from_str(include_str!("fixtures/hook_sources.json")).unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in pins {
-        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(&path)).unwrap())), hash, "{path}: record the hook page grid again (script/rust/repin)");
-    }
-}
-
-/// The Rails sources a signal bot's pages and writes (signal_page_, signal_action_, api_signal_; pages_signals.rb) port: a
-/// change to one of them re-records the grid and updates rust/src/web/bot/signal.rs or signal_write.rs in the same change.
-#[test]
-fn signal_page_oracle_sources_stay_pinned() {
-    use sha2::{Digest, Sha256};
-    let pins: std::collections::BTreeMap<String, String> = serde_json::from_str(include_str!("fixtures/signal_page_sources.json")).unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in pins {
-        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(&path)).unwrap())), hash, "{path}: record the signal_page_ grid again (script/rust/repin)");
-    }
-}
-
 async fn mount_rule_reads(server: &wiremock::MockServer) {
     use wiremock::{matchers, Mock, ResponseTemplate};
     Mock::given(matchers::path("/api.gemini.com/v1/approvedAddresses/account/bitcoin"))
@@ -4084,17 +4025,6 @@ async fn mount_rule_reads(server: &wiremock::MockServer) {
     Mock::given(matchers::header("X-GEMINI-APIKEY", "rules-failed"))
         .respond_with(ResponseTemplate::new(503).set_body_json(json!({"result":"error","reason":"System"})))
         .with_priority(1).mount(server).await;
-}
-
-/// W1's oracle sources: the live grid re-records their pages when any input changes.
-#[test]
-fn rules_page_oracle_sources_stay_pinned() {
-    use sha2::{Digest, Sha256};
-    let pins: std::collections::BTreeMap<String, String> = serde_json::from_str(include_str!("fixtures/rules_page_sources.json")).unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in pins {
-        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(&path)).unwrap())), hash, "{path}: record the rules_ grid again");
-    }
 }
 
 /// W1's named differences remove only the affected venue option, destination member, or refused action.

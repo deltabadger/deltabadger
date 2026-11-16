@@ -803,18 +803,6 @@ mod host_authorization {
         let open = Config::from_env(&|name| (name == "SECRET_KEY_BASE").then(|| "s".to_string())).unwrap();
         assert!(open.allowed_hosts.is_empty() && open.blocked_hosts(&HeaderMap::new()).is_empty());
     }
-
-    /// The recorder runs production.rb's own lines, and CI cannot run the recorder: the lines are
-    /// held here as text, so that a change to them fails where it is seen.
-    #[test]
-    fn production_rb_builds_config_hosts_as_it_did_when_the_vectors_were_recorded() {
-        let ruby = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("config/environments/production.rb")).unwrap();
-        // The statements, without their comments and indentation.
-        let statements: Vec<&str> = ruby.lines().map(str::trim).filter(|line| !line.is_empty() && !line.starts_with('#')).collect();
-        let recorded = ["if ENV['ALLOWED_HOSTS'].present?", "ENV['ALLOWED_HOSTS'].split(',').each do |host|", "config.hosts << host.strip", "end", "config.hosts << \"localhost\"", "config.hosts << \"127.0.0.1\"", "else", "config.hosts.clear", "end"];
-        assert!(statements.windows(recorded.len()).any(|window| window == recorded), "config/environments/production.rb no longer builds config.hosts with these statements: {recorded:?}");
-        assert!(!ruby.contains("host_authorization"), "production.rb now sets config.host_authorization (an exclusion or another response)");
-    }
 }
 
 mod oauth_rules {
@@ -991,71 +979,6 @@ mod oauth_rules {
         for (method, path) in [(Method::HEAD, "/oauth/authorize"), (Method::POST, "/oauth/authorize"), (Method::DELETE, "/oauth/authorize"), (Method::GET, "/oauth/token"),
                                (Method::POST, "/oauth/revoke"), (Method::GET, "/.well-known/oauth-authorization-server")] {
             for _ in 0..30 { assert_eq!(limiter.hit(&method, path, "3.3.3.3", now), None, "{method} {path} has no rule"); }
-        }
-    }
-}
-
-/// The Ruby this part of the port mirrors, read as text, so that these tests need no Rails and run
-/// in CI: a change to any of it fails here and sends the reader to the parity grid (tests/oauth.rs).
-mod oauth_sources {
-    use deltabadger::web::{oauth, rate_limit};
-    use std::path::Path;
-
-    fn source(path: &str) -> String {
-        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(path)).unwrap_or_else(|e| panic!("{path}: {e}"))
-    }
-
-    /// The text between `start` and the next `end`.
-    fn between<'a>(text: &'a str, start: &str, end: &str) -> &'a str {
-        let from = text.find(start).unwrap_or_else(|| panic!("{start} is gone")) + start.len();
-        &text[from..from + text[from..].find(end).unwrap()]
-    }
-
-    #[test]
-    fn the_tool_catalogue_is_app_configs() {
-        let ruby = source("app/models/app_config.rb");
-        let defaults: Vec<(String, bool)> = between(&ruby, "MCP_TOOL_DEFAULTS = {", "}.freeze").lines().filter_map(|line| {
-            let (name, on) = line.trim().trim_end_matches(',').split_once(" => ")?;
-            Some((name.trim_matches('\'').to_string(), on == "true"))
-        }).collect();
-        // D-SPLIT-API: split_bots (off, among the controls) is this build's own, as D-RAILS-UNRECORDED-API's
-        // answer_unrecorded_order (off, among the trade tools).
-        let ours = |name: &&str| !["split_bots", "answer_unrecorded_order"].contains(name);
-        assert!(oauth::TOOL_DEFAULTS.contains(&("split_bots", false)) && oauth::TOOL_DEFAULTS.contains(&("answer_unrecorded_order", false)));
-        assert_eq!(defaults, oauth::TOOL_DEFAULTS.iter().filter(|(name, _)| ours(name)).map(|(name, on)| (name.to_string(), *on)).collect::<Vec<_>>());
-        let groups: Vec<(String, Vec<String>)> = between(&ruby, "TOOL_GROUPS = {", "}.freeze").split("' => %w[").collect::<Vec<_>>().windows(2).map(|pair| {
-            let name = pair[0].rsplit('\'').next().unwrap().to_string();
-            (name, between(pair[1], "", "]").split_whitespace().map(str::to_string).collect())
-        }).collect();
-        assert_eq!(groups, oauth::TOOL_GROUPS.iter().map(|(name, tools)| (name.to_string(), tools.iter().filter(|tool| ours(tool)).map(|tool| tool.to_string()).collect())).collect::<Vec<_>>());
-        assert!(ruby.contains("REST_TOOL_DEFAULTS = MCP_TOOL_DEFAULTS.transform_values { false }.freeze"), "the REST defaults are no longer the same names, all off");
-    }
-
-    #[test]
-    fn the_provider_is_configured_as_doorkeeper_rb_configures_it() {
-        let ruby = source("config/initializers/doorkeeper.rb");
-        for line in ["grant_flows %w[authorization_code]", "force_pkce", "access_token_expires_in 1.hour", "use_refresh_token", "default_scopes :mcp", "optional_scopes :api",
-                     "force_ssl_in_redirect_uri false", "allow_blank_redirect_uri false", "response_mode_matches: %w[query fragment]"] {
-            assert!(ruby.lines().any(|known| known.trim().starts_with(line)), "config/initializers/doorkeeper.rb no longer has `{line}`");
-        }
-        for unset in ["reuse_access_token", "hash_token_secrets", "hash_application_secrets", "authorization_code_expires_in", "pkce_code_challenge_methods", "custom_access_token_expires_in"] {
-            assert!(!ruby.lines().any(|known| known.trim().starts_with(unset)), "config/initializers/doorkeeper.rb now sets `{unset}`");
-        }
-        assert_eq!((oauth::SCOPES, oauth::DEFAULT_SCOPE, oauth::ACCESS_TOKEN_SECONDS, oauth::CODE_SECONDS), (["mcp", "api"], "mcp", 3600, 600));
-        // The answers were measured against this revision of the gem; another one has to be measured again.
-        assert!(source("Gemfile.lock").contains("remote: https://github.com/doorkeeper-gem/doorkeeper.git\n  revision: c00c3b4ed6248ed9873a905a55330928ad0ba655\n"),
-                "Doorkeeper was updated: run `cargo test --test oauth` and, when it passes, name the new revision here");
-    }
-
-    #[test]
-    fn the_oauth_limits_are_rack_attack_rbs() {
-        let ruby = source("config/initializers/rack_attack.rb");
-        for (rule, method, path, limit) in rate_limit::OAUTH_RULES {
-            let pattern = path.rsplit('/').next().unwrap().to_uppercase();
-            let expected = format!("Rack::Attack.throttle('{rule}', limit: {limit}, period: 60) do |req|\n  Rack::Attack.client_ip(req) if req.{}? && RackAttackPaths::{pattern}.match?",
-                                   method.to_lowercase());
-            assert!(ruby.contains(&expected), "config/initializers/rack_attack.rb no longer has:\n{expected}");
-            assert!(ruby.contains(&format!("{pattern}{}= %r{{\\A{path}#{{FORMAT}}\\z}}", " ".repeat(12 - pattern.len()))), "the pattern of {rule} changed");
         }
     }
 }

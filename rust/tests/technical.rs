@@ -12,15 +12,7 @@ use deltabadger::venue::VenueError;
 use rusqlite::{params, Connection};
 use serde_json::Value;
 
-fn fixture() -> Value {
-    use sha2::{Digest, Sha256};
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/indicator_vectors.json")).unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in fixture["sources"].as_object().unwrap() {
-        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(path)).unwrap())), hash.as_str().unwrap(), "{path}: script/rust/repin");
-    }
-    fixture
-}
+fn fixture() -> Value { serde_json::from_str(include_str!("fixtures/indicator_vectors.json")).unwrap() }
 
 fn at(s: &str) -> DateTime<Utc> { s.parse().unwrap() }
 fn iso(t: DateTime<Utc>) -> String { t.format("%Y-%m-%dT%H:%M:%S%.9fZ").to_string() }

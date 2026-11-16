@@ -1050,7 +1050,7 @@ async fn direct_index_refresh_preserves_bundled_stablecoin_classification() {
     let (d,c) = db();
     let now = at("2026-10-02T10:30:00Z");
     set_coingecko(&c, CG_KEY);
-    let catalogue: Value = serde_json::from_str(include_str!("../../db/seed_data/assets.json")).unwrap();
+    let catalogue: Value = serde_json::from_str(include_str!("fixtures/seed_assets_b11.json")).unwrap();
     let ids = ["usds", "ethena-usde", "usd1-wlfi"];
     let rows: Vec<_> = catalogue["data"].as_array().unwrap().iter().filter(|a| ids.contains(&a["external_id"].as_str().unwrap())).cloned().collect();
     let db = Db::new(c,seed::cipher());

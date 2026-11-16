@@ -21987,27 +21987,7 @@
       }
     }
   },
-  "ported_sources": {
-    "app/services/account_transaction_sync.rb": "b9c77c65b07bdedb77dafd2b13dc222ca8fd29b910b9ee3b7c37537a490dcba7",
-    "app/services/account_balance/sync.rb": "45afce22508c88bf63b1ba6e7c4e31f7f2571fd20eff0cce36ce76fffda34525",
-    "app/services/transfer_matcher.rb": "341aff194da4f3fec54e6b466ca512b7ee764623e2bb26c576d511c7d0d374cd",
-    "app/jobs/account_transaction/sync_job.rb": "801dcaad518822936ddec31bba1d6c6e68bcd21a603700c702f35bb6a1e8c724",
-    "app/jobs/account_transaction/sync_all_job.rb": "b57dd7a1155547b5bfb38bac166142094a1d91b6ec0dc00282991268275e42fe",
-    "app/jobs/account_balance/sync_job.rb": "7e861f44b114470e2ded713747a6ea3e6e808caf1e2d16e8d29338addb5b8b3c",
-    "app/jobs/account_balance/sync_all_job.rb": "0a31ced64a9583ba71795e7b0297777356f565df6288312dff016317984810d3",
-    "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
-    "app/models/concerns/api_key_failure_handling.rb": "1af31e8d00a2e38f0343954e95b51aeb736c28158c97f088d22660e3fbea9cec",
-    "app/models/exchanges/alpaca.rb": "75dec9187bd8b25f5a54d1dec62943f6de8ced4a8bc72242a0ad150fdd3f1381",
-    "app/models/clients/alpaca.rb": "950046601ce2c1791f56938e021bd6e2866b44717f3f578a86aa2f36b6376250",
-    "app/models/ticker.rb": "1ae4dac68cab58acaa6679c9bca83e700212ad4baf19e2d8c0946b07eaaabbbc",
-    "app/models/account_transaction.rb": "27e1f816648843e735c5a5d0751e4d95afa52ffd266632d2458ac8f95e4aa500",
-    "config/initializers/oj.rb": "01c260f1223bb1faed8f1ab6cef59268017b1f070341f76df9a6e3fceb49ce90"
-  },
   "json_parser": {
-    "json_parse_is_oj": true,
-    "gems": {
-      "json": "3.0.2",
-      "oj": "3.17.7"
-    }
+    "json_parse_is_oj": true
   }
 }

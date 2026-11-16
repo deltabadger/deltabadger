@@ -1,8 +1,7 @@
-//! OAuth parity: the Rails app and this crate answer the same request sequences on identical installs
+//! OAuth parity: 2.70.21 (in its published image, common::v2) and this crate answer the same request sequences on identical installs
 //! under the same clock, and every response and every row written must be the same
-//! (script/rust/oauth.rb is the Rails half). A scenario with a `cut` is also played with the two
+//! (tests/fixtures/v2/oauth.rb is the Rails half). A scenario with a `cut` is also played with the two
 //! taking its legs in turns on one database: the switch to Rust and the handback to Rails.
-//! `OAUTH=token,refresh cargo test --test oauth` runs only the scenarios with those name prefixes;
 //! `OAUTH_KEEP=<an empty directory>` keeps every install and transcript there.
 mod common;
 use axum::body::Body;
@@ -40,7 +39,7 @@ fn legs(steps: &[Value]) -> Vec<Vec<Value>> {
     legs
 }
 
-/// Which runtime plays leg `leg` of an install of mode `mode` (script/rust/oauth.rb `runtime`).
+/// Which runtime plays leg `leg` of an install of mode `mode` (fixtures/v2/oauth.rb `runtime`).
 fn runtime(mode: &str, leg: usize) -> &'static str {
     match mode {
         "rails" => "rails",
@@ -50,7 +49,7 @@ fn runtime(mode: &str, leg: usize) -> &'static str {
     }
 }
 
-/// `$name` in any string of a step is a value an earlier response gave (script/rust/oauth.rb `fill`).
+/// `$name` in any string of a step is a value an earlier response gave (fixtures/v2/oauth.rb `fill`).
 fn fill(value: &Value, vars: &Map<String, Value>) -> Value {
     match value {
         Value::String(text) => {
@@ -110,7 +109,7 @@ fn encode(pairs: &[(String, String)]) -> String {
 }
 
 /// The fields a browser would send for the form the page has for `action` and `method`: its hidden
-/// inputs, its ticked boxes and the button pressed (script/rust/oauth.rb `form_fields`).
+/// inputs, its ticked boxes and the button pressed (fixtures/v2/oauth.rb `form_fields`).
 fn form_fields(page: &str, action: &str, method: &str) -> Option<Vec<(String, String)>> {
     let document = scraper::Html::parse_document(page);
     let select = |css: &str| scraper::Selector::parse(css).unwrap();
@@ -133,7 +132,7 @@ fn form_fields(page: &str, action: &str, method: &str) -> Option<Vec<(String, St
 
 /// Every CSRF token a page of this crate carries must unmask to the token of the session the
 /// response left the browser with, and every asset it names must be embedded: the comparison masks
-/// both. (script/rust/pages.rb `verify_rendered!` checks Rails' pages the same way.)
+/// both. (fixtures/v2/oauth_pages.rb `verify_rendered!` checks Rails' pages the same way.)
 fn assert_genuine(app: &App, browser: &Browser, body: &str, now: chrono::DateTime<chrono::Utc>, step: &str) {
     let html::Masked { tokens, assets, .. } = html::masked_values(body);
     for path in &assets {
@@ -153,7 +152,7 @@ fn run_sql(dir: &Path, step: &Value) {
     for sql in statements { c.execute_batch(sql.as_str().unwrap()).unwrap(); }
 }
 
-/// This crate plays leg `leg` of the install in `dir`: the Rust half of script/rust/oauth.rb `play_leg`.
+/// This crate plays leg `leg` of the install in `dir`: the Rust half of fixtures/v2/oauth.rb `play_leg`.
 async fn play_leg(dir: &Path, leg: usize) {
     let scenario = read(&dir.join("scenario.json"));
     assert_eq!(scenario["oauth_parity_scratch"], true, "{} is not an OAuth-parity scratch copy", dir.display());
@@ -564,20 +563,28 @@ fn listed_divergence(name: &str, steps: &[Value], rails: &Played, rust: &Played)
     })
 }
 
-fn rails_runner(scratch: &Path, args: &[&str]) {
-    let mut all = vec!["runner", "script/rust/oauth.rb"];
+/// 2.70.21 (the published image, common::v2) runs fixtures/v2/oauth.rb (oauth.rb at the oracle tag) `args` on the grid
+/// at `root` (/s inside), its boot databases and scripts in `scratch` (/x).
+fn rails_runner(root: &Path, scratch: &Path, args: &[&str]) {
+    let mut all = vec!["runner", "/x/oauth.rb"];
     all.extend(args);
-    common::rails(scratch, "test", &all);
+    let out = common::v2::rails_in("test", root, scratch, "engine-test-secret", &all);
+    assert!(out.status.success(), "2.70.21's oauth.rb {args:?}: {}", String::from_utf8_lossy(&out.stderr));
 }
 
+/// Every scenario played by 2.70.21 alone, by this crate alone, and (with a `cut`) by the two in turns on one install: the
+/// switch to Rust and the handback to 2.70.21.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows() {
+    if !common::v2::enabled() { return; }
     let (scratch, temporary) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     // OAUTH_KEEP=<an empty directory> keeps the installs and their transcripts there, for reading.
     let root = std::env::var("OAUTH_KEEP").map_or_else(|_| temporary.path().to_path_buf(), PathBuf::from);
-    let grid = root.to_str().unwrap();
-    common::rails(scratch.path(), "test", &["runner", "script/rust/schema_template.rb"]);
-    rails_runner(scratch.path(), &["grid", grid]);
+    for (name, body) in [("oauth.rb", include_str!("fixtures/v2/oauth.rb")), ("oauth_pages.rb", include_str!("fixtures/v2/oauth_pages.rb")),
+                         ("baseline.sql", include_str!("../schema/baseline.sql"))] {
+        std::fs::write(scratch.path().join(name), body).unwrap();
+    }
+    rails_runner(&root, scratch.path(), &["grid", "/s"]);
 
     // The catalogue the consent screen and the grants are built from is Rails' own.
     let catalogue = read(&root.join("catalogue.json"));
@@ -597,10 +604,10 @@ async fn rails_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows()
         dirs
     };
     let names: Vec<String> = installs("rails").iter().map(|dir| dir.file_name().unwrap().to_string_lossy().to_string()).collect();
-    assert!(!names.is_empty(), "the grid is empty: no scenario name starts with a prefix in OAUTH");
+    assert!(!names.is_empty(), "the grid is empty");
     let most_legs = names.iter().map(|name| legs(read(&root.join("rails").join(name).join("scenario.json"))["steps"].as_array().unwrap()).len()).max().unwrap();
     for leg in 0..most_legs {
-        rails_runner(scratch.path(), &["play", grid, &leg.to_string()]);
+        rails_runner(&root, scratch.path(), &["play", "/s", &leg.to_string()]);
         for mode in ["rust", "rails_first", "rust_first"] {
             for dir in installs(mode) {
                 if runtime(mode, leg) == "rust" { play_leg(&dir, leg).await; }
@@ -647,9 +654,7 @@ async fn rails_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows()
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), names.len(), failures.join("\n"));
     println!("{} scenarios, {steps_compared} steps; {crossed} cross-runtime plays", names.len());
-    if std::env::var("OAUTH").is_err() {
-        assert_eq!((names.len(), crossed), (182, 20), "a scenario was dropped or added without this count");
-    }
+    assert_eq!((names.len(), crossed), (182, 20), "a scenario was dropped or added without this count");
 }
 
 /// An install with an owner, a registered public client (`client-uid`) and one unspent code for it

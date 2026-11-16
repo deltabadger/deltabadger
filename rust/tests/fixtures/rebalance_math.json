@@ -1,15 +1,4 @@
-{"sources": {
-  "app/models/bot/composition/rebalancer.rb": "e87f1addea2a1831df090fd959fd8dfe54031c2eb92da971652476ce8d96a02b",
-  "app/models/bot/rebalancer.rb": "aa1b95a2d20476d4ecd27222cd039d5a45188f0baca13f23b33abb1278f3a30f",
-  "app/models/bot/rebalanceable.rb": "cda8eb4b1b300ebd2dad68c2a779084e3bcf7adc4fb32aaa57fbff0133e0f8de",
-  "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
-  "app/models/bot/composition/allocatable.rb": "7501fe31dbff0c48fc62095963ba3b81466a5fe9ce9397f335c55958ea05ec45",
-  "app/models/bot/composition/order_setter.rb": "8f189ecf4245935df07c66cde3df103cf84afd3b6a786617384b323169ee4e28",
-  "app/models/bots/dca_multi_asset.rb": "25700ff65cf3d723e5da8e649f36fd0276300acea56783526e6402ce086b1f12",
-  "app/models/bots/dca_multi_asset/allocatable.rb": "b2088e229826c18178137f15be5964c140353a5d62765e6f6d7155a4d3d9744a",
-  "app/models/exchanges/alpaca.rb": "75dec9187bd8b25f5a54d1dec62943f6de8ced4a8bc72242a0ad150fdd3f1381"
-},
-"cases": [
+{"cases": [
 {"members":[{"sym":"BTC","target":0.5,"in_index":true,"tradeable":true,"asset_id":2,"raw":0.5},{"sym":"ETH","target":0.5,"in_index":true,"tradeable":true,"asset_id":3,"raw":0.5}],"holdings":{"BTC":"55","ETH":"45"},"prices":{"BTC":"1","ETH":"1"},"asset_ids":{"BTC":2,"ETH":3,"SOL":4,"DOGE":5,"XRP":6,"ADA":7},"settings":{"rebalance_enabled":true},"expected":{"sell":null,"buy":null,"stale":false,"targets":[{"asset_id":2,"symbol":"BTC","amount":"55.0","value":"55.0","target":"0.5"},{"asset_id":3,"symbol":"ETH","amount":"45.0","value":"45.0","target":"0.5"}],"drift":"0.05","due":false,"max":[2,"100.0"],"min":[3,"100.0"],"ranking":[2,3]}},
 {"members":[{"sym":"BTC","target":0.5,"in_index":true,"tradeable":true,"asset_id":2,"raw":0.5},{"sym":"ETH","target":0.5,"in_index":true,"tradeable":true,"asset_id":3,"raw":0.5}],"holdings":{"BTC":"55.0000001","ETH":"44.9999999"},"prices":{"BTC":"1","ETH":"1"},"asset_ids":{"BTC":2,"ETH":3,"SOL":4,"DOGE":5,"XRP":6,"ADA":7},"settings":{"rebalance_enabled":true},"expected":{"sell":null,"buy":null,"stale":false,"targets":[{"asset_id":2,"symbol":"BTC","amount":"55.0000001","value":"55.0000001","target":"0.5"},{"asset_id":3,"symbol":"ETH","amount":"44.9999999","value":"44.9999999","target":"0.5"}],"drift":"0.050000001","due":true,"max":[2,"100.0"],"min":[3,"100.0"],"ranking":[2,3]}},
 {"members":[{"sym":"BTC","target":0.5,"in_index":true,"tradeable":true,"asset_id":2,"raw":0.5},{"sym":"ETH","target":0.5,"in_index":true,"tradeable":true,"asset_id":3,"raw":0.5}],"holdings":{"BTC":"57","ETH":"43"},"prices":{"BTC":{"float":"1.0"},"ETH":{"float":"1.0"}},"settings":{"rebalance_enabled":true,"rebalance_threshold":0.07},"asset_ids":{"BTC":2,"ETH":3,"SOL":4,"DOGE":5,"XRP":6,"ADA":7},"expected":{"sell":null,"buy":null,"stale":false,"targets":[{"asset_id":2,"symbol":"BTC","amount":"57.0","value":"57.0","target":"0.5"},{"asset_id":3,"symbol":"ETH","amount":"43.0","value":"43.0","target":"0.5"}],"drift":"0.07","due":false,"max":[2,"100.0"],"min":[3,"100.0"],"ranking":[2,3]}},

@@ -1,10 +1,4 @@
 {
-  "sources": {
-    "app/models/bot/reversible.rb": "dc751df2041cd682b24a6d384ee612884191caa379decfe77f8210a4f8a2ec60",
-    "app/models/automation/schedulable.rb": "34b176eabd069a9ed76e73cf08639429e9c8ca17e6be69bae4def1f07225e14b",
-    "app/models/bot/smart_intervalable.rb": "a6afa6f794439c866a880147dbebe2c2c2437513dc73f79843976d9a4f1a9c11",
-    "app/models/bot/lifecycle.rb": "2cd5c5d9466423cb7e6e19fc3cf35dd287726f4d42659c7f63013a17f6b4656e"
-  },
   "schedule": [
     {
       "anchor": "2026-01-31T10:00:00.123456Z",

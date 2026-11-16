@@ -1,31 +1,4 @@
 {
-  "sources": {
-    "app/models/automation/configurable.rb": "be369cfb1e0d9c7ab73b1d18a34e9bc5c874a11767c87c78f48e9d1d932cc387",
-    "app/models/automation/exchange_connectable.rb": "a50a0cb0986aad465b5ede3d53571dd4c6fc7de822f53afdbbe15b77ccc00ac7",
-    "app/models/automation/labelable.rb": "c74146252aa822b400bcbcc4294af18aeff8e0425ab2afe8a0a28b6ce4790da9",
-    "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
-    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
-    "app/models/bot/asset_configurable.rb": "a8b983ca18fb299623af807b226ed362f4ee86b2426dd22985f8aa1251ac401e",
-    "app/models/bot/base_amount_limitable.rb": "0ae736fa810fe2977c54a0da02f7d863e84789a29596b9ecb317902d37066295",
-    "app/models/bot/composition/allocatable.rb": "7501fe31dbff0c48fc62095963ba3b81466a5fe9ce9397f335c55958ea05ec45",
-    "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
-    "app/models/bot/indicator_limitable.rb": "35babe72370a6f398335fcb4f68bcf21ececefd5af9a7243e0298a4a5d65b8dc",
-    "app/models/bot/limit_orderable.rb": "101bfdce8ac4aa78fb6ae496725944c0752cb6814171f3fedc097547ad5d757f",
-    "app/models/bot/moving_average_limitable.rb": "768b743cde5682cb8a531c1c53279d959729204a7294a9d312b1587d1fd7d7df",
-    "app/models/bot/price_drop_limitable.rb": "565381b74942747e8d56e47cd393c211d83ff5de961d8cfb3fb58c163767d070",
-    "app/models/bot/price_limitable.rb": "d0f00a1c80cf0a29f9fb2ba084a5755345010b4dac04c01106b09331855b67c0",
-    "app/models/bot/quote_amount_limitable.rb": "164d4fa19650fe3faecba512de5031aaf057f7bd48d0699e88a1ba46d121f220",
-    "app/models/bot/reversible.rb": "dc751df2041cd682b24a6d384ee612884191caa379decfe77f8210a4f8a2ec60",
-    "app/models/bot/smart_intervalable.rb": "a6afa6f794439c866a880147dbebe2c2c2437513dc73f79843976d9a4f1a9c11",
-    "app/models/bot/startable.rb": "f4639a047a1ed1896ef5b3d3239f51bf727b9c7099ce7a569fb0955b5c8bbbe1",
-    "app/models/bots/dca_multi_asset.rb": "25700ff65cf3d723e5da8e649f36fd0276300acea56783526e6402ce086b1f12",
-    "app/models/bots/dca_multi_asset/allocatable.rb": "b2088e229826c18178137f15be5964c140353a5d62765e6f6d7155a4d3d9744a"
-  },
-  "gems": {
-    "activemodel": "8.1.4",
-    "activerecord": "8.1.4",
-    "activesupport": "8.1.4"
-  },
   "class": "Bots::DcaMultiAsset",
   "callbacks": {
     "initialize": [

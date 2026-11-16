@@ -1406,21 +1406,6 @@
   "enabled": 1
 }
   },
-  "gems": {
-    "activerecord": "8.1.4",
-    "bcrypt": "3.1.22",
-    "bigdecimal": "4.1.3",
-    "rotp": "6.3.0",
-    "actionpack": "8.1.4",
-    "actionview": "8.1.4",
-    "activesupport": "8.1.4",
-    "devise": "5.0.4",
-    "i18n": "1.15.2",
-    "rack-attack": "6.8.0",
-    "turbo-rails": "2.0.23",
-    "rack": "3.2.7",
-    "puma": "8.0.2"
-  },
   "bigdec": [
     [
       "div",
@@ -41173,16 +41158,6 @@
       false
     ]
   ],
-  "ported_sources": {
-    "app/models/clients/alpaca.rb": "950046601ce2c1791f56938e021bd6e2866b44717f3f578a86aa2f36b6376250",
-    "app/models/exchanges/alpaca.rb": "75dec9187bd8b25f5a54d1dec62943f6de8ced4a8bc72242a0ad150fdd3f1381",
-    "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
-    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
-    "app/models/exchanges/kraken.rb": "232820af94e9247375162d361eaff6437ae3f2c95b236bf3114b748026d2d902",
-    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
-    "app/jobs/bot/fetch_and_update_open_orders_job.rb": "0594f4ce138af9283aac4980a27a01b5d791f8fa995379f3b34f948ea90b7609",
-    "app/jobs/bot/fetch_and_update_order_job.rb": "cc72c63565850aafa645b526b41ee97e6534de49b7085ddf607f481dc0c65a01"
-  },
   "alpaca_sizing": [
     {
       "ticker": {

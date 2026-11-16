@@ -1,14 +1,4 @@
 {
-  "sources": {
-    "app/models/exchanges/kraken.rb": "232820af94e9247375162d361eaff6437ae3f2c95b236bf3114b748026d2d902",
-    "app/models/exchanges/binance.rb": "72139d578fcf6df45576eb7e648185e71d7fad7b8be456bf4438af7dada57649",
-    "app/models/exchanges/kucoin.rb": "a4dd07679ac5297f73d7713a812122728872629f60c13cf82d5f1b5c205fef45",
-    "app/models/utilities/hash.rb": "c976d9a7c387bf813da7404a029df8f7afe8dae29567edee5d48ebc7f431cf11",
-    "script/rust/record_tickers_prices.rb": "c893d7503ebc050f45205b31fce0e6b1de89ce8e2627b6ef96eeecabd68c1e30"
-  },
-  "gems": {
-    "honeymaker": "0.12.5"
-  },
   "cases": [
     {
       "venue": "kraken",
