@@ -16,9 +16,12 @@
     border-radius: 2rem
     box-shadow: var(--shadow-strong)
     overflow: hidden
+    // On a phone it is the screen: no margin, no rounded corners.
     @media (max-width: 767.9px)
-        width: calc(100vw - 2rem)
-        height: calc(100dvh - 2rem)
+        width: 100vw
+        height: 100dvh
+        border-radius: 0
+        box-shadow: none
 
 .settings__close
     position: absolute

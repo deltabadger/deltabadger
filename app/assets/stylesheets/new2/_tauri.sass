@@ -24,6 +24,11 @@
   .dialog__vertical-center
     padding-top: 3.5rem
   @media (max-width: 767.9px)
+    // A narrow window's settings fill it to the top, so the tabs and the × start below the strip.
+    .settings
+      padding-top: 3.5rem
+    .settings__close
+      top: 5.75rem
     .dash-intro
       height: 8rem
     .page-head:not(.page-head--bots)
