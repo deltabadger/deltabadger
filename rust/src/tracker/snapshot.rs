@@ -48,8 +48,11 @@ pub fn today_row_on(c: &Connection, user_id: i64, exchange_id: Option<i64>, ledg
     let pending = figures::pending(c, user_id, exchange_id)?;
     let f = figures::compute_on(c, user_id, ledger, &balances, &pending, fx, today)?;
     let (held_value, held_cost) = f.without_cash()?;
+    // A holding valued without a market price (other cash at par) marks the day partial too (PLAN-venue-prices S1):
+    // the chart says so for as long as this point is stored.
+    let unpriced = !f.all_priced();
     Ok(Some(Day { value: f.value, invested: f.invested, held_value: Some(held_value), held_cost: Some(held_cost),
-                  partial: crate::sync::cache::stale(c, user_id, exchange_id).map_err(|_| FiguresError::Data("balance cache provenance unavailable".into()))? || partial(c, user_id, &balances)? || ledger.incomplete }))
+                  partial: crate::sync::cache::stale(c, user_id, exchange_id).map_err(|_| FiguresError::Data("balance cache provenance unavailable".into()))? || partial(c, user_id, &balances)? || ledger.incomplete || unpriced }))
 }
 
 /// `venues`: the exchanges the account has rows or balances on, by id.

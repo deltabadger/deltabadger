@@ -548,6 +548,13 @@ sk:
             no_balances: Na pripojených burzách sa nenašli žiadne zostatky.
             only_cash: "Iba hotovosť a stablecoiny — zapnite Zobraziť hotovosť, aby ste ich videli."
             unpriced: 'Cena nie je dostupná pre: %{assets}'
+        # "CoinGecko" is a product name: keep it verbatim in every locale.
+        prices:
+            missing: "Pre %{assets} na %{venue} nie je k dispozícii trhová cena."
+            missing_anywhere: "Pre %{assets} nie je k dispozícii trhová cena."
+            chart_missing: "Graf nezobrazuje trhovú hodnotu %{assets} na %{venue} v dňoch bez ceny."
+            chart_incomplete: "Niektoré dni v grafe sú neúplné."
+            connect_coingecko: "Pripoj bezplatný účet CoinGecko a získaj trhové ceny."
         sync: 'Synchronizovať'
         sync_started: 'Synchronizácia transakcií z vašich búrz...'
         importing_from: 'Import dát z %{exchange}…'

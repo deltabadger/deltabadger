@@ -539,6 +539,13 @@ nl:
             no_balances: Geen saldo gevonden op je gekoppelde exchanges.
             only_cash: "Alleen contanten en stablecoins — zet Contanten tonen aan om ze te zien."
             unpriced: 'Prijs niet beschikbaar voor: %{assets}'
+        # "CoinGecko" is a product name: keep it verbatim in every locale.
+        prices:
+            missing: "Geen marktprijs voor %{assets} op %{venue}."
+            missing_anywhere: "Geen marktprijs voor %{assets}."
+            chart_missing: "De grafiek toont de marktwaarde van %{assets} op %{venue} niet voor dagen zonder prijs."
+            chart_incomplete: "Sommige dagen in de grafiek zijn onvolledig."
+            connect_coingecko: "Koppel een gratis CoinGecko-account om marktprijzen te krijgen."
         sync: 'Synchroniseren'
         sync_started: 'Transacties worden gesynchroniseerd van je exchanges...'
         importing_from: 'Gegevens worden geïmporteerd van %{exchange}…'

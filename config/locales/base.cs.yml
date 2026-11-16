@@ -548,6 +548,13 @@ cs:
             no_balances: Na připojených burzách nebyly nalezeny žádné zůstatky.
             only_cash: "Pouze hotovost a stablecoiny — zapněte Zobrazit hotovost, abyste je viděli."
             unpriced: 'Cena není k dispozici pro: %{assets}'
+        # "CoinGecko" is a product name: keep it verbatim in every locale.
+        prices:
+            missing: "Pro %{assets} na %{venue} není k dispozici tržní cena."
+            missing_anywhere: "Pro %{assets} není k dispozici tržní cena."
+            chart_missing: "Graf neukazuje tržní hodnotu %{assets} na %{venue} ve dnech bez ceny."
+            chart_incomplete: "Některé dny v grafu jsou neúplné."
+            connect_coingecko: "Připoj bezplatný účet CoinGecko a získej tržní ceny."
         sync: 'Synchronizovat'
         sync_started: 'Synchronizace transakcí z vašich burz...'
         importing_from: 'Import dat z %{exchange}…'

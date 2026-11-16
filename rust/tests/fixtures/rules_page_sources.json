@@ -23,6 +23,6 @@
   "app/views/rules/withdrawals/pick_assets/new.html.erb": "aef33e46f194b18180fa9bf31519f095c39ec73e3359f0f5d2f5bcbfe0033db5",
   "app/views/rules/withdrawals/pick_exchanges/new.html.erb": "c6957d09e36bf676c7d5d6f9224d91ca9bb2e06f100111399b28211c56924d09",
   "app/views/svg/_16x16_wallet.html.haml": "e61c30dde457b2ccc36c143fb89d15ba2b22fc837a8a90afd1f2a2673e61faa4",
-  "config/locales/base.en.yml": "d24005cbec8ce5929f5058010760afe5371a66442022a5a5e68fe496f7009022",
+  "config/locales/base.en.yml": "e9bbac73b0140f47439c8215deed39e1f0c8adb6df995f160a4b60e98122d6cd",
   "config/routes.rb": "88a02435a20f94a8e1cec694d89ce72047a3009e10a82b9d8d0772d050903269"
 }

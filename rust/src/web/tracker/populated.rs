@@ -13,7 +13,7 @@ fn dec(raw: &str) -> Result<Dec, WebError> { Dec::parse(raw).map_err(|_| invalid
 fn num<T>(r: Result<T, crate::figures::num::NumError>) -> Result<T, WebError> { r.map_err(|_| invalid()) }
 
 /// What the page places, region by region, in Rails' order.
-pub struct Regions { pub pending: String, pub filters: String, pub chart: String, pub tiles: String, pub holdings: String, pub record: String, pub warnings: String, pub bar_end: String }
+pub struct Regions { pub pending: String, pub filters: String, pub notice: String, pub chart: String, pub tiles: String, pub holdings: String, pub record: String, pub warnings: String, pub bar_end: String }
 
 /// `rescue_from Tracker::Figures::AmbiguousAssetClass`: the page is a 422 with the message.
 pub enum Built { Regions(Regions), Refused(String) }
@@ -218,7 +218,8 @@ pub(super) fn note_text(ctx: &Ctx, n: &Note, den: &Denomination, hidden: bool) -
     Ok(i18n::text(ctx.locale, &format!("tracker.notes.{}", n.kind), &[("symbol", Arg::Text(&n.symbol)), ("exchange", Arg::Text(&exchange)), ("history", Arg::Text(&history)), ("held", Arg::Text(&held)), ("amount", Arg::Text(&amount))]))
 }
 
-pub(super) struct CardRow { asset: AssetRow, value: Dec, percent: Option<Dec>, note: Option<String> }
+/// `value`: None for a holding with no market price, shown with no number and left out of the shares and the ring.
+pub(super) struct CardRow { asset: AssetRow, value: Option<Dec>, percent: Option<Dec>, note: Option<String> }
 impl CardRow {
     /// A row of the warming card (`waiting_for_ledger`): its balances' value, no cost and no note.
     pub(super) fn cold(h: &page::Holding) -> CardRow {
@@ -240,7 +241,9 @@ pub(super) fn class_of(kind: &str) -> &'static str {
 /// The holdings card, and the filter classes its rows hold.
 pub(super) fn card(ctx: &Ctx, rows: Vec<CardRow>, centre: Option<Dec>, empty: Option<String>, asides: Vec<String>, den: &Denomination) -> Result<(String, Vec<&'static str>), WebError> {
     let hidden = ctx.user().ok_or_else(invalid)?.hide_balances;
-    let total = rows.iter().try_fold(Dec::zero(), |sum, r| &sum + &r.value).map_err(|_| invalid())?;
+    let zero = Dec::zero();
+    let worth = |r: &CardRow| r.value.as_ref().unwrap_or(&zero).clone();
+    let total = rows.iter().try_fold(Dec::zero(), |sum, r| &sum + &worth(r)).map_err(|_| invalid())?;
     let other = i18n::text(ctx.locale, "tracker.other", &[]);
     let mut shares: Vec<(String, Dec)> = vec![];
     let mut views = vec![];
@@ -250,13 +253,13 @@ pub(super) fn card(ctx: &Ctx, rows: Vec<CardRow>, centre: Option<Dec>, empty: Op
         let class = class_of(kind);
         if !class.is_empty() && !classes.contains(&class) { classes.push(class); }
         let group = if kind.is_empty() { other.clone() } else { kind.into() };
-        match shares.iter_mut().find(|(k, _)| *k == group) { Some((_, v)) => *v = num(&*v + &r.value)?, None => shares.push((group, r.value.clone())) }
-        let share = if total.is_positive() { num(&num(r.value.div(&total))? * &dec("100")?)? } else { Dec::zero() };
+        if r.value.is_some() { match shares.iter_mut().find(|(k, _)| *k == group) { Some((_, v)) => *v = num(&*v + &worth(r))?, None => shares.push((group, worth(r))) } }
+        let share = if total.is_positive() { num(&num(worth(r).div(&total))? * &dec("100")?)? } else { Dec::zero() };
         let color = crate::web::colors::ensure_contrast(r.asset.color.as_deref().filter(|s| !s.trim().is_empty()).unwrap_or(crate::web::colors::NEUTRAL)).ok_or_else(invalid)?;
         views.push(RowView {
             v: ctx, hidden, class, symbol: escape(&r.asset.symbol), name: escape(&r.asset.name),
             logo: super::row::asset_logo(r.asset.image.clone(), r.asset.color.clone(), r.asset.symbol.clone(), r.asset.category.clone())?,
-            kind: kind.into(), color, share: num(share.round(2))?.to_s_f(), percent: fixed(&share, 1)?, value: money(&r.value, den)?,
+            kind: kind.into(), color, share: num(share.round(2))?.to_s_f(), percent: if r.value.is_some() { format!("{}%", fixed(&share, 1)?) } else { "—".into() }, value: match &r.value { Some(v) => money(v, den)?, None => "<span class=\"no-value\">—</span>".into() },
             pnl: r.percent.as_ref().map(|p| Ok::<_, WebError>((percent_text(p)?, tone(p)))).transpose()?, note: r.note.as_ref().map(|n| escape(n)),
         }.render()?);
     }
@@ -269,7 +272,9 @@ pub(super) fn card(ctx: &Ctx, rows: Vec<CardRow>, centre: Option<Dec>, empty: Op
     }
     rounded.sort_by(|a, b| b.1.cmp(&a.1));
     let shares = rounded.into_iter().map(|(label, value)| format!("{label} {}%", value.to_s_f().trim_end_matches(".0"))).collect::<Vec<_>>().join(" · ");
-    let slices: Vec<(Dec, Option<String>, String)> = rows.iter().map(|r| (r.value.clone(), r.asset.color.clone(), r.asset.symbol.clone())).collect();
+    let slices: Vec<(Dec, Option<String>, String)> = rows.iter().filter(|r| r.value.is_some()).map(|r| (worth(r), r.asset.color.clone(), r.asset.symbol.clone())).collect();
+    // The unrealised return mixes the stand-in values of unpriced rows: none is stated while any row has no price.
+    let centre = if rows.iter().any(|r| r.value.is_none()) { None } else { centre };
     let html = Card {
         v: ctx, hidden, count: rows.len(), shares: escape(&shares), arcs: super::holdings::ring_of(&slices, &other)?, shown: views, empty,
         centre: centre.map(|c| Ok::<_, WebError>((percent_text(&c)?, tone(&c)))).transpose()?, unpriced: None, asides,
@@ -304,7 +309,8 @@ fn holdings(c: &Connection, ctx: &Ctx, p: &Portfolio, den: Option<&Denomination>
 fn holdings_card(c: &Connection, ctx: &Ctx, p: &Portfolio, den: Option<&Denomination>, withheld: Option<&str>) -> Result<(String, Vec<&'static str>), WebError> {
     let hidden = ctx.user().ok_or_else(invalid)?.hide_balances;
     if p.never_synced { return Ok((never_synced(ctx, hidden), vec![])); }
-    let reason = withheld;
+    // Unpriced holdings are shown, each with no number (PLAN-venue-prices S1); any other reason withholds the card.
+    let reason = withheld.filter(|r| *r != page::UNPRICED);
     let (Some(den), None) = (den, reason) else {
         return Ok((format!("<div class=\"widget tracker-holdings\"><p class=\"tracker-holdings__empty\">{}</p></div>\n\n", escape(reason.unwrap_or("Currency conversion unavailable"))), vec![]));
     };
@@ -321,8 +327,11 @@ fn holdings_card(c: &Connection, ctx: &Ctx, p: &Portfolio, den: Option<&Denomina
             for h in &f.holdings {
                 let asset = asset_row(c, h.asset.ok_or_else(invalid)?)?;
                 let note = notes_for(&asset.symbol)?;
-                rows.push(CardRow { asset, value: h.value.clone(), percent: h.percent().map_err(|_| invalid())?, note });
+                let (value, percent) = if h.priced { (Some(h.value.clone()), h.percent().map_err(|_| invalid())?) } else { (None, None) };
+                rows.push(CardRow { asset, value, percent, note });
             }
+            // Priced rows in the figures' order (by value), then the unpriced ones by symbol.
+            rows.sort_by(|a, b| match (&a.value, &b.value) { (None, None) => a.asset.symbol.cmp(&b.asset.symbol), (a, b) => b.is_some().cmp(&a.is_some()) });
             let mut cost = Dec::zero();
             let mut covered = Dec::zero();
             for h in &f.holdings { if let Some(c) = &h.cost { cost = num(&cost + c)?; covered = num(&covered + &h.value)?; } }
@@ -401,7 +410,9 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
     let show_cash = crate::web::bots::show_cash(raw.as_deref());
     let p = match portfolio(c, ctx, owner, scope, show_cash)? { Ok(p) => p, Err(message) => return Ok(Built::Refused(message)) };
     let den = fx.denomination(c, owner, ctx.app.now().timestamp())?;
-    let withheld = if den.is_none() { Some("Currency conversion unavailable") } else { p.cold.reason };
+    // A warm holding valued without a market price withholds what the balances' value decides, as an unpriced balance does.
+    let warm_unpriced = p.warm.as_ref().is_some_and(|w| !w.figures.all_priced());
+    let withheld = if den.is_none() { Some("Currency conversion unavailable") } else { p.cold.reason.or(if warm_unpriced { Some(page::UNPRICED) } else { None }) };
     // An account whose first balance sync has not completed keeps its money withheld, a warm ledger or not: the card
     // says it was never synced, and no tile states a value the balances cannot vouch for.
     let sync = super::holdings::synced_label(ctx, p.cold.synced, p.cold.stale);
@@ -414,8 +425,12 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
     });
     let (filters, bar_end) = filters(c, ctx, owner, scope, show_cash, sync)?;
     let holdings_pane = holdings(c, ctx, &p, den.as_ref(), withheld)?;
+    // Holdings arrived since the sync with no price: no balance row names their venue yet.
+    let balance_symbols: std::collections::HashSet<&str> = p.cold.holdings.iter().map(|h| h.symbol.as_str()).collect();
+    let arrived: Vec<String> = p.warm.iter().flat_map(|w| w.figures.holdings.iter()).filter(|h| !h.priced && !balance_symbols.contains(h.symbol.as_str()) && !p.cold.unpriced.contains(&h.symbol)).map(|h| h.symbol.clone()).collect();
     Ok(Built::Regions(Regions {
         pending: pending_report(c, ctx, owner, &settings)?,
+        notice: super::prices_notice::banner(c, ctx, owner, scope, &arrived)?,
         filters, bar_end,
         tiles: tiles(ctx, &p, den.as_ref(), withheld)?,
         holdings: holdings_pane.clone(),
@@ -441,7 +456,7 @@ pub fn page(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<axum
     // The scope frame (3.0, Rust only): what the venue switch scopes, under the bar that holds the switch. A load of
     // the frame alone also sends the bar's far end, which states the scope from outside it.
     let stream = if ctx.turbo_frame.as_deref() == Some(SCOPE_FRAME) { crate::web::turbo::stream("replace", "tracker_bar_end", &r.bar_end) } else { String::new() };
-    let body = format!("{}  <div class=\"tracker\">\n    {}\n    <turbo-frame id=\"{SCOPE_FRAME}\" class=\"scope-frame\" target=\"_top\" data-turbo-action=\"advance\">\n    {}\n    {tiles}    {}{stream}</turbo-frame>\n  </div>\n", r.pending, r.filters, r.chart, r.record);
+    let body = format!("{}  <div class=\"tracker\">\n    {}\n    <turbo-frame id=\"{SCOPE_FRAME}\" class=\"scope-frame\" target=\"_top\" data-turbo-action=\"advance\">\n    {}{}\n    {tiles}    {}{stream}</turbo-frame>\n  </div>\n", r.pending, r.filters, r.notice, r.chart, r.record);
     let body = Page { v: ctx, preferences: format!("user_{owner}:preferences"), tax_report: format!("user_{owner}:tax_report"), sync: format!("user_{owner}:sync"), body }.render()?;
     let page = super::layout::Page { status: axum::http::StatusCode::OK, body, flash_now: vec![] };
     if ctx.turbo_frame.is_some() { return super::layout::frame(&ctx.csrf_token(), &page); }

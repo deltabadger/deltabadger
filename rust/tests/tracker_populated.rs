@@ -52,6 +52,9 @@ fn withheld(name: &str, tiles: String, holdings: String) -> (String, String) {
         n if no_rate(n) => ("Currency conversion unavailable", true),
         _ => return (tiles, holdings),
     };
+    // PLAN-venue-prices S1: an unpriced holding is listed with no number; the card itself is checked on its own
+    // (`unpriced_card`), the tiles still withhold.
+    let keep_card = name == "populated_unpriced";
     let marker = "    <div class=\"data-grid__item\"";
     let mut parts: Vec<String> = tiles.split(marker).map(str::to_string).collect();
     for (i, part) in parts.iter_mut().enumerate().skip(1) {
@@ -62,7 +65,26 @@ fn withheld(name: &str, tiles: String, holdings: String) -> (String, String) {
         let end = line + part[line..].find('\n').unwrap();
         part.replace_range(line..end, &format!("      <span class=\"no-value\" title=\"{reason}\">—</span>"));
     }
+    if keep_card { return (parts.join(marker), holdings); }
     (parts.join(marker), format!("<div class=\"widget tracker-holdings\"><p class=\"tracker-holdings__empty\">{reason}</p></div>\n\n"))
+}
+
+/// PLAN-venue-prices S1, for a page with an unpriced holding: Rust's banner names it and its card lists it with no number;
+/// both are then cut, from Rust's page and Rails' (whose card has no such row), so the rest compares byte for byte.
+fn unpriced_card(name: &str, ours: &str, theirs: &str) -> (String, String) {
+    assert!(ours.contains("<div class=\"widget tracker-notice\" role=\"status\">"), "{name}: the missing-prices banner");
+    assert!(ours.contains("<span class=\"tracker-holdings__value\"><span class=\"no-value\">—</span></span>"), "{name}: the unpriced row");
+    let cut = |page: &str, from: &str, to: &str| -> String {
+        let Some(start) = page.find(from) else { return page.to_string() };
+        let end = start + page[start..].find(to).unwrap_or_else(|| panic!("{name}: {to}")) + to.len();
+        format!("{}{}", &page[..start], &page[end..])
+    };
+    let card = |page: &str| cut(page, "<div class=\"widget tracker-holdings", "</div>\n\n    </div>\n  </div>\n");
+    // The positions table states no price, gain or return for it where Rails states its cost as its value.
+    let rails_cells = "    <td><small>$</small>30,030.00</td>\n    <td class=\"tracker-row__cash\">+<small>$</small>0.00</td>\n    <td class=\"text-success\">+0.0%</td>\n";
+    let rust_cells = "    <td></td>\n    <td class=\"tracker-row__cash\"></td>\n    <td title=\"No cost basis for this holding, so no P/L is shown.\"><span class=\"no-value\">—</span></td>\n";
+    assert_eq!(theirs.matches(rails_cells).count(), 1, "{name}: Rails' cost-as-value cells");
+    (card(&cut(ours, "<div class=\"widget tracker-notice\"", "</div>\n")), card(&theirs.replacen(rails_cells, rust_cells, 1)))
 }
 
 /// Rails' page with the listed divergences applied (`withheld`), and with no display rate each transaction row's money
@@ -203,6 +225,7 @@ async fn populated_regions_match_rails() {
         }
         let ours = grid::masked(&answer.body, Some(&app), Some(&token));
         let theirs = grid::masked(&tabs::tracker_page(&withheld_page(&name, &rails_body)).unwrap_or_else(|e| panic!("{name}: {e}")), None, None);
+        let (ours, theirs) = if name == "populated_unpriced" { unpriced_card(&name, &ours, &theirs) } else { (ours, theirs) };
         if ours != theirs {
             std::fs::write(Path::new(&root).join(format!("{name}.rust.html")), &ours).unwrap();
             std::fs::write(Path::new(&root).join(format!("{name}.rails.html")), &theirs).unwrap();
@@ -440,4 +463,29 @@ async fn the_export_modal_offers_the_days_the_export_reads() {
     assert_eq!((value("from"), value("to")), ("2026-09-02".to_string(), "2026-09-04".to_string()), "Tokyo's days");
     let (_, csv) = get(&app, owner, &format!("/tracker/export?from={}&to={}", value("from"), value("to"))).await;
     assert_eq!(csv.lines().count(), 3, "both rows exported: {csv}");
+}
+
+/// PLAN-venue-prices S1: a holding with no market price is listed with no number, the banner names it and its venue, the
+/// tiles withhold what it decides, and with no provider set up the banner offers CoinGecko; with one, it does not.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unpriced_holding_is_listed_and_named_in_the_banner() {
+    let (_dir, app, owner, _) = warm_install(true).await;
+    let unprice = |c: &Connection| { c.execute("UPDATE account_balances SET usd_price=NULL,usd_value=NULL WHERE asset_id IN (SELECT id FROM assets WHERE symbol='BTC')", []).unwrap(); };
+    let r = regions_of(&app, owner, unprice).await;
+    let venue: String = Connection::open(_dir.path().join("production.sqlite3")).unwrap().query_row("SELECT e.name FROM exchanges e JOIN api_keys k ON k.exchange_id=e.id WHERE k.user_id=?1", [owner], |q| q.get(0)).unwrap();
+    assert!(r.notice.contains(&format!("No market price for BTC on {venue}.")), "{}", r.notice);
+    assert!(r.notice.contains("/tracker/connect_market_data"), "no provider: CoinGecko offered: {}", r.notice);
+    assert!(r.holdings.contains("<b>BTC</b>") && r.holdings.contains("<span class=\"tracker-holdings__value\"><span class=\"no-value\">—</span></span>"), "{}", r.holdings);
+    assert!(!r.holdings.contains("tracker-holdings__empty"), "the card is shown, not withheld");
+    assert!(r.tiles.contains("title=\"Tracker figures unavailable: unpriced holdings\""), "{}", r.tiles);
+    let r = regions_of(&app, owner, move |c| {
+        unprice(c);
+        for (key, value) in [("market_data_provider", "deltabadger"), ("market_data_url", "https://data.invalid"), ("market_data_token", "scripted-token")] {
+            deltabadger::app_config::set_plain(c, key, value, AT.parse().unwrap()).unwrap();
+        }
+    }).await;
+    assert!(r.notice.contains("No market price for BTC on") && !r.notice.contains("/tracker/connect_market_data"), "{}", r.notice);
+    // Priced again: no banner at all.
+    let r = regions_of(&app, owner, |c| { c.execute("UPDATE account_balances SET usd_price=60000,usd_value=600 WHERE asset_id IN (SELECT id FROM assets WHERE symbol='BTC')", []).unwrap(); }).await;
+    assert_eq!(r.notice, "", "nothing unpriced");
 }

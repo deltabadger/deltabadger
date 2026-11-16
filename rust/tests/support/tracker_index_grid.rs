@@ -156,7 +156,7 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
             let body=match answer.status {404=>include_str!("../../../public/404.html"),500=>include_str!("../../../public/500.html"),status=>panic!("unexpected exception status {status}")};
             assert_eq!(answer.body,body,"{name}: public error body");continue;
         }
-        let actual=masked(&answer.body,Some(&app),Some(&token));let mut oracle=masked(expected["body"].as_str().unwrap(),None,None);
+        let mut actual=masked(&answer.body,Some(&app),Some(&token));let mut oracle=masked(expected["body"].as_str().unwrap(),None,None);
         if matches!(mode(&name),Mode::Holdings) {
             let reason=match name.as_str(){
                 "holdings_stale"|"holdings_stale_hidden"=>Some("Tracker figures unavailable: stale prices"),
@@ -170,10 +170,19 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
                 let end=head+oracle[head..].find("</svg>\n").unwrap();
                 oracle.replace_range(head..end,"    <circle class=\"stroke--icon\" cx=\"12\" cy=\"12\" r=\"9\"\n            fill=\"none\" stroke-width=\"2\"/>\n");
             }
+            // PLAN-venue-prices S1: an unpriced holding is listed with no number under the missing-prices banner. Both are
+            // checked here, then the card is cut from both pages (Rails' has no such row) and the rest compared.
+            let unpriced=matches!(name.as_str(),"holdings_unpriced"|"holdings_zero_value");
+            if unpriced {
+                assert!(actual.contains("<div class=\"widget tracker-notice\" role=\"status\">"),"{name}: the missing-prices banner");
+                assert!(actual.contains("<span class=\"tracker-holdings__value\"><span class=\"no-value\">—</span></span>"),"{name}: the unpriced row");
+            }
             if let Some(reason)=reason {
+                if !unpriced {
                 let head=oracle.find("    <div class=\"widget tracker-holdings ").unwrap();
                 let end=head+oracle[head..].find("    <div class=\"tracker-record\"").unwrap();
                 oracle.replace_range(head..end,&format!("    <div class=\"widget tracker-holdings\"><p class=\"tracker-holdings__empty\">{reason}</p></div>\n\n"));
+                }
                 if name!="holdings_stale_hidden" {
                 let tile=oracle.find("data-grid__item__value \">\n      <small>$</small>").unwrap();
                 let head=tile+oracle[tile..].find("      <small>").unwrap();let end=head+oracle[head..].find('\n').unwrap();
@@ -205,6 +214,15 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         // The listed 3.0 tabs (tabs_3_0): a first-sync page's card is the record's Holdings pane.
         if oracle.contains("<div class=\"widget tracker-holdings") && oracle.contains("    <div class=\"tracker-record\" data-controller=\"tracker--record\">") {
             oracle=tabs::first_sync_page(&oracle).unwrap_or_else(|e|panic!("{name}: {e}"));
+        }
+        if matches!(name.as_str(),"holdings_unpriced"|"holdings_zero_value") {
+            // Both pages' Holdings pane from its card (Rust: the banner above it) to the next pane.
+            let cut=|page:&mut String,from:&str|{
+                let head=page[..page.find(from).unwrap_or_else(||panic!("{name}: {from}"))].rfind('\n').unwrap()+1;
+                let end=head+page[head..].find("  <div class=\"tracker-record__pane tracker-record__pane--off\" data-pane=\"tx\"").unwrap_or_else(||panic!("{name}: the next pane"));
+                page.replace_range(head..end,"");
+            };
+            cut(&mut actual,"<div class=\"widget tracker-notice\"");cut(&mut oracle,"<div class=\"widget tracker-holdings");
         }
         if actual!=oracle {std::fs::write(Path::new(&root).join("actual.html"),&actual).unwrap();std::fs::write(Path::new(&root).join("expected.html"),&oracle).unwrap();}
         assert!(actual==oracle,"{name}: byte equality; inspect actual.html and expected.html");

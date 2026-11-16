@@ -18,6 +18,7 @@ pub mod modal;
 pub mod classifications;
 pub mod import;
 pub mod gap;
+pub mod prices_notice;
 pub mod api;
 pub mod report;
 pub mod window;

@@ -12,7 +12,7 @@
       </span>
     </span>
   </span>
-  <span class="tracker-holdings__pct">{{ percent }}%</span>
+  <span class="tracker-holdings__pct">{{ percent }}</span>
 {% if !hidden %}    <span class="tracker-holdings__value">{{ value|safe }}</span>
 {% endif %}{% if let Some((pnl, tone)) = pnl %}    <span class="tracker-holdings__pl {{ tone }}">{{ pnl }}</span>
 {% else %}    <span class="tracker-holdings__pl" title="{{ v.t("tracker.basis_incomplete")|safe }}"><span class="no-value">—</span></span>

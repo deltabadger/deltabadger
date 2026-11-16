@@ -64,8 +64,13 @@ pub fn prepare(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result
     let reason=data.reason.or(if d.is_none(){Some("Currency conversion unavailable")}else{None});
     let (value,(card,classes))=if let Some(reason)=reason{
         let value=format!("<span class=\"no-value\" title=\"{reason}\">—</span>");
-        let card=format!("<div class=\"widget tracker-holdings\"><p class=\"tracker-holdings__empty\">{reason}</p></div>");(value,(card,vec![]))
+        // Unpriced holdings are listed, each with no number (PLAN-venue-prices S1); any other reason withholds the card.
+        let card=match &d {
+            Some(d) if reason==crate::tracker::figures::page::UNPRICED=>card(ctx,&data,d)?,
+            _=>(format!("<div class=\"widget tracker-holdings\"><p class=\"tracker-holdings__empty\">{reason}</p></div>"),vec![]),
+        };(value,card)
     }else{let d=d.ok_or_else(invalid)?;(money(data.value.as_ref().ok_or_else(invalid)?,&d)?,card(ctx,&data,&d)?)};
     let sync=synced_label(ctx,data.synced,data.stale);
+    let card=format!("{}{card}",super::prices_notice::banner(c,ctx,owner,scope,&[])?);
     Ok(Presentation{value,card,sync,classes})
 }

@@ -541,6 +541,13 @@ en:
             no_balances: No balances found on your connected exchanges.
             only_cash: "Only cash and stablecoins — turn on Show cash to see them."
             unpriced: 'Pricing unavailable for: %{assets}'
+        # "CoinGecko" is a product name: keep it verbatim in every locale.
+        prices:
+            missing: "No market price for %{assets} on %{venue}."
+            missing_anywhere: "No market price for %{assets}."
+            chart_missing: "The chart doesn't show the market value of %{assets} on %{venue} for days without a price."
+            chart_incomplete: "Some days on the chart are incomplete."
+            connect_coingecko: "Connect a free CoinGecko account to get market prices."
         sync: 'Sync'
         sync_started: 'Syncing transactions from your exchanges...'
         importing_from: 'Importing data from %{exchange}…'

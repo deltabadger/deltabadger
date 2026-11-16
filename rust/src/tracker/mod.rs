@@ -25,6 +25,7 @@ pub mod parity;
 pub mod prices;
 pub mod rows;
 pub mod snapshot;
+pub mod unpriced;
 pub mod walk;
 pub mod wash;
 
