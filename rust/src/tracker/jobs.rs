@@ -390,11 +390,27 @@ async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option
     }
     // The venues' own days (D-VENUE-HISTORY-FALLBACK): a phase of its own after every provider and broker read, so its
     // budget is its own.
+    // A sweep the budget cut off resumes, next time, at the coin it did not reach (`venue_cursor`), so slow coins first in
+    // line never keep the later ones from their turn.
     let mut retry = false;
     if let Some(q) = venues.venue_quotes() {
         let deadline = tokio::time::Instant::now() + crate::sync::venue_history::BUDGET;
-        for close in &plan.fetches {
-            if let backfill::Close::Venue(v) = close { retry |= venue_history(db, q.as_ref(), v, deadline).await?; }
+        let closes: Vec<&backfill::VenueHistory> = plan.fetches.iter().filter_map(|c| match c { backfill::Close::Venue(v) => Some(v), _ => None }).collect();
+        if !closes.is_empty() {
+            let user = plan.user_id;
+            let start = db.run(move |c, _| Ok(crate::app_config::get_plain(c, &backfill::venue_cursor_key(user)).ok().flatten().and_then(|v| v.parse::<usize>().ok()).unwrap_or(0))).await.unwrap_or(0) % closes.len();
+            let mut stopped = None;
+            for k in 0..closes.len() {
+                let i = (start + k) % closes.len();
+                // Out of time: nothing more is started, and what was not reached is asked for next time.
+                if tokio::time::Instant::now() >= deadline { stopped = Some(i); retry = true; break; }
+                retry |= venue_history(db, q.as_ref(), closes[i], deadline).await?;
+            }
+            let at = now;
+            db.run(move |c, _| match stopped {
+                Some(i) => crate::app_config::set_plain(c, &backfill::venue_cursor_key(user), &i.to_string(), at),
+                None => crate::app_config::delete(c, &backfill::venue_cursor_key(user)),
+            }).await?;
         }
     }
     Ok(retry)

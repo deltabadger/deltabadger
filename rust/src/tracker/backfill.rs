@@ -30,6 +30,8 @@ pub fn rate_limited_key(user_id: i64) -> String { format!("rust_snapshot_prices_
 /// days the provider left unstored are asked of its venues (D-VENUE-HISTORY-FALLBACK).
 pub const CALCULATION: &str = "4";
 pub fn calculation_key(user_id: i64) -> String { format!("snapshot_calculation_version_{user_id}") }
+/// Where a sweep's venue history reads resume after the budget cut one off (Rust only, D-VENUE-HISTORY-FALLBACK).
+pub fn venue_cursor_key(user_id: i64) -> String { format!("rust_venue_history_cursor_{user_id}") }
 /// Records that the user's history is this calculation's.
 pub fn mark_calculated(c: &Connection, cipher: &Cipher, user_id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<(), FiguresError> {
     crate::app_config::set(c, cipher, &calculation_key(user_id), CALCULATION, now).map_err(FiguresError::Data)
@@ -157,7 +159,7 @@ pub enum Close { Range(Fetch), Bars(Bars), Venue(VenueHistory) }
 /// What `load_prices` fetches before it reads, instrument by instrument, and the key each venue's symbol is priced
 /// under (`@price_keys`: none for a name that is both a stock and a coin, whose days are unpriced).
 #[derive(Clone, Debug, Default)]
-pub struct Plan { pub instruments: Vec<Instrument>, pub fetches: Vec<Close>, pub keys: HashMap<(String, String), Option<String>> }
+pub struct Plan { pub instruments: Vec<Instrument>, pub fetches: Vec<Close>, pub keys: HashMap<(String, String), Option<String>>, pub user_id: i64 }
 
 /// `touched`, `identity_of` and the instruments over every row: per venue and symbol (cash left out) the first day it
 /// was touched there, a linked transfer touching its destination too; on a crypto venue a symbol is a coin, on a stock
@@ -181,7 +183,7 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
             }
         }
     }
-    let mut plan = Plan::default();
+    let mut plan = Plan { user_id, ..Plan::default() };
     let mut index: HashMap<String, usize> = HashMap::new();
     for ((venue_name, symbol), from, _) in touched {
         crate::figures::budget::charge(1, 0)?;

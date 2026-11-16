@@ -379,6 +379,7 @@ pub const APP_CONFIGS: &[(Key, &str)] = &[
     (Key::Prefix("rust_tracker_ledger."), "the tracker's cached ledger summary"),
     (Key::Prefix("rust_tracker_gaps."), "the tracker's history gaps"),
     (Key::Prefix("rust_snapshot_unpriced."), "what the tracker's stored history could not price"),
+    (Key::Prefix("rust_venue_history_cursor_"), "where the tracker's venue history reads resume"),
     (Key::Prefix("rust_snapshot_prices_pending_"), "a tracker backfill waiting for prices"),
     (Key::Prefix("rust_kucoin_hf_gap."), "a KuCoin history gap"),
     (Key::Prefix("rust_kucoin_order:"), "a KuCoin order's record"),
