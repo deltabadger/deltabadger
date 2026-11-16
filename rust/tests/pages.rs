@@ -103,6 +103,13 @@ fn empty_dashboard_button(body: &str) -> String {
     format!("{}{}", &body[..at], form.replace(&body[at..], r#"<a class="sbutton sbutton--sky" data-turbo-frame="modal" aria-label="$2" href="$1">$3</a>"#))
 }
 
+/// D-FULL-PAGE-DIALOG-BACKDROP-CLOSES: a click on the backdrop of a full-page dialog (the new-bot wizard, the tracker's
+/// connect-an-exchange steps) closes it, as the small modals and settings do; Rails' full-page dialogs had no such action.
+fn full_page_dialog_backdrop_closes(body: &str) -> String {
+    body.replace("<dialog data-controller=\"modal--base\" data-modal--base-close-url-value=",
+        "<dialog data-controller=\"modal--base\" data-action=\"click->modal--base#clickOutside\" data-modal--base-close-url-value=")
+}
+
 /// D-NO-WIZARD-AUTO-OPEN: the bots page never opens the new-bot wizard by itself. Rails' first empty bots page after a
 /// sign-in hides its chrome and loads the exchange step into the modal frame with `?auto_open=true`, whose dialog then
 /// closes to nowhere; this crate's page is the plain empty dashboard, and that step's dialog closes to the bots page.
@@ -155,7 +162,7 @@ fn rails_answer(recorded: &Value, step: &Value) -> Value {
     let status = recorded["status"].as_u64().unwrap_or_else(|| panic!("recorded response has no status"));
     let body = recorded["body"].as_str().unwrap_or_else(|| panic!("recorded response has no body"));
     // The listed 3.0 bot-list frame (tabs_3_0), applied before the page is normalised.
-    let safe_body=no_wizard_auto_open(&empty_dashboard_button(&tabs::bots_page(body).unwrap_or_else(|e| panic!("{e}"))), step);
+    let safe_body=full_page_dialog_backdrop_closes(&no_wizard_auto_open(&empty_dashboard_button(&tabs::bots_page(body).unwrap_or_else(|e| panic!("{e}"))), step));
     // #498 and locale filtering are now the oracle: compare the rendered bytes directly.
     let mut answer = comparable(status, &headers, &safe_body, &extra_headers(step));
     // A tracker index (the listed 3.0 tabs): which shape it takes is the page this crate served, read once both exist.
