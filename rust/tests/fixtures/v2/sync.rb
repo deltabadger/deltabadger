@@ -308,73 +308,6 @@ module SyncParity
 
   # ---- the install ----
 
-  def build(dir, scenario)
-    SchemaTemplate.install(dir)
-    ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
-    travel_to(Time.utc(2026, 9, 1, 9, 0, 0)) do
-      user = User.new(name: 'Owner', email: 'owner@example.com', encrypted_password: SchemaTemplate.owner_password('correct horse battery staple'), admin: true,
-                      confirmed_at: Time.current, setup_completed: true)
-      user.save!(validate: false)
-      alpaca = Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
-      # As the hosted reference-data jobs leave them: USD is the local `usd` row (category Fiat), stocks and ETFs are
-      # category Stock, coins carry their CoinGecko id.
-      assets = {
-        'USD' => Asset.create!(external_id: 'usd', symbol: 'USD', name: 'US Dollar', category: 'Fiat'),
-        'AAPL' => Asset.create!(external_id: 'AAPL.US', symbol: 'AAPL', name: 'Apple', category: 'Stock', instrument_type: 'stock'),
-        'KLAC' => Asset.create!(external_id: 'KLAC.US', symbol: 'KLAC', name: 'KLA', category: 'Stock', instrument_type: 'stock'),
-        'QQQM' => Asset.create!(external_id: 'QQQM.US', symbol: 'QQQM', name: 'Invesco NASDAQ 100', category: 'Stock', instrument_type: 'etf'),
-        'BTC' => Asset.create!(external_id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', category: 'Cryptocurrency'),
-        'ETH' => Asset.create!(external_id: 'ethereum', symbol: 'ETH', name: 'Ethereum', category: 'Cryptocurrency')
-      }
-      assets.each_value { |a| ExchangeAsset.create!(exchange: alpaca, asset: a, available: true) }
-      stock = { base_decimals: 9, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000000001', minimum_quote_size: '1' }
-      %w[AAPL KLAC QQQM].each do |s|
-        Ticker.create!(exchange: alpaca, ticker: s, base: s, quote: 'USD', base_asset: assets[s], quote_asset: assets['USD'], **stock)
-      end
-      %w[BTC ETH].each do |s|
-        Ticker.create!(exchange: alpaca, ticker: "#{s}/USD", base: s, quote: 'USD', base_asset: assets[s], quote_asset: assets['USD'],
-                       base_decimals: 9, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000027', minimum_quote_size: '1')
-      end
-      key = ApiKey.new(user:, exchange: alpaca, **KEY.symbolize_keys, status: :correct, key_type: :trading)
-      key.save!(validate: false)
-      # The existing tracker fixture also uses Rails' supported plaintext placeholders,
-      # letting both halves read identical credentials without the Rails test secret.
-      ActiveRecord::Base.connection.exec_update('UPDATE api_keys SET key = ?, secret = ?, passphrase = ? WHERE id = ?', 'plain credentials',
-                                                [KEY['key'], KEY['secret'], KEY['passphrase'], key.id])
-      ctx = { user:, alpaca:, assets:, key: }
-      scenario[:setup]&.call(ctx)
-      ctx
-    end
-  end
-
-  # A bot with one closed buy of `symbol`, placed at `at` (insert!: no callbacks, no jobs). The order is on `venue`.
-  def holder(ctx, symbol, at:, amount: '10', external_id: nil, side: 0, venue: ctx[:alpaca])
-    bot = ctx[:user].bots.new(type: 'Bots::DcaMultiAsset', exchange: ctx[:alpaca], settings: {
-      'quote_asset_id' => ctx[:assets]['USD'].id, 'quote_amount' => 60.0, 'interval' => 'week', 'weighting' => 'manual',
-      'allocations' => { ctx[:assets].fetch(symbol).id.to_s => 1.0 }
-    })
-    bot.set_missed_quote_amount
-    bot.save!
-    Transaction.insert!({ 'bot_id' => bot.id, 'exchange_id' => venue.id, 'base_asset_id' => ctx[:assets].fetch(symbol).id,
-                          'quote_asset_id' => ctx[:assets]['USD'].id, 'base' => symbol, 'quote' => 'USD', 'side' => side, 'status' => 0,
-                          'external_status' => 2, 'external_id' => external_id || "order-#{bot.id}", 'order_type' => 0, 'price' => '100',
-                          'amount' => amount, 'amount_exec' => amount, 'quote_amount_exec' => (amount.to_d * 100).to_s('F'),
-                          'transaction_type' => 'REGULAR', 'bot_interval' => 'week', 'bot_quote_amount' => 60.0, 'error_messages' => [],
-                          'created_at' => at, 'updated_at' => at })
-    bot
-  end
-
-  def stored(ctx, exchange: ctx[:alpaca], key: ctx[:key], **attrs)
-    AccountTransaction.insert!({ user_id: ctx[:user].id, exchange_id: exchange.id, api_key_id: key&.id, raw_data: {}, manual_values: {},
-                                 created_at: Time.current, updated_at: Time.current }.merge(attrs))
-  end
-
-  def balance(ctx, symbol, free:, usd_price: nil, usd_value: nil, priced_at: nil, exchange: ctx[:binance] || ctx[:alpaca], user: ctx[:user])
-    at = Time.utc(2026, 9, 10, 2, 30, 0)
-    AccountBalance.insert!({ user_id: user.id, exchange_id: exchange.id, asset_id: ctx[:assets].fetch(symbol).id, free:, locked: 0,
-                             usd_price:, usd_value:, priced_at: priced_at || (usd_price && at), synced_at: at, created_at: at, updated_at: at })
-  end
-
   def ledger(at, *pages) = { 'kind' => 'ledger', 'at' => at, 'alpaca' => { ACTIVITIES => pages.map { |p| p.is_a?(Array) ? ok(p) : p } } }
 
   # The assets a venue install may add beside the Alpaca one's: [external_id, name, category].
@@ -824,20 +757,6 @@ module SyncParity
   def scenarios
     load File.join(__dir__, 'sync_scenarios.rb')
     SyncScenarios.all
-  end
-
-  def grid(root)
-    list = scenarios
-    list.each do |sc|
-      dir = File.join(root, sc[:name])
-      FileUtils.mkdir_p(dir)
-      ctx = build(dir, sc)
-      File.write(File.join(dir, 'scenario.json'),
-                 JSON.pretty_generate({ 'parity_scratch' => true, 'user_id' => ctx[:user].id, 'api_key_id' => ctx[:key].id,
-                                      'credentials' => ctx[:credentials] || KEY, 'steps' => sc[:steps], 'market_env' => sc[:market_env] }.compact))
-      ActiveRecord::Base.connection_pool.disconnect!
-    end
-    puts "built #{list.size} scenarios in #{root}"
   end
 
   def record(root)
