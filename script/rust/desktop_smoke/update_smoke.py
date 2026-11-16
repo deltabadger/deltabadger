@@ -313,10 +313,17 @@ class Seen:
         threading.Thread(target=loop, daemon=True).start()
 
 
-def command_line(pid):
-    """Windows: a process's command line."""
-    ps = f"(Get-CimInstance Win32_Process -Filter 'ProcessId={pid}').CommandLine"
-    return s.run(["powershell", "-NoProfile", "-Command", ps]).stdout.strip()
+def command_line(watch):
+    """Windows: a process's command line, read through the ExitWatch's handle (ProcessCommandLineInformation, which
+    QUERY_LIMITED_INFORMATION allows). Read at first sight: a passive installer can be gone within the seconds a
+    PowerShell query takes to start."""
+    import ctypes
+    buf, n = ctypes.create_string_buffer(65536), ctypes.c_ulong()
+    status = ctypes.windll.ntdll.NtQueryInformationProcess(ctypes.c_void_p(watch.handle), 60, buf, len(buf), ctypes.byref(n))
+    if status:  # not raised: this runs on Seen's thread, and the caller's check prints it
+        return f"<no command line for process {watch.pid}: NTSTATUS {status & 0xFFFFFFFF:#x}>"
+    length = ctypes.c_ushort.from_buffer(buf).value  # UNICODE_STRING: Length, MaximumLength, pad, Buffer (into buf)
+    return ctypes.wstring_at(ctypes.c_void_p.from_buffer(buf, 8).value, length // 2)
 
 
 def installer_pids():
@@ -364,7 +371,11 @@ def no_app_within(seconds, what):
 
 def installer_seen():
     """Windows: the update's installer, watched from its first sight (it may end before the app has handed over)."""
-    return Seen(installer_pids, every=0.05, then=lambda v: s.ExitWatch(v[0]))
+    def watch(v):
+        w = s.ExitWatch(v[0])
+        w.line = command_line(w) if w.handle else ""
+        return w
+    return Seen(installer_pids, every=0.05, then=watch)
 
 
 def wait_installer_exit(what, seen, seconds=180):
@@ -420,12 +431,13 @@ def scenario_p1_p2_p5(name):
                 until("the app gone", 30, lambda: not s.app_pids())
                 s.cleanup()
             else:
+                seen = installer_seen() if WIN else None
                 quit_from_tray(data)
                 until("P5: U12", 30, lambda: any(x == "desktop: update: showing quitting-update" for x in s.lines(data)))
                 if WIN:
-                    pid = until("P5: the installer started", 120, lambda: installer_pids() and installer_pids()[0])
-                    line = command_line(pid)
-                    code = s.ExitWatch(pid).wait(180)
+                    watch = until("P5: the installer started", 120, lambda: seen.then)
+                    line = watch.line
+                    code = watch.wait(180)
                     check(code == 0, f"P5: the installer exited {code}")
                     check(line.split()[-2:] == ["/P", "/UPDATE"], f"P5: the installer's command line {line}")
                     say(f"P5: the installer ran without /R: {line}")
@@ -457,7 +469,7 @@ def scenario_p4_p6(name):
         before = installed()
         engine_file = INST / "deltabadger-engine.exe" if WIN else s.ARGS.app
         stamp = (sha(engine_file), engine_file.stat().st_mtime_ns)
-        replaced = Seen(installer_pids if WIN else (lambda: installed() != before))
+        replaced = installer_seen() if WIN else Seen(lambda: installed() != before)
         install_click(win, data)
         status_text(win, "U7", "Deltabadger is finishing its current work before updating and restarting.")
         end = time.monotonic() + 20
@@ -471,7 +483,7 @@ def scenario_p4_p6(name):
         until("P6: the engine's exit after the release", 120, lambda: start.pid not in s.engine_pids(), every=0.05)
         exited = time.monotonic()
         until("P4: replaced", 180, lambda: replaced.at)
-        line = command_line(replaced.value[0]) if WIN else ""
+        line = replaced.then.line if WIN else ""
         check(replaced.at >= exited - 0.2, "P6: the replacement began before the engine's exit")
         lines = s.lines(data)
         stopped = max(i for i, x in enumerate(lines) if "stopped on request" in x)

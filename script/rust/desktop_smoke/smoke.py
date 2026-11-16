@@ -115,12 +115,13 @@ class ExitWatch:
             import ctypes
             self.k32 = ctypes.windll.kernel32
             self.handle = self.k32.OpenProcess(0x1000 | 0x00100000, False, pid)  # QUERY_LIMITED_INFORMATION | SYNCHRONIZE
+            self.error = self.k32.GetLastError() if not self.handle else 0  # 87: no such process (already exited)
 
     def wait(self, seconds):
         """The exit code within `seconds` (None where unreadable), or fail."""
         if WIN:
             import ctypes
-            check(self.handle, f"no handle on engine {self.pid}")
+            check(self.handle, f"no handle on process {self.pid} (OpenProcess error {self.error})")
             check(self.k32.WaitForSingleObject(self.handle, int(seconds * 1000)) == 0, f"engine {self.pid} still running after {seconds} s")
             code = ctypes.c_ulong()
             self.k32.GetExitCodeProcess(self.handle, ctypes.byref(code))
