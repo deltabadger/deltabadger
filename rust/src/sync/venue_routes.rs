@@ -26,42 +26,56 @@ pub struct End { pub usd: bool, pub rate: BigDec }
 #[derive(Clone, Debug, PartialEq)]
 pub struct Candidate { pub price: BigDec, pub legs: Vec<i64> }
 
-/// Every candidate of exactly `legs` pairs from `from` to a fiat end, best first (a dollar end before another fiat, then
-/// the pairs' ids), at most `MAX_CANDIDATES`. A route stops at the first fiat it reaches.
-pub fn candidates(pairs: &[Pair], quotes: &HashMap<String, BigDec>, ends: &HashMap<i64, End>, from: i64, legs: usize) -> Vec<Candidate> {
-    if legs == 0 || legs > MAX_LEGS || ends.contains_key(&from) { return vec![]; }
-    // Each asset's walkable steps: (pair id, next asset, factor).
-    let mut steps: BTreeMap<i64, Vec<(i64, i64, BigDec)>> = BTreeMap::new();
-    for p in pairs {
-        let Some(price) = quotes.get(&p.code).filter(|q| q.is_positive()) else { continue };
-        if p.base == p.quote { continue; }
-        steps.entry(p.base).or_default().push((p.id, p.quote, price.clone()));
-        if let Some(inverse) = BigDec::one().div(price) { steps.entry(p.quote).or_default().push((p.id, p.base, inverse)); }
+/// The venue's priced pairs as steps from each asset: (pair id, next asset, factor). Built once per sync and walked for
+/// every holding.
+pub struct Graph { steps: BTreeMap<i64, Vec<(i64, i64, BigDec)>> }
+
+impl Graph {
+    pub fn new(pairs: &[Pair], quotes: &HashMap<String, BigDec>) -> Graph {
+        let mut steps: BTreeMap<i64, Vec<(i64, i64, BigDec)>> = BTreeMap::new();
+        for p in pairs {
+            let Some(price) = quotes.get(&p.code).filter(|q| q.is_positive()) else { continue };
+            if p.base == p.quote { continue; }
+            steps.entry(p.base).or_default().push((p.id, p.quote, price.clone()));
+            if let Some(inverse) = BigDec::one().div(price) { steps.entry(p.quote).or_default().push((p.id, p.base, inverse)); }
+        }
+        for list in steps.values_mut() { list.sort_by_key(|(id, _, _)| *id); }
+        Graph { steps }
     }
-    for list in steps.values_mut() { list.sort_by_key(|(id, _, _)| *id); }
-    let mut found: Vec<(bool, Vec<i64>, BigDec)> = vec![];
-    let mut frontier: Vec<(i64, Vec<i64>, Vec<i64>, BigDec)> = vec![(from, vec![from], vec![], BigDec::one())];
-    let mut expanded = 0usize;
-    for depth in 1..=legs {
-        let mut next = vec![];
-        for (at, seen, walked, factor) in frontier {
-            for (pair, to, step) in steps.get(&at).map(Vec::as_slice).unwrap_or(&[]) {
-                expanded += 1;
-                if expanded > MAX_EXPANSIONS { break; }
-                if seen.contains(to) { continue; }
-                let product = &factor * step;
-                let mut path = walked.clone();
-                path.push(*pair);
-                match ends.get(to) {
-                    Some(end) => if depth == legs { found.push((!end.usd, path, &product * &end.rate)); },
-                    None => if depth < legs { let mut s = seen.clone(); s.push(*to); next.push((*to, s, path, product)); },
+
+    /// Every candidate of exactly `legs` pairs from `from` to a fiat end, best first (a dollar end before another fiat,
+    /// then the pairs' ids), at most `MAX_CANDIDATES`. A route stops at the first fiat it reaches.
+    pub fn candidates(&self, ends: &HashMap<i64, End>, from: i64, legs: usize) -> Vec<Candidate> {
+        if legs == 0 || legs > MAX_LEGS || ends.contains_key(&from) { return vec![]; }
+        let mut found: Vec<(bool, Vec<i64>, BigDec)> = vec![];
+        let mut frontier: Vec<(i64, Vec<i64>, Vec<i64>, BigDec)> = vec![(from, vec![from], vec![], BigDec::one())];
+        let mut expanded = 0usize;
+        for depth in 1..=legs {
+            let mut next = vec![];
+            for (at, seen, walked, factor) in frontier {
+                for (pair, to, step) in self.steps.get(&at).map(Vec::as_slice).unwrap_or(&[]) {
+                    expanded += 1;
+                    if expanded > MAX_EXPANSIONS { break; }
+                    if seen.contains(to) { continue; }
+                    let product = &factor * step;
+                    let mut path = walked.clone();
+                    path.push(*pair);
+                    match ends.get(to) {
+                        Some(end) => if depth == legs { found.push((!end.usd, path, &product * &end.rate)); },
+                        None => if depth < legs { let mut s = seen.clone(); s.push(*to); next.push((*to, s, path, product)); },
+                    }
                 }
             }
+            frontier = next;
         }
-        frontier = next;
+        found.sort_by(|a, b| (a.0, &a.1).cmp(&(b.0, &b.1)));
+        found.into_iter().take(MAX_CANDIDATES).map(|(_, legs, price)| Candidate { price, legs }).collect()
     }
-    found.sort_by(|a, b| (a.0, &a.1).cmp(&(b.0, &b.1)));
-    found.into_iter().take(MAX_CANDIDATES).map(|(_, legs, price)| Candidate { price, legs }).collect()
+}
+
+/// `Graph::candidates` over a graph built for the one call.
+pub fn candidates(pairs: &[Pair], quotes: &HashMap<String, BigDec>, ends: &HashMap<i64, End>, from: i64, legs: usize) -> Vec<Candidate> {
+    Graph::new(pairs, quotes).candidates(ends, from, legs)
 }
 
 #[cfg(test)]

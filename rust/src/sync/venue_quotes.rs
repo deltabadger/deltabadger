@@ -138,11 +138,16 @@ impl<T: Transport + 'static> Quotes<T> {
             take(&plan, &cache, now.timestamp(), &mut quotes);
             log(exchange_id, "out of time: routing what was read");
         }
-        for w in routed {
-            let pick = (1..=venue_routes::MAX_LEGS).find_map(|legs| venue_routes::candidates(&plan.pairs, &quotes, &plan.ends, w.asset, legs).into_iter()
-                .find(|c| super::balances::fits(&w.total, &c.price)));
-            if let Some(c) = pick { found.insert(w.external_id.clone(), c.price); }
-        }
+        // The search is CPU work: on a worker of its own, never the engine's runtime thread; the graph built once.
+        let (pairs, ends) = (plan.pairs, plan.ends);
+        let routed: Vec<Wanted> = routed.into_iter().cloned().collect();
+        let picked = tokio::task::spawn_blocking(move || {
+            let graph = venue_routes::Graph::new(&pairs, &quotes);
+            routed.into_iter().filter_map(|w| (1..=venue_routes::MAX_LEGS)
+                .find_map(|legs| graph.candidates(&ends, w.asset, legs).into_iter().find(|c| super::balances::fits(&w.total, &c.price)))
+                .map(|c| (w.external_id, c.price))).collect::<Vec<_>>()
+        }).await;
+        match picked { Ok(picked) => found.extend(picked), Err(why) => log(exchange_id, &format!("route search failed: {why}")) }
         found
     }
 }
