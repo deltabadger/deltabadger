@@ -23,10 +23,18 @@ const IBKR: &str = "Exchanges::Ibkr";
 const ALPACA: &str = "Exchanges::Alpaca";
 const DAY: i64 = 86_400;
 
-/// A venue's own throttle answers inside a 2xx body (Bybit's retCode, Kraken's error list, Binance's code, KuCoin's,
-/// Bitget's, Gemini's and BingX's words). Any other body-level error (an unknown pair) is no reason to ask again.
-const THROTTLED: [&str; 9] = ["\"retCode\":10006", "\"retCode\":10018", "EAPI:Rate limit exceeded", "EGeneral:Too many requests",
-                              "\"code\":-1003", "\"code\":\"429000\"", "\"code\":\"429\"", "Too many requests", "Too many visits"];
+/// Whether a 2xx body is a venue's own throttle answer, read as JSON: Bybit's `retCode` 10006/10018, Binance's `code`
+/// -1003, KuCoin's `429000`, Bitget's `429`, Kraken's `EAPI:Rate limit exceeded` / `EGeneral:Too many requests`, and a
+/// "too many requests"/"too many visits" message in any case. Any other body-level error (an unknown pair, Bitget's
+/// `40014` permission refusal) is no reason to ask again.
+fn throttled(body: &str) -> bool {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(body) else { return false };
+    let number = |key: &str| v.get(key).and_then(|c| c.as_i64().or_else(|| c.as_str().and_then(|s| s.parse().ok())));
+    if matches!(number("retCode"), Some(10006 | 10018)) || matches!(number("code"), Some(-1003 | 429000 | 429)) { return true; }
+    let words = |s: &str| { let s = s.to_lowercase(); s.contains("too many requests") || s.contains("too many visits") || s.contains("rate limit exceeded") };
+    if v.get("error").and_then(|e| e.as_array()).is_some_and(|errors| errors.iter().filter_map(|e| e.as_str()).any(|e| e.starts_with("EAPI:Rate limit") || e.starts_with("EGeneral:Too many"))) { return true; }
+    ["msg", "message", "retMsg", "reason"].iter().filter_map(|k| v.get(*k).and_then(|m| m.as_str())).any(words)
+}
 
 /// The fallback's wire: the venue's own, and a record of whether any request met a failure worth asking again for.
 pub struct Watched<T> { pub inner: T, pub retry: Cell<bool> }
@@ -36,7 +44,7 @@ impl<T> Watched<T> {
     fn note(&self, answer: &Result<HttpResponse, TransportError>) {
         let again = match answer {
             Err(_) => true,
-            Ok(r) => r.status == 429 || r.status >= 500 || ((200..300).contains(&r.status) && THROTTLED.iter().any(|m| r.body.contains(m))),
+            Ok(r) => r.status == 429 || r.status >= 500 || ((200..300).contains(&r.status) && throttled(&r.body)),
         };
         if again { self.retry.set(true); }
     }
@@ -102,7 +110,10 @@ pub async fn history<T: Transport>(make: &super::venue_quotes::MakeWire<T>, db: 
     let wire = Watched::new(make(read.key.as_ref().map(|(c, _)| c), read.venues));
     let usd: HashMap<i64, bool> = read.fiat.iter().map(|(id, (usd, _))| (*id, *usd)).collect();
     // Each segment's routes; every leg's candles since its segment's first day.
-    let routes: Vec<(Segment, Vec<Route>)> = segments.into_iter().map(|s| { let r = venue_routes::topology(&read.pairs, &usd, s.asset, ROUTES); (s, r) }).collect();
+    // Each segment from its first day not stored; a segment stored whole asks nothing.
+    let first_missing = |s: &Segment| { let mut d = s.from; while d <= s.to { if !have.contains(&d) { return Some(d); } d = d.succ_opt()?; } None };
+    let routes: Vec<(Segment, Vec<Route>)> = segments.into_iter().filter_map(|s| first_missing(&s).map(|from| Segment { from, ..s }))
+        .map(|s| { let r = venue_routes::topology(&read.pairs, &usd, s.asset, ROUTES); (s, r) }).collect();
     let mut since: HashMap<i64, NaiveDate> = HashMap::new();
     for (s, rs) in &routes { for leg in rs.iter().flat_map(|r| &r.legs) { let d = since.entry(leg.pair).or_insert(s.from); *d = (*d).min(s.from); } }
     let mut cache = Cache::default();
@@ -174,7 +185,8 @@ mod tests {
         assert!(!w.retry.get(), "an unknown pair and a permission refusal are permanent");
         w.note(&ok(200, r#"{"retCode":10006,"retMsg":"Too many visits!"}"#));
         assert!(w.retry.get());
-        for answer in [ok(429, ""), ok(503, ""), ok(200, r#"{"error":["EAPI:Rate limit exceeded"]}"#), Err(TransportError::NotSent("dns".into()))] {
+        for answer in [ok(429, ""), ok(503, ""), ok(200, r#"{"error":["EAPI:Rate limit exceeded"]}"#), ok(200, r#"{"code": "429000", "msg": "Too Many Requests"}"#),
+                       ok(200, r#"{ "code" : -1003 }"#), Err(TransportError::NotSent("dns".into()))] {
             let w = Watched::new(());
             w.note(&answer);
             assert!(w.retry.get(), "{answer:?}");

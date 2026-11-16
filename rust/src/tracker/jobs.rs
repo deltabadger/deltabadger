@@ -378,18 +378,24 @@ async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option
             .map(|b| (b.symbol.clone(), reference.prices_over(&format!("stock:{}", b.symbol), b.from, b.to).map(|(d, _)| *d).collect())).collect();
         Ok((keys, stored))
     }).await?;
-    let quotes = venues.venue_quotes();
-    let deadline = tokio::time::Instant::now() + crate::sync::venue_history::BUDGET;
-    let mut retry = false;
     for close in &plan.fetches {
         let bars = match close {
             backfill::Close::Range(f) => { fetch(db, api, f.clone(), now).await?; continue }
-            backfill::Close::Venue(v) => { if let Some(q) = quotes.as_deref() { retry |= venue_history(db, q, v, deadline).await?; } continue }
+            backfill::Close::Venue(_) => continue,
             backfill::Close::Bars(b) => b,
         };
         let (Some(key), Some(have)) = (keys.get(&bars.api_key_id), stored.get(&bars.symbol)) else { continue };
         // `stock_price_range`: any failure of the request leaves the symbol without closes.
         prices::fetch_stock_bars(db, venues, key, &bars.symbol, (bars.from, bars.to), have).await?;
+    }
+    // The venues' own days (D-VENUE-HISTORY-FALLBACK): a phase of its own after every provider and broker read, so its
+    // budget is its own.
+    let mut retry = false;
+    if let Some(q) = venues.venue_quotes() {
+        let deadline = tokio::time::Instant::now() + crate::sync::venue_history::BUDGET;
+        for close in &plan.fetches {
+            if let backfill::Close::Venue(v) = close { retry |= venue_history(db, q.as_ref(), v, deadline).await?; }
+        }
     }
     Ok(retry)
 }
