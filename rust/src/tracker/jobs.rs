@@ -418,8 +418,9 @@ async fn venue_history(db: &Db, quotes: &dyn crate::sync::venue_quotes::VenueQuo
             let tx = crate::engine::model::immediate(c).map_err(|_| "cannot begin venue price write".to_string())?;
             match version {
                 Some(version) => {
-                    // A key replaced or removed while its history was read: nothing it read is stored.
-                    let Ok(fenced) = crate::engine::model::check_credential_result(&tx, &Some(version)) else { return Ok(()) };
+                    // A key replaced or removed while its history was read: nothing it read is stored, and the sweep asks
+                    // again under the key it has now.
+                    let fenced = crate::engine::model::check_credential_result(&tx, &Some(version)).map_err(|_| "the key changed while its history was read".to_string())?;
                     prices::store_bars(&fenced, &rows).map_err(message)?;
                 }
                 None => { prices::store_in(&tx, "USD", &rows).map_err(message)?; }
