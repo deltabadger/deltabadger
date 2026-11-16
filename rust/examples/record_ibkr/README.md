@@ -53,14 +53,14 @@ IBKR_RECORDER_DIR=~/ibkr-paper cargo run --example record_ibkr -- paper --stock 
 ```
 
 - `--us` / `--eu` / `--stock` take `SYMBOL,CONID,ISIN` as IBKR spells them. The conid is in TWS or the Client Portal, under the contract's details.
-- `--eu`: pick a stock you **hold** in a non-USD currency (EUR), so the positions and PA answers have rows.
+- `--eu`: any liquid stock quoted in a non-USD currency (EUR), for example SAP. You need not hold it: its quote, history, rules and contract lookups are recorded either way. If you do hold one, the positions and PA answers also get a non-USD row.
 - `--limit`: about half the stock's price. The limit buy must never fill; it is cancelled straight away.
 - `--untradable`: optional. A conid IBKR does not trade (an index such as SPX, conid 416904) records the refusal of an order on it. Leave it out if unsure.
 - Credentials are never arguments. An argument that mentions a key, secret, token or pem is refused.
 
 ## 4. What to have in place first
 
-- **read**: on the live account, at least one held position (the EU stock) and one past trade. Then the trades, order status and PA answers have rows. The positions read records page 0 and page 1. Page 1 is normally empty: that is the page boundary, and it is also the recording's empty answer.
+- **read**: on the live account, ideally at least one held position and one past trade. Then the positions, trades, order status and PA answers have rows. Empty answers are recorded too. The positions read records page 0 and page 1. Page 1 is normally empty: that is the page boundary, and it is also the recording's empty answer.
 - **paper**: run during **US market hours**, on a cheap US stock (one share is bought and sold). The tool does the following:
   1. places a market buy, confirms every prompt, and polls the order until it is filled;
   2. places a far limit buy, reads its status, cancels it, and reads it again;
