@@ -76,6 +76,8 @@ de:
             permission_denied: "Dem API-Schlüssel fehlt eine Berechtigung, die %{exchange} dafür braucht."
             restricted: "%{exchange} erlaubt den Handel mit diesem Asset aus deiner Region nicht."
             rate_limited: "%{exchange} drosselt gerade die Anfragen. Der Bot versucht es automatisch erneut."
+            order_too_large: "Die Order ist größer, als %{exchange} erlaubt. Senke den Betrag oder verteile ihn auf mehrere Bots."
+            order_too_large_limit: "%{exchange} nimmt höchstens %{limit} pro Order an. Senke den Betrag oder verteile ihn auf mehrere Bots."
         bots:
             split:
                 busy: "%{exchange} bearbeitet gerade eine andere Order. Versuch es gleich noch einmal."

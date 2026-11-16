@@ -21,9 +21,9 @@
     "config/locales/api.pl.yml": "fda850e430e8d64f14a5b6f078061c674c1a371d7e2883cdf970ee2495f6591b",
     "config/locales/api_read_only.en.yml": "349b0cb8dbf472fa989661b0ca648c8df5cc216d68b5e9b375a246268a00d735",
     "config/locales/api_withdrawal.en.yml": "8ac2fa18ec06a6599e431b80ecf40da79f853193e78ce495e00902dae66bb41a",
-    "config/locales/errors.en.yml": "19f7041508d10c05917e9f21a0cf705571e3aa71fb1befd06933fcf4bbb2ca9b",
-    "config/locales/errors.de.yml": "6af05527c94dba96629ffc0d4517ce10f0f6f4c8a407d4ba32317ae3dfbde12a",
-    "config/locales/errors.pl.yml": "8abf92d30dc3f30e1072a53c6f5fedafe0b34be61f70a0171b8baa63c99beb2a"
+    "config/locales/errors.en.yml": "e5fd4836c6dc024b9225592c6ae781dc0674d031e3fb5f60d798c2adc0c3d430",
+    "config/locales/errors.de.yml": "a198233e3e045467e51d6a4735c480c4f29af948adb2ffad60f2c7c872544ad2",
+    "config/locales/errors.pl.yml": "1cc32af41f0dc869a17dc69e1e40be6b683f051d15bb635bb1180590cfae93ec"
   },
   "honeymaker": "0.12.5",
   "kraken": {

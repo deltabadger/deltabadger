@@ -76,6 +76,8 @@ es:
             permission_denied: "A la clave API le falta un permiso que %{exchange} necesita para esto."
             restricted: "%{exchange} no permite operar con este activo desde tu región."
             rate_limited: "%{exchange} está limitando el número de solicitudes. El bot lo reintentará automáticamente."
+            order_too_large: "La orden es mayor de lo que %{exchange} permite. Reduce el importe o repártelo entre más bots."
+            order_too_large_limit: "%{exchange} acepta como máximo %{limit} por orden. Reduce el importe o repártelo entre más bots."
         bots:
             split:
                 busy: "%{exchange} está procesando otra orden. Inténtalo de nuevo en un momento."
