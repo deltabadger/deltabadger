@@ -35,6 +35,11 @@ pub type QuotesFuture<'a> = Pin<Box<dyn Future<Output = HashMap<String, BigDec>>
 /// Dollar prices by external id for what the venue can price; absent what it cannot.
 pub trait VenueQuotes {
     fn prices<'a>(&'a self, db: &'a Db, key_id: i64, exchange_id: i64, wanted: Vec<Wanted>, now: DateTime<Utc>) -> QuotesFuture<'a>;
+    /// The days of `segments` not in `have`, from the venue's daily candles (S3, `venue_history`); none by default.
+    fn history<'a>(&'a self, _db: &'a Db, _exchange_id: i64, _api_key_id: Option<i64>, _segments: Vec<super::venue_history::Segment>,
+                   _have: HashSet<chrono::NaiveDate>, _deadline: tokio::time::Instant) -> Pin<Box<dyn Future<Output = super::venue_history::Days> + 'a>> {
+        Box::pin(async { super::venue_history::Days::default() })
+    }
 }
 
 /// Each venue's public, proxy-aware transport, as the figures build them (`venue_egresses`).
@@ -84,6 +89,10 @@ fn codes_near(pairs: &[Pair], from: &[i64], ends: &HashSet<i64>) -> Vec<String> 
 }
 
 impl<T: Transport + 'static> VenueQuotes for Quotes<T> {
+    fn history<'a>(&'a self, db: &'a Db, exchange_id: i64, api_key_id: Option<i64>, segments: Vec<super::venue_history::Segment>,
+                   have: HashSet<chrono::NaiveDate>, deadline: tokio::time::Instant) -> Pin<Box<dyn Future<Output = super::venue_history::Days> + 'a>> {
+        Box::pin(super::venue_history::history(&self.make, db, exchange_id, api_key_id, segments, have, deadline))
+    }
     fn prices<'a>(&'a self, db: &'a Db, key_id: i64, exchange_id: i64, wanted: Vec<Wanted>, now: DateTime<Utc>) -> QuotesFuture<'a> {
         Box::pin(async move {
             self.run(db, key_id, exchange_id, wanted, now).await

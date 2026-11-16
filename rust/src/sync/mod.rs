@@ -44,6 +44,7 @@ pub mod ledger;
 pub mod parity;
 pub mod number;
 pub mod wire;
+pub mod venue_history;
 pub mod venue_quotes;
 pub mod venue_routes;
 

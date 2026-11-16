@@ -9,13 +9,11 @@ use rusqlite::Connection;
 #[template(path="tracker/early.html")]
 struct Early<'a>{v:&'a Ctx,preferences:String,tax_report:String,sync:String,missing:bool,connect:String,pending:String}
 
-fn needs_market_data(c:&Connection,owner:i64)->Result<bool,WebError>{
-    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND exchange_id NOT IN (SELECT id FROM exchanges WHERE type IN ('Exchanges::Alpaca','Exchanges::Ibkr'))) OR EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1 AND exchange_id NOT IN (SELECT id FROM exchanges WHERE type IN ('Exchanges::Alpaca','Exchanges::Ibkr')))",[owner],|r|r.get(0))?)
-}
-
 fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result<Response,WebError>{
-    let missing=!crate::web::bots::market_data(c,&ctx.app)?.1 && needs_market_data(c,owner)?;
-    if !missing {
+    // D-TRACKER-NO-PROVIDER-WALL (Rust only, PLAN-venue-prices S3): no market-data provider no longer keeps an account
+    // from its tracker; the venues price what they can and the page's banner names the rest.
+    let missing=false;
+    {
         // Rails' order: the venue (`Exchange.find`, 404) before any date is read.
         if let Some(raw)=ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty()) {
             let Some(id)=crate::web::bot::id_from_path(raw) else{return Ok(layout::missing())};
@@ -40,8 +38,7 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result<Resp
         }
     }
     let Some(user)=ctx.user() else{return Ok(auth::unauthenticated(ctx))};
-    // `check_pending_report` runs after the market-data check returned: a missing provider shows no report.
-    let pending=if missing{String::new()}else{
+    let pending={
         let settings:Option<String>=c.query_row("SELECT tracker_settings FROM users WHERE id=?1",[owner],|r|r.get(0))?;
         let settings:serde_json::Value=match settings {Some(text)=>serde_json::from_str(&text).map_err(|_|super::row::invalid())?,None=>serde_json::Value::Null};
         super::populated::pending_report(c,ctx,owner,&settings)?
@@ -61,7 +58,6 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result<Resp
 /// writes. A gate that cannot be read drops its own wake only.
 fn wakes(c:&Connection,ctx:&Ctx,owner:i64)->Result<Vec<(&'static str,String)>,WebError>{
     use crate::tracker::{backfill,cache,jobs};
-    if !crate::web::bots::market_data(c,&ctx.app)?.1 && needs_market_data(c,owner)? {return Ok(vec![]);}
     let now=ctx.app.now();
     let mut out=vec![];
     if !matches!(crate::figures::budget::within(||cache::read(c,owner,None,now)),Ok(cache::State::Warm(_))) {out.push((jobs::TRACKER_LEDGER,owner.to_string()));}

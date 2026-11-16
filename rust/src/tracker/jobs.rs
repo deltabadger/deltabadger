@@ -313,7 +313,7 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
     let Some((version, first, plan)) = begun else { return Ok(false) };
     // The price service `fetch_missing` builds.
     if !plan.instruments.is_empty() { fx::ensure_loaded(db, ecb, today).await; }
-    fetch_closes(db, venues, api, &plan, now).await?;
+    let venue_retry = fetch_closes(db, venues, api, &plan, now).await?;
     // `load_prices`' table, built before the money-in walk.
     let plan = std::sync::Arc::new(plan);
     let p = plan.clone();
@@ -325,7 +325,8 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
     let version = std::sync::Arc::new(version);
     // D-CG-429-STOPS-PRICES: a run a 429 stopped leaves its gaps pending: the price generation is not stamped, so the next
     // scheduled run or wake (`backfill::wanted`) sweeps again and asks for them.
-    let limited = api.is_some_and(Feed::rate_limited);
+    // The venues' own history reads (D-VENUE-HISTORY-FALLBACK) cut off or throttled leave their gaps pending the same way.
+    let limited = api.is_some_and(Feed::rate_limited) || venue_retry;
     metered(db, &mut allowance, move |c, cipher| {
         written_for(c, &inputs.origin, &|| now, |fenced, _| {
             // The rows swept, the window and the price plan are the rows the write sees: one version, read before the
@@ -360,8 +361,9 @@ async fn fetch<T: Transport>(db: &Db, api: Option<&Feed<T>>, f: Fetch, now: Date
     fetch_and_store(db, api, &f, &have, now).await.map(|(_, stored)| stored)
 }
 
-/// `fetch_missing` for every instrument: each coin's ranges from data-api, each stock's closes from the broker.
-async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option<&Feed<T>>, plan: &Plan, now: DateTime<Utc>) -> Result<(), String> {
+/// `fetch_missing` for every instrument: each coin's ranges from data-api, each stock's closes from the broker, then each
+/// coin's remaining days from its venues (D-VENUE-HISTORY-FALLBACK). Returns whether a venue's read should be asked again.
+async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option<&Feed<T>>, plan: &Plan, now: DateTime<Utc>) -> Result<bool, String> {
     // Every bar request's key and stored closes, read once before the requests.
     let bars: Vec<backfill::Bars> = plan.fetches.iter().filter_map(|f| match f { backfill::Close::Bars(b) => Some(b.clone()), _ => None }).collect();
     let wanted = bars.clone();
@@ -376,13 +378,51 @@ async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option
             .map(|b| (b.symbol.clone(), reference.prices_over(&format!("stock:{}", b.symbol), b.from, b.to).map(|(d, _)| *d).collect())).collect();
         Ok((keys, stored))
     }).await?;
+    let quotes = venues.venue_quotes();
+    let deadline = tokio::time::Instant::now() + crate::sync::venue_history::BUDGET;
+    let mut retry = false;
     for close in &plan.fetches {
-        let bars = match close { backfill::Close::Range(f) => { fetch(db, api, f.clone(), now).await?; continue } backfill::Close::Bars(b) => b };
+        let bars = match close {
+            backfill::Close::Range(f) => { fetch(db, api, f.clone(), now).await?; continue }
+            backfill::Close::Venue(v) => { if let Some(q) = quotes.as_deref() { retry |= venue_history(db, q, v, deadline).await?; } continue }
+            backfill::Close::Bars(b) => b,
+        };
         let (Some(key), Some(have)) = (keys.get(&bars.api_key_id), stored.get(&bars.symbol)) else { continue };
         // `stock_price_range`: any failure of the request leaves the symbol without closes.
         prices::fetch_stock_bars(db, venues, key, &bars.symbol, (bars.from, bars.to), have).await?;
     }
-    Ok(())
+    Ok(retry)
+}
+
+/// One coin's days still unstored, asked of each of its venues in turn; each venue's rows stored before the next is asked
+/// (insert-only: the first stored day wins). Rows read with an account's key are fenced on its version, as stock bars are.
+async fn venue_history(db: &Db, quotes: &dyn crate::sync::venue_quotes::VenueQuotes, v: &backfill::VenueHistory, deadline: tokio::time::Instant) -> Result<bool, String> {
+    let (Some(from), Some(to)) = (v.segments.iter().map(|s| s.from).min(), v.segments.iter().map(|s| s.to).max()) else { return Ok(false) };
+    let mut retry = false;
+    for (exchange_id, api_key_id) in &v.sources {
+        let key = v.key.clone();
+        let have = db.run(move |c, _| prices::stored_days(c, &key, "USD", from, to).map_err(message)).await?;
+        if prices::span(from, to) <= have.len() as i64 { break; }
+        let days = quotes.history(db, *exchange_id, *api_key_id, v.segments.clone(), have, deadline).await;
+        retry |= days.retry;
+        if days.prices.is_empty() { continue; }
+        let rows: Vec<prices::PriceRow> = days.prices.iter().map(|(d, p)| (v.key.clone(), *d, p.to_s_f())).collect();
+        let version = days.version;
+        let stored = db.run(move |c, _| {
+            let tx = crate::engine::model::immediate(c).map_err(|_| "cannot begin venue price write".to_string())?;
+            match version {
+                Some(version) => {
+                    // A key replaced or removed while its history was read: nothing it read is stored.
+                    let Ok(fenced) = crate::engine::model::check_credential_result(&tx, &Some(version)) else { return Ok(()) };
+                    prices::store_bars(&fenced, &rows).map_err(message)?;
+                }
+                None => { prices::store_in(&tx, "USD", &rows).map_err(message)?; }
+            }
+            tx.commit().map_err(|e| e.to_string())
+        }).await;
+        if let Err(why) = stored { crate::engine::log(&format!("[tracker] venue history for exchange {exchange_id} not stored: {why}")); }
+    }
+    Ok(retry)
 }
 
 /// `tracker_ledger`, scoped by the user.
