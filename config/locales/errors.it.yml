@@ -78,6 +78,9 @@ it:
             rate_limited: "%{exchange} sta limitando le richieste. Il bot riproverà automaticamente."
             order_too_large: "L'ordine supera quanto consentito da %{exchange}. Riduci l'importo o dividilo su più bot."
             order_too_large_limit: "%{exchange} accetta al massimo %{limit} per ordine. Riduci l'importo o dividilo su più bot."
+            order_too_small: "L'ordine è sotto il minimo accettato da %{exchange}. Aumenta l'importo."
+            order_too_small_limit: "%{exchange} accetta ordini da almeno %{minimum}. Aumenta l'importo."
+            order_size_out_of_range: "L'ordine è fuori dall'intervallo di dimensione consentito da %{exchange}. Controlla l'importo."
         bots:
             split:
                 busy: "%{exchange} sta gestendo un altro ordine. Riprova tra un attimo."

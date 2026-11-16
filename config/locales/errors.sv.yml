@@ -71,6 +71,9 @@ sv:
             rate_limited: "%{exchange} begränsar antalet förfrågningar. Boten försöker igen automatiskt."
             order_too_large: "Ordern är större än %{exchange} tillåter. Sänk beloppet eller dela upp det på fler botar."
             order_too_large_limit: "%{exchange} tar emot högst %{limit} per order. Sänk beloppet eller dela upp det på fler botar."
+            order_too_small: "Ordern är under minimum som %{exchange} tar emot. Höj beloppet."
+            order_too_small_limit: "%{exchange} tar emot ordrar på minst %{minimum}. Höj beloppet."
+            order_size_out_of_range: "Ordern ligger utanför storleken som %{exchange} tillåter. Kontrollera beloppet."
         bots:
             split:
                 busy: "%{exchange} hanterar en annan order. Försök igen om en stund."

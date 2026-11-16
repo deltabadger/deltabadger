@@ -78,6 +78,9 @@ nl:
             rate_limited: "%{exchange} beperkt het aantal verzoeken. De bot probeert het automatisch opnieuw."
             order_too_large: "De order is groter dan %{exchange} toestaat. Verlaag het bedrag of verdeel het over meer bots."
             order_too_large_limit: "%{exchange} neemt maximaal %{limit} per order aan. Verlaag het bedrag of verdeel het over meer bots."
+            order_too_small: "De order ligt onder het minimum dat %{exchange} aanneemt. Verhoog het bedrag."
+            order_too_small_limit: "%{exchange} neemt orders aan vanaf %{minimum}. Verhoog het bedrag."
+            order_size_out_of_range: "De order valt buiten de grootte die %{exchange} toestaat. Controleer het bedrag."
         bots:
             split:
                 busy: "%{exchange} verwerkt nog een andere order. Probeer het zo opnieuw."

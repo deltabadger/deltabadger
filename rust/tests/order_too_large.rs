@@ -59,15 +59,16 @@ fn only_a_whole_plain_number_is_quoted_as_alpacas_limit() {
 
 #[test]
 fn other_texts_keep_what_they_read_today() {
-    // No source says Binance's NOTIONAL filter means too large: it is also its too-small answer.
-    assert_eq!(en("Exchanges::Binance", "Binance", "Filter failure: NOTIONAL"), "Filter failure: NOTIONAL");
+    // No source says Binance's NOTIONAL filter means too large: it is also its too-small answer (D-RAW-REFUSALS-COPY gives
+    // it the neutral size-range sentence).
+    assert!(!en("Exchanges::Binance", "Binance", "Filter failure: NOTIONAL").contains("larger than"));
     // A table text under another venue stays raw.
     assert_eq!(en("Exchanges::Binance", "Binance", ALPACA_TOO_LARGE), ALPACA_TOO_LARGE);
     assert_eq!(en("Exchanges::Kraken", "Kraken", "Order amount too large."), "Order amount too large.");
-    // Bitvavo by its code, never by a substring of it.
-    for body in [r#"{"errorCode":2100,"error":"x"}"#, r#"{"errorCode":211,"error":"`price` exceeds the maximum allowed."}"#, r#"errorCode":210"#] {
-        assert_eq!(en("Exchanges::Bitvavo", "Bitvavo", body), body);
-    }
+    // Bitvavo by its code, never by a substring of it (D-RAW-REFUSALS-COPY shows another code's `error` field).
+    assert_eq!(en("Exchanges::Bitvavo", "Bitvavo", r#"{"errorCode":2100,"error":"x"}"#), "x");
+    assert_eq!(en("Exchanges::Bitvavo", "Bitvavo", r#"{"errorCode":211,"error":"`price` exceeds the maximum allowed."}"#), "`price` exceeds the maximum allowed.");
+    assert_eq!(en("Exchanges::Bitvavo", "Bitvavo", r#"errorCode":210"#), r#"errorCode":210"#);
     // Bybit's price-deviation protection is not this sentence.
     assert_eq!(en("Exchanges::Bybit", "Bybit", "Your order quantity to buy is too large."), "Your order quantity to buy is too large.");
     // A kind the venue already names keeps its sentence.

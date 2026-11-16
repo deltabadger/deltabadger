@@ -71,6 +71,9 @@ cs:
             rate_limited: "%{exchange} omezuje počet požadavků. Bot to automaticky zkusí znovu."
             order_too_large: "Příkaz je větší, než %{exchange} povoluje. Snižte částku nebo ji rozdělte mezi více botů."
             order_too_large_limit: "%{exchange} přijímá nejvýše %{limit} na jeden příkaz. Snižte částku nebo ji rozdělte mezi více botů."
+            order_too_small: "Příkaz je pod minimem, které %{exchange} přijímá. Zvyšte částku."
+            order_too_small_limit: "%{exchange} přijímá příkazy od %{minimum}. Zvyšte částku."
+            order_size_out_of_range: "Příkaz je mimo rozsah velikosti, který %{exchange} povoluje. Zkontrolujte částku."
         bots:
             split:
                 busy: "%{exchange} právě zpracovává jiný pokyn. Zkuste to za chvíli."
