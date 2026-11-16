@@ -1022,7 +1022,8 @@ fn every_full_page_dialog_template_opens_its_frame_complete() {
                 .find(|&at| text[at..at + text[at..].find('>').unwrap()].contains(" id=\"modal\"")) else { continue };
             let open = &text[at..at + text[at..].find('>').unwrap() + 1];
             let rest = text[at + open.len()..].trim_start();
-            if !(rest.starts_with("<dialog ") && rest[..rest.find('>').unwrap()].contains("class=\"dialogview\"")) { continue; }
+            // The tag ends at its closing `">`: an attribute value may hold a `>` (`click->modal--base#clickOutside`).
+            if !(rest.starts_with("<dialog ") && rest[..rest.find("\">").unwrap()].contains("class=\"dialogview\"")) { continue; }
             let name = entry.strip_prefix(&root).unwrap().to_string_lossy().into_owned();
             assert_eq!(open, "<turbo-frame complete=\"\" id=\"modal\">", "{name}");
             found.push(name);
