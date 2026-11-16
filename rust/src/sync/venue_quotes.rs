@@ -127,7 +127,7 @@ impl<T: Transport + 'static> Quotes<T> {
         let mut found: HashMap<String, BigDec> = HashMap::new();
         // Cash with an ECB rate needs no venue: its rate is its price.
         for w in wanted.iter().filter(|w| w.cash) {
-            if let Some(end) = plan.ends.get(&w.asset) { found.insert(w.external_id.clone(), end.rate.clone()); }
+            if let Some(end) = plan.ends.get(&w.asset).filter(|end| super::balances::fits(&w.total, &end.rate)) { found.insert(w.external_id.clone(), end.rate.clone()); }
         }
         let routed: Vec<&Wanted> = wanted.iter().filter(|w| !found.contains_key(&w.external_id)).collect();
         if routed.is_empty() || plan.venue.exchange_type == IBKR || plan.codes.is_empty() { return found; }
@@ -143,12 +143,13 @@ impl<T: Transport + 'static> Quotes<T> {
 
 /// The venue's last prices of `plan.codes`, by code: the whole set asked at once, and where that read fails, each code on
 /// its own (Kraken's one-code reads, at most `MAX_SINGLE_READS` requests a pass), so one failed code never drops the others. Each pass
-/// records what it lacks; a fill answers it; at most three passes.
+/// records what it lacks; a fill answers it; at most three fills, the last one read too.
 async fn read_quotes<T: Transport>(plan: &Plan<T>, now: DateTime<Utc>) -> HashMap<String, BigDec> {
     let mut cache = Cache::default();
     let at = now.timestamp();
     let mut quotes: HashMap<String, BigDec> = HashMap::new();
-    for _ in 0..3 {
+    // Three fills at most, each answer read by the pass after it (the last pass only reads).
+    for pass in 0..=3 {
         let demands: Vec<HttpRequest> = {
             let reader = Reader::new(&cache, at);
             let mut rows: Vec<(String, crate::figures::market::Member<crate::figures::dec::Dec>)> = vec![];
@@ -167,7 +168,7 @@ async fn read_quotes<T: Transport>(plan: &Plan<T>, now: DateTime<Utc>) -> HashMa
             demands.truncate(MAX_SINGLE_READS);
             demands
         };
-        if demands.is_empty() { break; }
+        if demands.is_empty() || pass == 3 { break; }
         cache.fill(&plan.wire, demands, at).await;
     }
     quotes
