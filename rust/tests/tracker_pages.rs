@@ -66,7 +66,7 @@ async fn tracker_d5a_routes_and_modal_destinations_are_self_contained() {
                 continue;
             }
             assert_eq!(answer.status,501,"{path}");
-            assert!(answer.body.contains("Not available in the Rust build yet"),"{path}");
+            assert!(answer.body.contains("Not available yet"),"{path}");
             assert!(answer.body.contains("<turbo-frame id=\"modal\">"),"{path}");
             assert_eq!(answer.header("location"),None);
             assert_eq!(snapshot(&connection),before,"deferred action {path} must not mutate rows");
@@ -77,7 +77,7 @@ async fn tracker_d5a_routes_and_modal_destinations_are_self_contained() {
         assert_eq!(answer.status,501);
         assert_eq!(answer.header("content-type"),Some("text/vnd.turbo-stream.html; charset=utf-8"));
         assert!(answer.body.starts_with("<turbo-stream action=\"append\" target=\"flash\"><template>"));
-        assert!(answer.body.contains("Not available in the Rust build yet"));
+        assert!(answer.body.contains("Not available yet"));
         assert_eq!(snapshot(&connection),before,"deferred report must not save pending_report");
     }
     for path in ["/tracker/save_export_settings","/tracker/fund_classifications"] {

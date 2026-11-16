@@ -228,7 +228,7 @@ try {
     const button = `#exchange-picker button[value="${UNPORTED_VENUE}"]`;
     await until("the venue step", () => call(function (sel) { return !!document.querySelector(sel); }, button));
     await call(function (sel) { document.querySelector(sel).click(); }, button);
-    await until("the refusal in the modal", () => evaluate(`(document.querySelector("turbo-frame#modal_content")?.innerText ?? "").includes("Not available in the Rust build yet")`));
+    await until("the refusal in the modal", () => evaluate(`(document.querySelector("turbo-frame#modal_content")?.innerText ?? "").includes("Not available yet")`));
     if (await evaluate(`document.body.innerText.includes("Content missing")`)) throw new Error("the page shows Turbo's Content missing");
     console.log("unported venue: the key step's refusal shows in the wizard's modal");
   }

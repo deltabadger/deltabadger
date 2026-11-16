@@ -1349,7 +1349,7 @@ async fn a_refusal_in_a_nested_frame_is_a_stream_that_updates_that_frame() {
         (r.status().as_u16(), ty, String::from_utf8(axum::body::to_bytes(r.into_body(), usize::MAX).await.unwrap().to_vec()).unwrap())
     };
     let path = "/bots/dca_indexes/add_api_key/new?token=s3cret&x=1";
-    let message = "<h1>Not available in the Rust build yet</h1>\n      <p><code>GET /bots/dca_indexes/add_api_key/new?x=1</code> is served by the Rails app only.</p>";
+    let message = "<h1>Not available yet</h1>\n      <p><code>GET /bots/dca_indexes/add_api_key/new?x=1</code> is not available in this version.</p>";
     let (status, ty, body) = read(layout::not_ported_response(&Method::GET, path, Some("exchange-\"picker"), true)).await;
     assert_eq!((status, ty.as_str()), (501, turbo::CONTENT_TYPE));
     assert_eq!(body, format!("<turbo-stream action=\"update\" target=\"exchange-&quot;picker\"><template>{message}</template></turbo-stream>"));

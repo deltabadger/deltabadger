@@ -16,10 +16,6 @@ LICENSE
 .env
 .env.*
 !.env.example
-.ruby-version
-.ruby-gemset
-.rvmrc
-.tool-versions
 
 # IDE and editor
 .idea
@@ -30,14 +26,9 @@ LICENSE
 .DS_Store
 
 # Test files
-test/
 # Rails' frozen answers (PLAN-B11 B11-1): the Rust tests' expected values, never part of an image.
 rust/tests/recorded/
 coverage/
-
-# Development gems
-.bundle
-vendor/bundle
 
 # Logs
 log/*
@@ -73,10 +64,6 @@ storage/*
 *.sqlite3
 *.sqlite3-*
 
-# Credentials (handled via env vars in Docker)
-config/credentials/*.key
-config/master.key
-
 # Docker files (not needed in image)
 Dockerfile*
 docker-compose*.yml
@@ -85,7 +72,6 @@ umbrel-app.yml
 
 # Misc
 Thumbs.db
-.byebug_history
 
 # The API manual is compiled into the Rust build (rust/src/web/settings/api.rs MANUAL).
 !manual/api.md

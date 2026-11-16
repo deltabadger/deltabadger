@@ -1,8 +1,0 @@
-<%= render 'layouts/modal/full_page' do %>
-  <div class="bot-creation-layout index-picker-layout" data-controller="index-filter" data-dialog-size="wide">
-    <%= render partial: 'bots/dca_indexes/new_step_progress_bar', locals: { current_step: :index } %>
-
-    <%= render 'bots/dca_indexes/pick_indices/tiles', indices: @indices, assets_by_coingecko_id: @assets_by_coingecko_id,
-                                                      url: bots_dca_indexes_pick_index_path %>
-  </div>
-<% end %>

@@ -74,3 +74,60 @@ fn the_pinned_unit_names_are_the_dotiw_gems() {
         assert_eq!(i18n::text(locale, key, &[]), text.as_str().unwrap(), "{full_key}");
     }
 }
+
+/// PLAN-B11 §5: no text a user reads says "Rails". Every translation, every template with its `{# #}` comments taken out,
+/// and every string literal of the web layer and of the eligibility refusals (which pages and API answers show) outside
+/// their unit tests. The literals still saying it are named below, each with why it is not page text or who rewords it.
+#[test]
+fn no_page_text_says_rails() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let word = regex::Regex::new(r"(?i)\brails\b").unwrap();
+    let mut found: Vec<String> = i18n::all().iter().filter(|(_, text)| word.is_match(text)).map(|(key, _)| format!("translation {key}")).collect();
+    let comment = regex::Regex::new(r"(?s)\{#.*?#\}").unwrap();
+    let mut sources = vec![root.join("src/engine/eligibility.rs")];
+    let mut dirs = vec![root.join("templates"), root.join("src/web")];
+    let mut templates = 0;
+    while let Some(dir) = dirs.pop() {
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() { dirs.push(path); continue; }
+            match path.extension().and_then(|e| e.to_str()) {
+                Some("rs") => sources.push(path),
+                Some(_) if path.starts_with(root.join("templates")) => {
+                    templates += 1;
+                    let text = std::fs::read_to_string(&path).unwrap();
+                    if word.is_match(&comment.replace_all(&text, "")) { found.push(format!("template {}", path.strip_prefix(root).unwrap().display())); }
+                }
+                _ => {}
+            }
+        }
+    }
+    assert!(templates > 100 && sources.len() > 50, "{templates} templates, {} sources", sources.len());
+    // Exactly these literals, to the B11-8 rename (PLAN-B11 §10 Q6), where "2.x" replaces the word.
+    const NAMED: &[(&str, &str)] = &[
+        // Refusal reasons a page or API answer shows. index_histories.rs also finds the first in stored details.
+        ("src/engine/eligibility.rs", "\"row(s) with a status Rails never writes\""),
+        ("src/engine/eligibility.rs", "\"{imported} legacy imported row(s) left open (Rails never polls or settles them)\""),
+        ("src/engine/eligibility.rs", "\"{sides} special row(s) with a side Rails never writes (LIQUIDATION buy, REDEPLOY sell or none)\""),
+        ("src/engine/eligibility.rs", "\"tokenized {} on {} (no recorded Rails vector for tokenized pairs on this venue)\""),
+        // WebError::Config: logged, the page is the generic error page.
+        ("src/web/bot/signal_write.rs", "\"bot_signals {}: {key} is not one Rails knows\""),
+        ("src/web/rest.rs", "\"a transactions parameter Rails cannot convert\""),
+        ("src/web/wizard/signals.rs", "\"a wizard rule's {key} is not one Rails knows\""),
+        // The create callbacks table tests/fixtures/bot_create_callbacks.json pins; never rendered.
+        ("src/web/wizard/create.rs", "\"no-op: Rails.cache only\""),
+    ];
+    let literal = regex::Regex::new(r#""(?:[^"\\]|\\.)*""#).unwrap();
+    let capital = regex::Regex::new(r"\bRails\b").unwrap();
+    for path in sources {
+        let text = std::fs::read_to_string(&path).unwrap();
+        let code = text.split("#[cfg(test)]").next().unwrap();
+        let name = path.strip_prefix(root).unwrap().to_str().unwrap().replace('\\', "/");
+        for line in code.lines().filter(|l| !l.trim_start().starts_with("//")) {
+            for m in literal.find_iter(line).map(|m| m.as_str()).filter(|m| capital.is_match(m)) {
+                if !NAMED.contains(&(name.as_str(), m)) { found.push(format!("{name}: {m}")); }
+            }
+        }
+    }
+    assert!(found.is_empty(), "says Rails: {found:#?}");
+}

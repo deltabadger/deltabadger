@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Deltabadger 3.0 Docker entrypoint: the Rust program alone, no Ruby (Dockerfile.rust).
+# Deltabadger 3.0 Docker entrypoint: the Rust program alone, no Ruby (Dockerfile).
 # Commands: web, standalone, serve (the app), jobs (idle), migrate and setup (secrets only), shell,
 # and the deltabadger commands (run, check, handback, sync, repair-binance-history, resolve-withdrawal,
 # resolve-placement, reconcile-order, encryption-report, encryption-reset, encryption-derived-keys), and export

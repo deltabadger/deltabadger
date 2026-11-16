@@ -1,7 +1,0 @@
-<% content_for :subject do %>
-  <%= t('devise.mailer.email_changed.subject') %>
-<% end %>
-
-<p><%= t('mailer.greeting_name', name: @resource.name) %></p>
-
-<%= t('devise.mailer.email_changed.template_html', email: @resource.email) %>

@@ -4,7 +4,7 @@ Understand the meaning, and write sentences that convey essentially the same mes
 
 ## Supported Languages
 
-The full list of supported locales is `config.i18n.available_locales` in `config/application.rb`. Currently 15:
+The full list of supported locales is `LOCALES` in `rust/src/web/locale.rs`. Currently 15:
 
 - **English (EN)** — NYC/US variant only
 - **German (DE)** — Berlin/Germany variant only
