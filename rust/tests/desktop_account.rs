@@ -397,10 +397,11 @@ async fn the_account_pages_rows_log_out_and_sign_up_are_not_rendered() {
     let page = b.get(&app, "/settings/account").await;
     assert_eq!(page.status, 200);
     for gone in ["/settings/update_email", "/settings/update_password", "/settings/edit_two_fa", "/settings/update_registration",
-                 "/settings/update_email_notifications", "/logout", "/signup", "mail_not_set_up"] {
+                 "/settings/update_email_notifications", "/logout", "/signup", "mail_not_set_up", "/settings/update_name",
+                 ">Profile</h3>", ">Security</h3>"] {
         assert!(!page.body.contains(gone), "{gone} is still on the page");
     }
-    for kept in ["/settings/update_name", "/settings/update_locale", "/settings/update_time_zone", "/settings/browser_sign_in_code", "data-desktop-update"] {
+    for kept in ["/settings/update_locale", "/settings/update_time_zone", "/settings/browser_sign_in_code", "data-desktop-update"] {
         assert!(page.body.contains(kept), "{kept} is missing");
     }
 }
