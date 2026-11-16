@@ -50,6 +50,20 @@ mod embedded_assets {
         assert!(!sources.is_empty() && sources.iter().all(|s| s.as_str().is_some_and(|s| !s.starts_with('/'))), "no absolute build paths");
     }
 
+    /// Every URL the binary serves its embedded files at (PLAN-B11 r1.5, r5.4). Moving the sources (B11-6) changes
+    /// none of them; the bundle and its map carry source paths, so only their fingerprints may move.
+    #[test]
+    fn every_embedded_url_is_listed() {
+        built();
+        let mut urls: Vec<String> = assets::EMBEDDED.iter().map(|file| match file.logical {
+            "application.js" | "application.js.map" => { let (head, tail) = file.url.rsplit_once('-').unwrap(); format!("{head}-*{}", &tail[16..]) }
+            _ => file.url.to_string(),
+        }).collect();
+        urls.sort();
+        let expected: Vec<&str> = include_str!("fixtures/embedded_asset_urls.txt").lines().collect();
+        assert_eq!(urls, expected);
+    }
+
     #[test]
     fn public_files_keep_their_own_paths_and_types() {
         built();
