@@ -9,8 +9,8 @@ import { Controller } from "@hotwired/stimulus";
 // user has since closed.
 //
 // The pane beside it marks itself settings__pane--more while there is content below its fold, which
-// shows an arrow at its bottom edge. It is checked on scroll, on a resize, and whenever a widget
-// inside it is replaced or opens.
+// shows an arrow at its bottom edge, and pushes a stuck heading out as the next one reaches it.
+// It is checked on scroll, on a resize, and whenever a widget inside it is replaced or opens.
 //
 // Connects to data-controller="settings-nav"
 export default class extends Controller {
@@ -25,6 +25,16 @@ export default class extends Controller {
         }
         this.pane.classList.toggle("settings__pane--more",
           this.pane.scrollTop + this.pane.clientHeight < this.pane.scrollHeight - 1);
+        // The headings stick to the pane's top edge; the next one coming up pushes the stuck one out
+        // instead of sliding over it. Written only when it changes, or the observer below would loop.
+        const top = this.pane.getBoundingClientRect().top;
+        const headings = [...this.pane.querySelectorAll(".settings__heading")];
+        headings.forEach((heading, i) => {
+          const next = headings[i + 1];
+          const overlap = next ? heading.offsetHeight - (next.getBoundingClientRect().top - top) : 0;
+          const shift = overlap > 0 ? `0 ${-Math.min(overlap, heading.offsetHeight)}px` : "";
+          if (heading.style.translate !== shift) heading.style.translate = shift;
+        });
       };
       this.pane.addEventListener("scroll", this.check, { passive: true });
       this.resized = new ResizeObserver(this.check);
