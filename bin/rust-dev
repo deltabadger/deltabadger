@@ -20,8 +20,7 @@ case "$target_dir" in /*) ;; *) target_dir="rust/$target_dir" ;; esac
 
 pids=()
 trap 'kill "${pids[@]}" 2>/dev/null; wait' EXIT INT TERM
-sass_version=$(sed -n 's/^    sass-embedded (\([0-9][0-9.]*\)-.*/\1/p' Gemfile.lock | head -n 1)
-bunx "sass@$sass_version" --watch --no-source-map \
+bun x --no-install sass --watch --no-source-map \
   --load-path app/assets/stylesheets --load-path node_modules --load-path app/assets/fonts \
   app/assets/stylesheets/application.scss:app/assets/builds/application.css &
 pids+=($!)

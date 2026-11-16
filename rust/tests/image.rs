@@ -1,5 +1,5 @@
-//! The 3.0 image (Dockerfile.rust), run as Docker runs it (PLAN-B3 §8). Every test needs `DELTABADGER_IMAGE` (an image
-//! built from Dockerfile.rust) and a Docker daemon; without the variable they pass without doing anything, so the
+//! The 3.0 image (Dockerfile), run as Docker runs it (PLAN-B3 §8). Every test needs `DELTABADGER_IMAGE` (an image
+//! built from the Dockerfile) and a Docker daemon; without the variable they pass without doing anything, so the
 //! ordinary test runs never need Docker. CI's `image` job builds the image and sets it.
 #![cfg(unix)]
 
@@ -766,14 +766,14 @@ fn rails_commands_are_refused_and_change_nothing() {
 /// C8 (main.rs hand_back), handback's success line.
 const C8: &str = "scheduled. You can start Deltabadger 2.70.21 now.";
 
-/// The build-from-source compose's config: it builds Dockerfile.rust (B3-7) and gives its service 60 s to stop (Q2).
-/// Read before anything builds, so a revert to `build: .` (the Rails Dockerfile) fails here first.
+/// The build-from-source compose's config: it builds the 3.0 Dockerfile (B3-7) and gives its service 60 s to stop (Q2).
+/// Read before anything builds, so a revert to the 2.x build fails here first.
 #[test]
-fn the_build_compose_builds_dockerfile_rust_and_gives_its_service_60_s_to_stop() {
+fn the_build_compose_builds_the_dockerfile_and_gives_its_service_60_s_to_stop() {
     let Some(_) = image() else { return };
     let file = format!("{}/../{BUILD_COMPOSE}", env!("CARGO_MANIFEST_DIR"));
     let config = docker(&["compose", "-f", &file, "config"]);
-    assert!(config.contains("dockerfile: Dockerfile.rust"), "{config}");
+    assert!(config.contains("dockerfile: Dockerfile\n"), "{config}");
     assert!(config.contains("stop_grace_period: 1m0s"), "{config}");
 }
 
@@ -945,7 +945,7 @@ fn a_behind_install_of_the_build_compose_is_upgraded_by_the_manual_command() {
 /// The image of Umbrel's `upgrade` step as B5's compose names it: 2.70.21 pinned by its index digest. A daemon that can't
 /// pull by digest (a Mac whose ghcr pulls are denied) runs the same content through DELTABADGER_GUARD_IMAGE (the tag).
 const GUARD_IMAGE: &str = "ghcr.io/deltabadger/deltabadger:2.70.21@sha256:7c8f73518134ba6414551b3978f49bd91dacc3ff75d0e1c6aea92401b449de81";
-const GUARD: &str = include_str!("../../docker/behind-guard.rb");
+const GUARD: &str = include_str!("fixtures/umbrel/behind-guard.rb");
 const RAILS_2_34: &str = "ghcr.io/deltabadger/deltabadger:2.34.0";
 const RAILS_2_60: &str = "ghcr.io/deltabadger/deltabadger:2.60.0";
 const UMBREL_SEED: &str = "b3-6-umbrel-seed";
@@ -981,7 +981,7 @@ GUARD
 ";
 
 fn b5_lines() -> String {
-    assert!(!GUARD.contains('$'), "docker/behind-guard.rb must have no $: compose would interpolate it");
+    assert!(!GUARD.contains('$'), "fixtures/umbrel/behind-guard.rb must have no $: compose would interpolate it");
     let guard: String = GUARD.lines().map(|l| format!("        {l}\n")).collect();
     B5_LINES.replace("GUARD_IMAGE", GUARD_IMAGE).replace("GUARD\n", &guard)
 }
@@ -1412,4 +1412,44 @@ fn umbrels_web_accepts_a_form_from_the_address_the_browser_used() {
             assert!(status == 302 && location.ends_with("/bots"), "{web} from {host}: {status} {location}");
         }
     }
+}
+
+/// 2.70.21 reads back what this crate writes: it decrypts every value the engine encrypts and Devise verifies every
+/// password hash it makes, so a handed-back install keeps its credentials and logins. The engine writes the values
+/// here, with ruby_vectors.json's secret and plaintexts; the published image's Rails reads them (PLAN-B11 r6.2: was
+/// record_rust_vectors + a test of the deleted Rails suite).
+#[test]
+fn v2_decrypts_what_rust_encrypts_and_verifies_its_password_hashes() {
+    use deltabadger::crypto::hash_password;
+    if !common::v2::enabled() { return; }
+    let given: serde_json::Value = serde_json::from_str(include_str!("fixtures/ruby_vectors.json")).unwrap();
+    let secret = given["secret_key_base"].as_str().unwrap();
+    let cipher = Cipher::new(&EncryptionKeys::resolve(&|_| None, secret).unwrap());
+    let ciphertexts: serde_json::Map<String, serde_json::Value> = given["ciphertexts"].as_object().unwrap().iter()
+        .map(|(name, c)| { let plain = c["plain"].as_str().unwrap(); (name.clone(), serde_json::json!({ "plain": plain, "cipher": cipher.encrypt(plain) })) })
+        .collect();
+    let bcrypt: Vec<serde_json::Value> = given["bcrypt"].as_array().unwrap().iter()
+        .map(|b| serde_json::json!({ "password": b["password"], "hash": hash_password(b["password"].as_str().unwrap()).unwrap() }))
+        .collect();
+    assert!(!ciphertexts.is_empty() && !bcrypt.is_empty());
+    let dir = common::baseline_install();
+    let scratch = tempfile::tempdir().unwrap();
+    std::fs::write(scratch.path().join("vectors.json"), serde_json::json!({ "ciphertexts": ciphertexts, "bcrypt": bcrypt }).to_string()).unwrap();
+    std::fs::write(scratch.path().join("check.rb"), r##"
+v = JSON.parse(File.read('/x/vectors.json'))
+c = ActiveRecord::Encryption.config
+raise 'encryption settings' unless c.hash_digest_class == OpenSSL::Digest::SHA256 && c.support_unencrypted_data && !c.store_key_references
+v['ciphertexts'].each do |name, x|
+  raise "#{name}: not encrypted" if x['plain'] == x['cipher']
+  plain = ApiKey.type_for_attribute(:secret).deserialize(x['cipher'])
+  raise "#{name}: #{plain.inspect}" unless plain == x['plain']
+end
+v['bcrypt'].each do |b|
+  raise "bcrypt #{b['password'][0, 20]}" unless Devise::Encryptor.compare(User, b['hash'], b['password']) && !Devise::Encryptor.compare(User, b['hash'], 'wrong')
+end
+File.write('/x/ok', "#{v['ciphertexts'].size} #{v['bcrypt'].size}")
+"##).unwrap();
+    let out = common::v2::rails(dir.path(), scratch.path(), secret, &["runner", "/x/check.rb"]);
+    assert!(out.status.success(), "2.70.21 read back: {}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(std::fs::read_to_string(scratch.path().join("ok")).unwrap(), format!("{} {}", ciphertexts.len(), bcrypt.len()));
 }

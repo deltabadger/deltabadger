@@ -29,7 +29,7 @@ Deltabadger is under ongoing rewrite from Rails to Rust.
 
 ## Rails
 - Use Rails style guidelines: `.claude/rails.md`
-- Run `bin/rails test` after every change
-- Read `db/schema.rb` for the data model, and the model file itself for enums and associations — they are the source of truth
+- Run `cd rust && cargo nextest run` after every change
+- Read `rust/schema/baseline.sql` and `rust/migrations/` for the data model
 - After every change in dependencies or deployment look check Docker settings if they need updates
 

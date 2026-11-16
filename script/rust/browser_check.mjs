@@ -228,7 +228,7 @@ try {
     const button = `#exchange-picker button[value="${UNPORTED_VENUE}"]`;
     await until("the venue step", () => call(function (sel) { return !!document.querySelector(sel); }, button));
     await call(function (sel) { document.querySelector(sel).click(); }, button);
-    await until("the refusal in the modal", () => evaluate(`(document.querySelector("turbo-frame#modal_content")?.innerText ?? "").includes("Not available in the Rust build yet")`));
+    await until("the refusal in the modal", () => evaluate(`(document.querySelector("turbo-frame#modal_content")?.innerText ?? "").includes("Not available yet")`));
     if (await evaluate(`document.body.innerText.includes("Content missing")`)) throw new Error("the page shows Turbo's Content missing");
     console.log("unported venue: the key step's refusal shows in the wizard's modal");
   }
@@ -262,7 +262,7 @@ try {
     await new Promise((resolve, reject) => { second.onopen = resolve; second.onerror = reject; });
     let secondId = 0;
     const pending = new Map();
-    second.onmessage = event => { const message = JSON.parse(event.data); pending.get(message.id)?.(message); };
+    second.onmessage = event => { const message = JSON.parse(event.data); const settle = pending.get(message.id); if (typeof settle === "function") settle(message); };
     const secondEvaluate = expression => new Promise((resolve, reject) => {
       const id = ++secondId;
       const timer = setTimeout(() => { pending.delete(id); reject(new Error("second-tab DevTools timeout")); }, 5000);

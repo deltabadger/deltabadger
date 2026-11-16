@@ -12,8 +12,8 @@ on:
     paths:
       - 'rust/**'
       - '.github/workflows/rust.yml'
-      # The 3.0 image (Dockerfile.rust) and its entrypoint.
-      - 'Dockerfile.rust'
+      # The 3.0 image (Dockerfile) and its entrypoint.
+      - 'Dockerfile'
       - 'docker/**'
       - '.dockerignore'
       # The compose files the image tests run (tests/image.rs), and the Umbrel app tests/umbrel.rs checks.
@@ -44,8 +44,8 @@ on:
     paths:
       - 'rust/**'
       - '.github/workflows/rust.yml'
-      # The 3.0 image (Dockerfile.rust) and its entrypoint.
-      - 'Dockerfile.rust'
+      # The 3.0 image (Dockerfile) and its entrypoint.
+      - 'Dockerfile'
       - 'docker/**'
       - '.dockerignore'
       # The compose files the image tests run (tests/image.rs), and the Umbrel app tests/umbrel.rs checks.
@@ -193,7 +193,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build the image
-        run: docker build -f Dockerfile.rust -t deltabadger:ci .
+        run: docker build -t deltabadger:ci .
       - name: Image size
         run: docker image ls deltabadger:ci
       # The command tests run Umbrel's and the own-server compose files through the Compose v2 the runners ship.
@@ -356,9 +356,8 @@ jobs:
             done || true
           done
           hash -r
-          chmod -x bin/rails
           left=$(for dir in "${dirs[@]}"; do [ -d "$dir" ] && ls "$dir"; done | grep -E "$ruby_named" || true)
-          [ -z "$left" ] && [ ! -x bin/rails ] && ! ruby -v 2>/dev/null && echo "no Ruby anywhere on PATH; bin/rails is not executable" || { echo "still here: $left"; exit 1; }
+          [ -z "$left" ] && ! ruby -v 2>/dev/null && echo "no Ruby anywhere on PATH" || { echo "still here: $left"; exit 1; }
       # The same tests as `cargo test` (the crate has no doctests), each in its own process, spread over four runners;
       # every test lands in exactly one partition, and rust/.config/nextest.toml applies as it does locally.
       - name: Test the full Rust suite

@@ -1,10 +1,6 @@
 # Coverage
 /coverage
 
-# Credentials
-/config/credentials/*.key
-/config/credentials.yml.enc
-
 # Customer data / internal planning docs — MUST NOT be committed to this public repo.
 # (Removed from history 2026-06-14 after a PII leak; keep them out for good.)
 /not_migrated_optin.csv
@@ -21,9 +17,13 @@
 /storage/development.sqlite3
 
 # Dependencies
-/.bundle
 /node_modules
+# Local leftovers of the 2.x Ruby toolchain in existing checkouts (bundle, editor index, credentials): kept ignored
+/.bundle
 /vendor
+.ruby-lsp
+/config/credentials*
+/config/master.key
 
 # Environment variables
 .env
@@ -46,15 +46,6 @@
 # npm
 npm-debug.log*
 
-# Rails
-/config/master.key
-.byebug_history
-
-# Spring
-/tmp/pids/*
-!/tmp/pids/.keep
-spring/*.pid
-
 # OS files
 .DS_Store
 
@@ -62,7 +53,6 @@ spring/*.pid
 .idea
 .vscode
 .cursor
-.ruby-lsp
 .circleci
 .claude
 
@@ -78,5 +68,5 @@ spring/*.pid
 /graphify-out/
 __pycache__/
 
-# The catalogue bundle: a release asset, downloaded at build time; installed as db/seed_data/catalogue.json.gz
+# The catalogue bundle: a release asset, downloaded at build time; installed as db/seed_data/catalogue.json.gz in the app
 /rust/seed/catalogue.json.gz

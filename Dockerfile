@@ -1,173 +1,66 @@
 # syntax=docker/dockerfile:1
-# Deltabadger - Multi-stage Dockerfile for Umbrel/Docker deployment
+# Deltabadger 3.0: the Rust program alone, no Ruby. The same contract as the 2.x image:
+# data in /app/storage, SECRET_KEY_BASE from the environment or /app/storage/.secrets, port 3000,
+# /health-check. Built from source, natively on each platform (amd64, arm64).
+#   docker build .
 
-# Ruby base image version, pinned in one place (matches .ruby-version).
-ARG RUBY_VERSION=4.0.7
+# Stage 1: the web assets the binary embeds (rust/build.rs): bun + dart-sass, no Ruby.
+FROM oven/bun:1.3-slim AS assets
+WORKDIR /src
+COPY package.json bun.lock ./
+COPY script/rust/build_assets.sh script/rust/build_assets.sh
+COPY app/javascript app/javascript
+COPY app/assets app/assets
+RUN bash script/rust/build_assets.sh
 
-# Stage 1: Build frontend assets
-FROM oven/bun:1.3-slim AS frontend-builder
-
-WORKDIR /app
-RUN chown bun:bun /app
-USER bun
-
-# Copy package files
-COPY --chown=bun:bun package.json bun.lock ./
-
-# Install dependencies
-RUN bun install --frozen-lockfile
-
-# Copy frontend source files
-COPY --chown=bun:bun app/javascript ./app/javascript
-COPY --chown=bun:bun app/assets ./app/assets
-
-# Build JavaScript with bun
-RUN bun run build
-
-# Stage 2: Build Ruby dependencies and compile assets
-FROM ruby:$RUBY_VERSION-slim AS builder
-
-WORKDIR /app
-
-# Set build environment
-ENV RAILS_ENV=production \
-    NODE_ENV=production \
-    BUNDLE_WITHOUT="development:test" \
-    BUNDLE_DEPLOYMENT=1 \
-    BUNDLE_PATH=/app/vendor/bundle
-
-# Install system dependencies for building
+# Stage 2: the release binary. build.rs reads the repository (locales, assets, public/, the frozen
+# migration list) and runs a python3 gate on every build.
+FROM rust:1.94.0-slim-trixie AS build
 RUN apt-get update -qq && \
-    apt-get install -y --no-install-recommends \
-    build-essential \
-    libsqlite3-dev \
-    git \
-    curl \
-    libvips-dev \
-    libsodium-dev \
-    libyaml-dev \
-    libtool \
-    autoconf \
-    automake \
-    unzip && \
+    apt-get install -y --no-install-recommends python3 && \
     rm -rf /var/lib/apt/lists/*
-
-# Install Bun for dartsass-rails and jsbundling
-RUN curl -fsSL https://bun.sh/install | bash && \
-    ln -s /root/.bun/bin/bun /usr/local/bin/bun
-
-# Copy Gemfile first for caching
-COPY Gemfile Gemfile.lock ./
-
-# Install Ruby dependencies
-RUN bundle config set --local without 'development test' && \
-    bundle install --jobs 4 --retry 3 && \
-    rm -rf /app/vendor/bundle/ruby/*/cache/*.gem && \
-    find /app/vendor/bundle/ruby/*/gems/ -name "*.c" -delete && \
-    find /app/vendor/bundle/ruby/*/gems/ -name "*.o" -delete
-
-# Copy built JS from frontend builder
-COPY --from=frontend-builder /app/app/assets/builds ./app/assets/builds
-
-# Copy application code
+WORKDIR /src
 COPY . .
+COPY --from=assets /src/app/assets/builds/application.js /src/app/assets/builds/application.js.map /src/app/assets/builds/application.css app/assets/builds/
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/rust/target \
+    cd rust && cargo build --release --locked --bin deltabadger && cp target/release/deltabadger /usr/local/bin/deltabadger
+# The release's catalogue snapshot, when the build has one: release.yml's draft job downloads it to
+# rust/seed/catalogue.json.gz (a local build: curl it there); installed as /app/db/seed_data/catalogue.json.gz.
+RUN mkdir -p /out/seed_data && { cp rust/seed/catalogue.json.gz /out/seed_data/ 2>/dev/null || true; }
 
-# Create writable directories for asset compilation
-RUN mkdir -p /app/tmp/cache/assets /app/tmp/pids /app/log
-
-# Precompile assets - all ENV.fetch calls need placeholder values during build
-RUN SECRET_KEY_BASE_DUMMY=1 \
-    RAILS_ENV=production \
-    APP_ROOT_URL=http://localhost:3000 \
-    HOME_PAGE_URL=http://localhost:3000 \
-    SMTP_ADDRESS=localhost \
-    SMTP_DOMAIN=localhost \
-    SMTP_PORT=25 \
-    SMTP_USER_NAME=placeholder \
-    SMTP_PASSWORD=placeholder \
-    NOTIFICATIONS_SENDER=placeholder@example.com \
-    COINGECKO_API_KEY=placeholder \
-    ORDERS_FREQUENCY_LIMIT=60 \
-    bundle exec rails assets:precompile
-
-# Stage 3: Production runtime image
-FROM ruby:$RUBY_VERSION-slim AS runtime
+# Stage 3: runtime. CA certificates for venue and mail TLS; curl for the health checks (the image's
+# own and the ones existing compose files run). Time zones are compiled into the binary.
+FROM debian:trixie-slim AS runtime
 
 LABEL maintainer="Deltabadger"
 LABEL org.opencontainers.image.title="Deltabadger"
 LABEL org.opencontainers.image.description="Crypto DCA Bot Platform"
 
-WORKDIR /app
-
-# Set runtime environment
-ENV RAILS_ENV=production \
-    NODE_ENV=production \
-    BUNDLE_WITHOUT="development:test" \
-    BUNDLE_DEPLOYMENT=1 \
-    BUNDLE_PATH=/app/vendor/bundle \
-    RAILS_LOG_TO_STDOUT=true \
-    RAILS_SERVE_STATIC_FILES=true \
-    RAILS_MAX_THREADS=1 \
-    MALLOC_ARENA_MAX=2 \
-    MALLOC_CONF="dirty_decay_ms:1000,narenas:2,background_thread:true" \
-    RUBY_YJIT_ENABLE=1 \
-    RUBYOPT="--yjit --yjit-exec-mem-size=16" \
-    RUBY_GC_HEAP_INIT_SLOTS=600000
-
-# Install runtime dependencies only (added gosu)
 RUN apt-get update -qq && \
-    apt-get install -y --no-install-recommends \
-    libsqlite3-0 \
-    curl \
-    libvips42 \
-    libsodium23 \
-    libyaml-0-2 \
-    tzdata \
-    imagemagick \
-    libjemalloc2 \
-    gosu && \
+    apt-get install -y --no-install-recommends ca-certificates curl && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-# Use jemalloc to reduce memory fragmentation
-# Symlink to arch-independent path so LD_PRELOAD works on both amd64 and arm64
-RUN ln -s $(find /usr/lib -name "libjemalloc.so.2" | head -1) /usr/lib/libjemalloc.so
-ENV LD_PRELOAD=/usr/lib/libjemalloc.so
-
-# Create non-root user for security
+# The uid every existing volume is owned by.
 RUN groupadd --gid 1000 deltabadger && \
     useradd --uid 1000 --gid deltabadger --shell /bin/bash --create-home deltabadger
 
-# Copy built artifacts from builder stage
-COPY --from=builder /app/vendor/bundle ./vendor/bundle
+WORKDIR /app
+ENV STORAGE_DIR=/app/storage
 
-# Copy application code
-COPY --chown=deltabadger:deltabadger . .
+COPY --from=build /usr/local/bin/deltabadger /usr/local/bin/deltabadger
+COPY --from=build /out/seed_data/ /app/db/seed_data/
+COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-# Copy precompiled assets AFTER application code to avoid being overwritten
-COPY --from=builder --chown=deltabadger:deltabadger /app/public/assets ./public/assets
+RUN mkdir -p /app/storage /app/log /app/tmp && \
+    chown -R deltabadger:deltabadger /app/storage /app/log /app/tmp
 
-# Copy font files to public/assets for static serving (used by Tauri and CSS hardcoded paths)
-COPY --chown=deltabadger:deltabadger app/assets/fonts/*.ttf ./public/assets/
-
-# Copy entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Create necessary directories
-RUN mkdir -p /app/tmp/pids /app/tmp/cache /app/tmp/sockets /app/log /app/storage /export && \
-    chown -R deltabadger:deltabadger /app/tmp /app/log /app/storage /export
-
-# Don't switch to non-root user here - let entrypoint handle it
-# This allows the container to fix volume permissions when needed (e.g., Umbrel)
-# For regular Docker usage, specify user: "1000:1000" in docker-compose.yml
-
-# Expose port (MCP is served on same port via middleware)
+# Starts as root so the entrypoint can fix a volume's ownership, then drops to 1000; `user: 1000:1000`
+# skips that, as with the 2.x image.
 EXPOSE 3000
-
-# Health check
+STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -fsS http://localhost:3000/up || exit 1
+    CMD curl -fsS "http://localhost:${PORT:-3000}/health-check" || exit 1
 
-# Set entrypoint and default command
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["web"]

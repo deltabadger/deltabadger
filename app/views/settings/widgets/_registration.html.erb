@@ -1,8 +1,0 @@
-<% open = AppConfig.registration_open? %>
-<%= turbo_frame_tag 'registration_settings', class: 'sitem' do %>
-  <%= settings_row t('settings.index.registration_section') do %>
-    <%= render 'settings/switch', url: settings_update_registration_path, frame: 'registration_settings',
-                                  name: :registration_open, state: (open ? :on : :off), enabled: (open ? '0' : '1'),
-                                  title: t('settings.index.registration_section') %>
-  <% end %>
-<% end %>

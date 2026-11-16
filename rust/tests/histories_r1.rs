@@ -817,7 +817,7 @@ async fn r8_settings_bound_rollback_page_and_tick() {
         let response=web::router(app).oneshot(request).await.unwrap();
         let status=response.status();let body=to_bytes(response.into_body(),1_000_000).await.unwrap();
         assert_eq!(status,501,"R8 page refusal {key}: {}",String::from_utf8_lossy(&body));
-        assert!(String::from_utf8_lossy(&body).contains("Not available in the Rust build yet"),"R8 page states refusal: {}",String::from_utf8_lossy(&body));
+        assert!(String::from_utf8_lossy(&body).contains("Not available yet"),"R8 page states refusal: {}",String::from_utf8_lossy(&body));
         o.primary.execute("UPDATE bots SET status=1 WHERE id=?1",[id]).unwrap();
         assert!(eligibility::check_install(&o.primary).unwrap().refusal().is_err());
         let tx=model::immediate(&o.primary).unwrap();

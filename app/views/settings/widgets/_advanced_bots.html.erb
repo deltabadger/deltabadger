@@ -1,8 +1,0 @@
-<% on = current_user.advanced_bots_enabled? %>
-<%= turbo_frame_tag 'advanced_bots', class: 'sitem' do %>
-  <%= settings_row t('settings.advanced_bots.title'), t('settings.advanced_bots.toggle_label') do %>
-    <%= render 'settings/switch', url: settings_update_advanced_bots_path, frame: 'advanced_bots',
-                                  state: (on ? :on : :off), enabled: (on ? '0' : '1'),
-                                  title: t('settings.advanced_bots.toggle_label') %>
-  <% end %>
-<% end %>

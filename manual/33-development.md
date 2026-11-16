@@ -2,47 +2,26 @@
 
 ## Requirements
 
-- Ruby 4.0.7
-- Node.js 18.19.1
-
-Use [asdf](https://asdf-vm.com) or your preferred version manager.
+- Rust (stable)
+- [Bun](https://bun.sh)
 
 ## 1. Install dependencies
 
 ```bash
-bin/setup
+bun install
 ```
 
-## 2. Database
+## 2. Start the app
 
 ```bash
-bundle exec rails db:prepare
+bin/rust-dev
 ```
 
-## 3. Start the app
-
-```bash
-bin/dev
-```
-
-This starts the Rails server with Solid Queue (background jobs) running in-process via Puma.
-
-Alternatively, run services separately:
-
-Terminal 1 — Rails (with background jobs):
-
-```bash
-rails s
-```
-
-Terminal 2 — JavaScript bundler (optional, for live reloading):
-
-```bash
-npm run build:watch
-```
+It builds the web assets, runs the app on http://127.0.0.1:3001 and rebuilds styles and scripts on save.
 
 ## Running tests
 
 ```bash
-bin/rails test
+script/rust/build_assets.sh
+cd rust && cargo nextest run
 ```
