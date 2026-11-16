@@ -44,7 +44,7 @@
       "infoPlist": "Info.plist"
     },
     "resources": {
-      "../db/seed_data/catalogue.json.gz": "db/seed_data/catalogue.json.gz",
+      "../rust/seed/catalogue.json.gz": "db/seed_data/catalogue.json.gz",
       "icons/tray-icon.png": "icons/tray-icon.png"
     },
     "windows": {

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the engine the desktop app runs as its sidecar (PLAN-B6 §4.1, r1.13) and copies it where Tauri's externalBin
 # looks for it: src-tauri/binaries/deltabadger-engine-<target triple>[.exe]. Fetches the catalogue bundle the app ships
-# (db/seed_data/catalogue.json.gz) when it is missing. tauri.conf.json runs it before every `tauri build` and every
+# (rust/seed/catalogue.json.gz, installed as db/seed_data/catalogue.json.gz) when it is missing. tauri.conf.json runs it before every `tauri build` and every
 # `tauri dev`, so the app always carries a fresh engine of the profile it was built with.
 #   script/rust/desktop_engine.sh [--debug] [<target triple>]
 # Release unless --debug is given or Tauri builds a debug app (TAURI_ENV_DEBUG=true). The triple is the argument, else
@@ -37,7 +37,7 @@ mkdir -p src-tauri/binaries
 sidecar="src-tauri/binaries/deltabadger-engine-$triple$exe"
 cp "$target_dir/$triple/$profile/deltabadger$exe" "$sidecar"
 
-catalogue=db/seed_data/catalogue.json.gz
+catalogue=rust/seed/catalogue.json.gz
 if [ ! -s "$catalogue" ]; then
   curl -fsSL --retry 5 --retry-all-errors --max-filesize 33554432 -o "$catalogue.partial" \
     https://data.deltabadger.com/public/v1/catalogue.json.gz
