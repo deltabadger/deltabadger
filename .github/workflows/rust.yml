@@ -238,7 +238,8 @@ jobs:
           DELTABADGER_IMAGE: deltabadger:ci
           CARGO_PROFILE_DEV_DEBUG: 'false'
           CARGO_PROFILE_DEV_STRIP: debuginfo
-        run: cargo nextest run --locked --no-fail-fast --profile image
+        # Only the profile's binaries are built (nextest builds every target it is given before it filters).
+        run: cargo nextest run --locked --no-fail-fast --profile image --test image --test entrypoint --test account_identity --test handover --test mcp --test mcp_control_races --test web_actions --test mcp_reads --test oauth --test rebalance --test sync_parity --test venue_signing
 
   # PLAN-B8 r1.6: release.yml's rules (desktop assets and signatures, latest.json, the image tags per tag and
   # LATEST_MAJOR, never moving a shared tag backward, version files) as script/release/validate_test.sh's cases.
