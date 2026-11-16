@@ -131,11 +131,9 @@ impl<T: Transport + 'static> Quotes<T> {
         }
         let routed: Vec<&Wanted> = wanted.iter().filter(|w| !found.contains_key(&w.external_id)).collect();
         if routed.is_empty() || plan.venue.exchange_type == IBKR || plan.codes.is_empty() { return found; }
-        // Only the venue's reads are timed here: the cash priced above is kept whatever they do.
-        let quotes = match tokio::time::timeout(BUDGET, read_quotes(&plan, now)).await {
-            Ok(quotes) => quotes,
-            Err(_) => { log(exchange_id, "out of time"); return found; }
-        };
+        // Only the venue's reads are timed here: the cash priced above, and every quote read in time, are kept.
+        let mut quotes = HashMap::new();
+        if tokio::time::timeout(BUDGET, read_quotes(&plan, now, &mut quotes)).await.is_err() { log(exchange_id, "out of time: routing what was read"); }
         for w in routed {
             let pick = (1..=venue_routes::MAX_LEGS).find_map(|legs| venue_routes::candidates(&plan.pairs, &quotes, &plan.ends, w.asset, legs).into_iter()
                 .find(|c| super::balances::fits(&w.total, &c.price)));
@@ -145,39 +143,39 @@ impl<T: Transport + 'static> Quotes<T> {
     }
 }
 
-/// The venue's last prices of `plan.codes`, by code: the whole set asked at once, and where that read fails, each code on
-/// its own (Kraken's one-code reads, at most `MAX_SINGLE_READS` requests a pass), so one failed code never drops the others. Each pass
-/// records what it lacks; a fill answers it; at most three fills, the last one read too.
-async fn read_quotes<T: Transport>(plan: &Plan<T>, now: DateTime<Utc>) -> HashMap<String, BigDec> {
+/// The venue's last prices of `plan.codes`, by code, into `quotes`: owned by the caller, so a read cut off by the
+/// budget keeps every price taken before it. Each pass first takes every answer the cache holds (the whole set at once,
+/// and for Kraken, where that read fails as soon as one code does, each code on its own), then a second reader records
+/// what to ask next: the whole-market read for most venues, and for Kraken one code at a time, nearest first, until the
+/// pass holds `MAX_SINGLE_READS` requests. At most three fills; the last one is read too.
+async fn read_quotes<T: Transport>(plan: &Plan<T>, now: DateTime<Utc>, quotes: &mut HashMap<String, BigDec>) {
     let mut cache = Cache::default();
     let at = now.timestamp();
-    let mut quotes: HashMap<String, BigDec> = HashMap::new();
-    // Three fills at most, each answer read by the pass after it (the last pass only reads).
+    let ask = |reader: &Reader<'_>, codes: &[String]| crate::figures::budget::within(|| Ok::<_, crate::figures::FiguresError>(reader.prices(&plan.venue, codes))).ok().and_then(Result::ok);
+    let kraken = plan.venue.exchange_type == KRAKEN;
     for pass in 0..=3 {
         let demands: Vec<HttpRequest> = {
             let reader = Reader::new(&cache, at);
-            let mut rows: Vec<(String, crate::figures::market::Member<crate::figures::dec::Dec>)> = vec![];
-            match crate::figures::budget::within(|| Ok::<_, crate::figures::FiguresError>(reader.prices(&plan.venue, &plan.codes))) {
-                Ok(Ok(all)) => rows = all,
-                _ if plan.venue.exchange_type == KRAKEN => {
-                    for code in plan.codes.iter().filter(|c| !quotes.contains_key(*c)) {
-                        // Nearest codes first: once the pass holds its requests, the rest wait for the next pass.
-                        if reader.demands().len() >= MAX_SINGLE_READS { break; }
-                        if let Ok(Ok(one)) = crate::figures::budget::within(|| Ok::<_, crate::figures::FiguresError>(reader.prices(&plan.venue, std::slice::from_ref(code)))) { rows.extend(one); }
-                    }
-                }
-                _ => {}
+            let mut rows = ask(&reader, &plan.codes).unwrap_or_default();
+            if rows.is_empty() && kraken {
+                for code in plan.codes.iter().filter(|c| !quotes.contains_key(*c)) { rows.extend(ask(&reader, std::slice::from_ref(code)).unwrap_or_default()); }
             }
             for (code, price) in rows { if let Some(p) = price.ok().as_ref().and_then(big).filter(BigDec::is_positive) { quotes.insert(code, p); } }
-            let mut demands = reader.demands();
-            // Kraken's one-code reads past its bulk Ticker, and any venue's: a bounded number per pass.
-            demands.truncate(MAX_SINGLE_READS);
-            demands
+            if pass == 3 { break; }
+            if kraken {
+                let next = Reader::new(&cache, at);
+                for code in plan.codes.iter().filter(|c| !quotes.contains_key(*c)) {
+                    if next.demands().len() >= MAX_SINGLE_READS { break; }
+                    let _ = ask(&next, std::slice::from_ref(code));
+                }
+                next.demands()
+            } else {
+                reader.demands()
+            }
         };
-        if demands.is_empty() || pass == 3 { break; }
+        if demands.is_empty() { break; }
         cache.fill(&plan.wire, demands, at).await;
     }
-    quotes
 }
 
 #[cfg(test)]
