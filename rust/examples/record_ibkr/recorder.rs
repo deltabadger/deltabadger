@@ -328,7 +328,7 @@ fn enum_ok(name: &str, s: &str) -> bool {
 }
 
 /// Names whose small numbers (< 10 000) are kept: the request's own window and paging counters, not money.
-const SMALL: &[&str] = &["days", "rc", "nd", "pagesize", "barlength", "points", "messageversion", "mktdatadelay", "traveltime", "pricefactor", "volumefactor", "displaysize"];
+const SMALL: &[&str] = &["days", "rc", "nd", "pagesize", "barlength", "points", "messageversion", "mktdatadelay", "traveltime", "pricefactor", "volumefactor"];
 /// IBKR's time field names (normalized): shifted by the offset, else replaced.
 const TIMES: &[&str] = &["updated", "tradetime", "tradetimer", "lastexecutiontime", "lastexecutiontimer", "t", "date", "starttime", "servertime", "timestamp", "time", "ordertime", "from", "to"];
 const CONIDS: &[&str] = &["conid", "conids", "conidex", "conidexchange", "underlyingconid", "undconid"];
@@ -426,8 +426,9 @@ pub fn collect_public(cx: Ctx<'_>, name: Option<&str>, v: &Value, out: &mut Vec<
     match v {
         Value::Array(a) => for x in a { collect_public(cx, name, x, out); },
         Value::Object(m) => for (k, x) in m { collect_public(cx, Some(k), x, out); },
-        Value::String(s) if public_str(cx, &name.map(norm).unwrap_or_default(), s) => out.push(s.clone()),
-        Value::Number(n) if name.map(norm).is_some_and(|k| CONIDS.contains(&k.as_str())) => out.push(n.to_string()),
+        // Only a word spreads (an exchange, a symbol, an enum): never a number or an id-like digit string, which elsewhere
+        // could be an amount or an order id that merely equals a contract fact.
+        Value::String(s) if s.bytes().any(|b| b.is_ascii_alphabetic()) && public_str(cx, &name.map(norm).unwrap_or_default(), s) => out.push(s.clone()),
         _ => {}
     }
 }
@@ -453,7 +454,6 @@ fn string(sc: &mut Scrubber, cx: Ctx<'_>, path: &str, name: Option<&str>, s: &st
 fn number(sc: &mut Scrubber, cx: Ctx<'_>, path: &str, name: Option<&str>, text: &str) -> Result<Option<String>, String> {
     let n = name.map(norm).unwrap_or_default();
     if CONIDS.contains(&n.as_str()) && text.parse::<i64>().is_ok() { return Ok(None); }
-    if cx.symbols.iter().any(|x| x == text) { return Ok(None); }
     if SMALL.contains(&n.as_str()) && text.parse::<u64>().is_ok_and(|x| x < 10_000) { return Ok(None); }
     if cx.contract() && ["sizeincrement", "pricemagnifier", "increment", "loweredge"].contains(&n.as_str()) { return Ok(None); }
     if TIMES.contains(&n.as_str()) {
@@ -688,15 +688,12 @@ impl<'a, T: Transport, C: Clock + ?Sized> Recorder<'a, T, C> {
     pub fn finish(self, mode: Mode, stocks: &[Stock], unauthorized: Option<(u16, String)>, secrets: &[String], sc: &mut Scrubber, out: &Path) -> Result<Outcome, String> {
         self.poisoned()?;
         let mut got = self.got;
-        match unauthorized {
-            Some((status, body)) => {
-                if self.g.credential_in(&body) { return Err("unauthorized: the answer held a credential; nothing written".into()); }
-                got.push(Got { file: "unauthorized".into(), x: Exchange { method: "GET", path: ACCOUNTS_PATH.into(), query: vec![], body: None, status, text: body } });
-            }
-            None => {}
+        if let Some((status, body)) = unauthorized {
+            if self.g.credential_in(&body) { return Err("unauthorized: the answer held a credential; nothing written".into()); }
+            got.push(Got { file: "unauthorized".into(), x: Exchange { method: "GET", path: ACCOUNTS_PATH.into(), query: vec![], body: None, status, text: body } });
         }
         let parsed: Vec<(Value, Option<Value>)> = got.iter().map(|g| (serde_json::from_str(&g.x.text).unwrap_or_else(|_| Value::String(g.x.text.clone())), g.x.body.clone())).collect();
-        let mut symbols: Vec<String> = stocks.iter().flat_map(|s| [s.symbol.clone(), s.isin.clone(), s.conid.to_string()]).collect();
+        let mut symbols: Vec<String> = stocks.iter().flat_map(|s| [s.symbol.clone(), s.isin.clone()]).collect();
         for (g, (body, _)) in got.iter().zip(&parsed) {
             collect_public(Ctx { file: &g.file, ok: (200..300).contains(&g.x.status), symbols: &[] }, None, body, &mut symbols);
         }
@@ -755,6 +752,10 @@ impl<'a, T: Transport, C: Clock + ?Sized> Recorder<'a, T, C> {
         let manifest = json!({ "exchange": "ibkr", "mode": mode.dir(), "recorded_at": recorded_at, "files": manifest_files,
                                "not_recorded": self.not_recorded, "message_ids": self.message_ids, "scrubbed": scrubbed });
         let needles: Vec<&str> = secrets.iter().map(String::as_str).collect();
+        // The whole of every file and of the manifest (paths and queries included) is checked for a credential.
+        if files.iter().map(|(_, v)| v).chain([&manifest]).any(|v| self.g.credential_in(&v.to_string()) || needles.iter().any(|n| v.to_string().contains(n))) {
+            return Err("a credential would be written; nothing written".into());
+        }
         for (name, v) in &files { sc.leak_check(name, v, &needles)?; }
         let mut checked = manifest.clone();
         for f in checked["files"].as_array_mut().expect("files is a list") { f["path"] = Value::Null; f["query"] = Value::Null; }

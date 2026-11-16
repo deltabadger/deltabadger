@@ -355,7 +355,7 @@ pub fn write_set(dir: &Path, files: &[(String, Value)]) -> Result<(), String> {
         if dir.exists() {
             for f in std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))? {
                 let f = f.map_err(|e| e.to_string())?.path();
-                if f.is_file() && !f.extension().is_some_and(|x| x == "json") {
+                if f.is_file() && f.extension().is_none_or(|x| x != "json") {
                     std::fs::copy(&f, stage.join(f.file_name().expect("a listed file has a name"))).map_err(|e| format!("{}: {e}", f.display()))?;
                 }
             }

@@ -257,7 +257,8 @@ fn read_mode_refuses_every_order_reply_and_cancel_path_and_anything_off_the_list
 #[test]
 fn a_paper_only_request_needs_its_own_lone_paper_account_list_just_before() {
     let ok = || accounts(&[ACCT]);
-    let cases: Vec<(&str, Vec<(u16, Value)>, Option<HttpRequest>)> = vec![
+    type Case = (&'static str, Vec<(u16, Value)>, Option<HttpRequest>);
+    let cases: Vec<Case> = vec![
         ("live", vec![(200, accounts(&[LIVE]))], None),
         ("mixed", vec![(200, accounts(&[ACCT, LIVE]))], None),
         ("two paper", vec![(200, accounts(&[ACCT, "DU7654321"]))], None),
@@ -338,6 +339,11 @@ fn a_credential_in_an_answer_or_its_redaction_stops_the_run_with_nothing_written
     let (g, _) = guard(Mode::Read);
     assert!(g.credential_in(&settled.body));
     assert!(!g.credential_in("{\"order_ref\":\"plain\"}"));
+    // A credential given as a stock symbol lands in no file or query.
+    let mut cmd = read_cmd();
+    cmd.stocks[0].symbol = ck.clone();
+    let r = run(cmd, |t| { t.reply("GET /v1/api/iserver/accounts", 200, accounts(&[LIVE])); script_reads(t, LIVE); }, None);
+    assert!(r.result.unwrap_err().contains("credential") && !r.dir.path().join("read").exists());
     // The unsigned 401 read is checked as well.
     let r = run(read_cmd(), |t| { t.reply("GET /v1/api/iserver/accounts", 200, accounts(&[LIVE])); script_reads(t, LIVE); }, Some((401, deltabadger::crypto::VENUE_TEXT_REDACTED.into())));
     assert!(r.result.is_err() && !r.dir.path().join("read").exists());
@@ -386,6 +392,10 @@ fn prose_unknown_keys_and_public_looking_fields_are_never_kept() {
     assert_eq!(replaced.len(), 4);
     assert!(!v.to_string().contains("12") || !v.to_string().contains("Quantity"));
     assert!(sc.leak_check("x", &v, &[]).is_ok());
+    // A decimal or an id equal to a contract fact elsewhere in the set is still replaced outside its field.
+    let (v, _) = { let mut sc = Scrubber::new(b"s".to_vec(), 7); let public = vec!["AAPL".to_string()];
+        let out = scrub_ibkr(&mut sc, Ctx { file: "trades", ok: true, symbols: &public }, json!([{ "commission": "0.01", "order_id": "265598", "displaySize": 100 }])).unwrap(); (out, sc) };
+    assert!(v[0]["commission"] != json!("0.01") && v[0]["order_id"] != json!("265598") && v[0]["displaySize"] != json!(100), "{v}");
     // Kept fields only in a 2xx contract file: the same rules answer as a 4xx, or as a positions row, keeps no symbol.
     let (v, _) = scrub_one("rules.us.buy", false, json!({ "symbol": "TSLA", "priceMagnifier": 100 }));
     assert_ne!(v["symbol"], json!("TSLA"));
