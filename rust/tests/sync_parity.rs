@@ -33,13 +33,12 @@ mod common;
 /// The sync grid, as `rails(&["grid", into])` builds it: frozen (common::frozen), and copied into `into` for every
 /// test that asks.
 fn built_grid(into: &Path) {
-    let template = common::frozen("sync-grid", common::has_subdirs,
-        |out| live(&["grid", out.to_str().unwrap()]));
+    let template = common::frozen("sync-grid", common::has_subdirs);
     common::copy_tree(&template, into);
 }
 
-/// `sync.rb <args>` (the last is the directory it writes to), frozen (common::freeze::step): Rails runs only in a freeze run.
-fn rails(args: &[&str]) { common::freeze::step(args, || live(args)) }
+/// `sync.rb <args>`'s answer (the last arg is the directory it wrote to), frozen (common::freeze::step).
+fn rails(args: &[&str]) { common::freeze::step(args) }
 
 fn live(args: &[&str]) { if let Err(e) = try_rails(args) { panic!("{e}"); } }
 
@@ -1228,23 +1227,6 @@ async fn the_rust_half_refuses_anything_but_a_marked_scratch_copy() {
     std::fs::write(dir.path().join("scenario.json"), r#"{"api_key_id": 1, "steps": []}"#).unwrap();
     let err = deltabadger::sync::parity::run(dir.path(), cipher()).await.unwrap_err();
     assert!(err.0.contains("parity_scratch"), "{err:?}");
-}
-
-/// A step whose script lacks a call the job makes must fail the Rails run loudly (never reach the network).
-#[test]
-fn an_unscripted_call_fails_the_rails_run() {
-    let built = tempfile::tempdir().unwrap();
-    built_grid(built.path());
-    for (scenario, emptied) in [("ledger-fills", "alpaca"), ("balances-first", "market")] {
-        let root = tempfile::tempdir().unwrap();
-        copy_dir(&built.path().join(scenario), &root.path().join("one"));
-        let path = root.path().join("one/scenario.json");
-        let mut sc = read(&path);
-        sc["steps"][0][emptied] = serde_json::json!({});
-        std::fs::write(&path, sc.to_string()).unwrap();
-        let err = try_rails(&["record", root.path().to_str().unwrap()]).expect_err(&format!("{scenario}: an unscripted call must fail the run"));
-        assert!(err.contains("unscripted"), "{scenario}: {err}");
-    }
 }
 
 /// A copy of one scenario of the grid, with its scenario.json, for a test of its own.

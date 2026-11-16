@@ -3,32 +3,7 @@
 //! (script/rust/reference_data.rb is the Rails half).
 use serde_json::Value;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 mod common;
-
-fn rails(args: &[&str]) {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let scratch = tempfile::tempdir().unwrap();
-    let run = |rails_args: &[&str]| {
-        let mut cmd = Command::new(root.join("bin/rails"));
-        cmd.current_dir(root).args(rails_args).env_remove("DATABASE_URL").env_remove("MARKET_DATA_URL").env_remove("MARKET_DATA_TOKEN")
-            .env("APP_ROOT_URL", "http://localhost:3000").env("SKIP_TEST_DATABASE", "true");
-        for db in ["primary", "queue", "cache", "cable"] {
-            cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", scratch.path().display()));
-        }
-        let out = cmd.output().expect("bin/rails runs");
-        assert!(out.status.success(), "bin/rails {rails_args:?} failed:\n{}", String::from_utf8_lossy(&out.stderr));
-    };
-    run(&["runner", "script/rust/schema_template.rb"]);
-    let mut full = vec!["runner", "script/rust/reference_data.rb"];
-    full.extend_from_slice(args);
-    run(&full);
-}
-
-fn copy_dir(from: &Path, to: &Path) {
-    std::fs::create_dir_all(to).unwrap();
-    for f in ["production.sqlite3", "production_queue.sqlite3", "scenario.json"] { std::fs::copy(from.join(f), to.join(f)).unwrap(); }
-}
 
 /// Named divergences (PLAN-A17 A17-2): (scenario, divergence, requests Rails makes and Rust does not, assets Rails mints,
 /// tickers Rails writes). Rust's rows and requests are Rails' without those (and without the exchange assets of those
@@ -83,13 +58,7 @@ async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload
     let rails_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
     // Frozen (common::frozen): Rails builds the grid, the installs are copied before Rails writes to its copies, Rails records.
-    let frozen = common::frozen("reference-grid", |d| d.join("rails").is_dir() && d.join("rust").is_dir(), |out| {
-        let (rails_root, rust_root) = (out.join("rails"), out.join("rust"));
-        std::fs::create_dir_all(&rails_root).unwrap();
-        rails(&["grid", rails_root.to_str().unwrap()]);
-        for d in std::fs::read_dir(&rails_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) { copy_dir(&d, &rust_root.join(d.file_name().unwrap())); }
-        rails(&["record", rails_root.to_str().unwrap()]);
-    });
+    let frozen = common::frozen("reference-grid", |d| d.join("rails").is_dir() && d.join("rust").is_dir());
     common::copy_tree(&frozen.join("rails"), rails_root.path());
     common::copy_tree(&frozen.join("rust"), rust_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();

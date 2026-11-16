@@ -84,7 +84,7 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
     let generated;
     let root=match std::env::var(variable) {
         Ok(root)=>root,
-        Err(_)=>{generated=common::recording(script,common::has_subdirs,|out|common::record_grid(script,out));
+        Err(_)=>{generated=common::recording(script,common::has_subdirs);
             generated.path.to_str().unwrap().to_string()}
     };
     let mut names=std::fs::read_dir(&root).unwrap().map(|e|e.unwrap()).filter(|e|e.file_type().unwrap().is_dir()).map(|e|e.file_name().into_string().unwrap()).collect::<Vec<_>>();names.sort();

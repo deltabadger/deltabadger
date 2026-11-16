@@ -86,7 +86,7 @@ async fn compare(cases: &[&str]) {
     let root = match std::env::var("D5_FX_GRID") {
         Ok(root) => root,
         Err(_) => {
-            generated = common::recording("pages_tracker_fx", common::has_subdirs, |out| common::record_grid("script/rust/pages_tracker_fx.rb", out));
+            generated = common::recording("pages_tracker_fx", common::has_subdirs);
             generated.path.to_str().unwrap().to_string()
         }
     };

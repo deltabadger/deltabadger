@@ -142,7 +142,7 @@ async fn populated_regions_match_rails() {
     let root = match std::env::var("D5_POPULATED_GRID") {
         Ok(root) => root,
         Err(_) => {
-            generated = common::recording("pages_tracker_populated", common::has_subdirs, |out| common::record_grid("script/rust/pages_tracker_populated.rb", out));
+            generated = common::recording("pages_tracker_populated", common::has_subdirs);
             generated.path.to_str().unwrap().to_string()
         }
     };

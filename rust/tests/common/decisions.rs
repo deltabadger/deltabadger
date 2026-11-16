@@ -1,91 +1,14 @@
 //! The decision-parity grids of script/rust/decisions.rb: built and recorded by Rails on scratch databases, played by
 //! deltabadger::parity::decide on pristine copies (tests/parity.rs, tests/tick_basket.rs).
 use std::path::Path;
-use std::process::{Command, Stdio};
-use std::time::Duration;
 
-/// `decisions.rb <args>` (the last is the directory it writes to), frozen (super::freeze::step): Rails runs only in a
-/// freeze run.
-pub fn rails(args: &[&str]) { super::freeze::step(args, || live(args)) }
-
-fn live(args: &[&str]) { if let Err(e) = try_rails(args) { panic!("{e}"); } }
-
-pub fn try_rails(args: &[&str]) -> Result<(), String> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let scratch = tempfile::tempdir().unwrap();
-    let run = |rails_args: &[&str]| -> Result<(), String> {
-        let mut cmd = Command::new(root.join("bin/rails"));
-        cmd.current_dir(root).args(rails_args).env_remove("DATABASE_URL")
-            .env("PROXY_KRAKEN", "http://127.0.0.1:9") // any unscripted real call fails fast instead of trading
-            .env("APP_ROOT_URL", "http://localhost:3000") // config/environments/development.rb requires it
-            .env("SKIP_TEST_DATABASE", "true"); // schema:load in development also purges the repo's storage/test*.sqlite3
-        for db in ["primary", "queue", "cache", "cable"] {
-            cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", scratch.path().display()));
-        }
-        // A Rails run stuck on something never shows up in nextest's hour-long TIMEOUT: kill it after 20 minutes
-        // (a whole grid records in under 3) and print what it had written, with every thread's backtrace, which
-        // script/rust/decisions.rb prints on SIGUSR1 (ten seconds to do it before the kill).
-        let child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().expect("bin/rails runs");
-        let pid = child.id();
-        let (done, finished) = std::sync::mpsc::channel::<()>();
-        let watchdog = std::thread::spawn(move || {
-            let timed_out = finished.recv_timeout(Duration::from_secs(20 * 60)).is_err();
-            if timed_out {
-                // An empty USR1 dump (#687) means the main thread is stuck in native code, where Ruby's trap never runs.
-                eprintln!("{}", native_state(pid));
-                let _ = Command::new("kill").args(["-USR1", &pid.to_string()]).status();
-                std::thread::sleep(Duration::from_secs(10));
-                let _ = Command::new("kill").args(["-9", &pid.to_string()]).status();
-            }
-            timed_out
-        });
-        let out = child.wait_with_output().expect("bin/rails runs");
-        let _ = done.send(());
-        let timed_out = watchdog.join().unwrap();
-        let output = || format!("stdout:\n{}\nstderr:\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
-        if timed_out { return Err(format!("bin/rails {rails_args:?} still ran after 20 minutes and was killed\n{}", output())); }
-        if out.status.success() { Ok(()) } else { Err(format!("bin/rails {rails_args:?} failed:\n{}", String::from_utf8_lossy(&out.stderr))) }
-    };
-    // The oracle's own queue/cache/cable databases must exist (ActionJob queries Solid Queue directly,
-    // broadcasts write Solid Cable): load every schema into the scratch files first.
-    run(&["runner", "script/rust/schema_template.rb"])?;
-    let mut full = vec!["runner", "script/rust/decisions.rb"];
-    full.extend_from_slice(args);
-    run(&full)
-}
-
-/// A stuck process's native side: gdb's backtraces when it can attach (CI's passwordless sudo, else plain), and from
-/// /proc every thread's kernel wait channel and the files it holds open (which SQLite databases, which locks).
-fn native_state(pid: u32) -> String {
-    let mut out = format!("native state of {pid}:\n");
-    let gdb = ["thread apply all bt", "info sharedlibrary"].iter().flat_map(|c| ["-ex", c]).collect::<Vec<_>>();
-    for (cmd, pre) in [("sudo", vec!["-n", "timeout", "60", "gdb"]), ("timeout", vec!["60", "gdb"])] {
-        let pid = pid.to_string();
-        let args = pre.into_iter().chain(["-p", pid.as_str(), "-batch"]).chain(gdb.iter().copied()).collect::<Vec<_>>();
-        if let Ok(o) = Command::new(cmd).args(&args).output() {
-            let text = String::from_utf8_lossy(&o.stdout);
-            if text.contains("Thread") { out.push_str(&text); break; }
-            out.push_str(&format!("{cmd} gdb: {}\n", String::from_utf8_lossy(&o.stderr).lines().last().unwrap_or("")));
-        }
-    }
-    let proc = format!("/proc/{pid}");
-    for task in std::fs::read_dir(format!("{proc}/task")).into_iter().flatten().flatten() {
-        let read = |f: &str| std::fs::read_to_string(task.path().join(f)).unwrap_or_default().trim().to_string();
-        out.push_str(&format!("task {:?} {} wchan={} state={}\n", task.file_name(), read("comm"), read("wchan"),
-            read("stat").split(' ').nth(2).unwrap_or("")));
-    }
-    for fd in std::fs::read_dir(format!("{proc}/fd")).into_iter().flatten().flatten() {
-        if let Ok(target) = std::fs::read_link(fd.path()) { out.push_str(&format!("fd {:?} -> {}\n", fd.file_name(), target.display())); }
-    }
-    out.push_str(&std::fs::read_to_string(format!("{proc}/locks")).unwrap_or_else(|_| std::fs::read_to_string("/proc/locks").unwrap_or_default()));
-    out
-}
+/// `decisions.rb <args>`'s answer (the last arg is the directory it wrote to), frozen (super::freeze::step).
+pub fn rails(args: &[&str]) { super::freeze::step(args) }
 
 /// `command`'s grid, as `rails(&[command, into])` builds it: frozen (super::frozen), and copied into `into` for every
 /// test that asks.
 pub fn built_grid(command: &str, into: &Path) {
-    let template = super::frozen(&format!("decisions-{command}"), super::has_subdirs,
-        |out| live(&[command, out.to_str().unwrap()]));
+    let template = super::frozen(&format!("decisions-{command}"), super::has_subdirs);
     super::copy_tree(&template, into);
 }
 

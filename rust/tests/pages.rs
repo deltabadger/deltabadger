@@ -1829,16 +1829,6 @@ fn session_value(data: &session::SessionData, key: &str) -> Value {
     }
 }
 
-fn copy_scenario(from: &Path, to: &Path) {
-    std::fs::create_dir_all(to).unwrap();
-    for file in ["production.sqlite3", "production_queue.sqlite3", "scenario.json"] { std::fs::copy(from.join(file), to.join(file)).unwrap(); }
-    for scope in ["de", "crypto", "crypto_de"] {
-        if from.join(scope).is_dir() { copy_scenario(&from.join(scope), &to.join(scope)); }
-    }
-    // The instance's files (tax report fixtures, pages_api.rb tax_fixtures), placed at grid build time.
-    if from.join("tmp").is_dir() { common::copy_tree(&from.join("tmp"), &to.join("tmp")); }
-}
-
 /// An answer's row snapshots without Rust's own tables: Rails' installs never hold them (db/schema.rb has none), so they
 /// are left out of Rails against Rust. What Rust writes to them is checked on Rust's side alone (forbidden writes).
 fn without_rust_tables(answer: &Value) -> Value {
@@ -2044,18 +2034,7 @@ fn index_switch_stored_settings_are_rails() {
 /// The recording keeps `rails/` (each scenario's scenario.json and rails.json) and `rust/` (the installs as the grid built
 /// them, before Rails' requests).
 fn grid_recording(scope: &str) -> common::Recording {
-    common::recording(&format!("pages-5-{scope}"), |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
-        let (scratch, rails_root, rust_root) = (tempfile::tempdir().unwrap(), out.join("rails"), out.join("rust"));
-        std::fs::create_dir_all(&rails_root).unwrap();
-        common::rails(scratch.path(), "test", &["runner", "script/rust/schema_template.rb"]);
-        common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "grid", rails_root.to_str().unwrap(), scope]);
-        for dir in std::fs::read_dir(&rails_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) {
-            copy_scenario(&dir, &rust_root.join(dir.file_name().unwrap())); // before Rails writes to its copies
-        }
-        std::fs::create_dir_all(&rust_root).unwrap();
-        common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "record", rails_root.to_str().unwrap()]);
-        only_json(&rails_root); // the comparison reads Rails' answers, never the databases Rails left
-    })
+    common::recording(&format!("pages-5-{scope}"), |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir())
 }
 
 /// The grid's recording (grid_recording), with (rust_root, scenario dirs): this run's Rust side works on its own copy of `rust/`.
@@ -2082,13 +2061,6 @@ fn recorded_grid(scope: &str) -> (common::Recording, tempfile::TempDir, Vec<Path
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(recording.path.join("rails")).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     (recording, rust_root, dirs)
-}
-
-fn only_json(dir: &Path) {
-    for entry in std::fs::read_dir(dir).unwrap().flatten() {
-        let path = entry.path();
-        if path.is_dir() { only_json(&path) } else if path.extension().is_none_or(|e| e != "json") { std::fs::remove_file(&path).unwrap(); }
-    }
 }
 
 /// Scenarios whose LAST response this crate deliberately answers otherwise than Rails. Everything
@@ -2601,9 +2573,7 @@ fn expected_broker_pages(name: &str, scenario: &Value) -> usize {
 
 /// Rails' scenario inventory (`pages.rb inventory`), frozen.
 fn page_inventory() -> Value {
-    let path = common::frozen("pages-inventory", |d| d.join("inventory.json").is_file(), |out| {
-        common::rails(tempfile::tempdir().unwrap().path(), "test", &["runner", "script/rust/pages.rb", "inventory", out.join("inventory.json").to_str().unwrap()]);
-    }).join("inventory.json");
+    let path = common::frozen("pages-inventory", |d| d.join("inventory.json").is_file()).join("inventory.json");
     serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
 }
 

@@ -79,14 +79,14 @@ fn comparable(mut transcript: Value) -> Value {
 }
 /// mcp.rb's grid, frozen (common::frozen), copied into `root`.
 fn frozen_grid(root:&Path)->PathBuf{
-    let grid=common::frozen("mcp-grid",common::has_subdirs,|out|grid(tempfile::tempdir().unwrap().path(),out));
+    let grid=common::frozen("mcp-grid",common::has_subdirs);
     common::copy_tree(&grid,root);
     grid
 }
 #[tokio::test(flavor="current_thread")]
 async fn rails_and_rust_mcp_transcripts() {
     let root = tempfile::tempdir().unwrap();
-    let grid = frozen_grid(root.path());
+    frozen_grid(root.path());
     let dirs: Vec<_> = std::fs::read_dir(root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("steps.json").is_file()).collect();
     assert!(!dirs.is_empty(), "empty MCP grid");
     let mut actual = vec![];
@@ -97,11 +97,7 @@ async fn rails_and_rust_mcp_transcripts() {
         actual.push(play(rust.path(), steps.as_array().unwrap(), None).await);
     }
     // Rails plays every scenario on its own copy of the frozen grid; only its answers (rails.json) are kept.
-    let recorded = common::frozen("mcp-transcripts", common::has_subdirs, |out| {
-        common::copy_tree(&grid, out);
-        common::rails(tempfile::tempdir().unwrap().path(), "test", &["runner", "script/rust/mcp.rb", "record", out.to_str().unwrap()]);
-        common::freeze::keep_only(out, "rails.json");
-    });
+    let recorded = common::frozen("mcp-transcripts", common::has_subdirs);
     let mut failures = vec![];
     for (dir, got) in dirs.iter().zip(actual) {
         let want = read(recorded.join(dir.file_name().unwrap()).join("rails.json"));

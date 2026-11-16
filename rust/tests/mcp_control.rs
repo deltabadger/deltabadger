@@ -105,7 +105,7 @@ fn comparable(mut transcript: Value) -> Value {
 async fn control_transcripts() {
     let root = tempfile::tempdir().unwrap();
     // The grid is Rails' own (frozen); Rails plays it in `record` on its own copy, keeping only its answers (rails.json).
-    let grid=common::frozen("mcp-control-grid",common::has_subdirs,|out|common::rails(tempfile::tempdir().unwrap().path(),"test",&["runner","script/rust/mcp_control.rb","grid",out.to_str().unwrap()]));
+    let grid=common::frozen("mcp-control-grid",common::has_subdirs);
     common::copy_tree(&grid,root.path());
     let dirs: Vec<_> = std::fs::read_dir(root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("steps.json").is_file()).collect();
     assert!(!dirs.is_empty());
@@ -125,7 +125,7 @@ async fn control_transcripts() {
         if let Some(before)=before {result["before_business"]=before;}
         results.push(result);
     }
-    let recorded=common::frozen("mcp-control",common::has_subdirs,|out|{common::copy_tree(&grid,out);common::rails(tempfile::tempdir().unwrap().path(),"test",&["runner","script/rust/mcp_control.rb","record",out.to_str().unwrap()]);common::freeze::keep_only(out,"rails.json");});
+    let recorded=common::frozen("mcp-control",common::has_subdirs);
     common::copy_tree(&recorded,root.path());
     let mut failures = vec![];
     // PLAN-A9 O1: a dry run's order id is random on both sides (Exchange::Dryable#create_dry_order).
@@ -455,7 +455,7 @@ async fn real_rails_ticks_and_mcp_tools_race_on_identical_files() {
     use deltabadger::{crypto::{Cipher,EncryptionKeys},engine::{model,tick,provider},venue::alpaca::{AlpacaVenue,Urls}};
     use std::rc::Rc;
     // Rails' races, frozen (common::frozen); every Rust leg works on its own copy.
-    let output=common::frozen("mcp-control-races",common::has_subdirs,|out|common::rails(tempfile::tempdir().unwrap().path(),"test",&["runner","script/rust/mcp_control_races.rb",out.to_str().unwrap()]));
+    let output=common::frozen("mcp-control-races",common::has_subdirs);
     let lost=read(output.join("settings_lost_update/race.json"));
     assert_eq!((lost["read"].as_f64(),lost["committed"].as_f64(),lost["final"].as_f64()),(Some(50.0),Some(20.0),Some(20.0)),"the rename keeps the amount committed after its load");
     // mcp_control_races.rb records the six lifecycle/settings controls. Liquidation's and redeploy's request/clear races

@@ -1,7 +1,7 @@
 #![cfg(unix)] // shells out to bin/rails and sets Unix file modes, so it only builds and runs on Unix
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use common::decisions::{built_grid, copy_dir, r5_cleanup_expected, rails, try_rails};
+use common::decisions::{built_grid, copy_dir, r5_cleanup_expected, rails};
 
 /// Grid variants where Rust deliberately decides otherwise than Rails, each asserted on its own terms below.
 /// add_service_unavailable: AddOrder answered EService:Unavailable may still have been placed. Rails writes a failed
@@ -1254,29 +1254,6 @@ async fn an_alpaca_copy_is_planned_with_alpaca_bodies() {
     assert_eq!((sc["parity_scratch"].as_bool(), sc["venue"].as_str()), (Some(true), Some("alpaca")));
     assert_eq!(sc["script"]["alpaca"]["GET /v1beta3/crypto/us/latest/quotes"][0]["body"], quotes);
     assert_eq!(sc["script"]["alpaca"]["GET /v2/orders/OMKT-1"][0]["body"]["status"], "accepted", "a waiting order is answered as resting");
-}
-
-/// A scenario whose script lacks a path the tick needs must fail the run loudly, on either venue (never reach the network).
-#[test]
-fn an_unscripted_call_fails_the_run_on_both_venues() {
-    for (grid, scenario) in [("grid", "script"), ("grid-alpaca", "alpaca"), ("grid-binance", "binance")] {
-        let built = tempfile::tempdir().unwrap();
-        built_grid(grid, built.path());
-        let mut dirs: Vec<PathBuf> = std::fs::read_dir(built.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
-        dirs.sort();
-        let root = tempfile::tempdir().unwrap();
-        let from = dirs.iter().find(|d| {
-            let sc: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("scenario.json")).unwrap()).unwrap();
-            sc.get("tick").and_then(|t| t.as_bool()).unwrap_or(true)
-        }).unwrap();
-        copy_dir(from, &root.path().join("one"));
-        let path = root.path().join("one/scenario.json");
-        let mut sc: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        if scenario == "script" { sc["script"]["http"] = serde_json::json!({}); } else { sc["script"][scenario] = serde_json::json!({}); }
-        std::fs::write(&path, sc.to_string()).unwrap();
-        let err = try_rails(&["record", root.path().to_str().unwrap()]).expect_err(&format!("{grid}: an unscripted call must fail the run"));
-        assert!(err.contains("unscripted"), "{grid}: {err}");
-    }
 }
 
 

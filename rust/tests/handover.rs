@@ -991,66 +991,17 @@ async fn an_hf_enabled_kucoin_history_refuses_the_handback_and_a_classic_only_on
     assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 1);
 }
 
-/// The Ruby files under `dir`, recursively.
-fn ruby_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
-    for entry in std::fs::read_dir(dir).unwrap() {
-        let path = entry.unwrap().path();
-        if path.is_dir() { ruby_files(&path, out) } else if path.extension().is_some_and(|e| e == "rb") { out.push(path) }
-    }
-}
-
 /// PLAN-B2 r3.2, r4.5: every job class 2.x can leave in its queue has an outcome in handover::RAILS_WORK, and the table
 /// names no class the repository lacks. A class added under app/jobs without an outcome fails here, not at a user's start.
 #[test]
 fn every_rails_job_class_has_an_outcome() {
-    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let mut found = std::collections::BTreeSet::new();
-    // Every `class … < …` under app/jobs, by its full name: the `module`/`class` headers it is indented under. Error
-    // classes (`< StandardError`) are not jobs.
-    let header = regex::Regex::new(r"^(\s*)(module|class) ([A-Z][A-Za-z0-9_:]*)(\s*<\s*([A-Za-z0-9_:]+))?").unwrap();
-    let mut files = vec![];
-    ruby_files(&repo.join("app/jobs"), &mut files);
-    for file in &files {
-        let mut open: Vec<(usize, String)> = vec![];
-        for line in std::fs::read_to_string(file).unwrap().lines() {
-            let Some(m) = header.captures(line) else { continue };
-            let indent = m[1].len();
-            open.retain(|(i, _)| *i < indent);
-            let name = open.iter().map(|(_, n)| n.as_str()).chain([&m[3]]).collect::<Vec<_>>().join("::");
-            if &m[2] == "class" && m.get(5).is_some_and(|s| s.as_str() != "StandardError") { found.insert(name); }
-            open.push((indent, m[3].to_string()));
-        }
+    // PLAN-B11 T6: 2.x's job classes (every `class … < …` under app/jobs, every constant `perform_later` receiver in app/ and
+    // lib/, recurring.yml's classes and SolidQueue::RecurringJob, the mailer's job), read at the oracle commit.
+    let found: std::collections::BTreeSet<String> = std::fs::read_to_string(common::freeze::recorded().join("rails_job_classes.txt")).unwrap()
+        .lines().map(str::to_string).collect();
+    for class in ["Tracker::LedgerJob::Retry", "Bot::ActionJob", "SolidQueue::RecurringJob", "ActionMailer::MailDeliveryJob"] {
+        assert!(found.contains(class), "the frozen list has {class}: {found:?}");
     }
-    assert!(found.contains("Tracker::LedgerJob::Retry") && found.contains("Bot::ActionJob"), "the class reader found {found:?}");
-    let classes = found.clone();
-    // Every constant `perform_later` receiver in app/ and lib/ (`X.perform_later`, `X.set(…).perform_later`). A relative
-    // name (Retry inside Tracker::LedgerJob) is the class under app/jobs it ends.
-    let receiver = regex::Regex::new(r"([A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*)(?:\.set\([^)]*\))?\.perform_later").unwrap();
-    let mut files = vec![];
-    ruby_files(&repo.join("app"), &mut files);
-    ruby_files(&repo.join("lib"), &mut files);
-    let mut receivers = 0;
-    for file in &files {
-        for m in receiver.captures_iter(&std::fs::read_to_string(file).unwrap()) {
-            let name = &m[1];
-            receivers += 1;
-            found.insert(classes.iter().find(|c| *c == name || c.ends_with(&format!("::{name}"))).cloned().unwrap_or_else(|| name.to_string()));
-        }
-    }
-    assert!(receivers > 40, "perform_later receivers read: {receivers}");
-    // config/recurring.yml: each `class:`, and SolidQueue::RecurringJob for a `command:` task. The mailer's job.
-    let recurring = std::fs::read_to_string(repo.join("config/recurring.yml")).unwrap();
-    for line in recurring.lines().map(str::trim) {
-        if let Some(class) = line.strip_prefix("class:") { found.insert(class.trim().trim_matches('"').to_string()); }
-        if line.starts_with("command:") { found.insert("SolidQueue::RecurringJob".into()); }
-    }
-    assert!(found.contains("SolidQueue::RecurringJob"), "recurring.yml has a command: task");
-    found.insert("ActionMailer::MailDeliveryJob".into());
-    // PLAN-B11 T6: the set at the oracle commit, frozen (B11_FREEZE=1 writes it) for when app/, lib/ and recurring.yml go.
-    let frozen = common::freeze::recorded().join("rails_job_classes.txt");
-    let listed: String = found.iter().map(|class| format!("{class}\n")).collect();
-    if common::freeze::freezing() { std::fs::create_dir_all(frozen.parent().unwrap()).unwrap(); std::fs::write(&frozen, &listed).unwrap(); }
-    assert_eq!(std::fs::read_to_string(&frozen).unwrap(), listed, "rust/tests/recorded/rails_job_classes.txt is Rails' job classes");
 
     let table: std::collections::BTreeSet<String> = handover::RAILS_WORK.iter().map(|(c, _)| c.to_string()).collect();
     assert_eq!(table.len(), handover::RAILS_WORK.len(), "a class listed twice");
@@ -1561,8 +1512,9 @@ fn every_rust_only_state_has_a_handback_outcome() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let rows: std::collections::BTreeSet<&str> = HANDBACK_STATE.iter().map(|(_, name, _)| *name).collect();
     assert_eq!(rows.len(), HANDBACK_STATE.len(), "a state listed twice");
-    let schema = std::fs::read_to_string(root.parent().unwrap().join("db/schema.rb")).unwrap();
-    let rails: std::collections::BTreeSet<String> = regex::Regex::new(r#"create_table "([a-z_0-9]+)""#).unwrap()
+    // 2.x's tables: rust/schema/baseline.sql is db/schema.rb as 2.70.21 loads it (B1).
+    let schema = std::fs::read_to_string(root.join("schema/baseline.sql")).unwrap();
+    let rails: std::collections::BTreeSet<String> = regex::Regex::new(r#"CREATE TABLE "([a-z_0-9]+)""#).unwrap()
         .captures_iter(&schema).map(|m| m[1].to_string()).collect();
     assert!(rails.contains("bots") && rails.contains("app_configs"), "{rails:?}");
     let mut found = std::collections::BTreeSet::new();
@@ -1602,10 +1554,12 @@ fn every_rust_only_state_has_a_handback_outcome() {
     for (held, name, _) in HANDBACK_STATE {
         assert_eq!(*held == Held::Table, tables.contains(*name) || *name == "rust_schema_migrations", "{name} is held as {held:?}");
     }
-    let en = std::fs::read_to_string(root.parent().unwrap().join("config/locales/base.en.yml")).unwrap();
+    // r1.5: 2.70.21's base.en.yml keys (tests/fixtures/v2_base_en_keys.txt, every key at any depth), never 3.x's locales.
+    let en: std::collections::BTreeSet<&str> = include_str!("fixtures/v2_base_en_keys.txt").lines().collect();
+    assert!(en.contains("bot") && en.contains("status"), "{} keys", en.len());
     for (_, name, _) in HANDBACK_STATE.iter().filter(|(held, _, _)| *held == Held::Text) {
         let leaf = name.rsplit('.').next().unwrap();
-        assert!(!en.contains(&format!(" {leaf}:")), "{name} has a 2.x translation now: it is no longer Rust-only text");
+        assert!(!en.contains(leaf), "{name} has a 2.x translation: it is not Rust-only text");
     }
 }
 
