@@ -15,6 +15,14 @@
     top: 0
     left: 0
     z-index: 1000
+  // An open modal sits at the strip's z-index and later in the DOM, so it covered the strip and the
+  // window could not be moved. Lift the strip over it and start the modal's content below the strip,
+  // so nothing clickable (a close button) lands under it.
+  &:has(dialog[open]) .titlebar-drag-region
+    z-index: 1001
+  .dialogview,
+  .dialog__vertical-center
+    padding-top: 3.5rem
   @media (max-width: 767.9px)
     .dash-intro
       height: 8rem
