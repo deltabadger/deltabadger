@@ -1,7 +1,6 @@
 //! The withdrawal-rule vectors (PLAN-withdrawal-rules X0), recorded from Rails by script/rust/record_withdrawal_vectors.rb
 //! under the locked honeymaker. No engine reads them yet (E0 does); this holds the fixture to its pins and its shape.
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 
 fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/withdrawal_vectors.json")).expect("withdrawal_vectors.json parses") }
@@ -16,19 +15,6 @@ fn only_row(c: &Value) -> (&str, &str) {
     let rows = c["rule_logs"].as_array().unwrap();
     assert_eq!(rows.len(), 1, "{}: one rule_logs row", c["case"]);
     (rows[0]["status"].as_str().unwrap(), rows[0]["message"].as_str().unwrap())
-}
-
-#[test]
-fn the_rails_sources_and_honeymaker_are_the_ones_recorded() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let v = vectors();
-    for (file, recorded) in v["sources"].as_object().unwrap() {
-        let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-        assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: run script/rust/repin");
-    }
-    assert_eq!(v["gems"]["honeymaker"], "0.12.5", "the oracle is the honeymaker Rails is locked at");
-    let lock = std::fs::read_to_string(root.join("Gemfile.lock")).unwrap();
-    assert!(lock.contains("    honeymaker (0.12.5)\n"), "Gemfile.lock moved honeymaker: run script/rust/repin");
 }
 
 #[test]

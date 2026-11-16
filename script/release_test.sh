@@ -33,6 +33,13 @@ esac
 EOF
 printf '#!/usr/bin/env bash\necho "Fixes in the bots."\n' > "$work/bin/claude"
 printf '#!/usr/bin/env bash\necho "{\\"digest\\":\\"sha256:%s\\"}"\n' "$(printf 'ab%.0s' {1..32})" > "$work/bin/docker"
+cat > "$work/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+# The public seed snapshot: $STATE/seed.gz, written to -o; none there is a failed download.
+echo "curl $*" >> "$STATE/curl.log"
+out=; args=("$@"); for i in "${!args[@]}"; do [ "${args[$i]}" = -o ] && out=${args[$((i + 1))]}; done
+[ -e "$STATE/seed.gz" ] && [ -n "$out" ] && cp "$STATE/seed.gz" "$out"
+EOF
 chmod +x "$work/bin/"*
 export PATH=$work/bin:$PATH
 DIGEST=sha256:$(printf 'ab%.0s' {1..32})
@@ -41,6 +48,7 @@ reset_state() {
   echo '[{"databaseId":7,"event":"workflow_dispatch","conclusion":"success"}]' > "$STATE/rust_runs.json"
   echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"macos-arm64","conclusion":"success"}]}' > "$STATE/jobs.json"
   echo '[]' > "$STATE/release_runs.json"
+  cp "$root/rust/seed/seed_data.json.gz" "$STATE/seed.gz" # the served snapshot is the committed one
 }
 
 # ---- the repository: the files the command reads, on main at 2.70.21, pushed to a bare origin
@@ -51,14 +59,15 @@ git config --global init.defaultBranch main
 git config --global gpg.format ssh; git config --global user.signingKey "$work/sign"
 echo "release@example.invalid $(cat "$work/sign.pub")" > "$work/allowed"; git config --global gpg.ssh.allowedSignersFile "$work/allowed"
 git init -q --bare "$work/origin.git"
-seed=$work/seed; mkdir -p "$seed"/{script/release,script/rust,src-tauri,deltabadger}
+seed=$work/seed; mkdir -p "$seed"/{script/release,script/rust,src-tauri,deltabadger,rust/seed}
+cp "$root/rust/seed/seed_data.json.gz" "$seed/rust/seed/"
 cp "$root/script/release.sh" "$seed/script/"
 cp "$root/script/release/validate.sh" "$seed/script/release/"
 cp "$root/script/rust/latest_tag.sh" "$seed/script/rust/"
 cp "$root/src-tauri/Cargo.toml" "$root/src-tauri/Cargo.lock" "$root/src-tauri/tauri.conf.json" "$seed/src-tauri/"
 cp "$root/deltabadger/umbrel-app.yml" "$root/deltabadger/docker-compose.yml" "$seed/deltabadger/"
 (cd "$seed" && git init -q && bash script/release/validate.sh set-version 2.70.21 && git add -A && git commit -q -m seed \
-  && git tag v2.70.21 && git remote add origin "$work/origin.git" && git push -q origin main v2.70.21 && git push -q origin main:nightly)
+  && git tag v2.70.21 && git remote add origin "$work/origin.git" && git push -q origin main v2.70.21)
 repo=$work/checkout
 git clone -q "$work/origin.git" "$repo"
 other=$work/other; git clone -q "$work/origin.git" "$other" # pushes behind the command's back
@@ -91,7 +100,7 @@ refused "a stable version needs the kind of its beta" "release.sh beta patch|min
 yes_release beta major > /dev/null
 check "2.70.21 + beta major → 3.0.0-beta.1" test "$(version)" = 3.0.0-beta.1
 check "pushed to main" test "$(git -C "$work/origin.git" rev-parse main)" = "$(git -C "$repo" rev-parse HEAD)"
-check "nightly fast-forwarded to it" test "$(git -C "$work/origin.git" rev-parse nightly)" = "$(git -C "$repo" rev-parse HEAD)"
+check "no nightly branch is pushed" test -z "$(git -C "$work/origin.git" branch --list nightly)"
 check "the tag is pushed, annotated, on the release commit" test "$(git -C "$work/origin.git" rev-parse 'v3.0.0-beta.1^{commit}')" = "$(git -C "$repo" rev-parse HEAD)"
 check "the tag is signed" git -C "$repo" tag -v v3.0.0-beta.1
 check "exactly the three version files change" test "$(git -C "$repo" show --format= --name-only HEAD | sort | xargs)" = "src-tauri/Cargo.lock src-tauri/Cargo.toml src-tauri/tauri.conf.json"
@@ -101,6 +110,20 @@ check "a beta has no notes and no trailer" test "$(message v3.0.0-beta.1 | xargs
 
 yes_release beta > /dev/null
 check "the next beta" test "$(version)" = 3.0.0-beta.2
+
+# ---- the seed snapshot (PLAN-B8 r2.6, PLAN-B11 r1.4): the served one, when it differs, rides in the bump commit
+gzip -dc "$root/rust/seed/seed_data.json.gz" \
+  | jq -c '.["tickers/kraken.json"].data += [.["tickers/kraken.json"].data[0] | .ticker = "B114TESTEUR"]' | gzip -n > "$STATE/seed.gz"
+sha() { { sha256sum "$1" 2>/dev/null || shasum -a 256 "$1"; } | cut -d' ' -f1; }
+yes_release beta > /dev/null
+check "a changed snapshot: the next beta" test "$(version)" = 3.0.0-beta.3
+check "the bump commit holds the version files and the snapshot" test "$(git -C "$repo" show --format= --name-only HEAD | sort | xargs)" = "rust/seed/seed_data.json.gz src-tauri/Cargo.lock src-tauri/Cargo.toml src-tauri/tauri.conf.json"
+git -C "$repo" show v3.0.0-beta.3:rust/seed/seed_data.json.gz > "$work/tagged.gz"
+check "the tag's snapshot is the served one, byte for byte" test "$(sha "$work/tagged.gz")" = "$(sha "$STATE/seed.gz")"
+check "it has the extra ticker" bash -c "gzip -dc '$work/tagged.gz' | jq -e '[.[\"tickers/kraken.json\"].data[].ticker] | index(\"B114TESTEUR\")' > /dev/null"
+check "the floors pass on it (validate.sh seed)" bash "$repo/script/release/validate.sh" seed "$work/tagged.gz"
+check "release.yml's sha256 check takes it as the attached asset (same-seed)" bash "$repo/script/release/validate.sh" same-seed "$STATE/seed.gz"
+check "and refuses the committed one before it" bash -c "! bash '$repo/script/release/validate.sh' same-seed '$root/rust/seed/seed_data.json.gz'"
 (cd "$other" && git fetch -q && git tag v3.0.0-beta.5 origin/main && git push -q origin v3.0.0-beta.5)
 yes_release beta > /dev/null
 check "a beta tag pushed elsewhere is counted (fetched first)" test "$(version)" = 3.0.0-beta.6
@@ -147,6 +170,9 @@ done
 echo '[{"status":"in_progress","event":"pull_request"}]' > "$STATE/release_runs.json"
 yes_release patch > /dev/null && check "a pull request's dry run doesn't block" test "$(version)" = 3.1.1
 reset_state; touch "$STATE/no_auth"; refused "gh not logged in" "gh auth login" patch
+reset_state; rm "$STATE/seed.gz"; refused "the seed snapshot can't be downloaded" "could not download" patch
+reset_state; gzip -dc "$root/rust/seed/seed_data.json.gz" | jq -c 'del(.["tickers/kraken.json"])' | gzip > "$STATE/seed.gz"
+refused "a served snapshot that is not a seed bundle" "not a seed bundle" patch
 reset_state
 (cd "$other" && git fetch -q && git tag v3.1.2 origin/main && git push -q origin v3.1.2)
 git -C "$repo" fetch -q --tags origin # the command fetches it too; that read is not a change

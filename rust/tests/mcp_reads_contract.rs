@@ -83,13 +83,6 @@ fn final_text_is_bounded_in_bytes_without_truncation(){
     assert_eq!(l::text(&(exact+"x")),"Read unavailable: response exceeds 65536 bytes");
 }
 #[test]
-fn oracle_fingerprints_include_the_money_implementations(){
-    let meta=protocol::metadata();
-    for file in ["app/models/exchanges/alpaca.rb","app/models/bots/dca_single_asset/measurable.rb","app/models/bot/composition/measurable.rb"]{
-        assert!(meta["sources"][file].is_string(),"{file}");
-    }
-}
-#[test]
 fn read_order_price_absence_does_not_change_engine_polling(){
     use deltabadger::venue::alpaca::{parse_order,parse_read_order};
     for kind in ["market","limit"]{

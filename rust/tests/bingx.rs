@@ -111,24 +111,6 @@ fn raw_order(id: &str, status: &str, kind: &str, executed: &str, cumulative: &st
             "type": kind, "side": "BUY", "origQuoteOrderQty": if kind == "LIMIT" { Value::Null } else { json!("60") } })
 }
 
-#[test]
-fn the_fixtures_are_recorded_from_the_current_rails_sources() {
-    use sha2::Digest;
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-    for f in [fixture(), vectors()] {
-        for (file, recorded) in f["sources"].as_object().unwrap() {
-            let now = hex::encode(sha2::Sha256::digest(
-                std::fs::read(root.join(file)).unwrap(),
-            ));
-            assert_eq!(
-                recorded.as_str().unwrap(),
-                now,
-                "{file} changed: re-record with script/rust/repin"
-            );
-        }
-    }
-}
-
 /// Honeymaker::Clients::BingX's signed requests, byte for byte under a frozen #timestamp_ms: GETs and POSTs with
 /// every param in the query (an escaped one included), X-BX-APIKEY on every request of a keyed client, a public read.
 #[test]

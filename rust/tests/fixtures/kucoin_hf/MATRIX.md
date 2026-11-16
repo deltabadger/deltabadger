@@ -17,8 +17,7 @@ are synthetic unless explicitly attributed. All credentials are throwaway text.
 Regenerate with `python3 script/rust/record_kucoin_hf.py --source-dir <cache>`;
 add `--check` to compare without writes or network access. Retain the fetched
 cache to reproduce the dated documentation snapshot. SDK URLs are commit-pinned.
-Run `script/rust/repin --check` after generator changes; no Rails recorder or source
-pin is changed by HF-0. Python's standard-library HMAC generates the expectations;
+No Rails recorder or source pin is involved in HF-0. Python's standard-library HMAC generates the expectations;
 the Rust tests recompute them with the existing Rust crypto dependencies. They do
 not call the classic signer and cannot establish HF transport correctness yet.
 

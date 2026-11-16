@@ -1,16 +1,4 @@
 {
-  "sources": {
-    "app/models/exchanges/ibkr.rb": "6b4eb7306d114c3a8aaa61dfb967150d23e7f29f95e09b9745f1e6c5c40f4f8b",
-    "app/models/clients/ibkr.rb": "40c4e3d460cb089015138d1e6141786f96af463786e49bf827a536ecea24fb9e",
-    "app/models/clients/ibkr/session.rb": "87a4f0938a0c705df5c043e2277c3501339a2a116699201126b2153547c5a73b",
-    "app/models/clients/ibkr/oauth.rb": "bb98efb064853fac98a668a18d45a7c196ec06e4214f8d42368b605029693ad0",
-    "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
-    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
-    "app/models/ibkr_lock.rb": "a5ccda1013e1621c2bf2a26dba3da5196b93c3a64d7bbdaf2604d010c3c5bfa0",
-    "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
-    "rust/tests/fixtures/ibkr_test_keys.json": "07e593c73af60ee4dab6a01959838c311e624248bb60fbc652feeabdae3d911b",
-    "rust/tests/fixtures/ibkr_signing.json": "8c98c27671d4f3a8cc43dcb6587b75cd8f53a5bd855ef7e4c77a877e64f433b9"
-  },
   "honeymaker": "0.12.5",
   "ibkr": {
     "cases": [

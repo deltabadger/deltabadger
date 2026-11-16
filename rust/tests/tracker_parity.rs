@@ -1,4 +1,4 @@
-#![cfg(unix)] // shells out to bin/rails
+#![cfg(unix)] // Unix only: it ran Rails until B11 froze its answers into tests/recorded
 //! Value parity for the tracker's walk, figures, snapshots and wash-sale locks: Rails' real jobs (Tracker::LedgerJob,
 //! PortfolioSnapshot::BackfillJob) and the Rust jobs run on copies of one install over the same scripted data-api and
 //! Alpaca bodies, at one instant. The scopes the walk stated, the figures of each of today's rows, the snapshot rows,
@@ -8,33 +8,8 @@
 //! them afresh, for review), Rails' differs, and `reviewed_figures` asserts the figures it was reviewed for.
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 mod common;
 use std::sync::Arc;
-
-fn rails(args: &[&str]) {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let scratch = tempfile::tempdir().unwrap();
-    let run = |rails_args: &[&str]| {
-        let mut cmd = Command::new(root.join("bin/rails"));
-        cmd.current_dir(root).args(rails_args).env_remove("DATABASE_URL").env("TZ", "UTC")
-            .env("APP_ROOT_URL", "http://localhost:3000").env("SKIP_TEST_DATABASE", "true");
-        for db in ["primary", "queue", "cache", "cable"] {
-            cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", scratch.path().display()));
-        }
-        let out = cmd.output().expect("bin/rails runs");
-        assert!(out.status.success(), "bin/rails {rails_args:?} failed:\n{}", String::from_utf8_lossy(&out.stderr));
-    };
-    run(&["runner", "script/rust/schema_template.rb"]);
-    let mut full = vec!["runner", "script/rust/tracker.rb"];
-    full.extend_from_slice(args);
-    run(&full);
-}
-
-fn copy_dir(from: &Path, to: &Path) {
-    std::fs::create_dir_all(to).unwrap();
-    for f in ["production.sqlite3", "production_queue.sqlite3", "scenario.json"] { std::fs::copy(from.join(f), to.join(f)).unwrap(); }
-}
 
 fn cipher() -> Arc<deltabadger::crypto::Cipher> {
     Arc::new(deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "tracker-parity").unwrap()))
@@ -219,13 +194,7 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     let rails_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
     // Frozen (common::frozen): Rails builds the grid, the installs are copied before Rails writes to its copies, Rails records.
-    let frozen = common::frozen("tracker-grid", |d| d.join("rails").is_dir() && d.join("rust").is_dir(), |out| {
-        let (rails_root, rust_root) = (out.join("rails"), out.join("rust"));
-        std::fs::create_dir_all(&rails_root).unwrap();
-        rails(&["grid", rails_root.to_str().unwrap()]);
-        for d in std::fs::read_dir(&rails_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) { copy_dir(&d, &rust_root.join(d.file_name().unwrap())); }
-        rails(&["record", rails_root.to_str().unwrap()]);
-    });
+    let frozen = common::frozen("tracker-grid", |d| d.join("rails").is_dir() && d.join("rust").is_dir());
     common::copy_tree(&frozen.join("rails"), rails_root.path());
     common::copy_tree(&frozen.join("rust"), rust_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();

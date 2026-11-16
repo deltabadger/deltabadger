@@ -79,14 +79,14 @@ fn comparable(mut transcript: Value) -> Value {
 }
 /// mcp.rb's grid, frozen (common::frozen), copied into `root`.
 fn frozen_grid(root:&Path)->PathBuf{
-    let grid=common::frozen("mcp-grid",common::has_subdirs,|out|grid(tempfile::tempdir().unwrap().path(),out));
+    let grid=common::frozen("mcp-grid",common::has_subdirs);
     common::copy_tree(&grid,root);
     grid
 }
 #[tokio::test(flavor="current_thread")]
 async fn rails_and_rust_mcp_transcripts() {
     let root = tempfile::tempdir().unwrap();
-    let grid = frozen_grid(root.path());
+    frozen_grid(root.path());
     let dirs: Vec<_> = std::fs::read_dir(root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("steps.json").is_file()).collect();
     assert!(!dirs.is_empty(), "empty MCP grid");
     let mut actual = vec![];
@@ -97,11 +97,7 @@ async fn rails_and_rust_mcp_transcripts() {
         actual.push(play(rust.path(), steps.as_array().unwrap(), None).await);
     }
     // Rails plays every scenario on its own copy of the frozen grid; only its answers (rails.json) are kept.
-    let recorded = common::frozen("mcp-transcripts", common::has_subdirs, |out| {
-        common::copy_tree(&grid, out);
-        common::rails(tempfile::tempdir().unwrap().path(), "test", &["runner", "script/rust/mcp.rb", "record", out.to_str().unwrap()]);
-        common::freeze::keep_only(out, "rails.json");
-    });
+    let recorded = common::frozen("mcp-transcripts", common::has_subdirs);
     let mut failures = vec![];
     for (dir, got) in dirs.iter().zip(actual) {
         let want = read(recorded.join(dir.file_name().unwrap()).join("rails.json"));
@@ -121,11 +117,15 @@ async fn rails_and_rust_mcp_transcripts() {
     assert!(failures.is_empty(), "mismatches: {failures:?}");
 }
 
+/// 2.70.21 (the published image, common::v2) plays `steps` on the install in `dir`: fixtures/v2/mcp_play.rb, mcp.rb's
+/// `play` at the oracle tag.
 fn rails_leg(boot:&Path,dir:&Path,steps:&[Value],sid:Option<&str>)->Value{
     std::fs::write(dir.join("leg.json"),serde_json::to_vec(steps).unwrap()).unwrap();
-    let mut args=vec!["runner","script/rust/mcp.rb","play",dir.to_str().unwrap()];
+    std::fs::write(boot.join("play.rb"),include_str!("fixtures/v2/mcp_play.rb")).unwrap();
+    let mut args=vec!["runner","/x/play.rb","/s"];
     if let Some(id)=sid{args.push(id);}
-    common::rails(boot,"test",&args);
+    let out=common::v2::rails_in("test",dir,boot,"engine-test-secret",&args);
+    assert!(out.status.success(),"2.70.21's MCP leg: {}",String::from_utf8_lossy(&out.stderr));
     read(dir.join("rails.json"))
 }
 fn request(method:&str,body:Value,sid:bool)->Value{
@@ -135,10 +135,21 @@ fn request(method:&str,body:Value,sid:bool)->Value{
 }
 fn initialize()->Value{request("POST",json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"cross","version":"1"}}}),false)}
 fn rpc(method:&str,params:Value)->Value{request("POST",json!({"jsonrpc":"2.0","id":2,"method":method,"params":params}),true)}
-fn grid(boot:&Path,root:&Path){common::rails(boot,"test",&["runner","script/rust/mcp.rb","grid",root.to_str().unwrap()]);}
+/// The server's version (initialize's serverInfo, the session's server_info), in every string of `v`, as `<version>`:
+/// each runtime names its own (2.70.21's image says 2.70.21), so a crossing compares everything else.
+fn unversioned(v:Value)->Value{
+    const AT:&str=r#""name":"Deltabadger","version":""#;
+    match v{
+        Value::String(s)=>Value::String(match s.find(AT){Some(i)=>{let from=i+AT.len();let to=from+s[from..].find('"').unwrap();format!("{}<version>{}",&s[..from],&s[to..])}None=>s}),
+        Value::Array(a)=>Value::Array(a.into_iter().map(unversioned).collect()),
+        Value::Object(o)=>Value::Object(o.into_iter().map(|(k,v)|(k,unversioned(v))).collect()),
+        other=>other,
+    }
+}
 #[tokio::test(flavor="current_thread")]
 async fn sessions_cross_before_and_after_initialized_in_both_directions(){
-    let root=tempfile::tempdir().unwrap();let boot=tempfile::tempdir().unwrap();grid(boot.path(),root.path());
+    if !common::v2::enabled(){return;}
+    let root=tempfile::tempdir().unwrap();let boot=tempfile::tempdir().unwrap();frozen_grid(root.path());
     let steps=vec![initialize(),request("POST",json!({"jsonrpc":"2.0","method":"notifications/initialized"}),true),rpc("tools/list",json!({})),rpc("tools/call",json!({"name":"list_bots","arguments":{}})),request("DELETE",Value::Null,true),rpc("ping",json!({}))];
     let oracle=tempfile::tempdir().unwrap();copy_install(&root.path().join(".template"),oracle.path());
     let expected=rails_leg(boot.path(),oracle.path(),&steps,None);
@@ -148,7 +159,7 @@ async fn sessions_cross_before_and_after_initialized_in_both_directions(){
         let sid=first["session"].as_str().unwrap();
         let mut second=if rails_first{play(dir.path(),&steps[cut..],Some(sid.into())).await}else{rails_leg(boot.path(),dir.path(),&steps[cut..],Some(sid))};
         let mut responses=first["responses"].as_array().unwrap().clone();responses.extend(second["responses"].as_array().unwrap().clone());second["responses"]=json!(responses);
-        assert_eq!(comparable(second),comparable(expected.clone()),"cut {cut}, rails_first {rails_first}");
+        assert_eq!(unversioned(comparable(second)),unversioned(comparable(expected.clone())),"cut {cut}, rails_first {rails_first}");
     }}
 }
 #[tokio::test(flavor="current_thread")]
@@ -171,7 +182,8 @@ async fn every_unported_name_stays_absent_even_if_granted_and_enabled(){
 }
 #[tokio::test(flavor="current_thread")]
 async fn a_refresh_and_revocation_cross_the_actual_mcp_endpoint(){
-    let root=tempfile::tempdir().unwrap();let boot=tempfile::tempdir().unwrap();grid(boot.path(),root.path());
+    if !common::v2::enabled(){return;}
+    let root=tempfile::tempdir().unwrap();let boot=tempfile::tempdir().unwrap();frozen_grid(root.path());
     let dir=&root.path().join(".template");
     let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
     let uid:String=c.query_row("SELECT uid FROM oauth_applications WHERE id=1",[],|r|r.get(0)).unwrap();drop(c);

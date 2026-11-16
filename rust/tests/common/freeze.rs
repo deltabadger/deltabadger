@@ -85,77 +85,19 @@ pub fn installs() -> Vec<(String, tempfile::TempDir)> {
 /// PLAN-B11 B11-1: where Rails' frozen answers live, one directory per recording (`frozen`'s name).
 pub fn recorded() -> PathBuf { Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/recorded") }
 
-/// `B11_FREEZE=1`: this run records Rails live and rewrites rust/tests/recorded (script/rust/freeze runs it).
-pub fn freezing() -> bool { std::env::var("B11_FREEZE").is_ok_and(|v| v == "1") }
-
-/// Every dump names the commit its answer comes from (Q3): the one tagged `rails-oracle-final`.
-const HEADER: &str = "-- Rails' answer, frozen from the commit tagged rails-oracle-final (PLAN-B11 B11-1).\n";
 const SQLITE: &[u8] = b"SQLite format 3\0";
 const PRAGMAS: [&str; 6] = ["page_size", "auto_vacuum", "encoding", "user_version", "application_id", "journal_mode"];
 
-/// Rails' answer that `build` records, frozen (PLAN-B11 §2 T1/T3/T4/T5). With B11_FREEZE=1, `build` runs against live
-/// Rails and what it leaves is written to recorded/<name>: each SQLite database as `<file>.sql` (`dump`) and
-/// `<file>.pragmas.json`, checked to restore to the same database, every other file as it is. Without it Rails is never
-/// called: recorded/<name> is the answer. Either way the caller gets the restored files, built once per test run
-/// (super::run_template) and shared, so it copies what it writes to; a freeze run reads exactly what later runs read.
-pub fn frozen(name: &str, is_whole: fn(&Path) -> bool, build: impl FnOnce(&Path)) -> PathBuf {
+/// Rails' answer under recorded/<name> (PLAN-B11 §2 T1/T3/T4/T5), frozen at the commit tagged rails-oracle-final: each
+/// SQLite database stored as `<file>.sql` (`dump`) and `<file>.pragmas.json`, every other file as it is. The caller gets
+/// the restored files, built once per test run (super::run_template) and shared, so it copies what it writes to.
+pub fn frozen(name: &str, is_whole: fn(&Path) -> bool) -> PathBuf {
     let name = name.replace('/', "_");
     super::run_template(&format!("frozen-{name}"), is_whole, |out| {
         let at = recorded().join(&name);
-        if freezing() {
-            let live = tempfile::tempdir().unwrap();
-            build(live.path());
-            publish(live.path(), &at);
-        }
-        assert!(at.is_dir(), "{name}: no frozen Rails answer at {}; record it with B11_FREEZE=1 (script/rust/freeze)", at.display());
+        assert!(at.is_dir(), "{name}: no frozen Rails answer at {}", at.display());
         restore_tree(&at, out);
     })
-}
-
-/// `write_tree(from, at)` in a staging directory beside recorded/, then renamed into place whole: a freeze run that dies
-/// midway leaves no half-written answer for a retry to take as complete.
-fn publish(from: &Path, at: &Path) {
-    let staging = tempfile::Builder::new().prefix(".freezing-").tempdir_in(recorded().parent().unwrap()).unwrap();
-    write_tree(from, &staging.path().join("answer"));
-    std::fs::create_dir_all(at.parent().unwrap()).unwrap();
-    let _ = std::fs::remove_dir_all(at);
-    std::fs::rename(staging.path().join("answer"), at).unwrap();
-}
-
-fn write_tree(from: &Path, to: &Path) {
-    std::fs::create_dir_all(to).unwrap();
-    for entry in std::fs::read_dir(from).unwrap().flatten() {
-        let (path, name) = (entry.path(), entry.file_name().to_string_lossy().into_owned());
-        if path.is_dir() { write_tree(&path, &to.join(&name)); continue }
-        // A database's -wal/-shm/-journal is part of the database, which the dump reads whole.
-        if ["-wal", "-shm", "-journal"].iter().any(|s| name.strip_suffix(s).is_some_and(|db| from.join(db).is_file())) { continue }
-        let bytes = std::fs::read(&path).unwrap();
-        if !bytes.starts_with(SQLITE) { std::fs::write(to.join(&name), scrub(bytes)).unwrap(); continue }
-        let c = Connection::open(&path).unwrap();
-        let (sql, pragmas) = (dump(&c), pragmas(&c));
-        std::fs::write(to.join(format!("{name}.sql")), format!("{HEADER}{sql}")).unwrap();
-        std::fs::write(to.join(format!("{name}.pragmas.json")), serde_json::to_string_pretty(&pragmas).unwrap() + "\n").unwrap();
-        // The round trip (r3.1): the restored file is this database, schema, rows, sequences and pragmas alike.
-        let check = tempfile::tempdir().unwrap();
-        load(&check.path().join(&name), &sql, &pragmas);
-        let back = Connection::open(check.path().join(&name)).unwrap();
-        assert_eq!(dump(&back), sql, "{}: the dump does not restore its rows", path.display());
-        assert_eq!(super::schema::snapshot(&back), super::schema::snapshot(&c), "{}: the dump does not restore its schema", path.display());
-    }
-}
-
-/// The freezing machine's own paths and hostname stay out of the repo: Rails' development error pages print backtraces
-/// (the checkout, the gems under $HOME) and a mail's Message-ID names the host. No test reads either.
-fn scrub(bytes: Vec<u8>) -> Vec<u8> {
-    let mut text = match String::from_utf8(bytes) { Ok(text) => text, Err(binary) => return binary.into_bytes() };
-    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (from, to) in [(repo.canonicalize().unwrap(), "<repo>"), (repo.to_path_buf(), "<repo>")] {
-        text = text.replace(&*from.to_string_lossy(), to);
-    }
-    if let Some(home) = std::env::var("HOME").ok().filter(|h| h.len() > 1) { text = text.replace(&home, "~"); }
-    let host = std::process::Command::new("hostname").output().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
-    if !host.is_empty() { text = text.replace(&format!("@{host}.mail>"), "@host.mail>"); }
-    text.into_bytes()
 }
 
 fn restore_tree(from: &Path, to: &Path) {
@@ -193,49 +135,14 @@ fn load(path: &Path, sql: &str, pragmas: &serde_json::Map<String, serde_json::Va
     let _: String = c.query_row(&format!("PRAGMA journal_mode = {}", pragmas["journal_mode"].as_str().unwrap()), [], |r| r.get(0)).unwrap();
 }
 
-/// Deletes every file under `dir` but those named `keep`: a recording that keeps only Rails' answers, not the
-/// databases Rails left.
-pub fn keep_only(dir: &Path, keep: &str) {
-    for entry in std::fs::read_dir(dir).unwrap().flatten() {
-        let path = entry.path();
-        if path.is_dir() { keep_only(&path, keep) } else if entry.file_name() != keep { std::fs::remove_file(path).unwrap() }
-    }
-}
-
-/// One Rails command acting on `dir` (`args`, whose last one is `dir`), frozen by what it is given: its answer is
-/// recorded/<test binary>/<command>-<digest of dir's contents>, holding the files the command created or changed.
-/// With B11_FREEZE=1 `run` calls Rails and the answer is written; otherwise the answer for exactly this input is
-/// laid over `dir` and Rails is never called. An input that was not frozen (the test now hands Rails something else)
-/// fails: no Rails is left to answer it.
-pub fn step(args: &[&str], run: impl FnOnce()) {
+/// One Rails command's answer on `dir` (`args`, whose last one is `dir`), frozen by what it was given: recorded/<test
+/// binary>/<command>-<digest of dir's contents> holds the files the command created or changed, laid over `dir`. An
+/// input that was never frozen (the test now hands Rails something else) fails: no Rails is left to answer it.
+pub fn step(args: &[&str]) {
     let dir = Path::new(args.last().expect("the directory the command writes to"));
     let command = args[..args.len() - 1].join("_").replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
-    let before = contents(dir);
-    let digest = { use sha2::{Digest, Sha256}; let mut h = Sha256::new(); for (path, text) in &before { h.update(path.as_os_str().as_encoded_bytes()); h.update([0]); h.update(text); h.update([0]); } hex::encode(h.finalize()) };
+    let digest = { use sha2::{Digest, Sha256}; let mut h = Sha256::new(); for (path, text) in &contents(dir) { h.update(path.as_os_str().as_encoded_bytes()); h.update([0]); h.update(text); h.update([0]); } hex::encode(h.finalize()) };
     let at = recorded().join(env!("CARGO_CRATE_NAME")).join(format!("{command}-{}", &digest[..16]));
-    let locks = Path::new(env!("CARGO_TARGET_TMPDIR")).join("frozen-locks");
-    std::fs::create_dir_all(&locks).unwrap();
-    let lock = std::fs::File::create(locks.join(format!("{}-{command}-{}", env!("CARGO_CRATE_NAME"), &digest[..16]))).unwrap();
-    lock.lock().unwrap(); // two tests handing Rails the same input share one answer
-    // A freeze run starts from an empty recorded/ (script/rust/freeze), so an answer already there is this run's.
-    if freezing() && !at.is_dir() {
-        run();
-        let after = contents(dir);
-        let gone: Vec<_> = before.keys().filter(|p| !after.contains_key(*p)).collect();
-        assert!(gone.is_empty(), "{command} deleted {gone:?}; a frozen step only adds and changes files");
-        let staging = tempfile::tempdir().unwrap();
-        for (path, text) in &after {
-            if before.get(path) == Some(text) { continue }
-            let (from, to) = (dir.join(path), staging.path().join(path));
-            std::fs::create_dir_all(to.parent().unwrap()).unwrap();
-            std::fs::copy(&from, &to).unwrap();
-            for suffix in ["-wal", "-shm"] { // the copy reads the database whole
-                let side = from.with_file_name(format!("{}{suffix}", from.file_name().unwrap().to_string_lossy()));
-                if side.is_file() { std::fs::copy(&side, to.with_file_name(format!("{}{suffix}", to.file_name().unwrap().to_string_lossy()))).unwrap(); }
-            }
-        }
-        publish(staging.path(), &at);
-    }
     assert!(at.is_dir(), "Rails' answer to `{}` on this input is not frozen at {}: the input changed since the freeze", args[..args.len() - 1].join(" "), at.display());
     restore_over(&at, dir);
 }

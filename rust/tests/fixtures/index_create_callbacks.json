@@ -1,22 +1,4 @@
 {
-  "sources": {
-    "app/models/automation/configurable.rb": "be369cfb1e0d9c7ab73b1d18a34e9bc5c874a11767c87c78f48e9d1d932cc387",
-    "app/models/automation/exchange_connectable.rb": "a50a0cb0986aad465b5ede3d53571dd4c6fc7de822f53afdbbe15b77ccc00ac7",
-    "app/models/automation/labelable.rb": "c74146252aa822b400bcbcc4294af18aeff8e0425ab2afe8a0a28b6ce4790da9",
-    "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
-    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
-    "app/models/bot/asset_configurable.rb": "a8b983ca18fb299623af807b226ed362f4ee86b2426dd22985f8aa1251ac401e",
-    "app/models/bot/limit_orderable.rb": "101bfdce8ac4aa78fb6ae496725944c0752cb6814171f3fedc097547ad5d757f",
-    "app/models/bot/smart_intervalable.rb": "a6afa6f794439c866a880147dbebe2c2c2437513dc73f79843976d9a4f1a9c11",
-    "app/models/bot/startable.rb": "f4639a047a1ed1896ef5b3d3239f51bf727b9c7099ce7a569fb0955b5c8bbbe1",
-    "app/models/bots/dca_index.rb": "bd5180193a68acefc0083e89337d2e3c4e3cd70ca9a1880cda6d5b393c80f24b",
-    "app/models/bots/dca_index/index_allocatable.rb": "767f8aa95f6a8560f24ee311254c5f13bcde1e8a11db8593101994426e96539a"
-  },
-  "gems": {
-    "activemodel": "8.1.4",
-    "activerecord": "8.1.4",
-    "activesupport": "8.1.4"
-  },
   "class": "Bots::DcaIndex",
   "callbacks": {
     "initialize": [

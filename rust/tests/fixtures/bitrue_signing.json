@@ -1,16 +1,4 @@
 {
-  "sources": {
-    "script/rust/record_bitrue_signing.rb": "91261626d4c663cd3821ba15d0168dfc99cee1ea0d496f5a484d50c0f344d455",
-    "app/models/exchanges/bitrue.rb": "0d02c8ab14a77f1c5d931dbc4e834de79afa78fe0c940d47ded5da2037ba5664"
-  },
-  "gems": {
-    "honeymaker": "0.12.5",
-    "hyperliquid-rb": "0.1.1",
-    "jwt": "2.10.3",
-    "rbnacl": "7.1.2",
-    "eth": "0.5.18",
-    "msgpack": "1.8.5"
-  },
   "errors": {
     "insufficient_funds": [
       "Insufficient balance",

@@ -352,17 +352,6 @@ async fn handback_refuses_a_redeploy_request() {
     assert!(matches!(result, Err(deltabadger::engine::EngineError::Ineligible(ref r)) if r.iter().any(|r| r.contains("redeploy request"))));
 }
 
-#[test]
-fn redeploy_sources_match_the_live_rails_grid_oracle() {
-    use sha2::{Digest, Sha256};
-    let pins: Value = serde_json::from_str(include_str!("fixtures/redeploy_sources.json")).unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    assert_eq!(pins.as_object().unwrap().len(), 6);
-    for (file, hash) in pins.as_object().unwrap() {
-        assert_eq!(hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap())), hash.as_str().unwrap(), "{file}: re-record grid-redeploy and check the engine");
-    }
-}
-
 /// The venues where D-6C-12 changes what is sent: Rails sizes their buy in base (with its 1% haircut); Rust sends the quote
 /// where the venue takes it (Kraken `viqc`, KuCoin `funds`, Bitvavo `amountQuote`) and a GTC limit at ref × 1.01 on Bitrue.
 #[cfg(unix)]

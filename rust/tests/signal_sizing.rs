@@ -66,13 +66,3 @@ fn a_denomination_switch_rewrites_the_volume_with_it() {
     assert_eq!((base.amount.clone(), base.quote_amount.clone(), base.price.clone()), (plan.amount.clone(), plan.quote_amount.clone(), plan.price.clone()), "only what is sent changes");
 }
 
-#[test]
-fn the_signal_sizing_port_is_the_ruby_that_was_recorded() {
-    use sha2::{Digest, Sha256};
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let vectors: serde_json::Value = serde_json::from_str(include_str!("fixtures/signal_sizing.json")).unwrap();
-    for (file, recorded) in vectors["sources"].as_object().unwrap() {
-        let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-        assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-record with script/rust/repin and re-check the signal port");
-    }
-}

@@ -400,15 +400,10 @@ async fn the_catalogue_takes_the_venues_proxy() {
     drop(d);
 }
 
-/// Fiat.currencies, recorded from Rails (script/rust/record_fiat_currencies.rb), pinned to fiat.rb and the synchronizer.
+/// Fiat.currencies, recorded from Rails (script/rust/record_fiat_currencies.rb), as the synchronizer's.
 #[test]
 fn the_fiat_currencies_are_rails() {
-    use sha2::{Digest, Sha256};
     let v: Value = serde_json::from_str(include_str!("fixtures/fiat_currencies.json")).unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in v["sources"].as_object().unwrap() {
-        assert_eq!(hex::encode(Sha256::digest(std::fs::read(root.join(path)).unwrap())), hash.as_str().unwrap(), "re-record {path}: script/rust/repin");
-    }
     let rust: Vec<Value> = synchronizer::FIAT.iter()
         .map(|(id, sym, name, color)| json!({ "external_id": id, "symbol": sym, "name": name, "category": "Currency", "color": color })).collect();
     assert_eq!(Value::Array(rust), v["currencies"]);

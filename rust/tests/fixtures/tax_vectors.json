@@ -387710,35 +387710,5 @@
         ]
       }
     }
-  ],
-  "ported_sources": {
-    "app/jobs/tax/generate_report_job.rb": "c8d9fbc2ab484ca6442c3fa7bda3f44ec1964afd342310f1e966721945dfec32",
-    "app/models/tax/report.rb": "7ef4a4288d53afa5e08036f6ad9ecd8b55d2a9dad0a7443bc7a0bc4f8d553ba2",
-    "app/models/tax/methods/fifo.rb": "0eaaab43c43312e2c3fd335e301bd76d07e96f7c4e4e69a578042b818825df5e",
-    "app/models/tax/methods/acquisition_fee.rb": "297b34726a574b2b7f0ef008998377e16f5becbdabfd8684d0960fc5cae4e968",
-    "app/models/tax/price_service.rb": "af3d8c552c42483068c3d88164925df77c83ae4d37639a994ead7c80912c1055",
-    "app/models/tax/crypto_scope.rb": "e29dd40d6dfc043b64de3c3cb94af034c740337c76dd2a6ea508a9d1a46765e6",
-    "app/models/tax/asset_identity.rb": "fe5642b088a08992d0ab0eb5cdee80e5f4ebca6192df773d3003a19155c6494a",
-    "app/models/tax/jurisdictions.rb": "e3044502f3d68b0c921388f6ff9649b187d3c9402302a2b44f1ad2dec556c935",
-    "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
-    "app/models/concerns/csv_safe.rb": "83041a76c2334e9d9aae1606e8ef6c0b0c4673b5573ceaff012dd713a954a544",
-    "app/models/tax/methods/return_of_capital.rb": "c65096951e43050cd2d6dd6fb6d11229b578635d285bd4348c702a11797f0ee6",
-    "app/models/tax/ecb_fx_rates.rb": "86859e879e22b0acd180d1fad29b5ef11ff1ba8768a4e889063bfb95328da141",
-    "app/services/bot_api/tax/list_jurisdictions.rb": "6fd4335c8c307fa865c7432c738753b86e76a13636fd67c99401570933d78970",
-    "app/models/tax/methods/lifo.rb": "392e7b6cb9982bdd3cb1e214d314e68ede1f17cebd18fb0019ebfc2902b8a96e",
-    "app/models/tax/methods/fifo4_week.rb": "c7958eea89e2815ab9786c7639bbc2e01da27dca3e94ec07ae1feb2baba3d97e",
-    "app/models/tax/methods/weighted_average.rb": "5ea789b8e5a6d0a7990b07569bf79fae2b3b1c03031577b4b4fe61b5c7db699b",
-    "app/models/tax/methods/share_pooling.rb": "efcc77790eae1a4ece6a859653b9bf2e98946c9f696565d482615fd378fcd61b",
-    "app/models/tax/methods/pooled_holdings.rb": "d73e522e49078ba12e8aa311230223108d392a97a466d1de42b1fa8305f2339c",
-    "app/models/tax/methods/pvct.rb": "9fb5d1e8004091f566319c9f8254f6f164f781fcfd7b27b2c070fd5baeec3d39",
-    "app/models/tax/methods/wealth_snapshot.rb": "09a649798ce0214187fab792e321eb6cbc43033922855155732b2898a74b2038",
-    "app/models/tax/broker_report.rb": "f61cd4db060dab279100c9161b6262f191d8d525981e1c93c202e4f07969bcd2",
-    "app/models/tax/broker_report_csv.rb": "fea19f387a386292595330c246a0051ebfc3caee36ab91b019c3b2a0467b209f",
-    "app/models/tax/lot_ledger.rb": "4ad1aee935f56531d7616dd8177257ca0ee40343de2b9421968e0c5dc2bd903d",
-    "app/models/tax/vorabpauschale.rb": "64b25401b3b3b6808442357f2484dd54ceaabe009e5aeb3aea2b6eb785403cd3",
-    "app/models/fund_classification.rb": "8ef3f762921a5bc75cf5526785f71e18305a4ae53661f32d94097a9fce6340ef",
-    "app/models/market_data.rb": "6bbe6ff26e48136d21747aa356afe9aba71d1e4bc2b75f0daea8c4da8afe96d7",
-    "app/models/coingecko.rb": "d95dcde5f35486fdfd3000f2d6bf7428476df3f39a00dbc1c5064608546ba858",
-    "app/models/clients/coingecko.rb": "ee2cfb4c038df024938ec7d4cdd41ae2625e36abbdf4297dd2272439bb6f9bcd"
-  }
+  ]
 }

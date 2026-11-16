@@ -110,6 +110,7 @@ fn a_takeover_repeated_after_a_failure_following_the_claim_finishes_the_job() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn an_unresolved_order_blocks_handback_and_rails_keeps_refusing() {
+    if !common::v2::enabled() { return; }
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
@@ -133,6 +134,7 @@ async fn an_unresolved_order_blocks_handback_and_rails_keeps_refusing() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_completed_handback_is_adopted_by_rails() {
+    if !common::v2::enabled() { return; }
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
@@ -148,39 +150,29 @@ async fn a_completed_handback_is_adopted_by_rails() {
     assert_eq!(count(&q, "SELECT count(*) FROM solid_queue_jobs WHERE class_name = 'Bot::RepairOrphanedBotsJob'"), 1, "adopted: repair enqueued");
 }
 
-/// Boots the real Rails app (development env, not test, so the engine-lease initializers run) against this
+/// Boots 2.70.21 (the published image, common::v2; production env, so the engine-lease initializers run) against this
 /// install's files, with the test cipher's keys, and reports whether it started.
 fn rails_boot(dir: &std::path::Path) -> (bool, String) { rails_boot_running(dir, "") }
 
 /// `rails_boot`, running `script` (Ruby) in the booted app.
 fn rails_boot_running(dir: &std::path::Path, script: &str) -> (bool, String) {
     let scratch = tempfile::tempdir().unwrap();
-    let file = scratch.path().join("script.rb"); // a file, so a raise shows its backtrace
-    std::fs::write(&file, format!("{script}\nputs :booted\n")).unwrap();
-    let out = rails_on(dir, scratch.path(), &["runner", file.to_str().unwrap()]).output().expect("bin/rails runs");
+    std::fs::write(scratch.path().join("script.rb"), format!("{script}\nputs :booted\n")).unwrap(); // a file, so a raise shows its backtrace
+    let out = rails_on(dir, scratch.path(), &["runner", "/x/script.rb"]);
     (out.status.success() && String::from_utf8_lossy(&out.stdout).contains("booted"), String::from_utf8_lossy(&out.stderr).into_owned())
 }
 
-/// `bin/rails <args>` in the development env against this install's files (cache and cable in `scratch`), with the
-/// test cipher's keys. A schema dump goes to `scratch`, never to db/.
-fn rails_on(dir: &std::path::Path, scratch: &std::path::Path, args: &[&str]) -> Command {
-    let keys = deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "engine-test-secret").unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let mut command = Command::new(root.join("bin/rails"));
-    command.current_dir(root).args(args).env("SCHEMA", scratch.join("schema.rb"))
-        .env("RAILS_ENV", "development").env_remove("DATABASE_URL").env("APP_ROOT_URL", "http://localhost:3000")
-        .env("PRIMARY_DATABASE_URL", format!("sqlite3:{}", dir.join("production.sqlite3").display()))
-        .env("QUEUE_DATABASE_URL", format!("sqlite3:{}", dir.join("production_queue.sqlite3").display()))
-        .env("CACHE_DATABASE_URL", format!("sqlite3:{}/cache.sqlite3", scratch.display()))
-        .env("CABLE_DATABASE_URL", format!("sqlite3:{}/cable.sqlite3", scratch.display()))
-        .env("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY", keys.primary_key).env("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT", keys.key_derivation_salt);
-    command
+/// 2.70.21's `rails <args>` against this install's files (cache, cable and any schema dump in `scratch`, at /x), with
+/// the test cipher's keys.
+fn rails_on(dir: &std::path::Path, scratch: &std::path::Path, args: &[&str]) -> std::process::Output {
+    common::v2::rails(dir, scratch, "engine-test-secret", args)
 }
 
 /// Rails runs on an install Rust migrated: it ignores rust_schema_migrations and Rust's tables in db:migrate,
 /// db:migrate:status and a boot after a handback, and leaves them as they were.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
+    if !common::v2::enabled() { return; }
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
@@ -200,7 +192,7 @@ async fn rails_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
     drop((l, o));
     let scratch = tempfile::tempdir().unwrap();
     for task in ["db:migrate", "db:migrate:status:primary"] {
-        let out = rails_on(dir.path(), scratch.path(), &[task]).output().expect("bin/rails runs");
+        let out = rails_on(dir.path(), scratch.path(), &[task]);
         assert!(out.status.success(), "{task}: {}", String::from_utf8_lossy(&out.stderr));
         let stdout = String::from_utf8_lossy(&out.stdout);
         assert!(!stdout.contains(" down ") && !stdout.contains("NO FILE"), "{task}: {stdout}");
@@ -390,6 +382,7 @@ async fn crash_then_handback(raised: bool) {
 /// checkpoint, so Rails does not buy the remainder early either.
 #[tokio::test(flavor = "current_thread")]
 async fn a_deferral_crash_then_handback_then_rails_tick_buys_nothing_before_the_next_checkpoint() {
+    if !common::v2::enabled() { return; }
     let at: DateTime<Utc> = "2026-09-01T10:30:00Z".parse().unwrap();
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
@@ -481,6 +474,7 @@ fn an_index_bots_rails_jobs_are_removed_at_takeover() {
 /// `scheduled` would trade it at the next checkpoint whatever the price.
 #[tokio::test(flavor = "current_thread")]
 async fn a_price_paused_bot_is_handed_over_paused_and_rails_restarts_its_check() {
+    if !common::v2::enabled() { return; }
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
@@ -511,6 +505,7 @@ async fn a_price_paused_bot_is_handed_over_paused_and_rails_restarts_its_check()
 /// Rust reclaim finds them, and Rails' adoption enqueues one job per marked bot however many handbacks came first.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_pending_resyncs_become_markers_at_takeover_and_rails_adopts_them_once_after_handbacks() {
+    if !common::v2::enabled() { return; }
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
@@ -561,13 +556,7 @@ async fn rails_pending_resyncs_become_markers_at_takeover_and_rails_adopts_them_
 // ---- Plan 8d: a signal bot's webhook calls across the handover (T2 takeover import, T3 handback) ----------------------
 
 fn signal_jobs_fixture() -> serde_json::Value {
-    use sha2::{Digest, Sha256};
-    let fixture: serde_json::Value = serde_json::from_str(include_str!("fixtures/signal_jobs.json")).unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, hash) in fixture["sources"].as_object().unwrap() {
-        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(path)).unwrap())), hash.as_str().unwrap(), "{path}: script/rust/repin");
-    }
-    fixture
+    serde_json::from_str(include_str!("fixtures/signal_jobs.json")).unwrap()
 }
 
 /// `row` as an INSERT into `table`, its keys the columns.
@@ -991,66 +980,17 @@ async fn an_hf_enabled_kucoin_history_refuses_the_handback_and_a_classic_only_on
     assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 1);
 }
 
-/// The Ruby files under `dir`, recursively.
-fn ruby_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
-    for entry in std::fs::read_dir(dir).unwrap() {
-        let path = entry.unwrap().path();
-        if path.is_dir() { ruby_files(&path, out) } else if path.extension().is_some_and(|e| e == "rb") { out.push(path) }
-    }
-}
-
 /// PLAN-B2 r3.2, r4.5: every job class 2.x can leave in its queue has an outcome in handover::RAILS_WORK, and the table
 /// names no class the repository lacks. A class added under app/jobs without an outcome fails here, not at a user's start.
 #[test]
 fn every_rails_job_class_has_an_outcome() {
-    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let mut found = std::collections::BTreeSet::new();
-    // Every `class … < …` under app/jobs, by its full name: the `module`/`class` headers it is indented under. Error
-    // classes (`< StandardError`) are not jobs.
-    let header = regex::Regex::new(r"^(\s*)(module|class) ([A-Z][A-Za-z0-9_:]*)(\s*<\s*([A-Za-z0-9_:]+))?").unwrap();
-    let mut files = vec![];
-    ruby_files(&repo.join("app/jobs"), &mut files);
-    for file in &files {
-        let mut open: Vec<(usize, String)> = vec![];
-        for line in std::fs::read_to_string(file).unwrap().lines() {
-            let Some(m) = header.captures(line) else { continue };
-            let indent = m[1].len();
-            open.retain(|(i, _)| *i < indent);
-            let name = open.iter().map(|(_, n)| n.as_str()).chain([&m[3]]).collect::<Vec<_>>().join("::");
-            if &m[2] == "class" && m.get(5).is_some_and(|s| s.as_str() != "StandardError") { found.insert(name); }
-            open.push((indent, m[3].to_string()));
-        }
+    // PLAN-B11 T6: 2.x's job classes (every `class … < …` under app/jobs, every constant `perform_later` receiver in app/ and
+    // lib/, recurring.yml's classes and SolidQueue::RecurringJob, the mailer's job), read at the oracle commit.
+    let found: std::collections::BTreeSet<String> = std::fs::read_to_string(common::freeze::recorded().join("rails_job_classes.txt")).unwrap()
+        .lines().map(str::to_string).collect();
+    for class in ["Tracker::LedgerJob::Retry", "Bot::ActionJob", "SolidQueue::RecurringJob", "ActionMailer::MailDeliveryJob"] {
+        assert!(found.contains(class), "the frozen list has {class}: {found:?}");
     }
-    assert!(found.contains("Tracker::LedgerJob::Retry") && found.contains("Bot::ActionJob"), "the class reader found {found:?}");
-    let classes = found.clone();
-    // Every constant `perform_later` receiver in app/ and lib/ (`X.perform_later`, `X.set(…).perform_later`). A relative
-    // name (Retry inside Tracker::LedgerJob) is the class under app/jobs it ends.
-    let receiver = regex::Regex::new(r"([A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*)(?:\.set\([^)]*\))?\.perform_later").unwrap();
-    let mut files = vec![];
-    ruby_files(&repo.join("app"), &mut files);
-    ruby_files(&repo.join("lib"), &mut files);
-    let mut receivers = 0;
-    for file in &files {
-        for m in receiver.captures_iter(&std::fs::read_to_string(file).unwrap()) {
-            let name = &m[1];
-            receivers += 1;
-            found.insert(classes.iter().find(|c| *c == name || c.ends_with(&format!("::{name}"))).cloned().unwrap_or_else(|| name.to_string()));
-        }
-    }
-    assert!(receivers > 40, "perform_later receivers read: {receivers}");
-    // config/recurring.yml: each `class:`, and SolidQueue::RecurringJob for a `command:` task. The mailer's job.
-    let recurring = std::fs::read_to_string(repo.join("config/recurring.yml")).unwrap();
-    for line in recurring.lines().map(str::trim) {
-        if let Some(class) = line.strip_prefix("class:") { found.insert(class.trim().trim_matches('"').to_string()); }
-        if line.starts_with("command:") { found.insert("SolidQueue::RecurringJob".into()); }
-    }
-    assert!(found.contains("SolidQueue::RecurringJob"), "recurring.yml has a command: task");
-    found.insert("ActionMailer::MailDeliveryJob".into());
-    // PLAN-B11 T6: the set at the oracle commit, frozen (B11_FREEZE=1 writes it) for when app/, lib/ and recurring.yml go.
-    let frozen = common::freeze::recorded().join("rails_job_classes.txt");
-    let listed: String = found.iter().map(|class| format!("{class}\n")).collect();
-    if common::freeze::freezing() { std::fs::create_dir_all(frozen.parent().unwrap()).unwrap(); std::fs::write(&frozen, &listed).unwrap(); }
-    assert_eq!(std::fs::read_to_string(&frozen).unwrap(), listed, "rust/tests/recorded/rails_job_classes.txt is Rails' job classes");
 
     let table: std::collections::BTreeSet<String> = handover::RAILS_WORK.iter().map(|(c, _)| c.to_string()).collect();
     assert_eq!(table.len(), handover::RAILS_WORK.len(), "a class listed twice");
@@ -1561,8 +1501,9 @@ fn every_rust_only_state_has_a_handback_outcome() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let rows: std::collections::BTreeSet<&str> = HANDBACK_STATE.iter().map(|(_, name, _)| *name).collect();
     assert_eq!(rows.len(), HANDBACK_STATE.len(), "a state listed twice");
-    let schema = std::fs::read_to_string(root.parent().unwrap().join("db/schema.rb")).unwrap();
-    let rails: std::collections::BTreeSet<String> = regex::Regex::new(r#"create_table "([a-z_0-9]+)""#).unwrap()
+    // 2.x's tables: rust/schema/baseline.sql is db/schema.rb as 2.70.21 loads it (B1).
+    let schema = std::fs::read_to_string(root.join("schema/baseline.sql")).unwrap();
+    let rails: std::collections::BTreeSet<String> = regex::Regex::new(r#"CREATE TABLE "([a-z_0-9]+)""#).unwrap()
         .captures_iter(&schema).map(|m| m[1].to_string()).collect();
     assert!(rails.contains("bots") && rails.contains("app_configs"), "{rails:?}");
     let mut found = std::collections::BTreeSet::new();
@@ -1602,10 +1543,12 @@ fn every_rust_only_state_has_a_handback_outcome() {
     for (held, name, _) in HANDBACK_STATE {
         assert_eq!(*held == Held::Table, tables.contains(*name) || *name == "rust_schema_migrations", "{name} is held as {held:?}");
     }
-    let en = std::fs::read_to_string(root.parent().unwrap().join("config/locales/base.en.yml")).unwrap();
+    // r1.5: 2.70.21's base.en.yml keys (tests/fixtures/v2_base_en_keys.txt, every key at any depth), never 3.x's locales.
+    let en: std::collections::BTreeSet<&str> = include_str!("fixtures/v2_base_en_keys.txt").lines().collect();
+    assert!(en.contains("bot") && en.contains("status"), "{} keys", en.len());
     for (_, name, _) in HANDBACK_STATE.iter().filter(|(held, _, _)| *held == Held::Text) {
         let leaf = name.rsplit('.').next().unwrap();
-        assert!(!en.contains(&format!(" {leaf}:")), "{name} has a 2.x translation now: it is no longer Rust-only text");
+        assert!(!en.contains(leaf), "{name} has a 2.x translation: it is not Rust-only text");
     }
 }
 
@@ -1676,6 +1619,7 @@ async fn each_refusing_state_refuses_the_handback_and_writes_nothing() {
 /// carried tax costs intact.
 #[tokio::test(flavor = "current_thread")]
 async fn a_handback_keeps_rust_state_for_a_reclaim_and_2x_shows_rust_texts_untranslated() {
+    if !common::v2::enabled() { return; }
     use handover::{Handback, Held};
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
@@ -1734,9 +1678,8 @@ async fn a_handback_keeps_rust_state_for_a_reclaim_and_2x_shows_rust_texts_untra
     let script = format!("[{aside}, {bot}].each do |id|\n  b = Bot.find(id)\n  puts \"STATUS #{{id}} \" + ApplicationController.render(partial: 'bots/status/status_bar', locals: {{ bot: b }}).squish\n  \
                           BotActivityLog.where(bot_id: id).order(:id).each {{ |a| puts \"EVENT #{{a.event}} \" + ApplicationController.helpers.bot_activity_summary(a).to_s.squish }}\nend\nputs :rendered");
     let scratch = tempfile::tempdir().unwrap();
-    let file = scratch.path().join("render.rb");
-    std::fs::write(&file, script).unwrap();
-    let out = rails_on(dir.path(), scratch.path(), &["runner", file.to_str().unwrap()]).output().expect("bin/rails runs");
+    std::fs::write(scratch.path().join("render.rb"), script).unwrap();
+    let out = rails_on(dir.path(), scratch.path(), &["runner", "/x/render.rb"]);
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(out.status.success() && stdout.contains("rendered"), "2.x raises on a Rust-only text: {}\n{stdout}", String::from_utf8_lossy(&out.stderr));
     // D-HANDBACK-RUST-TEXT: no raise, a missing translation (an inherited display gap; no Rails polish).

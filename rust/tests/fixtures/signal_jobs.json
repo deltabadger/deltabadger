@@ -1,12 +1,4 @@
 {
-  "sources": {
-    "script/rust/record_signal_jobs.rb": "ec0b0583f61caaccd832bcd4c4000ef3ff1ef12f7701347afcf2c0955e04bf1f",
-    "app/jobs/bot/signal_job.rb": "135beb0698a2e3fd1a18e0d4c8ab0a64e090ea05d8ffde7439309b42805bfa72",
-    "app/jobs/bot_job.rb": "7c47afc3400ee3891a6d59c5ebfd6283fd952afb9e2954d9601aaac911892cec",
-    "app/controllers/hooks_controller.rb": "aaae75dd632d578458d27d4f7c5a65cbd67d5d2d2db1f5b69bf587bd6b8eb1ab",
-    "app/models/bot_signal.rb": "3e5eb6f184f4124d91eaed1250d25fd2c86a1c68e38592ecffc6ce94f00728c2",
-    "db/queue_schema.rb": "5753a89cc9815e82bc5e820b947c88bd87ff4c69b60af05413fd147afd574b62"
-  },
   "jobs": {
     "ready": {
       "job_id": "00000000-0000-4000-8000-000000000001",

@@ -5,7 +5,6 @@ use chrono::{TimeZone, Utc};
 use deltabadger::mail::{mailbox, Message};
 use deltabadger::ruby::{float_to_s, to_i};
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 
 fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/mail_vectors.json")).expect("mail_vectors.json parses") }
 
@@ -79,26 +78,6 @@ fn text_is_read_as_a_number_as_ruby_reads_it() {
     let cases = vectors()["ints"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 19);
     for pair in &cases { assert_eq!(to_i(pair[0].as_str().unwrap()), pair[1].as_i64().unwrap(), "{:?}.to_i", pair[0]); }
-}
-
-#[test]
-fn the_ruby_gems_the_vectors_came_from_are_the_ones_in_the_lockfile() {
-    let lock = include_str!("../../Gemfile.lock");
-    for (gem, version) in vectors()["gems"].as_object().unwrap() {
-        let line = format!("    {gem} ({})", version.as_str().unwrap());
-        assert!(lock.contains(&line), "{gem} moved: re-run script/rust/mail_vectors.rb and the mail parity grid (expected `{line}`)");
-    }
-}
-
-#[test]
-fn the_ported_ruby_is_the_ruby_that_was_recorded() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let sources = vectors()["ported_sources"].as_object().unwrap().clone();
-    assert_eq!(sources.len(), 19);
-    for (file, recorded) in &sources {
-        let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-        assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-check rust/src/mail against it, re-run script/rust/mail_vectors.rb and the mail parity grid");
-    }
 }
 
 // ---- The engine's mail markers (engine::notice) ----

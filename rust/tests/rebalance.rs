@@ -697,19 +697,13 @@ fn crypto_posts(venue: &str, t: &ScriptedTransport) -> Vec<(String, String, Stri
     }).collect()
 }
 
-/// Rails' halt resolution (Bots::RebalanceResolutionsController, R0's Bot::Rebalanceable#resolve_rebalance_halt!) on the
-/// handed-back install, once the controller's refresh has found no rebalance order still waiting.
+/// 2.70.21's halt resolution (Bots::RebalanceResolutionsController, R0's Bot::Rebalanceable#resolve_rebalance_halt!) on
+/// the handed-back install, in the published image (common::v2), once the controller's refresh has found no rebalance
+/// order still waiting.
 fn rails_resolves_the_halt(dir: &std::path::Path, bot_id: i64) {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let boot = tempfile::tempdir().unwrap();
-    let mut cmd = std::process::Command::new(root.join("bin/rails"));
-    cmd.current_dir(root).args(["runner", &format!("Bot.find({bot_id}).resolve_rebalance_halt!")]).env_remove("DATABASE_URL")
-        .env("APP_ROOT_URL", "http://localhost:3000").env("SECRET_KEY_BASE", "engine-test-secret")
-        .env("PRIMARY_DATABASE_URL", format!("sqlite3:{}/production.sqlite3", dir.display()))
-        .env("QUEUE_DATABASE_URL", format!("sqlite3:{}/production_queue.sqlite3", dir.display()));
-    for db in ["cache", "cable"] { cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", boot.path().display())); }
-    let run = cmd.output().expect("bin/rails runs");
-    assert!(run.status.success(), "the Rails resolution failed:\n{}", String::from_utf8_lossy(&run.stderr));
+    let run = common::v2::rails(dir, boot.path(), "engine-test-secret", &["runner", &format!("Bot.find({bot_id}).resolve_rebalance_halt!")]);
+    assert!(run.status.success(), "the 2.70.21 resolution failed:\n{}", String::from_utf8_lossy(&run.stderr));
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -751,6 +745,7 @@ fn recovered_read(venue: &str, pair: &str, ext: &str, leg: &str) -> Value {
 /// proceeds are bought once, a recovered buy's fill comes off what is owed, and the lost order is never sent again.
 #[tokio::test(flavor = "current_thread")]
 async fn an_unfound_crypto_swap_order_halts_and_its_resolution_never_submits_it_twice() {
+    if !common::v2::enabled() { return; }
     use deltabadger::engine::placement::{resolve_by_operator, OperatorResolution};
     for venue in ["binance", "kucoin"] {
         for (leg, placed) in [("sell", true), ("sell", false), ("buy", true)] {
@@ -1106,12 +1101,7 @@ async fn resolution_rejects_a_stale_halt_and_another_owner() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn resolution_matches_all_recorded_rails_ledger_branches() {
-    use sha2::{Digest,Sha256};
     let fixture:Value=serde_json::from_str(include_str!("fixtures/rebalance_resolutions.json")).unwrap();
-    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path,hash) in fixture["sources"].as_object().unwrap() {
-        assert_eq!(format!("{:x}",Sha256::digest(std::fs::read(root.join(path)).unwrap())),hash.as_str().unwrap(),"{path}: run script/rust/repin");
-    }
     assert_eq!(fixture["cases"].as_array().unwrap().len(),16+16+16,"owed absent/zero/positive × sell and buy absent/closed/cancelled/abandoned");
     for case in fixture["cases"].as_array().unwrap() {
         let (_d,o,id,s,eth)=swap_bot(stopped().transient("rebalance_pending",case["pending"].clone()).transient("unrelated",json!(17)).transient("old_null",Value::Null));
@@ -1217,10 +1207,13 @@ async fn resolution_rolls_back_when_another_admission_blocker_remains() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn resolution_with_unbalanced_stopped_allocations_matches_rails_and_completes_the_buy() {
+    if !common::v2::enabled() { return; }
     let (d, o, id, s, _) = swap_bot(stopped().transient("rebalance_pending", json!({"phase":"ambiguous","remaining_quote_amount":"40","buy_attempted":true})));
     o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json((SELECT json_group_object(key, 0.6) FROM json_each(bots.settings, '$.allocations'))))", []).unwrap();
     let before = model::load_bot(&o.primary, id).unwrap().transient;
+    drop(o); // 2.70.21 writes from another kernel's view of the files (Docker Desktop): no connection spans its run
     rails_resolves_the_halt(d.path(), id);
+    let o = store::open(&store::Paths::from_env(&|_| None, d.path())).unwrap();
     let expected = model::load_bot(&o.primary, id).unwrap().transient;
     o.primary.execute("UPDATE bots SET transient_data=?1 WHERE id=?2", (before.to_string(), id)).unwrap();
     let token = rebalance::resolution_token_for(id, &before);

@@ -1,16 +1,4 @@
 {
-  "sources": {
-    "script/rust/record_venue_signing.rb": "0a16e616d09b1ae4254f0849fd5495e7582b45b44231c05294d90138ad6118c2",
-    "app/models/exchanges/bitvavo.rb": "eb8c8aac55c32742ff255efeb890e1163892480f85e6e6dcaf611b79ada4d513"
-  },
-  "gems": {
-    "honeymaker": "0.12.5",
-    "hyperliquid-rb": "0.1.1",
-    "jwt": "2.10.3",
-    "rbnacl": "7.1.2",
-    "eth": "0.5.18",
-    "msgpack": "1.8.5"
-  },
   "errors": {
     "insufficient_funds": [
       "sufficient balance to complete"

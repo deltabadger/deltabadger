@@ -1960,53 +1960,13 @@ mod action_race {
     #[tokio::test(flavor="current_thread")]
     async fn stop_during_tick()->Result {price_race(false,false,true).await}
 
-    /// Re-run only the existing recorder's basket fixture and Continue block on a
-    /// scratch Rails install. Capture the predicate before Start changes the status,
-    /// and retain the actual ActionJob timestamp as well as its decision label.
+    /// 2.70.21's own Continue decisions on a Rust-built install (common::v2::continue_start).
     async fn rails_continue() -> Result<Value> {
-        tokio::task::spawn_blocking(|| -> std::result::Result<Value,String> {
-            let dir=common::baseline_install();
-            let output=dir.path().join("continue.json");
-            let code=r###"
-require 'json'
-require 'active_support/testing/time_helpers'
-include ActiveSupport::Testing::TimeHelpers
-source = File.read(Rails.root.join('script/rust/record_vectors.rb'))
-fixture = source.split("# Alpaca crypto baskets (rust/src/engine/basket.rs)", 2).fetch(1)
-fixture = fixture.split("vector_row_id = 0", 2).fetch(0)
-eval("# Alpaca crypto baskets (rust/src/engine/basket.rs)" + fixture, TOPLEVEL_BINDING)
-record = source.split("continue_row = lambda", 2).fetch(1).split("# The web UI (rust/src/web).", 2).fetch(0)
-record = "vectors = {}; continue_row = lambda" + record
-record = record.sub('      raise "#{name}: Rails refused the start:', '      within = bot.restarting_within_interval?' + "\n" + '      raise "#{name}: Rails refused the start:')
-record = record.sub("'decision' => decision }", "'decision' => decision, 'within' => within, 'job_at' => at&.iso8601(6), 'checkpoint' => bot.next_interval_checkpoint_at.utc.iso8601(6) }")
-eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vectors.fetch('continue_start')))", TOPLEVEL_BINDING)
-"###;
-            let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().ok_or("repository root")?;
-            let log=std::fs::File::create(dir.path().join("recorder.log")).map_err(|e|e.to_string())?;
-            let mut command=std::process::Command::new(root.join("bin/rails"));
-            command.current_dir(root).args(["runner",code]).env_remove("DATABASE_URL")
-                .env("APP_ROOT_URL","http://localhost:3000").env("RAILS_ENV","test").env("SKIP_TEST_DATABASE","true")
-                .env("ACTION_RACE_RECORD",&output).stdout(log.try_clone().map_err(|e|e.to_string())?).stderr(log);
-            for (name,file) in [("PRIMARY","production.sqlite3"),("QUEUE","production_queue.sqlite3"),("CACHE","cache.sqlite3"),("CABLE","cable.sqlite3")] {
-                command.env(format!("{name}_DATABASE_URL"),format!("sqlite3:{}",dir.path().join(file).display()));
-            }
-            struct Child(std::process::Child);
-            impl Drop for Child { fn drop(&mut self) {let _=self.0.kill();let _=self.0.wait();} }
-            let mut child=Child(command.spawn().map_err(|e|e.to_string())?);
-            let deadline=std::time::Instant::now()+Duration::from_secs(60);
-            loop {
-                if let Some(status)=child.0.try_wait().map_err(|e|e.to_string())? {
-                    if !status.success() {return Err(std::fs::read_to_string(dir.path().join("recorder.log")).map_err(|e|e.to_string())?);}
-                    break;
-                }
-                if std::time::Instant::now()>=deadline {return Err("Rails Continue recorder exceeded its absolute 60-second deadline".into());}
-                std::thread::sleep(Duration::from_millis(10)); // child readiness, never race ordering
-            }
-            serde_json::from_str(&std::fs::read_to_string(output).map_err(|e|e.to_string())?).map_err(|e|e.to_string())
-        }).await?.map_err(Into::into)
+        tokio::task::spawn_blocking(common::v2::continue_start).await?.map_err(Into::into)
     }
 
     async fn continued(name: &str, waits: bool)->Result {
+        if !common::v2::enabled() {return Ok(());}
         let mut f=Fixture::new().await?;
         let vectors=rails_continue().await?;
         let row=vectors.as_array().ok_or("continue vectors")?.iter().find(|v|v["name"]==name).ok_or("continue case")?;

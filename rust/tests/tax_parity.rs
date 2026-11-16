@@ -172,20 +172,6 @@ fn jurisdictions_not_yet_ported_state_no_figure() {
     }
 }
 
-/// The Ruby this report mirrors, by content: a change fails here until the port is checked and the vectors recorded again.
-#[test]
-fn the_ruby_being_mirrored_has_not_changed() {
-    use sha2::{Digest, Sha256};
-    let v = vectors();
-    let pinned = v["ported_sources"].as_object().unwrap();
-    assert_eq!(pinned.len(), 28);
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path, sum) in pinned {
-        let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
-        assert_eq!(hex::encode(Sha256::digest(&bytes)), sum.as_str().unwrap(), "{path} changed since the tax vectors were recorded");
-    }
-}
-
 /// The text before the broker report's legal notes (D-TAX-BROKER-DISCLOSURES: every broker file differs there).
 fn before_disclosures(csv: &str) -> &str {
     let header = deltabadger::web::i18n::text("de", "tax_report.broker.sections.disclosures", &[]);

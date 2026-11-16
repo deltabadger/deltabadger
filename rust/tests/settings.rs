@@ -3634,11 +3634,8 @@ fn r9_password_reset_methods_share_one_rails_throttle(){
 }
 
 #[test]
-fn r9_recorded_oracle_sources_secrets_and_smtp_policy_are_current(){
-    use sha2::{Digest,Sha256};
+fn r9_recorded_secrets_and_smtp_policy_are_current(){
     let vector:serde_json::Value=serde_json::from_str(include_str!("fixtures/settings_r9_vectors.json")).unwrap();
-    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (name,hash) in vector["sources"].as_object().unwrap(){assert_eq!(format!("{:x}",Sha256::digest(std::fs::read(root.join(name)).unwrap())),hash.as_str().unwrap(),"R9 re-record the changed Rails oracle: {name}");}
     for name in vector["sensitive_query"].as_array().unwrap(){let name=name.as_str().unwrap();assert!(deltabadger::web::locale::sensitive_query(name));assert!(deltabadger::web::locale::sensitive_query(&format!("rows[][{}]",name.to_ascii_uppercase())));}
     assert!(!deltabadger::web::locale::sensitive_query("user[name]"));
     assert_eq!(vector["redacted"],"[redacted]");
@@ -3906,18 +3903,6 @@ async fn d5b_the_passive_revalidation_on_get_wakes_no_job(){
     let (started,after,_,_,_)=d5b_slots_after("incorrect","get").await;
     assert_eq!(after,started,"a GET never enqueues: Rails' new action runs no job");
 }
-#[test]
-fn d5b_tracker_connect_oracle_sources_stay_pinned(){
-    use sha2::{Digest,Sha256};
-    let pins:std::collections::BTreeMap<String,String>=serde_json::from_str(include_str!("fixtures/tracker_connect_sources.json")).unwrap();
-    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    for (path,hash) in pins {assert_eq!(format!("{:x}",Sha256::digest(std::fs::read(root.join(&path)).unwrap())),hash,"{path}: record the D5b page grid (settings_pick_*, settings_key_*) again");}
-    for path in std::fs::read_dir(root.join("app/views/svg/exchanges")).unwrap().map(|e|e.unwrap().file_name().into_string().unwrap()).filter(|n|n.starts_with('_')) {
-        let rendered=root.join("rust/templates/svg/exchanges").join(path.replace(".html.erb",".html"));
-        assert_eq!(std::fs::read(&rendered).unwrap(),std::fs::read(root.join("app/views/svg/exchanges").join(&path)).unwrap(),"{path}: run script/rust/render_static_partials.rb");
-    }
-}
-
 /// Exchanges::Alpaca#get_api_key_validity: a 200 that is not a JSON object says nothing about the key.
 #[tokio::test(flavor="current_thread")]
 async fn alpaca_unreadable_200_leaves_the_key_pending(){
@@ -3943,17 +3928,13 @@ impl deltabadger::sync::jobs::Connect for LocalVenues {
         Ok((self.0.clone(),builder.build().map_err(|e|e.to_string())?))
     }
 }
-/// ApiKeyValidatorJob as Rails performs it on a pending key (validator_effects.json, script/rust/record_validator_effects.rb):
+/// ApiKeyValidatorJob as Rails performed it on a pending key (validator_effects.json, recorded from Rails before B11):
 /// the venue's own check, the status it leaves, and the balance sync a correct trading key enqueues.
 #[tokio::test(flavor="current_thread")]
 async fn validator_job_matches_rails_on_every_checked_venue(){
     use deltabadger::{jobs::{Job,Cx,Db,Outcome},sync::jobs::{Validator,BALANCE_SYNC}};
     let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let recorded:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(root.join("tests/fixtures/validator_effects.json")).unwrap()).unwrap();
-    for (path,hash) in recorded["sources"].as_object().unwrap(){
-        use sha2::{Digest,Sha256};
-        assert_eq!(&serde_json::json!(format!("{:x}",Sha256::digest(std::fs::read(root.parent().unwrap().join(path)).unwrap()))),hash,"{path}: re-record validator_effects.json (script/rust/repin)");
-    }
     let cases=recorded["cases"].as_array().unwrap();
     assert_eq!(cases.len(),35,"a recorded case was added or dropped");
     for case in cases {

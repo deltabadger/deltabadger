@@ -43,18 +43,6 @@ fn order(kind: OrderKind, quote: bool, volume: &str) -> NewOrder {
 }
 fn gone() -> Value { fail(404, json!({ "errorCode": 240, "error": "No order found. Please be aware that simultaneously updating the same order may return this error." })) }
 
-#[test]
-fn the_fixtures_are_recorded_from_the_current_rails_sources() {
-    use sha2::Digest;
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-    for f in [fixture(), vectors()] {
-        for (file, recorded) in f["sources"].as_object().unwrap() {
-            let now = hex::encode(sha2::Sha256::digest(std::fs::read(root.join(file)).unwrap()));
-            assert_eq!(recorded.as_str().unwrap(), now, "{file} changed: re-record with script/rust/repin");
-        }
-    }
-}
-
 /// Honeymaker::Clients::Bitvavo#signed_headers, byte for byte under a frozen #timestamp_ms: GETs with and without a query, an
 /// escaped one, POSTs (the JSON body as sent), a DELETE (its query signed, where KuCoin's signs the path alone), a public read.
 #[test]

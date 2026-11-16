@@ -1,11 +1,4 @@
 {
-  "sources": {
-    "app/models/app_update.rb": "c429b94b6abe82579e36cd00cb7ee48e4f32c3e51deb6f1d0c4b70f81d7c5e93",
-    "app/models/clients/github.rb": "938f2ecede8843fa6bc05ec7b63eedc03419be02d95bde7bb0abe1282f1bdf37",
-    "app/models/installation.rb": "425df8b58132895ad6a229abe2d5f4efb63533c68e9734590e2101204b224ed5",
-    "app/jobs/app_update/check_job.rb": "d630a89a3953ce9bb73bc90a41d8da48645c7d7c53d5dc657919d73b1a782e56",
-    "config/application.rb": "c41b20cf3b35ee2d5d4111113733ad70d66f91a2bcec30fae2032b2a6ed7f815"
-  },
   "refresh": [
     {
       "case": "success",

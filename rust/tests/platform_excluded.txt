@@ -1,16 +1,14 @@
 # Test files the platform job (rust.yml `rust`: Linux x86_64/arm64, Windows, macOS) does not build or run. Every other
-# file in rust/tests runs there; the full suite (Linux, with Ruby and Rails) runs all of them.
+# file in rust/tests runs there; the full suite (Linux) runs all of them.
 # One file name per line (without .rs), under the reason it can't run there. `macos:`, `windows:` or `linux:` before a
 # name excludes it on that OS only. A name that is not a test file fails the job.
 
 # Docker: the 3.0 image (DELTABADGER_IMAGE); the image job runs it.
 image
 
-# Ruby: runs plain ruby as its oracle.
-venue_signing
-
-# Rails: builds or copies a Rails install (common::install, baseline_install's Rails-built queue, rails_install*),
-# records Rails (common::recording, record_grid, venue_grid, support/tracker_index_grid.rs) or runs bin/rails.
+# Full suite only (PLAN-B11 §2 "Platform split"): these read the frozen 2.x installs and recordings
+# (rust/tests/recorded/: common::install, rails_install*, common::recording, venue_grid, support/tracker_index_grid.rs),
+# and run on Linux in the full suite so the platform legs' time does not triple. Running them per OS is a follow-up.
 account_identity
 accounts
 alpaca
@@ -102,7 +100,7 @@ parity
 pending_transfers
 placement
 polling
-rails_templates
+test_templates
 rebalance
 redeploy
 redeploy_web
@@ -160,6 +158,7 @@ tracker_transactions
 tracker_write_parity
 tracker_writes
 venue_neutral
+venue_signing
 web_actions
 withdrawal_engine
 

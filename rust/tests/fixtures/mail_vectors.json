@@ -1,11 +1,4 @@
 {
-  "gems": {
-    "mail": "2.9.1",
-    "actionmailer": "8.1.4",
-    "net-smtp": "0.5.2",
-    "devise": "5.0.4",
-    "honeymaker": "0.12.5"
-  },
   "messages": [
     {
       "from": "noreply@deltabadger.com",
@@ -2675,26 +2668,5 @@
     18,
     83,
     258
-  ],
-  "ported_sources": {
-    "app/mailers/application_mailer.rb": "22b6a6b5b4125ce54553936c08f0a9a38e3e2a5b24ba82773b5e750b347f6aea",
-    "app/mailers/bot_alerts_mailer.rb": "c51464854f152de35833cb4b13387bb1fafec9a566b133a4594ff1402deede16",
-    "app/mailers/custom_devise_mailer.rb": "0679bd874fec06f72928b6b4f49e9fce5b13ff21d3bff3ed2f3beb17ef6ef7f2",
-    "app/mailers/test_mailer.rb": "4ed384a5039dd883d7530888996777d6d668b2deba897ae27cd2af0f99a81540",
-    "app/models/bot/notifyable.rb": "9bcceacb54f86d07b84505e9a1810286ad3305cd245663175ac52030207a77b2",
-    "app/models/bot/failable.rb": "520a31d50e1f5733454d20afb2ddb565df27c1c7a062814dace53d770559f0a8",
-    "app/models/bot/fundable.rb": "0c93f62231603005acbdff431e9d3cf64e6e83eef212298a01948e09b0dbf9e9",
-    "app/models/smtp_settings.rb": "17925ff7524d72808a7ebd6132cfacde62cc4910053fcb5180861ae1eb389b7d",
-    "config/initializers/smtp_settings.rb": "b98e62829e313750801698ce279f59420748514e0b0c071bfa99e99c7573685c",
-    "app/jobs/application_mail_delivery_job.rb": "2dc3b95ecf910631d2972a84ab4426ab306062afa805f1ef583da2c8ac5ec75a",
-    "app/views/layouts/mailers/transactional.html.erb": "9c8afd4ee04cf13a86fbd69b9deecd2db7840a415b15021ef811d5fa6b938e21",
-    "app/views/bot_alerts_mailer/end_of_funds.html.erb": "ecab246f1517eb9f206dc390c8017a0357372ec5f39b0732a643375f9c1b9f6e",
-    "app/views/bot_alerts_mailer/notify_about_error.html.erb": "f0b12c547359f41a45af3e0c423c82bb5b4d07d700db7aa1106cede1ca8975b2",
-    "app/views/bot_alerts_mailer/stopped_by_error.html.erb": "1b483020ce859fe1f83a8d810a4c8789bdbfa5221826472ae6d2aaf1418737f3",
-    "app/views/bot_alerts_mailer/stopped_by_amount_limit.html.erb": "cf75a31f7a7d076e63dd2287f1935f56cd919d11373896daf8c025a7d705034b",
-    "app/views/test_mailer/test_email.html.erb": "f0c6530ff14a299329f216d15a665b84380a0cd53fb5238d034950fb7dfa6de9",
-    "app/views/devise/mailer/confirmation_instructions.html.erb": "85d0221f8757c697394bad3c1cb28cc8a6d0ea79164f2f6883d26d0ef6955ef5",
-    "app/views/devise/mailer/reset_password_instructions.html.erb": "c1a8b90feb4b83da4e853830a6e7cc0f5183b46954393b8af9408ff4e89d1def",
-    "app/views/devise/mailer/email_already_taken.html.erb": "cd5b3e26658da7ebca435be7012cf350c8b2dd3eb5af93758d0e9838abf32315"
-  }
+  ]
 }

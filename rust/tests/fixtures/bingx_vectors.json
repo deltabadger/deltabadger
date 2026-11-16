@@ -1,6 +1,4 @@
 {
-"sources": {"app/models/exchanges/bingx.rb":"212f3e76c535c547e4fe1411b5fe4c98112ca4c92e91de1836c81090a3855ff4","app/models/exchange.rb":"ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7","app/models/bot/order_setter.rb":"8ab21b724aa9195484cfdde5ae476ea006c3da1e5ab65cffc086d304c0f24dff","app/models/ticker.rb":"1ae4dac68cab58acaa6679c9bca83e700212ad4baf19e2d8c0946b07eaaabbbc","script/rust/record_bingx_vectors.rb":"e6471e6d9740e5b4edbb07719e382b914a1a922a7c0aecf2a9723e2fb53f72f9"},
-"gems": {"honeymaker":"0.12.5"},
 "bingx_tickers": [
   {"minimum_base_size":"0.000001","minimum_quote_size":"1","base_decimals":"6","quote_decimals":"2","price_decimals":"2"},
   {"minimum_base_size":"0","minimum_quote_size":"1","base_decimals":"2","quote_decimals":"8","price_decimals":"10"},

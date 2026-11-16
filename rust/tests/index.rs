@@ -751,7 +751,7 @@ async fn bundled_stablecoin_index() -> (tempfile::TempDir, store::Opened, seed::
 async fn bundled_assets() -> (tempfile::TempDir, store::Opened, seed::Seeded, [&'static str; 5]) {
     use deltabadger::jobs::{import, Db};
     let (d, o, s) = common::install();
-    let catalogue: Value = serde_json::from_str(include_str!("../../db/seed_data/assets.json")).unwrap();
+    let catalogue: Value = serde_json::from_str(include_str!("fixtures/seed_assets_b11.json")).unwrap();
     let ids = ["usds", "ethena-usde", "usd1-wlfi", "bitcoin", "ethereum"];
     let rows: Vec<Value> = ids.iter().enumerate().map(|(n, id)| {
         let mut row = catalogue["data"].as_array().unwrap().iter().find(|a| a["external_id"] == *id).unwrap().clone();
@@ -861,11 +861,11 @@ async fn a_platform_disconnect_keeps_a_coingecko_top_coins_bot_admitted_and_wait
 #[test]
 fn bundled_stablecoin_classification_grid() {
     use sha2::{Digest, Sha256};
-    assert_eq!(format!("{:x}", Sha256::digest(include_bytes!("../../db/seed_data/assets.json"))),
+    assert_eq!(format!("{:x}", Sha256::digest(include_bytes!("fixtures/seed_assets_b11.json"))),
         "14c08bfb06ba8c04b932f15bd7ef67b03c8cd5a4d9d7a04989e5c89506419e46",
-        "the generated catalogue changed: audit its stablecoin category overrides before updating this guard");
+        "the frozen 2.x catalogue (db/seed_data/assets.json at rails-oracle-final) changed: audit its stablecoin category overrides before updating this guard");
     let stablecoins = "agora-dollar anchored-coins-eur aussie-dollar-token bfusd brl1 cash-4 chain-key-usdt dai ethena-usde eurite euro-coin falcon-finance fathom-dollar felix-feusd fidelity-digital-dollar first-digital-usd frankencoin frax freedom-dollar frontier-stable-token gemini-dollar gho global-dollar hex-trust-usdx hyper-usd kyrgyz-som-stablecoin last-usd mxnb novatti-australian-digital-dollar paxos-standard paypal-usd pht-stablecoin quantoz-eurq quantoz-usdq ripple-usd schuman-europ stablr-euro stablr-usd straitsx-xusd terrausd tether tokenised-gbp true-usd united-stables usa usd-coin usd-mapped-token usd1-wlfi usdd usdh-2 usds usdt0 usdtb worldwide-usd xsgd";
-    let catalogue: Value = serde_json::from_str(include_str!("../../db/seed_data/assets.json")).unwrap();
+    let catalogue: Value = serde_json::from_str(include_str!("fixtures/seed_assets_b11.json")).unwrap();
     let rows = catalogue["data"].as_array().unwrap();
     assert_eq!(stablecoins.split_whitespace().count(), 50 + 5, "50 category matches plus five legacy/bridged catalogue identities");
     for id in stablecoins.split_whitespace() {
