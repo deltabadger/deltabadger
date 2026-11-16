@@ -426,7 +426,8 @@ async fn venue_history(db: &Db, quotes: &dyn crate::sync::venue_quotes::VenueQuo
             }
             tx.commit().map_err(|e| e.to_string())
         }).await;
-        if let Err(why) = stored { crate::engine::log(&format!("[tracker] venue history for exchange {exchange_id} not stored: {why}")); }
+        // Prices read but not stored (the write lost a race) are still to be had: the sweep asks again.
+        if let Err(why) = stored { crate::engine::log(&format!("[tracker] venue history for exchange {exchange_id} not stored: {why}")); retry = true; }
     }
     Ok(retry)
 }

@@ -46,7 +46,8 @@ impl<T> Watched<T> {
             // A refusal that sends nothing (no usable key, no usable proxy) is no reason to ask again.
             Err(TransportError::Permanent(_)) => false,
             Err(_) => true,
-            Ok(r) => r.status == 429 || r.status >= 500 || ((200..300).contains(&r.status) && throttled(&r.body)),
+            // 418: Binance's temporary ban for a client past its limits.
+            Ok(r) => r.status == 429 || r.status == 418 || r.status >= 500 || ((200..300).contains(&r.status) && throttled(&r.body)),
         };
         if again { self.retry.set(true); }
     }
@@ -191,7 +192,7 @@ mod tests {
         let refused = Watched::new(());
         refused.note(&Err(TransportError::Permanent("Market data unavailable".into())));
         assert!(!refused.retry.get(), "a refusal that sent nothing is permanent");
-        for answer in [ok(429, ""), ok(503, ""), ok(200, r#"{"error":["EAPI:Rate limit exceeded"]}"#), ok(200, r#"{"code": "429000", "msg": "Too Many Requests"}"#),
+        for answer in [ok(429, ""), ok(418, r#"{"code":-1003}"#), ok(503, ""), ok(200, r#"{"error":["EAPI:Rate limit exceeded"]}"#), ok(200, r#"{"code": "429000", "msg": "Too Many Requests"}"#),
                        ok(200, r#"{ "code" : -1003 }"#), Err(TransportError::NotSent("dns".into()))] {
             let w = Watched::new(());
             w.note(&answer);

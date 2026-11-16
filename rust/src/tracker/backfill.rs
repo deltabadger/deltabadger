@@ -26,8 +26,9 @@ pub fn rate_limited_key(user_id: i64) -> String { format!("rust_snapshot_prices_
 /// The calculation a stored history was swept by (Rust's own key; Rails has none): a history of another one is swept again.
 /// 2: coin-quoted single rows are two legs (D-TRACKER-COIN-QUOTE), transfers wait for their funds (D-TRACKER-TRANSFER-ORDER),
 /// a non-cash sale's own fee leaves (D-TRACKER-HISTORY-SELL-FEE). 3: the sweep records what it could not price
-/// (`tracker::unpriced`, PLAN-venue-prices S1), so every stored history is swept once more to get that record.
-pub const CALCULATION: &str = "3";
+/// (`tracker::unpriced`, PLAN-venue-prices S1), so every stored history is swept once more to get that record. 4: a coin's
+/// days the provider left unstored are asked of its venues (D-VENUE-HISTORY-FALLBACK).
+pub const CALCULATION: &str = "4";
 pub fn calculation_key(user_id: i64) -> String { format!("snapshot_calculation_version_{user_id}") }
 /// Records that the user's history is this calculation's.
 pub fn mark_calculated(c: &Connection, cipher: &Cipher, user_id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<(), FiguresError> {
