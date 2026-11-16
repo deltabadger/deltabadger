@@ -104,7 +104,7 @@ impl<T: Transport + 'static> Quotes<T> {
                 .map_err(|e| e.to_string())?.collect::<Result<_, _>>().map_err(|e| e.to_string())?;
             // Alpaca's market data is asked for its crypto only (its stocks have their snapshots), with the account's key.
             let pairs: Vec<Pair> = if exchange_type == ALPACA { pairs.into_iter().filter(|p| p.code.contains('/')).collect() } else { pairs };
-            let fx = crate::tracker::fx::FxTable::load(c).map_err(|e| format!("{e:?}"))?;
+            let fx = crate::figures::budget::within(|| crate::tracker::fx::FxTable::load(c)).map_err(|e| format!("{e:?}"))?;
             let mut ends = HashMap::new();
             let ids: HashSet<i64> = pairs.iter().flat_map(|p| [p.base, p.quote]).chain(assets.iter().copied()).collect();
             let mut s = c.prepare("SELECT id, symbol FROM assets WHERE category IN ('Fiat','Currency')").map_err(|e| e.to_string())?;

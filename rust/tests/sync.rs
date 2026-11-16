@@ -2180,3 +2180,39 @@ async fn a_holding_the_provider_cannot_price_is_priced_from_the_venue() {
     assert_eq!((summary.synced, summary.unpriced), (3, 1));
     assert_eq!(db.run(|c, _| Ok(btc_row(c))).await.unwrap(), (None, None));
 }
+
+/// PLAN-venue-prices S2 on a venue quoted in a stablecoin: Binance's whole-market prices, BTC through BTCUSDT and
+/// EURUSDT to the euro and the ECB's rate (USDT never taken at par), a token quoted only in bitcoin through BTC, and
+/// euro cash at the ECB's rate with no venue read needed for it.
+#[tokio::test(flavor = "current_thread")]
+async fn a_venue_quoted_in_a_stablecoin_prices_through_a_fiat_pair_and_the_ecb() {
+    let (_dir, db, s) = install();
+    let (binance, ids) = db.run(|c, _| {
+        let t = "2026-01-01";
+        c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '0.1', '0.1', ?1, ?1)", [t]).unwrap();
+        let binance = c.last_insert_rowid();
+        let asset = |external: &str, symbol: &str, category: &str| {
+            c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES (?1, ?2, ?2, ?3, ?4, ?4)", rusqlite::params![external, symbol, category, t]).unwrap();
+            c.last_insert_rowid()
+        };
+        let btc: i64 = c.query_row("SELECT id FROM assets WHERE symbol = 'BTC' ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap();
+        let (usdt, eur, tok) = (asset("tether", "USDT", "Cryptocurrency"), asset("eur", "EUR", "Currency"), asset("tok", "TOK", "Cryptocurrency"));
+        for (code, base, quote) in [("BTCUSDT", btc, usdt), ("EURUSDT", eur, usdt), ("TOKBTC", tok, btc)] {
+            c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, minimum_base_size, \
+                       minimum_quote_size, trading_enabled, available, created_at, updated_at) VALUES (?1, ?2, '', '', ?3, ?4, 8, 8, 8, '0', '0', 1, 1, ?5, ?5)",
+                      rusqlite::params![binance, code, base, quote, t]).unwrap();
+        }
+        c.execute("INSERT INTO fx_rates (currency, date, rate) VALUES ('USD', ?1, 1.1)", [clock().now().date_naive().to_string()]).unwrap();
+        Ok((binance, (btc, eur, tok)))
+    }).await.unwrap();
+    let wire = ScriptedTransport::from_script(&json!({ "GET /api/v3/ticker/price": [ok(json!([
+        { "symbol": "BTCUSDT", "price": "55000" }, { "symbol": "EURUSDT", "price": "1.1" }, { "symbol": "TOKBTC", "price": "0.0001" }]))] }));
+    let quotes = deltabadger::sync::venue_quotes::Quotes::new(Box::new({ let wire = wire.clone(); move |_, _| wire.clone() }), None);
+    let wanted = |external: &str, asset: i64, cash: bool| deltabadger::sync::venue_quotes::Wanted { external_id: external.into(), asset, cash, total: deltabadger::ruby::BigDec::one() };
+    let found = deltabadger::sync::venue_quotes::VenueQuotes::prices(&quotes, &db, s.api_key_id, binance,
+        vec![wanted("bitcoin", ids.0, false), wanted("eur", ids.1, true), wanted("tok", ids.2, false)], clock().now()).await;
+    let mut found: Vec<(String, String)> = found.into_iter().map(|(k, v)| (k, v.round(8).to_s_f())).collect();
+    found.sort();
+    assert_eq!(found, [("bitcoin".to_string(), "55000.0".to_string()), ("eur".to_string(), "1.1".to_string()), ("tok".to_string(), "5.5".to_string())]);
+    assert_eq!(wire.requests().len(), 1, "one whole-market read");
+}
