@@ -1,0 +1,13 @@
+{
+  "sent": [],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": "Failed to fetch order 1. Result: [\"MEXC no longer knows order BTCUSDT-C02__403\"]"
+}

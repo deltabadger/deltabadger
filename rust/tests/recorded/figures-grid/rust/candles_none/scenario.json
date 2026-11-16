@@ -1,0 +1,59 @@
+{
+  "parity_scratch": true,
+  "at": "2026-03-12T14:30:00.250000000Z",
+  "user_id": 1,
+  "bot_ids": [
+    1
+  ],
+  "script": {
+    "GET data.alpaca.markets/v2/stocks/snapshots": {
+      "status": 200,
+      "body": {
+        "AAA": {
+          "latestTrade": {
+            "p": 104.52
+          }
+        },
+        "BBB": {
+          "latestTrade": {
+            "p": 53.9
+          }
+        }
+      }
+    },
+    "GET data.alpaca.markets/v1beta3/crypto/us/latest/trades": {
+      "status": 200,
+      "body": {
+        "trades": {}
+      }
+    },
+    "GET data.alpaca.markets/v2/stocks/AAA/bars": {
+      "status": 200,
+      "body": {
+        "bars": [],
+        "symbol": "AAA"
+      }
+    },
+    "GET data.alpaca.markets/v2/stocks/BBB/bars": {
+      "status": 200,
+      "body": {
+        "bars": [],
+        "symbol": "BBB"
+      }
+    },
+    "GET data.alpaca.markets/v2/stocks/AAA/bars?adjustment=split": {
+      "status": 200,
+      "body": {
+        "bars": [],
+        "symbol": "AAA"
+      }
+    },
+    "GET data.alpaca.markets/v2/stocks/BBB/bars?adjustment=split": {
+      "status": 200,
+      "body": {
+        "bars": [],
+        "symbol": "BBB"
+      }
+    }
+  }
+}

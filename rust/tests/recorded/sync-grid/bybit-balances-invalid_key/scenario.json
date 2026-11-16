@@ -1,0 +1,48 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "bybit": {
+        "GET /v5/account/wallet-balance": [
+          {
+            "status": 200,
+            "body": {
+              "retCode": 10003,
+              "retMsg": "API key is invalid.",
+              "result": {}
+            }
+          }
+        ]
+      },
+      "market": {
+        "GET /api/v1/prices": [
+          {
+            "status": 200,
+            "body": {
+              "data": {
+                "bitcoin": {
+                  "usd": 60000.5
+                },
+                "ethereum": {
+                  "usd": 2500.25
+                },
+                "tether": {
+                  "usd": 1.0
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

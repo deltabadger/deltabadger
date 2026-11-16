@@ -1,0 +1,2263 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-Y22N9pu6FJoDkbFxz1jU3Q=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=zZfd0Nq5gi0vldBv1XLMIf9oA7PZ%2BKR9HPAQTtcHkERxbPID8oH9CwTgAgtfiar42Js5zqIN04%2Fomhk346kzVoqSROgH9j1%2FIb2GVYmpcOLcMMp5IkroXizZXO%2Fa3wt3uP8RZR24zQYXWNRWQWe9m%2F0gN7IowKd%2BUc3rPWx%2Fxxf9IM2n5bQtLdoOyYmqsgXLVB7LqUUieVtSDwGZ3x%2Bl4QR37oIkKYni4bh31ZA5ud9XP6Q%2FIvThhLquH25pXp7D8OZnlSxg%2F%2F9GjevA7jmOQZ3ilRigcLYvnGA4ZrBzRDe%2B05yL1cVK01jac%2BcolWU4jJo%3D--516QcL79F1a9c3kH--6M6oqSjbjn%2BEusC%2FbYO0Gw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-6290d549af80caa2fb7df4035451b122ac9f284c34459a922e1ae88d558e3008.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-55216d29feb9cbe3040956a80263e39ee90e0e1f1554dc6c4a8b67cec79947a7.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"qhiXk2FyBN9hV3uj6J0jmIqwO0nYZrnrc67H8QnaSw27NQLW_aJ3JWFCYSynd8T_kzCETmd_40KsuPBeRSe4pw\" />\n    <meta name=\"csp-nonce\" content=\"Y22N9pu6FJoDkbFxz1jU3Q==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-controller=\"form--html5-validations form--label-animations\" action=\"/login\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"8BCfTJzrBUt28MAdxxlFPfnMd2zdRMX0xIVeWO1c6jClSbydyiuNxVnbwtaYo-m2F_WQdPDLaRF6SWJF1hUrKQ\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <h1>Welcome back!</h1>\n\n  <div class=\"form__row\">\n    <input autofocus=\"autofocus\" autocomplete=\"email\" class=\"form__input form__input--large\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email invalid!\" type=\"email\" value=\"\" name=\"user[email]\" id=\"user_email\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"current-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" type=\"password\" name=\"user[password]\" id=\"user_password\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n\n      <div class=\"form__info form__info--right\">\n        <a href=\"/password/new\">Forgot password?</a>\n      </div>\n</div>\n    <div class=\"toggle\">\n      <input name=\"user[remember_me]\" type=\"hidden\" value=\"0\" /><input type=\"checkbox\" value=\"1\" name=\"user[remember_me]\" id=\"user_remember_me\" />\n      <div class=\"toggle__style\"></div>\n      <label class=\"label\" for=\"user_remember_me\">Remember me</label>\n      \n    </div>\n\n  <div class=\"form__row form__row--final-button\">\n    <input type=\"submit\" name=\"commit\" value=\"Log In\" class=\"button button--sky button--large\" data-disable-with=\"Log In\" />\n  </div>\n\n  <div class=\"devise__links\">\n\n\n    <a class=\"button button--link\" href=\"/confirmation/new\">Resend link</a>\n    <span class=\"db-middot\">●</span>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"dropdown-wrapper dropdown-wrapper--right dropdown-wrapper--up\" style=\"font-weight: 600; color: var(--link)\">\n  EN\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/de/login\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/nl/login\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/fr/login\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/es/login\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pt/login\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/it/login\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pl/login\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/ru/login\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/cs/login\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sk/login\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/da/login\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sv/login\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/el/login\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/bg/login\">🇧🇬 Български</a>\n  </div>\n</div>\n</div>\n</form>\n\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+      "session_changed": true
+    },
+    {
+      "status": 303,
+      "headers": {
+        "location": "http://localhost:3000/",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-I8tVtEP/No9PD/+iorQ9yw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=DXMl7EdiyzkbiYBOZCh4jgb7oZaQDCn9SamxL%2Ft29%2F07wCagGzr0bnhaJ%2Blz1I4kmcyPAVMPNBqKlpnw8SA31Qxz%2Br78LEqqZBEviEd3Uco3JN4tefzBS%2FpuVQQh6Oj2o16824faBk13%2BIoIB6Unk22SYcCkFLGZC0i97hfUPgF1cg%2BPJiiBH4jgUesvq4qOJPKhMi2VrucTuJLraIlIztILD59GSclGgPKM8HEfCIzBgL1TVwf5%2FncZxj6HTas%2FT2lUknUJN2dtIPN%2FNHvaLIUJDdLa4C6r2gTOXWIy4kBMGPr6TA8djuv4mjOY1KmM9NRCulrPjrIyTO%2FduHP994AfZKrbjAC5QZZ9nYaGyCxsNpsqlpQ%3D--bQ5eH60aoDBqhHWt--Vw3feFEF1uAcgSCoB2uw7w%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-/aRYq3pP/cb8nFdRm5Y9hg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=HAvOf7WtsjPn6%2F2ZHJeaEuAJhDrGKLMsaPGL9uwTzbL%2BGdF9lneKaNh5dMHue6y1lmKaVhbF28w4%2FoBXHz5noloxiFxPnoE99nHRrX88ypVzJN8FFyq8MvICt1lweKrCVcJ7fVFFbgbEB4GfEWDsY79q1rzKd0qgoBkjjavmSdMQTjVhMBaPFx%2FoIpzm6wcbRen0H9BeKQF%2F8Cbf9xHvBX49NRkIe%2FhlIa7AjAUHQplnY5OPLBD73ky6kx2981Dt7mCE1gYUJQfjxlhuHLYdl1OykDCJJHFQp65PZ7oLZHwUp4QsHijaw88y3gbxTdSPp7X%2ByJONXY6KAsxO%2BLgTwOiFkGIlmhzBssBATaeAjTSo2nSQ1Ax7kjxbZmOO47rKe26F7VHDo1X%2FU5fomGIq0WJPp8h6ZVov391QjEQGhTFp3W30uNIGvN8yIFznvzOQi8Rs1uL1Un1Q7M4lmMyks7GESZrE5w%3D%3D--7pSI0zGdksyiKlJJ--4wnYLb4YBS0GS1wiWeKWFw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"color-scheme\" content=\"dark light\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"CCmHX7WC2ZjTV1yUhMTSO6MlTJrxdJXcugGKEJyKoJDTHvpbdWhT1lZVx86-UOEYJNcjyGYopygfo0c0I5_EDg\" />\n    <meta name=\"csp-nonce\" content=\"/aRYq3pP/cb8nFdRm5Y9hg==\" />\n    <meta name=\"turbo-prefetch\" content=\"false\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-6290d549af80caa2fb7df4035451b122ac9f284c34459a922e1ae88d558e3008.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-55216d29feb9cbe3040956a80263e39ee90e0e1f1554dc6c4a8b67cec79947a7.js\" data-turbo-track=\"reload\" type=\"module\"></script>\n\n    \n  </head>\n\n  <body data-controller=\"hotwire-animations app-wake ticker-tooltips reveal-chrome coarse-slider\" data-locale=\"en\">\n\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n\n    <div class=\"flash-stack\">\n      <div id=\"flash\" data-turbo-permanent>\n        \n        \n      </div>\n        <div id=\"sync-warnings\" data-turbo-permanent>\n    \n  </div>\n\n    </div>\n\n    <input data-turbo-permanent id=\"hamburger\" type=\"checkbox\">\n<div class=\"hamburger hamburger__a\"></div>\n<div class=\"hamburger hamburger__b\"></div>\n<div class=\"menu-mobile\" data-action=\"click-&gt;menu-mobile#close\" data-controller=\"menu-mobile\">\n<a class=\"menu-mobile__item menu-mobile__item--bots \" href=\"/bots\">Bots\n</a><a class=\"menu-mobile__item menu-mobile__item--tracker menu-mobile__item--active\" href=\"/tracker\">Tracker\n</a><a class=\"menu-mobile__item menu-mobile__item--rules \" href=\"/rules\">Rules\n</a><a class=\"menu-mobile__item menu-mobile__item--settings\" data-turbo-frame=\"modal\" href=\"/settings/account\">Settings\n</a><form class=\"switch-row-form\" data-controller=\"form--submit\" action=\"/settings/update_hide_balances\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"fjL9qf2Wehgy4P_c3tBKKAZ3iRuOxSHgb7w9Y4U3nnGme55qUbGxzCW6vWjvK_6Ue1xeMCyZvWvsSpd_zehi1w\" /><label class=\"menu-mobile__item menu-mobile__item--switch\" data-dropdown-keep-open>\n<span>Hide balances</span>\n<div class=\"toggle toggle--small\">\n<input type=\"hidden\" name=\"hide_balances\" id=\"hide_balances\" value=\"0\" />\n<input type=\"checkbox\" name=\"hide_balances\" id=\"hide_balances\" value=\"1\" data-action=\"change-&gt;form--submit#submit\" />\n<div class=\"toggle__style\"></div>\n</div>\n</label>\n</form>\n<form class=\"switch-row-form\" data-controller=\"form--segmented-field form--submit\" data-action=\"segmented:change-&gt;form--segmented-field#set segmented:change-&gt;form--submit#submit\" action=\"/settings/update_display_currency\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"lwICTjCfhmL_M5-pkcd5t2_f1PSYt-mxGtHd1WRjV-cIoQW-ZRDDQztDVlRHAiBiynNwfFm4fhvlRAvdt3zfRA\" /><div class=\"menu-mobile__item menu-mobile__item--currency\" data-dropdown-keep-open title=\"Profits and portfolio totals are shown in this currency. Bots keep trading in their own quote asset.\">\n\n<div class=\"segmented segmented--fluid\" role=\"radiogroup\" aria-label=\"Display currency\" data-controller=\"segmented\" data-action=\"click-&gt;segmented#toggle\" data-currency=\"true\">\n  <span class=\"segmented__thumb\" data-segmented-target=\"thumb\"></span>\n  <div class=\"segmented__dropdown dropdown\" data-segmented-target=\"dropdown\">\n    <div class=\"segmented__panes\">\n      <div class=\"segmented__pane segmented__menu\">\n            <button type=\"button\" class=\"segmented__option is-on\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" data-value=\"USD\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">$</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"EUR\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">€</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"GBP\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">£</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"CHF\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">Fr.</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"PLN\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">zł</button>\n      </div>\n    </div>\n  </div>\n  <span class=\"segmented__caret\" aria-hidden=\"true\">\n    <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</span></div>\n</div>\n<input data-form--segmented-field-target=\"field\" type=\"hidden\" value=\"USD\" name=\"user[display_currency]\" />\n</form>\n<div class=\"menu-mobile__divider\"></div>\n<form class=\"button_to\" method=\"post\" action=\"/logout\"><input type=\"hidden\" name=\"_method\" value=\"delete\" /><button class=\"menu-mobile__item menu-mobile__button\" data-turbo=\"false\" type=\"submit\">Logout\n</button><input type=\"hidden\" name=\"authenticity_token\" value=\"3-cXtwTHkqPrOzz4Jdo1c5-ie3IIw205quG_7g4LfEzQIFBfg7L_v9muBVKs-6920GUaiAmjA1pasqcgrmpV0A\" /></form></div>\n<div class=\"menu\">\n<div class=\"menu__section menu__section--top menu__section--logo\">\n<a class=\"menu__logo\" aria-label=\"Deltabadger\" href=\"/bots\"><svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n</a></div>\n<div class=\"menu__section menu__section--top menu__section--main-menu\" data-controller=\"menu\">\n<a class=\"menu__item menu__item--bots \" aria-label=\"Bots\" data-action=\"click-&gt;menu#select\" data-menu-target=\"tile\" data-tile=\"bots\" href=\"/bots\"><svg id=\"bot-count\" class=\"icon-24 icon-24--count\" viewbox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n  <text class=\"fill--icon\" x=\"12\" y=\"18.94\" text-anchor=\"middle\"\n        font-size=\"19\">0</text>\n</svg>\n\n<svg class=\"icon-24 icon-24--previous\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--icon\" d=\"M7.17774 12.5684C6.92433 12.2023 6.94176 11.707 7.23145 11.3594L12.2314 5.35938C12.585 4.93519 13.2164 4.87791 13.6406 5.23145C14.0648 5.58503 14.1221 6.21638 13.7686 6.64063L9.30176 12L13.7686 17.3594C14.1221 17.7836 14.0648 18.415 13.6406 18.7686C13.2164 19.1221 12.585 19.0648 12.2314 18.6406L7.23145 12.6406L7.17774 12.5684Z\"></path>\n</svg>\n\n</a><a class=\"menu__item menu__item--tracker menu__item--active\" aria-label=\"Tracker\" data-action=\"click-&gt;menu#select\" data-menu-target=\"tile\" data-tile=\"tracker\" href=\"/tracker\"><svg class=\"icon-24 icon-24--allocation\" viewbox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n    <circle class=\"stroke--icon\" cx=\"12\" cy=\"12\" r=\"9\"\n            fill=\"none\" stroke-width=\"2\"/>\n</svg>\n\n</a><a class=\"menu__item menu__item--rules \" aria-label=\"Rules\" data-action=\"click-&gt;menu#select\" data-menu-target=\"tile\" data-tile=\"rules\" href=\"/rules\"><svg fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--icon\" clip-rule=\"evenodd\" d=\"M8.9663 10.7464C9.10637 11.2806 8.78684 11.8272 8.25262 11.9673C6.86941 12.33 5.76524 12.8731 5.02881 13.4871C4.29134 14.102 4 14.7142 4 15.2532C4 16.0091 4.59887 16.9321 6.10255 17.7252C7.56058 18.4942 9.64396 19 12 19C14.356 19 16.4394 18.4942 17.8974 17.7252C19.4011 16.9321 20 16.0091 20 15.2532C20 14.7142 19.7087 14.102 18.9712 13.4871C18.2348 12.8731 17.1306 12.33 15.7474 11.9673C15.2132 11.8272 14.8936 11.2806 15.0337 10.7464C15.1738 10.2122 15.7204 9.89263 16.2546 10.0327C17.8343 10.4469 19.2296 11.0986 20.252 11.951C21.2733 12.8026 22 13.9285 22 15.2532C22 17.1189 20.5841 18.5693 18.8305 19.4942C17.0311 20.4432 14.6145 21 12 21C9.38547 21 6.96885 20.4432 5.16952 19.4942C3.41585 18.5693 2 17.1189 2 15.2532C2 13.9285 2.72671 12.8026 3.74802 11.951C4.77037 11.0986 6.16569 10.4469 7.74538 10.0327C8.27961 9.89263 8.82623 10.2122 8.9663 10.7464Z\" fill-rule=\"evenodd\"></path>\n<path class=\"fill--icon\" clip-rule=\"evenodd\" d=\"M11.2929 2.29289C11.6834 1.90237 12.3166 1.90237 12.7071 2.29289L16.7071 6.29289C17.0976 6.68342 17.0976 7.31658 16.7071 7.70711C16.3166 8.09763 15.6834 8.09763 15.2929 7.70711L13 5.41421V15C13 15.5523 12.5523 16 12 16C11.4477 16 11 15.5523 11 15V5.41421L8.70711 7.70711C8.31658 8.09763 7.68342 8.09763 7.29289 7.70711C6.90237 7.31658 6.90237 6.68342 7.29289 6.29289L11.2929 2.29289Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</a><div class=\"menu__chip\" data-menu-target=\"chip\"></div>\n</div>\n<div class=\"menu__section menu__section--bottom\">\n<div class=\"dropdown-wrapper dropdown-wrapper--bottom-left\" data-action=\"click-&gt;dropdown#toggle\" data-controller=\"dropdown\" data-dropdown-active-class=\"menu__item--active\" data-dropdown-target=\"wrapper\" data-turbo-permanent id=\"settings-menu\">\n<div class=\"menu__item menu__button\" data-dropdown-target=\"trigger\">\n<svg fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--icon\" clip-rule=\"evenodd\" d=\"M8 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM4 8h1.17a3 3 0 0 1 5.66 0H20a1 1 0 1 1 0 2h-9.17a3 3 0 0 1-5.66 0H4a1 1 0 0 1 0-2Zm12 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM4 14h9.17a3 3 0 0 1 5.66 0H20a1 1 0 1 1 0 2h-1.17a3 3 0 0 1-5.66 0H4a1 1 0 1 1 0-2Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</div>\n<div class=\"dropdown\">\n<a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/settings/account\">Settings</a>\n<form class=\"switch-row-form\" data-controller=\"form--submit\" action=\"/settings/update_hide_balances\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"x-YhjwVsEuRaBI1LvLqSNKW_kA71ajmxLbVmADhyy7Yfr0JMqUvZME1ez_-NQSaI2JRHJVc2pTquQ8wccK03EA\" /><label class=\"dropdown__item dropdown__item--switch\" data-dropdown-keep-open>\n<span>Hide balances</span>\n<div class=\"toggle toggle--small\">\n<input type=\"hidden\" name=\"hide_balances\" id=\"hide_balances\" value=\"0\" />\n<input type=\"checkbox\" name=\"hide_balances\" id=\"hide_balances\" value=\"1\" data-action=\"change-&gt;form--submit#submit\" />\n<div class=\"toggle__style\"></div>\n</div>\n</label>\n</form>\n<form class=\"switch-row-form\" data-controller=\"form--segmented-field form--submit\" data-action=\"segmented:change-&gt;form--segmented-field#set segmented:change-&gt;form--submit#submit\" action=\"/settings/update_display_currency\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"06AonwW5nnd-sjCvsLgLsHIa5LGyFDi67UAchO05L45MAy9vUDbbVrrC-VJmfVJl17ZAOXMbrxAS1cqMPianLQ\" /><div class=\"dropdown__item dropdown__item--currency\" data-dropdown-keep-open title=\"Profits and portfolio totals are shown in this currency. Bots keep trading in their own quote asset.\">\n\n<div class=\"segmented segmented--fluid\" role=\"radiogroup\" aria-label=\"Display currency\" data-controller=\"segmented\" data-action=\"click-&gt;segmented#toggle\" data-currency=\"true\">\n  <span class=\"segmented__thumb\" data-segmented-target=\"thumb\"></span>\n  <div class=\"segmented__dropdown dropdown\" data-segmented-target=\"dropdown\">\n    <div class=\"segmented__panes\">\n      <div class=\"segmented__pane segmented__menu\">\n            <button type=\"button\" class=\"segmented__option is-on\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" data-value=\"USD\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">$</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"EUR\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">€</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"GBP\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">£</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"CHF\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">Fr.</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"PLN\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">zł</button>\n      </div>\n    </div>\n  </div>\n  <span class=\"segmented__caret\" aria-hidden=\"true\">\n    <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</span></div>\n</div>\n<input data-form--segmented-field-target=\"field\" type=\"hidden\" value=\"USD\" name=\"user[display_currency]\" />\n</form>\n<div class=\"dropdown__item dropdown__item--divider\"></div>\n<form class=\"button_to\" method=\"post\" action=\"/logout\"><input type=\"hidden\" name=\"_method\" value=\"delete\" /><button class=\"dropdown__item dropdown__item--danger\" data-turbo=\"false\" type=\"submit\">Logout\n</button><input type=\"hidden\" name=\"authenticity_token\" value=\"yIQ5mfA6nH_BS0KJNlJoK3gvfxvMW5e729sMrYsNS-vHQ35xd0_xY_PeeyO_c_IuN-ge4c07-dgriBRjK2xidw\" /></form></div>\n</div>\n</div>\n</div>\n\n\n\n    <main class=\"main\">\n      <div class=\"main-content\">\n        <turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfMTpwcmVmZXJlbmNlcyI=--602c96b2848ec68f7e5b6958aa61b93aafcd8abe7a2549e6a95425833ce5cb85\"></turbo-cable-stream-source>\n<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfMTp0YXhfcmVwb3J0Ig==--be2157cfb0a9cea8f22d50b0a8f797ad7f8eddb7c64fe5435b7df5e9f6824298\"></turbo-cable-stream-source>\n<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfMTpzeW5jIg==--fb6b5090443b26fe696634887f4ad9a5588bae2e6e9829374bfef8a628e8d47d\"></turbo-cable-stream-source>\n  <div class=\"tracker\">\n    <div class=\"tracker-exchanges\">\n  <div class=\"filters\">\n      \n<div class=\"segmented segmented--fluid\" aria-label=\"Exchange\" data-controller=\"segmented\" data-action=\"click-&gt;segmented#toggle\">\n  <span class=\"segmented__thumb\" data-segmented-target=\"thumb\"></span>\n  <div class=\"segmented__dropdown dropdown\" data-segmented-target=\"dropdown\">\n    <div class=\"segmented__panes\">\n      <div class=\"segmented__pane segmented__menu\">\n            <a class=\"segmented__option is-on\" aria-current=\"page\" data-value=\"all\" data-segmented-target=\"option\" data-action=\"segmented#select\" href=\"/tracker\">All</a>\n            <a class=\"segmented__option\" data-value=\"1\" data-broken=\"true\" data-turbo-frame=\"modal\" data-segmented-target=\"option\" data-action=\"segmented#select\" href=\"/tracker/add_api_key/new?exchange_id=1\">Alpaca</a>\n          <a class=\"segmented__option segmented__option--action\" data-turbo-frame=\"modal\" aria-label=\"Connect exchange\" href=\"/tracker/pick_exchange/new\">\n            <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M13 4a1 1 0 1 0-2 0v7H4a1 1 0 1 0 0 2h7v7a1 1 0 1 0 2 0v-7h7a1 1 0 1 0 0-2h-7V4Z\"></path>\n</svg>\n\n</a>      </div>\n    </div>\n  </div>\n  <span class=\"segmented__caret\" aria-hidden=\"true\">\n    <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</span></div>\n  </div>\n\n  <div class=\"tracker-exchanges__end buttons-no-outline\">\n    <div class=\"tracker-exchanges__sync\">\n    </div>\n\n      <a class=\"rbutton rbutton--secondary\" data-turbo-frame=\"modal\" href=\"/tracker/export_modal\">Tax Report</a>\n\n    <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right\">\n      <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M14 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z\"></path>\n</svg>\n\n      <div class=\"dropdown\">\n        <form class=\"switch-row-form\" data-controller=\"form--submit\" action=\"/settings/update_show_cash\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"5ZiiAia4sWWXbyyD7avI5zzFj7Noa6zN9f7z02_fuV7WkX3n9dZLUcUIPngdVDxVdUZia_LK7G7q86xfsmBc2w\" />\n          <label class=\"dropdown__item dropdown__item--switch\" data-dropdown-keep-open>\n            <span>Show cash</span>\n            <div class=\"toggle toggle--small\">\n              <input type=\"hidden\" name=\"show_cash\" id=\"show_cash\" value=\"0\" />\n              <input type=\"checkbox\" name=\"show_cash\" id=\"show_cash\" value=\"1\" data-action=\"change-&gt;form--submit#submit\" />\n              <div class=\"toggle__style\"></div>\n            </div>\n          </label>\n</form>        <div class=\"dropdown__item dropdown__item--divider\"></div>\n        <a class=\"dropdown__item\" href=\"/tracker/export\">Export</a>\n        <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/tracker/import/new\">Import</a>\n      </div>\n    </div>\n  </div>\n</div>\n\n    \n      <div class=\"widget data-grid data-grid--six\">\n    <div class=\"data-grid__item\" data-controller=\"tooltip\">\n  <div class=\"label\">\n    Total invested\n  </div>\n  <div class=\"data-grid__item__value \">\n      <div class=\"loader--small\" style=\"position: unset; margin: 0.5rem 0 0 auto;\"></div>\n  </div>\n</div>\n\n    <div class=\"data-grid__item\" data-controller=\"tooltip\">\n  <div class=\"label\">\n    Portfolio Value\n  </div>\n  <div class=\"data-grid__item__value \">\n      <small>$</small>0.00\n  </div>\n</div>\n\n    <div class=\"data-grid__item\" data-controller=\"tooltip\">\n  <div class=\"label\">\n    Fees paid\n  </div>\n  <div class=\"data-grid__item__value data-grid__item__value--quiet\">\n      <div class=\"loader--small\" style=\"position: unset; margin: 0.5rem 0 0 auto;\"></div>\n  </div>\n</div>\n\n    <div class=\"data-grid__item\" data-controller=\"tooltip\">\n  <div class=\"label\">\n    Realised P/L\n  </div>\n  <div class=\"data-grid__item__value \">\n      <div class=\"loader--small\" style=\"position: unset; margin: 0.5rem 0 0 auto;\"></div>\n  </div>\n</div>\n\n    <div class=\"data-grid__item\" data-controller=\"tooltip\">\n  <div class=\"label\">\n    Unrealised P/L\n  </div>\n  <div class=\"data-grid__item__value \">\n      <div class=\"loader--small\" style=\"position: unset; margin: 0.5rem 0 0 auto;\"></div>\n  </div>\n</div>\n\n    <div class=\"data-grid__item\" data-controller=\"tooltip\">\n  <div class=\"label\">\n    Total P/L\n      <span class=\"data-grid__item__hint\" aria-label=\"Portfolio Value − Total invested\"\n            data-controller=\"tooltip\" data-tooltip-fixed-value=\"true\"\n            data-action=\"mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip\">\n        <svg class=\"icon-24 icon-24--info\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm0 2a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z\" fill-rule=\"evenodd\"></path>\n<path d=\"M12 6C10 6 8.6 7.4 8.6 9.5h2.2c0-1 .5-1.5 1.4-1.5.8 0 1.2.4 1.2 1 0 1.4-2.5 2.3-2.5 4.3v.6h2v-.5c0-1.4 2.7-2.1 2.7-4.3 0-1.9-1.3-3.1-3.4-3.1Zm-.2 9.3c-.9 0-1.4.5-1.4 1.3s.5 1.4 1.4 1.4c.8 0 1.4-.6 1.4-1.4 0-.8-.6-1.3-1.4-1.3Z\"></path>\n</svg>\n\n        <div class=\"tooltip tooltip--hint\">Portfolio Value − Total invested</div>\n      </span>\n  </div>\n  <div class=\"data-grid__item__value \">\n      <div class=\"loader--small\" style=\"position: unset; margin: 0.5rem 0 0 auto;\"></div>\n  </div>\n</div>\n\n  </div>\n\n    <div class=\"widget tracker-holdings \">\n  <div class=\"tracker-holdings__head\">\n    <span class=\"label\">Holdings · 0</span>\n    <span class=\"label\"></span>\n  </div>\n\n\n</div>\n\n    <div class=\"tracker-record\" data-controller=\"tracker--record\">\n  <div class=\"tracker-record__switch filters\" data-action=\"segmented:change->tracker--record#mark segmented:change->tracker--record#show segmented:change->tracker--record#hold\">\n    \n<div class=\"segmented segmented--fluid\" role=\"radiogroup\" aria-label=\"Positions\" data-controller=\"segmented\" data-action=\"click-&gt;segmented#toggle\" data-segmented-key=\"tracker-record\">\n  <span class=\"segmented__thumb\" data-segmented-target=\"thumb\"></span>\n  <div class=\"segmented__dropdown dropdown\" data-segmented-target=\"dropdown\">\n    <div class=\"segmented__panes\">\n      <div class=\"segmented__pane segmented__menu\">\n            <button type=\"button\" class=\"segmented__option is-on\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" data-value=\"pos\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">Positions</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"tx\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">Transactions</button>\n      </div>\n    </div>\n  </div>\n  <span class=\"segmented__caret\" aria-hidden=\"true\">\n    <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</span></div>\n  </div>\n\n  <div class=\"tracker-record__pane tracker-record__pane--off\" data-pane=\"tx\"\n       data-controller=\"order-filter\" data-tracker--record-target=\"pane\">\n    <div class=\"tracker-record__filters filters\" data-action=\"segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold\">\n    </div>\n    <div class=\"tracker-record__table widget widget--table\" data-controller=\"table-fit\">\n        <p class=\"tracker-empty\">No transactions found for the selected filters.</p>\n    </div>\n  </div>\n\n  <div class=\"tracker-record__pane\" data-pane=\"pos\"\n       data-controller=\"order-filter\" data-tracker--record-target=\"pane\">\n    <div class=\"tracker-record__filters filters\" data-action=\"segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold\">\n    </div>\n    <div class=\"tracker-record__table widget widget--table tracker-positions\" data-controller=\"table-fit\">\n        <div class=\"loader--small\" style=\"position: unset; margin: 2rem auto;\"></div>\n    </div>\n  </div>\n\n  <div class=\"tracker-record__actions\">\n    <form class=\"tracker-date-range\" data-controller=\"form--submit\" action=\"/tracker\" accept-charset=\"UTF-8\" method=\"get\">\n      <input type=\"date\" name=\"from\" value=\"\" class=\"rinput\" data-action=\"change->form--submit#submit\">\n      <input type=\"date\" name=\"to\" value=\"2026-09-10\" class=\"rinput\" data-action=\"change->form--submit#submit\">\n</form>  </div>\n</div>\n\n  </div>\n\n      </div>\n    </main>\n\n    <turbo-frame id=\"modal\"></turbo-frame>\n\n</body></html>",
+      "session_changed": true,
+      "action_snapshot": true,
+      "rows_before": {
+        "bots": [],
+        "bot_index_assets": [],
+        "bot_activity_logs": [],
+        "transactions": [],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-01 00:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": "synthetic-d5-paper-key",
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": "synthetic-d5-paper-secret",
+            "status": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          }
+        ],
+        "users": [
+          {
+            "id": 1,
+            "admin": 1,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-01 00:00:00",
+            "created_at": "2026-01-01 00:00:00",
+            "display_currency": "USD",
+            "email": "owner@example.com",
+            "encrypted_password": "$2a$04$aRcTFQrqOhVsRqERhP0XU.hgTGISDgBxge.kF9xTElwlaxWsa8uzG",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Owner",
+            "otp_module": 0,
+            "otp_secret_key": "BISXEWNE7MRAC6M6RQPMQ4GQQLOHUXPV",
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 1,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "Tallinn",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-01 00:00:00",
+            "wash_sale_enabled": 0,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "account_transactions": [],
+        "account_balances": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "fund_classifications": [],
+        "historical_prices": [],
+        "fx_rates": [
+          {
+            "id": 1,
+            "currency": "USD",
+            "date": "2026-09-10",
+            "rate": {
+              "__sqlite_real__": "3ff199999999999a"
+            }
+          }
+        ]
+      },
+      "rows_after": {
+        "bots": [],
+        "bot_index_assets": [],
+        "bot_activity_logs": [],
+        "transactions": [],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-01 00:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": "synthetic-d5-paper-key",
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": "synthetic-d5-paper-secret",
+            "status": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          }
+        ],
+        "users": [
+          {
+            "id": 1,
+            "admin": 1,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-01 00:00:00",
+            "created_at": "2026-01-01 00:00:00",
+            "display_currency": "USD",
+            "email": "owner@example.com",
+            "encrypted_password": "$2a$04$aRcTFQrqOhVsRqERhP0XU.hgTGISDgBxge.kF9xTElwlaxWsa8uzG",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Owner",
+            "otp_module": 0,
+            "otp_secret_key": "BISXEWNE7MRAC6M6RQPMQ4GQQLOHUXPV",
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 1,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "Tallinn",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-01 00:00:00",
+            "wash_sale_enabled": 0,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "account_transactions": [],
+        "account_balances": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "fund_classifications": [],
+        "historical_prices": [],
+        "fx_rates": [
+          {
+            "id": 1,
+            "currency": "USD",
+            "date": "2026-09-10",
+            "rate": {
+              "__sqlite_real__": "3ff199999999999a"
+            }
+          }
+        ]
+      },
+      "other_rows_before": {
+        "account_balances": [],
+        "account_transactions": [],
+        "action_mcp_session_messages": [],
+        "action_mcp_session_subscriptions": [],
+        "action_mcp_session_tasks": [],
+        "action_mcp_sessions": [],
+        "app_configs": [
+          {
+            "id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_provider",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"lJk9//6cbZ1zZDA=\",\"h\":{\"iv\":\"sKiktbnYikWIjog2\",\"at\":\"OJ2FZXvWaTyGOFovGjeA4A==\"}}"
+          },
+          {
+            "id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_url",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"3ckTA4j5QFtwIxBzRi6r9coj\",\"h\":{\"iv\":\"/DDcMRoYkn1k0CY3\",\"at\":\"GERekQ0DMhsF5ORAGo2Scw==\"}}"
+          },
+          {
+            "id": 3,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_token",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"1AxOIf0JOe0fQ+4n4lz17QtsMxPsyshHQA==\",\"h\":{\"iv\":\"r5+VfYi2eZtJbTJf\",\"at\":\"BSejUAbuILrEAAlHrmvp9g==\"}}"
+          }
+        ],
+        "ar_internal_metadata": [
+          {
+            "key": "environment",
+            "value": "production",
+            "created_at": "2026-11-16 07:49:30.385",
+            "updated_at": "2026-11-16 07:49:30.385"
+          }
+        ],
+        "assets": [],
+        "bot_signals": [],
+        "connected_clients": [],
+        "exchange_assets": [],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0",
+            "name": "Alpaca",
+            "taker_fee": "0",
+            "type": "Exchanges::Alpaca",
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "fee_api_keys": [],
+        "fund_classifications": [],
+        "fx_rates": [
+          {
+            "id": 1,
+            "currency": "USD",
+            "date": "2026-09-10",
+            "rate": {
+              "__sqlite_real__": "3ff199999999999a"
+            }
+          }
+        ],
+        "historical_prices": [],
+        "ibkr_locks": [],
+        "idempotency_keys": [],
+        "indices": [],
+        "oauth_access_grants": [],
+        "oauth_access_tokens": [],
+        "oauth_applications": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "rule_logs": [],
+        "rules": [],
+        "schema_migrations": [
+          {
+            "version": "20260102171555"
+          },
+          {
+            "version": "20260103000001"
+          },
+          {
+            "version": "20260104194208"
+          },
+          {
+            "version": "20260106111301"
+          },
+          {
+            "version": "20260106111302"
+          },
+          {
+            "version": "20260106115209"
+          },
+          {
+            "version": "20260106162140"
+          },
+          {
+            "version": "20260109050047"
+          },
+          {
+            "version": "20260114145256"
+          },
+          {
+            "version": "20260114154223"
+          },
+          {
+            "version": "20260126141242"
+          },
+          {
+            "version": "20260126145012"
+          },
+          {
+            "version": "20260127112431"
+          },
+          {
+            "version": "20260127164433"
+          },
+          {
+            "version": "20260128000001"
+          },
+          {
+            "version": "20260129111946"
+          },
+          {
+            "version": "20260129142740"
+          },
+          {
+            "version": "20260130114825"
+          },
+          {
+            "version": "20260203191449"
+          },
+          {
+            "version": "20260208114731"
+          },
+          {
+            "version": "20260217100000"
+          },
+          {
+            "version": "20260217100001"
+          },
+          {
+            "version": "20260219100000"
+          },
+          {
+            "version": "20260219110000"
+          },
+          {
+            "version": "20260219120000"
+          },
+          {
+            "version": "20260219130000"
+          },
+          {
+            "version": "20260224065811"
+          },
+          {
+            "version": "20260226000000"
+          },
+          {
+            "version": "20260227171710"
+          },
+          {
+            "version": "20260228130833"
+          },
+          {
+            "version": "20260228145540"
+          },
+          {
+            "version": "20260228152720"
+          },
+          {
+            "version": "20260308090843"
+          },
+          {
+            "version": "20260311145654"
+          },
+          {
+            "version": "20260311145655"
+          },
+          {
+            "version": "20260311145656"
+          },
+          {
+            "version": "20260311145657"
+          },
+          {
+            "version": "20260311145658"
+          },
+          {
+            "version": "20260311145659"
+          },
+          {
+            "version": "20260311145660"
+          },
+          {
+            "version": "20260311145661"
+          },
+          {
+            "version": "20260311145662"
+          },
+          {
+            "version": "20260316000001"
+          },
+          {
+            "version": "20260320042623"
+          },
+          {
+            "version": "20260322140051"
+          },
+          {
+            "version": "20260323052902"
+          },
+          {
+            "version": "20260324132010"
+          },
+          {
+            "version": "20260325183549"
+          },
+          {
+            "version": "20260325221615"
+          },
+          {
+            "version": "20260413120000"
+          },
+          {
+            "version": "20260413140000"
+          },
+          {
+            "version": "20260413150000"
+          },
+          {
+            "version": "20260520000000"
+          },
+          {
+            "version": "20260524000000"
+          },
+          {
+            "version": "20260527000000"
+          },
+          {
+            "version": "20260527001000"
+          },
+          {
+            "version": "20260527002000"
+          },
+          {
+            "version": "20260529001000"
+          },
+          {
+            "version": "20260530000000"
+          },
+          {
+            "version": "20260603222643"
+          },
+          {
+            "version": "20260603231515"
+          },
+          {
+            "version": "20260603234747"
+          },
+          {
+            "version": "20260624081139"
+          },
+          {
+            "version": "20260706170000"
+          },
+          {
+            "version": "20260727120000"
+          },
+          {
+            "version": "20260806001012"
+          },
+          {
+            "version": "20260808225248"
+          },
+          {
+            "version": "20260808230550"
+          },
+          {
+            "version": "20260810120000"
+          },
+          {
+            "version": "20260815120000"
+          },
+          {
+            "version": "20260815130000"
+          },
+          {
+            "version": "20260815140000"
+          },
+          {
+            "version": "20260815150000"
+          },
+          {
+            "version": "20260815150050"
+          },
+          {
+            "version": "20260815150060"
+          },
+          {
+            "version": "20260815150100"
+          },
+          {
+            "version": "20260815160000"
+          },
+          {
+            "version": "20260815170000"
+          },
+          {
+            "version": "20260815170100"
+          },
+          {
+            "version": "20260818120000"
+          },
+          {
+            "version": "20260821120000"
+          },
+          {
+            "version": "20260821220432"
+          },
+          {
+            "version": "20260822100000"
+          },
+          {
+            "version": "20260823120000"
+          },
+          {
+            "version": "20260824120000"
+          },
+          {
+            "version": "20260824130000"
+          },
+          {
+            "version": "20260824140000"
+          },
+          {
+            "version": "20260825060000"
+          },
+          {
+            "version": "20260825120000"
+          },
+          {
+            "version": "20260825200000"
+          },
+          {
+            "version": "20260826090000"
+          },
+          {
+            "version": "20260826140000"
+          },
+          {
+            "version": "20260828094446"
+          },
+          {
+            "version": "20260828095813"
+          },
+          {
+            "version": "20260828175918"
+          },
+          {
+            "version": "20260829132450"
+          },
+          {
+            "version": "20260830120000"
+          },
+          {
+            "version": "20260830210000"
+          },
+          {
+            "version": "20260830230000"
+          },
+          {
+            "version": "20260905190000"
+          },
+          {
+            "version": "20260907100000"
+          },
+          {
+            "version": "20260907110000"
+          },
+          {
+            "version": "20260908090000"
+          },
+          {
+            "version": "20260908091000"
+          },
+          {
+            "version": "20260908120000"
+          },
+          {
+            "version": "20260908130000"
+          },
+          {
+            "version": "20260918090000"
+          },
+          {
+            "version": "20260918120000"
+          },
+          {
+            "version": "20260918150000"
+          },
+          {
+            "version": "20260921120000"
+          },
+          {
+            "version": "20260921180000"
+          },
+          {
+            "version": "20260928120000"
+          },
+          {
+            "version": "20260929120000"
+          },
+          {
+            "version": "20261006100000"
+          },
+          {
+            "version": "20261009120000"
+          },
+          {
+            "version": "20261009130000"
+          },
+          {
+            "version": "20261011170000"
+          },
+          {
+            "version": "20261014120000"
+          },
+          {
+            "version": "20261015120000"
+          },
+          {
+            "version": "20261016120000"
+          },
+          {
+            "version": "20261016130000"
+          },
+          {
+            "version": "20261016140000"
+          },
+          {
+            "version": "20261017100000"
+          }
+        ],
+        "setting_flags": [],
+        "tickers": [],
+        "wash_sale_locks": []
+      },
+      "other_rows_after": {
+        "account_balances": [],
+        "account_transactions": [],
+        "action_mcp_session_messages": [],
+        "action_mcp_session_subscriptions": [],
+        "action_mcp_session_tasks": [],
+        "action_mcp_sessions": [],
+        "app_configs": [
+          {
+            "id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_provider",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"lJk9//6cbZ1zZDA=\",\"h\":{\"iv\":\"sKiktbnYikWIjog2\",\"at\":\"OJ2FZXvWaTyGOFovGjeA4A==\"}}"
+          },
+          {
+            "id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_url",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"3ckTA4j5QFtwIxBzRi6r9coj\",\"h\":{\"iv\":\"/DDcMRoYkn1k0CY3\",\"at\":\"GERekQ0DMhsF5ORAGo2Scw==\"}}"
+          },
+          {
+            "id": 3,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_token",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"1AxOIf0JOe0fQ+4n4lz17QtsMxPsyshHQA==\",\"h\":{\"iv\":\"r5+VfYi2eZtJbTJf\",\"at\":\"BSejUAbuILrEAAlHrmvp9g==\"}}"
+          }
+        ],
+        "ar_internal_metadata": [
+          {
+            "key": "environment",
+            "value": "production",
+            "created_at": "2026-11-16 07:49:30.385",
+            "updated_at": "2026-11-16 07:49:30.385"
+          }
+        ],
+        "assets": [],
+        "bot_signals": [],
+        "connected_clients": [],
+        "exchange_assets": [],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0",
+            "name": "Alpaca",
+            "taker_fee": "0",
+            "type": "Exchanges::Alpaca",
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "fee_api_keys": [],
+        "fund_classifications": [],
+        "fx_rates": [
+          {
+            "id": 1,
+            "currency": "USD",
+            "date": "2026-09-10",
+            "rate": {
+              "__sqlite_real__": "3ff199999999999a"
+            }
+          }
+        ],
+        "historical_prices": [],
+        "ibkr_locks": [],
+        "idempotency_keys": [],
+        "indices": [],
+        "oauth_access_grants": [],
+        "oauth_access_tokens": [],
+        "oauth_applications": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "rule_logs": [],
+        "rules": [],
+        "schema_migrations": [
+          {
+            "version": "20260102171555"
+          },
+          {
+            "version": "20260103000001"
+          },
+          {
+            "version": "20260104194208"
+          },
+          {
+            "version": "20260106111301"
+          },
+          {
+            "version": "20260106111302"
+          },
+          {
+            "version": "20260106115209"
+          },
+          {
+            "version": "20260106162140"
+          },
+          {
+            "version": "20260109050047"
+          },
+          {
+            "version": "20260114145256"
+          },
+          {
+            "version": "20260114154223"
+          },
+          {
+            "version": "20260126141242"
+          },
+          {
+            "version": "20260126145012"
+          },
+          {
+            "version": "20260127112431"
+          },
+          {
+            "version": "20260127164433"
+          },
+          {
+            "version": "20260128000001"
+          },
+          {
+            "version": "20260129111946"
+          },
+          {
+            "version": "20260129142740"
+          },
+          {
+            "version": "20260130114825"
+          },
+          {
+            "version": "20260203191449"
+          },
+          {
+            "version": "20260208114731"
+          },
+          {
+            "version": "20260217100000"
+          },
+          {
+            "version": "20260217100001"
+          },
+          {
+            "version": "20260219100000"
+          },
+          {
+            "version": "20260219110000"
+          },
+          {
+            "version": "20260219120000"
+          },
+          {
+            "version": "20260219130000"
+          },
+          {
+            "version": "20260224065811"
+          },
+          {
+            "version": "20260226000000"
+          },
+          {
+            "version": "20260227171710"
+          },
+          {
+            "version": "20260228130833"
+          },
+          {
+            "version": "20260228145540"
+          },
+          {
+            "version": "20260228152720"
+          },
+          {
+            "version": "20260308090843"
+          },
+          {
+            "version": "20260311145654"
+          },
+          {
+            "version": "20260311145655"
+          },
+          {
+            "version": "20260311145656"
+          },
+          {
+            "version": "20260311145657"
+          },
+          {
+            "version": "20260311145658"
+          },
+          {
+            "version": "20260311145659"
+          },
+          {
+            "version": "20260311145660"
+          },
+          {
+            "version": "20260311145661"
+          },
+          {
+            "version": "20260311145662"
+          },
+          {
+            "version": "20260316000001"
+          },
+          {
+            "version": "20260320042623"
+          },
+          {
+            "version": "20260322140051"
+          },
+          {
+            "version": "20260323052902"
+          },
+          {
+            "version": "20260324132010"
+          },
+          {
+            "version": "20260325183549"
+          },
+          {
+            "version": "20260325221615"
+          },
+          {
+            "version": "20260413120000"
+          },
+          {
+            "version": "20260413140000"
+          },
+          {
+            "version": "20260413150000"
+          },
+          {
+            "version": "20260520000000"
+          },
+          {
+            "version": "20260524000000"
+          },
+          {
+            "version": "20260527000000"
+          },
+          {
+            "version": "20260527001000"
+          },
+          {
+            "version": "20260527002000"
+          },
+          {
+            "version": "20260529001000"
+          },
+          {
+            "version": "20260530000000"
+          },
+          {
+            "version": "20260603222643"
+          },
+          {
+            "version": "20260603231515"
+          },
+          {
+            "version": "20260603234747"
+          },
+          {
+            "version": "20260624081139"
+          },
+          {
+            "version": "20260706170000"
+          },
+          {
+            "version": "20260727120000"
+          },
+          {
+            "version": "20260806001012"
+          },
+          {
+            "version": "20260808225248"
+          },
+          {
+            "version": "20260808230550"
+          },
+          {
+            "version": "20260810120000"
+          },
+          {
+            "version": "20260815120000"
+          },
+          {
+            "version": "20260815130000"
+          },
+          {
+            "version": "20260815140000"
+          },
+          {
+            "version": "20260815150000"
+          },
+          {
+            "version": "20260815150050"
+          },
+          {
+            "version": "20260815150060"
+          },
+          {
+            "version": "20260815150100"
+          },
+          {
+            "version": "20260815160000"
+          },
+          {
+            "version": "20260815170000"
+          },
+          {
+            "version": "20260815170100"
+          },
+          {
+            "version": "20260818120000"
+          },
+          {
+            "version": "20260821120000"
+          },
+          {
+            "version": "20260821220432"
+          },
+          {
+            "version": "20260822100000"
+          },
+          {
+            "version": "20260823120000"
+          },
+          {
+            "version": "20260824120000"
+          },
+          {
+            "version": "20260824130000"
+          },
+          {
+            "version": "20260824140000"
+          },
+          {
+            "version": "20260825060000"
+          },
+          {
+            "version": "20260825120000"
+          },
+          {
+            "version": "20260825200000"
+          },
+          {
+            "version": "20260826090000"
+          },
+          {
+            "version": "20260826140000"
+          },
+          {
+            "version": "20260828094446"
+          },
+          {
+            "version": "20260828095813"
+          },
+          {
+            "version": "20260828175918"
+          },
+          {
+            "version": "20260829132450"
+          },
+          {
+            "version": "20260830120000"
+          },
+          {
+            "version": "20260830210000"
+          },
+          {
+            "version": "20260830230000"
+          },
+          {
+            "version": "20260905190000"
+          },
+          {
+            "version": "20260907100000"
+          },
+          {
+            "version": "20260907110000"
+          },
+          {
+            "version": "20260908090000"
+          },
+          {
+            "version": "20260908091000"
+          },
+          {
+            "version": "20260908120000"
+          },
+          {
+            "version": "20260908130000"
+          },
+          {
+            "version": "20260918090000"
+          },
+          {
+            "version": "20260918120000"
+          },
+          {
+            "version": "20260918150000"
+          },
+          {
+            "version": "20260921120000"
+          },
+          {
+            "version": "20260921180000"
+          },
+          {
+            "version": "20260928120000"
+          },
+          {
+            "version": "20260929120000"
+          },
+          {
+            "version": "20261006100000"
+          },
+          {
+            "version": "20261009120000"
+          },
+          {
+            "version": "20261009130000"
+          },
+          {
+            "version": "20261011170000"
+          },
+          {
+            "version": "20261014120000"
+          },
+          {
+            "version": "20261015120000"
+          },
+          {
+            "version": "20261016120000"
+          },
+          {
+            "version": "20261016130000"
+          },
+          {
+            "version": "20261016140000"
+          },
+          {
+            "version": "20261017100000"
+          }
+        ],
+        "setting_flags": [],
+        "tickers": [],
+        "wash_sale_locks": []
+      },
+      "jobs": [
+        {
+          "job_class": "Tracker::LedgerJob",
+          "job_id": "e5e26bab-ea40-4713-9137-76433c5326ec",
+          "provider_job_id": null,
+          "queue_name": "low_priority",
+          "priority": null,
+          "arguments": [
+            1
+          ],
+          "executions": 0,
+          "exception_executions": {},
+          "locale": "en",
+          "timezone": "UTC",
+          "enqueued_at": "2026-09-10T12:00:30.123456000Z",
+          "scheduled_at": null,
+          "args": [
+            1
+          ],
+          "queue": "low_priority",
+          "priority": null
+        },
+        {
+          "job_class": "PortfolioSnapshot::BackfillJob",
+          "job_id": "00ced89c-6ef7-4ffb-982b-858f9cad6dc2",
+          "provider_job_id": null,
+          "queue_name": "low_priority",
+          "priority": null,
+          "arguments": [
+            1
+          ],
+          "executions": 0,
+          "exception_executions": {},
+          "locale": "en",
+          "timezone": "UTC",
+          "enqueued_at": "2026-09-10T12:00:30.123456000Z",
+          "scheduled_at": null,
+          "args": [
+            1
+          ],
+          "queue": "low_priority",
+          "priority": null
+        }
+      ]
+    },
+    {
+      "status": 204,
+      "headers": {
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-gDJSHtR9OlLBJc9tsQ8EsQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=iMVw5d2hvyHCOixuC%2FgXpSOb0bDUHV8Yb5PCtEvY551A3Wszh2uipMypljIBQlFtMlLIYW2stmqmIF6%2FxoT0cMh%2Falm9DEB1hd5yNIxAA8kCsBR4upfjX9Lk838qXu%2BJ%2BBAUdf7qvtBbV4WJ4xTBpKczZnRKZ5Z6NmtXXHahYe3lSdbKHU5zsfxT8HNhguysRLulgEWLR0uy5riKLDCZgB8QZ7bfb5IXc4hXsQX8cadNA%2BQWNPXp9Y9Z8JaWZU3uRdOHBkAYf08bgbaFGIOTSxYX6O3s4xjw9PXgvBmGhmCK6mFeTYAvQDlC%2F0J3YBk2NIFTpVuO7oC3ZEBolpfxBwV7RTIOFvNizdBaVfkkqRPl9177tC6Ux%2BETUzmWFE9oyU3FlYWgwK5TLodS5S%2FRvW%2B4lieru3aeBCddjUcR3AuxNFy5pGVYqn74HJjPx5oFstL8gxOMgA134UTVrXe9pm2u3SeNVA%3D%3D--vh1uL%2BnlLlNV4yOP--ANN7%2F4PizWVm92DurFUFaQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": false,
+      "action_snapshot": true,
+      "rows_before": {
+        "bots": [],
+        "bot_index_assets": [],
+        "bot_activity_logs": [],
+        "transactions": [],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-01 00:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": "synthetic-d5-paper-key",
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": "synthetic-d5-paper-secret",
+            "status": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          }
+        ],
+        "users": [
+          {
+            "id": 1,
+            "admin": 1,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-01 00:00:00",
+            "created_at": "2026-01-01 00:00:00",
+            "display_currency": "USD",
+            "email": "owner@example.com",
+            "encrypted_password": "$2a$04$aRcTFQrqOhVsRqERhP0XU.hgTGISDgBxge.kF9xTElwlaxWsa8uzG",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Owner",
+            "otp_module": 0,
+            "otp_secret_key": "BISXEWNE7MRAC6M6RQPMQ4GQQLOHUXPV",
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 1,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "Tallinn",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-01 00:00:00",
+            "wash_sale_enabled": 0,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "account_transactions": [],
+        "account_balances": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "fund_classifications": [],
+        "historical_prices": [],
+        "fx_rates": [
+          {
+            "id": 1,
+            "currency": "USD",
+            "date": "2026-09-10",
+            "rate": {
+              "__sqlite_real__": "3ff199999999999a"
+            }
+          }
+        ]
+      },
+      "rows_after": {
+        "bots": [],
+        "bot_index_assets": [],
+        "bot_activity_logs": [],
+        "transactions": [],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-01 00:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": "synthetic-d5-paper-key",
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": null,
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": "synthetic-d5-paper-secret",
+            "status": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          }
+        ],
+        "users": [
+          {
+            "id": 1,
+            "admin": 1,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-01 00:00:00",
+            "created_at": "2026-01-01 00:00:00",
+            "display_currency": "USD",
+            "email": "owner@example.com",
+            "encrypted_password": "$2a$04$aRcTFQrqOhVsRqERhP0XU.hgTGISDgBxge.kF9xTElwlaxWsa8uzG",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Owner",
+            "otp_module": 0,
+            "otp_secret_key": "BISXEWNE7MRAC6M6RQPMQ4GQQLOHUXPV",
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 1,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "Tallinn",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-01 00:00:00",
+            "wash_sale_enabled": 0,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ],
+        "account_transactions": [],
+        "account_balances": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "fund_classifications": [],
+        "historical_prices": [],
+        "fx_rates": [
+          {
+            "id": 1,
+            "currency": "USD",
+            "date": "2026-09-10",
+            "rate": {
+              "__sqlite_real__": "3ff199999999999a"
+            }
+          }
+        ]
+      },
+      "other_rows_before": {
+        "account_balances": [],
+        "account_transactions": [],
+        "action_mcp_session_messages": [],
+        "action_mcp_session_subscriptions": [],
+        "action_mcp_session_tasks": [],
+        "action_mcp_sessions": [],
+        "app_configs": [
+          {
+            "id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_provider",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"lJk9//6cbZ1zZDA=\",\"h\":{\"iv\":\"sKiktbnYikWIjog2\",\"at\":\"OJ2FZXvWaTyGOFovGjeA4A==\"}}"
+          },
+          {
+            "id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_url",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"3ckTA4j5QFtwIxBzRi6r9coj\",\"h\":{\"iv\":\"/DDcMRoYkn1k0CY3\",\"at\":\"GERekQ0DMhsF5ORAGo2Scw==\"}}"
+          },
+          {
+            "id": 3,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_token",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"1AxOIf0JOe0fQ+4n4lz17QtsMxPsyshHQA==\",\"h\":{\"iv\":\"r5+VfYi2eZtJbTJf\",\"at\":\"BSejUAbuILrEAAlHrmvp9g==\"}}"
+          }
+        ],
+        "ar_internal_metadata": [
+          {
+            "key": "environment",
+            "value": "production",
+            "created_at": "2026-11-16 07:49:30.385",
+            "updated_at": "2026-11-16 07:49:30.385"
+          }
+        ],
+        "assets": [],
+        "bot_signals": [],
+        "connected_clients": [],
+        "exchange_assets": [],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0",
+            "name": "Alpaca",
+            "taker_fee": "0",
+            "type": "Exchanges::Alpaca",
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "fee_api_keys": [],
+        "fund_classifications": [],
+        "fx_rates": [
+          {
+            "id": 1,
+            "currency": "USD",
+            "date": "2026-09-10",
+            "rate": {
+              "__sqlite_real__": "3ff199999999999a"
+            }
+          }
+        ],
+        "historical_prices": [],
+        "ibkr_locks": [],
+        "idempotency_keys": [],
+        "indices": [],
+        "oauth_access_grants": [],
+        "oauth_access_tokens": [],
+        "oauth_applications": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "rule_logs": [],
+        "rules": [],
+        "schema_migrations": [
+          {
+            "version": "20260102171555"
+          },
+          {
+            "version": "20260103000001"
+          },
+          {
+            "version": "20260104194208"
+          },
+          {
+            "version": "20260106111301"
+          },
+          {
+            "version": "20260106111302"
+          },
+          {
+            "version": "20260106115209"
+          },
+          {
+            "version": "20260106162140"
+          },
+          {
+            "version": "20260109050047"
+          },
+          {
+            "version": "20260114145256"
+          },
+          {
+            "version": "20260114154223"
+          },
+          {
+            "version": "20260126141242"
+          },
+          {
+            "version": "20260126145012"
+          },
+          {
+            "version": "20260127112431"
+          },
+          {
+            "version": "20260127164433"
+          },
+          {
+            "version": "20260128000001"
+          },
+          {
+            "version": "20260129111946"
+          },
+          {
+            "version": "20260129142740"
+          },
+          {
+            "version": "20260130114825"
+          },
+          {
+            "version": "20260203191449"
+          },
+          {
+            "version": "20260208114731"
+          },
+          {
+            "version": "20260217100000"
+          },
+          {
+            "version": "20260217100001"
+          },
+          {
+            "version": "20260219100000"
+          },
+          {
+            "version": "20260219110000"
+          },
+          {
+            "version": "20260219120000"
+          },
+          {
+            "version": "20260219130000"
+          },
+          {
+            "version": "20260224065811"
+          },
+          {
+            "version": "20260226000000"
+          },
+          {
+            "version": "20260227171710"
+          },
+          {
+            "version": "20260228130833"
+          },
+          {
+            "version": "20260228145540"
+          },
+          {
+            "version": "20260228152720"
+          },
+          {
+            "version": "20260308090843"
+          },
+          {
+            "version": "20260311145654"
+          },
+          {
+            "version": "20260311145655"
+          },
+          {
+            "version": "20260311145656"
+          },
+          {
+            "version": "20260311145657"
+          },
+          {
+            "version": "20260311145658"
+          },
+          {
+            "version": "20260311145659"
+          },
+          {
+            "version": "20260311145660"
+          },
+          {
+            "version": "20260311145661"
+          },
+          {
+            "version": "20260311145662"
+          },
+          {
+            "version": "20260316000001"
+          },
+          {
+            "version": "20260320042623"
+          },
+          {
+            "version": "20260322140051"
+          },
+          {
+            "version": "20260323052902"
+          },
+          {
+            "version": "20260324132010"
+          },
+          {
+            "version": "20260325183549"
+          },
+          {
+            "version": "20260325221615"
+          },
+          {
+            "version": "20260413120000"
+          },
+          {
+            "version": "20260413140000"
+          },
+          {
+            "version": "20260413150000"
+          },
+          {
+            "version": "20260520000000"
+          },
+          {
+            "version": "20260524000000"
+          },
+          {
+            "version": "20260527000000"
+          },
+          {
+            "version": "20260527001000"
+          },
+          {
+            "version": "20260527002000"
+          },
+          {
+            "version": "20260529001000"
+          },
+          {
+            "version": "20260530000000"
+          },
+          {
+            "version": "20260603222643"
+          },
+          {
+            "version": "20260603231515"
+          },
+          {
+            "version": "20260603234747"
+          },
+          {
+            "version": "20260624081139"
+          },
+          {
+            "version": "20260706170000"
+          },
+          {
+            "version": "20260727120000"
+          },
+          {
+            "version": "20260806001012"
+          },
+          {
+            "version": "20260808225248"
+          },
+          {
+            "version": "20260808230550"
+          },
+          {
+            "version": "20260810120000"
+          },
+          {
+            "version": "20260815120000"
+          },
+          {
+            "version": "20260815130000"
+          },
+          {
+            "version": "20260815140000"
+          },
+          {
+            "version": "20260815150000"
+          },
+          {
+            "version": "20260815150050"
+          },
+          {
+            "version": "20260815150060"
+          },
+          {
+            "version": "20260815150100"
+          },
+          {
+            "version": "20260815160000"
+          },
+          {
+            "version": "20260815170000"
+          },
+          {
+            "version": "20260815170100"
+          },
+          {
+            "version": "20260818120000"
+          },
+          {
+            "version": "20260821120000"
+          },
+          {
+            "version": "20260821220432"
+          },
+          {
+            "version": "20260822100000"
+          },
+          {
+            "version": "20260823120000"
+          },
+          {
+            "version": "20260824120000"
+          },
+          {
+            "version": "20260824130000"
+          },
+          {
+            "version": "20260824140000"
+          },
+          {
+            "version": "20260825060000"
+          },
+          {
+            "version": "20260825120000"
+          },
+          {
+            "version": "20260825200000"
+          },
+          {
+            "version": "20260826090000"
+          },
+          {
+            "version": "20260826140000"
+          },
+          {
+            "version": "20260828094446"
+          },
+          {
+            "version": "20260828095813"
+          },
+          {
+            "version": "20260828175918"
+          },
+          {
+            "version": "20260829132450"
+          },
+          {
+            "version": "20260830120000"
+          },
+          {
+            "version": "20260830210000"
+          },
+          {
+            "version": "20260830230000"
+          },
+          {
+            "version": "20260905190000"
+          },
+          {
+            "version": "20260907100000"
+          },
+          {
+            "version": "20260907110000"
+          },
+          {
+            "version": "20260908090000"
+          },
+          {
+            "version": "20260908091000"
+          },
+          {
+            "version": "20260908120000"
+          },
+          {
+            "version": "20260908130000"
+          },
+          {
+            "version": "20260918090000"
+          },
+          {
+            "version": "20260918120000"
+          },
+          {
+            "version": "20260918150000"
+          },
+          {
+            "version": "20260921120000"
+          },
+          {
+            "version": "20260921180000"
+          },
+          {
+            "version": "20260928120000"
+          },
+          {
+            "version": "20260929120000"
+          },
+          {
+            "version": "20261006100000"
+          },
+          {
+            "version": "20261009120000"
+          },
+          {
+            "version": "20261009130000"
+          },
+          {
+            "version": "20261011170000"
+          },
+          {
+            "version": "20261014120000"
+          },
+          {
+            "version": "20261015120000"
+          },
+          {
+            "version": "20261016120000"
+          },
+          {
+            "version": "20261016130000"
+          },
+          {
+            "version": "20261016140000"
+          },
+          {
+            "version": "20261017100000"
+          }
+        ],
+        "setting_flags": [],
+        "tickers": [],
+        "wash_sale_locks": []
+      },
+      "other_rows_after": {
+        "account_balances": [],
+        "account_transactions": [],
+        "action_mcp_session_messages": [],
+        "action_mcp_session_subscriptions": [],
+        "action_mcp_session_tasks": [],
+        "action_mcp_sessions": [],
+        "app_configs": [
+          {
+            "id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_provider",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"lJk9//6cbZ1zZDA=\",\"h\":{\"iv\":\"sKiktbnYikWIjog2\",\"at\":\"OJ2FZXvWaTyGOFovGjeA4A==\"}}"
+          },
+          {
+            "id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_url",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"3ckTA4j5QFtwIxBzRi6r9coj\",\"h\":{\"iv\":\"/DDcMRoYkn1k0CY3\",\"at\":\"GERekQ0DMhsF5ORAGo2Scw==\"}}"
+          },
+          {
+            "id": 3,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_token",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"1AxOIf0JOe0fQ+4n4lz17QtsMxPsyshHQA==\",\"h\":{\"iv\":\"r5+VfYi2eZtJbTJf\",\"at\":\"BSejUAbuILrEAAlHrmvp9g==\"}}"
+          }
+        ],
+        "ar_internal_metadata": [
+          {
+            "key": "environment",
+            "value": "production",
+            "created_at": "2026-11-16 07:49:30.385",
+            "updated_at": "2026-11-16 07:49:30.385"
+          }
+        ],
+        "assets": [],
+        "bot_signals": [],
+        "connected_clients": [],
+        "exchange_assets": [],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0",
+            "name": "Alpaca",
+            "taker_fee": "0",
+            "type": "Exchanges::Alpaca",
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "fee_api_keys": [],
+        "fund_classifications": [],
+        "fx_rates": [
+          {
+            "id": 1,
+            "currency": "USD",
+            "date": "2026-09-10",
+            "rate": {
+              "__sqlite_real__": "3ff199999999999a"
+            }
+          }
+        ],
+        "historical_prices": [],
+        "ibkr_locks": [],
+        "idempotency_keys": [],
+        "indices": [],
+        "oauth_access_grants": [],
+        "oauth_access_tokens": [],
+        "oauth_applications": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "rule_logs": [],
+        "rules": [],
+        "schema_migrations": [
+          {
+            "version": "20260102171555"
+          },
+          {
+            "version": "20260103000001"
+          },
+          {
+            "version": "20260104194208"
+          },
+          {
+            "version": "20260106111301"
+          },
+          {
+            "version": "20260106111302"
+          },
+          {
+            "version": "20260106115209"
+          },
+          {
+            "version": "20260106162140"
+          },
+          {
+            "version": "20260109050047"
+          },
+          {
+            "version": "20260114145256"
+          },
+          {
+            "version": "20260114154223"
+          },
+          {
+            "version": "20260126141242"
+          },
+          {
+            "version": "20260126145012"
+          },
+          {
+            "version": "20260127112431"
+          },
+          {
+            "version": "20260127164433"
+          },
+          {
+            "version": "20260128000001"
+          },
+          {
+            "version": "20260129111946"
+          },
+          {
+            "version": "20260129142740"
+          },
+          {
+            "version": "20260130114825"
+          },
+          {
+            "version": "20260203191449"
+          },
+          {
+            "version": "20260208114731"
+          },
+          {
+            "version": "20260217100000"
+          },
+          {
+            "version": "20260217100001"
+          },
+          {
+            "version": "20260219100000"
+          },
+          {
+            "version": "20260219110000"
+          },
+          {
+            "version": "20260219120000"
+          },
+          {
+            "version": "20260219130000"
+          },
+          {
+            "version": "20260224065811"
+          },
+          {
+            "version": "20260226000000"
+          },
+          {
+            "version": "20260227171710"
+          },
+          {
+            "version": "20260228130833"
+          },
+          {
+            "version": "20260228145540"
+          },
+          {
+            "version": "20260228152720"
+          },
+          {
+            "version": "20260308090843"
+          },
+          {
+            "version": "20260311145654"
+          },
+          {
+            "version": "20260311145655"
+          },
+          {
+            "version": "20260311145656"
+          },
+          {
+            "version": "20260311145657"
+          },
+          {
+            "version": "20260311145658"
+          },
+          {
+            "version": "20260311145659"
+          },
+          {
+            "version": "20260311145660"
+          },
+          {
+            "version": "20260311145661"
+          },
+          {
+            "version": "20260311145662"
+          },
+          {
+            "version": "20260316000001"
+          },
+          {
+            "version": "20260320042623"
+          },
+          {
+            "version": "20260322140051"
+          },
+          {
+            "version": "20260323052902"
+          },
+          {
+            "version": "20260324132010"
+          },
+          {
+            "version": "20260325183549"
+          },
+          {
+            "version": "20260325221615"
+          },
+          {
+            "version": "20260413120000"
+          },
+          {
+            "version": "20260413140000"
+          },
+          {
+            "version": "20260413150000"
+          },
+          {
+            "version": "20260520000000"
+          },
+          {
+            "version": "20260524000000"
+          },
+          {
+            "version": "20260527000000"
+          },
+          {
+            "version": "20260527001000"
+          },
+          {
+            "version": "20260527002000"
+          },
+          {
+            "version": "20260529001000"
+          },
+          {
+            "version": "20260530000000"
+          },
+          {
+            "version": "20260603222643"
+          },
+          {
+            "version": "20260603231515"
+          },
+          {
+            "version": "20260603234747"
+          },
+          {
+            "version": "20260624081139"
+          },
+          {
+            "version": "20260706170000"
+          },
+          {
+            "version": "20260727120000"
+          },
+          {
+            "version": "20260806001012"
+          },
+          {
+            "version": "20260808225248"
+          },
+          {
+            "version": "20260808230550"
+          },
+          {
+            "version": "20260810120000"
+          },
+          {
+            "version": "20260815120000"
+          },
+          {
+            "version": "20260815130000"
+          },
+          {
+            "version": "20260815140000"
+          },
+          {
+            "version": "20260815150000"
+          },
+          {
+            "version": "20260815150050"
+          },
+          {
+            "version": "20260815150060"
+          },
+          {
+            "version": "20260815150100"
+          },
+          {
+            "version": "20260815160000"
+          },
+          {
+            "version": "20260815170000"
+          },
+          {
+            "version": "20260815170100"
+          },
+          {
+            "version": "20260818120000"
+          },
+          {
+            "version": "20260821120000"
+          },
+          {
+            "version": "20260821220432"
+          },
+          {
+            "version": "20260822100000"
+          },
+          {
+            "version": "20260823120000"
+          },
+          {
+            "version": "20260824120000"
+          },
+          {
+            "version": "20260824130000"
+          },
+          {
+            "version": "20260824140000"
+          },
+          {
+            "version": "20260825060000"
+          },
+          {
+            "version": "20260825120000"
+          },
+          {
+            "version": "20260825200000"
+          },
+          {
+            "version": "20260826090000"
+          },
+          {
+            "version": "20260826140000"
+          },
+          {
+            "version": "20260828094446"
+          },
+          {
+            "version": "20260828095813"
+          },
+          {
+            "version": "20260828175918"
+          },
+          {
+            "version": "20260829132450"
+          },
+          {
+            "version": "20260830120000"
+          },
+          {
+            "version": "20260830210000"
+          },
+          {
+            "version": "20260830230000"
+          },
+          {
+            "version": "20260905190000"
+          },
+          {
+            "version": "20260907100000"
+          },
+          {
+            "version": "20260907110000"
+          },
+          {
+            "version": "20260908090000"
+          },
+          {
+            "version": "20260908091000"
+          },
+          {
+            "version": "20260908120000"
+          },
+          {
+            "version": "20260908130000"
+          },
+          {
+            "version": "20260918090000"
+          },
+          {
+            "version": "20260918120000"
+          },
+          {
+            "version": "20260918150000"
+          },
+          {
+            "version": "20260921120000"
+          },
+          {
+            "version": "20260921180000"
+          },
+          {
+            "version": "20260928120000"
+          },
+          {
+            "version": "20260929120000"
+          },
+          {
+            "version": "20261006100000"
+          },
+          {
+            "version": "20261009120000"
+          },
+          {
+            "version": "20261009130000"
+          },
+          {
+            "version": "20261011170000"
+          },
+          {
+            "version": "20261014120000"
+          },
+          {
+            "version": "20261015120000"
+          },
+          {
+            "version": "20261016120000"
+          },
+          {
+            "version": "20261016130000"
+          },
+          {
+            "version": "20261016140000"
+          },
+          {
+            "version": "20261017100000"
+          }
+        ],
+        "setting_flags": [],
+        "tickers": [],
+        "wash_sale_locks": []
+      },
+      "jobs": []
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "failed_attempts": 0,
+      "locked_at": null,
+      "last_otp_at": null,
+      "remember_created_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "bots": [],
+  "network": []
+}

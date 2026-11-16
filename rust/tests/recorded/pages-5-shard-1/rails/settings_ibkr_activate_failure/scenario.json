@@ -1,0 +1,53 @@
+{
+  "page_parity_scratch": true,
+  "at": "2026-09-10T12:00:30.123456Z",
+  "secret_key_base": "61a30e26004ff1e25ced6c8a0629bdcef5e7bdf90db030ffb7d5f8045d9b04d14c830dfd2fd0312fe655dcbd6f9287a4777420c0f285baf8bf8363797db44997",
+  "steps": [
+    {
+      "method": "GET",
+      "path": "/login",
+      "headers": {}
+    },
+    {
+      "method": "POST",
+      "path": "/login",
+      "form": {
+        "user[email]": "owner@example.com",
+        "user[password]": "Correct-horse-9",
+        "user[remember_me]": "0"
+      },
+      "csrf": "form",
+      "headers": {}
+    },
+    {
+      "method": "GET",
+      "path": "/settings/account",
+      "headers": {}
+    },
+    {
+      "method": "GET",
+      "path": "/settings/ibkr_connect",
+      "headers": {}
+    },
+    {
+      "method": "POST",
+      "path": "/settings/ibkr_connect/activate",
+      "form": {
+        "api_key[key]": "TESTCONS1",
+        "api_key[access_token]": "tok-failure",
+        "api_key[secret]": "1rG72UGu2A5qtQ/g6Q8Z8YxMf8e5ecY6WojX9EfPHQ4BcOpUD+heEg2JU8YE9WF0p+vQvGS3PNA6PG4IVUcbWMYBx2bAABw+/O43sxmxYrc1jBap0UtNqde2gT8XhS/kRk3qz/l++5+DIoK3yYP7y3+7oVe9ljKxL/II/5o3n75/AzzfX4BctfXLQbwPaJsdTLzYVCbM7nZo5NY3tPVkUg0qUeCYRks1qYrFTvsilk0qF/X0+KNrPR6PL7wl7MPvD9QOziVU8a2bXGAmVrDRxZeegJtqyyFVXytFjRYZ1nADYDWE72MZcKLq5F0ojbOTv43KG0j4aCEBtB3qqiUKZw=="
+      },
+      "csrf": "form",
+      "headers": {},
+      "expect": 302,
+      "settings_snapshot": true
+    },
+    {
+      "method": "GET",
+      "path": "/settings/ibkr_connect",
+      "headers": {}
+    }
+  ],
+  "expect_users": {},
+  "jobs": {}
+}

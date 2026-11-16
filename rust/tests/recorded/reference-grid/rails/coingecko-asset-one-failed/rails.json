@@ -1,0 +1,15 @@
+{
+  "requests": [
+    "GET pro-api.coingecko.com/api/v3/ping",
+    "GET api.coingecko.com/api/v3/coins/ethereum?community_data=false&developer_data=false&localization=false&market_data=true&sparkline=false&tickers=false"
+  ],
+  "retry": false,
+  "changes": {
+    "assets": [],
+    "tickers": [],
+    "exchange_assets": [],
+    "indices": [],
+    "bot_activity_logs": [],
+    "app_configs": []
+  }
+}

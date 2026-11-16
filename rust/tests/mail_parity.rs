@@ -73,9 +73,13 @@ fn build(c: &Connection, case: &Value) -> Message {
 
 #[test]
 fn rails_and_rust_build_the_same_mails_across_the_grid() {
-    let (scratch, dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-    common::rails(scratch.path(), "test", &["runner", "script/rust/schema_template.rb"]);
-    common::rails(scratch.path(), "test", &["runner", "script/rust/mails.rb", dir.path().to_str().unwrap()]);
+    let dir = tempfile::tempdir().unwrap();
+    let frozen = common::frozen("mails", |d| d.join("cases.json").is_file(), |out| {
+        let scratch = tempfile::tempdir().unwrap();
+        common::rails(scratch.path(), "test", &["runner", "script/rust/schema_template.rb"]);
+        common::rails(scratch.path(), "test", &["runner", "script/rust/mails.rb", out.to_str().unwrap()]);
+    });
+    common::copy_tree(&frozen, dir.path());
     let cases: Vec<Value> = serde_json::from_str(&std::fs::read_to_string(dir.path().join("cases.json")).unwrap()).unwrap();
     assert_eq!(cases.len(), 234, "the grid has {} mails", cases.len());
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();

@@ -1,0 +1,236 @@
+{
+  "requests": [
+    "GET /api/v1/tickers/kraken",
+    "GET /api/v1/tickers/binance"
+  ],
+  "retry": false,
+  "changes": {
+    "assets": [],
+    "tickers": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "ath": null,
+          "ath_updated_at": null,
+          "available": 1,
+          "base": "XBT",
+          "base_asset_id": 3,
+          "base_decimals": 8,
+          "created_at": "2026-09-01 00:00:00",
+          "exchange_id": 1,
+          "maximum_base_size": null,
+          "maximum_quote_size": null,
+          "minimum_base_size": {
+            "f": "3f1a36e2eb1c432d"
+          },
+          "minimum_quote_size": 1,
+          "price_decimals": 2,
+          "quote": "EUR",
+          "quote_asset_id": 4,
+          "quote_decimals": 2,
+          "ticker": "XBTEUR",
+          "trading_enabled": 1,
+          "updated_at": "2026-09-01 00:00:00"
+        },
+        "after": {
+          "id": 1,
+          "ath": null,
+          "ath_updated_at": null,
+          "available": 1,
+          "base": "SOL2",
+          "base_asset_id": 3,
+          "base_decimals": 8,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "maximum_base_size": null,
+          "maximum_quote_size": 1000000,
+          "minimum_base_size": {
+            "f": "3f1a36e2eb1c432d"
+          },
+          "minimum_quote_size": {
+            "f": "3fe0000000000000"
+          },
+          "price_decimals": 1,
+          "quote": "EUR",
+          "quote_asset_id": 4,
+          "quote_decimals": 2,
+          "ticker": "SOLEUR2",
+          "trading_enabled": 1,
+          "updated_at": "2026-10-02 10:31:00.123456"
+        }
+      },
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "ath": null,
+          "ath_updated_at": null,
+          "available": 1,
+          "base": "ETH-OLD",
+          "base_asset_id": 2,
+          "base_decimals": 8,
+          "created_at": "2026-09-01 00:00:00",
+          "exchange_id": 1,
+          "maximum_base_size": null,
+          "maximum_quote_size": null,
+          "minimum_base_size": {
+            "f": "3f1a36e2eb1c432d"
+          },
+          "minimum_quote_size": 1,
+          "price_decimals": 2,
+          "quote": "EUR",
+          "quote_asset_id": 4,
+          "quote_decimals": 2,
+          "ticker": "ETHEUR-OLD",
+          "trading_enabled": 1,
+          "updated_at": "2026-09-01 00:00:00"
+        },
+        "after": {
+          "id": 2,
+          "ath": null,
+          "ath_updated_at": null,
+          "available": 1,
+          "base": "ETH",
+          "base_asset_id": 2,
+          "base_decimals": 8,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "maximum_base_size": null,
+          "maximum_quote_size": 1000000,
+          "minimum_base_size": {
+            "f": "3f1a36e2eb1c432d"
+          },
+          "minimum_quote_size": {
+            "f": "3fe0000000000000"
+          },
+          "price_decimals": 1,
+          "quote": "EUR",
+          "quote_asset_id": 4,
+          "quote_decimals": 2,
+          "ticker": "ETHEUR",
+          "trading_enabled": 1,
+          "updated_at": "2026-10-02 10:31:00.123456"
+        }
+      },
+      {
+        "id": 3,
+        "before": {
+          "id": 3,
+          "ath": null,
+          "ath_updated_at": null,
+          "available": 1,
+          "base": "XBT-OLD",
+          "base_asset_id": 1,
+          "base_decimals": 8,
+          "created_at": "2026-09-01 00:00:00",
+          "exchange_id": 1,
+          "maximum_base_size": null,
+          "maximum_quote_size": null,
+          "minimum_base_size": {
+            "f": "3f1a36e2eb1c432d"
+          },
+          "minimum_quote_size": 1,
+          "price_decimals": 2,
+          "quote": "EUR",
+          "quote_asset_id": 4,
+          "quote_decimals": 2,
+          "ticker": "XBTEUR-OLD",
+          "trading_enabled": 1,
+          "updated_at": "2026-09-01 00:00:00"
+        },
+        "after": {
+          "id": 3,
+          "ath": null,
+          "ath_updated_at": null,
+          "available": 1,
+          "base": "XBT",
+          "base_asset_id": 1,
+          "base_decimals": 8,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "maximum_base_size": null,
+          "maximum_quote_size": 1000000,
+          "minimum_base_size": {
+            "f": "3f1a36e2eb1c432d"
+          },
+          "minimum_quote_size": {
+            "f": "3fe0000000000000"
+          },
+          "price_decimals": 1,
+          "quote": "EUR",
+          "quote_asset_id": 4,
+          "quote_decimals": 2,
+          "ticker": "XBTEUR",
+          "trading_enabled": 1,
+          "updated_at": "2026-10-02 10:31:00.123456"
+        }
+      }
+    ],
+    "exchange_assets": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "asset_id": 4,
+          "available": 1,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "withdrawal_chains": null,
+          "withdrawal_fee": null,
+          "withdrawal_fee_updated_at": null
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "asset_id": 1,
+          "available": 1,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "withdrawal_chains": null,
+          "withdrawal_fee": null,
+          "withdrawal_fee_updated_at": null
+        }
+      },
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "asset_id": 2,
+          "available": 1,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "withdrawal_chains": null,
+          "withdrawal_fee": null,
+          "withdrawal_fee_updated_at": null
+        }
+      },
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "asset_id": 3,
+          "available": 1,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "exchange_id": 1,
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "withdrawal_chains": null,
+          "withdrawal_fee": null,
+          "withdrawal_fee_updated_at": null
+        }
+      }
+    ],
+    "indices": [],
+    "bot_activity_logs": [],
+    "app_configs": []
+  }
+}

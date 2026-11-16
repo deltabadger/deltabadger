@@ -1,0 +1,91 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-08T10:00:01.123456Z",
+  "venue": "bitrue",
+  "script": {
+    "bitrue": {
+      "GET /api/v1/ticker/bookTicker": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "bidPrice": "64000.10",
+            "bidQty": "1.5",
+            "askPrice": "64000.11",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v1/ticker/price": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "price": "64000.05"
+          }
+        }
+      ],
+      "POST /api/v1/order": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": "100",
+            "orderListId": -1,
+            "price": "0",
+            "origQty": "0",
+            "type": "MARKET",
+            "side": "BUY",
+            "transactTime": 1788000000000
+          }
+        }
+      ],
+      "GET /api/v1/account": [
+        {
+          "status": 200,
+          "body": {
+            "canTrade": true,
+            "canWithdraw": true,
+            "canDeposit": true,
+            "accountType": "SPOT",
+            "balances": [
+              {
+                "asset": "btc",
+                "free": "0.5",
+                "locked": "0"
+              },
+              {
+                "asset": "usdt",
+                "free": "100000",
+                "locked": "0"
+              }
+            ]
+          }
+        }
+      ],
+      "GET /api/v1/order": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": "202",
+            "orderListId": -1,
+            "clientOrderId": "",
+            "price": "64000",
+            "origQty": "0.00093",
+            "executedQty": "0",
+            "cummulativeQuoteQty": "0",
+            "status": "NEW",
+            "type": "LIMIT",
+            "side": "BUY",
+            "time": 1788000000000,
+            "updateTime": 1788000000000,
+            "isWorking": true
+          }
+        }
+      ]
+    }
+  },
+  "tick": true
+}

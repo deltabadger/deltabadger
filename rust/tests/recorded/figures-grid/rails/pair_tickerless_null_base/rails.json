@@ -1,0 +1,31 @@
+{
+  "bots": {
+    "1": {
+      "metrics": "{\"chart\":{\"labels\":[\"2026-03-02T14:30:00.000000000Z\",\"2026-03-03T14:30:00.000000000Z\"],\"series\":[[\"100.0\",\"202.0\"],[\"100.0\",\"201.0\"]],\"extra_series\":[[\"1.0\",\"2.0\"],[0,0]]},\"total_base_amount\":\"2.0\",\"total_quote_amount_invested\":\"201.0\",\"total_realized_proceeds\":0,\"total_amount_value_in_quote\":\"202.0\",\"pnl\":\"0.004975124378109452736318407960199\",\"average_buy_price\":\"100.5\"}",
+      "live": "{\"chart\":{\"labels\":[\"2026-03-02T14:30:00.000000000Z\",\"2026-03-03T14:30:00.000000000Z\"],\"series\":[[\"100.0\",\"202.0\"],[\"100.0\",\"201.0\"]],\"extra_series\":[[\"1.0\",\"2.0\"],[0,0]]},\"total_base_amount\":\"2.0\",\"total_quote_amount_invested\":\"201.0\",\"total_realized_proceeds\":0,\"total_amount_value_in_quote\":\"202.0\",\"pnl\":\"0.004975124378109452736318407960199\",\"average_buy_price\":\"100.5\"}",
+      "marked": "{\"chart\":{\"labels\":[\"2026-03-02T14:30:00.000000000Z\",\"2026-03-03T14:30:00.000000000Z\"],\"series\":[[\"100.0\",\"202.0\"],[\"100.0\",\"201.0\"]],\"extra_series\":[[\"1.0\",\"2.0\"],[0,0]]},\"total_base_amount\":\"2.0\",\"total_quote_amount_invested\":\"201.0\",\"total_realized_proceeds\":0,\"total_amount_value_in_quote\":\"202.0\",\"pnl\":\"0.004975124378109452736318407960199\",\"average_buy_price\":\"100.5\"}",
+      "cached": false,
+      "chart_cache": false,
+      "chart": {
+        "bot": "1",
+        "quote": "USD",
+        "decimals": "8",
+        "labels": "[\"2026-03-02T14:30:00.000000000Z\",\"2026-03-03T14:30:00.000000000Z\"]",
+        "series": "[[\"100.0\",\"202.0\"],[\"100.0\",\"201.0\"]]",
+        "pnl": "[0.0,1.0]",
+        "assets": "{}",
+        "pnl-only": "false",
+        "buys": "[[\"2026-03-02T14:30:00.000000000Z\",null,1.0,100.0,1],[\"2026-03-03T14:30:00.000000000Z\",\"BBB\",1.0,101.0,1]]",
+        "prices": "{}",
+        "logo-assets": "{\"BBB\":3}"
+      },
+      "profit_in_usd": "\"1.0\""
+    }
+  },
+  "global_pnl": "{\"percent\":\"0.004975124378109452736318407960199\",\"profit_usd\":\"1.0\"}",
+  "global_pnl_snapshot": "{\"result\":null,\"loading\":true}",
+  "pnl_history": "{\"result\":{\"percent\":[0.0,0.0,0.004975124378109453],\"profit_usd\":[0.0,0.0,1.0],\"at\":[1772375400,1772461800,1772548200],\"days\":1.0},\"loading\":false}",
+  "denomination": "{\"currency\":\"USD\",\"rate\":\"1.0\"}",
+  "requests": [],
+  "seconds": 0.018
+}

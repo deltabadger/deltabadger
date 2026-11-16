@@ -1,0 +1,237 @@
+{
+  "reading": [
+    1
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /v2/account",
+          []
+        ],
+        [
+          "GET /v2/positions",
+          []
+        ],
+        [
+          "GET /v2/stocks/snapshots",
+          [
+            [
+              "symbols",
+              "AAPL"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v1/prices",
+          [
+            [
+              "coin_ids",
+              "bitcoin"
+            ],
+            [
+              "vs_currencies",
+              "usd"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [],
+    "account_balances": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "asset_id": 1,
+          "created_at": "2026-09-10 02:30:00",
+          "exchange_id": 1,
+          "free": 90000,
+          "locked": 0,
+          "priced_at": "2026-09-10 02:30:00",
+          "synced_at": "2026-09-10 02:30:00",
+          "updated_at": "2026-09-10 02:30:00",
+          "usd_price": 1,
+          "usd_value": 90000,
+          "user_id": 1
+        },
+        "after": {
+          "id": 1,
+          "asset_id": 1,
+          "created_at": "2026-09-10 02:30:00",
+          "exchange_id": 1,
+          "free": {
+            "f": "40f8333733333333"
+          },
+          "locked": 0,
+          "priced_at": "2026-09-20 02:30:00.750000",
+          "synced_at": "2026-09-20 02:30:00.750000",
+          "updated_at": "2026-09-20 02:30:00.750000",
+          "usd_price": 1,
+          "usd_value": {
+            "f": "40f8333733333333"
+          },
+          "user_id": 1
+        }
+      },
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "asset_id": 2,
+          "created_at": "2026-09-10 02:30:00",
+          "exchange_id": 1,
+          "free": 10,
+          "locked": 0,
+          "priced_at": "2026-09-10 02:30:00",
+          "synced_at": "2026-09-10 02:30:00",
+          "updated_at": "2026-09-10 02:30:00",
+          "usd_price": {
+            "f": "406b900000000000"
+          },
+          "usd_value": 2205,
+          "user_id": 1
+        },
+        "after": {
+          "id": 2,
+          "asset_id": 2,
+          "created_at": "2026-09-10 02:30:00",
+          "exchange_id": 1,
+          "free": {
+            "f": "4025000000000000"
+          },
+          "locked": 0,
+          "priced_at": "2026-09-20 02:30:00.750000",
+          "synced_at": "2026-09-20 02:30:00.750000",
+          "updated_at": "2026-09-20 02:30:00.750000",
+          "usd_price": {
+            "f": "406c70a3d70a3d71"
+          },
+          "usd_value": {
+            "f": "40a2a9eb851eb852"
+          },
+          "user_id": 1
+        }
+      },
+      {
+        "id": 3,
+        "before": {
+          "id": 3,
+          "asset_id": 5,
+          "created_at": "2026-09-10 02:30:00",
+          "exchange_id": 1,
+          "free": {
+            "f": "3f50624dd2f1a9fc"
+          },
+          "locked": 0,
+          "priced_at": "2026-09-10 02:30:00",
+          "synced_at": "2026-09-10 02:30:00",
+          "updated_at": "2026-09-10 02:30:00",
+          "usd_price": {
+            "f": "40ed4c03f35ba212"
+          },
+          "usd_value": {
+            "f": "404e00040ba854c8"
+          },
+          "user_id": 1
+        },
+        "after": {
+          "id": 3,
+          "asset_id": 5,
+          "created_at": "2026-09-10 02:30:00",
+          "exchange_id": 1,
+          "free": {
+            "f": "3f5284416db38cb5"
+          },
+          "locked": 0,
+          "priced_at": "2026-09-20 02:30:00.750000",
+          "synced_at": "2026-09-20 02:30:00.750000",
+          "updated_at": "2026-09-20 02:30:00.750000",
+          "usd_price": {
+            "f": "40ef6823f35ba771"
+          },
+          "usd_value": {
+            "f": "40522c620461b983"
+          },
+          "user_id": 1
+        }
+      },
+      {
+        "id": 4,
+        "before": {
+          "id": 4,
+          "asset_id": 6,
+          "created_at": "2026-09-10 02:30:00",
+          "exchange_id": 1,
+          "free": 2,
+          "locked": 0,
+          "priced_at": null,
+          "synced_at": "2026-09-10 02:30:00",
+          "updated_at": "2026-09-10 02:30:00",
+          "usd_price": null,
+          "usd_value": null,
+          "user_id": 1
+        },
+        "after": null
+      },
+      {
+        "id": 5,
+        "before": {
+          "id": 5,
+          "asset_id": 4,
+          "created_at": "2026-09-10 02:30:00",
+          "exchange_id": 1,
+          "free": 7,
+          "locked": 0,
+          "priced_at": "2026-09-10 02:30:00",
+          "synced_at": "2026-09-10 02:30:00",
+          "updated_at": "2026-09-10 02:30:00",
+          "usd_price": 200,
+          "usd_value": 1400,
+          "user_id": 1
+        },
+        "after": null
+      }
+    ],
+    "api_keys": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 1,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 0,
+          "last_sync_error": null,
+          "last_synced_at": null,
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        },
+        "after": {
+          "id": 1,
+          "balances_synced_at": "2026-09-20 02:30:00.750000",
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 1,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 0,
+          "last_sync_error": null,
+          "last_synced_at": null,
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        }
+      }
+    ],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

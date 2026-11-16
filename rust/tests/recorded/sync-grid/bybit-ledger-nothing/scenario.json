@@ -1,0 +1,70 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "bybit": {
+        "GET /v5/execution/list": [
+          {
+            "status": 200,
+            "body": {
+              "retCode": 0,
+              "retMsg": "OK",
+              "result": {
+                "list": [],
+                "nextPageCursor": ""
+              }
+            }
+          }
+        ],
+        "GET /v5/asset/deposit/query-record": [
+          {
+            "status": 200,
+            "body": {
+              "retCode": 0,
+              "retMsg": "OK",
+              "result": {
+                "rows": [],
+                "nextPageCursor": ""
+              }
+            }
+          }
+        ],
+        "GET /v5/asset/deposit/query-internal-record": [
+          {
+            "status": 200,
+            "body": {
+              "retCode": 0,
+              "retMsg": "OK",
+              "result": {
+                "rows": [],
+                "nextPageCursor": ""
+              }
+            }
+          }
+        ],
+        "GET /v5/asset/withdraw/query-record": [
+          {
+            "status": 200,
+            "body": {
+              "retCode": 0,
+              "retMsg": "OK",
+              "result": {
+                "rows": [],
+                "nextPageCursor": ""
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

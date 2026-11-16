@@ -1,0 +1,52 @@
+{
+  "sent": [],
+  "changes": {
+    "bots": [],
+    "transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "amount": null,
+          "amount_exec": 0,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "error_messages": [
+            "Connection refused - connect(2) for \"api.bybit.com\" port 443"
+          ],
+          "exchange_id": 1,
+          "external_id": null,
+          "external_status": null,
+          "order_type": 0,
+          "price": null,
+          "quote": "USDT",
+          "quote_amount": null,
+          "quote_amount_exec": 0,
+          "quote_asset_id": 2,
+          "side": 0,
+          "status": 1,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 14:00:01.250000"
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [
+    {
+      "mail": "notify_about_error",
+      "errors": [
+        "Connection refused - connect(2) for \"api.bybit.com\" port 443"
+      ]
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

@@ -1,0 +1,156 @@
+{
+  "page_parity_scratch": true,
+  "at": "2026-09-10T12:00:30.123456Z",
+  "secret_key_base": "61a30e26004ff1e25ced6c8a0629bdcef5e7bdf90db030ffb7d5f8045d9b04d14c830dfd2fd0312fe655dcbd6f9287a4777420c0f285baf8bf8363797db44997",
+  "steps": [
+    {
+      "method": "GET",
+      "path": "/login",
+      "headers": {}
+    },
+    {
+      "method": "POST",
+      "path": "/login",
+      "form": {
+        "user[email]": "owner@example.com",
+        "user[password]": "Correct-horse-9",
+        "user[remember_me]": "0"
+      },
+      "csrf": "form",
+      "headers": {}
+    },
+    {
+      "method": "GET",
+      "path": "/bots",
+      "headers": {}
+    },
+    {
+      "method": "POST",
+      "path": "/en/broadcasts/metrics_update",
+      "json": "{\"bot_id\":1}",
+      "csrf": "header",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "expect": 200
+    },
+    {
+      "method": "POST",
+      "path": "/en/broadcasts/metrics_update",
+      "json": "{\"bot_id\":\"2\"}",
+      "csrf": "header",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/en/broadcasts/pnl_update",
+      "json": "{\"bot_ids\":[1,2,3]}",
+      "csrf": "header",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/en/broadcasts/pnl_update",
+      "json": "{}",
+      "csrf": "header",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/en/broadcasts/global_pnl_update",
+      "json": "{}",
+      "csrf": "header",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/de/bots/3",
+      "headers": {}
+    },
+    {
+      "method": "POST",
+      "path": "/de/broadcasts/metrics_update",
+      "json": "{\"bot_id\":3}",
+      "csrf": "header",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/broadcasts/global_pnl_update",
+      "json": "{}",
+      "csrf": "header",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/en/broadcasts/wake_dispatcher",
+      "json": "{}",
+      "csrf": "header",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "expect": 200
+    },
+    {
+      "method": "POST",
+      "path": "/en/broadcasts/price_limit_info_update",
+      "json": "{\"bot_id\":1}",
+      "csrf": "header",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "expect": 200
+    },
+    {
+      "method": "POST",
+      "path": "/en/broadcasts/price_limit_info_update",
+      "json": "{\"bot_id\":\"2\"}",
+      "csrf": "header",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/en/broadcasts/price_drop_limit_info_update",
+      "json": "{\"bot_id\":1}",
+      "csrf": "header",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "expect": 200
+    },
+    {
+      "method": "POST",
+      "path": "/en/broadcasts/moving_average_limit_info_update",
+      "json": "{\"bot_id\":2}",
+      "csrf": "header",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/de/broadcasts/indicator_limit_info_update",
+      "json": "{\"bot_id\":1}",
+      "csrf": "header",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  ],
+  "expect_users": {},
+  "jobs": {}
+}

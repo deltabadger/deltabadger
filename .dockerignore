@@ -31,6 +31,8 @@ LICENSE
 
 # Test files
 test/
+# Rails' frozen answers (PLAN-B11 B11-1): the Rust tests' expected values, never part of an image.
+rust/tests/recorded/
 coverage/
 
 # Development gems

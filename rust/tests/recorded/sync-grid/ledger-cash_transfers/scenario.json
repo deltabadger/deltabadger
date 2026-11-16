@@ -1,0 +1,82 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 1,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "alpaca": {
+        "GET /v2/account/activities": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "id": "csd-1",
+                "activity_type": "CSD",
+                "net_amount": "5000.00",
+                "date": "2026-09-01",
+                "group_id": "grp-1",
+                "status": "executed"
+              },
+              {
+                "id": "csw-1",
+                "activity_type": "CSW",
+                "net_amount": "-1200.50",
+                "date": "2026-09-02",
+                "status": "executed"
+              },
+              {
+                "id": "jnlc-in",
+                "activity_type": "JNLC",
+                "net_amount": "25",
+                "date": "2026-09-03",
+                "status": "executed"
+              },
+              {
+                "id": "jnlc-out",
+                "activity_type": "JNLC",
+                "net_amount": "-30.10",
+                "date": "2026-09-03",
+                "status": "executed"
+              },
+              {
+                "id": "oct-1",
+                "activity_type": "OCT",
+                "net_amount": "1",
+                "date": "2026-09-04",
+                "status": "executed"
+              },
+              {
+                "id": "acatc-1",
+                "activity_type": "ACATC",
+                "net_amount": "-2",
+                "date": "2026-09-05",
+                "status": "executed"
+              },
+              {
+                "id": "csd-time",
+                "activity_type": "CSD",
+                "net_amount": "7.5",
+                "transaction_time": "2026-09-06T12:13:14.000001Z",
+                "status": "executed"
+              },
+              {
+                "id": "csd-zero",
+                "activity_type": "CSD",
+                "net_amount": null,
+                "date": "2026-09-07",
+                "status": "executed"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

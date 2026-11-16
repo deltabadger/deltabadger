@@ -1,0 +1,85 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /api/v1/fills",
+          [
+            [
+              "currentPage",
+              "1"
+            ],
+            [
+              "endAt",
+              "1789869600000"
+            ],
+            [
+              "pageSize",
+              "500"
+            ],
+            [
+              "startAt",
+              "1789340400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v1/deposits",
+          [
+            [
+              "currentPage",
+              "1"
+            ],
+            [
+              "pageSize",
+              "500"
+            ],
+            [
+              "startAt",
+              "1789340400000"
+            ],
+            [
+              "status",
+              "SUCCESS"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v1/withdrawals",
+          [
+            [
+              "currentPage",
+              "1"
+            ],
+            [
+              "pageSize",
+              "500"
+            ],
+            [
+              "startAt",
+              "1789340400000"
+            ],
+            [
+              "status",
+              "SUCCESS"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [],
+    "account_balances": [],
+    "api_keys": [],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

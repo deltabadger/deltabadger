@@ -1,0 +1,26 @@
+{
+  "requests": [],
+  "retry": false,
+  "changes": {
+    "assets": [],
+    "tickers": [],
+    "exchange_assets": [],
+    "indices": [],
+    "bot_activity_logs": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "bot_id": 1,
+          "created_at": "2026-07-04 10:31:00.123455",
+          "details": {},
+          "event": "x",
+          "level": 0,
+          "message": null
+        },
+        "after": null
+      }
+    ],
+    "app_configs": []
+  }
+}

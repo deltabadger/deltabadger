@@ -1,0 +1,90 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-08T10:00:01.123456Z",
+  "script": {
+    "http": {
+      "/0/public/Ticker": [
+        {
+          "error": [],
+          "result": {
+            "XXBTZEUR": {
+              "a": [
+                "10.1",
+                "1",
+                "1.000"
+              ],
+              "b": [
+                "9.9",
+                "1",
+                "1.000"
+              ],
+              "c": [
+                "10.0",
+                "0.001"
+              ],
+              "v": [
+                "12.5",
+                "30.1"
+              ],
+              "p": [
+                "10.0",
+                "10.0"
+              ],
+              "t": [
+                100,
+                250
+              ],
+              "l": [
+                "9.9",
+                "9.9"
+              ],
+              "h": [
+                "10.1",
+                "10.1"
+              ],
+              "o": "10.0"
+            }
+          }
+        }
+      ],
+      "/0/private/AddOrder": [
+        {
+          "error": [],
+          "result": {
+            "txid": [
+              "OTX-1"
+            ]
+          }
+        }
+      ],
+      "/0/private/BalanceEx": [
+        {
+          "error": [],
+          "result": {
+            "ZEUR": {
+              "balance": "100000",
+              "hold_trade": "0"
+            }
+          }
+        }
+      ],
+      "/0/private/QueryOrders": [
+        {
+          "error": [],
+          "result": {}
+        }
+      ],
+      "/0/private/TradesHistory": [
+        {
+          "error": [],
+          "result": {
+            "trades": {},
+            "count": 0
+          }
+        }
+      ]
+    }
+  },
+  "tick": true
+}

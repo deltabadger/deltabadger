@@ -1,0 +1,89 @@
+{
+  "parity_scratch": true,
+  "job": "fetch_all_assets_data_from_coingecko_job",
+  "at": "2026-10-02T10:31:00.123456Z",
+  "env": {
+    "MARKET_DATA_URL": "http://data-api:3000",
+    "MARKET_DATA_TOKEN": "parity-token"
+  },
+  "script": {
+    "GET /api/v1/assets": [
+      {
+        "status": 200,
+        "body": {
+          "data": [
+            {
+              "external_id": "bitcoin",
+              "symbol": "BTC",
+              "name": "BTC",
+              "category": "Cryptocurrency",
+              "image_url": "https://img.example/bitcoin.png",
+              "color": "#112233",
+              "market_cap_rank": 10,
+              "market_cap": 2500000000000.0,
+              "circulating_supply": 19876543.12345679,
+              "url": "https://bitcoin.example",
+              "instrument_type": null
+            },
+            {
+              "external_id": "new-coin",
+              "symbol": "NEW",
+              "name": "NEW",
+              "category": "Cryptocurrency",
+              "image_url": null,
+              "color": "#112233",
+              "market_cap_rank": "7",
+              "market_cap": 1000000,
+              "circulating_supply": 1000.5,
+              "url": "https://new-coin.example",
+              "logo_url": "/logos/ab/new.png"
+            },
+            {
+              "external_id": "nvda-xstock",
+              "symbol": "NVDAX",
+              "name": "NVDAX",
+              "category": "Cryptocurrency",
+              "image_url": "https://img.example/nvda-xstock.png",
+              "color": "#112233",
+              "market_cap_rank": 10,
+              "market_cap": 1000000,
+              "circulating_supply": 1000.5,
+              "url": "https://nvda-xstock.example"
+            },
+            {
+              "external_id": "ondo-thing",
+              "symbol": "OT",
+              "name": "OT",
+              "category": "Cryptocurrency",
+              "image_url": "https://img.example/ondo-thing.png",
+              "color": "#112233",
+              "market_cap_rank": 10,
+              "market_cap": 1000000,
+              "circulating_supply": 1000.5,
+              "url": "https://ondo-thing.example",
+              "instrument_type": "tokenized"
+            },
+            {
+              "external_id": "tether-gold",
+              "symbol": "XAUT",
+              "name": "XAUT",
+              "category": "Cryptocurrency",
+              "image_url": "https://img.example/tether-gold.png",
+              "color": "#112233",
+              "market_cap_rank": 10,
+              "market_cap": 1000000,
+              "circulating_supply": 120456789.1234568,
+              "url": "https://tether-gold.example"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "raises": false,
+  "asset": null,
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  }
+}

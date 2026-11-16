@@ -1,0 +1,234 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "kraken": {
+        "POST /0/private/Ledgers?ofs=0&start=1789340400": [
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LT1": {
+                    "refid": "T1",
+                    "time": 1789466400,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "ZUSD",
+                    "amount": "-600.0000",
+                    "fee": "1.2000",
+                    "balance": "0"
+                  },
+                  "LT2": {
+                    "refid": "T1",
+                    "time": 1789466400,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XXBT",
+                    "amount": "0.0100000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LT3": {
+                    "refid": "T2",
+                    "time": 1789732800,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "ZUSD",
+                    "amount": "-270.0000",
+                    "fee": "0",
+                    "balance": "0"
+                  }
+                },
+                "count": 3
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?start=1789340400&with_cursor=true": [
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EAPI:Rate limit exceeded"
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LT1": {
+                    "refid": "T1",
+                    "time": 1789466400,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "ZUSD",
+                    "amount": "-600.0000",
+                    "fee": "1.2000",
+                    "balance": "0"
+                  },
+                  "LT2": {
+                    "refid": "T1",
+                    "time": 1789466400,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XXBT",
+                    "amount": "0.0100000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LT3": {
+                    "refid": "T2",
+                    "time": 1789732800,
+                    "type": "trade",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "ZUSD",
+                    "amount": "-270.0000",
+                    "fee": "0",
+                    "balance": "0"
+                  }
+                },
+                "count": null
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?aclass=tokenized_asset&start=1789340400&with_cursor=true": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {},
+                "count": null
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:30:00.750000Z",
+      "bitrue": {
+        "GET /api/v1/account": [
+          {
+            "status": 200,
+            "body": {
+              "canTrade": true,
+              "accountType": "SPOT",
+              "balances": [
+                {
+                  "asset": "btc",
+                  "free": "0.5",
+                  "locked": "0.1"
+                },
+                {
+                  "asset": "eth",
+                  "free": "2",
+                  "locked": "0"
+                },
+                {
+                  "asset": "usdt",
+                  "free": "100.5",
+                  "locked": "0"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "market": {
+        "GET /api/v1/prices": [
+          {
+            "status": 200,
+            "body": {
+              "data": {
+                "bitcoin": {
+                  "usd": 60000
+                },
+                "ethereum": {
+                  "usd": 2500
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,3884 @@
+{
+  "reading": [
+    1
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /v2/account/activities",
+          [
+            [
+              "direction",
+              "asc"
+            ],
+            [
+              "page_size",
+              "100"
+            ]
+          ]
+        ],
+        [
+          "GET /v2/account/activities",
+          [
+            [
+              "direction",
+              "asc"
+            ],
+            [
+              "page_size",
+              "100"
+            ],
+            [
+              "page_token",
+              "int-0099"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3f847ae147ae147b"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0000",
+            "activity_type": "INT",
+            "date": "2026-01-01",
+            "net_amount": "0.01",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-01 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0000",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0000\",\"activity_type\":\"INT\",\"date\":\"2026-01-01\",\"net_amount\":\"0.01\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3f947ae147ae147b"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0001",
+            "activity_type": "INT",
+            "date": "2026-01-02",
+            "net_amount": "0.02",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-02 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0001",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0001\",\"activity_type\":\"INT\",\"date\":\"2026-01-02\",\"net_amount\":\"0.02\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3f9eb851eb851eb8"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0002",
+            "activity_type": "INT",
+            "date": "2026-01-03",
+            "net_amount": "0.03",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-03 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0002",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0002\",\"activity_type\":\"INT\",\"date\":\"2026-01-03\",\"net_amount\":\"0.03\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fa47ae147ae147b"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0003",
+            "activity_type": "INT",
+            "date": "2026-01-04",
+            "net_amount": "0.04",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-04 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0003",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0003\",\"activity_type\":\"INT\",\"date\":\"2026-01-04\",\"net_amount\":\"0.04\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 5,
+        "before": null,
+        "after": {
+          "id": 5,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fa999999999999a"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0004",
+            "activity_type": "INT",
+            "date": "2026-01-05",
+            "net_amount": "0.05",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-05 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0004",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0004\",\"activity_type\":\"INT\",\"date\":\"2026-01-05\",\"net_amount\":\"0.05\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 6,
+        "before": null,
+        "after": {
+          "id": 6,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3faeb851eb851eb8"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0005",
+            "activity_type": "INT",
+            "date": "2026-01-06",
+            "net_amount": "0.06",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-06 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0005",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0005\",\"activity_type\":\"INT\",\"date\":\"2026-01-06\",\"net_amount\":\"0.06\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 7,
+        "before": null,
+        "after": {
+          "id": 7,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fb1eb851eb851ec"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0006",
+            "activity_type": "INT",
+            "date": "2026-01-07",
+            "net_amount": "0.07",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-07 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0006",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0006\",\"activity_type\":\"INT\",\"date\":\"2026-01-07\",\"net_amount\":\"0.07\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 8,
+        "before": null,
+        "after": {
+          "id": 8,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fb47ae147ae147b"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0007",
+            "activity_type": "INT",
+            "date": "2026-01-08",
+            "net_amount": "0.08",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-08 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0007",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0007\",\"activity_type\":\"INT\",\"date\":\"2026-01-08\",\"net_amount\":\"0.08\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 9,
+        "before": null,
+        "after": {
+          "id": 9,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fb70a3d70a3d70a"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0008",
+            "activity_type": "INT",
+            "date": "2026-01-09",
+            "net_amount": "0.09",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-09 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0008",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0008\",\"activity_type\":\"INT\",\"date\":\"2026-01-09\",\"net_amount\":\"0.09\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 10,
+        "before": null,
+        "after": {
+          "id": 10,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fb999999999999a"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0009",
+            "activity_type": "INT",
+            "date": "2026-01-10",
+            "net_amount": "0.10",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-10 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0009",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0009\",\"activity_type\":\"INT\",\"date\":\"2026-01-10\",\"net_amount\":\"0.10\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 11,
+        "before": null,
+        "after": {
+          "id": 11,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fbc28f5c28f5c29"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0010",
+            "activity_type": "INT",
+            "date": "2026-01-11",
+            "net_amount": "0.11",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-11 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0010",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0010\",\"activity_type\":\"INT\",\"date\":\"2026-01-11\",\"net_amount\":\"0.11\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 12,
+        "before": null,
+        "after": {
+          "id": 12,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fbeb851eb851eb8"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0011",
+            "activity_type": "INT",
+            "date": "2026-01-12",
+            "net_amount": "0.12",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-12 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0011",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0011\",\"activity_type\":\"INT\",\"date\":\"2026-01-12\",\"net_amount\":\"0.12\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 13,
+        "before": null,
+        "after": {
+          "id": 13,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fc0a3d70a3d70a4"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0012",
+            "activity_type": "INT",
+            "date": "2026-01-13",
+            "net_amount": "0.13",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-13 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0012",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0012\",\"activity_type\":\"INT\",\"date\":\"2026-01-13\",\"net_amount\":\"0.13\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 14,
+        "before": null,
+        "after": {
+          "id": 14,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fc1eb851eb851ec"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0013",
+            "activity_type": "INT",
+            "date": "2026-01-14",
+            "net_amount": "0.14",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-14 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0013",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0013\",\"activity_type\":\"INT\",\"date\":\"2026-01-14\",\"net_amount\":\"0.14\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 15,
+        "before": null,
+        "after": {
+          "id": 15,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fc3333333333333"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0014",
+            "activity_type": "INT",
+            "date": "2026-01-15",
+            "net_amount": "0.15",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-15 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0014",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0014\",\"activity_type\":\"INT\",\"date\":\"2026-01-15\",\"net_amount\":\"0.15\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 16,
+        "before": null,
+        "after": {
+          "id": 16,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fc47ae147ae147b"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0015",
+            "activity_type": "INT",
+            "date": "2026-01-16",
+            "net_amount": "0.16",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-16 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0015",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0015\",\"activity_type\":\"INT\",\"date\":\"2026-01-16\",\"net_amount\":\"0.16\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 17,
+        "before": null,
+        "after": {
+          "id": 17,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fc5c28f5c28f5c3"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0016",
+            "activity_type": "INT",
+            "date": "2026-01-17",
+            "net_amount": "0.17",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-17 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0016",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0016\",\"activity_type\":\"INT\",\"date\":\"2026-01-17\",\"net_amount\":\"0.17\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 18,
+        "before": null,
+        "after": {
+          "id": 18,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fc70a3d70a3d70a"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0017",
+            "activity_type": "INT",
+            "date": "2026-01-18",
+            "net_amount": "0.18",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-18 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0017",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0017\",\"activity_type\":\"INT\",\"date\":\"2026-01-18\",\"net_amount\":\"0.18\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 19,
+        "before": null,
+        "after": {
+          "id": 19,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fc851eb851eb852"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0018",
+            "activity_type": "INT",
+            "date": "2026-01-19",
+            "net_amount": "0.19",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-19 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0018",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0018\",\"activity_type\":\"INT\",\"date\":\"2026-01-19\",\"net_amount\":\"0.19\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 20,
+        "before": null,
+        "after": {
+          "id": 20,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fc999999999999a"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0019",
+            "activity_type": "INT",
+            "date": "2026-01-20",
+            "net_amount": "0.20",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-20 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0019",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0019\",\"activity_type\":\"INT\",\"date\":\"2026-01-20\",\"net_amount\":\"0.20\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 21,
+        "before": null,
+        "after": {
+          "id": 21,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fcae147ae147ae1"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0020",
+            "activity_type": "INT",
+            "date": "2026-01-21",
+            "net_amount": "0.21",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-21 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0020",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0020\",\"activity_type\":\"INT\",\"date\":\"2026-01-21\",\"net_amount\":\"0.21\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 22,
+        "before": null,
+        "after": {
+          "id": 22,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fcc28f5c28f5c29"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0021",
+            "activity_type": "INT",
+            "date": "2026-01-22",
+            "net_amount": "0.22",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-22 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0021",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0021\",\"activity_type\":\"INT\",\"date\":\"2026-01-22\",\"net_amount\":\"0.22\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 23,
+        "before": null,
+        "after": {
+          "id": 23,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fcd70a3d70a3d71"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0022",
+            "activity_type": "INT",
+            "date": "2026-01-23",
+            "net_amount": "0.23",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-23 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0022",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0022\",\"activity_type\":\"INT\",\"date\":\"2026-01-23\",\"net_amount\":\"0.23\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 24,
+        "before": null,
+        "after": {
+          "id": 24,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fceb851eb851eb8"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0023",
+            "activity_type": "INT",
+            "date": "2026-01-24",
+            "net_amount": "0.24",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-24 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0023",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0023\",\"activity_type\":\"INT\",\"date\":\"2026-01-24\",\"net_amount\":\"0.24\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 25,
+        "before": null,
+        "after": {
+          "id": 25,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd0000000000000"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0024",
+            "activity_type": "INT",
+            "date": "2026-01-25",
+            "net_amount": "0.25",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-25 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0024",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0024\",\"activity_type\":\"INT\",\"date\":\"2026-01-25\",\"net_amount\":\"0.25\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 26,
+        "before": null,
+        "after": {
+          "id": 26,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd0a3d70a3d70a4"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0025",
+            "activity_type": "INT",
+            "date": "2026-01-26",
+            "net_amount": "0.26",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-26 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0025",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0025\",\"activity_type\":\"INT\",\"date\":\"2026-01-26\",\"net_amount\":\"0.26\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 27,
+        "before": null,
+        "after": {
+          "id": 27,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd147ae147ae148"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0026",
+            "activity_type": "INT",
+            "date": "2026-01-27",
+            "net_amount": "0.27",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-27 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0026",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0026\",\"activity_type\":\"INT\",\"date\":\"2026-01-27\",\"net_amount\":\"0.27\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 28,
+        "before": null,
+        "after": {
+          "id": 28,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd1eb851eb851ec"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0027",
+            "activity_type": "INT",
+            "date": "2026-01-28",
+            "net_amount": "0.28",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-28 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0027",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0027\",\"activity_type\":\"INT\",\"date\":\"2026-01-28\",\"net_amount\":\"0.28\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 29,
+        "before": null,
+        "after": {
+          "id": 29,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd28f5c28f5c28f"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0028",
+            "activity_type": "INT",
+            "date": "2026-01-29",
+            "net_amount": "0.29",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-29 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0028",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0028\",\"activity_type\":\"INT\",\"date\":\"2026-01-29\",\"net_amount\":\"0.29\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 30,
+        "before": null,
+        "after": {
+          "id": 30,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd3333333333333"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0029",
+            "activity_type": "INT",
+            "date": "2026-01-30",
+            "net_amount": "0.30",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-30 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0029",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0029\",\"activity_type\":\"INT\",\"date\":\"2026-01-30\",\"net_amount\":\"0.30\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 31,
+        "before": null,
+        "after": {
+          "id": 31,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd3d70a3d70a3d7"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0030",
+            "activity_type": "INT",
+            "date": "2026-01-31",
+            "net_amount": "0.31",
+            "status": "executed"
+          },
+          "transacted_at": "2026-01-31 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0030",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0030\",\"activity_type\":\"INT\",\"date\":\"2026-01-31\",\"net_amount\":\"0.31\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 32,
+        "before": null,
+        "after": {
+          "id": 32,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd47ae147ae147b"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0031",
+            "activity_type": "INT",
+            "date": "2026-02-01",
+            "net_amount": "0.32",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-01 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0031",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0031\",\"activity_type\":\"INT\",\"date\":\"2026-02-01\",\"net_amount\":\"0.32\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 33,
+        "before": null,
+        "after": {
+          "id": 33,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd51eb851eb851f"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0032",
+            "activity_type": "INT",
+            "date": "2026-02-02",
+            "net_amount": "0.33",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-02 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0032",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0032\",\"activity_type\":\"INT\",\"date\":\"2026-02-02\",\"net_amount\":\"0.33\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 34,
+        "before": null,
+        "after": {
+          "id": 34,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd5c28f5c28f5c3"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0033",
+            "activity_type": "INT",
+            "date": "2026-02-03",
+            "net_amount": "0.34",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-03 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0033",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0033\",\"activity_type\":\"INT\",\"date\":\"2026-02-03\",\"net_amount\":\"0.34\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 35,
+        "before": null,
+        "after": {
+          "id": 35,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd6666666666666"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0034",
+            "activity_type": "INT",
+            "date": "2026-02-04",
+            "net_amount": "0.35",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-04 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0034",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0034\",\"activity_type\":\"INT\",\"date\":\"2026-02-04\",\"net_amount\":\"0.35\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 36,
+        "before": null,
+        "after": {
+          "id": 36,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd70a3d70a3d70a"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0035",
+            "activity_type": "INT",
+            "date": "2026-02-05",
+            "net_amount": "0.36",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-05 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0035",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0035\",\"activity_type\":\"INT\",\"date\":\"2026-02-05\",\"net_amount\":\"0.36\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 37,
+        "before": null,
+        "after": {
+          "id": 37,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd7ae147ae147ae"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0036",
+            "activity_type": "INT",
+            "date": "2026-02-06",
+            "net_amount": "0.37",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-06 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0036",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0036\",\"activity_type\":\"INT\",\"date\":\"2026-02-06\",\"net_amount\":\"0.37\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 38,
+        "before": null,
+        "after": {
+          "id": 38,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd851eb851eb852"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0037",
+            "activity_type": "INT",
+            "date": "2026-02-07",
+            "net_amount": "0.38",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-07 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0037",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0037\",\"activity_type\":\"INT\",\"date\":\"2026-02-07\",\"net_amount\":\"0.38\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 39,
+        "before": null,
+        "after": {
+          "id": 39,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd8f5c28f5c28f6"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0038",
+            "activity_type": "INT",
+            "date": "2026-02-08",
+            "net_amount": "0.39",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-08 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0038",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0038\",\"activity_type\":\"INT\",\"date\":\"2026-02-08\",\"net_amount\":\"0.39\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 40,
+        "before": null,
+        "after": {
+          "id": 40,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fd999999999999a"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0039",
+            "activity_type": "INT",
+            "date": "2026-02-09",
+            "net_amount": "0.40",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-09 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0039",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0039\",\"activity_type\":\"INT\",\"date\":\"2026-02-09\",\"net_amount\":\"0.40\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 41,
+        "before": null,
+        "after": {
+          "id": 41,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fda3d70a3d70a3d"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0040",
+            "activity_type": "INT",
+            "date": "2026-02-10",
+            "net_amount": "0.41",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-10 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0040",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0040\",\"activity_type\":\"INT\",\"date\":\"2026-02-10\",\"net_amount\":\"0.41\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 42,
+        "before": null,
+        "after": {
+          "id": 42,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fdae147ae147ae1"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0041",
+            "activity_type": "INT",
+            "date": "2026-02-11",
+            "net_amount": "0.42",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-11 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0041",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0041\",\"activity_type\":\"INT\",\"date\":\"2026-02-11\",\"net_amount\":\"0.42\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 43,
+        "before": null,
+        "after": {
+          "id": 43,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fdb851eb851eb85"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0042",
+            "activity_type": "INT",
+            "date": "2026-02-12",
+            "net_amount": "0.43",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-12 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0042",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0042\",\"activity_type\":\"INT\",\"date\":\"2026-02-12\",\"net_amount\":\"0.43\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 44,
+        "before": null,
+        "after": {
+          "id": 44,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fdc28f5c28f5c29"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0043",
+            "activity_type": "INT",
+            "date": "2026-02-13",
+            "net_amount": "0.44",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-13 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0043",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0043\",\"activity_type\":\"INT\",\"date\":\"2026-02-13\",\"net_amount\":\"0.44\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 45,
+        "before": null,
+        "after": {
+          "id": 45,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fdccccccccccccd"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0044",
+            "activity_type": "INT",
+            "date": "2026-02-14",
+            "net_amount": "0.45",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-14 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0044",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0044\",\"activity_type\":\"INT\",\"date\":\"2026-02-14\",\"net_amount\":\"0.45\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 46,
+        "before": null,
+        "after": {
+          "id": 46,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fdd70a3d70a3d71"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0045",
+            "activity_type": "INT",
+            "date": "2026-02-15",
+            "net_amount": "0.46",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-15 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0045",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0045\",\"activity_type\":\"INT\",\"date\":\"2026-02-15\",\"net_amount\":\"0.46\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 47,
+        "before": null,
+        "after": {
+          "id": 47,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fde147ae147ae14"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0046",
+            "activity_type": "INT",
+            "date": "2026-02-16",
+            "net_amount": "0.47",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-16 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0046",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0046\",\"activity_type\":\"INT\",\"date\":\"2026-02-16\",\"net_amount\":\"0.47\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 48,
+        "before": null,
+        "after": {
+          "id": 48,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fdeb851eb851eb8"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0047",
+            "activity_type": "INT",
+            "date": "2026-02-17",
+            "net_amount": "0.48",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-17 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0047",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0047\",\"activity_type\":\"INT\",\"date\":\"2026-02-17\",\"net_amount\":\"0.48\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 49,
+        "before": null,
+        "after": {
+          "id": 49,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fdf5c28f5c28f5c"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0048",
+            "activity_type": "INT",
+            "date": "2026-02-18",
+            "net_amount": "0.49",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-18 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0048",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0048\",\"activity_type\":\"INT\",\"date\":\"2026-02-18\",\"net_amount\":\"0.49\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 50,
+        "before": null,
+        "after": {
+          "id": 50,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe0000000000000"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0049",
+            "activity_type": "INT",
+            "date": "2026-02-19",
+            "net_amount": "0.50",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-19 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0049",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0049\",\"activity_type\":\"INT\",\"date\":\"2026-02-19\",\"net_amount\":\"0.50\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 51,
+        "before": null,
+        "after": {
+          "id": 51,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe051eb851eb852"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0050",
+            "activity_type": "INT",
+            "date": "2026-02-20",
+            "net_amount": "0.51",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-20 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0050",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0050\",\"activity_type\":\"INT\",\"date\":\"2026-02-20\",\"net_amount\":\"0.51\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 52,
+        "before": null,
+        "after": {
+          "id": 52,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe0a3d70a3d70a4"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0051",
+            "activity_type": "INT",
+            "date": "2026-02-21",
+            "net_amount": "0.52",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-21 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0051",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0051\",\"activity_type\":\"INT\",\"date\":\"2026-02-21\",\"net_amount\":\"0.52\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 53,
+        "before": null,
+        "after": {
+          "id": 53,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe0f5c28f5c28f6"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0052",
+            "activity_type": "INT",
+            "date": "2026-02-22",
+            "net_amount": "0.53",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-22 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0052",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0052\",\"activity_type\":\"INT\",\"date\":\"2026-02-22\",\"net_amount\":\"0.53\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 54,
+        "before": null,
+        "after": {
+          "id": 54,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe147ae147ae148"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0053",
+            "activity_type": "INT",
+            "date": "2026-02-23",
+            "net_amount": "0.54",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-23 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0053",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0053\",\"activity_type\":\"INT\",\"date\":\"2026-02-23\",\"net_amount\":\"0.54\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 55,
+        "before": null,
+        "after": {
+          "id": 55,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe199999999999a"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0054",
+            "activity_type": "INT",
+            "date": "2026-02-24",
+            "net_amount": "0.55",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-24 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0054",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0054\",\"activity_type\":\"INT\",\"date\":\"2026-02-24\",\"net_amount\":\"0.55\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 56,
+        "before": null,
+        "after": {
+          "id": 56,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe1eb851eb851ec"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0055",
+            "activity_type": "INT",
+            "date": "2026-02-25",
+            "net_amount": "0.56",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-25 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0055",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0055\",\"activity_type\":\"INT\",\"date\":\"2026-02-25\",\"net_amount\":\"0.56\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 57,
+        "before": null,
+        "after": {
+          "id": 57,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe23d70a3d70a3d"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0056",
+            "activity_type": "INT",
+            "date": "2026-02-26",
+            "net_amount": "0.57",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-26 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0056",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0056\",\"activity_type\":\"INT\",\"date\":\"2026-02-26\",\"net_amount\":\"0.57\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 58,
+        "before": null,
+        "after": {
+          "id": 58,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe28f5c28f5c28f"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0057",
+            "activity_type": "INT",
+            "date": "2026-02-27",
+            "net_amount": "0.58",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-27 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0057",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0057\",\"activity_type\":\"INT\",\"date\":\"2026-02-27\",\"net_amount\":\"0.58\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 59,
+        "before": null,
+        "after": {
+          "id": 59,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe2e147ae147ae1"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0058",
+            "activity_type": "INT",
+            "date": "2026-02-28",
+            "net_amount": "0.59",
+            "status": "executed"
+          },
+          "transacted_at": "2026-02-28 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0058",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0058\",\"activity_type\":\"INT\",\"date\":\"2026-02-28\",\"net_amount\":\"0.59\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 60,
+        "before": null,
+        "after": {
+          "id": 60,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe3333333333333"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0059",
+            "activity_type": "INT",
+            "date": "2026-03-01",
+            "net_amount": "0.60",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-01 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0059",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0059\",\"activity_type\":\"INT\",\"date\":\"2026-03-01\",\"net_amount\":\"0.60\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 61,
+        "before": null,
+        "after": {
+          "id": 61,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe3851eb851eb85"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0060",
+            "activity_type": "INT",
+            "date": "2026-03-02",
+            "net_amount": "0.61",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-02 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0060",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0060\",\"activity_type\":\"INT\",\"date\":\"2026-03-02\",\"net_amount\":\"0.61\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 62,
+        "before": null,
+        "after": {
+          "id": 62,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe3d70a3d70a3d7"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0061",
+            "activity_type": "INT",
+            "date": "2026-03-03",
+            "net_amount": "0.62",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-03 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0061",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0061\",\"activity_type\":\"INT\",\"date\":\"2026-03-03\",\"net_amount\":\"0.62\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 63,
+        "before": null,
+        "after": {
+          "id": 63,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe428f5c28f5c29"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0062",
+            "activity_type": "INT",
+            "date": "2026-03-04",
+            "net_amount": "0.63",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-04 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0062",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0062\",\"activity_type\":\"INT\",\"date\":\"2026-03-04\",\"net_amount\":\"0.63\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 64,
+        "before": null,
+        "after": {
+          "id": 64,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe47ae147ae147b"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0063",
+            "activity_type": "INT",
+            "date": "2026-03-05",
+            "net_amount": "0.64",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-05 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0063",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0063\",\"activity_type\":\"INT\",\"date\":\"2026-03-05\",\"net_amount\":\"0.64\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 65,
+        "before": null,
+        "after": {
+          "id": 65,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe4cccccccccccd"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0064",
+            "activity_type": "INT",
+            "date": "2026-03-06",
+            "net_amount": "0.65",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-06 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0064",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0064\",\"activity_type\":\"INT\",\"date\":\"2026-03-06\",\"net_amount\":\"0.65\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 66,
+        "before": null,
+        "after": {
+          "id": 66,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe51eb851eb851f"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0065",
+            "activity_type": "INT",
+            "date": "2026-03-07",
+            "net_amount": "0.66",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-07 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0065",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0065\",\"activity_type\":\"INT\",\"date\":\"2026-03-07\",\"net_amount\":\"0.66\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 67,
+        "before": null,
+        "after": {
+          "id": 67,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe570a3d70a3d71"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0066",
+            "activity_type": "INT",
+            "date": "2026-03-08",
+            "net_amount": "0.67",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-08 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0066",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0066\",\"activity_type\":\"INT\",\"date\":\"2026-03-08\",\"net_amount\":\"0.67\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 68,
+        "before": null,
+        "after": {
+          "id": 68,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe5c28f5c28f5c3"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0067",
+            "activity_type": "INT",
+            "date": "2026-03-09",
+            "net_amount": "0.68",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-09 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0067",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0067\",\"activity_type\":\"INT\",\"date\":\"2026-03-09\",\"net_amount\":\"0.68\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 69,
+        "before": null,
+        "after": {
+          "id": 69,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe6147ae147ae14"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0068",
+            "activity_type": "INT",
+            "date": "2026-03-10",
+            "net_amount": "0.69",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-10 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0068",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0068\",\"activity_type\":\"INT\",\"date\":\"2026-03-10\",\"net_amount\":\"0.69\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 70,
+        "before": null,
+        "after": {
+          "id": 70,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe6666666666666"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0069",
+            "activity_type": "INT",
+            "date": "2026-03-11",
+            "net_amount": "0.70",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-11 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0069",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0069\",\"activity_type\":\"INT\",\"date\":\"2026-03-11\",\"net_amount\":\"0.70\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 71,
+        "before": null,
+        "after": {
+          "id": 71,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe6b851eb851eb8"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0070",
+            "activity_type": "INT",
+            "date": "2026-03-12",
+            "net_amount": "0.71",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-12 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0070",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0070\",\"activity_type\":\"INT\",\"date\":\"2026-03-12\",\"net_amount\":\"0.71\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 72,
+        "before": null,
+        "after": {
+          "id": 72,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe70a3d70a3d70a"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0071",
+            "activity_type": "INT",
+            "date": "2026-03-13",
+            "net_amount": "0.72",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-13 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0071",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0071\",\"activity_type\":\"INT\",\"date\":\"2026-03-13\",\"net_amount\":\"0.72\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 73,
+        "before": null,
+        "after": {
+          "id": 73,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe75c28f5c28f5c"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0072",
+            "activity_type": "INT",
+            "date": "2026-03-14",
+            "net_amount": "0.73",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-14 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0072",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0072\",\"activity_type\":\"INT\",\"date\":\"2026-03-14\",\"net_amount\":\"0.73\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 74,
+        "before": null,
+        "after": {
+          "id": 74,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe7ae147ae147ae"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0073",
+            "activity_type": "INT",
+            "date": "2026-03-15",
+            "net_amount": "0.74",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-15 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0073",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0073\",\"activity_type\":\"INT\",\"date\":\"2026-03-15\",\"net_amount\":\"0.74\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 75,
+        "before": null,
+        "after": {
+          "id": 75,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe8000000000000"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0074",
+            "activity_type": "INT",
+            "date": "2026-03-16",
+            "net_amount": "0.75",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-16 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0074",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0074\",\"activity_type\":\"INT\",\"date\":\"2026-03-16\",\"net_amount\":\"0.75\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 76,
+        "before": null,
+        "after": {
+          "id": 76,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe851eb851eb852"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0075",
+            "activity_type": "INT",
+            "date": "2026-03-17",
+            "net_amount": "0.76",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-17 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0075",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0075\",\"activity_type\":\"INT\",\"date\":\"2026-03-17\",\"net_amount\":\"0.76\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 77,
+        "before": null,
+        "after": {
+          "id": 77,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe8a3d70a3d70a4"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0076",
+            "activity_type": "INT",
+            "date": "2026-03-18",
+            "net_amount": "0.77",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-18 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0076",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0076\",\"activity_type\":\"INT\",\"date\":\"2026-03-18\",\"net_amount\":\"0.77\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 78,
+        "before": null,
+        "after": {
+          "id": 78,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe8f5c28f5c28f6"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0077",
+            "activity_type": "INT",
+            "date": "2026-03-19",
+            "net_amount": "0.78",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-19 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0077",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0077\",\"activity_type\":\"INT\",\"date\":\"2026-03-19\",\"net_amount\":\"0.78\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 79,
+        "before": null,
+        "after": {
+          "id": 79,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe947ae147ae148"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0078",
+            "activity_type": "INT",
+            "date": "2026-03-20",
+            "net_amount": "0.79",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-20 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0078",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0078\",\"activity_type\":\"INT\",\"date\":\"2026-03-20\",\"net_amount\":\"0.79\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 80,
+        "before": null,
+        "after": {
+          "id": 80,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe999999999999a"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0079",
+            "activity_type": "INT",
+            "date": "2026-03-21",
+            "net_amount": "0.80",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-21 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0079",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0079\",\"activity_type\":\"INT\",\"date\":\"2026-03-21\",\"net_amount\":\"0.80\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 81,
+        "before": null,
+        "after": {
+          "id": 81,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fe9eb851eb851ec"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0080",
+            "activity_type": "INT",
+            "date": "2026-03-22",
+            "net_amount": "0.81",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-22 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0080",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0080\",\"activity_type\":\"INT\",\"date\":\"2026-03-22\",\"net_amount\":\"0.81\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 82,
+        "before": null,
+        "after": {
+          "id": 82,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fea3d70a3d70a3d"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0081",
+            "activity_type": "INT",
+            "date": "2026-03-23",
+            "net_amount": "0.82",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-23 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0081",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0081\",\"activity_type\":\"INT\",\"date\":\"2026-03-23\",\"net_amount\":\"0.82\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 83,
+        "before": null,
+        "after": {
+          "id": 83,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fea8f5c28f5c28f"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0082",
+            "activity_type": "INT",
+            "date": "2026-03-24",
+            "net_amount": "0.83",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-24 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0082",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0082\",\"activity_type\":\"INT\",\"date\":\"2026-03-24\",\"net_amount\":\"0.83\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 84,
+        "before": null,
+        "after": {
+          "id": 84,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3feae147ae147ae1"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0083",
+            "activity_type": "INT",
+            "date": "2026-03-25",
+            "net_amount": "0.84",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-25 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0083",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0083\",\"activity_type\":\"INT\",\"date\":\"2026-03-25\",\"net_amount\":\"0.84\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 85,
+        "before": null,
+        "after": {
+          "id": 85,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3feb333333333333"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0084",
+            "activity_type": "INT",
+            "date": "2026-03-26",
+            "net_amount": "0.85",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-26 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0084",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0084\",\"activity_type\":\"INT\",\"date\":\"2026-03-26\",\"net_amount\":\"0.85\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 86,
+        "before": null,
+        "after": {
+          "id": 86,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3feb851eb851eb85"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0085",
+            "activity_type": "INT",
+            "date": "2026-03-27",
+            "net_amount": "0.86",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-27 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0085",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0085\",\"activity_type\":\"INT\",\"date\":\"2026-03-27\",\"net_amount\":\"0.86\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 87,
+        "before": null,
+        "after": {
+          "id": 87,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3febd70a3d70a3d7"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0086",
+            "activity_type": "INT",
+            "date": "2026-03-28",
+            "net_amount": "0.87",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-28 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0086",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0086\",\"activity_type\":\"INT\",\"date\":\"2026-03-28\",\"net_amount\":\"0.87\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 88,
+        "before": null,
+        "after": {
+          "id": 88,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fec28f5c28f5c29"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0087",
+            "activity_type": "INT",
+            "date": "2026-03-29",
+            "net_amount": "0.88",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-29 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0087",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0087\",\"activity_type\":\"INT\",\"date\":\"2026-03-29\",\"net_amount\":\"0.88\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 89,
+        "before": null,
+        "after": {
+          "id": 89,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fec7ae147ae147b"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0088",
+            "activity_type": "INT",
+            "date": "2026-03-30",
+            "net_amount": "0.89",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-30 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0088",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0088\",\"activity_type\":\"INT\",\"date\":\"2026-03-30\",\"net_amount\":\"0.89\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 90,
+        "before": null,
+        "after": {
+          "id": 90,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3feccccccccccccd"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0089",
+            "activity_type": "INT",
+            "date": "2026-03-31",
+            "net_amount": "0.90",
+            "status": "executed"
+          },
+          "transacted_at": "2026-03-31 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0089",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0089\",\"activity_type\":\"INT\",\"date\":\"2026-03-31\",\"net_amount\":\"0.90\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 91,
+        "before": null,
+        "after": {
+          "id": 91,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fed1eb851eb851f"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0090",
+            "activity_type": "INT",
+            "date": "2026-04-01",
+            "net_amount": "0.91",
+            "status": "executed"
+          },
+          "transacted_at": "2026-04-01 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0090",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0090\",\"activity_type\":\"INT\",\"date\":\"2026-04-01\",\"net_amount\":\"0.91\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 92,
+        "before": null,
+        "after": {
+          "id": 92,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fed70a3d70a3d71"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0091",
+            "activity_type": "INT",
+            "date": "2026-04-02",
+            "net_amount": "0.92",
+            "status": "executed"
+          },
+          "transacted_at": "2026-04-02 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0091",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0091\",\"activity_type\":\"INT\",\"date\":\"2026-04-02\",\"net_amount\":\"0.92\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 93,
+        "before": null,
+        "after": {
+          "id": 93,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fedc28f5c28f5c3"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0092",
+            "activity_type": "INT",
+            "date": "2026-04-03",
+            "net_amount": "0.93",
+            "status": "executed"
+          },
+          "transacted_at": "2026-04-03 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0092",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0092\",\"activity_type\":\"INT\",\"date\":\"2026-04-03\",\"net_amount\":\"0.93\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 94,
+        "before": null,
+        "after": {
+          "id": 94,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fee147ae147ae14"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0093",
+            "activity_type": "INT",
+            "date": "2026-04-04",
+            "net_amount": "0.94",
+            "status": "executed"
+          },
+          "transacted_at": "2026-04-04 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0093",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0093\",\"activity_type\":\"INT\",\"date\":\"2026-04-04\",\"net_amount\":\"0.94\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 95,
+        "before": null,
+        "after": {
+          "id": 95,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fee666666666666"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0094",
+            "activity_type": "INT",
+            "date": "2026-04-05",
+            "net_amount": "0.95",
+            "status": "executed"
+          },
+          "transacted_at": "2026-04-05 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0094",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0094\",\"activity_type\":\"INT\",\"date\":\"2026-04-05\",\"net_amount\":\"0.95\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 96,
+        "before": null,
+        "after": {
+          "id": 96,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3feeb851eb851eb8"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0095",
+            "activity_type": "INT",
+            "date": "2026-04-06",
+            "net_amount": "0.96",
+            "status": "executed"
+          },
+          "transacted_at": "2026-04-06 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0095",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0095\",\"activity_type\":\"INT\",\"date\":\"2026-04-06\",\"net_amount\":\"0.96\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 97,
+        "before": null,
+        "after": {
+          "id": 97,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fef0a3d70a3d70a"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0096",
+            "activity_type": "INT",
+            "date": "2026-04-07",
+            "net_amount": "0.97",
+            "status": "executed"
+          },
+          "transacted_at": "2026-04-07 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0096",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0096\",\"activity_type\":\"INT\",\"date\":\"2026-04-07\",\"net_amount\":\"0.97\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 98,
+        "before": null,
+        "after": {
+          "id": 98,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fef5c28f5c28f5c"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0097",
+            "activity_type": "INT",
+            "date": "2026-04-08",
+            "net_amount": "0.98",
+            "status": "executed"
+          },
+          "transacted_at": "2026-04-08 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0097",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0097\",\"activity_type\":\"INT\",\"date\":\"2026-04-08\",\"net_amount\":\"0.98\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 99,
+        "before": null,
+        "after": {
+          "id": 99,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3fefae147ae147ae"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0098",
+            "activity_type": "INT",
+            "date": "2026-04-09",
+            "net_amount": "0.99",
+            "status": "executed"
+          },
+          "transacted_at": "2026-04-09 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0098",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0098\",\"activity_type\":\"INT\",\"date\":\"2026-04-09\",\"net_amount\":\"0.99\",\"status\":\"executed\"}"
+        }
+      },
+      {
+        "id": 100,
+        "before": null,
+        "after": {
+          "id": 100,
+          "api_key_id": 1,
+          "base_amount": {
+            "f": "3f847ae147ae147b"
+          },
+          "base_asset_id": null,
+          "base_currency": "USD",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 1,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "int-0099",
+            "activity_type": "INT",
+            "date": "2026-04-10",
+            "net_amount": "0.01",
+            "status": "executed"
+          },
+          "transacted_at": "2026-04-10 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "int-0099",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"int-0099\",\"activity_type\":\"INT\",\"date\":\"2026-04-10\",\"net_amount\":\"0.01\",\"status\":\"executed\"}"
+        }
+      }
+    ],
+    "account_balances": [],
+    "api_keys": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 1,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 0,
+          "last_sync_error": null,
+          "last_synced_at": null,
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        },
+        "after": {
+          "id": 1,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 1,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 0,
+          "last_sync_error": null,
+          "last_synced_at": "2026-04-10 00:00:00",
+          "status": 1,
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1
+        }
+      }
+    ],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 1,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "alpaca": {
+        "GET /v2/account/activities": [
+          {
+            "status": 200,
+            "body": "[{\"id\":\"float-1\",\"activity_type\":\"INT\",\"net_amount\":\"0.07\",\"date\":\"2026-09-10\",\"status\":\"executed\",\"a\":0.30000000000000004,\"b\":1.2345678901234567,\"c\":1.0,\"d\":1e2,\"e\":-0.0,\"f\":1E-7,\"g\":1e20,\"h\":1e15,\"i\":123456789012345678.0,\"j\":4.9e-324,\"k\":1.7976931348623157e308,\"l\":1984.0207455399993,\"m\":-0,\"n\":1.50,\"o\":[0.1,2.5e-5,{\"p\":1234567890123456.7}],\"s\":\"a<b>&c \\u00e9 \\/ \\u2028 \\t \\u0001 \\ud83d\\ude00\",\"t<\":null},{\"id\":\"float-2\",\"activity_type\":\"FILL\",\"transaction_time\":\"2026-09-10T14:30:00Z\",\"type\":\"fill\",\"price\":170.10,\"qty\":0.30000000000000004,\"side\":\"buy\",\"symbol\":\"AAPL\",\"order_id\":\"o-float-2\"}]"
+          }
+        ]
+      }
+    }
+  ]
+}

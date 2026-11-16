@@ -1,0 +1,197 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T14:00:01.250000Z",
+  "venue": "hyperliquid",
+  "script": {
+    "hyperliquid": {
+      "POST /info l2Book": [
+        {
+          "status": 200,
+          "body": {
+            "coin": "@142",
+            "time": 1788000000000,
+            "levels": [
+              [
+                {
+                  "px": "64000.5",
+                  "sz": "10",
+                  "n": 1
+                }
+              ],
+              [
+                {
+                  "px": "64012.7",
+                  "sz": "10",
+                  "n": 1
+                }
+              ]
+            ]
+          }
+        }
+      ],
+      "POST /info allMids": [
+        {
+          "status": 200,
+          "body": {
+            "@142": "64006.1",
+            "@143": "2500.5"
+          }
+        }
+      ],
+      "POST /info spotClearinghouseState": [
+        {
+          "status": 200,
+          "body": {
+            "balances": [
+              {
+                "coin": "USDC",
+                "token": 0,
+                "hold": "0",
+                "total": "10000",
+                "entryNtl": "0.0"
+              },
+              {
+                "coin": "BTC",
+                "token": 1,
+                "hold": "0.0",
+                "total": "0.5",
+                "entryNtl": "0.0"
+              }
+            ]
+          }
+        }
+      ],
+      "POST /info meta": [
+        {
+          "status": 200,
+          "body": {
+            "universe": []
+          }
+        }
+      ],
+      "POST /info spotMeta": [
+        {
+          "status": 200,
+          "body": {
+            "tokens": [
+              {
+                "name": "USDC",
+                "index": 0,
+                "szDecimals": 8
+              },
+              {
+                "name": "BTC",
+                "index": 1,
+                "szDecimals": 5
+              },
+              {
+                "name": "ETH",
+                "index": 2,
+                "szDecimals": 5
+              }
+            ],
+            "universe": [
+              {
+                "name": "@142",
+                "tokens": [
+                  1,
+                  0
+                ],
+                "index": 142
+              },
+              {
+                "name": "@143",
+                "tokens": [
+                  2,
+                  0
+                ],
+                "index": 143
+              }
+            ]
+          }
+        }
+      ],
+      "POST /info perpDexs": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "POST /exchange": [
+        {
+          "status": 200,
+          "body": {
+            "status": "ok",
+            "response": {
+              "type": "order",
+              "data": {
+                "statuses": [
+                  {
+                    "filled": {
+                      "totalSz": "1.48",
+                      "avgPx": "40.124",
+                      "oid": 77738308
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "POST /info userFillsByTime": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "coin": "@142",
+              "px": "64012",
+              "sz": "0.00154",
+              "side": "A",
+              "time": 1788000000100,
+              "startPosition": "0.0",
+              "dir": "Sell",
+              "closedPnl": "0.0",
+              "hash": "0xh9500",
+              "oid": 77738308,
+              "crossed": true,
+              "fee": "0.0005",
+              "tid": 9500,
+              "feeToken": "BTC"
+            }
+          ]
+        }
+      ],
+      "POST /info orderStatus": [
+        {
+          "status": 200,
+          "body": {
+            "status": "order",
+            "order": {
+              "order": {
+                "coin": "@142",
+                "side": "A",
+                "limitPx": "63360",
+                "sz": "0.0",
+                "oid": 77738308,
+                "timestamp": 1788000000000,
+                "origSz": "0.00154"
+              },
+              "status": "filled",
+              "statusTimestamp": 1788000000500
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "poll": "BTC-77738308",
+  "signals": [
+    {
+      "signal_id": 1,
+      "triggered_at": "2026-09-01T14:00:01.250000Z"
+    }
+  ]
+}

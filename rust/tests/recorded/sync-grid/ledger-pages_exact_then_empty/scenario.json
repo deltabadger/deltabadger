@@ -1,0 +1,729 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 1,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "alpaca": {
+        "GET /v2/account/activities": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "id": "int-0000",
+                "activity_type": "INT",
+                "date": "2026-01-01",
+                "net_amount": "0.01",
+                "status": "executed"
+              },
+              {
+                "id": "int-0001",
+                "activity_type": "INT",
+                "date": "2026-01-02",
+                "net_amount": "0.02",
+                "status": "executed"
+              },
+              {
+                "id": "int-0002",
+                "activity_type": "INT",
+                "date": "2026-01-03",
+                "net_amount": "0.03",
+                "status": "executed"
+              },
+              {
+                "id": "int-0003",
+                "activity_type": "INT",
+                "date": "2026-01-04",
+                "net_amount": "0.04",
+                "status": "executed"
+              },
+              {
+                "id": "int-0004",
+                "activity_type": "INT",
+                "date": "2026-01-05",
+                "net_amount": "0.05",
+                "status": "executed"
+              },
+              {
+                "id": "int-0005",
+                "activity_type": "INT",
+                "date": "2026-01-06",
+                "net_amount": "0.06",
+                "status": "executed"
+              },
+              {
+                "id": "int-0006",
+                "activity_type": "INT",
+                "date": "2026-01-07",
+                "net_amount": "0.07",
+                "status": "executed"
+              },
+              {
+                "id": "int-0007",
+                "activity_type": "INT",
+                "date": "2026-01-08",
+                "net_amount": "0.08",
+                "status": "executed"
+              },
+              {
+                "id": "int-0008",
+                "activity_type": "INT",
+                "date": "2026-01-09",
+                "net_amount": "0.09",
+                "status": "executed"
+              },
+              {
+                "id": "int-0009",
+                "activity_type": "INT",
+                "date": "2026-01-10",
+                "net_amount": "0.10",
+                "status": "executed"
+              },
+              {
+                "id": "int-0010",
+                "activity_type": "INT",
+                "date": "2026-01-11",
+                "net_amount": "0.11",
+                "status": "executed"
+              },
+              {
+                "id": "int-0011",
+                "activity_type": "INT",
+                "date": "2026-01-12",
+                "net_amount": "0.12",
+                "status": "executed"
+              },
+              {
+                "id": "int-0012",
+                "activity_type": "INT",
+                "date": "2026-01-13",
+                "net_amount": "0.13",
+                "status": "executed"
+              },
+              {
+                "id": "int-0013",
+                "activity_type": "INT",
+                "date": "2026-01-14",
+                "net_amount": "0.14",
+                "status": "executed"
+              },
+              {
+                "id": "int-0014",
+                "activity_type": "INT",
+                "date": "2026-01-15",
+                "net_amount": "0.15",
+                "status": "executed"
+              },
+              {
+                "id": "int-0015",
+                "activity_type": "INT",
+                "date": "2026-01-16",
+                "net_amount": "0.16",
+                "status": "executed"
+              },
+              {
+                "id": "int-0016",
+                "activity_type": "INT",
+                "date": "2026-01-17",
+                "net_amount": "0.17",
+                "status": "executed"
+              },
+              {
+                "id": "int-0017",
+                "activity_type": "INT",
+                "date": "2026-01-18",
+                "net_amount": "0.18",
+                "status": "executed"
+              },
+              {
+                "id": "int-0018",
+                "activity_type": "INT",
+                "date": "2026-01-19",
+                "net_amount": "0.19",
+                "status": "executed"
+              },
+              {
+                "id": "int-0019",
+                "activity_type": "INT",
+                "date": "2026-01-20",
+                "net_amount": "0.20",
+                "status": "executed"
+              },
+              {
+                "id": "int-0020",
+                "activity_type": "INT",
+                "date": "2026-01-21",
+                "net_amount": "0.21",
+                "status": "executed"
+              },
+              {
+                "id": "int-0021",
+                "activity_type": "INT",
+                "date": "2026-01-22",
+                "net_amount": "0.22",
+                "status": "executed"
+              },
+              {
+                "id": "int-0022",
+                "activity_type": "INT",
+                "date": "2026-01-23",
+                "net_amount": "0.23",
+                "status": "executed"
+              },
+              {
+                "id": "int-0023",
+                "activity_type": "INT",
+                "date": "2026-01-24",
+                "net_amount": "0.24",
+                "status": "executed"
+              },
+              {
+                "id": "int-0024",
+                "activity_type": "INT",
+                "date": "2026-01-25",
+                "net_amount": "0.25",
+                "status": "executed"
+              },
+              {
+                "id": "int-0025",
+                "activity_type": "INT",
+                "date": "2026-01-26",
+                "net_amount": "0.26",
+                "status": "executed"
+              },
+              {
+                "id": "int-0026",
+                "activity_type": "INT",
+                "date": "2026-01-27",
+                "net_amount": "0.27",
+                "status": "executed"
+              },
+              {
+                "id": "int-0027",
+                "activity_type": "INT",
+                "date": "2026-01-28",
+                "net_amount": "0.28",
+                "status": "executed"
+              },
+              {
+                "id": "int-0028",
+                "activity_type": "INT",
+                "date": "2026-01-29",
+                "net_amount": "0.29",
+                "status": "executed"
+              },
+              {
+                "id": "int-0029",
+                "activity_type": "INT",
+                "date": "2026-01-30",
+                "net_amount": "0.30",
+                "status": "executed"
+              },
+              {
+                "id": "int-0030",
+                "activity_type": "INT",
+                "date": "2026-01-31",
+                "net_amount": "0.31",
+                "status": "executed"
+              },
+              {
+                "id": "int-0031",
+                "activity_type": "INT",
+                "date": "2026-02-01",
+                "net_amount": "0.32",
+                "status": "executed"
+              },
+              {
+                "id": "int-0032",
+                "activity_type": "INT",
+                "date": "2026-02-02",
+                "net_amount": "0.33",
+                "status": "executed"
+              },
+              {
+                "id": "int-0033",
+                "activity_type": "INT",
+                "date": "2026-02-03",
+                "net_amount": "0.34",
+                "status": "executed"
+              },
+              {
+                "id": "int-0034",
+                "activity_type": "INT",
+                "date": "2026-02-04",
+                "net_amount": "0.35",
+                "status": "executed"
+              },
+              {
+                "id": "int-0035",
+                "activity_type": "INT",
+                "date": "2026-02-05",
+                "net_amount": "0.36",
+                "status": "executed"
+              },
+              {
+                "id": "int-0036",
+                "activity_type": "INT",
+                "date": "2026-02-06",
+                "net_amount": "0.37",
+                "status": "executed"
+              },
+              {
+                "id": "int-0037",
+                "activity_type": "INT",
+                "date": "2026-02-07",
+                "net_amount": "0.38",
+                "status": "executed"
+              },
+              {
+                "id": "int-0038",
+                "activity_type": "INT",
+                "date": "2026-02-08",
+                "net_amount": "0.39",
+                "status": "executed"
+              },
+              {
+                "id": "int-0039",
+                "activity_type": "INT",
+                "date": "2026-02-09",
+                "net_amount": "0.40",
+                "status": "executed"
+              },
+              {
+                "id": "int-0040",
+                "activity_type": "INT",
+                "date": "2026-02-10",
+                "net_amount": "0.41",
+                "status": "executed"
+              },
+              {
+                "id": "int-0041",
+                "activity_type": "INT",
+                "date": "2026-02-11",
+                "net_amount": "0.42",
+                "status": "executed"
+              },
+              {
+                "id": "int-0042",
+                "activity_type": "INT",
+                "date": "2026-02-12",
+                "net_amount": "0.43",
+                "status": "executed"
+              },
+              {
+                "id": "int-0043",
+                "activity_type": "INT",
+                "date": "2026-02-13",
+                "net_amount": "0.44",
+                "status": "executed"
+              },
+              {
+                "id": "int-0044",
+                "activity_type": "INT",
+                "date": "2026-02-14",
+                "net_amount": "0.45",
+                "status": "executed"
+              },
+              {
+                "id": "int-0045",
+                "activity_type": "INT",
+                "date": "2026-02-15",
+                "net_amount": "0.46",
+                "status": "executed"
+              },
+              {
+                "id": "int-0046",
+                "activity_type": "INT",
+                "date": "2026-02-16",
+                "net_amount": "0.47",
+                "status": "executed"
+              },
+              {
+                "id": "int-0047",
+                "activity_type": "INT",
+                "date": "2026-02-17",
+                "net_amount": "0.48",
+                "status": "executed"
+              },
+              {
+                "id": "int-0048",
+                "activity_type": "INT",
+                "date": "2026-02-18",
+                "net_amount": "0.49",
+                "status": "executed"
+              },
+              {
+                "id": "int-0049",
+                "activity_type": "INT",
+                "date": "2026-02-19",
+                "net_amount": "0.50",
+                "status": "executed"
+              },
+              {
+                "id": "int-0050",
+                "activity_type": "INT",
+                "date": "2026-02-20",
+                "net_amount": "0.51",
+                "status": "executed"
+              },
+              {
+                "id": "int-0051",
+                "activity_type": "INT",
+                "date": "2026-02-21",
+                "net_amount": "0.52",
+                "status": "executed"
+              },
+              {
+                "id": "int-0052",
+                "activity_type": "INT",
+                "date": "2026-02-22",
+                "net_amount": "0.53",
+                "status": "executed"
+              },
+              {
+                "id": "int-0053",
+                "activity_type": "INT",
+                "date": "2026-02-23",
+                "net_amount": "0.54",
+                "status": "executed"
+              },
+              {
+                "id": "int-0054",
+                "activity_type": "INT",
+                "date": "2026-02-24",
+                "net_amount": "0.55",
+                "status": "executed"
+              },
+              {
+                "id": "int-0055",
+                "activity_type": "INT",
+                "date": "2026-02-25",
+                "net_amount": "0.56",
+                "status": "executed"
+              },
+              {
+                "id": "int-0056",
+                "activity_type": "INT",
+                "date": "2026-02-26",
+                "net_amount": "0.57",
+                "status": "executed"
+              },
+              {
+                "id": "int-0057",
+                "activity_type": "INT",
+                "date": "2026-02-27",
+                "net_amount": "0.58",
+                "status": "executed"
+              },
+              {
+                "id": "int-0058",
+                "activity_type": "INT",
+                "date": "2026-02-28",
+                "net_amount": "0.59",
+                "status": "executed"
+              },
+              {
+                "id": "int-0059",
+                "activity_type": "INT",
+                "date": "2026-03-01",
+                "net_amount": "0.60",
+                "status": "executed"
+              },
+              {
+                "id": "int-0060",
+                "activity_type": "INT",
+                "date": "2026-03-02",
+                "net_amount": "0.61",
+                "status": "executed"
+              },
+              {
+                "id": "int-0061",
+                "activity_type": "INT",
+                "date": "2026-03-03",
+                "net_amount": "0.62",
+                "status": "executed"
+              },
+              {
+                "id": "int-0062",
+                "activity_type": "INT",
+                "date": "2026-03-04",
+                "net_amount": "0.63",
+                "status": "executed"
+              },
+              {
+                "id": "int-0063",
+                "activity_type": "INT",
+                "date": "2026-03-05",
+                "net_amount": "0.64",
+                "status": "executed"
+              },
+              {
+                "id": "int-0064",
+                "activity_type": "INT",
+                "date": "2026-03-06",
+                "net_amount": "0.65",
+                "status": "executed"
+              },
+              {
+                "id": "int-0065",
+                "activity_type": "INT",
+                "date": "2026-03-07",
+                "net_amount": "0.66",
+                "status": "executed"
+              },
+              {
+                "id": "int-0066",
+                "activity_type": "INT",
+                "date": "2026-03-08",
+                "net_amount": "0.67",
+                "status": "executed"
+              },
+              {
+                "id": "int-0067",
+                "activity_type": "INT",
+                "date": "2026-03-09",
+                "net_amount": "0.68",
+                "status": "executed"
+              },
+              {
+                "id": "int-0068",
+                "activity_type": "INT",
+                "date": "2026-03-10",
+                "net_amount": "0.69",
+                "status": "executed"
+              },
+              {
+                "id": "int-0069",
+                "activity_type": "INT",
+                "date": "2026-03-11",
+                "net_amount": "0.70",
+                "status": "executed"
+              },
+              {
+                "id": "int-0070",
+                "activity_type": "INT",
+                "date": "2026-03-12",
+                "net_amount": "0.71",
+                "status": "executed"
+              },
+              {
+                "id": "int-0071",
+                "activity_type": "INT",
+                "date": "2026-03-13",
+                "net_amount": "0.72",
+                "status": "executed"
+              },
+              {
+                "id": "int-0072",
+                "activity_type": "INT",
+                "date": "2026-03-14",
+                "net_amount": "0.73",
+                "status": "executed"
+              },
+              {
+                "id": "int-0073",
+                "activity_type": "INT",
+                "date": "2026-03-15",
+                "net_amount": "0.74",
+                "status": "executed"
+              },
+              {
+                "id": "int-0074",
+                "activity_type": "INT",
+                "date": "2026-03-16",
+                "net_amount": "0.75",
+                "status": "executed"
+              },
+              {
+                "id": "int-0075",
+                "activity_type": "INT",
+                "date": "2026-03-17",
+                "net_amount": "0.76",
+                "status": "executed"
+              },
+              {
+                "id": "int-0076",
+                "activity_type": "INT",
+                "date": "2026-03-18",
+                "net_amount": "0.77",
+                "status": "executed"
+              },
+              {
+                "id": "int-0077",
+                "activity_type": "INT",
+                "date": "2026-03-19",
+                "net_amount": "0.78",
+                "status": "executed"
+              },
+              {
+                "id": "int-0078",
+                "activity_type": "INT",
+                "date": "2026-03-20",
+                "net_amount": "0.79",
+                "status": "executed"
+              },
+              {
+                "id": "int-0079",
+                "activity_type": "INT",
+                "date": "2026-03-21",
+                "net_amount": "0.80",
+                "status": "executed"
+              },
+              {
+                "id": "int-0080",
+                "activity_type": "INT",
+                "date": "2026-03-22",
+                "net_amount": "0.81",
+                "status": "executed"
+              },
+              {
+                "id": "int-0081",
+                "activity_type": "INT",
+                "date": "2026-03-23",
+                "net_amount": "0.82",
+                "status": "executed"
+              },
+              {
+                "id": "int-0082",
+                "activity_type": "INT",
+                "date": "2026-03-24",
+                "net_amount": "0.83",
+                "status": "executed"
+              },
+              {
+                "id": "int-0083",
+                "activity_type": "INT",
+                "date": "2026-03-25",
+                "net_amount": "0.84",
+                "status": "executed"
+              },
+              {
+                "id": "int-0084",
+                "activity_type": "INT",
+                "date": "2026-03-26",
+                "net_amount": "0.85",
+                "status": "executed"
+              },
+              {
+                "id": "int-0085",
+                "activity_type": "INT",
+                "date": "2026-03-27",
+                "net_amount": "0.86",
+                "status": "executed"
+              },
+              {
+                "id": "int-0086",
+                "activity_type": "INT",
+                "date": "2026-03-28",
+                "net_amount": "0.87",
+                "status": "executed"
+              },
+              {
+                "id": "int-0087",
+                "activity_type": "INT",
+                "date": "2026-03-29",
+                "net_amount": "0.88",
+                "status": "executed"
+              },
+              {
+                "id": "int-0088",
+                "activity_type": "INT",
+                "date": "2026-03-30",
+                "net_amount": "0.89",
+                "status": "executed"
+              },
+              {
+                "id": "int-0089",
+                "activity_type": "INT",
+                "date": "2026-03-31",
+                "net_amount": "0.90",
+                "status": "executed"
+              },
+              {
+                "id": "int-0090",
+                "activity_type": "INT",
+                "date": "2026-04-01",
+                "net_amount": "0.91",
+                "status": "executed"
+              },
+              {
+                "id": "int-0091",
+                "activity_type": "INT",
+                "date": "2026-04-02",
+                "net_amount": "0.92",
+                "status": "executed"
+              },
+              {
+                "id": "int-0092",
+                "activity_type": "INT",
+                "date": "2026-04-03",
+                "net_amount": "0.93",
+                "status": "executed"
+              },
+              {
+                "id": "int-0093",
+                "activity_type": "INT",
+                "date": "2026-04-04",
+                "net_amount": "0.94",
+                "status": "executed"
+              },
+              {
+                "id": "int-0094",
+                "activity_type": "INT",
+                "date": "2026-04-05",
+                "net_amount": "0.95",
+                "status": "executed"
+              },
+              {
+                "id": "int-0095",
+                "activity_type": "INT",
+                "date": "2026-04-06",
+                "net_amount": "0.96",
+                "status": "executed"
+              },
+              {
+                "id": "int-0096",
+                "activity_type": "INT",
+                "date": "2026-04-07",
+                "net_amount": "0.97",
+                "status": "executed"
+              },
+              {
+                "id": "int-0097",
+                "activity_type": "INT",
+                "date": "2026-04-08",
+                "net_amount": "0.98",
+                "status": "executed"
+              },
+              {
+                "id": "int-0098",
+                "activity_type": "INT",
+                "date": "2026-04-09",
+                "net_amount": "0.99",
+                "status": "executed"
+              },
+              {
+                "id": "int-0099",
+                "activity_type": "INT",
+                "date": "2026-04-10",
+                "net_amount": "0.01",
+                "status": "executed"
+              }
+            ]
+          },
+          {
+            "status": 200,
+            "body": []
+          }
+        ]
+      }
+    }
+  ]
+}

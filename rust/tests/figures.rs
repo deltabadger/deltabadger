@@ -72,14 +72,14 @@ struct Scenario {
 
 struct Grid { scenarios: Vec<Scenario> }
 
-/// Built once per test run (common::run_template): Rails builds every scenario's install, the installs are copied
+/// Frozen (common::frozen; Rails runs only in a freeze run): Rails builds every scenario's install, the installs are copied
 /// before Rails reads them, and Rails records its figures. Each test process then computes this library's figures
 /// from its own copy of those copies. Only the results are kept: a static is never dropped, so installs held in it
 /// would stay on disk after the process ends (gigabytes per run).
 fn grid() -> &'static Grid {
     static GRID: OnceLock<Grid> = OnceLock::new();
     GRID.get_or_init(|| {
-        let recorded = common::run_template("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
+        let recorded = common::frozen("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
             let (rails_root, rust_root) = (out.join("rails"), out.join("rust"));
             std::fs::create_dir_all(&rails_root).unwrap();
             rails(&["grid", rails_root.to_str().unwrap()]);
@@ -657,7 +657,7 @@ fn coingecko_accounts_convert_through_the_web_as_rails_does() {
     tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(coingecko_accounts_convert());
 }
 async fn coingecko_accounts_convert() {
-    let recorded = common::run_template("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |_| unreachable!("built by grid()"));
+    let recorded = common::frozen("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |_| unreachable!("built by grid()"));
     for name in ["account_coingecko", "account_string_price_coingecko"] {
         let rails = &grid().scenarios.iter().find(|s| s.name == name).unwrap().rails;
         let dir = tempfile::tempdir().unwrap();

@@ -1,0 +1,47 @@
+{
+  "sent": [
+    {
+      "symbol": "BTC/USD",
+      "side": "buy",
+      "type": "market",
+      "time_in_force": "gtc",
+      "notional": "100.00"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Alpaca",
+        "base_asset": "BTC",
+        "quote_asset": "USD",
+        "amount": 100,
+        "amount_type": "quote"
+      },
+      "result": {
+        "status": "upstream_failed",
+        "code": "order_failed",
+        "message": "Order failed: insufficient balance for USD (requested: 100, available: 50)",
+        "data": null
+      },
+      "mcp": {
+        "isError": true,
+        "content": [
+          {
+            "type": "text",
+            "text": "Order failed: insufficient balance for USD (requested: 100, available: 50)"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

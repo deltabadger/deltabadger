@@ -1,0 +1,68 @@
+{
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  },
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-02T10:00:01.123456Z",
+  "venue": "mexc",
+  "script": {
+    "mexc": {
+      "GET /api/v3/ticker/bookTicker": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "bidPrice": "64000.10",
+            "bidQty": "1.5",
+            "askPrice": "64000.11",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "price": "64000.05"
+          }
+        }
+      ],
+      "POST /api/v3/order": [
+        {
+          "network": "post_send",
+          "message": "Faraday::TimeoutError: Net::ReadTimeout"
+        }
+      ],
+      "GET /api/v3/account": [
+        {
+          "status": 200,
+          "body": {
+            "canTrade": true,
+            "canWithdraw": true,
+            "canDeposit": true,
+            "accountType": "SPOT",
+            "balances": [
+              {
+                "asset": "BTC",
+                "free": "0.5",
+                "locked": "0"
+              },
+              {
+                "asset": "USDT",
+                "free": "100000",
+                "locked": "0"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "redeploy": {
+    "at": "2026-09-02T10:00:01.123456Z"
+  }
+}

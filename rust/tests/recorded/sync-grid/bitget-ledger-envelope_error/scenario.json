@@ -1,0 +1,106 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "bitget": {
+        "GET /api/v2/spot/trade/fills": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": [
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o9003",
+                  "tradeId": "9003",
+                  "orderType": "market",
+                  "side": "sell",
+                  "priceAvg": "64100",
+                  "size": "0.001",
+                  "amount": "64.1",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789812000000",
+                  "uTime": "1789812000000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "ETHBTC",
+                  "orderId": "o9002",
+                  "tradeId": "9002",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "0.031",
+                  "size": "0.5",
+                  "amount": "0.0155",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "ETH",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.0005"
+                  },
+                  "cTime": "1789722000000",
+                  "uTime": "1789722000000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "NEWUSDT",
+                  "orderId": "o9001",
+                  "tradeId": "9001",
+                  "orderType": "market",
+                  "side": "Buy",
+                  "priceAvg": "1.5",
+                  "size": "10",
+                  "amount": "15.0",
+                  "tradeScope": "taker",
+                  "cTime": "1789603200000",
+                  "uTime": "1789603200000",
+                  "fee": "-0.015"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v2/spot/wallet/deposit-records": [
+          {
+            "status": 200,
+            "body": {
+              "code": "40015",
+              "msg": "System is abnormal",
+              "data": []
+            }
+          }
+        ],
+        "GET /api/v2/spot/wallet/withdrawal-records": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": []
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

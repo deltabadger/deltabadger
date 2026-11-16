@@ -1,0 +1,102 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-02T10:00:01.123456Z",
+  "venue": "gemini",
+  "script": {
+    "gemini": {
+      "GET /v1/pubticker/btcusd": [
+        {
+          "status": 200,
+          "body": {
+            "bid": "64000.01",
+            "ask": "64000.11",
+            "last": "64000.05",
+            "volume": {
+              "BTC": "10",
+              "USD": "640000",
+              "timestamp": 1788000000000
+            }
+          }
+        }
+      ],
+      "POST /v1/order/new": [
+        {
+          "status": 200,
+          "body": {
+            "order_id": "7612345678",
+            "id": "7612345678",
+            "symbol": "btcusd",
+            "exchange": "gemini",
+            "avg_execution_price": "64000.12",
+            "side": "buy",
+            "type": "exchange limit",
+            "timestamp": "1788000000",
+            "timestampms": 1788000000000,
+            "is_live": false,
+            "is_cancelled": false,
+            "is_hidden": false,
+            "was_forced": false,
+            "executed_amount": "0.00093749",
+            "remaining_amount": "0.0",
+            "original_amount": "0.00093749",
+            "price": "64640.11",
+            "options": [
+              "immediate-or-cancel"
+            ]
+          }
+        }
+      ],
+      "POST /v1/balances": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "type": "exchange",
+              "currency": "BTC",
+              "amount": "0.5",
+              "available": "0.5",
+              "availableForWithdrawal": "0.5"
+            },
+            {
+              "type": "exchange",
+              "currency": "USD",
+              "amount": "100000",
+              "available": "100000",
+              "availableForWithdrawal": "100000"
+            }
+          ]
+        }
+      ],
+      "POST /v1/order/status": [
+        {
+          "status": 200,
+          "body": {
+            "order_id": "808",
+            "id": "808",
+            "symbol": "btcusd",
+            "exchange": "gemini",
+            "avg_execution_price": "50000",
+            "side": "buy",
+            "type": "exchange limit",
+            "timestamp": "1788000000",
+            "timestampms": 1788000000000,
+            "is_live": false,
+            "is_cancelled": false,
+            "is_hidden": false,
+            "was_forced": false,
+            "executed_amount": "0.0012",
+            "remaining_amount": "0.0",
+            "original_amount": "0.0012",
+            "price": "64640.11",
+            "options": [
+              "immediate-or-cancel"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "poll": "808"
+}

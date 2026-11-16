@@ -1,0 +1,971 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "e928f6ebe5cf433503cc8e996ebee8f073f3382d3c9a81e7f22e3cd154a9ba67"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "e928f6ebe5cf433503cc8e996ebee8f073f3382d3c9a81e7f22e3cd154a9ba67"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/convert/tradeFlow",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "bdffab10bb41c602d9324ebfcbcc062994ae6bb9a51cca022361b738b4cfc160"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/fiat/payments",
+          [
+            [
+              "beginTime",
+              "1789254000000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "822de34591d5bfc29f557f5611758bc532a1f0ce6c751500d2e694122dafb708"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ],
+            [
+              "transactionType",
+              "0"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/fiat/payments",
+          [
+            [
+              "beginTime",
+              "1789254000000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "9084afb69817cec28039752dfc016ffc07decdc4631639abc50375e0ca65f469"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ],
+            [
+              "transactionType",
+              "1"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/asset/dribblet",
+          [
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "8e2bbf89510cee72cab306fb6ef7e3c6c9cf1e5dc3c723b827c54fb8c21fac96"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/asset/assetDividend",
+          [
+            [
+              "limit",
+              "500"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "0c4138ea10db1d1f6a863e8492495bbaaa18384c72bf0c3057c73d6167a24699"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/simple-earn/flexible/history/rewardsRecord",
+          [
+            [
+              "current",
+              "1"
+            ],
+            [
+              "signature",
+              "1102dc3ee3ad0e7ba1762325fe50066de1147038adfe4f3589e06b7436dc7a9c"
+            ],
+            [
+              "size",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/simple-earn/locked/history/rewardsRecord",
+          [
+            [
+              "current",
+              "1"
+            ],
+            [
+              "signature",
+              "1102dc3ee3ad0e7ba1762325fe50066de1147038adfe4f3589e06b7436dc7a9c"
+            ],
+            [
+              "size",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/margin/interestHistory",
+          [
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "8e2bbf89510cee72cab306fb6ef7e3c6c9cf1e5dc3c723b827c54fb8c21fac96"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/margin/forceLiquidationRec",
+          [
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "8e2bbf89510cee72cab306fb6ef7e3c6c9cf1e5dc3c723b827c54fb8c21fac96"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /fapi/v1/income",
+          [
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "bb7aacd1a2eb671a9b8697caf833a6d3e3bddbc4f789a005e0b6117cfb4ebecb"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /dapi/v1/income",
+          [
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "bb7aacd1a2eb671a9b8697caf833a6d3e3bddbc4f789a005e0b6117cfb4ebecb"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/simple-earn/flexible/history/subscriptionRecord",
+          [
+            [
+              "current",
+              "1"
+            ],
+            [
+              "signature",
+              "1102dc3ee3ad0e7ba1762325fe50066de1147038adfe4f3589e06b7436dc7a9c"
+            ],
+            [
+              "size",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/simple-earn/flexible/history/redemptionRecord",
+          [
+            [
+              "current",
+              "1"
+            ],
+            [
+              "signature",
+              "1102dc3ee3ad0e7ba1762325fe50066de1147038adfe4f3589e06b7436dc7a9c"
+            ],
+            [
+              "size",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/simple-earn/locked/history/subscriptionRecord",
+          [
+            [
+              "current",
+              "1"
+            ],
+            [
+              "signature",
+              "1102dc3ee3ad0e7ba1762325fe50066de1147038adfe4f3589e06b7436dc7a9c"
+            ],
+            [
+              "size",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/simple-earn/locked/history/redemptionRecord",
+          [
+            [
+              "current",
+              "1"
+            ],
+            [
+              "signature",
+              "1102dc3ee3ad0e7ba1762325fe50066de1147038adfe4f3589e06b7436dc7a9c"
+            ],
+            [
+              "size",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789254000000"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    },
+    {
+      "requests": [
+        [
+          "GET /sapi/v1/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1790301600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "8c819a99693b7bcb6f5adeea10ad9aa4f3fed49fec19c5fe882b5039f32eb0e4"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1790301600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "offset",
+              "0"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "8c819a99693b7bcb6f5adeea10ad9aa4f3fed49fec19c5fe882b5039f32eb0e4"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/convert/tradeFlow",
+          [
+            [
+              "endTime",
+              "1790301600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "99e7e355299b3abd94bfca14eeedb7ed2680ff38294e569e75323ea144c58ca6"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/fiat/payments",
+          [
+            [
+              "beginTime",
+              "1789599600000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "9273f5844bf5586016168fcd5eae4695197821781e9a4cf244b5c73e4503efe4"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ],
+            [
+              "transactionType",
+              "0"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/fiat/payments",
+          [
+            [
+              "beginTime",
+              "1789599600000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "c7a59477bf46db045fe07e90116f2a0b2604c341cc96bbb3ecad4676e49ea8e5"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ],
+            [
+              "transactionType",
+              "1"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/asset/dribblet",
+          [
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "84c7ca490e81c9edbaf1bf8e3db0c3dbe27f080fc6effb125677f97b892425ad"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/asset/assetDividend",
+          [
+            [
+              "limit",
+              "500"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "9a48ba0feb4c387ceb6eb7cf489f7f684bec8f3cbb3e002d8de56ff354a28fb7"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/simple-earn/flexible/history/rewardsRecord",
+          [
+            [
+              "current",
+              "1"
+            ],
+            [
+              "signature",
+              "74ef3ade38773f6cad3a704ea5e73c1bfa4793356853ae4aa726d1e7b123ac25"
+            ],
+            [
+              "size",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/simple-earn/locked/history/rewardsRecord",
+          [
+            [
+              "current",
+              "1"
+            ],
+            [
+              "signature",
+              "74ef3ade38773f6cad3a704ea5e73c1bfa4793356853ae4aa726d1e7b123ac25"
+            ],
+            [
+              "size",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/margin/interestHistory",
+          [
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "84c7ca490e81c9edbaf1bf8e3db0c3dbe27f080fc6effb125677f97b892425ad"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/margin/forceLiquidationRec",
+          [
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "84c7ca490e81c9edbaf1bf8e3db0c3dbe27f080fc6effb125677f97b892425ad"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /fapi/v1/income",
+          [
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "7ab75ab1611220a62ef1a72dedd0149acede511e34b08457cd580e30f6c890bb"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /dapi/v1/income",
+          [
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "7ab75ab1611220a62ef1a72dedd0149acede511e34b08457cd580e30f6c890bb"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/simple-earn/flexible/history/subscriptionRecord",
+          [
+            [
+              "current",
+              "1"
+            ],
+            [
+              "signature",
+              "74ef3ade38773f6cad3a704ea5e73c1bfa4793356853ae4aa726d1e7b123ac25"
+            ],
+            [
+              "size",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/simple-earn/flexible/history/redemptionRecord",
+          [
+            [
+              "current",
+              "1"
+            ],
+            [
+              "signature",
+              "74ef3ade38773f6cad3a704ea5e73c1bfa4793356853ae4aa726d1e7b123ac25"
+            ],
+            [
+              "size",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/simple-earn/locked/history/subscriptionRecord",
+          [
+            [
+              "current",
+              "1"
+            ],
+            [
+              "signature",
+              "74ef3ade38773f6cad3a704ea5e73c1bfa4793356853ae4aa726d1e7b123ac25"
+            ],
+            [
+              "size",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ],
+        [
+          "GET /sapi/v1/simple-earn/locked/history/redemptionRecord",
+          [
+            [
+              "current",
+              "1"
+            ],
+            [
+              "signature",
+              "74ef3ade38773f6cad3a704ea5e73c1bfa4793356853ae4aa726d1e7b123ac25"
+            ],
+            [
+              "size",
+              "100"
+            ],
+            [
+              "startTime",
+              "1789599600000"
+            ],
+            [
+              "timestamp",
+              "1790301600249"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "api_key_id": 2,
+          "base_amount": 1,
+          "base_asset_id": 5,
+          "base_currency": "BTC",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 4,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "id": "4",
+            "amount": "1",
+            "coin": "BTC",
+            "network": "BTC",
+            "status": 1,
+            "address": "addr",
+            "addressTag": "",
+            "txId": "0xd4",
+            "insertTime": 1789689600000,
+            "transferType": 0,
+            "confirmTimes": "1/1",
+            "unlockConfirm": 0,
+            "walletType": 0
+          },
+          "transacted_at": "2026-09-18 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "0xd4",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"id\":\"4\",\"amount\":\"1\",\"coin\":\"BTC\",\"network\":\"BTC\",\"status\":1,\"address\":\"addr\",\"addressTag\":\"\",\"txId\":\"0xd4\",\"insertTime\":1789689600000,\"transferType\":0,\"confirmTimes\":\"1/1\",\"unlockConfirm\":0,\"walletType\":0}"
+        }
+      }
+    ],
+    "account_balances": [],
+    "api_keys": [
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": "2026-09-14 00:00:00",
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        },
+        "after": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": "2026-09-18 00:00:00",
+          "status": 1,
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1
+        }
+      }
+    ],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

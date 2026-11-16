@@ -1,0 +1,18 @@
+{
+  "bots": {
+    "1": {
+      "metrics": "{\"chart\":{\"labels\":[],\"series\":[[],[]],\"extra_series\":[[],[]]},\"total_base_amount\":0,\"total_quote_amount_invested\":0,\"total_realized_proceeds\":0,\"total_amount_value_in_quote\":0,\"pnl\":0.0,\"average_buy_price\":null}",
+      "live": "{\"chart\":{\"labels\":[],\"series\":[[],[]],\"extra_series\":[[],[]]},\"total_base_amount\":0,\"total_quote_amount_invested\":0,\"total_realized_proceeds\":0,\"total_amount_value_in_quote\":0,\"pnl\":0.0,\"average_buy_price\":null}",
+      "marked": "{\"chart\":{\"labels\":[],\"series\":[[],[]],\"extra_series\":[[],[]]},\"total_base_amount\":0,\"total_quote_amount_invested\":0,\"total_realized_proceeds\":0,\"total_amount_value_in_quote\":0,\"pnl\":0.0,\"average_buy_price\":null}",
+      "cached": false,
+      "chart_cache": false,
+      "chart": null,
+      "profit_in_usd": "\"0.0\""
+    }
+  },
+  "global_pnl": "null",
+  "global_pnl_snapshot": "{\"result\":null,\"loading\":true}",
+  "pnl_history": "{\"result\":null,\"loading\":false}",
+  "denomination": "{\"currency\":\"USD\",\"rate\":\"1.0\"}",
+  "requests": []
+}

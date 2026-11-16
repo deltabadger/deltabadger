@@ -1,0 +1,79 @@
+{
+  "sent": [],
+  "changes": {
+    "bots": [],
+    "transactions": [
+      {
+        "id": 3,
+        "before": {
+          "id": 3,
+          "amount": {
+            "f": "3f847ae147ae147b"
+          },
+          "amount_exec": 0,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "day",
+          "bot_quote_amount": 60,
+          "created_at": "2026-09-01 10:00:01",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "BTC-77738308",
+          "external_status": 1,
+          "order_type": 1,
+          "price": {
+            "f": "40ef40c333333333"
+          },
+          "quote": "USDC",
+          "quote_amount": {
+            "f": "4084007ced916873"
+          },
+          "quote_amount_exec": 0,
+          "quote_asset_id": 2,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 10:00:01"
+        },
+        "after": {
+          "id": 3,
+          "amount": {
+            "f": "3f847ae147ae147b"
+          },
+          "amount_exec": 0,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "day",
+          "bot_quote_amount": 60,
+          "created_at": "2026-09-01 10:00:01",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "BTC-77738308",
+          "external_status": 1,
+          "order_type": 1,
+          "price": {
+            "f": "4044433333333333"
+          },
+          "quote": "USDC",
+          "quote_amount": {
+            "f": "4084007ced916873"
+          },
+          "quote_amount_exec": 0,
+          "quote_asset_id": 2,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 12:30:00"
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}

@@ -1,0 +1,19 @@
+{
+  "bots": {
+    "1": {
+      "metrics": "{\"raised\":\"TypeError: nil can't be coerced into BigDecimal\"}",
+      "live": "{\"raised\":\"TypeError: nil can't be coerced into BigDecimal\"}",
+      "marked": "{\"raised\":\"TypeError: nil can't be coerced into BigDecimal\"}",
+      "cached": false,
+      "chart_cache": false,
+      "chart": null,
+      "profit_in_usd": "{\"raised\":\"TypeError: nil can't be coerced into BigDecimal\"}"
+    }
+  },
+  "global_pnl": "{\"raised\":\"TypeError: nil can't be coerced into BigDecimal\"}",
+  "global_pnl_snapshot": "{\"result\":null,\"loading\":true}",
+  "pnl_history": "{\"raised\":\"TypeError: nil can't be coerced into BigDecimal\"}",
+  "denomination": "{\"currency\":\"USD\",\"rate\":\"1.0\"}",
+  "requests": [],
+  "seconds": 0.013
+}

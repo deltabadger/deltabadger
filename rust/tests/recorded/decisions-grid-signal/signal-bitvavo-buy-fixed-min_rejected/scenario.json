@@ -1,0 +1,70 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T14:00:01.250000Z",
+  "venue": "bitvavo",
+  "script": {
+    "bitvavo": {
+      "GET /v2/ticker/book": [
+        {
+          "status": 200,
+          "body": {
+            "market": "BTC-EUR",
+            "bid": "64000",
+            "bidSize": "1.5",
+            "ask": "64001",
+            "askSize": "0.2"
+          }
+        }
+      ],
+      "GET /v2/ticker/price": [
+        {
+          "status": 200,
+          "body": {
+            "market": "BTC-EUR",
+            "price": "64000"
+          }
+        }
+      ],
+      "POST /v2/order": [
+        {
+          "status": 400,
+          "body": {
+            "errorCode": 217,
+            "error": "Minimum order size in quote currency is 5 EUR."
+          }
+        }
+      ],
+      "GET /v2/trades": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "GET /v2/balance": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "symbol": "BTC",
+              "available": "0.5",
+              "inOrder": "0.1"
+            },
+            {
+              "symbol": "EUR",
+              "available": "10000",
+              "inOrder": "500"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "signals": [
+    {
+      "signal_id": 1,
+      "triggered_at": "2026-09-01T14:00:01.250000Z"
+    }
+  ]
+}

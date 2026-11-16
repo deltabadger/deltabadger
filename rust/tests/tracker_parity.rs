@@ -9,6 +9,7 @@
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+mod common;
 use std::sync::Arc;
 
 fn rails(args: &[&str]) {
@@ -217,12 +218,19 @@ fn unknown_origin(name:&str,rails:&Value,rust:&Value,before_locks:&Value)->Optio
 async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_tracker_grid() {
     let rails_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
-    rails(&["grid", rails_root.path().to_str().unwrap()]);
+    // Frozen (common::frozen): Rails builds the grid, the installs are copied before Rails writes to its copies, Rails records.
+    let frozen = common::frozen("tracker-grid", |d| d.join("rails").is_dir() && d.join("rust").is_dir(), |out| {
+        let (rails_root, rust_root) = (out.join("rails"), out.join("rust"));
+        std::fs::create_dir_all(&rails_root).unwrap();
+        rails(&["grid", rails_root.to_str().unwrap()]);
+        for d in std::fs::read_dir(&rails_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) { copy_dir(&d, &rust_root.join(d.file_name().unwrap())); }
+        rails(&["record", rails_root.to_str().unwrap()]);
+    });
+    common::copy_tree(&frozen.join("rails"), rails_root.path());
+    common::copy_tree(&frozen.join("rust"), rust_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), 67 + 23 + 12 + 9, "the tracker grid");
-    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
-    rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
     let (mut failures, mut divergences) = (vec![], vec![]);

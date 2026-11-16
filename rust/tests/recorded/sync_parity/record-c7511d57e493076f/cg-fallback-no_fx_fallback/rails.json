@@ -1,0 +1,183 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /api/v3/account",
+          [
+            [
+              "omitZeroBalances",
+              "true"
+            ],
+            [
+              "recvWindow",
+              "60000"
+            ],
+            [
+              "signature",
+              "6616314104c8b6d6aac886f6ff52b6854306f71ea5b7b7a2283ca16395cee96f"
+            ],
+            [
+              "timestamp",
+              "1789871400750"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v1/exchange_rates",
+          []
+        ],
+        [
+          "GET /api/v1/prices",
+          [
+            [
+              "coin_ids",
+              "bitcoin,ethereum,tether,eur"
+            ],
+            [
+              "vs_currencies",
+              "usd"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [],
+    "account_balances": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "asset_id": 5,
+          "created_at": "2026-09-20 02:30:00.750000",
+          "exchange_id": 2,
+          "free": {
+            "f": "3fe0000000000000"
+          },
+          "locked": {
+            "f": "3fb999999999999a"
+          },
+          "priced_at": "2026-09-20 02:30:00.750000",
+          "synced_at": "2026-09-20 02:30:00.750000",
+          "updated_at": "2026-09-20 02:30:00.750000",
+          "usd_price": {
+            "f": "40ed4c1000000000"
+          },
+          "usd_value": {
+            "f": "40e194099999999a"
+          },
+          "user_id": 1
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "asset_id": 6,
+          "created_at": "2026-09-20 02:30:00.750000",
+          "exchange_id": 2,
+          "free": 2,
+          "locked": 0,
+          "priced_at": "2026-09-20 02:30:00.750000",
+          "synced_at": "2026-09-20 02:30:00.750000",
+          "updated_at": "2026-09-20 02:30:00.750000",
+          "usd_price": {
+            "f": "40a3888000000000"
+          },
+          "usd_value": {
+            "f": "40b3888000000000"
+          },
+          "user_id": 1
+        }
+      },
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "asset_id": 7,
+          "created_at": "2026-09-20 02:30:00.750000",
+          "exchange_id": 2,
+          "free": {
+            "f": "4059200000000000"
+          },
+          "locked": 0,
+          "priced_at": "2026-09-20 02:30:00.750000",
+          "synced_at": "2026-09-20 02:30:00.750000",
+          "updated_at": "2026-09-20 02:30:00.750000",
+          "usd_price": {
+            "f": "3ff00068db8bac71"
+          },
+          "usd_value": {
+            "f": "405920a4a8c154ca"
+          },
+          "user_id": 1
+        }
+      },
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "asset_id": 8,
+          "created_at": "2026-09-20 02:30:00.750000",
+          "exchange_id": 2,
+          "free": 50,
+          "locked": 0,
+          "priced_at": null,
+          "synced_at": "2026-09-20 02:30:00.750000",
+          "updated_at": "2026-09-20 02:30:00.750000",
+          "usd_price": null,
+          "usd_value": null,
+          "user_id": 1
+        }
+      }
+    ],
+    "api_keys": [
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": null,
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        },
+        "after": {
+          "id": 2,
+          "balances_synced_at": "2026-09-20 02:30:00.750000",
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": null,
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        }
+      }
+    ],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

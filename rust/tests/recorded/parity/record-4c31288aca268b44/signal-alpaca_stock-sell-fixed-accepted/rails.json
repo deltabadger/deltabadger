@@ -1,0 +1,59 @@
+{
+  "sent": [
+    {
+      "symbol": "AAPL",
+      "side": "sell",
+      "type": "market",
+      "time_in_force": "day",
+      "qty": "0.533589456"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "amount": {
+            "f": "3fe1132a3205c3b5"
+          },
+          "amount_exec": {
+            "f": "3fe10e5604189375"
+          },
+          "base": "AAPL",
+          "base_asset_id": 2,
+          "bot_id": 1,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "OTX-1",
+          "external_status": 2,
+          "order_type": 0,
+          "price": {
+            "f": "40676dc28f5c28f6"
+          },
+          "quote": "USD",
+          "quote_amount": 60,
+          "quote_amount_exec": {
+            "f": "4058f99cb6848beb"
+          },
+          "quote_asset_id": 1,
+          "side": 1,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 14:00:06.250000"
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}

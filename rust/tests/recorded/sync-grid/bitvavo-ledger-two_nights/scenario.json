@@ -1,0 +1,295 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "bitvavo": {
+        "GET /v2/depositHistory": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "timestamp": 1789732800000,
+                "symbol": "EUR",
+                "amount": "1000",
+                "fee": "0",
+                "status": "completed"
+              },
+              {
+                "timestamp": 1789603200000,
+                "symbol": "BTC",
+                "amount": "0.01",
+                "fee": "0",
+                "txId": "0xd2"
+              },
+              {
+                "timestamp": 1789516800000,
+                "symbol": "ETH",
+                "amount": "2",
+                "fee": "0",
+                "status": "pending",
+                "txId": "0xd3"
+              },
+              {
+                "timestamp": 1789520400000,
+                "symbol": "EUR",
+                "amount": "50",
+                "fee": "0.5",
+                "status": "completed"
+              }
+            ]
+          }
+        ],
+        "GET /v2/withdrawalHistory": [
+          {
+            "status": 200,
+            "body": []
+          }
+        ],
+        "GET /v2/balance": [
+          {
+            "status": 200,
+            "body": []
+          }
+        ],
+        "GET /v2/markets": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "market": "BTC-EUR",
+                "status": "trading",
+                "base": "BTC",
+                "quote": "EUR"
+              },
+              {
+                "market": "ETH-EUR",
+                "status": "trading",
+                "base": "ETH",
+                "quote": "EUR"
+              },
+              {
+                "market": "ETH-BTC",
+                "status": "trading",
+                "base": "ETH",
+                "quote": "BTC"
+              },
+              {
+                "market": "ADA-EUR",
+                "status": "trading",
+                "base": "ADA",
+                "quote": "EUR"
+              }
+            ]
+          }
+        ],
+        "GET /v2/trades": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "id": "tr-3",
+                "orderId": "o-tr-3",
+                "timestamp": 1789812000000,
+                "market": "BTC-EUR",
+                "side": "sell",
+                "amount": "0.001",
+                "price": "64100",
+                "taker": true,
+                "fee": "0.15",
+                "feeCurrency": "EUR",
+                "settled": true
+              },
+              {
+                "id": "tr-2",
+                "orderId": "o-tr-2",
+                "timestamp": 1789722000000,
+                "market": "BTC-EUR",
+                "side": "buy",
+                "amount": "0.002",
+                "price": "64000",
+                "taker": true,
+                "fee": "-0.01",
+                "feeCurrency": "EUR",
+                "settled": true
+              },
+              {
+                "id": "tr-1",
+                "orderId": "o-tr-1",
+                "timestamp": 1789030800000,
+                "market": "BTC-EUR",
+                "side": "buy",
+                "amount": "0.003",
+                "price": "63000",
+                "taker": true,
+                "fee": "0.15",
+                "feeCurrency": "EUR",
+                "settled": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "ledger",
+      "at": "2026-09-21T02:00:00.250000Z",
+      "bitvavo": {
+        "GET /v2/depositHistory": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "timestamp": 1789732800000,
+                "symbol": "EUR",
+                "amount": "1000",
+                "fee": "0",
+                "status": "completed"
+              },
+              {
+                "timestamp": 1789603200000,
+                "symbol": "BTC",
+                "amount": "0.01",
+                "fee": "0",
+                "txId": "0xd2"
+              },
+              {
+                "timestamp": 1789516800000,
+                "symbol": "ETH",
+                "amount": "2",
+                "fee": "0",
+                "status": "pending",
+                "txId": "0xd3"
+              },
+              {
+                "timestamp": 1789520400000,
+                "symbol": "EUR",
+                "amount": "50",
+                "fee": "0.5",
+                "status": "completed"
+              }
+            ]
+          }
+        ],
+        "GET /v2/withdrawalHistory": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "timestamp": 1789776000000,
+                "symbol": "BTC",
+                "amount": "0.002",
+                "fee": "0.0001",
+                "status": "completed",
+                "txId": "0xw1"
+              },
+              {
+                "timestamp": 1789689600000,
+                "symbol": "ETH",
+                "amount": "0.1",
+                "fee": "0.001",
+                "status": "awaiting_processing",
+                "txId": "0xw2"
+              }
+            ]
+          }
+        ],
+        "GET /v2/balance": [
+          {
+            "status": 200,
+            "body": []
+          }
+        ],
+        "GET /v2/markets": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "market": "BTC-EUR",
+                "status": "trading",
+                "base": "BTC",
+                "quote": "EUR"
+              },
+              {
+                "market": "ETH-EUR",
+                "status": "trading",
+                "base": "ETH",
+                "quote": "EUR"
+              },
+              {
+                "market": "ETH-BTC",
+                "status": "trading",
+                "base": "ETH",
+                "quote": "BTC"
+              },
+              {
+                "market": "ADA-EUR",
+                "status": "trading",
+                "base": "ADA",
+                "quote": "EUR"
+              }
+            ]
+          }
+        ],
+        "GET /v2/trades": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "id": "tr-3",
+                "orderId": "o-tr-3",
+                "timestamp": 1789812000000,
+                "market": "BTC-EUR",
+                "side": "sell",
+                "amount": "0.001",
+                "price": "64100",
+                "taker": true,
+                "fee": "0.15",
+                "feeCurrency": "EUR",
+                "settled": true
+              },
+              {
+                "id": "tr-2",
+                "orderId": "o-tr-2",
+                "timestamp": 1789722000000,
+                "market": "BTC-EUR",
+                "side": "buy",
+                "amount": "0.002",
+                "price": "64000",
+                "taker": true,
+                "fee": "-0.01",
+                "feeCurrency": "EUR",
+                "settled": true
+              },
+              {
+                "id": "tr-1",
+                "orderId": "o-tr-1",
+                "timestamp": 1789030800000,
+                "market": "BTC-EUR",
+                "side": "buy",
+                "amount": "0.003",
+                "price": "63000",
+                "taker": true,
+                "fee": "0.15",
+                "feeCurrency": "EUR",
+                "settled": true
+              }
+            ]
+          },
+          {
+            "status": 200,
+            "body": []
+          }
+        ]
+      }
+    }
+  ]
+}

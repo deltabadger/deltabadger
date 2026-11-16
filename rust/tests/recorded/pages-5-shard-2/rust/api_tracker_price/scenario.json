@@ -1,0 +1,601 @@
+{
+  "page_parity_scratch": true,
+  "at": "2026-09-10T12:00:30.123456Z",
+  "secret_key_base": "61a30e26004ff1e25ced6c8a0629bdcef5e7bdf90db030ffb7d5f8045d9b04d14c830dfd2fd0312fe655dcbd6f9287a4777420c0f285baf8bf8363797db44997",
+  "steps": [
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price\":\"2\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price?price_usd=12.5",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"0\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":1.2345678901234567}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":5}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":0.00005}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\" 7.50 \"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"-5\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"1e3\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"1234567890123456\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"0.1234567890123456789\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"abc\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"7.50\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"7.5\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":null}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":null}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/1/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"12\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/11/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"12\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/1/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/1/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"abc\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/2/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"  \"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/999/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"1\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/14/price",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"1\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price",
+      "headers": {
+        "Authorization": "Bearer second-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"price_usd\":\"1\"}"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/transactions/account/10/price?price_usd",
+      "headers": {
+        "Authorization": "Bearer api-token"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "account_transactions"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ]
+    }
+  ],
+  "expect_users": {},
+  "jobs": {}
+}

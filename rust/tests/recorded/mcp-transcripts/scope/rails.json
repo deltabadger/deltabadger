@@ -1,0 +1,3575 @@
+{
+  "responses": [
+    {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "www-authenticate": "Bearer error=\"invalid_token\"",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-4+PkG8JvPS7bNNPXy7YPkw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32000,\"message\":\"Access token missing required scope\"}}"
+    }
+  ],
+  "session": null,
+  "rows": {
+    "action_mcp_sessions": [],
+    "action_mcp_session_messages": [],
+    "action_mcp_session_subscriptions": [],
+    "oauth_access_tokens": [
+      {
+        "id": 1,
+        "application_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": "refresh-m2-token",
+        "resource_owner_id": 1,
+        "revoked_at": null,
+        "scopes": "mcp",
+        "token": "m2-token"
+      },
+      {
+        "id": 2,
+        "application_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": "refresh-api-token",
+        "resource_owner_id": 1,
+        "revoked_at": null,
+        "scopes": "api",
+        "token": "api-token"
+      },
+      {
+        "id": 3,
+        "application_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": "refresh-revoked-token",
+        "resource_owner_id": 1,
+        "revoked_at": "2026-09-10 12:00:30.123456",
+        "scopes": "mcp",
+        "token": "revoked-token"
+      },
+      {
+        "id": 4,
+        "application_id": 1,
+        "created_at": "2026-09-10 10:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": "refresh-expired-token",
+        "resource_owner_id": 1,
+        "revoked_at": null,
+        "scopes": "mcp",
+        "token": "expired-token"
+      },
+      {
+        "id": 5,
+        "application_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": "refresh-orphan-token",
+        "resource_owner_id": null,
+        "revoked_at": null,
+        "scopes": "mcp",
+        "token": "orphan-token"
+      },
+      {
+        "id": 6,
+        "application_id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "expires_in": 3600,
+        "previous_refresh_token": "",
+        "refresh_token": null,
+        "resource_owner_id": 2,
+        "revoked_at": null,
+        "scopes": "mcp",
+        "token": "second-token"
+      }
+    ],
+    "connected_clients": [
+      {
+        "id": 1,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "mcp_tools": "[\"list_bots\",\"list_exchanges\",\"list_transactions\",\"list_tax_jurisdictions\"]",
+        "oauth_application_id": 1,
+        "rest_tools": "[]",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "user_id": 2
+      },
+      {
+        "id": 2,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "mcp_tools": "[\"list_bots\",\"list_exchanges\",\"list_transactions\",\"list_tax_jurisdictions\"]",
+        "oauth_application_id": 1,
+        "rest_tools": "[]",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "user_id": 1
+      }
+    ],
+    "bots": [
+      {
+        "id": 1,
+        "account_balance": 0,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_delay": 0,
+        "delay": 0,
+        "exchange_id": 1,
+        "fetch_restarts": 0,
+        "label": "Bot 1",
+        "last_end_of_funds_notification": null,
+        "position": 0,
+        "redeploy_declined_offset": 0,
+        "restarts": 0,
+        "restatement_generation": 0,
+        "settings": "{\"quote_asset_id\":1,\"allocations\":{\"3\":0.4,\"2\":0.6},\"quote_amount\":\"50.00\",\"interval\":\"week\"}",
+        "settings_changed_at": null,
+        "started_at": null,
+        "status": 2,
+        "stop_message_key": null,
+        "stopped_at": null,
+        "transient_data": "{}",
+        "type": "Bots::DcaMultiAsset",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "user_id": 1
+      },
+      {
+        "id": 2,
+        "account_balance": 0,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_delay": 0,
+        "delay": 0,
+        "exchange_id": 1,
+        "fetch_restarts": 0,
+        "label": "Bot 2",
+        "last_end_of_funds_notification": null,
+        "position": 0,
+        "redeploy_declined_offset": 0,
+        "restarts": 0,
+        "restatement_generation": 0,
+        "settings": "{\"quote_asset_id\":1,\"allocations\":{\"3\":0.4,\"2\":0.6},\"quote_amount\":\"50.00\",\"interval\":\"week\"}",
+        "settings_changed_at": null,
+        "started_at": null,
+        "status": 3,
+        "stop_message_key": null,
+        "stopped_at": null,
+        "transient_data": "{}",
+        "type": "Bots::DcaMultiAsset",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "user_id": 1
+      },
+      {
+        "id": 3,
+        "account_balance": 0,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "current_delay": 0,
+        "delay": 0,
+        "exchange_id": 1,
+        "fetch_restarts": 0,
+        "label": "Bot 3",
+        "last_end_of_funds_notification": null,
+        "position": 0,
+        "redeploy_declined_offset": 0,
+        "restarts": 0,
+        "restatement_generation": 0,
+        "settings": "{\"quote_asset_id\":1,\"allocations\":{\"3\":0.4,\"2\":0.6},\"quote_amount\":\"50.00\",\"interval\":\"week\"}",
+        "settings_changed_at": null,
+        "started_at": null,
+        "status": 7,
+        "stop_message_key": null,
+        "stopped_at": null,
+        "transient_data": "{}",
+        "type": "Bots::DcaMultiAsset",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "user_id": 1
+      }
+    ],
+    "transactions": [
+      {
+        "id": 1,
+        "amount": null,
+        "amount_exec": null,
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": null,
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": null,
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 2,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:59:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 3,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:58:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 4,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:57:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 5,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:56:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 6,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:55:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 7,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:54:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 8,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:53:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 9,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:52:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 10,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:51:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 11,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:50:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 12,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:49:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 13,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:48:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 14,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:47:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 15,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:46:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 16,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:45:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 17,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:44:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 18,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:43:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 19,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:42:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 20,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:41:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 21,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:40:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 22,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:39:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 23,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:38:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 24,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:37:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 25,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:36:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 26,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:35:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 27,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:34:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 28,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:33:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 29,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:32:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 30,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:31:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 31,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:30:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 32,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:29:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 33,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:28:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 34,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:27:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 35,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:26:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 36,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:25:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 37,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:24:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 38,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:23:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 39,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:22:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 40,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:21:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 41,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:20:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 42,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:19:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 43,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:18:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 44,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:17:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 45,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:16:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 46,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:15:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 47,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:14:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 48,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:13:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 49,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:12:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 50,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:11:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 51,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:10:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 52,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:09:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 53,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:08:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 54,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:07:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 55,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:06:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 56,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:05:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 57,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:04:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 58,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:03:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 59,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:02:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 60,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:01:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 61,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 11:00:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 62,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:59:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 63,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:58:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 64,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:57:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 65,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:56:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 66,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:55:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 67,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:54:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 68,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:53:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 69,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:52:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 70,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:51:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 71,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:50:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 72,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:49:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 73,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:48:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 74,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:47:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 75,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:46:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 76,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:45:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 77,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:44:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 78,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:43:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 79,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:42:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 80,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:41:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 81,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:40:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 82,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:39:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 83,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:38:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 84,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:37:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 85,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:36:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 86,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:35:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 87,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:34:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 88,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:33:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 89,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:32:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 90,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:31:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 91,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:30:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 92,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:29:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 93,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:28:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 94,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:27:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 95,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:26:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 96,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:25:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 97,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:24:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 98,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:23:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 99,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:22:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 100,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:21:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 101,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:20:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 102,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:19:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 103,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 1,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:18:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 0,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 104,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 2,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:17:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 1,
+        "status": 1,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      },
+      {
+        "id": 105,
+        "amount": null,
+        "amount_exec": {
+          "float_bits": "3ee4f8b588e368f1"
+        },
+        "base": "BTC",
+        "base_asset_id": null,
+        "bot_id": 3,
+        "bot_interval": "",
+        "bot_quote_amount": 0,
+        "created_at": "2026-09-10 10:16:30.123456",
+        "error_messages": "[]",
+        "exchange_id": 1,
+        "external_id": null,
+        "external_status": null,
+        "order_type": null,
+        "price": {
+          "float_bits": "40934a0000000000"
+        },
+        "quote": "USD",
+        "quote_amount": null,
+        "quote_amount_exec": {
+          "float_bits": "3f894855da272863"
+        },
+        "quote_asset_id": null,
+        "side": 0,
+        "status": 2,
+        "transaction_type": "REGULAR",
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "run_identity": null
+      }
+    ],
+    "api_keys": [
+      {
+        "id": 1,
+        "access_token": null,
+        "balances_synced_at": null,
+        "created_at": "2026-09-10 12:00:30.123456",
+        "dh_param": null,
+        "exchange_id": 1,
+        "german_trading_agreement": null,
+        "ibkr_realm": null,
+        "key": null,
+        "key_type": 0,
+        "last_sync_error": null,
+        "last_synced_at": null,
+        "passphrase": null,
+        "rsa_encryption_key": null,
+        "rsa_signature_key": null,
+        "secret": null,
+        "status": 1,
+        "updated_at": "2026-09-10 12:00:30.123456",
+        "user_id": 1
+      }
+    ]
+  }
+}

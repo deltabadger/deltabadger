@@ -1,0 +1,847 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /api/v3/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1783562400249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "eb18ad1abbfbab0ac3244366832ecfe2f389e7d8b658b752d979a9b799020185"
+            ],
+            [
+              "startTime",
+              "1782957600249"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1784167200250"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "10b81467693585c3a1589dcc00b89ff08a2aff01f848c06513e3b04c150d81a0"
+            ],
+            [
+              "startTime",
+              "1783562400250"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1784772000251"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "bd47b78823e0b27188817112bb13865a71700e8954c4949662dca79db29b4d23"
+            ],
+            [
+              "startTime",
+              "1784167200251"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1785376800252"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "365fb92a2e1fab9b81cbf9d21273aa07229a707a5e30e99ba20660016d9deba4"
+            ],
+            [
+              "startTime",
+              "1784772000252"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1785981600253"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "f96fdd44ff72211b27fa5da5ead9dd5bcc30f27e24883d3771a8382557db3c9b"
+            ],
+            [
+              "startTime",
+              "1785376800253"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1786586400254"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "ba2ef05c42c232dd3645f76e3b98759278a52b473292812b5f736ecbee14fbbd"
+            ],
+            [
+              "startTime",
+              "1785981600254"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1787191200255"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "95616610787a8680c72d9db2ea8ac1520313032e36adf48ff067a330ca3dced8"
+            ],
+            [
+              "startTime",
+              "1786586400255"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1787796000256"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "5803f5874a6b85e6e2d0eb9e959ba79da8245eaa6d17c71015258c4e9788304d"
+            ],
+            [
+              "startTime",
+              "1787191200256"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1788400800257"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "4a7ce378e8092b9be59ca89c933189a10970e86d69e3793b078b657ae3d38a46"
+            ],
+            [
+              "startTime",
+              "1787796000257"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1789005600258"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "f21dd34d0ef93880ce84aa1a5e1559274b75c9faedc1cea026dff09de63c0872"
+            ],
+            [
+              "startTime",
+              "1788400800258"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1789610400259"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "3bdf0993e589b26e557ec84bd87de042b6ebe75c06b56f8ee5812ce914ac8ae7"
+            ],
+            [
+              "startTime",
+              "1789005600259"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/deposit/hisrec",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "442dbd7c5baff7ca2ed50e970da57f83b63d2cf0c0bc0df0e1b7c7c7b81bd30b"
+            ],
+            [
+              "startTime",
+              "1789610400260"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1783562400249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "eb18ad1abbfbab0ac3244366832ecfe2f389e7d8b658b752d979a9b799020185"
+            ],
+            [
+              "startTime",
+              "1782957600249"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1784167200250"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "10b81467693585c3a1589dcc00b89ff08a2aff01f848c06513e3b04c150d81a0"
+            ],
+            [
+              "startTime",
+              "1783562400250"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1784772000251"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "bd47b78823e0b27188817112bb13865a71700e8954c4949662dca79db29b4d23"
+            ],
+            [
+              "startTime",
+              "1784167200251"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1785376800252"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "365fb92a2e1fab9b81cbf9d21273aa07229a707a5e30e99ba20660016d9deba4"
+            ],
+            [
+              "startTime",
+              "1784772000252"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1785981600253"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "f96fdd44ff72211b27fa5da5ead9dd5bcc30f27e24883d3771a8382557db3c9b"
+            ],
+            [
+              "startTime",
+              "1785376800253"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1786586400254"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "ba2ef05c42c232dd3645f76e3b98759278a52b473292812b5f736ecbee14fbbd"
+            ],
+            [
+              "startTime",
+              "1785981600254"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1787191200255"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "95616610787a8680c72d9db2ea8ac1520313032e36adf48ff067a330ca3dced8"
+            ],
+            [
+              "startTime",
+              "1786586400255"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1787796000256"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "5803f5874a6b85e6e2d0eb9e959ba79da8245eaa6d17c71015258c4e9788304d"
+            ],
+            [
+              "startTime",
+              "1787191200256"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1788400800257"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "4a7ce378e8092b9be59ca89c933189a10970e86d69e3793b078b657ae3d38a46"
+            ],
+            [
+              "startTime",
+              "1787796000257"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1789005600258"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "f21dd34d0ef93880ce84aa1a5e1559274b75c9faedc1cea026dff09de63c0872"
+            ],
+            [
+              "startTime",
+              "1788400800258"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1789610400259"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "3bdf0993e589b26e557ec84bd87de042b6ebe75c06b56f8ee5812ce914ac8ae7"
+            ],
+            [
+              "startTime",
+              "1789005600259"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/capital/withdraw/history",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "1000"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "442dbd7c5baff7ca2ed50e970da57f83b63d2cf0c0bc0df0e1b7c7c7b81bd30b"
+            ],
+            [
+              "startTime",
+              "1789610400260"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/account",
+          [
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "e31530c7b7b45a836b70547aa63c1d44652c78232e6413b2f0e4b7aeefb8bde8"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v3/exchangeInfo",
+          []
+        ],
+        [
+          "GET /api/v3/myTrades",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "recvWindow",
+              "5000"
+            ],
+            [
+              "signature",
+              "5062a1241c8a01deeb0d8dded14a99cf7ae720a65bc500364fd0d19b91efa319"
+            ],
+            [
+              "startTime",
+              "1787277600000"
+            ],
+            [
+              "symbol",
+              "BTCUSDT"
+            ],
+            [
+              "timestamp",
+              "1789869600249"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3fd3333333333333"
+          },
+          "base_asset_id": 5,
+          "base_currency": "BTC",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 4,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "amount": "0.3",
+            "coin": "BTC",
+            "network": "BTC",
+            "status": 5,
+            "address": "0xaddr",
+            "txId": "0xbtc1782950400000:0",
+            "insertTime": 1782950400000,
+            "unlockConfirm": "12",
+            "confirmTimes": "12"
+          },
+          "transacted_at": "2026-07-02 00:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "0xbtc1782950400000:0",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"amount\":\"0.3\",\"coin\":\"BTC\",\"network\":\"BTC\",\"status\":5,\"address\":\"0xaddr\",\"txId\":\"0xbtc1782950400000:0\",\"insertTime\":1782950400000,\"unlockConfirm\":\"12\",\"confirmTimes\":\"12\"}"
+        }
+      }
+    ],
+    "account_balances": [],
+    "api_keys": [
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": "2026-06-12 00:00:00",
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        },
+        "after": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": "2026-07-02 00:00:00",
+          "status": 1,
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1
+        }
+      }
+    ],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

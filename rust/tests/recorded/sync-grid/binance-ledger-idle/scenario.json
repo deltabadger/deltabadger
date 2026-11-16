@@ -1,0 +1,99 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "binance_state": {
+        "symbols": [
+          [
+            "BTCUSDT",
+            "BTC",
+            "USDT"
+          ],
+          [
+            "ETHUSDT",
+            "ETH",
+            "USDT"
+          ],
+          [
+            "ETHBTC",
+            "ETH",
+            "BTC"
+          ],
+          [
+            "BTCEUR",
+            "BTC",
+            "EUR"
+          ],
+          [
+            "BNBUSDT",
+            "BNB",
+            "USDT"
+          ],
+          [
+            "XRPUSDT",
+            "XRP",
+            "USDT",
+            "BREAK"
+          ]
+        ],
+        "balances": [
+          [
+            "BTC",
+            "0.04"
+          ],
+          [
+            "USDT",
+            "400"
+          ],
+          [
+            "ETH",
+            "0.7"
+          ]
+        ],
+        "trades": {
+          "BTCUSDT": [
+            {
+              "id": 100,
+              "orderId": 10,
+              "orderListId": -1,
+              "price": "60000.00",
+              "qty": "0.01000000",
+              "quoteQty": "600.0",
+              "commission": "0.00001000",
+              "commissionAsset": "BTC",
+              "time": 1785924000123,
+              "isBuyer": true,
+              "isMaker": false,
+              "isBestMatch": true
+            }
+          ],
+          "ETHBTC": [
+            {
+              "id": 7,
+              "orderId": 3,
+              "orderListId": -1,
+              "price": "0.04000000",
+              "qty": "0.50000000",
+              "quoteQty": "0.02",
+              "commission": "0.00050000",
+              "commissionAsset": "ETH",
+              "time": 1786096800500,
+              "isBuyer": true,
+              "isMaker": false,
+              "isBestMatch": true
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

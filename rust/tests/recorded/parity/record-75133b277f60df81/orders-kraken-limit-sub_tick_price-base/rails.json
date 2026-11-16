@@ -1,0 +1,38 @@
+{
+  "sent": [],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Kraken",
+        "base_asset": "BTC",
+        "quote_asset": "EUR",
+        "amount": 0.001,
+        "amount_type": "base",
+        "price": 0.01
+      },
+      "result": {
+        "status": "upstream_failed",
+        "code": "order_failed",
+        "message": "Order failed: Invalid limit price for XBTEUR: the limit price must be positive",
+        "data": null
+      },
+      "mcp": {
+        "isError": true,
+        "content": [
+          {
+            "type": "text",
+            "text": "Order failed: Invalid limit price for XBTEUR: the limit price must be positive"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "sent": [
+    {
+      "quantity": "0.0015",
+      "side": "SELL",
+      "symbol": "BTC-USDT",
+      "type": "MARKET"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "BingX",
+        "base_asset": "BTC",
+        "quote_asset": "USDT",
+        "amount": 0.0015,
+        "amount_type": "base"
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "BingX",
+          "pair": "BTC/USDT",
+          "side": "sell",
+          "order_type": "market",
+          "amount": 0.0015,
+          "amount_type": "base",
+          "upstream": {
+            "order_id": "BTC-USDT-100"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Market sell order placed on BingX: 0.0015 BTC of BTC/USDT. {order_id: \"BTC-USDT-100\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

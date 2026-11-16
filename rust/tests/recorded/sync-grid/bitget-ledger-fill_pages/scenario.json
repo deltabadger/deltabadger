@@ -1,0 +1,2117 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "bitget": {
+        "GET /api/v2/spot/trade/fills": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": [
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o5000",
+                  "tradeId": "5000",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789776000000",
+                  "uTime": "1789776000000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4999",
+                  "tradeId": "4999",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775999000",
+                  "uTime": "1789775999000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4998",
+                  "tradeId": "4998",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775998000",
+                  "uTime": "1789775998000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4997",
+                  "tradeId": "4997",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775997000",
+                  "uTime": "1789775997000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4996",
+                  "tradeId": "4996",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775996000",
+                  "uTime": "1789775996000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4995",
+                  "tradeId": "4995",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775995000",
+                  "uTime": "1789775995000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4994",
+                  "tradeId": "4994",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775994000",
+                  "uTime": "1789775994000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4993",
+                  "tradeId": "4993",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775993000",
+                  "uTime": "1789775993000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4992",
+                  "tradeId": "4992",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775992000",
+                  "uTime": "1789775992000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4991",
+                  "tradeId": "4991",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775991000",
+                  "uTime": "1789775991000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4990",
+                  "tradeId": "4990",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775990000",
+                  "uTime": "1789775990000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4989",
+                  "tradeId": "4989",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775989000",
+                  "uTime": "1789775989000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4988",
+                  "tradeId": "4988",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775988000",
+                  "uTime": "1789775988000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4987",
+                  "tradeId": "4987",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775987000",
+                  "uTime": "1789775987000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4986",
+                  "tradeId": "4986",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775986000",
+                  "uTime": "1789775986000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4985",
+                  "tradeId": "4985",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775985000",
+                  "uTime": "1789775985000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4984",
+                  "tradeId": "4984",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775984000",
+                  "uTime": "1789775984000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4983",
+                  "tradeId": "4983",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775983000",
+                  "uTime": "1789775983000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4982",
+                  "tradeId": "4982",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775982000",
+                  "uTime": "1789775982000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4981",
+                  "tradeId": "4981",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775981000",
+                  "uTime": "1789775981000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4980",
+                  "tradeId": "4980",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775980000",
+                  "uTime": "1789775980000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4979",
+                  "tradeId": "4979",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775979000",
+                  "uTime": "1789775979000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4978",
+                  "tradeId": "4978",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775978000",
+                  "uTime": "1789775978000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4977",
+                  "tradeId": "4977",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775977000",
+                  "uTime": "1789775977000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4976",
+                  "tradeId": "4976",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775976000",
+                  "uTime": "1789775976000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4975",
+                  "tradeId": "4975",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775975000",
+                  "uTime": "1789775975000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4974",
+                  "tradeId": "4974",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775974000",
+                  "uTime": "1789775974000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4973",
+                  "tradeId": "4973",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775973000",
+                  "uTime": "1789775973000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4972",
+                  "tradeId": "4972",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775972000",
+                  "uTime": "1789775972000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4971",
+                  "tradeId": "4971",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775971000",
+                  "uTime": "1789775971000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4970",
+                  "tradeId": "4970",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775970000",
+                  "uTime": "1789775970000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4969",
+                  "tradeId": "4969",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775969000",
+                  "uTime": "1789775969000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4968",
+                  "tradeId": "4968",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775968000",
+                  "uTime": "1789775968000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4967",
+                  "tradeId": "4967",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775967000",
+                  "uTime": "1789775967000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4966",
+                  "tradeId": "4966",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775966000",
+                  "uTime": "1789775966000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4965",
+                  "tradeId": "4965",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775965000",
+                  "uTime": "1789775965000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4964",
+                  "tradeId": "4964",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775964000",
+                  "uTime": "1789775964000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4963",
+                  "tradeId": "4963",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775963000",
+                  "uTime": "1789775963000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4962",
+                  "tradeId": "4962",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775962000",
+                  "uTime": "1789775962000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4961",
+                  "tradeId": "4961",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775961000",
+                  "uTime": "1789775961000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4960",
+                  "tradeId": "4960",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775960000",
+                  "uTime": "1789775960000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4959",
+                  "tradeId": "4959",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775959000",
+                  "uTime": "1789775959000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4958",
+                  "tradeId": "4958",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775958000",
+                  "uTime": "1789775958000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4957",
+                  "tradeId": "4957",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775957000",
+                  "uTime": "1789775957000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4956",
+                  "tradeId": "4956",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775956000",
+                  "uTime": "1789775956000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4955",
+                  "tradeId": "4955",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775955000",
+                  "uTime": "1789775955000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4954",
+                  "tradeId": "4954",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775954000",
+                  "uTime": "1789775954000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4953",
+                  "tradeId": "4953",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775953000",
+                  "uTime": "1789775953000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4952",
+                  "tradeId": "4952",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775952000",
+                  "uTime": "1789775952000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4951",
+                  "tradeId": "4951",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775951000",
+                  "uTime": "1789775951000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4950",
+                  "tradeId": "4950",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775950000",
+                  "uTime": "1789775950000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4949",
+                  "tradeId": "4949",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775949000",
+                  "uTime": "1789775949000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4948",
+                  "tradeId": "4948",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775948000",
+                  "uTime": "1789775948000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4947",
+                  "tradeId": "4947",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775947000",
+                  "uTime": "1789775947000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4946",
+                  "tradeId": "4946",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775946000",
+                  "uTime": "1789775946000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4945",
+                  "tradeId": "4945",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775945000",
+                  "uTime": "1789775945000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4944",
+                  "tradeId": "4944",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775944000",
+                  "uTime": "1789775944000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4943",
+                  "tradeId": "4943",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775943000",
+                  "uTime": "1789775943000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4942",
+                  "tradeId": "4942",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775942000",
+                  "uTime": "1789775942000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4941",
+                  "tradeId": "4941",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775941000",
+                  "uTime": "1789775941000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4940",
+                  "tradeId": "4940",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775940000",
+                  "uTime": "1789775940000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4939",
+                  "tradeId": "4939",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775939000",
+                  "uTime": "1789775939000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4938",
+                  "tradeId": "4938",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775938000",
+                  "uTime": "1789775938000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4937",
+                  "tradeId": "4937",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775937000",
+                  "uTime": "1789775937000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4936",
+                  "tradeId": "4936",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775936000",
+                  "uTime": "1789775936000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4935",
+                  "tradeId": "4935",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775935000",
+                  "uTime": "1789775935000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4934",
+                  "tradeId": "4934",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775934000",
+                  "uTime": "1789775934000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4933",
+                  "tradeId": "4933",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775933000",
+                  "uTime": "1789775933000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4932",
+                  "tradeId": "4932",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775932000",
+                  "uTime": "1789775932000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4931",
+                  "tradeId": "4931",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775931000",
+                  "uTime": "1789775931000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4930",
+                  "tradeId": "4930",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775930000",
+                  "uTime": "1789775930000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4929",
+                  "tradeId": "4929",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775929000",
+                  "uTime": "1789775929000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4928",
+                  "tradeId": "4928",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775928000",
+                  "uTime": "1789775928000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4927",
+                  "tradeId": "4927",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775927000",
+                  "uTime": "1789775927000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4926",
+                  "tradeId": "4926",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775926000",
+                  "uTime": "1789775926000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4925",
+                  "tradeId": "4925",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775925000",
+                  "uTime": "1789775925000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4924",
+                  "tradeId": "4924",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775924000",
+                  "uTime": "1789775924000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4923",
+                  "tradeId": "4923",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775923000",
+                  "uTime": "1789775923000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4922",
+                  "tradeId": "4922",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775922000",
+                  "uTime": "1789775922000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4921",
+                  "tradeId": "4921",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775921000",
+                  "uTime": "1789775921000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4920",
+                  "tradeId": "4920",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775920000",
+                  "uTime": "1789775920000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4919",
+                  "tradeId": "4919",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775919000",
+                  "uTime": "1789775919000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4918",
+                  "tradeId": "4918",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775918000",
+                  "uTime": "1789775918000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4917",
+                  "tradeId": "4917",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775917000",
+                  "uTime": "1789775917000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4916",
+                  "tradeId": "4916",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775916000",
+                  "uTime": "1789775916000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4915",
+                  "tradeId": "4915",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775915000",
+                  "uTime": "1789775915000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4914",
+                  "tradeId": "4914",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775914000",
+                  "uTime": "1789775914000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4913",
+                  "tradeId": "4913",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775913000",
+                  "uTime": "1789775913000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4912",
+                  "tradeId": "4912",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775912000",
+                  "uTime": "1789775912000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4911",
+                  "tradeId": "4911",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775911000",
+                  "uTime": "1789775911000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4910",
+                  "tradeId": "4910",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775910000",
+                  "uTime": "1789775910000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4909",
+                  "tradeId": "4909",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775909000",
+                  "uTime": "1789775909000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4908",
+                  "tradeId": "4908",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775908000",
+                  "uTime": "1789775908000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4907",
+                  "tradeId": "4907",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775907000",
+                  "uTime": "1789775907000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4906",
+                  "tradeId": "4906",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775906000",
+                  "uTime": "1789775906000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4905",
+                  "tradeId": "4905",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775905000",
+                  "uTime": "1789775905000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4904",
+                  "tradeId": "4904",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775904000",
+                  "uTime": "1789775904000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4903",
+                  "tradeId": "4903",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775903000",
+                  "uTime": "1789775903000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4902",
+                  "tradeId": "4902",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775902000",
+                  "uTime": "1789775902000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o4901",
+                  "tradeId": "4901",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "64000",
+                  "size": "0.0001",
+                  "amount": "6.4",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789775901000",
+                  "uTime": "1789775901000"
+                }
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": [
+                {
+                  "userId": "1001",
+                  "symbol": "BTCUSDT",
+                  "orderId": "o9003",
+                  "tradeId": "9003",
+                  "orderType": "market",
+                  "side": "sell",
+                  "priceAvg": "64100",
+                  "size": "0.001",
+                  "amount": "64.1",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "USDT",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.06"
+                  },
+                  "cTime": "1789812000000",
+                  "uTime": "1789812000000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "ETHBTC",
+                  "orderId": "o9002",
+                  "tradeId": "9002",
+                  "orderType": "market",
+                  "side": "buy",
+                  "priceAvg": "0.031",
+                  "size": "0.5",
+                  "amount": "0.0155",
+                  "tradeScope": "taker",
+                  "feeDetail": {
+                    "deduction": "no",
+                    "feeCoin": "ETH",
+                    "totalDeductionFee": "0",
+                    "totalFee": "-0.0005"
+                  },
+                  "cTime": "1789722000000",
+                  "uTime": "1789722000000"
+                },
+                {
+                  "userId": "1001",
+                  "symbol": "NEWUSDT",
+                  "orderId": "o9001",
+                  "tradeId": "9001",
+                  "orderType": "market",
+                  "side": "Buy",
+                  "priceAvg": "1.5",
+                  "size": "10",
+                  "amount": "15.0",
+                  "tradeScope": "taker",
+                  "cTime": "1789603200000",
+                  "uTime": "1789603200000",
+                  "fee": "-0.015"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v2/spot/wallet/deposit-records": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": []
+            }
+          }
+        ],
+        "GET /api/v2/spot/wallet/withdrawal-records": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": []
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

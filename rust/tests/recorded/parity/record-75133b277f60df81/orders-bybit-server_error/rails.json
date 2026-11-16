@@ -1,0 +1,48 @@
+{
+  "sent": [
+    {
+      "category": "spot",
+      "symbol": "BTCUSDT",
+      "side": "Buy",
+      "orderType": "Market",
+      "qty": "100.0",
+      "marketUnit": "quoteCoin"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Bybit",
+        "base_asset": "BTC",
+        "quote_asset": "USDT",
+        "amount": 100,
+        "amount_type": "quote"
+      },
+      "result": {
+        "status": "upstream_failed",
+        "code": "order_failed",
+        "message": "Order failed: <html>upstream</html>",
+        "data": null
+      },
+      "mcp": {
+        "isError": true,
+        "content": [
+          {
+            "type": "text",
+            "text": "Order failed: <html>upstream</html>"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

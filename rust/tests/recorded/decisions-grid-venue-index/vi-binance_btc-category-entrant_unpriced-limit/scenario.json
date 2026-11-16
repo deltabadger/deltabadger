@@ -1,0 +1,209 @@
+{
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  },
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T10:00:00.623456Z",
+  "venue": "binance",
+  "script": {
+    "binance": {
+      "POST /api/v3/order": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCBTC",
+            "orderId": 28457,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCBTC",
+            "orderId": 28458,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCBTC",
+            "orderId": 28459,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCBTC",
+            "orderId": 28460,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCBTC",
+            "orderId": 28461,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCBTC",
+            "orderId": 28462,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        }
+      ],
+      "GET /api/v3/account": [
+        {
+          "status": 200,
+          "body": {
+            "makerCommission": 10,
+            "canTrade": true,
+            "balances": [
+              {
+                "asset": "BTC",
+                "free": "100000.00000000",
+                "locked": "0"
+              }
+            ]
+          }
+        }
+      ],
+      "GET /api/v3/allOrders": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "GET /api/v3/myTrades": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "GET /api/v3/ticker/price": [
+        {
+          "status": 200,
+          "body": [
+            {
+              "symbol": "ETHBTC",
+              "price": "0.039"
+            },
+            {
+              "symbol": "SOLBTC",
+              "price": "0.0023"
+            },
+            {
+              "symbol": "ADABTC",
+              "price": "0.000007"
+            },
+            {
+              "symbol": "AVAXBTC",
+              "price": "0.0004"
+            }
+          ]
+        }
+      ],
+      "GET /api/v3/ticker/bookTicker?symbol=ETHBTC": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "ETHBTC",
+            "bidPrice": "0.039",
+            "bidQty": "1.5",
+            "askPrice": "0.03901",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price?symbol=ETHBTC": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "ETHBTC",
+            "price": "0.039"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/bookTicker?symbol=SOLBTC": [
+        {
+          "status": 400,
+          "body": {
+            "code": -1121,
+            "msg": "Invalid symbol."
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price?symbol=SOLBTC": [
+        {
+          "status": 400,
+          "body": {
+            "code": -1121,
+            "msg": "Invalid symbol."
+          }
+        }
+      ],
+      "GET /api/v3/ticker/bookTicker?symbol=ADABTC": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "ADABTC",
+            "bidPrice": "0.000007",
+            "bidQty": "1.5",
+            "askPrice": "0.00000701",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price?symbol=ADABTC": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "ADABTC",
+            "price": "0.000007"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/bookTicker?symbol=AVAXBTC": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "AVAXBTC",
+            "bidPrice": "0.0004",
+            "bidQty": "1.5",
+            "askPrice": "0.000401",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price?symbol=AVAXBTC": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "AVAXBTC",
+            "price": "0.0004"
+          }
+        }
+      ]
+    }
+  },
+  "tick": true
+}

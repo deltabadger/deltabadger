@@ -1,0 +1,92 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "binance_state": {
+        "symbols": [
+          [
+            "BTCUSDT",
+            "BTC",
+            "USDT"
+          ],
+          [
+            "ETHUSDT",
+            "ETH",
+            "USDT"
+          ],
+          [
+            "ETHBTC",
+            "ETH",
+            "BTC"
+          ],
+          [
+            "BTCEUR",
+            "BTC",
+            "EUR"
+          ],
+          [
+            "BNBUSDT",
+            "BNB",
+            "USDT"
+          ],
+          [
+            "XRPUSDT",
+            "XRP",
+            "USDT",
+            "BREAK"
+          ]
+        ],
+        "balances": [
+          [
+            "BTC",
+            "1"
+          ]
+        ],
+        "deposits": [
+          {
+            "id": "11",
+            "amount": "1",
+            "coin": "BTC",
+            "network": "BTC",
+            "status": 1,
+            "address": "addr",
+            "addressTag": "",
+            "txId": "0xd11",
+            "insertTime": 1789171200000,
+            "transferType": 0,
+            "confirmTimes": "1/1",
+            "unlockConfirm": 0,
+            "walletType": 0
+          }
+        ],
+        "trades": {
+          "BTCUSDT": [
+            {
+              "id": 102,
+              "orderId": 12,
+              "orderListId": -1,
+              "price": "62000",
+              "qty": "0.001",
+              "quoteQty": "62.0",
+              "commission": "0.0001",
+              "commissionAsset": "BNB",
+              "time": 1789430400000,
+              "isBuyer": true,
+              "isMaker": false,
+              "isBestMatch": true
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

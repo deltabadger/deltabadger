@@ -1,0 +1,31 @@
+{
+  "saved_while_running": true,
+  "stopped": true,
+  "saved_while_stopped": true,
+  "status": "stopped",
+  "label": "Renamed again",
+  "settings": {
+    "quote_amount": 80.0,
+    "interval": "day",
+    "limit_ordered": true
+  },
+  "markers": {
+    "rust_funds_mail_pending": {
+      "quote_asset": 2,
+      "stamped_at": "2026-08-31T09:00:00.000Z"
+    },
+    "rust_error_mail_pending": {
+      "unknown": {
+        "error": "an <old> \"error\"",
+        "stamped_at": "2026-08-31T09:00:00.000Z"
+      }
+    },
+    "rust_stopped_mail_pending": {
+      "error": "unauthorized.",
+      "stamped_at": "2026-08-31T09:00:00.000Z"
+    },
+    "rust_limit_mail_pending": {
+      "stamped_at": "2026-08-31T09:00:00.000Z"
+    }
+  }
+}

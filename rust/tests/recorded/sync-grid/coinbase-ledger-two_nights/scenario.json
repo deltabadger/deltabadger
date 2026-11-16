@@ -1,0 +1,84 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "coinbase": {
+        "GET /api/v3/brokerage/orders/historical/fills": [
+          {
+            "status": 200,
+            "body": {
+              "fills": [
+                {
+                  "trade_id": "f1",
+                  "entry_id": "entry-f1",
+                  "product_id": "ETH-EUR",
+                  "size": "0.1",
+                  "price": "2385.55",
+                  "commission": "0.05",
+                  "size_in_quote": false,
+                  "side": "BUY",
+                  "trade_type": "FILL",
+                  "trade_time": "2026-09-19T01:00:00Z"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v3/brokerage/accounts": [
+          {
+            "status": 200,
+            "body": {
+              "accounts": [],
+              "has_next": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "ledger",
+      "at": "2026-09-21T02:00:00Z",
+      "coinbase": {
+        "GET /api/v3/brokerage/orders/historical/fills": [
+          {
+            "status": 200,
+            "body": {
+              "fills": [
+                {
+                  "trade_id": "f1",
+                  "entry_id": "entry-f1",
+                  "product_id": "ETH-EUR",
+                  "size": "0.1",
+                  "price": "2385.55",
+                  "commission": "0.05",
+                  "size_in_quote": false,
+                  "side": "BUY",
+                  "trade_type": "FILL",
+                  "trade_time": "2026-09-19T01:00:00Z"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v3/brokerage/accounts": [
+          {
+            "status": 200,
+            "body": {
+              "accounts": [],
+              "has_next": false
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

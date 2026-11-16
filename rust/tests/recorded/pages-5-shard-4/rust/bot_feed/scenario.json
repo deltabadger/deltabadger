@@ -1,0 +1,132 @@
+{
+  "page_parity_scratch": true,
+  "at": "2026-09-10T12:00:30.123456Z",
+  "secret_key_base": "61a30e26004ff1e25ced6c8a0629bdcef5e7bdf90db030ffb7d5f8045d9b04d14c830dfd2fd0312fe655dcbd6f9287a4777420c0f285baf8bf8363797db44997",
+  "steps": [
+    {
+      "method": "GET",
+      "path": "/login",
+      "headers": {}
+    },
+    {
+      "method": "POST",
+      "path": "/login",
+      "form": {
+        "user[email]": "owner@example.com",
+        "user[password]": "Correct-horse-9",
+        "user[remember_me]": "0"
+      },
+      "csrf": "form",
+      "headers": {}
+    },
+    {
+      "method": "GET",
+      "path": "/bots/1.turbo_stream",
+      "headers": {
+        "Turbo-Frame": "orders_pagination",
+        "Accept": "text/html, application/xhtml+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/bots/1.turbo_stream?before=zz",
+      "headers": {
+        "Turbo-Frame": "orders_pagination",
+        "Accept": "text/html, application/xhtml+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Cactivity%7C3",
+      "headers": {
+        "Turbo-Frame": "orders_pagination",
+        "Accept": "text/html, application/xhtml+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C10",
+      "headers": {
+        "Turbo-Frame": "orders_pagination",
+        "Accept": "text/html, application/xhtml+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/bots/1.turbo_stream?before=2026-09-01T09%3A00%3A00.000000Z%7Cactivity%7C1",
+      "headers": {
+        "Turbo-Frame": "orders_pagination",
+        "Accept": "text/html, application/xhtml+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C%2B10",
+      "headers": {
+        "Turbo-Frame": "orders_pagination",
+        "Accept": "text/html, application/xhtml+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C1_0",
+      "headers": {
+        "Turbo-Frame": "orders_pagination",
+        "Accept": "text/html, application/xhtml+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C%C2%A010",
+      "headers": {
+        "Turbo-Frame": "orders_pagination",
+        "Accept": "text/html, application/xhtml+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C99999999999999999999",
+      "headers": {
+        "Turbo-Frame": "orders_pagination",
+        "Accept": "text/html, application/xhtml+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/bots/2.turbo_stream",
+      "headers": {
+        "Turbo-Frame": "orders_pagination",
+        "Accept": "text/html, application/xhtml+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/bots/3.turbo_stream",
+      "headers": {
+        "Turbo-Frame": "orders_pagination",
+        "Accept": "text/html, application/xhtml+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/bots/1",
+      "headers": {
+        "Turbo-Frame": "orders_pagination",
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/bots/1.turbo_stream",
+      "headers": {
+        "Turbo-Frame": "bot"
+      }
+    }
+  ],
+  "expect_users": {},
+  "jobs": {
+    "1": "checkpoint",
+    "2": "checkpoint",
+    "3": "checkpoint"
+  }
+}

@@ -1,0 +1,440 @@
+{
+  "sent": [
+    {
+      "symbol": "AAA",
+      "side": "buy",
+      "type": "market",
+      "time_in_force": "day",
+      "notional": "38.08"
+    },
+    {
+      "symbol": "BBB",
+      "side": "buy",
+      "type": "market",
+      "time_in_force": "day",
+      "notional": "27.65"
+    },
+    {
+      "symbol": "CCC",
+      "side": "buy",
+      "type": "market",
+      "time_in_force": "day",
+      "notional": "22.43"
+    },
+    {
+      "symbol": "DDD",
+      "side": "buy",
+      "type": "market",
+      "time_in_force": "day",
+      "notional": "17.21"
+    },
+    {
+      "symbol": "EEE",
+      "side": "buy",
+      "type": "market",
+      "time_in_force": "day",
+      "notional": "14.60"
+    }
+  ],
+  "changes": {
+    "bots": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:46:00.587414",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "ND100",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "quote_asset_id": 1,
+            "quote_amount": 60.0,
+            "interval": "week",
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "num_coins": 3,
+            "allocation_flattening": 0.5,
+            "hold_all": true,
+            "smart_intervaled": false,
+            "smart_interval_quote_amount": 10.0,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001
+          },
+          "settings_changed_at": null,
+          "started_at": "2026-09-01 14:00:00.123456",
+          "status": 1,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "missed_quote_amount": 0,
+            "missed_quote_amount_was_set": null
+          },
+          "type": "Bots::DcaIndex",
+          "updated_at": "2026-11-16 07:46:00.587414",
+          "user_id": 1
+        },
+        "after": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:46:00.587414",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "ND100",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "quote_asset_id": 1,
+            "quote_amount": 60.0,
+            "interval": "week",
+            "index_type": "category",
+            "index_category_id": "nasdaq-100",
+            "num_coins": 3,
+            "allocation_flattening": 0.5,
+            "hold_all": true,
+            "smart_intervaled": false,
+            "smart_interval_quote_amount": 10.0,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001
+          },
+          "settings_changed_at": null,
+          "started_at": "2026-09-01 14:00:00.123456",
+          "status": 1,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "missed_quote_amount": 0,
+            "missed_quote_amount_was_set": null,
+            "last_action_job_at": "2026-09-08T14:00:01.123Z"
+          },
+          "type": "Bots::DcaIndex",
+          "updated_at": "2026-09-08 14:00:01.123456",
+          "user_id": 1
+        }
+      }
+    ],
+    "transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "amount": {
+            "f": "3fd8602935836f8c"
+          },
+          "amount_exec": null,
+          "base": "AAA",
+          "base_asset_id": 2,
+          "bot_id": 1,
+          "bot_interval": "week",
+          "bot_quote_amount": 60,
+          "created_at": "2026-09-08 14:00:01.123456",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "OTX-1",
+          "external_status": 0,
+          "order_type": 0,
+          "price": 100,
+          "quote": "USD",
+          "quote_amount": {
+            "f": "40430b2031ceaf25"
+          },
+          "quote_amount_exec": null,
+          "quote_asset_id": 1,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-08 14:00:01.123456"
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "amount": {
+            "f": "3fc1b28954a7f801"
+          },
+          "amount_exec": null,
+          "base": "BBB",
+          "base_asset_id": 3,
+          "bot_id": 1,
+          "bot_interval": "week",
+          "bot_quote_amount": 60,
+          "created_at": "2026-09-08 14:00:01.123456",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "OTX-2",
+          "external_status": 0,
+          "order_type": 0,
+          "price": 200,
+          "quote": "USD",
+          "quote_amount": {
+            "f": "403ba6f694467382"
+          },
+          "quote_amount_exec": null,
+          "quote_asset_id": 1,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-08 14:00:01.123456"
+        }
+      },
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "amount": {
+            "f": "3fb324f7304da5a5"
+          },
+          "amount_exec": null,
+          "base": "CCC",
+          "base_asset_id": 4,
+          "bot_id": 1,
+          "bot_interval": "week",
+          "bot_quote_amount": 60,
+          "created_at": "2026-09-08 14:00:01.123456",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "OTX-3",
+          "external_status": 0,
+          "order_type": 0,
+          "price": 300,
+          "quote": "USD",
+          "quote_amount": {
+            "f": "40366f51ac9afe1e"
+          },
+          "quote_amount_exec": null,
+          "quote_asset_id": 1,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-08 14:00:01.123456"
+        }
+      },
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "amount": {
+            "f": "3fa609c8d69e06e7"
+          },
+          "amount_exec": null,
+          "base": "DDD",
+          "base_asset_id": 5,
+          "bot_id": 1,
+          "bot_interval": "week",
+          "bot_quote_amount": 60,
+          "created_at": "2026-09-08 14:00:01.123456",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "OTX-4",
+          "external_status": 0,
+          "order_type": 0,
+          "price": 400,
+          "quote": "USD",
+          "quote_amount": {
+            "f": "403137a4e7ab7564"
+          },
+          "quote_amount_exec": null,
+          "quote_asset_id": 1,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-08 14:00:01.123456"
+        }
+      },
+      {
+        "id": 5,
+        "before": null,
+        "after": {
+          "id": 5,
+          "amount": {
+            "f": "3f9deb27d6b3ab69"
+          },
+          "amount_exec": null,
+          "base": "EEE",
+          "base_asset_id": 6,
+          "bot_id": 1,
+          "bot_interval": "week",
+          "bot_quote_amount": 60,
+          "created_at": "2026-09-08 14:00:01.123456",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "OTX-5",
+          "external_status": 0,
+          "order_type": 0,
+          "price": 500,
+          "quote": "USD",
+          "quote_amount": {
+            "f": "402d37a4e7ab7564"
+          },
+          "quote_amount_exec": null,
+          "quote_asset_id": 1,
+          "side": 0,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-08 14:00:01.123456"
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "bot_index_assets": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "asset_id": 2,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fe0000000000000"
+          },
+          "ticker_id": 1,
+          "updated_at": "2026-08-01 00:00:00"
+        },
+        "after": {
+          "id": 1,
+          "asset_id": 2,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fd450225742dcf4"
+          },
+          "ticker_id": 1,
+          "updated_at": "2026-09-08 14:00:01.123456"
+        }
+      },
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "asset_id": 3,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fd3333333333333"
+          },
+          "ticker_id": 2,
+          "updated_at": "2026-08-01 00:00:00"
+        },
+        "after": {
+          "id": 2,
+          "asset_id": 3,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fcd7ee4e26d4802"
+          },
+          "ticker_id": 2,
+          "updated_at": "2026-09-08 14:00:01.123456"
+        }
+      },
+      {
+        "id": 3,
+        "before": {
+          "id": 3,
+          "asset_id": 4,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fc999999999999a"
+          },
+          "ticker_id": 3,
+          "updated_at": "2026-08-01 00:00:00"
+        },
+        "after": {
+          "id": 3,
+          "asset_id": 4,
+          "bot_id": 1,
+          "created_at": "2026-08-01 00:00:00",
+          "current_allocation": null,
+          "entered_at": "2026-08-01 00:00:00",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fc7ee34fc610f0f"
+          },
+          "ticker_id": 3,
+          "updated_at": "2026-09-08 14:00:01.123456"
+        }
+      },
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "asset_id": 5,
+          "bot_id": 1,
+          "created_at": "2026-09-08 14:00:01.123456",
+          "current_allocation": null,
+          "entered_at": "2026-09-08 14:00:01.123456",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fc25d7cb2d905c0"
+          },
+          "ticker_id": 4,
+          "updated_at": "2026-09-08 14:00:01.123456"
+        }
+      },
+      {
+        "id": 5,
+        "before": null,
+        "after": {
+          "id": 5,
+          "asset_id": 6,
+          "bot_id": 1,
+          "created_at": "2026-09-08 14:00:01.123456",
+          "current_allocation": null,
+          "entered_at": "2026-09-08 14:00:01.123456",
+          "exited_at": null,
+          "in_index": 1,
+          "target_allocation": {
+            "f": "3fbf2a497fa5d28d"
+          },
+          "ticker_id": 5,
+          "updated_at": "2026-09-08 14:00:01.123456"
+        }
+      }
+    ],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "funds_notified": false,
+  "poll_error": null
+}

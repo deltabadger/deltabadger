@@ -1,0 +1,67 @@
+{
+  "sent": [
+    {
+      "symbol": "btcusd",
+      "amount": "0.01547027",
+      "price": "64640.11",
+      "side": "buy",
+      "type": "exchange limit",
+      "options": [
+        "immediate-or-cancel"
+      ]
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "amount": {
+            "f": "3f8faee095da2db3"
+          },
+          "amount_exec": 0,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "error_messages": [
+            "{\"result\":\"error\",\"reason\":\"InsufficientFunds\",\"message\":\"Failed to place buy order: insufficient funds\"}"
+          ],
+          "exchange_id": 1,
+          "external_id": null,
+          "external_status": null,
+          "order_type": 0,
+          "price": {
+            "f": "40ef9003851eb852"
+          },
+          "quote": "USD",
+          "quote_amount": 1000,
+          "quote_amount_exec": 0,
+          "quote_asset_id": 2,
+          "side": 0,
+          "status": 1,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 14:00:01.250000"
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [
+    {
+      "mail": "notify_about_error",
+      "errors": [
+        "Not enough funds on your Gemini account."
+      ]
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

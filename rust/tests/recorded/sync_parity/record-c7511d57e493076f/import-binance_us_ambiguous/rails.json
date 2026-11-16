@@ -1,0 +1,166 @@
+{
+  "reading": [
+    1,
+    2,
+    3
+  ],
+  "steps": [
+    {
+      "requests": [],
+      "raised": false,
+      "generations": [],
+      "import": {
+        "imported": 0,
+        "duplicates": 0,
+        "skipped": 0,
+        "unrecognised": [],
+        "unrouted": [],
+        "error": null,
+        "ambiguous": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "requests": [],
+      "raised": false,
+      "generations": [],
+      "import": {
+        "imported": 0,
+        "duplicates": 0,
+        "skipped": 0,
+        "unrecognised": [],
+        "unrouted": [],
+        "error": null,
+        "ambiguous": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "requests": [],
+      "raised": false,
+      "generations": [],
+      "import": {
+        "imported": 3,
+        "duplicates": 0,
+        "skipped": 0,
+        "unrecognised": [],
+        "unrouted": [],
+        "error": null,
+        "ambiguous": null
+      }
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "api_key_id": 3,
+          "base_amount": 1000,
+          "base_asset_id": 7,
+          "base_currency": "USDT",
+          "created_at": "2026-09-20 03:00:00.500000",
+          "description": "Deposit",
+          "entry_type": 4,
+          "exchange_id": 3,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "operation": "Deposit"
+          },
+          "transacted_at": "2026-08-01 10:00:46",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": null,
+          "updated_at": "2026-09-20 03:00:00.500000",
+          "user_id": 1,
+          "raw_data_text": "{\"operation\":\"Deposit\"}"
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "api_key_id": 3,
+          "base_amount": {
+            "f": "3fb999999999999a"
+          },
+          "base_asset_id": 5,
+          "base_currency": "BTC",
+          "created_at": "2026-09-20 03:00:00.500000",
+          "description": "Deposit",
+          "entry_type": 4,
+          "exchange_id": 3,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "operation": "Deposit"
+          },
+          "transacted_at": "2026-08-02 09:03:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": null,
+          "updated_at": "2026-09-20 03:00:00.500000",
+          "user_id": 1,
+          "raw_data_text": "{\"operation\":\"Deposit\"}"
+        }
+      },
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "api_key_id": 3,
+          "base_amount": {
+            "f": "3fa9db22d0e56042"
+          },
+          "base_asset_id": 5,
+          "base_currency": "BTC",
+          "created_at": "2026-09-20 03:00:00.500000",
+          "description": "Withdraw",
+          "entry_type": 5,
+          "exchange_id": 3,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "operation": "Withdraw"
+          },
+          "transacted_at": "2026-08-10 12:12:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": null,
+          "updated_at": "2026-09-20 03:00:00.500000",
+          "user_id": 1,
+          "raw_data_text": "{\"operation\":\"Withdraw\"}"
+        }
+      }
+    ],
+    "account_balances": [],
+    "api_keys": [],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

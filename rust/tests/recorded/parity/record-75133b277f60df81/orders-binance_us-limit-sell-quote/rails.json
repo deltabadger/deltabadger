@@ -1,0 +1,61 @@
+{
+  "sent": [
+    {
+      "price": "70000.0",
+      "quantity": "0.00142",
+      "recvWindow": "5000",
+      "side": "SELL",
+      "symbol": "BTCUSDT",
+      "timeInForce": "GTC",
+      "type": "LIMIT"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Binance.US",
+        "base_asset": "BTC",
+        "quote_asset": "USDT",
+        "amount": 100,
+        "amount_type": "quote",
+        "price": 70000
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "Binance.US",
+          "pair": "BTC/USDT",
+          "side": "sell",
+          "order_type": "limit",
+          "amount": 100.0,
+          "amount_type": "quote",
+          "price": 70000.0,
+          "upstream": {
+            "order_id": "BTCUSDT-28457"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Limit sell order placed on Binance.US: BTC/USDT @ 70000.0. {order_id: \"BTCUSDT-28457\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

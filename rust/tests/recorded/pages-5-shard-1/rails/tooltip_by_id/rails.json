@@ -1,0 +1,161 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-LdgdSFrg+6pSN+cCtlmjPA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=zlMV1xaJE9wPNj8g0P6jff%2FDslkhMEmJMZKRLk4Pj4zR6RMAJ0akHmGE0Qy7saKD5o%2BFQYAjBNcShCALFH9Bv04AQFQ8tnhyc91cUDkPjPqo8GpaEsbJ%2B0e6JeZOHJigLyl024xAt87aIW%2BFlSEAWm3Y8ZcD%2BnhTIQipfDJ8yBd9d3E3moVQDvamhWtiDkGndh0NU1UWmcHG3VHWp7aK1l88mhHkhgy2m6%2BjIh5kiIhycozNrp2ESEEX2D7FqZZi4bm6Wd5%2FEx%2BvT9IAdlc0ZoHpdANoa2GFT0XcJ8GS4MNQecCwAGVecdtk2NXwvGQ0Vv4%3D--QriX%2BRtdx093LRB4--0H3kKFvuj7isUh%2Bx5XTgsw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-6290d549af80caa2fb7df4035451b122ac9f284c34459a922e1ae88d558e3008.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-55216d29feb9cbe3040956a80263e39ee90e0e1f1554dc6c4a8b67cec79947a7.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"Ikks-3X8oJu_LLrldY_XT-H4syMrbDcjOkj0iUnAgFsAgiIHhB8IHJkKSLZAY2KBwnY905wgOAQ0cFbrpSubAw\" />\n    <meta name=\"csp-nonce\" content=\"LdgdSFrg+6pSN+cCtlmjPA==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-controller=\"form--html5-validations form--label-animations\" action=\"/login\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"xMFE127ds8FLx-b1eFjBBavQuY98ItclIodOGk6ymmeq33mU3AQEL6Z34airsg--optkDKBnwqwQ1xQUUtXHJA\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <h1>Welcome back!</h1>\n\n  <div class=\"form__row\">\n    <input autofocus=\"autofocus\" autocomplete=\"email\" class=\"form__input form__input--large\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email invalid!\" type=\"email\" value=\"\" name=\"user[email]\" id=\"user_email\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"current-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" type=\"password\" name=\"user[password]\" id=\"user_password\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n\n      <div class=\"form__info form__info--right\">\n        <a href=\"/password/new\">Forgot password?</a>\n      </div>\n</div>\n    <div class=\"toggle\">\n      <input name=\"user[remember_me]\" type=\"hidden\" value=\"0\" /><input type=\"checkbox\" value=\"1\" name=\"user[remember_me]\" id=\"user_remember_me\" />\n      <div class=\"toggle__style\"></div>\n      <label class=\"label\" for=\"user_remember_me\">Remember me</label>\n      \n    </div>\n\n  <div class=\"form__row form__row--final-button\">\n    <input type=\"submit\" name=\"commit\" value=\"Log In\" class=\"button button--sky button--large\" data-disable-with=\"Log In\" />\n  </div>\n\n  <div class=\"devise__links\">\n\n\n    <a class=\"button button--link\" href=\"/confirmation/new\">Resend link</a>\n    <span class=\"db-middot\">●</span>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"dropdown-wrapper dropdown-wrapper--right dropdown-wrapper--up\" style=\"font-weight: 600; color: var(--link)\">\n  EN\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/de/login\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/nl/login\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/fr/login\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/es/login\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pt/login\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/it/login\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pl/login\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/ru/login\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/cs/login\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sk/login\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/da/login\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sv/login\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/el/login\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/bg/login\">🇧🇬 Български</a>\n  </div>\n</div>\n</div>\n</form>\n\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+      "session_changed": true
+    },
+    {
+      "status": 303,
+      "headers": {
+        "location": "http://localhost:3000/",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-WcofsVCnthnOsP4+k0c7gg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=uJgV%2Fhb9Q2RQebXs8JMhUAvtDk9whkvsyQV8ZKNL1PkR75EAUgj7MNkQvcGPSVEM0%2BW6F0qZ47p1PVAJwanqtGwFWwyturZMooD7WDMZvmx3xZXECVFFvus7wcxCiZuUKmLsKHSYOIXyQgV95YxYNguCPx8WayUT1hOz60uQklft8lBjJzigBrVgD%2BSm3OIqrBZ06d%2B%2FpMvncs%2FydneBUQ%2BuLCxXYYHda5%2B6sPS6RoSQx5m7fjrOnAh9x24TR%2FEWQ493DerU9k7Th87dkMSyDQT9JQC1q3qls%2FeBri7T4Na11%2BIt41vSU0mAFDEm7897AYWMBBCk4oiN356ku1ZwoIDS6RV%2FYvzeNvOBIREQ%2BDVNqv%2FpJh8%3D--62fSe5dCjQnt%2BtQi--L8qeeunUpA9rxDnXxZoTFA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-WDBoGM2JgtmPxXHQM8iCug=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=WU5JQjAQmJiTT66z3CMZAw7MJQg%2FZkISO9OiU0cOeWDJurXQtcDzpymsXO5U5XSmR3Mr2%2B6hMWm5YpvHVnLTQui2i0zuD8oFBloWB7pxGeo%2FJwXrxEbGjwKHVI8R84QH%2BdQjwS8o0vZbhcknBuBtiHBzAf7CY7EJzu3fg6VDujr%2FqI3u9dcvKOvm3NhF%2FXN7PC5Ailx7qVWA5idwIaTmo7upiHH%2Fz2GKLbKEP7GTZrBxdaMUTRhYS5bYbiYeLUewxqJ6ujblgk1ZKPlwGtwLCvPUghrjRdXszRxbKxitgVHnztq2uncUN3joh46dqGmRqndHiUdC%2FbDLljn3n3FhtpiMUyL4Fsbax3LpxIY4oyZDdqQB60g%3D--JjpjfMB6qiSgMM62--tcvc5bmzvrXzyWiLck%2BiwQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo\">\n      <img class=\"tooltip--ticker__logo-img\" src=\"https://img.example/xyz.png\" alt=\"\" loading=\"lazy\">\n    </span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">Xyzverse</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">XYZ</span>\n      &middot; \n        <span class=\"tooltip--ticker__info\">Crypto</span>\n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-YvOofOywqL2Ga1XTmcNMmQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=tDGYNN6HtVoIT5QlsPSRiR4qkYe6T7Up8NZckevE5e7%2FkfNjcAKsFkpJTo5IZFEZ18bLgbsnTMcS06GcMS29yuQr%2BRrgGOycqm2Ta7cKzm94KmWdfe3lfPAzjk91ofDUA%2FjLQ4P8XAfu2xx7Z1tk1j5Cp95jA6QRuXXlp4br3sOtAjrswSVJ3AvTnceuVuC8101iSJpaH1%2FHWDUhQ56NapsXj5KnZYpN2y7KymzmQv70Ml59itO0MUnB9GkCr%2By6kGQ3b3U0QloDtuXYyAHN1oyC0eyWIjdyLFtzWhVo9wiEIuWeFhqa1HmYVkoHJTGXl5nqaJCgdmSmZckQcsTpwxE6lrUDS%2B2mRieP3xYXrEwgqDTNWTw%3D--cx0uIX8ux2MelrSR--9Zp23tlS%2BLS2tryAdTcQvA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo tooltip--ticker__logo--fallback\" style=\"background: #c8c8c8\">XY</span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">Block Inc</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">XYZ</span>\n      &middot; \n        <span class=\"tooltip--ticker__info\">Stock</span>\n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-RJmnzhB3UjxE1ZB7Od35mQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=Jr7kjWfmFpAgVj5sXb0gcWVIaIqxDYrT4CKypm5%2FQ%2FKgWlX3SQkxs6giHHffq93UDGZBnBWOuY63O0mTAPhaItOazFJOebudOI%2Fea2G13ZLqt1wCFKNOfMFJ%2Fo8iYTSeSaLTxxwOb32SjyOCdSXKdJyp1LTVZSURvkyjJyMIMtgQROOLVzXoc9qM76%2FzO%2BByKzIRl8hOacCZbLGBgIC11KgfLykaR3gWJA9hbnEICy6J4GbDJk658GP3T70i8xDbpHhytZurXRvt5Sz4iS36vOwPmbp1GXUs6IB2LoWaHbZO12fH5BHnLjK9FIlIPGHNAZRuGpukVEqR5QNpAkLWn4qwVYE2oQLtQOrnEoyhjTyYT9NdqQc%3D--YPGgEPATpEWTUeBG--Qz9WUvtHIPZAyDqeZQnYFg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo\">\n      <img class=\"tooltip--ticker__logo-img\" src=\"/assets/flags/eu-bd3a39fb54baac6594fea6c3ec8767e76079493825f6cdf22ae02ddf93d31215.svg\" alt=\"\" loading=\"lazy\">\n    </span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">Euro</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">EUR</span>\n      &middot; \n        <span class=\"tooltip--ticker__info\">Cash</span>\n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-o7VWQTBKVOsyB9x7ys4pHg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=7Fvckue300pcqcrF9xaNbnSYMGOBSDLap8zL0HKdZ90FDRX3RDJxj3qZWJgtignGb0%2Fh9ZBUEbYAJas87UrJ60nf5Hpaun4Zw%2BLeWSS%2BhGynqBNH4iUAgmOLlLbqB1SDq0tjtPsVKHTWeUE%2BnhcVkt%2FUU2ex4uGoDVPMJOYW4dTbwsxG%2FgGRTQZMtcl8F4lnhK8YYxnoIfjC22qtBGdK%2BGhJ1GuJhL0USq%2BR4QOabU5CbKGZiG%2BvBDrLPL%2FAMwu8A79Y0Q%2FZP5FtwhDM9qWMpb3u1%2BlS9SEoV1vk%2BqM6qsnVO8rSsWLU9cN6kgVZo6FZzzAP%2F2AHxOOtgjcBdIAlC8NqAh9IrZ6hKWuKc3Lgbgu96s4qZ4E%3D--QlabeeRHy9u6WMoz--gHVe5svUTJ0Z7qsg8WMmBg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo tooltip--ticker__logo--fallback\" style=\"background: #8a9ba8\">NO</span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">No &lt;Picture&gt;</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">NOPIC</span>\n      &middot; \n        <span class=\"tooltip--ticker__info\">ETF</span>\n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-iIoWmfF7m6O4JWZio7KKBQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=5bO6e%2BiNjY34gpVWOLTfCZeroOa1PSmr9q4A3rCZ5MsDsNCWD8i7M2gWlWD9RS1IEeLBylCNiKCAo%2FAz6MpMp1RraQXpFBRrbWnvmrAkegq8G4dBCrxlWaVHbrjwKpZ4SytTceYfTnW13piRjrmgiuRiYN2TIMiD7s8WarVKrpiAL0cbyQzGWZW8RwOtizav1%2B%2FngwAMxatjrzXwHpzWlP0cwXZoXps35%2Bb0NHbHkriQlYBkzdB04z3gXfCWhtnmIfevvDSX8TV7d%2BYCzEog68yCrCtPRP4z5%2BVgpydjt64v7BfLps3Vue4%2Bj1F%2Bfhi21qA04b88ZNalhCOLcSBzCyzH4%2Fij4p5667H2PJDBstZ3qIxMeTY%3D--bK7xDUfhJXXSb5%2Fx--VAwjyfwdtErbMceeBVBEKQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo tooltip--ticker__logo--fallback\" style=\"background: #f7931a\">BT</span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">Bitcoin</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">btc</span>\n      &middot; \n        <span class=\"tooltip--ticker__info\">Crypto</span>\n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-qZQDt3OUkgI+Of8gr93RDQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=R1xyXZ6sK16LB7KhaDiY7WIid%2FDxuMiQMS%2Fwyr2AD%2FzNwzwUzA6YsZERZseiR0F91rc3w9PE7MFnztXIZ82Kr4MQNUPLuCgr2i4si34dsvQuY%2BEdFK4f7jso8ysZmoAAAUZeKR4Xsmeo0PmnU3q4UblF0TTAv4m738DN8G%2BytqMT4%2BRUMCA8pUq%2FvD7kMTnoBtHYZ8uo%2F9ItYu27gAphcOb7tetyUNXs19yvbZd4dfAhQVIh6IrvRwFlZxqSbZZL%2Bb%2B4vOanmji4jlEKmqum3Ir2AX9XepH4qavY7eHW%2Fg%2BJAKmqE8n4dmjI0zTNhXfgxehH%2F75n3uuUJyzo8%2B9tzo5NRiwuVYIrTQ2lWgzlikFT4lSOUR4%3D--ajGmOsySapmydcoT--ok1sXe83fMjLP3Siql7t%2FA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo\">\n      <img class=\"tooltip--ticker__logo-img\" src=\"/assets/flags/us-689b9e9a26648d5e7c30eef90fe43772c8f033192a73a5bf8568021c4f3669ec.svg\" alt=\"\" loading=\"lazy\">\n    </span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">Dollar</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\">USD</span>\n      &middot; \n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-nMX3XHmVdOFm42T9cjMyZg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=Yvs5t9YGXm5ksWaaHwv7zp6kUldq9Asyd9KEoTAb90Vx18asOOy59mToTdwHxpeOsVffHMxcZ%2Fx%2F7HCEKZ8nUwhTw7ToWfBblJMEdEnKWsq83CmpghGeHe%2FSA5p8ZcrgK%2BM2PvPmgrA%2FNxiyjH64d7bFGPL0%2BjtW9p8rQRWIS7fnGo09MYSd8gj%2F54s6SWq3vi%2FhkUSeX4rGpzVUcakOFRBszPYRabSfBddt0QLWs041ZeDhaVz5AqN3IS1CFWJQzPCJbpxLu4mxuwxvLvfsBinuIzZJVNWApYNBxqIhLra9SJGzbYy2fSlW60K%2Fj0NSe7Oy443hprsQbrM9m917tOBbdUnym5hTM5iZ2JljbPBUislqbqg%3D--twg%2BFiKgVlvxD%2BmQ--iSCWeQO7RQj6ca1lvRaspw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<div class=\"tooltip--ticker__col\">\n    <span class=\"tooltip--ticker__logo tooltip--ticker__logo--fallback\" style=\"background: #666666\"></span>\n</div>\n<div class=\"tooltip--ticker__col\">\n  <div class=\"tooltip--ticker__header\">\n    <span class=\"tooltip--ticker__name\">Nameless</span>\n    <div>\n      <span class=\"tooltip--ticker__symbol\"></span>\n      &middot; \n    </div>\n  </div>\n</div>\n",
+      "session_changed": false
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "failed_attempts": 0,
+      "locked_at": null,
+      "last_otp_at": null,
+      "remember_created_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "bots": [],
+  "network": []
+}

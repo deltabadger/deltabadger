@@ -1,0 +1,43 @@
+{
+  "bots": {
+    "1": {
+      "metrics": "{\"chart\":{\"labels\":[\"2021-03-02T14:30:00.000000000Z\",\"2021-03-02T14:30:01.000000000Z\",\"2022-04-06T14:30:00.000000000Z\",\"2025-07-19T14:30:00.000000000Z\"],\"series\":[[\"50.0\",\"65.0\",\"103.0\",\"133.0\"],[\"50.0\",\"65.0\",\"113.0\",\"133.0\"]],\"extra_series\":[{\"BTC\":\"0.001\"},{\"BTC\":\"0.001\",\"ETH\":\"0.01\"},{\"BTC\":\"0.0022\",\"ETH\":\"0.01\"},{\"BTC\":\"0.0022\",\"ETH\":\"0.018\"}],\"invested_series\":[{\"BTC\":\"50.0\"},{\"BTC\":\"50.0\",\"ETH\":\"15.0\"},{\"BTC\":\"98.0\",\"ETH\":\"15.0\"},{\"BTC\":\"98.0\",\"ETH\":\"35.0\"}],\"cash_series\":[0,0,0,0]},\"total_quote_amount_invested\":\"133.0\",\"total_amount_value_in_quote\":\"133.0\",\"rebalance_cash\":0,\"estimated_proceeds\":0,\"realised_pnl\":0,\"pnl\":\"0.0\",\"asset_breakdown\":{\"BTC\":{\"amount\":\"0.0022\",\"quote_invested\":\"98.0\",\"tax_basis\":\"98.0\",\"tax_units\":\"0.0022\",\"tax_cost_unknown\":false},\"ETH\":{\"amount\":\"0.018\",\"quote_invested\":\"35.0\",\"tax_basis\":\"35.0\",\"tax_units\":\"0.018\",\"tax_cost_unknown\":false}},\"asset_values\":{},\"key_assets\":{\"BTC\":14,\"ETH\":15},\"key_strings\":{\"BTC\":[\"BTC\"],\"ETH\":[\"ETH\"]},\"num_assets\":2,\"shadowed_by\":{},\"realised_cash\":0,\"asset_lots\":{\"BTC\":[{\"amount\":\"0.001\",\"cost\":\"50.0\"},{\"amount\":\"0.0012\",\"cost\":\"48.0\"}],\"ETH\":[{\"amount\":\"0.01\",\"cost\":\"15.0\"},{\"amount\":\"0.008\",\"cost\":\"20.0\"}]},\"tax_pnl_by_transaction\":{},\"loss_lot_by_transaction\":{}}",
+      "live": "{\"chart\":{\"labels\":[\"2021-03-02T14:30:00.000000000Z\",\"2021-03-02T14:30:01.000000000Z\",\"2022-04-06T14:30:00.000000000Z\",\"2025-07-19T14:30:00.000000000Z\"],\"series\":[[\"50.0\",\"65.0\",\"103.0\",\"133.0\"],[\"50.0\",\"65.0\",\"113.0\",\"133.0\"]],\"extra_series\":[{\"BTC\":\"0.001\"},{\"BTC\":\"0.001\",\"ETH\":\"0.01\"},{\"BTC\":\"0.0022\",\"ETH\":\"0.01\"},{\"BTC\":\"0.0022\",\"ETH\":\"0.018\"}],\"invested_series\":[{\"BTC\":\"50.0\"},{\"BTC\":\"50.0\",\"ETH\":\"15.0\"},{\"BTC\":\"98.0\",\"ETH\":\"15.0\"},{\"BTC\":\"98.0\",\"ETH\":\"35.0\"}],\"cash_series\":[0,0,0,0]},\"total_quote_amount_invested\":\"133.0\",\"total_amount_value_in_quote\":\"133.0\",\"rebalance_cash\":0,\"estimated_proceeds\":0,\"realised_pnl\":0,\"pnl\":\"0.0\",\"asset_breakdown\":{\"BTC\":{\"amount\":\"0.0022\",\"quote_invested\":\"98.0\",\"tax_basis\":\"98.0\",\"tax_units\":\"0.0022\",\"tax_cost_unknown\":false},\"ETH\":{\"amount\":\"0.018\",\"quote_invested\":\"35.0\",\"tax_basis\":\"35.0\",\"tax_units\":\"0.018\",\"tax_cost_unknown\":false}},\"asset_values\":{},\"key_assets\":{\"BTC\":14,\"ETH\":15},\"key_strings\":{\"BTC\":[\"BTC\"],\"ETH\":[\"ETH\"]},\"num_assets\":2,\"shadowed_by\":{},\"realised_cash\":0,\"asset_lots\":{\"BTC\":[{\"amount\":\"0.001\",\"cost\":\"50.0\"},{\"amount\":\"0.0012\",\"cost\":\"48.0\"}],\"ETH\":[{\"amount\":\"0.01\",\"cost\":\"15.0\"},{\"amount\":\"0.008\",\"cost\":\"20.0\"}]},\"tax_pnl_by_transaction\":{},\"loss_lot_by_transaction\":{},\"prices_stale\":true}",
+      "marked": "{\"chart\":{\"labels\":[\"2021-03-02T14:30:00.000000000Z\",\"2021-03-02T14:30:01.000000000Z\",\"2022-04-06T14:30:00.000000000Z\",\"2025-07-19T14:30:00.000000000Z\"],\"series\":[[\"50.0\",\"64.99999971064814814814814814814814814815\",\"105.3204909058933704108558929970165\",\"133.0\"],[\"50.0\",\"65.0\",\"113.0\",\"133.0\"]],\"extra_series\":[{\"BTC\":\"0.001\"},{\"BTC\":\"0.001\",\"ETH\":\"0.01\"},{\"BTC\":\"0.0022\",\"ETH\":\"0.01\"},{\"BTC\":\"0.0022\",\"ETH\":\"0.018\"}],\"invested_series\":[{\"BTC\":\"50.0\"},{\"BTC\":\"50.0\",\"ETH\":\"15.0\"},{\"BTC\":\"98.0\",\"ETH\":\"15.0\"},{\"BTC\":\"98.0\",\"ETH\":\"35.0\"}],\"cash_series\":[0,0,0,0],\"prices\":{\"ETH\":[null,\"1500.0\",\"1732.04909058933704108558929970165\",\"2460.75520833333333333333333333333333\"],\"BTC\":[\"50000.0\",\"49999.99971064814814814814814814814814815\",\"40000.0\",null]},\"assets\":{\"BTC\":{\"value\":[\"50.0\",\"49.99999971064814814814814814814814814815\",\"88.0\",null],\"invested\":[\"50.0\",\"50.0\",\"98.0\",\"98.0\"]},\"ETH\":{\"value\":[0,\"15.0\",\"17.3204909058933704108558929970165\",null],\"invested\":[0,\"15.0\",\"15.0\",\"35.0\"]}}},\"total_quote_amount_invested\":\"133.0\",\"total_amount_value_in_quote\":\"133.0\",\"rebalance_cash\":0,\"estimated_proceeds\":0,\"realised_pnl\":0,\"pnl\":\"0.0\",\"asset_breakdown\":{\"BTC\":{\"amount\":\"0.0022\",\"quote_invested\":\"98.0\",\"tax_basis\":\"98.0\",\"tax_units\":\"0.0022\",\"tax_cost_unknown\":false},\"ETH\":{\"amount\":\"0.018\",\"quote_invested\":\"35.0\",\"tax_basis\":\"35.0\",\"tax_units\":\"0.018\",\"tax_cost_unknown\":false}},\"asset_values\":{},\"key_assets\":{\"BTC\":14,\"ETH\":15},\"key_strings\":{\"BTC\":[\"BTC\"],\"ETH\":[\"ETH\"]},\"num_assets\":2,\"shadowed_by\":{},\"realised_cash\":0,\"asset_lots\":{\"BTC\":[{\"amount\":\"0.001\",\"cost\":\"50.0\"},{\"amount\":\"0.0012\",\"cost\":\"48.0\"}],\"ETH\":[{\"amount\":\"0.01\",\"cost\":\"15.0\"},{\"amount\":\"0.008\",\"cost\":\"20.0\"}]},\"tax_pnl_by_transaction\":{},\"loss_lot_by_transaction\":{},\"prices_stale\":true}",
+      "chart": {
+        "bot": "1",
+        "quote": "USD",
+        "decimals": "2",
+        "labels": "[\"2021-03-02T14:30:00.000000000Z\",\"2021-03-02T14:30:01.000000000Z\",\"2022-04-06T14:30:00.000000000Z\",\"2025-07-19T14:30:00.000000000Z\"]",
+        "series": "[[\"50.0\",\"65.0\",\"105.32\",\"133.0\"],[\"50.0\",\"65.0\",\"113.0\",\"133.0\"]]",
+        "pnl": "[0.0,0.0,-7.68,0.0]",
+        "assets": "{\"BTC\":{\"value\":[50.0,50.0,88.0,null],\"invested\":[50.0,50.0,98.0,98.0]},\"ETH\":{\"value\":[0.0,15.0,17.32,null],\"invested\":[0.0,15.0,15.0,35.0]}}",
+        "pnl-only": "false",
+        "buys": "[[\"2021-03-02T14:30:00.000000000Z\",\"BTC\",0.001,50.0,1],[\"2021-03-02T14:30:01.000000000Z\",\"ETH\",0.01,15.0,1],[\"2022-04-06T14:30:00.000000000Z\",\"BTC\",0.0012,48.0,1],[\"2025-07-19T14:30:00.000000000Z\",\"ETH\",0.008,20.0,1]]",
+        "prices": "{\"ETH\":[null,1500.0,1732.049090589337,2460.755208333333],\"BTC\":[50000.0,49999.99971064815,40000.0,null]}",
+        "logo-assets": "{\"BTC\":14,\"ETH\":15}"
+      },
+      "profit_in_usd": "\"0.0\""
+    }
+  },
+  "global_pnl": "{\"percent\":\"0.0\",\"profit_usd\":\"0.0\"}",
+  "global_pnl_snapshot": "{\"result\":null,\"loading\":true}",
+  "pnl_history": "{\"result\":{\"percent\":[0.0,0.0,-0.06796025746997017,-0.06796025746997017,0.0],\"profit_usd\":[0.0,0.0,-7.67950909410663,-7.67950909410663,0.0],\"at\":[1568615400,1614695400,1660775400,1706855400,1752935400],\"days\":1600.0},\"loading\":false}",
+  "denomination": "{\"currency\":\"USD\",\"rate\":\"1.0\"}",
+  "requests": [
+    "GET api.bybit.com/v5/market/kline?category=spot&interval=D&limit=1000&start=1614609000000&symbol=BTCUSD",
+    "GET api.bybit.com/v5/market/kline?category=spot&interval=D&limit=1000&start=1614609000000&symbol=ETHUSD",
+    "GET api.bybit.com/v5/market/kline?category=spot&interval=D&limit=1000&start=1700956801000&symbol=BTCUSD",
+    "GET api.bybit.com/v5/market/tickers?category=spot"
+  ],
+  "steps": [
+    {
+      "requests": [
+        "GET api.bybit.com/v5/market/kline?category=spot&interval=D&limit=1000&start=1614609000000&symbol=BTCUSD",
+        "GET api.bybit.com/v5/market/kline?category=spot&interval=D&limit=1000&start=1614609000000&symbol=ETHUSD",
+        "GET api.bybit.com/v5/market/kline?category=spot&interval=D&limit=1000&start=1700956801000&symbol=BTCUSD",
+        "GET api.bybit.com/v5/market/tickers?category=spot"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T14:00:01.250000Z",
+  "venue": "bingx",
+  "script": {
+    "bingx": {
+      "GET /openApi/spot/v1/market/depth": [
+        {
+          "status": 200,
+          "body": {
+            "code": 0,
+            "data": {
+              "bids": [
+                [
+                  "64000.10",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "64000.11",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /openApi/spot/v2/market/ticker": [
+        {
+          "status": 200,
+          "body": {
+            "code": 0,
+            "data": [
+              {
+                "symbol": "BTC-USDT",
+                "lastPrice": "64000.05"
+              }
+            ]
+          }
+        }
+      ],
+      "POST /openApi/spot/v1/trade/order": [
+        {
+          "status": 400,
+          "body": {
+            "code": 100202,
+            "msg": "Insufficient assets"
+          }
+        }
+      ],
+      "GET /openApi/spot/v1/account/balance": [
+        {
+          "status": 200,
+          "body": {
+            "code": 0,
+            "data": {
+              "balances": [
+                {
+                  "asset": "BTC",
+                  "free": "0.5",
+                  "locked": "0.1"
+                },
+                {
+                  "asset": "USDT",
+                  "free": "10000",
+                  "locked": "500"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "api": [
+    {
+      "side": "buy",
+      "amount": "100",
+      "amount_type": "quote"
+    }
+  ]
+}

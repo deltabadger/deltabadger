@@ -1,0 +1,106 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-10-01T10:00:01.123456Z",
+  "script": {
+    "http": {
+      "/0/public/Ticker": [
+        {
+          "error": [],
+          "result": {
+            "XXBTZEUR": {
+              "a": [
+                "50000.2",
+                "1",
+                "1.000"
+              ],
+              "b": [
+                "49990.1",
+                "1",
+                "1.000"
+              ],
+              "c": [
+                "49995.3",
+                "0.001"
+              ],
+              "v": [
+                "12.5",
+                "30.1"
+              ],
+              "p": [
+                "49995.3",
+                "49995.3"
+              ],
+              "t": [
+                100,
+                250
+              ],
+              "l": [
+                "49990.1",
+                "49990.1"
+              ],
+              "h": [
+                "50000.2",
+                "50000.2"
+              ],
+              "o": "49995.3"
+            }
+          }
+        }
+      ],
+      "/0/private/AddOrder": [
+        {
+          "error": [],
+          "result": {
+            "txid": [
+              "OTX-1"
+            ]
+          }
+        }
+      ],
+      "/0/private/BalanceEx": [
+        {
+          "error": [],
+          "result": {
+            "ZEUR": {
+              "balance": "100000",
+              "hold_trade": "0"
+            }
+          }
+        }
+      ],
+      "/0/private/QueryOrders": [
+        {
+          "error": [],
+          "result": {
+            "OTX-1": {
+              "status": "closed",
+              "vol": "0.0012",
+              "vol_exec": "NaN",
+              "cost": "59.99",
+              "price": "49991.7",
+              "oflags": "",
+              "descr": {
+                "pair": "XBTEUR",
+                "type": "buy",
+                "ordertype": "limit",
+                "price": "49870.3"
+              }
+            }
+          }
+        }
+      ],
+      "/0/private/TradesHistory": [
+        {
+          "error": [],
+          "result": {
+            "trades": {},
+            "count": 0
+          }
+        }
+      ]
+    }
+  },
+  "tick": true,
+  "poll": "OTX-1"
+}

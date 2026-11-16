@@ -1,0 +1,151 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 1,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "alpaca": {
+        "GET /v2/account/activities": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "id": "f-1",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-10T14:30:00.123456Z",
+                "type": "partial_fill",
+                "price": "166.80",
+                "qty": "0.359712230",
+                "side": "buy",
+                "symbol": "AAPL",
+                "leaves_qty": "0",
+                "order_id": "ord-aapl-1",
+                "cum_qty": "0.359712230",
+                "order_status": "filled"
+              },
+              {
+                "id": "f-2",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-10T14:30:00.987654321Z",
+                "type": "fill",
+                "price": "166.85",
+                "qty": "0.1",
+                "side": "buy",
+                "symbol": "AAPL",
+                "leaves_qty": "0",
+                "order_id": "ord-aapl-1",
+                "cum_qty": "0.1",
+                "order_status": "filled"
+              },
+              {
+                "id": "f-3",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-11T15:00:00Z",
+                "type": "fill",
+                "price": "171.123456",
+                "qty": "0.2",
+                "side": "sell",
+                "symbol": "AAPL",
+                "leaves_qty": "0",
+                "order_id": "ord-nobody",
+                "cum_qty": "0.2",
+                "order_status": "filled"
+              },
+              {
+                "id": "f-4",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-12T03:04:05.5-04:00",
+                "type": "fill",
+                "price": "64149.97",
+                "qty": "0.001130165",
+                "side": "buy",
+                "symbol": "BTC/USD",
+                "leaves_qty": "0",
+                "order_id": "order-f-4",
+                "cum_qty": "0.001130165",
+                "order_status": "filled"
+              },
+              {
+                "id": "f-5",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-12T10:00:00Z",
+                "type": "fill",
+                "price": "2500.1",
+                "qty": "0.5",
+                "side": "sell",
+                "symbol": "ETHUSD",
+                "leaves_qty": "0",
+                "order_id": "order-f-5",
+                "cum_qty": "0.5",
+                "order_status": "filled"
+              },
+              {
+                "id": "f-6",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-12T11:00:00Z",
+                "type": "fill",
+                "price": "1.5",
+                "qty": "3",
+                "side": "buy",
+                "symbol": "XYZUSD",
+                "leaves_qty": "0",
+                "order_id": "order-f-6",
+                "cum_qty": "3",
+                "order_status": "filled"
+              },
+              {
+                "id": "fill-direct",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-13T14:30:00Z",
+                "type": "fill",
+                "price": "700",
+                "qty": "1",
+                "side": "buy",
+                "symbol": "KLAC",
+                "leaves_qty": "0",
+                "order_id": null,
+                "cum_qty": "1",
+                "order_status": "filled"
+              },
+              {
+                "id": "f-8",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-14T14:30:00Z",
+                "type": "fill",
+                "price": 201.37,
+                "qty": 0.25,
+                "side": "buy",
+                "symbol": "QQQM",
+                "leaves_qty": "0",
+                "order_id": "order-f-8",
+                "cum_qty": 0.25,
+                "order_status": "filled"
+              },
+              {
+                "id": "f-9",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-14T14:31:00Z",
+                "type": "fill",
+                "price": "201.379999999",
+                "qty": "0.000000001",
+                "side": "sell_short",
+                "symbol": "QQQM",
+                "leaves_qty": "0",
+                "order_id": "order-f-9",
+                "cum_qty": "0.000000001",
+                "order_status": "filled"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

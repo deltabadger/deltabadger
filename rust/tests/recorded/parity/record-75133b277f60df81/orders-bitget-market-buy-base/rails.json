@@ -1,0 +1,57 @@
+{
+  "sent": [
+    {
+      "symbol": "BTCUSDT",
+      "side": "buy",
+      "orderType": "market",
+      "size": "96.002055",
+      "force": "ioc"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Bitget",
+        "base_asset": "BTC",
+        "quote_asset": "USDT",
+        "amount": 0.0015,
+        "amount_type": "base"
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "Bitget",
+          "pair": "BTC/USDT",
+          "side": "buy",
+          "order_type": "market",
+          "amount": 0.0015,
+          "amount_type": "base",
+          "upstream": {
+            "order_id": "BTCUSDT-1234567890123456789"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Market buy order placed on Bitget: 0.0015 BTC of BTC/USDT. {order_id: \"BTCUSDT-1234567890123456789\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

@@ -1,0 +1,90 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-10-01T10:00:01.123456Z",
+  "script": {
+    "http": {
+      "/0/public/Ticker": [
+        {
+          "error": [],
+          "result": {
+            "XXBTZEUR": {
+              "a": [
+                "Infinity",
+                "1",
+                "1.000"
+              ],
+              "b": [
+                "49990.1",
+                "1",
+                "1.000"
+              ],
+              "c": [
+                "Infinity",
+                "0.001"
+              ],
+              "v": [
+                "12.5",
+                "30.1"
+              ],
+              "p": [
+                "Infinity",
+                "Infinity"
+              ],
+              "t": [
+                100,
+                250
+              ],
+              "l": [
+                "49990.1",
+                "49990.1"
+              ],
+              "h": [
+                "Infinity",
+                "Infinity"
+              ],
+              "o": "Infinity"
+            }
+          }
+        }
+      ],
+      "/0/private/AddOrder": [
+        {
+          "error": [],
+          "result": {
+            "txid": [
+              "OTX-1"
+            ]
+          }
+        }
+      ],
+      "/0/private/BalanceEx": [
+        {
+          "error": [],
+          "result": {
+            "ZEUR": {
+              "balance": "100000",
+              "hold_trade": "0"
+            }
+          }
+        }
+      ],
+      "/0/private/QueryOrders": [
+        {
+          "error": [],
+          "result": {}
+        }
+      ],
+      "/0/private/TradesHistory": [
+        {
+          "error": [],
+          "result": {
+            "trades": {},
+            "count": 0
+          }
+        }
+      ]
+    }
+  },
+  "tick": true
+}

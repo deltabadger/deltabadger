@@ -1,0 +1,58 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "gemini": {
+        "POST /v1/mytrades": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "price": "60500",
+                "amount": "0.001",
+                "timestamp": 1789552800,
+                "timestampms": 1789552800000,
+                "type": "Buy",
+                "aggressor": true,
+                "fee_currency": "USD",
+                "fee_amount": "0.06",
+                "tid": 9001,
+                "order_id": "o9001",
+                "exchange": "gemini",
+                "is_auction_fill": false,
+                "is_clearing_fill": false,
+                "symbol": "btcusd"
+              }
+            ]
+          }
+        ],
+        "POST /v2/transfers": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "type": "Deposit",
+                "status": "Complete",
+                "timestampms": 1789473600000,
+                "eid": 5001,
+                "currency": "USD",
+                "amount": "1000",
+                "method": "CryptoTransfer",
+                "txHash": "0xg5001"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,141 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "mexc": {
+        "GET /api/v3/capital/deposit/hisrec": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "amount": "1000",
+                "coin": "USDT",
+                "network": "USDT",
+                "status": 5,
+                "address": "0xaddr",
+                "txId": "0xusdt1789732800000:0",
+                "insertTime": 1789732800000,
+                "unlockConfirm": "12",
+                "confirmTimes": "12"
+              },
+              {
+                "amount": "0.01",
+                "coin": "BTC",
+                "network": "BTC",
+                "status": 12,
+                "address": "0xaddr",
+                "txId": "0xbtc1789603200000:0",
+                "insertTime": 1789603200000,
+                "unlockConfirm": "12",
+                "confirmTimes": "12"
+              },
+              {
+                "amount": "2",
+                "coin": "ETH",
+                "network": "ETH",
+                "status": 1,
+                "address": "0xaddr",
+                "txId": "0xeth1789516800000:0",
+                "insertTime": 1789516800000,
+                "unlockConfirm": "12",
+                "confirmTimes": "12"
+              },
+              {
+                "amount": "50",
+                "coin": "USDT",
+                "network": "USDT",
+                "status": 6,
+                "address": "0xaddr",
+                "txId": "0xusdt1789520400000:0",
+                "insertTime": 1789520400000,
+                "unlockConfirm": "12",
+                "confirmTimes": "12"
+              }
+            ]
+          }
+        ],
+        "GET /api/v3/capital/withdraw/history": [
+          {
+            "status": 200,
+            "body": []
+          }
+        ],
+        "GET /api/v3/account": [
+          {
+            "status": 200,
+            "body": {
+              "canTrade": true,
+              "accountType": "SPOT",
+              "balances": [
+                {
+                  "asset": "BTC",
+                  "free": "1",
+                  "locked": "0"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v3/exchangeInfo": [
+          {
+            "status": 200,
+            "body": {
+              "timezone": "CST",
+              "serverTime": 1789000000000,
+              "symbols": [
+                {
+                  "symbol": "BTCUSDT",
+                  "status": "1",
+                  "baseAsset": "BTC",
+                  "quoteAsset": "USDT"
+                },
+                {
+                  "symbol": "ETHUSDT",
+                  "status": "1",
+                  "baseAsset": "ETH",
+                  "quoteAsset": "USDT"
+                },
+                {
+                  "symbol": "ETHBTC",
+                  "status": "1",
+                  "baseAsset": "ETH",
+                  "quoteAsset": "BTC"
+                },
+                {
+                  "symbol": "ADAUSDT",
+                  "status": "1",
+                  "baseAsset": "ADA",
+                  "quoteAsset": "USDT"
+                },
+                {
+                  "symbol": "XRPUSDT",
+                  "status": "1",
+                  "baseAsset": "XRP",
+                  "quoteAsset": "USDT"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v3/myTrades": [
+          {
+            "status": 500,
+            "body": {
+              "code": 503,
+              "msg": "service not available"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

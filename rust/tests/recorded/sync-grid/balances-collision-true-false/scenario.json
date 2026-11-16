@@ -1,0 +1,100 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 1,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:30:00.750000Z",
+      "alpaca": {
+        "GET /v2/account": [
+          {
+            "status": 200,
+            "body": {
+              "id": "paper-account",
+              "account_number": "PA0000000000",
+              "status": "ACTIVE",
+              "currency": "USD",
+              "cash": "100",
+              "buying_power": "200000",
+              "non_marginable_buying_power": "100000",
+              "portfolio_value": "100000"
+            }
+          }
+        ],
+        "GET /v2/positions": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "asset_id": "asset-BTC",
+                "symbol": "BTC",
+                "exchange": "NASDAQ",
+                "asset_class": "us_equity",
+                "asset_marginable": true,
+                "qty": "10",
+                "qty_available": "10",
+                "avg_entry_price": "100",
+                "side": "long",
+                "market_value": "0",
+                "cost_basis": "0",
+                "current_price": "100"
+              },
+              {
+                "asset_id": "asset-BTCUSD",
+                "symbol": "BTCUSD",
+                "exchange": "CRYPTO",
+                "asset_class": "crypto",
+                "asset_marginable": false,
+                "qty": "2",
+                "qty_available": "2",
+                "avg_entry_price": "100",
+                "side": "long",
+                "market_value": "0",
+                "cost_basis": "0",
+                "current_price": "100"
+              }
+            ]
+          }
+        ],
+        "GET /v2/stocks/snapshots": [
+          {
+            "status": 200,
+            "body": {
+              "BTC": {
+                "latestTrade": {
+                  "p": 30,
+                  "s": 100,
+                  "t": "2026-09-18T19:59:59.5Z",
+                  "x": "V"
+                },
+                "dailyBar": {
+                  "c": 30
+                }
+              }
+            }
+          }
+        ]
+      },
+      "market": {
+        "GET /api/v1/prices": [
+          {
+            "status": 200,
+            "body": {
+              "data": {
+                "bitcoin": {
+                  "usd": 60000
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

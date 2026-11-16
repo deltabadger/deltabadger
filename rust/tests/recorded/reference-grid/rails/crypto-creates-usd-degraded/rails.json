@@ -1,0 +1,38 @@
+{
+  "requests": [
+    "GET /api/v2/listings?venue=alpaca_crypto"
+  ],
+  "retry": false,
+  "changes": {
+    "assets": [
+      {
+        "id": 36,
+        "before": null,
+        "after": {
+          "id": 36,
+          "category": "Fiat",
+          "circulating_supply": null,
+          "color": "#355E3B",
+          "country": null,
+          "country_exchange": null,
+          "created_at": "2026-10-02 10:31:00.123456",
+          "external_id": "usd",
+          "image_url": null,
+          "instrument_type": null,
+          "isin": null,
+          "market_cap": null,
+          "market_cap_rank": null,
+          "name": "US Dollar",
+          "symbol": "USD",
+          "updated_at": "2026-10-02 10:31:00.123456",
+          "url": null
+        }
+      }
+    ],
+    "tickers": [],
+    "exchange_assets": [],
+    "indices": [],
+    "bot_activity_logs": [],
+    "app_configs": []
+  }
+}

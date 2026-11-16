@@ -1,0 +1,187 @@
+{
+  "page_parity_scratch": true,
+  "at": "2026-09-10T12:00:30.123456Z",
+  "secret_key_base": "61a30e26004ff1e25ced6c8a0629bdcef5e7bdf90db030ffb7d5f8045d9b04d14c830dfd2fd0312fe655dcbd6f9287a4777420c0f285baf8bf8363797db44997",
+  "steps": [
+    {
+      "method": "GET",
+      "path": "/login",
+      "headers": {}
+    },
+    {
+      "method": "POST",
+      "path": "/login",
+      "form": {
+        "user[email]": "owner@example.com",
+        "user[password]": "Correct-horse-9",
+        "user[remember_me]": "0"
+      },
+      "csrf": "form",
+      "headers": {}
+    },
+    {
+      "method": "GET",
+      "path": "/de/bots/new",
+      "headers": {
+        "Turbo-Frame": "modal"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/de/bots/dca_single_assets/pick_exchange/new",
+      "headers": {
+        "Turbo-Frame": "modal_content"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/de/bots/dca_single_assets/pick_exchange",
+      "form": {
+        "bots_dca_single_asset[exchange_id]": "4"
+      },
+      "csrf": "both",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/pl/bots/dca_single_assets/pick_buyable_asset/new",
+      "headers": {
+        "Turbo-Frame": "modal_content"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/pl/bots/dca_single_assets/pick_buyable_asset/new?offset=20",
+      "headers": {
+        "Turbo-Frame": "assets-page-20"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/pl/bots/dca_single_assets/pick_buyable_asset/new?query=solano",
+      "headers": {
+        "Turbo-Frame": "asset-picker"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/pl/bots/dca_single_assets/pick_buyable_asset",
+      "form": {
+        "bots_dca_single_asset[base_asset_id]": "20"
+      },
+      "csrf": "both",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/de/bots/dca_single_assets/pick_buyable_asset/new",
+      "headers": {
+        "Turbo-Frame": "modal_content"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/de/bots/dca_single_assets/pick_buyable_asset/new?offset=20",
+      "headers": {
+        "Turbo-Frame": "assets-page-20"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/de/bots/dca_single_assets/pick_buyable_asset",
+      "form": {
+        "bots_dca_single_asset[base_asset_id]": "16"
+      },
+      "csrf": "both",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/de/bots/dca_single_assets/pick_buyable_asset/new",
+      "headers": {
+        "Turbo-Frame": "modal_content"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/de/bots/dca_single_assets/pick_buyable_asset/advance",
+      "form": {},
+      "csrf": "both",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/de/bots/dca_multi_assets/pick_exchange/new",
+      "headers": {
+        "Turbo-Frame": "modal_content"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/bots/dca_single_assets/pick_exchange/new",
+      "headers": {
+        "Turbo-Frame": "modal_content"
+      },
+      "session": [
+        "bot_config"
+      ]
+    }
+  ],
+  "expect_users": {},
+  "jobs": {}
+}

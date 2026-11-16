@@ -32,3 +32,26 @@ slow-timeout = { period = "60s", terminate-after = 2 }
 default-filter = 'binary(reference_jobs) | binary(figures_warm) | binary(one_process) | binary(sync) | binary(tracker_deadline) | binary(quiet_revisit_browser) | binary(figure_fx) | binary(jobs) | binary(mail_parity)'
 test-threads = 1
 fail-fast = false
+
+# PLAN-B11 B11-1: the suite with Ruby absent (rust.yml `ruby-absent`), reading only rust/tests/recorded/. Out of it, the
+# tests that still call Rails or Ruby live, each for its reason; they run in full-suite with Ruby, as before. B11-3 moves
+# the Rust→Rails ones to the 2.70.21 image (T8) and deletes the rest, and this filter empties.
+[profile.ruby-absent]
+default-filter = '''not (
+    binary(account_identity) & test(=rust_handles_the_reset_rails_actually_makes)
+  | binary(handover) & (test(=a_completed_handback_is_adopted_by_rails) | test(=a_deferral_crash_then_handback_then_rails_tick_buys_nothing_before_the_next_checkpoint)
+      | test(=a_handback_keeps_rust_state_for_a_reclaim_and_2x_shows_rust_texts_untranslated) | test(=a_price_paused_bot_is_handed_over_paused_and_rails_restarts_its_check)
+      | test(=an_unresolved_order_blocks_handback_and_rails_keeps_refusing) | test(=rails_migrates_and_adopts_a_handback_on_an_install_rust_migrated)
+      | test(=rails_pending_resyncs_become_markers_at_takeover_and_rails_adopts_them_once_after_handbacks))
+  | binary(mcp) & (test(=a_refresh_and_revocation_cross_the_actual_mcp_endpoint) | test(=sessions_cross_before_and_after_initialized_in_both_directions))
+  | binary(mcp_control_races) & test(/^action_race::continue_/)
+  | binary(web_actions) & test(/^action_race::continue_/)
+  | binary(mcp_reads) & test(=polled_open_market_zero_price_uses_the_nil_branch)
+  | binary(oauth) & test(=rails_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows)
+  | binary(rebalance) & (test(=an_unfound_crypto_swap_order_halts_and_its_resolution_never_submits_it_twice) | test(=resolution_with_unbalanced_stopped_allocations_matches_rails_and_completes_the_buy))
+  | binary(sync_parity) & (test(=rails_and_rust_write_identical_rows_across_the_sync_grid_interop) | test(=an_unscripted_call_fails_the_rails_run))
+  | binary(parity) & test(=an_unscripted_call_fails_the_run_on_both_venues)
+  | binary(rails_templates) & (test(=a_copied_schema_template_is_the_install_a_per_scenario_schema_load_gives)
+      | test(=a_published_template_that_fails_its_check_is_rebuilt_not_handed_out) | test(=a_template_build_killed_part_way_is_never_handed_out_and_the_next_build_replaces_it))
+  | binary(venue_signing) & test(=ibkr_generated_keys_round_trip_through_ruby_openssl)
+)'''

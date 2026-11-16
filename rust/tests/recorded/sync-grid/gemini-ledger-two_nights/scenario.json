@@ -1,0 +1,186 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "gemini": {
+        "POST /v1/mytrades": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "price": "60500",
+                "amount": "0.001",
+                "timestamp": 1789552800,
+                "timestampms": 1789552800000,
+                "type": "Buy",
+                "aggressor": true,
+                "fee_currency": "USD",
+                "fee_amount": "0.06",
+                "tid": 9001,
+                "order_id": "o9001",
+                "exchange": "gemini",
+                "is_auction_fill": false,
+                "is_clearing_fill": false,
+                "symbol": "btcusd"
+              },
+              {
+                "price": "0.04",
+                "amount": "0.5",
+                "timestamp": 1789642800,
+                "timestampms": 1789642800000,
+                "type": "Sell",
+                "aggressor": true,
+                "fee_currency": "BTC",
+                "fee_amount": "0.00002",
+                "tid": 9002,
+                "order_id": "o9002",
+                "exchange": "gemini",
+                "is_auction_fill": false,
+                "is_clearing_fill": false,
+                "symbol": "ethbtc"
+              },
+              {
+                "price": "0.25",
+                "amount": "100",
+                "timestamp": 1789700000,
+                "timestampms": 1789700000123,
+                "type": "Buy",
+                "aggressor": true,
+                "tid": 9003,
+                "order_id": "o9003",
+                "exchange": "gemini",
+                "is_auction_fill": false,
+                "is_clearing_fill": false,
+                "symbol": "dogeusd"
+              }
+            ]
+          }
+        ],
+        "POST /v2/transfers": [
+          {
+            "status": 200,
+            "body": []
+          }
+        ]
+      }
+    },
+    {
+      "kind": "ledger",
+      "at": "2026-09-21T02:00:00.250000Z",
+      "gemini": {
+        "POST /v1/mytrades": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "price": "60500",
+                "amount": "0.001",
+                "timestamp": 1789552800,
+                "timestampms": 1789552800000,
+                "type": "Buy",
+                "aggressor": true,
+                "fee_currency": "USD",
+                "fee_amount": "0.06",
+                "tid": 9001,
+                "order_id": "o9001",
+                "exchange": "gemini",
+                "is_auction_fill": false,
+                "is_clearing_fill": false,
+                "symbol": "btcusd"
+              },
+              {
+                "price": "0.04",
+                "amount": "0.5",
+                "timestamp": 1789642800,
+                "timestampms": 1789642800000,
+                "type": "Sell",
+                "aggressor": true,
+                "fee_currency": "BTC",
+                "fee_amount": "0.00002",
+                "tid": 9002,
+                "order_id": "o9002",
+                "exchange": "gemini",
+                "is_auction_fill": false,
+                "is_clearing_fill": false,
+                "symbol": "ethbtc"
+              },
+              {
+                "price": "0.25",
+                "amount": "100",
+                "timestamp": 1789700000,
+                "timestampms": 1789700000123,
+                "type": "Buy",
+                "aggressor": true,
+                "tid": 9003,
+                "order_id": "o9003",
+                "exchange": "gemini",
+                "is_auction_fill": false,
+                "is_clearing_fill": false,
+                "symbol": "dogeusd"
+              }
+            ]
+          }
+        ],
+        "POST /v2/transfers": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "type": "Deposit",
+                "status": "Complete",
+                "timestampms": 1789473600000,
+                "eid": 5001,
+                "currency": "USD",
+                "amount": "1000",
+                "method": "CryptoTransfer",
+                "txHash": "0xg5001"
+              },
+              {
+                "type": "Withdrawal",
+                "status": "Complete",
+                "timestampms": 1789689600000,
+                "eid": 5002,
+                "currency": "btc",
+                "amount": "0.002",
+                "method": "CryptoTransfer",
+                "txHash": "0xg5002",
+                "feeAmount": "0.0001",
+                "feeCurrency": "btc"
+              },
+              {
+                "type": "Reward",
+                "status": "Complete",
+                "timestampms": 1789693200000,
+                "eid": 5003,
+                "currency": "ETH",
+                "amount": "0.01",
+                "method": "CryptoTransfer",
+                "txHash": "0xg5003"
+              },
+              {
+                "type": "Withdrawal",
+                "status": "Complete",
+                "timestampms": 1789696800000,
+                "eid": 5004,
+                "currency": "ETH",
+                "amount": "0.1",
+                "method": "CryptoTransfer",
+                "txHash": "0xg5004",
+                "feeAmount": "0"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

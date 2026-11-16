@@ -1,0 +1,169 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T10:00:00.623456Z",
+  "venue": "binance",
+  "script": {
+    "binance": {
+      "POST /api/v3/order": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28457,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28458,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28459,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28460,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28461,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28462,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        }
+      ],
+      "GET /api/v3/account": [
+        {
+          "status": 200,
+          "body": {
+            "makerCommission": 10,
+            "canTrade": true,
+            "balances": [
+              {
+                "asset": "USDT",
+                "free": "100000.00000000",
+                "locked": "0"
+              }
+            ]
+          }
+        }
+      ],
+      "GET /api/v3/allOrders": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "GET /api/v3/myTrades": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "GET /api/v3/ticker/bookTicker?symbol=BTCUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "bidPrice": "64000.10000000",
+            "bidQty": "1.5",
+            "askPrice": "64000.11000000",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price?symbol=BTCUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "price": "64000.05000000"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/bookTicker?symbol=ETHUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "ETHUSDT",
+            "bidPrice": "2500.50000000",
+            "bidQty": "1.5",
+            "askPrice": "2500.51000000",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price?symbol=ETHUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "ETHUSDT",
+            "price": "2500.47000000"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/bookTicker?symbol=SOLUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "SOLUSDT",
+            "bidPrice": "150.12400000",
+            "bidQty": "1.5",
+            "askPrice": "150.12500000",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "GET /api/v3/ticker/price?symbol=SOLUSDT": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "SOLUSDT",
+            "price": "150.12300000"
+          }
+        }
+      ]
+    }
+  },
+  "tick": true,
+  "warn": true,
+  "rails_floor": {
+    "value": 6.0,
+    "reason": "exchange"
+  }
+}

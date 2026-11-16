@@ -2591,15 +2591,20 @@ fn expected_broker_pages(name: &str, scenario: &Value) -> usize {
     0
 }
 
+/// Rails' scenario inventory (`pages.rb inventory`), frozen.
+fn page_inventory() -> Value {
+    let path = common::frozen("pages-inventory", |d| d.join("inventory.json").is_file(), |out| {
+        common::rails(tempfile::tempdir().unwrap().path(), "test", &["runner", "script/rust/pages.rb", "inventory", out.join("inventory.json").to_str().unwrap()]);
+    }).join("inventory.json");
+    serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
+}
+
 /// This only enumerates Rails' scenario descriptions: no installs, requests or recording cache.
 #[test]
 fn page_grid_selection_is_complete_and_disjoint() {
     use std::collections::BTreeSet;
     use sha2::{Digest, Sha256};
-    let scratch = tempfile::tempdir().unwrap();
-    let path = scratch.path().join("inventory.json");
-    common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "inventory", path.to_str().unwrap()]);
-    let inventory: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let inventory = page_inventory();
     let all = inventory["all"].as_object().unwrap();
     let full: BTreeSet<&str> = all.keys().map(String::as_str).collect();
     let selected: BTreeSet<&str> = inventory["selected"].as_array().unwrap().iter().map(|n| n.as_str().unwrap()).collect();
@@ -2742,6 +2747,11 @@ fn threads() -> String {
 async fn replay_page_shard(shard: usize) {
     let measured = std::time::Instant::now();
     let (_rails_root, rust_root, dirs) = recorded_grid(&format!("shard-{shard}"));
+    // The frozen shard replays every scenario the inventory puts in it: none dropped, none added.
+    let names: Vec<String> = dirs.iter().map(|d| d.file_name().unwrap().to_string_lossy().into_owned()).collect();
+    let mut want: Vec<String> = page_inventory()["shards"][shard].as_array().unwrap().iter().map(|n| n.as_str().unwrap().to_string()).collect();
+    want.sort();
+    assert_eq!(names, want, "page shard {}: the frozen recording's scenarios are the inventory's", shard + 1);
     eprintln!("page shard {}: {} scenarios; recording/setup {:?}", shard + 1, dirs.len(), measured.elapsed());
     let replay = std::time::Instant::now();
     start_watchdog();

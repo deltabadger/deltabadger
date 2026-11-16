@@ -1,0 +1,8115 @@
+{
+  "ledger": {
+    "whole": {
+      "positions": [
+        {
+          "symbol": "BTC",
+          "quantity": "0.0099",
+          "cost": "594.0",
+          "avg_cost": "60000.0",
+          "opened_at": "2025-09-15T10:00:00.000000Z",
+          "estimated": false,
+          "unpriced": "0.0"
+        }
+      ],
+      "round_trips": [],
+      "total_invested": "1000.0",
+      "received": "0.0",
+      "realised": "-6.0",
+      "fees": "6.004",
+      "cash_usd": "400.0",
+      "unpriced_proceeds": "0.0",
+      "openings": [],
+      "cash": [
+        [
+          "USD",
+          "400.0"
+        ]
+      ],
+      "cash_basis": [
+        [
+          "USD",
+          "400.0"
+        ]
+      ],
+      "incomplete": false,
+      "loss_sales": []
+    },
+    "venues": {
+      "1": {
+        "positions": [
+          {
+            "symbol": "BTC",
+            "quantity": "0.0099",
+            "cost": "594.0",
+            "avg_cost": "60000.0",
+            "opened_at": "2025-09-15T10:00:00.000000Z",
+            "estimated": false,
+            "unpriced": "0.0"
+          }
+        ],
+        "round_trips": [],
+        "total_invested": "1000.0",
+        "received": "0.0",
+        "realised": "-6.0",
+        "fees": "6.004",
+        "cash_usd": "400.0",
+        "unpriced_proceeds": "0.0",
+        "openings": [],
+        "cash": [
+          [
+            "USD",
+            "400.0"
+          ]
+        ],
+        "cash_basis": [
+          [
+            "USD",
+            "400.0"
+          ]
+        ],
+        "incomplete": false,
+        "loss_sales": []
+      }
+    },
+    "figures": {
+      "whole": {
+        "value": "1003.9",
+        "invested": "1000.0",
+        "held_value": "603.9",
+        "held_cost": "600.0",
+        "fees": "6.004",
+        "realised": "-6.0",
+        "unrealised": "9.9",
+        "total": "3.9",
+        "holdings": [
+          {
+            "symbol": "BTC",
+            "quantity": "0.0099",
+            "value": "603.9",
+            "cost": "594.0",
+            "unrealised": "9.9",
+            "percent": "1.66666666666666666666666666667",
+            "note": null
+          },
+          {
+            "symbol": "USD",
+            "quantity": "400.0",
+            "value": "400.0",
+            "cost": null,
+            "unrealised": null,
+            "percent": null,
+            "note": null
+          }
+        ],
+        "notes": []
+      },
+      "1": {
+        "value": "1003.9",
+        "invested": "1000.0",
+        "held_value": "603.9",
+        "held_cost": "600.0",
+        "fees": "6.004",
+        "realised": "-6.0",
+        "unrealised": "9.9",
+        "total": "3.9",
+        "holdings": [
+          {
+            "symbol": "BTC",
+            "quantity": "0.0099",
+            "value": "603.9",
+            "cost": "594.0",
+            "unrealised": "9.9",
+            "percent": "1.66666666666666666666666666667",
+            "note": null
+          },
+          {
+            "symbol": "USD",
+            "quantity": "400.0",
+            "value": "400.0",
+            "cost": null,
+            "unrealised": null,
+            "percent": null,
+            "note": null
+          }
+        ],
+        "notes": []
+      }
+    }
+  },
+  "ledger_error": null,
+  "backfill_error": null,
+  "tables": {
+    "portfolio_snapshots": [
+      {
+        "date": "2025-09-01",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-02",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-03",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-04",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-05",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-06",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-07",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-08",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-09",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-10",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-11",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-12",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-13",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-14",
+        "held_cost_usd": 0,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 1000
+      },
+      {
+        "date": "2025-09-15",
+        "held_cost_usd": 600,
+        "held_value_usd": 500,
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 900
+      },
+      {
+        "date": "2025-09-16",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f4028f5c28f5c"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c20147ae147ae"
+        }
+      },
+      {
+        "date": "2025-09-17",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f4051eb851eb8"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c2028f5c28f5c"
+        }
+      },
+      {
+        "date": "2025-09-18",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f407ae147ae14"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c203d70a3d70a"
+        }
+      },
+      {
+        "date": "2025-09-19",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f40a3d70a3d71"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c2051eb851eb8"
+        }
+      },
+      {
+        "date": "2025-09-20",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f40cccccccccd"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c206666666666"
+        }
+      },
+      {
+        "date": "2025-09-21",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f40f5c28f5c29"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c207ae147ae14"
+        }
+      },
+      {
+        "date": "2025-09-22",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f411eb851eb85"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c208f5c28f5c3"
+        }
+      },
+      {
+        "date": "2025-09-23",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f4147ae147ae1"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c20a3d70a3d71"
+        }
+      },
+      {
+        "date": "2025-09-24",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f4170a3d70a3d"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c20b851eb851f"
+        }
+      },
+      {
+        "date": "2025-09-25",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f41999999999a"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c20cccccccccd"
+        }
+      },
+      {
+        "date": "2025-09-26",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f41c28f5c28f6"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c20e147ae147b"
+        }
+      },
+      {
+        "date": "2025-09-27",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f41eb851eb852"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c20f5c28f5c29"
+        }
+      },
+      {
+        "date": "2025-09-28",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f42147ae147ae"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c210a3d70a3d7"
+        }
+      },
+      {
+        "date": "2025-09-29",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f423d70a3d70a"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c211eb851eb85"
+        }
+      },
+      {
+        "date": "2025-09-30",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f426666666666"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c213333333333"
+        }
+      },
+      {
+        "date": "2025-10-01",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        }
+      },
+      {
+        "date": "2025-10-02",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        }
+      },
+      {
+        "date": "2025-10-03",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        }
+      },
+      {
+        "date": "2025-10-04",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        }
+      },
+      {
+        "date": "2025-10-05",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        }
+      },
+      {
+        "date": "2025-10-06",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        }
+      },
+      {
+        "date": "2025-10-07",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        }
+      },
+      {
+        "date": "2025-10-08",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        }
+      },
+      {
+        "date": "2025-10-09",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-10",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-11",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-12",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-13",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-14",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-15",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-16",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-17",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-18",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-19",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-20",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-21",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-22",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-23",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-24",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-25",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-26",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-27",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-28",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-29",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-30",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-10-31",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-01",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-02",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-03",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-04",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-05",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-06",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-07",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-08",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-09",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-10",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-11",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-12",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-13",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-14",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-15",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-16",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-17",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-18",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-19",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-20",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-21",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-22",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-23",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-24",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-25",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-26",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-27",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-28",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-29",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-11-30",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-01",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-02",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-03",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-04",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-05",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-06",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-07",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-08",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-09",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-10",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-11",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-12",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-13",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-14",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-15",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-16",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-17",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-18",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-19",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-20",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-21",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-22",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-23",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-24",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-25",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-26",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-27",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-28",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-29",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-30",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2025-12-31",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-01",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-02",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-03",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-04",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-05",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-06",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-07",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-08",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-09",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-10",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-11",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-12",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-13",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-14",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-15",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-16",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-17",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-18",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-19",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-20",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-21",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-22",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-23",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-24",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-25",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-26",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-27",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-28",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-29",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-30",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-01-31",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-01",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-02",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-03",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-04",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-05",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-06",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-07",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-08",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-09",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-10",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-11",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-12",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-13",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-14",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-15",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-16",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-17",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-18",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-19",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-20",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-21",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-22",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-23",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-24",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-25",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-26",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-27",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-02-28",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-01",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-02",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-03",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-04",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-05",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-06",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-07",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-08",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-09",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-10",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-11",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-12",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-13",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-14",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-15",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-16",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-17",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-18",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-19",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-20",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-21",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-22",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-23",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-24",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-25",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-26",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-27",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-28",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-29",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-30",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-03-31",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-01",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-02",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-03",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-04",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-05",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-06",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-07",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-08",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-09",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-10",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-11",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-12",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-13",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-14",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-15",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-16",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-17",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-18",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-19",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-20",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-21",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-22",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-23",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-24",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-25",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-26",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-27",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-28",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-29",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-04-30",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-01",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-02",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-03",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-04",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-05",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-06",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-07",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-08",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-09",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-10",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-11",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-12",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-13",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-14",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-15",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-16",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-17",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-18",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-19",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-20",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-21",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-22",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-23",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-24",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-25",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-26",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-27",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-28",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-29",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-30",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-05-31",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-01",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-02",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-03",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-04",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-05",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-06",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-07",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-08",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-09",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-10",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-11",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-12",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-13",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-14",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-15",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-16",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-17",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-18",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-19",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-20",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-21",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-22",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-23",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-24",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-25",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-26",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-27",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-28",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-29",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-06-30",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-01",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-02",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-03",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-04",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-05",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-06",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-07",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-08",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-09",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-10",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-11",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-12",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-13",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-14",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-15",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-16",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-17",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-18",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-19",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-20",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-21",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-22",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-23",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-24",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-25",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-26",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-27",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-28",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-29",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-30",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-07-31",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-01",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-02",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-03",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-04",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-05",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-06",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-07",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-08",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-09",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-10",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-11",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-12",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-13",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-14",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-15",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-16",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-17",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-18",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-19",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-20",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-21",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-22",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-23",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-24",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-25",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-26",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-27",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-28",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-29",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-30",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-08-31",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-01",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-02",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-03",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-04",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-05",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-06",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-07",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-08",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-09",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-10",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        }
+      },
+      {
+        "date": "2026-09-11",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        }
+      },
+      {
+        "date": "2026-09-12",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        }
+      },
+      {
+        "date": "2026-09-13",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        }
+      },
+      {
+        "date": "2026-09-14",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        }
+      },
+      {
+        "date": "2026-09-15",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        }
+      },
+      {
+        "date": "2026-09-16",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        }
+      },
+      {
+        "date": "2026-09-17",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        }
+      },
+      {
+        "date": "2026-09-18",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-19",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-20",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-21",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-22",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-23",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-24",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-25",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-26",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-27",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-28",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-29",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-09-30",
+        "held_cost_usd": 600,
+        "held_value_usd": 0,
+        "invested_usd": 1000,
+        "partial": 1,
+        "user_id": 1,
+        "value_usd": 400
+      },
+      {
+        "date": "2026-10-01",
+        "held_cost_usd": 600,
+        "held_value_usd": {
+          "f": "4082df3333333333"
+        },
+        "invested_usd": 1000,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": {
+          "f": "408f5f3333333333"
+        }
+      }
+    ],
+    "portfolio_venue_snapshots": [
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-01",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-02",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-03",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-04",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-05",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-06",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-07",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-08",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-09",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-10",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-11",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-12",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-13",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-14",
+        "value_usd": 1000,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 0,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-15",
+        "value_usd": 900,
+        "invested_usd": 1000,
+        "held_value_usd": 500,
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-16",
+        "value_usd": {
+          "f": "408c20147ae147ae"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f4028f5c28f5c"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-17",
+        "value_usd": {
+          "f": "408c2028f5c28f5c"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f4051eb851eb8"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-18",
+        "value_usd": {
+          "f": "408c203d70a3d70a"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f407ae147ae14"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-19",
+        "value_usd": {
+          "f": "408c2051eb851eb8"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f40a3d70a3d71"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-20",
+        "value_usd": {
+          "f": "408c206666666666"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f40cccccccccd"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-21",
+        "value_usd": {
+          "f": "408c207ae147ae14"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f40f5c28f5c29"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-22",
+        "value_usd": {
+          "f": "408c208f5c28f5c3"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f411eb851eb85"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-23",
+        "value_usd": {
+          "f": "408c20a3d70a3d71"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f4147ae147ae1"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-24",
+        "value_usd": {
+          "f": "408c20b851eb851f"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f4170a3d70a3d"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-25",
+        "value_usd": {
+          "f": "408c20cccccccccd"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f41999999999a"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-26",
+        "value_usd": {
+          "f": "408c20e147ae147b"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f41c28f5c28f6"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-27",
+        "value_usd": {
+          "f": "408c20f5c28f5c29"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f41eb851eb852"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-28",
+        "value_usd": {
+          "f": "408c210a3d70a3d7"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f42147ae147ae"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-29",
+        "value_usd": {
+          "f": "408c211eb851eb85"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f423d70a3d70a"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-09-30",
+        "value_usd": {
+          "f": "408c213333333333"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f426666666666"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-01",
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-02",
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-03",
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-04",
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-05",
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-06",
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-07",
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-08",
+        "value_usd": {
+          "f": "408c2147ae147ae1"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "407f428f5c28f5c3"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-09",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-10",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-11",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-12",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-13",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-14",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-15",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-16",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-17",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-18",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-19",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-20",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-21",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-22",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-23",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-24",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-25",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-26",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-27",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-28",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-29",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-30",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-10-31",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-01",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-02",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-03",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-04",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-05",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-06",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-07",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-08",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-09",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-10",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-11",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-12",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-13",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-14",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-15",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-16",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-17",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-18",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-19",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-20",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-21",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-22",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-23",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-24",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-25",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-26",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-27",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-28",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-29",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-11-30",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-01",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-02",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-03",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-04",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-05",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-06",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-07",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-08",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-09",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-10",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-11",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-12",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-13",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-14",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-15",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-16",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-17",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-18",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-19",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-20",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-21",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-22",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-23",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-24",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-25",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-26",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-27",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-28",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-29",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-30",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2025-12-31",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-01",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-02",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-03",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-04",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-05",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-06",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-07",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-08",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-09",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-10",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-11",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-12",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-13",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-14",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-15",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-16",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-17",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-18",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-19",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-20",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-21",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-22",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-23",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-24",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-25",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-26",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-27",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-28",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-29",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-30",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-01-31",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-01",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-02",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-03",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-04",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-05",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-06",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-07",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-08",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-09",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-10",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-11",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-12",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-13",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-14",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-15",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-16",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-17",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-18",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-19",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-20",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-21",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-22",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-23",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-24",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-25",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-26",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-27",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-02-28",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-01",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-02",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-03",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-04",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-05",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-06",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-07",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-08",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-09",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-10",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-11",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-12",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-13",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-14",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-15",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-16",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-17",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-18",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-19",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-20",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-21",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-22",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-23",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-24",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-25",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-26",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-27",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-28",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-29",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-30",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-03-31",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-01",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-02",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-03",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-04",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-05",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-06",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-07",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-08",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-09",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-10",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-11",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-12",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-13",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-14",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-15",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-16",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-17",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-18",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-19",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-20",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-21",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-22",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-23",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-24",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-25",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-26",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-27",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-28",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-29",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-04-30",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-01",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-02",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-03",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-04",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-05",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-06",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-07",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-08",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-09",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-10",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-11",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-12",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-13",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-14",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-15",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-16",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-17",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-18",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-19",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-20",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-21",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-22",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-23",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-24",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-25",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-26",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-27",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-28",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-29",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-30",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-05-31",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-01",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-02",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-03",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-04",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-05",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-06",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-07",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-08",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-09",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-10",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-11",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-12",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-13",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-14",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-15",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-16",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-17",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-18",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-19",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-20",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-21",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-22",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-23",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-24",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-25",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-26",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-27",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-28",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-29",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-06-30",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-01",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-02",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-03",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-04",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-05",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-06",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-07",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-08",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-09",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-10",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-11",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-12",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-13",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-14",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-15",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-16",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-17",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-18",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-19",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-20",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-21",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-22",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-23",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-24",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-25",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-26",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-27",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-28",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-29",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-30",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-07-31",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-01",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-02",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-03",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-04",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-05",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-06",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-07",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-08",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-09",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-10",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-11",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-12",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-13",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-14",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-15",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-16",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-17",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-18",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-19",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-20",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-21",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-22",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-23",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-24",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-25",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-26",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-27",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-28",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-29",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-30",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-08-31",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-01",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-02",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-03",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-04",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-05",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-06",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-07",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-08",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-09",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-10",
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-11",
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-12",
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-13",
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-14",
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-15",
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-16",
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-17",
+        "value_usd": {
+          "f": "408f132b020c49ba"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "4082932b020c49ba"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-18",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-19",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-20",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-21",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-22",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-23",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-24",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-25",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-26",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-27",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-28",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-29",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-09-30",
+        "value_usd": 400,
+        "invested_usd": 1000,
+        "held_value_usd": 0,
+        "held_cost_usd": 600,
+        "partial": 1
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 1,
+        "date": "2026-10-01",
+        "value_usd": {
+          "f": "408f5f3333333333"
+        },
+        "invested_usd": 1000,
+        "held_value_usd": {
+          "f": "4082df3333333333"
+        },
+        "held_cost_usd": 600,
+        "partial": 0
+      }
+    ],
+    "wash_sale_locks": [],
+    "historical_prices": [
+      {
+        "id": 1,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-15",
+        "price": 50000
+      },
+      {
+        "id": 2,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-16",
+        "price": 50001
+      },
+      {
+        "id": 3,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-17",
+        "price": 50002
+      },
+      {
+        "id": 4,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-18",
+        "price": 50003
+      },
+      {
+        "id": 5,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-19",
+        "price": 50004
+      },
+      {
+        "id": 6,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-20",
+        "price": 50005
+      },
+      {
+        "id": 7,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-21",
+        "price": 50006
+      },
+      {
+        "id": 8,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-22",
+        "price": 50007
+      },
+      {
+        "id": 9,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-23",
+        "price": 50008
+      },
+      {
+        "id": 10,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-24",
+        "price": 50009
+      },
+      {
+        "id": 11,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-25",
+        "price": 50010
+      },
+      {
+        "id": 12,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-26",
+        "price": 50011
+      },
+      {
+        "id": 13,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-27",
+        "price": 50012
+      },
+      {
+        "id": 14,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-28",
+        "price": 50013
+      },
+      {
+        "id": 15,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-29",
+        "price": 50014
+      },
+      {
+        "id": 16,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-09-30",
+        "price": 50015
+      },
+      {
+        "id": 17,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2025-10-01",
+        "price": 50016
+      },
+      {
+        "id": 18,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-10",
+        "price": 60040
+      }
+    ],
+    "snapshot_history_version_1": "1_3_2026-09-01T09:00:00.000000Z",
+    "snapshot_price_generation_1": "18"
+  },
+  "requests": {
+    "market": [
+      [
+        "GET /api/v3/coins/bitcoin/market_chart/range",
+        [
+          [
+            "from",
+            "1788998400"
+          ],
+          [
+            "interval",
+            "daily"
+          ],
+          [
+            "precision",
+            "full"
+          ],
+          [
+            "to",
+            "1789084800"
+          ],
+          [
+            "vs_currency",
+            "usd"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v3/coins/bitcoin/market_chart/range",
+        [
+          [
+            "from",
+            "1757894400"
+          ],
+          [
+            "interval",
+            "daily"
+          ],
+          [
+            "precision",
+            "full"
+          ],
+          [
+            "to",
+            "1790812800"
+          ],
+          [
+            "vs_currency",
+            "usd"
+          ]
+        ]
+      ]
+    ],
+    "alpaca": [],
+    "ecb": []
+  }
+}

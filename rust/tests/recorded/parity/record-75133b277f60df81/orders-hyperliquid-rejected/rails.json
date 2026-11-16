@@ -1,0 +1,52 @@
+{
+  "sent": [
+    {
+      "a": 10142,
+      "b": true,
+      "p": "64652",
+      "s": "0.00154",
+      "r": false,
+      "t": {
+        "limit": {
+          "tif": "Gtc"
+        }
+      }
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Hyperliquid",
+        "base_asset": "BTC",
+        "quote_asset": "USDC",
+        "amount": 100,
+        "amount_type": "quote"
+      },
+      "result": {
+        "status": "upstream_failed",
+        "code": "order_failed",
+        "message": "Order failed: Hyperliquid order failed: Insufficient spot balance",
+        "data": null
+      },
+      "mcp": {
+        "isError": true,
+        "content": [
+          {
+            "type": "text",
+            "text": "Order failed: Hyperliquid order failed: Insufficient spot balance"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

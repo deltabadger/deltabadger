@@ -1,0 +1,127 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /api/v1/accounts",
+          [
+            [
+              "type",
+              "trade"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v1/prices",
+          [
+            [
+              "coin_ids",
+              "bitcoin,ethereum"
+            ],
+            [
+              "vs_currencies",
+              "usd"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [],
+    "account_balances": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "asset_id": 5,
+          "created_at": "2026-09-20 02:30:00.750000",
+          "exchange_id": 2,
+          "free": 0,
+          "locked": {
+            "f": "3fd0000000000000"
+          },
+          "priced_at": "2026-09-20 02:30:00.750000",
+          "synced_at": "2026-09-20 02:30:00.750000",
+          "updated_at": "2026-09-20 02:30:00.750000",
+          "usd_price": {
+            "f": "40ed4c1000000000"
+          },
+          "usd_value": {
+            "f": "40cd4c1000000000"
+          },
+          "user_id": 1
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "asset_id": 6,
+          "created_at": "2026-09-20 02:30:00.750000",
+          "exchange_id": 2,
+          "free": {
+            "f": "3ff8000000000000"
+          },
+          "locked": {
+            "f": "3fe0000000000000"
+          },
+          "priced_at": "2026-09-20 02:30:00.750000",
+          "synced_at": "2026-09-20 02:30:00.750000",
+          "updated_at": "2026-09-20 02:30:00.750000",
+          "usd_price": {
+            "f": "40a3888000000000"
+          },
+          "usd_value": {
+            "f": "40b3888000000000"
+          },
+          "user_id": 1
+        }
+      }
+    ],
+    "api_keys": [
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": null,
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        },
+        "after": {
+          "id": 2,
+          "balances_synced_at": "2026-09-20 02:30:00.750000",
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": null,
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        }
+      }
+    ],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

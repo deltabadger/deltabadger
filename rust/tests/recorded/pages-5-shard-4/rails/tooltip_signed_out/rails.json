@@ -1,0 +1,40 @@
+{
+  "responses": [
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/login",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-4vNdy2+2hcDGaQln5sXJ7g=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=6Fhc3b4Jrd7iJSdaXX%2F8rqJs%2BT0pPWiLPgU21%2B0HTMOxaQOBr3XWwdTVm5s1vucce6E0mPzas%2Bb5Sjjxs%2Fhp72bDKQW9cMwWV8I0%2BD6QQ8f2GNe22pAFWVARW1b1S1b1aYRyD65jVO7vTpg844mPc%2FarporgGNEvSXB8Z4Oy%2F4hrru%2B5W6XNOVxkWUpp2B%2BCiMeawvLKoYydyrXhjYZXi7sCRx%2F0pplBOaY3Wnlj7bS9tvznu8v9mZ8LxviJZsCptV95bjOEMtwod7YL%2Fi69be2%2BezOv8GaavEo4AzAr0sK69rmH%2BC7ygAgCLIuSTQUb1%2BDqKsZYeDwUeEPrbS%2BO%2FYgT0Gs22FDtc9HhEh%2FmrPoPnBs3Ea4128wDHMiVq75YGCd%2BHv3kyVbjoQIyA3ksHJz06KNmE%2BIJN9VZdV0Sj%2FoFv3zu0xRSVDUqrnf%2F0f%2FooFlQYY23rMPy4A%3D%3D--mldMSMLjmrmzSREd--sz6yHk3fixQs8BrFPaXUJw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true
+    },
+    {
+      "status": 302,
+      "headers": {
+        "location": "http://localhost:3000/login",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-lh+xRjwaM5qR9LOn4Ls/vw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=JZ9DJRIf2DU94QJOx2VV1N3w00H4vvTSTzAOxi6k8mHMaU%2FjleDRJhrxCjPUZCJSB2TlGQ87KQ%2FQDBroaHp%2B2bSAqYazCAYnJ7DDS4RJOPmXRD9kfEolDop3nuWZzPuPSyw4H5xcTFISs1AgMXoGacK2e1NhwKWgTLZfMJf2gfQqLPCAigOsrlxKPb%2Bc2lm3hR%2FaDW0TumQTSmrKQH8l01uyOCyg%2FFHQWC4nFr6ES9UO8e7nVfK2zRGHJdEHpkDy0kd08KDjeXlYSfX2BjPYK35BPAJ%2FCTLQ8h0xaWeWYe6nBtyOFmNYsGT429hGHi2RGTYJbpItc8cPssEwra7L9IABf%2Bre09lU0sw3MyyyJ3EQBHVWkkBedICw%2BRknmDA7mro5pUbUo%2FRpU2DcOTFzALUUmiqVpg9oi2FrxpyuRaGRVkF7XntRKp83bTHDw25c2uwJub%2B7aLioKg%3D%3D--Q6nHMTRU3CJ1s%2BrS--v9qf8hjPN5qLeVoZroNlBA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "failed_attempts": 0,
+      "locked_at": null,
+      "last_otp_at": null,
+      "remember_created_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "bots": [],
+  "network": []
+}

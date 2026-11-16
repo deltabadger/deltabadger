@@ -1,0 +1,21 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "at": "2026-10-01T03:00:00Z",
+  "market": {
+    "GET /api/v3/coins/bitcoin/market_chart/range": [
+      {
+        "network": "pre_send",
+        "message": "Failed to open TCP connection to api.coingecko.com:443 (Connection refused - connect(2))"
+      }
+    ]
+  },
+  "alpaca": {},
+  "ecb": {},
+  "balances_synced_by_rust": true,
+  "coingecko": {
+    "key": "CG-parity-demo-key",
+    "plan": "demo"
+  },
+  "transport_failure": true
+}

@@ -1,0 +1,91 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "at": "2026-10-01T03:00:00Z",
+  "market": {
+    "GET /api/v1/historical_prices": [
+      {
+        "status": 200,
+        "body": {
+          "prices": []
+        }
+      }
+    ]
+  },
+  "alpaca": {},
+  "ecb": {
+    "GET /service/data/EXR/D.USD+GBP+CHF+SEK+DKK+CZK+PLN+NOK+HUF+RON+BGN.EUR.SP00.A": [
+      {
+        "status": 500,
+        "body": "Internal Server Error"
+      }
+    ],
+    "GET /rest/download/BBEX3/D.USD.EUR.BB.AC.000": [
+      {
+        "status": 500,
+        "body": "Internal Server Error"
+      }
+    ],
+    "GET /rest/download/BBEX3/D.GBP.EUR.BB.AC.000": [
+      {
+        "status": 500,
+        "body": "Internal Server Error"
+      }
+    ],
+    "GET /rest/download/BBEX3/D.CHF.EUR.BB.AC.000": [
+      {
+        "status": 500,
+        "body": "Internal Server Error"
+      }
+    ],
+    "GET /rest/download/BBEX3/D.SEK.EUR.BB.AC.000": [
+      {
+        "status": 500,
+        "body": "Internal Server Error"
+      }
+    ],
+    "GET /rest/download/BBEX3/D.DKK.EUR.BB.AC.000": [
+      {
+        "status": 500,
+        "body": "Internal Server Error"
+      }
+    ],
+    "GET /rest/download/BBEX3/D.CZK.EUR.BB.AC.000": [
+      {
+        "status": 500,
+        "body": "Internal Server Error"
+      }
+    ],
+    "GET /rest/download/BBEX3/D.PLN.EUR.BB.AC.000": [
+      {
+        "status": 500,
+        "body": "Internal Server Error"
+      }
+    ],
+    "GET /rest/download/BBEX3/D.NOK.EUR.BB.AC.000": [
+      {
+        "status": 500,
+        "body": "Internal Server Error"
+      }
+    ],
+    "GET /rest/download/BBEX3/D.HUF.EUR.BB.AC.000": [
+      {
+        "status": 500,
+        "body": "Internal Server Error"
+      }
+    ],
+    "GET /rest/download/BBEX3/D.RON.EUR.BB.AC.000": [
+      {
+        "status": 500,
+        "body": "Internal Server Error"
+      }
+    ],
+    "GET /rest/download/BBEX3/D.BGN.EUR.BB.AC.000": [
+      {
+        "status": 500,
+        "body": "Internal Server Error"
+      }
+    ]
+  },
+  "balances_synced_by_rust": true
+}

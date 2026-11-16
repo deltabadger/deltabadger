@@ -1,0 +1,25 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:30:00.750000Z",
+      "bitvavo": {
+        "GET /v2/balance": [
+          {
+            "network": "bitvavo_pre_send",
+            "message": "Connection refused - connect(2) for \"api.bitvavo.com\" port 443"
+          }
+        ]
+      },
+      "market": {}
+    }
+  ]
+}

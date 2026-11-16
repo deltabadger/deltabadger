@@ -1,0 +1,62 @@
+{
+  "sent": [
+    {
+      "a": 10142,
+      "b": true,
+      "p": "64652",
+      "s": "0.00154",
+      "r": false,
+      "t": {
+        "limit": {
+          "tif": "Gtc"
+        }
+      }
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Hyperliquid",
+        "base_asset": "BTC",
+        "quote_asset": "USDC",
+        "amount": 100,
+        "amount_type": "quote"
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "Hyperliquid",
+          "pair": "BTC/USDC",
+          "side": "buy",
+          "order_type": "market",
+          "amount": 100.0,
+          "amount_type": "quote",
+          "upstream": {
+            "order_id": "BTC-77738308"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Market buy order placed on Hyperliquid: 100.0 USDC of BTC/USDC. {order_id: \"BTC-77738308\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

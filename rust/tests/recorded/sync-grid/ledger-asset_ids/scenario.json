@@ -1,0 +1,201 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 1,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "alpaca": {
+        "GET /v2/account/activities": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "id": "a-stock",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-10T14:30:00Z",
+                "type": "fill",
+                "price": "100",
+                "qty": "1",
+                "side": "buy",
+                "symbol": "AAPL",
+                "leaves_qty": "0",
+                "order_id": "order-a-stock",
+                "cum_qty": "1",
+                "order_status": "filled"
+              },
+              {
+                "id": "a-two-candidates",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-10T14:31:00Z",
+                "type": "fill",
+                "price": "100",
+                "qty": "1",
+                "side": "buy",
+                "symbol": "KLAC",
+                "leaves_qty": "0",
+                "order_id": "order-a-two-candidates",
+                "cum_qty": "1",
+                "order_status": "filled"
+              },
+              {
+                "id": "a-coin-slash",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-10T14:32:00Z",
+                "type": "fill",
+                "price": "64000",
+                "qty": "0.01",
+                "side": "buy",
+                "symbol": "BTC/USD",
+                "leaves_qty": "0",
+                "order_id": "order-a-coin-slash",
+                "cum_qty": "0.01",
+                "order_status": "filled"
+              },
+              {
+                "id": "a-coin-compact",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-10T14:33:00Z",
+                "type": "fill",
+                "price": "2500",
+                "qty": "0.01",
+                "side": "buy",
+                "symbol": "ETHUSD",
+                "leaves_qty": "0",
+                "order_id": "order-a-coin-compact",
+                "cum_qty": "0.01",
+                "order_status": "filled"
+              },
+              {
+                "id": "a-coin-curated",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-10T14:34:00Z",
+                "type": "fill",
+                "price": "150",
+                "qty": "1",
+                "side": "buy",
+                "symbol": "SOL/USD",
+                "leaves_qty": "0",
+                "order_id": "order-a-coin-curated",
+                "cum_qty": "1",
+                "order_status": "filled"
+              },
+              {
+                "id": "a-coin-curated-compact",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-10T14:34:30Z",
+                "type": "fill",
+                "price": "150",
+                "qty": "1",
+                "side": "buy",
+                "symbol": "SOLUSDT",
+                "leaves_qty": "0",
+                "order_id": "order-a-coin-curated-compact",
+                "cum_qty": "1",
+                "order_status": "filled"
+              },
+              {
+                "id": "a-coin-unknown",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-10T14:35:00Z",
+                "type": "fill",
+                "price": "150",
+                "qty": "1",
+                "side": "buy",
+                "symbol": "NOPE/USD",
+                "leaves_qty": "0",
+                "order_id": "order-a-coin-unknown",
+                "cum_qty": "1",
+                "order_status": "filled"
+              },
+              {
+                "id": "a-security-named-like-a-coin",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-10T14:36:00Z",
+                "type": "fill",
+                "price": "40",
+                "qty": "2",
+                "side": "buy",
+                "symbol": "BTC",
+                "leaves_qty": "0",
+                "order_id": "order-a-security-named-like-a-coin",
+                "cum_qty": "2",
+                "order_status": "filled"
+              },
+              {
+                "id": "a-lowercase",
+                "activity_type": "FILL",
+                "transaction_time": "2026-09-10T14:37:00Z",
+                "type": "fill",
+                "price": "40",
+                "qty": "2",
+                "side": "buy",
+                "symbol": "aapl",
+                "leaves_qty": "0",
+                "order_id": "order-a-lowercase",
+                "cum_qty": "2",
+                "order_status": "filled"
+              },
+              {
+                "id": "a-div",
+                "activity_type": "DIV",
+                "net_amount": "1",
+                "symbol": "AAPL",
+                "date": "2026-09-11",
+                "status": "executed"
+              },
+              {
+                "id": "a-cfee",
+                "activity_type": "CFEE",
+                "net_amount": "0",
+                "symbol": "ETHUSD",
+                "qty": "-0.001",
+                "date": "2026-09-11",
+                "status": "executed"
+              },
+              {
+                "id": "a-cfee-unknown",
+                "activity_type": "CFEE",
+                "net_amount": "0",
+                "symbol": "SOL",
+                "qty": "-0.001",
+                "date": "2026-09-11",
+                "status": "executed"
+              },
+              {
+                "id": "a-roc",
+                "activity_type": "DIVROC",
+                "net_amount": "1",
+                "symbol": "QQQM",
+                "qty": "1",
+                "date": "2026-09-11",
+                "status": "executed"
+              },
+              {
+                "id": "a-split",
+                "activity_type": "SPLIT",
+                "net_amount": "0",
+                "symbol": "QQQM",
+                "qty": "1",
+                "date": "2026-09-11",
+                "status": "executed"
+              },
+              {
+                "id": "a-unsupported-no-symbol",
+                "activity_type": "REO",
+                "date": "2026-09-11",
+                "status": "executed"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

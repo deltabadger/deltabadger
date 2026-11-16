@@ -1,0 +1,4078 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-4Bb5rssGHiG1HgfZe+kGaQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=bUvrTD%2FJSjjr%2FDucr%2FtuVOzzIPGUl7PJUqG8IeCyIkr5nZtTdsN3X5TZ5YMpld9KGYidjOmuQ6WFSqANYnKLyhhD9iCP0LJFu5FonVcvYGjI5DDO1WpwXVUFNh21Skx%2FkMIHnlKoHbhYLEXCdLyQJmIis9xcB983IXnihPwRkDKjHGZkfp2uhwBy5f5uEYE9HXmOUFZvvtW%2F0%2FuMt%2BL0XIvG1iVox6c9ltrUbA48d2470LFC6FPT2vf3MXKtb7xy89vkaUuhAhtQxa%2FyvmBCslvDfC%2BUzoiEOl7pzGlgbQGYdCfeu5KiPKTA7PRKCkm2tg4%3D--pnV%2FqMMDarajfYLv--s2HD86DWP7N4cCLMMC22Ww%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-6290d549af80caa2fb7df4035451b122ac9f284c34459a922e1ae88d558e3008.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-55216d29feb9cbe3040956a80263e39ee90e0e1f1554dc6c4a8b67cec79947a7.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"CWzAKHXANhRXxNNuX58ql5A7zul6gXDG5CLPRlitu-f1GEJxF74RWEV2WKuSkR-a5yJQl4JWhu2ioIyAEWO1jw\" />\n    <meta name=\"csp-nonce\" content=\"4Bb5rssGHiG1HgfZe+kGaQ==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-controller=\"form--html5-validations form--label-animations\" action=\"/login\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"zfO2XnE_3wgtCGU_ofGnywvuaLAIubK69ZtMLz6i75lvOin5ZKORgpwzEWDejJfjOf-kuYam_UqmF0cO68MfSw\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <h1>Welcome back!</h1>\n\n  <div class=\"form__row\">\n    <input autofocus=\"autofocus\" autocomplete=\"email\" class=\"form__input form__input--large\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email invalid!\" type=\"email\" value=\"\" name=\"user[email]\" id=\"user_email\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"current-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" type=\"password\" name=\"user[password]\" id=\"user_password\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n\n      <div class=\"form__info form__info--right\">\n        <a href=\"/password/new\">Forgot password?</a>\n      </div>\n</div>\n    <div class=\"toggle\">\n      <input name=\"user[remember_me]\" type=\"hidden\" value=\"0\" /><input type=\"checkbox\" value=\"1\" name=\"user[remember_me]\" id=\"user_remember_me\" />\n      <div class=\"toggle__style\"></div>\n      <label class=\"label\" for=\"user_remember_me\">Remember me</label>\n      \n    </div>\n\n  <div class=\"form__row form__row--final-button\">\n    <input type=\"submit\" name=\"commit\" value=\"Log In\" class=\"button button--sky button--large\" data-disable-with=\"Log In\" />\n  </div>\n\n  <div class=\"devise__links\">\n\n\n    <a class=\"button button--link\" href=\"/confirmation/new\">Resend link</a>\n    <span class=\"db-middot\">●</span>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"dropdown-wrapper dropdown-wrapper--right dropdown-wrapper--up\" style=\"font-weight: 600; color: var(--link)\">\n  EN\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/de/login\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/nl/login\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/fr/login\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/es/login\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pt/login\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/it/login\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pl/login\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/ru/login\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/cs/login\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sk/login\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/da/login\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sv/login\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/el/login\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/bg/login\">🇧🇬 Български</a>\n  </div>\n</div>\n</div>\n</form>\n\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+      "session_changed": true
+    },
+    {
+      "status": 303,
+      "headers": {
+        "location": "http://localhost:3000/",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-RQczKpH0lej74p5AzbWcaA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=tac8WttqGAd2J5m5QgsJ%2BYYnMelbMxya990LX%2Bx7HKtWrfgTkbZJ6fSM6HpChRr2UlVk5YQ9TNIE%2Bhh8DmH8bssrqGCsTQhiZmLG9bXS%2BHQVA80Q5afUJsRK5vwTATKgNEzGtPoKb4YRkUpxmVgw%2FhzEbz3nPveMNQkGcatSwmv76vY7rJXUs29HJH%2Bn%2F0VQc1spbYo2Wsn6yNDSGP3uHx3q%2FN6JBvFgS749Ck5BNTRlGcc5GxrE50LDTtDo5as%2FnPkO7vqlsEGOShvzikyQuidfcHEn0iCP2c8na3uchuY%2FpGaj7%2Fdvfia3HlnLeR%2FPw0WulsoOHSpl%2BuPLlmGDXb22Oihck3TaH5noU%2BtjGDvmIbkN%2Fpc%3D--5%2BdVrAgI35CsVN%2FI--Qc%2BNjMsbesoEVUpZrV9Dsg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-EPW9lkzjX4o6h59Kv6D+bA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=3OewpBh%2FLZX%2FfMk199wDmr81EZIHr2%2B6MBDKbbo%2BVHYqp0W1AyCWATSsdkHEWLEi1lcaf3JCNXUy3dOdAKB1EcYV7FTFrOMt8G1hIVv5xX%2FYP8Oane9q%2BQTrDemdDw5n1CtSqHhADdYYPnmxOUUoIM7TAZ%2FEMhJp5w3ZxZsSixk2rqoAUvVReWYgK0BY3O9QLjOWSFXzcWe7UdFz%2BISFHlY87snU9mh28dlU%2B5zST%2B8coLwn0pWsLQyxulWEsIrvcphOl7vC4wGjkrtCWdN5g1X47wFGYh%2FDQSvlZYHDWBEaHAXxuTaRRd7SZaz8c8sPb%2B3ATnVjf8jpYMhPuSK9lEgNFBp%2BH7HkVvYXVnCJ2qd1SY2GOL0tvu7utUjoI9TsZsQRY8PhEvVKVV024IVfuoGJ6DJahCF%2B8klf8jejXgjVlPusCkahDDAlWYIPeR5gtUqaJHOxrXduUY%2FVTGlLTQXcCi0Tfg%3D%3D--PjXg6CWqxfEhemwS--qnJVlsijiMkS1XTU1wxehQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"color-scheme\" content=\"dark light\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"pv4JnUEnNHU_r76STsqUsRURaAdp0RumIHMo_KJR1gkbrTuiMS9_Qgzb4yLRd5DRMAqvJ-cWRaVFZ0do-Yx7qw\" />\n    <meta name=\"csp-nonce\" content=\"EPW9lkzjX4o6h59Kv6D+bA==\" />\n    <meta name=\"turbo-prefetch\" content=\"false\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-6290d549af80caa2fb7df4035451b122ac9f284c34459a922e1ae88d558e3008.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-55216d29feb9cbe3040956a80263e39ee90e0e1f1554dc6c4a8b67cec79947a7.js\" data-turbo-track=\"reload\" type=\"module\"></script>\n\n    \n  </head>\n\n  <body data-controller=\"hotwire-animations app-wake ticker-tooltips reveal-chrome coarse-slider\" data-locale=\"en\">\n\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n\n    <div class=\"flash-stack\">\n      <div id=\"flash\" data-turbo-permanent>\n        \n        \n      </div>\n      \n    </div>\n\n    <input data-turbo-permanent id=\"hamburger\" type=\"checkbox\">\n<div class=\"hamburger hamburger__a\"></div>\n<div class=\"hamburger hamburger__b\"></div>\n<div class=\"menu-mobile\" data-action=\"click-&gt;menu-mobile#close\" data-controller=\"menu-mobile\">\n<a class=\"menu-mobile__item menu-mobile__item--bots \" href=\"/bots\">Bots\n</a><a class=\"menu-mobile__item menu-mobile__item--tracker \" href=\"/tracker\">Tracker\n</a><a class=\"menu-mobile__item menu-mobile__item--rules \" href=\"/rules\">Rules\n</a><a class=\"menu-mobile__item menu-mobile__item--settings\" data-turbo-frame=\"modal\" href=\"/settings/account\">Settings\n</a><form class=\"switch-row-form\" data-controller=\"form--submit\" action=\"/settings/update_hide_balances\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"l-rj5tU2DoXwyqPzzNplSC4_jTtTYlD6XGjIDH-BDgqF3pjtDe0QdyQHrf53iuXRObAyPyjOo3JXAkxZUlayfg\" /><label class=\"menu-mobile__item menu-mobile__item--switch\" data-dropdown-keep-open>\n<span>Hide balances</span>\n<div class=\"toggle toggle--small\">\n<input type=\"hidden\" name=\"hide_balances\" id=\"hide_balances\" value=\"0\" />\n<input type=\"checkbox\" name=\"hide_balances\" id=\"hide_balances\" value=\"1\" data-action=\"change-&gt;form--submit#submit\" />\n<div class=\"toggle__style\"></div>\n</div>\n</label>\n</form>\n<form class=\"switch-row-form\" data-controller=\"form--segmented-field form--submit\" data-action=\"segmented:change-&gt;form--segmented-field#set segmented:change-&gt;form--submit#submit\" action=\"/settings/update_display_currency\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"pACNcjAdjTrxw2jXjMwcnaQLU1LXmc6fk35R1v30m33Rc3FNPZzfD5LQDTjmYizLvkEXiwTDzlc2zQ3aX-uBhA\" /><div class=\"menu-mobile__item menu-mobile__item--currency\" data-dropdown-keep-open title=\"Profits and portfolio totals are shown in this currency. Bots keep trading in their own quote asset.\">\n\n<div class=\"segmented segmented--fluid\" role=\"radiogroup\" aria-label=\"Display currency\" data-controller=\"segmented\" data-action=\"click-&gt;segmented#toggle\" data-currency=\"true\">\n  <span class=\"segmented__thumb\" data-segmented-target=\"thumb\"></span>\n  <div class=\"segmented__dropdown dropdown\" data-segmented-target=\"dropdown\">\n    <div class=\"segmented__panes\">\n      <div class=\"segmented__pane segmented__menu\">\n            <button type=\"button\" class=\"segmented__option is-on\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" data-value=\"USD\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">$</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"EUR\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">€</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"GBP\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">£</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"CHF\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">Fr.</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"PLN\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">zł</button>\n      </div>\n    </div>\n  </div>\n  <span class=\"segmented__caret\" aria-hidden=\"true\">\n    <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</span></div>\n</div>\n<input data-form--segmented-field-target=\"field\" type=\"hidden\" value=\"USD\" name=\"user[display_currency]\" />\n</form>\n<div class=\"menu-mobile__divider\"></div>\n<form class=\"button_to\" method=\"post\" action=\"/logout\"><input type=\"hidden\" name=\"_method\" value=\"delete\" /><button class=\"menu-mobile__item menu-mobile__button\" data-turbo=\"false\" type=\"submit\">Logout\n</button><input type=\"hidden\" name=\"authenticity_token\" value=\"VcU4NolWESnvh7L30LevNhJocaIxZ9k_y6ERzkZXnmxWX0mMn717USC_Iu5H3JNeJmES0Am97YCSKALthOa7nA\" /></form></div>\n<div class=\"menu\">\n<div class=\"menu__section menu__section--top menu__section--logo\">\n<a class=\"menu__logo\" aria-label=\"Deltabadger\" href=\"/bots\"><svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n</a></div>\n<div class=\"menu__section menu__section--top menu__section--main-menu\" data-controller=\"menu\">\n<a class=\"menu__item menu__item--bots \" aria-label=\"Bots\" data-action=\"click-&gt;menu#select\" data-menu-target=\"tile\" data-tile=\"bots\" href=\"/bots\"><svg id=\"bot-count\" class=\"icon-24 icon-24--count\" viewbox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n  <text class=\"fill--icon\" x=\"12\" y=\"18.94\" text-anchor=\"middle\"\n        font-size=\"19\">2</text>\n</svg>\n\n<svg class=\"icon-24 icon-24--previous\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--icon\" d=\"M7.17774 12.5684C6.92433 12.2023 6.94176 11.707 7.23145 11.3594L12.2314 5.35938C12.585 4.93519 13.2164 4.87791 13.6406 5.23145C14.0648 5.58503 14.1221 6.21638 13.7686 6.64063L9.30176 12L13.7686 17.3594C14.1221 17.7836 14.0648 18.415 13.6406 18.7686C13.2164 19.1221 12.585 19.0648 12.2314 18.6406L7.23145 12.6406L7.17774 12.5684Z\"></path>\n</svg>\n\n</a><a class=\"menu__item menu__item--tracker \" aria-label=\"Tracker\" data-action=\"click-&gt;menu#select\" data-menu-target=\"tile\" data-tile=\"tracker\" href=\"/tracker\"><svg class=\"icon-24 icon-24--allocation\" viewbox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n    <circle class=\"stroke--icon\" cx=\"12\" cy=\"12\" r=\"9\"\n            fill=\"none\" stroke-width=\"2\"/>\n</svg>\n\n</a><a class=\"menu__item menu__item--rules \" aria-label=\"Rules\" data-action=\"click-&gt;menu#select\" data-menu-target=\"tile\" data-tile=\"rules\" href=\"/rules\"><svg fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--icon\" clip-rule=\"evenodd\" d=\"M8.9663 10.7464C9.10637 11.2806 8.78684 11.8272 8.25262 11.9673C6.86941 12.33 5.76524 12.8731 5.02881 13.4871C4.29134 14.102 4 14.7142 4 15.2532C4 16.0091 4.59887 16.9321 6.10255 17.7252C7.56058 18.4942 9.64396 19 12 19C14.356 19 16.4394 18.4942 17.8974 17.7252C19.4011 16.9321 20 16.0091 20 15.2532C20 14.7142 19.7087 14.102 18.9712 13.4871C18.2348 12.8731 17.1306 12.33 15.7474 11.9673C15.2132 11.8272 14.8936 11.2806 15.0337 10.7464C15.1738 10.2122 15.7204 9.89263 16.2546 10.0327C17.8343 10.4469 19.2296 11.0986 20.252 11.951C21.2733 12.8026 22 13.9285 22 15.2532C22 17.1189 20.5841 18.5693 18.8305 19.4942C17.0311 20.4432 14.6145 21 12 21C9.38547 21 6.96885 20.4432 5.16952 19.4942C3.41585 18.5693 2 17.1189 2 15.2532C2 13.9285 2.72671 12.8026 3.74802 11.951C4.77037 11.0986 6.16569 10.4469 7.74538 10.0327C8.27961 9.89263 8.82623 10.2122 8.9663 10.7464Z\" fill-rule=\"evenodd\"></path>\n<path class=\"fill--icon\" clip-rule=\"evenodd\" d=\"M11.2929 2.29289C11.6834 1.90237 12.3166 1.90237 12.7071 2.29289L16.7071 6.29289C17.0976 6.68342 17.0976 7.31658 16.7071 7.70711C16.3166 8.09763 15.6834 8.09763 15.2929 7.70711L13 5.41421V15C13 15.5523 12.5523 16 12 16C11.4477 16 11 15.5523 11 15V5.41421L8.70711 7.70711C8.31658 8.09763 7.68342 8.09763 7.29289 7.70711C6.90237 7.31658 6.90237 6.68342 7.29289 6.29289L11.2929 2.29289Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</a><div class=\"menu__chip\" data-menu-target=\"chip\"></div>\n</div>\n<div class=\"menu__section menu__section--bottom\">\n<div class=\"dropdown-wrapper dropdown-wrapper--bottom-left\" data-action=\"click-&gt;dropdown#toggle\" data-controller=\"dropdown\" data-dropdown-active-class=\"menu__item--active\" data-dropdown-target=\"wrapper\" data-turbo-permanent id=\"settings-menu\">\n<div class=\"menu__item menu__button\" data-dropdown-target=\"trigger\">\n<svg fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--icon\" clip-rule=\"evenodd\" d=\"M8 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM4 8h1.17a3 3 0 0 1 5.66 0H20a1 1 0 1 1 0 2h-9.17a3 3 0 0 1-5.66 0H4a1 1 0 0 1 0-2Zm12 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM4 14h9.17a3 3 0 0 1 5.66 0H20a1 1 0 1 1 0 2h-1.17a3 3 0 0 1-5.66 0H4a1 1 0 1 1 0-2Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</div>\n<div class=\"dropdown\">\n<a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/settings/account\">Settings</a>\n<form class=\"switch-row-form\" data-controller=\"form--submit\" action=\"/settings/update_hide_balances\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"I7SRQoRmcXmwCcQ9ie87s6Z7Sqazt1pvTqI-oUhFKJIxgOpJXL1vi2TEyjAyv7sqsfT1osgbqedFyLr0ZZKU5g\" /><label class=\"dropdown__item dropdown__item--switch\" data-dropdown-keep-open>\n<span>Hide balances</span>\n<div class=\"toggle toggle--small\">\n<input type=\"hidden\" name=\"hide_balances\" id=\"hide_balances\" value=\"0\" />\n<input type=\"checkbox\" name=\"hide_balances\" id=\"hide_balances\" value=\"1\" data-action=\"change-&gt;form--submit#submit\" />\n<div class=\"toggle__style\"></div>\n</div>\n</label>\n</form>\n<form class=\"switch-row-form\" data-controller=\"form--segmented-field form--submit\" data-action=\"segmented:change-&gt;form--segmented-field#set segmented:change-&gt;form--submit#submit\" action=\"/settings/update_display_currency\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"0juCjWbhSPnylcGMaGlSYXbyjyU0BNeiIZ6FC34WROOnSH6ya2AazJGGpGMCx2I3bLjL_Ode12qELdkH3AleGg\" /><div class=\"dropdown__item dropdown__item--currency\" data-dropdown-keep-open title=\"Profits and portfolio totals are shown in this currency. Bots keep trading in their own quote asset.\">\n\n<div class=\"segmented segmented--fluid\" role=\"radiogroup\" aria-label=\"Display currency\" data-controller=\"segmented\" data-action=\"click-&gt;segmented#toggle\" data-currency=\"true\">\n  <span class=\"segmented__thumb\" data-segmented-target=\"thumb\"></span>\n  <div class=\"segmented__dropdown dropdown\" data-segmented-target=\"dropdown\">\n    <div class=\"segmented__panes\">\n      <div class=\"segmented__pane segmented__menu\">\n            <button type=\"button\" class=\"segmented__option is-on\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" data-value=\"USD\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">$</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"EUR\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">€</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"GBP\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">£</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"CHF\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">Fr.</button>\n            <button type=\"button\" class=\"segmented__option\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" data-value=\"PLN\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">zł</button>\n      </div>\n    </div>\n  </div>\n  <span class=\"segmented__caret\" aria-hidden=\"true\">\n    <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</span></div>\n</div>\n<input data-form--segmented-field-target=\"field\" type=\"hidden\" value=\"USD\" name=\"user[display_currency]\" />\n</form>\n<div class=\"dropdown__item dropdown__item--divider\"></div>\n<form class=\"button_to\" method=\"post\" action=\"/logout\"><input type=\"hidden\" name=\"_method\" value=\"delete\" /><button class=\"dropdown__item dropdown__item--danger\" data-turbo=\"false\" type=\"submit\">Logout\n</button><input type=\"hidden\" name=\"authenticity_token\" value=\"Nhs1WxlTm5dFapZZhzBSlZZvUC4Mt3tlArWaGNsVrnE1gUThD7jx74pSBkAQW279omYzXDRtT9pbPIk7GaSLgQ\" /></form></div>\n</div>\n</div>\n</div>\n\n\n\n    <main class=\"main\">\n      <div class=\"main-content\">\n        <turbo-frame complete=\"\" id=\"modal\">\n  <dialog data-controller=\"modal--base\" data-action=\"click->modal--base#clickOutside\" class=\"dialog\" data-hw-animate-in=\"animate-modal-in\" data-hw-animate-out=\"animate-modal-out\">\n    <div class=\"dialog__vertical-center\">\n      \n  <div class=\"modal\">\n    <turbo-frame id=\"merge_modal\">\n      <button name=\"button\" type=\"button\" class=\"modal__close\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>      <div class=\"modal__header\">\n        <h1 class=\"modal__title\">\n          Merge 2 bots\n        </h1>\n      </div>\n      <div class=\"modal__body\">\n          <form data-controller=\"form--submit\" data-turbo-frame=\"merge_modal\" action=\"/bots/merge/new\" accept-charset=\"UTF-8\" method=\"get\">\n              <input type=\"hidden\" name=\"ids[]\" value=\"1\" />\n              <input type=\"hidden\" name=\"ids[]\" value=\"2\" />\n            <p>Their purchase history will be merged into one new bot investing USD on Alpaca into:</p>\n</form>          <div class=\"merge-modal__stack\">\n            <div class=\"ticker-group ticker-group--fold ticker-group--many\" data-controller=\"ticker-fold\">\n                <div class=\"ticker\" style=\"background: #76808a\" data-ticker-symbol=\"QQQM\" data-ticker-asset-id=\"2\">QQQM</div>\n                <div class=\"ticker ticker--stock\" style=\"background: #8a9ba8\" data-ticker-symbol=\"IBIT\" data-ticker-asset-id=\"3\">IBIT</div>\n                <div class=\"ticker\" style=\"background: #76b900\" data-ticker-symbol=\"NVDA\" data-ticker-asset-id=\"4\">NVDA</div>\n                <div class=\"ticker ticker--stock\" style=\"background: #8a9ba8\" data-ticker-symbol=\"MSFT\" data-ticker-asset-id=\"5\">MSFT</div>\n            </div>\n          </div>\n          <p class=\"text-danger mb-3\">The original bots will be deleted.</p>\n          <div class=\"modal__footer\">\n            <button name=\"button\" type=\"button\" class=\"rbutton rbutton--secondary\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n              Cancel\n</button>            <form data-bots-merge-form=\"true\" class=\"button_to\" method=\"post\" action=\"/bots/merge\"><button class=\"rbutton rbutton--primary\" type=\"submit\">Confirm</button><input type=\"hidden\" name=\"authenticity_token\" value=\"Fn0sbgRz5ErGu3kOeFLFVqMX5ElL6RbCirAlNjaMay-av0BDpDFnclLAz8N4lEL669A2LVGhx8WrGIKPqunsJA\" /><input type=\"hidden\" name=\"exchange_id\" value=\"1\" /><input type=\"hidden\" name=\"ids[]\" value=\"1\" /><input type=\"hidden\" name=\"ids[]\" value=\"2\" /></form>\n          </div>\n      </div>\n</turbo-frame>  </div>\n\n    </div>\n  </dialog>\n</turbo-frame>\n      </div>\n    </main>\n\n    <turbo-frame id=\"modal\"></turbo-frame>\n\n</body></html>",
+      "session_changed": true
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-7soBsK9sQ4Rji9Vy3ayABQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=9jGdqrUPToL0sZyf%2FTto68jCp0pJjERdmeGDIz0UE4vtL5ESPPsV5ThntGh%2F2hOz5x02%2BAUySyEWU6PLZyR6vO1OXW0vjGrZlztKwqFwoS1nXXMhXQ3DqLvqYtnrHGpds96S7KDfZQ3W6fGsX6FBMt6eNXaBRvUIHhaHNhqRunhRGocz8KwD5L1i7%2BBinmGqdXVeHpXleGQoj5PiOmBGeijoiVQiKjccXgUT%2BuyZWlNYJze6d56%2FnTD18%2FH1qPpBUCzy%2FJzjYxerXqWWc5RuQCKwErLKMxDY5fPhRKRJ6IRbHob6wRM%2FTvrxT7%2FuxWD%2BIWsUicTprkMUb3b34EmxTmMqvsRsGZfSSnKXG9cuYmLfbvcgFdaD%2Bw5HAll%2FvSWaAkfg2y%2BpEPYZuQD0vgJzRzMmsAbAztT7SSyJvM773TlcwoEz9DeNz55oS%2FAiGQvgtIktdgOsW59iMH8H2BxdHW2y5tdoDg%3D%3D--NXMcEnW2ZkcOCiII--uRuOxwslO%2Bxqv4e5x0%2BA9w%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<html>\n  <head>\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"gZLks33gEKHVKJu6GSZioPmzJ5jNkKivEG1p3wQcCq48wdaMDehbluZcxgqGm2bA3KjguENX9qx1eQZLX8GnDA\" />\n    \n  </head>\n  <body>\n    <turbo-frame complete=\"\" id=\"modal\">\n  <dialog data-controller=\"modal--base\" data-action=\"click->modal--base#clickOutside\" class=\"dialog\" data-hw-animate-in=\"animate-modal-in\" data-hw-animate-out=\"animate-modal-out\">\n    <div class=\"dialog__vertical-center\">\n      \n  <div class=\"modal\">\n    <turbo-frame id=\"merge_modal\">\n      <button name=\"button\" type=\"button\" class=\"modal__close\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        <svg class=\"icon-24\" fill=\"none\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z\" fill=\"#2948A1\"></path>\n</svg>\n\n</button>      <div class=\"modal__header\">\n        <h1 class=\"modal__title\">\n          Merge 2 bots\n        </h1>\n      </div>\n      <div class=\"modal__body\">\n          <form data-controller=\"form--submit\" data-turbo-frame=\"merge_modal\" action=\"/bots/merge/new\" accept-charset=\"UTF-8\" method=\"get\">\n              <input type=\"hidden\" name=\"ids[]\" value=\"1\" />\n              <input type=\"hidden\" name=\"ids[]\" value=\"2\" />\n            <p>Their purchase history will be merged into one new bot investing USD on Alpaca into:</p>\n</form>          <div class=\"merge-modal__stack\">\n            <div class=\"ticker-group ticker-group--fold ticker-group--many\" data-controller=\"ticker-fold\">\n                <div class=\"ticker\" style=\"background: #76808a\" data-ticker-symbol=\"QQQM\" data-ticker-asset-id=\"2\">QQQM</div>\n                <div class=\"ticker ticker--stock\" style=\"background: #8a9ba8\" data-ticker-symbol=\"IBIT\" data-ticker-asset-id=\"3\">IBIT</div>\n                <div class=\"ticker\" style=\"background: #76b900\" data-ticker-symbol=\"NVDA\" data-ticker-asset-id=\"4\">NVDA</div>\n                <div class=\"ticker ticker--stock\" style=\"background: #8a9ba8\" data-ticker-symbol=\"MSFT\" data-ticker-asset-id=\"5\">MSFT</div>\n            </div>\n          </div>\n          <p class=\"text-danger mb-3\">The original bots will be deleted.</p>\n          <div class=\"modal__footer\">\n            <button name=\"button\" type=\"button\" class=\"rbutton rbutton--secondary\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n              Cancel\n</button>            <form data-bots-merge-form=\"true\" class=\"button_to\" method=\"post\" action=\"/bots/merge\"><button class=\"rbutton rbutton--primary\" type=\"submit\">Confirm</button><input type=\"hidden\" name=\"authenticity_token\" value=\"HLAcG0mJ7F3mjPQy03_SiW1hEoZb72WauFVvv7soiaGQcnA26ctvZXL3Qv_TuVUlJabA4kGntJ2Z_cgGJ00Oqg\" /><input type=\"hidden\" name=\"exchange_id\" value=\"1\" /><input type=\"hidden\" name=\"ids[]\" value=\"1\" /><input type=\"hidden\" name=\"ids[]\" value=\"2\" /></form>\n          </div>\n      </div>\n</turbo-frame>  </div>\n\n    </div>\n  </dialog>\n</turbo-frame>\n  </body>\n</html>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/vnd.turbo-stream.html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-xfbXP3Yh9uudfyXgLsSFcQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=7kd8glT7qK1%2BDg457wVO5ceXCFdHbVzjsL5ZRa0Cd2owTRvUG6bipXhubFta0UKEP3d0Zf2BL7uQ8XlzQeTseyjZPWWilEXwFAx9%2BAMUjzxu1p5Zq1MBk4lTySOOb9oMFlBqNeaMJUtWxbhwMmvXC%2Bk9h8aZmahVprqqw%2BQSDBjoyPv9Cxh6PNGck9f5YQ17JDfB55Ab0aJykn7pKzlKmAesq%2BDncoXiW%2BHfCqnvni3Tp%2F%2BMyVikoBua9U8AJLrgziIhlYI%2BlsVLxBFEdJrUKZ7llxD47QD1GROhvBIRdpZOnfoRs2FOHActr%2Fn3KVwLULPAG%2BxZJd215xQGHL1zZM5M9YTIW2G1ZtLNsjMQ4LOpMeaFh2PUagfZTmpkvzifLbYiOnQlR%2F43%2BKdAMq%2FG8FXkRWdyjrJcJHzjepx4mruXJ5I8eEaaB0tQovAU9pK4EQnwPWnwMI6ff0X1kTGWf3d4L12a2E7xF1%2BRL9dc%2FRcdigKnlQYNN479eVtjApgDpYEeOXCfDM%2BVzJ7flBb54Duxv6d7EmZYT%2BdfJ2lenauaKn2%2Fqh4xSCVrvu0aq0%2FPd4qEG9O1--YfzAEock9Rw%2FfDZC--F3lfrp%2FTMPZmz9AaWwEI5w%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<turbo-stream action=\"redirect\" target=\"/bots/3\"><template></template></turbo-stream>",
+      "session_changed": true,
+      "action_snapshot": true,
+      "rows_before": {
+        "bots": [
+          {
+            "id": 1,
+            "account_balance": 0,
+            "created_at": "2026-01-01 00:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": "QQQM, IBIT",
+            "last_end_of_funds_notification": null,
+            "position": 1,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": {
+              "quote_asset_id": 1,
+              "quote_amount": 50,
+              "interval": "day",
+              "allocations": {
+                "2": 0.6,
+                "3": 0.4
+              },
+              "limit_ordered": true,
+              "limit_order_pcnt_distance": 0.01,
+              "smart_intervaled": true,
+              "smart_interval_quote_amount": 5,
+              "quote_amount_limited": false,
+              "quote_amount_limit": 1000,
+              "price_limited": false,
+              "price_limit": 1000000,
+              "price_limit_range_lower_bound": 0,
+              "price_limit_range_upper_bound": 1000000,
+              "price_limit_timing_condition": "while",
+              "price_limit_value_condition": "below",
+              "price_limit_in_ticker_id": 3,
+              "price_drop_limited": false,
+              "price_drop_limit": 0.2,
+              "price_drop_limit_time_window_condition": "ath",
+              "price_drop_limit_in_ticker_id": 3,
+              "moving_average_limited": false,
+              "moving_average_limit_timing_condition": "while",
+              "moving_average_limit_value_condition": "below",
+              "moving_average_limit_in_ticker_id": 3,
+              "moving_average_limit_in_ma_type": "sma",
+              "moving_average_limit_in_timeframe": "one_day",
+              "moving_average_limit_in_period": 9,
+              "indicator_limited": false,
+              "indicator_limit": 30,
+              "indicator_limit_timing_condition": "while",
+              "indicator_limit_value_condition": "below",
+              "indicator_limit_in_ticker_id": 3,
+              "indicator_limit_in_indicator": "rsi",
+              "indicator_limit_in_timeframe": "one_day",
+              "sell_price_limit_in_ticker_id": 3,
+              "sell_price_drop_limit_in_ticker_id": 3,
+              "sell_moving_average_limit_in_ticker_id": 3,
+              "sell_indicator_limit_in_ticker_id": 3
+            },
+            "settings_changed_at": "2026-01-01 00:00:00",
+            "started_at": null,
+            "status": 2,
+            "stop_message_key": null,
+            "stopped_at": null,
+            "transient_data": {
+              "missed_quote_amount": 0,
+              "missed_quote_amount_was_set": null
+            },
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          },
+          {
+            "id": 2,
+            "account_balance": 0,
+            "created_at": "2026-01-01 00:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": "QQQM, IBIT, NVDA + 1",
+            "last_end_of_funds_notification": null,
+            "position": 2,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": {
+              "quote_asset_id": 1,
+              "quote_amount": 200,
+              "interval": "month",
+              "allocations": {
+                "2": 0.25,
+                "3": 0.25,
+                "4": 0.25,
+                "5": 0.25
+              },
+              "smart_intervaled": false,
+              "smart_interval_quote_amount": 20.0,
+              "limit_ordered": false,
+              "limit_order_pcnt_distance": 0.001,
+              "quote_amount_limited": false,
+              "quote_amount_limit": 1000,
+              "price_limited": false,
+              "price_limit": 1000000,
+              "price_limit_range_lower_bound": 0,
+              "price_limit_range_upper_bound": 1000000,
+              "price_limit_timing_condition": "while",
+              "price_limit_value_condition": "below",
+              "price_limit_in_ticker_id": 3,
+              "price_drop_limited": false,
+              "price_drop_limit": 0.2,
+              "price_drop_limit_time_window_condition": "ath",
+              "price_drop_limit_in_ticker_id": 3,
+              "moving_average_limited": false,
+              "moving_average_limit_timing_condition": "while",
+              "moving_average_limit_value_condition": "below",
+              "moving_average_limit_in_ticker_id": 3,
+              "moving_average_limit_in_ma_type": "sma",
+              "moving_average_limit_in_timeframe": "one_day",
+              "moving_average_limit_in_period": 9,
+              "indicator_limited": false,
+              "indicator_limit": 30,
+              "indicator_limit_timing_condition": "while",
+              "indicator_limit_value_condition": "below",
+              "indicator_limit_in_ticker_id": 3,
+              "indicator_limit_in_indicator": "rsi",
+              "indicator_limit_in_timeframe": "one_day",
+              "sell_price_limit_in_ticker_id": 3,
+              "sell_price_drop_limit_in_ticker_id": 3,
+              "sell_moving_average_limit_in_ticker_id": 3,
+              "sell_indicator_limit_in_ticker_id": 3
+            },
+            "settings_changed_at": "2026-01-01 00:00:00",
+            "started_at": null,
+            "status": 2,
+            "stop_message_key": null,
+            "stopped_at": null,
+            "transient_data": {
+              "missed_quote_amount": 0,
+              "missed_quote_amount_was_set": null
+            },
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          }
+        ],
+        "bot_index_assets": [
+          {
+            "id": 1,
+            "asset_id": 2,
+            "bot_id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.6,
+            "ticker_id": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 2,
+            "asset_id": 3,
+            "bot_id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.4,
+            "ticker_id": 3,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 3,
+            "asset_id": 2,
+            "bot_id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.25,
+            "ticker_id": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 4,
+            "asset_id": 3,
+            "bot_id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.25,
+            "ticker_id": 3,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 5,
+            "asset_id": 4,
+            "bot_id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.25,
+            "ticker_id": 5,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 6,
+            "asset_id": 5,
+            "bot_id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.25,
+            "ticker_id": 6,
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "bot_activity_logs": [
+          {
+            "id": 1,
+            "bot_id": 1,
+            "created_at": "2026-09-01 09:00:00",
+            "details": {},
+            "event": "started",
+            "level": 0,
+            "message": null
+          },
+          {
+            "id": 2,
+            "bot_id": 1,
+            "created_at": "2026-09-07 13:30:00",
+            "details": {
+              "next_market_open_at": "2026-09-08T13:30:00Z"
+            },
+            "event": "market_closed",
+            "level": 0,
+            "message": null
+          },
+          {
+            "id": 3,
+            "bot_id": 1,
+            "created_at": "2026-09-09 13:30:09",
+            "details": {
+              "error": "insufficient buying power",
+              "kind": "insufficient_funds"
+            },
+            "event": "execution_failed",
+            "level": 2,
+            "message": null
+          },
+          {
+            "id": 4,
+            "bot_id": 1,
+            "created_at": "2026-09-09 13:31:00",
+            "details": {},
+            "event": "execution_failed",
+            "level": 2,
+            "message": null
+          },
+          {
+            "id": 5,
+            "bot_id": 1,
+            "created_at": "2026-09-09 14:00:00",
+            "details": {},
+            "event": "order_skipped",
+            "level": 0,
+            "message": null
+          },
+          {
+            "id": 6,
+            "bot_id": 1,
+            "created_at": "2026-09-09 14:00:00",
+            "details": {
+              "count": 2,
+              "bases": "QQQM, IBIT"
+            },
+            "event": "orders_below_minimum",
+            "level": 0,
+            "message": null
+          },
+          {
+            "id": 7,
+            "bot_id": 1,
+            "created_at": "2026-09-09 16:00:00",
+            "details": {
+              "stop_message_key": "bot.settings.extra_amount_limit.amount_spent"
+            },
+            "event": "stopped",
+            "level": 0,
+            "message": null
+          },
+          {
+            "id": 8,
+            "bot_id": 1,
+            "created_at": "2026-09-09 17:00:00",
+            "details": {},
+            "event": "stopped",
+            "level": 0,
+            "message": null
+          },
+          {
+            "id": 9,
+            "bot_id": 1,
+            "created_at": "2026-09-10 08:00:00",
+            "details": {},
+            "event": "started",
+            "level": 0,
+            "message": null
+          }
+        ],
+        "transactions": [
+          {
+            "id": 1,
+            "amount": 0.15,
+            "amount_exec": 0.15,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "day",
+            "bot_quote_amount": 50,
+            "created_at": "2026-09-08 13:30:01",
+            "error_messages": [],
+            "exchange_id": 1,
+            "external_id": "order-1-QQQM-2026-09-08T13:30:01Z",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 200,
+            "quote": "USD",
+            "quote_amount": 30,
+            "quote_amount_exec": 30,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-09-08 13:30:01",
+            "run_identity": null
+          },
+          {
+            "id": 2,
+            "amount": 0.4,
+            "amount_exec": 0.4,
+            "base": "IBIT",
+            "base_asset_id": 3,
+            "bot_id": 1,
+            "bot_interval": "day",
+            "bot_quote_amount": 50,
+            "created_at": "2026-09-08 13:30:02",
+            "error_messages": [],
+            "exchange_id": 1,
+            "external_id": "order-1-IBIT-2026-09-08T13:30:02Z",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 50,
+            "quote": "USD",
+            "quote_amount": 20,
+            "quote_amount_exec": 20,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-09-08 13:30:02",
+            "run_identity": null
+          },
+          {
+            "id": 3,
+            "amount": 0.05,
+            "amount_exec": 0.05,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "bot_id": 1,
+            "bot_interval": "day",
+            "bot_quote_amount": 50,
+            "created_at": "2026-09-09 13:30:01",
+            "error_messages": [],
+            "exchange_id": 1,
+            "external_id": "order-1-QQQM-2026-09-09T13:30:01Z",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 210,
+            "quote": "USD",
+            "quote_amount": null,
+            "quote_amount_exec": 10.5,
+            "quote_asset_id": 1,
+            "side": 1,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-09-09 13:30:01",
+            "run_identity": null
+          },
+          {
+            "id": 4,
+            "amount": 0.121250333,
+            "amount_exec": 0.121250333,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "bot_id": 2,
+            "bot_interval": "month",
+            "bot_quote_amount": 200,
+            "created_at": "2026-09-09 13:30:01",
+            "error_messages": [],
+            "exchange_id": 1,
+            "external_id": "order-2-QQQM-2026-09-09T13:30:01Z",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 412.37,
+            "quote": "USD",
+            "quote_amount": 50,
+            "quote_amount_exec": 49.999999,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-09-09 13:30:01",
+            "run_identity": null
+          }
+        ],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-01 00:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": "PKTEST",
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": "paper",
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": "secret",
+            "status": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          }
+        ],
+        "users": [
+          {
+            "id": 1,
+            "admin": 1,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-01 00:00:00",
+            "created_at": "2026-01-01 00:00:00",
+            "display_currency": "USD",
+            "email": "owner@example.com",
+            "encrypted_password": "$2a$04$AaVWJfdC2R1.XhkLAaaJhuXrrJPoRPYPDsZ2u0q8YWywhLfiB69Om",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Owner",
+            "otp_module": 0,
+            "otp_secret_key": "A7Y5LJBWWLZ7RMVKE5C52KD77P2T4LG3",
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 1,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "Tallinn",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-01 00:00:00",
+            "wash_sale_enabled": 0,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ]
+      },
+      "rows_after": {
+        "bots": [
+          {
+            "id": 1,
+            "account_balance": 0,
+            "created_at": "2026-01-01 00:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": "QQQM, IBIT",
+            "last_end_of_funds_notification": null,
+            "position": 1,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": {
+              "quote_asset_id": 1,
+              "quote_amount": 50,
+              "interval": "day",
+              "allocations": {
+                "2": 0.6,
+                "3": 0.4
+              },
+              "limit_ordered": true,
+              "limit_order_pcnt_distance": 0.01,
+              "smart_intervaled": true,
+              "smart_interval_quote_amount": 5,
+              "quote_amount_limited": false,
+              "quote_amount_limit": 1000,
+              "price_limited": false,
+              "price_limit": 1000000,
+              "price_limit_range_lower_bound": 0,
+              "price_limit_range_upper_bound": 1000000,
+              "price_limit_timing_condition": "while",
+              "price_limit_value_condition": "below",
+              "price_limit_in_ticker_id": 3,
+              "price_drop_limited": false,
+              "price_drop_limit": 0.2,
+              "price_drop_limit_time_window_condition": "ath",
+              "price_drop_limit_in_ticker_id": 3,
+              "moving_average_limited": false,
+              "moving_average_limit_timing_condition": "while",
+              "moving_average_limit_value_condition": "below",
+              "moving_average_limit_in_ticker_id": 3,
+              "moving_average_limit_in_ma_type": "sma",
+              "moving_average_limit_in_timeframe": "one_day",
+              "moving_average_limit_in_period": 9,
+              "indicator_limited": false,
+              "indicator_limit": 30,
+              "indicator_limit_timing_condition": "while",
+              "indicator_limit_value_condition": "below",
+              "indicator_limit_in_ticker_id": 3,
+              "indicator_limit_in_indicator": "rsi",
+              "indicator_limit_in_timeframe": "one_day",
+              "sell_price_limit_in_ticker_id": 3,
+              "sell_price_drop_limit_in_ticker_id": 3,
+              "sell_moving_average_limit_in_ticker_id": 3,
+              "sell_indicator_limit_in_ticker_id": 3
+            },
+            "settings_changed_at": "2026-01-01 00:00:00",
+            "started_at": null,
+            "status": 3,
+            "stop_message_key": null,
+            "stopped_at": "2026-09-10 12:00:30.123456",
+            "transient_data": {
+              "missed_quote_amount": 0,
+              "missed_quote_amount_was_set": null
+            },
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          },
+          {
+            "id": 2,
+            "account_balance": 0,
+            "created_at": "2026-01-01 00:00:00",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": "QQQM, IBIT, NVDA + 1",
+            "last_end_of_funds_notification": null,
+            "position": 2,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": {
+              "quote_asset_id": 1,
+              "quote_amount": 200,
+              "interval": "month",
+              "allocations": {
+                "2": 0.25,
+                "3": 0.25,
+                "4": 0.25,
+                "5": 0.25
+              },
+              "smart_intervaled": false,
+              "smart_interval_quote_amount": 20.0,
+              "limit_ordered": false,
+              "limit_order_pcnt_distance": 0.001,
+              "quote_amount_limited": false,
+              "quote_amount_limit": 1000,
+              "price_limited": false,
+              "price_limit": 1000000,
+              "price_limit_range_lower_bound": 0,
+              "price_limit_range_upper_bound": 1000000,
+              "price_limit_timing_condition": "while",
+              "price_limit_value_condition": "below",
+              "price_limit_in_ticker_id": 3,
+              "price_drop_limited": false,
+              "price_drop_limit": 0.2,
+              "price_drop_limit_time_window_condition": "ath",
+              "price_drop_limit_in_ticker_id": 3,
+              "moving_average_limited": false,
+              "moving_average_limit_timing_condition": "while",
+              "moving_average_limit_value_condition": "below",
+              "moving_average_limit_in_ticker_id": 3,
+              "moving_average_limit_in_ma_type": "sma",
+              "moving_average_limit_in_timeframe": "one_day",
+              "moving_average_limit_in_period": 9,
+              "indicator_limited": false,
+              "indicator_limit": 30,
+              "indicator_limit_timing_condition": "while",
+              "indicator_limit_value_condition": "below",
+              "indicator_limit_in_ticker_id": 3,
+              "indicator_limit_in_indicator": "rsi",
+              "indicator_limit_in_timeframe": "one_day",
+              "sell_price_limit_in_ticker_id": 3,
+              "sell_price_drop_limit_in_ticker_id": 3,
+              "sell_moving_average_limit_in_ticker_id": 3,
+              "sell_indicator_limit_in_ticker_id": 3
+            },
+            "settings_changed_at": "2026-01-01 00:00:00",
+            "started_at": null,
+            "status": 3,
+            "stop_message_key": null,
+            "stopped_at": "2026-09-10 12:00:30.123456",
+            "transient_data": {
+              "missed_quote_amount": 0,
+              "missed_quote_amount_was_set": null
+            },
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          },
+          {
+            "id": 3,
+            "account_balance": 0,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "current_delay": 0,
+            "delay": 0,
+            "exchange_id": 1,
+            "fetch_restarts": 0,
+            "label": "QQQM, IBIT, NVDA + 1",
+            "last_end_of_funds_notification": null,
+            "position": 1,
+            "redeploy_declined_offset": 0,
+            "restarts": 0,
+            "restatement_generation": 0,
+            "settings": {
+              "quote_asset_id": 1,
+              "quote_amount": 50,
+              "interval": "day",
+              "weighting": "manual",
+              "smart_intervaled": false,
+              "limit_ordered": false,
+              "limit_order_pcnt_distance": 0.001,
+              "quote_amount_limited": false,
+              "quote_amount_limit": 1000,
+              "price_limited": false,
+              "price_limit": 1000000,
+              "price_limit_range_lower_bound": 0,
+              "price_limit_range_upper_bound": 1000000,
+              "price_limit_timing_condition": "while",
+              "price_limit_value_condition": "below",
+              "price_drop_limited": false,
+              "price_drop_limit": 0.2,
+              "price_drop_limit_time_window_condition": "ath",
+              "moving_average_limited": false,
+              "moving_average_limit_timing_condition": "while",
+              "moving_average_limit_value_condition": "below",
+              "moving_average_limit_in_ma_type": "sma",
+              "moving_average_limit_in_timeframe": "one_day",
+              "moving_average_limit_in_period": 9,
+              "indicator_limited": false,
+              "indicator_limit": 30,
+              "indicator_limit_timing_condition": "while",
+              "indicator_limit_value_condition": "below",
+              "indicator_limit_in_indicator": "rsi",
+              "indicator_limit_in_timeframe": "one_day",
+              "allocations": {
+                "2": 0.425,
+                "3": 0.325,
+                "4": 0.125,
+                "5": 0.125
+              },
+              "price_limit_in_ticker_id": 3,
+              "sell_price_limit_in_ticker_id": 3,
+              "price_drop_limit_in_ticker_id": 3,
+              "sell_price_drop_limit_in_ticker_id": 3,
+              "moving_average_limit_in_ticker_id": 3,
+              "sell_moving_average_limit_in_ticker_id": 3,
+              "indicator_limit_in_ticker_id": 3,
+              "sell_indicator_limit_in_ticker_id": 3
+            },
+            "settings_changed_at": "2026-09-10 12:00:30.123456",
+            "started_at": null,
+            "status": 2,
+            "stop_message_key": null,
+            "stopped_at": null,
+            "transient_data": {
+              "missed_quote_amount": 0,
+              "merged_history_until_id": 4
+            },
+            "type": "Bots::DcaMultiAsset",
+            "updated_at": "2026-09-10 12:00:30.123456",
+            "user_id": 1
+          }
+        ],
+        "bot_index_assets": [
+          {
+            "id": 1,
+            "asset_id": 2,
+            "bot_id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.6,
+            "ticker_id": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 2,
+            "asset_id": 3,
+            "bot_id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.4,
+            "ticker_id": 3,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 3,
+            "asset_id": 2,
+            "bot_id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.25,
+            "ticker_id": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 4,
+            "asset_id": 3,
+            "bot_id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.25,
+            "ticker_id": 3,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 5,
+            "asset_id": 4,
+            "bot_id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.25,
+            "ticker_id": 5,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 6,
+            "asset_id": 5,
+            "bot_id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.25,
+            "ticker_id": 6,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 7,
+            "asset_id": 2,
+            "bot_id": 3,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.425,
+            "ticker_id": 1,
+            "updated_at": "2026-09-10 12:00:30.123456"
+          },
+          {
+            "id": 8,
+            "asset_id": 3,
+            "bot_id": 3,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.325,
+            "ticker_id": 3,
+            "updated_at": "2026-09-10 12:00:30.123456"
+          },
+          {
+            "id": 9,
+            "asset_id": 4,
+            "bot_id": 3,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.125,
+            "ticker_id": 5,
+            "updated_at": "2026-09-10 12:00:30.123456"
+          },
+          {
+            "id": 10,
+            "asset_id": 5,
+            "bot_id": 3,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "current_allocation": null,
+            "entered_at": "2026-01-01 00:00:00",
+            "exited_at": null,
+            "in_index": 1,
+            "target_allocation": 0.125,
+            "ticker_id": 6,
+            "updated_at": "2026-09-10 12:00:30.123456"
+          }
+        ],
+        "bot_activity_logs": [
+          {
+            "id": 1,
+            "bot_id": 3,
+            "created_at": "2026-09-01 09:00:00",
+            "details": {},
+            "event": "started",
+            "level": 0,
+            "message": null
+          },
+          {
+            "id": 2,
+            "bot_id": 3,
+            "created_at": "2026-09-07 13:30:00",
+            "details": {
+              "next_market_open_at": "2026-09-08T13:30:00Z"
+            },
+            "event": "market_closed",
+            "level": 0,
+            "message": null
+          },
+          {
+            "id": 3,
+            "bot_id": 3,
+            "created_at": "2026-09-09 13:30:09",
+            "details": {
+              "error": "insufficient buying power",
+              "kind": "insufficient_funds"
+            },
+            "event": "execution_failed",
+            "level": 2,
+            "message": null
+          },
+          {
+            "id": 4,
+            "bot_id": 3,
+            "created_at": "2026-09-09 13:31:00",
+            "details": {},
+            "event": "execution_failed",
+            "level": 2,
+            "message": null
+          },
+          {
+            "id": 5,
+            "bot_id": 3,
+            "created_at": "2026-09-09 14:00:00",
+            "details": {},
+            "event": "order_skipped",
+            "level": 0,
+            "message": null
+          },
+          {
+            "id": 6,
+            "bot_id": 3,
+            "created_at": "2026-09-09 14:00:00",
+            "details": {
+              "count": 2,
+              "bases": "QQQM, IBIT"
+            },
+            "event": "orders_below_minimum",
+            "level": 0,
+            "message": null
+          },
+          {
+            "id": 7,
+            "bot_id": 3,
+            "created_at": "2026-09-09 16:00:00",
+            "details": {
+              "stop_message_key": "bot.settings.extra_amount_limit.amount_spent"
+            },
+            "event": "stopped",
+            "level": 0,
+            "message": null
+          },
+          {
+            "id": 8,
+            "bot_id": 3,
+            "created_at": "2026-09-09 17:00:00",
+            "details": {},
+            "event": "stopped",
+            "level": 0,
+            "message": null
+          },
+          {
+            "id": 9,
+            "bot_id": 3,
+            "created_at": "2026-09-10 08:00:00",
+            "details": {},
+            "event": "started",
+            "level": 0,
+            "message": null
+          },
+          {
+            "id": 10,
+            "bot_id": 3,
+            "created_at": "2026-09-10 12:00:30.123456",
+            "details": {
+              "source_ids": [
+                1,
+                2
+              ],
+              "source_labels": [
+                "QQQM, IBIT",
+                "QQQM, IBIT, NVDA + 1"
+              ]
+            },
+            "event": "merged",
+            "level": 0,
+            "message": null
+          }
+        ],
+        "transactions": [
+          {
+            "id": 1,
+            "amount": 0.15,
+            "amount_exec": 0.15,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "bot_id": 3,
+            "bot_interval": "day",
+            "bot_quote_amount": 50,
+            "created_at": "2026-09-08 13:30:01",
+            "error_messages": [],
+            "exchange_id": 1,
+            "external_id": "order-1-QQQM-2026-09-08T13:30:01Z",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 200,
+            "quote": "USD",
+            "quote_amount": 30,
+            "quote_amount_exec": 30,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-09-08 13:30:01",
+            "run_identity": null
+          },
+          {
+            "id": 2,
+            "amount": 0.4,
+            "amount_exec": 0.4,
+            "base": "IBIT",
+            "base_asset_id": 3,
+            "bot_id": 3,
+            "bot_interval": "day",
+            "bot_quote_amount": 50,
+            "created_at": "2026-09-08 13:30:02",
+            "error_messages": [],
+            "exchange_id": 1,
+            "external_id": "order-1-IBIT-2026-09-08T13:30:02Z",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 50,
+            "quote": "USD",
+            "quote_amount": 20,
+            "quote_amount_exec": 20,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-09-08 13:30:02",
+            "run_identity": null
+          },
+          {
+            "id": 3,
+            "amount": 0.05,
+            "amount_exec": 0.05,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "bot_id": 3,
+            "bot_interval": "day",
+            "bot_quote_amount": 50,
+            "created_at": "2026-09-09 13:30:01",
+            "error_messages": [],
+            "exchange_id": 1,
+            "external_id": "order-1-QQQM-2026-09-09T13:30:01Z",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 210,
+            "quote": "USD",
+            "quote_amount": null,
+            "quote_amount_exec": 10.5,
+            "quote_asset_id": 1,
+            "side": 1,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-09-09 13:30:01",
+            "run_identity": null
+          },
+          {
+            "id": 4,
+            "amount": 0.121250333,
+            "amount_exec": 0.121250333,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "bot_id": 3,
+            "bot_interval": "month",
+            "bot_quote_amount": 200,
+            "created_at": "2026-09-09 13:30:01",
+            "error_messages": [],
+            "exchange_id": 1,
+            "external_id": "order-2-QQQM-2026-09-09T13:30:01Z",
+            "external_status": 2,
+            "order_type": 0,
+            "price": 412.37,
+            "quote": "USD",
+            "quote_amount": 50,
+            "quote_amount_exec": 49.999999,
+            "quote_asset_id": 1,
+            "side": 0,
+            "status": 0,
+            "transaction_type": "REGULAR",
+            "updated_at": "2026-09-09 13:30:01",
+            "run_identity": null
+          }
+        ],
+        "api_keys": [
+          {
+            "id": 1,
+            "access_token": null,
+            "balances_synced_at": null,
+            "created_at": "2026-01-01 00:00:00",
+            "dh_param": null,
+            "exchange_id": 1,
+            "german_trading_agreement": null,
+            "ibkr_realm": null,
+            "key": "PKTEST",
+            "key_type": 0,
+            "last_sync_error": null,
+            "last_synced_at": null,
+            "passphrase": "paper",
+            "rsa_encryption_key": null,
+            "rsa_signature_key": null,
+            "secret": "secret",
+            "status": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "user_id": 1
+          }
+        ],
+        "users": [
+          {
+            "id": 1,
+            "admin": 1,
+            "advanced_bots_enabled": 0,
+            "confirmation_sent_at": null,
+            "confirmation_token": null,
+            "confirmed_at": "2026-01-01 00:00:00",
+            "created_at": "2026-01-01 00:00:00",
+            "display_currency": "USD",
+            "email": "owner@example.com",
+            "encrypted_password": "$2a$04$AaVWJfdC2R1.XhkLAaaJhuXrrJPoRPYPDsZ2u0q8YWywhLfiB69Om",
+            "failed_attempts": 0,
+            "hide_balances": 0,
+            "last_otp_at": null,
+            "locale": null,
+            "locked_at": null,
+            "mcp_settings": "{}",
+            "name": "Owner",
+            "otp_module": 0,
+            "otp_secret_key": "A7Y5LJBWWLZ7RMVKE5C52KD77P2T4LG3",
+            "remember_created_at": null,
+            "reset_password_sent_at": null,
+            "reset_password_token": null,
+            "rest_settings": "{}",
+            "setup_completed": 1,
+            "show_smart_intervals_info": 1,
+            "subscribed_to_email_marketing": 1,
+            "time_zone": "Tallinn",
+            "tracker_settings": "{}",
+            "unconfirmed_email": null,
+            "updated_at": "2026-01-01 00:00:00",
+            "wash_sale_enabled": 0,
+            "wash_sale_jurisdiction": null,
+            "wash_sale_selling_warned_at": null
+          }
+        ]
+      },
+      "other_rows_before": {
+        "account_balances": [],
+        "account_transactions": [],
+        "action_mcp_session_messages": [],
+        "action_mcp_session_subscriptions": [],
+        "action_mcp_session_tasks": [],
+        "action_mcp_sessions": [],
+        "app_configs": [
+          {
+            "id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_provider",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"2uP1LSfuKSs/M7Q=\",\"h\":{\"iv\":\"wcCdIglEtKkAnqmm\",\"at\":\"3e/6NtXc5AAX5Zt+vTzRpw==\"}}"
+          },
+          {
+            "id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_url",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"vYN04WD6KBJIRm7puHthSxDrJmU=\",\"h\":{\"iv\":\"EPA/CYhA7JmZkbG8\",\"at\":\"zH5S2nPbxN1HishpQOs3zg==\"}}"
+          },
+          {
+            "id": 3,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_token",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"AkWRMG0=\",\"h\":{\"iv\":\"iD0U32CLyt/A/aQK\",\"at\":\"akUcN332rDm7yFMfgQ1ENA==\"}}"
+          }
+        ],
+        "ar_internal_metadata": [
+          {
+            "key": "environment",
+            "value": "production",
+            "created_at": "2026-11-16 07:39:04.148",
+            "updated_at": "2026-11-16 07:39:04.148"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Currency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "US Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#1A2B3C",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "qqqm.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "QQQM Inc",
+            "symbol": "QQQM",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 3,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "ibit.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "IBIT Inc",
+            "symbol": "IBIT",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 4,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#76B900",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "nvda.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "NVDA Inc",
+            "symbol": "NVDA",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 5,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "msft.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "MSFT Inc",
+            "symbol": "MSFT",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 6,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#F5F5F7",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "aapl.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AAPL Inc",
+            "symbol": "AAPL",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 7,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "amzn.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AMZN Inc",
+            "symbol": "AMZN",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 8,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#0668E1",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "meta.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "META Inc",
+            "symbol": "META",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 9,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "avgo.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AVGO Inc",
+            "symbol": "AVGO",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 10,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#050505",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "googl.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "GOOGL Inc",
+            "symbol": "GOOGL",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 11,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "tsla.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "TSLA Inc",
+            "symbol": "TSLA",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 12,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#E31837",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "cost.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "COST Inc",
+            "symbol": "COST",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 13,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "nflx.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "NFLX Inc",
+            "symbol": "NFLX",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 14,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#ED1C24",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "amd.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AMD Inc",
+            "symbol": "AMD",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 15,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "pep.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "PEP Inc",
+            "symbol": "PEP",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 16,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": "#F7931A",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "btc",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": 1300000000000,
+            "market_cap_rank": null,
+            "name": "BTC",
+            "symbol": "BTC",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 17,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": "#627EEA",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "eth",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": 400000000000,
+            "market_cap_rank": null,
+            "name": "ETH",
+            "symbol": "ETH",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          }
+        ],
+        "bot_signals": [],
+        "connected_clients": [],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 3,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 4,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 5,
+            "asset_id": 3,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 6,
+            "asset_id": 3,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 7,
+            "asset_id": 4,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 8,
+            "asset_id": 5,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 9,
+            "asset_id": 6,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 10,
+            "asset_id": 7,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 11,
+            "asset_id": 8,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 12,
+            "asset_id": 9,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 13,
+            "asset_id": 10,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 14,
+            "asset_id": 11,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 15,
+            "asset_id": 12,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 16,
+            "asset_id": 13,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 17,
+            "asset_id": 14,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 18,
+            "asset_id": 15,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 19,
+            "asset_id": 16,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 20,
+            "asset_id": 17,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0.15",
+            "name": "Alpaca",
+            "taker_fee": "0.25",
+            "type": "Exchanges::Alpaca",
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 2,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0.05",
+            "name": "Interactive Brokers",
+            "taker_fee": "0.05",
+            "type": "Exchanges::Ibkr",
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "fee_api_keys": [],
+        "fund_classifications": [],
+        "fx_rates": [],
+        "historical_prices": [],
+        "ibkr_locks": [],
+        "idempotency_keys": [],
+        "indices": [
+          {
+            "id": 1,
+            "available_exchanges": "{}",
+            "created_at": "2026-01-01 00:00:00",
+            "description": null,
+            "external_id": "nasdaq-100",
+            "market_cap": null,
+            "name": "Nasdaq 100",
+            "source": "deltabadger",
+            "top_coins": "[\"nvda.us\",\"msft.us\",\"aapl.us\",\"amzn.us\",\"meta.us\",\"avgo.us\",\"googl.us\",\"tsla.us\",\"cost.us\",\"nflx.us\",\"amd.us\",\"pep.us\"]",
+            "top_coins_by_exchange": "{}",
+            "updated_at": "2026-01-01 00:00:00",
+            "weight": 0,
+            "weights": "{\"nvda.us\":20,\"msft.us\":19,\"aapl.us\":18,\"amzn.us\":17,\"meta.us\":16,\"avgo.us\":15,\"googl.us\":14,\"tsla.us\":13,\"cost.us\":12,\"nflx.us\":11,\"amd.us\":10,\"pep.us\":9}"
+          }
+        ],
+        "oauth_access_grants": [],
+        "oauth_access_tokens": [],
+        "oauth_applications": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "rule_logs": [],
+        "rules": [],
+        "schema_migrations": [
+          {
+            "version": "20260102171555"
+          },
+          {
+            "version": "20260103000001"
+          },
+          {
+            "version": "20260104194208"
+          },
+          {
+            "version": "20260106111301"
+          },
+          {
+            "version": "20260106111302"
+          },
+          {
+            "version": "20260106115209"
+          },
+          {
+            "version": "20260106162140"
+          },
+          {
+            "version": "20260109050047"
+          },
+          {
+            "version": "20260114145256"
+          },
+          {
+            "version": "20260114154223"
+          },
+          {
+            "version": "20260126141242"
+          },
+          {
+            "version": "20260126145012"
+          },
+          {
+            "version": "20260127112431"
+          },
+          {
+            "version": "20260127164433"
+          },
+          {
+            "version": "20260128000001"
+          },
+          {
+            "version": "20260129111946"
+          },
+          {
+            "version": "20260129142740"
+          },
+          {
+            "version": "20260130114825"
+          },
+          {
+            "version": "20260203191449"
+          },
+          {
+            "version": "20260208114731"
+          },
+          {
+            "version": "20260217100000"
+          },
+          {
+            "version": "20260217100001"
+          },
+          {
+            "version": "20260219100000"
+          },
+          {
+            "version": "20260219110000"
+          },
+          {
+            "version": "20260219120000"
+          },
+          {
+            "version": "20260219130000"
+          },
+          {
+            "version": "20260224065811"
+          },
+          {
+            "version": "20260226000000"
+          },
+          {
+            "version": "20260227171710"
+          },
+          {
+            "version": "20260228130833"
+          },
+          {
+            "version": "20260228145540"
+          },
+          {
+            "version": "20260228152720"
+          },
+          {
+            "version": "20260308090843"
+          },
+          {
+            "version": "20260311145654"
+          },
+          {
+            "version": "20260311145655"
+          },
+          {
+            "version": "20260311145656"
+          },
+          {
+            "version": "20260311145657"
+          },
+          {
+            "version": "20260311145658"
+          },
+          {
+            "version": "20260311145659"
+          },
+          {
+            "version": "20260311145660"
+          },
+          {
+            "version": "20260311145661"
+          },
+          {
+            "version": "20260311145662"
+          },
+          {
+            "version": "20260316000001"
+          },
+          {
+            "version": "20260320042623"
+          },
+          {
+            "version": "20260322140051"
+          },
+          {
+            "version": "20260323052902"
+          },
+          {
+            "version": "20260324132010"
+          },
+          {
+            "version": "20260325183549"
+          },
+          {
+            "version": "20260325221615"
+          },
+          {
+            "version": "20260413120000"
+          },
+          {
+            "version": "20260413140000"
+          },
+          {
+            "version": "20260413150000"
+          },
+          {
+            "version": "20260520000000"
+          },
+          {
+            "version": "20260524000000"
+          },
+          {
+            "version": "20260527000000"
+          },
+          {
+            "version": "20260527001000"
+          },
+          {
+            "version": "20260527002000"
+          },
+          {
+            "version": "20260529001000"
+          },
+          {
+            "version": "20260530000000"
+          },
+          {
+            "version": "20260603222643"
+          },
+          {
+            "version": "20260603231515"
+          },
+          {
+            "version": "20260603234747"
+          },
+          {
+            "version": "20260624081139"
+          },
+          {
+            "version": "20260706170000"
+          },
+          {
+            "version": "20260727120000"
+          },
+          {
+            "version": "20260806001012"
+          },
+          {
+            "version": "20260808225248"
+          },
+          {
+            "version": "20260808230550"
+          },
+          {
+            "version": "20260810120000"
+          },
+          {
+            "version": "20260815120000"
+          },
+          {
+            "version": "20260815130000"
+          },
+          {
+            "version": "20260815140000"
+          },
+          {
+            "version": "20260815150000"
+          },
+          {
+            "version": "20260815150050"
+          },
+          {
+            "version": "20260815150060"
+          },
+          {
+            "version": "20260815150100"
+          },
+          {
+            "version": "20260815160000"
+          },
+          {
+            "version": "20260815170000"
+          },
+          {
+            "version": "20260815170100"
+          },
+          {
+            "version": "20260818120000"
+          },
+          {
+            "version": "20260821120000"
+          },
+          {
+            "version": "20260821220432"
+          },
+          {
+            "version": "20260822100000"
+          },
+          {
+            "version": "20260823120000"
+          },
+          {
+            "version": "20260824120000"
+          },
+          {
+            "version": "20260824130000"
+          },
+          {
+            "version": "20260824140000"
+          },
+          {
+            "version": "20260825060000"
+          },
+          {
+            "version": "20260825120000"
+          },
+          {
+            "version": "20260825200000"
+          },
+          {
+            "version": "20260826090000"
+          },
+          {
+            "version": "20260826140000"
+          },
+          {
+            "version": "20260828094446"
+          },
+          {
+            "version": "20260828095813"
+          },
+          {
+            "version": "20260828175918"
+          },
+          {
+            "version": "20260829132450"
+          },
+          {
+            "version": "20260830120000"
+          },
+          {
+            "version": "20260830210000"
+          },
+          {
+            "version": "20260830230000"
+          },
+          {
+            "version": "20260905190000"
+          },
+          {
+            "version": "20260907100000"
+          },
+          {
+            "version": "20260907110000"
+          },
+          {
+            "version": "20260908090000"
+          },
+          {
+            "version": "20260908091000"
+          },
+          {
+            "version": "20260908120000"
+          },
+          {
+            "version": "20260908130000"
+          },
+          {
+            "version": "20260918090000"
+          },
+          {
+            "version": "20260918120000"
+          },
+          {
+            "version": "20260918150000"
+          },
+          {
+            "version": "20260921120000"
+          },
+          {
+            "version": "20260921180000"
+          },
+          {
+            "version": "20260928120000"
+          },
+          {
+            "version": "20260929120000"
+          },
+          {
+            "version": "20261006100000"
+          },
+          {
+            "version": "20261009120000"
+          },
+          {
+            "version": "20261009130000"
+          },
+          {
+            "version": "20261011170000"
+          },
+          {
+            "version": "20261014120000"
+          },
+          {
+            "version": "20261015120000"
+          },
+          {
+            "version": "20261016120000"
+          },
+          {
+            "version": "20261016130000"
+          },
+          {
+            "version": "20261016140000"
+          },
+          {
+            "version": "20261017100000"
+          }
+        ],
+        "setting_flags": [],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "QQQM",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 2,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "QQQM",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 3,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "IBIT",
+            "base_asset_id": 3,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "IBIT",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 4,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "IBIT",
+            "base_asset_id": 3,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "IBIT",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 5,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "NVDA",
+            "base_asset_id": 4,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "NVDA",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 6,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "MSFT",
+            "base_asset_id": 5,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "MSFT",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 7,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AAPL",
+            "base_asset_id": 6,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AAPL",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 8,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AMZN",
+            "base_asset_id": 7,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AMZN",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 9,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "META",
+            "base_asset_id": 8,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "META",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 10,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AVGO",
+            "base_asset_id": 9,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AVGO",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 11,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "GOOGL",
+            "base_asset_id": 10,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "GOOGL",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 12,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "TSLA",
+            "base_asset_id": 11,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "TSLA",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 13,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "COST",
+            "base_asset_id": 12,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "COST",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 14,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "NFLX",
+            "base_asset_id": 13,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "NFLX",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 15,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AMD",
+            "base_asset_id": 14,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AMD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 16,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "PEP",
+            "base_asset_id": 15,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "PEP",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 17,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "BTC",
+            "base_asset_id": 16,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 2.7e-05,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "BTC/USD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 18,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "ETH",
+            "base_asset_id": 17,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 2.7e-05,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "ETH/USD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "wash_sale_locks": []
+      },
+      "other_rows_after": {
+        "account_balances": [],
+        "account_transactions": [],
+        "action_mcp_session_messages": [],
+        "action_mcp_session_subscriptions": [],
+        "action_mcp_session_tasks": [],
+        "action_mcp_sessions": [],
+        "app_configs": [
+          {
+            "id": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_provider",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"2uP1LSfuKSs/M7Q=\",\"h\":{\"iv\":\"wcCdIglEtKkAnqmm\",\"at\":\"3e/6NtXc5AAX5Zt+vTzRpw==\"}}"
+          },
+          {
+            "id": 2,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_url",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"vYN04WD6KBJIRm7puHthSxDrJmU=\",\"h\":{\"iv\":\"EPA/CYhA7JmZkbG8\",\"at\":\"zH5S2nPbxN1HishpQOs3zg==\"}}"
+          },
+          {
+            "id": 3,
+            "created_at": "2026-01-01 00:00:00",
+            "key": "market_data_token",
+            "updated_at": "2026-01-01 00:00:00",
+            "value": "{\"p\":\"AkWRMG0=\",\"h\":{\"iv\":\"iD0U32CLyt/A/aQK\",\"at\":\"akUcN332rDm7yFMfgQ1ENA==\"}}"
+          }
+        ],
+        "ar_internal_metadata": [
+          {
+            "key": "environment",
+            "value": "production",
+            "created_at": "2026-11-16 07:39:04.148",
+            "updated_at": "2026-11-16 07:39:04.148"
+          }
+        ],
+        "assets": [
+          {
+            "id": 1,
+            "category": "Currency",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "usd",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "US Dollar",
+            "symbol": "USD",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 2,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#1A2B3C",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "qqqm.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "QQQM Inc",
+            "symbol": "QQQM",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 3,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "ibit.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "IBIT Inc",
+            "symbol": "IBIT",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 4,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#76B900",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "nvda.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "NVDA Inc",
+            "symbol": "NVDA",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 5,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "msft.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "MSFT Inc",
+            "symbol": "MSFT",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 6,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#F5F5F7",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "aapl.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AAPL Inc",
+            "symbol": "AAPL",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 7,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "amzn.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AMZN Inc",
+            "symbol": "AMZN",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 8,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#0668E1",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "meta.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "META Inc",
+            "symbol": "META",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 9,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "avgo.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AVGO Inc",
+            "symbol": "AVGO",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 10,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#050505",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "googl.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "GOOGL Inc",
+            "symbol": "GOOGL",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 11,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "tsla.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "TSLA Inc",
+            "symbol": "TSLA",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 12,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#E31837",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "cost.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "COST Inc",
+            "symbol": "COST",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 13,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "nflx.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "NFLX Inc",
+            "symbol": "NFLX",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 14,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": "#ED1C24",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "amd.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "AMD Inc",
+            "symbol": "AMD",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 15,
+            "category": "Stock",
+            "circulating_supply": null,
+            "color": null,
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "pep.us",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": null,
+            "market_cap_rank": null,
+            "name": "PEP Inc",
+            "symbol": "PEP",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 16,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": "#F7931A",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "btc",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": 1300000000000,
+            "market_cap_rank": null,
+            "name": "BTC",
+            "symbol": "BTC",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          },
+          {
+            "id": 17,
+            "category": "Cryptocurrency",
+            "circulating_supply": null,
+            "color": "#627EEA",
+            "country": null,
+            "country_exchange": null,
+            "created_at": "2026-01-01 00:00:00",
+            "external_id": "eth",
+            "image_url": null,
+            "instrument_type": null,
+            "isin": null,
+            "market_cap": 400000000000,
+            "market_cap_rank": null,
+            "name": "ETH",
+            "symbol": "ETH",
+            "updated_at": "2026-01-01 00:00:00",
+            "url": null
+          }
+        ],
+        "bot_signals": [],
+        "connected_clients": [],
+        "exchange_assets": [
+          {
+            "id": 1,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 2,
+            "asset_id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 3,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 4,
+            "asset_id": 2,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 5,
+            "asset_id": 3,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 6,
+            "asset_id": 3,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 7,
+            "asset_id": 4,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 8,
+            "asset_id": 5,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 9,
+            "asset_id": 6,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 10,
+            "asset_id": 7,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 11,
+            "asset_id": 8,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 12,
+            "asset_id": 9,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 13,
+            "asset_id": 10,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 14,
+            "asset_id": 11,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 15,
+            "asset_id": 12,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 16,
+            "asset_id": 13,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 17,
+            "asset_id": 14,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 18,
+            "asset_id": 15,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 19,
+            "asset_id": 16,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          },
+          {
+            "id": 20,
+            "asset_id": 17,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "updated_at": "2026-01-01 00:00:00",
+            "withdrawal_chains": null,
+            "withdrawal_fee": null,
+            "withdrawal_fee_updated_at": null
+          }
+        ],
+        "exchanges": [
+          {
+            "id": 1,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0.15",
+            "name": "Alpaca",
+            "taker_fee": "0.25",
+            "type": "Exchanges::Alpaca",
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 2,
+            "available": 1,
+            "created_at": "2026-01-01 00:00:00",
+            "maker_fee": "0.05",
+            "name": "Interactive Brokers",
+            "taker_fee": "0.05",
+            "type": "Exchanges::Ibkr",
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "fee_api_keys": [],
+        "fund_classifications": [],
+        "fx_rates": [],
+        "historical_prices": [],
+        "ibkr_locks": [],
+        "idempotency_keys": [],
+        "indices": [
+          {
+            "id": 1,
+            "available_exchanges": "{}",
+            "created_at": "2026-01-01 00:00:00",
+            "description": null,
+            "external_id": "nasdaq-100",
+            "market_cap": null,
+            "name": "Nasdaq 100",
+            "source": "deltabadger",
+            "top_coins": "[\"nvda.us\",\"msft.us\",\"aapl.us\",\"amzn.us\",\"meta.us\",\"avgo.us\",\"googl.us\",\"tsla.us\",\"cost.us\",\"nflx.us\",\"amd.us\",\"pep.us\"]",
+            "top_coins_by_exchange": "{}",
+            "updated_at": "2026-01-01 00:00:00",
+            "weight": 0,
+            "weights": "{\"nvda.us\":20,\"msft.us\":19,\"aapl.us\":18,\"amzn.us\":17,\"meta.us\":16,\"avgo.us\":15,\"googl.us\":14,\"tsla.us\":13,\"cost.us\":12,\"nflx.us\":11,\"amd.us\":10,\"pep.us\":9}"
+          }
+        ],
+        "oauth_access_grants": [],
+        "oauth_access_tokens": [],
+        "oauth_applications": [],
+        "portfolio_snapshots": [],
+        "portfolio_venue_snapshots": [],
+        "rule_logs": [],
+        "rules": [],
+        "schema_migrations": [
+          {
+            "version": "20260102171555"
+          },
+          {
+            "version": "20260103000001"
+          },
+          {
+            "version": "20260104194208"
+          },
+          {
+            "version": "20260106111301"
+          },
+          {
+            "version": "20260106111302"
+          },
+          {
+            "version": "20260106115209"
+          },
+          {
+            "version": "20260106162140"
+          },
+          {
+            "version": "20260109050047"
+          },
+          {
+            "version": "20260114145256"
+          },
+          {
+            "version": "20260114154223"
+          },
+          {
+            "version": "20260126141242"
+          },
+          {
+            "version": "20260126145012"
+          },
+          {
+            "version": "20260127112431"
+          },
+          {
+            "version": "20260127164433"
+          },
+          {
+            "version": "20260128000001"
+          },
+          {
+            "version": "20260129111946"
+          },
+          {
+            "version": "20260129142740"
+          },
+          {
+            "version": "20260130114825"
+          },
+          {
+            "version": "20260203191449"
+          },
+          {
+            "version": "20260208114731"
+          },
+          {
+            "version": "20260217100000"
+          },
+          {
+            "version": "20260217100001"
+          },
+          {
+            "version": "20260219100000"
+          },
+          {
+            "version": "20260219110000"
+          },
+          {
+            "version": "20260219120000"
+          },
+          {
+            "version": "20260219130000"
+          },
+          {
+            "version": "20260224065811"
+          },
+          {
+            "version": "20260226000000"
+          },
+          {
+            "version": "20260227171710"
+          },
+          {
+            "version": "20260228130833"
+          },
+          {
+            "version": "20260228145540"
+          },
+          {
+            "version": "20260228152720"
+          },
+          {
+            "version": "20260308090843"
+          },
+          {
+            "version": "20260311145654"
+          },
+          {
+            "version": "20260311145655"
+          },
+          {
+            "version": "20260311145656"
+          },
+          {
+            "version": "20260311145657"
+          },
+          {
+            "version": "20260311145658"
+          },
+          {
+            "version": "20260311145659"
+          },
+          {
+            "version": "20260311145660"
+          },
+          {
+            "version": "20260311145661"
+          },
+          {
+            "version": "20260311145662"
+          },
+          {
+            "version": "20260316000001"
+          },
+          {
+            "version": "20260320042623"
+          },
+          {
+            "version": "20260322140051"
+          },
+          {
+            "version": "20260323052902"
+          },
+          {
+            "version": "20260324132010"
+          },
+          {
+            "version": "20260325183549"
+          },
+          {
+            "version": "20260325221615"
+          },
+          {
+            "version": "20260413120000"
+          },
+          {
+            "version": "20260413140000"
+          },
+          {
+            "version": "20260413150000"
+          },
+          {
+            "version": "20260520000000"
+          },
+          {
+            "version": "20260524000000"
+          },
+          {
+            "version": "20260527000000"
+          },
+          {
+            "version": "20260527001000"
+          },
+          {
+            "version": "20260527002000"
+          },
+          {
+            "version": "20260529001000"
+          },
+          {
+            "version": "20260530000000"
+          },
+          {
+            "version": "20260603222643"
+          },
+          {
+            "version": "20260603231515"
+          },
+          {
+            "version": "20260603234747"
+          },
+          {
+            "version": "20260624081139"
+          },
+          {
+            "version": "20260706170000"
+          },
+          {
+            "version": "20260727120000"
+          },
+          {
+            "version": "20260806001012"
+          },
+          {
+            "version": "20260808225248"
+          },
+          {
+            "version": "20260808230550"
+          },
+          {
+            "version": "20260810120000"
+          },
+          {
+            "version": "20260815120000"
+          },
+          {
+            "version": "20260815130000"
+          },
+          {
+            "version": "20260815140000"
+          },
+          {
+            "version": "20260815150000"
+          },
+          {
+            "version": "20260815150050"
+          },
+          {
+            "version": "20260815150060"
+          },
+          {
+            "version": "20260815150100"
+          },
+          {
+            "version": "20260815160000"
+          },
+          {
+            "version": "20260815170000"
+          },
+          {
+            "version": "20260815170100"
+          },
+          {
+            "version": "20260818120000"
+          },
+          {
+            "version": "20260821120000"
+          },
+          {
+            "version": "20260821220432"
+          },
+          {
+            "version": "20260822100000"
+          },
+          {
+            "version": "20260823120000"
+          },
+          {
+            "version": "20260824120000"
+          },
+          {
+            "version": "20260824130000"
+          },
+          {
+            "version": "20260824140000"
+          },
+          {
+            "version": "20260825060000"
+          },
+          {
+            "version": "20260825120000"
+          },
+          {
+            "version": "20260825200000"
+          },
+          {
+            "version": "20260826090000"
+          },
+          {
+            "version": "20260826140000"
+          },
+          {
+            "version": "20260828094446"
+          },
+          {
+            "version": "20260828095813"
+          },
+          {
+            "version": "20260828175918"
+          },
+          {
+            "version": "20260829132450"
+          },
+          {
+            "version": "20260830120000"
+          },
+          {
+            "version": "20260830210000"
+          },
+          {
+            "version": "20260830230000"
+          },
+          {
+            "version": "20260905190000"
+          },
+          {
+            "version": "20260907100000"
+          },
+          {
+            "version": "20260907110000"
+          },
+          {
+            "version": "20260908090000"
+          },
+          {
+            "version": "20260908091000"
+          },
+          {
+            "version": "20260908120000"
+          },
+          {
+            "version": "20260908130000"
+          },
+          {
+            "version": "20260918090000"
+          },
+          {
+            "version": "20260918120000"
+          },
+          {
+            "version": "20260918150000"
+          },
+          {
+            "version": "20260921120000"
+          },
+          {
+            "version": "20260921180000"
+          },
+          {
+            "version": "20260928120000"
+          },
+          {
+            "version": "20260929120000"
+          },
+          {
+            "version": "20261006100000"
+          },
+          {
+            "version": "20261009120000"
+          },
+          {
+            "version": "20261009130000"
+          },
+          {
+            "version": "20261011170000"
+          },
+          {
+            "version": "20261014120000"
+          },
+          {
+            "version": "20261015120000"
+          },
+          {
+            "version": "20261016120000"
+          },
+          {
+            "version": "20261016130000"
+          },
+          {
+            "version": "20261016140000"
+          },
+          {
+            "version": "20261017100000"
+          }
+        ],
+        "setting_flags": [],
+        "tickers": [
+          {
+            "id": 1,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "QQQM",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 2,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "QQQM",
+            "base_asset_id": 2,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "QQQM",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 3,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "IBIT",
+            "base_asset_id": 3,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "IBIT",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 4,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "IBIT",
+            "base_asset_id": 3,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 2,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "IBIT",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 5,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "NVDA",
+            "base_asset_id": 4,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "NVDA",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 6,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "MSFT",
+            "base_asset_id": 5,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "MSFT",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 7,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AAPL",
+            "base_asset_id": 6,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AAPL",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 8,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AMZN",
+            "base_asset_id": 7,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AMZN",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 9,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "META",
+            "base_asset_id": 8,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "META",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 10,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AVGO",
+            "base_asset_id": 9,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AVGO",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 11,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "GOOGL",
+            "base_asset_id": 10,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "GOOGL",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 12,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "TSLA",
+            "base_asset_id": 11,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "TSLA",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 13,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "COST",
+            "base_asset_id": 12,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "COST",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 14,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "NFLX",
+            "base_asset_id": 13,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "NFLX",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 15,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "AMD",
+            "base_asset_id": 14,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "AMD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 16,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "PEP",
+            "base_asset_id": 15,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 1e-09,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "PEP",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 17,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "BTC",
+            "base_asset_id": 16,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 2.7e-05,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "BTC/USD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          },
+          {
+            "id": 18,
+            "ath": null,
+            "ath_updated_at": null,
+            "available": 1,
+            "base": "ETH",
+            "base_asset_id": 17,
+            "base_decimals": 9,
+            "created_at": "2026-01-01 00:00:00",
+            "exchange_id": 1,
+            "maximum_base_size": null,
+            "maximum_quote_size": null,
+            "minimum_base_size": 2.7e-05,
+            "minimum_quote_size": 1,
+            "price_decimals": 2,
+            "quote": "USD",
+            "quote_asset_id": 1,
+            "quote_decimals": 2,
+            "ticker": "ETH/USD",
+            "trading_enabled": 1,
+            "updated_at": "2026-01-01 00:00:00"
+          }
+        ],
+        "wash_sale_locks": []
+      },
+      "jobs": [],
+      "may_mutate": [
+        "bots",
+        "bot_index_assets",
+        "bot_activity_logs",
+        "transactions"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "failed_attempts": 0,
+      "locked_at": null,
+      "last_otp_at": null,
+      "remember_created_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "bots": [
+    {
+      "id": 1,
+      "status": 3,
+      "label": "QQQM, IBIT",
+      "position": 1,
+      "settings": "{\"quote_asset_id\":1,\"quote_amount\":50,\"interval\":\"day\",\"allocations\":{\"2\":0.6,\"3\":0.4},\"limit_ordered\":true,\"limit_order_pcnt_distance\":0.01,\"smart_intervaled\":true,\"smart_interval_quote_amount\":5,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":3,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":3,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":3,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":3,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":3,\"sell_price_drop_limit_in_ticker_id\":3,\"sell_moving_average_limit_in_ticker_id\":3,\"sell_indicator_limit_in_ticker_id\":3}",
+      "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+      "stop_message_key": null,
+      "started_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    },
+    {
+      "id": 2,
+      "status": 3,
+      "label": "QQQM, IBIT, NVDA + 1",
+      "position": 2,
+      "settings": "{\"quote_asset_id\":1,\"quote_amount\":200,\"interval\":\"month\",\"allocations\":{\"2\":0.25,\"3\":0.25,\"4\":0.25,\"5\":0.25},\"smart_intervaled\":false,\"smart_interval_quote_amount\":20.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":3,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":3,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":3,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":3,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":3,\"sell_price_drop_limit_in_ticker_id\":3,\"sell_moving_average_limit_in_ticker_id\":3,\"sell_indicator_limit_in_ticker_id\":3}",
+      "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
+      "stop_message_key": null,
+      "started_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    },
+    {
+      "id": 3,
+      "status": 2,
+      "label": "QQQM, IBIT, NVDA + 1",
+      "position": 1,
+      "settings": "{\"quote_asset_id\":1,\"quote_amount\":50,\"interval\":\"day\",\"weighting\":\"manual\",\"smart_intervaled\":false,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"allocations\":{\"2\":0.425,\"3\":0.325,\"4\":0.125,\"5\":0.125},\"price_limit_in_ticker_id\":3,\"sell_price_limit_in_ticker_id\":3,\"price_drop_limit_in_ticker_id\":3,\"sell_price_drop_limit_in_ticker_id\":3,\"moving_average_limit_in_ticker_id\":3,\"sell_moving_average_limit_in_ticker_id\":3,\"indicator_limit_in_ticker_id\":3,\"sell_indicator_limit_in_ticker_id\":3}",
+      "transient_data": "{\"missed_quote_amount\":0,\"merged_history_until_id\":4}",
+      "stop_message_key": null,
+      "started_at": null,
+      "updated_at": "2026-09-10 12:00:30.123456"
+    }
+  ],
+  "network": []
+}

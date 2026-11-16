@@ -1,0 +1,91 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "bitget": {
+        "GET /api/v2/spot/trade/fills": [
+          {
+            "status": 400,
+            "body": {
+              "code": "40014",
+              "msg": "Incorrect permissions",
+              "requestTime": 1789871400750,
+              "data": null
+            }
+          }
+        ],
+        "GET /api/v2/spot/wallet/deposit-records": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": [
+                {
+                  "orderId": "d3",
+                  "tradeId": "0xd3",
+                  "coin": "USDT",
+                  "type": "deposit",
+                  "size": "1000",
+                  "status": "success",
+                  "toAddress": "TXabc",
+                  "dest": "on_chain",
+                  "chain": "TRC20",
+                  "cTime": "1789732800000",
+                  "uTime": "1789732800000"
+                },
+                {
+                  "orderId": "d2",
+                  "tradeId": "0xd2",
+                  "coin": "BTC",
+                  "type": "deposit",
+                  "size": "0.01",
+                  "status": "pending",
+                  "toAddress": "TXabc",
+                  "dest": "on_chain",
+                  "chain": "TRC20",
+                  "cTime": "1789603200000",
+                  "uTime": "1789603200000"
+                },
+                {
+                  "orderId": "d1",
+                  "tradeId": "1234567",
+                  "coin": "ETH",
+                  "type": "deposit",
+                  "size": "2",
+                  "status": "success",
+                  "toAddress": "TXabc",
+                  "dest": "on_chain",
+                  "chain": "TRC20",
+                  "cTime": "1789516800000",
+                  "uTime": "1789516800000"
+                }
+              ]
+            }
+          }
+        ],
+        "GET /api/v2/spot/wallet/withdrawal-records": [
+          {
+            "status": 200,
+            "body": {
+              "code": "00000",
+              "msg": "success",
+              "requestTime": 1789871400750,
+              "data": []
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

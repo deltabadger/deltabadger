@@ -1,0 +1,128 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:30:00.750000Z",
+      "kraken": {
+        "POST /0/private/BalanceEx": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ZUSD": {
+                  "balance": "100.5",
+                  "hold_trade": "0",
+                  "credit": "500",
+                  "credit_used": "20"
+                },
+                "XXBT": {
+                  "balance": "0.5",
+                  "hold_trade": "0.1"
+                },
+                "XETH": {
+                  "balance": "1",
+                  "hold_trade": "0"
+                },
+                "ETH.F": {
+                  "balance": "2",
+                  "hold_trade": "0.5"
+                },
+                "DOT": {
+                  "balance": "10",
+                  "hold_trade": "0"
+                },
+                "DOT.S": {
+                  "balance": "5",
+                  "hold_trade": "0"
+                },
+                "XXDG": {
+                  "balance": "100",
+                  "hold_trade": "0"
+                },
+                "XLTC": {
+                  "balance": "2",
+                  "hold_trade": "0.5"
+                },
+                "NVDAx": {
+                  "balance": "1",
+                  "hold_trade": "0"
+                },
+                "NVDASPV": {
+                  "balance": "2",
+                  "hold_trade": "0"
+                },
+                "BRK.Bx": {
+                  "balance": "4",
+                  "hold_trade": "0"
+                },
+                "SOL.T": {
+                  "balance": "3",
+                  "hold_trade": "0"
+                },
+                "ADA": {
+                  "balance": "7",
+                  "hold_trade": "0"
+                },
+                "ZZZ": {
+                  "balance": "9",
+                  "hold_trade": "0"
+                },
+                "XXRP": {
+                  "balance": "0",
+                  "hold_trade": "0"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "market": {
+        "GET /api/v1/prices": [
+          {
+            "status": 200,
+            "body": {
+              "data": {
+                "bitcoin": {
+                  "usd": 60000.5
+                },
+                "ethereum": {
+                  "usd": 2500.25
+                },
+                "polkadot": {
+                  "usd": 4.5
+                },
+                "dogecoin": {
+                  "usd": 0.25
+                },
+                "litecoin": {
+                  "usd": 80.5
+                },
+                "solana": {
+                  "usd": 150.25
+                },
+                "cardano": {
+                  "usd": 0.75
+                },
+                "nvidia-xstock": {
+                  "usd": 180.5
+                },
+                "berkshire-hathaway-xstock": {
+                  "usd": 480.25
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

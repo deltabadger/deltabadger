@@ -1,0 +1,131 @@
+{
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "max-age=0, private, must-revalidate",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-9vDfpYsBNF9k8dcocbNaCQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=RGtj8EueUkbmqsM4U3CNgZ2aI779tEzt45JLaGPr0GzpeC8XL%2FbPw%2F1OCm4wgKN3rY%2F6fGAQ%2BH0n7aEC60pufU4RdjIYbfioQW1KCC2dk%2FWTX3VqluhwOm17q1A3VrTHq0R2ShqcDZzE2WdVYXVuD%2BZ2QD1%2F4VIW0jEsYvMJJ1KRJ%2FseIMvJ0bT86jQ0HDls5JjpU0ghdTRIsLR%2Fxx0jc9AY74TwcdCUI%2FPKS%2Bp%2BZCvlZSqrWbKcrJ6%2FI%2FVUv5ao%2BykWcK4GQVc3r%2BWut9IMSzJm0%2BV91CRxF8P3S2IoFf5LrvSOaCJKxCyNGpFTOyS2gzs%3D--MZTNCOx4EujrUUhn--yIpLYUW9M%2BEakBGe1%2BUcPg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-6290d549af80caa2fb7df4035451b122ac9f284c34459a922e1ae88d558e3008.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-55216d29feb9cbe3040956a80263e39ee90e0e1f1554dc6c4a8b67cec79947a7.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"eW8yOQqiSZ-vsFg9yUvUiGQzrUKIG9hhqybO8qiKrZV17kxelRYVtMrzkAVVHCXHt_bXvpyu4XNygxmxl9s8Ew\" />\n    <meta name=\"csp-nonce\" content=\"9vDfpYsBNF9k8dcocbNaCQ==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-controller=\"form--html5-validations form--label-animations\" action=\"/login\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"sv5kHVAHJ0UkeIaeeGt4ysWCj5d8SJX9On1wPRxtPTm64eR97uLkO53-FCKGtiyazLs1QAsrGHh-EVL2huUVhQ\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <h1>Welcome back!</h1>\n\n  <div class=\"form__row\">\n    <input autofocus=\"autofocus\" autocomplete=\"email\" class=\"form__input form__input--large\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email invalid!\" type=\"email\" value=\"\" name=\"user[email]\" id=\"user_email\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"current-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" type=\"password\" name=\"user[password]\" id=\"user_password\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n\n      <div class=\"form__info form__info--right\">\n        <a href=\"/password/new\">Forgot password?</a>\n      </div>\n</div>\n    <div class=\"toggle\">\n      <input name=\"user[remember_me]\" type=\"hidden\" value=\"0\" /><input type=\"checkbox\" value=\"1\" name=\"user[remember_me]\" id=\"user_remember_me\" />\n      <div class=\"toggle__style\"></div>\n      <label class=\"label\" for=\"user_remember_me\">Remember me</label>\n      \n    </div>\n\n  <div class=\"form__row form__row--final-button\">\n    <input type=\"submit\" name=\"commit\" value=\"Log In\" class=\"button button--sky button--large\" data-disable-with=\"Log In\" />\n  </div>\n\n  <div class=\"devise__links\">\n\n\n    <a class=\"button button--link\" href=\"/confirmation/new\">Resend link</a>\n    <span class=\"db-middot\">●</span>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"dropdown-wrapper dropdown-wrapper--right dropdown-wrapper--up\" style=\"font-weight: 600; color: var(--link)\">\n  EN\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/de/login\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/nl/login\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/fr/login\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/es/login\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pt/login\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/it/login\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/pl/login\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/ru/login\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/cs/login\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sk/login\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/da/login\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/sv/login\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/el/login\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/bg/login\">🇧🇬 Български</a>\n  </div>\n</div>\n</div>\n</form>\n\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+      "session_changed": true
+    },
+    {
+      "status": 303,
+      "headers": {
+        "location": "http://localhost:3000/?locale=de",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-o1rdWmQtUft4RQVIPvRMmw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=mXw9Z6RkpFkiUlDF41YhLYil9P91sfPwFulOCNGNgOiUgnQztfTxtS29XzUEtB%2Fso86vT9G9BNl4b53mABQ8rZsbhq9q0ZYbtweEBTI4q1nGLkoi8UgrF01TzB9bOZQUJdpI4to9k2yZkmdS3Qaf5oQOiVO1AL2UpQ0T6wsEdWZD1JSZFXXo12zeW3YlTepzeqeg%2FPgiC8gkktO3kHEWokvfr7IaEr2C6A0z53140d2GaudlHmH0W11vc%2BEqSgpGUcrK15eqKl0YmcqwNu8OlrPRH1tm3%2F9VnSYzPKoe3rueYQ5fVBmQInEq4d9psQlJLlEZbKW8jDKKCTLGagb4Ip0eT1c%2FSfYA2x3DH%2Be0jNpejNSb0R4%3D--u5P%2Fb9fSuTKQ9pw%2F--XhYJ%2F1WByBwFgvX9oiIrTg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "",
+      "session_changed": true
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/vnd.turbo-stream.html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-P7sMF8oeg8Y6pA0RQJmiHA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=8e7HMkHNrF94DxTK3OXG4ks3Anes2inWRCtIQY2mFm2a%2BUWH7zkjqnX1DV2wzEN9gfuzGnLdpbRng0ez%2BtvJAUU7eXLLzV35yfEQmK3%2FCiglAs2mX%2FCn37%2F9sUP%2FbLT3LzHfv3Tim%2FavUMKbIEI03Orjl0VyEadhTbKTsCcns88K6GGPImOPENWf5Naft%2B7UhEIoTyL9SYArKKQFW8Xel1hRZ9g5xxbBi0zAA%2B89sqKVXAx9HcsYt0CQ2VXpeSgQ%2BTH5VpTB35XpLaoB7elXgWF%2FVgWLg9lem6MwxIIe9Yea%2B9sp0MhzOt75scWNMmMowP3MAROAZ1%2FLPJ7RXRHVoke2l0qBxodRwKqz28KYwv%2F0kgGZf%2BHmbFODQHkB9O%2BNvsJ1hsFq%2B9laETUclW%2FXRVBVvRd9bRTjoZnxlO48E2LLzMXkdsmTgvX98Ij8immUmG%2BHl4ZQ7n7Usfsy6iqmt8lfMm4vEA%3D%3D--nCp871fyma4JKYWs--0pNvmZsaP33A7edea9dBiQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<turbo-stream action=\"append\" target=\"orders_list\"><template>\n        <tr id=\"transaction_14\" class=\"\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"waiting\">\n  <td scope=\"row\" class=\"table__when\">2026/09/10 <small>14:30</small></td>\n\n\n\n  <td><span class=\"no-value\">—</span></td>\n\n  <td>\n  </td>\n</tr>\n        <tr id=\"timeline_transaction_14\" data-order-filter-target=\"row\" data-order-type=\"\"></tr>\n\n        <tr id=\"transaction_13\" class=\"\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"waiting\">\n  <td scope=\"row\" class=\"table__when\">2026/09/10 <small>14:00</small></td>\n\n\n\n  <td>408.25 <small>USD</small></td>\n\n  <td>\n      <div data-controller=\"class-toggle\" data-class-toggle-toggle-classes-value='[\"hidden\"]'>\n        <form class=\"button_to\" method=\"post\" action=\"/de/bots/1/transactions/13\"><input type=\"hidden\" name=\"_method\" value=\"delete\" /><button class=\"sinput sinput--small sinput--hover-warning\" data-class-toggle-target=\"togglable\" data-action=\"click-&gt;class-toggle#toggle\" type=\"submit\">Abbrechen</button><input type=\"hidden\" name=\"authenticity_token\" value=\"53yAy03MmAII-rVrQ_1DujW5eLeLTBX9k5wQ5i78Req_a8OOAfkoHhZhoXS_I_8HLeE5J22_BRCByShVzEI3zw\" /></form>\n        <div class=\"loader--small hidden\" style=\"position: unset; float: right; margin-right: 0.5rem;\" data-class-toggle-target=\"togglable\" ></div>\n      </div>\n  </td>\n</tr>\n        <tr id=\"timeline_transaction_13\" data-order-filter-target=\"row\" data-order-type=\"\"></tr>\n\n      <tr id=\"bot_activity_log_9\" class=\"text-inactive\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"other\">\n  <td scope=\"row\" class=\"table__when\">2026/09/10 <small>11:00</small></td>\n  <td colspan=\"1\" class=\"table__sentence\">Bot gestartet</td>\n</tr>\n      <tr id=\"bot_activity_log_8\" class=\"text-inactive\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"other\">\n  <td scope=\"row\" class=\"table__when\">2026/09/09 <small>20:00</small></td>\n  <td colspan=\"1\" class=\"table__sentence\">Bot gestoppt</td>\n</tr>\n      <tr id=\"bot_activity_log_7\" class=\"text-inactive\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"other\">\n  <td scope=\"row\" class=\"table__when\">2026/09/09 <small>19:00</small></td>\n  <td colspan=\"1\" class=\"table__sentence\">Bot gestoppt: Der gesamte Betrag wurde investiert.</td>\n</tr>\n        <tr id=\"transaction_12\" class=\"text-inactive\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\">\n  <td scope=\"row\" class=\"table__when\">2026/09/09 <small>18:00</small></td>\n\n\n\n  <td>399.50 <small>USD</small></td>\n\n  <td>\n  </td>\n</tr>\n        <tr id=\"timeline_transaction_12\" class=\"text-inactive\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"other\">\n    <td scope=\"row\" class=\"table__when\">2026/09/09 <small>18:00</small></td>\n    <td colspan=\"1\" class=\"table__sentence\">Order storniert</td>\n    <td>\n    </td>\n</tr>\n      <tr id=\"bot_activity_log_6\" class=\"text-inactive\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"other\">\n  <td scope=\"row\" class=\"table__when\">2026/09/09 <small>17:00</small></td>\n  <td colspan=\"1\" class=\"table__sentence\">Die Orders für QQQM, IBIT lagen diesmal unter dem Börsenminimum und werden übertragen.</td>\n</tr>\n        <tr id=\"timeline_transaction_11\" class=\"text-inactive\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"other\">\n    <td scope=\"row\" class=\"table__when\">2026/09/09 <small>17:00</small></td>\n    <td colspan=\"1\" class=\"table__sentence\">Übersprungen (unter Minimum)</td>\n    <td>\n    </td>\n</tr>\n      <tr id=\"bot_activity_log_4\" class=\"text-inactive\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"other\">\n  <td scope=\"row\" class=\"table__when\">2026/09/09 <small>16:31</small></td>\n  <td colspan=\"1\" class=\"table__sentence\">Orderversuch fehlgeschlagen</td>\n</tr>\n      <tr id=\"bot_activity_log_3\" class=\"text-inactive\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"other\">\n  <td scope=\"row\" class=\"table__when\">2026/09/09 <small>16:30</small></td>\n  <td colspan=\"1\" class=\"table__sentence\">Orderversuch fehlgeschlagen: Auf deinem Alpaca-Konto ist nicht genug Guthaben.</td>\n</tr>\n</template></turbo-stream>\n  <turbo-stream action=\"replace\" target=\"orders_pagination\"><template>\n    <turbo-frame id=\"orders_pagination\" src=\"/de/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Cactivity%7C3\"></turbo-frame>\n</template></turbo-stream>",
+      "session_changed": true
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/vnd.turbo-stream.html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-jwAyF49J0Wr4EVYSEDX/iA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=OzeqBVHq3cu8%2FopmkBmlMBKpbSzuS9VTc%2BCatQkWfY4FPBAY3LoC%2Fnb5SMTWcjcM99VrkJQxk5%2BGzBcENwm8p2yOvFATSDnh87ss2hlUHCLa9aPDcsNAKiRxwCqipjqehHfLFkBWEEmJutiRrLxoBJCCICgPnkqALblvjJ0XGLHdi3%2BS3%2Fn3UJsZopczzS9xg9eRju9UACD3m1EbZrFw3wlFvR3RL84gSMkGqWWxJ2xryrzLIuIw%2FDWg%2BlcOHt5hwr9zzY8zG%2F8Ez%2B%2Burpvz5QFhwq8IzLCYFOvWi6fdLnx9Q%2BIYmIdDdccpgbwSOznTZYiSQCRhaNAj2jhBTV5uYBGlMB6Smup4WpmZe4cCsrLDiuyVXCUtonvBN3g4JOxlR8aSu0wrVo15ckoHWe8VlyEGE78T0aR1dmHrRlD0PZ0N2oxd%2Bgr9nrYNwym0De51X2D9m0ddteM0Z6vYxbubGpnAebenZQ%3D%3D--8xl15p4WstaSYWRc--l8%2BVyqORmp0NksMyzt%2BCBg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<turbo-stream action=\"append\" target=\"orders_list\"><template>\n        <tr id=\"transaction_15\" class=\"\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"successful\">\n  <td scope=\"row\" class=\"table__when\">2026/09/09 <small>16:30</small></td>\n\n\n\n  <td>412.37 <small>USD</small></td>\n\n  <td>\n  </td>\n</tr>\n        <tr id=\"timeline_transaction_15\" data-order-filter-target=\"row\" data-order-type=\"\"></tr>\n\n</template></turbo-stream>\n",
+      "session_changed": false
+    },
+    {
+      "status": 200,
+      "headers": {
+        "content-type": "text/vnd.turbo-stream.html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-frame-options": "SAMEORIGIN",
+        "x-xss-protection": "0",
+        "x-content-type-options": "nosniff",
+        "x-permitted-cross-domain-policies": "none",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-kqrXG9bOVDh0/bYs1aUr8A=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+        "set-cookie": "_deltabadger_session=aCM5sbcvyad%2FTdhDAMNHk2hKY4CbPD0a0NN4XFI%2F%2FHAnUtmF%2FsuccuhZoBNvLJDERgLQ0hK3q2S2JCIFkLwVQqf8cpD%2FvPtC%2B1Tetmvrn%2BmqNbVkian8wZEu6jxDaYgDg8xLbfxntv5NLXpjoiKZBVoEjb2YUmBs5kINu8Hi6SYtlyab4I1DP%2B4dT71v%2FcspgjHAKtKPoKImG%2FtpRxxTkVl6ECGXbpMZS1YQZrhSYbNQi9cR1KPPhxKONXJQhuIIk9M9MrSFJr4WMdWJXaN%2B1Ducwm3Hvqt4kHsLAp0ZnhP6FegotFAwcYki0D0QKnuKGtdNFh%2BiTE1n3NjtRgy5LSYtrWcQu8uJza0nFHA1LdfXRnP5bFsYw3SBW3m8zPsm77sDtgzNP8OPXomy9NMIgFW9EaojUgsEEYxSyOufNj8AxmTbJVNIASCOJc8GLoY%2FYBkWTA3oWU%2FKyBtHJ2LmVKti6A3S2A%3D%3D--yqyzhKe6oQGb8SHU--t8BqXpw5dSi5Q8YIhWKWuQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+      },
+      "body": "<turbo-stream action=\"append\" target=\"orders_list\"><template>\n        <tr id=\"transaction_16\" class=\"\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"waiting\">\n  <td scope=\"row\" class=\"table__when\">2026/09/10 <small>14:00</small></td>\n\n\n\n  <td>408.25 <small>USD</small></td>\n\n  <td>\n      <div data-controller=\"class-toggle\" data-class-toggle-toggle-classes-value='[\"hidden\"]'>\n        <form class=\"button_to\" method=\"post\" action=\"/de/bots/3/transactions/16\"><input type=\"hidden\" name=\"_method\" value=\"delete\" /><button class=\"sinput sinput--small sinput--hover-warning\" data-class-toggle-target=\"togglable\" data-action=\"click-&gt;class-toggle#toggle\" type=\"submit\">Abbrechen</button><input type=\"hidden\" name=\"authenticity_token\" value=\"_7A40GpKB9oPfeQMaDJ-4oGBj2KDsLMcNr65zCEpsPsjI3g4KI7gT9i73clmcifNXCgpAtQsV7AKqws8y2_wfw\" /></form>\n        <div class=\"loader--small hidden\" style=\"position: unset; float: right; margin-right: 0.5rem;\" data-class-toggle-target=\"togglable\" ></div>\n      </div>\n  </td>\n</tr>\n        <tr id=\"timeline_transaction_16\" data-order-filter-target=\"row\" data-order-type=\"\"></tr>\n\n</template></turbo-stream>\n",
+      "session_changed": false
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "failed_attempts": 0,
+      "locked_at": null,
+      "last_otp_at": null,
+      "remember_created_at": null,
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "bots": [
+    {
+      "id": 1,
+      "status": 1,
+      "label": "QQQM, IBIT",
+      "position": 1,
+      "settings": "{\"quote_asset_id\":1,\"quote_amount\":50,\"interval\":\"day\",\"allocations\":{\"2\":0.6,\"3\":0.4},\"limit_ordered\":true,\"limit_order_pcnt_distance\":0.01,\"smart_intervaled\":true,\"smart_interval_quote_amount\":5,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":3,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":3,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":3,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":3,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":3,\"sell_price_drop_limit_in_ticker_id\":3,\"sell_moving_average_limit_in_ticker_id\":3,\"sell_indicator_limit_in_ticker_id\":3}",
+      "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null,\"last_action_job_at\":\"2026-09-10T11:55:00.250Z\"}",
+      "stop_message_key": null,
+      "started_at": "2026-09-01 12:30:00",
+      "updated_at": "2026-01-01 00:00:00"
+    },
+    {
+      "id": 2,
+      "status": 1,
+      "label": "QQQM Inc",
+      "position": 2,
+      "settings": "{\"quote_asset_id\":1,\"quote_amount\":25.5,\"interval\":\"day\",\"allocations\":{\"2\":1.0},\"limit_ordered\":true,\"limit_order_pcnt_distance\":0.005,\"quote_amount_limited\":true,\"quote_amount_limit\":1000,\"smart_intervaled\":false,\"smart_interval_quote_amount\":2.55,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":1,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":1,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":1,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":1,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":1,\"sell_price_drop_limit_in_ticker_id\":1,\"sell_moving_average_limit_in_ticker_id\":1,\"sell_indicator_limit_in_ticker_id\":1}",
+      "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null,\"quote_amount_limit_enabled_at\":\"2026-09-01T00:00:00.000Z\",\"last_action_job_at\":\"2026-09-09T13:30:00.800Z\"}",
+      "stop_message_key": null,
+      "started_at": "2026-09-08 13:30:00",
+      "updated_at": "2026-01-01 00:00:00"
+    },
+    {
+      "id": 3,
+      "status": 1,
+      "label": "ND10",
+      "position": 3,
+      "settings": "{\"quote_asset_id\":1,\"quote_amount\":100,\"interval\":\"week\",\"num_coins\":10,\"hold_all\":false,\"index_type\":\"category\",\"index_category_id\":\"nasdaq-100\",\"index_name\":\"Nasdaq 100\",\"index_name_prefix\":\"ND\",\"allocation_flattening\":0.25,\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001}",
+      "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null,\"last_action_job_at\":\"2026-09-07T13:30:01.100Z\"}",
+      "stop_message_key": null,
+      "started_at": "2026-09-07 13:30:00.500000",
+      "updated_at": "2026-01-01 00:00:00"
+    }
+  ],
+  "network": []
+}

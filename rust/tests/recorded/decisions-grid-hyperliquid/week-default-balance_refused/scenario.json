@@ -1,0 +1,127 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-08T10:00:01.123456Z",
+  "venue": "hyperliquid",
+  "script": {
+    "hyperliquid": {
+      "POST /info l2Book": [
+        {
+          "status": 200,
+          "body": {
+            "coin": "@142",
+            "time": 1788000000000,
+            "levels": [
+              [
+                {
+                  "px": "40.121",
+                  "sz": "10",
+                  "n": 1
+                }
+              ],
+              [
+                {
+                  "px": "40.124",
+                  "sz": "10",
+                  "n": 1
+                }
+              ]
+            ]
+          }
+        }
+      ],
+      "POST /info allMids": [
+        {
+          "status": 200,
+          "body": {
+            "@142": "40.1225",
+            "@1": "7.5"
+          }
+        }
+      ],
+      "POST /info spotClearinghouseState": [
+        {
+          "status": 422,
+          "body": "Failed to deserialize the JSON body into the target type"
+        }
+      ],
+      "POST /info meta": [
+        {
+          "status": 200,
+          "body": {
+            "universe": [
+              {
+                "name": "BTC",
+                "szDecimals": 5
+              }
+            ]
+          }
+        }
+      ],
+      "POST /info spotMeta": [
+        {
+          "status": 200,
+          "body": {
+            "tokens": [
+              {
+                "name": "USDC",
+                "index": 0,
+                "szDecimals": 8
+              },
+              {
+                "name": "BTC",
+                "index": 1,
+                "szDecimals": 2
+              }
+            ],
+            "universe": [
+              {
+                "name": "@142",
+                "tokens": [
+                  1,
+                  0
+                ],
+                "index": 142
+              }
+            ]
+          }
+        }
+      ],
+      "POST /info perpDexs": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "POST /exchange": [
+        {
+          "status": 200,
+          "body": {
+            "status": "ok",
+            "response": {
+              "type": "order",
+              "data": {
+                "statuses": [
+                  {
+                    "filled": {
+                      "totalSz": "1.48",
+                      "avgPx": "40.124",
+                      "oid": 77738308
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "POST /info userFillsByTime": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ]
+    }
+  },
+  "tick": true
+}

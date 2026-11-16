@@ -1,0 +1,29 @@
+{
+  "reading": [
+    1
+  ],
+  "steps": [
+    {
+      "requests": [],
+      "raised": false,
+      "generations": [],
+      "import": {
+        "imported": 0,
+        "duplicates": 0,
+        "skipped": 0,
+        "unrecognised": [],
+        "unrouted": [],
+        "error": "no_account_for_format",
+        "ambiguous": null
+      }
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [],
+    "account_balances": [],
+    "api_keys": [],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

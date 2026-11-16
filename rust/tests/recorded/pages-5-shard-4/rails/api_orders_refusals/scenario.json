@@ -1,0 +1,737 @@
+{
+  "page_parity_scratch": true,
+  "at": "2026-09-10T12:00:30.123456Z",
+  "secret_key_base": "61a30e26004ff1e25ced6c8a0629bdcef5e7bdf90db030ffb7d5f8045d9b04d14c830dfd2fd0312fe655dcbd6f9287a4777420c0f285baf8bf8363797db44997",
+  "steps": [
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-0"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\"}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-1"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"limit_sell\",\"exchange_name\":\"Alpaca\",\"base_asset\":\"QQQM\",\"quote_asset\":\"USD\",\"amount\":\"1\",\"price\":\" \"}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-2"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"exchange_name\":\"Nope<x>\",\"base_asset\":\"QQQM\",\"quote_asset\":\"USD\",\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-3"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"exchange_name\":\"interactive brokers\",\"base_asset\":\"QQQM\",\"quote_asset\":\"USD\",\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-4"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_sell\",\"exchange_name\":\"alpaca\",\"base_asset\":\"qqqm\",\"quote_asset\":\"eur\",\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-5"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_sell\",\"exchange_name\":\"Alpaca\",\"base_asset\":[\"QQQM\"],\"quote_asset\":\"USD\",\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-6"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_sell\",\"exchange_name\":\"ALPACA\",\"base_asset\":\"ibit\",\"quote_asset\":\"usd\",\"amount\":1,\"amount_type\":\"base\"}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-7"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"bot_id\":\"abc\",\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-8"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"bot_id\":12.5,\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-9"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"bot_id\":\"\",\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-10"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"bot_id\":[2],\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-11"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"bot_id\":2,\"amount\":\"0\"}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-12"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"bot_id\":2,\"amount\":\"1e3\"}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-13"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_sell\",\"bot_id\":2,\"amount\":10,\"amount_type\":\"QUOTE\"}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-14"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"bot_id\":999,\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-15"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"bot_id\":1,\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-16"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"bot_id\":\"3\",\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-17"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_sell\",\"bot_id\":4.0,\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-18"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"bot_id\":5,\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-19"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"bot_id\":2,\"amount\":10,\"exchange_name\":\"alpaca\",\"base_asset\":\"IBIT\",\"quote_asset\":\"usd\"}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-20"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"limit_buy\",\"bot_id\":2}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-21"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"limit_sell\",\"bot_id\":null,\"exchange_name\":\"Alpaca\",\"amount\":1}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"exchange_name\":\"Alpaca\",\"base_asset\":\"QQQM\",\"quote_asset\":\"USD\",\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-2"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"exchange_name\":\"Nope<x>\",\"base_asset\":\"QQQM\",\"quote_asset\":\"USD\",\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "key-2"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"exchange_name\":\"Alpaca\",\"base_asset\":\"QQQM\",\"quote_asset\":\"USD\",\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "headers": {
+        "Authorization": "Bearer second-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "second-key"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\",\"bot_id\":2,\"amount\":10}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders?order=1",
+      "headers": {
+        "Authorization": "Bearer api-token",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "query-wrapper"
+      },
+      "csrf": "none",
+      "client": "api",
+      "action_snapshot": true,
+      "may_mutate": [
+        "idempotency_keys"
+      ],
+      "jobs": true,
+      "headers_extra": [
+        "etag",
+        "content-disposition",
+        "x-total-transactions",
+        "x-returned-transactions",
+        "x-truncated"
+      ],
+      "raw_body": "{\"type\":\"market_buy\"}",
+      "raw_rows": {
+        "idempotency_keys": "*"
+      }
+    }
+  ],
+  "expect_users": {},
+  "jobs": {}
+}

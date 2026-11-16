@@ -1,0 +1,817 @@
+{
+  "ledger": {
+    "whole": {
+      "positions": [
+        {
+          "symbol": "ETH",
+          "quantity": "1.0",
+          "cost": "2100.0",
+          "avg_cost": "2100.0",
+          "opened_at": "2026-09-11T10:00:00.000000Z",
+          "estimated": false,
+          "unpriced": "0.0"
+        }
+      ],
+      "round_trips": [
+        {
+          "symbol": "ETH",
+          "opened_at": "2026-09-09T23:59:59.000000Z",
+          "closed_at": "2026-09-10T00:00:00.000000Z",
+          "quantity": "1.0",
+          "invested": "2500.0",
+          "proceeds": "2000.0",
+          "fees": "0.0",
+          "realised": "-500.0",
+          "incomplete": true
+        }
+      ],
+      "total_invested": "2600.0",
+      "received": "0.0",
+      "realised": "-500.0",
+      "fees": "0.0",
+      "cash_usd": "0.0",
+      "unpriced_proceeds": "0.0",
+      "openings": [
+        [
+          "ETH",
+          "1.0"
+        ]
+      ],
+      "cash": [
+        [
+          "USDT",
+          "0.0"
+        ]
+      ],
+      "cash_basis": [],
+      "incomplete": false,
+      "loss_sales": [
+        [
+          "ETH",
+          "2026-09-10"
+        ]
+      ]
+    },
+    "venues": {
+      "2": {
+        "positions": [
+          {
+            "symbol": "ETH",
+            "quantity": "1.0",
+            "cost": "2100.0",
+            "avg_cost": "2100.0",
+            "opened_at": "2026-09-11T10:00:00.000000Z",
+            "estimated": false,
+            "unpriced": "0.0"
+          }
+        ],
+        "round_trips": [
+          {
+            "symbol": "ETH",
+            "opened_at": "2026-09-09T23:59:59.000000Z",
+            "closed_at": "2026-09-10T00:00:00.000000Z",
+            "quantity": "1.0",
+            "invested": "2500.0",
+            "proceeds": "2000.0",
+            "fees": "0.0",
+            "realised": "-500.0",
+            "incomplete": true
+          }
+        ],
+        "total_invested": "2600.0",
+        "received": "0.0",
+        "realised": "-500.0",
+        "fees": "0.0",
+        "cash_usd": "0.0",
+        "unpriced_proceeds": "0.0",
+        "openings": [
+          [
+            "ETH",
+            "1.0"
+          ]
+        ],
+        "cash": [
+          [
+            "USDT",
+            "0.0"
+          ]
+        ],
+        "cash_basis": [],
+        "incomplete": false,
+        "loss_sales": []
+      }
+    },
+    "figures": {
+      "whole": {
+        "value": "2150.0",
+        "invested": "2600.0",
+        "held_value": "2150.0",
+        "held_cost": "2600.0",
+        "fees": "0.0",
+        "realised": "-500.0",
+        "unrealised": "50.0",
+        "total": "-450.0",
+        "holdings": [
+          {
+            "symbol": "ETH",
+            "quantity": "1.0",
+            "value": "2150.0",
+            "cost": "2100.0",
+            "unrealised": "50.0",
+            "percent": "2.38095238095238095238095238095",
+            "note": null
+          }
+        ],
+        "notes": []
+      },
+      "2": {
+        "value": "2150.0",
+        "invested": "2600.0",
+        "held_value": "2150.0",
+        "held_cost": "2600.0",
+        "fees": "0.0",
+        "realised": "-500.0",
+        "unrealised": "50.0",
+        "total": "-450.0",
+        "holdings": [
+          {
+            "symbol": "ETH",
+            "quantity": "1.0",
+            "value": "2150.0",
+            "cost": "2100.0",
+            "unrealised": "50.0",
+            "percent": "2.38095238095238095238095238095",
+            "note": null
+          }
+        ],
+        "notes": []
+      }
+    }
+  },
+  "ledger_error": null,
+  "backfill_error": null,
+  "tables": {
+    "portfolio_snapshots": [
+      {
+        "date": "2026-09-10",
+        "held_cost_usd": 500,
+        "held_value_usd": 0,
+        "invested_usd": 2500,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2000
+      },
+      {
+        "date": "2026-09-11",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2498,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2498
+      },
+      {
+        "date": "2026-09-12",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2498,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2498
+      },
+      {
+        "date": "2026-09-13",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2498,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2498
+      },
+      {
+        "date": "2026-09-14",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2499,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2499
+      },
+      {
+        "date": "2026-09-15",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2500,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2500
+      },
+      {
+        "date": "2026-09-16",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2501,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2501
+      },
+      {
+        "date": "2026-09-17",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2502,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2502
+      },
+      {
+        "date": "2026-09-18",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2503,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2503
+      },
+      {
+        "date": "2026-09-19",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2503,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2503
+      },
+      {
+        "date": "2026-09-20",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2503,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2503
+      },
+      {
+        "date": "2026-09-21",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2504,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2504
+      },
+      {
+        "date": "2026-09-22",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2505,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2505
+      },
+      {
+        "date": "2026-09-23",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2506,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2506
+      },
+      {
+        "date": "2026-09-24",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2507,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2507
+      },
+      {
+        "date": "2026-09-25",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2508,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2508
+      },
+      {
+        "date": "2026-09-26",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2508,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2508
+      },
+      {
+        "date": "2026-09-27",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2508,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2508
+      },
+      {
+        "date": "2026-09-28",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2509,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2509
+      },
+      {
+        "date": "2026-09-29",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2510,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2510
+      },
+      {
+        "date": "2026-09-30",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2511,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2511
+      },
+      {
+        "date": "2026-10-01",
+        "held_cost_usd": 2600,
+        "held_value_usd": 2150,
+        "invested_usd": 2600,
+        "partial": 0,
+        "user_id": 1,
+        "value_usd": 2150
+      }
+    ],
+    "portfolio_venue_snapshots": [
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-10",
+        "value_usd": 2000,
+        "invested_usd": 2500,
+        "held_value_usd": 0,
+        "held_cost_usd": 500,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-11",
+        "value_usd": 2498,
+        "invested_usd": 2600,
+        "held_value_usd": 2498,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-12",
+        "value_usd": 2498,
+        "invested_usd": 2600,
+        "held_value_usd": 2498,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-13",
+        "value_usd": 2498,
+        "invested_usd": 2600,
+        "held_value_usd": 2498,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-14",
+        "value_usd": 2499,
+        "invested_usd": 2600,
+        "held_value_usd": 2499,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-15",
+        "value_usd": 2500,
+        "invested_usd": 2600,
+        "held_value_usd": 2500,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-16",
+        "value_usd": 2501,
+        "invested_usd": 2600,
+        "held_value_usd": 2501,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-17",
+        "value_usd": 2502,
+        "invested_usd": 2600,
+        "held_value_usd": 2502,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-18",
+        "value_usd": 2503,
+        "invested_usd": 2600,
+        "held_value_usd": 2503,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-19",
+        "value_usd": 2503,
+        "invested_usd": 2600,
+        "held_value_usd": 2503,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-20",
+        "value_usd": 2503,
+        "invested_usd": 2600,
+        "held_value_usd": 2503,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-21",
+        "value_usd": 2504,
+        "invested_usd": 2600,
+        "held_value_usd": 2504,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-22",
+        "value_usd": 2505,
+        "invested_usd": 2600,
+        "held_value_usd": 2505,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-23",
+        "value_usd": 2506,
+        "invested_usd": 2600,
+        "held_value_usd": 2506,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-24",
+        "value_usd": 2507,
+        "invested_usd": 2600,
+        "held_value_usd": 2507,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-25",
+        "value_usd": 2508,
+        "invested_usd": 2600,
+        "held_value_usd": 2508,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-26",
+        "value_usd": 2508,
+        "invested_usd": 2600,
+        "held_value_usd": 2508,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-27",
+        "value_usd": 2508,
+        "invested_usd": 2600,
+        "held_value_usd": 2508,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-28",
+        "value_usd": 2509,
+        "invested_usd": 2600,
+        "held_value_usd": 2509,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-29",
+        "value_usd": 2510,
+        "invested_usd": 2600,
+        "held_value_usd": 2510,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-09-30",
+        "value_usd": 2511,
+        "invested_usd": 2600,
+        "held_value_usd": 2511,
+        "held_cost_usd": 2600,
+        "partial": 0
+      },
+      {
+        "user_id": 1,
+        "exchange_id": 2,
+        "date": "2026-10-01",
+        "value_usd": 2150,
+        "invested_usd": 2600,
+        "held_value_usd": 2150,
+        "held_cost_usd": 2600,
+        "partial": 0
+      }
+    ],
+    "wash_sale_locks": [
+      {
+        "id": 1,
+        "asset_id": 6,
+        "buy_locked_until": "2026-10-11 00:00:00",
+        "claim_token": null,
+        "confirmed_locked_until": "2026-10-11 00:00:00",
+        "created_at": "2026-10-01 03:00:00",
+        "source": "ledger",
+        "updated_at": "2026-10-01 03:00:00",
+        "user_id": 1
+      }
+    ],
+    "historical_prices": [
+      {
+        "id": 1,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-01",
+        "price": 2500
+      },
+      {
+        "id": 2,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-02",
+        "price": 2500
+      },
+      {
+        "id": 3,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-03",
+        "price": 2500
+      },
+      {
+        "id": 4,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-04",
+        "price": 2500
+      },
+      {
+        "id": 5,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-07",
+        "price": 2500
+      },
+      {
+        "id": 6,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-08",
+        "price": 2500
+      },
+      {
+        "id": 7,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-09",
+        "price": 2500
+      },
+      {
+        "id": 8,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-10",
+        "price": 2500
+      },
+      {
+        "id": 9,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-11",
+        "price": 2498
+      },
+      {
+        "id": 10,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-14",
+        "price": 2499
+      },
+      {
+        "id": 11,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-15",
+        "price": 2500
+      },
+      {
+        "id": 12,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-16",
+        "price": 2501
+      },
+      {
+        "id": 13,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-17",
+        "price": 2502
+      },
+      {
+        "id": 14,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-18",
+        "price": 2503
+      },
+      {
+        "id": 15,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-21",
+        "price": 2504
+      },
+      {
+        "id": 16,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-22",
+        "price": 2505
+      },
+      {
+        "id": 17,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-23",
+        "price": 2506
+      },
+      {
+        "id": 18,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-24",
+        "price": 2507
+      },
+      {
+        "id": 19,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-25",
+        "price": 2508
+      },
+      {
+        "id": 20,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-28",
+        "price": 2509
+      },
+      {
+        "id": 21,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-29",
+        "price": 2510
+      },
+      {
+        "id": 22,
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-30",
+        "price": 2511
+      }
+    ],
+    "snapshot_history_version_1": "1_2_2026-09-01T09:00:00.000000Z",
+    "snapshot_price_generation_1": "22"
+  },
+  "requests": {
+    "market": [
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "ethereum"
+          ],
+          [
+            "currency",
+            "usd"
+          ],
+          [
+            "from",
+            "1780444800"
+          ],
+          [
+            "to",
+            "1790899200"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "ethereum"
+          ],
+          [
+            "currency",
+            "usd"
+          ],
+          [
+            "from",
+            "1780444800"
+          ],
+          [
+            "to",
+            "1790899200"
+          ]
+        ]
+      ],
+      [
+        "GET /api/v1/historical_prices",
+        [
+          [
+            "coin_id",
+            "ethereum"
+          ],
+          [
+            "currency",
+            "usd"
+          ],
+          [
+            "from",
+            "1788998400"
+          ],
+          [
+            "to",
+            "1790812800"
+          ]
+        ]
+      ]
+    ],
+    "alpaca": [],
+    "ecb": []
+  }
+}

@@ -1,0 +1,271 @@
+{
+  "parity_scratch": true,
+  "job": "sync_indices_from_coingecko_job",
+  "at": "2026-10-02T10:31:00.123456Z",
+  "env": {},
+  "script": {
+    "GET /api/v3/ping": [
+      {
+        "status": 401,
+        "body": {
+          "error": "invalid key"
+        }
+      }
+    ],
+    "GET /api/v3/coins/markets?locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd": [
+      {
+        "status": 200,
+        "body": []
+      }
+    ],
+    "GET /api/v3/coins/categories?order=market_cap_desc": [
+      {
+        "status": 200,
+        "body": [
+          {
+            "id": "stablecoins",
+            "name": "Stablecoins",
+            "content": "Pegged",
+            "market_cap": 1500000000.0,
+            "market_cap_change_24h": 1.25
+          },
+          {
+            "id": "payments",
+            "name": "Payments (PAY)",
+            "content": "Payment coins",
+            "market_cap": 1500000000.0,
+            "market_cap_change_24h": 1.25
+          },
+          {
+            "id": "music",
+            "name": "Music",
+            "content": "Music coins",
+            "market_cap": 1500000000.0,
+            "market_cap_change_24h": 1.25
+          },
+          {
+            "id": "pump-fun",
+            "name": "Pump.fun Ecosystem",
+            "content": "Launched on pump.fun",
+            "market_cap": 1500000000.0,
+            "market_cap_change_24h": 1.25
+          },
+          {
+            "id": "launchpad",
+            "name": "Launchpad",
+            "content": "",
+            "market_cap": 1500000000.0,
+            "market_cap_change_24h": 1.25
+          },
+          {
+            "id": "meme-token",
+            "name": "Meme (MEME)",
+            "content": "Memes",
+            "market_cap": 1500000000.0,
+            "market_cap_change_24h": 1.25
+          }
+        ]
+      }
+    ],
+    "GET /api/v3/coins/markets?category=payments&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd": [
+      {
+        "status": 200,
+        "body": [
+          {
+            "id": "coin-01",
+            "symbol": "coin-01",
+            "name": "COIN-01",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-01.png",
+            "current_price": 1.5,
+            "market_cap": 9000000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "coin-02",
+            "symbol": "coin-02",
+            "name": "COIN-02",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-02.png",
+            "current_price": 1.5,
+            "market_cap": 8900000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "coin-03",
+            "symbol": "coin-03",
+            "name": "COIN-03",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-03.png",
+            "current_price": 1.5,
+            "market_cap": 8800000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "coin-04",
+            "symbol": "coin-04",
+            "name": "COIN-04",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-04.png",
+            "current_price": 1.5,
+            "market_cap": 8700000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "coin-05",
+            "symbol": "coin-05",
+            "name": "COIN-05",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-05.png",
+            "current_price": 1.5,
+            "market_cap": 8600000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "coin-06",
+            "symbol": "coin-06",
+            "name": "COIN-06",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-06.png",
+            "current_price": 1.5,
+            "market_cap": 8500000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "coin-07",
+            "symbol": "coin-07",
+            "name": "COIN-07",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-07.png",
+            "current_price": 1.5,
+            "market_cap": 8400000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "coin-08",
+            "symbol": "coin-08",
+            "name": "COIN-08",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-08.png",
+            "current_price": 1.5,
+            "market_cap": 8300000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "coin-09",
+            "symbol": "coin-09",
+            "name": "COIN-09",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-09.png",
+            "current_price": 1.5,
+            "market_cap": 8200000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "coin-10",
+            "symbol": "coin-10",
+            "name": "COIN-10",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-10.png",
+            "current_price": 1.5,
+            "market_cap": 8100000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "coin-11",
+            "symbol": "coin-11",
+            "name": "COIN-11",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-11.png",
+            "current_price": 1.5,
+            "market_cap": 8000000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "coin-12",
+            "symbol": "coin-12",
+            "name": "COIN-12",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-12.png",
+            "current_price": 1.5,
+            "market_cap": 7900000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "not-an-asset",
+            "symbol": "not-an-asset",
+            "name": "NOT-AN-ASSET",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/not-an-asset.png",
+            "current_price": 1.5,
+            "market_cap": 7800000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "coin-01",
+            "symbol": "coin-01",
+            "name": "COIN-01",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/coin-01.png",
+            "current_price": 1.5,
+            "market_cap": 7700000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          }
+        ]
+      }
+    ],
+    "GET /api/v3/coins/markets?category=music&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd": [
+      {
+        "status": 429,
+        "body": {
+          "status": {
+            "error_code": 429
+          }
+        }
+      }
+    ],
+    "GET /api/v3/coins/markets?category=pump-fun&locale=en&order=market_cap_desc&page=1&per_page=250&precision=full&sparkline=false&vs_currency=usd": [
+      {
+        "status": 200,
+        "body": [
+          {
+            "id": "unlisted-u1",
+            "symbol": "unlisted-u1",
+            "name": "UNLISTED-U1",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/unlisted-u1.png",
+            "current_price": 1.5,
+            "market_cap": 9000000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "unlisted-u2",
+            "symbol": "unlisted-u2",
+            "name": "UNLISTED-U2",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/unlisted-u2.png",
+            "current_price": 1.5,
+            "market_cap": 8900000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          },
+          {
+            "id": "unlisted-u3",
+            "symbol": "unlisted-u3",
+            "name": "UNLISTED-U3",
+            "image": "https://coin-images.coingecko.com/coins/images/1/large/unlisted-u3.png",
+            "current_price": 1.5,
+            "market_cap": 8800000000.0,
+            "market_cap_rank": 42,
+            "circulating_supply": 1000000.25
+          }
+        ]
+      }
+    ]
+  },
+  "raises": false,
+  "asset": null,
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  }
+}

@@ -1,0 +1,285 @@
+{
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  },
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T10:00:00.623456Z",
+  "venue": "kucoin",
+  "script": {
+    "kucoin": {
+      "POST /api/v1/orders": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c1"
+            }
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c2"
+            }
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c3"
+            }
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c4"
+            }
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c5"
+            }
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "orderId": "6716f0a2c1b6d10007a3b1c6"
+            }
+          }
+        }
+      ],
+      "GET /api/v1/accounts": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": [
+              {
+                "id": "q",
+                "currency": "USDC",
+                "type": "trade",
+                "balance": "100000",
+                "available": "100000",
+                "holds": "0"
+              }
+            ]
+          }
+        }
+      ],
+      "GET /api/v1/fills": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "currentPage": 1,
+              "pageSize": 500,
+              "totalNum": 0,
+              "totalPage": 0,
+              "items": []
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/orderbook/level2_20?symbol=BTC-USDC": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "64001.05",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "64001.12",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/orderbook/level2_20?symbol=ETH-USDC": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "2500.6",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "2500.71",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/orderbook/level2_20?symbol=USDT-USDC": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "0.9998",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "0.9999",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/orderbook/level2_20?symbol=SOL-USDC": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "150.12",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "150.13",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/orderbook/level2_20?symbol=ADA-USDC": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "0.4501",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "0.4502",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/orderbook/level2_20?symbol=AVAX-USDC": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "sequence": "1",
+              "bids": [
+                [
+                  "27.01",
+                  "1.5"
+                ]
+              ],
+              "asks": [
+                [
+                  "27.02",
+                  "0.2"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /api/v1/market/allTickers": [
+        {
+          "status": 200,
+          "body": {
+            "code": "200000",
+            "data": {
+              "time": 1788000000000,
+              "ticker": [
+                {
+                  "symbol": "BTC-USDC",
+                  "last": "64001.05"
+                },
+                {
+                  "symbol": "ETH-USDC",
+                  "last": "2500.6"
+                },
+                {
+                  "symbol": "USDT-USDC",
+                  "last": "0.9998"
+                },
+                {
+                  "symbol": "SOL-USDC",
+                  "last": "150.12"
+                },
+                {
+                  "symbol": "ADA-USDC",
+                  "last": "0.4501"
+                },
+                {
+                  "symbol": "AVAX-USDC",
+                  "last": "27.01"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": true
+}

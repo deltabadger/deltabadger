@@ -1,0 +1,77 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:30:00.750000Z",
+      "gemini": {
+        "POST /v1/balances": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "type": "exchange",
+                "currency": "BTC",
+                "amount": "0.6",
+                "available": "0.5",
+                "availableForWithdrawal": "0.5"
+              },
+              {
+                "type": "exchange",
+                "currency": "eth",
+                "amount": "2",
+                "available": "2",
+                "availableForWithdrawal": "2"
+              },
+              {
+                "type": "exchange",
+                "currency": "USD",
+                "amount": "100.5",
+                "available": "100.5",
+                "availableForWithdrawal": "100.5"
+              },
+              {
+                "type": "exchange",
+                "currency": "GUSD",
+                "amount": "3",
+                "available": "3",
+                "availableForWithdrawal": "3"
+              },
+              {
+                "type": "exchange",
+                "currency": "DOGE",
+                "amount": "0",
+                "available": "0",
+                "availableForWithdrawal": "0"
+              }
+            ]
+          }
+        ]
+      },
+      "market": {
+        "GET /api/v1/prices": [
+          {
+            "status": 200,
+            "body": {
+              "data": {
+                "bitcoin": {
+                  "usd": 60000.5
+                },
+                "ethereum": {
+                  "usd": 2500.25
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

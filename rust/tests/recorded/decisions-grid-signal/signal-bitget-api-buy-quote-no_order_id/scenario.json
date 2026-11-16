@@ -1,0 +1,104 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-01T14:00:01.250000Z",
+  "venue": "bitget",
+  "script": {
+    "bitget": {
+      "GET /api/v2/spot/market/orderbook": [
+        {
+          "status": 200,
+          "body": {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1788000000000,
+            "data": {
+              "asks": [
+                [
+                  "64001.37",
+                  "0.2"
+                ]
+              ],
+              "bids": [
+                [
+                  "64000",
+                  "1.5"
+                ]
+              ],
+              "ts": "1788000000000"
+            }
+          }
+        }
+      ],
+      "GET /api/v2/spot/market/tickers": [
+        {
+          "status": 200,
+          "body": {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1788000000000,
+            "data": [
+              {
+                "symbol": "BTCUSDT",
+                "high24h": "65000",
+                "open": "63000",
+                "lastPr": "64000.12",
+                "low24h": "62000",
+                "bidPr": "64000.12",
+                "askPr": "64000.12",
+                "ts": "1788000000000"
+              }
+            ]
+          }
+        }
+      ],
+      "POST /api/v2/spot/trade/place-order": [
+        {
+          "status": 200,
+          "body": {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1788000000000,
+            "data": {}
+          }
+        }
+      ],
+      "GET /api/v2/spot/account/assets": [
+        {
+          "status": 200,
+          "body": {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1788000000000,
+            "data": [
+              {
+                "coin": "BTC",
+                "available": "0.5",
+                "frozen": "0.1",
+                "locked": "0",
+                "limitAvailable": "0",
+                "uTime": "1788000000000"
+              },
+              {
+                "coin": "USDT",
+                "available": "10000",
+                "frozen": "500",
+                "locked": "0",
+                "limitAvailable": "0",
+                "uTime": "1788000000000"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "api": [
+    {
+      "side": "buy",
+      "amount": "100",
+      "amount_type": "quote"
+    }
+  ]
+}

@@ -1,0 +1,1304 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "GET /api/v2/spot/trade/fills",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1782180000249"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1530230400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1522540800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1530230400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1522540800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1537920000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1530230400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1537920000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1530230400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1545609600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1537920000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1545609600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1537920000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1553299200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1545609600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1553299200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1545609600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1560988800000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1553299200000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1560988800000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1553299200000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1568678400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1560988800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1568678400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1560988800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1576368000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1568678400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1576368000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1568678400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1584057600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1576368000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1584057600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1576368000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1591747200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1584057600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1591747200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1584057600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1599436800000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1591747200000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1599436800000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1591747200000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1607126400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1599436800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1607126400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1599436800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1614816000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1607126400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1614816000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1607126400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1622505600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1614816000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1622505600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1614816000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1630195200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1622505600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1630195200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1622505600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1637884800000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1630195200000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1637884800000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1630195200000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1645574400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1637884800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1645574400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1637884800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1653264000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1645574400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1653264000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1645574400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1660953600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1653264000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1660953600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1653264000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1668643200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1660953600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1668643200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1660953600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1676332800000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1668643200000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1676332800000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1668643200000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1684022400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1676332800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1684022400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1676332800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1691712000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1684022400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1691712000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1684022400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1699401600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1691712000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1699401600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1691712000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1707091200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1699401600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1707091200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1699401600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1714780800000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1707091200000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1714780800000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1707091200000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1722470400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1714780800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1722470400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1714780800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1730160000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1722470400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1730160000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1722470400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1737849600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1730160000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1737849600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1730160000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1745539200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1737849600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1745539200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1737849600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1753228800000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1745539200000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1753228800000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1745539200000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1760918400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1753228800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1760918400000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1753228800000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1768608000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1760918400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1768608000000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1760918400000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1776297600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1768608000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1776297600000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1768608000000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1783987200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1776297600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1783987200000"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1776297600000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/deposit-records",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1783987200000"
+            ]
+          ]
+        ],
+        [
+          "GET /api/v2/spot/wallet/withdrawal-records",
+          [
+            [
+              "endTime",
+              "1789869600249"
+            ],
+            [
+              "limit",
+              "100"
+            ],
+            [
+              "startTime",
+              "1783987200000"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "api_key_id": 2,
+          "base_amount": 1000,
+          "base_asset_id": 7,
+          "base_currency": "USDT",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 4,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": null,
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "orderId": "d3",
+            "tradeId": "0xd3",
+            "coin": "USDT",
+            "type": "deposit",
+            "size": "1000",
+            "status": "success",
+            "toAddress": "TXabc",
+            "dest": "on_chain",
+            "chain": "TRC20",
+            "cTime": "1789732800000",
+            "uTime": "1789732800000"
+          },
+          "transacted_at": "2026-09-18 12:00:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "deposit-d3",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"orderId\":\"d3\",\"tradeId\":\"0xd3\",\"coin\":\"USDT\",\"type\":\"deposit\",\"size\":\"1000\",\"status\":\"success\",\"toAddress\":\"TXabc\",\"dest\":\"on_chain\",\"chain\":\"TRC20\",\"cTime\":\"1789732800000\",\"uTime\":\"1789732800000\"}"
+        }
+      }
+    ],
+    "account_balances": [],
+    "api_keys": [
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": null,
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        },
+        "after": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": "2026-09-18 12:00:00",
+          "status": 1,
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1
+        }
+      }
+    ],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

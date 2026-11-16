@@ -1,0 +1,76 @@
+{
+  "sent": [
+    {
+      "symbol": "BTC/USD",
+      "side": "sell",
+      "type": "market",
+      "time_in_force": "gtc",
+      "qty": "0.001500000"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "amount": {
+            "f": "3f589374bc6a7efa"
+          },
+          "amount_exec": null,
+          "base": "BTC",
+          "base_asset_id": 1,
+          "bot_id": 1,
+          "bot_interval": "",
+          "bot_quote_amount": 0,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "error_messages": [],
+          "exchange_id": 1,
+          "external_id": "OTX-1",
+          "external_status": 0,
+          "order_type": 0,
+          "price": {
+            "f": "40ef658800000000"
+          },
+          "quote": "USD",
+          "quote_amount": {
+            "f": "40581cd2f1a9fbe7"
+          },
+          "quote_amount_exec": null,
+          "quote_asset_id": 2,
+          "side": 1,
+          "status": 0,
+          "transaction_type": "REGULAR",
+          "updated_at": "2026-09-01 14:00:01.250000"
+        }
+      }
+    ],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "api": [
+    {
+      "status": "created",
+      "code": null,
+      "message": null,
+      "data": {
+        "dry_run": false,
+        "bot_id": 1,
+        "transaction_id": 1,
+        "order_id": "OTX-1",
+        "exchange": "Alpaca",
+        "pair": "BTC/USD",
+        "side": "sell",
+        "order_type": "market",
+        "amount": "0.0015",
+        "amount_type": "base"
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

@@ -1,0 +1,80 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 1,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:30:00.750000Z",
+      "alpaca": {
+        "GET /v2/account": [
+          {
+            "status": 200,
+            "body": {
+              "id": "paper-account",
+              "account_number": "PA0000000000",
+              "status": "ACTIVE",
+              "currency": "USD",
+              "cash": "100",
+              "buying_power": "200000",
+              "non_marginable_buying_power": "100000",
+              "portfolio_value": "100000"
+            }
+          }
+        ],
+        "GET /v2/positions": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "asset_id": "asset-AAPL",
+                "symbol": "AAPL",
+                "exchange": "NASDAQ",
+                "asset_class": "us_equity",
+                "asset_marginable": true,
+                "qty": "10.5",
+                "qty_available": "10.5",
+                "avg_entry_price": "100",
+                "side": "long",
+                "market_value": "0",
+                "cost_basis": "0",
+                "current_price": "100"
+              }
+            ]
+          }
+        ],
+        "GET /v2/stocks/snapshots": [
+          {
+            "status": 200,
+            "body": {
+              "AAPL": {
+                "dailyBar": {
+                  "c": 1
+                }
+              }
+            }
+          }
+        ]
+      },
+      "market": {
+        "GET /api/v1/prices": [
+          {
+            "status": 200,
+            "body": {
+              "data": {
+                "AAPL.US": {
+                  "usd": 226.4
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

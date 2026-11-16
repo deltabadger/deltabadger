@@ -1,0 +1,308 @@
+{
+  "page_parity_scratch": true,
+  "at": "2026-09-10T12:00:30.123456Z",
+  "secret_key_base": "61a30e26004ff1e25ced6c8a0629bdcef5e7bdf90db030ffb7d5f8045d9b04d14c830dfd2fd0312fe655dcbd6f9287a4777420c0f285baf8bf8363797db44997",
+  "steps": [
+    {
+      "method": "GET",
+      "path": "/login",
+      "headers": {}
+    },
+    {
+      "method": "POST",
+      "path": "/login",
+      "form": {
+        "user[email]": "owner@example.com",
+        "user[password]": "Correct-horse-9",
+        "user[remember_me]": "0"
+      },
+      "csrf": "form",
+      "headers": {}
+    },
+    {
+      "method": "GET",
+      "path": "/bots/new",
+      "headers": {
+        "Turbo-Frame": "modal"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/bots/signals/pick_buyable_asset/new",
+      "headers": {
+        "Turbo-Frame": "modal_content"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/bots/signals/pick_buyable_asset/new?query=nv",
+      "headers": {
+        "Turbo-Frame": "asset-picker"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/bots/signals/pick_buyable_asset",
+      "form": {
+        "bots_signal[base_asset_id]": "4"
+      },
+      "csrf": "both",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/bots/signals/pick_exchange/new",
+      "headers": {
+        "Turbo-Frame": "modal_content"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/bots/signals/pick_exchange",
+      "form": {
+        "bots_signal[exchange_id]": "1"
+      },
+      "csrf": "both",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/bots/signals/add_api_key/new",
+      "headers": {
+        "Turbo-Frame": "modal_content"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/bots/signals/pick_spendable_asset/new",
+      "headers": {
+        "Turbo-Frame": "modal_content"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/bots/signals/pick_spendable_asset",
+      "form": {
+        "bots_signal[quote_asset_id]": "1"
+      },
+      "csrf": "both",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/bots/signals/confirm_settings/new",
+      "headers": {
+        "Turbo-Frame": "modal_content"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/bots/signals/confirm_settings",
+      "form": {},
+      "csrf": "header",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/bots/signals/confirm_settings/update_signal?signal_index=0",
+      "form": {
+        "direction": "buy",
+        "amount": "150",
+        "amount_type": "percentage"
+      },
+      "csrf": "header",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/bots/signals/confirm_settings/new",
+      "headers": {
+        "Turbo-Frame": "modal_content"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/bots/signals",
+      "form": {},
+      "csrf": "both",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ],
+      "action_snapshot": true,
+      "may_mutate": [
+        "bots",
+        "bot_signals",
+        "bot_activity_logs"
+      ],
+      "raw_rows": {
+        "bots": "*",
+        "bot_signals": "*"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/bots/signals/confirm_settings/update_signal?signal_index=0",
+      "form": {
+        "direction": "buy",
+        "amount": "0",
+        "amount_type": "fixed"
+      },
+      "csrf": "header",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/bots/signals",
+      "form": {},
+      "csrf": "both",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ],
+      "action_snapshot": true,
+      "may_mutate": [
+        "bots",
+        "bot_signals",
+        "bot_activity_logs"
+      ],
+      "raw_rows": {
+        "bots": "*",
+        "bot_signals": "*"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/bots/signals/confirm_settings/update_signal?signal_index=0",
+      "form": {
+        "direction": "sell",
+        "amount": "100",
+        "amount_type": "percentage"
+      },
+      "csrf": "header",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/bots/signals/confirm_settings/new",
+      "headers": {
+        "Turbo-Frame": "modal_content"
+      },
+      "session": [
+        "bot_config"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/bots/signals",
+      "form": {},
+      "csrf": "both",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/login"
+      },
+      "session": [
+        "bot_config"
+      ],
+      "action_snapshot": true,
+      "may_mutate": [
+        "bots",
+        "bot_signals",
+        "bot_activity_logs"
+      ],
+      "raw_rows": {
+        "bots": "*",
+        "bot_signals": "*"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/bots/1",
+      "headers": {}
+    }
+  ],
+  "expect_users": {},
+  "jobs": {}
+}

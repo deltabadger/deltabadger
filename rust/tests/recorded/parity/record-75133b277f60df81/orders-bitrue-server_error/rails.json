@@ -1,0 +1,47 @@
+{
+  "sent": [
+    {
+      "quantity": "0.001562",
+      "recvWindow": "5000",
+      "side": "BUY",
+      "symbol": "BTCUSDT",
+      "type": "MARKET"
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Bitrue",
+        "base_asset": "BTC",
+        "quote_asset": "USDT",
+        "amount": 100,
+        "amount_type": "quote"
+      },
+      "result": {
+        "status": "upstream_failed",
+        "code": "order_failed",
+        "message": "Order failed: System abnormality",
+        "data": null
+      },
+      "mcp": {
+        "isError": true,
+        "content": [
+          {
+            "type": "text",
+            "text": "Order failed: System abnormality"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

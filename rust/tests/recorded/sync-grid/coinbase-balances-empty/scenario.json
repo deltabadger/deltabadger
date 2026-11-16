@@ -1,0 +1,37 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "balances",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "coinbase": {
+        "GET /api/v3/brokerage/key_permissions": [
+          {
+            "status": 200,
+            "body": {
+              "portfolio_uuid": "p"
+            }
+          }
+        ],
+        "GET /api/v3/brokerage/portfolios/p": [
+          {
+            "status": 200,
+            "body": {
+              "breakdown": {
+                "spot_positions": []
+              }
+            }
+          }
+        ]
+      },
+      "market": {}
+    }
+  ]
+}

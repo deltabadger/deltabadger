@@ -1,0 +1,48 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "POST /v1/mytrades",
+          [
+            [
+              "limit_trades",
+              "500"
+            ],
+            [
+              "timestamp",
+              "1789340400000"
+            ]
+          ]
+        ],
+        [
+          "POST /v2/transfers",
+          [
+            [
+              "limit_transfers",
+              "50"
+            ],
+            [
+              "timestamp",
+              "1789340400000"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [],
+    "account_balances": [],
+    "api_keys": [],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

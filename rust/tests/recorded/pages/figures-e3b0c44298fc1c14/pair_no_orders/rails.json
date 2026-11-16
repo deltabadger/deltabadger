@@ -1,0 +1,33 @@
+{
+  "bots": {
+    "1": {
+      "tile": "<div id=\"pnl_bots_dca_single_asset_1\">\n</div>\n",
+      "metrics": "<div id=\"metrics\" style=\"display: flex; flex-direction: column; gap: 1rem;\">\n    <div class=\"widget data-grid data-grid--two-columns\">\n      <div class=\"data-grid__item\" data-controller=\"tooltip\">\n  <div class=\"label\">\n    Total Invested\n  </div>\n  <div class=\"data-grid__item__value \">\n      0 <small>USD</small>\n  </div>\n</div>\n\n      <div class=\"data-grid__item\" data-controller=\"tooltip\">\n  <div class=\"label\">\n    Portfolio Value\n  </div>\n  <div class=\"data-grid__item__value \">\n      0 <small>USD</small>\n  </div>\n</div>\n\n    </div>\n\n  <div id=\"assets_metrics_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n    <table class=\"table\">\n  <thead>\n    <tr>\n      <th scope=\"col\" class=\"table__logo\"></th>\n      <th scope=\"col\"></th>\n      <th scope=\"col\">Amount</th>\n      <th scope=\"col\">Avg. Price</th>\n      <th scope=\"col\">Value</th>\n      <th scope=\"col\">P/L</th>\n      \n    </tr>\n  </thead>\n  <tbody id=\"assets_metrics_list\">\n      <tr>\n        <td colspan=\"6\" class=\"text-center text-inactive\" style=\"padding-bottom: 2rem;\">. . .</td>\n      </tr>\n  </tbody>\n</table>\n\n  </div>\n\n  \n</div>\n",
+      "chart": "<div id=\"chart\" hidden=\"hidden\">\n</div>\n"
+    }
+  },
+  "account": "<div id=\"global-pnl\"></div>",
+  "broadcasts": [
+    [
+      "user_1:bot_updates",
+      "<turbo-stream action=\"replace\" target=\"pnl_bots_dca_single_asset_1\"><template><div id=\"pnl_bots_dca_single_asset_1\">\n</div>\n</template></turbo-stream>"
+    ],
+    [
+      "Z2lkOi8vZGVsdGFiYWRnZXIvQm90czo6RGNhU2luZ2xlQXNzZXQvMQ:bot_updates",
+      "<turbo-stream action=\"replace\" target=\"metrics\"><template><div id=\"metrics\" style=\"display: flex; flex-direction: column; gap: 1rem;\">\n    <div class=\"widget data-grid data-grid--two-columns\">\n      <div class=\"data-grid__item\" data-controller=\"tooltip\">\n  <div class=\"label\">\n    Total Invested\n  </div>\n  <div class=\"data-grid__item__value \">\n      0 <small>USD</small>\n  </div>\n</div>\n\n      <div class=\"data-grid__item\" data-controller=\"tooltip\">\n  <div class=\"label\">\n    Portfolio Value\n  </div>\n  <div class=\"data-grid__item__value \">\n      0 <small>USD</small>\n  </div>\n</div>\n\n    </div>\n\n  <div id=\"assets_metrics_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n    <table class=\"table\">\n  <thead>\n    <tr>\n      <th scope=\"col\" class=\"table__logo\"></th>\n      <th scope=\"col\"></th>\n      <th scope=\"col\">Amount</th>\n      <th scope=\"col\">Avg. Price</th>\n      <th scope=\"col\">Value</th>\n      <th scope=\"col\">P/L</th>\n      \n    </tr>\n  </thead>\n  <tbody id=\"assets_metrics_list\">\n      <tr>\n        <td colspan=\"6\" class=\"text-center text-inactive\" style=\"padding-bottom: 2rem;\">. . .</td>\n      </tr>\n  </tbody>\n</table>\n\n  </div>\n\n  \n</div>\n</template></turbo-stream>"
+    ],
+    [
+      "Z2lkOi8vZGVsdGFiYWRnZXIvQm90czo6RGNhU2luZ2xlQXNzZXQvMQ:bot_updates",
+      "<turbo-stream action=\"replace\" target=\"chart\"><template><div id=\"chart\" hidden=\"hidden\">\n</div>\n</template></turbo-stream>"
+    ],
+    [
+      "user_1:bot_updates",
+      "<turbo-stream action=\"replace\" target=\"global-pnl\"><template><div id=\"global-pnl\"></div></template></turbo-stream>"
+    ]
+  ],
+  "offset": [
+    "0.0",
+    "0.0"
+  ],
+  "requests": []
+}

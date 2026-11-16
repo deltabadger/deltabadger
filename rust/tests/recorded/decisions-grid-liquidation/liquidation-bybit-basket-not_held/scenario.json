@@ -1,0 +1,129 @@
+{
+  "encryption": {
+    "primary_key": "f7e9fcdc34cde44356c1ad419f832c2b454d2b84741467b7ba19dc0a6d9ca4e6",
+    "key_derivation_salt": "031235d390c79bc7f93a42ff4a62c04ca31cec950333133815cd4d1b41f8951c"
+  },
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-02T10:00:01.123456Z",
+  "venue": "bybit",
+  "script": {
+    "bybit": {
+      "GET /v5/market/orderbook": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "a": [
+                [
+                  "64001.37",
+                  "1"
+                ]
+              ],
+              "b": [
+                [
+                  "64000",
+                  "1"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "GET /v5/market/tickers": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "list": [
+                {
+                  "symbol": "BTCUSDT",
+                  "lastPrice": "64000.12"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "POST /v5/order/create": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "orderId": "123"
+            }
+          }
+        }
+      ],
+      "GET /v5/account/wallet-balance": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "list": [
+                {
+                  "coin": [
+                    {
+                      "coin": "USDT",
+                      "walletBalance": "100000",
+                      "locked": "0",
+                      "spotBorrow": "0"
+                    },
+                    {
+                      "coin": "BTC",
+                      "walletBalance": "0.5",
+                      "locked": "0",
+                      "spotBorrow": "0"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "GET /v5/order/realtime": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "list": []
+            }
+          }
+        }
+      ],
+      "GET /v5/order/history": [
+        {
+          "status": 200,
+          "body": {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+              "list": []
+            }
+          }
+        }
+      ]
+    }
+  },
+  "tick": false,
+  "liquidation": {
+    "at": "2026-09-02T10:00:01.123456Z",
+    "holdings": [
+      [
+        "OLD",
+        1
+      ]
+    ]
+  }
+}

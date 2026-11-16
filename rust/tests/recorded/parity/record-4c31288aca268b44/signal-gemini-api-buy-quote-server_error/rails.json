@@ -1,0 +1,120 @@
+{
+  "sent": [
+    {
+      "symbol": "btcusd",
+      "amount": "0.00154702",
+      "price": "64640.11",
+      "side": "buy",
+      "type": "exchange limit",
+      "options": [
+        "immediate-or-cancel"
+      ]
+    }
+  ],
+  "changes": {
+    "bots": [
+      {
+        "id": 1,
+        "before": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:45.694198",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "Bitcoin",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "base_asset_id": 1,
+            "quote_asset_id": 2
+          },
+          "settings_changed_at": "2026-11-16 07:47:45.693969",
+          "started_at": "2026-08-25 09:00:00.123456",
+          "status": 1,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {},
+          "type": "Bots::Signal",
+          "updated_at": "2026-11-16 07:47:45.694198",
+          "user_id": 1
+        },
+        "after": {
+          "id": 1,
+          "account_balance": 0,
+          "created_at": "2026-11-16 07:47:45.694198",
+          "current_delay": 0,
+          "delay": 0,
+          "exchange_id": 1,
+          "fetch_restarts": 0,
+          "label": "Bitcoin",
+          "last_end_of_funds_notification": null,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restarts": 0,
+          "restatement_generation": 0,
+          "settings": {
+            "base_asset_id": 1,
+            "quote_asset_id": 2
+          },
+          "settings_changed_at": "2026-11-16 07:47:45.693969",
+          "started_at": "2026-08-25 09:00:00.123456",
+          "status": 1,
+          "stop_message_key": null,
+          "stopped_at": null,
+          "transient_data": {
+            "signal_placement_unresolved": {
+              "id": "84ba00d5-7ae9-4b03-99bd-d2b2e5b80197",
+              "at": "2026-09-01T14:00:01Z",
+              "side": "buy",
+              "error": "{\"result\":\"error\",\"reason\":\"System\",\"message\":\"We are experiencing technical issues\"}"
+            }
+          },
+          "type": "Bots::Signal",
+          "updated_at": "2026-11-16 07:47:45.694198",
+          "user_id": 1
+        }
+      }
+    ],
+    "transactions": [],
+    "bot_activity_logs": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "bot_id": 1,
+          "created_at": "2026-09-01 14:00:01.250000",
+          "details": {
+            "base": "BTC",
+            "quote": "USD",
+            "amount": "0.0015470270703437849966530069333112",
+            "quote_amount": "100.0",
+            "price": "64640.11",
+            "error": "{\"result\":\"error\",\"reason\":\"System\",\"message\":\"We are experiencing technical issues\"}"
+          },
+          "event": "placement_ambiguous",
+          "level": 1,
+          "message": null
+        }
+      }
+    ],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "api": [
+    {
+      "status": "upstream_failed",
+      "code": "placement_ambiguous",
+      "message": "The order may or may not have been placed: {\"result\":\"error\",\"reason\":\"System\",\"message\":\"We are experiencing technical issues\"}. Check Gemini before sending it again.",
+      "data": null
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

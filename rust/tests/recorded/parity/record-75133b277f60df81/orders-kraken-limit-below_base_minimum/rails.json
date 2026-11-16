@@ -1,0 +1,38 @@
+{
+  "sent": [],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Kraken",
+        "base_asset": "BTC",
+        "quote_asset": "EUR",
+        "amount": 4e-05,
+        "amount_type": "base",
+        "price": 49000
+      },
+      "result": {
+        "status": "upstream_failed",
+        "code": "order_failed",
+        "message": "Order failed: Limit order of 0.00004 XBT is below the minimum of 0.00005 XBT for XBTEUR",
+        "data": null
+      },
+      "mcp": {
+        "isError": true,
+        "content": [
+          {
+            "type": "text",
+            "text": "Order failed: Limit order of 0.00004 XBT is below the minimum of 0.00005 XBT for XBTEUR"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "bots": {
+    "1": {
+      "metrics": "{\"raised\":\"NoMethodError: undefined method '*' for nil\"}",
+      "live": "{\"raised\":\"NoMethodError: undefined method '*' for nil\"}",
+      "marked": "{\"raised\":\"NoMethodError: undefined method '*' for nil\"}",
+      "cached": false,
+      "chart_cache": false,
+      "chart": null,
+      "profit_in_usd": "{\"raised\":\"NoMethodError: undefined method '*' for nil\"}"
+    }
+  },
+  "global_pnl": "{\"raised\":\"NoMethodError: undefined method '*' for nil\"}",
+  "global_pnl_snapshot": "{\"result\":null,\"loading\":true}",
+  "pnl_history": "{\"raised\":\"NoMethodError: undefined method '*' for nil\"}",
+  "denomination": "{\"currency\":\"USD\",\"rate\":\"1.0\"}",
+  "requests": [],
+  "seconds": 0.014
+}

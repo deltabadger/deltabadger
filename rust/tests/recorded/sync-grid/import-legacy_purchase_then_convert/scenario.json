@@ -1,0 +1,19 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "import",
+      "at": "2026-09-19T12:00:00.500000Z",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202609190000(UTC+0)-part1-of1.csv",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2026-08-15 10:30:00,Spot,Binance Convert,USDT,-100,\n1,2026-08-15 10:30:00,Spot,Binance Convert,BNB,0.25,\n1,2026-08-16 11:00:00,Spot,Binance Convert,ETH,-0.5,\n1,2026-08-16 11:00:00,Spot,Binance Convert,USDT,1200,\n1,2026-08-17 11:00:00,Spot,Binance Convert,USDT,-40,\n1,2026-08-17 11:00:00,Spot,Binance Convert,BNB,0.1,"
+    }
+  ]
+}

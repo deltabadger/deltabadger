@@ -1,0 +1,12 @@
+[
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream"
+    }
+  }
+]

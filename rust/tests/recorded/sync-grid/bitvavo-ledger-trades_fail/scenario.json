@@ -1,0 +1,94 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "bitvavo": {
+        "GET /v2/depositHistory": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "timestamp": 1789732800000,
+                "symbol": "EUR",
+                "amount": "1000",
+                "fee": "0",
+                "status": "completed"
+              },
+              {
+                "timestamp": 1789603200000,
+                "symbol": "BTC",
+                "amount": "0.01",
+                "fee": "0",
+                "txId": "0xd2"
+              },
+              {
+                "timestamp": 1789516800000,
+                "symbol": "ETH",
+                "amount": "2",
+                "fee": "0",
+                "status": "pending",
+                "txId": "0xd3"
+              },
+              {
+                "timestamp": 1789520400000,
+                "symbol": "EUR",
+                "amount": "50",
+                "fee": "0.5",
+                "status": "completed"
+              }
+            ]
+          }
+        ],
+        "GET /v2/withdrawalHistory": [
+          {
+            "status": 200,
+            "body": []
+          }
+        ],
+        "GET /v2/balance": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTC",
+                "available": "1",
+                "inOrder": "0"
+              }
+            ]
+          }
+        ],
+        "GET /v2/markets": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "market": "BTC-EUR",
+                "status": "trading",
+                "base": "BTC",
+                "quote": "EUR"
+              }
+            ]
+          }
+        ],
+        "GET /v2/trades": [
+          {
+            "status": 500,
+            "body": {
+              "errorCode": 101,
+              "error": "Unknown server error."
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

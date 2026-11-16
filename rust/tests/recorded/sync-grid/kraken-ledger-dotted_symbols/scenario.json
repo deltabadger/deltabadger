@@ -1,0 +1,211 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "ledger",
+      "at": "2026-09-20T02:00:00.250000Z",
+      "kraken": {
+        "POST /0/private/Ledgers?ofs=0&start=1789340400": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LZ1": {
+                    "refid": "Z1",
+                    "time": 1789538400,
+                    "type": "staking",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "DOT.S",
+                    "amount": "0.2500000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LZ2": {
+                    "refid": "Z2",
+                    "time": 1789542000,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XXDG",
+                    "amount": "100.00000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LZ3": {
+                    "refid": "Z3",
+                    "time": 1789545600,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XLTC",
+                    "amount": "2.0000000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LZ4": {
+                    "refid": "Z4",
+                    "time": 1789549200,
+                    "type": "reward",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XBT.M",
+                    "amount": "0.0001000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LZ5": {
+                    "refid": "Z5",
+                    "time": 1789552800,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "SOL.T",
+                    "amount": "3.0000000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LZ6": {
+                    "refid": "Z6",
+                    "time": 1789556400,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "ZZZ",
+                    "amount": "9.0000000000",
+                    "fee": "0",
+                    "balance": "0"
+                  }
+                },
+                "count": 6
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?start=1789340400&with_cursor=true": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LZ1": {
+                    "refid": "Z1",
+                    "time": 1789538400,
+                    "type": "staking",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "DOT.S",
+                    "amount": "0.2500000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LZ2": {
+                    "refid": "Z2",
+                    "time": 1789542000,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XXDG",
+                    "amount": "100.00000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LZ3": {
+                    "refid": "Z3",
+                    "time": 1789545600,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XLTC",
+                    "amount": "2.0000000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LZ4": {
+                    "refid": "Z4",
+                    "time": 1789549200,
+                    "type": "reward",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "XBT.M",
+                    "amount": "0.0001000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LZ5": {
+                    "refid": "Z5",
+                    "time": 1789552800,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "SOL.T",
+                    "amount": "3.0000000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LZ6": {
+                    "refid": "Z6",
+                    "time": 1789556400,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "currency",
+                    "asset": "ZZZ",
+                    "amount": "9.0000000000",
+                    "fee": "0",
+                    "balance": "0"
+                  }
+                },
+                "count": null
+              }
+            }
+          }
+        ],
+        "POST /0/private/Ledgers?aclass=tokenized_asset&start=1789340400&with_cursor=true": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ledger": {
+                  "LZ7": {
+                    "refid": "Z7",
+                    "time": 1789560000,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "tokenized_asset",
+                    "asset": "BRK.Bx",
+                    "amount": "4.0000000000",
+                    "fee": "0",
+                    "balance": "0"
+                  },
+                  "LZ8": {
+                    "refid": "Z8",
+                    "time": 1789563600,
+                    "type": "deposit",
+                    "subtype": "",
+                    "aclass": "tokenized_asset",
+                    "asset": "NVDASPV",
+                    "amount": "2.0000000000",
+                    "fee": "0",
+                    "balance": "0"
+                  }
+                },
+                "count": null
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

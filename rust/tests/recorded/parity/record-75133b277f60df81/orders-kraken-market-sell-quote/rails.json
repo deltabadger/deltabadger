@@ -1,0 +1,35 @@
+{
+  "sent": [],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Kraken",
+        "base_asset": "BTC",
+        "quote_asset": "EUR",
+        "amount": 100,
+        "amount_type": "quote"
+      },
+      "raised": {
+        "class": "RuntimeError",
+        "message": "Kraken does not support market sell orders in quote currency"
+      },
+      "mcp": {
+        "isError": true,
+        "content": [
+          {
+            "type": "text",
+            "text": "Kraken does not support market sell orders in quote currency"
+          }
+        ]
+      }
+    }
+  ]
+}

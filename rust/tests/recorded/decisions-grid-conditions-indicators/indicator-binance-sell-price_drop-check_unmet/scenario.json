@@ -1,0 +1,115 @@
+{
+  "parity_scratch": true,
+  "bot_id": 1,
+  "at": "2026-09-02T10:00:01.123456Z",
+  "venue": "binance",
+  "script": {
+    "binance": {
+      "GET /api/v3/ticker/bookTicker": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "bidPrice": "64000.10000000",
+            "bidQty": "1.5",
+            "askPrice": "64000.11000000",
+            "askQty": "0.2"
+          }
+        }
+      ],
+      "POST /api/v3/order": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "orderId": 28457,
+            "orderListId": -1,
+            "clientOrderId": "x",
+            "transactTime": 1788000000000
+          }
+        }
+      ],
+      "GET /api/v3/account": [
+        {
+          "status": 200,
+          "body": {
+            "makerCommission": 10,
+            "canTrade": true,
+            "balances": [
+              {
+                "asset": "BTC",
+                "free": "0.5",
+                "locked": "0.1"
+              },
+              {
+                "asset": "USDT",
+                "free": "100000.00000000",
+                "locked": "0"
+              }
+            ]
+          }
+        }
+      ],
+      "GET /api/v3/allOrders": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "GET /api/v3/myTrades": [
+        {
+          "status": 200,
+          "body": []
+        }
+      ],
+      "GET /api/v3/ticker/price": [
+        {
+          "status": 200,
+          "body": {
+            "symbol": "BTCUSDT",
+            "price": "64000.05"
+          }
+        }
+      ],
+      "GET /api/v3/klines": [
+        {
+          "status": 200,
+          "body": [
+            [
+              1788342901000,
+              "128000.1",
+              "128000.1",
+              "128000.1",
+              "128000.1",
+              "1.5",
+              1788429300999,
+              "1",
+              10,
+              "1",
+              "1",
+              "0"
+            ],
+            [
+              1788343201000,
+              "128000.1",
+              "128000.1",
+              "128000.1",
+              "128000.1",
+              "1.5",
+              1788429600999,
+              "1",
+              10,
+              "1",
+              "1",
+              "0"
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "tick": true,
+  "check_at": "2026-09-02T10:03:01.123456Z",
+  "conditions": true,
+  "check_job": "Bot::PriceDropLimitCheckJob"
+}

@@ -1,0 +1,44 @@
+[
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"m2\",\"version\":\"1\"}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream"
+    },
+    "sql": [
+      "UPDATE connected_clients SET mcp_tools='[\"stop_bot\",\"archive_bot\",\"unarchive_bot\",\"delete_bot\",\"update_bot_settings\",\"start_bot\",\"market_buy\",\"market_sell\",\"limit_buy\",\"limit_sell\",\"cancel_order\"]'",
+      "UPDATE users SET mcp_settings=json_set(mcp_settings,'$.tool_permissions.market_buy',json('true'),'$.tool_permissions.market_sell',json('true'),'$.tool_permissions.limit_buy',json('true'),'$.tool_permissions.limit_sell',json('true'),'$.tool_permissions.cancel_order',json('true'))",
+      "INSERT INTO bots (id,type,user_id,exchange_id,status,label,settings,transient_data,started_at,created_at,updated_at) VALUES (3,'Bots::Signal',(SELECT id FROM users WHERE email='owner@example.com'),(SELECT id FROM exchanges WHERE name='Alpaca'),1,'Signal 3',json_object('base_asset_id',(SELECT id FROM assets WHERE symbol='QQQM'),'quote_asset_id',(SELECT id FROM assets WHERE symbol='USD')),'{}','2026-09-09 12:00:00','2026-01-01 00:00:00','2026-01-01 00:00:00')",
+      "INSERT INTO bots (id,type,user_id,exchange_id,status,label,settings,transient_data,started_at,created_at,updated_at) VALUES (4,'Bots::Signal',(SELECT id FROM users WHERE email='owner@example.com'),(SELECT id FROM exchanges WHERE name='Alpaca'),2,'Signal 4',json_object('base_asset_id',(SELECT id FROM assets WHERE symbol='QQQM'),'quote_asset_id',(SELECT id FROM assets WHERE symbol='USD')),'{}','2026-09-09 12:00:00','2026-01-01 00:00:00','2026-01-01 00:00:00')",
+      "INSERT INTO bots (id,type,user_id,exchange_id,status,label,settings,transient_data,started_at,created_at,updated_at) VALUES (5,'Bots::Signal',(SELECT id FROM users WHERE email='owner@example.com'),(SELECT id FROM exchanges WHERE name='Alpaca'),1,'Signal 5',json_object('base_asset_id',(SELECT id FROM assets WHERE symbol='QQQM'),'quote_asset_id',(SELECT id FROM assets WHERE symbol='USD')),'{\"signal_placement_unresolved\":{\"id\":\"marker-1\",\"at\":\"2026-09-10T11:00:00Z\",\"side\":\"buy\",\"error\":\"timeout\"}}','2026-09-09 12:00:00','2026-01-01 00:00:00','2026-01-01 00:00:00')",
+      "INSERT INTO transactions (id,bot_id,exchange_id,base_asset_id,quote_asset_id,status,external_status,side,order_type,transaction_type,amount,price,external_id,base,quote,created_at,updated_at) VALUES (1,1,(SELECT id FROM exchanges WHERE name='Alpaca'),(SELECT id FROM assets WHERE symbol='QQQM'),(SELECT id FROM assets WHERE symbol='USD'),0,1,0,1,'REGULAR',0.12247,408.25,'venue-open-1','QQQM','USD','2026-09-10 11:00:00','2026-09-10 11:00:00')",
+      "INSERT INTO transactions (id,bot_id,exchange_id,base_asset_id,quote_asset_id,status,external_status,side,order_type,transaction_type,amount,price,external_id,base,quote,created_at,updated_at) VALUES (2,1,(SELECT id FROM exchanges WHERE name='Alpaca'),(SELECT id FROM assets WHERE symbol='QQQM'),(SELECT id FROM assets WHERE symbol='USD'),0,1,1,1,'REGULAR',0.12247,408.25,'imported_venue-2','QQQM','USD','2026-09-10 11:00:00','2026-09-10 11:00:00')",
+      "UPDATE users SET mcp_settings=json_set(mcp_settings,'$.dry_run',json('true')) WHERE email='owner@example.com'"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/mcp",
+    "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"cancel_order\",\"arguments\":{\"order_id\":\"venue-9\",\"exchange_name\":\"alpaca\"}}}",
+    "headers": {
+      "Authorization": "Bearer m2-token",
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Mcp-Session-Id": "$session"
+    }
+  }
+]

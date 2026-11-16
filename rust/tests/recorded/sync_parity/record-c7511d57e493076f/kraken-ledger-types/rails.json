@@ -1,0 +1,1011 @@
+{
+  "reading": [
+    1,
+    2
+  ],
+  "steps": [
+    {
+      "requests": [
+        [
+          "POST /0/private/Ledgers",
+          [
+            [
+              "ofs",
+              "0"
+            ],
+            [
+              "start",
+              "1789340400"
+            ]
+          ]
+        ],
+        [
+          "POST /0/private/Ledgers",
+          [
+            [
+              "ofs",
+              "50"
+            ],
+            [
+              "start",
+              "1789340400"
+            ]
+          ]
+        ]
+      ],
+      "raised": false,
+      "generations": []
+    }
+  ],
+  "splits_read": 0,
+  "changes": {
+    "account_transactions": [
+      {
+        "id": 1,
+        "before": null,
+        "after": {
+          "id": 1,
+          "api_key_id": 2,
+          "base_amount": 1,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 0,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3f847ae147ae147b"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y1",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y1",
+            "time": 1789516860,
+            "type": "trade",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "1",
+            "fee": "0.01",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:01:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY1",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y1\",\"time\":1789516860,\"type\":\"trade\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"1\",\"fee\":\"0.01\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 2,
+        "before": null,
+        "after": {
+          "id": 2,
+          "api_key_id": 2,
+          "base_amount": 1,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 0,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": "Y6",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y6",
+            "time": 1789517160,
+            "type": "trade",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "1",
+            "fee": "-0.01",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:06:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY6",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y6\",\"time\":1789517160,\"type\":\"trade\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"1\",\"fee\":\"-0.01\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 3,
+        "before": null,
+        "after": {
+          "id": 3,
+          "api_key_id": 2,
+          "base_amount": 1,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 1,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": "Y7",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y7",
+            "time": 1789517220,
+            "type": "trade",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "-1",
+            "fee": "-0.01",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:07:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY7",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y7\",\"time\":1789517220,\"type\":\"trade\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"-1\",\"fee\":\"-0.01\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 4,
+        "before": null,
+        "after": {
+          "id": 4,
+          "api_key_id": 2,
+          "base_amount": 0,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 1,
+          "exchange_id": 2,
+          "fee_amount": null,
+          "fee_currency": null,
+          "group_id": "Y8",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y8",
+            "time": 1789517280,
+            "type": "trade",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "0",
+            "fee": "-0.01",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:08:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY8",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y8\",\"time\":1789517280,\"type\":\"trade\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"0\",\"fee\":\"-0.01\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 5,
+        "before": null,
+        "after": {
+          "id": 5,
+          "api_key_id": 2,
+          "base_amount": 2,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 4,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y9",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y9",
+            "time": 1789517340,
+            "type": "deposit",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "2",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:09:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY9",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y9\",\"time\":1789517340,\"type\":\"deposit\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"2\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 6,
+        "before": null,
+        "after": {
+          "id": 6,
+          "api_key_id": 2,
+          "base_amount": 2,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 4,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y10",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y10",
+            "time": 1789517400,
+            "type": "deposit",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "-2",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:10:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY10",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y10\",\"time\":1789517400,\"type\":\"deposit\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"-2\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 7,
+        "before": null,
+        "after": {
+          "id": 7,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3fe0000000000000"
+          },
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 4,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y11",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y11",
+            "time": 1789517460,
+            "type": "deposit",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "0.5",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:11:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY11",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y11\",\"time\":1789517460,\"type\":\"deposit\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"0.5\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 8,
+        "before": null,
+        "after": {
+          "id": 8,
+          "api_key_id": 2,
+          "base_amount": 2,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 5,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y12",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y12",
+            "time": 1789517520,
+            "type": "withdrawal",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "2",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:12:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY12",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y12\",\"time\":1789517520,\"type\":\"withdrawal\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"2\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 9,
+        "before": null,
+        "after": {
+          "id": 9,
+          "api_key_id": 2,
+          "base_amount": 2,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 5,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y13",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y13",
+            "time": 1789517580,
+            "type": "withdrawal",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "-2",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:13:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY13",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y13\",\"time\":1789517580,\"type\":\"withdrawal\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"-2\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 10,
+        "before": null,
+        "after": {
+          "id": 10,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3fe0000000000000"
+          },
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 5,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y14",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y14",
+            "time": 1789517640,
+            "type": "withdrawal",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "0.5",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:14:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY14",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y14\",\"time\":1789517640,\"type\":\"withdrawal\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"0.5\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 11,
+        "before": null,
+        "after": {
+          "id": 11,
+          "api_key_id": 2,
+          "base_amount": 2,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 6,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y15",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y15",
+            "time": 1789517700,
+            "type": "staking",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "2",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:15:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY15",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y15\",\"time\":1789517700,\"type\":\"staking\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"2\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 12,
+        "before": null,
+        "after": {
+          "id": 12,
+          "api_key_id": 2,
+          "base_amount": 2,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 6,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y16",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y16",
+            "time": 1789517760,
+            "type": "staking",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "-2",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:16:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY16",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y16\",\"time\":1789517760,\"type\":\"staking\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"-2\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 13,
+        "before": null,
+        "after": {
+          "id": 13,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3fe0000000000000"
+          },
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 6,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y17",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y17",
+            "time": 1789517820,
+            "type": "staking",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "0.5",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:17:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY17",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y17\",\"time\":1789517820,\"type\":\"staking\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"0.5\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 14,
+        "before": null,
+        "after": {
+          "id": 14,
+          "api_key_id": 2,
+          "base_amount": 2,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 6,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y18",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y18",
+            "time": 1789517880,
+            "type": "reward",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "2",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:18:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY18",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y18\",\"time\":1789517880,\"type\":\"reward\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"2\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 15,
+        "before": null,
+        "after": {
+          "id": 15,
+          "api_key_id": 2,
+          "base_amount": 2,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 6,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y19",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y19",
+            "time": 1789517940,
+            "type": "reward",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "-2",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:19:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY19",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y19\",\"time\":1789517940,\"type\":\"reward\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"-2\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 16,
+        "before": null,
+        "after": {
+          "id": 16,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3fe0000000000000"
+          },
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 6,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y20",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y20",
+            "time": 1789518000,
+            "type": "reward",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "0.5",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:20:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY20",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y20\",\"time\":1789518000,\"type\":\"reward\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"0.5\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 17,
+        "before": null,
+        "after": {
+          "id": 17,
+          "api_key_id": 2,
+          "base_amount": 2,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y24",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y24",
+            "time": 1789518240,
+            "type": "dividend",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "2",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:24:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY24",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y24\",\"time\":1789518240,\"type\":\"dividend\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"2\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 18,
+        "before": null,
+        "after": {
+          "id": 18,
+          "api_key_id": 2,
+          "base_amount": 2,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y25",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y25",
+            "time": 1789518300,
+            "type": "dividend",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "-2",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:25:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY25",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y25\",\"time\":1789518300,\"type\":\"dividend\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"-2\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 19,
+        "before": null,
+        "after": {
+          "id": 19,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3fe0000000000000"
+          },
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 11,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y26",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y26",
+            "time": 1789518360,
+            "type": "dividend",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "0.5",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:26:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY26",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y26\",\"time\":1789518360,\"type\":\"dividend\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"0.5\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 20,
+        "before": null,
+        "after": {
+          "id": 20,
+          "api_key_id": 2,
+          "base_amount": 2,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 10,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y30",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y30",
+            "time": 1789518600,
+            "type": "creator_fee",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "2",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:30:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY30",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y30\",\"time\":1789518600,\"type\":\"creator_fee\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"2\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 21,
+        "before": null,
+        "after": {
+          "id": 21,
+          "api_key_id": 2,
+          "base_amount": 2,
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 10,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y31",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y31",
+            "time": 1789518660,
+            "type": "creator_fee",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "-2",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:31:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY31",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y31\",\"time\":1789518660,\"type\":\"creator_fee\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"-2\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      },
+      {
+        "id": 22,
+        "before": null,
+        "after": {
+          "id": 22,
+          "api_key_id": 2,
+          "base_amount": {
+            "f": "3fe0000000000000"
+          },
+          "base_asset_id": 6,
+          "base_currency": "ETH",
+          "created_at": "2026-09-20 02:00:00.250000",
+          "description": null,
+          "entry_type": 10,
+          "exchange_id": 2,
+          "fee_amount": {
+            "f": "3fe0000000000000"
+          },
+          "fee_currency": "ETH",
+          "group_id": "Y32",
+          "linked_transaction_id": null,
+          "manual_values": {},
+          "quote_amount": null,
+          "quote_currency": null,
+          "raw_data": {
+            "refid": "Y32",
+            "time": 1789518720,
+            "type": "creator_fee",
+            "subtype": "",
+            "aclass": "currency",
+            "asset": "XETH",
+            "amount": "0.5",
+            "fee": "0.5",
+            "balance": "0"
+          },
+          "transacted_at": "2026-09-16 00:32:00",
+          "transaction_id": null,
+          "transfer_link_rejected": 0,
+          "tx_id": "LY32",
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1,
+          "raw_data_text": "{\"refid\":\"Y32\",\"time\":1789518720,\"type\":\"creator_fee\",\"subtype\":\"\",\"aclass\":\"currency\",\"asset\":\"XETH\",\"amount\":\"0.5\",\"fee\":\"0.5\",\"balance\":\"0\"}"
+        }
+      }
+    ],
+    "account_balances": [],
+    "api_keys": [
+      {
+        "id": 2,
+        "before": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": "2026-09-15 00:00:00",
+          "status": 1,
+          "updated_at": "2026-09-01 09:00:00",
+          "user_id": 1
+        },
+        "after": {
+          "id": 2,
+          "balances_synced_at": null,
+          "created_at": "2026-09-01 09:00:00",
+          "exchange_id": 2,
+          "german_trading_agreement": null,
+          "ibkr_realm": null,
+          "key_type": 2,
+          "last_sync_error": null,
+          "last_synced_at": "2026-09-16 00:32:00",
+          "status": 1,
+          "updated_at": "2026-09-20 02:00:00.250000",
+          "user_id": 1
+        }
+      }
+    ],
+    "bots": [],
+    "bot_activity_logs": []
+  }
+}

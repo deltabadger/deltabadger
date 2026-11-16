@@ -1,0 +1,1 @@
+{"method":"POST","path":"/mcp","body":"{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"start_bot\",\"arguments\":{\"bot_id\":1}}}","headers":{"Authorization":"Bearer m2-token","Content-Type":"application/json","Accept":"application/json, text/event-stream","Mcp-Session-Id":"$session"},"sql":[]}

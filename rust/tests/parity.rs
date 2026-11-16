@@ -1917,7 +1917,7 @@ fn past_next_open_retried(dir: &Path, rails_out: &serde_json::Value, rust_out: &
 
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_stock_grid() -> Result<(), Box<dyn std::error::Error>> {
-    let rails_root = grid_dir("stock");
+    let rails_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
     rails(&["grid-stock", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
@@ -1973,7 +1973,7 @@ async fn rails_and_rust_decide_identically_across_the_stock_grid() -> Result<(),
 }
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_index_grid() -> Result<(), Box<dyn std::error::Error>> {
-    let rails_root = grid_dir("index");
+    let rails_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
     rails(&["grid-index", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
@@ -2272,19 +2272,6 @@ async fn rails_reads_degenerate_indicator_series_as_recorded() {
         if expected != rust { failures.push(format!("{name}: rule-off twin\nRails: {expected}\nRust: {rust}")); }
     }
     assert!(failures.is_empty(), "{} of {} degenerate scenarios differ from the recorded findings:\n{}", failures.len(), dirs.len(), failures.join("\n"));
-}
-
-struct GridDir { path: PathBuf, _temp: Option<tempfile::TempDir> }
-impl GridDir { fn path(&self) -> &Path { &self.path } }
-fn grid_dir(name: &str) -> GridDir {
-    if let Ok(root) = std::env::var("RUST_GRID_CACHE") {
-        // The source text keys the cache, so edited fixtures never reuse old results.
-        use std::hash::{Hash, Hasher};
-        let mut h=std::collections::hash_map::DefaultHasher::new();
-        include_str!("../../script/rust/decisions.rb").hash(&mut h);
-        let path=Path::new(&root).join(format!("{name}-{:x}",h.finish()));
-        std::fs::create_dir_all(&path).unwrap(); GridDir {path,_temp:None}
-    } else { let temp=tempfile::tempdir().unwrap(); GridDir {path:temp.path().into(),_temp:Some(temp)} }
 }
 
 /// Slice 7a: price_limit / sell_price_limit with `pause` on Kraken, Binance and Alpaca, buying and selling, and five smoke cases

@@ -1,0 +1,2 @@
+# PLAN-B11 B11-1: Rails' frozen answers, byte for byte on every platform; collapsed in review diffs.
+rust/tests/recorded/** -text linguist-generated

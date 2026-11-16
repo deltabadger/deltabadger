@@ -1,0 +1,18 @@
+{
+  "parity_scratch": true,
+  "user_id": 1,
+  "api_key_id": 2,
+  "credentials": {
+    "key": "PKPARITY7KEY4TEST2ID",
+    "secret": "parity-secret-Zq8fW3nL5xT1vB7mK2dR9hY4",
+    "passphrase": "paper"
+  },
+  "steps": [
+    {
+      "kind": "import",
+      "at": "2026-09-19T12:00:00.500000Z",
+      "format": "deltabadger",
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2026-08-05T10:00:00Z,buy,BTC,0.01,USDT,600,,,binance,order-591,,"
+    }
+  ]
+}

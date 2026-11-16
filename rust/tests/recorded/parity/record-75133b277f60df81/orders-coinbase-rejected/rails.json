@@ -1,0 +1,49 @@
+{
+  "sent": [
+    {
+      "product_id": "BTC-EUR",
+      "side": "BUY",
+      "order_configuration": {
+        "market_market_ioc": {
+          "quote_size": "100.0"
+        }
+      }
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Coinbase",
+        "base_asset": "BTC",
+        "quote_asset": "EUR",
+        "amount": 100,
+        "amount_type": "quote"
+      },
+      "result": {
+        "status": "upstream_failed",
+        "code": "order_failed",
+        "message": "Order failed: Insufficient balance in source account",
+        "data": null
+      },
+      "mcp": {
+        "isError": true,
+        "content": [
+          {
+            "type": "text",
+            "text": "Order failed: Insufficient balance in source account"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

@@ -1,0 +1,57 @@
+{
+  "sent": [
+    {
+      "market": "BTC-EUR",
+      "side": "sell",
+      "orderType": "market",
+      "amountQuote": "100.0",
+      "operatorId": 1
+    }
+  ],
+  "changes": {
+    "bots": [],
+    "transactions": [],
+    "bot_activity_logs": [],
+    "bot_index_assets": [],
+    "wash_sale_locks": []
+  },
+  "mails": [],
+  "orders": [
+    {
+      "args": {
+        "exchange_name": "Bitvavo",
+        "base_asset": "BTC",
+        "quote_asset": "EUR",
+        "amount": 100,
+        "amount_type": "quote"
+      },
+      "result": {
+        "status": "created",
+        "code": null,
+        "message": null,
+        "data": {
+          "dry_run": false,
+          "exchange": "Bitvavo",
+          "pair": "BTC/EUR",
+          "side": "sell",
+          "order_type": "market",
+          "amount": 100.0,
+          "amount_type": "quote",
+          "upstream": {
+            "order_id": "BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01"
+          }
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Market sell order placed on Bitvavo: 100.0 EUR of BTC/EUR. {order_id: \"BTC-EUR-0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "funds_notified": false,
+  "poll_error": null
+}

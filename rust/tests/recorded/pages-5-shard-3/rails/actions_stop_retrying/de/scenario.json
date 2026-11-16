@@ -1,0 +1,43 @@
+{
+  "page_parity_scratch": true,
+  "at": "2026-09-10T12:00:30.123456Z",
+  "secret_key_base": "61a30e26004ff1e25ced6c8a0629bdcef5e7bdf90db030ffb7d5f8045d9b04d14c830dfd2fd0312fe655dcbd6f9287a4777420c0f285baf8bf8363797db44997",
+  "steps": [
+    {
+      "method": "GET",
+      "path": "/login",
+      "headers": {}
+    },
+    {
+      "method": "POST",
+      "path": "/login",
+      "form": {
+        "user[email]": "owner@example.com",
+        "user[password]": "Correct-horse-9",
+        "user[remember_me]": "0"
+      },
+      "csrf": "form",
+      "headers": {}
+    },
+    {
+      "method": "GET",
+      "path": "/bots/2",
+      "headers": {},
+      "expect": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/de/bots/1/stop",
+      "form": {},
+      "csrf": "header",
+      "headers": {
+        "Accept": "text/vnd.turbo-stream.html, text/html, application/xhtml+xml",
+        "Origin": "http://localhost:3000",
+        "Referer": "http://localhost:3000/bots/1"
+      },
+      "action_snapshot": true
+    }
+  ],
+  "expect_users": {},
+  "jobs": {}
+}
