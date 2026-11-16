@@ -259,7 +259,7 @@ pub(super) fn card(ctx: &Ctx, rows: Vec<CardRow>, centre: Option<Dec>, empty: Op
         views.push(RowView {
             v: ctx, hidden, class, symbol: escape(&r.asset.symbol), name: escape(&r.asset.name),
             logo: super::row::asset_logo(r.asset.image.clone(), r.asset.color.clone(), r.asset.symbol.clone(), r.asset.category.clone())?,
-            kind: kind.into(), color, share: num(share.round(2))?.to_s_f(), percent: fixed(&share, 1)?, value: match &r.value { Some(v) => money(v, den)?, None => "<span class=\"no-value\">—</span>".into() },
+            kind: kind.into(), color, share: num(share.round(2))?.to_s_f(), percent: if r.value.is_some() { format!("{}%", fixed(&share, 1)?) } else { "—".into() }, value: match &r.value { Some(v) => money(v, den)?, None => "<span class=\"no-value\">—</span>".into() },
             pnl: r.percent.as_ref().map(|p| Ok::<_, WebError>((percent_text(p)?, tone(p)))).transpose()?, note: r.note.as_ref().map(|n| escape(n)),
         }.render()?);
     }

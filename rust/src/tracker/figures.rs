@@ -309,7 +309,8 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
         // A row of the symbol with no value leaves the symbol's price short of it: the whole holding is unpriced.
         let every_row_valued = rows.iter().all(|r| r.usd_value.as_ref().is_some_and(Dec::is_positive));
         if cash(&symbol) {
-            let priced = symbol == "USD" || stable(&symbol) || (price.is_some() && every_row_valued) || fx.rate(&symbol, "USD", today)?.is_some();
+            // Priced by the rate actually used: the balances' own when they have one (then every row must be valued), else ECB's.
+            let priced = symbol == "USD" || stable(&symbol) || if price.is_some() { every_row_valued } else { fx.rate(&symbol, "USD", today)?.is_some() };
             let value = if stable(&symbol) { held.clone() } else { (&held * &match &price { Some(p) => p.clone(), None => rate(&symbol, fx, today, &mut notes)? })? };
             holdings.push(Holding { asset, symbol, quantity: held, value, cost: None, cash: true, unrealised: None, note: None, priced });
             continue;
@@ -448,6 +449,8 @@ mod tests {
                    [("BTC".to_string(), false)], "one venue's row with no value");
         assert_eq!(priced(&[], &[("SOL".to_string(), Dec::one())]), [("SOL".to_string(), true)], "arrived since the sync: at cost under its own note");
         assert_eq!(priced(&[balance("EUR", "Fiat", "Kraken", None)], &[]), [("EUR".to_string(), false)], "no ECB rate: at par");
+        assert_eq!(priced(&[balance("EUR", "Fiat", "Kraken", Some("110")), balance("EUR", "Fiat", "Bitvavo", None)], &[]), [("EUR".to_string(), false)],
+                   "the balances' price leaves one row out");
         assert_eq!(priced(&[balance("USD", "Fiat", "Kraken", None), balance("USDT", "Cryptocurrency", "Kraken", None)], &[]),
                    [("USD".to_string(), true), ("USDT".to_string(), true)]);
     }

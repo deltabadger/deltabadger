@@ -20,14 +20,10 @@ pub fn banner(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, arrived
     let mut lines = String::new();
     for g in gaps.iter().filter(|g| !g.now.is_empty()) { lines.push_str(&line(ctx, "missing", &g.now, g.venue.as_deref())); }
     if chart {
-        let named: Vec<(&VenueGap, Vec<String>)> = gaps.iter().filter(|g| g.exchange_id.is_some()).map(|g| {
-            let mut all: Vec<String> = g.history.iter().chain(&g.now).cloned().collect();
-            all.sort();
-            all.dedup();
-            (g, all)
-        }).filter(|(_, all)| !all.is_empty()).collect();
+        // Named only from what the sweep recorded it could not price; any other partial day is the generic line.
+        let named: Vec<&VenueGap> = gaps.iter().filter(|g| g.exchange_id.is_some() && !g.history.is_empty()).collect();
         if named.is_empty() { lines.push_str(&format!("    <p class=\"tracker-notice__line\">{}</p>\n", ctx.t("tracker.prices.chart_incomplete"))); }
-        for (g, all) in named { lines.push_str(&line(ctx, "chart_missing", &all, g.venue.as_deref())); }
+        for g in named { lines.push_str(&line(ctx, "chart_missing", &g.history, g.venue.as_deref())); }
     }
     if lines.is_empty() { return Ok(String::new()); }
     let connect = if crate::web::bots::market_data(c, &ctx.app)?.1 { String::new() } else {
