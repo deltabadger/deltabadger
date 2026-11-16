@@ -43,6 +43,8 @@ impl<T> Watched<T> {
     pub fn new(inner: T) -> Self { Self { inner, retry: Cell::new(false) } }
     fn note(&self, answer: &Result<HttpResponse, TransportError>) {
         let again = match answer {
+            // A refusal that sends nothing (no usable key, no usable proxy) is no reason to ask again.
+            Err(TransportError::Permanent(_)) => false,
             Err(_) => true,
             Ok(r) => r.status == 429 || r.status >= 500 || ((200..300).contains(&r.status) && throttled(&r.body)),
         };
@@ -116,11 +118,12 @@ pub async fn history<T: Transport>(make: &super::venue_quotes::MakeWire<T>, db: 
         .map(|s| { let r = venue_routes::topology(&read.pairs, &usd, s.asset, ROUTES); (s, r) }).collect();
     let mut since: HashMap<i64, NaiveDate> = HashMap::new();
     for (s, rs) in &routes { for leg in rs.iter().flat_map(|r| &r.legs) { let d = since.entry(leg.pair).or_insert(s.from); *d = (*d).min(s.from); } }
+    // One clock for the sweep's fills and reads: an answer kept by an early fill is still readable at the end.
+    let at_start = Utc::now().timestamp();
     let mut cache = Cache::default();
     let mut opens: HashMap<i64, HashMap<i64, BigDec>> = HashMap::new();
     let take = |cache: &Cache, opens: &mut HashMap<i64, HashMap<i64, BigDec>>| -> Vec<HttpRequest> {
-        let now = Utc::now().timestamp();
-        let reader = Reader::new(cache, now);
+        let reader = Reader::new(cache, at_start);
         for (pair, from) in &since {
             if opens.contains_key(pair) { continue; }
             let Some(ticker) = read.tickers.get(pair) else { continue };
@@ -138,7 +141,7 @@ pub async fn history<T: Transport>(make: &super::venue_quotes::MakeWire<T>, db: 
         for _ in 0..3 {
             let demands = take(&cache, &mut opens);
             if demands.is_empty() { return; }
-            cache.fill(&wire, demands, Utc::now().timestamp()).await;
+            cache.fill(&wire, demands, at_start).await;
         }
     };
     let cut = tokio::time::timeout_at(deadline, read_all).await.is_err();
@@ -185,6 +188,9 @@ mod tests {
         assert!(!w.retry.get(), "an unknown pair and a permission refusal are permanent");
         w.note(&ok(200, r#"{"retCode":10006,"retMsg":"Too many visits!"}"#));
         assert!(w.retry.get());
+        let refused = Watched::new(());
+        refused.note(&Err(TransportError::Permanent("Market data unavailable".into())));
+        assert!(!refused.retry.get(), "a refusal that sent nothing is permanent");
         for answer in [ok(429, ""), ok(503, ""), ok(200, r#"{"error":["EAPI:Rate limit exceeded"]}"#), ok(200, r#"{"code": "429000", "msg": "Too Many Requests"}"#),
                        ok(200, r#"{ "code" : -1003 }"#), Err(TransportError::NotSent("dns".into()))] {
             let w = Watched::new(());
