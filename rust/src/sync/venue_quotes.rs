@@ -16,8 +16,10 @@ use std::future::Future;
 use std::pin::Pin;
 use std::time::Duration;
 
-/// The whole fallback, the ECB's load included, inside the balance job's deadline with room for the writes.
-pub const BUDGET: Duration = Duration::from_secs(60);
+/// The venue's reads, and the ECB's load before them: together well inside the balance job's deadline, with room for
+/// the writes. What either leaves out stays unpriced; what was priced before it ran out is kept.
+pub const BUDGET: Duration = Duration::from_secs(45);
+pub const ECB_BUDGET: Duration = Duration::from_secs(15);
 /// Requests one pass sends at most (Kraken's one-code reads past its bulk Ticker are the only venue needing many).
 const MAX_SINGLE_READS: usize = 32;
 const KRAKEN: &str = "Exchanges::Kraken";
@@ -63,8 +65,9 @@ fn log(exchange_id: i64, why: &str) { crate::engine::log(&format!("[sync] venue 
 
 fn big(d: &crate::figures::dec::Dec) -> Option<BigDec> { BigDec::parse(&d.to_s_f()).ok() }
 
-/// The pairs within `MAX_LEGS` of the wanted assets, whatever their prices: the codes to ask for.
-fn codes_near(pairs: &[Pair], from: &[i64]) -> Vec<String> {
+/// The pairs within `MAX_LEGS` of the wanted assets, whatever their prices, nearest first: the codes to ask for. A route
+/// stops at the first fiat it reaches, so the search never goes on from one (`ends`).
+fn codes_near(pairs: &[Pair], from: &[i64], ends: &HashSet<i64>) -> Vec<String> {
     let mut reached: HashSet<i64> = from.iter().copied().collect();
     let mut codes: Vec<String> = vec![];
     let mut taken: HashSet<i64> = HashSet::new();
@@ -73,7 +76,7 @@ fn codes_near(pairs: &[Pair], from: &[i64]) -> Vec<String> {
         let mut next = vec![];
         for p in pairs.iter().filter(|p| frontier.contains(&p.base) || frontier.contains(&p.quote)) {
             if taken.insert(p.id) { codes.push(p.code.clone()); }
-            for a in [p.base, p.quote] { if reached.insert(a) { next.push(a); } }
+            for a in [p.base, p.quote] { if reached.insert(a) && !ends.contains(&a) { next.push(a); } }
         }
         frontier = next;
     }
@@ -83,10 +86,7 @@ fn codes_near(pairs: &[Pair], from: &[i64]) -> Vec<String> {
 impl<T: Transport + 'static> VenueQuotes for Quotes<T> {
     fn prices<'a>(&'a self, db: &'a Db, key_id: i64, exchange_id: i64, wanted: Vec<Wanted>, now: DateTime<Utc>) -> QuotesFuture<'a> {
         Box::pin(async move {
-            match tokio::time::timeout(BUDGET, self.run(db, key_id, exchange_id, wanted, now)).await {
-                Ok(found) => found,
-                Err(_) => { log(exchange_id, "out of time"); HashMap::new() }
-            }
+            self.run(db, key_id, exchange_id, wanted, now).await
         })
     }
 }
@@ -94,7 +94,7 @@ impl<T: Transport + 'static> VenueQuotes for Quotes<T> {
 impl<T: Transport + 'static> Quotes<T> {
     async fn run(&self, db: &Db, key_id: i64, exchange_id: i64, wanted: Vec<Wanted>, now: DateTime<Utc>) -> HashMap<String, BigDec> {
         let today = now.date_naive();
-        crate::tracker::fx::ensure_loaded(db, self.ecb.as_ref(), today).await;
+        if tokio::time::timeout(ECB_BUDGET, crate::tracker::fx::ensure_loaded(db, self.ecb.as_ref(), today)).await.is_err() { log(exchange_id, "the ECB's rates out of time"); }
         let assets: Vec<i64> = wanted.iter().map(|w| w.asset).collect();
         let plan = db.run(move |c, cipher| {
             let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get(0)).map_err(|e| e.to_string())?;
@@ -117,7 +117,7 @@ impl<T: Transport + 'static> Quotes<T> {
             }
             let credentials = if exchange_type == ALPACA { Some(super::credentials(c, cipher, key_id).map_err(|e| e.0)?) } else { None };
             let venues = crate::web::figure::loading::venue_egresses(c, cipher);
-            let codes = codes_near(&pairs, &assets);
+            let codes = codes_near(&pairs, &assets, &ends.keys().copied().collect());
             Ok(Read { venue: Venue { exchange_id, exchange_type }, pairs, ends, codes, credentials, venues })
         }).await;
         let plan = match plan {
@@ -131,7 +131,11 @@ impl<T: Transport + 'static> Quotes<T> {
         }
         let routed: Vec<&Wanted> = wanted.iter().filter(|w| !found.contains_key(&w.external_id)).collect();
         if routed.is_empty() || plan.venue.exchange_type == IBKR || plan.codes.is_empty() { return found; }
-        let quotes = read_quotes(&plan, now).await;
+        // Only the venue's reads are timed here: the cash priced above is kept whatever they do.
+        let quotes = match tokio::time::timeout(BUDGET, read_quotes(&plan, now)).await {
+            Ok(quotes) => quotes,
+            Err(_) => { log(exchange_id, "out of time"); return found; }
+        };
         for w in routed {
             let pick = (1..=venue_routes::MAX_LEGS).find_map(|legs| venue_routes::candidates(&plan.pairs, &quotes, &plan.ends, w.asset, legs).into_iter()
                 .find(|c| super::balances::fits(&w.total, &c.price)));
@@ -157,6 +161,8 @@ async fn read_quotes<T: Transport>(plan: &Plan<T>, now: DateTime<Utc>) -> HashMa
                 Ok(Ok(all)) => rows = all,
                 _ if plan.venue.exchange_type == KRAKEN => {
                     for code in plan.codes.iter().filter(|c| !quotes.contains_key(*c)) {
+                        // Nearest codes first: once the pass holds its requests, the rest wait for the next pass.
+                        if reader.demands().len() >= MAX_SINGLE_READS { break; }
                         if let Ok(Ok(one)) = crate::figures::budget::within(|| Ok::<_, crate::figures::FiguresError>(reader.prices(&plan.venue, std::slice::from_ref(code)))) { rows.extend(one); }
                     }
                 }
@@ -182,6 +188,7 @@ mod tests {
     fn the_codes_asked_are_the_pairs_within_reach() {
         let pairs = [Pair { id: 1, code: "A/B".into(), base: 1, quote: 2 }, Pair { id: 2, code: "B/C".into(), base: 2, quote: 3 },
                      Pair { id: 3, code: "C/D".into(), base: 3, quote: 4 }, Pair { id: 4, code: "D/E".into(), base: 4, quote: 5 }, Pair { id: 5, code: "X/Y".into(), base: 8, quote: 9 }];
-        assert_eq!(codes_near(&pairs, &[1]), ["A/B", "B/C", "C/D"]);
+        assert_eq!(codes_near(&pairs, &[1], &HashSet::new()), ["A/B", "B/C", "C/D"]);
+        assert_eq!(codes_near(&pairs, &[1], &HashSet::from([2])), ["A/B"], "nothing past a fiat end");
     }
 }
