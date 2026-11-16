@@ -4,7 +4,11 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-pub fn rails(args: &[&str]) { if let Err(e) = try_rails(args) { panic!("{e}"); } }
+/// `decisions.rb <args>` (the last is the directory it writes to), frozen (super::freeze::step): Rails runs only in a
+/// freeze run.
+pub fn rails(args: &[&str]) { super::freeze::step(args, || live(args)) }
+
+fn live(args: &[&str]) { if let Err(e) = try_rails(args) { panic!("{e}"); } }
 
 pub fn try_rails(args: &[&str]) -> Result<(), String> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
@@ -77,11 +81,11 @@ fn native_state(pid: u32) -> String {
     out
 }
 
-/// `command`'s grid, as `rails(&[command, into])` builds it: built once per test run (super::run_template), and
-/// copied into `into` for every test that asks.
+/// `command`'s grid, as `rails(&[command, into])` builds it: frozen (super::frozen), and copied into `into` for every
+/// test that asks.
 pub fn built_grid(command: &str, into: &Path) {
-    let template = super::run_template(&format!("decisions-{command}"), super::has_subdirs,
-        |out| rails(&[command, out.to_str().unwrap()]));
+    let template = super::frozen(&format!("decisions-{command}"), super::has_subdirs,
+        |out| live(&[command, out.to_str().unwrap()]));
     super::copy_tree(&template, into);
 }
 

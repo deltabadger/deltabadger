@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""PLAN-B11 B11-1: record Rails' answers once into rust/tests/recorded/, the Rust tests' expected values from then on.
+
+  script/rust/freeze                 run the whole suite with B11_FREEZE=1 in a clean export of the working tree
+                                     (repin's export: no .env, an empty recorded/) and replace rust/tests/recorded/
+                                     with what it recorded
+  script/rust/freeze --into DIR      the same, but leave the recording in DIR (a second run, for --compare)
+  script/rust/freeze --compare A B   exit 1 unless the recordings A and B are equal, apart from rust/tests/recorded/MASK
+
+CARGO names the cargo to run (default `cargo`; on the Mac, cargo-locked.sh). Extra nextest arguments go after `--`.
+"""
+import hashlib, importlib.machinery, importlib.util, json, os, re, shutil, subprocess, sys, tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+loader = importlib.machinery.SourceFileLoader('repin', os.path.join(HERE, 'repin'))
+repin = importlib.util.module_from_spec(importlib.util.spec_from_loader('repin', loader))
+loader.exec_module(repin)
+ROOT, RECORDED = repin.ROOT, 'rust/tests/recorded'
+HAND_WRITTEN = ('MASK', 'README.md')
+
+
+def freeze(into, extra):
+    dest = repin.export()
+    try:
+        shutil.rmtree(os.path.join(dest, RECORDED), ignore_errors=True)
+        env = {k: v for k, v in os.environ.items() if not k.endswith('DATABASE_URL') and not k.startswith(('RAILS_', 'BUNDLE_GEMFILE'))
+               and k not in ('PAGES', 'OAUTH', 'OAUTH_KEEP', 'M3_RECORDINGS', 'D5_GRID', 'RUST_GRID_CACHE', 'PAGES_RERECORD')}
+        env.update(B11_FREEZE='1', APP_ROOT_URL='http://localhost:3000', SKIP_TEST_DATABASE='true')
+        subprocess.run(['bash', 'script/rust/build_assets.sh'], cwd=dest, env=env, check=True)
+        os.makedirs(os.path.join(dest, 'tmp'), exist_ok=True)   # Rails' development secret, written once (as CI does)
+        with open(os.path.join(dest, 'tmp/local_secret.txt'), 'w') as f: f.write(os.urandom(64).hex())
+        cargo = os.environ.get('CARGO', 'cargo')
+        run = subprocess.run([cargo, 'nextest', 'run', '--locked', '--no-fail-fast', *extra], cwd=os.path.join(dest, 'rust'), env=env)
+        # A failed suite answered only part of the questions: the recording in `into` stays as it was.
+        if run.returncode: sys.exit(f'the suite exited {run.returncode}; {into} is unchanged')
+        into = os.path.abspath(into)
+        os.makedirs(os.path.dirname(into), exist_ok=True)
+        staged = os.path.join(tempfile.mkdtemp(dir=os.path.dirname(into), prefix='.freeze-'), 'recorded')
+        shutil.copytree(os.path.join(dest, RECORDED), staged)
+        shutil.rmtree(into, ignore_errors=True)
+        os.rename(staged, into)
+        os.rmdir(os.path.dirname(staged))
+        return 0
+    finally:
+        shutil.rmtree(dest, ignore_errors=True)
+
+
+def masks(root):
+    """MASK: `<file regex> <value regex>  # why` per line: in a matching file, every match of the value regex is noise."""
+    out = []
+    path = os.path.join(root, 'MASK')
+    for line in open(path).read().splitlines() if os.path.exists(path) else []:
+        line = line.split('  # ', 1)[0].strip()
+        if line and not line.startswith('#'):
+            files, values = line.split(' ', 1)
+            out.append((re.compile(files), re.compile(values.strip())))
+    return out
+
+
+STEP = re.compile(r'^(.+)-[0-9a-f]{16}$')
+
+
+def files(root, mask=()):
+    """{rel: path} of a recording. A step's answer, `<binary>/<command>-<input digest>/`, is named by its files instead:
+    its input carries the run's own clock and salts, so the digest differs between two freeze runs of the same step."""
+    out, steps = {}, {}
+    for d, _, fs in os.walk(root):
+        for f in fs:
+            parts = os.path.relpath(os.path.join(d, f), root).split(os.sep)
+            if len(parts) > 2 and STEP.match(parts[1]): steps.setdefault(tuple(parts[:2]), []).append(os.sep.join(parts[2:]))
+            else: out[os.sep.join(parts)] = os.path.join(d, f)
+    names = {}
+    for (binary, entry), inner in steps.items():
+        listing = STEP.match(entry).group(1) + '-' + hashlib.sha256('\n'.join(sorted(inner)).encode()).hexdigest()[:16]
+        names.setdefault((binary, listing), []).append((entry, inner))
+    for (binary, listing), entries in names.items():
+        # The same listing twice (one command over the Binance and the Binance.US grid): paired by masked content.
+        sig = lambda e: hashlib.sha256(''.join(blank(open(os.path.join(root, binary, e[0], r), 'rb').read(), r, mask) for r in sorted(e[1])).encode()).hexdigest()
+        for i, (entry, inner) in enumerate(sorted(entries, key=sig) if len(entries) > 1 else entries):
+            for rel in inner: out[os.path.join(binary, listing + (f'.{i}' if i else ''), rel)] = os.path.join(root, binary, entry, rel)
+    return out
+
+
+def blank(data, rel, mask):
+    text = data.decode('utf-8', 'replace')
+    for f, v in mask:
+        if f.search(rel): text = v.sub('~', text)
+    return text
+
+
+def differences(a, b, mask):
+    """[(file, what)] for every file whose text differs between the two trees once the masked values are blanked."""
+    fa, fb = files(a, mask), files(b, mask)
+    found = []
+    for rel in sorted(fa.keys() | fb.keys()):
+        if rel in HAND_WRITTEN: continue
+        texts = []
+        for tree in (fa, fb):
+            texts.append(open(tree[rel], 'rb').read().decode('utf-8', 'replace') if rel in tree else None)
+        if None in texts:
+            found.append((rel, 'only in ' + (a if texts[1] is None else b))); continue
+        for f, v in mask:
+            if f.search(rel): texts = [v.sub('~', t) for t in texts]
+        if texts[0] == texts[1]: continue
+        la, lb = texts[0].splitlines(), texts[1].splitlines()
+        lines = [i for i in range(max(len(la), len(lb))) if (la[i] if i < len(la) else None) != (lb[i] if i < len(lb) else None)]
+        first = lines[0]
+        show = lambda l, i: (l[i] if i < len(l) else '<none>')[:300]
+        found.append((rel, f'{len(lines)} lines differ; first at line {first + 1}:\n    A {show(la, first)}\n    B {show(lb, first)}'))
+    return found
+
+
+def self_test():
+    """The comparator itself: an unmasked change fails, a masked one alone passes."""
+    import tempfile
+    a, b = tempfile.mkdtemp(), tempfile.mkdtemp()
+    for root in (a, b):
+        open(os.path.join(root, 'x.sql'), 'w').write("INSERT INTO t VALUES (1, 'salt-AAAA');\n")
+        open(os.path.join(root, 'y.json'), 'w').write('{"k": 1}')
+    open(os.path.join(b, 'x.sql'), 'w').write("INSERT INTO t VALUES (1, 'salt-BBBB');\n")
+    mask = [(re.compile(r'\.sql$'), re.compile(r"salt-\w+"))]
+    assert differences(a, b, []) and not differences(a, b, mask), 'a masked column changed alone passes'
+    open(os.path.join(b, 'y.json'), 'w').write('{"k": 2}')
+    assert [f for f, _ in differences(a, b, mask)] == ['y.json'], 'an unmasked JSON leaf fails'
+    open(os.path.join(b, 'x.sql'), 'w').write("INSERT INTO t VALUES (2, 'salt-BBBB');\n")
+    assert [f for f, _ in differences(a, b, mask)] == ['x.sql', 'y.json'], 'an unmasked cell fails'
+    for root, digest in ((a, '0' * 16), (b, 'f' * 16)):
+        os.makedirs(os.path.join(root, 'parity', f'record-{digest}'))
+        open(os.path.join(root, 'parity', f'record-{digest}', 'z.json'), 'w').write('{"k": 1}')
+    assert len(differences(a, b, mask)) == 2, 'a step answer is paired across input digests'
+    open(os.path.join(b, 'parity', 'record-' + 'f' * 16, 'z.json'), 'w').write('{"k": 2}')
+    assert len(differences(a, b, mask)) == 3, 'a paired step answer is compared'
+    print('comparator self-test passed')
+
+
+def main(argv):
+    args, extra = (argv[1:argv.index('--')], argv[argv.index('--') + 1:]) if '--' in argv else (argv[1:], [])
+    if args == ['--self-test']: self_test(); return 0
+    if len(args) == 3 and args[0] == '--compare':
+        found = differences(args[1], args[2], masks(os.path.join(ROOT, RECORDED)))
+        for rel, what in found: print(f'{rel}: {what}')
+        print(f'{len(found)} files differ' if found else 'the recordings are equal (MASK applied)')
+        return 1 if found else 0
+    if args and (len(args) != 2 or args[0] != '--into'): sys.exit(__doc__)
+    into = args[1] if args else os.path.join(ROOT, RECORDED)
+    # A selection answers only its own tests: it never replaces the whole recording.
+    if extra and not args: sys.exit('nextest arguments select part of the suite: give --into DIR, so rust/tests/recorded/ stays whole')
+    # The two files written by hand, not by Rails, are kept.
+    kept = {f: open(os.path.join(ROOT, RECORDED, f)).read() for f in HAND_WRITTEN if os.path.exists(os.path.join(ROOT, RECORDED, f))}
+    status = freeze(into, extra)
+    for f, text in kept.items(): open(os.path.join(into, f), 'w').write(text)
+    print(f'recorded into {into}; the suite exited {status}')
+    return status
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))

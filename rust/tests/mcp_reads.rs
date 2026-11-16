@@ -89,8 +89,10 @@ fn comparable(mut transcript: Value) -> Value {
 #[tokio::test(flavor="current_thread")]
 async fn four_reads_match_rails() {
     for name in ALL_READS {assert_eq!(deltabadger::web::mcp::tools::NAMES.contains(name),EXPECTED_READS.contains(name),"registry stage: {name}");}
-    let root=tempfile::tempdir().unwrap(); let boot=tempfile::tempdir().unwrap();
-    common::rails(boot.path(),"test",&["runner","script/rust/mcp.rb","reads_grid",root.path().to_str().unwrap()]);
+    let root=tempfile::tempdir().unwrap();
+    // The grid is Rails' own (frozen); Rails plays it in `record` on its own copy, keeping only its answers (rails.json).
+    let grid=common::frozen("mcp-reads-grid",common::has_subdirs,|out|common::rails(tempfile::tempdir().unwrap().path(),"test",&["runner","script/rust/mcp.rb","reads_grid",out.to_str().unwrap()]));
+    common::copy_tree(&grid,root.path());
     let mut actual=vec![];
     for e in std::fs::read_dir(root.path()).unwrap() {
         let dir=e.unwrap().path(); if !dir.join("steps.json").is_file(){continue;}
@@ -115,7 +117,8 @@ async fn four_reads_match_rails() {
         actual.push((dir,steps,got));
     }
     assert_eq!(actual.len(),104,"all recorded M3 scenarios (3.0 A20c: m3_unread_venue)");
-    common::rails(boot.path(),"test",&["runner","script/rust/mcp.rb","record",root.path().to_str().unwrap()]);
+    let recorded=common::frozen("mcp-reads",common::has_subdirs,|out|{common::copy_tree(&grid,out);common::rails(tempfile::tempdir().unwrap().path(),"test",&["runner","script/rust/mcp.rb","record",out.to_str().unwrap()]);common::freeze::keep_only(out,"rails.json");});
+    common::copy_tree(&recorded,root.path());
     if let Ok(root)=std::env::var("M3_RECORDINGS"){
         for (dir,_,got) in &actual {
             let destination=std::path::Path::new(&root).join(dir.file_name().unwrap());

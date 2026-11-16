@@ -1046,6 +1046,11 @@ fn every_rails_job_class_has_an_outcome() {
     }
     assert!(found.contains("SolidQueue::RecurringJob"), "recurring.yml has a command: task");
     found.insert("ActionMailer::MailDeliveryJob".into());
+    // PLAN-B11 T6: the set at the oracle commit, frozen (B11_FREEZE=1 writes it) for when app/, lib/ and recurring.yml go.
+    let frozen = common::freeze::recorded().join("rails_job_classes.txt");
+    let listed: String = found.iter().map(|class| format!("{class}\n")).collect();
+    if common::freeze::freezing() { std::fs::create_dir_all(frozen.parent().unwrap()).unwrap(); std::fs::write(&frozen, &listed).unwrap(); }
+    assert_eq!(std::fs::read_to_string(&frozen).unwrap(), listed, "rust/tests/recorded/rails_job_classes.txt is Rails' job classes");
 
     let table: std::collections::BTreeSet<String> = handover::RAILS_WORK.iter().map(|(c, _)| c.to_string()).collect();
     assert_eq!(table.len(), handover::RAILS_WORK.len(), "a class listed twice");

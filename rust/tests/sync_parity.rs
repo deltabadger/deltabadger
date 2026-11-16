@@ -30,15 +30,18 @@ fn try_rails(args: &[&str]) -> Result<(), String> {
 }
 mod common;
 
-/// The sync grid, as `rails(&["grid", into])` builds it: built once per test run (common::run_template), and copied
-/// into `into` for every test that asks.
+/// The sync grid, as `rails(&["grid", into])` builds it: frozen (common::frozen), and copied into `into` for every
+/// test that asks.
 fn built_grid(into: &Path) {
-    let template = common::run_template("sync-grid", common::has_subdirs,
-        |out| rails(&["grid", out.to_str().unwrap()]));
+    let template = common::frozen("sync-grid", common::has_subdirs,
+        |out| live(&["grid", out.to_str().unwrap()]));
     common::copy_tree(&template, into);
 }
 
-fn rails(args: &[&str]) { if let Err(e) = try_rails(args) { panic!("{e}"); } }
+/// `sync.rb <args>` (the last is the directory it writes to), frozen (common::freeze::step): Rails runs only in a freeze run.
+fn rails(args: &[&str]) { common::freeze::step(args, || live(args)) }
+
+fn live(args: &[&str]) { if let Err(e) = try_rails(args) { panic!("{e}"); } }
 
 fn copy_dir(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
@@ -745,7 +748,6 @@ fn unknown_price_origin(name:&str,rails:&Value,rust:&Value)->Option<Result<(),St
 async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<(), Box<dyn std::error::Error>> {
     let rails_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
-    let handback = tempfile::tempdir().unwrap();
     built_grid(rails_root.path());
     add_unreadable_price_scenarios(rails_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
@@ -762,7 +764,6 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
         let c = rusqlite::Connection::open(rust_root.path().join(d.file_name().unwrap()).join("production.sqlite3")).unwrap();
         deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
     }
-    for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     // Record the exact intermediate state before the A12 refusal. These are disposable
     // oracle copies of six existing cases; no fixture or Rails source is changed.
     let a12_first=tempfile::tempdir()?;
@@ -1131,6 +1132,22 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!(kraken_status("kraken-balances-permission_then_invalid_key"), Some(json!(1)), "a permission error beside it wins: the key is not condemned");
     assert!(rows(&rails_of("balances-empty_account"), "account_balances").iter().all(|r| r["after"].is_null()), "gone positions are removed");
 
+    Ok(())
+}
+
+/// PLAN-B11 r2.2: the sync grid's Rust→Rails half, apart from the frozen comparisons above. Rails runs a second night on
+/// installs Rust synced (and Rust on one Rails synced): an interop check, so Rails is called live, never frozen; B11-3
+/// moves it to the 2.70.21 image.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_write_identical_rows_across_the_sync_grid_interop() -> Result<(), Box<dyn std::error::Error>> {
+    let rails_root = tempfile::tempdir().unwrap();
+    let handback = tempfile::tempdir().unwrap();
+    built_grid(rails_root.path());
+    add_unreadable_price_scenarios(rails_root.path());
+    for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
+    rails(&["record", rails_root.path().to_str().unwrap()]); // the grid's own answers, as the frozen test records them
+    let cipher = cipher();
+    let rails_of = |name: &str| read(&rails_root.path().join(name).join("rails.json"));
     // Handbacks: Rust runs a scenario's first night, Rails runs its second on Rust's copy.
     let hand_back = |scenario: &str| {
         let dir = handback.path().join(scenario);
@@ -1157,7 +1174,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     // (no watermark of its own, so the whole history) reads everything again over Rails' rows.
     let (over_dir, only) = hand_back("binance-ledger-two_nights");
     only(&over_dir, 0);
-    rails(&["record", handback.path().to_str().unwrap()]);
+    live(&["record", handback.path().to_str().unwrap()]); // Rails acts on what Rust wrote: live, never frozen
     only(&over_dir, 1);
     let rust_over = deltabadger::sync::parity::run(&over_dir, cipher.clone()).await.unwrap();
     let inserted = rows(&rust_over, "account_transactions");

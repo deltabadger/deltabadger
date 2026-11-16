@@ -1,6 +1,5 @@
 mod common;
 use deltabadger::web::i18n::{self, Arg};
-use std::collections::BTreeMap;
 
 fn args(call: &serde_json::Value) -> Vec<(String, serde_json::Value)> {
     call["args"].as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.clone())).collect()
@@ -38,23 +37,8 @@ fn already_safe_markup_is_not_escaped_in_an_html_key() {
     assert!(out.contains("<b>4</b>&nbsp;years") && out.contains("&lt;1&gt;%") && out.contains("3%</b> more"), "{out}");
 }
 
-/// The whole table against Rails' own loader, live: the YAML is read by Psych in Rails and by yaml-rust2 in
-/// build.rs, and this is what proves they agree on every key and every text. It is not a committed fixture
-/// because that would freeze all 25,000 texts; a translation edit must not need a re-recording.
-#[test]
-fn the_embedded_table_is_exactly_what_rails_loads_from_config_locales() {
-    let scratch = tempfile::tempdir().unwrap();
-    let out = scratch.path().join("translations.json");
-    common::rails(scratch.path(), "development", &["runner", "script/rust/translations.rb", out.to_str().unwrap()]);
-    let rails: BTreeMap<String, String> = serde_json::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
-    let rust: BTreeMap<String, String> = i18n::all().iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
-    assert!(rails.len() > 20_000, "Rails loaded only {} texts", rails.len());
-    let only_rails: Vec<&String> = rails.keys().filter(|k| !rust.contains_key(*k)).take(10).collect();
-    let only_rust: Vec<&String> = rust.keys().filter(|k| !rails.contains_key(*k)).take(10).collect();
-    let different: Vec<&String> = rails.iter().filter(|(k, v)| rust.get(*k).is_some_and(|r| r != *v)).map(|(k, _)| k).take(10).collect();
-    assert!(only_rails.is_empty() && only_rust.is_empty() && different.is_empty(),
-            "only in Rails: {only_rails:?}\nonly in Rust: {only_rust:?}\ndifferent text: {different:?}");
-}
+// PLAN-B11 T7 (L-I18N): the whole table is no longer compared with Rails' I18n: a locale edit is read by build.rs only
+// (its Psych-boolean/null refusal stays), never frozen, since every translation edit would need a re-recording.
 
 /// Listed divergence: Rails commits a write the engine cannot run; Rust answers 422 with this copy.
 /// One key, English only; every other locale falls back to it, as Rails' fallbacks do.

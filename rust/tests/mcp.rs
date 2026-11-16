@@ -3,7 +3,7 @@ mod common;
 use common::web::{self, TestClock};
 use axum::{body::{Body, to_bytes}, http::Request};
 use serde_json::{json, Value};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tower::ServiceExt;
 use base64::Engine;
 const AT: &str = "2026-09-10T12:00:30.123456Z";
@@ -77,11 +77,16 @@ fn comparable(mut transcript: Value) -> Value {
     transcript.as_object_mut().unwrap().shift_remove("session");
     transcript
 }
+/// mcp.rb's grid, frozen (common::frozen), copied into `root`.
+fn frozen_grid(root:&Path)->PathBuf{
+    let grid=common::frozen("mcp-grid",common::has_subdirs,|out|grid(tempfile::tempdir().unwrap().path(),out));
+    common::copy_tree(&grid,root);
+    grid
+}
 #[tokio::test(flavor="current_thread")]
 async fn rails_and_rust_mcp_transcripts() {
     let root = tempfile::tempdir().unwrap();
-    let boot = tempfile::tempdir().unwrap();
-    common::rails(boot.path(), "test", &["runner", "script/rust/mcp.rb", "grid", root.path().to_str().unwrap()]);
+    let grid = frozen_grid(root.path());
     let dirs: Vec<_> = std::fs::read_dir(root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("steps.json").is_file()).collect();
     assert!(!dirs.is_empty(), "empty MCP grid");
     let mut actual = vec![];
@@ -91,10 +96,15 @@ async fn rails_and_rust_mcp_transcripts() {
         copy_install(dir, rust.path());
         actual.push(play(rust.path(), steps.as_array().unwrap(), None).await);
     }
-    common::rails(boot.path(), "test", &["runner", "script/rust/mcp.rb", "record", root.path().to_str().unwrap()]);
+    // Rails plays every scenario on its own copy of the frozen grid; only its answers (rails.json) are kept.
+    let recorded = common::frozen("mcp-transcripts", common::has_subdirs, |out| {
+        common::copy_tree(&grid, out);
+        common::rails(tempfile::tempdir().unwrap().path(), "test", &["runner", "script/rust/mcp.rb", "record", out.to_str().unwrap()]);
+        common::freeze::keep_only(out, "rails.json");
+    });
     let mut failures = vec![];
     for (dir, got) in dirs.iter().zip(actual) {
-        let want = read(dir.join("rails.json"));
+        let want = read(recorded.join(dir.file_name().unwrap()).join("rails.json"));
         if dir.file_name().unwrap() == "oversize" {
             assert_eq!(got["responses"][2]["status"], 413);
             assert_eq!(want["responses"][2]["status"], 200); // Rails has no body bound.
@@ -143,7 +153,7 @@ async fn sessions_cross_before_and_after_initialized_in_both_directions(){
 }
 #[tokio::test(flavor="current_thread")]
 async fn every_unported_name_stays_absent_even_if_granted_and_enabled(){
-    let root=tempfile::tempdir().unwrap();let boot=tempfile::tempdir().unwrap();grid(boot.path(),root.path());
+    let root=tempfile::tempdir().unwrap();frozen_grid(root.path());
     let dir=&root.path().join(".template");
     let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
     let all:Vec<_>=deltabadger::web::oauth::TOOL_DEFAULTS.iter().map(|(n,_)|*n).collect();

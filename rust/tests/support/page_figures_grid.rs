@@ -295,7 +295,12 @@ impl Transport for Wire {
 /// `script/rust/pages.rb <command> <scratch>`, as pages.rs runs Rails: the test environment, booted against scratch
 /// databases only. Development would check the checkout's own databases for pending migrations on every page and answer
 /// 500 where they are missing (CI).
+/// Frozen (common::freeze::step): Rails runs only in a freeze run.
 fn record(scratch: &tempfile::TempDir, command: &str) {
+    let path = scratch.path().to_str().unwrap();
+    common::freeze::step(&[command, path], || record_live(scratch, command));
+}
+fn record_live(scratch: &tempfile::TempDir, command: &str) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let boot = tempfile::tempdir().unwrap();
     let mut cmd = std::process::Command::new(root.join("bin/rails"));

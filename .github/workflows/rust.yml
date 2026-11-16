@@ -692,3 +692,60 @@ jobs:
       - name: Test the full Rust suite
         working-directory: rust
         run: cargo nextest run --locked --no-fail-fast --partition count:${{ matrix.partition }}/5
+
+  # PLAN-B11 B11-1: the tests that read Rails' frozen answers (rust/tests/recorded/) pass with no Ruby on the runner and
+  # bin/rails not executable, so nothing reaches Rails. The tests that still call Rails live (Rust→Rails interop, until
+  # B11-3) are kept out by the ruby-absent profile (rust/.config/nextest.toml) and run in full-suite as before.
+  ruby-absent:
+    if: github.event_name != 'schedule'
+    name: Rust suite with Ruby absent (${{ matrix.partition }}/3)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1, 2, 3]
+    env:
+      CARGO_PROFILE_DEV_DEBUG: 'false'
+      CARGO_PROFILE_DEV_STRIP: debuginfo
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
+          df -h /
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Rust 1.94.0
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal
+          rustup default 1.94.0
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust
+          key: full-suite
+          save-if: false
+      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        with:
+          tool: cargo-nextest@0.9.146
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - name: Build the web assets
+        run: bash script/rust/build_assets.sh
+      - name: Make Ruby absent
+        run: |
+          # The toolcache Ruby, the image's apt Ruby (ruby-full, which also leaves /usr/bin/ruby3.x), and any
+          # interpreter or launcher still named like one anywhere on PATH, versioned or not.
+          sudo rm -rf /opt/hostedtoolcache/Ruby
+          sudo apt-get remove -y --purge 'ruby*' 'libruby*' > /dev/null
+          ruby_named='^(ruby|gem|bundle|bundler|irb|erb|rake|rdoc|ri)[0-9.]*$'
+          IFS=: read -ra dirs <<< "$PATH"
+          for dir in "${dirs[@]}"; do
+            [ -d "$dir" ] && find "$dir" -maxdepth 1 \( -type f -o -type l \) | while read -r path; do
+              if basename "$path" | grep -Eq "$ruby_named"; then sudo rm -f "$path"; fi
+            done || true
+          done
+          hash -r
+          chmod -x bin/rails
+          left=$(for dir in "${dirs[@]}"; do [ -d "$dir" ] && ls "$dir"; done | grep -E "$ruby_named" || true)
+          [ -z "$left" ] && [ ! -x bin/rails ] && ! ruby -v 2>/dev/null && echo "no Ruby anywhere on PATH; bin/rails is not executable" || { echo "still here: $left"; exit 1; }
+      - name: Test the suite on rust/tests/recorded only
+        working-directory: rust
+        run: cargo nextest run --locked --no-fail-fast --profile ruby-absent --partition count:${{ matrix.partition }}/3
