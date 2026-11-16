@@ -734,7 +734,8 @@ fn ciphertext_version(id: i64, columns: &[Option<String>; 7]) -> CredentialVersi
 }
 /// A submitted validation handle owns these exact encryption envelopes before HTTP.
 /// Zero is a private pending slot; it is never used to label persisted account state.
-pub(crate) fn prepared_credential_version(id:i64,columns:&[Option<String>;7])->CredentialVersion {
+#[doc(hidden)]
+pub fn prepared_credential_version(id:i64,columns:&[Option<String>;7])->CredentialVersion {
     ciphertext_version(id,columns)
 }
 fn stored_columns(r: &rusqlite::Row<'_>) -> rusqlite::Result<[Option<String>; 7]> {
