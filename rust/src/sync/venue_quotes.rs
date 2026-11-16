@@ -132,8 +132,12 @@ impl<T: Transport + 'static> Quotes<T> {
         let routed: Vec<&Wanted> = wanted.iter().filter(|w| !found.contains_key(&w.external_id)).collect();
         if routed.is_empty() || plan.venue.exchange_type == IBKR || plan.codes.is_empty() { return found; }
         // Only the venue's reads are timed here: the cash priced above, and every quote read in time, are kept.
-        let mut quotes = HashMap::new();
-        if tokio::time::timeout(BUDGET, read_quotes(&plan, now, &mut quotes)).await.is_err() { log(exchange_id, "out of time: routing what was read"); }
+        let (mut cache, mut quotes) = (Cache::default(), HashMap::new());
+        if tokio::time::timeout(BUDGET, read_quotes(&plan, now, &mut cache, &mut quotes)).await.is_err() {
+            // What a cut-off fill had already answered is in the cache: read once more.
+            take(&plan, &cache, now.timestamp(), &mut quotes);
+            log(exchange_id, "out of time: routing what was read");
+        }
         for w in routed {
             let pick = (1..=venue_routes::MAX_LEGS).find_map(|legs| venue_routes::candidates(&plan.pairs, &quotes, &plan.ends, w.asset, legs).into_iter()
                 .find(|c| super::balances::fits(&w.total, &c.price)));
@@ -143,39 +147,46 @@ impl<T: Transport + 'static> Quotes<T> {
     }
 }
 
-/// The venue's last prices of `plan.codes`, by code, into `quotes`: owned by the caller, so a read cut off by the
-/// budget keeps every price taken before it. Each pass first takes every answer the cache holds (the whole set at once,
+/// The venue's last prices of `plan.codes`, by code, into `quotes`, through `cache`: both owned by the caller, so a read
+/// cut off by the budget keeps every answer it had, a fill's finished ones included. Each pass first takes every answer the cache holds (the whole set at once,
 /// and for Kraken, where that read fails as soon as one code does, each code on its own), then a second reader records
 /// what to ask next: the whole-market read for most venues, and for Kraken one code at a time, nearest first, until the
 /// pass holds `MAX_SINGLE_READS` requests. At most three fills; the last one is read too.
-async fn read_quotes<T: Transport>(plan: &Plan<T>, now: DateTime<Utc>, quotes: &mut HashMap<String, BigDec>) {
-    let mut cache = Cache::default();
+async fn read_quotes<T: Transport>(plan: &Plan<T>, now: DateTime<Utc>, cache: &mut Cache, quotes: &mut HashMap<String, BigDec>) {
     let at = now.timestamp();
-    let ask = |reader: &Reader<'_>, codes: &[String]| crate::figures::budget::within(|| Ok::<_, crate::figures::FiguresError>(reader.prices(&plan.venue, codes))).ok().and_then(Result::ok);
-    let kraken = plan.venue.exchange_type == KRAKEN;
     for pass in 0..=3 {
+        take(plan, cache, at, quotes);
+        if pass == 3 { break; }
         let demands: Vec<HttpRequest> = {
-            let reader = Reader::new(&cache, at);
-            let mut rows = ask(&reader, &plan.codes).unwrap_or_default();
-            if rows.is_empty() && kraken {
-                for code in plan.codes.iter().filter(|c| !quotes.contains_key(*c)) { rows.extend(ask(&reader, std::slice::from_ref(code)).unwrap_or_default()); }
-            }
-            for (code, price) in rows { if let Some(p) = price.ok().as_ref().and_then(big).filter(BigDec::is_positive) { quotes.insert(code, p); } }
-            if pass == 3 { break; }
-            if kraken {
-                let next = Reader::new(&cache, at);
+            let next = Reader::new(cache, at);
+            if plan.venue.exchange_type == KRAKEN {
                 for code in plan.codes.iter().filter(|c| !quotes.contains_key(*c)) {
                     if next.demands().len() >= MAX_SINGLE_READS { break; }
-                    let _ = ask(&next, std::slice::from_ref(code));
+                    let _ = ask(plan, &next, std::slice::from_ref(code));
                 }
-                next.demands()
             } else {
-                reader.demands()
+                let _ = ask(plan, &next, &plan.codes);
             }
+            next.demands()
         };
         if demands.is_empty() { break; }
         cache.fill(&plan.wire, demands, at).await;
     }
+}
+
+fn ask<T>(plan: &Plan<T>, reader: &Reader<'_>, codes: &[String]) -> Option<Vec<(String, crate::figures::market::Member<crate::figures::dec::Dec>)>> {
+    crate::figures::budget::within(|| Ok::<_, crate::figures::FiguresError>(reader.prices(&plan.venue, codes))).ok().and_then(Result::ok)
+}
+
+/// Every price the cache holds for `plan.codes` into `quotes`: the whole set at once, and for Kraken, whose read fails as
+/// soon as one code does, each code on its own.
+fn take<T>(plan: &Plan<T>, cache: &Cache, at: i64, quotes: &mut HashMap<String, BigDec>) {
+    let reader = Reader::new(cache, at);
+    let mut rows = ask(plan, &reader, &plan.codes).unwrap_or_default();
+    if rows.is_empty() && plan.venue.exchange_type == KRAKEN {
+        for code in plan.codes.iter().filter(|c| !quotes.contains_key(*c)) { rows.extend(ask(plan, &reader, std::slice::from_ref(code)).unwrap_or_default()); }
+    }
+    for (code, price) in rows { if let Some(p) = price.ok().as_ref().and_then(big).filter(BigDec::is_positive) { quotes.insert(code, p); } }
 }
 
 #[cfg(test)]
