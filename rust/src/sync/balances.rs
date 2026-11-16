@@ -65,7 +65,8 @@ impl PriceSource for NoPrices {
 ///
 /// The exchange rates come from the feed only; a CoinGecko answer is held 60 s in the engine's rate cache
 /// (Coingecko#get_exchange_rates).
-pub struct MarketPrices<T: Transport> { feed: Option<Feed<T>>, fallback: Option<Feed<T>>, rates: Arc<RateCache> }
+/// `venue`: the venue's own prices for what the provider left unpriced (D-VENUE-PRICE-FALLBACK), none unless set.
+pub struct MarketPrices<T: Transport> { feed: Option<Feed<T>>, fallback: Option<Feed<T>>, rates: Arc<RateCache>, venue: Option<Box<dyn super::venue_quotes::VenueQuotes>> }
 
 impl<T: Transport> MarketPrices<T> {
     /// `fallback`: a CoinGecko client for `settings.fallback_key`, made only where Rails would fall back.
@@ -74,8 +75,10 @@ impl<T: Transport> MarketPrices<T> {
             (Some(Feed::CoinGecko(_)), _) | (_, None) => None,
             (_, Some(key)) => Some(Feed::CoinGecko(coingecko(key))),
         };
-        Self { feed, fallback, rates }
+        Self { feed, fallback, rates, venue: None }
     }
+    /// With the venue's own prices as the provider's fallback.
+    pub fn with_venue_quotes(mut self, venue: Option<Box<dyn super::venue_quotes::VenueQuotes>>) -> Self { self.venue = venue; self }
 }
 
 impl MarketPrices<crate::jobs::market::Live> {
@@ -121,6 +124,7 @@ impl<T: Transport> PriceSource for MarketPrices<T> {
         })
     }
     fn rate_cache(&self) -> Option<&RateCache> { Some(&self.rates) }
+    fn venue_quotes(&self) -> Option<&dyn super::venue_quotes::VenueQuotes> { self.venue.as_deref() }
 }
 
 /// The data API's answer to GET api/v1/prices, read as MarketData.get_prices reads it: `data[id]["usd"]`, `to_f`,
@@ -1098,6 +1102,18 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
             Err(ApiError::Failed { .. }) => errors.push(NO_PROVIDER.into()),
         }
     }
+    // D-VENUE-PRICE-FALLBACK (Rust only): what the provider left unpriced, the venue's own prices are asked for (other
+    // cash at the ECB's rate). Never a provider's price replaced; nothing it returns fails the sync.
+    if let Some(venue) = prices.venue_quotes() {
+        let wanted: Vec<super::venue_quotes::Wanted> = assets.iter()
+            .filter(|a| !fresh.contains_key(&a.external_id) && a.symbol.as_deref() != Some("USD"))
+            .filter_map(|a| held.iter().find(|(id, _, _)| *id == a.id).map(|(_, free, locked)| super::venue_quotes::Wanted {
+                external_id: a.external_id.clone(), asset: a.id, cash: cash(a), total: free + locked }))
+            .collect();
+        if !wanted.is_empty() {
+            for (id, p) in venue.prices(db, key_id, catalog.exchange_id, wanted, clock.now()).await { fresh.entry(id).or_insert(Price::Decimal(p)); }
+        }
+    }
     for a in assets.iter().filter(|a| cash(a) && a.symbol.as_deref() == Some("USD")) { fresh.insert(a.external_id.clone(), Price::Decimal(BigDec::one())); }
 
     // Every price, and every value a row will hold (from a fresh price or the last stored one), within a venue
@@ -1321,6 +1337,9 @@ fn within(f: f64) -> bool { f.is_finite() && (f == 0.0 || number::decimal(&forma
 fn price_f(p: &Price) -> f64 { match p { Price::Float(f) => *f, Price::Decimal(d) => d.to_f() } }
 /// `usd_value` as the row stores it: quantity × price, rounded to the column's scale, as a double.
 fn value_of(total: &BigDec, price: &BigDec) -> f64 { cast_decimal(&(total * price), 8).to_f() }
+/// Whether a price and the value it gives `total` are within a venue number's caps (what `finish` checks before its
+/// first write), so a fallback price can never make the sync refuse.
+pub(crate) fn fits(total: &BigDec, price: &BigDec) -> bool { within(price.to_f()) && within(value_of(total, price)) }
 
 /// The last stored price of each of the user's balances on this venue (the first row of an asset, as `upsert` reads it).
 fn last_prices(c: &Connection, user_id: i64, exchange_id: i64) -> Result<HashMap<i64, Option<BigDec>>, SyncError> {

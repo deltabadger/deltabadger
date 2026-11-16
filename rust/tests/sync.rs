@@ -2132,3 +2132,122 @@ mod coingecko_prices {
         assert_eq!(asked(&cg, CG_RATES), 3, "asked again once the minute is over");
     }
 }
+
+/// A provider (or none) with the venue's own prices behind it (D-VENUE-PRICE-FALLBACK): `wire` answers the venue's
+/// market data and records what was asked.
+struct WithVenue { inner: Box<dyn PriceSource>, venue: deltabadger::sync::venue_quotes::Quotes<ScriptedTransport> }
+impl WithVenue {
+    fn new(inner: Box<dyn PriceSource>, wire: &ScriptedTransport) -> Self {
+        let wire = wire.clone();
+        WithVenue { inner, venue: deltabadger::sync::venue_quotes::Quotes::new(Box::new(move |_, _| wire.clone()), None) }
+    }
+}
+impl PriceSource for WithVenue {
+    fn prices<'a>(&'a self, ids: &'a [String], currency: &'a str) -> PriceFuture<'a> { self.inner.prices(ids, currency) }
+    fn venue_quotes(&self) -> Option<&dyn deltabadger::sync::venue_quotes::VenueQuotes> { Some(&self.venue) }
+}
+
+fn btc_row(c: &Connection) -> (Option<f64>, Option<f64>) {
+    c.query_row("SELECT b.usd_price, b.usd_value FROM account_balances b JOIN assets a ON a.id = b.asset_id WHERE a.symbol = 'BTC'", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+}
+
+/// PLAN-venue-prices S2: with no provider, Alpaca's bitcoin is priced from Alpaca's own crypto trades (BTC/USD), its
+/// stocks from their snapshots as before; with a provider pricing it, the venue is never asked; a venue that does not
+/// answer leaves it unpriced and the sync still succeeds.
+#[tokio::test(flavor = "current_thread")]
+async fn a_holding_the_provider_cannot_price_is_priced_from_the_venue() {
+    let trades = "GET /v1beta3/crypto/us/latest/trades";
+    let (_dir, db, s) = install();
+    let wire = ScriptedTransport::from_script(&json!({ trades: [ok(json!({ "trades": { "BTC/USD": { "p": 64000.0 } } }))] }));
+    let (_, v) = venue(balances_script());
+    let summary = balances::sync(&db, &v, &WithVenue::new(Box::new(NoPrices), &wire), s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    assert_eq!((summary.synced, summary.priced_fresh, summary.unpriced), (3, 3, 0));
+    assert_eq!(db.run(|c, _| Ok(btc_row(c))).await.unwrap(), (Some(64000.0), Some(32000.0)));
+    assert_eq!(wire.requests().iter().map(|r| (r.path.clone(), r.query.clone())).collect::<Vec<_>>(), vec![(trades[4..].to_string(), vec![("symbols", "BTC/USD".to_string())])]);
+
+    let (_dir, db, s) = install();
+    let unasked = ScriptedTransport::default();
+    let provider = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 65000.0 } } }))] }));
+    let (_, v) = venue(balances_script());
+    balances::sync(&db, &v, &WithVenue::new(Box::new(provider), &unasked), s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    assert_eq!(db.run(|c, _| Ok(btc_row(c))).await.unwrap().0, Some(65000.0), "the provider's price");
+    assert!(unasked.requests().is_empty(), "the venue is not asked for what the provider priced");
+
+    let (_dir, db, s) = install();
+    let down = ScriptedTransport::from_script(&json!({ trades: [{ "status": 503, "body": "down" }] }));
+    let (_, v) = venue(balances_script());
+    let summary = balances::sync(&db, &v, &WithVenue::new(Box::new(NoPrices), &down), s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    assert_eq!((summary.synced, summary.unpriced), (3, 1));
+    assert_eq!(db.run(|c, _| Ok(btc_row(c))).await.unwrap(), (None, None));
+}
+
+/// PLAN-venue-prices S2 on a venue quoted in a stablecoin: Binance's whole-market prices, BTC through BTCUSDT and
+/// EURUSDT to the euro and the ECB's rate (USDT never taken at par), a token quoted only in bitcoin through BTC, and
+/// euro cash at the ECB's rate with no venue read needed for it.
+#[tokio::test(flavor = "current_thread")]
+async fn a_venue_quoted_in_a_stablecoin_prices_through_a_fiat_pair_and_the_ecb() {
+    let (_dir, db, s) = install();
+    let (binance, ids) = db.run(|c, _| {
+        let t = "2026-01-01";
+        c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '0.1', '0.1', ?1, ?1)", [t]).unwrap();
+        let binance = c.last_insert_rowid();
+        let asset = |external: &str, symbol: &str, category: &str| {
+            c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES (?1, ?2, ?2, ?3, ?4, ?4)", rusqlite::params![external, symbol, category, t]).unwrap();
+            c.last_insert_rowid()
+        };
+        let btc: i64 = c.query_row("SELECT id FROM assets WHERE symbol = 'BTC' ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap();
+        let (usdt, eur, tok) = (asset("tether", "USDT", "Cryptocurrency"), asset("eur", "EUR", "Currency"), asset("tok", "TOK", "Cryptocurrency"));
+        for (code, base, quote) in [("BTCUSDT", btc, usdt), ("EURUSDT", eur, usdt), ("TOKBTC", tok, btc)] {
+            c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, minimum_base_size, \
+                       minimum_quote_size, trading_enabled, available, created_at, updated_at) VALUES (?1, ?2, '', '', ?3, ?4, 8, 8, 8, '0', '0', 1, 1, ?5, ?5)",
+                      rusqlite::params![binance, code, base, quote, t]).unwrap();
+        }
+        c.execute("INSERT INTO fx_rates (currency, date, rate) VALUES ('USD', ?1, 1.1)", [clock().now().date_naive().to_string()]).unwrap();
+        Ok((binance, (btc, eur, tok)))
+    }).await.unwrap();
+    let wire = ScriptedTransport::from_script(&json!({ "GET /api/v3/ticker/price": [ok(json!([
+        { "symbol": "BTCUSDT", "price": "55000" }, { "symbol": "EURUSDT", "price": "1.1" }, { "symbol": "TOKBTC", "price": "0.0001" }]))] }));
+    let quotes = deltabadger::sync::venue_quotes::Quotes::new(Box::new({ let wire = wire.clone(); move |_, _| wire.clone() }), None);
+    let wanted = |external: &str, asset: i64, cash: bool| deltabadger::sync::venue_quotes::Wanted { external_id: external.into(), asset, cash, total: deltabadger::ruby::BigDec::one() };
+    let found = deltabadger::sync::venue_quotes::VenueQuotes::prices(&quotes, &db, s.api_key_id, binance,
+        vec![wanted("bitcoin", ids.0, false), wanted("eur", ids.1, true), wanted("tok", ids.2, false)], clock().now()).await;
+    let mut found: Vec<(String, String)> = found.into_iter().map(|(k, v)| (k, v.round(8).to_s_f())).collect();
+    found.sort();
+    assert_eq!(found, [("bitcoin".to_string(), "55000.0".to_string()), ("eur".to_string(), "1.1".to_string()), ("tok".to_string(), "5.5".to_string())]);
+    assert_eq!(wire.requests().len(), 1, "one whole-market read");
+}
+
+/// Kraken's bulk Ticker prices bitcoin but lacks forty other held pairs, whose one-pair reads all fail: bitcoin is
+/// priced all the same, and no pass sends more than its share of one-pair reads.
+#[tokio::test(flavor = "current_thread")]
+async fn kraken_pairs_missing_from_its_bulk_ticker_never_cost_the_ones_it_priced() {
+    let (_dir, db, s) = install();
+    let (kraken, btc, others) = db.run(|c, _| {
+        let t = "2026-01-01";
+        c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '0.25', '0.4', ?1, ?1)", [t]).unwrap();
+        let kraken = c.last_insert_rowid();
+        let usd: i64 = c.query_row("SELECT id FROM assets WHERE symbol = 'USD' ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap();
+        let btc: i64 = c.query_row("SELECT id FROM assets WHERE symbol = 'BTC' ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap();
+        let pair = |code: &str, base: i64| c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+            minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) VALUES (?1, ?2, '', '', ?3, ?4, 8, 8, 8, '0', '0', 1, 1, ?5, ?5)",
+            rusqlite::params![kraken, code, base, usd, t]).unwrap();
+        pair("XBTUSD", btc);
+        let mut others = vec![];
+        for i in 0..40 {
+            c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES (?1, ?1, ?1, 'Cryptocurrency', ?2, ?2)", rusqlite::params![format!("s{i}"), t]).unwrap();
+            let id = c.last_insert_rowid();
+            pair(&format!("A{i:02}USD"), id);
+            others.push(id);
+        }
+        Ok((kraken, btc, others))
+    }).await.unwrap();
+    let wire = ScriptedTransport::from_script(&json!({ "GET /0/public/Ticker": [ok(json!({ "error": [], "result": { "XBTUSD": { "c": ["64000", "1"] } } })), { "status": 500, "body": "down" }] }));
+    let quotes = deltabadger::sync::venue_quotes::Quotes::new(Box::new({ let wire = wire.clone(); move |_, _| wire.clone() }), None);
+    let wanted = |external: String, asset: i64| deltabadger::sync::venue_quotes::Wanted { external_id: external, asset, cash: false, total: deltabadger::ruby::BigDec::one() };
+    let mut asked = vec![wanted("bitcoin".into(), btc)];
+    asked.extend(others.iter().enumerate().map(|(i, id)| wanted(format!("s{i}"), *id)));
+    let found = deltabadger::sync::venue_quotes::VenueQuotes::prices(&quotes, &db, s.api_key_id, kraken, asked, clock().now()).await;
+    assert_eq!(found.get("bitcoin").map(|p| p.to_s_f()), Some("64000.0".to_string()));
+    assert_eq!(found.len(), 1, "the forty never priced");
+    assert!(wire.requests().len() <= 1 + 3 * 32, "{} requests", wire.requests().len());
+}
