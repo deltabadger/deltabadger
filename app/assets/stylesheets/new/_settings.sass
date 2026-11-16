@@ -16,9 +16,12 @@
     border-radius: 2rem
     box-shadow: var(--shadow-strong)
     overflow: hidden
+    // On a phone it is the screen: no margin, no rounded corners.
     @media (max-width: 767.9px)
-        width: calc(100vw - 2rem)
-        height: calc(100dvh - 2rem)
+        width: 100vw
+        height: 100dvh
+        border-radius: 0
+        box-shadow: none
 
 .settings__close
     position: absolute
@@ -67,7 +70,7 @@
     display: flex
     flex-direction: column
     gap: 0.25rem
-    padding: 2rem 1.5rem
+    padding: 1.5rem
     border-right: 1px solid var(--zinc)
     // The tabs are the top line, and the close button sits at its end: the row stops short of it,
     // so a tab scrolls out of sight before it can slide under the ×.
@@ -129,24 +132,46 @@
     overflow-y: auto
     overscroll-behavior: contain
     outline: none
-    padding: 3rem 4rem 6rem
+    padding: 2.5rem
     @media (max-width: 767.9px)
         padding: 1rem 2rem 4rem
+    // A thin bar of our own instead of the system one, kept 2rem clear of the card's rounded corners.
+    // Only the ::-webkit- rules (Chrome, Safari, the desktop WebView): Chrome drops them once
+    // scrollbar-width or scrollbar-color is set, so those two are for Firefox alone.
+    &::-webkit-scrollbar
+        width: 1.5rem
+    &::-webkit-scrollbar-track
+        margin-block: 1.5rem
+        background: transparent
+    &::-webkit-scrollbar-thumb
+        // The transparent border insets the thumb from the card's edge.
+        border: 0.5rem solid transparent
+        border-radius: 1rem
+        background: color-mix(in srgb, var(--steel) 40%, transparent) padding-box
+    &::-webkit-scrollbar-thumb:hover
+        background-color: color-mix(in srgb, var(--steel) 70%, transparent)
+    @supports (-moz-appearance: none)
+        scrollbar-width: thin
+        scrollbar-color: color-mix(in srgb, var(--steel) 40%, transparent) transparent
 
 // More below the fold (settings_nav_controller adds it last in the pane): an arrow on a circle,
 // pinned to the pane's bottom edge over the content. It takes no room: the pane scrolls as far with it.
 .settings__more
-    display: none
+    // Always laid out (it takes no room), shown by opacity so it fades in and out.
+    display: block
+    opacity: 0
+    transition: opacity 0.2s ease
     position: sticky
-    bottom: 2rem
+    bottom: 0
     width: 4rem
     height: 4rem
     margin: -4rem auto 0
     border-radius: 50%
     background: var(--silver)
     pointer-events: none
+    z-index: 2
     .settings__pane--more > &
-        display: block
+        opacity: 1
     &::after
         content: ""
         position: absolute
@@ -155,12 +180,41 @@
         mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 7L8 13L2 7'/%3E%3Cpath d='M8 12L8 1'/%3E%3C/svg%3E") center / contain no-repeat
 
 .settings__heading
-    margin: 5rem 0 0.5rem
+    // Sticks to the pane's top edge and covers what scrolls under it; its bottom edge fades out.
+    // It bleeds across the pane's side padding so the cover runs edge to edge.
+    // Sticky offsets count from inside the pane's padding: minus that padding pins it to the pane's edge.
+    position: sticky
+    top: -3rem
+    z-index: 1
+    // The padding sets a stuck heading on the baseline of the sidebar's first item.
+    margin: 2.875rem -2.25rem 0.5rem
+    padding: 2.75rem 2.25rem 0
+    background: var(--washed)
     font-size: 2rem
     font-weight: 600
     color: var(--ink)
-    &--first
-        margin-top: 0.5rem
+    &::after
+        content: ""
+        position: absolute
+        top: 100%
+        left: 0
+        right: 0
+        height: 2rem
+        background: linear-gradient(var(--washed), transparent)
+        pointer-events: none
+    @media (max-width: 767.9px)
+        top: -1rem
+        margin-left: -2rem
+        margin-right: -2rem
+        padding-left: 2rem
+        padding-right: 2rem
+
+// The pane's first heading starts where it sticks, so it never moves before it is pushed away.
+.settings__pane > .settings__heading:first-child,
+.settings__pane > turbo-frame:first-child > .settings__heading:first-child
+    margin-top: -3rem
+    @media (max-width: 767.9px)
+        margin-top: -1rem
 
 .settings__intro, .settings__empty
     margin: 0.5rem 0 1rem

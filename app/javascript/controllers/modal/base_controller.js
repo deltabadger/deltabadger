@@ -6,6 +6,10 @@ export default class extends Controller {
 
   connect() {
     this.#open()
+    // A click whose press began inside the card (a text selection dragged out) lands on the dialog
+    // too; only a press that began on the backdrop closes it.
+    this.pressBound = (e) => { this.pressedOn = e.target }
+    this.element.addEventListener("pointerdown", this.pressBound)
     // needed because ESC key does not trigger close event
     this.enableBodyScrollBound = this.#enableBodyScroll.bind(this);
     this.element.addEventListener("close", this.enableBodyScrollBound)
@@ -16,6 +20,7 @@ export default class extends Controller {
   }
 
   disconnect() {
+    this.element.removeEventListener("pointerdown", this.pressBound)
     this.element.removeEventListener("close", this.enableBodyScrollBound)
     document.removeEventListener("turbo:before-cache", this.cleanUpBound)
   }
@@ -58,7 +63,7 @@ export default class extends Controller {
   }
 
   clickOutside(event) {
-    if (event.target === this.element) {
+    if (event.target === this.element && this.pressedOn === this.element) {
       this.animateOutCloseAndCleanUp()
     }
   }
