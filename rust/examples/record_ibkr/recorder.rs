@@ -693,7 +693,8 @@ impl<'a, T: Transport, C: Clock + ?Sized> Recorder<'a, T, C> {
             got.push(Got { file: "unauthorized".into(), x: Exchange { method: "GET", path: ACCOUNTS_PATH.into(), query: vec![], body: None, status, text: body } });
         }
         let parsed: Vec<(Value, Option<Value>)> = got.iter().map(|g| (serde_json::from_str(&g.x.text).unwrap_or_else(|_| Value::String(g.x.text.clone())), g.x.body.clone())).collect();
-        let mut symbols: Vec<String> = stocks.iter().flat_map(|s| [s.symbol.clone(), s.isin.clone()]).collect();
+        // Only a value with a letter is public: an all-digit symbol (HK's 9988) would otherwise keep every equal amount or id.
+        let mut symbols: Vec<String> = stocks.iter().flat_map(|s| [s.symbol.clone(), s.isin.clone()]).filter(|s| s.chars().any(|c| c.is_ascii_alphabetic())).collect();
         for (g, (body, _)) in got.iter().zip(&parsed) {
             collect_public(Ctx { file: &g.file, ok: (200..300).contains(&g.x.status), symbols: &[] }, None, body, &mut symbols);
         }

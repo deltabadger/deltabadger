@@ -369,6 +369,15 @@ fn a_failed_run_leaves_the_earlier_set_untouched() {
     assert_eq!(all_text(&r.dir.path().join("read")), before);
 }
 
+#[test]
+fn a_numeric_symbol_never_makes_an_equal_amount_public() {
+    let mut cmd = read_cmd();
+    cmd.stocks[1].symbol = "180.25".into(); // equal to the positions row's avgCost
+    let r = run(cmd, |t| { t.reply("GET /v1/api/iserver/accounts", 200, accounts(&[LIVE])); script_reads(t, LIVE); }, None);
+    r.result.unwrap();
+    assert!(!all_text(&r.dir.path().join("read")).contains("180.25"), "an all-digit symbol is not public");
+}
+
 // ---- the scrub per endpoint family
 
 fn scrub_one(file: &str, ok: bool, v: Value) -> (Value, Scrubber) {
