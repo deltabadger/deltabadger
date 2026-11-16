@@ -11,6 +11,7 @@
 #   validate.sh highest <series> <tag> <tag>...  `true` when <tag> is the highest stable tag of <series> (e.g. v3, v3.1)
 #   validate.sh tags <tag> <latest_major> <tag>...   the image tags to publish, one per line
 #   validate.sh seed <file>                     fail unless <file> is a seed bundle a fresh install can start from
+#   validate.sh same-seed <file>                fail unless <file> is byte for byte rust/seed/seed_data.json.gz (sha256)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -26,6 +27,8 @@ PACKAGES=(darwin-aarch64:Deltabadger_darwin-aarch64.app.tar.gz
 SEED_EXCHANGES=(binance binance_us bingx bitget bitrue bitvavo bybit coinbase gemini hyperliquid kraken kucoin mexc)
 
 version() { sed -n 's/^version = "\([^"]*\)"$/\1/p' src-tauri/Cargo.toml | head -1; }
+
+sha256() { { sha256sum "$1" 2>/dev/null || shasum -a 256 "$1"; } | cut -d' ' -f1; }
 
 stable() { [[ $1 =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; }
 
@@ -44,7 +47,7 @@ highest() { # <series> <tag> <tags...>: the newest stable tag of the series, by 
   if [ "$top" = "$tag" ]; then echo true; else echo false; fi
 }
 
-cmd=${1:?usage: validate.sh version|set-version|same-version|feed|check|highest|tags|seed ...}; shift
+cmd=${1:?usage: validate.sh version|set-version|same-version|feed|check|highest|tags|seed|same-seed ...}; shift
 case $cmd in
   version) version ;;
 
@@ -161,6 +164,14 @@ case $cmd in
       | .[:20][]')
     [ -z "$problems" ] || fail "$file is not a seed bundle: $(tr '\n' ';' <<< "$problems")"
     echo "seed bundle $file: $(gzip -dc "$file" | jq -r '[.["assets.json"].data, .["indices.json"].data] | map(length) | "\(.[0]) assets, \(.[1]) indices"'), ${#SEED_EXCHANGES[@]} ticker files"
+    ;;
+
+  same-seed) # PLAN-B8 r2.6: the asset a release attaches is the snapshot its tag committed
+    file=${1:?same-seed <file>}
+    [ -s "$file" ] || fail "$file: no such file, or empty"
+    want=$(sha256 rust/seed/seed_data.json.gz) got=$(sha256 "$file")
+    [ "$got" = "$want" ] || fail "$file (sha256 $got) is not the committed rust/seed/seed_data.json.gz (sha256 $want)"
+    echo "seed snapshot $file: sha256 $got, the committed one"
     ;;
 
   *) fail "unknown command $cmd" ;;
