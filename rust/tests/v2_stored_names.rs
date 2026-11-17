@@ -364,18 +364,24 @@ async fn a_takeover_stopped_mid_way_upgrades_and_finishes_once() {
     assert!(count(&o.primary, "SELECT count(*) FROM rust_withdrawal_ids WHERE source = 'v2'") > 0);
     deltabadger::engine::rules::seed_v2_ids(&o.primary).unwrap();
     assert_eq!(count(&o.primary, "SELECT count(*) FROM rust_withdrawal_ids"), ids);
-    // The claimed job's marker blocks the bot. The beta's takeover set the bot aside (the frozen install has no Kraken
-    // key), so one engine pass ends the call once: one signal_expired line, no order; a second pass does nothing.
+    // The claimed job's marker blocks the bot until its owner resolves it (#8). The frozen 2.x install had no Kraken key,
+    // so the beta's takeover set the bot aside: the owner adds the key and starts it. Inside the call's window the one
+    // migrated call places one order, and later passes place none.
     assert!(deltabadger::engine::signal::blocked(&model::load_bot(&o.primary, 1).unwrap()));
-    o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.signal_placement_unresolved') WHERE id = 1", []).unwrap();
+    let cipher = common::seed::cipher();
+    let (user, exchange): (i64, i64) = o.primary.query_row("SELECT user_id, exchange_id FROM bots WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    o.primary.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, '2026-09-30 11:00:00', '2026-09-30 11:00:00')",
+                      rusqlite::params![user, exchange, cipher.encrypt("test-key"), cipher.encrypt("dGVzdC1zZWNyZXQ=")]).unwrap();
+    o.primary.execute("UPDATE bots SET status = 1, transient_data = json_remove(transient_data, '$.signal_placement_unresolved', '$.rust_set_aside', '$.rust_set_aside_mail_pending') WHERE id = 1", []).unwrap();
+    let triggered = calls(&o)[0].triggered_at;
     let venue = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.2", "49995.3").balance_body("ZEUR", "10000", "0");
-    let at = deltabadger::engine::FixedClock(chrono::Utc::now());
-    let mut e = deltabadger::engine::run::Engine::new(Connection::open(&p.primary).unwrap(), FakeFactory(venue.clone()), common::seed::cipher(), l.clone());
-    let expired = || count(&o.primary, "SELECT count(*) FROM bot_activity_logs WHERE bot_id = 1 AND event = 'signal_expired'");
-    let before = expired();
+    let at = deltabadger::engine::FixedClock(triggered + chrono::Duration::seconds(59));
+    let mut e = deltabadger::engine::run::Engine::new(Connection::open(&p.primary).unwrap(), FakeFactory(venue.clone()), cipher, l.clone());
     for _ in 0..3 { deltabadger::engine::run::step(&mut e, &at).await.unwrap(); }
-    assert_eq!((expired() - before, venue.sent().len()), (1, 0), "the call ends once, and places nothing for a set-aside bot");
+    assert_eq!(venue.sent().len(), 1, "one order for the one migrated call: {:?}", venue.sent());
     assert!(calls(&o).is_empty(), "the call is consumed");
+    for _ in 0..2 { deltabadger::engine::run::step(&mut e, &at).await.unwrap(); }
+    assert_eq!(venue.sent().len(), 1, "never a second order");
 }
 
 /// #6, r1.4 (a)/(b): the imports replayed on the migrated mid-takeover install with their journals cleared and 2.x's
@@ -720,4 +726,34 @@ fn the_signal_call_rewrite_keeps_order_and_types() {
     assert_eq!(mixed["rust_signal_calls"].as_array().unwrap().iter().map(|c| c["source"].as_str().unwrap()).collect::<Vec<_>>(), ["hook:a", "v2:J1", "v2:J2"]);
     assert!(mixed["rust_signal_calls"][1]["signal_id"].is_i64() && mixed["rust_signal_calls"][1]["n"].is_f64());
     assert_eq!(&got[1..], &cases[1..].iter().map(|s| s.to_string()).collect::<Vec<_>>()[..], "untouched rows are byte-equal");
+}
+
+/// Codex branch r1: step 5 moves `rails_at` to `v2_at` as the same JSON value, whatever its type; only `rust_job.*`
+/// objects that have it change.
+#[test]
+fn the_baseline_rename_keeps_the_json_value() {
+    let (_dir, o, _) = common::install();
+    let c = &o.primary;
+    let sql = RUST_MIGRATIONS.iter().find(|m| m.version == V).unwrap().sql;
+    let step5 = &sql[sql.find("UPDATE app_configs SET value = json_set(json_remove(value, '$.rails_at')").unwrap()..];
+    let step5 = &step5[..step5.find(";\n").unwrap() + 1];
+    let cases = [
+        ("rust_job.a", r#"{"last_run_at":"2026-09-30T00:00:00Z","rails_at":"2026-09-29T10:15:00Z"}"#, Some(r#"{"last_run_at":"2026-09-30T00:00:00Z","v2_at":"2026-09-29T10:15:00Z"}"#)),
+        ("rust_job.b", r#"{"rails_at":null}"#, Some(r#"{"v2_at":null}"#)),
+        ("rust_job.c", r#"{"rails_at":true}"#, Some(r#"{"v2_at":true}"#)),
+        ("rust_job.d", r#"{"rails_at":1.5}"#, Some(r#"{"v2_at":1.5}"#)),
+        ("rust_job.e", r#"{"rails_at":{"x":[1,false]}}"#, Some(r#"{"v2_at":{"x":[1,false]}}"#)),
+        ("rust_job.f", r#"{"last_run_at":null}"#, None),
+        ("rust_job.g", r#""a bare string""#, None),
+        ("other.key", r#"{"rails_at":"2026-09-29T10:15:00Z"}"#, None),
+    ];
+    for (k, v, _) in cases { c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, 't', 't')", [k, v]).unwrap(); }
+    c.execute_batch(step5).unwrap();
+    for (k, v, want) in cases {
+        let got: String = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [k], |r| r.get(0)).unwrap();
+        match want {
+            Some(w) => assert_eq!(serde_json::from_str::<Value>(&got).unwrap(), serde_json::from_str::<Value>(w).unwrap(), "{k}"),
+            None => assert_eq!(got, v, "{k} untouched"),
+        }
+    }
 }

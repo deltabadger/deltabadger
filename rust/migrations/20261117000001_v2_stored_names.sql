@@ -90,8 +90,9 @@ UPDATE app_configs SET key = 'rust_v2_queue_done' WHERE key = 'rust_rails_queue_
 UPDATE app_configs SET key = 'rust_v2_unrecorded.live_cursor' WHERE key = 'rust_rails_unrecorded.live_cursor';
 UPDATE app_configs SET key = 'rust_job.v2_unrecorded_report' WHERE key = 'rust_job.rails_unrecorded_report';
 
--- 5. A job's 2.x baseline: rails_at becomes v2_at (a JSON null stays null; a row that is not a JSON object is untouched).
-UPDATE app_configs SET value = json_set(json_remove(value, '$.rails_at'), '$.v2_at', json_extract(value, '$.rails_at'))
+-- 5. A job's 2.x baseline: rails_at becomes v2_at as the same JSON value (`->` keeps its type: a null, a boolean or a
+-- number stays one); a row that is not a JSON object is untouched.
+UPDATE app_configs SET value = json_set(json_remove(value, '$.rails_at'), '$.v2_at', json(value -> '$.rails_at'))
   WHERE substr(key, 1, 9) = 'rust_job.' AND json_valid(value) AND json_type(value) = 'object' AND json_type(value, '$.rails_at') IS NOT NULL;
 
 -- 6. Bots: a signal call imported at a takeover (rails:<job> becomes v2:<job>, order and every other field kept), and the
