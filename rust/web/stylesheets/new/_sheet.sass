@@ -136,7 +136,7 @@
     display: flex
     flex-direction: column
     margin: 0
-    padding: 1.5rem
+    padding: 1rem 1.25rem
     list-style: none
     gap: 0
     @media (max-width: 767.9px)
@@ -873,6 +873,29 @@ turbo-frame.sitem
 .index-rows__empty
     padding: 2rem
     color: var(--stone)
-// The market-data widget, flush in the pane under the switch.
-.index-view__connect
-    padding: 1rem 2rem 3rem
+// D-INDEX-CONNECT-IN-VIEW: the market-data connect form in the Index view, laid out as the wizard's key card: one column,
+// the provider switch and Connect on its first line, the key or code under them, then the walkthrough.
+.mdconnect
+    display: flex
+    flex-direction: column
+    gap: 1rem
+    max-width: 44rem
+    margin: 0 auto
+    padding: 3rem 2rem
+    [hidden]
+        display: none !important
+    &__head
+        display: flex
+        align-items: center
+        justify-content: space-between
+        gap: 1rem
+    &__form
+        margin: 0
+    &__body
+        display: flex
+        flex-direction: column
+        gap: 1rem
+    .rinput--text
+        width: 100%
+    .sform__error
+        margin: 0.5rem 0 0

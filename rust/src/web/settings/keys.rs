@@ -451,8 +451,8 @@ pub(crate) fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str,show_coingecko
     let market_note=hosted_note("settings.market_data.deltabadger_configured");
     let platform_note=v.t(if proxies{"settings.platform.connected_with_proxies"}else{"settings.platform.connected_without_proxies"});
     let coingecko_instructions=v.t("setup.coingecko_api_key_hint_html");
-    let market=super::sections::market_data(v,csrf,&super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors,wizard});
-    Ok(market)
+    let m=super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors};
+    Ok(if wizard { super::sections::market_data_wizard(v,csrf,&m) } else { super::sections::market_data(v,csrf,&m) })
 }
 /// GET /settings/api_keys: the exchange keys.
 pub async fn show_keys(app: App, ctx: Ctx) -> Result<Response, WebError> {
