@@ -28,7 +28,8 @@
     position: absolute
     top: 1.5rem
     right: 1.5rem
-    z-index: 2
+    // Above the pane's stuck search (z-index 2), which comes later in the page and would otherwise take its clicks.
+    z-index: 3
     // Square, so border-radius 50% is a circle: padding alone left the button's line box taller than wide.
     display: flex
     align-items: center
