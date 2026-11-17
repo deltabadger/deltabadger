@@ -65,6 +65,7 @@ struct New<'a> {
     search: String,
     next_url: String,
     next_label: String,
+    more_label: String,
     chosen: Vec<Chip>,
     remove_url: String,
     remove_title: String,
@@ -111,7 +112,7 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool
     let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Currencies, multi: !chosen.chips.is_empty(), chips: chips(c, &chosen.ids)?, exchange }, true)?;
     let body = New {
         v: ctx, csrf: &csrf, search: steered.search,
-        next_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/advance"), next_label: ctx.t("button.next"),
+        next_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/advance"), next_label: ctx.t("button.next"), more_label: ctx.t("bot.setup.add_more_assets"),
         remove_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/remove"), remove_title: ctx.t("bot.dca_multi_asset.remove_asset"),
         no_common_exchange,
         max_reached: (chosen.chips.len() >= MAX_ASSETS).then(|| i18n::t(ctx.locale, "bot.dca_multi_asset.max_assets_reached", &[("max", i18n::Arg::Text("100"))])),

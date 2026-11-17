@@ -10,7 +10,10 @@
               <div class="modal--search__cell">
                 <div class="{{ chip.class }}" style="background: {{ chip.pill }}" data-ticker-symbol="{{ chip.symbol }}" data-ticker-asset-id="{{ chip.id }}">{{ chip.symbol }}</div>
               </div>
-              <div class="modal--search__cell">{{ chip.name }}</div>
+              <div class="modal--search__cell modal--search__cell--name">
+                {{ chip.logo|safe }}
+                <span class="modal--search__cell--name__label">{{ chip.name }}</span>
+              </div>
               <div class="modal--search__cell wizard-assets__action">
                 <form data-turbo-frame="modal_content" data-wizard-dir="stay" class="button_to" method="post" action="{{ remove_url }}"><button class="rbutton rbutton--small" title="{{ remove_title|safe }}" type="submit">×</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><input type="hidden" name="bots_dca_single_asset[base_asset_id]" value="{{ chip.id }}" /></form>
               </div>
@@ -21,6 +24,7 @@
 
 {%- if !chosen.is_empty() %}
         <form class="button_to sheet__next" data-turbo-frame="modal_content" method="post" action="{{ next_url }}"><button class="rbutton rbutton--primary" type="submit">{{ next_label }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+        <h3 class="sheet__more-assets">{{ more_label }}</h3>
 {%- endif %}
 
 {%- if let Some(warning) = no_common_exchange %}

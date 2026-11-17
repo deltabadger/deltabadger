@@ -6,6 +6,7 @@ en:
             assets_syncing: "We're syncing this exchange's assets — check back in a moment."
             stocks_ask_admin: "Ask your admin to activate stock trading."
             stocks_activate_cta: "Activate stock trading in Settings"
+            add_more_assets: "Add more assets"
             venue_groups:
                 brokers: "Brokers"
                 exchanges: "Exchanges"

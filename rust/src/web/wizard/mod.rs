@@ -240,19 +240,24 @@ pub struct Chip {
     pub name: String,
     pub class: &'static str,
     pub pill: String,
+    /// The asset's logo, as a search result draws it.
+    pub logo: String,
 }
 
 /// The Assets of `ids` in that order, skipping ids that are no row (`ids.filter_map { by_id[_] }`).
 pub fn chips(c: &Connection, ids: &[i64]) -> Result<Vec<Chip>, WebError> {
-    let mut statement = c.prepare("SELECT id, symbol, name, color, category FROM assets WHERE id = ?1")?;
+    let mut statement = c.prepare("SELECT id, symbol, name, color, category, image_url FROM assets WHERE id = ?1")?;
     let mut chips = vec![];
     for id in ids {
         let found = statement.query_row([id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, Option<String>>(2)?,
-                                                       r.get::<_, Option<String>>(3)?, r.get::<_, Option<String>>(4)?))).optional()?;
-        let Some((id, symbol, name, color, category)) = found else { continue };
+                                                       r.get::<_, Option<String>>(3)?, r.get::<_, Option<String>>(4)?, r.get::<_, Option<String>>(5)?))).optional()?;
+        let Some((id, symbol, name, color, category, image)) = found else { continue };
+        let symbol = symbol.unwrap_or_default();
         chips.push(Chip {
-            id, symbol: symbol.unwrap_or_default(), name: name.unwrap_or_default(), class: colors::ticker_class(category.as_deref(), color.as_deref()),
+            id, name: name.unwrap_or_default(), class: colors::ticker_class(category.as_deref(), color.as_deref()),
             pill: colors::pill_color(color.as_deref()).ok_or_else(|| WebError::Config("an asset colour 2.x cannot read".into()))?,
+            logo: crate::web::tracker::row::asset_logo(image, color, symbol.clone(), category)?,
+            symbol,
         });
     }
     Ok(chips)

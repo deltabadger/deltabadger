@@ -6,6 +6,7 @@ es:
             assets_syncing: "Estamos sincronizando los activos de este exchange: vuelve a comprobarlo en un momento."
             stocks_ask_admin: "Pide a tu administrador que active el trading de acciones."
             stocks_activate_cta: "Activar el trading de acciones en los ajustes"
+            add_more_assets: "Añadir más activos"
             venue_groups:
                 brokers: "Brókers"
                 exchanges: "Exchanges"

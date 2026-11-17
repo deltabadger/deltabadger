@@ -284,6 +284,23 @@ fn ungroup(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usiz
     Ok(())
 }
 
+/// D-WIZARD-SHEET: each basket row's name cell (`modal--search__cell--name`: the logo, then the name in its label) read back
+/// as 2.x's (`modal--search__cell`, the name alone). A cell without its logo is not this crate's.
+fn unlogo(ours: &mut Vec<Value>) -> Result<(), String> {
+    while let Some(row) = positions(ours, 0, ours.len(), |l| has_class(l, "div", "wizard-assets__row")).into_iter()
+        .find(|row| !positions(ours, *row, subtree_end(ours, *row), |l| has_class(l, "div", "modal--search__cell--name")).is_empty()) {
+        let cell = positions(ours, row, subtree_end(ours, row), |l| has_class(l, "div", "modal--search__cell--name"))[0];
+        let end = subtree_end(ours, cell);
+        if positions(ours, cell, end, |l| attr(text(l), "class").is_some_and(|c| c.split(' ').any(|c| c == "asset-logo"))).is_empty() { return Err("a basket row without its logo".into()) }
+        let label = positions(ours, cell, end, |l| has_class(l, "span", "modal--search__cell--name__label")).first().copied().ok_or("a basket row without its name")?;
+        let name = ours[label + 1].clone();
+        let indent = "  ".repeat(depth(&ours[cell]));
+        let back = vec![json!(format!("{indent}<div class=\"modal--search__cell\">")), json!(format!("{}{}", "  ".repeat(depth(&ours[cell]) + 1), text(&name).trim_start())), json!(format!("{indent}</div>"))];
+        ours.splice(cell..end, back);
+    }
+    Ok(())
+}
+
 /// D-WIZARD-SHEET-KEY-FORM: the key card's title is the venue's name alone (its button says "Connect"), where 2.x's reads
 /// "Connect {name}" in the page's locale; read back as 2.x's.
 fn retitle(theirs: &[Value], step: usize, ours: &mut [Value], ours_step: usize, locale: &str) -> Result<(), String> {
@@ -408,7 +425,14 @@ pub fn wizard_sheet(path: &str, flow: Option<&str>, v2: &mut Value, rust: &mut V
         }
         _ => return Err("more than one Next".into()),
     }
-    for at in nexts.iter().chain(&searches).copied().rev().collect::<std::collections::BTreeSet<_>>().into_iter().rev() { cut(ours, at) }
+    // "Add more assets" under Next: the locale's words, and only where Next is.
+    let more = positions(ours, ours_step, ours_step_end, |l| has_class(l, "h3", "sheet__more-assets"));
+    if more.len() != nexts.len() { return Err(format!("{} \"Add more assets\" labels for {} Next", more.len(), nexts.len())) }
+    let want = deltabadger::web::i18n::text(locale, "bot.setup.add_more_assets", &[]);
+    if let Some(at) = more.iter().find(|at| words(&ours[**at + 1]).as_deref() != Some(want.as_str())) { return Err(format!("the label over the results: {:?}", words(&ours[at + 1]))) }
+    for at in nexts.iter().chain(&searches).chain(&more).copied().collect::<std::collections::BTreeSet<_>>().into_iter().rev() { cut(ours, at) }
+    // A basket row's name cell holds the asset's logo, as a result row does; read back as 2.x's cell, the name alone.
+    unlogo(ours)?;
     let ours_end = subtree_end(ours, ours_shell);
     let ours_step = positions(ours, ours_shell, ours_end, |l| has_class(l, "div", "bot-creation-layout"))[0];
     // D-WIZARD-VENUE-GROUPS: the brokers and the exchanges under their headings; read back as 2.x's one grid.
@@ -491,7 +515,11 @@ mod tests {
     }
     fn body(inner: &str) -> String { format!("<div class=\"vt-step-body\"><form action=\"/x\"><input name=\"field\" value=\"1\"></form>{inner}</div>") }
     fn basket(hidden: bool) -> String {
-        format!("<div class=\"wizard-assets__list {}\" data-class-toggle-target=\"togglable\"><div class=\"wizard-assets__row\">BTC</div></div>", if hidden { "hidden" } else { "" })
+        format!("<div class=\"wizard-assets__list {}\" data-class-toggle-target=\"togglable\"><div class=\"wizard-assets__row\"><div class=\"modal--search__cell\">Bitcoin</div></div></div>", if hidden { "hidden" } else { "" })
+    }
+    /// This crate's basket: the same row, its name cell holding the asset's logo.
+    fn ours_basket(logo: bool) -> String {
+        format!("<div class=\"wizard-assets__list \" data-class-toggle-target=\"togglable\"><div class=\"wizard-assets__row\"><div class=\"modal--search__cell modal--search__cell--name\">{}<span class=\"modal--search__cell--name__label\">Bitcoin</span></div></div></div>", if logo { "<span class=\"asset-logo\"></span>" } else { "" })
     }
     fn v2_step(title: &str, share: usize, sentence: &str, inner: &str) -> String {
         format!("<div class=\"bot-creation-layout\">\n    {}\n\n    {sentence}\n\n    {}\n  </div>\n", bar(title, share), body(inner))
@@ -530,7 +558,7 @@ mod tests {
     fn search(frame: &str, url: &str, placeholder: &str) -> String {
         format!("<div class=\"modal--search sheet__search\"><form data-turbo-frame=\"{frame}\" action=\"{url}\" method=\"get\"><input autofocus=\"autofocus\" placeholder=\"{placeholder}\" type=\"text\" name=\"query\" id=\"query\" /></form></div>")
     }
-    fn next(fields: &str) -> String { format!("<form class=\"button_to sheet__next\" data-turbo-frame=\"modal_content\" method=\"post\" action=\"{ADVANCE}\"><button type=\"submit\">Next</button>{CSRF}{fields}</form>") }
+    fn next(fields: &str) -> String { format!("<form class=\"button_to sheet__next\" data-turbo-frame=\"modal_content\" method=\"post\" action=\"{ADVANCE}\"><button type=\"submit\">Next</button>{CSRF}{fields}</form><h3 class=\"sheet__more-assets\">Add more assets</h3>") }
     fn asset_track(exchange_fields: &[(&str, &str)]) -> String {
         track(&[item("done", "Kraken", Some(("post", ADVANCE, exchange_fields, true))), item("current", "BTC</span><span>ETH", None), item("upcoming", "Currency", Some(("post", ADVANCE, &[], false)))])
     }
@@ -557,7 +585,7 @@ mod tests {
     #[test]
     fn the_asset_step_shows_the_tickers_opens_the_basket_and_mirrors_each_slot() {
         let v2 = |hidden: bool| v2_page(&v2_step("Pick asset", 75, &asset_sentence(), &basket(hidden)));
-        let ours = |track: String, extras: String, hidden: bool| page(&sheet("modal_content", &track, &ours_step(&extras, &basket(hidden))));
+        let ours = |track: String, extras: String, hidden: bool| page(&sheet("modal_content", &track, &ours_step(&extras, &if hidden { basket(true) } else { ours_basket(true) })));
         for hidden in [true, false] {
             let (mut theirs, mut drawn) = (v2(hidden), ours(asset_track(&[("to", "exchange")]), next(""), false));
             assert_eq!(wizard_sheet(ASSET_PATH, Some("exchange_first"), &mut theirs, &mut drawn), Ok(1), "basket hidden in 2.x: {hidden}");
@@ -565,6 +593,8 @@ mod tests {
         }
         let refused = |track: String, extras: String, hidden: bool| wizard_sheet(ASSET_PATH, Some("exchange_first"), &mut v2(true), &mut ours(track, extras, hidden));
         assert!(refused(asset_track(&[("to", "exchange")]), next(""), true).is_err(), "a hidden basket");
+        assert!(wizard_sheet(ASSET_PATH, Some("exchange_first"), &mut v2(true), &mut page(&sheet("modal_content", &asset_track(&[("to", "exchange")]), &ours_step(&next(""), &ours_basket(false))))).is_err(), "a basket row without its logo");
+        assert!(refused(asset_track(&[("to", "exchange")]), next("").replace("<h3 class=\"sheet__more-assets\">Add more assets</h3>", ""), false).is_err(), "Next without its label");
         assert!(refused(asset_track(&[("to", "assets")]), next(""), false).is_err(), "a changed `to`");
         assert!(refused(asset_track(&[]), next(""), false).is_err(), "the back without `to`");
         assert!(refused(asset_track(&[("to", "exchange")]), next("<input type=\"hidden\" name=\"to\" value=\"exchange\" />"), false).is_err(), "Next with `to`");
@@ -577,10 +607,10 @@ mod tests {
         let two = format!("{}{}", asset_track(&[("to", "exchange")]), asset_track(&[("to", "exchange")]));
         assert!(refused(two, next(""), false).is_err(), "two tracks");
         // A changed field inside the step passes the adapter and is then a difference.
-        let (mut theirs, mut drawn) = (v2(false), page(&sheet("modal_content", &asset_track(&[("to", "exchange")]), &ours_step(&next(""), &basket(false)).replace("value=\"1\"", "value=\"2\""))));
+        let (mut theirs, mut drawn) = (v2(false), page(&sheet("modal_content", &asset_track(&[("to", "exchange")]), &ours_step(&next(""), &ours_basket(true)).replace("value=\"1\"", "value=\"2\""))));
         assert_eq!(wizard_sheet(ASSET_PATH, Some("exchange_first"), &mut theirs, &mut drawn), Ok(1));
         assert!(!same(&theirs, &drawn));
-        assert!(wizard_sheet(ASSET_PATH, None, &mut v2(false), &mut page(&sheet("modal_frame", &asset_track(&[("to", "exchange")]), &ours_step(&next(""), &basket(false))))).is_err(), "a wrong frame id");
+        assert!(wizard_sheet(ASSET_PATH, None, &mut v2(false), &mut page(&sheet("modal_frame", &asset_track(&[("to", "exchange")]), &ours_step(&next(""), &ours_basket(true))))).is_err(), "a wrong frame id");
     }
 
     #[test]
