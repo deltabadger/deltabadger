@@ -10,6 +10,11 @@ export default class extends Controller {
   }
 
   navigate(event) {
+    // The keys are the list's from anywhere on the page (the search box above it, nothing focused), but a control of its
+    // own outside the list (a step's Next, the track, a menu) keeps them: its Enter is its own.
+    const control = event.target.closest?.("button, a[href], select, textarea, [contenteditable]");
+    if (control && !this.element.contains(control)) return;
+
     const handleNavigation = (direction) => {
       if (!this.navigationInitialized) {
         this.index = 0;
