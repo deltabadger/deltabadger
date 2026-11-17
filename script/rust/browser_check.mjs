@@ -298,14 +298,14 @@ try {
     // The market data goes away; a search on the quote step, then on the exchange step, shows the connect form in the sheet.
     if (await market("") !== 200) throw new Error("switching market data off");
     await type(`${frame} .sheet__search input[name=query]`, "us");
-    await until("the connect form after a quote search", () => shows(`${frame} turbo-frame#market_data_settings`));
+    await until("the connect form after a quote search", () => shows(`${frame} a.exchange-grid__item--provider`));
     await inSheet("the connect form after a quote search");
     if (await market("deltabadger") !== 200) throw new Error("switching market data back on");
     await click(`${frame} .sheet__track a[href$="/bots/dca_indexes/pick_exchange/new"]`);
     await until("the index exchange step again", () => shows(`${frame} #exchange-picker`));
     if (await market("") !== 200) throw new Error("switching market data off again");
     await type(`${frame} .sheet__search input[name=query]`, "kra");
-    await until("the connect form after an exchange search", () => shows(`${frame} turbo-frame#market_data_settings`));
+    await until("the connect form after an exchange search", () => shows(`${frame} a.exchange-grid__item--provider`));
     await inSheet("the connect form after an exchange search");
     if (await market("deltabadger") !== 200) throw new Error("switching market data back on");
     await evaluate(`document.querySelector("dialog.sheet-dialog .sheet__close").click()`);

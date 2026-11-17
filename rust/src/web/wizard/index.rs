@@ -187,7 +187,8 @@ fn offered(c: &Connection, app: &App, config: Option<&Value>) -> Result<Vec<Inde
 
 #[derive(Template)]
 #[template(path = "wizard/index/assets.html")]
-struct AssetsView<'a> { v: &'a Ctx, switch: String, error: Option<String>, configured: bool, widget: Option<String>, action: String, csrf: &'a str, tiles: Vec<IndexTile> }
+struct AssetsView<'a> { v: &'a Ctx, switch: String, error: Option<String>, configured: bool, admin: bool, widget: Option<String>, providers: Vec<(String, String, &'static str)>,
+    action: String, csrf: &'a str, tiles: Vec<IndexTile> }
 
 /// D-INDEX-IN-ASSETS: the Assets step's Index view, as the sheet: the Asset / Index switch, then the index list (market data
 /// configured), Settings' market-data widget (an admin), or who to ask. The track is the DCA one until an index is chosen.
@@ -195,9 +196,14 @@ pub fn assets_view(c: &Connection, app: &App, ctx: &Ctx, config: Option<&Value>,
     let csrf = ctx.csrf_token();
     let admin = ctx.user().is_some_and(|user| user.admin);
     let configured = configured(c, app)?;
-    let widget = if !configured && admin { Some(crate::web::settings::keys::market_data(c, app, ctx, &csrf, false, None, true)?) } else { None };
+    // D-INDEX-CONNECT-IN-VIEW: no market data: the providers as the exchange step's tiles, each opening its connect card.
+    let provider = ctx.params.query("provider").filter(|p| matches!(*p, "coingecko" | "deltabadger"));
+    let widget = match provider { Some(provider) if !configured && admin => Some(crate::web::settings::keys::market_data(c, app, ctx, &csrf, false, None, Some(provider))?), _ => None };
+    let providers = [("coingecko", "CoinGecko".to_string(), include_str!("../../../templates/svg/_coingecko.html")),
+                     ("deltabadger", ctx.t("settings.platform.option"), include_str!("../../../templates/svg/_40x30_logo.html"))]
+        .into_iter().map(|(key, name, mark)| (ctx.path(&format!("{INDEX_VIEW}&provider={key}")), name, mark)).collect();
     let tiles = if configured { offered(c, app, config)? } else { vec![] };
-    let content = AssetsView { v: ctx, switch: super::kind_switch(ctx, true)?, error, configured, widget, action: ctx.path(PICK), csrf: &csrf, tiles }.render()?;
+    let content = AssetsView { v: ctx, switch: super::kind_switch(ctx, true)?, error, configured, admin, widget, providers, action: ctx.path(PICK), csrf: &csrf, tiles }.render()?;
     let venue = super::assets::venue_in_force(c, config)?;
     let track = if index_chosen(config) {
         index_track(ctx, &csrf, config, At::Assets, &index_name(c, config, ctx.locale)?, exchange_name(c, venue)?)?

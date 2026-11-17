@@ -10,6 +10,9 @@ sv:
             venue_groups:
                 brokers: "Mäklare"
                 exchanges: "Börser"
+            market_data:
+                intro: "Index kräver marknadsdata i realtid. Använd Deltabadgers officiella data-API eller ett gratis CoinGecko-konto."
+                providers: "Leverantörer av marknadsdata"
             kind:
                 asset: "Tillgång"
                 index: "Index"

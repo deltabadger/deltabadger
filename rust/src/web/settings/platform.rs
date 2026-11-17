@@ -48,7 +48,7 @@ async fn create(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let error = outcome.err();
     let wizard = market_data::in_wizard(&ctx);
     let (widget, proxies, configured) = app
-        .db(move |c| Ok((keys::market_data(c, &inner, &v, &csrf, false, error.as_deref(), wizard)?, error.is_none().then(|| proxies(c)).transpose()?,
+        .db(move |c| Ok((keys::market_data(c, &inner, &v, &csrf, false, error.as_deref(), wizard.then_some("deltabadger"))?, error.is_none().then(|| proxies(c)).transpose()?,
                          crate::web::bots::market_data(c, &inner)?.1)))
         .await?;
     if wizard && configured && proxies.is_some() { return Ok(market_data::to_index_view(&ctx)) }
@@ -84,7 +84,7 @@ async fn destroy(app: App, ctx: Ctx) -> Result<Response, WebError> {
         .db(move |c| {
             let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
             forget(&tx, &inner.cipher).map_err(WebError::Config)?;
-            let widget = keys::market_data(&tx, &inner, &v, &csrf, false, None, false)?;
+            let widget = keys::market_data(&tx, &inner, &v, &csrf, false, None, None)?;
             tx.commit()?;
             Ok(widget)
         })

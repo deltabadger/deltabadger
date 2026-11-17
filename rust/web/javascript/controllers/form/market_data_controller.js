@@ -16,9 +16,8 @@ export default class extends Controller {
   select(event) {
     const provider = event.detail.value
     this.providerTarget.value = provider
-    // Every element of a provider's (the wizard draws its Connect apart from its fields).
-    this.coingeckoFieldsTargets.forEach((element) => { element.hidden = provider !== "coingecko" })
-    this.deltabadgerButtonsTargets.forEach((element) => { element.hidden = provider !== "deltabadger" })
+    if (this.hasCoingeckoFieldsTarget) this.coingeckoFieldsTarget.hidden = provider !== "coingecko"
+    if (this.hasDeltabadgerButtonsTarget) this.deltabadgerButtonsTarget.hidden = provider !== "deltabadger"
     if (provider === "deltabadger" && !this.platformConnectedValue) return
 
     this.providerFormTarget.requestSubmit()

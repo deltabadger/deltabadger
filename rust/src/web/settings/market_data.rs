@@ -122,6 +122,8 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
     }
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
     let wizard = in_wizard(&ctx);
+    // The card to draw again: the provider posted (a claim's refusals are platform_connection's).
+    let card = wizard.then(|| if ctx.params.form("market_data_provider") == Some("deltabadger") { "deltabadger" } else { "coingecko" });
     let done = app
         .db(move |c| {
             let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
@@ -156,7 +158,7 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
                 }
                 _ => None,
             };
-            let widget = keys::market_data(&tx, &inner, &v, &csrf, show_form, None, wizard)?;
+            let widget = keys::market_data(&tx, &inner, &v, &csrf, show_form, None, card)?;
             let configured = crate::web::bots::market_data(&tx, &inner)?.1;
             tx.commit()?;
             if requested { wake(&inner); }
@@ -187,7 +189,7 @@ async fn disconnect(app: App, ctx: Ctx) -> Result<Response, WebError> {
             let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
             config(crate::app_config::delete(&tx, "market_data_provider"))?;
             config(crate::app_config::set(&tx, &inner.cipher, "coingecko_api_key", "", inner.now()))?;
-            let widget = keys::market_data(&tx, &inner, &v, &csrf, false, None, false)?;
+            let widget = keys::market_data(&tx, &inner, &v, &csrf, false, None, None)?;
             tx.commit()?;
             Ok(widget)
         })

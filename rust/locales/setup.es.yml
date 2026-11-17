@@ -10,6 +10,9 @@ es:
             venue_groups:
                 brokers: "Brókers"
                 exchanges: "Exchanges"
+            market_data:
+                intro: "Los índices necesitan datos de mercado en tiempo real. Usa la API de datos oficial de Deltabadger o una cuenta gratuita de CoinGecko."
+                providers: "Proveedores de datos de mercado"
             kind:
                 asset: "Activo"
                 index: "Índice"

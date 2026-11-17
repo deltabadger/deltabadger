@@ -41,8 +41,24 @@
     <p>{{ v.t("utils.search.no_results")|safe }}</p>
   </div>
 {%- else if let Some(widget) = widget %}
-  <div class="index-view__connect">
-    {{ widget|safe }}
+  <div class="bot-creation-layout bot-creation-layout--api index-view__connect">
+    <div class="vt-step-body">
+      {{ widget|safe }}
+    </div>
+  </div>
+{%- else if admin %}
+  <div class="index-view__providers">
+    <p class="index-view__intro">{{ v.t("bot.setup.market_data.intro")|safe }}</p>
+    <section class="exchange-group">
+      <h3 class="exchange-group__heading">{{ v.t("bot.setup.market_data.providers") }}</h3>
+      <div class="exchange-grid">
+{%- for (href, name, mark) in providers %}
+        <div class="exchange-grid__option">
+          <a class="exchange-grid__item exchange-grid__item--provider" data-turbo-frame="modal_content" href="{{ href }}">{{ mark|safe }}<span>{{ name }}</span></a>
+        </div>
+{%- endfor %}
+      </div>
+    </section>
   </div>
 {%- else %}
   <p class="sheet__empty">{{ v.t("setup.coingecko_admin_only")|safe }}</p>

@@ -10,6 +10,9 @@ ru:
             venue_groups:
                 brokers: "Брокеры"
                 exchanges: "Биржи"
+            market_data:
+                intro: "Индексам нужны рыночные данные в реальном времени. Используйте официальный API данных Deltabadger или бесплатный аккаунт CoinGecko."
+                providers: "Поставщики рыночных данных"
             kind:
                 asset: "Актив"
                 index: "Индекс"

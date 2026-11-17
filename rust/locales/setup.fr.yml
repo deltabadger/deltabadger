@@ -10,6 +10,9 @@ fr:
             venue_groups:
                 brokers: "Courtiers"
                 exchanges: "Exchanges"
+            market_data:
+                intro: "Les indices nécessitent des données de marché en direct. Utilisez l’API de données officielle de Deltabadger ou un compte CoinGecko gratuit."
+                providers: "Fournisseurs de données de marché"
             kind:
                 asset: "Actif"
                 index: "Indice"

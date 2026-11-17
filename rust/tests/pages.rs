@@ -4727,41 +4727,60 @@ async fn index_in_wizard_market_data_is_connected_in_the_index_view() {
     };
     let stays = |answer: &Value| { assert_eq!(answer["status"], 422, "{}", raw(answer)); widget(answer); };
     let redirected = |answer: &Value| assert_eq!(went(answer), (200, index_view.clone()), "{}", raw(answer));
+    let card = |provider: &str| format!("{index_view}&provider={provider}");
+    let patch = |fields: Value| { let mut form = json!({"_method": "patch"}); for (k, v) in fields.as_object().unwrap() { form[k] = v.clone(); } post("/settings/update_market_data", form) };
     let (_dir, answers) = walk("wizard_index_unconfigured", vec![
         get("/bots/new", "modal"),                                                                            // 0
         get("/bots/dca_single_assets/pick_exchange/new", "modal"),                                            // 1
         post("/bots/dca_single_assets/order", json!({"flow": "asset_first"})),                                // 2
-        get(&index_view, "modal_content"),                                                                    // 3 the widget
-        post("/settings/update_market_data", json!({"_method": "patch", "market_data_provider": "coingecko", "coingecko_api_key": "CG-bad-key", "wizard": "1"})), // 4
-        post("/settings/update_market_data", json!({"_method": "patch", "market_data_provider": "coingecko", "wizard": "1"})),  // 5 no key: its form
-        post("/settings/platform_connection", json!({"claim_code": "dbc_bad", "wizard": "1"})),              // 6
-        post("/settings/update_market_data", json!({"_method": "patch", "market_data_provider": "coingecko", "coingecko_api_key": "CG-good-key", "wizard": "1"})), // 7
-        get("/bots/dca_indexes/pick_exchange/new", "modal_content"),                                          // 8 configured, no index: the view
-        post("/settings/update_market_data", json!({"_method": "patch", "market_data_provider": ""})),         // 9 off again, as Settings
-        post("/settings/platform_connection", json!({"claim_code": "dbc_ok", "wizard": "1"})),               // 10 a connect code
-        post("/settings/update_market_data", json!({"_method": "patch", "market_data_provider": ""})),         // 11 off: the platform stays claimed
-        get(&index_view, "modal_content"),                                                                    // 12 the claimed platform's Connect
-        post("/settings/update_market_data", json!({"_method": "patch", "market_data_provider": "deltabadger", "wizard": "1"})), // 13
-        post("/settings/update_market_data", json!({"_method": "patch", "market_data_provider": "deltabadger"})), // 14 without wizard=1: as before
+        get(&index_view, "modal_content"),                                                                    // 3 the providers
+        get(&card("coingecko"), "modal_content"),                                                             // 4 CoinGecko's card
+        patch(json!({"market_data_provider": "coingecko", "coingecko_api_key": "CG-bad-key", "wizard": "1"})), // 5
+        patch(json!({"market_data_provider": "coingecko", "wizard": "1"})),                                   // 6 no key: its card
+        get(&card("deltabadger"), "modal_content"),                                                           // 7 Deltabadger's card
+        post("/settings/platform_connection", json!({"claim_code": "dbc_bad", "wizard": "1"})),              // 8
+        get(&card("coingecko"), "modal_content"),                                                             // 9
+        patch(json!({"market_data_provider": "coingecko", "coingecko_api_key": "CG-good-key", "wizard": "1"})), // 10
+        get("/bots/dca_indexes/pick_exchange/new", "modal_content"),                                          // 11 configured, no index: the view
+        patch(json!({"market_data_provider": ""})),                                                           // 12 off again, as Settings
+        get(&card("deltabadger"), "modal_content"),                                                           // 13
+        post("/settings/platform_connection", json!({"claim_code": "dbc_ok", "wizard": "1"})),               // 14 a connect code
+        patch(json!({"market_data_provider": ""})),                                                           // 15 off: the platform stays claimed
+        get(&card("deltabadger"), "modal_content"),                                                           // 16 the claimed platform's Connect
+        patch(json!({"market_data_provider": "deltabadger", "wizard": "1"})),                                 // 17
+        patch(json!({"market_data_provider": "deltabadger"})),                                                // 18 without wizard=1: as before
     ]).await;
     in_sheet(&answers[3]);
-    assert_eq!(switch(&answers[3]), switch_of("", true), "the switch above the widget");
+    assert_eq!(switch(&answers[3]), switch_of("", true), "the switch above the providers");
     assert!(index_rows(&answers[3]).is_empty());
-    widget(&answers[3]);
-    assert!(raw(&answers[3]).contains("action=\"/settings/update_market_data\""), "posts where Settings posts");
-    // A refused key: its flash, the form left in place, as Settings answers; a refused code: the widget again, its error under the field.
-    assert_eq!(answers[4]["status"], 422);
-    assert!(raw(&answers[4]).contains(&deltabadger::web::i18n::text("en", "setup.invalid_coingecko_api_key", &[])) && !raw(&answers[4]).contains("action=\"redirect\""));
-    stays(&answers[6]);
-    assert_eq!(answers[5]["status"], 200);
-    widget(&answers[5]);
-    redirected(&answers[7]);
-    assert_eq!(went(&answers[8]), (302, index_view.clone()), "an index step with no index chosen");
-    assert!(!raw(&answers[9]).contains("turbo-stream action=\"redirect\""), "Settings' own write answers as before");
+    let page = scraper::Html::parse_document(&raw(&answers[3]));
+    let tiles: Vec<(String, String)> = page.select(&select(".exchange-group .exchange-grid a.exchange-grid__item")).map(|a| (a.text().collect::<String>().trim().to_string(), a.value().attr("href").unwrap().to_string())).collect();
+    assert_eq!(tiles, [("CoinGecko".to_string(), card("coingecko")), (deltabadger::web::i18n::text("en", "settings.platform.option", &[]), card("deltabadger"))]);
+    assert_eq!(page.select(&select(".exchange-group__heading")).next().unwrap().text().collect::<String>().trim(), deltabadger::web::i18n::text("en", "bot.setup.market_data.providers", &[]));
+    assert!(raw(&answers[3]).contains(&deltabadger::web::i18n::text("en", "bot.setup.market_data.intro", &[])));
+    assert!(!raw(&answers[3]).contains("market_data_settings"), "no form before a provider is picked");
+    // Each provider's card: the key card's layout, posting where Settings posts.
+    for (at, field, action) in [(4, "coingecko_api_key", "/settings/update_market_data"), (7, "claim_code", "/settings/platform_connection")] {
+        in_sheet(&answers[at]);
+        let card = widget(&answers[at]);
+        assert!(card.contains("set-api--connect") && card.contains(&format!("name=\"{field}\"")) && card.contains(&format!("action=\"{action}\"")), "{at}: {card}");
+    }
+    // A refused key: its flash, the card left in place, as Settings answers; a missing key: its card again; a refused code: the
+    // card again with the error under its field.
+    assert_eq!(answers[5]["status"], 422);
+    assert!(raw(&answers[5]).contains(&deltabadger::web::i18n::text("en", "setup.invalid_coingecko_api_key", &[])) && !raw(&answers[5]).contains("action=\"redirect\""));
+    assert_eq!(answers[6]["status"], 200);
+    assert!(widget(&answers[6]).contains("name=\"coingecko_api_key\""));
+    stays(&answers[8]);
+    assert!(widget(&answers[8]).contains("sform__error"));
     redirected(&answers[10]);
-    widget(&answers[12]);
-    redirected(&answers[13]);
-    assert!(!raw(&answers[14]).contains("turbo-stream action=\"redirect\""), "without wizard=1, as before");
+    assert_eq!(went(&answers[11]), (302, index_view.clone()), "an index step with no index chosen");
+    assert!(!raw(&answers[12]).contains("turbo-stream action=\"redirect\""), "Settings' own write answers as before");
+    redirected(&answers[14]);
+    let claimed = widget(&answers[16]);
+    assert!(!claimed.contains("claim_code") && claimed.contains("value=\"deltabadger\""), "the claimed platform: Connect alone: {claimed}");
+    redirected(&answers[17]);
+    assert!(!raw(&answers[18]).contains("turbo-stream action=\"redirect\""), "without wizard=1, as before");
 }
 
 #[tokio::test(flavor = "current_thread")]

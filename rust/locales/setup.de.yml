@@ -10,6 +10,9 @@ de:
             venue_groups:
                 brokers: "Broker"
                 exchanges: "Börsen"
+            market_data:
+                intro: "Indizes brauchen Live-Marktdaten. Nutze die offizielle Deltabadger-Daten-API oder ein kostenloses CoinGecko-Konto."
+                providers: "Marktdatenanbieter"
             kind:
                 asset: "Asset"
                 index: "Index"
