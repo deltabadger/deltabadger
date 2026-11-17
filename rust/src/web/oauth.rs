@@ -34,7 +34,7 @@ pub const DEFAULT_SCOPE: &str = "mcp";
 pub const ACCESS_TOKEN_SECONDS: i64 = 3600;
 pub const CODE_SECONDS: i64 = 600;
 
-/// Doorkeeper's English error texts (its config/locales/en.yml): the gem's, so not in config/locales.
+/// Doorkeeper's English error texts (its config/locales/en.yml): the gem's, so not in rust/locales.
 pub mod text {
     pub const INVALID_CLIENT: &str = "Client authentication failed due to unknown client, no client authentication included, or unsupported authentication method.";
     pub const INVALID_GRANT: &str = "The provided authorization grant is invalid, expired, revoked, does not match the redirection URI used in the authorization request, or was issued to another client.";

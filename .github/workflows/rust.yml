@@ -30,14 +30,8 @@ on:
       # Read by the build too: the app version the binary embeds, build.rs's gates and the asset build.
       - 'src-tauri/Cargo.toml'
       - 'script/rust/**'
-      # The web UI the binary embeds (rust/build.rs): the JavaScript and stylesheets that
-      # script/rust/build_assets.sh builds (app/javascript, app/assets, and what package.json and bun.lock
-      # resolve, dart-sass among them), the images under app/assets/images, the static
-      # files under public, and the translations in config/locales.
-      - 'app/javascript/**'
-      - 'app/assets/**'
-      - 'public/**'
-      - 'config/locales/**'
+      # The web UI the binary embeds (rust/build.rs) is under rust/ (rust/web, rust/locales); script/rust/build_assets.sh
+      # builds it with what package.json and bun.lock resolve, dart-sass among them.
       - 'package.json'
       - 'bun.lock*'
   pull_request:
@@ -62,14 +56,8 @@ on:
       # Read by the build too: the app version the binary embeds, build.rs's gates and the asset build.
       - 'src-tauri/Cargo.toml'
       - 'script/rust/**'
-      # The web UI the binary embeds (rust/build.rs): the JavaScript and stylesheets that
-      # script/rust/build_assets.sh builds (app/javascript, app/assets, and what package.json and bun.lock
-      # resolve, dart-sass among them), the images under app/assets/images, the static
-      # files under public, and the translations in config/locales.
-      - 'app/javascript/**'
-      - 'app/assets/**'
-      - 'public/**'
-      - 'config/locales/**'
+      # The web UI the binary embeds (rust/build.rs) is under rust/ (rust/web, rust/locales); script/rust/build_assets.sh
+      # builds it with what package.json and bun.lock resolve, dart-sass among them.
       - 'package.json'
       - 'bun.lock*'
 

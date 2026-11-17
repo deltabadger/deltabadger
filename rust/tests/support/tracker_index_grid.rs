@@ -145,7 +145,7 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         // D-TRACKER-NO-PROVIDER-WALL: a page Rails served as the welcome screen now reads the account (an unreadable colour
         // in it is the error Rails' own full layout gives).
         if matches!(mode(&name),Mode::ServerError) {
-            assert_eq!((answer.status,answer.body.as_str()),(500,include_str!("../../../public/500.html")),"{name}");continue;
+            assert_eq!((answer.status,answer.body.as_str()),(500,include_str!("../../web/public/500.html")),"{name}");continue;
         }
         // D-TRACKER-NO-PROVIDER-WALL: where Rails answered with the welcome screen that asks for CoinGecko, Rust serves the
         // account's tracker page (its banner offers CoinGecko instead).
@@ -154,8 +154,8 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
             // A filter the welcome screen never read is now read as on any account's page: an unknown venue is the 404, a
             // window this build does not read the 400.
             match answer.status {
-                404=>{assert_eq!(answer.body,include_str!("../../../public/404.html"),"{name}");continue}
-                400=>{assert_eq!(answer.body,include_str!("../../../public/400.html"),"{name}");continue}
+                404=>{assert_eq!(answer.body,include_str!("../../web/public/404.html"),"{name}");continue}
+                400=>{assert_eq!(answer.body,include_str!("../../web/public/400.html"),"{name}");continue}
                 status=>assert_eq!(status,200,"{name}: served"),
             }
             assert!(!answer.body.contains("<div class=\"welcome-screen\">") && answer.body.contains("<div class=\"tracker"),"{name}: the tracker page, not the welcome screen");continue;
@@ -167,11 +167,11 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         // did stays recorded (it served the page, or raised); Rust answers 400.
         if matches!(mode(&name),Mode::BadRequest) {
             assert!(expected["status"]==json!(200) || (expected["status"]==json!(500) && expected.get("exception").is_some()),"{name}: Rails served or raised: {}",expected["status"]);
-            assert_eq!((answer.status,answer.body.as_str()),(400,include_str!("../../../public/400.html")),"{name}");continue;
+            assert_eq!((answer.status,answer.body.as_str()),(400,include_str!("../../web/public/400.html")),"{name}");continue;
         }
         assert_eq!(json!(answer.status),expected["status"],"{name}");
         if expected.get("exception").is_some(){
-            let body=match answer.status {404=>include_str!("../../../public/404.html"),500=>include_str!("../../../public/500.html"),status=>panic!("unexpected exception status {status}")};
+            let body=match answer.status {404=>include_str!("../../web/public/404.html"),500=>include_str!("../../web/public/500.html"),status=>panic!("unexpected exception status {status}")};
             assert_eq!(answer.body,body,"{name}: public error body");continue;
         }
         let mut actual=masked(&answer.body,Some(&app),Some(&token));let mut oracle=masked(expected["body"].as_str().unwrap(),None,None);

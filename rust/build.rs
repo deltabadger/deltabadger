@@ -1,5 +1,5 @@
 //! Build-time inputs: the frozen Rails migration versions (rust/schema/rails_versions.txt) and, from the Rails app, the
-//! translations in config/locales (src/web/i18n.rs), and the files `serve` hands out (src/web/assets.rs).
+//! translations in rust/locales (src/web/i18n.rs), and the files `serve` hands out (src/web/assets.rs).
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::{env, fs, path::{Path, PathBuf}};
@@ -108,20 +108,20 @@ fn fingerprinted(logical: &str, bytes: &[u8]) -> String {
 }
 
 /// The files `serve` hands out, embedded in the binary:
-/// - app/assets/builds/application.{js,css} (built by script/rust/build_assets.sh) and everything under
-///   app/assets/images, at fingerprinted /assets/ paths, as Sprockets publishes them;
-/// - app/assets/builds/application.js.map, fingerprinted too, with the bundle's sourceMappingURL pointed at it;
+/// - rust/web/builds/application.{js,css} (built by script/rust/build_assets.sh) and everything under
+///   rust/web/images, at fingerprinted /assets/ paths, as Sprockets publishes them;
+/// - rust/web/builds/application.js.map, fingerprinted too, with the bundle's sourceMappingURL pointed at it;
 /// - `*.erb` among the images (the web manifest), with each `<%= asset_path '...' %>` replaced by that
 ///   file's fingerprinted path, which is all the ERB there does;
-/// - everything under public/ (fonts, service worker, error pages) at its own path, as Rails' static
-///   file server does. public/assets is Sprockets' output and is skipped.
+/// - everything under rust/web/public/ (fonts, service worker, error pages) at its own path, as Rails' static
+///   file server does. rust/web/public/assets is Sprockets' output and is skipped.
 ///
 /// The two built files are not committed. A release build without them stops here: a binary that
 /// ships must have them. Any other build (debug, tests) compiles with an empty table and
 /// `BUILT = false`: the engine and its tests need neither Bun nor the web UI, `deltabadger serve`
 /// refuses to start, and a test that needs the web app fails with `assets::MISSING`.
 fn assets(root: &Path, out: &Path) {
-    let (builds, images, public) = (root.join("app/assets/builds"), root.join("app/assets/images"), root.join("public"));
+    let (builds, images, public) = (root.join("rust/web/builds"), root.join("rust/web/images"), root.join("rust/web/public"));
     for dir in [&builds, &images, &public] {
         println!("cargo:rerun-if-changed={}", dir.display());
     }
@@ -167,7 +167,7 @@ fn assets(root: &Path, out: &Path) {
             let length = text[from..].find("' %>").unwrap_or_else(|| panic!("{}: unterminated asset_path tag", path.display()));
             let wanted = text[from..from + length].to_string();
             let url = embedded.iter().find(|(_, l, _)| *l == wanted).map(|(u, _, _)| u.clone())
-                .unwrap_or_else(|| panic!("{}: asset_path '{wanted}' names no file under app/assets/images", path.display()));
+                .unwrap_or_else(|| panic!("{}: asset_path '{wanted}' names no file under rust/web/images", path.display()));
             text.replace_range(start..from + length + "' %>".len(), &url);
         }
         assert!(!text.contains("<%"), "{}: only <%= asset_path '...' %> is supported in an asset template", path.display());
@@ -186,16 +186,16 @@ fn assets(root: &Path, out: &Path) {
     fs::write(out.join("assets.rs"), format!("pub const BUILT: bool = true;\npub static EMBEDDED: &[Embedded] = &[\n{body}];\n")).unwrap();
 }
 
-/// config/locales/*.yml as one sorted table of ("<locale>.<full.key>", "<text>"). Files are merged in
+/// rust/locales/*.yml as one sorted table of ("<locale>.<full.key>", "<text>"). Files are merged in
 /// name order, a later file winning, as Rails' I18n load path does. An array adds its index as a key
 /// segment. Rails reads these files with Psych (YAML 1.1), where an unquoted `yes`, `no`, `on`, `off`,
 /// `true` or `false` is a boolean: as a KEY it becomes `true`/`false` (so a key meant as `yes` or `no`
 /// must be quoted, as tax_report.summary's are), and that is reproduced. As
 /// a VALUE it would render as "true"/"false"; that, and a null, stop the build, so it gets quoted.
 fn locales(root: &Path, out: &Path) {
-    let dir = root.join("config/locales");
+    let dir = root.join("rust/locales");
     println!("cargo:rerun-if-changed={}", dir.display());
-    let mut files: Vec<PathBuf> = fs::read_dir(&dir).expect("read config/locales")
+    let mut files: Vec<PathBuf> = fs::read_dir(&dir).expect("read rust/locales")
         .map(|e| e.expect("read locale entry").path())
         .filter(|p| p.extension().is_some_and(|x| x == "yml"))
         .collect();
@@ -305,10 +305,10 @@ impl EventReceiver for Flatten {
 
 // R6 is enforced on every Cargo build, including Ruby-free CI and release builds.
 fn accounting_gate(root: &Path) {
-    for path in ["rust/src", "script/rust/histories_timestamp_gate.py", "script/rust/histories_accounting_gate.py", "script/rust/histories_arithmetic_primitives.json"] {
+    for path in ["rust/src", "rust/gates/histories_timestamp_gate.py", "rust/gates/histories_accounting_gate.py", "rust/gates/histories_arithmetic_primitives.json"] {
         println!("cargo:rerun-if-changed={}", root.join(path).display());
     }
-    match std::process::Command::new("python3").arg(root.join("script/rust/histories_accounting_gate.py")).status() {
+    match std::process::Command::new("python3").arg(root.join("rust/gates/histories_accounting_gate.py")).status() {
         Ok(status) if status.success() => {},
         result => { eprintln!("R6 shared arithmetic gate failed: {result:?}"); std::process::exit(1); },
     }

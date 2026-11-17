@@ -647,7 +647,7 @@ fn a_panic_reaches_stderr_with_the_log_file_set() {
 /// r4.1: on the desktop, /service-worker.js is the retiring worker, never cached; elsewhere today's worker, byte for byte.
 #[test]
 fn the_desktop_serves_the_retiring_worker_and_every_other_platform_todays() {
-    let today = std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../public/service-worker.js")).unwrap();
+    let today = std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("web/public/service-worker.js")).unwrap();
     for platform in [Some("desktop"), None, Some("umbrel"), Some("docker")] {
         let data = Data::new();
         let port = free_port();

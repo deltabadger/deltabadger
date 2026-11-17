@@ -4,7 +4,7 @@
 //   bun script/rust/quiet_revisit_check.mjs
 // Run by rust/tests/quiet_revisit_browser.rs. Needs Chrome ($CHROME, else the usual places) and the
 // compiled bundle (script/rust/build_assets.sh). No dependencies: the pages are fixtures served from
-// this process, with the real app/assets/builds/application.js and a minimal Action Cable endpoint,
+// this process, with the real rust/web/builds/application.js and a minimal Action Cable endpoint,
 // and headless Chrome is driven over its DevTools protocol.
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -12,9 +12,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "../..");
-const bundle = join(root, "app/assets/builds/application.js");
-if (!existsSync(bundle) || !existsSync(join(root, "app/assets/builds/application.css"))) {
-  console.error("no app/assets/builds/application.{js,css}: run script/rust/build_assets.sh");
+const bundle = join(root, "rust/web/builds/application.js");
+if (!existsSync(bundle) || !existsSync(join(root, "rust/web/builds/application.css"))) {
+  console.error("no rust/web/builds/application.{js,css}: run script/rust/build_assets.sh");
   process.exit(2);
 }
 const chrome = [
@@ -140,7 +140,7 @@ const app = Bun.serve({
     if (url.pathname === "/cable") return bun.upgrade(request) ? undefined : new Response("no", { status: 400 });
     if (url.pathname === "/assets/application.js") return new Response(Bun.file(bundle), { headers: { "content-type": "text/javascript" } });
     // The colours the chart reads are the stylesheet's custom properties.
-    if (url.pathname === "/assets/application.css") return new Response(Bun.file(join(root, "app/assets/builds/application.css")), { headers: { "content-type": "text/css" } });
+    if (url.pathname === "/assets/application.css") return new Response(Bun.file(join(root, "rust/web/builds/application.css")), { headers: { "content-type": "text/css" } });
     if (url.pathname.startsWith("/assets/")) return new Response("", { status: 404 });
     if (url.pathname === "/bots") return html(botsPage());
     if (url.pathname === "/asset_tooltip") {

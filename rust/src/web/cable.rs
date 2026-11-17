@@ -1,7 +1,7 @@
 //! Live updates: Action Cable's WebSocket protocol on /cable, as much of it as turbo-rails' client
 //! uses. The compiled JS only treats a page as live once every `<turbo-cable-stream-source>` has the
 //! `connected` attribute, which only this protocol sets, so SSE is not an option
-//! (app/javascript/controllers/broadcast/on_connect_controller.js).
+//! (rust/web/javascript/controllers/broadcast/on_connect_controller.js).
 //!
 //! Server to client: `{"type":"welcome"}` on connect, `{"type":"ping","message":<epoch>}` every 3 s
 //! (the client reconnects after 6 s of silence), `{"identifier":…,"type":"confirm_subscription"}` or

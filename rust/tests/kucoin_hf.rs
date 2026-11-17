@@ -2782,6 +2782,6 @@ fn u4_no_uta_refusal_copy_is_left() {
             for n in needles { if text.contains(n.as_str()) { found.push(format!("{}: {n}", p.display())); } }
         }
     }
-    for dir in ["src", "tests", "../app", "../config/locales", "../script/rust"] { walk(&root.join(dir), &needles, &mut found); }
+    for dir in ["src", "tests", "web", "locales", "../script/rust"] { walk(&root.join(dir), &needles, &mut found); }
     assert!(found.is_empty(), "{found:#?}");
 }

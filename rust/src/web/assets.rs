@@ -1,5 +1,5 @@
 //! The files `serve` hands out, embedded at build time (build.rs `assets`): the bun and dart-sass
-//! builds and app/assets/images at fingerprinted /assets/ paths, and public/ at its own paths.
+//! builds and rust/web/images at fingerprinted /assets/ paths, and rust/web/public/ at its own paths.
 //! They are answered before the session and CSRF code runs, as Rails' static file server does.
 use axum::body::Body;
 use axum::http::{header, HeaderValue, Response, StatusCode};
@@ -7,7 +7,7 @@ use axum::http::{header, HeaderValue, Response, StatusCode};
 pub struct Embedded {
     /// The path this file is served at, e.g. `/assets/application-2ec3a7c0cf99c409.js` or `/fonts/x.woff2`.
     pub url: &'static str,
-    /// The name views ask for, e.g. `application.js` or `favicon/favicon.svg`; empty for public/ files.
+    /// The name views ask for, e.g. `application.js` or `favicon/favicon.svg`; empty for rust/web/public/ files.
     pub logical: &'static str,
     pub content_type: &'static str,
     pub body: &'static [u8],
@@ -31,7 +31,7 @@ const DEV_FILES: [(&str, &str); 3] = [
     ("application.js.map", "application/json"),
 ];
 
-/// Debug builds only: `DELTABADGER_DEV_ASSETS` names the folder the watchers write (app/assets/builds, bin/rust-dev).
+/// Debug builds only: `DELTABADGER_DEV_ASSETS` names the folder the watchers write (rust/web/builds, bin/rust-dev).
 /// Its built files are then read on every request at plain /assets/<name>, never cached, so a saved stylesheet shows
 /// on the next reload. A release build has no such path: it serves only what it embedded.
 #[cfg(debug_assertions)]
@@ -95,10 +95,10 @@ pub fn respond(file: &'static Embedded, head: bool) -> Response<Body> {
     response
 }
 
-/// The desktop's /service-worker.js (PLAN-B6 r4.1, D-DESKTOP-SW-CACHE): public/service-worker.js caches `/` and answers
+/// The desktop's /service-worker.js (PLAN-B6 r4.1, D-DESKTOP-SW-CACHE): rust/web/public/service-worker.js caches `/` and answers
 /// from that cache first, so a WebView could show an old app page while this start is refused. This worker replaces it
 /// at the next update check, deletes every cache, unregisters itself, and reloads each page it took over, uncontrolled.
-/// It has no fetch handler: every request goes to the network. Browsers on Docker, Umbrel and hosted keep public/'s.
+/// It has no fetch handler: every request goes to the network. Browsers on Docker, Umbrel and hosted keep rust/web/public/'s.
 pub const RETIRING_WORKER: &str = "\
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (event) {

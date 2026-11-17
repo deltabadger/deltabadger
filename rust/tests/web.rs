@@ -48,6 +48,11 @@ mod embedded_assets {
         let map: serde_json::Value = serde_json::from_slice(map.body).unwrap();
         let sources = map["sources"].as_array().unwrap();
         assert!(!sources.is_empty() && sources.iter().all(|s| s.as_str().is_some_and(|s| !s.starts_with('/'))), "no absolute build paths");
+        // Relative to where bun wrote the map (rust/web/builds): each source is a file of this checkout.
+        let builds = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("web/builds");
+        let missing: Vec<&str> = sources.iter().filter_map(|s| s.as_str()).filter(|s| !builds.join(s).is_file()).collect();
+        assert!(missing.is_empty(), "the map names sources this checkout lacks: {missing:?}");
+        assert!(sources.iter().any(|s| s == "../javascript/application.js"), "the map resolves to rust/web/javascript");
     }
 
     /// Every URL the binary serves its embedded files at (PLAN-B11 r1.5, r5.4). Moving the sources (B11-6) changes

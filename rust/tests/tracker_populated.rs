@@ -203,9 +203,9 @@ async fn populated_regions_match_rails() {
         if name.starts_with("populated_bad_") {
             // What Rails did is the recording's (its status, and its exception when it raised); Rust's answer is listed.
             let rails_status = expected["status"].as_i64().unwrap();
-            let (want_rails, want_rust, page) = if RAILS_PARSES.contains(&name.as_str()) { (200, 400, include_str!("../../public/400.html")) }
-                else if name == "populated_bad_exchange_hash" { (404, 404, include_str!("../../public/404.html")) }
-                else { (500, 400, include_str!("../../public/400.html")) };
+            let (want_rails, want_rust, page) = if RAILS_PARSES.contains(&name.as_str()) { (200, 400, include_str!("../web/public/400.html")) }
+                else if name == "populated_bad_exchange_hash" { (404, 404, include_str!("../web/public/404.html")) }
+                else { (500, 400, include_str!("../web/public/400.html")) };
             assert_eq!((rails_status, expected.get("exception").is_some()), (want_rails, want_rails != 200), "{name}: what Rails did");
             assert_eq!((answer.status, answer.body.as_str()), (want_rust, page), "{name}");
             continue;

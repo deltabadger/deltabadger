@@ -46,11 +46,11 @@ tmp/*
 node_modules/
 
 # Build artifacts (exclude compiled assets but keep fonts)
-public/assets/*
-!public/assets/*.ttf
-!public/assets/*.woff
-!public/assets/*.woff2
-public/packs
+rust/web/public/assets/*
+!rust/web/public/assets/*.ttf
+!rust/web/public/assets/*.woff
+!rust/web/public/assets/*.woff2
+rust/web/public/packs
 .sass-cache
 
 # Rust build output (rust/, src-tauri/)

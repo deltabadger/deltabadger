@@ -1,4 +1,4 @@
-//! Rails' I18n as this app uses it: config/locales/*.yml (embedded by build.rs), looked up by full
+//! Rails' I18n as this app uses it: rust/locales/*.yml (embedded by build.rs), looked up by full
 //! key with a fallback to English, `%{name}` interpolation, and pluralisation with Rails' default
 //! one/other rule plus the Russian rule in config/locales/plurals.rb.
 //! `t` is the view helper (ActionView's `translate`); `text` is `I18n.t`, which controllers use.
@@ -7,7 +7,7 @@ include!(concat!(env!("OUT_DIR"), "/translations.rs"));
 
 pub const DEFAULT: &str = "en";
 
-/// Keys Rails takes from a gem's own locale file, not from config/locales. Pinned by tests/i18n.rs:
+/// Keys Rails takes from a gem's own locale file, not from rust/locales. Pinned by tests/i18n.rs:
 /// ActiveModel's "taken" message, and the dotiw gem's unit names (`distance_of_time_in_words`) in the
 /// ten of this app's locales the gem has a file for.
 const FROM_GEMS: &[(&str, &str)] = &[

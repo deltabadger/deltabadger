@@ -15,13 +15,13 @@ fn function_name(line:&str)->Option<String>{
 }
 pub fn check(root:&Path)->Result<(),String>{
     println!("cargo:rerun-if-env-changed=S1_R4_MUTATION");
-    println!("cargo:rerun-if-changed={}",root.join("script/rust/settings_r4_contract.json").display());
+    println!("cargo:rerun-if-changed={}",root.join("rust/gates/settings_r4_contract.json").display());
     println!("cargo:rerun-if-changed={}",root.join("rust/src").display());
     if env::var_os("S1_R4_MUTATION").is_some(){
         if env::var("PROFILE").ok().as_deref()!=Some("debug"){return Err("mutation mode is forbidden in a release build".into());}
         println!("cargo:warning=R4 debug runtime-mutation proof: structural rejection is proved independently");return Ok(());
     }
-    let body=fs::read_to_string(root.join("script/rust/settings_r4_contract.json")).map_err(|_|"source gate contract missing")?;
+    let body=fs::read_to_string(root.join("rust/gates/settings_r4_contract.json")).map_err(|_|"source gate contract missing")?;
     let contract:Value=serde_json::from_str(&body).map_err(|_|"source gate contract malformed")?;
     let exemptions=contract["exemptions"].as_array().ok_or("invalid exemptions")?;
     if exemptions.len()!=1 || text(&exemptions[0],"reason")?!="market data, not account state; RULING-R4A"{return Err("exactly one historical-price exemption is required".into());}

@@ -1,5 +1,5 @@
 //! BroadcastsController, for the three figures a page waits on: `broadcast--on-connect` posts here once every stream
-//! source of the page is connected (app/javascript/controllers/broadcast/on_connect_controller.js). Rails answers
+//! source of the page is connected (rust/web/javascript/controllers/broadcast/on_connect_controller.js). Rails answers
 //! `head :ok` at once and leaves the broadcast to a job; so does this build, and the work is `figure::loading::publish`.
 //! `wake_dispatcher`, the four limit rules' info and the orders table's refresh (`fetch_open_orders`) are served too.
 use super::layout::Ctx;
