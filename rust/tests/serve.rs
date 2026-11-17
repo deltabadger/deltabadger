@@ -1478,6 +1478,8 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     // The real time: a browser drops a session cookie whose expiry (the clock's now plus its lifetime) has passed.
     let app = web::app(dir.path(), "engine-test-secret", TestClock::starting(chrono::Utc::now()))
         .with_venue_key_urls(&format!("{}/api.kraken.com", venue_server.uri()), &format!("{}/api.binance.com", venue_server.uri()), &format!("{}/api.kucoin.com", venue_server.uri())).unwrap();
+    // A correct key wakes its syncs, as `serve`'s scheduler takes them.
+    app.attach_jobs(Default::default()).unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let address = listener.local_addr()?;
     struct Server(tokio::task::JoinHandle<()>);
