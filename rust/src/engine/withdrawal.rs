@@ -1622,7 +1622,7 @@ fn resolve_in(
             let details: Value =
                 serde_json::from_str(&raw).map_err(|_| data("unreadable 2.x attempt details"))?;
             let (name, venue) = resolve_log(c, rule, &resolution, details, now)?;
-            c.execute("INSERT INTO rust_rails_attempt_acks(rule_log_id,rule_id,resolution,venue_id,at) VALUES(?1,?2,?3,?4,?5)",params![log,rule,name,venue,at])?;
+            c.execute("INSERT INTO rust_v2_attempt_acks(rule_log_id,rule_id,resolution,venue_id,at) VALUES(?1,?2,?3,?4,?5)",params![log,rule,name,venue,at])?;
             Ok(())
         }
         Target::V2Job(job) => {
@@ -1639,7 +1639,7 @@ fn resolve_in(
                         "claimed EvaluateAllJob requires --skip; no evaluations are imported",
                     ));
                 }
-                c.execute("INSERT INTO rust_rails_job_acks(active_job_id,rule_id,resolution,at) VALUES(?1,0,'skip',?2)",params![job,at])?;
+                c.execute("INSERT INTO rust_v2_job_acks(active_job_id,rule_id,resolution,at) VALUES(?1,0,'skip',?2)",params![job,at])?;
             } else {
                 let rule = j.rule.ok_or_else(|| data("job has no rule"))?;
                 let (name, venue) = if let Resolution::Recorded(log) = resolution {
@@ -1658,7 +1658,7 @@ fn resolve_in(
                             || details["withdrawal_id"]
                                 .as_str()
                                 .is_some_and(|s| !s.is_empty()));
-                    let ack:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM rust_rails_attempt_acks WHERE rule_log_id=?1 AND rule_id=?2)",params![log,rule],|r|r.get(0))?;
+                    let ack:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM rust_v2_attempt_acks WHERE rule_log_id=?1 AND rule_id=?2)",params![log,rule],|r|r.get(0))?;
                     if !success
                         && !ack
                         && !rules::open_attempts(c, Some(rule))?
@@ -1674,7 +1674,7 @@ fn resolve_in(
                 } else {
                     resolve_log(c, rule, &resolution, json!({}), now)?
                 };
-                c.execute("INSERT INTO rust_rails_job_acks(active_job_id,rule_id,resolution,venue_id,at) VALUES(?1,?2,?3,?4,?5)",params![job,rule,name,venue,at])?;
+                c.execute("INSERT INTO rust_v2_job_acks(active_job_id,rule_id,resolution,venue_id,at) VALUES(?1,?2,?3,?4,?5)",params![job,rule,name,venue,at])?;
             }
             rules::append_journal(c, rules::CLEANUP, &job, now)?;
             Ok(())

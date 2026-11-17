@@ -165,6 +165,27 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("fingerprint", "TEXT", true), ("ranked_at", "TEXT", true)], unique_indexes: &[] }),
     ("20261112000001", TableContract { name: "rust_index_retired", columns: &[("external_id", "TEXT", true), ("provider", "TEXT", true),
         ("retired_at", "TEXT", true)], unique_indexes: &[&["external_id", "provider"]] }),
+    // B11-9 (D-B11-9-V2-NAMES): rust_withdrawal_ids rebuilt (its CHECK says 'v2'), the eight tables retired below renamed rust_v2_*.
+    ("20261117000001", TableContract { name: "rust_withdrawal_ids", columns: &[
+        ("exchange_id", "INTEGER", true), ("venue_id", "TEXT", true), ("owner", "TEXT", true), ("settled_at", "TEXT", true), ("source", "TEXT", true)], unique_indexes: &[&["exchange_id", "venue_id"]] }),
+    ("20261117000001", TableContract { name: "rust_v2_attempt_acks", columns: &[
+        ("rule_log_id", "INTEGER", false), ("rule_id", "INTEGER", true), ("resolution", "TEXT", true), ("venue_id", "TEXT", false), ("at", "TEXT", true)], unique_indexes: &[] }),
+    ("20261117000001", TableContract { name: "rust_v2_job_acks", columns: &[
+        ("active_job_id", "TEXT", true), ("rule_id", "INTEGER", true), ("resolution", "TEXT", true), ("venue_id", "TEXT", false), ("at", "TEXT", true)], unique_indexes: &[&["active_job_id"]] }),
+    ("20261117000001", TableContract { name: "rust_v2_unrecorded", columns: &[("id", "INTEGER", false), ("bot_id", "INTEGER", true),
+        ("source", "TEXT", true), ("source_ref", "INTEGER", true), ("span_from", "TEXT", true), ("span_to", "TEXT", true), ("scope", "TEXT", false),
+        ("collected_at", "TEXT", true), ("reported_at", "TEXT", false), ("outcome", "TEXT", false)], unique_indexes: &[&["source", "source_ref"]] }),
+    ("20261117000001", TableContract { name: "rust_v2_unrecorded_live", columns: &[("obligation_id", "INTEGER", false), ("stamp", "TEXT", true),
+        ("attempts", "INTEGER", true), ("refused_at", "TEXT", false), ("last_at", "TEXT", false)], unique_indexes: &[] }),
+    ("20261117000001", TableContract { name: "rust_v2_unrecorded_offers", columns: &[("id", "INTEGER", false), ("obligation_id", "INTEGER", true),
+        ("external_id", "TEXT", true), ("symbol", "TEXT", true), ("facts", "TEXT", true)], unique_indexes: &[&["obligation_id", "external_id"]] }),
+    ("20261117000001", TableContract { name: "rust_v2_unrecorded_resolutions", columns: &[("obligation_id", "INTEGER", false), ("resolution", "TEXT", true),
+        ("offer_id", "INTEGER", false), ("transaction_id", "INTEGER", false), ("resolved_at", "TEXT", true), ("confirmed_base", "TEXT", false),
+        ("confirmed_quote", "TEXT", false)], unique_indexes: &[] }),
+    ("20261117000001", TableContract { name: "rust_v2_unrecorded_requests", columns: &[("obligation_id", "INTEGER", false), ("offer_id", "INTEGER", true),
+        ("requested_at", "TEXT", true), ("attempts", "INTEGER", true), ("last_at", "TEXT", false)], unique_indexes: &[] }),
+    ("20261117000001", TableContract { name: "rust_v2_unrecorded_notices", columns: &[("transaction_id", "INTEGER", true), ("kind", "TEXT", true),
+        ("at", "TEXT", true)], unique_indexes: &[&["transaction_id", "kind"]] }),
 ];
 
 /// What this build migrates.
@@ -172,7 +193,12 @@ pub const REGISTRY: Registry<'static> = Registry { migrations: RUST_MIGRATIONS, 
 
 // (version, table): migration `version` removes `table` (D-B11-9-RETIRED-CONTRACT). Its contracts above stay, for the
 // installs between versions. Extend with every migration that renames or drops a Rust table.
-const RUST_RETIRED: &[(&str, &str)] = &[];
+const RUST_RETIRED: &[(&str, &str)] = &[
+    ("20261117000001", "rust_rails_attempt_acks"), ("20261117000001", "rust_rails_job_acks"), ("20261117000001", "rust_rails_unrecorded"),
+    ("20261117000001", "rust_rails_unrecorded_live"), ("20261117000001", "rust_rails_unrecorded_offers"),
+    ("20261117000001", "rust_rails_unrecorded_resolutions"), ("20261117000001", "rust_rails_unrecorded_requests"),
+    ("20261117000001", "rust_rails_unrecorded_notices"),
+];
 
 /// The table the migrator records Rust migrations in, created in the transaction of the first one it applies.
 pub const RUST_MIGRATIONS_TABLE: &str = "rust_schema_migrations";

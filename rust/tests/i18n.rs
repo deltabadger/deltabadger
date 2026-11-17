@@ -103,12 +103,7 @@ fn no_page_text_says_v2() {
         }
     }
     assert!(templates > 100 && sources.len() > 50, "{templates} templates, {} sources", sources.len());
-    // Exactly these literals, to the B11-8 rename (PLAN-B11 §10 Q6), where "2.x" replaces the word.
-    const NAMED: &[(&str, &str)] = &[
-        // A refusal reason pages and API answers show; index_histories.rs also finds it in stored details, so it waits for
-        // B11-9 (PLAN-B11-9 r1.1).
-        ("src/engine/eligibility.rs", "\"row(s) with a status Rails never writes\""),
-    ];
+    // None since B11-9 (PLAN-B11 §10 Q6): "2.x" replaces the word in every literal.
     let literal = regex::Regex::new(r#""(?:[^"\\]|\\.)*""#).unwrap();
     let capital = regex::Regex::new(r"\bRails\b").unwrap();
     for path in sources {
@@ -117,7 +112,7 @@ fn no_page_text_says_v2() {
         let name = path.strip_prefix(root).unwrap().to_str().unwrap().replace('\\', "/");
         for line in code.lines().filter(|l| !l.trim_start().starts_with("//")) {
             for m in literal.find_iter(line).map(|m| m.as_str()).filter(|m| capital.is_match(m)) {
-                if !NAMED.contains(&(name.as_str(), m)) { found.push(format!("{name}: {m}")); }
+                found.push(format!("{name}: {m}"));
             }
         }
     }

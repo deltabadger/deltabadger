@@ -175,7 +175,7 @@ pub fn log(
     Ok(id)
 }
 pub fn seed_v2_ids(c: &Connection) -> Result<(), EngineError> {
-    c.execute("INSERT OR IGNORE INTO rust_withdrawal_ids(exchange_id,venue_id,owner,settled_at,source) SELECT r.exchange_id,CAST(json_extract(l.details,'$.withdrawal_id') AS TEXT),'rule:'||r.id,l.created_at,'rails' FROM rule_logs l JOIN rules r ON r.id=l.rule_id WHERE l.status=1 AND json_valid(l.details) AND json_extract(l.details,'$.withdrawal_id') IS NOT NULL",[])?;
+    c.execute("INSERT OR IGNORE INTO rust_withdrawal_ids(exchange_id,venue_id,owner,settled_at,source) SELECT r.exchange_id,CAST(json_extract(l.details,'$.withdrawal_id') AS TEXT),'rule:'||r.id,l.created_at,'v2' FROM rule_logs l JOIN rules r ON r.id=l.rule_id WHERE l.status=1 AND json_valid(l.details) AND json_extract(l.details,'$.withdrawal_id') IS NOT NULL",[])?;
     Ok(())
 }
 pub fn table_exists(c: &Connection, name: &str) -> rusqlite::Result<bool> {
@@ -186,8 +186,8 @@ pub fn table_exists(c: &Connection, name: &str) -> rusqlite::Result<bool> {
     )
 }
 pub fn open_attempts(c: &Connection, rule: Option<i64>) -> Result<Vec<(i64, i64)>, EngineError> {
-    let acks = if table_exists(c, "rust_rails_attempt_acks")? {
-        "AND NOT EXISTS(SELECT 1 FROM rust_rails_attempt_acks a WHERE a.rule_log_id=l.id)"
+    let acks = if table_exists(c, "rust_v2_attempt_acks")? {
+        "AND NOT EXISTS(SELECT 1 FROM rust_v2_attempt_acks a WHERE a.rule_log_id=l.id)"
     } else {
         ""
     };
@@ -257,9 +257,9 @@ fn read_jobs(c: &Connection, q: &Connection) -> Result<(Vec<Job>, Vec<i64>), Eng
             };
             Some(rule)
         };
-        let acknowledged = table_exists(c, "rust_rails_job_acks")?
+        let acknowledged = table_exists(c, "rust_v2_job_acks")?
             && c.query_row(
-                "SELECT EXISTS(SELECT 1 FROM rust_rails_job_acks WHERE active_job_id=?1)",
+                "SELECT EXISTS(SELECT 1 FROM rust_v2_job_acks WHERE active_job_id=?1)",
                 [&id],
                 |r| r.get::<_, bool>(0),
             )?;
@@ -278,7 +278,7 @@ fn read_jobs(c: &Connection, q: &Connection) -> Result<(Vec<Job>, Vec<i64>), Eng
 /// as acknowledged.
 pub fn acknowledge_fanouts(c: &Connection, jobs: &mut [Job], now: DateTime<Utc>) -> Result<(), EngineError> {
     for job in jobs.iter_mut().filter(|j| j.all && j.claimed && !j.acknowledged) {
-        c.execute("INSERT OR IGNORE INTO rust_rails_job_acks(active_job_id,rule_id,resolution,at) VALUES(?1,0,'skip',?2)", params![job.id, format_time(now)])?;
+        c.execute("INSERT OR IGNORE INTO rust_v2_job_acks(active_job_id,rule_id,resolution,at) VALUES(?1,0,'skip',?2)", params![job.id, format_time(now)])?;
         job.acknowledged = true;
     }
     Ok(())
@@ -361,7 +361,7 @@ pub fn import(c: &Connection, jobs: &[Job], now: DateTime<Utc>) -> Result<usize,
         if journal(c, IMPORT)?.contains(&job.id) {
             continue;
         }
-        let source = format!("rails:{}", job.id);
+        let source = format!("v2:{}", job.id);
         added += if job.all {
             c.execute("INSERT OR IGNORE INTO rust_rule_evaluations(rule_id,source,created_at) SELECT id,?1,?2 FROM rules WHERE type='Rules::Withdrawal' AND status=1",params![source,format_time(now)])?
         } else {

@@ -1,4 +1,4 @@
-//! A28-2a (PLAN-A28-2 §2, r2.1): the owner's answer to a `rails_order_open`/`listed` line. "This was this bot's order"
+//! A28-2a (PLAN-A28-2 §2, r2.1): the owner's answer to a `v2_order_open`/`listed` line. "This was this bot's order"
 //! leaves a request the engine serves (`v2_unrecorded::serve_bookings`); "None of these was this bot's" is decided here.
 //! A28-2b (PLAN-A28-2b, D-V2-UNRECORDED-API): MCP's `answer_unrecorded_order` and REST's
 //! `POST /api/v1/bots/:id/unrecorded_orders` answer through the same `answer`; the outcome is read in `get_bot_details`.
@@ -130,7 +130,7 @@ pub fn api(c:&Connection,user:i64,bot:i64,obligation:i64,given:Answer,now:DateTi
 /// no answerable obligation). `quote` names the carry's currency.
 pub fn listing(c:&Connection,bot:i64,quote:&str,now:DateTime<Utc>)->Result<(Value,Vec<String>),WebError> {
     // An install without the A28 tables (a 2.x-only schema) has none.
-    let present:bool=c.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_rails_unrecorded_offers')",[],|r|r.get(0))?;
+    let present:bool=c.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_v2_unrecorded_offers')",[],|r|r.get(0))?;
     if !present {return Ok((Value::Null,vec![]))}
     let Some(l)=ru::listing(c,bot,now)? else {return Ok((Value::Null,vec![]))};
     let en="en";
@@ -139,7 +139,7 @@ pub fn listing(c:&Connection,bot:i64,quote:&str,now:DateTime<Utc>)->Result<(Valu
     let mut rows=vec![];
     for o in &l.obligations {
         let refused=o.refused.as_ref().map(|(reason,venue,at)| json!({"reason":reason,"at":at,
-            "message":i18n::text(en,&format!("bot_activity.events.rails_order_not_added_{reason}"),&[("venue",i18n::Arg::Text(venue))])}));
+            "message":i18n::text(en,&format!("bot_activity.events.v2_order_not_added_{reason}"),&[("venue",i18n::Arg::Text(venue))])}));
         let offers:Vec<Value>=o.offers.iter().map(|f|json!({"offer":f.id,"order":f.order,"carry_after":amount(&f.carry_after)})).collect();
         lines.push(match o.state {
             ru::ListedState::Open=>{

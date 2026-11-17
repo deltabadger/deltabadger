@@ -614,7 +614,7 @@ fn job_ids(q: &rusqlite::Connection) -> Vec<String> {
 fn job_id(fixture: &serde_json::Value, name: &str) -> String { fixture["jobs"][name]["job_id"].as_str().unwrap().to_string() }
 fn imported(fixture: &serde_json::Value, name: &str) -> model::SignalCall {
     let job = &fixture["jobs"][name];
-    model::SignalCall { source: format!("rails:{}", job["job_id"].as_str().unwrap()), signal_id: job["signal_id"].as_i64().unwrap(),
+    model::SignalCall { source: format!("v2:{}", job["job_id"].as_str().unwrap()), signal_id: job["signal_id"].as_i64().unwrap(),
                         triggered_at: job["triggered_at"].as_str().unwrap().parse().unwrap() }
 }
 
@@ -631,7 +631,7 @@ fn v2_signal_jobs_become_the_engines_calls_and_leave_the_queue() {
     assert_eq!(signal_calls_of(&o), ["ready", "blocked", "scheduled"].map(|n| imported(&fixture, n)).to_vec());
     assert_eq!(signal_calls_of(&o)[0].triggered_at, "2026-09-30T11:58:01.123456Z".parse::<DateTime<Utc>>().unwrap(), "the TimeWithZone, to the microsecond");
     assert_eq!(job_ids(&o.queue), [job_id(&fixture, "finished")], "2.x's record of the finished job stays");
-    assert_eq!(marker_of(&o)["id"], format!("rails-job:{}", job_id(&fixture, "failed")), "the failed job is the bot's marker");
+    assert_eq!(marker_of(&o)["id"], format!("v2-job:{}", job_id(&fixture, "failed")), "the failed job is the bot's marker");
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_ready_executions") + count(&o.queue, "SELECT count(*) FROM solid_queue_blocked_executions")
                + count(&o.queue, "SELECT count(*) FROM solid_queue_scheduled_executions"), 0, "executions cascade");
     assert_eq!(import_set(&o), None, "the set empties once the rows are gone");
@@ -694,7 +694,7 @@ fn claimed_and_failed_signal_jobs_become_one_marker_and_a_line_each() {
     assert_eq!((t.imported_calls, t.deleted_jobs), (0, 2));
     assert!(signal_calls_of(&o).is_empty(), "never a call");
     let marker = marker_of(&o);
-    assert_eq!((marker["id"].as_str().unwrap(), marker["side"].as_str()), (format!("rails-job:{}", job_id(&fixture, "ready")).as_str(), Some("buy")));
+    assert_eq!((marker["id"].as_str().unwrap(), marker["side"].as_str()), (format!("v2-job:{}", job_id(&fixture, "ready")).as_str(), Some("buy")));
     assert_eq!(bot_events(&o.primary, 1), [handover::UPGRADE_SIGNAL_UNRESOLVED, handover::UPGRADE_SIGNAL_UNRESOLVED]);
     assert!(deltabadger::engine::signal::blocked(&model::load_bot(&o.primary, 1).unwrap()));
     assert!(job_ids(&o.queue).is_empty());
@@ -934,7 +934,7 @@ async fn rust_withdrawal_outcomes_and_consumed_evaluations_survive_handback_take
     handover::take_over(&lock,&o,&seed::cipher(),"test",now()).unwrap();
     handover::hand_back(&lock,&o,&FakeFactory::default(),&seed::cipher(),&deltabadger::engine::FixedClock(now())).await.unwrap();
     handover::take_over(&lock,&o,&seed::cipher(),"test",now()).unwrap();
-    assert_eq!(count(&o.primary,"SELECT count(*) FROM rust_rails_attempt_acks"),0);
+    assert_eq!(count(&o.primary,"SELECT count(*) FROM rust_v2_attempt_acks"),0);
     assert_eq!(count(&o.primary,"SELECT count(*) FROM rule_logs"),1);
 }
 
@@ -955,10 +955,10 @@ fn withdrawal_cli_migrates_and_seeds_before_any_takeover() {
     };
     let duplicate=run(&["--v2",&log,"--sent","X","--amount","0.9"]);
     assert!(!duplicate.status.success());assert!(String::from_utf8_lossy(&duplicate.stderr).contains("already recorded"));
-    assert_eq!(count(&c,"SELECT count(*) FROM rust_withdrawal_ids"),1);assert_eq!(count(&c,"SELECT count(*) FROM rust_rails_attempt_acks"),0);
+    assert_eq!(count(&c,"SELECT count(*) FROM rust_withdrawal_ids"),1);assert_eq!(count(&c,"SELECT count(*) FROM rust_v2_attempt_acks"),0);
     let listed=run(&["--v2-list",&rule.to_string()]);assert!(listed.status.success(),"{}",String::from_utf8_lossy(&listed.stderr));assert!(String::from_utf8_lossy(&listed.stdout).contains(&format!("2.x attempt {log}")));
     let resolved=run(&["--v2",&log,"--sent","new-id","--amount","0.9"]);assert!(resolved.status.success(),"{}",String::from_utf8_lossy(&resolved.stderr));
-    assert_eq!(count(&c,"SELECT count(*) FROM rust_rails_attempt_acks"),1);assert_eq!(count(&c,"SELECT count(*) FROM rust_rule_log_origins"),1);
+    assert_eq!(count(&c,"SELECT count(*) FROM rust_v2_attempt_acks"),1);assert_eq!(count(&c,"SELECT count(*) FROM rust_rule_log_origins"),1);
     assert!(lease::read(&c,&seed::cipher()).unwrap().is_none(),"resolution does not take ownership");
 }
 
@@ -1186,7 +1186,7 @@ fn a_failed_only_signal_job_becomes_the_marker() {
     let (_dir, l, o, fixture, _) = signal_install(&["scheduled"]);
     fail_signal_job(&o.queue, &fixture, "scheduled", false);
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
-    assert_eq!(marker_of(&o)["id"], format!("rails-job:{}", job_id(&fixture, "scheduled")));
+    assert_eq!(marker_of(&o)["id"], format!("v2-job:{}", job_id(&fixture, "scheduled")));
     assert!(signal_calls_of(&o).is_empty() && job_ids(&o.queue).is_empty());
 }
 
@@ -1214,7 +1214,7 @@ fn a_claimed_signal_job_whose_rule_is_gone_is_a_marker_without_side() {
     fail_signal_job(&o.queue, &fixture, "rule_removed", true);
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     let marker = marker_of(&o);
-    assert_eq!(marker["id"], format!("rails-job:{}", job_id(&fixture, "rule_removed")));
+    assert_eq!(marker["id"], format!("v2-job:{}", job_id(&fixture, "rule_removed")));
     assert!(marker.get("side").is_none(), "{marker}");
     assert_eq!(bot_events(&o.primary, 1), [handover::UPGRADE_SIGNAL_UNRESOLVED]);
 }
@@ -1290,7 +1290,7 @@ fn rule_jobs_a_failed_fanout_is_acknowledged_its_children_judged_and_an_unreadab
     assert!(lines[0].contains(&format!("resolve-withdrawal --v2-job {child_job}")), "{lines:?}");
     o.queue.execute("DELETE FROM solid_queue_jobs WHERE id = ?1", [child]).unwrap();
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
-    assert_eq!(count(&o.primary, "SELECT count(*) FROM rust_rails_job_acks WHERE resolution = 'skip'"), 1, "the fan-out is acknowledged");
+    assert_eq!(count(&o.primary, "SELECT count(*) FROM rust_v2_job_acks WHERE resolution = 'skip'"), 1, "the fan-out is acknowledged");
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0, "and removed");
     let row = queued(&o.queue, "Rule::ExecuteJob", json!(["no rule here"]), "ready");
     let message = hard_stop(handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()));
@@ -1506,13 +1506,13 @@ fn every_rust_only_state_has_a_handback_outcome() {
     let v2: std::collections::BTreeSet<String> = regex::Regex::new(r#"CREATE TABLE "([a-z_0-9]+)""#).unwrap()
         .captures_iter(&schema).map(|m| m[1].to_string()).collect();
     assert!(v2.contains("bots") && v2.contains("app_configs"), "{v2:?}");
-    let mut found = std::collections::BTreeSet::new();
-    let create = regex::Regex::new(r"CREATE TABLE ([a-z_0-9]+)").unwrap();
-    for entry in std::fs::read_dir(root.join("migrations")).unwrap() {
-        for m in create.captures_iter(&std::fs::read_to_string(entry.unwrap().path()).unwrap()) {
-            if !v2.contains(&m[1]) { found.insert(m[1].to_string()); }
-        }
-    }
+    // PLAN-B11-9 r1.6: Rust's tables as bootstrap builds them (2.x's schema, then every migration), so a table a later
+    // migration retired or a hop table it dropped is not state.
+    let built = rusqlite::Connection::open_in_memory().unwrap();
+    store::create_schema(&built).unwrap();
+    store::test_support::migrate(&built).unwrap();
+    let mut found: std::collections::BTreeSet<String> = built.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").unwrap()
+        .query_map([], |r| r.get::<_, String>(0)).unwrap().map(Result::unwrap).filter(|t| !v2.contains(t)).collect();
     assert!(found.contains("rust_tax_pl_carry") && found.contains("estv_crypto_values"), "{found:?}");
     let tables = found.clone();
     let mut files = vec![];
@@ -1522,6 +1522,12 @@ fn every_rust_only_state_has_a_handback_outcome() {
         let text = std::fs::read_to_string(f).unwrap();
         match (text.find("pub const HANDBACK_STATE"), f.ends_with("engine/handover.rs")) {
             (Some(start), true) => { let end = start + text[start..].find("\n};").unwrap(); format!("{}{}", &text[..start], &text[end..]) }
+            // PLAN-B11-9 r1.6: the contracts and the retired list describe applied SQL, not state the code keeps.
+            _ if f.ends_with("src/store.rs") => {
+                let (start, retired) = (text.find("const RUST_TABLES").unwrap(), text.find("const RUST_RETIRED").unwrap());
+                let end = retired + text[retired..].find("\n];").unwrap();
+                format!("{}{}", &text[..start], &text[end..])
+            }
             _ => text,
         }
     }).collect();
@@ -1724,7 +1730,7 @@ fn unscoped_and_asset_wakes_replay_until_their_job_runs() {
 // ---- A28-1: 2.x's unrecorded-order candidates (engine::v2_unrecorded) ----------------------------------------------
 
 fn unrecorded_refs(c: &rusqlite::Connection) -> Vec<i64> {
-    let mut s = c.prepare("SELECT source_ref FROM rust_rails_unrecorded ORDER BY id").unwrap();
+    let mut s = c.prepare("SELECT source_ref FROM rust_v2_unrecorded ORDER BY id").unwrap();
     s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
 }
 fn line_id(c: &rusqlite::Connection, bot: i64, at: DateTime<Utc>) -> i64 {

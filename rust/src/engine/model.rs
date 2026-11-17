@@ -445,7 +445,7 @@ pub const CONDITION_FLAGS: [&str; 8] = ["price_limited", "price_drop_limited", "
 pub const SIGNAL_CALLS_KEY: &str = "rust_signal_calls";
 
 /// One webhook call a signal bot's hook accepted (the arguments of Bot::SignalJob): which rule, and when it arrived. `source`
-/// names it once: "hook:<uuid>" for a call the hook took, "rails:<active_job_id>" for a job imported at takeover.
+/// names it once: "hook:<uuid>" for a call the hook took, "v2:<active_job_id>" for a job imported at takeover.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SignalCall { pub source: String, pub signal_id: i64, pub triggered_at: DateTime<Utc> }
 

@@ -1100,7 +1100,7 @@ fn step_upgrades(image: &str, u: &Umbrel) {
 /// (a) r2.2: a 2.34.0 install with data, upgraded by Umbrel's step and taken over by 3.0. The step's migrate enqueues
 /// one Tracker::LedgerJob, one PortfolioSnapshot::BackfillJob and one AccountTransaction::ResolveAssetsJob for the user
 /// (2.x's `limits_concurrency … on_conflict: :discard` drops the later LedgerJobs and BackfillJobs, the QUICK refetch's
-/// among them, while one is waiting). 3.0's start line counts them; the two wakes are journalled in rust_rails_wakes and
+/// among them, while one is waiting). 3.0's start line counts them; the two wakes are journalled in rust_v2_wakes and
 /// run (each job's state shows a run after the wake's time; offline, a run may end in an error); the ResolveAssetsJob is
 /// dropped (D-B3-BEHIND-ASSETS-UNRESOLVED): the old ledger rows keep base_asset_id NULL and are listed under their symbol.
 #[test]
@@ -1158,7 +1158,7 @@ fn wakes_ran(image: &str, storage: &Volume, user: i64) -> Option<Vec<(String, bo
     let copy = take(image, storage);
     let c = rusqlite::Connection::open(copy.path().join("production.sqlite3")).ok()?;
     let value = |key: &str| c.query_row("SELECT value FROM app_configs WHERE key = ?1", [key], |r| r.get::<_, String>(0)).ok();
-    let wakes: Vec<serde_json::Value> = serde_json::from_str(&value("rust_rails_wakes")?).ok()?;
+    let wakes: Vec<serde_json::Value> = serde_json::from_str(&value("rust_v2_wakes")?).ok()?;
     let mut out: Vec<(String, bool)> = wakes.iter().map(|w| {
         assert_eq!(w["scope"], user.to_string(), "{w}");
         let job = w["job"].as_str().unwrap().to_string();

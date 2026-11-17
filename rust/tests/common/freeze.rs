@@ -1,19 +1,10 @@
-//! PLAN-B11-9 §2.4/§5: the frozen beta fixture, tests/fixtures/b11_9_beta. With `B11_9_FREEZE=1` the tests that call
-//! `freeze` write their end state there as SQL text: installs the pre-rename (beta) writers produced, for the rename
-//! migration's upgrade tests. Once the writers use the new names they can't produce these any more: the files are frozen
-//! data, never regenerated after the rename (its PR deletes the calls).
+//! PLAN-B11-9 §2.4/§5: the frozen beta fixture, tests/fixtures/b11_9_beta: installs the pre-rename (beta) writers
+//! produced (PR 1, #1018), the rename migration's upgrade input. Frozen data: the writers use the new names now, so
+//! nothing regenerates it. Also the frozen 2.x answers (`frozen`, `step`).
 use rusqlite::{types::ValueRef, Connection};
 use std::path::{Path, PathBuf};
 
 pub fn dir() -> PathBuf { Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/b11_9_beta") }
-
-/// Writes `<name>.primary.sql` (and `<name>.queue.sql`) when `B11_9_FREEZE=1`; otherwise nothing.
-pub fn freeze(name: &str, primary: &Connection, queue: Option<&Connection>) {
-    if std::env::var("B11_9_FREEZE").map_or(true, |v| v != "1") { return }
-    std::fs::create_dir_all(dir()).unwrap();
-    std::fs::write(dir().join(format!("{name}.primary.sql")), dump(primary)).unwrap();
-    if let Some(q) = queue { std::fs::write(dir().join(format!("{name}.queue.sql")), dump(q)).unwrap(); }
-}
 
 /// The database as SQL that rebuilds it: each table, its rows with their rowids, `sqlite_sequence`, then the indexes,
 /// triggers and views (after the rows, so no trigger fires while loading), each in `sqlite_master` order.

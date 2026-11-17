@@ -191,8 +191,8 @@ fn withdrawal_migration_is_registered_and_idempotent() {
         "rust_rule_evaluations",
         "rust_withdrawal_intents",
         "rust_withdrawal_ids",
-        "rust_rails_attempt_acks",
-        "rust_rails_job_acks",
+        "rust_v2_attempt_acks",
+        "rust_v2_job_acks",
         "rust_recorder_runs",
     ] {
         assert!(deltabadger::store::REGISTRY.owned_tables().contains(&name));

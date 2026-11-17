@@ -32,6 +32,12 @@ impl Db {
             "../migrations/20261028000001_withdrawal_engine.sql"
         ))
         .unwrap();
+        // B11-9: the rename migration, over the two 2.x tables it also rewrites.
+        c.execute_batch("CREATE TABLE bots(id INTEGER PRIMARY KEY,transient_data TEXT); CREATE TABLE bot_activity_logs(id INTEGER PRIMARY KEY,event TEXT,details TEXT);").unwrap();
+        // The A28 tables it renames, then B11-9's migration.
+        for m in deltabadger::store::RUST_MIGRATIONS.iter().filter(|m| ["20261108000001", "20261109000001", "20261110000001", "20261117000001"].contains(&m.version)) {
+            c.execute_batch(m.sql).unwrap();
+        }
         let cipher = Cipher::new(&EncryptionKeys::resolve(&|_| None, "withdrawal-test").unwrap());
         c.execute("INSERT INTO api_keys(id,user_id,exchange_id,key_type,status,key,secret) VALUES(1,1,1,1,1,?1,?2)",params![cipher.encrypt("key"),cipher.encrypt("secret")]).unwrap();
         let settings = json!({"network":"BTC","withdrawal_percentage":"100","threshold_type":"min_amount","min_amount":"0.01"});
@@ -551,8 +557,8 @@ async fn all_resolvers_seed_before_takeover_and_refuse_historical_id() {
             now()
         )
         .is_err());
-        assert_eq!(d.count("rust_rails_attempt_acks"), 0);
-        assert_eq!(d.count("rust_rails_job_acks"), 0);
+        assert_eq!(d.count("rust_v2_attempt_acks"), 0);
+        assert_eq!(d.count("rust_v2_job_acks"), 0);
         assert_eq!(d.count("rule_logs"), 2);
         assert_eq!(d.count("rust_withdrawal_ids"), 1);
     }
@@ -941,7 +947,7 @@ fn claimed_job_ack_cleanup_crashes_are_idempotent() {
         }
         assert!(rules::takeover_problems(&d.c, &d.q).unwrap().is_empty());
         rules::finish_cleanup(&d.c, &d.q, now()).unwrap();
-        assert_eq!(d.count("rust_rails_job_acks"), 1);
+        assert_eq!(d.count("rust_v2_job_acks"), 1);
         assert_eq!(d.count("rust_rule_evaluations"), 0);
         assert!(!rules::journals_pending(&d.c).unwrap());
     }
@@ -2352,8 +2358,6 @@ async fn recorder_consumption_binding_and_no_rule_effects() {
     let d = Db::new();
     let f = Fake::new(&d);
     let (_dir, lock) = recorder_lock();
-    d.c.execute("CREATE TABLE bots(id INTEGER PRIMARY KEY)", [])
-        .unwrap();
     let eligibility_before = deltabadger::engine::eligibility::check_install(&d.c)
         .unwrap()
         .problems;

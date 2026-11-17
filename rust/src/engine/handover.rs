@@ -257,7 +257,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
 /// takeover committed with its claim and that may still be queued (the queue is its own database). A start skips them and
 /// deletes them again, then the ids whose rows are gone leave the set, so a crash between the commit and the delete never
 /// stops, marks or logs twice. 2.x is gone, so nothing enqueues a row in between.
-pub const QUEUE_DONE_KEY: &str = "rust_rails_queue_done";
+pub const QUEUE_DONE_KEY: &str = "rust_v2_queue_done";
 
 fn queue_done(c: &Connection) -> Result<Vec<i64>, EngineError> {
     let Some(text) = crate::app_config::get_plain(c, QUEUE_DONE_KEY).map_err(EngineError::Data)? else { return Ok(vec![]) };
@@ -470,7 +470,7 @@ fn unresolved_signal(c: &Connection, row: &QueueRow, w: &mut QueueWork) -> Resul
         Some(v) => crate::codec::parse_time(&v).map_err(|e| format!("{v}: {e:?}")),
         None => Err("no triggered_at".to_string()),
     };
-    let marker_id = format!("rails-job:{}", row.job.clone().unwrap_or_else(|| format!("queue-row-{}", row.id)));
+    let marker_id = format!("v2-job:{}", row.job.clone().unwrap_or_else(|| format!("queue-row-{}", row.id)));
     w.done.push(row.id);
     w.signals.push(Unresolved { bot, marker_id, side, triggered_at });
     Ok(())
@@ -527,7 +527,7 @@ fn apply_queue_work(tx: &Connection, w: &QueueWork, from_v2: bool, now: DateTime
 /// D-UPGRADE-V2-WAKES: 2.x ran such a job once, with its own retries; here it runs at least once after the takeover,
 /// and one whose run keeps failing (a key the validator doesn't cover, a backfill without market data) is woken again at
 /// every start, as a manual wake of it would be. Duplicates of one job and scope run once.
-pub const V2_WAKES_KEY: &str = "rust_rails_wakes";
+pub const V2_WAKES_KEY: &str = "rust_v2_wakes";
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct V2Wake { job: String, scope: String, at: String }
@@ -699,12 +699,12 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // A20d: an order key's link to its order, read only by the start sweep. A key handed back in_progress is 2.x's 409.
         (Table, "rust_idempotency_orders", Ignored),
         // A28-1: 2.x's unrecorded-order candidates and whether their line was written; 2.x never reads it.
-        (Table, "rust_rails_unrecorded", Ignored),
+        (Table, "rust_v2_unrecorded", Ignored),
         // A28-3: the live order-history reads of those candidates (refused or failed with a key), and the pass's cursor.
-        (Table, "rust_rails_unrecorded_live", Ignored), (AppConfig, "rust_rails_unrecorded.live_cursor", Ignored),
+        (Table, "rust_v2_unrecorded_live", Ignored), (AppConfig, "rust_v2_unrecorded.live_cursor", Ignored),
         // A28-2: the bookable orders of those lines, the owner's resolutions and requests, and the booked rows' notices.
-        (Table, "rust_rails_unrecorded_offers", Ignored), (Table, "rust_rails_unrecorded_resolutions", Ignored),
-        (Table, "rust_rails_unrecorded_requests", Ignored), (Table, "rust_rails_unrecorded_notices", Ignored),
+        (Table, "rust_v2_unrecorded_offers", Ignored), (Table, "rust_v2_unrecorded_resolutions", Ignored),
+        (Table, "rust_v2_unrecorded_requests", Ignored), (Table, "rust_v2_unrecorded_notices", Ignored),
         // A17-4: which provider ranked an index row; 2.x never reads it, its deletes cascade, and the next claim clears it.
         (Table, "rust_index_rankings", Ignored),
         // A17-4 r18: index ids the provider retired; 2.x never reads it, and it outlives a takeover.
@@ -713,7 +713,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "rust_withdrawal_intents", Refuses("withdrawal work is unconsumed or unconfirmed")),
         (Table, "rust_rule_evaluations", Refuses("withdrawal work is unconsumed or unconfirmed")),
         (Table, "rust_withdrawal_candidates", Ignored), (Table, "rust_withdrawal_ids", Ignored), (Table, "rust_rule_log_origins", Ignored),
-        (Table, "rust_rails_attempt_acks", Ignored), (Table, "rust_rails_job_acks", Ignored), (Table, "rust_recorder_runs", Ignored),
+        (Table, "rust_v2_attempt_acks", Ignored), (Table, "rust_v2_job_acks", Ignored), (Table, "rust_recorder_runs", Ignored),
         // Tax: a queued report runs after a reclaim; the carried costs are the user's (r7.1: intact after handback, 2.x boot
         // and reclaim).
         (Table, "rust_tax_reports", Ignored), (Table, "rust_tax_pl_carry", Ignored),
@@ -741,7 +741,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "rust_cancel_reread:", Ignored),
         // The takeover's journals: the queue rows it handled are deleted first (finish_queue_work, finish_signal_import);
         // a row that won't go refuses. The wakes are woken again at a reclaim.
-        (AppConfig, "rust_rails_queue_done", Settled), (AppConfig, "rust_signal_import", Settled), (AppConfig, "rust_rails_wakes", Ignored),
+        (AppConfig, "rust_v2_queue_done", Settled), (AppConfig, "rust_signal_import", Settled), (AppConfig, "rust_v2_wakes", Ignored),
         (AppConfig, "rust_rule_import", Refuses("withdrawal job cleanup is pending")),
         (AppConfig, "rust_rule_job_cleanup", Refuses("withdrawal job cleanup is pending")),
         (AppConfig, "rust_rules_fired_at", Ignored),
@@ -953,7 +953,7 @@ fn signal_jobs(o: &Opened, skip: &[i64]) -> Result<(Vec<SignalJob>, Vec<UnreadSi
             (Some(job), Ok((bot_id, signal_id, triggered_at))) => {
                 let bot: bool = o.primary.query_row("SELECT EXISTS (SELECT 1 FROM bots WHERE id = ?1 AND type = ?2)", params![bot_id, model::SIGNAL_TYPE], |r| r.get(0))?;
                 let rule: bool = o.primary.query_row("SELECT EXISTS (SELECT 1 FROM bot_signals WHERE id = ?1)", [signal_id], |r| r.get(0))?;
-                let call = (bot && rule).then(|| (bot_id, model::SignalCall { source: format!("rails:{job}"), signal_id, triggered_at }));
+                let call = (bot && rule).then(|| (bot_id, model::SignalCall { source: format!("v2:{job}"), signal_id, triggered_at }));
                 jobs.push((job, call));
             }
             (None, _) => unread.push((row, format!("deleted a waiting webhook call this build can't read (queue row {row}, {bot}): no job id"))),

@@ -469,7 +469,7 @@ async fn a_stock_only_index_ignores_stale_unrelated_crypto_feeds() {
     for job in [deltabadger::jobs::reference::ALPACA_CRYPTO, deltabadger::jobs::reference::ASSETS] {
         deltabadger::app_config::set_plain(&o.primary,
             &deltabadger::jobs::state::key(job, None),
-            &json!({"last_success_at":old.to_rfc3339(),"rails_at":old.to_rfc3339()}).to_string(), old).unwrap();
+            &json!({"last_success_at":old.to_rfc3339(),"v2_at":old.to_rfc3339()}).to_string(), old).unwrap();
     }
     let t = script([100.0; 5]);
     let out = tick_until_settled(&o, &t, id, at(T0)).await;

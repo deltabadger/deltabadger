@@ -56,11 +56,11 @@ fn failed_row(c: &Connection, s: &Seeded, bot: i64, error: &str, at: &str) -> i6
     c.last_insert_rowid()
 }
 fn obligations(c: &Connection) -> Vec<(i64, String, String, String)> {
-    let mut s = c.prepare("SELECT bot_id, source, span_from, span_to FROM rust_rails_unrecorded ORDER BY id").unwrap();
+    let mut s = c.prepare("SELECT bot_id, source, span_from, span_to FROM rust_v2_unrecorded ORDER BY id").unwrap();
     s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap().map(Result::unwrap).collect()
 }
 fn lines(c: &Connection, bot: i64) -> Vec<(String, Value)> {
-    let mut s = c.prepare("SELECT event, details FROM bot_activity_logs WHERE bot_id = ?1 AND event LIKE 'rails_order_%' ORDER BY id").unwrap();
+    let mut s = c.prepare("SELECT event, details FROM bot_activity_logs WHERE bot_id = ?1 AND event LIKE 'v2_order_%' ORDER BY id").unwrap();
     s.query_map([bot], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))).unwrap().map(|r| { let (e, d) = r.unwrap(); (e, serde_json::from_str(&d).unwrap()) }).collect()
 }
 /// A finished ledger sync of the key, at `at`.
@@ -102,7 +102,7 @@ fn only_what_v2_wrote_after_the_last_handback_is_collected() {
     failed_row(&c, &s, b, "Net::ReadTimeout with #<TCPSocket>", "2026-09-10 10:00:01");
     let v2 = ambiguous_line(&c, b, AT);
     ru::collect(&c, &queue(), Some(t("2026-09-20T00:00:00Z")), now()).unwrap();
-    let got: Vec<i64> = c.prepare("SELECT source_ref FROM rust_rails_unrecorded").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    let got: Vec<i64> = c.prepare("SELECT source_ref FROM rust_v2_unrecorded").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
     assert_eq!(got, [v2]);
 }
 
@@ -136,7 +136,7 @@ fn a_failed_row_keeps_the_pair_and_side_it_recorded() {
     failed_row(&c, &s, b, "Faraday::TimeoutError: Net::ReadTimeout", AT);
     failed_row(&c, &s, b, "Account has insufficient balance for requested action.", AT);
     ru::collect(&c, &queue(), None, now()).unwrap();
-    let scope: String = c.query_row("SELECT scope FROM rust_rails_unrecorded", [], |r| r.get(0)).unwrap();
+    let scope: String = c.query_row("SELECT scope FROM rust_v2_unrecorded", [], |r| r.get(0)).unwrap();
     assert_eq!(serde_json::from_str::<Value>(&scope).unwrap(), json!({ "exchange_id": s.exchange_id, "base_asset_id": s.btc, "quote_asset_id": s.quote, "side": 0 }));
     assert_eq!(obligations(&c).len(), 1, "the venue's own rejection is not collected");
 }
@@ -264,8 +264,8 @@ fn a_user_without_a_reading_key_on_the_venue_gets_unread_after_seven_days() {
 #[test]
 fn every_line_renders_in_english_without_a_missing_key() {
     use deltabadger::web::i18n::{self, Arg};
-    for key in ["rails_order_candidate", "rails_order_candidates", "rails_order_none_seen", "rails_order_unchecked_settings_changed", "rails_order_unchecked_index",
-                "rails_order_unchecked_no_history", "rails_order_unchecked_unread", "rails_order_unchecked_unreadable", "rails_order_unchecked_reach", "rails_order_unchecked_gone", "rails_order_unchecked_time"] {
+    for key in ["v2_order_candidate", "v2_order_candidates", "v2_order_none_seen", "v2_order_unchecked_settings_changed", "v2_order_unchecked_index",
+                "v2_order_unchecked_no_history", "v2_order_unchecked_unread", "v2_order_unchecked_unreadable", "v2_order_unchecked_reach", "v2_order_unchecked_gone", "v2_order_unchecked_time"] {
         let text = i18n::text("en", &format!("bot_activity.events.{key}"), &[("when", Arg::Text("around 2026-09-29 14:03 UTC")), ("venue", Arg::Text("Binance")), ("trades", Arg::Text("x"))]);
         assert!(text.starts_with("Before the update, an order from this bot may have gone through without being recorded (around 2026-09-29 14:03 UTC)."), "{key}: {text}");
         assert!(!text.contains("%{"), "{key}: {text}");
@@ -326,7 +326,6 @@ fn a_trade_no_bot_recorded_in_the_window_is_listed_with_its_fills_summed() {
     fill(&c, &s, 12, 5, true, "0.0002", "10.01", "2026-09-29T14:03:06Z");
     let (event, details) = reported(&c, &s, b);
     assert_eq!(event, ru::CANDIDATES);
-    common::freeze::freeze("a28_candidates", &c, None);
     assert_eq!(details, json!({ "when": "around 2026-09-29 14:03 UTC", "venue": "Binance", "count": 1,
                                 "trades": "bought 0.0004 BTC for 20.01 EUR on 2026-09-29 14:03:05 UTC (filled)" }));
 }
@@ -575,7 +574,6 @@ fn a_source_time_that_cant_be_read_gets_its_line_and_the_others_still_get_theirs
     assert_eq!(ru::report(&c, now()).unwrap(), 2);
     let l = lines(&c, b);
     assert_eq!((l[0].1["reason"].as_str(), l[1].0.as_str()), (Some("time"), ru::NONE_SEEN));
-    common::freeze::freeze("a28_time_none_seen", &c, None);
 }
 
 // ---- Codex branch r4 ---------------------------------------------------------------------------------------------------
