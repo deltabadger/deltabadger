@@ -187,7 +187,7 @@ fn offered(c: &Connection, app: &App, config: Option<&Value>) -> Result<Vec<Inde
 
 #[derive(Template)]
 #[template(path = "wizard/index/assets.html")]
-struct AssetsView<'a> { v: &'a Ctx, switch: String, error: Option<String>, configured: bool, admin: bool, widget: Option<String>, providers: Vec<(String, String, &'static str)>,
+struct AssetsView<'a> { v: &'a Ctx, switch: String, error: Option<String>, configured: bool, admin: bool, widget: Option<String>, providers: Vec<(String, &'static str, bool, &'static str)>,
     action: String, csrf: &'a str, tiles: Vec<IndexTile> }
 
 /// D-INDEX-IN-ASSETS: the Assets step's Index view, as the sheet: the Asset / Index switch, then the index list (market data
@@ -199,9 +199,10 @@ pub fn assets_view(c: &Connection, app: &App, ctx: &Ctx, config: Option<&Value>,
     // D-INDEX-CONNECT-IN-VIEW: no market data: the providers as the exchange step's tiles, each opening its connect card.
     let provider = ctx.params.query("provider").filter(|p| matches!(*p, "coingecko" | "deltabadger"));
     let widget = match provider { Some(provider) if !configured && admin => Some(crate::web::settings::keys::market_data(c, app, ctx, &csrf, false, None, Some(provider))?), _ => None };
-    let providers = [("coingecko", "CoinGecko".to_string(), include_str!("../../../templates/svg/_coingecko.html")),
-                     ("deltabadger", ctx.t("settings.platform.option"), include_str!("../../../templates/svg/_40x30_logo.html"))]
-        .into_iter().map(|(key, name, mark)| (ctx.path(&format!("{INDEX_VIEW}&provider={key}")), name, mark)).collect();
+    // CoinGecko's mark is its wordmark (the name drawn), deltabadger's the logo beside the lowercase name.
+    let providers = [("coingecko", "CoinGecko", false, include_str!("../../../templates/svg/_coingecko_wordmark.html")),
+                     ("deltabadger", "deltabadger", true, include_str!("../../../templates/svg/_40x30_logo.html"))]
+        .into_iter().map(|(key, name, shown, mark)| (ctx.path(&format!("{INDEX_VIEW}&provider={key}")), name, shown, mark)).collect();
     let tiles = if configured { offered(c, app, config)? } else { vec![] };
     let content = AssetsView { v: ctx, switch: super::kind_switch(ctx, true)?, error, configured, admin, widget, providers, action: ctx.path(PICK), csrf: &csrf, tiles }.render()?;
     let venue = super::assets::venue_in_force(c, config)?;

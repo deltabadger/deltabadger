@@ -586,7 +586,10 @@ async fn the_expiry_sweeps_past_a_marker_it_cannot_clear() {
     (s.batch, s.poll, s.waits) = (1, std::time::Duration::from_millis(20), vec![std::time::Duration::from_millis(50)]);
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let run = tokio::spawn(s.run::<()>(stopped, None));
-    tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+    // Until the last bot is swept (a slow runner took over 1.5 s), not a fixed wait.
+    let swept = || c.query_row("SELECT instr(transient_data, '_mail_pending') = 0 FROM bots WHERE label = 'old too'", [], |r| r.get::<_, bool>(0)).unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    while !swept() && std::time::Instant::now() < deadline { tokio::time::sleep(std::time::Duration::from_millis(50)).await }
     stop.send(true).unwrap();
     run.await.unwrap().unwrap();
     let left: Vec<(String, bool)> = c.prepare("SELECT label, instr(transient_data, '_mail_pending') > 0 FROM bots ORDER BY id").unwrap()

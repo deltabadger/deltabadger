@@ -4754,8 +4754,9 @@ async fn index_in_wizard_market_data_is_connected_in_the_index_view() {
     assert_eq!(switch(&answers[3]), switch_of("", true), "the switch above the providers");
     assert!(index_rows(&answers[3]).is_empty());
     let page = scraper::Html::parse_document(&raw(&answers[3]));
-    let tiles: Vec<(String, String)> = page.select(&select(".exchange-group .exchange-grid a.exchange-grid__item")).map(|a| (a.text().collect::<String>().trim().to_string(), a.value().attr("href").unwrap().to_string())).collect();
-    assert_eq!(tiles, [("CoinGecko".to_string(), card("coingecko")), (deltabadger::web::i18n::text("en", "settings.platform.option", &[]), card("deltabadger"))]);
+    let tiles: Vec<(String, String, String)> = page.select(&select(".exchange-group .exchange-grid a.exchange-grid__item")).map(|a| (a.value().attr("aria-label").unwrap().to_string(), a.text().collect::<String>().trim().to_string(), a.value().attr("href").unwrap().to_string())).collect();
+    // CoinGecko's wordmark draws its name; deltabadger's logo sits beside the lowercase name.
+    assert_eq!(tiles, [("CoinGecko".into(), String::new(), card("coingecko")), ("deltabadger".into(), "deltabadger".into(), card("deltabadger"))]);
     assert_eq!(page.select(&select(".exchange-group__heading")).next().unwrap().text().collect::<String>().trim(), deltabadger::web::i18n::text("en", "bot.setup.market_data.providers", &[]));
     assert!(raw(&answers[3]).contains(&deltabadger::web::i18n::text("en", "bot.setup.market_data.intro", &[])));
     assert!(!raw(&answers[3]).contains("market_data_settings"), "no form before a provider is picked");

@@ -52,9 +52,9 @@
     <section class="exchange-group">
       <h3 class="exchange-group__heading">{{ v.t("bot.setup.market_data.providers") }}</h3>
       <div class="exchange-grid">
-{%- for (href, name, mark) in providers %}
+{%- for (href, name, shown, mark) in providers %}
         <div class="exchange-grid__option">
-          <a class="exchange-grid__item exchange-grid__item--provider" data-turbo-frame="modal_content" href="{{ href }}">{{ mark|safe }}<span>{{ name }}</span></a>
+          <a class="exchange-grid__item exchange-grid__item--provider" data-turbo-frame="modal_content" href="{{ href }}" aria-label="{{ name }}">{{ mark|safe }}{% if *shown %}<span>{{ name }}</span>{% endif %}</a>
         </div>
 {%- endfor %}
       </div>
