@@ -1,4 +1,4 @@
-//! Build-time inputs: the frozen Rails migration versions (rust/schema/v2_versions.txt) and, from the Rails app, the
+//! Build-time inputs: the frozen 2.x migration versions (rust/schema/v2_versions.txt) and, from the 2.x app, the
 //! translations in rust/locales (src/web/i18n.rs), and the files `serve` hands out (src/web/assets.rs).
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -33,7 +33,7 @@ fn release_version(root: &Path) {
     println!("cargo:rustc-env=DELTABADGER_VERSION={version}");
 }
 
-/// The Rails migration versions every 2.x install records in `schema_migrations`, frozen in rust/schema/v2_versions.txt
+/// The 2.x migration versions every 2.x install records in `schema_migrations`, frozen in rust/schema/v2_versions.txt
 /// (B1: db/migrate never changes again, and B11 deletes it). tests/store.rs checks the file against db/migrate while
 /// that exists.
 fn migrations(root: &Path, out: &Path) -> Vec<String> {
@@ -51,7 +51,7 @@ fn migrations(root: &Path, out: &Path) -> Vec<String> {
 }
 
 /// rust/migrations as `RUST_MIGRATIONS: &[Migration]` (store.rs), sorted by version. A misnamed file, a repeated
-/// version, a Rails version or a transaction statement stops the build (migration_registry.rs).
+/// version, a 2.x version or a transaction statement stops the build (migration_registry.rs).
 fn rust_migrations(root: &Path, out: &Path, v2_versions: &[String]) {
     let dir = root.join("rust/migrations");
     println!("cargo:rerun-if-changed={}", dir.display());
@@ -113,7 +113,7 @@ fn fingerprinted(logical: &str, bytes: &[u8]) -> String {
 /// - rust/web/builds/application.js.map, fingerprinted too, with the bundle's sourceMappingURL pointed at it;
 /// - `*.erb` among the images (the web manifest), with each `<%= asset_path '...' %>` replaced by that
 ///   file's fingerprinted path, which is all the ERB there does;
-/// - everything under rust/web/public/ (fonts, service worker, error pages) at its own path, as Rails' static
+/// - everything under rust/web/public/ (fonts, service worker, error pages) at its own path, as 2.x's static
 ///   file server does. rust/web/public/assets is Sprockets' output and is skipped.
 ///
 /// The two built files are not committed. A release build without them stops here: a binary that
@@ -187,8 +187,8 @@ fn assets(root: &Path, out: &Path) {
 }
 
 /// rust/locales/*.yml as one sorted table of ("<locale>.<full.key>", "<text>"). Files are merged in
-/// name order, a later file winning, as Rails' I18n load path does. An array adds its index as a key
-/// segment. Rails reads these files with Psych (YAML 1.1), where an unquoted `yes`, `no`, `on`, `off`,
+/// name order, a later file winning, as 2.x's I18n load path does. An array adds its index as a key
+/// segment. 2.x reads these files with Psych (YAML 1.1), where an unquoted `yes`, `no`, `on`, `off`,
 /// `true` or `false` is a boolean: as a KEY it becomes `true`/`false` (so a key meant as `yes` or `no`
 /// must be quoted, as tax_report.summary's are), and that is reproduced. As
 /// a VALUE it would render as "true"/"false"; that, and a null, stop the build, so it gets quoted.
@@ -303,7 +303,7 @@ impl EventReceiver for Flatten {
     }
 }
 
-// R6 is enforced on every Cargo build, including Ruby-free CI and release builds.
+// R6 is enforced on every Cargo build, including 2.x-free CI and release builds.
 fn accounting_gate(root: &Path) {
     for path in ["rust/src", "rust/gates/histories_timestamp_gate.py", "rust/gates/histories_accounting_gate.py", "rust/gates/histories_arithmetic_primitives.json"] {
         println!("cargo:rerun-if-changed={}", root.join(path).display());

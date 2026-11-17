@@ -1,5 +1,5 @@
-//! The Rust half of the decision-parity harness (script/rust/decisions.rb is the Rails half): the same
-//! ticks, with retries, on a marked scratch copy, reported in the canonical shape Rails reports.
+//! The Rust half of the decision-parity harness (script/rust/decisions.rb is the 2.x half): the same
+//! ticks, with retries, on a marked scratch copy, reported in the canonical shape 2.x reports.
 use crate::engine::notice::{self, Notice, Pending};
 use crate::engine::{model, polling};
 use crate::engine::tick::{self, Attempts, PriceCache, TickContext, TickOutcome};
@@ -23,7 +23,7 @@ use std::path::Path;
 const TABLES: [&str; 5] = ["bots", "transactions", "bot_activity_logs", "bot_index_assets", "wash_sale_locks"];
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
-/// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
+/// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): 2.x has none of them.
 pub const RUST_KEYS: [&str; 17] = [crate::engine::index::COMPOSED_KEY, "run_generation", crate::engine::model::HISTORY_GENERATION, "tick_generation", "rust_placement", crate::engine::model::SIGNAL_CALLS_KEY, "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
                                crate::engine::amount_limit::STOP_MAILED,
                                "rust_rebalance_halted", crate::engine::conditions::DEAD, crate::engine::index::RESYNC_KEY,
@@ -49,7 +49,7 @@ pub fn snapshot(c: &Connection) -> Result<Value, EngineError> {
             let mut row = Map::new();
             for (i, name) in names.iter().enumerate() {
                 // Rust-only ownership attribution; placement/tick_basket assert the exact
-                // sending identity independently. Rails leaves this shared column NULL.
+                // sending identity independently. 2.x leaves this shared column NULL.
                 if table == "transactions" && name == "run_identity" { continue; }
                 let mut v = raw((&r[i]).into());
                 if JSON_COLUMNS.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
@@ -74,13 +74,13 @@ pub fn diff(before: &Value, after: &Value) -> Value {
             .filter(|(id, row)| before[table].get(id.as_str()) != Some(*row))
             .map(|(id, row)| { let n = id.parse::<i64>().unwrap(); (n, json!({ "id": n, "before": before[table].get(id.as_str()).cloned().unwrap_or(Value::Null), "after": row })) })
             .collect();
-        changes.sort_by_key(|(n, _)| *n); // Rails lists rows in id order; the map above is keyed by id TEXT
+        changes.sort_by_key(|(n, _)| *n); // 2.x lists rows in id order; the map above is keyed by id TEXT
         out.insert(table.into(), Value::Array(changes.into_iter().map(|(_, v)| v).collect()));
     }
     Value::Object(out)
 }
 
-/// The Kraken script as the real adapter's transport is answered: each recorded body (the Rails harness serves it beneath
+/// The Kraken script as the real adapter's transport is answered: each recorded body (the recording harness serves it beneath
 /// Honeymaker::Clients::Kraken#get_public / #post_private) as an HTTP 200 for "GET /0/public/…" or "POST /0/private/…".
 pub fn kraken_script(script: &Value) -> Value {
     let mut out = Map::new();
@@ -92,14 +92,14 @@ pub fn kraken_script(script: &Value) -> Value {
     Value::Object(out)
 }
 
-/// The AddOrder fields the adapter posted, as the Rails harness records them (nonce dropped there; the transport adds it
+/// The AddOrder fields the adapter posted, as the recording harness records them (nonce dropped there; the transport adds it
 /// here), without Rust's own cl_ord_id and deadline.
 fn kraken_sent(t: &ScriptedTransport) -> Vec<Value> {
     t.requests().into_iter().filter(|r| r.method == "POST" && r.path == "/0/private/AddOrder").filter_map(|r| r.body)
         .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("cl_ord_id"); m.shift_remove("deadline"); } b }).collect()
 }
 
-/// The orders the Binance adapter POSTed, as the Rails harness records them: the query without what changes per send
+/// The orders the Binance adapter POSTed, as the recording harness records them: the query without what changes per send
 /// (timestamp, signature) and without Rust's own newClientOrderId.
 fn binance_sent(t: &ScriptedTransport) -> Vec<Value> {
     t.requests().into_iter().filter(|r| r.method == "POST" && r.path == "/api/v3/order")
@@ -107,20 +107,20 @@ fn binance_sent(t: &ScriptedTransport) -> Vec<Value> {
                                 .map(|(k, v)| (k.to_string(), Value::String(v))).collect())).collect()
 }
 
-/// The orders the KuCoin adapter POSTed, as the Rails harness records them: the JSON body without the clientOid.
+/// The orders the KuCoin adapter POSTed, as the recording harness records them: the JSON body without the clientOid.
 fn kucoin_sent(t: &ScriptedTransport) -> Vec<Value> {
     t.requests().into_iter().filter(|r| r.method == "POST" && r.path == "/api/v1/orders").filter_map(|r| r.body)
         .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("clientOid"); } b }).collect()
 }
 
-/// The orders the Gemini adapter POSTed, as the Rails harness records them: the signed payload's params (the request's body
+/// The orders the Gemini adapter POSTed, as the recording harness records them: the signed payload's params (the request's body
 /// here; the transport adds `request` and `nonce`) without Rust's own client_order_id.
 fn gemini_sent(t: &ScriptedTransport) -> Vec<Value> {
     t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::gemini::ORDER_NEW).filter_map(|r| r.body)
         .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("client_order_id"); } b }).collect()
 }
 
-/// The orders the MEXC adapter POSTed, as the Rails harness records them: the query without the timestamp, the signature and
+/// The orders the MEXC adapter POSTed, as the recording harness records them: the query without the timestamp, the signature and
 /// Rust's own newClientOrderId.
 fn mexc_sent(t: &ScriptedTransport) -> Vec<Value> { query_sent(t, crate::venue::mexc::ORDER_PATH) }
 fn query_sent(t: &ScriptedTransport, path: &str) -> Vec<Value> {
@@ -129,7 +129,7 @@ fn query_sent(t: &ScriptedTransport, path: &str) -> Vec<Value> {
                                 .map(|(k, v)| (k.to_string(), Value::String(v))).collect())).collect()
 }
 
-/// The orders the Hyperliquid adapter POSTed, as the Rails harness records them: each order action's wire (`{a, b, p, s, r,
+/// The orders the Hyperliquid adapter POSTed, as the recording harness records them: each order action's wire (`{a, b, p, s, r,
 /// t}`) without Rust's own cloid `c`; a cancel is no order.
 /// The account address decisions.rb's Hyperliquid key holds (script/rust/decisions.rb HL_ADDRESS).
 pub const HYPERLIQUID_HARNESS_ADDRESS: &str = "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123";
@@ -154,8 +154,8 @@ fn hyperliquid_sent(t: &ScriptedTransport) -> Vec<Value> {
         .map(|mut o| { if let Value::Object(m) = &mut o { m.shift_remove("c"); } o }).collect()
 }
 
-/// The orders the Bitvavo adapter POSTed, as the Rails harness records them: the JSON body without the clientOrderId.
-/// The orders the Bitget adapter POSTed, as the Rails harness records them: the JSON body without the clientOid.
+/// The orders the Bitvavo adapter POSTed, as the recording harness records them: the JSON body without the clientOrderId.
+/// The orders the Bitget adapter POSTed, as the recording harness records them: the JSON body without the clientOid.
 fn bitget_sent(t: &ScriptedTransport) -> Vec<Value> {
     t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::bitget::PLACE_PATH).filter_map(|r| r.body)
         .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("clientOid"); } b }).collect()
@@ -175,8 +175,8 @@ fn bitvavo_sent(t: &ScriptedTransport) -> Vec<Value> {
         .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("clientOrderId"); } b }).collect()
 }
 
-/// The mails this engine owes since `before`, in the shape Rails' harness reports the mails it enqueued: the mailer action,
-/// the error sentence Bot::ActionJob.humanized_errors hands it (in the user's language; Rails' reading, before
+/// The mails this engine owes since `before`, in the shape the recording harness reports the mails it enqueued: the mailer action,
+/// the error sentence Bot::ActionJob.humanized_errors hands it (in the user's language; 2.x's reading, before
 /// D-RAW-REFUSALS-COPY, which tests/raw_refusals.rs pins), the quote asset's symbol.
 fn mails(c: &Connection, before: &[Pending]) -> Result<Value, EngineError> {
     let mut out = vec![];
@@ -187,7 +187,7 @@ fn mails(c: &Connection, before: &[Pending]) -> Result<Value, EngineError> {
         let mut mail = json!({ "mail": p.notice.mail() });
         match &p.notice {
             Notice::EndOfFunds { quote_asset_id } => mail["quote"] = c.query_row("SELECT symbol FROM assets WHERE id = ?1", [quote_asset_id], |r| r.get::<_, String>(0))?.into(),
-            // Rust-only (D-UPGRADE-SET-ASIDE): Rails never sends it, so no recording has it.
+            // Rust-only (D-UPGRADE-SET-ASIDE): 2.x never sends it, so no recording has it.
             Notice::SetAside { reasons } => mail["reasons"] = reasons.clone().into(),
             Notice::Error { error, .. } | Notice::StoppedByError { error } => {
                 mail["errors"] = json!([crate::mail::render::humanize_error_before_raw_refusals(&exchange_type, &exchange_name, crate::mail::render::user_locale(locale.as_deref()), error)]);
@@ -218,7 +218,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
 }
 
 /// M05: the same classic scenario with or without version-bound account preparation. Includes
-/// requests for the wrapper regression to compare independently of the Rails decision output.
+/// requests for the wrapper regression to compare independently of the 2.x decision output.
 pub async fn decide_kucoin_context(dir: &Path, prepared: bool) -> Result<Value, EngineError> {
     decide_context(dir, Some(prepared)).await
 }
@@ -233,11 +233,11 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
     let bot_id = scenario["bot_id"].as_i64().ok_or_else(|| EngineError::Data("scenario.bot_id".into()))?;
     let paths = Paths::from_env(&|_| None, dir);
     // The same exclusive lock the engine takes, judged at the real clock: the scenario time is for the tick only, and a
-    // copy's last Rails heartbeat must not read as alive against it.
+    // copy's last 2.x heartbeat must not read as alive against it.
     let _lock = lease::lock(&paths, chrono::Utc::now())?;
     let o = store::open(&paths)?;
-    // A poll reads A28-2's booking tables (a booked row is never stale-abandoned nor lowered); Rails built the copy without
-    // them. Only those (empty) tables: the decisions are judged on the install as Rails left it.
+    // A poll reads A28-2's booking tables (a booked row is never stale-abandoned nor lowered); 2.x built the copy without
+    // them. Only those (empty) tables: the decisions are judged on the install as 2.x left it.
     // Recorded as applied, so a scenario that later migrates the copy (api_orders) skips it.
     o.primary.execute_batch(include_str!("../migrations/20261110000001_rust_rails_unrecorded_booking.sql"))?;
     o.primary.execute_batch("CREATE TABLE IF NOT EXISTS rust_schema_migrations (version TEXT NOT NULL PRIMARY KEY, applied_at TEXT NOT NULL); \
@@ -248,7 +248,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
     }
     let index_bot = model::load_bot(&o.primary, bot_id)?.bot_type == "Bots::DcaIndex";
     if index_bot && scenario["venue"] != "alpaca" {
-        // A crypto index bot's reference data, as fresh as the scenario's Rails install (engine::staleness).
+        // A crypto index bot's reference data, as fresh as the scenario's 2.x install (engine::staleness).
         if let Some(hash)=crate::engine::provider::fingerprint(&o.primary)? {crate::engine::provider::record(&o.primary,&hash,start)?;}
         for job in [reference::INDICES,reference::ASSETS] { jobs::state::record_success(&o.primary,job,None,start).map_err(EngineError::Data)?; }
     }
@@ -266,7 +266,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
         }
     }
     if index_bot { rank_fixture_indices(&o.primary, start)?; }
-    // A17-4: on a CoinGecko install the category row is what this engine's category pass stores from the answer Rails composes
+    // A17-4: on a CoinGecko install the category row is what this engine's category pass stores from the answer 2.x composes
     // from live (jobs::categories), ranked at the copy's start.
     if let (Some(id), Some(answer)) = (scenario["coingecko"]["id"].as_str(), scenario["coingecko"]["answer"].as_array()) {
         let hash = crate::engine::provider::fingerprint(&o.primary)?.ok_or_else(|| EngineError::Data("no CoinGecko key on the copy".into()))?;
@@ -284,23 +284,23 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
     let before = snapshot(&o.primary)?;
     let owed = notice::all_pending(&o.primary)?;
     if scenario["venue"] == "alpaca" {
-        // Rust's real Alpaca client over the recorded bodies Rails' harness serves beneath Clients::Alpaca.
+        // Rust's real Alpaca client over the recorded bodies the recording harness serves beneath Clients::Alpaca.
         let transport = ScriptedTransport::from_script(&scenario["script"]["alpaca"]);
         let posted = || transport.posted_orders().len();
         let venue = AlpacaVenue::new(transport.clone(), Urls::for_passphrase(Some("paper")));
         let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted, &transport).await?;
-        // A raised follow-up is reported like Rails' job raise; a throttle or transient failure is a retry Rails enqueues.
+        // A raised follow-up is reported like 2.x's job raise; a throttle or transient failure is a retry 2.x enqueues.
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": transport.posted_orders(), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
-        // The engine's reconciliation tick has no Rails counterpart: what it sent (nothing, expected) goes to the asserters only.
+        // The engine's reconciliation tick has no 2.x counterpart: what it sent (nothing, expected) goes to the asserters only.
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
         if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
         return Ok(out);
     }
     if let Some(row) = scenario["venue"].as_str().filter(|v| ["binance", "binance_us"].contains(v)).and_then(|v| crate::venue::registry::ROWS.iter().find(|r| r.name_id == v)) {
-        // Rust's real Binance adapter (Binance.US: configured with its host and rules) over the bodies Rails' harness serves
+        // Rust's real Binance adapter (Binance.US: configured with its host and rules) over the bodies the recording harness serves
         // beneath Honeymaker::Clients::Binance (::BinanceUs), with the scenario's own tickers.
         let transport = ScriptedTransport::from_script(&scenario["script"][row.name_id]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [row.exchange_type], |r| r.get(0))?;
@@ -317,7 +317,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
         return Ok(out);
     }
     if scenario["venue"] == "kucoin" {
-        // Rust's KuCoin adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Kucoin, with the
+        // Rust's KuCoin adapter over the bodies the recording harness serves beneath Honeymaker::Clients::Kucoin, with the
         // scenario's own tickers.
         let transport = ScriptedTransport::from_script(&scenario["script"]["kucoin"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = 'Exchanges::Kucoin'", [], |r| r.get(0))?;
@@ -353,7 +353,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
         return Ok(out);
     }
     if scenario["venue"] == "bitget" {
-        // Rust's Bitget adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Bitget, with the
+        // Rust's Bitget adapter over the bodies the recording harness serves beneath Honeymaker::Clients::Bitget, with the
         // scenario's own tickers.
         let transport = ScriptedTransport::from_script(&scenario["script"]["bitget"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::bitget::BITGET], |r| r.get(0))?;
@@ -370,7 +370,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
         return Ok(out);
     }
     if scenario["venue"] == "bybit" {
-        // Rust's Bybit adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Bybit, with the
+        // Rust's Bybit adapter over the bodies the recording harness serves beneath Honeymaker::Clients::Bybit, with the
         // scenario's own tickers.
         let transport = ScriptedTransport::from_script(&scenario["script"]["bybit"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::bybit::BYBIT], |r| r.get(0))?;
@@ -388,7 +388,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
         return Ok(out);
     }
     if scenario["venue"] == "coinbase" {
-        // Rust's Coinbase adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Coinbase, with the
+        // Rust's Coinbase adapter over the bodies the recording harness serves beneath Honeymaker::Clients::Coinbase, with the
         // scenario's own tickers.
         let transport = ScriptedTransport::from_script(&scenario["script"]["coinbase"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::coinbase::COINBASE], |r| r.get(0))?;
@@ -405,7 +405,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
         return Ok(out);
     }
     if scenario["venue"] == "gemini" {
-        // Rust's Gemini adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Gemini, with the
+        // Rust's Gemini adapter over the bodies the recording harness serves beneath Honeymaker::Clients::Gemini, with the
         // scenario's own tickers.
         let transport = ScriptedTransport::from_script(&scenario["script"]["gemini"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = 'Exchanges::Gemini'", [], |r| r.get(0))?;
@@ -422,7 +422,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
         return Ok(out);
     }
     if scenario["venue"] == "hyperliquid" {
-        // Rust's Hyperliquid adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Hyperliquid and
+        // Rust's Hyperliquid adapter over the bodies the recording harness serves beneath Honeymaker::Clients::Hyperliquid and
         // hyperliquid-rb, with the scenario's own tickers. Every read names its `type`; the address is the harness key's.
         let transport = ScriptedTransport::from_script(&scenario["script"]["hyperliquid"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::hyperliquid::HYPERLIQUID], |r| r.get(0))?;
@@ -445,7 +445,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
         return Ok(out);
     }
     if scenario["venue"] == "bitvavo" {
-        // Rust's Bitvavo adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Bitvavo, with the
+        // Rust's Bitvavo adapter over the bodies the recording harness serves beneath Honeymaker::Clients::Bitvavo, with the
         // scenario's own tickers.
         let transport = ScriptedTransport::from_script(&scenario["script"]["bitvavo"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::bitvavo::BITVAVO], |r| r.get(0))?;
@@ -461,7 +461,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
         return Ok(out);
     }
     if scenario["venue"] == "mexc" {
-        // Rust's MEXC adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Mexc, with the scenario's
+        // Rust's MEXC adapter over the bodies the recording harness serves beneath Honeymaker::Clients::Mexc, with the scenario's
         // own tickers.
         let transport = ScriptedTransport::from_script(&scenario["script"]["mexc"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::mexc::MEXC], |r| r.get(0))?;
@@ -477,7 +477,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
         return Ok(out);
     }
     if scenario["venue"] == "bitrue" {
-        // Rust's Bitrue adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Bitrue, with the scenario's
+        // Rust's Bitrue adapter over the bodies the recording harness serves beneath Honeymaker::Clients::Bitrue, with the scenario's
         // own tickers.
         let transport = ScriptedTransport::from_script(&scenario["script"]["bitrue"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::bitrue::BITRUE], |r| r.get(0))?;
@@ -494,7 +494,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
         return Ok(out);
     }
     if scenario["venue"] == "bingx" {
-        // Rust's Bingx adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Bingx, with the scenario's
+        // Rust's Bingx adapter over the bodies the recording harness serves beneath Honeymaker::Clients::Bingx, with the scenario's
         // own tickers.
         let transport = ScriptedTransport::from_script(&scenario["script"]["bingx"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::bingx::BINGX], |r| r.get(0))?;
@@ -510,7 +510,7 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
         return Ok(out);
     }
-    // Rust's real Kraken adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Kraken, or at the
+    // Rust's real Kraken adapter over the bodies the recording harness serves beneath Honeymaker::Clients::Kraken, or at the
     // Faraday adapter beneath it (`kraken_http`: the HTTP status and the transport failures too).
     let script = if scenario["script"]["kraken_http"].is_object() { scenario["script"]["kraken_http"].clone() } else { kraken_script(&scenario["script"]) };
     let transport = ScriptedTransport::from_script(&script);
@@ -520,22 +520,22 @@ async fn decide_context(dir: &Path, kucoin_prepared: Option<bool>) -> Result<Val
     let sent = kraken_sent(&transport);
     let mut out = json!({ "sent": sent, "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)? });
     if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
-    // A failed Kraken follow-up is reported, as the Rails harness reports one that raised (only the listed unreadable-number
+    // A failed Kraken follow-up is reported, as the recording harness reports one that raised (only the listed unreadable-number
     // scenarios fail a Kraken poll; anywhere else the key's presence alone makes the outputs differ).
     if let Some(e) = poll { out["poll_error"] = json!(format!("{e:?}")); }
     Ok(out)
 }
 
-/// The scenario's phases, in Rails' harness order: the tick at `at` (with Rails' retries); the follow-up poll Rails enqueues for
+/// The scenario's phases, in the recording harness order: the tick at `at` (with 2.x's retries); the follow-up poll 2.x enqueues for
 /// one order, 5 s after it; the SQL a scenario runs `between` the ticks on both sides; the engine's own reconciliation tick at
-/// `recover_at` (Rust only: Rails has no job then, its next run is at next_interval_checkpoint_at); the next checkpoint's tick
+/// `recover_at` (Rust only: 2.x has no job then, its next run is at next_interval_checkpoint_at); the next checkpoint's tick
 /// at `next_at` (both). Returns how the poll failed and, when there is a reconciliation tick, how many orders it sent.
 async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, posted: &dyn Fn() -> usize, transport: &ScriptedTransport)
     -> Result<(Option<polling::PollFailure>, Option<usize>, Option<Value>), EngineError> {
     transport.set_now(start);
-    // One price cache across retries and phases, as Rails' 5 s cache spans its retried jobs.
+    // One price cache across retries and phases, as 2.x's 5 s cache spans its retried jobs.
     let prices = PriceCache::default();
-    // Slice L: the first tick's below-minimum warning, as how many rows it names (Rails' broadcast_below_minimums_warning).
+    // Slice L: the first tick's below-minimum warning, as how many rows it names (2.x's broadcast_below_minimums_warning).
     let warned = std::cell::RefCell::new(Vec::<usize>::new());
     let warn = |_: i64, rows: Vec<i64>| warned.borrow_mut().push(rows.len());
     let cx = TickContext { credential_version: crate::engine::model::credential_version(&o.primary, &crate::engine::model::load_bot(&o.primary, bot_id)?)?, prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &warn, claimed: &|_| {} };
@@ -543,11 +543,11 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
         scenario[key].as_str().map(|s| s.parse::<DateTime<Utc>>().map_err(|e| EngineError::Data(format!("scenario.{key}: {e}")))).transpose()
     };
     // A condition scenario lists every Bot::PriceLimitCheckJob a phase queues, at its time (conditions::end_of_minute and the
-    // check's own next time), as Rails' harness reads them off its queue.
+    // check's own next time), as the recording harness reads them off its queue.
     let listing = scenario["conditions"] == true;
     let mut checks = vec![];
     let queued = |t: DateTime<Utc>| t.to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
-    // Plan CI T3b: what triggers Bot::ResyncIndexCompositionJob (the same SQL ran on Rails' copy), the marker it leaves, then
+    // Plan CI T3b: what triggers Bot::ResyncIndexCompositionJob (the same SQL ran on 2.x's copy), the marker it leaves, then
     // the engine's own resync and its retries, each at its time, before the tick.
     if let Some(when) = at("resync_at")? {
         for sql in scenario["trigger"].as_array().into_iter().flatten() {
@@ -586,7 +586,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
         let tx: i64 = o.primary.query_row("SELECT id FROM transactions WHERE bot_id = ?1 AND external_id = ?2", rusqlite::params![bot_id, ext], |r| r.get(0))?;
         poll = polling::follow_up(&o.primary, venue, bot_id, tx, start + chrono::Duration::seconds(5)).await.err();
     }
-    // What changes between the first tick and the next, outside both engines; the same SQL runs on Rails' copy.
+    // What changes between the first tick and the next, outside both engines; the same SQL runs on 2.x's copy.
     for sql in scenario["between"].as_array().into_iter().flatten() {
         o.primary.execute_batch(sql.as_str().ok_or_else(|| EngineError::Data(format!("scenario.between: {sql}")))?)?;
     }
@@ -671,7 +671,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
 
 /// Plan 8a: each Bot::SignalJob of the scenario as the hook leaves it (a waiting call), then the engine's executor at `start`,
 /// call after call; a call held by the barrier is tried again every 30 s, Bot::SignalJob's own retry cadence, until it
-/// expires (the engine itself wakes at the expiry instead: tests/signal.rs). `before_signal` is the SQL Rails' side ran after
+/// expires (the engine itself wakes at the expiry instead: tests/signal.rs). `before_signal` is the SQL 2.x's side ran after
 /// enqueueing (a rule removed).
 async fn signal_calls<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>, transport: &ScriptedTransport) -> Result<(), EngineError> {
     use crate::engine::signal::{run_next, Step};
@@ -701,7 +701,7 @@ async fn signal_calls<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id:
 async fn api_orders<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>, transport: &ScriptedTransport) -> Result<Value, EngineError> {
     use crate::web::bot_api::{orders, Domain};
     let web = |e: crate::web::WebError| EngineError::Data(format!("{e:?}"));
-    // The request table is this build's own (a Rust migration); Rails built the copy without it.
+    // The request table is this build's own (a Rust migration); 2.x built the copy without it.
     store::test_support::migrate(&o.primary).map_err(|e| EngineError::Data(format!("{e:?}")))?;
     let user: i64 = o.primary.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
     let mut answers = vec![];
@@ -727,7 +727,7 @@ async fn api_orders<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i
 
 /// PLAN-A9 O4: each standalone order of the scenario (no bot_id) at `start`, as its MCP tool sends it (ActionMCP casts
 /// `amount` and `price` to Floats): the web's checks (bot_api::orders::place_at), the engine's take and
-/// api_orders::place_standalone, the answer, and the tool's text. Recorded as Rails' grid-orders records it.
+/// api_orders::place_standalone, the answer, and the tool's text. Recorded as 2.x's grid-orders records it.
 async fn standalone_orders<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>, transport: &ScriptedTransport) -> Result<Value, EngineError> {
     use crate::web::bot_api::{orders, Domain};
     let web = |e: crate::web::WebError| EngineError::Data(format!("{e:?}"));
@@ -891,7 +891,7 @@ pub fn reference_snapshot(c: &Connection, cipher: &Cipher) -> Result<Value, Engi
             let mut row = Map::new();
             for (i, name) in names.iter().enumerate() {
                 // Rust-only ownership attribution; placement/tick_basket assert the exact
-                // sending identity independently. Rails leaves this shared column NULL.
+                // sending identity independently. 2.x leaves this shared column NULL.
                 if table == "transactions" && name == "run_identity" { continue; }
                 let mut v = raw((&r[i]).into());
                 if REFERENCE_JSON.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
@@ -913,7 +913,7 @@ pub fn reference_snapshot(c: &Connection, cipher: &Cipher) -> Result<Value, Engi
     Ok(Value::Object(out))
 }
 
-/// Every row whose content changed, deletions included (`after: null`), in id order: Rails' `diff` in reference_data.rb.
+/// Every row whose content changed, deletions included (`after: null`), in id order: 2.x's `diff` in reference_data.rb.
 pub fn diff_tables(before: &Value, after: &Value, tables: &[&str]) -> Value {
     let mut out = Map::new();
     for table in tables {
@@ -932,8 +932,8 @@ pub fn diff_tables(before: &Value, after: &Value, tables: &[&str]) -> Value {
     Value::Object(out)
 }
 
-/// The Rust half of the reference-data parity (script/rust/reference_data.rb is the Rails half): the scenario's job, once,
-/// as the scheduler runs it, on a marked scratch copy, against the same scripted data-api bodies. Rails' shape.
+/// The Rust half of the reference-data parity (script/rust/reference_data.rb is the 2.x half): the scenario's job, once,
+/// as the scheduler runs it, on a marked scratch copy, against the same scripted data-api bodies. 2.x's shape.
 pub async fn reference(dir: &Path) -> Result<Value, EngineError> {
     let read = std::fs::read_to_string(dir.join("scenario.json")).map_err(|e| EngineError::Data(e.to_string()))?;
     let scenario: Value = serde_json::from_str(&read).map_err(|e| EngineError::Data(e.to_string()))?;
@@ -950,7 +950,7 @@ pub async fn reference(dir: &Path) -> Result<Value, EngineError> {
     let cipher = Cipher::new(&keys);
     let env_map = scenario["env"].clone();
     let env = move |k: &str| env_map[k].as_str().map(String::from);
-    // The index writers rank what they write (A17-4); a Rails-built scratch has no rankings table. No row is ranked here.
+    // The index writers rank what they write (A17-4); a 2.x-built scratch has no rankings table. No row is ranked here.
     rankings_table(&o.primary)?;
     let before = reference_snapshot(&o.primary, &cipher)?;
     let transport = ScriptedTransport::from_script(&scenario["script"]);
@@ -960,7 +960,7 @@ pub async fn reference(dir: &Path) -> Result<Value, EngineError> {
     let job_primary = store::open(&paths)?.primary;
     crate::engine::provider::bind(&job_primary, &cipher, &env)?;
     let db = jobs::Db::new(job_primary, cipher.clone());
-    // PLAN-A17: CoinGecko answers from the same script; its requests are named with their host, as Rails logs them.
+    // PLAN-A17: CoinGecko answers from the same script; its requests are named with their host, as 2.x logs them.
     let cg_transport = transport.clone();
     let cg: crate::jobs::coingecko::Clients = std::rc::Rc::new(move |key: &str| {
         Box::new(crate::jobs::coingecko::CoinGecko::new(key, cg_transport.clone()).with_throttle(std::sync::Arc::new(crate::jobs::coingecko::Throttle::new(250))))
@@ -979,13 +979,13 @@ pub async fn reference(dir: &Path) -> Result<Value, EngineError> {
         let key = request_key(r);
         match r.base.strip_prefix("https://").filter(|h| h.contains("coingecko.com")) { Some(host) => key.replacen(' ', &format!(" {host}"), 1), None => key }
     }).collect();
-    // A retry is recorded only where the job has one (a Retry::None job's rate limit is not retried, as Rails' is not).
+    // A retry is recorded only where the job has one (a Retry::None job's rate limit is not retried, as 2.x's is not).
     Ok(json!({ "requests": requests, "retry": retries && matches!(outcome, Outcome::Transient(_) | Outcome::RateLimited(_)),
                "changes": diff_tables(&before, &reference_snapshot(&o.primary, &cipher)?, &REFERENCE_TABLES) }))
 }
 
 /// PLAN-A17 A17-2: each venue's catalogue read by venue::catalogue over the scenario's script, its requests keyed and logged
-/// as "METHOD host/path?query" (Rails' recorder logs them so), so two venues sharing a path never share an answer.
+/// as "METHOD host/path?query" (2.x's recorder logs them so), so two venues sharing a path never share an answer.
 fn hosted_catalogues(transport: &ScriptedTransport) -> crate::jobs::synchronizer::Catalogues {
     struct Hosted(ScriptedTransport);
     impl crate::venue::http::Transport for Hosted {
@@ -1028,9 +1028,9 @@ fn add_stock_bodies(c: &Connection, bot: &crate::engine::model::Bot, script: &mu
 /// D-IDX-FOLLOW-LATE in the page grid (tests/pages.rs): what the woken engine does for every index bot left a resync marker
 /// (engine::run::resync_bot at `now`), over a venue that must not be asked: the grid's switches seat only incumbents, which
 /// no price probe decides.
-/// Rails' rows carry no ranking (D-INDEX-UNATTESTED-HELD). A recorded scenario compares composition, so every row of the
+/// 2.x's rows carry no ranking (D-INDEX-UNATTESTED-HELD). A recorded scenario compares composition, so every row of the
 /// fixture is taken as ranked by its provider at `now`, as this engine's own pull would leave it; the table is made where the
-/// copy has none (Rails built it), recorded as applied so a later migrate of the copy skips it. The page grid runs it before
+/// copy has none (2.x built it), recorded as applied so a later migrate of the copy skips it. The page grid runs it before
 /// a resync step's snapshot, so the ranking is the fixture's, not the step's write.
 pub fn rank_fixture_indices(c: &Connection, now: DateTime<Utc>) -> Result<(), EngineError> {
     rankings_table(c)?;
@@ -1041,7 +1041,7 @@ pub fn rank_fixture_indices(c: &Connection, now: DateTime<Utc>) -> Result<(), En
     Ok(())
 }
 
-/// `rust_index_rankings` and `rust_index_retired` on a Rails-built copy that has none, each recorded as applied so a later
+/// `rust_index_rankings` and `rust_index_retired` on a 2.x-built copy that has none, each recorded as applied so a later
 /// migrate of the copy skips it.
 fn rankings_table(c: &Connection) -> Result<(), EngineError> {
     for (table, version, sql) in [("rust_index_rankings", "20261111000001", include_str!("../migrations/20261111000001_rust_index_rankings.sql")),
@@ -1058,7 +1058,7 @@ fn rankings_table(c: &Connection) -> Result<(), EngineError> {
 pub async fn resync_marked(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<(), EngineError> {
     // As `serve` opens the engine's connection: the install's market-data provider readable.
     crate::engine::provider::bind(c, cipher, &|_| None)?;
-    // A Rails fixture's stored ranking is its provider's complete answer: the refresh fence holds, as on the order grid.
+    // A 2.x fixture's stored ranking is its provider's complete answer: the refresh fence holds, as on the order grid.
     if let Some(hash) = crate::engine::provider::fingerprint(c)? { crate::engine::provider::record(c, &hash, now)?; }
     rank_fixture_indices(c, now)?;
     let (prices, mut state) = (PriceCache::default(), crate::engine::run::Resyncs::default());

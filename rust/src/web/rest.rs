@@ -95,7 +95,7 @@ fn route(method: &Method, path: &str) -> Option<Route> {
                 ["archive"] if delete => Some("unarchive_bot"),
                 ["liquidations"] if post => Some("liquidate_exited_asset"),
                 ["redeploy"] if post => Some("answer_redeploy_offer"),
-                // D-RAILS-UNRECORDED-API: this build's own route.
+                // D-V2-UNRECORDED-API: this build's own route.
                 ["unrecorded_orders"] if post => Some("answer_unrecorded_order"),
                 _ => None,
             };

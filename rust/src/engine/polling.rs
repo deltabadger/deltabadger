@@ -38,7 +38,7 @@ fn poll_error(e: EngineError) -> PollFailure {
     match e { EngineError::CredentialsChanged => PollFailure::CredentialsChanged, EngineError::OwnerChanged(owner) => PollFailure::OwnerChanged(owner), other => PollFailure::General(format!("{other:?}")) }
 }
 
-/// A follow-up poll that did not fail: the order is settled, or the venue still holds it open (Rails' retry_on
+/// A follow-up poll that did not fail: the order is settled, or the venue still holds it open (2.x's retry_on
 /// OrderStillOpen: asked again, whatever bot placed it).
 ///
 /// `SettlesAt` (D-KUCOIN-ZERO-FILL-FUNDS): the venue answered a zero fill too young to be final (OrderState::settles_at); asked
@@ -66,11 +66,11 @@ pub(crate) fn require_owner(c: &Connection, bot_id: i64, tx_id: i64) -> Result<(
     match moved_to(c, bot_id, tx_id)? { Some(owner) => Err(EngineError::OwnerChanged(owner)), None => Ok(()) }
 }
 
-/// Transaction#update_with_order_data for one row. `_update_missed` is Rails' `update_missed_quote_amount:` keyword, inert
-/// since Rails' fill-credit fix (#448): a fill is credited once, by its own row (amount::pending_quote_amount), and a poll
-/// never moves the carry. Kept, as Rails keeps the keyword, until Rails removes it. Returns whether this fill spent the
+/// Transaction#update_with_order_data for one row. `_update_missed` is 2.x's `update_missed_quote_amount:` keyword, inert
+/// since 2.x's fill-credit fix (#448): a fill is credited once, by its own row (amount::pending_quote_amount), and a poll
+/// never moves the carry. Kept, as 2.x keeps the keyword, until 2.x removes it. Returns whether this fill spent the
 /// amount limit (Transaction's after_commit → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update); the caller stops
-/// the bot when Rails' Bot::StopJob would run (apply_committed, placement::recover_since, tick::tick_recovering).
+/// the bot when 2.x's Bot::StopJob would run (apply_committed, placement::recover_since, tick::tick_recovering).
 pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &OrderState, _update_missed: bool, now: DateTime<Utc>) -> Result<Option<Cap>, EngineError> {
     apply_order_in(c, bot_id, tx_id, s, now, false, None)
 }
@@ -96,7 +96,7 @@ fn apply_order_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: 
         super::log(&format!("[engine] bot {bot_id}: KuCoin answered transaction {tx_id} with lower dealt totals than it already reported; the row waits"));
         return Ok(None);
     }
-    // A28-2 r5.1 (D-RAILS-UNRECORDED-SETTLED-LOWER): a booked row is never lowered below what its owner confirmed.
+    // A28-2 r5.1 (D-V2-UNRECORDED-SETTLED-LOWER): a booked row is never lowered below what its owner confirmed.
     if super::v2_unrecorded::holds(c, bot_id, tx_id, s, now)? { return Ok(None); }
     let cap = apply_body(c, bot_id, tx_id, s, now, execution_only)?;
     if let Some(terminal) = settles {
@@ -171,11 +171,11 @@ fn apply_body(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &Ord
     let terminal = matches!(status, TxExternalStatus::Closed | TxExternalStatus::Cancelled);
     // Transaction#base_cap_relevant_change? (the base cap's trigger, below).
     let base_changed = (changed(&["amount_exec"]) && s.amount_exec.is_positive()) || (changed(&["external_status"]) && status == TxExternalStatus::Closed);
-    // Transaction's after_save :reconcile_wash_sale (transaction.rb:67-72): a sell closed or cancelled whose status, executed
+    // Transaction's after_save :reconcile_wash_sale: a sell closed or cancelled whose status, executed
     // figures or asset this write changed. Bot::WashSaleGuard is a basket's and an index bot's only.
     let wash = side == 1 && terminal && changed(&["external_status", "amount_exec", "quote_amount_exec", "base_asset_id"])
         && matches!(bot.bot_type.as_str(), "Bots::DcaMultiAsset" | "Bots::DcaIndex");
-    // Its after_commit (transaction.rb:50-56): a closed sell, or a cancelled one that filled, whose status or executed
+    // Its after_commit: a closed sell, or a cancelled one that filled, whose status or executed
     // figures changed, wakes the account's ledger sync (EngineEvent::SaleSettled), for every bot type.
     let sold = side == 1 && (status == TxExternalStatus::Closed || (status == TxExternalStatus::Cancelled && executed))
         && changed(&["external_status", "amount_exec", "quote_amount_exec"]);
@@ -205,10 +205,10 @@ fn apply_body(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &Ord
     // Transaction's after_save → Bot::Reversible#settle_flip_reserve!: a buy a reversal cancelled returns its reserve once final.
     super::reversal::settle(c, bot_id, tx_id)?;
     if let Some((rules, errors)) = refused { tick::order_refused(c, bot_id, errors, rules, now)?; }
-    // Transaction's after_commit (transaction.rb:31-33) → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update: a buy
-    // whose executed quote changed to a positive value re-checks the cap; reached, Rails enqueues Bot::StopJob, which runs after
+    // Transaction's after_commit → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update: a buy
+    // whose executed quote changed to a positive value re-checks the cap; reached, 2.x enqueues Bot::StopJob, which runs after
     // the job that committed the fill.
-    // `return if selling?` (quote_amount_limitable.rb:106): a buy that still fills after a flip never stops the seller.
+    // `return if selling?`: a buy that still fills after a flip never stops the seller.
     // D-SIG-CAP: a spent cap never stops a signal bot (its sells keep working; buy calls get the cap line).
     if exec_changed && side == 0 && !bot.selling() && bot.bot_type != model::SIGNAL_TYPE && s.quote_amount_exec.as_ref().is_some_and(BigDec::is_positive) && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)? {
         return Ok(Some(Cap::Quote));
@@ -224,7 +224,7 @@ fn apply_body(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &Ord
 
 /// A terminal sell fill, noted in the fill's own transaction on this connection: a connection-local temp table, so the note
 /// rolls back with the fill and nothing of it reaches the database file. The engine announces each bot noted once its writes
-/// committed (`settled_sales`, run::step), as Rails' after_commit enqueues the sync.
+/// committed (`settled_sales`, run::step), as 2.x's after_commit enqueues the sync.
 fn note_sale(c: &Connection, bot_id: i64) -> Result<(), EngineError> {
     c.execute_batch(SALES_TABLE)?;
     c.execute("INSERT INTO temp.rust_sales_settled (bot_id) VALUES (?1)", [bot_id])?;
@@ -251,7 +251,7 @@ fn classify(e: VenueError, ids: &[String], rules: &VenueRules) -> PollFailure {
 }
 
 pub(crate) fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, String, i64)>, EngineError> {
-    // A row whose status Rails never writes may be a working order: unresolved, never skipped.
+    // A row whose status 2.x never writes may be a working order: unresolved, never skipped.
     let unknown: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND (status IS NULL OR status NOT IN (0, 1, 2))", [bot.id], |r| r.get(0))?;
     if unknown > 0 { return Err(EngineError::Data(format!("bot {}: {unknown} order row(s) with a status Rails never writes are unresolved", bot.id))); }
     let mut s = c.prepare(
@@ -262,9 +262,9 @@ pub(crate) fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, 
     rows.into_iter().map(|(id, ext, at)| Ok((id, ext, created_us(&at)?))).collect()
 }
 
-/// One fill, committed. A fill that spends the amount limit enqueues one Rails Bot::StopJob per qualifying callback
-/// (quote_amount_limitable.rb:111), and mails stopped_by_amount_limit: its marker (notice::LIMIT; the base cap's, notice::BASE_LIMIT) is written in the fill's
-/// transaction. Rails mails once per callback; the marker is one key, so two such fills before a send owe one mail. Outside a sweep (a follow-up poll: that job runs right after FetchAndUpdateOrderJob, which
+/// One fill, committed. A fill that spends the amount limit enqueues one 2.x Bot::StopJob per qualifying callback
+///, and mails stopped_by_amount_limit: its marker (notice::LIMIT; the base cap's, notice::BASE_LIMIT) is written in the fill's
+/// transaction. 2.x mails once per callback; the marker is one key, so two such fills before a send owe one mail. Outside a sweep (a follow-up poll: that job runs right after FetchAndUpdateOrderJob, which
 /// has nothing left to do) the stop lands in the fill's own transaction. Without it (the tick's sweep: the job runs after the
 /// whole Bot::ActionJob) one pending stop is counted in `transient_data.rust_amount_limit_stops_pending`, by `json_set` in the
 /// fill's own transaction, so a crash before the tick ends loses nothing: tick::run_pending_amount_limit_stops runs them at
@@ -302,8 +302,8 @@ async fn prove_origin<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: 
     }
 }
 
-/// Bot::FetchAndUpdateOpenOrdersJob for one bot. Errors carry Rails' messages; orders updated before an
-/// error stay updated, as each Rails update! commits on its own.
+/// Bot::FetchAndUpdateOpenOrdersJob for one bot. Errors carry 2.x's messages; orders updated before an
+/// error stay updated, as each 2.x update! commits on its own.
 pub async fn sweep<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, now: DateTime<Utc>) -> Result<(), PollFailure> {
     let db = |e: EngineError| poll_error(e);
     let handle=crate::venue::Handle::for_bot(venue,c,bot).map_err(db)?;
@@ -323,7 +323,7 @@ fn order_identified(c: &Connection, bot: &model::Bot, tx_id: i64, pair: Option<&
     Ok(model::alpaca_order_ticker(c, bot.exchange_id, pair, class)?.is_some())
 }
 
-/// Both Rails polls go through Exchanges::Kraken's QueryOrders → TradesHistory → StaleOrderResolver path, over
+/// Both 2.x polls go through Exchanges::Kraken's QueryOrders → TradesHistory → StaleOrderResolver path, over
 /// the given rows. The sweep fails on `unknown` like FetchAndUpdateOpenOrdersJob; the follow-up skips it.
 /// A terminal refresh uses the same lookups, but never abandons a missing order.
 /// Returns when the earliest zero-fill answer it skipped becomes final (OrderState::settles_at).
@@ -396,7 +396,7 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
     let mut young = vec![];
     for (id, ext, created) in &rows {
         if mode == PollMode::Terminal || !reports || skipped.contains(ext) || found.iter().any(|o| &o.txid == ext) { continue; }
-        // A28-2 r4.1 (D-RAILS-UNRECORDED-NEVER-STALE): a booked row, back-dated to Rails' tick, is never abandoned by age, nor
+        // A28-2 r4.1 (D-V2-UNRECORDED-NEVER-STALE): a booked row, back-dated to 2.x's tick, is never abandoned by age, nor
         // does its absence fail the bot's sweep: it waits, and the booking watch polls it hourly.
         if super::v2_unrecorded::booked(c, *id).map_err(db)? { continue; }
         if *created >= now.checked_sub_signed(Duration::days(STALE_AFTER_DAYS)).ok_or_else(|| db(super::schedule::time_range_error()))?.timestamp_micros() {
@@ -453,9 +453,9 @@ pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: 
     Ok(if open { FollowUp::StillOpen } else { FollowUp::Done })
 }
 
-/// Bot::FetchAndUpdateOrderJob through Exchange#get_order, as Rails runs it for Alpaca and Binance: one order (Venue::order_identified); a throttle or transient
+/// Bot::FetchAndUpdateOrderJob through Exchange#get_order, as 2.x runs it for Alpaca and Binance: one order (Venue::order_identified); a throttle or transient
 /// failure is retried by the caller (retry_on); any other failure raises "Failed to fetch order <transaction id>"; an
-/// unknown status raises. A raise changes no row, as in Rails. In the follow-up chain a zero-fill answer
+/// unknown status raises. A raise changes no row, as in 2.x. In the follow-up chain a zero-fill answer
 /// too young to be final is no raise: its time is returned for the caller to ask again (D-KUCOIN-ZERO-FILL-FUNDS).
 async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, tx_id: i64, now: DateTime<Utc>, mode: PollMode) -> Result<Option<DateTime<Utc>>, PollFailure> {
     let Some((id, ext, _)) = rows.into_iter().next() else { return Ok(None) };

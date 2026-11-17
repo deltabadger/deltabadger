@@ -16,12 +16,12 @@
 //!   enhanced status code. Never the reply's text (it can echo an address or the message), never a credential.
 //!
 //! - **A user name or a password is never sent in the clear.** With either configured, STARTTLS is required: a server
-//!   that does not offer it is a failed delivery, before AUTH, as Rails' `enable_starttls: :always` does. With neither
-//!   configured (an open relay), plain text stays allowed (`enable_starttls_auto`), as in Rails. A certificate that does
+//!   that does not offer it is a failed delivery, before AUTH, as 2.x's `enable_starttls: :always` does. With neither
+//!   configured (an open relay), plain text stays allowed (`enable_starttls_auto`), as in 2.x. A certificate that does
 //!   not verify is a failure in both cases, never a downgrade.
 //!
-//! One rule differs from Rails (a listed divergence):
-//! - **Nothing configured means nothing is sent.** `Settings::current` is then `Err` with the reason. Rails delivers
+//! One rule differs from 2.x (a listed divergence):
+//! - **Nothing configured means nothing is sent.** `Settings::current` is then `Err` with the reason. 2.x delivers
 //!   to localhost:25. An EHLO name or a server name that is not a host name counts as not configured.
 use super::{address_ok, host_ok, mailbox};
 use base64::Engine as _;
@@ -33,7 +33,7 @@ use tokio_rustls::rustls::pki_types::pem::PemObject;
 use tokio_rustls::rustls::pki_types::{CertificateDer, ServerName};
 use tokio_rustls::rustls::{self, ClientConfig, RootCertStore};
 
-/// The environment's part of the configuration, read once at start. Values are kept as written: Rails tests
+/// The environment's part of the configuration, read once at start. Values are kept as written: 2.x tests
 /// SMTP_ADDRESS with `blank?`, and reads the rest with `ENV.fetch`, which returns an empty value as it is.
 /// It holds the password, so it has no `Debug`.
 #[derive(Clone, Default)]
@@ -60,7 +60,7 @@ pub struct Settings {
     pub port: String,
     /// The EHLO name: a host name or an address literal.
     pub domain: String,
-    /// User name and password. AUTH PLAIN is sent only when one of them is set (D-SMTP-NO-AUTH: Rails' environment
+    /// User name and password. AUTH PLAIN is sent only when one of them is set (D-SMTP-NO-AUTH: 2.x's environment
     /// settings always give a user name, so Net::SMTP sends AUTH with empty credentials to an open relay).
     pub credentials: (String, String),
     /// The mail gem's `open_timeout`: how long the TCP connection may take.
@@ -95,7 +95,7 @@ impl Settings {
     /// `app_configs` value (AppConfig.get).
     /// - SMTP_ADDRESS set: the environment wins over anything saved in Settings (port 587, EHLO `localhost` by default).
     /// - else `smtp_provider` = `custom_smtp` with a user name and a password: that server (smtp.gmail.com:587 by default).
-    /// - else not configured. (Rails then delivers to production.rb's localhost:25; this crate sends nothing.)
+    /// - else not configured. (2.x then delivers to production.rb's localhost:25; this crate sends nothing.)
     ///
     /// A server name that is not a host name or an IP address, and an EHLO name that is not a host name or an address
     /// literal, are "not configured" too: neither may carry a space or a line break onto the wire.
@@ -241,7 +241,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Wire<S> {
         self.reply(stage, expect).await
     }
 
-    /// EHLO, and whether the server offers STARTTLS. (Rails falls back to HELO when EHLO is refused; here that is a failure.)
+    /// EHLO, and whether the server offers STARTTLS. (2.x falls back to HELO when EHLO is refused; here that is a failure.)
     async fn ehlo(&mut self, domain: &str) -> Result<bool, Failure> {
         let reply = self.command("ehlo", &format!("EHLO {domain}"), |c| c == 250).await?;
         Ok(reply.lines.iter().skip(1).any(|line| line.split(' ').next().is_some_and(|keyword| keyword.eq_ignore_ascii_case("STARTTLS"))))
@@ -324,7 +324,7 @@ pub async fn deliver(s: &Settings, from: &str, to: &str, message: &str) -> Resul
         let mut plain = Wire { io: tcp, unread: Vec::with_capacity(LINE_LIMIT), read_timeout: s.read_timeout };
         plain.reply("greeting", |c| c == 220).await?;
         if !plain.ehlo(&s.domain).await? {
-            // Required with a secret to protect (Rails' `:always`); otherwise `enable_starttls_auto`: plain when not offered.
+            // Required with a secret to protect (2.x's `:always`); otherwise `enable_starttls_auto`: plain when not offered.
             if s.has_secret() {
                 return Err(failed("tls", format!("{} offers no STARTTLS, and a user name or password is never sent unencrypted", s.address)));
             }

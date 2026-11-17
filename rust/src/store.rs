@@ -1,11 +1,11 @@
-//! Who creates the files: on an install Rails prepared (2.x), Rails created them. On an empty STORAGE_DIR, `run` and
+//! Who creates the files: on an install 2.x prepared (2.x), 2.x created them. On an empty STORAGE_DIR, `run` and
 //! `serve` create a 3.0 install (`bootstrap`, under the engine lock): the primary and an empty queue, never cache or
 //! cable (D-BOOT-NO-CACHE-CABLE: Rust never reads them). Every other command, and `check`, refuses a missing install and
 //! never creates a database file; Rust never creates a queue for an install whose primary exists. Rust checks both
 //! files read-only and refuses anything that is not exactly what this build knows, before any write.
 //!
 //! Rust's own tables come from its own migrations (rust/migrations, embedded by build.rs), recorded in
-//! `rust_schema_migrations`; Rails' `schema_migrations` is never touched. `check` reports the ones not yet applied,
+//! `rust_schema_migrations`; 2.x's `schema_migrations` is never touched. `check` reports the ones not yet applied,
 //! `migrate` applies them (only `run`/`serve`, under the engine lock), and `open` works with them pending.
 use crate::lease::EngineLock;
 use rusqlite::{Connection, OpenFlags};
@@ -197,7 +197,7 @@ pub struct Paths {
 }
 
 impl Paths {
-    /// The variables config/database.yml reads, with Rails' production file names as defaults.
+    /// The variables config/database.yml reads, with 2.x's production file names as defaults.
     pub fn from_env(env: &dyn Fn(&str) -> Option<String>, storage_dir: &Path) -> Self {
         let pick = |var: &str, file: &str| {
             env(var)
@@ -552,7 +552,7 @@ pub fn check(paths: &Paths) -> Result<Report, StoreError> {
 }
 
 /// `check` against `registry` (the tests' fixture migrations; everything else uses `REGISTRY`), in stages:
-/// Rails' history, then the structure of the Rails tables Rust uses, then Rust's history, then each Rust table whose
+/// 2.x's history, then the structure of the 2.x tables Rust uses, then Rust's history, then each Rust table whose
 /// migration is recorded.
 pub fn check_with(paths: &Paths, registry: &Registry) -> Result<Report, StoreError> {
     let primary = read_only(&paths.primary)?;
@@ -665,7 +665,7 @@ fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError>
             tx.commit_hook(None::<fn() -> bool>);
             ran.map_err(|e| e.to_string())?;
             // D-B11-9-DROP-OWN-TABLE at run time, whatever the build's scan read: every table no Rust contract names
-            // (Rails-born) is still there as it was.
+            // (2.x-born) is still there as it was.
             let after = others()?;
             if let Some((name, _)) = before.iter().find(|t| !after.contains(t)) {
                 return Err(format!("it dropped or rebuilt {name}, which is not a Rust table; it was rolled back"));
@@ -705,7 +705,7 @@ fn not_rust(c: &Connection, registry: &Registry) -> rusqlite::Result<Vec<(String
 pub mod test_support {
     use super::*;
 
-    /// `seed` from the seed bundle `gz` instead of the embedded one (tests/seeds.rs: the bundle frozen with Rails' answer).
+    /// `seed` from the seed bundle `gz` instead of the embedded one (tests/seeds.rs: the bundle frozen with 2.x's answer).
     pub fn seed_bundle(c: &Connection, cipher: &crate::crypto::Cipher, env: &dyn Fn(&str) -> Option<String>, now: chrono::DateTime<chrono::Utc>, gz: &[u8]) -> Result<(), String> {
         seed_from(c, cipher, env, now, gz)
     }
@@ -737,13 +737,13 @@ pub mod test_support {
     }
 }
 
-/// The schema of a Rails-built primary (db/schema.rb as script/rust/prepare_install.rb loads it), replayed: every
-/// `sqlite_master` statement in Rails' order, its `sqlite_sequence` rows, the 123 frozen `schema_migrations` rows
-/// (schema/v2_versions.txt) and `ar_internal_metadata` `environment = production`. Rails' `schema_sha1` row is not
-/// written: nothing reads it in production (divergence D-BOOT-NO-SCHEMA-SHA1). Generated and proved equal to Rails by
+/// The schema of a 2.x-built primary (db/schema.rb as script/rust/prepare_install.rb loads it), replayed: every
+/// `sqlite_master` statement in 2.x's order, its `sqlite_sequence` rows, the 123 frozen `schema_migrations` rows
+/// (schema/v2_versions.txt) and `ar_internal_metadata` `environment = production`. 2.x's `schema_sha1` row is not
+/// written: nothing reads it in production (divergence D-BOOT-NO-SCHEMA-SHA1). Generated and proved equal to 2.x by
 /// tests/schema_baseline.rs; Rust migrations then run on top as on any 2.x install.
 const BASELINE: &str = include_str!("../schema/baseline.sql");
-/// The same for the queue database (db/queue_schema.rb), with its own `schema_migrations`/`ar_internal_metadata` rows.
+/// The same for the queue database, with its own `schema_migrations`/`ar_internal_metadata` rows.
 const QUEUE_BASELINE: &str = include_str!("../schema/queue_baseline.sql");
 
 /// Creates a fresh primary's schema (`BASELINE`) on an empty database, in its own transaction (tests build installs
@@ -757,7 +757,7 @@ pub fn create_queue_schema(queue: &Connection) -> rusqlite::Result<()> {
     create(queue, |c| c.execute_batch(QUEUE_BASELINE))
 }
 
-/// WAL first (Rails 8's default, persistent in the file; it can't change inside a transaction), then the whole file in
+/// WAL first (2.x 8's default, persistent in the file; it can't change inside a transaction), then the whole file in
 /// one BEGIN IMMEDIATE: a failure leaves the database empty.
 fn create(c: &Connection, write: impl FnOnce(&Connection) -> rusqlite::Result<()>) -> rusqlite::Result<()> {
     c.execute_batch("PRAGMA journal_mode=WAL")?;
@@ -778,7 +778,7 @@ fn write_baseline(c: &Connection) -> rusqlite::Result<()> {
 
 /// Debug builds only (PLAN-B1 r1.7): `DELTABADGER_TEST_ABORT=<step>` kills the process at that step, so tests/bootstrap.rs
 /// proves each crash by real process death. Steps: after-queue, after-wal, mid-baseline, mid-seed, before-commit,
-/// after-commit, mid-migrate, mid-backup, after-queue-commit (handover: the claim committed, Rails' rows still queued), and
+/// after-commit, mid-migrate, mid-backup, after-queue-commit (handover: the claim committed, 2.x's rows still queued), and
 /// after-claim (where the tests stop a restart). Release builds have none.
 #[cfg(debug_assertions)]
 pub fn abort_point(step: &str) {
@@ -814,7 +814,7 @@ fn is_empty_queue(q: &Connection) -> rusqlite::Result<bool> {
 /// `migrate`/`open` as before (a non-SQLite file and one without schema_migrations are refused there, untouched).
 /// - The queue first, in its own transaction: created when absent or empty; reused when it is exactly an empty Solid
 ///   Queue database (a crash between the two files); anything else refuses before either file is written.
-/// - Then the primary: WAL, then one BEGIN IMMEDIATE with the baseline, Rails' seeds (D-BOOT-SEED-ONCE: only here, on an
+/// - Then the primary: WAL, then one BEGIN IMMEDIATE with the baseline, 2.x's seeds (D-BOOT-SEED-ONCE: only here, on an
 ///   empty file, never on an existing install, unlike the entrypoint's `Asset.count == 0` re-seed), and the ownership
 ///   rows (lease::begin_created). A crash before COMMIT leaves an empty file, bootstrapped again at the next start.
 /// - Cache and cable are never created (D-BOOT-NO-CACHE-CABLE). Errors name the file.
@@ -874,7 +874,7 @@ const EXCHANGES: [(&str, &str, &str, &str); 15] = [
     ("Exchanges::Ibkr", "Interactive Brokers", "0.0", "0.0"),
 ];
 
-/// The seed bundle's files, by path in byte order (Ruby's sorted glob: binance.json before binance_us.json).
+/// The seed bundle's files, by path in byte order (2.x's sorted glob: binance.json before binance_us.json).
 pub fn seed_files() -> Result<std::collections::BTreeMap<String, serde_json::Value>, String> { bundle_files(SEED_DATA) }
 
 /// A seed bundle's files (`seed_files`), from its gzip.
@@ -885,9 +885,9 @@ fn bundle_files(gz: &[u8]) -> Result<std::collections::BTreeMap<String, serde_js
     serde_json::from_slice(&json).map_err(|e| format!("seed bundle: {e}"))
 }
 
-/// Rails.application.load_seed (db/seeds.rb) on a fresh primary, in the transaction the caller holds (no BEGIN, no
+/// Rails.application.load_seed on a fresh primary, in the transaction the caller holds (no BEGIN, no
 /// pacing, no guard): the exchanges, then MarketData.import_assets! (upserts, instrument types, Asset.mark_tokenized!,
-/// as Rails runs them), import_indices!, import_tickers! per ticker file whose stem is an available exchange's name_id
+/// as 2.x runs them), import_indices!, import_tickers! per ticker file whose stem is an available exchange's name_id
 /// (a file without one is skipped), each planned on this connection right before its write; then the two app_configs
 /// defaults. Every stamp is `now`. No user, nothing enqueued.
 pub fn seed(c: &Connection, cipher: &crate::crypto::Cipher, env: &dyn Fn(&str) -> Option<String>, now: chrono::DateTime<chrono::Utc>) -> Result<(), String> {
@@ -923,7 +923,7 @@ fn seed_from(c: &Connection, cipher: &crate::crypto::Cipher, env: &dyn Fn(&str) 
         let plan = import::plan_tickers_with(c, *id, data(path), None, false)?;
         import::write_tickers(c, *id, plan, now)?;
     }
-    // `ENV[...].present?` and a blank provider (always blank on a fresh install, checked as Rails checks it).
+    // `ENV[...].present?` and a blank provider (always blank on a fresh install, checked as 2.x checks it).
     let present = |key: &str| env(key).is_some_and(|v| !v.trim().is_empty());
     for (var, key, value) in [("SMTP_ADDRESS", "smtp_provider", "env_smtp"), ("MARKET_DATA_URL", "market_data_provider", "deltabadger")] {
         if present(var) && crate::app_config::get(c, cipher, key)?.is_none_or(|v| v.trim().is_empty()) {
@@ -991,7 +991,7 @@ pub fn changed() -> bool { CHANGED.load(std::sync::atomic::Ordering::SeqCst) }
 /// Records a committed startup write (`changed`).
 pub fn mark_changed() { CHANGED.store(true, std::sync::atomic::Ordering::SeqCst) }
 
-/// The copy before a takeover from Rails (`backup`).
+/// The copy before a takeover from 2.x (`backup`).
 pub const TAKEOVER_COPY: &str = "pre-3.0-";
 /// The copy before a desktop update migrates the data (PLAN-B7 §4).
 pub const UPDATE_COPY: &str = "before-update-";
@@ -1144,7 +1144,7 @@ pub fn apply_pending(c: &Connection) -> Result<Vec<String>, StoreError> {
     apply(c, &REGISTRY)
 }
 
-/// Sets the connection timeout and foreign keys; Rails owns the journal mode.
+/// Sets the connection timeout and foreign keys; 2.x owns the journal mode.
 pub fn configure(c: &Connection) -> rusqlite::Result<()> {
     c.busy_timeout(std::time::Duration::from_millis(5_000))?;
     c.pragma_update(None, "foreign_keys", "ON")

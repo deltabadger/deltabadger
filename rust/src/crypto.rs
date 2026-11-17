@@ -25,7 +25,7 @@ pub enum KeyConfigError {
 
 #[derive(Debug)]
 pub enum DecryptError {
-    /// A well-formed envelope this key cannot open. Rails would hand back the ciphertext here; we refuse.
+    /// A well-formed envelope this key cannot open. 2.x would hand back the ciphertext here; we refuse.
     Unreadable,
     Malformed(String),
 }
@@ -62,7 +62,7 @@ impl Cipher {
     /// ActiveSupport::KeyGenerator.new(primary_key, hash_digest_class: SHA256).generate_key(salt, 32).
     /// 65,536 PBKDF2 rounds: call it at startup only, before a runtime runs, never on the runtime thread (`serve` runs
     /// the engine and the web on one thread). Its callers: `main.rs`'s `open_install` and `web::App::new`.
-    /// Derived once per process and keys, as Rails' CachingKeyGenerator does: a process that builds many Apps (the
+    /// Derived once per process and keys, as 2.x's CachingKeyGenerator does: a process that builds many Apps (the
     /// page-parity grid builds one per scenario) pays for the rounds once.
     pub fn new(keys: &EncryptionKeys) -> Self {
         static DERIVED: std::sync::Mutex<Vec<(String, String, [u8; 32])>> = std::sync::Mutex::new(Vec::new());
@@ -83,7 +83,7 @@ impl Cipher {
         self.encrypt_as(plain, None)
     }
 
-    /// `encrypt` for a value Ruby holds as a binary string (an OTP seed from ROTP::Base32.random): the envelope
+    /// `encrypt` for a value 2.x holds as a binary string (an OTP seed from ROTP::Base32.random): the envelope
     /// names its encoding in "e", as ActiveRecord::Encryption writes it for a string that is not UTF-8.
     pub fn encrypt_binary(&self, plain: &str) -> String {
         self.encrypt_as(plain, Some("ASCII-8BIT"))
@@ -129,17 +129,17 @@ impl Cipher {
         } else {
             opened
         };
-        // "e" names the Ruby encoding when it was not UTF-8 (2FA seeds are binary strings of base32
+        // "e" names the 2.x encoding when it was not UTF-8 (2FA seeds are binary strings of base32
         // text). The bytes are the same either way; anything that is not valid UTF-8 is refused here.
         String::from_utf8(bytes).map_err(|e| DecryptError::Malformed(e.to_string()))
     }
 }
 
-/// Whether a stored value is shaped as Rails' encrypted message (ActiveRecord::Encryption::Encryptor#encrypted?, read
+/// Whether a stored value is shaped as 2.x's encrypted message (ActiveRecord::Encryption::Encryptor#encrypted?, read
 /// on its shape only): anything else is plaintext, which every key reads as itself.
 pub fn is_envelope(stored: &str) -> bool { envelope(stored).is_some() }
 
-/// `Some((p, h))` only for a JSON object shaped like Rails' message; anything else is plaintext.
+/// `Some((p, h))` only for a JSON object shaped like 2.x's message; anything else is plaintext.
 fn envelope(stored: &str) -> Option<(String, serde_json::Map<String, Value>)> {
     let v: Value = serde_json::from_str(stored).ok()?;
     Some((v.get("p")?.as_str()?.to_string(), v.get("h")?.as_object()?.clone()))
@@ -147,11 +147,11 @@ fn envelope(stored: &str) -> Option<(String, serde_json::Map<String, Value>)> {
 
 /// Whether this SECRET_KEY_BASE (as `cipher`) can read the install (PLAN-B2 r2.4), read-only. One sample of each
 /// encrypted class present (the engine lease, the account identity key, any other encrypted `app_configs` row, an
-/// `api_keys` credential, a user's 2FA seed), each the first stored value shaped as Rails' encrypted message: a plain
+/// `api_keys` credential, a user's 2FA seed), each the first stored value shaped as 2.x's encrypted message: a plain
 /// value in an encrypted column reads as itself under any key (support_unencrypted_data), so it proves nothing. False
 /// when samples exist and none opens: a wrong secret, under which `identity::key` would clear every known account
 /// identity. One readable sample is enough: an unreadable identity key beside a readable credential is an encryption
-/// reset, which identity::initialize handles. Reads only Rails tables, which every install that passed store::check has.
+/// reset, which identity::initialize handles. Reads only 2.x tables, which every install that passed store::check has.
 pub fn reads_install(c: &rusqlite::Connection, cipher: &Cipher) -> rusqlite::Result<bool> {
     let (lease, identity) = (crate::lease::KEY, crate::identity::KEY_CONFIG);
     let classes = [
@@ -226,7 +226,7 @@ fn unescape_json(text:&str)->String{
 }
 
 /// Devise's database_authenticatable with this app's settings (stretches 11, no pepper).
-/// Ruby's bcrypt truncates the password at 72 bytes; the bcrypt crate's `hash`/`verify` do too.
+/// 2.x's bcrypt truncates the password at 72 bytes; the bcrypt crate's `hash`/`verify` do too.
 /// An error only when the system's random source has no salt to give: no password causes one.
 pub fn hash_password(plain: &str) -> Result<String, bcrypt::BcryptError> {
     Ok(bcrypt::hash_with_result(plain, 11)?.format_for_version(bcrypt::Version::TwoA))
@@ -246,8 +246,8 @@ pub fn friendly_token() -> String {
 /// Devise's TokenGenerator for `users.reset_password_token`, as this app builds it: the column holds
 /// HMAC-SHA256(key, raw) in hex, where key = PBKDF2-HMAC-SHA1(secret_key_base, "Devise reset_password_token", 65,536
 /// rounds, 64 bytes). SHA1, not the SHA256 of AR encryption: Devise's KeyGenerator is built before the app's
-/// `key_generator_hash_digest_class` applies (pinned by tests/fixtures/devise_token_vectors.json, recorded by Rails).
-/// So a link Rails mailed before the takeover opens here, and one this build mails opens in Rails.
+/// `key_generator_hash_digest_class` applies (pinned by tests/fixtures/devise_token_vectors.json, recorded by 2.x).
+/// So a link 2.x mailed before the takeover opens here, and one this build mails opens in 2.x.
 #[derive(Clone)]
 pub struct ResetTokens { key: [u8; 64] }
 

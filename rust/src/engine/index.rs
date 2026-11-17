@@ -1,6 +1,6 @@
 //! Bots::DcaIndex's composition, derived on every tick before anything is sized (Bots::DcaIndex#execute_action,
 //! dca_index.rb:126-143; IndexAllocatable#derive_composition, index_allocatable.rb:61-123) from the data-api `indices` row
-//! (MarketData.get_top_coins, market_data.rb:117-143) as this engine ranked it (`ranked_row`), and written as Rails writes it (basket::write_members). The buy leg is
+//! (MarketData.get_top_coins, market_data.rb:117-143) as this engine ranked it (`ranked_row`), and written as 2.x writes it (basket::write_members). The buy leg is
 //! the basket's (tick::buy). It never sells: a member that leaves is only marked out of the index.
 use crate::venue::Attributed;
 use super::model::{self, Bot, Ticker};
@@ -12,16 +12,16 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
 
-/// Why the composition was not refreshed: Rails' Failure (the tick fails, execution_failed, no row), or a transport raise
+/// Why the composition was not refreshed: 2.x's Failure (the tick fails, execution_failed, no row), or a transport raise
 /// from a newcomer's price probe (retry_on).
 #[derive(Debug, PartialEq)]
 pub enum Refusal { Failure(String), Transient(String) }
 
-/// What the closing re-check returns when anything the derivation read moved during its price probes (no Rails equivalent).
+/// What the closing re-check returns when anything the derivation read moved during its price probes (no 2.x equivalent).
 pub const CHANGED: &str = "index changed during price probes";
 
-/// Bot::ResyncIndexCompositionJob's pending run, as a durable per-bot marker in `bots.transient_data` (Rails never reads a
-/// `rust_*` key and merges transient_data, so it survives every Rails write and a handback, where
+/// Bot::ResyncIndexCompositionJob's pending run, as a durable per-bot marker in `bots.transient_data` (2.x never reads a
+/// `rust_*` key and merges transient_data, so it survives every 2.x write and a handback, where
 /// EngineLease.adopt_handback! enqueues the job for it). `{"n", "at"}`: every trigger bumps `n`, so two triggers in one
 /// millisecond still differ, and a run clears it only when it is still the value that run read.
 pub const RESYNC_KEY: &str = "rust_index_resync";
@@ -38,7 +38,7 @@ fn mark(c: &Connection, filter: &str, id: Option<i64>, now: chrono::DateTime<chr
 /// Bots::DcaIndex#start and #resync_index_composition (an index-definition or exchange change): this bot.
 pub fn mark_resync(c: &Connection, bot_id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<usize, EngineError> { mark(c, "id = ?1", Some(bot_id), now) }
 
-/// Index::SyncFromCoingeckoJob#recheck_index_bots (sync_from_coingecko_job.rb:151-155): every index bot neither deleted nor
+/// Index::SyncFromCoingeckoJob#recheck_index_bots: every index bot neither deleted nor
 /// archived that has an exchange.
 pub fn mark_resync_all(c: &Connection, now: chrono::DateTime<chrono::Utc>) -> Result<usize, EngineError> {
     use crate::enums::BotStatus::{Archived, Deleted};
@@ -59,7 +59,7 @@ pub fn clear_resync(c: &Connection, bot_id: i64, read: &str) -> Result<bool, Eng
                            AND json_extract(transient_data, '$.{RESYNC_KEY}') = ?2"), params![bot_id, read])? == 1)
 }
 
-/// Bot::Composition::Weightable.blend: `cap / Σcap × (1 − f) + (1 / n) × f`, in Float, with Ruby's compensated sum; a zero
+/// Bot::Composition::Weightable.blend: `cap / Σcap × (1 − f) + (1 / n) × f`, in Float, with 2.x's compensated sum; a zero
 /// total weighs everything equally.
 pub fn blend(caps: &[f64], flattening: f64) -> Vec<f64> {
     if caps.is_empty() { return vec![]; }
@@ -185,7 +185,7 @@ pub use crate::asset_taxonomy::stablecoin;
 
 /// MarketData.get_top_coins' data-api branch: the ranked ids with the asset's market_cap, else the index's published weight;
 /// a coin with neither, or with no local asset, is skipped. On a `coingecko` ranking (`own_caps`) the ranking's own caps
-/// only, as Rails' live answer weighs (`coin['market_cap'].to_f`, index_allocatable.rb:108): `weights[id]` with to_f
+/// only, as 2.x's live answer weighs (`coin['market_cap'].to_f`, index_allocatable.rb:108): `weights[id]` with to_f
 /// (missing or null: 0.0), never the asset's cap, never skipped for zero. Stablecoins and ids without a local asset are
 /// skipped on both. Ok(None): a negative or non-finite cap (D-CG-INVALID-CAP-HELD; its writer never stores one).
 fn top_coins(c: &Connection, ids: &[String], weights: &Map<String, Value>, own_caps: bool) -> Result<Option<Vec<(String, f64)>>, EngineError> {
@@ -207,8 +207,8 @@ fn top_coins(c: &Connection, ids: &[String], weights: &Map<String, Value>, own_c
     Ok(Some(out))
 }
 
-/// Ticker#priced?(side) through Rails' 5 s price cache (Exchange#get_*_price fills it), so Step 1's read of a newcomer reuses
-/// the probe's answer, in Rails' order: a price is priced when positive; a rejected key (HTTP 401, or the venue's own
+/// Ticker#priced?(side) through 2.x's 5 s price cache (Exchange#get_*_price fills it), so Step 1's read of a newcomer reuses
+/// the probe's answer, in 2.x's order: a price is priced when positive; a rejected key (HTTP 401, or the venue's own
 /// invalid-key text) raises Exchange#raise_on_invalid_key!'s error; a transport failure raises only where the client raises
 /// it (Clients::Alpaca, `transport_raises`: retry_on), and honeymaker's Failure reads as unpriced; anything else is unpriced.
 async fn priced<V: Venue + Attributed>(venue: &V, bot: &Bot, t: &Ticker, side: PriceSide, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<bool, Refusal> {
@@ -228,7 +228,7 @@ async fn priced<V: Venue + Attributed>(venue: &V, bot: &Bot, t: &Ticker, side: P
 
 /// IndexAllocatable#probe_side: the last for a limit bot; else the ask while Exchange#market_open?(tickers: [ticker]) — always
 /// on a venue without market hours and for a crypto ticker on Alpaca, otherwise Alpaca's clock, read once per derivation
-/// (Rails' one-minute clock cache; a tick or a rebalance passed its own open gate, so `open` starts known): a rejected key raises, a transport failure raises (retry_on), and any other failure
+/// (2.x's one-minute clock cache; a tick or a rebalance passed its own open gate, so `open` starts known): a rejected key raises, a transport failure raises (retry_on), and any other failure
 /// reads as nil, which is open.
 async fn probe_side<V: Venue>(venue: &V, bot: &Bot, t: &Ticker, open: &mut Option<bool>) -> Result<PriceSide, Refusal> {
     if bot.limit_distance().is_some() { return Ok(PriceSide::Last); }
@@ -347,7 +347,7 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     if chosen.is_empty() {
         return Ok(Err(Refusal::Failure(format!("No matching coins found on {} for the index", model::exchange_name(c, bot)?))));
     }
-    // Rails builds an insertion-ordered asset hash BEFORE blending; a repeated key replaces its
+    // 2.x builds an insertion-ordered asset hash BEFORE blending; a repeated key replaces its
     // value without moving its first position. It then assigns that weight to every chosen occurrence.
     let mut caps: Vec<(i64, f64)> = vec![];
     for (asset, _, cap) in &chosen {
@@ -398,7 +398,7 @@ pub fn candidate_pairs(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineE
     pairs_of(c, bot, ranked_row(c, bot.index_external_id())?.and_then(|r| r.top_coins))
 }
 
-/// The same over the row Rails reads (`Index.find_by(external_id:)`, the lowest id), on a Rails install that holds no
+/// The same over the row 2.x reads (`Index.find_by(external_id:)`, the lowest id), on a 2.x install that holds no
 /// rankings: for a parity copy (parity::plan_copy), which scripts the prices the recorded tick asks.
 pub fn v2_candidate_pairs(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     let top: Option<Option<String>> = c.query_row("SELECT top_coins FROM indices WHERE external_id = ?1 ORDER BY id LIMIT 1",

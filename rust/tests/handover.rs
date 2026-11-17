@@ -30,7 +30,7 @@ fn takeover_claims_the_install_removes_its_bots_v2_jobs_drops_the_rest_and_unsti
     job(&o.queue, "AccountTransaction::SyncJob", "gid://deltabadger/ApiKey/1");
     let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     assert!(matches!(t.claim, Claim::FromV2));
-    // D-UPGRADE-RAILS-WORK-DROPPED: the sync has nothing left to finish (the scheduler runs its own), so it goes, counted.
+    // D-UPGRADE-V2-WORK-DROPPED: the sync has nothing left to finish (the scheduler runs its own), so it goes, counted.
     assert_eq!((t.deleted_jobs, t.dropped_jobs, t.normalised), (2, 1, 2));
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0, "the bot's job and the dropped sync go");
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_scheduled_executions"), 0, "their executions cascade");
@@ -1110,7 +1110,7 @@ fn a_queue_with_every_v2_job_class_gets_each_rows_outcome() {
     assert!(!bot_events(&o.primary, b).iter().any(|e| e == handover::UPGRADE_ORDER_UNRECORDED), "a waiting ActionJob is no ambiguity");
 }
 
-/// r3.1 (D-UPGRADE-RAILS-AMBIGUITY-INHERITED): Rails' own ambiguity (placement_ambiguous, the successor scheduled) is
+/// r3.1 (D-UPGRADE-V2-AMBIGUITY-INHERITED): Rails' own ambiguity (placement_ambiguous, the successor scheduled) is
 /// inherited as Rails leaves it: the successor goes, the bot gets one line (C12), and it trades again.
 #[tokio::test(flavor = "current_thread")]
 async fn a_completed_ambiguous_action_job_is_inherited_with_a_line_and_trading_resumes() {
@@ -1364,7 +1364,7 @@ fn wake_journal(o: &store::Opened) -> Vec<(String, String)> {
 
 /// r3.3, r4.4, r4.5: every unfinished wake row (waiting, claimed or failed) becomes one journal entry per job and scope
 /// (LedgerJob and ::Retry are one), and leaves the queue; a row naming nothing there is dropped and logged. The entry is
-/// woken at every start until its job has run since the takeover (D-UPGRADE-RAILS-WAKES), whatever the user's keys (here only a Kraken key, which
+/// woken at every start until its job has run since the takeover (D-UPGRADE-V2-WAKES), whatever the user's keys (here only a Kraken key, which
 /// no tracker sync reads); then it goes. A user or key gone since is dropped at the start.
 #[test]
 fn v2_wake_rows_become_one_journal_entry_each_woken_until_their_job_runs() {

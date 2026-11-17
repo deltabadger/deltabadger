@@ -1,4 +1,4 @@
-//! A28-3a (PLAN-A28-3 r1-r4, D-RAILS-UNRECORDED-LIVE-HISTORY, D-RAILS-UNRECORDED-OPEN-NAMED): the report job reads a served
+//! A28-3a (PLAN-A28-3 r1-r4, D-V2-UNRECORDED-LIVE-HISTORY, D-V2-UNRECORDED-OPEN-NAMED): the report job reads a served
 //! venue's order history live once A28-1's line is due, and names the orders no bot recorded. Each case runs the real
 //! Binance, Binance.US and Bybit venue over `http::ScriptedTransport` with hand-written bodies in the documented row shape
 //! (no order-list body is recorded live anywhere, §1). A28-3b-1 adds Alpaca, its rows built on a recorded one

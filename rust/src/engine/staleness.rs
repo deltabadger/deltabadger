@@ -1,8 +1,8 @@
-//! Reference data only a Rails job refreshes. While the engine owns an install, Rails is stopped
+//! Reference data only a 2.x job refreshes. While the engine owns an install, 2.x is stopped
 //! and its recurring jobs do not run, so each source the tick reads is trusted only within a bound of about two missed
 //! refreshes of the job that refreshes it. Past it the engine refuses the bot's tick (tick.rs); `check` and the takeover
 //! (eligibility::check_install_at) note it and admit the bot (D-UPGRADE-FRESHNESS-AT-TICK: only this engine's scheduler,
-//! which starts after the claim, can refresh it). A source Rails stamps nowhere is `Unknown`: noted at the door too.
+//! which starts after the claim, can refresh it). A source 2.x stamps nowhere is `Unknown`: noted at the door too.
 //! After the takeover a source is as fresh as its job's last complete run here (jobs::state), never its column's newest
 //! stamp, which a partial import of this engine may have moved; `check` reports every source (`report`).
 use super::model::{self, Bot};
@@ -21,7 +21,7 @@ pub struct Source {
     /// The column's newest stamp; `?1` is the exchange id when `per_exchange`.
     pub newest_sql: &'static str,
     pub per_exchange: bool,
-    /// The `app_configs` row only a successful Rails sync writes: without it the column measures nothing (Unknown).
+    /// The `app_configs` row only a successful 2.x sync writes: without it the column measures nothing (Unknown).
     pub gate: Option<&'static str>,
     /// Freshness is the job record's `source_at` alone (the upstream evidence it holds), never a column or a run's time.
     pub evidence: bool,
@@ -52,17 +52,17 @@ fn newest(a: Option<Clock>, b: Option<Clock>) -> Option<Clock> {
 /// The Alpaca crypto catalog: each pair's available and trading_enabled flags, its decimals and minimum sizes, which the tick
 /// derives members, sizes, minimums and the cap's precision floor from. Its stamp is the newest `exchange_assets.updated_at`
 /// among the Alpaca exchange's Cryptocurrency assets, NOT `tickers.updated_at`: Ticker::TechnicallyAnalyzable writes a
-/// ticker's all-time high with `update!` (technically_analyzable.rb:125), which moves `tickers.updated_at` without any sync.
+/// ticker's all-time high with `update!`, which moves `tickers.updated_at` without any sync.
 /// `exchange_assets` rows are written by MarketData.import_tickers! alone (market_data.rb:323-327: `ExchangeAsset.upsert_all`
 /// with `updated_at: now`, which rewrites an unchanged row too), and for this exchange's crypto assets import_tickers! is
 /// reached only from MarketData.sync_alpaca_crypto_listings_from_deltabadger! (:659), after its degraded-payload guard
-/// (:647). Asset::SyncAlpacaCryptoFromDeltabadgerJob runs it daily at 10:15 UTC (config/recurring.yml:58-60). The generic
+/// (:647). Asset::SyncAlpacaCryptoFromDeltabadgerJob runs it daily at 10:15 UTC. The generic
 /// venue sync skips Alpaca (Exchange::SyncTickersAndAssetsJob returns for a stock venue; Exchange::SyncAllTickersAndAssetsJob
-/// excludes Exchange::STOCK_TYPES), Alpaca's fee fetch writes nothing (exchanges/alpaca.rb:458), and the self-hosted
+/// excludes Exchange::STOCK_TYPES), Alpaca's fee fetch writes nothing, and the self-hosted
 /// Exchange::SyncAlpacaAssetsJob only creates rows (`find_or_create_by!`, sync_alpaca_assets_job.rb:62, :122).
 ///
 /// Whether this install runs that sync at all: the `app_configs` row `alpaca_crypto_listings_last_good_count`, which only a
-/// successful run writes (market_data.rb:668). Without it (a self-hosted install, or one that never synced) no stamp
+/// successful run writes. Without it (a self-hosted install, or one that never synced) no stamp
 /// measures the catalog: the verdict is Unknown.
 ///
 /// Bound: two missed daily refreshes (2 × 24 h), plus 1 h for a late run (its retry_on chain takes about 6 minutes; its
@@ -86,7 +86,7 @@ pub enum Verdict { Fresh, Stale(Stale), Unknown(Stale) }
 
 /// Alpaca's stock and ETF listings: sync_alpaca_listings_from_deltabadger! upserts the exchange asset of every listing it
 /// resolves (import_tickers!, market_data.rb:323-327) and writes `alpaca_listings_last_good_count` only on success
-/// (:575). Daily at 10:00 + up to 15 min (recurring.yml:53-56).
+/// (:575). Daily at 10:00 + up to 15 min.
 pub const ALPACA_STOCK_TICKERS: Source = Source {
     name: "Alpaca stock tickers", column: "exchange_assets.updated_at",
     refreshed_by: "Asset::SyncStocksFromDeltabadgerJob, daily at 10:00 UTC + up to 15 min", max_age_secs: bound_secs(24),
@@ -96,7 +96,7 @@ pub const ALPACA_STOCK_TICKERS: Source = Source {
     per_exchange: true, gate: Some("alpaca_listings_last_good_count"), evidence: false,
 };
 
-/// A crypto venue's catalogue (import_tickers!, market_data.rb:316-338), every 4 h at :15 (recurring.yml:13-15).
+/// A crypto venue's catalogue (import_tickers!, market_data.rb:316-338), every 4 h at :15.
 /// ponytail: no gate row exists for it, and other jobs may touch a venue's exchange_assets; `check` reports it, nothing
 /// refuses on it until the engine runs bots on those venues.
 pub const VENUE_TICKERS: Source = Source {
@@ -106,7 +106,7 @@ pub const VENUE_TICKERS: Source = Source {
     newest_sql: "SELECT max(updated_at) FROM exchange_assets WHERE exchange_id = ?1", per_exchange: true, gate: None, evidence: false,
 };
 
-/// Index membership and weights (import_indices!, market_data.rb:266-273, :904-905), daily at 10:30 (recurring.yml:33-35).
+/// Index membership and weights (import_indices!, market_data.rb:266-273, :904-905), daily at 10:30.
 pub const INDICES: Source = Source {
     name: "Indices", column: "indices.updated_at",
     refreshed_by: "Index::SyncFromCoingeckoJob, daily at 10:30 UTC", max_age_secs: bound_secs(24),
@@ -130,7 +130,7 @@ pub const CRYPTO_ASSETS: Source = Source {
 
 /// The IBKR catalogue (Ibkr plan R1, D-JOBS-SOURCE-AT): as fresh as the newest upstream evidence the sync holds
 /// (`source_at`, the feed's `generated_at`), so an unchanged catalogue stays fresh while data-api keeps confirming it, and
-/// a run that imported nothing new never makes it so. Rails stamps nothing for it.
+/// a run that imported nothing new never makes it so. 2.x stamps nothing for it.
 pub const IBKR_TICKERS: Source = Source {
     name: "IBKR tickers", column: "catalogue evidence (generated_at)",
     refreshed_by: "the IBKR catalogue sync, daily at 10:45 UTC", max_age_secs: bound_secs(24),
@@ -139,11 +139,11 @@ pub const IBKR_TICKERS: Source = Source {
 
 pub const SOURCES: [&Source; 7] = [&ALPACA_CRYPTO_TICKERS, &ALPACA_STOCK_TICKERS, &VENUE_TICKERS, &INDICES, &CRYPTO_ASSETS, &IBKR_TICKERS, &TOP_COINS];
 
-/// Rails' last ownership window runs from `HANDED_BACK_AT` (written in the handback's own transaction) to `TAKEN_OVER_AT`
+/// 2.x's last ownership window runs from `HANDED_BACK_AT` (written in the handback's own transaction) to `TAKEN_OVER_AT`
 /// (written with the claim). Both are plain `app_configs` rows owned by `lease.rs`.
 pub use crate::lease::{HANDED_BACK_AT, TAKEN_OVER_AT};
 
-/// Rails' rule: the newest stamp of the column, where the install runs the sync at all (its gate row exists).
+/// 2.x's rule: the newest stamp of the column, where the install runs the sync at all (its gate row exists).
 fn column_at(c: &Connection, s: &Source, exchange_id: Option<i64>) -> Result<Option<DateTime<Utc>>, EngineError> {
     if s.evidence { return Ok(None); }
     if let Some(key) = s.gate {
@@ -156,24 +156,24 @@ fn column_at(c: &Connection, s: &Source, exchange_id: Option<i64>) -> Result<Opt
     text.map(|t| parse_time(&t).map_err(|e| EngineError::Data(format!("{}: {e:?}", s.column)))).transpose()
 }
 
-/// Rails' column, where it can be trusted: always while the job has no import of this engine left incomplete
-/// (`incomplete_since`, set before an import's first unit, cleared with its success); otherwise only a stamp Rails made
+/// 2.x's column, where it can be trusted: always while the job has no import of this engine left incomplete
+/// (`incomplete_since`, set before an import's first unit, cleared with its success); otherwise only a stamp 2.x made
 /// inside its last ownership window: after the last handback and, once this engine has taken the install over again, not
 /// after that takeover. Without a handback stamp: None, freshness is the record alone.
 /// A catalogue-fed source's own imports stamp the column with when they ran, never with their evidence: there, as for an
-/// incomplete import, only a Rails refresh inside Rails' last ownership window counts.
+/// incomplete import, only a 2.x refresh inside 2.x's last ownership window counts.
 fn trusted_column(c: &Connection, s: &Source, exchange_id: Option<i64>) -> Result<Option<Clock>, EngineError> {
     let record = crate::jobs::state::find(c, s.job, None).map_err(EngineError::Data)?;
     let at = column_at(c, s, exchange_id)?;
     let clock = |at: Option<DateTime<Utc>>| at.map(|at| (at, s.max_age_secs));
     if record.is_none_or(|st| st.incomplete_since.is_none() && !st.catalogue) { return Ok(clock(at)); }
     let Some(back) = crate::lease::plain_at(c, HANDED_BACK_AT)? else { return Ok(None) };
-    let taken = crate::lease::plain_at(c, TAKEN_OVER_AT)?.filter(|t| *t > back); // older: Rails owns the install now
+    let taken = crate::lease::plain_at(c, TAKEN_OVER_AT)?.filter(|t| *t > back); // older: 2.x owns the install now
     Ok(clock(at.filter(|a| *a > back && taken.is_none_or(|t| *a <= t))))
 }
 
 /// The source's last complete refresh by this engine's record: None without a record (no takeover yet); else the newer of
-/// the job's last success, which the runner writes only once the whole import has published, and Rails' baseline read at
+/// the job's last success, which the runner writes only once the whole import has published, and 2.x's baseline read at
 /// the takeover (`seed`). A run that fails after committing some units moves neither. An evidence source reads its
 /// `source_at`; catalogue-fed evidence is judged by CATALOGUE_BOUND_SECS, and the clock expiring later counts.
 fn record_at(c: &Connection, s: &Source) -> Result<Option<Option<Clock>>, EngineError> {
@@ -203,8 +203,8 @@ fn judge(c: &Connection, s: &Source, (at, bound): Clock, now: DateTime<Utc>) -> 
         bound / 3600, s.refreshed_by, job_state(c, s)) })
 }
 
-/// The door (`check` and the takeover, through eligibility::check_install_at): the newer of the job record and Rails'
-/// column where it is trusted, so a takeover after Rails refreshed the data is admitted even when a record from an earlier
+/// The door (`check` and the takeover, through eligibility::check_install_at): the newer of the job record and 2.x's
+/// column where it is trusted, so a takeover after 2.x refreshed the data is admitted even when a record from an earlier
 /// takeover is older, and a partial import of this engine never is. With neither, Unknown. Either verdict is noted at the
 /// door, never refused there (D-UPGRADE-FRESHNESS-AT-TICK); the tick refuses a stale bot (`stale`).
 fn source_verdict(c: &Connection, bot: &Bot, s: &Source, now: DateTime<Utc>) -> Result<Verdict, EngineError> {
@@ -252,7 +252,7 @@ fn targets(c: &Connection) -> Result<Vec<Target>, EngineError> {
 }
 
 /// The takeover (handover::take_over, in the claim's transaction): every source's job without a record gets one holding
-/// Rails' baseline, the column as Rails left it (`column_at`; for a per-venue source the oldest venue's, none where a venue
+/// 2.x's baseline, the column as 2.x left it (`column_at`; for a per-venue source the oldest venue's, none where a venue
 /// has no stamp). A job with a record keeps it: once this engine has run it, only its completed runs count.
 pub fn seed(c: &Connection, now: DateTime<Utc>) -> Result<(), EngineError> {
     let targets = targets(c)?;

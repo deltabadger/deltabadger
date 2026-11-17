@@ -1,6 +1,6 @@
 //! PLAN-A23: a legacy single-asset bot (Bots::DcaSingleAsset), and a basket a stale single-asset save clobbered, becomes a
-//! one-asset basket at every start, inside the start's own transaction (set_aside::apply), with the writes of Rails'
-//! Bot::SingleToComposition#convert! (D-SINGLE-AT-START). No Rails process or job outlives the claim, so Rails' two
+//! one-asset basket at every start, inside the start's own transaction (set_aside::apply), with the writes of 2.x's
+//! Bot::SingleToComposition#convert! (D-SINGLE-AT-START). No 2.x process or job outlives the claim, so 2.x's two
 //! quiescence skips (executing, a job in flight) have nothing to wait for (D-SINGLE-QUIET-AT-CLAIM); a working bot on a
 //! ticker its venue no longer trades converts (D-SINGLE-UNTRADEABLE-CONVERTS), and so does one whose condition watches
 //! another ticker (D-SINGLE-CONDITION-CONVERTS). What can't be converted stays as it is, and eligibility names it to its
@@ -19,7 +19,7 @@ const CLOBBERED: &str = "type = 'Bots::DcaMultiAsset' \
     AND CASE WHEN json_valid(settings) THEN json_extract(settings, '$.base_asset_id') END IS NOT NULL \
     AND CASE WHEN json_valid(settings) THEN json_type(settings, '$.allocations') END IS NOT 'object'";
 
-/// Why a legacy row is not converted (Rails' preflight reasons that survive a takeover, plan §4).
+/// Why a legacy row is not converted (2.x's preflight reasons that survive a takeover, plan §4).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Skip {
     /// missing assets, missing exchange, missing asset rows; settings that aren't an object or ids that aren't ids.
@@ -91,7 +91,7 @@ fn readable(loaded: Result<Bot, EngineError>) -> Result<Option<Bot>, EngineError
 }
 
 /// Bot::SingleToComposition.preflight, less what no longer holds a row back after the claim (executing, a job in flight, an
-/// untradeable ticker, a condition on another ticker). Data never errors here: what Ruby can't read is `Skip::Settings`.
+/// untradeable ticker, a condition on another ticker). Data never errors here: what 2.x can't read is `Skip::Settings`.
 pub fn preflight(c: &Connection, bot: &Bot, repair: bool) -> Result<Result<Conversion, Skip>, EngineError> {
     let empty = Map::new();
     let settings = bot.settings.as_object().unwrap_or(&empty);
@@ -120,7 +120,7 @@ pub fn preflight(c: &Connection, bot: &Bot, repair: bool) -> Result<Result<Conve
     Ok(Ok(Conversion { base, ticker, entered }))
 }
 
-/// Ruby's `to_i` on a settings value; None where Ruby raises (true, an array, a hash).
+/// 2.x's `to_i` on a settings value; None where 2.x raises (true, an array, a hash).
 fn to_i(v: Option<&Value>) -> Option<i64> {
     match v {
         None | Some(Value::Null) => Some(0),

@@ -1,11 +1,11 @@
 //! Never two engines on one install.
-//! - One lifetime lock: flock on `<primary dir>/.engine.lock`. Every Rails process from the floor
-//!   release on holds it SHARED (config/initializers/00_engine_lock.rb); Rust holds it EXCLUSIVE from
+//! - One lifetime lock: flock on `<primary dir>/.engine.lock`. Every 2.x process from the floor
+//!   release on holds it SHARED; Rust holds it EXCLUSIVE from
 //!   before it reads or writes any database until it exits. A paused process keeps its lock.
-//! - Rails releases older than the floor do not take it, so a Solid Queue heartbeat under 120 s old
+//! - 2.x releases older than the floor do not take it, so a Solid Queue heartbeat under 120 s old
 //!   also refuses. That only catches a running one; against those the guarantee stays external
 //!   (one container per instance).
-//! - The handover row app_configs['engine_lease'] says who last owned the install. Rails refuses to boot
+//! - The handover row app_configs['engine_lease'] says who last owned the install. 2.x refuses to boot
 //!   while it says "rust", i.e. until `deltabadger handback` has run.
 use crate::codec::{format_time, parse_time};
 use crate::crypto::Cipher;
@@ -47,7 +47,7 @@ pub struct EngineLock {
 pub fn lock(paths: &Paths, now: DateTime<Utc>) -> Result<EngineLock, LeaseError> {
     let path = paths.lock_file();
     if let Some(dir) = path.parent() { std::fs::create_dir_all(dir)?; }
-    // Read-only when it exists: under Docker the Rails entrypoint may have created it as root (0644),
+    // Read-only when it exists: under Docker the 2.x entrypoint may have created it as root (0644),
     // and flock needs no write access. Create it only when missing.
     let file = match File::open(&path) {
         Ok(f) => f,
@@ -75,7 +75,7 @@ pub fn lock(paths: &Paths, now: DateTime<Utc>) -> Result<EngineLock, LeaseError>
     Ok(EngineLock { _file: file })
 }
 
-/// `run` and `serve` (PLAN-B2 R1, r1.13): a Rails heartbeat under 120 s old is, in 3.0, most likely a 2.x container that
+/// `run` and `serve` (PLAN-B2 R1, r1.13): a 2.x heartbeat under 120 s old is, in 3.0, most likely a 2.x container that
 /// was just stopped, so they wait it out once and then check again exactly as `lock` does. `lock` has dropped its file,
 /// and with it the flock, before it returns V2Alive, so nothing is held during `wait(seconds_ago, wait_seconds)`
 /// (at most 121 s). A heartbeat in the future (clock skew), a second V2Alive, or any other error is returned as is.
@@ -91,7 +91,7 @@ pub async fn lock_waiting_once<F: std::future::Future<Output = ()>>(paths: &Path
 }
 
 /// `deltabadger export` (PLAN-B4b §2, D-EXPORT-FLOCK): the engine flock on an existing lock file, opened read-only and
-/// held while the returned file lives. An absent file is never created: every engine and every Rails from the floor on
+/// held while the returned file lives. An absent file is never created: every engine and every 2.x from the floor on
 /// creates it before locking it, so absent means nobody holds it (None). Held by anyone: Locked. No heartbeat check.
 pub fn flock_existing(path: &std::path::Path) -> Result<Option<File>, LeaseError> {
     let file = match File::open(path) {
@@ -111,7 +111,7 @@ static HELD: std::sync::Mutex<Vec<std::sync::Weak<File>>> = std::sync::Mutex::ne
 
 /// Gives up every engine lock this process still holds, for a process that will never touch the install again but does
 /// not exit yet: `serve` showing its refusal page (web::refused) before it has claimed anything. The handles stay open;
-/// only the flock goes, so Rails or another engine may start on the install.
+/// only the flock goes, so 2.x or another engine may start on the install.
 pub fn release_all() {
     for file in HELD.lock().unwrap_or_else(|e| e.into_inner()).drain(..).filter_map(|f| f.upgrade()) { let _ = file.unlock(); }
 }
@@ -128,7 +128,7 @@ pub fn read(primary: &Connection, cipher: &Cipher) -> Result<Option<Value>, Leas
 
 /// When this engine last handed the install back (`handover::hand_back_since`, in the handback's transaction) and last
 /// began an ownership (`claim`, with the lease row). Plain `app_configs` rows: `check` reads them without keys
-/// (engine::staleness), and Rails never reads them (its adoption deletes only `engine_lease`).
+/// (engine::staleness), and 2.x never reads them (its adoption deletes only `engine_lease`).
 pub const HANDED_BACK_AT: &str = "rust_handed_back_at";
 pub const TAKEN_OVER_AT: &str = "rust_taken_over_at";
 
@@ -157,7 +157,7 @@ pub const CREATED_AT: &str = "rust_created_at";
 fn owned(version: &str, now: DateTime<Utc>) -> Value { json!({ "engine": "rust", "version": version, "since": now.to_rfc3339() }) }
 
 /// A new install's ownership, in store::bootstrap's transaction (PLAN-B1 r1.1): the lease row and TAKEN_OVER_AT as a new
-/// ownership writes them, and CREATED_AT. Rails refuses to boot on the file from its first commit, and the first `claim`
+/// ownership writes them, and CREATED_AT. 2.x refuses to boot on the file from its first commit, and the first `claim`
 /// is AfterCrash, continuing this ownership without a new TAKEN_OVER_AT.
 pub fn begin_created(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version: &str, now: DateTime<Utc>) -> Result<(), LeaseError> {
     let at = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
@@ -167,16 +167,16 @@ pub fn begin_created(_proof: &EngineLock, primary: &Connection, cipher: &Cipher,
 }
 
 /// Two statements, so the takeover runs it inside its own transaction (handover::take_over): the lease row and the end of
-/// Rails' ownership window commit together, and a crash can never leave that window open.
+/// 2.x's ownership window commit together, and a crash can never leave that window open.
 pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version: &str, now: DateTime<Utc>) -> Result<Claim, LeaseError> {
     let from = match read(primary, cipher)? {
         None => Claim::FromV2,
         Some(v) if v["engine"] == "rust" => Claim::AfterCrash,
         Some(v) if v["released_by"] == "rust" && v["handed_back"] == true => Claim::AfterHandback,
-        Some(_) => Claim::FromV2, // `none` written by a Rails-side tool: Rails owned it last
+        Some(_) => Claim::FromV2, // `none` written by a 2.x-side tool: 2.x owned it last
     };
     write(primary, cipher, &owned(version, now), now)?;
-    // A new ownership closes Rails' window. A restart after a crash continues this engine's own, unless the window it would
+    // A new ownership closes 2.x's window. A restart after a crash continues this engine's own, unless the window it would
     // close is still open (a claim by a build that did not stamp).
     let new_ownership = match from {
         Claim::FromV2 | Claim::AfterHandback => true,
@@ -187,11 +187,11 @@ pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version
     };
     if new_ownership {
         upsert(primary, TAKEN_OVER_AT, &now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), now)?;
-        // A17-4: Rails rewrote `indices` rows in place while it owned the install, so no ranking attested before survives.
+        // A17-4: 2.x rewrote `indices` rows in place while it owned the install, so no ranking attested before survives.
         // The table exists wherever Rust's migrations ran; a claim on an unmigrated copy (a parity scratch) has none.
         let ranked: bool = primary.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_index_rankings')", [], |r| r.get(0))?;
         if ranked { primary.execute("DELETE FROM rust_index_rankings", [])?; }
-        // A17-4 r18: Rails may have changed any bot's membership while it owned the install, so no composition marker
+        // A17-4 r18: 2.x may have changed any bot's membership while it owned the install, so no composition marker
         // (engine::index::COMPOSED_KEY) survives either. Retirements (rust_index_retired) do.
         primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_composed_index') \
                          WHERE json_valid(transient_data) AND json_type(transient_data, '$.rust_composed_index') IS NOT NULL", [])?;

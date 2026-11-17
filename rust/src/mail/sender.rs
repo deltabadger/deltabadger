@@ -289,7 +289,7 @@ fn older_than_max(raised: chrono::DateTime<chrono::Utc>, now: chrono::DateTime<c
     now - raised >= chrono::Duration::hours(MAX_AGE_HOURS)
 }
 
-/// The sender address and where to deliver, read for every mail, as Rails' interceptor reads them: a change made in
+/// The sender address and where to deliver, read for every mail, as 2.x's interceptor reads them: a change made in
 /// Settings applies to the next mail. Err: why mail is not configured.
 fn configuration(c: &Connection, cipher: &Cipher, env: &smtp::Env, trust_root: Option<Vec<u8>>) -> Result<(String, smtp::Settings), String> {
     let unreadable = std::cell::RefCell::new(None);

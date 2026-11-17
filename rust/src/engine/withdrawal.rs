@@ -532,7 +532,7 @@ fn rule(c: &Connection, cipher: &Cipher, id: i64) -> Result<Rule, EngineError> {
         .map_err(|_| data("unreadable withdrawal settings"))?;
     Ok(r)
 }
-// Called under the evaluation's immediate transaction. Rails ExecuteJob checks scheduled?
+// Called under the evaluation's immediate transaction. 2.x ExecuteJob checks scheduled?
 // before reading encrypted attributes and records unexpected rule-data failures per job.
 fn evaluation_rule(
     c: &Connection,
@@ -624,7 +624,7 @@ fn consume(
 ) -> Result<bool, EngineError> {
     Ok(c.execute("UPDATE rust_rule_evaluations SET consumed_at=?1,outcome=?2 WHERE id=?3 AND consumed_at IS NULL",params![crate::codec::format_time(now),outcome,evaluation])?==1)
 }
-#[allow(clippy::too_many_arguments)] // The captured evaluation and Rails outcome are committed together.
+#[allow(clippy::too_many_arguments)] // The captured evaluation and 2.x outcome are committed together.
 fn outcome(
     c: &Connection,
     cipher: &Cipher,

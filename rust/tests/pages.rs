@@ -1060,11 +1060,11 @@ fn every_full_page_dialog_template_opens_its_frame_complete() {
     assert_eq!(found, ["bots/new.html", "settings/alpaca_full.html", "settings/pick_exchange.html", "wizard/full_page.html", "wizard/pick_buyable_asset.html", "wizard/pick_exchange.html"]);
 }
 
-/// This build's own tools: D-SPLIT-API's split_bots (under Control) and D-RAILS-UNRECORDED-API's answer_unrecorded_order
+/// This build's own tools: D-SPLIT-API's split_bots (under Control) and D-V2-UNRECORDED-API's answer_unrecorded_order
 /// (under Trade).
 const OWN_TOOLS: [&str; 2] = ["split_bots", "answer_unrecorded_order"];
 
-/// Named divergences D-SPLIT-API and D-RAILS-UNRECORDED-API in Settings: each OWN_TOOLS switch is taken out of this
+/// Named divergences D-SPLIT-API and D-V2-UNRECORDED-API in Settings: each OWN_TOOLS switch is taken out of this
 /// crate's page with the whitespace before it, and its entry out of the rows a write stored (the owner's switches, a
 /// client's grant). Returns how many switches were taken.
 fn without_split_tool(answer: &mut Value) -> usize {

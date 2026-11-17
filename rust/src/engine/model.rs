@@ -1,4 +1,4 @@
-//! The engine's rows, read and written exactly as Rails reads and writes them.
+//! The engine's rows, read and written exactly as 2.x reads and writes them.
 use super::schedule::Interval;
 use super::EngineError;
 use super::conditions::{Rule, Support};
@@ -20,7 +20,7 @@ pub struct Bot {
 }
 
 /// Captured before any intervening tick work, never from the row at claim time. The counters also
-/// distinguish resumes and successive jobs at identical timestamps. Rust-only: Rails #526
+/// distinguish resumes and successive jobs at identical timestamps. Rust-only: 2.x #526
 /// uses timestamps, which cannot distinguish a same-timestamp restart.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RunIdentity {
@@ -129,10 +129,10 @@ impl Bot {
         crate::codec::validate_bot_times(&self.settings, &self.transient).map_err(data)
     }
 
-    /// Bots::DcaIndex settings (dca_index.rb:19-30): 'top' or 'category'.
+    /// Bots::DcaIndex settings: 'top' or 'category'.
     pub fn index_type(&self) -> Option<&str> { self.settings.get("index_type")?.as_str() }
     pub fn index_category_id(&self) -> Option<&str> { self.settings.get("index_category_id")?.as_str().filter(|s| !s.trim().is_empty()) }
-    /// The `indices` row MarketData.get_top_coins reads (market_data.rb:118-122): a category index with a present
+    /// The `indices` row MarketData.get_top_coins reads: a category index with a present
     /// index_category_id reads that row, anything else the Top coins row.
     pub fn index_external_id(&self) -> &str {
         match self.index_category_id() { Some(id) if self.index_type() == Some("category") => id, _ => "top-coins" }
@@ -163,7 +163,7 @@ impl Bot {
     }
 
     pub fn interval(&self) -> Option<Interval> { self.settings.get("interval")?.as_str().and_then(Interval::parse) }
-    // Float views below are for Rails' explicitly floating interval-duration calculations.
+    // Float views below are for 2.x's explicitly floating interval-duration calculations.
     pub fn quote_amount(&self) -> Option<f64> { self.settings.get("quote_amount")?.as_f64() }
     pub fn quote_amount_num(&self) -> Result<Num, EngineError> {
         super::accounting::setting_num(self.settings.get("quote_amount").ok_or_else(||data("quote_amount missing"))?)
@@ -177,7 +177,7 @@ impl Bot {
         self.quote_amount_num()
     }
     /// Bot::SmartIntervalable: `smart_intervaled?` is `== true`; the split amount must be a JSON number. A string
-    /// makes Rails' `effective_quote_amount * intervals` raise TypeError, so eligibility refuses it (never traded).
+    /// makes 2.x's `effective_quote_amount * intervals` raise TypeError, so eligibility refuses it (never traded).
     pub fn smart_quote_amount(&self) -> Option<f64> {
         if self.settings.get("smart_intervaled") != Some(&Value::Bool(true)) || self.quote_amount().is_none() { return None; }
         self.settings.get("smart_interval_quote_amount")?.as_f64()
@@ -205,7 +205,7 @@ impl Bot {
     }
     pub fn quote_asset_id(&self) -> Option<i64> { self.settings.get("quote_asset_id")?.as_i64() }
     /// settings.allocations as Bots::DcaMultiAsset#derive_composition reads it: (asset id, weight) in the stored order (the
-    /// JSON column keeps it). None when a key is not an id or a weight is not a JSON number (Rails' sliders store Floats):
+    /// JSON column keeps it). None when a key is not an id or a weight is not a JSON number (2.x's sliders store Floats):
     /// eligibility refuses it.
     pub fn allocations(&self) -> Option<Vec<(i64, f64)>> {
         let m = self.settings.get("allocations")?.as_object()?;
@@ -246,11 +246,11 @@ impl Bot {
         Some(super::schedule::effective(self.interval()?, self.quote_amount()?, self.smart_quote_amount()))
     }
     /// Bot::QuoteAmountLimitable#quote_amount_limited?: `== true`, on a kind this build runs the cap for (conditions::support;
-    /// D-IDX-CAP: an index bot too, where Rails' DcaIndex lacks the concern).
+    /// D-IDX-CAP: an index bot too, where 2.x's DcaIndex lacks the concern).
     pub fn quote_amount_limited(&self) -> bool { self.support(Rule::Cap, false) == Support::Implemented && self.settings.get("quote_amount_limited") == Some(&Value::Bool(true)) }
-    /// The cap as #quote_amount_available_before_limit_reached reads it, as the Ruby Integer or Float the settings JSON holds;
+    /// The cap as #quote_amount_available_before_limit_reached reads it, as the 2.x Integer or Float the settings JSON holds;
     /// None when the limit is off. A stored nil or false reads as Integer 1000 (after_initialize: `quote_amount_limit ||= 1000`).
-    /// Err for anything else that is not a JSON number (a blank string is Float::INFINITY in Rails, other strings raise there):
+    /// Err for anything else that is not a JSON number (a blank string is Float::INFINITY in 2.x, other strings raise there):
     /// eligibility refuses it.
     pub fn quote_amount_limit(&self) -> Result<Option<Num>, String> {
         if !self.quote_amount_limited() { return Ok(None); }
@@ -265,7 +265,7 @@ impl Bot {
         }
     }
     /// transient_data.quote_amount_limit_enabled_at (`Time.zone.parse` of what Time#as_json wrote), in µs. None when unset:
-    /// Rails' `created_at >= NULL` then counts nothing, and the whole cap is available.
+    /// 2.x's `created_at >= NULL` then counts nothing, and the whole cap is available.
     pub fn quote_amount_limit_enabled_at_us(&self) -> Result<Option<i64>, String> {
         crate::codec::optional_time(self.transient.get("quote_amount_limit_enabled_at"))
             .map(|at|at.map(|at|at.timestamp_micros())).map_err(|e|format!("quote_amount_limit_enabled_at: {e:?}"))
@@ -277,7 +277,7 @@ impl Bot {
             && self.settings.as_object().is_some_and(super::schedule::one_asset) && self.settings.get("base_amount_limited") == Some(&Value::Bool(true))
     }
     /// The base cap as #base_amount_available_before_limit_reached reads it, the settings JSON's Integer or Float; None when it
-    /// is off or blank (Float::INFINITY: nil, false, an empty or blank value). Err for any other value (a string Rails would
+    /// is off or blank (Float::INFINITY: nil, false, an empty or blank value). Err for any other value (a string 2.x would
     /// read through String#to_d): refused.
     pub fn base_amount_limit(&self) -> Result<Option<Num>, String> {
         if !self.base_amount_limited() { return Ok(None); }
@@ -358,7 +358,7 @@ impl Bot {
     }
     /// transient_data.rust_amount_limit_stops_pending: its count, and whether it still applies: counted under this bot's current
     /// key, and no continue start pending (`rust_continue_start`): the user's resume overrides a stop counted before it, which
-    /// Rails would already have run, and a plain resume keeps the key. A count that raced the resume inside one tick is
+    /// 2.x would already have run, and a plain resume keeps the key. A count that raced the resume inside one tick is
     /// discarded too (the safe direction for a resume the user asked for).
     pub fn pending_amount_limit_stops(&self) -> Result<Option<(i64, bool)>, EngineError> {
         let Some(v) = self.transient.get("rust_amount_limit_stops_pending").filter(|v| !v.is_null()) else { return Ok(None) };
@@ -395,7 +395,7 @@ impl Bot {
     }
     /// The active side's price rule (Bot::PriceLimitable#active_price_limited?), None when it is off or not one this build
     /// runs on the bot's kind (conditions::support: eligibility refuses those it does not implement). Err: a stored value
-    /// Rails would raise on (eligibility refuses it).
+    /// 2.x would raise on (eligibility refuses it).
     pub fn price_rule(&self, selling: bool) -> Result<Option<PriceRule>, String> {
         if self.support(Rule::Price, selling) != Support::Implemented { return Ok(None); }
         let prefix = if selling { "sell_price_limit" } else { "price_limit" };
@@ -431,7 +431,7 @@ impl Bot {
             ticker_id, action, met_at_us: met_at,
         }))
     }
-    /// One implemented trigger, with Rails' side-specific defaults and validated values.
+    /// One implemented trigger, with 2.x's side-specific defaults and validated values.
     pub fn condition_rule(&self, kind: Rule, selling: bool) -> Result<Option<super::conditions::ConditionRule>, String> {
         super::conditions::read_rule(self, kind, selling)
     }
@@ -993,14 +993,14 @@ pub fn quote_symbol(c: &Connection, bot: &Bot) -> Result<String, EngineError> {
     Ok(s.flatten().unwrap_or_default())
 }
 
-/// Exchanges::Alpaca#all_crypto?(bot.tickers) (exchanges/alpaca.rb:582-585), by the composition's asset categories:
+/// Exchanges::Alpaca#all_crypto?(bot.tickers), by the composition's asset categories:
 /// - an index bot (Bots::DcaIndex#set_tickers: every ticker at its quote on the venue) is all crypto only when every such
 ///   ticker's base is a cryptocurrency;
 /// - a basket (Bots::DcaMultiAsset#set_tickers: its allocations and every bot_index_assets row) only when it has members and
 ///   every member asset is a cryptocurrency.
 ///
 /// Read from the assets, whatever their tickers' availability: a crypto bot whose ticker went untradable stays all crypto
-/// (Plan 2b's `untradable_clock_closed` ruling), where Rails' empty ticker list is not.
+/// (Plan 2b's `untradable_clock_closed` ruling), where 2.x's empty ticker list is not.
 pub fn all_crypto(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
     if bot.bot_type == "Bots::DcaIndex" {
         // Some listing, and none that is not a cryptocurrency: a stock venue answers at its first listing, not after

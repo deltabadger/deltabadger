@@ -1,6 +1,6 @@
 //! Bot::WashSaleGuard: the account's wash-sale locks as the trading legs read and write them. A lock forbids buying the
 //! asset, never selling it. Everything here is a no-op while the user's window is 0 days (the rule off or undecided).
-//! Datetimes are stored and compared as Rails' text (`codec::format_time`); the deadline day is UTC, the app's zone.
+//! Datetimes are stored and compared as 2.x's text (`codec::format_time`); the deadline day is UTC, the app's zone.
 use super::model::{self, Bot, Level, Ticker};
 use super::EngineError;
 use crate::codec::format_time;
@@ -62,7 +62,7 @@ pub fn restore(c: &Connection, user_id: i64, asset_id: i64, claim: &Claim) -> Re
     restore_raw(c, user_id, asset_id, claim.previous.as_deref(), Some(&claim.token))
 }
 
-/// `where(claim_token: token)`: a nil token (rebalance keys written with no claim) matches a row without one, as Rails'.
+/// `where(claim_token: token)`: a nil token (rebalance keys written with no claim) matches a row without one, as 2.x's.
 fn restore_raw(c: &Connection, user_id: i64, asset_id: i64, previous: Option<&str>, token: Option<&str>) -> Result<(), EngineError> {
     c.execute("UPDATE wash_sale_locks SET buy_locked_until = COALESCE(MAX(confirmed_locked_until, ?1), confirmed_locked_until, ?1), claim_token = NULL \
                WHERE user_id = ?2 AND asset_id = ?3 AND claim_token IS ?4", params![previous, user_id, asset_id, token])?;
@@ -138,7 +138,7 @@ pub fn log_locked(c: &Connection, bot: &Bot, asset_id: i64, now: DateTime<Utc>) 
 
 /// A composition sale's claim, kept in its intent (`rust_placement.wash_claim`) so a restart settles it.
 ///
-/// D-WASH-CLAIM-WITH-INTENT: the DCA-out leg claims in the same transaction that writes the Rust intent; Rails claims just
+/// D-WASH-CLAIM-WITH-INTENT: the DCA-out leg claims in the same transaction that writes the Rust intent; 2.x claims just
 /// before create_order with no intent at all. Only a crash between the two could tell them apart.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Held { pub asset_id: i64, pub claim: Claim }
@@ -154,7 +154,7 @@ impl Held {
     }
 }
 
-/// Bot::Rebalancer's transient keys for a sell's claim (rebalancer.rb:66-68): what THIS attempt may undo.
+/// Bot::Rebalancer's transient keys for a sell's claim: what THIS attempt may undo.
 pub const REBALANCE_PREVIOUS_LOCK: &str = "rebalance_previous_lock";
 pub const REBALANCE_CLAIM_TOKEN: &str = "rebalance_claim_token";
 pub const REBALANCE_LOCKED_ASSET_ID: &str = "rebalance_locked_asset_id";
@@ -167,7 +167,7 @@ pub fn claim_rebalance_sell(c: &Connection, bot: &Bot, asset_id: i64, loss: bool
     let transient = model::load_bot(c, bot.id)?.transient;
     if !loss && REBALANCE_KEYS.iter().all(|k| transient.get(*k).is_none_or(serde_json::Value::is_null)) { return Ok(()); }
     let claim = if loss { claim(c, bot.user_id, asset_id, now.date_naive(), now)? } else { None };
-    // `claim[:previous]&.iso8601`: the stored deadline as Rails' ISO 8601 (UTC, `Z`).
+    // `claim[:previous]&.iso8601`: the stored deadline as 2.x's ISO 8601 (UTC, `Z`).
     let previous = match claim.as_ref().and_then(|c| c.previous.as_deref()) {
         Some(p) => json!(crate::codec::parse_time(p).map_err(EngineError::Arithmetic)?.format("%Y-%m-%dT%H:%M:%SZ").to_string()),
         None => serde_json::Value::Null,
@@ -176,7 +176,7 @@ pub fn claim_rebalance_sell(c: &Connection, bot: &Bot, asset_id: i64, loss: bool
                                                 (REBALANCE_LOCKED_ASSET_ID, if loss { json!(asset_id) } else { serde_json::Value::Null })])
 }
 
-/// Whose claim a settlement settles: a composition sale's (from its intent), a rebalance sell's (from the bot's keys, Rails'
+/// Whose claim a settlement settles: a composition sale's (from its intent), a rebalance sell's (from the bot's keys, 2.x's
 /// own included), or none (a buy, a signal order).
 pub enum Holder<'a> { None, Composition(Option<&'a Held>), Liquidation(Option<&'a Held>), RebalanceSell }
 
@@ -189,11 +189,11 @@ pub enum Reason {
     /// rest of Exchange#ambiguous_placement_error? (Exchange#transient_error?'s text), which leaves the fate open.
     Rejected { safe: bool, unknown: bool },
     /// Proven never transmitted (a transport failure before the send, the send window, an order that could not be built):
-    /// Rails' re-raised Client::TransientNetworkError.
+    /// 2.x's re-raised Client::TransientNetworkError.
     PreTransmission,
     /// A rebalance sell sized under the venue minimum (#abandon_below_minimum!).
     BelowMinimum,
-    /// Recovery proved absence, or the operator resolved it not placed: what a Rails worker crash leaves.
+    /// Recovery proved absence, or the operator resolved it not placed: what a 2.x worker crash leaves.
     Absent,
     /// The dispatch was fenced before the send.
     Fenced,
@@ -203,14 +203,14 @@ pub enum Reason {
 
 /// The one settlement of a sale's claim, called from every point that settles a placement (placement::send,
 /// send_recorded, record_accepted_in, record_rejected_in, recover_since, resolve_by_operator; rebalance::settle; the
-/// rebalance below-minimum abandonment). Per kind, as Rails:
+/// rebalance below-minimum abandonment). Per kind, as 2.x:
 ///
 /// | holder | reason | lock |
 /// |---|---|---|
-/// | composition | Rejected, not `unknown` (Rails' `Failure`, order_setter.rb:83) | restore |
-/// | composition | PreTransmission (Rails re-raises; the composition does not rescue) | keep |
+/// | composition | Rejected, not `unknown` (2.x's `Failure`, order_setter.rb:83) | restore |
+/// | composition | PreTransmission (2.x re-raises; the composition does not rescue) | keep |
 /// | liquidation | Rejected `safe`, PreTransmission | restore |
-/// | rebalance sell | Rejected `safe`, PreTransmission, BelowMinimum (rebalancer.rb:239-247,282-301,307-319) | restore, clear the keys |
+/// | rebalance sell | Rejected `safe`, PreTransmission, BelowMinimum | restore, clear the keys |
 /// | rebalance sell | Rejected unsafe (the halt) | keep, keys stay |
 /// | any | Absent, Fenced, Ambiguous | keep |
 /// | any | Accepted | log `wash_sale_locked`; a rebalance sell clears its keys |
@@ -264,9 +264,9 @@ pub fn settle_claim(c: &Connection, bot_id: i64, holder: Holder<'_>, reason: Rea
     }
 }
 
-/// Rails' `loss_lot_by_transaction[id]` for one sale (measurable.rb:85-94): judged on the RAW proceeds the venue reported.
+/// 2.x's `loss_lot_by_transaction[id]` for one sale: judged on the RAW proceeds the venue reported.
 /// The figures walk judges a sale with none reported on `price × quantity` (RULING-B2B-1 MQ6, the normalized figures), so
-/// for such a sale the verdict is re-derived as Rails': unknown (None) against lots the bot owned when it sold, no loss
+/// for such a sale the verdict is re-derived as 2.x's: unknown (None) against lots the bot owned when it sold, no loss
 /// with none owned (#unpriced_sale_verdict), and unknown whenever the walk already said so (a shadowed holding).
 fn fill_verdict(c: &Connection, subject: &Subject, tx_id: i64, at: At) -> Result<Option<bool>, FiguresError> {
     let metrics = walk::metrics(c, subject, at)?;
@@ -345,7 +345,7 @@ mod tests {
     }
 
     /// The window by jurisdiction (US 30, GB 30, IE 28, blank → US, unknown → 0, rule off or undecided → 0); the deadline is
-    /// the start of day N+1 in UTC, written as Rails' text; a lock is live strictly before it.
+    /// the start of day N+1 in UTC, written as 2.x's text; a lock is live strictly before it.
     #[test]
     fn deadline_arithmetic_and_the_strict_boundary() {
         for (j, until) in [(Some("US"), "2026-10-21 00:00:00"), (Some("GB"), "2026-10-21 00:00:00"), (Some("IE"), "2026-10-19 00:00:00"), (Some(""), "2026-10-21 00:00:00"), (None, "2026-10-21 00:00:00")] {
@@ -439,7 +439,7 @@ mod tests {
         c.prepare("SELECT details FROM bot_activity_logs WHERE event = 'wash_sale_locked' ORDER BY id").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
     }
 
-    /// §6's table for a composition sale's claim: only Rails' `Failure` that is not ambiguous gives it back; accepted logs.
+    /// §6's table for a composition sale's claim: only 2.x's `Failure` that is not ambiguous gives it back; accepted logs.
     #[test]
     fn a_composition_claim_settles_by_its_reason() {
         let now = now("2026-09-20T12:00:00Z");
@@ -465,7 +465,7 @@ mod tests {
         assert_eq!(logged(&c).len(), 1, "no claim, nothing logged");
     }
 
-    /// The rebalance sell's keys, as Rails writes them; §6's table over them; §7: the key's token is the row's while held.
+    /// The rebalance sell's keys, as 2.x writes them; §6's table over them; §7: the key's token is the row's while held.
     #[test]
     fn a_rebalance_claim_lives_in_v2_keys_and_settles_by_its_reason() {
         let now = now("2026-09-20T12:00:00Z");
@@ -486,7 +486,7 @@ mod tests {
             assert_eq!(REBALANCE_KEYS.iter().all(|k| transient(&c).get(*k).is_none()), cleared, "{reason:?}");
             assert_eq!(logged(&c).len(), usize::from(reason == Reason::Accepted), "{reason:?}");
         }
-        // Keys Rails wrote before a takeover are honoured; no asset key, nothing to do.
+        // Keys 2.x wrote before a takeover are honoured; no asset key, nothing to do.
         let c = db(Some(true), None);
         set(&c, Some("2026-10-21 00:00:00"), Some("2026-09-01 00:00:00"));
         c.execute("UPDATE wash_sale_locks SET claim_token = 'railstoken000001'", []).unwrap();
@@ -527,7 +527,7 @@ mod tests {
         assert_ne!(first.claim.token, second);
         settle_claim(&c, 1, Holder::Composition(Some(&first)), Reason::Rejected { safe: false, unknown: false }, now).unwrap();
         assert_eq!((row(&c).0.as_deref(), row(&c).2), (Some("2026-10-21 00:00:00"), Some(second)), "the second claim stands");
-        // Below minimum (rebalancer.rb:307): an expired lock with a token is claimed (token replaced), then restored (cleared).
+        // Below minimum: an expired lock with a token is claimed (token replaced), then restored (cleared).
         let c = db(Some(true), None);
         set(&c, Some("2026-08-01 00:00:00"), Some("2026-08-01 00:00:00"));
         c.execute("UPDATE wash_sale_locks SET claim_token = 'expiredtoken0001'", []).unwrap();

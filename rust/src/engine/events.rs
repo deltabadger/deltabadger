@@ -6,37 +6,37 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum EngineEvent {
-    /// First own tick, all own rows skipped: Rails modal notification, after row commits.
+    /// First own tick, all own rows skipped: 2.x modal notification, after row commits.
     BelowMinimum { bot_id: i64, transaction_ids: Vec<i64> },
-    /// A `transactions` row this engine inserted (submitted, failed or skipped) or recovered: what Rails' Transaction
+    /// A `transactions` row this engine inserted (submitted, failed or skipped) or recovered: what 2.x's Transaction
     /// after_create_commit hears, which enqueues AccountTransaction::SyncJob for the bot's trading key
-    /// (app/models/transaction.rb:17-21).
+    ///.
     OrderRecorded { bot_id: i64, transaction_id: i64 },
     /// A tick or a follow-up poll of this bot ran, and may have written its orders (a fill, a cancel, an order found
-    /// abandoned): what Rails' Transaction after_update_commit hears, which broadcasts the row and, through
-    /// Bot::UpdateMetricsJob, the bot's figures (app/models/transaction.rb:22-25). Sent after every tick and every poll,
+    /// abandoned): what 2.x's Transaction after_update_commit hears, which broadcasts the row and, through
+    /// Bot::UpdateMetricsJob, the bot's figures. Sent after every tick and every poll,
     /// on success and on error, with nothing read to decide: a spurious one costs a coalesced publication, and none can
     /// be lost. Only the figures service hears it.
     OrderUpdated { bot_id: i64 },
-    /// The engine stamped `bots.last_end_of_funds_notification` where Rails sends BotAlertsMailer#end_of_funds and left the
+    /// The engine stamped `bots.last_end_of_funds_notification` where 2.x sends BotAlertsMailer#end_of_funds and left the
     /// funds mail marker with it: the daily budget per (user, quote asset) was free and is now spent (Bot::Fundable,
     /// Bot::Failable#record_failure!). The mail service's wake.
     FundsLow { bot_id: i64, user_id: i64, quote_asset_id: Option<i64> },
-    /// The engine changed the bot's status with an `update!` in Rails: a tick's claim (`executing`,
-    /// Statusable#transition_working!) or a follow-up fill's amount-limit stop (Bot::StopJob → Bot#stop). Rails'
+    /// The engine changed the bot's status with an `update!` in 2.x: a tick's claim (`executing`,
+    /// Statusable#transition_working!) or a follow-up fill's amount-limit stop (Bot::StopJob → Bot#stop). 2.x's
     /// after_update_commit on the status broadcasts its status and progress bars, its two Start/Stop buttons and the
-    /// columns lock (app/models/bot.rb:38-40).
+    /// columns lock.
     StatusChanged { bot_id: i64 },
     /// A condition flipped this basket: redraw its settings and metrics panels.
     Reversed { bot_id: i64 },
-    /// A tick of this bot ended, whatever it did: Rails broadcasts its bars from the job's rescue and from
-    /// Bot::BroadcastAfterScheduledActionJob once the next tick is enqueued (app/jobs/bot/action_job.rb).
+    /// A tick of this bot ended, whatever it did: 2.x broadcasts its bars from the job's rescue and from
+    /// Bot::BroadcastAfterScheduledActionJob once the next tick is enqueued.
     TickEnded { bot_id: i64 },
     /// A poll (a follow-up or a tick's sweep) or a reversal's cancel wrote this order (Transaction after_update_commit → Bot#broadcast_updated_order,
     /// app/models/transaction.rb:22).
     OrderWritten { bot_id: i64, transaction_id: i64 },
     /// A signal bot's marker of an order of unknown fate was set or lifted (Bots::Signal#mark_placement_unresolved! and
-    /// the recovery that settles its intent): Rails redraws bots/signals/_unresolved_placement on the bot's page
+    /// the recovery that settles its intent): 2.x redraws bots/signals/_unresolved_placement on the bot's page
     /// (Bots::Signal#broadcast_unresolved_placement).
     SignalMarkerChanged { bot_id: i64 },
     /// The status line of a trigger rule has an answer (Bot#broadcast_price_limit_info_update): the engine served the page's
@@ -46,7 +46,7 @@ pub enum EngineEvent {
     ConditionInfo { bot_id: i64, rule: &'static str, side: &'static str, locale: Option<String> },
     /// A sell of this bot was written closed, or cancelled with a fill, its status or executed figures changed (polling::apply_in):
     /// Transaction's after_commit, which enqueues AccountTransaction::SyncJob for the bot's trading key
-    /// (app/models/transaction.rb:50-56), so the ledger arms a wash-sale lock for a sale that filled after it was placed.
+    ///, so the ledger arms a wash-sale lock for a sale that filled after it was placed.
     SaleSettled { bot_id: i64 },
     /// An index bot's tick or composition resync was refused, or would be, because the index it follows has no usable
     /// ranking (index::ranking_wanted): the INDICES job's wake (PLAN-A17 A17-4 item 3), once per (external id, provider

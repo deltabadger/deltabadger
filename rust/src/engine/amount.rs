@@ -49,7 +49,7 @@ impl Origin {
 }
 
 /// The transaction kinds the engine writes. A REBALANCE order is not a contribution: its rows stay out of the DCA carry, the
-/// spend cap and the intent's pending-buy spending (Rails scopes them all to 'REGULAR').
+/// spend cap and the intent's pending-buy spending (2.x scopes them all to 'REGULAR').
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TxKind { Regular, Rebalance, Liquidation, Redeploy }
 
@@ -63,7 +63,7 @@ pub enum Sizing { Nothing, Ignored(OrderPlan), BelowMinimum(OrderPlan), Place(Or
 
 /// Bot::OrderSetter#order_price for a buy: a limit buy goes below the last trade, put on the venue's tick
 /// (Ticker#adjusted_price, floor); a market buy is the ask itself, unadjusted. The split values holdings at this price too.
-/// `Err` only where Rails' adjusted_price raises (`VenueRules::adjusted_price`), which eligibility refuses before any tick.
+/// `Err` only where 2.x's adjusted_price raises (`VenueRules::adjusted_price`), which eligibility refuses before any tick.
 pub fn order_price(bot: &Bot, ticker: &Ticker, reference: &BigDec, rules: &VenueRules) -> Result<BigDec, EngineError> { side_price(bot, ticker, reference, Side::Buy, rules) }
 
 /// Bot::OrderSetter#order_price for either side: a limit sell goes ABOVE the last trade, `adjusted_price(reference × (1 + d))`
@@ -77,7 +77,7 @@ pub fn side_price(bot: &Bot, ticker: &Ticker, reference: &BigDec, side: Side, ru
 
 /// set_orders for one sell order (Bot::Composition::OrderSetter#sell_order_data, then #calculate_best_amount_info): `amount`
 /// is the base to sell (already `min(wanted, free)`), `price` the order price (`side_price`). Sells always size in base under
-/// :base_and_quote_in_base, whatever the venue's buy table (order_setter.rb:29-31): the quote minimum in base rounded UP to
+/// :base_and_quote_in_base, whatever the venue's buy table: the quote minimum in base rounded UP to
 /// base_decimals, against the base floored DOWN. An exactly zero amount is `Ignored` (order_ignored) before the minimums; a
 /// positive one that floors to zero is below the minimum (a skipped row).
 pub fn size_sell(bot: &Bot, ticker: &Ticker, amount: &BigDec, price: &BigDec) -> Result<Sizing, EngineError> {
@@ -119,7 +119,7 @@ pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, rules: &
 pub(crate) fn buy_minimum(ticker: &Ticker, price: &BigDec, rule: AmountLogic, quote: &BigDec, base: &BigDec) -> Result<(bool, bool), EngineError> {
     let (base_decimals, quote_decimals, _) = ticker.scales().map_err(EngineError::Data)?;
     Ok(match rule {
-        // :quote (Alpaca), both floors against the order as it is sent (`quote_sized_wire`). D-ALPACA-BASE-FLOOR: Rails
+        // :quote (Alpaca), both floors against the order as it is sent (`quote_sized_wire`). D-ALPACA-BASE-FLOOR: 2.x
         // compares only the floored quote with minimum_quote_size, sends a market notional under minimum_base_size, and fails
         // a limit qty under it at placement (Exchange#limit_buy); Rust skips both as below the minimum.
         AmountLogic::Quote => (true, *quote < ticker.minimum_quote_size || *base < ticker.minimum_base_size),
@@ -201,7 +201,7 @@ impl OrderPlan {
     }
 
     /// Exchange#limit_buy: a limit quantity (a quote volume floored, divided by the floored price, floored to base_decimals)
-    /// that is zero or under minimum_base_size is refused before anything is sent, with Rails' message. A backstop: a sized
+    /// that is zero or under minimum_base_size is refused before anything is sent, with 2.x's message. A backstop: a sized
     /// buy under minimum_base_size is skipped before it gets here (D-ALPACA-BASE-FLOOR, `buy_minimum`).
     pub fn limit_refusal(&self) -> Result<Option<String>, String> {
         if !self.limit { return Ok(None); }
@@ -243,7 +243,7 @@ impl OrderPlan {
             WireFormat::Alpaca => (OrderKind::Market,
                 wire_decimal(&self.volume, if self.quote_type { quote_decimals } else { base_decimals }), self.quote_type),
             WireFormat::Bitget => {
-                // Exchange#market_price_for: the touch the order was sized at (Rails re-reads it through its 5-second
+                // Exchange#market_price_for: the touch the order was sized at (2.x re-reads it through its 5-second
                 // cache), floored to the tick. Persisted with the plan, so a recovery sends exactly this.
                 let touch = self.price.floor(price_decimals);
                 let zero = || "a zero Bitget price to convert at".to_string();
@@ -287,7 +287,7 @@ fn limit_below_minimum(t: &Ticker, qty: &BigDec) -> Option<String> {
 /// PLAN-A9 O4 r0 §2.4, r1 §3: Exchange#place_limit_order for a standalone limit order. The price on the venue's tick
 /// (`VenueRules::adjusted_price`, floor: Hyperliquid's significant figures too), refused unless positive; the amount
 /// floored in its own denomination; a quote amount becomes base at that price, floored; zero or under the base minimum
-/// is refused. Always sent in base (`set_limit_order` takes a base amount). `Err`: Rails' text, nothing sent.
+/// is refused. Always sent in base (`set_limit_order` takes a base amount). `Err`: 2.x's text, nothing sent.
 pub fn limit_order(ticker: &Ticker, rules: &VenueRules, side: Side, amount: &BigDec, in_quote: bool, price: &BigDec) -> Result<OrderPlan, String> {
     let (base_decimals, quote_decimals, _) = ticker.scales()?;
     let price = rules.adjusted_price(price, ticker, Rounding::Floor)?;
@@ -299,10 +299,10 @@ pub fn limit_order(ticker: &Ticker, rules: &VenueRules, side: Side, amount: &Big
                    kind: TxKind::Regular, origin: Origin::Base, wire_price: None })
 }
 
-/// How a standalone market order reaches each venue (PLAN-A9 O4 r4 §2): what a Rails adapter refuses before sending,
+/// How a standalone market order reaches each venue (PLAN-A9 O4 r4 §2): what a 2.x adapter refuses before sending,
 /// and whether the order needs the touch (`market_price_for`) to be sent.
 pub enum MarketWire {
-    /// Rails' adapter raises before sending (D-ORDER-KRAKEN-QUOTE-SELL); the text.
+    /// 2.x's adapter raises before sending (D-ORDER-KRAKEN-QUOTE-SELL); the text.
     Refused(&'static str),
     /// Sent in the caller's denomination with no read.
     Direct,
@@ -322,7 +322,7 @@ pub fn market_wire(rules: &VenueRules, side: Side, in_base: bool) -> MarketWire 
 
 /// The standalone market plan (PLAN-A9 O4 r1 §2): the caller's amount in its own denomination (`in_denomination`), no
 /// minimum and no balance. Where the adapter has no wire field for that denomination it is converted as that venue's
-/// Rails `set_market_order` converts: Bitrue and the crossing venues to base at `touch` (the ask for a buy, the bid for a
+/// 2.x `set_market_order` converts: Bitrue and the crossing venues to base at `touch` (the ask for a buy, the bid for a
 /// sell; crossed already on Gemini and Hyperliquid), floored to base_decimals; Bitget by its wire format (`to_order`,
 /// at the floored touch). `touch`: `market_price_read`'s price where `market_wire` is `Priced`.
 pub fn market_order(ticker: &Ticker, rules: &VenueRules, side: Side, amount: &BigDec, in_base: bool, touch: Option<&BigDec>) -> Result<OrderPlan, String> {
@@ -378,7 +378,7 @@ fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind
     // A signal bot has no schedule: Bot::OrderCreator#order_identity_values leaves the two columns at their defaults.
     // D-SELL-ROW-CADENCE: a selling bot's sell row records the sell cadence (sell_interval, else interval) and what the
     // tick sells in quote: the quote to sell for, or the base amount (after the Smart Intervals split) × the sizing price
-    // `plan.price`, as size_sell values it. Rails writes the buy interval and buy quote_amount.
+    // `plan.price`, as size_sell values it. 2.x writes the buy interval and buy quote_amount.
     let selling = bot.bot_type != super::model::SIGNAL_TYPE && bot.selling() && plan.side == crate::venue::Side::Sell;
     let bot_quote_amount = if bot.bot_type == super::model::SIGNAL_TYPE { BigDec::zero() }
         else if selling { match bot.sell_amounts() { (Some(base), _) => &base * &plan.price, (None, quote) => quote } }
@@ -413,10 +413,10 @@ pub fn write_unsized_failure(c: &Connection, bot: &Bot, ticker: &Ticker, side: S
 }
 
 /// Bot::Startable#disable_starting_time!, which Bot::ActionJob runs after a clean run of a bot whose starting time is on
-/// (action_job.rb:139). The flag and updated_at only (update_columns): no carry capture, the carry window
+///. The flag and updated_at only (update_columns): no carry capture, the carry window
 /// (settings_changed_at) stays where it was, and an order of the first run still open counts later at what it fills.
 /// D-START-ANCHOR-STARTED: a started bot is anchored on started_at whatever start_at holds, so the schedule never moved and
-/// there is nothing to capture; Rails' other branch (a start_at that is not started_at: set_missed_quote_amount + save!,
+/// there is nothing to capture; 2.x's other branch (a start_at that is not started_at: set_missed_quote_amount + save!,
 /// which closes the window over the first order) is not ported. No-op when the rule is off.
 pub fn disable_starting_time(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
     super::model::locked(c, |c| disable_locked(c, &super::model::load_bot(c, bot_id)?, now))

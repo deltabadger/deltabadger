@@ -1,5 +1,5 @@
 //! R6: the single monetary accounting boundary for engine, settings, start and preview.
-//! Fill reads go through figures::fill. Adapters select a window and preserve Ruby numeric
+//! Fill reads go through figures::fill. Adapters select a window and preserve 2.x numeric
 //! classes; spent, pending, compensated cap buckets and the exact-cost guard live only here.
 use super::{model::Bot, amount::OrderPlan, EngineError};
 use super::schedule::{checkpoints, effective, interval_count, Effective};
@@ -101,16 +101,16 @@ fn pending_window(amount: Num, count: i64, carry: Num, rows: &[Commitment]) -> R
     Ok(if pending.is_negative() { Num::Int(0) } else { pending })
 }
 
-/// Ruby's min keeps the first operand and its class on ties.
+/// 2.x's min keeps the first operand and its class on ties.
 pub(crate) fn minimum(a: Num, b: Num) -> Result<Num, EngineError> {
     if b.sub(&a).map_err(EngineError::Arithmetic)?.is_negative() { Ok(b) } else { Ok(a) }
 }
-/// A carry as transient_data's JSON holds it after Rails writes it: a BigDecimal as its text, an Integer or Float as a number.
+/// A carry as transient_data's JSON holds it after 2.x writes it: a BigDecimal as its text, an Integer or Float as a number.
 pub(crate) fn serialized(value: Num) -> Result<Value, EngineError> {
     bounded_num(&value)?;
     Ok(match value { Num::Int(n) => json!(n), Num::Float(n) => json!(n), Num::Dec(n) => json!(n.to_s_f()) })
 }
-/// Bot::Accountable#pending_quote_amount as Rails has it since its fill-credit fix (#448): what the bot owes since the
+/// Bot::Accountable#pending_quote_amount as 2.x has it since its fill-credit fix (#448): what the bot owes since the
 /// window opened, minus every submitted REGULAR buy in the window, read in ONE statement, so a row that changes state
 /// between reads is counted once. Settled: its accepted normalized value. Open or unknown: its submitted quote, or amount × price
 /// (#invested_quote). Cancelled or abandoned: normalized execution before it stopped; no execution credits zero.
@@ -123,9 +123,9 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
 /// The trigger rules' `started_at` decorator on the active side (price_limitable.rb:106-115 and its three siblings, the
 /// `active_*` keys): for each rule of that side that is on (`== true`) with the `pause` action, the later of started_at and
 /// its `*_condition_met_at`, nil while one is unmet. Every reader shares it: the engine's carry and gate, the web's preview,
-/// the MCP read. Only a rule that `conditions::decorates` for `kind`: one this engine runs, or a basket's that Rails reads
+/// the MCP read. Only a rule that `conditions::decorates` for `kind`: one this engine runs, or a basket's that 2.x reads
 /// (eligibility refuses those). D-FLIP-UNMET-KEEPS-BUYING: a flip rule (`start_selling` / `start_buying`) never decorates;
-/// Rails' does, so an unmet buy-side flip rule buys nothing there until it is met.
+/// 2.x's does, so an unmet buy-side flip rule buys nothing there until it is met.
 pub fn condition_started_at(kind: Kind, settings: &serde_json::Map<String, Value>, transient: &serde_json::Map<String, Value>, started: Option<i64>, selling: bool) -> Result<Option<i64>, EngineError> {
     use super::conditions::{self, TRIGGERS};
     let side = if selling { "sell_" } else { "" };
@@ -142,7 +142,7 @@ pub fn condition_started_at(kind: Kind, settings: &serde_json::Map<String, Value
     Ok(started)
 }
 
-/// pending_quote_amount in Ruby's own class (Integer 0, or the Integer, Float or BigDecimal the arithmetic gives): what
+/// pending_quote_amount in 2.x's own class (Integer 0, or the Integer, Float or BigDecimal the arithmetic gives): what
 /// set_missed_quote_amount stores.
 pub fn pending_quote_amount_num(c: &Connection, bot: &Bot, now_us: i64) -> Result<Num, EngineError> {
     pending_quote_amount_plus(c, bot, now_us, None)
@@ -154,13 +154,13 @@ pub fn pending_quote_amount_num(c: &Connection, bot: &Bot, now_us: i64) -> Resul
 pub fn pending_quote_amount_plus(c: &Connection, bot: &Bot, now_us: i64, extra: Option<(&str, &BigDec)>) -> Result<Num, EngineError> {
     validate_stored_amounts(&bot.settings, &bot.transient)?;
     if bot.status == BotStatus::Deleted { return Ok(Num::Int(0)); }
-    // While selling the buy carry is frozen: the stored missed_quote_amount, before the started_at guard (accountable.rb:27).
+    // While selling the buy carry is frozen: the stored missed_quote_amount, before the started_at guard.
     if bot.selling() { return carry_num(bot.transient.get("missed_quote_amount")); }
     let Some(started) = bot.started_at_us()? else { return Ok(Num::Int(0)) };
-    // A price rule that is on and unmet: started_at reads nil, and nothing is owed (accountable.rb:29).
+    // A price rule that is on and unmet: started_at reads nil, and nothing is owed.
     if bot.condition_started_us()?.is_none() { return Ok(Num::Int(0)); }
     let since = bot.calc_since_us()?.ok_or_else(super::schedule::time_range_error)?;
-    // Rails binds a Time as its quoted_date text and SQLite compares text: bind the same text.
+    // 2.x binds a Time as its quoted_date text and SQLite compares text: bind the same text.
     let since_text = format_time(at(since)?);
 
     let mut rows = crate::figures::fill::commitments(c,bot.id,&since_text).map_err(data)?;
@@ -182,7 +182,7 @@ pub fn pending_quote_amount_plus(c: &Connection, bot: &Bot, now_us: i64, extra: 
 /// always false there (only a fresh start computes a start time), so the bot runs at once unless #restarting_within_interval?:
 /// it had ticked (last_action_job_at is set) and what it owes, capped as QuoteAmountLimitable caps it, is under one
 /// `effective_quote_amount` (a smart split's amount when the split is on). A selling bot's carry is frozen, so it compares
-/// the time since its last tick with the sell cadence instead (lifecycle.rb:151): within one interval it waits.
+/// the time since its last tick with the sell cadence instead: within one interval it waits.
 pub fn continue_runs_now(c: &Connection, bot: &Bot, now_us: i64) -> Result<bool, EngineError> {
     let Some(last) = bot.last_action_job_at_us()? else { return Ok(true) };
     if bot.selling() {
@@ -194,22 +194,22 @@ pub fn continue_runs_now(c: &Connection, bot: &Bot, now_us: i64) -> Result<bool,
     Ok(owed >= bot.effective_quote_amount_num()?.to_dec().map_err(data)?)
 }
 
-/// Bot::QuoteAmountLimitable#quote_amount_available_before_limit_reached (quote_amount_limitable.rb:50-79), with one stricter
+/// Bot::QuoteAmountLimitable#quote_amount_available_before_limit_reached, with one stricter
 /// term: an unresolved placement intent counts as spent at its full quote until it is settled.
 /// None = no cap (the limit is off). Since the stamp (`created_at >= quote_amount_limit_enabled_at`; an unset stamp matches
 /// nothing), submitted REGULAR buys count: closed at their executed quote, waiting at their submitted quote (or
 /// amount × price), cancelled or abandoned at what they executed. Failed and skipped rows, sells and other types do not.
 ///
-/// Computed with Ruby's own numerics: the closed and waiting buckets are BigDecimal (decimal columns); the
+/// Computed with 2.x's own numerics: the closed and waiting buckets are BigDecimal (decimal columns); the
 /// stopped bucket is `pluck(Arel.sql('COALESCE(quote_amount_exec, 0)'))`, SQLite's own INTEGER or REAL; each bucket is an
 /// Array#sum in row order, the buckets are added closed + waiting + stopped, and the limit is the settings' Integer or Float.
-/// So a Float leaks in where Rails' does: cap 60.03 with one cancelled fill of 60.02 leaves 0.00999999999999801.
+/// So a Float leaks in where 2.x's does: cap 60.03 with one cancelled fill of 60.02 leaves 0.00999999999999801.
 pub fn quote_amount_available_num(c: &Connection, bot: &Bot) -> Result<Option<Num>, EngineError> {
     Ok(engine_cap(c, bot, None)?.0)
 }
 
 /// RULING-B2A-R1b/R1c: the ONLY cap Float arithmetic boundary. Preserve SQL numeric kinds,
-/// Ruby Array#sum, operand coercion and Float comparison. Sizing receives Float#to_d via to_dec.
+/// 2.x Array#sum, operand coercion and Float comparison. Sizing receives Float#to_d via to_dec.
 /// Exact normalized availability is checked separately under the placement write lock.
 fn v2_cap_availability(limit: Num, rows: &[Commitment], intent: Option<BigDec>, precision: Option<i64>) -> Result<(Num, bool), EngineError> {
         bounded_num(&limit)?;
@@ -264,7 +264,7 @@ fn engine_cap(c: &Connection, bot: &Bot, precision: Option<i64>) -> Result<(Opti
     Ok((Some(left), reached))
 }
 
-/// `quote_amount_available_num` as the BigDecimal the engine sizes with (a Float as Float#to_d, which is what Rails' next
+/// `quote_amount_available_num` as the BigDecimal the engine sizes with (a Float as Float#to_d, which is what 2.x's next
 /// BigDecimal operation makes of it).
 pub fn quote_amount_available(c: &Connection, bot: &Bot) -> Result<Option<BigDec>, EngineError> {
     quote_amount_available_num(c, bot)?.map(|n| n.to_dec().map_err(data)).transpose()
@@ -276,7 +276,7 @@ pub fn quote_amount_available(c: &Connection, bot: &Bot) -> Result<Option<BigDec
 pub fn quote_amount_limit_reached(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
     if !bot.quote_amount_limited() { return Ok(false); }
     let Some(d) = tickers_min_decimals(c, bot, "quote_decimals")? else { return Ok(false) };
-    // `1.0 / (10**d)`: a Float, compared as Ruby compares the remainder's own class with it.
+    // `1.0 / (10**d)`: a Float, compared as 2.x compares the remainder's own class with it.
     Ok(engine_cap(c, bot, Some(d))?.1)
 }
 
@@ -291,7 +291,7 @@ fn tickers_min_decimals(c: &Connection, bot: &Bot, column: &'static str) -> Resu
         params![bot.exchange_id, bot.quote_asset_id(), serde_json::to_string(&assets).map_err(data)?], |r| r.get(0))?)
 }
 
-/// Bot::BaseAmountLimitable#base_amount_available_before_limit_reached and #base_amount_limit_reached?, with Ruby's numerics
+/// Bot::BaseAmountLimitable#base_amount_available_before_limit_reached and #base_amount_limit_reached?, with 2.x's numerics
 /// (`v2_cap_availability`'s buckets, the rows from `fill::sold_commitments`): `base_amount_limit.to_d` less closed +
 /// waiting + stopped, floored at 0, and reached under `1.0 / 10**min(base_decimals)`. An unresolved REGULAR sell intent is
 /// counted at its amount, as an unresolved buy is in the quote cap. The engine and the web's start validation both read it.
@@ -314,7 +314,7 @@ fn sell_intent_base(intent: Option<&Value>) -> Result<Option<BigDec>, EngineErro
 pub const BASIS_KEY: &str = "rust_base_cap_basis";
 
 /// What a tally does when a split of an asset it counts cannot be sized: the sell refuses (never unbounded), a stop or start
-/// decision reads Rails' as-traded count, the page shows nothing.
+/// decision reads 2.x's as-traded count, the page shows nothing.
 #[derive(Clone, Copy, PartialEq)]
 enum Unknown { Refuse, AsTraded, Hide }
 
@@ -371,7 +371,7 @@ pub(crate) fn cap_pairs(c: &Connection, bot: &Bot) -> Result<Option<Vec<(i64, i6
     Ok(Some(pairs_of(&engine_owner(bot)?, &sold, bot.rust_placement().as_ref())?))
 }
 
-/// F_cap: the factor the typed cap is multiplied by. A valid basis (same enable cycle, the same number by Ruby's numeric
+/// F_cap: the factor the typed cap is multiplied by. A valid basis (same enable cycle, the same number by 2.x's numeric
 /// equality, the same asset) gives its instant. Otherwise the number was typed at some instant in [stamp, u], u being
 /// settings_changed_at when at or after the stamp, else `now` (no stamp: from the beginning); the least reading over it, so
 /// the cap is never larger than any reading the history allows.
@@ -396,8 +396,8 @@ fn cap_factor(owner: &CapOwner, splits: &super::splits::CapSplits, asset: i64, b
 }
 
 /// Bot::BaseAmountLimitable's tally with D-SPLIT-BASE-CAP: the typed cap and every counted sale in today's shares at `now`
-/// (`left = L × F_cap − Σ c_i × F_i(t_i)`), then Rails' numerics (`base_cap`). A factor of 1 leaves a value and its Ruby
-/// class untouched, so with no split this is Rails' number bit for bit. `basis_at`: the save's own new basis (the start
+/// (`left = L × F_cap − Σ c_i × F_i(t_i)`), then 2.x's numerics (`base_cap`). A factor of 1 leaves a value and its 2.x
+/// class untouched, so with no split this is 2.x's number bit for bit. `basis_at`: the save's own new basis (the start
 /// validation of a save that writes one). None only for `Unknown::Hide` with an unresolved split.
 #[allow(clippy::too_many_arguments)]
 fn restated(c: &Connection, owner: &CapOwner, limit: Num, mut sold: Vec<crate::figures::fill::Sold>, intent: Option<&Value>, settled: bool,
@@ -443,15 +443,15 @@ fn engine_base_cap(c: &Connection, bot: &Bot, decimals: Option<i64>, settled: bo
     Ok((Some(left), reached))
 }
 
-/// What the base cap leaves at `now`, in today's shares (D-SPLIT-BASE-CAP), as Ruby's numerics leave it; None when it is off
-/// (Rails' Float::INFINITY). Err while a split it counts cannot be sized: unknown is never read as unbounded.
+/// What the base cap leaves at `now`, in today's shares (D-SPLIT-BASE-CAP), as 2.x's numerics leave it; None when it is off
+/// (2.x's Float::INFINITY). Err while a split it counts cannot be sized: unknown is never read as unbounded.
 pub fn base_amount_available_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Num>, EngineError> {
     Ok(engine_base_cap(c, bot, None, false, now, Unknown::Refuse)?.0)
 }
 /// `base_amount_available_at` now (tests and tools with no clock of their own).
 pub fn base_amount_available_num(c: &Connection, bot: &Bot) -> Result<Option<Num>, EngineError> { base_amount_available_at(c, bot, Utc::now()) }
 
-/// Restated at `now`; with a split it cannot size, decided on Rails' as-traded count, so a stop is never lost to unknown.
+/// Restated at `now`; with a split it cannot size, decided on 2.x's as-traded count, so a stop is never lost to unknown.
 pub fn base_amount_limit_reached_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<bool, EngineError> { base_reached(c, bot, false, now) }
 pub fn base_amount_limit_reached(c: &Connection, bot: &Bot) -> Result<bool, EngineError> { base_reached(c, bot, false, Utc::now()) }
 
@@ -465,7 +465,7 @@ fn base_reached(c: &Connection, bot: &Bot, settled: bool, now: DateTime<Utc>) ->
 }
 
 /// R1c order safety: exact cap minus exact normalized commitments, including unresolved intent.
-/// The JSON decimal spelling is used here, never the Rails Float-to-decimal approximation of the cap.
+/// The JSON decimal spelling is used here, never the 2.x Float-to-decimal approximation of the cap.
 pub fn exact_cap_available(c: &Connection, bot: &Bot) -> Result<Option<BigDec>, EngineError> {
     validate_stored_amounts(&bot.settings, &bot.transient)?;
     if !bot.quote_amount_limited() { return Ok(None); }
@@ -487,7 +487,7 @@ pub fn exact_cap_available(c: &Connection, bot: &Bot) -> Result<Option<BigDec>, 
 pub enum CapGuard { Place(OrderPlan), BelowMinimum(OrderPlan) }
 
 /// RULING-B2A-R2: compare the EXACT cost after venue quantization, never rounded division or cents.
-/// A safe order retains Rails' entire sizing/minimum decision. Only an actual reduction checks a minimum.
+/// A safe order retains 2.x's entire sizing/minimum decision. Only an actual reduction checks a minimum.
 /// At most four venue increments may be removed; a larger change refuses with a reason, under the intent lock.
 /// Only a REGULAR buy spends the DCA cap: a REBALANCE buy (an owed swap leg, even on a stopped bot whose cap is spent) passes.
 pub fn guard_exact_cap(c: &Connection, bot: &Bot, plan: &OrderPlan) -> Result<CapGuard, EngineError> {
@@ -672,7 +672,7 @@ pub fn smart_interval_minimum(bot: &WebBot) -> start::Minimum {
 }
 
 /// Bot::SmartIntervalable#initialize_smart_intervalable_settings: the amount a row without one is
-/// given on load. `[quote_amount / 10, minimum * 10].max.round(decimals).to_f`, in Ruby's classes:
+/// given on load. `[quote_amount / 10, minimum * 10].max.round(decimals).to_f`, in 2.x's classes:
 /// an Integer amount divides as an Integer (25 / 10 is 2). `None` without an amount or a ticker.
 pub fn default_smart_interval_quote_amount(bot: &WebBot) -> Option<f64> {
     let decimals = bot.tickers.iter().map(|ticker| ticker.quote_decimals).min()?;
@@ -696,12 +696,12 @@ pub(crate) fn round_up(value: f64, scale: f64) -> f64 {
 
 /// validate_base_amount_limit_not_reached on the start: the engine's tally (`base_cap`, restated) on the candidate's limit,
 /// stamp, intent and tickers; `basis_at` is the save's own new basis when the save writes one. With a split it cannot size,
-/// Rails' as-traded count. A limit that is not a number is Rails' blank (Float::INFINITY): never reached.
+/// 2.x's as-traded count. A limit that is not a number is 2.x's blank (Float::INFINITY): never reached.
 pub fn web_base_cap_reached(c: &Connection, bot: &WebBot, now: DateTime<Utc>, basis_at: Option<DateTime<Utc>>) -> Result<bool, WebError> {
     Ok(web_tally(c, bot, now, basis_at.map(|t| t.timestamp_micros()), Unknown::AsTraded)?.is_some_and(|(_, reached)| reached))
 }
 
-/// The same tally for the settings page (bots/settings/_amount_limit_info): what is left at `now` in today's shares, as Ruby's
+/// The same tally for the settings page (bots/settings/_amount_limit_info): what is left at `now` in today's shares, as 2.x's
 /// numerics leave it, and whether that is reached. None for a limit that is not a number, or while a split it counts cannot
 /// be sized (the page then shows no "left" line).
 pub fn web_base_cap(c: &Connection, bot: &WebBot, now: DateTime<Utc>) -> Result<Option<(WebNum, bool)>, WebError> {
@@ -720,9 +720,9 @@ fn web_tally(c: &Connection, bot: &WebBot, now: DateTime<Utc>, basis_at: Option<
     Ok(restated(c, &owner, core(limit), sold, bot.transient.get("rust_placement"), false, decimals, now, basis_at, unknown)?.map(|(left, reached)| (view(left), reached)))
 }
 
-/// Bot::Fundable#required_balance_buffer: `quote_amount / interval_duration.to_f * 3.days.to_f`, the interval as Rails'
+/// Bot::Fundable#required_balance_buffer: `quote_amount / interval_duration.to_f * 3.days.to_f`, the interval as 2.x's
 /// ActiveSupport durations count it (a month is 2,629,746 s). Shared by the engine's check and the status bar's.
-/// D-FUNDS-BUFFER-CAP: Rails asks for 3 days of spend whatever the spending cap (fundable.rb:46), so a 2-hourly bot capped
+/// D-FUNDS-BUFFER-CAP: 2.x asks for 3 days of spend whatever the spending cap, so a 2-hourly bot capped
 /// at 20 was told to add 144. With the cap on, the buffer is no more than `cap_left`, what the cap still allows (0 once
 /// reached: never low; the bot stops on its cap with its own mail). None: no cap, or its spend unknown: the 3 days.
 pub fn funds_buffer(quote_amount: f64, interval: Option<&str>, cap_left: Option<BigDec>) -> Result<BigDec, EngineError> {
@@ -772,7 +772,7 @@ pub fn effective_interval(interval: super::schedule::Interval, quote_amount: f64
 }
 
 /// Redeployable#redeploy_banked and #redeploy_spent. Banked is only proceeds a LIQUIDATION reported (MQ6: an unpriced
-/// sale banks nothing, so no offer exceeds Rails'); spent is the normalized REDEPLOY buy value (B2-1/MQ7).
+/// sale banks nothing, so no offer exceeds 2.x's); spent is the normalized REDEPLOY buy value (B2-1/MQ7).
 pub fn index_redeploy_totals(orders: &[crate::figures::db::Order]) -> Result<(crate::figures::dec::Dec,crate::figures::dec::Dec),crate::figures::FiguresError> {
     use crate::figures::dec::Dec;
     let (mut banked,mut spent)=(Dec::zero(),Dec::zero());

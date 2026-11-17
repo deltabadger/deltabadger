@@ -1,4 +1,4 @@
-//! Rails-free proof that page formatting and terminal states retain the figures' budget in release.
+//! 2.x-free proof that page formatting and terminal states retain the figures' budget in release.
 use deltabadger::figures::{at::At,budget::{self,Limits,FIGURE},scripted::Scripted,FiguresError,OVER_BUDGET};
 use deltabadger::web::figure::{self,loading::{self,Snapshot}};
 use rusqlite::Connection;

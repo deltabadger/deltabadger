@@ -1,6 +1,6 @@
 //! PLAN-A9 O3: an order sent through MCP or the REST API naming a signal bot (D-ORDER-QUEUED). The web validates it, writes
 //! one `rust_api_orders` row (`queued`) and waits; the engine takes it at the start of a pass and between bots, places it
-//! through the bot (engine::signal::run_api_order) and answers it (`done`, `outcome`). Rails places it in the request
+//! through the bot (engine::signal::run_api_order) and answers it (`done`, `outcome`). 2.x places it in the request
 //! under the exchange's lease (BotApi::Orders::BotOrder); here a request never calls a venue, and a crash between send and
 //! record is the intent's recovery's, as for a webhook call.
 //!
@@ -31,7 +31,7 @@ pub const DRAIN: std::time::Duration = std::time::Duration::from_secs(10);
 /// How long an answered or withdrawn row nobody read stays.
 const KEEP_HOURS: i64 = 1;
 
-/// What the engine answers a request with (bot_api::orders maps each to Rails' result).
+/// What the engine answers a request with (bot_api::orders maps each to 2.x's result).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Outcome {
@@ -305,7 +305,7 @@ pub async fn place_standalone<V: crate::venue::Venue>(c: &Connection, venue: &V,
         Err(e) => return Err(e),
     }
     let Some(ticker) = model::ticker_by_id(c, s.exchange_id, s.ticker_id)? else { return late(c, request, clock) };
-    // 4. Sizing, as Rails' market_* / place_limit_order: no minimum, no balance.
+    // 4. Sizing, as 2.x's market_* / place_limit_order: no minimum, no balance.
     let rules = venue.rules();
     let in_base = request.in_base;
     let plan = if s.limit {
@@ -356,7 +356,7 @@ pub async fn place_standalone<V: crate::venue::Venue>(c: &Connection, venue: &V,
         (claimed, claimed_at)
     };
     if !claimed { return Ok(()); }
-    // 7. One send (Rails has no -1021 retry here), bounded; nothing leaves after `send_until` (r2). The commit may have
+    // 7. One send (2.x has no -1021 retry here), bounded; nothing leaves after `send_until` (r2). The commit may have
     // waited: past `send_until` now, nothing is sent and nothing was placed (send_to_venue's own fence on the bot path).
     let window = claimed_at.checked_add_signed(Duration::seconds(placement::SEND_WINDOW_SECONDS)).ok_or_else(super::schedule::time_range_error)?;
     let send_until = window.min(request.send_by);

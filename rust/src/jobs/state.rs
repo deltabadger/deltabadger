@@ -1,5 +1,5 @@
 //! Each job's last success and last error, durable across restarts, read by `deltabadger check` and by the engine's
-//! staleness refusal. Rails owns the schema until 3.0 (spec §2), and Plan 2 rules "no new tables or columns", so the state
+//! staleness refusal. 2.x owns the schema until 3.0 (spec §2), and Plan 2 rules "no new tables or columns", so the state
 //! is one `app_configs` row per job and scope: key `rust_job.<name>` (or `rust_job.<name>:<scope>` for a job registered
 //! once per scope, such as a ledger sync per API key), value plain JSON
 //! `{"last_run_at":"…Z","last_success_at":"…Z","last_error_at":"…Z","last_error":"…","rails_at":"…Z","incomplete_since":"…Z"}`.
@@ -11,7 +11,7 @@ use rusqlite::Connection;
 use serde_json::{json, Value};
 
 pub const PREFIX: &str = "rust_job.";
-/// As ApiKey's SYNC_ERROR_LIMIT (app/models/api_key.rb:83-87): a stored error is at most 200 characters.
+/// As ApiKey's SYNC_ERROR_LIMIT: a stored error is at most 200 characters.
 pub const ERROR_LIMIT: usize = 200;
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -23,7 +23,7 @@ pub struct JobState {
     pub last_success_at: Option<DateTime<Utc>>,
     pub last_error_at: Option<DateTime<Utc>>,
     pub last_error: Option<String>,
-    /// The newest stamp of the data this job refreshes, as Rails left it when this engine took the install over and
+    /// The newest stamp of the data this job refreshes, as 2.x left it when this engine took the install over and
     /// before any run of its own (Plan 2f P1-1): the freshness baseline until the job's first success here.
     pub rails_at: Option<DateTime<Utc>>,
     /// Set by a job before its first write unit, cleared only with `last_success_at` (Codex round 2): while it is set, some
@@ -136,7 +136,7 @@ pub fn record_error(c: &Connection, job: &str, scope: Option<&str>, at: DateTime
     write(c, job, scope, &s, at)
 }
 
-/// Creates the row with Rails' baseline (`rails_at`) when the job has none yet; an existing row is left alone (P1-1: once
+/// Creates the row with 2.x's baseline (`rails_at`) when the job has none yet; an existing row is left alone (P1-1: once
 /// this engine has run the job, only its completed runs count). True when it created the row.
 pub fn seed(c: &Connection, job: &str, rails_at: Option<DateTime<Utc>>, now: DateTime<Utc>) -> Result<bool, String> {
     if find(c, job, None)?.is_some() { return Ok(false); }

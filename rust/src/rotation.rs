@@ -1,5 +1,5 @@
-//! Secret rotation (PLAN-A29): Rails' `deltabadger:encryption:report`, `:reset` and `:derived_keys`
-//! (lib/tasks/encryption.rake) as `deltabadger encryption-report | encryption-reset | encryption-derived-keys`, and the
+//! Secret rotation (PLAN-A29): 2.x's `deltabadger:encryption:report`, `:reset` and `:derived_keys`
+//! as `deltabadger encryption-report | encryption-reset | encryption-derived-keys`, and the
 //! boot warnings of config/initializers/secret_key_base_guard.rb and encryption_key_check.rb. One list of published
 //! secrets and one exposure rule, used by the commands and by `run`/`serve`'s start.
 //!
@@ -21,7 +21,7 @@ pub const KNOWN_PLACEHOLDERS: [&str; 6] = ["dev-secret-key-not-for-production", 
 pub const MINIMUM_LENGTH: usize = 32;
 
 pub fn published(secret: &str) -> bool { KNOWN_PLACEHOLDERS.contains(&secret) }
-/// Ruby's String#length counts characters.
+/// 2.x's String#length counts characters.
 pub fn short(secret: &str) -> bool { secret.chars().count() < MINIMUM_LENGTH }
 
 fn present(env: Env, name: &str) -> Option<String> { env(name).filter(|v| !v.trim().is_empty()) }
@@ -46,7 +46,7 @@ pub fn warning_for(secret: &str, env: Env) -> Option<&'static str> {
     None
 }
 
-// Rails' four texts; the rake/compose/README lines rewritten for 3.0 (PLAN-A29 §7): the commands are `deltabadger
+// 2.x's four texts; the rake/compose/README lines rewritten for 3.0 (PLAN-A29 §7): the commands are `deltabadger
 // encryption-*`, the compose file has one service, and the README section is the manual page.
 pub const PUBLISHED_WARNING: &str = "\
 ================================ SECURITY WARNING ================================
@@ -260,7 +260,7 @@ pub const V2_SETTINGS: &[&str] = &["coingecko_api_key", "setup_sync_status", "ma
     "platform_connected_at", "registration_open", "smtp_provider", "smtp_username", "smtp_password", "smtp_host", "smtp_port"];
 const PROXY_PREFIX: &str = "proxy_";
 
-/// The app_configs rows the reset deletes (D-RESET-KEEPS-ENGINE-STATE): every encrypted row, and every Rails setting.
+/// The app_configs rows the reset deletes (D-RESET-KEEPS-ENGINE-STATE): every encrypted row, and every 2.x setting.
 /// The plain rows Rust keeps its own state in stay; the lease is rewritten instead (D-RESET-LEASE-PLAIN). Sorted.
 fn settings_reset(c: &Connection) -> rusqlite::Result<Vec<String>> {
     let mut s = c.prepare("SELECT key, value FROM app_configs ORDER BY key")?;
@@ -319,7 +319,7 @@ pub fn compromised(flag: bool, secret: &str, c: &Connection, cipher: &Cipher) ->
     Ok(flag || published(secret) || written_under_another_key(c, cipher)?)
 }
 
-/// encryption-report's text (Rails' report task; R1: `PUBLISHED=yes` → `--published`; R3: the owed list, when given).
+/// encryption-report's text (2.x's report task; R1: `PUBLISHED=yes` → `--published`; R3: the owed list, when given).
 pub fn report_text(inv: &Inventory, compromised: bool, owed: Option<&[String]>) -> String {
     let mut o = String::new();
     let mut p = |s: &str| { o.push_str(s); o.push('\n'); };
@@ -366,7 +366,7 @@ pub const OWED_NOT_CHECKED: &str = "Owed work wasn't checked because the app is 
 
 pub const CONFIRMATION: &str = "clear-credentials";
 
-/// Step 4 of the refusal without confirmation (Rails' revoke_step).
+/// Step 4 of the refusal without confirmation (2.x's revoke_step).
 fn revoke_step(compromised: bool) -> &'static str {
     if compromised {
         "REVOKE every credential it listed, at its source. Do not create\n     the replacements yet — there is nowhere to store them until\n     the app is running again."
@@ -383,7 +383,7 @@ fn storage(platform: Platform) -> &'static str {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Platform { Docker, Umbrel, Desktop }
 
-/// DELTABADGER_PLATFORM; unset or anything else is Docker, as Rails' text is.
+/// DELTABADGER_PLATFORM; unset or anything else is Docker, as 2.x's text is.
 pub fn platform(env: Env) -> Platform {
     match crate::jobs::app_update::platform(env) {
         crate::jobs::app_update::Platform::Umbrel => Platform::Umbrel,
@@ -392,7 +392,7 @@ pub fn platform(env: Env) -> Platform {
     }
 }
 
-/// The refusal without `--confirm clear-credentials` (Rails' first abort; S1–S5 rewritten).
+/// The refusal without `--confirm clear-credentials` (2.x's first abort; S1–S5 rewritten).
 pub fn unconfirmed_text(compromised: bool, platform: Platform) -> String {
     format!("
 This deletes every stored API key, every REST API and MCP token, disables
@@ -417,7 +417,7 @@ Re-run with:  deltabadger encryption-reset --confirm {CONFIRMATION}
 ", storage(platform), revoke_step(compromised))
 }
 
-/// Rails' IBKR abort (S6: the flag, and the compose -e sentence gone with the env switch).
+/// 2.x's IBKR abort (S6: the flag, and the compose -e sentence gone with the env switch).
 pub const IBKR_TEXT: &str = "
 This instance holds Interactive Brokers credentials. Unlike an exchange API key,
 IBKR's RSA material is generated by this app and stored only here, so it cannot
@@ -447,7 +447,7 @@ pub fn owed_text(lines: &[String], readable: bool) -> String {
     o
 }
 
-/// What the reset did (Rails' Summary, plus the bots whose rebalancing was turned off: D-RESET-REBALANCE-OFF).
+/// What the reset did (2.x's Summary, plus the bots whose rebalancing was turned off: D-RESET-REBALANCE-OFF).
 #[derive(Debug, Default, PartialEq)]
 pub struct Summary {
     pub bots_stopped: usize, pub rules_stopped: usize, pub withdrawal_addresses_cleared: usize, pub api_keys_deleted: usize,
@@ -466,7 +466,7 @@ pub fn holds_ibkr(c: &Connection) -> rusqlite::Result<bool> { c.query_row(IBKR_K
 pub fn clear(tx: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Summary> {
     let at = crate::codec::format_time(now);
     let ibkr = holds_ibkr(tx)?;
-    // Bots: the web key-delete's stop with its activity line (D-RESET-STOP-LOGGED); stop_message_key untouched (Rails).
+    // Bots: the web key-delete's stop with its activity line (D-RESET-STOP-LOGGED); stop_message_key untouched (2.x).
     let working = BOT_WORKING.iter().map(|s| (*s as i64).to_string()).collect::<Vec<_>>().join(",");
     let mut s = tx.prepare(&format!("SELECT id FROM bots WHERE status IN ({working}) ORDER BY id"))?;
     let bots = s.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
@@ -539,7 +539,7 @@ fn name(c: &Connection, id: i64) -> rusqlite::Result<String> {
     Ok(match label.filter(|l| !l.trim().is_empty() && l.trim() != format!("Bot {id}")) { Some(l) => format!("Bot {id} (“{}”)", l.trim()), None => format!("Bot {id}") })
 }
 
-/// The reset's text after the clear (Rails' summary and Next block; S8/S9 and the platform blocks, PLAN-A29 §6).
+/// The reset's text after the clear (2.x's summary and Next block; S8/S9 and the platform blocks, PLAN-A29 §6).
 pub fn cleared_text(s: &Summary, compromised: bool, independent: bool, platform: Platform) -> String {
     let mut o = String::new();
     let mut p = |s: &str| { o.push_str(s); o.push('\n'); };

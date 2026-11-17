@@ -1,4 +1,4 @@
-//! The engine reuses the figures port of Rails' split matching. Trust is an additional trading gate.
+//! The engine reuses the figures port of 2.x's split matching. Trust is an additional trading gate.
 use crate::venue::Attributed;
 use super::{model::{self, Bot}, basket, EngineError};
 use crate::figures::{self, at::At, db, splits as v2};

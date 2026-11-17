@@ -1,6 +1,6 @@
 //! What the engine may run Anything outside the slice is refused and named.
-//! Refusal reads flags by Ruby TRUTHINESS (anything set), not by the `== true` the supported readers
-//! use: a flag Rails might treat as on must never be quietly ignored.
+//! Refusal reads flags by 2.x TRUTHINESS (anything set), not by the `== true` the supported readers
+//! use: a flag 2.x might treat as on must never be quietly ignored.
 use super::model::{self, Bot};
 use super::placement;
 use super::conditions::{self, Rule, Support};
@@ -47,7 +47,7 @@ pub enum Kind {
     IndexData,
     /// The bot's owner row is missing.
     Owner,
-    /// Work Rails left in flight: never set aside (row 26), it keeps refusing a stopped bot.
+    /// Work 2.x left in flight: never set aside (row 26), it keeps refusing a stopped bot.
     Work(Work),
     /// PLAN-A23: a legacy single-asset bot (or a clobbered basket) the start could not convert, and why.
     Legacy(super::single_asset::Skip),
@@ -87,10 +87,10 @@ fn texts(reasons: Vec<Reason>) -> Vec<String> { reasons.into_iter().map(|r| r.te
 const SUPPORTED_FLAGS: [&str; 3] = ["limit_ordered", "smart_intervaled", "quote_amount_limited"];
 /// Bots::DcaMultiAsset::MAX_ASSETS.
 pub const MAX_ASSETS: usize = 100;
-/// Bots::DcaMultiAsset::Allocatable::ALLOCATION_TOLERANCE: Rails starts a manual basket only this close to 100 %.
+/// Bots::DcaMultiAsset::Allocatable::ALLOCATION_TOLERANCE: 2.x starts a manual basket only this close to 100 %.
 const ALLOCATION_TOLERANCE: f64 = 0.001;
 /// The reason a basket's sliders are off 100 %. It refuses a working bot, never a rebalance: a stopped bot's sliders may be
-/// saved off 100 %, and Rails' DcaMultiAsset#rebalance_targets then reads no targets (nothing is due) unless a swap is
+/// saved off 100 %, and 2.x's DcaMultiAsset#rebalance_targets then reads no targets (nothing is due) unless a swap is
 /// already owed its buy, which still lands.
 pub const UNBALANCED: &str = "allocations: weights sum to";
 
@@ -117,9 +117,9 @@ fn halt_reason(reason: &str) -> bool { reason == AMBIGUOUS_HALT || reason.ends_w
 
 fn set(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) && v != "false" && v != 0 && v != "" }
 
-/// Work only Rails carries out: Bot::LiquidationState#liquidation_in_flight?, Bot::Composition::Redeployable#redeploy_in_flight?,
-/// Bot::EvaluateRebalancersJob's candidates. Each rule covers the statuses Rails handles it for. The pending keys stay on
-/// every status: Rails' automatic legs skip deleted/archived bots, but its halt resolutions (Bots::*ResolutionsController,
+/// Work only 2.x carries out: Bot::LiquidationState#liquidation_in_flight?, Bot::Composition::Redeployable#redeploy_in_flight?,
+/// Bot::EvaluateRebalancersJob's candidates. Each rule covers the statuses 2.x handles it for. The pending keys stay on
+/// every status: 2.x's automatic legs skip deleted/archived bots, but its halt resolutions (Bots::*ResolutionsController,
 /// Bot::Resolve*Job) take any bot, and an archived bot's page offers them.
 fn v2_work(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineError> {
     let mut r = vec![];
@@ -129,9 +129,9 @@ fn v2_work(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineError> {
     if unknown > 0 { r.push(why(Kind::Work(Work::UnknownStatus), format!("{unknown} {UNKNOWN_STATUS}"))); }
     // Slice 6b, plan CB T4: threshold rebalancing runs here for a basket or index bot on every venue (rebalance.rs, run::run_rebalances). Its
     // pending swap is admitted in a phase this engine resumes (selling, buying), or halted ambiguous
-    // (idle until the owner resolves it through Resume, including halts inherited from Rails).
+    // (idle until the owner resolves it through Resume, including halts inherited from 2.x).
     let rebalances = rebalances_here(bot);
-    // Deliberately broader than Rails' automatic jobs: a false refusal costs one check message, a takeover mid-liquidation costs money.
+    // Deliberately broader than 2.x's automatic jobs: a false refusal costs one check message, a takeover mid-liquidation costs money.
     for key in PENDING_KEYS {
         if bot.transient.get(key).is_none_or(Value::is_null) { continue; }
         if key == super::rebalance::PENDING_KEY && rebalances {
@@ -155,8 +155,8 @@ fn v2_work(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineError> {
          AND status = 0 AND external_status IN (0, 1)",
         params![bot.id, rebalances], |r| r.get(0))?;
     if non_regular > 0 { r.push(why(Kind::Work(Work::Waiting), format!("{non_regular} waiting LIQUIDATION/REDEPLOY/REBALANCE order(s)"))); }
-    // An abandoned REBALANCE leg (RULING-B2B-R1 item 1) has an unknown fill and Rails trades on: the flight cash may already be
-    // the asset, and Rails cannot account for it. Only an otherwise supported ambiguous halt is admitted idle for
+    // An abandoned REBALANCE leg (RULING-B2B-R1 item 1) has an unknown fill and 2.x trades on: the flight cash may already be
+    // the asset, and 2.x cannot account for it. Only an otherwise supported ambiguous halt is admitted idle for
     // resolution below; D-A6-ATTESTED records the rows the owner explicitly resolves. An abandoned REDEPLOY
     // is admitted since 6c-4: its spend counts what it asked for, and the engine halts on it.
     let n: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type = 'REBALANCE' AND external_status = 4 AND id NOT IN (SELECT value FROM json_each(COALESCE(json_extract((SELECT transient_data FROM bots WHERE id=?1),'$.rust_rebalance_resolved_orders'),'[]')))",
@@ -293,8 +293,8 @@ fn bot_reasons_with(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineErro
 
 /// A rule's switch that is set (`key`, `value`), by what this build does with it on the bot's kind (conditions::support):
 /// inapplicable is inert (an index bot's sell side and flips, a signal bot's flips); unsupported actions are refused by name.
-/// Implemented rules run with values Rails compares. A trigger switch set to
-/// anything but `true` (which Rails reads as off) is refused, as every flag outside the slice. The cap's own checks follow.
+/// Implemented rules run with values 2.x compares. A trigger switch set to
+/// anything but `true` (which 2.x reads as off) is refused, as every flag outside the slice. The cap's own checks follow.
 fn rule_reason(c: &Connection, bot: &Bot, key: &str, value: &Value, rule: Rule, selling: bool) -> Option<Reason> {
     let support = bot.support(rule, selling);
     if support == Support::Inapplicable { return None; }
@@ -412,7 +412,7 @@ fn sell_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<Reason>) ->
     Ok(())
 }
 
-/// settings.allocations: what Rails would start, within what this build ports (manual or market-cap weights, 1..MAX_ASSETS members on
+/// settings.allocations: what 2.x would start, within what this build ports (manual or market-cap weights, 1..MAX_ASSETS members on
 /// every venue). Returns the member asset ids in settings order.
 fn composition_reasons(bot: &Bot, r: &mut Vec<Reason>) -> Vec<i64> {
     let Some(a) = bot.allocations() else {
@@ -445,9 +445,9 @@ fn history_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(),
 
 /// The kinds of order a bot's history holds that this build does not read: special rows outside what
 /// special_reasons admits, legacy waiting imported rows, and orders without an asset. A terminal imported row
-/// (Bot::Exportable#import_orders_csv writes closed ones) is read by every reader as any submitted REGULAR row, as in Rails.
-/// D-IMP-OPEN: before 92e1c5871 the importer mapped the CSV status, so it could write open or unknown rows; Rails never
-/// polls them (fetch_and_update_open_orders_job.rb:11) nor cancels them (transaction.rb:211-221), and leaves them waiting
+/// (Bot::Exportable#import_orders_csv writes closed ones) is read by every reader as any submitted REGULAR row, as in 2.x.
+/// D-IMP-OPEN: before 92e1c5871 the importer mapped the CSV status, so it could write open or unknown rows; 2.x never
+/// polls them nor cancels them, and leaves them waiting
 /// forever: failed cancels at each flip, phantom reservations, caps counting them open. That is not ported: refused by name.
 fn order_kind_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(), EngineError> {
     let (imported, no_asset): (i64, i64) = c.query_row(
@@ -479,8 +479,8 @@ pub fn unread_special_rows(c: &Connection, bot: &Bot) -> Result<Vec<String>, Eng
     Ok(texts(r))
 }
 
-/// What of an index bot's special history the walk does not read as Rails writes it. Waiting, pending and abandoned rows
-/// are v2_work's; a rejected row that executed nothing is ignored, as Rails' `submitted` scope ignores it.
+/// What of an index bot's special history the walk does not read as 2.x writes it. Waiting, pending and abandoned rows
+/// are v2_work's; a rejected row that executed nothing is ignored, as 2.x's `submitted` scope ignores it.
 fn special_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(), EngineError> {
     let (kinds, sides, statuses): (i64, i64, i64) = c.query_row(
         "SELECT coalesce(sum(transaction_type NOT IN ('LIQUIDATION', 'REBALANCE', 'REDEPLOY')), 0), \
@@ -497,11 +497,11 @@ fn special_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(),
     Ok(())
 }
 
-/// The venues whose trading of a tokenized pair is a recorded Rails vector (plan B2): Hyperliquid's in
+/// The venues whose trading of a tokenized pair is a recorded 2.x vector (plan B2): Hyperliquid's in
 /// tests/hyperliquid_tokenized.rs (script/rust/decisions.rb grid-hyperliquid-tokenized). A venue joins in the commit that records it.
 pub const TOKENIZED_PROVEN: [&str; 1] = ["Exchanges::Hyperliquid"];
 
-/// Every member's pair on this venue, and the composition rows Rails' tick reads (bot_index_assets).
+/// Every member's pair on this venue, and the composition rows 2.x's tick reads (bot_index_assets).
 pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], r: &mut Vec<Reason>) -> Result<(), EngineError> {
     let mut quote_checked = false;
     for &asset_id in members {
@@ -515,12 +515,12 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
         };
         // An unbounded integer column used as a rounding scale: refused here, before any leg is sized with it.
         if let Err(e) = t.scales() { r.push(why(Kind::Asset(Some(asset_id)), e)); }
-        // Rails' crypto assets are category 'Cryptocurrency' (Exchange::Synchronizer). Stocks and ETFs are category Stock,
+        // 2.x's crypto assets are category 'Cryptocurrency' (Exchange::Synchronizer). Stocks and ETFs are category Stock,
         // typed by instrument_type (MarketData::CATEGORY_BY_TYPE, market_data.rb:377, :447), and trade on Alpaca only. A legacy
-        // `alpaca_<uuid>` asset is never refreshed by the listings sync (market_data.rb:563-566), so nothing vouches for it.
+        // `alpaca_<uuid>` asset is never refreshed by the listings sync, so nothing vouches for it.
         let (category, instrument, external_id): (Option<String>, Option<String>, Option<String>) = c.query_row(
             "SELECT category, instrument_type, external_id FROM assets WHERE id = ?1", [t.base_asset_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
-        // No Rails bot path reads instrument_type (only tax does): a Cryptocurrency marked tokenized (PAXG, XAUT) trades as
+        // No 2.x bot path reads instrument_type (only tax does): a Cryptocurrency marked tokenized (PAXG, XAUT) trades as
         // any coin. A tokenized stock (the catalogue's category, or a tokenized instrument of another category) is refused until
         // a recorded vector proves its venue (B2). D-TOK-KRAKEN (A15): Rust sends Kraken's asset_class, but Kraken rebases an
         // xStock's balance, which no reader here follows, and the listing keeps every Kraken xStock untradable.
@@ -532,9 +532,9 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
         let tokenized = category.as_deref() == Some("Tokenized Stock") || (!crypto && instrument.as_deref() == Some("tokenized"));
         let stock = alpaca && category.as_deref() == Some("Stock") && matches!(instrument.as_deref(), Some("stock" | "etf"))
             && !external_id.as_deref().unwrap_or_default().starts_with("alpaca_");
-        // A tokenized stock (Hyperliquid's RWA listings, xStocks): Rails trades it as any spot pair, with no bot path of its own
-        // (the rebalancer's local_units reads it as splittable, tick.rs). It runs where a Rails vector of a tokenized pair is
-        // recorded; elsewhere it is refused (D-TOK-UNPROVEN), on Kraken for Rails' own reason (D-TOK-KRAKEN).
+        // A tokenized stock (Hyperliquid's RWA listings, xStocks): 2.x trades it as any spot pair, with no bot path of its own
+        // (the rebalancer's local_units reads it as splittable, tick.rs). It runs where a 2.x vector of a tokenized pair is
+        // recorded; elsewhere it is refused (D-TOK-UNPROVEN), on Kraken for 2.x's own reason (D-TOK-KRAKEN).
         if tokenized && !stock {
             let venue = model::exchange_type(c, bot)?;
             if venue == "Exchanges::Kraken" {
@@ -551,7 +551,7 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
         if alpaca && !quote_checked && t.quote_symbol != "USD" { r.push(why(Kind::Asset(None), format!("quote {} (Alpaca: only USD)", t.quote_symbol))); }
         quote_checked = true;
     }
-    // Rails keeps a row per member (in_index) and per former member (exited: in_index false or NULL, outside the `in_index`
+    // 2.x keeps a row per member (in_index) and per former member (exited: in_index false or NULL, outside the `in_index`
     // scope). An exited row is allowed. It is a holding only: the ledger walk counts its units, the split never
     // sees it (current_allocations reads in_index rows), and nothing buys it. Refusing it would let one mid-run delisting (the
     // tick marks the member exited) refuse the whole install and stop every bot. An in_index row for an asset outside
@@ -581,7 +581,7 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
     }
 
     // Every status, archived and deleted included: archiving or deleting a bot leaves its orders at the venue,
-    // and Rails keeps accounting for them, so their pending work refuses the install like any other bot's.
+    // and 2.x keeps accounting for them, so their pending work refuses the install like any other bot's.
     let mut s = c.prepare("SELECT id FROM bots ORDER BY id")?;
     let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     for id in ids {
@@ -608,7 +608,7 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
         // a stopped bot does not tick, but either operation's orders still place, poll and settle.
         let rebalances = rebalances_here(&bot);
         let composition_only = rebalances && reasons.iter().all(|r| r.starts_with(UNBALANCED));
-        // Imported rows are never polled, by Rails (fetch_and_update_open_orders_job.rb:11) or here (polling.rs): no work.
+        // Imported rows are never polled, by 2.x or here (polling.rs): no work.
         let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) \
                                             AND (external_id IS NULL OR external_id NOT LIKE 'imported_%') \
                                             AND NOT (?2 AND transaction_type IN ('REBALANCE', 'LIQUIDATION', 'REDEPLOY'))", params![id, composition_only], |r| r.get(0))?;
@@ -630,7 +630,7 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
 
 /// `check` and the takeover: check_install, plus each eligible bot's flip-rule target (refused), and its reference data
 /// (staleness.rs), noted, never refused. D-UPGRADE-FRESHNESS-AT-TICK: in 3.0 only this engine refreshes reference data, and
-/// its scheduler starts after the claim, so an install Rails left stale must be taken over; the tick then refuses the stale
+/// its scheduler starts after the claim, so an install 2.x left stale must be taken over; the tick then refuses the stale
 /// bot (tick.rs) and run.rs retries it every 5 minutes until its source's job completes a run.
 pub fn check_install_at(c: &Connection, now: DateTime<Utc>) -> Result<Report, EngineError> {
     use super::staleness::{verdict, Verdict};

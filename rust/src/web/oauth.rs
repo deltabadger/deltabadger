@@ -467,7 +467,7 @@ pub fn token_error(error: &str, description: &str) -> Response {
 /// the catalogue's order. The names are permanent identifiers: they are what a grant stores.
 /// AppConfig::REST_TOOL_DEFAULTS is the same names, all off. tests/oauth.rs compares both with Rails, and tests/web.rs with app/models/app_config.rb.
 /// D-SPLIT-API: `split_bots` (off) is this build's own; Rails' catalogue has no such tool. So is `answer_unrecorded_order`
-/// (off, D-RAILS-UNRECORDED-API).
+/// (off, D-V2-UNRECORDED-API).
 pub const TOOL_DEFAULTS: [(&str, bool); 41] = [
     ("list_bots", true), ("get_bot_details", true), ("list_exchanges", true), ("get_exchange_balances", true), ("get_portfolio_summary", true),
     ("list_transactions", true), ("create_bot", false), ("start_bot", false), ("stop_bot", false), ("update_bot_settings", false),
@@ -481,7 +481,7 @@ pub const TOOL_DEFAULTS: [(&str, bool); 41] = [
 ];
 
 /// AppConfig::TOOL_GROUPS: the catalogue as Settings groups it, `split_bots` among the controls (D-SPLIT-API),
-/// `answer_unrecorded_order` among the trade tools (D-RAILS-UNRECORDED-API).
+/// `answer_unrecorded_order` among the trade tools (D-V2-UNRECORDED-API).
 pub const TOOL_GROUPS: [(&str, &[&str]); 4] = [
     ("read", &["list_bots", "get_bot_details", "list_exchanges", "get_exchange_balances", "get_portfolio_summary", "list_transactions",
                "list_open_orders", "list_rules", "list_indices"]),

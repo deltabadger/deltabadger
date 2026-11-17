@@ -313,7 +313,7 @@ async fn a_due_v2_job_ticks_once_and_a_claimed_one_carries_its_line() {
     assert_eq!(lines, 1, "C12 on the converted bot");
 }
 
-/// §8 7 (D-UPGRADE-RAILS-CHECKS-REDONE): a converted `retrying` bot ticks at the first pass after the takeover, as every
+/// §8 7 (D-UPGRADE-V2-CHECKS-REDONE): a converted `retrying` bot ticks at the first pass after the takeover, as every
 /// basket left retrying does; an `executing` one (its job claimed) converts and is unstuck.
 #[tokio::test(flavor = "current_thread")]
 async fn a_converted_retrying_bot_ticks_at_the_first_pass_and_an_executing_one_is_unstuck() {

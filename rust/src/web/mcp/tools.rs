@@ -3,7 +3,7 @@ use super::reads;
 use crate::web::{bearer::Bearer, consent, App, WebError, timezone};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
-/// D-SPLIT-API: split_bots is this build's own, after the recorded tools; so is answer_unrecorded_order (D-RAILS-UNRECORDED-API). PLAN-A11: the tracker tools (tracker::api::NAMES).
+/// D-SPLIT-API: split_bots is this build's own, after the recorded tools; so is answer_unrecorded_order (D-V2-UNRECORDED-API). PLAN-A11: the tracker tools (tracker::api::NAMES).
 /// PLAN-A12 A12-1: the tax report tools (tax::api::NAMES), after list_tax_jurisdictions as oauth::TOOL_DEFAULTS orders them.
 pub const NAMES: [&str;41] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","create_bot","start_bot","stop_bot","update_bot_settings","start_rule","stop_rule","update_rule_settings","list_open_orders","market_buy","market_sell","limit_buy","limit_sell","cancel_order","list_tax_jurisdictions","generate_tax_report","get_tax_report_status","download_tax_report","export_transactions_csv","list_account_transactions","list_rules","create_rule","delete_rule","list_indices","create_index_bot","create_signal_bot","delete_bot","archive_bot","unarchive_bot","liquidate_exited_asset","answer_redeploy_offer","sync_tracker","set_transfer_link","set_transaction_price","split_bots","answer_unrecorded_order"];
 pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
@@ -105,7 +105,7 @@ impl QueuedOrder {
         }
     }
 }
-/// A28-2b (D-RAILS-UNRECORDED-API): answer_unrecorded_order, the web's answer (v2_orders::api). Paper trading writes
+/// A28-2b (D-V2-UNRECORDED-API): answer_unrecorded_order, the web's answer (v2_orders::api). Paper trading writes
 /// nothing: a booking changes the bot's next real orders.
 fn unrecorded(c:&Connection,app:&App,user:i64,args:&Value)->Result<Value,WebError>{
     use crate::web::bot::v2_orders as ro;

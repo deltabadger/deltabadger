@@ -3,18 +3,18 @@
 //! Keep the CLI code in sync with src/main.rs.
 //!
 //! `deltabadger check | run | handback | serve | sync | resolve-placement | decide`.
-//! - check: take the engine lock, check the Rails-prepared install read-only, and exit.
-//! - run: take the install over from Rails and trade its eligible bots until SIGTERM/SIGINT.
-//! - handback: settle every unresolved order, then return the install to Rails. It refuses while `run` or `serve` runs.
+//! - check: take the engine lock, check the 2.x-prepared install read-only, and exit.
+//! - run: take the install over from 2.x and trade its eligible bots until SIGTERM/SIGINT.
+//! - handback: settle every unresolved order, then return the install to 2.x. It refuses while `run` or `serve` runs.
 //! - serve: `run` with the web UI in the same process: it takes the install over and trades its eligible bots while
-//!   serving the UI, until SIGTERM/SIGINT stops both. Like `run`, it needs a `handback` before Rails starts again.
+//!   serving the UI, until SIGTERM/SIGINT stops both. Like `run`, it needs a `handback` before 2.x starts again.
 //! - sync ledger|balances [<api_key_id>]: one tracker sync by hand, under the engine lock, and exit.
 //!
 //! Env: STORAGE_DIR (default ./storage), DATABASE_PATH and QUEUE_DATABASE_PATH; run, handback and serve also need
 //! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). serve also reads PORT (default 3000),
-//! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. run and serve send the bots' mail and read what Rails
+//! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. run and serve send the bots' mail and read what 2.x
 //! reads for it: SMTP_ADDRESS, SMTP_PORT, SMTP_DOMAIN, SMTP_USER_NAME, SMTP_PASSWORD, NOTIFICATIONS_SENDER, APP_ROOT_URL
-//! and FORCE_SSL. Rails creates and migrates the databases.
+//! and FORCE_SSL. 2.x creates and migrates the databases.
 use deltabadger::crypto::{Cipher, EncryptionKeys};
 use deltabadger::engine::eligibility::{check_install_at, Refusal};
 use deltabadger::engine::run::Engine;
@@ -183,7 +183,7 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>) -> (EngineLock, store::Ope
 }
 
 /// The mail sender, ready to become a service: on its own connection (a background service never uses the engine's),
-/// with what the environment says about SMTP read now. Opened before the claim, so a failure here leaves the install Rails'.
+/// with what the environment says about SMTP read now. Opened before the claim, so a failure here leaves the install 2.x's.
 fn mail_sender(env: &dyn Fn(&str) -> Option<String>, cipher: &Cipher) -> deltabadger::mail::sender::Sender<SystemClock> {
     let own = store::open(&paths(env)).unwrap_or_else(|e| fail(&explain(e))).primary;
     deltabadger::mail::sender::Sender::new(own, cipher.clone(), env, SystemClock)
@@ -257,7 +257,7 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 
 /// `deltabadger serve`: `run` and the web UI in one process. Every refusal, the web side's
 /// included (assets, config, no admin user, the port), comes before the claim, so a `serve` that cannot serve leaves
-/// the install Rails'. Exit codes as `run`: 0 stopped as asked, 1 refused before claiming, 2 ended otherwise.
+/// the install 2.x's. Exit codes as `run`: 0 stopped as asked, 1 refused before claiming, 2 ended otherwise.
 fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     if !deltabadger::web::assets::BUILT {
         fail(deltabadger::web::assets::MISSING);
@@ -324,9 +324,9 @@ fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 
 /// One ledger or balance sync by hand, for one Alpaca key or for every key the nightly jobs read, exactly as the
 /// scheduler's job runs it. It holds the exclusive engine lock from before it opens a database until it exits, so it
-/// runs only while neither the Rails app nor another `deltabadger` process (`run`, `serve`) has this install: a sync
-/// can never run against an install Rails is also syncing. It claims nothing and writes no lease: an install Rails
-/// owns stays Rails' (the rows are the ones Rails' own job would write). A split that moves a bot's counter passes
+/// runs only while neither the 2.x app nor another `deltabadger` process (`run`, `serve`) has this install: a sync
+/// can never run against an install 2.x is also syncing. It claims nothing and writes no lease: an install 2.x
+/// owns stays 2.x's (the rows are the ones 2.x's own job would write). A split that moves a bot's counter passes
 /// `eligibility::guard`, as under the scheduler; nothing else it writes is the engine's business. Balances by hand
 /// have no market-data source, so coins keep their last price; stocks and cash are priced. A run is held to the
 /// deadline its job declares, as the scheduler's runner would hold it.
@@ -364,7 +364,7 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     code
 }
 
-/// Rails would open the database a URL names; this build only knows paths. Refusing keeps both engines' lock next to
+/// 2.x would open the database a URL names; this build only knows paths. Refusing keeps both engines' lock next to
 /// the same file, and keeps a command from settling work against an install the operator did not mean.
 fn refuse_url_overrides(env: &dyn Fn(&str) -> Option<String>) {
     if let Some(var) = ["DATABASE_URL", "PRIMARY_DATABASE_URL", "QUEUE_DATABASE_URL", "CACHE_DATABASE_URL", "CABLE_DATABASE_URL"]
