@@ -1,4 +1,4 @@
-//! The same raw HTTP messages and fixed tokens on Rails-created SQLite databases.
+//! The same raw HTTP messages and fixed tokens on 2.x-created SQLite databases.
 mod common;
 use common::web::{self, TestClock};
 use axum::{body::{Body, to_bytes}, http::Request};
@@ -90,7 +90,7 @@ fn comparable(mut transcript: Value) -> Value {
 async fn four_reads_match_v2() {
     for name in ALL_READS {assert_eq!(deltabadger::web::mcp::tools::NAMES.contains(name),EXPECTED_READS.contains(name),"registry stage: {name}");}
     let root=tempfile::tempdir().unwrap();
-    // The grid is Rails' own (frozen); Rails plays it in `record` on its own copy, keeping only its answers (rails.json).
+    // The grid is 2.x's own (frozen); 2.x plays it in `record` on its own copy, keeping only its answers (expected.json).
     let grid=common::frozen("mcp-reads-grid",common::has_subdirs);
     common::copy_tree(&grid,root.path());
     let mut actual=vec![];
@@ -124,13 +124,13 @@ async fn four_reads_match_v2() {
             let destination=std::path::Path::new(&root).join(dir.file_name().unwrap());
             std::fs::create_dir_all(&destination).unwrap();
             std::fs::write(destination.join("rust.json"),serde_json::to_string_pretty(got).unwrap()).unwrap();
-            for file in ["rails.json","steps.json"]{std::fs::copy(dir.join(file),destination.join(file)).unwrap();}
+            for file in ["expected.json","steps.json"]{std::fs::copy(dir.join(file),destination.join(file)).unwrap();}
         }
     }
     let mut failed=vec![];
     for (dir,steps,got) in actual {
         let name=dir.file_name().unwrap().to_str().unwrap();
-        let mut want=read(dir.join("rails.json"));
+        let mut want=read(dir.join("expected.json"));
         if ["m3_priced_fill_control","m3_basket_priced_fill","m3_index_priced_fill"].contains(&name) {
             let texts=want["responses"].as_array().unwrap().iter().map(|r|r["body"].as_str().unwrap()).collect::<Vec<_>>().join(" ");
             assert!(texts.contains("Global P/L: +15.0%") && texts.contains("+$30.0"),"$200 + $30 = $230 priced control");
@@ -161,18 +161,18 @@ async fn four_reads_match_v2() {
         }
         let replacements=match name {
             // R9 requires the engine's UTC interpretation for stored SQL timestamps.
-            // Preserve actual Rails bytes, changing this one read-only presentation in the comparison copy.
+            // Preserve actual 2.x bytes, changing this one read-only presentation in the comparison copy.
             "m3_start_combined"=>vec![("Started: 2026-09-09 14:00 CEST","Started: 2026-09-09 16:00 CEST")],
             "m3_other_venue_figures"=>vec![("Portfolio Summary\n================\nTotal bots: 3 (3 active, 0 stopped, 0 not started)\n\nGlobal P/L: +1.14%\nProfit (USD): +$9.64\n\n--- Per-Bot Summary ---\n- Basket (ID 1) (AAA+BBB/USD) | scheduled | P/L: +0.08% | Invested: 200.0 USD\n- Limited (ID 2) (AAA/USD) | scheduled | P/L: +3.64% | Invested: 346.99 USD\n- ND100 (ID 3) (N/A) | scheduled | P/L: -1.05% | Invested: 300.0 USD","this build reads Alpaca only")],
-            // B-1: the balances 501 names the venues whose balances this build reads (Rails reads every venue; no 501).
-            // D-OPEN-ORDERS-UNREAD-NAMED: Rails drops an exchange whose open orders it cannot list (list_open.rb:64-65);
+            // B-1: the balances 501 names the venues whose balances this build reads (2.x reads every venue; no 501).
+            // D-OPEN-ORDERS-UNREAD-NAMED: 2.x drops an exchange whose open orders it cannot list;
             // this build names it on its own line after the orders (and in `unavailable`). Only those lines change.
             "m3_other_venue"=>vec![("Failed to fetch balances from Kraken: EAPI:Invalid key","this build reads balances from Alpaca and Interactive Brokers only"),("| Kraken | ext: Limited-1",UNREAD_KRAKEN_AFTER_LIMITED)],
             "m3_other_venue_missing_key"=>vec![("| Kraken | ext: Limited-1",UNREAD_KRAKEN_AFTER_LIMITED)],
             "m3_unread_venue"=>vec![("| Alpaca | ext: external-limit","| Alpaca | ext: external-limit\n! Kraken: not read live on this build — only your bots' orders there are listed"),
                                     ("No open orders found.","No open orders found on the exchanges that answered.\n! Kraken: not read live on this build — only your bots' orders there are listed")],
             "m3_unpriced"=>vec![("Global P/L: -13.83%\nProfit (USD): $-117.15","Global P/L: Not available (needs market data)")],
-            "m3_stored_zero_price"=>vec![("AAA/USD @ 0.0 (Market order)","AAA/USD  (Market order)")], // list_transactions drops a zero price in Rails too.
+            "m3_stored_zero_price"=>vec![("AAA/USD @ 0.0 (Market order)","AAA/USD  (Market order)")], // list_transactions drops a zero price in 2.x too.
             "m3_market_no_price"=>vec![("AAA/USD @ 0 (Market order)","AAA/USD  (Market order)")],
             "m3_limit_no_price"=>vec![("AAA/USD @ 0 (Limit order)","AAA/USD  (Limit order)")],
                         "m3_r3_basket_legacy_buy"=>vec![("Holdings (sellable with liquidate_exited_asset): AAA\n",""),("--- Performance ---\nTotal invested: 200.0 USD\nCurrent value: 200.0 USD\nP/L: +0.0%\nAverage buy price: 100.0 USD\nTotal acquired: 2.0 AAA","Metrics unavailable: executed fill value unavailable"),("Global P/L: +20.0%\nProfit (USD): +$40.0","Global P/L: Not available (executed fill value unavailable)"),("- Basket (ID 1) (AAA/USD) | scheduled | P/L: +0.0% | Invested: 200.0 USD","- Basket (ID 1) (AAA/USD) | scheduled | Metrics unavailable: executed fill value unavailable")],
@@ -192,7 +192,7 @@ async fn four_reads_match_v2() {
         };
         for (from,to) in replacements { assert_eq!(replace_text(&mut want,from,to),2,"one response and its stored message: {name}"); }
         if ["m3_pf1_nil_amounts", "m3_pf1_nil_price_nil_quote"].contains(&name) {
-            // D-PAIR-FILL-VALUE: Rails' summary raises. Rust returns either the priced-fill control's figures or an
+            // D-PAIR-FILL-VALUE: 2.x's summary raises. Rust returns either the priced-fill control's figures or an
             // explicit unavailable result. Only this exact result changes; response metadata and stored rows still compare.
             let summary = if name == "m3_pf1_nil_amounts" {
                 "Global P/L: +15.0%\nProfit (USD): +$30.0\n\n--- Per-Bot Summary ---\n- Basket (ID 1) (AAA/USD) | scheduled | P/L: +10.0% | Invested: 200.0 USD"
@@ -201,17 +201,17 @@ async fn four_reads_match_v2() {
             };
             let from = json!({"isError":true,"content":[{"type":"text","text":"An unexpected error occurred."}]});
             let to = json!({"content":[{"type":"text","text":format!("Portfolio Summary\n================\nTotal bots: 1 (1 active, 0 stopped, 0 not started)\n\n{summary}")}]});
-            assert_eq!(replace_json(&mut want, &from, &to), 2, "{name}: exact Rails error in response and stored message");
+            assert_eq!(replace_json(&mut want, &from, &to), 2, "{name}: exact 2.x error in response and stored message");
         }
         if name.ends_with("_label") {
             // Both sides name the bot in the response and leave the stored label and updated_at alone.
             let original=if name.ends_with("_null_label"){Value::Null}else{json!("   ")};
-            assert_eq!(want["rows"]["bots"][0]["label"],original,"{name}: Rails read saved no label");
+            assert_eq!(want["rows"]["bots"][0]["label"],original,"{name}: 2.x read saved no label");
             assert_eq!(got["rows"]["bots"][0]["label"],original,"{name}: stored label unchanged");
         }
         let (got,mut want)=(comparable(got),comparable(want));
         if name=="m3_pf1_quarantine_raised" {
-            // Rails asks the venue before its quarantine check, and a refused read raises out of the summary. Here the
+            // 2.x asks the venue before its quarantine check, and a refused read raises out of the summary. Here the
             // fill holds that read as a failed one (a market failure never fails a read, S0): stale, so no headline.
             let text=|t:&Value|t["responses"][3]["body"].as_str().unwrap().to_string();
             assert!(text(&want).contains("\"isError\":true") && text(&want).contains("An unexpected error occurred."),"{}",text(&want));
@@ -223,7 +223,7 @@ async fn four_reads_match_v2() {
         }
         if ["m3_start_index_buying_price", "m3_start_index_buying_price_drop", "m3_start_index_buying_moving_average", "m3_start_index_buying_indicator"].contains(&name) {
             // D-IDX-CONDITIONS: the engine runs an index bot's buy-side trigger rules, so its started_at is decorated as a basket's:
-            // unmet (no met_at) it reads nil and no start is shown; met since 2026-09-09 14:00Z it is that. Rails' DcaIndex
+            // unmet (no met_at) it reads nil and no start is shown; met since 2026-09-09 14:00Z it is that. 2.x's DcaIndex
             // ignores the rule. The last read (met before the start) is the plain start on both sides.
             let n=got["responses"].as_array().unwrap().len();
             let text=|t:&Value,i:usize|t["responses"][i]["body"].as_str().unwrap().to_string();
@@ -355,13 +355,13 @@ async fn polled_open_market_zero_price_uses_the_nil_branch() {
     // Read the actual engine-polled database through 2.70.21's own service/presenter (the published image: common::v2).
     o.primary.execute_batch("PRAGMA wal_checkpoint(TRUNCATE)").unwrap(); // the container reads the file, not this process's WAL
     let boot=tempfile::tempdir().unwrap();
-    let oracle=boot.path().join("polled-rails.json");
-    let out=common::v2::v2(dir.path(),boot.path(),"engine-test-secret",&["runner",r#"Time.zone='UTC'; order=BotApi::Orders::ListOpen.call(user: User.find(ARGV[0])).data[:orders].sole; presenter=ListOpenOrdersTool.allocate; File.write('/x/polled-rails.json',JSON.generate(zero: presenter.send(:db_line,order),nil: presenter.send(:db_line,order.merge(price: nil))))"#,&s.user_id.to_string()]);
+    let oracle=boot.path().join("polled-expected.json");
+    let out=common::v2::v2(dir.path(),boot.path(),"engine-test-secret",&["runner",r#"Time.zone='UTC'; order=BotApi::Orders::ListOpen.call(user: User.find(ARGV[0])).data[:orders].sole; presenter=ListOpenOrdersTool.allocate; File.write('/x/polled-expected.json',JSON.generate(zero: presenter.send(:db_line,order),nil: presenter.send(:db_line,order.merge(price: nil))))"#,&s.user_id.to_string()]);
     assert!(out.status.success(),"2.70.21's ListOpen: {}",String::from_utf8_lossy(&out.stderr));
     let v2=read(&oracle);
     let line=got["content"][0]["text"].as_str().unwrap().strip_prefix("Open orders (1):\n").unwrap();
     assert!(v2["zero"].as_str().unwrap().contains("@ 0.0"));
-    assert_eq!(line,v2["nil"].as_str().unwrap(),"exact Rails no-price branch");
+    assert_eq!(line,v2["nil"].as_str().unwrap(),"exact 2.x no-price branch");
     if let Ok(root)=std::env::var("M3_RECORDINGS") {
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(Path::new(&root).join("polled-engine.json"),serde_json::to_string_pretty(&json!({"stored_price":stored.0,"stored_amount_exec":stored.1,"external_status":stored.2,"rails_stored_zero":v2["zero"],"rails_nil_price":v2["nil"],"rust_stored_zero":line})).unwrap()).unwrap();
@@ -431,7 +431,7 @@ async fn collision_mcp_identity_precedes_parsing() {
     }
 }
 
-/// MCP's live reads ask the key's own mode's trading host, as Rails' set_client: a live key `api.alpaca.markets`, a paper
+/// MCP's live reads ask the key's own mode's trading host, as 2.x's set_client: a live key `api.alpaca.markets`, a paper
 /// key `paper-api.alpaca.markets`, never the other (the scripted wire answers by host, so a crossed read is unscripted).
 #[tokio::test(flavor="current_thread")]
 async fn mcp_reads_ask_the_keys_own_modes_host() {

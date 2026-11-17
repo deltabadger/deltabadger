@@ -227,7 +227,7 @@ fn check_and_repair_use_the_paused_rules_timeframe() {
     }
 }
 
-/// Index and signal gates use the recorded basket decision; Rails does not include these concerns on those classes.
+/// Index and signal gates use the recorded basket decision; 2.x does not include these concerns on those classes.
 #[cfg(unix)]
 #[tokio::test(flavor = "current_thread")]
 async fn index_and_signal_candle_gates_match_recorded_v2_basket_twins() {
@@ -247,7 +247,7 @@ async fn index_and_signal_candle_gates_match_recorded_v2_basket_twins() {
     assert_eq!(names.len(), 144);
     common::decisions::v2(&["record", recorded.path().to_str().unwrap()]);
     for name in names {
-        let v2: Value = serde_json::from_str(&std::fs::read_to_string(recorded.path().join(&name).join("rails.json")).unwrap()).unwrap();
+        let v2: Value = serde_json::from_str(&std::fs::read_to_string(recorded.path().join(&name).join("expected.json")).unwrap()).unwrap();
         let scenario: Value = serde_json::from_str(&std::fs::read_to_string(built.path().join(&name).join("scenario.json")).unwrap()).unwrap();
         let selling = name.contains("-sell-");
         let kind = if name.contains("-price_drop-") { Rule::PriceDrop } else if name.contains("-moving_average-") { Rule::MovingAverage } else { Rule::Indicator };

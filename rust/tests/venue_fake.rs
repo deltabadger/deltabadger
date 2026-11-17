@@ -32,7 +32,7 @@ async fn raw_kraken_bodies_are_parsed_as_v2_parses_them() {
     let o = &v.orders(&["OTX-1".into()]).await.unwrap()[0];
     assert_eq!((o.status, o.quote_amount.clone(), o.amount.clone()), (OrderStatus::Closed, Some(bd("60")), None));
     assert_eq!(v.balance("EUR", true).await.unwrap(), bd("1000"));
-    assert_eq!(v.balance("USD", true).await.unwrap(), BigDec::zero(), "absent from BalanceEx: Rails' {{ free: 0 }} default");
+    assert_eq!(v.balance("USD", true).await.unwrap(), BigDec::zero(), "absent from BalanceEx: 2.x's {{ free: 0 }} default");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -78,7 +78,7 @@ async fn trades_history_recovers_fills_per_order() {
     let fills = v.fills_from_trades(&["OTX-5".into()], at()).await.unwrap();
     assert_eq!((fills[0].status, fills[0].amount_exec.to_s_f(), fills[0].quote_amount_exec.as_ref().unwrap().to_s_f()), (OrderStatus::Closed, "0.0012".into(), "60.012".into()));
     assert_eq!(fills[0].price, BigDec::parse("60.012").unwrap().div(&bd("0.0012")));
-    // The aggregate names its first trade's pair (honeymaker's aggregate_trades); Rails looks it up as a ticker, so a pair
+    // The aggregate names its first trade's pair (honeymaker's aggregate_trades); 2.x looks it up as a ticker, so a pair
     // spelled like the ticker (SOLEUR) resolves and Kraken's own spelling (XXBTZEUR) does not.
     assert_eq!(fills[0].pair.as_deref(), Some("XXBTZEUR"));
 }
@@ -144,7 +144,7 @@ async fn balance_splits_dotted_codes_and_the_last_row_wins() {
 }
 
 // Kraken sends decimals as strings. One this build cannot read (non-finite, garbage, out of BigDec's range) is Kraken's
-// unreadable answer, never zero: Ruby's String#to_d would give 0 for garbage and NaN/Infinity for those words.
+// unreadable answer, never zero: 2.x's String#to_d would give 0 for garbage and NaN/Infinity for those words.
 const UNREADABLE: [&str; 5] = ["NaN", "Infinity", "garbage", "-Infinity", "1e-1000000000"];
 
 fn unreadable(r: Result<impl std::fmt::Debug, VenueError>) -> bool { matches!(r, Err(VenueError::Ambiguous(m)) if m.contains("unreadable")) }

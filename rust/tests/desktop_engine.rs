@@ -1,5 +1,5 @@
 //! `serve` as the desktop app runs it (PLAN-B6 B6-0a): BINDING, the stop on stdin's end, the ready token, and the
-//! backup's sync on Windows (D-BACKUP-WINDOWS-SYNC). Rails-free: every install here is one `serve` created on an empty
+//! backup's sync on Windows (D-BACKUP-WINDOWS-SYNC). 2.x-free: every install here is one `serve` created on an empty
 //! STORAGE_DIR, so this file runs on Linux and Windows in CI. B6-0b: the engine's own log (DELTABADGER_LOG_FILE), the
 //! desktop's refusal wording with its phase sentence, the debug hooks for a failing migration and a panic, and the
 //! retiring service worker.
@@ -123,7 +123,7 @@ fn listening(port: u16) -> Vec<String> {
         .filter(|t| t.ends_with(&format!(":{port}"))).collect()
 }
 
-/// An install one `serve` made and stopped, with the lease row deleted: an install Rails owns, as far as `serve` can tell,
+/// An install one `serve` made and stopped, with the lease row deleted: an install 2.x owns, as far as `serve` can tell,
 /// so the next start backs it up before taking it over.
 fn v2_owned_install() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
@@ -445,7 +445,7 @@ fn rows(base: &Data) -> Vec<(Data, Row)> {
     row("diverged history", &|d| d.sql("DELETE FROM schema_migrations WHERE version = (SELECT max(version) FROM schema_migrations);
                                         INSERT INTO schema_migrations (version) VALUES ('29991231000001')"), vec![],
         &|_| "this data's migration history differs from this build's; refusing".into(), &foreign);
-    // An install Rails owns, two Rust migrations pending, the second failing: backed up, the first applied.
+    // An install 2.x owns, two Rust migrations pending, the second failing: backed up, the first applied.
     row("failing migration", &|d| d.sql(&format!("DELETE FROM app_configs WHERE key = '{}'; DROP TABLE estv_crypto_values; DROP TABLE rust_idempotency_orders;
             DELETE FROM rust_schema_migrations WHERE version IN ('20261106000001', '{FAILING}')", deltabadger::lease::KEY)),
         vec![("DELTABADGER_TEST_FAIL_MIGRATION", FAILING.into())],
@@ -858,7 +858,7 @@ fn off_the_desktop_an_update_makes_no_copy() {
     assert!(backups(&data.db()).is_empty(), "{:?}", backups(&data.db()));
 }
 
-/// A takeover from Rails takes its own copy, and only that one, though it migrates too.
+/// A takeover from 2.x takes its own copy, and only that one, though it migrates too.
 #[test]
 fn a_takeover_on_the_desktop_takes_only_its_own_copy() {
     let dir = v2_owned_install();

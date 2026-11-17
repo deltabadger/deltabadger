@@ -1,4 +1,4 @@
-//! Populated first-sync pages: exact Rails bytes except the documented unknown-value cell.
+//! Populated first-sync pages: exact 2.x bytes except the documented unknown-value cell.
 mod common;
 #[path="support/tracker_index_grid.rs"]
 mod grid;

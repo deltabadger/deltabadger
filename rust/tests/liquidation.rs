@@ -95,7 +95,7 @@ async fn partial_fill_then_cancel_banks_only_executed_proceeds() {
 async fn ambiguous_first_holding_stops_the_batch_and_promotes_v2_intents() {
     for orphan in [false,true] {
         let (_d,o,id,s,eth)=swap_bot(stopped());
-        if orphan { model::merge_transient_compact(&o.primary,id,&[("liquidation_pending",json!({"id":"rails","symbol":"BTC","state":"placing"}))]).unwrap(); }
+        if orphan { model::merge_transient_compact(&o.primary,id,&[("liquidation_pending",json!({"id":"v2","symbol":"BTC","state":"placing"}))]).unwrap(); }
         let t=script(json!({"POST /v2/orders":[{"network":"post_send","message":common::scripted::POST_SEND}]}));
         sell(&o,&t,id,json!([["BTC",s.btc],["ETH",eth]])).await;
         assert_eq!(t.posted_orders().len(),usize::from(!orphan));
@@ -335,7 +335,7 @@ async fn zero_open_then_terminal_missing_then_late_positive_proceeds_for_both_te
 }
 
 /// D-HYPERLIQUID-MARKET-IOC: liquidation sends the same crossed sell price and base
-/// quantity as Rails, with IOC instead of GTC. All database effects remain in the comparison.
+/// quantity as 2.x, with IOC instead of GTC. All database effects remain in the comparison.
 #[cfg(unix)]
 fn hyperliquid_ioc_expected(v2: &Value, rust: &Value) -> Value {
     let mut expected = v2.clone();
@@ -345,12 +345,12 @@ fn hyperliquid_ioc_expected(v2: &Value, rust: &Value) -> Value {
         assert_eq!(order["t"]["limit"]["tif"], "Gtc");
         order["t"]["limit"]["tif"] = json!("Ioc");
     }
-    assert_eq!(expected["sent"], rust["sent"], "only time-in-force differs; price and quantity match Rails");
+    assert_eq!(expected["sent"], rust["sent"], "only time-in-force differs; price and quantity match 2.x");
     expected
 }
 
-/// D-LIQUIDATION-ONE-LINE on Rails' side (its `liquidation_placed` lines go in common::decisions::status_lines_expected):
-/// a skip Rails calls `unpriced` where this crate read no free balance is named `no_free_balance`.
+/// D-LIQUIDATION-ONE-LINE on 2.x's side (its `liquidation_placed` lines go in common::decisions::status_lines_expected):
+/// a skip 2.x calls `unpriced` where this crate read no free balance is named `no_free_balance`.
 #[cfg(unix)]
 fn one_line_expected(v2: &Value, rust: &Value) -> Value {
     let mut expected = v2.clone();
@@ -393,7 +393,7 @@ fn liquidation_grid_difference(name: &str, _: &std::path::Path, v2: &Value, rust
                 bots[0]["after"]["transient_data"]["liquidation_pending"]["id"]=nonce.clone();
             } else {
                 // D-6C-PRE-SEND: Kraken's transport proves a refused connection sent nothing.
-                // Honeymaker wraps it as a generic failure, which Rails leaves ambiguous.
+                // Honeymaker wraps it as a generic failure, which 2.x leaves ambiguous.
                 bots[0]["after"]["transient_data"].as_object_mut().unwrap().remove("liquidation_pending");
                 bots.retain(|b|b["before"]!=b["after"]);
             }
@@ -428,7 +428,7 @@ fn liquidation_grid_difference(name: &str, _: &std::path::Path, v2: &Value, rust
             }
         }
     }
-    if expected==*rust {Ok(())} else {Err(format!("rails: {expected}\nrust: {rust}"))}
+    if expected==*rust {Ok(())} else {Err(format!("2.x: {expected}\nrust: {rust}"))}
 }
 
 #[cfg(unix)]

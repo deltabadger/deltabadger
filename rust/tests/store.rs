@@ -116,7 +116,7 @@ fn a_table_rust_uses_that_differs_in_structure_is_incompatible() {
 
 // --- B2-4: store::backup (PLAN-B2 r3.4) ---
 
-/// A 2.x install's two files at `p` (each made from the Rails template).
+/// A 2.x install's two files at `p` (each made from the 2.x template).
 fn install_at(p: &Paths) {
     let template = common::v2_install_unmigrated();
     for (from, to) in [("production.sqlite3", &p.primary), ("production_queue.sqlite3", &p.queue)] {

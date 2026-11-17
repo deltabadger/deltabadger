@@ -569,7 +569,7 @@ async fn missing_otp_seed_get_is_idempotent_foreign_get_enables_nothing_and_patc
 }
 /// Exchanges::Alpaca#get_api_key_validity asks the key's own mode's host: a live key the live server, a paper key the
 /// paper server, never the other. The tracker card validates before it saves; the legacy JSON route saves the key
-/// pending and leaves validation to the woken validator job, as Rails' Api::ApiKeysController (ApiKeyValidatorJob
+/// pending and leaves validation to the woken validator job, as 2.x's Api::ApiKeysController (ApiKeyValidatorJob
 /// .perform_later), so it sends nothing itself.
 #[tokio::test(flavor = "current_thread")]
 async fn each_mode_validates_on_its_own_host_and_saves() {
@@ -1216,7 +1216,7 @@ async fn tick_with_a_possible_pre_intent_replacement(replace: bool, same_stamp: 
         let bot=model::load_bot(&h.c,bot_id).unwrap();
         let first=model::credential_version(&h.c,&bot).unwrap();
         let first_stamp:String=h.c.query_row("SELECT updated_at FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();
-        // A real identical save at the repeated wall clock keeps Rails' timestamp and still changes
+        // A real identical save at the repeated wall clock keeps 2.x's timestamp and still changes
         // the ciphertext version. Assert this before the paused tick so a timestamp-only bypass is
         // caught by the data contract, even if it would skip before reaching the paused HTTP boundary.
         assert_eq!(h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","previous-key"),("api_key[secret]","rotated-a-secret"),("api_key[passphrase]","paper")],Csrf::Header).await.status,200);
@@ -1378,7 +1378,7 @@ async fn credential_digest_covers_each_stored_column_and_ignores_sync_metadata()
         let (_,captured)=model::credentials_with_version(&h.c,&h.app.cipher,&bot).unwrap();
         let stored:Option<String>=h.c.query_row(&format!("SELECT {column} FROM api_keys WHERE id=?1"),[h.seed.api_key_id],|r|r.get(0)).unwrap();
         let plaintext=stored.map(|v|h.app.cipher.decrypt(&v).unwrap()).unwrap_or_else(||"synthetic-value".into());
-        // Identical plaintext, fresh Rails-compatible encryption nonce. No timestamp change.
+        // Identical plaintext, fresh 2.x-compatible encryption nonce. No timestamp change.
         h.c.execute(&format!("UPDATE api_keys SET {column}=?1 WHERE id=?2"),(h.app.cipher.encrypt(&plaintext),h.seed.api_key_id)).unwrap();
         let result=placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,false,None,&FixedClock(at)).unwrap();
         assert!(matches!(result,placement::Begun::CredentialsChanged),"each encrypted credential column must prevent an intent after re-encryption: {column}");
@@ -1404,7 +1404,7 @@ async fn finishing_a_ledger_sync_without_replacement_does_not_block_placement() 
 
 #[tokio::test(flavor="current_thread")]
 async fn legacy_key_fields_come_from_api_key_never_a_top_level_query_parameter() {
-    // Rails reads params.require(:api_key): a top-level `?key=`/`?secret=` never wins over the body.
+    // 2.x reads params.require(:api_key): a top-level `?key=`/`?secret=` never wins over the body.
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
@@ -1433,7 +1433,7 @@ async fn identical_saves_change_ciphertext_version_and_keep_v2_timestamps() {
     h.clock.set(at-chrono::Duration::days(1));
     assert_eq!(h.submit("POST","/tracker/add_api_key",&fields,Csrf::Header).await.status,200);
     assert_ne!(first,model::credential_version(&h.c,&bot).unwrap(),"identical plaintext must receive fresh nonces");
-    assert_eq!(stamp,h.c.query_row("SELECT updated_at FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get::<_,String>(0)).unwrap(),"Rails does not touch time on an unchanged correct key");
+    assert_eq!(stamp,h.c.query_row("SELECT updated_at FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get::<_,String>(0)).unwrap(),"2.x does not touch time on an unchanged correct key");
     assert_eq!(h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","replacement"),("api_key[secret]","replacement-secret"),("api_key[passphrase]","paper")],Csrf::Header).await.status,200);
     assert_eq!(deltabadger::codec::format_time(at-chrono::Duration::days(1)),h.c.query_row("SELECT updated_at FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get::<_,String>(0)).unwrap(),"P drops the monotonic timestamp rule");
     server.verify().await;
@@ -2077,7 +2077,7 @@ async fn reconnect_get_revalidates_a_stored_pending_key_without_exposing_it() {
     h.c.execute("UPDATE api_keys SET status=0 WHERE id=?1",[h.seed.api_key_id]).unwrap();
     let response=h.browser.send(&h.app,"GET","/tracker/add_api_key/new?exchange_id=1&key_type=trading",None,Csrf::None,&[("Turbo-Frame","modal")]).await;
     assert_eq!(response.status,200);
-    assert_eq!(h.c.query_row("SELECT status FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get::<_,i64>(0)).unwrap(),1,"GET must perform Rails' stored-key validity recheck");
+    assert_eq!(h.c.query_row("SELECT status FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get::<_,i64>(0)).unwrap(),1,"GET must perform 2.x's stored-key validity recheck");
     assert!(!response.body.contains("previous-key")&&!response.body.contains("previous-secret"));
     server.verify().await;
 }
@@ -2194,7 +2194,7 @@ async fn confirmation_resend_is_private_csrf_protected_and_delivers_only_the_pen
     let denied=h.submit("POST","/confirmation",&[("user[email]","o@example.com")],Csrf::None).await;
     assert_eq!(denied.status,302);assert_eq!(h.snapshot(),before);assert!(h.mail.0.lock().unwrap().is_empty());
     let answer=h.submit("POST","/confirmation",&[("user[email]","o@example.com")],Csrf::Header).await;
-    assert_eq!(answer.status,303,"Rails resends and redirects to the sign-in page");
+    assert_eq!(answer.status,303,"2.x resends and redirects to the sign-in page");
     {let mail=h.mail.0.lock().unwrap();assert_eq!(mail.len(),1);assert!(mail[0].to.contains("next@example.com"));assert!(!answer.body.contains("abcdefghijklmnopqrst"));}
     let wrong=h.submit("POST","/confirmation",&[("user[email]","absent@example.com")],Csrf::Header).await;assert_eq!(wrong.status,answer.status);assert_eq!(wrong.header("location"),answer.header("location"));assert_eq!(h.mail.0.lock().unwrap().len(),1);
 }
@@ -2202,7 +2202,7 @@ async fn confirmation_resend_is_private_csrf_protected_and_delivers_only_the_pen
 #[tokio::test(flavor="current_thread")]
 async fn configured_connections_show_provider_state_without_stock_rows_or_echoed_credentials(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
-    // D-ALPACA-CATALOGUE: a catalog credential Rails stored is never read here; the catalogue comes from ours.
+    // D-ALPACA-CATALOGUE: a catalog credential 2.x stored is never read here; the catalogue comes from ours.
     for (key,value) in [("alpaca_api_key","catalog-key-placeholder"),("alpaca_api_secret","catalog-secret-placeholder"),("alpaca_mode","paper"),("coingecko_api_key","coingecko-key-placeholder"),("market_data_provider","coingecko")]{
         deltabadger::app_config::set(&h.c,&h.app.cipher,key,value,h.app.now()).unwrap();
     }
@@ -2269,7 +2269,7 @@ async fn market_data_has_no_switch_and_an_unconnected_install_shows_what_to_conn
     assert!(picked(&page,"deltabadger")&&!page.contains("value=\"deltabadger\" type=\"hidden\" name=\"market_data_provider\" />\n"),"connected: no button left: {page}");
 }
 
-/// D-BROKERS-AS-VENUES and D-STOCKS-NO-GATE: no stock catalog on the install, a member holding an IBKR key. Rails gates stocks
+/// D-BROKERS-AS-VENUES and D-STOCKS-NO-GATE: no stock catalog on the install, a member holding an IBKR key. 2.x gates stocks
 /// behind the admin (an "ask your admin" line on the empty bots page and the wizard's first steps, an activation link for the
 /// admin) and gives the member a Connect section for IBKR; here a broker is a venue like any other, so none of it is drawn.
 #[tokio::test(flavor="current_thread")]
@@ -2343,7 +2343,7 @@ async fn reading_key_bare_401_is_inconclusive_and_does_not_condemn_a_stored_key(
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({}))).expect(1).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;let ex=h.seed.exchange_id.to_string();let before=h.snapshot();
     let answer=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&ex),("key_type","read_only"),("api_key[key]","candidate"),("api_key[secret]","candidate-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-    assert_eq!(answer.status,422);assert!(answer.body.contains("Failed to validate API key permissions"),"Rails does not condemn an unattributed reading-key 401");assert_eq!(h.snapshot(),before);
+    assert_eq!(answer.status,422);assert!(answer.body.contains("Failed to validate API key permissions"),"2.x does not condemn an unattributed reading-key 401");assert_eq!(h.snapshot(),before);
     server.verify().await;
 }
 
@@ -2422,7 +2422,7 @@ async fn tracker_exchange_resolution_reuses_a_valid_session_when_a_requested_id_
     let mut h=Harness::new(server.uri()).await;
     assert_eq!(h.browser.send(&h.app,"GET","/tracker/add_api_key/new?exchange_id=1&key_type=trading",None,Csrf::None,&[("turbo-frame","modal")]).await.status,200);
     let form=h.browser.send(&h.app,"GET","/tracker/add_api_key/new?exchange_id=999&key_type=trading",None,Csrf::None,&[("turbo-frame","modal")]).await;
-    assert_eq!(form.status,200,"Rails falls back to the valid saved exchange");
+    assert_eq!(form.status,200,"2.x falls back to the valid saved exchange");
     let save=h.submit("POST","/tracker/add_api_key",&[("exchange_id","999"),("key_type","trading"),("api_key[key]","new-key"),("api_key[secret]","new-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
     assert_eq!(save.status,200);assert_eq!(h.c.query_row("SELECT COUNT(*) FROM api_keys WHERE exchange_id=1",[],|r|r.get::<_,i64>(0)).unwrap(),1);
     server.verify().await;
@@ -2473,7 +2473,7 @@ async fn google_alias_privacy_branch_clears_the_old_delivered_token_and_sends_no
     h.c.execute("INSERT INTO users(email,encrypted_password,confirmed_at,created_at,updated_at)VALUES('alice@gmail.com',?1,'2026-01-01','2026-01-01','2026-01-01')",[deltabadger::crypto::hash_password("Correct-horse-9").unwrap()]).unwrap();
     assert_eq!(h.submit("PATCH","/settings/update_email",&[("user[email]","alice+tag@googlemail.com"),("user[current_password]","Correct-horse-9")],Csrf::Header).await.status,200);
     let (email,pending,token,at):(String,Option<String>,Option<String>,Option<String>)=h.c.query_row("SELECT email,unconfirmed_email,confirmation_token,confirmation_sent_at FROM users WHERE id=?1",[h.seed.user_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).unwrap();
-    assert_eq!(email,"o@example.com");assert_eq!(pending.as_deref(),Some("alice+tag@googlemail.com"));assert!(token.is_none()&&at.is_none(),"Rails' Google alias privacy branch invalidates the old token");assert_eq!(h.mail.0.lock().unwrap().len(),1);
+    assert_eq!(email,"o@example.com");assert_eq!(pending.as_deref(),Some("alice+tag@googlemail.com"));assert!(token.is_none()&&at.is_none(),"2.x's Google alias privacy branch invalidates the old token");assert_eq!(h.mail.0.lock().unwrap().len(),1);
     let old:String=form_urlencoded::byte_serialize(old.as_bytes()).collect();let before=h.snapshot();
     assert_eq!(h.browser.send(&h.app,"GET",&format!("/confirmation?confirmation_token={old}"),None,Csrf::None,&[]).await.status,200);assert_eq!(h.snapshot(),before);
 }
@@ -2484,7 +2484,7 @@ async fn a_google_alias_taken_after_delivery_is_refused_at_confirmation(){
     let token:String=h.c.query_row("SELECT confirmation_token FROM users WHERE id=?1",[h.seed.user_id],|r|r.get(0)).unwrap();
     h.c.execute("INSERT INTO users(email,encrypted_password,confirmed_at,created_at,updated_at)VALUES('alice@gmail.com',?1,'2026-01-01','2026-01-01','2026-01-01')",[deltabadger::crypto::hash_password("Correct-horse-9").unwrap()]).unwrap();
     let token:String=form_urlencoded::byte_serialize(token.as_bytes()).collect();let before=h.snapshot();
-    assert_eq!(h.browser.send(&h.app,"GET",&format!("/confirmation?confirmation_token={token}"),None,Csrf::None,&[]).await.status,200);assert_eq!(h.snapshot(),before,"confirmation reruns Rails' email uniqueness rules");
+    assert_eq!(h.browser.send(&h.app,"GET",&format!("/confirmation?confirmation_token={token}"),None,Csrf::None,&[]).await.status,200);assert_eq!(h.snapshot(),before,"confirmation reruns 2.x's email uniqueness rules");
 }
 async fn reauth_during_password_rotation(path:&str){
     use std::sync::{Condvar,atomic::{AtomicUsize,AtomicBool,Ordering}};
@@ -2730,7 +2730,7 @@ async fn legacy_same_key_revalidation_keeps_the_stored_realm_as_v2_does(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     h.c.execute("UPDATE api_keys SET key_type=0,passphrase=?1 WHERE id=?2",(h.app.cipher.encrypt("live"),h.seed.api_key_id)).unwrap();
     let answer=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","previous-key"),("api_key[secret]","previous-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-    assert_eq!(answer.status,201);let stored:String=h.c.query_row("SELECT passphrase FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();assert_eq!(h.app.cipher.decrypt(&stored).unwrap(),"live","Rails same-key revalidation keeps the stored realm");
+    assert_eq!(answer.status,201);let stored:String=h.c.query_row("SELECT passphrase FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();assert_eq!(h.app.cipher.decrypt(&stored).unwrap(),"live","2.x same-key revalidation keeps the stored realm");
     assert!(server.received_requests().await.unwrap().is_empty());
 }
 
@@ -2886,7 +2886,7 @@ async fn r1_v2_name_whitespace_is_ascii() {
     for name in ["Alice\u{a0}Smith","Alice\u{2003}Smith"] {
         let before=h.snapshot();
         let answer=h.submit("PATCH","/settings/update_name",&[("user[name]",name)],Csrf::Header).await;
-        assert_eq!(answer.status,422,"R1 Ruby rejects this Unicode separator");
+        assert_eq!(answer.status,422,"R1 2.x rejects this Unicode separator");
         assert_eq!(h.snapshot(),before,"R1 rejected names leave every row unchanged");
     }
     assert_eq!(h.submit("PATCH","/settings/update_name",&[("user[name]","Alice Smith")],Csrf::Header).await.status,200);
@@ -3093,7 +3093,7 @@ async fn r2_json_api_key_create_and_validation_failure(){
     for (body,status) in [(serde_json::json!({"api_key":{"exchange_id":1,"key_type":"read_only","key":"json-key","secret":"json-secret","passphrase":"paper"}}),201),(serde_json::json!({"api_key":{"exchange_id":"999999","key":"json-key","secret":"json-secret"}}),422)]{
         h.browser.get(&h.app,"/settings/account").await;let before=h.snapshot();
         let response=h.browser.send_body(&h.app,"POST","/api/api_keys",Some(body.to_string()),Csrf::Header,&[("content-type","application/json"),("origin","http://localhost:3000")]).await;
-        assert_eq!(response.status,status,"Rails accepts nested JSON parameters with CSRF header");
+        assert_eq!(response.status,status,"2.x accepts nested JSON parameters with CSRF header");
         assert_eq!(response.body,format!("{{\"data\":{}}}",status==201));
         if status==422{assert_eq!(h.snapshot(),before);}else{let saved:(String,String)=h.c.query_row("SELECT key,secret FROM api_keys WHERE key_type=2",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();assert_eq!(h.app.cipher.decrypt(&saved.0).unwrap(),"json-key");assert_eq!(h.app.cipher.decrypt(&saved.1).unwrap(),"json-secret");}
     }
@@ -3701,7 +3701,7 @@ async fn sign_in_email_matches_recorded_strip(case: &str) {
     let recorded = &vector["sign_in_email"][case];
     let email = recorded["submitted"].as_str().unwrap();
     let expected = recorded["lookup_matches"].as_bool().unwrap();
-    assert_eq!(expected, case == "nul", "Rails keeps Unicode spaces and strips NUL");
+    assert_eq!(expected, case == "nul", "2.x keeps Unicode spaces and strips NUL");
     let (dir, opened, seed) = fixture::install();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     c.execute(
@@ -3715,7 +3715,7 @@ async fn sign_in_email_matches_recorded_strip(case: &str) {
     let mut browser = Browser::default();
     assert_eq!(browser.get(&app, "/login").await.status, 200);
     let answer = browser.post(&app, "/login", &[("user[email]", email), ("user[password]", "Correct-horse-9")]).await;
-    assert_eq!(answer.status, if expected { 303 } else { 422 }, "Rails String#strip sign-in case {case}");
+    assert_eq!(answer.status, if expected { 303 } else { 422 }, "2.x String#strip sign-in case {case}");
     let data = deltabadger::web::session::open(&app.keys.session,
         browser.cookie.as_ref().unwrap(), web::at("2026-09-10T12:00:30.123456Z")).unwrap();
     assert_eq!(data.user.is_some(), expected, "sign-in session for {case}");
@@ -3901,7 +3901,7 @@ async fn d5b_replacing_the_trading_key_in_place_keeps_the_registered_slots(){
 #[tokio::test(flavor="current_thread")]
 async fn d5b_the_passive_revalidation_on_get_wakes_no_job(){
     let (started,after,_,_,_)=d5b_slots_after("incorrect","get").await;
-    assert_eq!(after,started,"a GET never enqueues: Rails' new action runs no job");
+    assert_eq!(after,started,"a GET never enqueues: 2.x's new action runs no job");
 }
 /// Exchanges::Alpaca#get_api_key_validity: a 200 that is not a JSON object says nothing about the key.
 #[tokio::test(flavor="current_thread")]
@@ -3928,7 +3928,7 @@ impl deltabadger::sync::jobs::Connect for LocalVenues {
         Ok((self.0.clone(),builder.build().map_err(|e|e.to_string())?))
     }
 }
-/// ApiKeyValidatorJob as Rails performed it on a pending key (validator_effects.json, recorded from Rails before B11):
+/// ApiKeyValidatorJob as 2.x performed it on a pending key (validator_effects.json, recorded from 2.x before B11):
 /// the venue's own check, the status it leaves, and the balance sync a correct trading key enqueues.
 #[tokio::test(flavor="current_thread")]
 async fn validator_job_matches_v2_on_every_checked_venue(){
@@ -3947,7 +3947,7 @@ async fn validator_job_matches_v2_on_every_checked_venue(){
         let h=Harness::new(server.uri()).await;
         let kind=match case["key_type"].as_str().unwrap(){"trading"=>0,"withdrawal"=>1,_=>2};
         let kucoin=text("venue")=="Exchanges::Kucoin";
-        // D-KUCOIN-HF-MODE: a key Rails' check judges correct is read for its account mode (an incorrect one's read is
+        // D-KUCOIN-HF-MODE: a key 2.x's check judges correct is read for its account mode (an incorrect one's read is
         // refused here, unanswered, and keeps the verdict: UTA r1.9).
         if kucoin && case["status"]=="correct" { kucoin_classic_detection(&server).await; }
         h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=?3",(text("venue"),text("name"),h.seed.exchange_id)).unwrap();

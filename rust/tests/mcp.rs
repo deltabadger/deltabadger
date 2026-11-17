@@ -1,4 +1,4 @@
-//! The same raw HTTP messages and fixed tokens on Rails-created SQLite databases.
+//! The same raw HTTP messages and fixed tokens on 2.x-created SQLite databases.
 mod common;
 use common::web::{self, TestClock};
 use axum::{body::{Body, to_bytes}, http::Request};
@@ -77,7 +77,7 @@ fn comparable(mut transcript: Value) -> Value {
     transcript.as_object_mut().unwrap().shift_remove("session");
     transcript
 }
-/// mcp.rb's grid, frozen (common::frozen), copied into `root`.
+/// The recorded MCP grid, frozen (common::frozen), copied into `root`.
 fn frozen_grid(root:&Path)->PathBuf{
     let grid=common::frozen("mcp-grid",common::has_subdirs);
     common::copy_tree(&grid,root);
@@ -96,14 +96,14 @@ async fn v2_and_rust_mcp_transcripts() {
         copy_install(dir, rust.path());
         actual.push(play(rust.path(), steps.as_array().unwrap(), None).await);
     }
-    // Rails plays every scenario on its own copy of the frozen grid; only its answers (rails.json) are kept.
+    // 2.x plays every scenario on its own copy of the frozen grid; only its answers (expected.json) are kept.
     let recorded = common::frozen("mcp-transcripts", common::has_subdirs);
     let mut failures = vec![];
     for (dir, got) in dirs.iter().zip(actual) {
-        let want = read(recorded.join(dir.file_name().unwrap()).join("rails.json"));
+        let want = read(recorded.join(dir.file_name().unwrap()).join("expected.json"));
         if dir.file_name().unwrap() == "oversize" {
             assert_eq!(got["responses"][2]["status"], 413);
-            assert_eq!(want["responses"][2]["status"], 200); // Rails has no body bound.
+            assert_eq!(want["responses"][2]["status"], 200); // 2.x has no body bound.
         } else {
             let (got,want)=(comparable(got),comparable(want));
             if got!=want {failures.push(dir.file_name().unwrap().to_string_lossy().to_string());
@@ -126,7 +126,7 @@ fn v2_leg(boot:&Path,dir:&Path,steps:&[Value],sid:Option<&str>)->Value{
     if let Some(id)=sid{args.push(id);}
     let out=common::v2::v2_in("test",dir,boot,"engine-test-secret",&args);
     assert!(out.status.success(),"2.70.21's MCP leg: {}",String::from_utf8_lossy(&out.stderr));
-    read(dir.join("rails.json"))
+    read(dir.join("expected.json"))
 }
 fn request(method:&str,body:Value,sid:bool)->Value{
     let mut headers=json!({"Authorization":"Bearer m2-token","Content-Type":"application/json","Accept":"application/json, text/event-stream"});

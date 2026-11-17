@@ -1,4 +1,4 @@
-//! The engine running a bot whose starting time is on, against Rails' answers (fixtures/start_time_vectors.json): the
+//! The engine running a bot whose starting time is on, against 2.x's answers (fixtures/start_time_vectors.json): the
 //! amount it owes around the delayed first run, Bot::Startable#disable_starting_time!'s writes after it, the run's timing,
 //! and which start-time states it refuses.
 mod common;
@@ -17,7 +17,7 @@ fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/start_time_v
 fn time(s: &Value) -> DateTime<Utc> { s.as_str().unwrap().parse().unwrap() }
 fn dec(s: &str) -> BigDec { BigDec::parse(s).unwrap() }
 
-/// The bot exactly as Bot::Lifecycle#start left it in Rails.
+/// The bot exactly as Bot::Lifecycle#start left it in 2.x.
 fn spec(v: &Value) -> BotSpec {
     let started = &v["started"];
     let mut settings = json!({ "interval": v["interval"], "quote_amount": 60.0 });
@@ -26,7 +26,7 @@ fn spec(v: &Value) -> BotSpec {
               settings_changed_at: started["settings_changed_at"].as_str().map(str::to_owned), settings, transient: started["transient_data"].clone() }
 }
 
-/// The bot as Rails left it, its owner in the vector's zone.
+/// The bot as 2.x left it, its owner in the vector's zone.
 fn insert(c: &Connection, s: &seed::Seeded, v: &Value) -> i64 {
     c.execute("UPDATE users SET time_zone = ?1", [v["zone"].as_str().unwrap()]).unwrap();
     seed::insert_bot(c, s, &spec(v))
@@ -63,7 +63,7 @@ fn the_amount_and_the_disable_match_v2() {
         let (settings, transient, changed) = stored(c, id);
         let v2 = &v["disabled"];
         assert_eq!(settings["start_time_enabled"], json!(false), "{v}");
-        assert_eq!(transient, v2["transient_data"], "the carry and its marker, as Rails stores them: {v}");
+        assert_eq!(transient, v2["transient_data"], "the carry and its marker, as 2.x stores them: {v}");
         assert_eq!(changed, v2["settings_changed_at"].as_str().unwrap(), "the window stays where the start put it: {v}");
         if open {
             // Cancelled after the rule turned off, having filled `bought`: what it never filled is owed with the next run.
@@ -88,13 +88,13 @@ fn engine(v: &Value, venue: FakeVenue) -> (tempfile::TempDir, Engine<FakeFactory
     (dir, Engine::new(o.primary, FakeFactory(venue), seed::cipher(), lock), id)
 }
 
-/// Nothing before the start; at the first pass after it, one order for the amount Rails owes then; the rule then off, and
+/// Nothing before the start; at the first pass after it, one order for the amount 2.x owes then; the rule then off, and
 /// the next order at the next checkpoint, not before.
 #[tokio::test(flavor = "current_thread")]
 async fn the_first_run_waits_for_the_start_and_then_turns_the_rule_off() {
     let all = vectors();
     for v in all["schedule"].as_array().unwrap().iter().filter(|v| v["bought"].is_null()) {
-        // Every stored start runs at its stored instant, Rails' own: one Rails moved off the chosen wall time by its fixed-day
+        // Every stored start runs at its stored instant, 2.x's own: one 2.x moved off the chosen wall time by its fixed-day
         // step, a spring-gap time, a repeated wall time.
         let venue = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("ZEUR", "100000", "0");
         let (_d, mut e, id) = engine(v, venue.clone());
@@ -111,7 +111,7 @@ async fn the_first_run_waits_for_the_start_and_then_turns_the_rule_off() {
         run::step(&mut e, &FixedClock(time(&first["now"]))).await.unwrap();
         let owed = dec(first["pending"].as_str().unwrap());
         if owed == BigDec::zero() {
-            // Rails' month clamp: a start on the 31st owes nothing at its first run (see the vectors), and buys nothing.
+            // 2.x's month clamp: a start on the 31st owes nothing at its first run (see the vectors), and buys nothing.
             assert!(venue.sent().is_empty(), "{v}");
         } else {
             assert_eq!(venue.sent().len(), 1, "{v}");
@@ -121,7 +121,7 @@ async fn the_first_run_waits_for_the_start_and_then_turns_the_rule_off() {
                 (deltabadger::venue::OrderKind::Limit { price }, false) => &dec(&order.volume) * &dec(price),
                 (_, false) => &dec(&order.volume) * &dec("50000.0"), // a market buy sized in base at the ask
             };
-            assert!(&owed - &quote < dec("0.001") && quote <= owed, "the order is the amount Rails owes: {quote:?} for {owed:?}");
+            assert!(&owed - &quote < dec("0.001") && quote <= owed, "the order is the amount 2.x owes: {quote:?} for {owed:?}");
         }
         assert_eq!(stored(&e.primary, id).0["start_time_enabled"], json!(false), "the run turns the rule off: {v}");
         let next = time(&first["next"]);
@@ -130,7 +130,7 @@ async fn the_first_run_waits_for_the_start_and_then_turns_the_rule_off() {
     }
 }
 
-// ---- A22: every start-time state Rails can leave runs (D-START-ANCHOR-STARTED, D-START-CONTINUE-WAITS) ----
+// ---- A22: every start-time state 2.x can leave runs (D-START-ANCHOR-STARTED, D-START-CONTINUE-WAITS) ----
 
 fn edge(name: &str) -> Value {
     vectors()["edges"].as_array().unwrap().iter().find(|e| e["name"] == name).unwrap_or_else(|| panic!("no edge {name}")).clone()
@@ -139,7 +139,7 @@ fn step_at(e: &Value, label: &str) -> usize {
     e["steps"].as_array().unwrap().iter().position(|s| s["step"] == label).unwrap_or_else(|| panic!("{}: no step {label}", e["name"]))
 }
 
-/// The bot exactly as a Rails step left it.
+/// The bot exactly as a 2.x step left it.
 fn edge_spec(e: &Value, step: &Value) -> BotSpec {
     let row = &step["row"];
     let mut settings = json!({ "interval": e["interval"], "quote_amount": 60.0 });
@@ -156,7 +156,7 @@ fn buy(c: &Connection, s: &seed::Seeded, id: i64, interval: &str, at: DateTime<U
                                 (!open).then_some("0.001"), s.btc, s.quote, interval, deltabadger::codec::format_time(at)]).unwrap();
 }
 
-/// The bot and the orders Rails' edge holds after `upto` (that step included): each run's buy 1/8 s after it, open or closed,
+/// The bot and the orders 2.x's edge holds after `upto` (that step included): each run's buy 1/8 s after it, open or closed,
 /// and a recorded cancellation at 15 filled.
 fn edge_state(c: &Connection, s: &seed::Seeded, e: &Value, upto: usize) -> i64 {
     let steps = e["steps"].as_array().unwrap();
@@ -173,8 +173,8 @@ fn edge_state(c: &Connection, s: &seed::Seeded, e: &Value, upto: usize) -> i64 {
     id
 }
 
-/// Rails' carry at every recorded step, wherever Rails' anchor is the bot's started_at (the rule off, or start_at equal to
-/// started_at): there the two agree to the digit. Where Rails reads a start_at that differs, Rust reads started_at, and the
+/// 2.x's carry at every recorded step, wherever 2.x's anchor is the bot's started_at (the rule off, or start_at equal to
+/// started_at): there the two agree to the digit. Where 2.x reads a start_at that differs, Rust reads started_at, and the
 /// carry is the unmoved bot's (pinned by the replays below).
 #[test]
 fn the_edge_carry_matches_v2_wherever_v2_anchors_on_started_at() {
@@ -201,7 +201,7 @@ fn venue() -> FakeVenue {
     FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("ZEUR", "100000", "0")
 }
 
-/// The engine on Rails' row after `label`, optionally continued through Rust (the web's `rust_continue_start`, status
+/// The engine on 2.x's row after `label`, optionally continued through Rust (the web's `rust_continue_start`, status
 /// scheduled) at `continued`.
 fn edge_engine(e: &Value, label: &str, continued: Option<DateTime<Utc>>, venue: FakeVenue) -> (tempfile::TempDir, Engine<FakeFactory>, i64) {
     let dir = common::baseline_install();
@@ -238,7 +238,7 @@ fn amounts(v: &[&str]) -> Vec<BigDec> { v.iter().map(|a| dec(a)).collect() }
 fn t(s: &str) -> DateTime<Utc> { s.parse().unwrap() }
 
 /// D-START-ANCHOR-STARTED on a continue: start_at moved three days later while stopped, continued inside the interval
-/// through Rust. Rails bought 120 at once (intervals counted up to the future start_at); Rust waits for the next checkpoint
+/// through Rust. 2.x bought 120 at once (intervals counted up to the future start_at); Rust waits for the next checkpoint
 /// on started_at's grid and buys one amount there, then turns the rule off with the flag alone.
 #[tokio::test(flavor = "current_thread")]
 async fn a_continue_with_start_at_moved_later_waits_on_started_ats_grid() {
@@ -247,11 +247,11 @@ async fn a_continue_with_start_at_moved_later_waits_on_started_ats_grid() {
     let v = venue();
     let (_d, mut en, id) = edge_engine(&e, "start_at form", Some(c), v.clone());
     let got = replay(&mut en, &v, &[c, t("2026-09-11T07:29:59Z"), t("2026-09-11T07:30:00.250Z"), t("2026-09-12T07:29:59Z")]).await;
-    assert_eq!(got, amounts(&["0", "0", "60", "0"]), "Rails: 120 at once");
+    assert_eq!(got, amounts(&["0", "0", "60", "0"]), "2.x: 120 at once");
     assert_eq!(stored(&en.primary, id).0["start_time_enabled"], json!(false));
 }
 
-/// start_at moved a day earlier (25 h) while stopped: Rails ran on the moved grid an hour before started_at's checkpoint and
+/// start_at moved a day earlier (25 h) while stopped: 2.x ran on the moved grid an hour before started_at's checkpoint and
 /// again at it (60 twice an hour apart); Rust buys once, at started_at's checkpoint.
 #[tokio::test(flavor = "current_thread")]
 async fn a_continue_with_start_at_moved_earlier_buys_once_per_interval() {
@@ -264,7 +264,7 @@ async fn a_continue_with_start_at_moved_earlier_buys_once_per_interval() {
 }
 
 /// D-START-CONTINUE-WAITS: a delayed start stopped before its time and continued before it, start_at moved a day later.
-/// Rails bought 60 at once and 60 again at the start; Rust waits for started_at and buys once. The rule stays on until then.
+/// 2.x bought 60 at once and 60 again at the start; Rust waits for started_at and buys once. The rule stays on until then.
 #[tokio::test(flavor = "current_thread")]
 async fn a_continue_before_the_start_waits_for_it() {
     for (name, label) in [("never ran continue before shift 86400", "start_at form"), ("never ran continue before shift 0", "stop")] {
@@ -282,8 +282,8 @@ async fn a_continue_before_the_start_waits_for_it() {
 }
 
 /// D-START-CONTINUE-WAITS for a seller (a sale is sized from its sell amount, not the carry): continued half an hour before
-/// its start, Rails sold at once and again at the start. Rust sells once, at the start; the frozen buy carry stays 30. The
-/// same for a Rails row left retrying before the start (no continue marker, no Rust wait), across an engine restart too.
+/// its start, 2.x sold at once and again at the start. Rust sells once, at the start; the frozen buy carry stays 30. The
+/// same for a 2.x row left retrying before the start (no continue marker, no Rust wait), across an engine restart too.
 #[tokio::test(flavor = "current_thread")]
 async fn a_seller_continued_or_retrying_before_its_start_sells_once_at_it() {
     use deltabadger::venue::Side;
@@ -313,7 +313,7 @@ async fn a_seller_continued_or_retrying_before_its_start_sells_once_at_it() {
     }
 }
 
-/// start_at edited on a running bot before its first run: Rails' flip-off captured over the open first order and the 45 it
+/// start_at edited on a running bot before its first run: 2.x's flip-off captured over the open first order and the 45 it
 /// never filled were never owed again (60 next). Rust turns the rule off with the flag alone, so the next run owes them:
 /// 105, the unmoved bot's answer (schedule[29]).
 #[tokio::test(flavor = "current_thread")]
@@ -324,7 +324,7 @@ async fn a_start_at_moved_on_a_running_bot_keeps_the_first_orders_window() {
         let (_d, mut en, id) = edge_engine(&e, "before first run", None, v.clone());
         let changed = stored(&en.primary, id).2;
         let got = replay(&mut en, &v, &[t("2026-09-10T07:29:59Z"), t("2026-09-10T07:30:00.250Z")]).await;
-        assert_eq!(got, amounts(&["0", first]), "{name}: the first run at started_at (Rails owed 0 there for an earlier start_at or a month)");
+        assert_eq!(got, amounts(&["0", first]), "{name}: the first run at started_at (2.x owed 0 there for an earlier start_at or a month)");
         let (settings, _, after) = stored(&en.primary, id);
         assert_eq!((settings["start_time_enabled"].clone(), after), (json!(false), changed), "{name}: flag only, the window stays");
         if name.ends_with("open") {
@@ -338,7 +338,7 @@ async fn a_start_at_moved_on_a_running_bot_keeps_the_first_orders_window() {
     }
 }
 
-/// A run that left the rule on (Rails' ambiguous or suppressed tick) with start_at moved: Rails scheduled the next run on
+/// A run that left the rule on (2.x's ambiguous or suppressed tick) with start_at moved: 2.x scheduled the next run on
 /// the moved grid (2 h later); Rust runs on started_at's, once.
 #[tokio::test(flavor = "current_thread")]
 async fn a_kept_rule_with_a_moved_start_at_runs_on_started_ats_grid() {
@@ -349,8 +349,8 @@ async fn a_kept_rule_with_a_moved_start_at_runs_on_started_ats_grid() {
     assert_eq!(got, amounts(&["0", "60", "0"]));
 }
 
-/// Carry Rails already stored from a moved start_at (a second settings edit captured the phantom 120, capped at 60) is
-/// Rails' own record and is kept (Q3): continued through Rust inside the interval, the bot owes one amount and runs now;
+/// Carry 2.x already stored from a moved start_at (a second settings edit captured the phantom 120, capped at 60) is
+/// 2.x's own record and is kept (Q3): continued through Rust inside the interval, the bot owes one amount and runs now;
 /// taken over without a continue marker, it waits for the next checkpoint and pays it there with the interval's amount.
 #[tokio::test(flavor = "current_thread")]
 async fn a_carry_v2_stored_from_a_moved_start_at_is_spent_as_stored() {
@@ -358,13 +358,13 @@ async fn a_carry_v2_stored_from_a_moved_start_at_is_spent_as_stored() {
     let c = t("2026-09-10T12:30:00Z");
     let v = venue();
     let (_d, mut en, _id) = edge_engine(&e, "continue", Some(c), v.clone());
-    assert_eq!(replay(&mut en, &v, &[c, t("2026-09-11T07:30:00.250Z")]).await, amounts(&["60", "60"]), "Rails: 180, then 60");
+    assert_eq!(replay(&mut en, &v, &[c, t("2026-09-11T07:30:00.250Z")]).await, amounts(&["60", "60"]), "2.x: 180, then 60");
     let v = venue();
     let (_d, mut en, _id) = edge_engine(&e, "continue", None, v.clone());
     assert_eq!(replay(&mut en, &v, &[c, t("2026-09-11T07:30:00.250Z")]).await, amounts(&["0", "120"]));
 }
 
-/// A working bot whose start_time_mode is none of MODES (written past the form) runs as Rails does: the mode is read only
+/// A working bot whose start_time_mode is none of MODES (written past the form) runs as 2.x does: the mode is read only
 /// at a start.
 #[tokio::test(flavor = "current_thread")]
 async fn an_unknown_mode_on_a_working_bot_runs() {
@@ -375,8 +375,8 @@ async fn an_unknown_mode_on_a_working_bot_runs() {
     assert_eq!(stored(&en.primary, id).0["start_time_enabled"], json!(false));
 }
 
-/// Rows the old gate refused now run as stored, whatever the zone, the stored instant or the time of day say: a start Rails'
-/// fixed-day step stored an hour off (Rails' own instant, never moved), a repeated wall time in Dublin, an unknown zone (no
+/// Rows the old gate refused now run as stored, whatever the zone, the stored instant or the time of day say: a start 2.x's
+/// fixed-day step stored an hour off (2.x's own instant, never moved), a repeated wall time in Dublin, an unknown zone (no
 /// app path writes one; a started bot reads no zone). An unreadable start_at stays refused as unreadable data.
 #[test]
 fn every_formerly_refused_row_is_eligible() {
@@ -396,7 +396,7 @@ fn every_formerly_refused_row_is_eligible() {
         assert!(r.eligible.contains(&id), "{zone} {edit}: {:?} {:?}", r.problems, r.unreadable);
     }
     // An unreadable start_at is unreadable data, as every stored timestamp is (codec::validate_bot_times): refused as such,
-    // never guessed. Rails parses it to nil and runs from started_at; no app path stores one (Rails writes nil for a bad value).
+    // never guessed. 2.x parses it to nil and runs from started_at; no app path stores one (2.x writes nil for a bad value).
     for bad in ["garbage", ""] {
         let (_d, o, s) = common::install();
         let id = insert(&o.primary, &s, v);
@@ -432,7 +432,7 @@ fn turning_the_rule_off_is_the_flag_alone_whatever_start_at_holds() {
 
 /// Section 9's guarantee, sequentially over three intervals for a start_at moved on a running bot: each checkpoint's order
 /// follows from the fills before it, one per interval, as for the unmoved bot. The first order fills 15 of 60 and is
-/// cancelled; every later one fills. Daily: 60, 105, 60. Monthly (Rails' carry divides by the average month): 60, 45, 120.
+/// cancelled; every later one fills. Daily: 60, 105, 60. Monthly (2.x's carry divides by the average month): 60, 45, 120.
 #[tokio::test(flavor = "current_thread")]
 async fn a_moved_start_at_settles_over_three_intervals_as_the_unmoved_bot() {
     for (name, times, expected) in [

@@ -193,7 +193,7 @@ async fn an_index_bot_runs_its_buy_price_rule() {
     let pending = deltabadger::engine::accounting::pending_quote_amount(&unmet.6.primary, &unmet.2, at("2026-09-15T14:00:00Z").timestamp_micros()).unwrap();
     assert!(pending.is_zero(), "nothing owed while unmet: {pending:?}");
     // Met for the first time at this tick: met_at is stamped now, so the window opens now and nothing is owed yet (as on a
-    // Rails basket: the interval count from a window opened after the last checkpoint is 0).
+    // 2.x basket: the interval count from a window opened after the last checkpoint is 0).
     let fresh = run(Some(1000), None).await;
     assert_eq!((fresh.0.as_str(), fresh.1.len(), fresh.3), ("Done { placed: false }", 0, 0));
     assert_eq!(fresh.2.transient["price_limit_condition_met_at"], json!("2026-09-01T14:00:00.500Z"), "met_at stamped");
@@ -512,7 +512,7 @@ fn crypto_venue_index_staleness(venue: &str) {
     deltabadger::jobs::state::record_success(c, deltabadger::jobs::reference::ASSETS, None, now - Duration::days(7)).unwrap();
     assert_eq!(staleness::stale(c, &bot(index), now).unwrap().expect(label).source, label, "{venue}");
     assert_eq!(staleness::stale(c, &bot(market_cap), now).unwrap().map(|s| s.source), Some(label), "{venue}: a market-cap basket");
-    // The door also trusts Rails' own refresh stamp: it refuses once that is as old.
+    // The door also trusts 2.x's own refresh stamp: it refuses once that is as old.
     let old = (now - Duration::days(7)).format("%Y-%m-%d %H:%M:%S").to_string();
     c.execute("UPDATE assets SET updated_at = ?1 WHERE category = 'Cryptocurrency'", [&old]).unwrap();
     assert!(matches!(staleness::verdict(c, &bot(index), now).unwrap(), staleness::Verdict::Stale(_)), "{venue}: the door refuses too");
@@ -856,7 +856,7 @@ async fn a_platform_disconnect_keeps_a_coingecko_top_coins_bot_admitted_and_wait
     assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
 }
 
-/// D-ASSET-TAXONOMY grid: Rails' generated rows retain their routing category;
+/// D-ASSET-TAXONOMY grid: 2.x's generated rows retain their routing category;
 /// the asset classifier corrects all 55 stablecoins in this supported catalogue.
 #[test]
 fn bundled_stablecoin_classification_grid() {
@@ -918,12 +918,12 @@ async fn coingecko_category_bot(weights: Value) -> (tempfile::TempDir, store::Op
     let c = &o.primary;
     let row = cg_category(c, "layer-1", &["usds", "bitcoin", "ethereum"], &weights);
     let id = seed::index_bot(c, &s, "layer-1", 2, 0.0, false);
-    c.execute("DELETE FROM rust_index_rankings", []).unwrap(); // a Rails row: no ranking (D-INDEX-UNATTESTED-HELD)
+    c.execute("DELETE FROM rust_index_rankings", []).unwrap(); // a 2.x row: no ranking (D-INDEX-UNATTESTED-HELD)
     to_coingecko(c, at(T0));
     (d, o, s, id, row)
 }
 
-/// A17-4 end to end, the engine's leg: a category bot on a CoinGecko key is admitted, held while its row is a Rails one, and
+/// A17-4 end to end, the engine's leg: a category bot on a CoinGecko key is admitted, held while its row is a 2.x one, and
 /// buys the members the CoinGecko ranking names once the pass ranked it, weighed by the ranking's own caps.
 #[tokio::test(flavor = "current_thread")]
 async fn a_category_bot_on_a_coingecko_key_buys_what_the_coingecko_ranking_names() {
@@ -944,7 +944,7 @@ async fn a_category_bot_on_a_coingecko_key_buys_what_the_coingecko_ranking_names
     assert_eq!(second.sent().len(), 2);
 }
 
-/// Contract item 6 (as Rails' live answer, `market_cap.to_f`): a CoinGecko ranking's caps alone weigh it; zero, null and
+/// Contract item 6 (as 2.x's live answer, `market_cap.to_f`): a CoinGecko ranking's caps alone weigh it; zero, null and
 /// missing read 0.0 and the member stays; an all-zero ranking weighs equally; a negative cap composes nothing
 /// (D-CG-INVALID-CAP-HELD). The same row on data-api weighs by the assets' caps.
 #[tokio::test(flavor = "current_thread")]
@@ -990,7 +990,7 @@ fn of_two_rows_with_one_id_the_current_providers_newest_ranking_is_read() {
     assert_eq!(read(), Some(first), "the second row is unranked");
     rank(c, second, "data-api", at("2026-09-01T10:30:00Z"));
     rank(c, first, "data-api", at("2026-09-01T10:30:00Z"));
-    assert_eq!(read(), Some(first), "one import: the lowest id, as Rails' find_by");
+    assert_eq!(read(), Some(first), "one import: the lowest id, as 2.x's find_by");
     rank(c, second, "data-api", at("2026-09-02T10:30:00Z"));
     assert_eq!(read(), Some(second), "a later import that ships the id under another source: the newer");
     let pairs = index::candidate_pairs(c, &model::load_bot(c, id).unwrap()).unwrap();
@@ -1003,7 +1003,7 @@ fn of_two_rows_with_one_id_the_current_providers_newest_ranking_is_read() {
     assert_eq!(staleness::stale(c, &bot, at(T0)).unwrap().map(|s| s.source), Some(staleness::RANKING_SOURCE), "held, not composed");
     assert!(index::ranking_wanted(c, &bot, at(T0)).unwrap());
     c.execute("DELETE FROM indices WHERE external_id = 'nasdaq-100'", []).unwrap();
-    assert_eq!(c.query_row("SELECT count(*) FROM rust_index_rankings", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "Rails' delete cascades");
+    assert_eq!(c.query_row("SELECT count(*) FROM rust_index_rankings", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "2.x's delete cascades");
     assert!(staleness::stale(c, &bot, at(T0)).unwrap().is_none(), "no row with the id at all: the composition's own Index not found");
     assert!(index::ranking_wanted(c, &bot, at(T0)).unwrap(), "and the pull is still woken");
 }

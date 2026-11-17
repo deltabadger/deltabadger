@@ -35,7 +35,7 @@ async fn r1_null_closed_fill_refuses_and_places_nothing(){
 fn r1_cap_float_bits_and_decimal_conversion_match_v2(){
     for (cap,spent,bits,decimal,reached) in [(json!(60.03),"60.02",0x3f847ae147ae1000,"0.00999999999999801",true),(json!(100),"99.99",0x3f847ae147ae2000,"0.01000000000000511",false)]{
         let (_d,o,_s,id)=setup(cap,spent);let bot=model::load_bot(&o.primary,id).unwrap();
-        let Some(Num::Float(value))=amount::quote_amount_available_num(&o.primary,&bot).unwrap() else{panic!("Rails Float required")};
+        let Some(Num::Float(value))=amount::quote_amount_available_num(&o.primary,&bot).unwrap() else{panic!("2.x Float required")};
         assert_eq!(value.to_bits(),bits);
         assert_eq!(amount::quote_amount_available(&o.primary,&bot).unwrap(),Some(bd(decimal)));
         assert_eq!(amount::quote_amount_limit_reached(&o.primary,&bot).unwrap(),reached);
@@ -56,7 +56,7 @@ fn r1_guard_limits_persisted_intents_and_alpaca_wire(){
         assert_eq!(bd(&order.volume),bd(expected),"quantized wire must respect exact availability");
         let cost=if order.quote_volume {bd(&order.volume)}else{&bd(&order.volume)*&bd("10")};
         assert!(cost<=bd("0.01"));
-        // R2 preserves the entire safe Rails plan, including its unrounded commitment.
+        // R2 preserves the entire safe 2.x plan, including its unrounded commitment.
         if bd(requested).floor(2) <= bd("0.01") { assert_eq!(intent.plan.quote_amount,plan.quote_amount); }
         else { assert!(intent.plan.quote_amount<=bd("0.01")); }
     }
@@ -171,7 +171,7 @@ async fn r2_tick_case(name:&str){
         let (_d,o,_s,id)=r2_setup(case);
         let bot=model::load_bot(&o.primary,id).unwrap();
         assert!(eligibility::check_install(&o.primary).unwrap().eligible.contains(&id));
-        assert_eq!(amount::pending_quote_amount(&o.primary,&bot,now().timestamp_micros()).unwrap().to_s_f(),case["rails_pending"]);
+        assert_eq!(amount::pending_quote_amount(&o.primary,&bot,now().timestamp_micros()).unwrap().to_s_f(),case["v2_pending"]);
         let t=script(json!({"GET /v1beta3/crypto/us/latest/trades":[ok(json!({"trades":{"AAA/USD":{"p":case["price"]}}}))]}));
         deltabadger::engine::tick::tick(&o.primary,&venue(&t),id,&FixedClock(now()),&mut Default::default()).await.unwrap();
         let orders=t.posted_orders();
@@ -181,7 +181,7 @@ async fn r2_tick_case(name:&str){
         assert!(cost<=bd(case["exact"].as_str().unwrap()),"R2 exact cost exceeds cap: {cost:?}");
         assert_eq!(bd(wire["qty"].as_str().unwrap()),bd(case["safe_quantity"].as_str().unwrap()));
         assert_eq!(cost.to_s_f(),case["exact_cost"]);
-        if case["steps"]==0 {let mut actual=wire.clone();actual.as_object_mut().unwrap().remove("client_order_id");assert_eq!(actual,case["rails_wire"]);}
+        if case["steps"]==0 {let mut actual=wire.clone();actual.as_object_mut().unwrap().remove("client_order_id");assert_eq!(actual,case["v2_wire"]);}
         assert!(model::load_bot(&o.primary,id).unwrap().rust_placement().is_none());
     }
 }
@@ -242,12 +242,12 @@ fn r2_guard_preserves_safe_plan_and_persists_reduced_quantity(){
 async fn r2_exact_cost_matches_recorded_wire(){r2_tick_case("exact_cost").await;}
 #[tokio::test(flavor="current_thread")]
 async fn r2_unchanged_minimum_is_skipped_as_sent(){
-    // D-ALPACA-BASE-FLOOR: 1 USD at 3 sends qty 0.333333333, worth 0.999999999, under the 1 USD floor. Rails checks the
-    // floored budget and sends it (the recorded rails_wire); Rust checks the order as sent and skips it.
+    // D-ALPACA-BASE-FLOOR: 1 USD at 3 sends qty 0.333333333, worth 0.999999999, under the 1 USD floor. 2.x checks the
+    // floored budget and sends it (the recorded v2_wire); Rust checks the order as sent and skips it.
     use common::scripted::{script,venue,ok};
     let vectors=r2_vectors();
     let case=vectors["cases"].as_array().unwrap().iter().find(|c|c["name"]=="minimum_unchanged").unwrap();
-    assert!(case["rails_wire"].is_object(),"Rails sends it");
+    assert!(case["v2_wire"].is_object(),"2.x sends it");
     let (_d,o,_s,id)=r2_setup(case);
     let t=script(json!({"GET /v1beta3/crypto/us/latest/trades":[ok(json!({"trades":{"AAA/USD":{"p":case["price"]}}}))]}));
     deltabadger::engine::tick::tick(&o.primary,&venue(&t),id,&FixedClock(now()),&mut Default::default()).await.unwrap();
@@ -339,7 +339,7 @@ async fn r3_integer_and_ascii_string_cutoffs_match_v2_orders() {
         let bot=model::load_bot(&o.primary,id).unwrap();
         let cutoff=model::merged_history_cutoff(&o.primary,&bot).unwrap();
         let own:Vec<i64>=o.primary.prepare("SELECT id FROM transactions WHERE bot_id=?1 AND (?2 IS NULL OR id>?2) ORDER BY id").unwrap().query_map(rusqlite::params![id,cutoff],|r|r.get(0)).unwrap().map(Result::unwrap).collect();
-        assert_eq!(json!(own),case["own_ids"],"Rails SQL boundary: {case}");
+        assert_eq!(json!(own),case["own_ids"],"2.x SQL boundary: {case}");
         let report=eligibility::check_install(&o.primary).unwrap();
         assert_eq!(report.eligible,vec![id],"{case}");
         assert!(report.unreadable.is_empty());
@@ -378,7 +378,7 @@ async fn r4_valid_history_control_places_exact_oracle_sixty_forty(){
     assert!(matches!(result,deltabadger::engine::tick::TickOutcome::Done{placed:true}));
     let decisions:Vec<Value>=t.posted_orders().iter().map(|order|json!({"side":order["side"],"asset":order["symbol"].as_str().unwrap().strip_suffix("/USD").unwrap(),"quote":bd(order["notional"].as_str().unwrap()).to_s_f()})).collect();
     let expected:Vec<Value>=vectors["cases"][0]["orders"].as_array().unwrap().iter().map(|order|json!({"side":order["side"],"asset":order["asset"],"quote":order["quote"]})).collect();
-    assert_eq!(serde_json::to_vec(&decisions).unwrap(),serde_json::to_vec(&expected).unwrap(),"byte-equal Rails $60/$40 decisions");
+    assert_eq!(serde_json::to_vec(&decisions).unwrap(),serde_json::to_vec(&expected).unwrap(),"byte-equal 2.x $60/$40 decisions");
     assert_eq!(decisions[0]["quote"],"60.0");assert_eq!(decisions[1]["quote"],"40.0");
 }
 
@@ -541,7 +541,7 @@ fn r5_failure_compaction_owns_only_supplied_keys() {
 #[test]
 fn r5_oracle_sources_and_normalized_decisions_are_pinned() {
     let v:Value=serde_json::from_str(include_str!("fixtures/histories_r5.json")).unwrap();
-    assert_eq!(v["normalized"]["carry"],"50.0");assert_eq!(v["rails_unchanged"]["carry"],"100.0");
+    assert_eq!(v["normalized"]["carry"],"50.0");assert_eq!(v["v2_unchanged"]["carry"],"100.0");
 }
 
 
@@ -634,12 +634,12 @@ async fn r6_engine_and_preview_then_tick_match_compensated_v2() {
     let t=history_market();
     let result=deltabadger::engine::tick::tick(&o.primary,&common::scripted::venue(&t),id,&FixedClock(now()),&mut Default::default()).await.unwrap();
     assert!(matches!(result,deltabadger::engine::tick::TickOutcome::Done{placed:true}),"{result:?}");
-    assert_eq!(t.posted_orders()[0]["notional"],"9.99","R6 engine order matches Rails");
+    assert_eq!(t.posted_orders()[0]["notional"],"9.99","R6 engine order matches 2.x");
 }
 #[test]
 fn r6_oracle_sources_are_pinned() {
     let v:Value=serde_json::from_str(include_str!("fixtures/histories_r6.json")).unwrap();
-    assert_eq!(v["rails_unchanged"],v["normalized"]);
+    assert_eq!(v["v2_unchanged"],v["normalized"]);
     assert_eq!(v["normalized"]["orders"][0]["notional"],"9.99");
 }
 
@@ -653,7 +653,7 @@ async fn r6_web_start_action_then_tick_matches_compensated_v2() {
     let t=history_market();
     let result=deltabadger::engine::tick::tick(&o.primary,&common::scripted::venue(&t),id,&FixedClock(now()+chrono::Duration::seconds(1)),&mut Default::default()).await.unwrap();
     assert!(matches!(result,deltabadger::engine::tick::TickOutcome::Done{placed:true}),"{result:?}");
-    assert_eq!(t.posted_orders()[0]["notional"],"9.99","R6 start tick matches Rails");
+    assert_eq!(t.posted_orders()[0]["notional"],"9.99","R6 start tick matches 2.x");
 }
 
 async fn r6_continue(app:deltabadger::web::App,user:i64,id:i64) {
@@ -960,7 +960,7 @@ async fn r9_mcp_settings_cancel_resume_tick_spends_v2_40() {
         assert_eq!(model::load_bot(&o.primary,id).unwrap().missed_quote_amount().unwrap().to_s_f(),"40.0","R9 captured carry {stamp}");
         // Venue cancellation without execution restores cap availability, but not owed carry.
         o.primary.execute("UPDATE transactions SET external_status=3 WHERE bot_id=?1 AND external_status=0",[id]).unwrap();
-        // The oracle resumes (record_histories_r9.rb: start_fresh: false), the restart dialog's Continue.
+        // The oracle resumes (the recording: start_fresh: false), the restart dialog's Continue.
         let result=r9_call(&app,&sid,"start_bot",json!({"bot_id":id,"start_fresh":false})).await;
         assert_ne!(result["result"]["isError"],true,"{result}");
         let t=history_market();
@@ -1081,16 +1081,16 @@ async fn r9c_mcp_can_stop_a_bot_with_damaged_timestamps() {
     }
 }
 
-// R10: Rails selects window rows with SQLite's text comparison, `created_at >= ?`, against its
+// R10: 2.x selects window rows with SQLite's text comparison, `created_at >= ?`, against its
 // quoted boundary ('2026-01-05 12:00:00'). An RFC3339 row an hour earlier sorts after it ('T' > ' '),
-// so Rails counts its $60. Parsed instants must not decide membership.
+// so 2.x counts its $60. Parsed instants must not decide membership.
 #[tokio::test(flavor="current_thread")]
 async fn r10_window_membership_is_v2_text_comparison() {
     let (_d,o,s,id)=r9_history("2026-01-05 12:00:00");
     assert_eq!(o.primary.execute("UPDATE transactions SET external_status=2,amount_exec='6',quote_amount_exec='60',created_at='2026-01-05T11:00:00Z' WHERE bot_id=?1 AND external_status=0",[id]).unwrap(),1);
     o.primary.execute("UPDATE bots SET status=1,transient_data=json_set(transient_data,'$.merged_history_until_id',(SELECT max(id) FROM transactions WHERE bot_id=?1)) WHERE id=?1",[id]).unwrap();
     let counted:i64=o.primary.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1 AND side=0 AND created_at >= '2026-01-05 12:00:00'",[id],|r|r.get(0)).unwrap();
-    assert_eq!(counted,1,"SQLite oracle: Rails' created_at >= ? includes the RFC3339 row");
+    assert_eq!(counted,1,"SQLite oracle: 2.x's created_at >= ? includes the RFC3339 row");
     let bot=model::load_bot(&o.primary,id).unwrap();
     assert_eq!(amount::quote_amount_available(&o.primary,&bot).unwrap().unwrap().to_s_f(),"40.0","cap");
     assert_eq!(amount::pending_quote_amount(&o.primary,&bot,now().timestamp_micros()).unwrap().to_s_f(),"40.0","amount");
@@ -1101,12 +1101,12 @@ async fn r10_window_membership_is_v2_text_comparison() {
     let result=deltabadger::engine::tick::tick(&o.primary,&common::scripted::venue(&t),id,&FixedClock(now()),&mut Default::default()).await.unwrap();
     assert!(matches!(result,deltabadger::engine::tick::TickOutcome::Done{placed:true}),"{result:?}");
     let orders:Vec<_>=t.posted_orders().iter().map(|o|json!({"side":o["side"],"symbol":o["symbol"],"notional":o["notional"]})).collect();
-    assert_eq!(json!(orders),json!([{"side":"buy","symbol":"AAA/USD","notional":"40.00"}]),"Rails buys $40, not $100");
+    assert_eq!(json!(orders),json!([{"side":"buy","symbol":"AAA/USD","notional":"40.00"}]),"2.x buys $40, not $100");
 }
 
 // R10: a persisted deferral that cannot be read (null, garbage or out-of-range expiry) refuses the bot and is kept.
 // AAA/BBB owe $100 (buys 5/$50 each, AAA sell 2/$20); a failed tick deferred the retrying bot to the next checkpoint.
-// Rails places $0 before it; removing the damaged marker would let a restart buy $60/$40 at once.
+// 2.x places $0 before it; removing the damaged marker would let a restart buy $60/$40 at once.
 #[tokio::test(flavor="current_thread")]
 async fn r10_damaged_deferral_marker_refuses_and_is_kept() {
     use deltabadger::engine::run::{self,Engine};
@@ -1122,7 +1122,7 @@ async fn r10_damaged_deferral_marker_refuses_and_is_kept() {
         let transport=history_market();
         let mut engine=Engine::new(o.primary,HistoryFactory(transport.clone()),seed::cipher(),lock);
         for _ in 0..2 { run::step(&mut engine,&FixedClock(now())).await.unwrap(); }
-        assert!(transport.posted_orders().is_empty(),"{until}: Rails places $0 before the checkpoint");
+        assert!(transport.posted_orders().is_empty(),"{until}: 2.x places $0 before the checkpoint");
         let after:String=engine.primary.query_row("SELECT transient_data FROM bots WHERE id=?1",[id],|r|r.get(0)).unwrap();
         assert_eq!(before,after,"{until}: the damaged marker is kept");
         let t=history_market();
@@ -1156,7 +1156,7 @@ async fn r11_null_deferral_marker_refuses_before_the_checkpoint() {
         for _ in 0..2 { run::step(&mut engine,&FixedClock(now())).await.unwrap(); }
         let orders=transport.posted_orders();
         if case=="absent" { assert_eq!(orders.len(),2,"control: the retrying bot with no wait buys $60/$40 at once"); continue; }
-        assert!(orders.is_empty(),"{case}: Rails places $0 before the checkpoint");
+        assert!(orders.is_empty(),"{case}: 2.x places $0 before the checkpoint");
         let after:String=engine.primary.query_row("SELECT transient_data FROM bots WHERE id=?1",[id],|r|r.get(0)).unwrap();
         assert_eq!(before,after,"{case}: the marker is kept");
     }

@@ -1,6 +1,6 @@
 //! PLAN-conditions-every-bot CE-2: an index bot's spending cap and buy-side price rule through its settings page, MCP's
 //! update_bot_settings and REST's PATCH /api/v1/bots/:id. All three are the one settings writer (bot::write::settings): the
-//! same rows and, between MCP and REST, the same answer. Rails' index bot has neither rule (D-IDX-CONDITIONS, D-IDX-CAP);
+//! same rows and, between MCP and REST, the same answer. 2.x's index bot has neither rule (D-IDX-CONDITIONS, D-IDX-CAP);
 //! the subject is persisted on enable (D-IDX-SUBJECT-DEFAULT) and a subject change clears the latch
 //! (D-SUBJECT-CHANGE-CLEARS-LATCH). What an index bot has nothing to act on is refused by name (unsupported_setting); what
 //! this build does not run yet is the write guard's refusal.

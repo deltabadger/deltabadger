@@ -1,5 +1,5 @@
-//! Rows shaped exactly as Rails writes them, for engine tests. Decimal values are text (SQLite's NUMERIC
-//! affinity stores them as REAL, as it does for Rails), times use Rails' quoted_date format.
+//! Rows shaped exactly as 2.x writes them, for engine tests. Decimal values are text (SQLite's NUMERIC
+//! affinity stores them as REAL, as it does for 2.x), times use 2.x's quoted_date format.
 use deltabadger::crypto::{Cipher, EncryptionKeys};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
@@ -46,7 +46,7 @@ impl BotSpec {
     }
     pub fn with(mut self, key: &str, value: Value) -> Self { self.settings[key] = value; self }
     pub fn transient(mut self, key: &str, value: Value) -> Self { self.transient[key] = value; self }
-    /// settings.allocations over [(asset id, weight)] in this order (the JSON column keeps it, as Rails' does).
+    /// settings.allocations over [(asset id, weight)] in this order (the JSON column keeps it, as 2.x's does).
     pub fn weights(self, weights: &[(i64, f64)]) -> Self {
         let m: serde_json::Map<String, Value> = weights.iter().map(|(id, w)| (id.to_string(), json!(w))).collect();
         self.with("allocations", Value::Object(m))
@@ -146,7 +146,7 @@ pub fn add_eth_sol(c: &Connection, s: &Seeded) -> (i64, i64) {
 /// One transactions row as a recorded case lists it (`status`, `external_status`, `external_id`, `order_type`, and the
 /// decimals `price`, `amount`, `quote_amount`, `amount_exec`, `quote_amount_exec` as strings; absent keys are NULL): a REGULAR
 /// buy of `asset`, or a sell when the row says `side: 1`.
-/// Decimals are bound as the Float Rails binds (BigDecimal#to_f), never as text for SQLite to convert.
+/// Decimals are bound as the Float 2.x binds (BigDecimal#to_f), never as text for SQLite to convert.
 pub fn insert_row(c: &Connection, s: &Seeded, bot_id: i64, asset: i64, row: &Value) -> i64 {
     let text = |k: &str| row.get(k).and_then(Value::as_str).map(str::to_string);
     let real = |k: &str| row.get(k).and_then(Value::as_str).map(|v| v.parse::<f64>().unwrap_or_else(|_| panic!("{k} {v}")));
@@ -162,7 +162,7 @@ pub fn insert_row(c: &Connection, s: &Seeded, bot_id: i64, asset: i64, row: &Val
 }
 
 /// An Alpaca stock as Asset::SyncStocksFromDeltabadgerJob imports it: the asset (category Stock, instrument_type stock,
-/// external_id "<SYMBOL>.US") and the bare-symbol ticker with MarketData::STOCK_TICKER_DEFAULTS (market_data.rb:381-389),
+/// external_id "<SYMBOL>.US") and the bare-symbol ticker with MarketData::STOCK_TICKER_DEFAULTS,
 /// synced at SYNCED. Returns (asset id, ticker id).
 pub fn add_alpaca_stock(c: &Connection, s: &Seeded, symbol: &str) -> (i64, i64) {
     c.execute("INSERT INTO assets (external_id, symbol, name, category, instrument_type, created_at, updated_at) VALUES (?1, ?2, ?2, 'Stock', 'stock', ?3, ?3)",
@@ -189,7 +189,7 @@ pub fn insert_stock_tx(c: &Connection, s: &Seeded, bot_id: i64, asset_id: i64, s
 }
 
 /// A split as the ledger sync books it (Exchanges::Alpaca#normalize_split, #merge_split_entries): an adjustment marked
-/// corporate_action 'split' for `name` on the seeded venue, at `at` (Rails' quoted_date), with `ratio` when the legs merged.
+/// corporate_action 'split' for `name` on the seeded venue, at `at` (2.x's quoted_date), with `ratio` when the legs merged.
 pub fn insert_split(c: &Connection, s: &Seeded, name: &str, at: &str, ratio: Option<&str>) -> i64 {
     let mut raw = json!({ "activity_type": "SPLIT", "symbol": name, "corporate_action": "split" });
     if let Some(r) = ratio { raw["split_ratio"] = json!(r); }

@@ -39,7 +39,7 @@ async fn settings_model_validation_keeps_invalid_users_unchanged_and_answers_422
         }).unwrap();
         let before = snapshot();
         let response = b.send(&app,"PATCH",SETTINGS,Some(&[("country","US")]),Csrf::Header,HEADERS).await;
-        assert_eq!(response.status,422,"{column}: D-TRACKER-SETTINGS-422 (Rails ignores update's false return and answers 200)");
+        assert_eq!(response.status,422,"{column}: D-TRACKER-SETTINGS-422 (2.x ignores update's false return and answers 200)");
         assert_eq!(response.body,"");
         assert_eq!(response.header("content-type"),Some("text/vnd.turbo-stream.html"));
         assert_eq!(snapshot(),before,"{column}: validation must preserve the entire user row");

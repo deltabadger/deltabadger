@@ -1,4 +1,4 @@
-//! Rails-free permission and schema coverage for all four reads.
+//! 2.x-free permission and schema coverage for all four reads.
 use deltabadger::web::{bearer::Bearer,mcp::{protocol,tools}};
 use rusqlite::Connection;
 use serde_json::json;

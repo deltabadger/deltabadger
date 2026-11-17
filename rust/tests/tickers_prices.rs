@@ -1,5 +1,5 @@
-//! Venue::tickers_prices on Kraken, Binance and KuCoin against Exchange#get_tickers_prices(symbols:) as Rails answers the
-//! same bodies (script/rust/record_tickers_prices.rb): the prices its hash holds, its Failure, or its raise, and every
+//! Venue::tickers_prices on Kraken, Binance and KuCoin against Exchange#get_tickers_prices(symbols:) as 2.x answers the
+//! same bodies: the prices its hash holds, its Failure, or its raise, and every
 //! request in order (Kraken's bulk read and its per-pair fallback).
 use deltabadger::venue::binance::{BinanceVenue, Pairs};
 use deltabadger::venue::http::{self, ScriptedTransport};
@@ -12,7 +12,7 @@ fn fixture() -> Value { serde_json::from_str(include_str!("fixtures/tickers_pric
 
 /// The sanctioned divergence (plan CB Q6, v2::json_to_d): a price string that is no finite decimal is left out, so the
 /// member reads unpriced and nothing trades, where String#to_d reads "abc" as 0, "12x" as 12 and keeps "Infinity". Each
-/// case names the code Rails priced and Rust leaves out; every other case agrees exactly.
+/// case names the code 2.x priced and Rust leaves out; every other case agrees exactly.
 const OMITTED: [(&str, &str, &str); 7] = [
     ("binance", "string_abc", "BTCUSDT"), ("binance", "string_12x", "BTCUSDT"), ("binance", "string_blank", "BTCUSDT"),
     ("binance", "string_infinity", "BTCUSDT"), ("binance", "string_nan", "BTCUSDT"),
@@ -40,13 +40,13 @@ async fn every_recorded_bulk_price_read_is_answered_as_v2_answers_it() {
         let transport = ScriptedTransport::from_script(&case["http"]);
         let got = answer(venue, transport.clone(), &symbols).await;
         let requests: Vec<String> = transport.requests().iter().map(http::request_key).collect();
-        if Value::from(requests.clone()) != case["requests"] { failures.push(format!("{venue} {name}: requested {requests:?}, Rails {}", case["requests"])); }
+        if Value::from(requests.clone()) != case["requests"] { failures.push(format!("{venue} {name}: requested {requests:?}, 2.x {}", case["requests"])); }
         let network = case["http"].as_object().unwrap().values().flat_map(|r| r.as_array().unwrap()).any(|r| r.get("network").is_some());
         let ok = match (&got, case.get("prices"), case.get("failure"), case.get("raised")) {
             (Ok(prices), Some(v2), _, _) => {
                 let mut want = v2.as_object().unwrap().clone();
                 for (_, _, code) in OMITTED.iter().filter(|(v, n, _)| *v == venue && *n == name) {
-                    assert!(want.remove(*code).is_some(), "{venue} {name}: Rails no longer prices {code}; drop it from OMITTED");
+                    assert!(want.remove(*code).is_some(), "{venue} {name}: 2.x no longer prices {code}; drop it from OMITTED");
                     diverged.push(name.to_string());
                 }
                 prices.iter().cloned().collect::<Map<String, Value>>() == want && prices.len() == want.len()
@@ -54,17 +54,17 @@ async fn every_recorded_bulk_price_read_is_answered_as_v2_answers_it() {
             // honeymaker returns a transport failure as a Failure: the figures go stale (rebalance::value, transport_raises false).
             (Err(VenueError::Transient(_)), _, Some(_), _) => network,
             (Err(VenueError::Rejected(e)), _, Some(v2), _) => !network && Value::from(e.clone()) == *v2,
-            // Rails' KeyError keeps its text ("Key path price not found"); another raise is the adapter's unreadable answer.
+            // 2.x's KeyError keeps its text ("Key path price not found"); another raise is the adapter's unreadable answer.
             (Err(VenueError::Ambiguous(m)), _, _, Some(_)) => case.get("message").is_none_or(|v2| v2 == m),
             _ => false,
         };
-        if !ok { failures.push(format!("{venue} {name}: rust {got:?}\n  rails {}", Value::Object(case.as_object().unwrap().clone()))); }
+        if !ok { failures.push(format!("{venue} {name}: rust {got:?}\n  2.x {}", Value::Object(case.as_object().unwrap().clone()))); }
     }
     assert!(failures.is_empty(), "{} of {} cases differ:\n{}", failures.len(), cases.len(), failures.join("\n"));
     assert_eq!(diverged.len(), OMITTED.len(), "every listed divergence is still recorded");
 }
 
-/// The divergence spelt out: a Binance member whose price is "abc" or "12x" is unpriced (Rails values it at 0 or 12).
+/// The divergence spelt out: a Binance member whose price is "abc" or "12x" is unpriced (2.x values it at 0 or 12).
 #[tokio::test(flavor = "current_thread")]
 async fn an_unreadable_string_price_leaves_the_member_unpriced() {
     for bad in ["abc", "12x"] {
@@ -75,7 +75,7 @@ async fn an_unreadable_string_price_leaves_the_member_unpriced() {
     }
 }
 
-/// rebalance::value reads an `Ambiguous` bulk answer as Rails' unrescued raise. Alpaca's reader never answers one: an
+/// rebalance::value reads an `Ambiguous` bulk answer as 2.x's unrescued raise. Alpaca's reader never answers one: an
 /// unreadable or failed answer is `Rejected` (stale figures), a transport failure `Transient` (Clients::Alpaca raises it).
 #[tokio::test(flavor = "current_thread")]
 async fn alpacas_bulk_prices_never_answer_ambiguous() {

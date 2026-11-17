@@ -1,5 +1,5 @@
 //! The Hyperliquid trading adapter (venue::hyperliquid) over recorded bodies, its signed /exchange wire, its rules, and the
-//! limit lock every Hyperliquid bot has (Bot::LimitOrderable#limit_orders_locked?). Rails-free: the decisions against Rails
+//! limit lock every Hyperliquid bot has (Bot::LimitOrderable#limit_orders_locked?). 2.x-free: the decisions against 2.x
 //! are tests/parity.rs's grid-hyperliquid.
 mod common;
 use chrono::{DateTime, Duration, Utc};
@@ -64,7 +64,7 @@ async fn a_placement_is_refused_only_on_an_answer_that_proves_it() {
         ("ok without statuses", ok(json!({ "status": "ok", "response": { "type": "order", "data": { "statuses": [] } } })), "ambiguous"),
         ("ok without an oid", ok(json!({ "status": "ok", "response": { "type": "order", "data": { "statuses": [{}] } } })), "ambiguous"),
         ("lost reply", json!({ "network": "post_send", "message": "Net::ReadTimeout" }), "ambiguous"),
-        // Nothing reached Hyperliquid: the order failed, as Rails writes it.
+        // Nothing reached Hyperliquid: the order failed, as 2.x writes it.
         ("never sent", json!({ "network": "pre_send:api.hyperliquid.xyz", "message": "refused" }), "rejected"),
     ];
     for (name, answer, want) in cases {
@@ -75,7 +75,7 @@ async fn a_placement_is_refused_only_on_an_answer_that_proves_it() {
     }
     let t = script(ok(json!({ "status": "err", "response": "User or API Wallet 0x1 does not exist." })));
     let Err(VenueError::Rejected(m)) = venue(&t).add_order(&new_order(OrderKind::Limit { price: "40.022".into() }, "1.49")).await else { panic!() };
-    assert_eq!(m, ["Hyperliquid order failed: {\"status\" => \"err\", \"response\" => \"User or API Wallet 0x1 does not exist.\"}"], "Ruby's Hash#to_s");
+    assert_eq!(m, ["Hyperliquid order failed: {\"status\" => \"err\", \"response\" => \"User or API Wallet 0x1 does not exist.\"}"], "2.x's Hash#to_s");
     assert!(HYPERLIQUID.is_invalid_key(&m), "Exchanges::Hyperliquid::ERRORS[:invalid_key] condemns it");
     // A value float_to_wire cannot carry is a refused order, never re-rounded; nothing is sent.
     let t = ScriptedTransport::from_script(&json!({}));
@@ -122,7 +122,7 @@ async fn recovery_by_cloid_can_only_find_an_order() {
     assert_eq!(venue(&t).order_by_client_id(CLOID_OF, "@142", t0()).await, Ok(None), "absence proves nothing");
 }
 
-/// D-HL-CANCEL-REFUSED: Rails takes any HTTP 200 to a cancel as cancelled; here only Hyperliquid's "success" is. The cancel
+/// D-HL-CANCEL-REFUSED: 2.x takes any HTTP 200 to a cancel as cancelled; here only Hyperliquid's "success" is. The cancel
 /// addresses the pair orderStatus names for the order (H4: never "<base>/USDC").
 #[tokio::test(flavor = "current_thread")]
 async fn a_cancel_is_a_success_only_when_hyperliquid_says_so() {
@@ -224,7 +224,7 @@ fn every_hyperliquid_bot_places_limit_orders() {
     assert_eq!(bot.limit_distance().map(|d| d.to_s_f()), Some("0.001".into()));
 }
 
-/// D-HYPERLIQUID-MARKET-IOC: sign IOC at Rails' unchanged 1% cross, adjusted before
+/// D-HYPERLIQUID-MARKET-IOC: sign IOC at 2.x's unchanged 1% cross, adjusted before
 /// and after crossing with Floor on both sides.
 #[tokio::test(flavor = "current_thread")]
 async fn market_ioc_buy_and_sell_sign_the_v2_crossed_price() {

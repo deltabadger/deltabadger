@@ -1,4 +1,4 @@
-//! Rails-free cache lifecycle contract against a recorded Rails answer.
+//! 2.x-free cache lifecycle contract against a recorded 2.x answer.
 use deltabadger::tracker::{cache::{self,State},walk::{Summary,Walked}};
 use chrono::{DateTime,Duration,Utc};
 use serde_json::{json,Value};

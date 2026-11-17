@@ -1,4 +1,4 @@
-//! A21 F25: Asset::InferColorFromImageJob against what Rails recorded (script/rust/record_asset_colors.rb →
+//! A21 F25: Asset::InferColorFromImageJob against what 2.x recorded (
 //! fixtures/asset_colors.json, the logos in fixtures/logos), the quantizer's agreement with ImageMagick
 //! (D-COLOR-QUANTIZER), each security property with its hostile input, and the trigger after a CoinGecko refresh.
 mod common;
@@ -116,7 +116,7 @@ const RUST_PICKS: &[(&str, &str)] = &[
     ("usds.webp", "#FF9A56"),
     ("zcash.png", "#F2BD4C"),
 ];
-/// The logos whose pick matches Rails' exactly, and those that are not even near.
+/// The logos whose pick matches 2.x's exactly, and those that are not even near.
 const EXACT: &[&str] = &["aave.png", "avalanche-2.png", "binancecoin.png", "bitcoin.png", "bittensor.jpeg", "hedera-hashgraph.png", "litecoin.png", "monero.png", "okb.png", "polkadot.jpg", "stellar.jpg", "sui.png", "tron.png"];
 /// pepe: ImageMagick merges the small red cluster (the lips) away; ours keeps it, and it is the most saturated.
 const MISSES: &[&str] = &["pepe.jpeg"];
@@ -143,13 +143,13 @@ fn quantizer_agreement_with_imagemagick() {
     let (mut exact, mut nears, mut misses, mut picks, mut real) = (vec![], vec![], vec![], vec![], 0);
     for l in recorded()["logos"].as_array().unwrap() {
         let name = l["file"].as_str().unwrap();
-        let Some(v2) = l["pick"].as_str() else { assert_eq!(pick_of(name), None, "{name}: Rails gets no colour"); continue };
+        let Some(v2) = l["pick"].as_str() else { assert_eq!(pick_of(name), None, "{name}: 2.x gets no colour"); continue };
         let ours = pick_of(name).unwrap_or_else(|| panic!("{name}: no colour"));
         if synthetic.contains(&name) { assert_eq!(ours, v2, "{name}: a synthetic case must match ImageMagick"); continue; }
         real += 1;
         picks.push((name.to_string(), ours.clone()));
         if ours == v2 { exact.push(name.to_string()) } else if near(&ours, v2) { nears.push(name.to_string()) } else { misses.push(name.to_string()) }
-        eprintln!("{name:24} rails {v2} rust {ours}{}", if ours == v2 { "" } else if near(&ours, v2) { "  near" } else { "  MISS" });
+        eprintln!("{name:24} 2.x {v2} rust {ours}{}", if ours == v2 { "" } else if near(&ours, v2) { "  near" } else { "  MISS" });
     }
     eprintln!("{real} logos: {} exact, {} near, {} miss ({misses:?})", exact.len(), nears.len(), misses.len());
     assert_eq!(picks.iter().map(|(n, p)| (n.as_str(), p.as_str())).collect::<Vec<_>>(), RUST_PICKS, "Rust's picks moved: re-measure and re-pin");
@@ -173,7 +173,7 @@ async fn guards_are_v2() {
         let job = InferColor { asset: id, fetcher, env_market_url: None };
         job.run(cx(&Db::new(c, seed::cipher())), vec![]).await;
         let after: Option<String> = reopen(&d).query_row("SELECT color FROM assets WHERE id = ?1", [id], |r| r.get(0)).unwrap();
-        // Rails' bitcoin colour is ImageMagick's; ours is our quantizer's (the same here, pinned above).
+        // 2.x's bitcoin colour is ImageMagick's; ours is our quantizer's (the same here, pinned above).
         let expected = if case["color_after"] == "#F7931A" && case["requests"] == 1 { json!(bitcoin) } else { case["color_after"].clone() };
         assert_eq!((json!(after), json!(hits(&server).await)), (expected, case["requests"].clone()), "{}", case["case"]);
     }
@@ -338,7 +338,7 @@ fn clients(t: &ScriptedTransport) -> Clients {
     Rc::new(move |key: &str| Box::new(CoinGecko::new(key, t.clone()).with_throttle(Arc::new(Throttle::new(10_000)))) as Box<dyn Api>)
 }
 
-/// market_data.rb:86: the CoinGecko refresh wakes the colour job for exactly the assets whose image_url changed.
+/// The CoinGecko refresh wakes the colour job for exactly the assets whose image_url changed.
 #[tokio::test(flavor = "current_thread")]
 async fn a_changed_image_wakes_its_colour_job() {
     let (_d, c) = install("coingecko");

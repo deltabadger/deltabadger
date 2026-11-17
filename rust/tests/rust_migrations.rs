@@ -54,7 +54,7 @@ fn an_install_upgraded_from_the_current_schema_gets_the_probe_once() {
     let before = snapshot(&p);
     assert_eq!(store::migrate_with(&p, &l, &registry).unwrap(), Vec::<String>::new(), "a restart applies nothing");
     assert_eq!(snapshot(&p), before, "and writes nothing");
-    // Rails' history is Rails' own: still exactly its migrations.
+    // 2.x's history is 2.x's own: still exactly its migrations.
     let v2: i64 = Connection::open(&p.primary).unwrap().query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
     assert_eq!(v2 as usize, MIGRATIONS.len());
 }
@@ -152,11 +152,11 @@ fn pending_migrations_never_hide_a_v2_or_queue_problem() {
     let list = probe_migrations();
     let registry = Registry { migrations: &as_migrations(&list), tables: PROBE_TABLES, retired: &[] };
     let cases: [Case; 3] = [
-        ("Rails structure", false, "ALTER TABLE app_configs DROP COLUMN value",
+        ("2.x structure", false, "ALTER TABLE app_configs DROP COLUMN value",
          |e| matches!(e, StoreError::Incompatible { problems } if problems.iter().any(|m| m.contains("app_configs.value")))),
         ("queue structure", true, "ALTER TABLE solid_queue_processes RENAME COLUMN last_heartbeat_at TO heartbeat",
          |e| matches!(e, StoreError::Incompatible { problems } if problems.iter().any(|m| m.contains("solid_queue_processes.last_heartbeat_at")))),
-        ("Rails history", false, "DELETE FROM schema_migrations WHERE version = (SELECT max(version) FROM schema_migrations)",
+        ("2.x history", false, "DELETE FROM schema_migrations WHERE version = (SELECT max(version) FROM schema_migrations)",
          |e| matches!(e, StoreError::Behind { .. })),
     ];
     for (name, in_queue, sql, expected) in cases {
@@ -167,7 +167,7 @@ fn pending_migrations_never_hide_a_v2_or_queue_problem() {
             Err(e) => assert!(expected(&e), "{name}: {e:?}"),
             Ok(r) => panic!("{name}: passed with {r:?}"),
         }
-        // (A broken queue already stops the engine lock, which reads Rails' heartbeat there.)
+        // (A broken queue already stops the engine lock, which reads 2.x's heartbeat there.)
         if let Ok(l) = lease::lock(&p, chrono::Utc::now()) { assert!(store::migrate_with(&p, &l, &registry).is_err(), "{name}: nothing is migrated"); }
         assert!(!has_table(&p, "rust_schema_migrations"), "{name}");
     }
@@ -248,7 +248,7 @@ fn the_build_refuses_a_misnamed_or_repeated_version_a_v2_version_a_transaction_s
         ("ALTER TABLE of its own table", &[("20990101000001_t.sql", "CREATE TABLE x (id INTEGER);\nALTER TABLE x RENAME TO y;")], "ALTER TABLE"),
         ("ALTER TABLE in a later file", &[("20990101000001_a.sql", "CREATE TABLE x (id INTEGER);"), ("20990101000002_b.sql", "ALTER TABLE x ADD COLUMN y TEXT;")], "ALTER TABLE"),
         ("DROP TABLE IF EXISTS of its own table", &[("20990101000001_t.sql", "CREATE TABLE x (id INTEGER); DROP TABLE IF EXISTS x;")], "IF EXISTS"),
-        ("DROP of a Rails table", &[("20990101000001_t.sql", "DROP TABLE bots;")], "no earlier Rust migration created"),
+        ("DROP of a 2.x table", &[("20990101000001_t.sql", "DROP TABLE bots;")], "no earlier Rust migration created"),
         ("DROP of a double-quoted name", &[("20990101000001_t.sql", "DROP TABLE \"bots\";")], "no earlier Rust migration created"),
         ("DROP of a backquoted name", &[("20990101000001_t.sql", "DROP TABLE `bots`;")], "no earlier Rust migration created"),
         ("DROP of a bracketed name", &[("20990101000001_t.sql", "DROP TABLE [bots];")], "no earlier Rust migration created"),
@@ -346,7 +346,7 @@ fn row(o: &store::Opened, id: i64) -> (String, String) {
     o.primary.query_row("SELECT settings, updated_at FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
 }
 
-/// D-STRAY-FLAGS-MIGRATION: Rails never read an index or signal bot's rule switches or spending cap; the first start of this
+/// D-STRAY-FLAGS-MIGRATION: 2.x never read an index or signal bot's rule switches or spending cap; the first start of this
 /// build turns each one that is set off (a malformed "1" too), leaves updated_at, every other key and every other bot as
 /// they were, and the install is admitted.
 #[test]
@@ -682,11 +682,11 @@ fn the_frozen_beta_fixture_holds_every_stored_name_the_rename_moves() {
     assert_eq!(missing, Vec::<&str>::new(), "the fixture lacks these");
     let (_, mid) = installs.iter().find(|(name, _)| name == "mid_takeover").expect("a mid-takeover install");
     let q = Connection::open(paths(mid.path()).queue).unwrap();
-    assert!(q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get::<_, i64>(0)).unwrap() > 0, "Rails' rows still queued");
+    assert!(q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get::<_, i64>(0)).unwrap() > 0, "2.x's rows still queued");
 }
 
 /// The migrator's own guard, whatever the build's scan let through: a file that drops or rebuilds a table no Rust
-/// contract names (a Rails-born one) is rolled back and refused.
+/// contract names (a 2.x-born one) is rolled back and refused.
 #[test]
 fn a_migration_that_drops_or_rebuilds_a_v2_table_is_rolled_back() {
     for sql in ["DROP TABLE rules;", "DROP TABLE rules; CREATE TABLE rules (id INTEGER PRIMARY KEY, status INTEGER NOT NULL);"] {

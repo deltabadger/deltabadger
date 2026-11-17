@@ -586,7 +586,7 @@ async fn the_cutoffs_survive_an_app_configs_wipe() {
     assert!(fx.sync(&overlapping_api(500), false).await);
     assert_eq!(fx.count("SELECT count(*) FROM import_cutoffs"), 3);
     assert_eq!(fx.count("SELECT count(*) FROM app_configs WHERE key LIKE 'rust_kucoin_csv%'"), 0, "never written there");
-    // Rails' encryption reset deletes every app_configs row.
+    // 2.x's encryption reset deletes every app_configs row.
     fx.c.execute("DELETE FROM app_configs", []).unwrap();
     assert_eq!(fx.imported(&overlapping_export()).0, 4, "day A's three and the income: what the API covers is still not derived");
     assert_taken_over(&fx);

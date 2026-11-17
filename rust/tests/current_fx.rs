@@ -1,4 +1,4 @@
-//! Ruling 8: shared FX arithmetic, usable rates, and no database effects. Rails-free.
+//! Ruling 8: shared FX arithmetic, usable rates, and no database effects. 2.x-free.
 use deltabadger::figures::{at::At,db::Ticker,dec::Dec,market::{Failure,Fetch,MarketData,Member,Quoted,Venue},num::Num,totals,walk::Metrics,FiguresError};
 struct Feed(Vec<(String,Member<Num>)>,Option<Quoted>);
 impl MarketData for Feed {
@@ -15,7 +15,7 @@ fn feed(a:Num,b:Num)->Feed{Feed(vec![("usd".into(),Ok(a)),("eur".into(),Ok(b))],
 #[test]
 fn integer_and_float_provider_rates_follow_v2_float_then_bigdecimal() {
  let c=db();
- // Values measured with Ruby Float division followed by Float#to_d on the pinned base.
+ // Values measured with 2.x Float division followed by Float#to_d on the pinned base.
  for (a,b,expected) in [(Num::Int(100),Num::Int(80),"0.8"),(Num::Float(100.0),Num::Float(80.0),"0.8"),
   (Num::Int(3),Num::Int(2),"0.6666666666666666"),(Num::Int(80),Num::Int(100),"1.25"),
   (Num::Float(64123.456),Num::Float(55210.987),"0.8610107820763747"),

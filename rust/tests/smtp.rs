@@ -1,7 +1,7 @@
 //! One SMTP submission against a fake server in this process: the wire dialogue (STARTTLS, required when there is a user
 //! name to protect; AUTH PLAIN; the envelope; one command at a time), the limits the client holds whatever the server
 //! does (nothing read before TLS counts after it; a bounded reply; bounded time), what counts as delivered, and that a
-//! failure names a stage and a code and nothing the server, the configuration or the message wrote. Rails-free.
+//! failure names a stage and a code and nothing the server, the configuration or the message wrote. 2.x-free.
 mod common;
 use common::smtp::{self, Behaviour};
 use deltabadger::mail::smtp::{deliver, Env, Failure, Settings};
@@ -43,7 +43,7 @@ async fn starttls_then_auth_plain_then_the_envelope_and_the_message_one_command_
 
 #[tokio::test]
 async fn a_server_without_starttls_is_refused_when_a_user_name_is_set_and_nothing_secret_is_sent() {
-    // As Rails' `enable_starttls: :always`: no STARTTLS offered, so the delivery fails before AUTH.
+    // As 2.x's `enable_starttls: :always`: no STARTTLS offered, so the delivery fails before AUTH.
     let server = smtp::start(Behaviour { starttls: false, auth: true, ..Default::default() }).await;
     let failure = send(&alice(server.port)).await.unwrap_err();
     assert_eq!(said(&failure), "tls: 127.0.0.1 offers no STARTTLS, and a user name or password is never sent unencrypted");
@@ -56,7 +56,7 @@ async fn a_server_without_starttls_is_refused_when_a_user_name_is_set_and_nothin
 
 #[tokio::test]
 async fn a_server_without_starttls_gets_the_mail_in_the_clear_when_there_is_no_user_name_as_v2_sends_it() {
-    // An open relay configured by SMTP_ADDRESS alone. D-SMTP-NO-AUTH: Rails still sends AUTH with empty credentials; Rust
+    // An open relay configured by SMTP_ADDRESS alone. D-SMTP-NO-AUTH: 2.x still sends AUTH with empty credentials; Rust
     // sends no AUTH when no user name or password is set.
     let server = smtp::start(Behaviour { starttls: false, auth: false, ..Default::default() }).await;
     deliver(&settings(server.port, None), "noreply@localhost", "owner@example.com", MESSAGE).await.unwrap();

@@ -41,7 +41,7 @@ fn a_failed_status_changes_nothing() {
     { let unit=o.primary.unchecked_transaction().unwrap(); let fenced=deltabadger::engine::model::check_credential_result(&unit,&None).unwrap();
     polling::apply_in(&fenced, bot, tx, &state, true, "2026-09-01T10:00:06Z".parse().unwrap()).unwrap();
     unit.commit().unwrap(); }
-    assert_eq!(row(), before, "Rails' poll jobs have no branch for :failed");
+    assert_eq!(row(), before, "2.x's poll jobs have no branch for :failed");
 }
 
 #[derive(Clone)]

@@ -256,7 +256,7 @@ async fn up_carries_the_headers_v2_middleware_adds() {
     assert!(answer.header("content-security-policy-report-only").unwrap().contains("script-src 'self' 'nonce-"));
     assert_eq!(answer.header("x-frame-options"), Some("SAMEORIGIN"));
     assert_eq!(answer.header("cache-control"), Some("max-age=0, private, must-revalidate"));
-    assert_eq!(answer.header("content-security-policy"), None, "nothing is enforced yet: report-only, as in Rails");
+    assert_eq!(answer.header("content-security-policy"), None, "nothing is enforced yet: report-only, as in 2.x");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -567,7 +567,7 @@ fn the_executable_serves_the_bot_pages_of_an_install_the_engine_accepts_and_refu
 /// The cookie is written when the session changed, not on every response. A request that left the
 /// browser before a sign-in and is answered after it (Chrome asks for the manifest's start_url in
 /// the background) therefore does not put the signed-out session back. With a cookie on every
-/// response, as Rails sends it, this sign-in was lost (Finding 18).
+/// response, as 2.x sends it, this sign-in was lost (Finding 18).
 #[tokio::test(flavor = "current_thread")]
 async fn a_late_answer_to_an_older_request_does_not_undo_a_sign_in() {
     let (dir, opened, seeded) = common::install();
@@ -687,7 +687,7 @@ async fn a_form_is_accepted_behind_a_tls_terminating_proxy_when_app_root_url_spe
     }
 }
 
-/// D-B5-ORIGIN-HOST: with APP_ROOT_URL set, a login is accepted from its origin and from the request's own (Rails'
+/// D-B5-ORIGIN-HOST: with APP_ROOT_URL set, a login is accepted from its origin and from the request's own (2.x's
 /// `request.base_url`), as from a browser that opened an Umbrel app at the device's address; any other is refused.
 #[tokio::test(flavor = "current_thread")]
 async fn a_form_is_accepted_from_app_root_urls_origin_or_the_requests_own() {
@@ -718,7 +718,7 @@ async fn a_form_is_accepted_from_app_root_urls_origin_or_the_requests_own() {
 }
 
 /// The same proxy in front of an install that has no APP_ROOT_URL. The origin is then the request's
-/// own, read as Rails reads it: the scheme and the host the proxy says it was asked for.
+/// own, read as 2.x reads it: the scheme and the host the proxy says it was asked for.
 #[tokio::test(flavor = "current_thread")]
 async fn a_form_is_accepted_behind_a_tls_terminating_proxy_without_app_root_url() {
     let (dir, opened, seeded) = common::install();
@@ -764,7 +764,7 @@ async fn the_session_key_and_the_stream_key_are_derived_under_their_own_labels()
 }
 
 /// The session is the cookie: nothing is kept on the server, so there is nothing to revoke
-/// (Rails' CookieStore is the same). Signing out replaces the browser's cookie and no more.
+/// (2.x's CookieStore is the same). Signing out replaces the browser's cookie and no more.
 #[tokio::test(flavor = "current_thread")]
 async fn signing_out_empties_this_browsers_session_and_cannot_revoke_a_copy_of_its_cookie() {
     let (dir, opened, seeded) = common::install();
@@ -1285,7 +1285,7 @@ fn session_of(app: &deltabadger::web::App, browser: &Browser) -> deltabadger::we
 
 /// A second-factor step that was left open belongs to the sign-in that started it. A full password
 /// sign-in in the same browser, as anyone, ends it: the open step cannot afterwards turn the
-/// session into the first account's. (Rails keeps the pending step there.)
+/// session into the first account's. (2.x keeps the pending step there.)
 #[tokio::test(flavor = "current_thread")]
 async fn a_password_sign_in_ends_a_second_factor_step_left_open() {
     let (_dir, _db, app, owner, second) = two_accounts(true);
@@ -1409,7 +1409,8 @@ fn a_real_browser_signs_in_to_an_empty_install() -> Result<(), Box<dyn std::erro
     opened.primary.execute("UPDATE users SET encrypted_password=?1,confirmed_at='2026-01-01 00:00:00' WHERE id=?2",(hash,seeded.user_id))?;
     drop(opened);
     let port = free_port();
-    let mut server = Child(serve_command(dir.path(),port).stdout(Stdio::null()).stderr(Stdio::null()).spawn()?);
+    // The install is encrypted under the engine test secret (common::seed::cipher), not the web tests' SECRET.
+    let mut server = Child(serve_command(dir.path(),port).env("SECRET_KEY_BASE", "engine-test-secret").stdout(Stdio::null()).stderr(Stdio::null()).spawn()?);
     let deadline = Instant::now() + Duration::from_secs(15);
     while !up_within(port,Duration::from_secs(1)) {
         if Instant::now() >= deadline || server.0.try_wait()?.is_some() { return Err("empty-install server did not start".into()); }
@@ -1546,7 +1547,7 @@ async fn a_request_ready_on_a_keep_alive_connection_when_the_server_is_dropped_n
 }
 
 
-/// ALLOWED_HOSTS, as Rails' HostAuthorization in front of the whole app: a request for a host that
+/// ALLOWED_HOSTS, as 2.x's HostAuthorization in front of the whole app: a request for a host that
 /// is not allowed gets the same empty 403 whatever it asks for, before its query, its body, its
 /// cookie or the rate limit are looked at. Without the variable every host is served.
 #[tokio::test(flavor = "current_thread")]
@@ -1638,7 +1639,7 @@ fn a_signal_bot_is_refused_off_its_venues_and_for_what_its_pages_cannot_print() 
     assert_eq!(refusal(For::Page), Some("a signal bot whose pair names an asset that is gone"));
 }
 
-/// The bot as the pages read it (web::bot), on a row the engine's fixtures write: what Rails'
+/// The bot as the pages read it (web::bot), on a row the engine's fixtures write: what 2.x's
 /// model derives from the row, when it may not be started, and what this build refuses to render.
 #[test]
 fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_render_it() {
@@ -1665,7 +1666,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         "indicator_limit_timing_condition": "while", "indicator_limit_value_condition": "below", "indicator_limit_in_indicator": "rsi",
         "indicator_limit_in_timeframe": "one_day",
     });
-    // The row lacks every one of them: the bot is read with Rails' defaults, a condition watches the
+    // The row lacks every one of them: the bot is read with 2.x's defaults, a condition watches the
     // venue's first ticker, and nothing is written.
     let bare = Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap();
     for (key, value) in defaults.as_object().unwrap() { assert_eq!(bare.settings.get(key), Some(value), "{key}"); }
@@ -1674,7 +1675,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     }
     assert_eq!(c.query_row("SELECT settings FROM bots WHERE id = ?1", [id], |r| r.get::<_, String>(0)).unwrap(), stored, "a read stores nothing");
     let store = |settings: &serde_json::Value| c.execute("UPDATE bots SET settings = ?1 WHERE id = ?2", (settings.to_string(), id)).unwrap();
-    // `||=`: null and false are missing too. A whole amount divides as an Integer in Ruby: a tenth of 25 is 2.
+    // `||=`: null and false are missing too. A whole amount divides as an Integer in 2.x: a tenth of 25 is 2.
     let mut whole = settings.clone();
     (whole["quote_amount"], whole["smart_interval_quote_amount"], whole["price_limit"], whole["interval"]) = (json!(25), json!(null), json!(false), json!("day"));
     store(&whole);
@@ -1727,7 +1728,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     let mut capped = settings.clone();
     (capped["quote_amount_limited"], capped["quote_amount_limit"]) = (json!(true), json!(0));
     assert!(invalid(&capped).invalid, "a cap with nothing left");
-    // Smart Intervals stretch the interval by slice over amount, and Rails sets the slice no upper bound: 60 a week in slices
+    // Smart Intervals stretch the interval by slice over amount, and 2.x sets the slice no upper bound: 60 a week in slices
     // of 3,130,000 is an order every 999.8 years, which is still printed; a little more is past what the calendar here is
     // asked to hold. R8 refuses a slice above 2^53 before any interval arithmetic. Without the rule the span is the interval.
     let apart = |slice: serde_json::Value| {
@@ -1748,7 +1749,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     let no_time = Some("a working bot whose Smart Intervals leave no time between two orders");
     assert_eq!((apart(json!(0)), apart(json!(-5)), apart(json!(1e-320)), apart(json!(0.00009))), (no_time, no_time, no_time, no_time));
     assert_eq!(apart(json!(0.0001)), None, "a little over a second apart");
-    // A bot that is not working has no checkpoint to compute: Rails prints its own error under the field, and so does this build.
+    // A bot that is not working has no checkpoint to compute: 2.x prints its own error under the field, and so does this build.
     c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
     assert_eq!((apart(json!(0)), apart(json!(-5))), (None, None));
     let mut nothing = settings.clone();
@@ -1780,12 +1781,12 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert_eq!(refused(&|s| s["quote_amount"] = json!(0), true), Some("settings no form would have saved"));
     assert_eq!(refused(&|s| s["interval"] = json!("year"), true), Some("settings no form would have saved"));
     assert_eq!(refused(&|s| s["start_time_mode"] = json!("noon"), true), Some("settings no form would have saved"));
-    assert_eq!(refused(&|s| { s.as_object_mut().unwrap().remove("price_limit"); }, true), None, "Rails has a default for it");
+    assert_eq!(refused(&|s| { s.as_object_mut().unwrap().remove("price_limit"); }, true), None, "2.x has a default for it");
     assert_eq!(refused(&|s| { s.as_object_mut().unwrap().remove("allocations"); }, true), Some("settings the wizard always stores are missing"));
     assert_eq!(refused(&|s| s["limit_order_pcnt_distance"] = json!(2), true), Some("settings no form would have saved"));
     assert_eq!(refused(&|s| s["smart_interval_quote_amount"] = json!("5"), true), Some("settings no form would have saved"));
-    // A setting in a shape no form stores. Where Rails' own reader coerces a text (a weight with `to_f`, the rebalance
-    // threshold with `to_d`, an id it looks up) and the text is plainly a number, it is read as Rails reads it;
+    // A setting in a shape no form stores. Where 2.x's own reader coerces a text (a weight with `to_f`, the rebalance
+    // threshold with `to_d`, an id it looks up) and the text is plainly a number, it is read as 2.x reads it;
     // everything else is refused, never read as a default or as nothing.
     let shape = Some("a setting stored in a shape this build does not read");
     let btc = seeded.btc.to_string();
@@ -1804,8 +1805,8 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         ("moving_average_limit_in_ma_type", json!(word)), ("moving_average_limit_in_timeframe", json!(word)), ("moving_average_limit_action", json!(word)),
         ("indicator_limit_timing_condition", json!(word)), ("indicator_limit_value_condition", json!(word)), ("indicator_limit_in_timeframe", json!(word)),
         ("indicator_limit_action", json!(word)),
-        // What Rails validates when it is asked whether the bot may start, and no page prints: `indicator_limit_in_indicator` has one
-        // word (app/models/bot/indicator_limitable.rb:62), a switch is true or false, a weighting and a direction are of their lists.
+        // What 2.x validates when it is asked whether the bot may start, and no page prints: `indicator_limit_in_indicator` has one
+        // word, a switch is true or false, a weighting and a direction are of their lists.
         ("indicator_limit_in_indicator", json!("macd")), ("indicator_limit_in_indicator", json!(["rsi"])),
         ("smart_intervaled", json!("true")), ("limit_ordered", json!(1)), ("quote_amount_limited", json!("1")), ("price_limited", json!("on")),
         ("price_drop_limited", json!(0)), ("moving_average_limited", json!([])), ("indicator_limited", json!("false")),
@@ -1828,7 +1829,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert_eq!((texts.allocations(), texts.rebalance_threshold().map(|share| share.to_s_f())), (vec![(seeded.btc, 0.6)], Some("0.2".to_string())), "as `to_f` and `to_d` read them");
     assert_eq!(read(&|s| s["rebalance_threshold"] = json!(0.1)).rebalance_threshold().map(|share| share.to_s_f()).as_deref(), Some("0.1"));
     assert_eq!(read(&|s| s["rebalance_threshold"] = json!("")).rebalance_threshold().map(|share| share.to_s_f()).as_deref(), Some("0.05"), "`presence`: a blank text is the default");
-    // What Rails validates only while its rule is on: off, the row may hold anything and is rendered; on, it is an error under a field, and refused here.
+    // What 2.x validates only while its rule is on: off, the row may hold anything and is rendered; on, it is an error under a field, and refused here.
     for (switch, key, value) in [("price_limited", "price_limit", json!(-1)), ("price_limited", "price_limit_range_lower_bound", json!(-0.5)),
                                  ("price_limited", "price_limit_range_upper_bound", json!(-1)), ("price_drop_limited", "price_drop_limit", json!(1.5)),
                                  ("price_drop_limited", "price_drop_limit", json!(-0.1)), ("moving_average_limited", "moving_average_limit_in_period", json!(0))] {
@@ -1839,14 +1840,14 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     let capped_at = |cap: serde_json::Value| read(&|s| (s["quote_amount_limited"], s["quote_amount_limit"]) = (json!(true), cap.clone())).unrendered();
     assert_eq!((capped_at(json!(0.001)), capped_at(json!(0)), capped_at(json!(0.01))), (Some("a spending cap below the smallest amount its quote states"), Some("a spending cap below the smallest amount its quote states"), None));
     assert_eq!(read(&|s| (s["quote_amount_limited"], s["quote_amount_limit"]) = (json!(false), json!(0))).unrendered(), None, "off, it is not validated");
-    // Rails' floor is the bot's tickers' (app/models/bot/quote_amount_limitable.rb:94): none listed, none, whatever the memberships hold.
+    // 2.x's floor is the bot's tickers': none listed, none, whatever the memberships hold.
     c.execute("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, created_at, updated_at) VALUES (?1, ?2, ?3, 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
               (id, seeded.btc, seeded.ticker_id)).unwrap();
     c.execute("UPDATE tickers SET available = 0", []).unwrap();
-    assert_eq!(capped_at(json!(0.001)), None, "a sub-cent cap on a bot whose members are no longer listed, as Rails saves it");
+    assert_eq!(capped_at(json!(0.001)), None, "a sub-cent cap on a bot whose members are no longer listed, as 2.x saves it");
     c.execute("UPDATE tickers SET available = 1", []).unwrap();
     c.execute("DELETE FROM bot_index_assets WHERE bot_id = ?1", [id]).unwrap();
-    // The two times the pages read out of `transient_data`, and the carry Rails validates as not negative.
+    // The two times the pages read out of `transient_data`, and the carry 2.x validates as not negative.
     for transient in [json!({ "last_action_job_at": 5 }), json!({ "last_action_job_at": "yesterday" }), json!({ "quote_amount_limit_enabled_at": true }),
                       json!({ "missed_quote_amount": -1 }), json!({ "missed_quote_amount": "-0.5" }), json!({ "missed_quote_amount": "a lot" }), json!({ "missed_quote_amount": [1] }),
                       json!({ "missed_quote_amount": "1e1000000000" })] {
@@ -1855,13 +1856,13 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     }
     c.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", (json!({ "last_action_job_at": "", "quote_amount_limit_enabled_at": "2026-09-01T00:00:00.000Z", "missed_quote_amount": "12.5" }).to_string(), id)).unwrap();
     assert_eq!(refused(&|_| {}, true), shape, "R9: a present empty timestamp refuses; only absent/NULL is no time");
-    // The carry Rails writes after a budget of 1e31 and a fill of 100 is readable as BigDecimal, but R8 refuses its magnitude.
+    // The carry 2.x writes after a budget of 1e31 and a fill of 100 is readable as BigDecimal, but R8 refuses its magnitude.
     c.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", (json!({ "missed_quote_amount": "9999999999999999999999999999900.0" }).to_string(), id)).unwrap();
     assert!(format!("{:?}", bot::refusal(c, id, true, bot::For::Page).unwrap_err()).contains("accounting magnitude exceeds 2^53"), "oversized persisted carry");
     c.execute("UPDATE bots SET transient_data = '{}' WHERE id = ?1", [id]).unwrap();
     assert_eq!(refused(&|_| {}, true), None, "the rule on is served (PLAN-wash-sale WS-4a)");
     c.execute("UPDATE users SET wash_sale_enabled = NULL", []).unwrap();
-    assert_eq!(bot::wash::due(c, seeded.user_id, id, chrono::Utc::now()).unwrap(), None, "not answered, and nothing traded: Rails asks nothing yet");
+    assert_eq!(bot::wash::due(c, seeded.user_id, id, chrono::Utc::now()).unwrap(), None, "not answered, and nothing traded: 2.x asks nothing yet");
     c.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();
     store(&settings);
     for (sql, reason) in [
@@ -1886,7 +1887,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     c.execute_batch("SAVEPOINT change; UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"selling\",\"sell_transaction_id\":[1]}}';").unwrap();
     assert!(bot::refusal(c, id, true, bot::For::Page).is_err());
     c.execute_batch("ROLLBACK TO change; RELEASE change;").unwrap();
-    // A bot stored without a name is served under the one Rails generates on load, which saves nothing.
+    // A bot stored without a name is served under the one 2.x generates on load, which saves nothing.
     c.execute_batch("SAVEPOINT unnamed; UPDATE bots SET label = '  ';").unwrap();
     assert_eq!(refusal(), None, "a bot without a label is served");
     let unnamed = Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap();
@@ -2056,8 +2057,8 @@ fn assert_escaped(what: &str, body: &str) {
 }
 
 /// No text out of the database is markup on the bot list or the bot page, for every text these
-/// pages print, in every place they print it. Rails escapes the same texts, the lone subject of a
-/// condition's sentence included (`h(...)` in bots/settings/_price_limit.html.erb and its three siblings).
+/// pages print, in every place they print it. 2.x escapes the same texts, the lone subject of a
+/// condition's sentence included (`h(...)` in 2.x's price-limit partial and its three siblings).
 #[tokio::test(flavor = "current_thread")]
 async fn no_text_from_the_database_is_markup_on_the_bot_pages() {
     let (_dir, _opened, app, mut browser, [lone, pair]) = hostile_install();
@@ -2101,7 +2102,7 @@ async fn two_plain_bots() -> (tempfile::TempDir, deltabadger::store::Opened, com
     (dir, opened, seeded, app, browser, [working, stopped])
 }
 
-/// A bot stored without a name (NULL or blank) is served under the name Rails generates on load —
+/// A bot stored without a name (NULL or blank) is served under the name 2.x generates on load —
 /// on its page, in the other bot's switcher and on the list — and the read saves nothing.
 #[tokio::test(flavor = "current_thread")]
 async fn a_bot_without_a_label_is_shown_under_its_generated_name_and_nothing_is_saved() {
@@ -2127,7 +2128,7 @@ async fn a_bot_without_a_label_is_shown_under_its_generated_name_and_nothing_is_
 /// The span between two orders is checked before any checkpoint is computed from it. A working bot
 /// whose Smart Intervals amount is nothing, less than nothing or small enough to underflow is
 /// refused, on its page and on the list; the same row on a bot that is not working is rendered, with
-/// Rails' own error under the field (the scenario `bot_page_stored_past_forms` holds that page to Rails').
+/// 2.x's own error under the field (the scenario `bot_page_stored_past_forms` holds that page to 2.x's).
 #[tokio::test(flavor = "current_thread")]
 async fn a_span_of_nothing_between_two_orders_refuses_a_working_bot_before_any_checkpoint() {
     use serde_json::json;
@@ -2156,9 +2157,9 @@ async fn a_span_of_nothing_between_two_orders_refuses_a_working_bot_before_any_c
 }
 
 /// The navbar's ring adds the account's holdings in SQL, and a value no Float holds makes the sum
-/// infinity: a user reaches it by importing a closed buy of 1e307 and syncing balances at 100 (Rails
-/// stores the product; app/services/account_balance/sync.rb). Rails raises drawing the ring
-/// (app/helpers/tracker_helper.rb:505). Every handler here that loads the navbar answers the 501
+/// infinity: a user reaches it by importing a closed buy of 1e307 and syncing balances at 100 (2.x
+/// stores the product). 2.x raises drawing the ring
+///. Every handler here that loads the navbar answers the 501
 /// page for it, never a 500; and the same pages are served again once the row is gone.
 #[tokio::test(flavor = "current_thread")]
 async fn holdings_that_add_up_to_no_number_refuse_the_pages_that_draw_the_ring() {
@@ -2267,7 +2268,7 @@ async fn no_text_from_the_database_is_markup_in_the_orders_feed() {
 }
 
 /// A number in a row that this build does not read refuses the pages that would print or add it
-/// (501), and nothing else: not the other bot's page, not the server. Rails reads such a row and
+/// (501), and nothing else: not the other bot's page, not the server. 2.x reads such a row and
 /// writes the number out; here its length is what an allocation would be sized by, inside the one
 /// database call every request shares. Each is written past the models, by SQL.
 #[tokio::test(flavor = "current_thread")]
@@ -2289,7 +2290,7 @@ async fn a_stored_number_this_build_does_not_read_refuses_the_bots_pages_and_onl
                   rusqlite::params![bot, seeded.exchange_id, external_status, seeded.btc, seeded.quote, value]).unwrap();
     };
     // What the stopped bot spent under its cap: its page and the list add it up, its feed prints it, its chart reads no amount.
-    // A closed order (2) at what it cost, and a cancelled (3) and an abandoned one (4) at what they filled before: Rails adds the
+    // A closed order (2) at what it cost, and a cancelled (3) and an abandoned one (4) at what they filled before: 2.x adds the
     // last two as SQLite's own numbers, and each is read as a stored number first, whatever SQLite holds it as: a text it could
     // not read as a number, or the infinity it makes of a literal too large for a Float.
     let infinity = f64::INFINITY;
@@ -2374,7 +2375,7 @@ async fn a_page_of_the_feed_costs_the_same_however_long_the_history_is() {
 
 /// The feed refuses the page of rows that holds an order it cannot read, and no page before it; a
 /// sale or an order of another type is a row like any other. Each table is asked for eleven rows and
-/// ten are shown (Rails picks the merged page first: BotActivityFeed#page), so the row that only
+/// ten are shown (2.x picks the merged page first: BotActivityFeed#page), so the row that only
 /// says "there is a next page" must not decide anything about this one.
 #[tokio::test(flavor = "current_thread")]
 async fn the_feed_refuses_the_page_that_holds_the_row_and_no_page_before_it() {
@@ -2852,7 +2853,7 @@ fn claimed(c: &rusqlite::Connection, token: &str) -> Option<String> {
     c.query_row("SELECT last_triggered_at FROM bot_signals WHERE token = ?1", [token], |r| r.get(0)).unwrap()
 }
 
-/// Puma hands Rails a request only once its body is in, so a call whose body stalls never reaches the hook. Here the
+/// Puma hands 2.x a request only once its body is in, so a call whose body stalls never reaches the hook. Here the
 /// hook's body is read under the form's deadline and bound: a stalled or oversized body is answered (408, 413) and
 /// spends no claim; one that arrives is the call.
 #[tokio::test(flavor = "current_thread")]
@@ -2923,7 +2924,7 @@ fn serve_logs_no_webhook_token() {
     assert!(!log.contains("tok-"), "a webhook token reached the log: {log}");
 }
 
-/// Slice 8c-2 (named divergence from Rails, which has no such order): Resolve lifts a marker that stands alone, once,
+/// Slice 8c-2 (named divergence from 2.x, which has no such order): Resolve lifts a marker that stands alone, once,
 /// with its line, and leaves one beside this build's own unsettled order, which the engine's recovery settles.
 #[tokio::test(flavor = "current_thread")]
 async fn a_resolve_lifts_a_lone_marker_and_leaves_one_the_engine_still_settles() {
@@ -2961,7 +2962,7 @@ async fn a_resolve_lifts_a_lone_marker_and_leaves_one_the_engine_still_settles()
 }
 
 /// PLAN-B2 r4.2: the marker a takeover writes for a claimed webhook call whose rule is gone has no `side`. The page shows
-/// it with its Resolve form, and Resolve lifts it with its line, as for Rails' own marker.
+/// it with its Resolve form, and Resolve lifts it with its line, as for 2.x's own marker.
 #[tokio::test(flavor = "current_thread")]
 async fn a_takeover_marker_without_side_shows_and_resolves() {
     use serde_json::json;
@@ -3188,7 +3189,7 @@ fn a_failed_oauth_request_logs_no_token() {
     assert!(!said.contains("SECRET-TOKEN"), "a token reached the log:\n{said}");
 }
 
-// ---- 3.0 A26: the legacy routes Rails still draws (PLAN-A26-legacy-routes.md) ----
+// ---- 3.0 A26: the legacy routes 2.x still draws (PLAN-A26-legacy-routes.md) ----
 
 /// An install with its seeded owner confirmed, and a browser signed in as them; `bot_config` is the wizard state the session holds.
 fn legacy_fixture(bot_config: Option<serde_json::Value>) -> (tempfile::TempDir, deltabadger::store::Opened, common::seed::Seeded, deltabadger::web::App, Browser) {
@@ -3223,7 +3224,7 @@ async fn legacy_bookmarks_redirect() {
     assert_eq!(signed_out.get(&app, "/bots").await.header("location"), Some("/login"), "where a signed-out bookmark then lands");
 }
 
-/// `/404`, `/422`, `/500` under every method (Rails `via: :all`): ErrorsController's answers, with public/'s bodies.
+/// `/404`, `/422`, `/500` under every method (2.x `via: :all`): ErrorsController's answers, with public/'s bodies.
 #[tokio::test(flavor = "current_thread")]
 async fn legacy_error_paths_answer_under_every_method() {
     let (_dir, _opened, _seeded, app, mut browser) = legacy_fixture(None);
@@ -3259,7 +3260,7 @@ async fn legacy_unserved_posts_are_404() {
     assert_eq!(bot_rows(&opened.primary), 1);
 }
 
-/// The old create forms (D-LEGACY-STALE-CREATE). A real 2.x tab carries Rails' cookie and token, which Rust does not read:
+/// The old create forms (D-LEGACY-STALE-CREATE). A real 2.x tab carries 2.x's cookie and token, which Rust does not read:
 /// it is turned back before any route. A request with a Rust session is sent to the wizard's start. Neither creates a
 /// bot, and the Rust session keeps no wizard state.
 #[tokio::test(flavor = "current_thread")]
@@ -3271,7 +3272,7 @@ async fn a_stale_create_form_creates_nothing() {
     let (_dir, opened, _seeded, app, mut browser) = legacy_fixture(Some(config.clone()));
     let stream = [("turbo-frame", "modal_content"), ("accept", "text/vnd.turbo-stream.html, text/html, application/xhtml+xml")];
 
-    // (a) The 2.x tab: Rails' session cookie, Rails' token, no Rust session.
+    // (a) The 2.x tab: 2.x's session cookie, 2.x's token, no Rust session.
     let mut stale = Browser::default();
     let referer = format!("http://{}/bots", web::HOST);
     for path in ["/bots/dca_indexes", "/bots/dca_indexes/confirm_settings", "/bots/dca_multi_assets"] {
@@ -3323,8 +3324,8 @@ async fn a_stale_create_form_creates_nothing() {
     assert_eq!(bot_rows(&opened.primary), 0);
 }
 
-/// `resources :bots` also draws `POST /bots` and `DELETE /bots/:id`, actions BotsController never had (a 404 in Rails too,
-/// D-LEGACY-BOTS-CREATE-DESTROY-ABSENT), and `PUT /bots/:id`, Rails' update as much as PATCH is.
+/// `resources :bots` also draws `POST /bots` and `DELETE /bots/:id`, actions BotsController never had (a 404 in 2.x too,
+/// D-LEGACY-BOTS-CREATE-DESTROY-ABSENT), and `PUT /bots/:id`, 2.x's update as much as PATCH is.
 #[tokio::test(flavor = "current_thread")]
 async fn bots_resource_routes_v2_draws() {
     let (_dir, opened, seeded, app, mut browser) = legacy_fixture(None);

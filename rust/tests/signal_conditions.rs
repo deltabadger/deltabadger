@@ -1,5 +1,5 @@
 //! PLAN-conditions-every-bot CE-4: a signal bot's price rule and spending cap. The engine's sequences (§4.2: the gate per
-//! call side, the cap's fast path, clamp, guard and cap line, no stop), the signal cells against the Rails-recorded basket
+//! call side, the cap's fast path, clamp, guard and cap line, no stop), the signal cells against the 2.x-recorded basket
 //! twin's gate (§4.1: met_at writes and the gate's decision), and the settings through the page, MCP and REST, which are
 //! the one signal settings writer (D-SIG-CONDITIONS, D-SIG-COND-LINE, D-SIG-CAP).
 mod common;
@@ -251,7 +251,7 @@ async fn a_binding_cap_clamps_the_buy_to_the_remainder() {
     assert_eq!(s.rows().last().unwrap().1, "10", "the row records the remainder");
 }
 
-/// A cap that does not bind leaves Rails' own below-minimum skip: the skipped row and its line.
+/// A cap that does not bind leaves 2.x's own below-minimum skip: the skipped row and its line.
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn under_the_minimum_without_a_binding_cap_is_v2_skipped_row() {
     let (settings, transient) = capped(json!(1000));
@@ -322,7 +322,7 @@ async fn a_guard_reduction_under_the_minimum_is_one_atomic_skip() {
     assert!(s.transient().get("rust_placement").is_none(), "no intent");
 }
 
-/// A closed buy that never reported its cost: the cap's spend is unknown, and the buy call is a failed row with Rails' text.
+/// A closed buy that never reported its cost: the cap's spend is unknown, and the buy call is a failed row with 2.x's text.
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn an_unknown_spend_is_a_failed_row() {
     let (settings, transient) = capped(json!(100));
@@ -355,18 +355,18 @@ fn the_cap_counts_open_orders_partial_cancels_and_an_unresolved_intent() {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// §4.1: the signal cells against the Rails basket twin's gate (grid-conditions, Kraken, both sides).
+// §4.1: the signal cells against the 2.x basket twin's gate (grid-conditions, Kraken, both sides).
 
 /// What a gate decided: the call (or tick) went on to trade, was held by the rule, or failed.
 #[cfg(unix)]
 #[derive(Debug, PartialEq)]
 enum Gate { Pass, Held, Failed }
 
-/// D-SIG-CONDITIONS: on each Kraken cell of Rails' condition grid, a signal bot carrying the basket's rule (same side, same
-/// stored met_at, the same venue script) and a call of that side writes met_at as Rails' basket does (stamped, kept or
+/// D-SIG-CONDITIONS: on each Kraken cell of 2.x's condition grid, a signal bot carrying the basket's rule (same side, same
+/// stored met_at, the same venue script) and a call of that side writes met_at as 2.x's basket does (stamped, kept or
 /// cleared) and decides as its gate does: traded ↔ placed, paused ↔ the unmet line, a failed tick ↔ the failed row. Carry,
 /// status and check jobs are not compared (a signal bot has none of them).
-#[cfg(unix)] // the Rails grid recorder (common::decisions) is Unix-only, as in parity.rs
+#[cfg(unix)] // the recorded grid (common::decisions) is Unix-only, as in parity.rs
 #[tokio::test(flavor = "current_thread")]
 async fn signal_cells_decide_as_the_v2_basket_twins_gate() {
     const CASES: [&str; 15] = ["below_met", "below_unmet", "below_at_limit", "above_met", "above_unmet", "between_reversed_met", "between_unmet",
@@ -387,11 +387,11 @@ async fn signal_cells_decide_as_the_v2_basket_twins_gate() {
     common::decisions::v2(&["record", v2_root.path().to_str().unwrap()]);
     let mut failures = vec![];
     for (name, side) in &names {
-        let v2: Value = serde_json::from_str(&std::fs::read_to_string(v2_root.path().join(name).join("rails.json")).unwrap()).unwrap();
+        let v2: Value = serde_json::from_str(&std::fs::read_to_string(v2_root.path().join(name).join("expected.json")).unwrap()).unwrap();
         let (v2_met, v2_gate) = v2_cell(&v2, side);
         let (rust_met, rust_gate) = signal_cell(&rust_root.path().join(name), side).await;
         if (&v2_met, &v2_gate) != (&rust_met, &rust_gate) {
-            failures.push(format!("{name}: Rails basket met_at {v2_met:?} gate {v2_gate:?}; signal met_at {rust_met:?} gate {rust_gate:?}"));
+            failures.push(format!("{name}: 2.x basket met_at {v2_met:?} gate {v2_gate:?}; signal met_at {rust_met:?} gate {rust_gate:?}"));
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
@@ -444,7 +444,7 @@ async fn signal_cell(dir: &Path, side: &str) -> (&'static str, Gate) {
     let rule = c.last_insert_rowid();
     let now = scenario["at"].as_str().unwrap();
     model::append_signal_call(&c, bot, &model::SignalCall { source: "hook:cell".into(), signal_id: rule, triggered_at: t(now) }).unwrap();
-    // The listing the cell withdraws after it was built (missing_ticker): Rails' grid applies it before the tick.
+    // The listing the cell withdraws after it was built (missing_ticker): 2.x's grid applies it before the tick.
     if let Some(after) = scenario["ticker_after"].as_object() {
         for (column, value) in after { c.execute(&format!("UPDATE tickers SET {column} = ?1"), [value.as_bool().map_or(0, i64::from)]).unwrap(); }
     }
@@ -614,7 +614,7 @@ async fn the_api_refuses_what_a_signal_bot_does_not_take() {
     i.c.execute("UPDATE bots SET status = 1 WHERE id = ?1", [i.id]).unwrap();
     let (_, answer) = save(&i, Surface::Mcp, json!({}), json!({ "price_limited": true })).await;
     assert_eq!(answer["text"], json!("Bot must be stopped before updating settings. Current status: scheduled."));
-    // The name and the venue are taken as Rails' signal bot takes them.
+    // The name and the venue are taken as 2.x's signal bot takes them.
     let i = install();
     let (_, answer) = save(&i, Surface::Mcp, json!({}), json!({ "label": "Renamed" })).await;
     assert_eq!(answer["text"], json!("Bot 'Renamed' settings updated: label."));
@@ -631,7 +631,7 @@ async fn a_start_with_the_cap_spent_is_refused() {
     let (_, answer) = mcp(&i, "start_bot", serde_json::Map::new()).await;
     assert_eq!(answer["error"], json!(true), "{answer}");
     assert!(answer["text"].as_str().unwrap().starts_with("Failed to start bot 'Signals': Settings"), "{answer}");
-    // D-START-CAP-COPY: Rails has no text for this refusal (its missing-translation text); this one is written in every locale.
+    // D-START-CAP-COPY: 2.x has no text for this refusal (its missing-translation text); this one is written in every locale.
     assert!(answer["text"].as_str().unwrap().contains("The whole amount has been invested: raise the limit or turn it off to start the bot."), "{answer}");
     let token = web::csrf::new_token();
     let session = web::session::SessionData { user: Some((i.user, "x".into())), csrf: Some(token.clone()), ..Default::default() };

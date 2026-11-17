@@ -1,5 +1,5 @@
-//! D-KRAKEN-TOKENIZED (plan A15): a Kraken xStock pair (`NVDAxUSD`, base code `NVDAx`) traded by Rust. Rails never sends
-//! one (AddOrder without `asset_class`, the pair listed untradable), so nothing here is a recorded Rails vector. Each venue
+//! D-KRAKEN-TOKENIZED (plan A15): a Kraken xStock pair (`NVDAxUSD`, base code `NVDAx`) traded by Rust. 2.x never sends
+//! one (AddOrder without `asset_class`, the pair listed untradable), so nothing here is a recorded 2.x vector. Each venue
 //! answer is scripted from Kraken's REST docs (AddOrder `asset_class=tokenized_asset` for xStocks, read 2026-11-02) and
 //! reviewed by hand. Every case runs the real Kraken adapter over ScriptedTransport, through the real tick.
 //! Kraken's live behaviour is confirmed after merge on an own monitored account, not here.

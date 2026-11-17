@@ -82,20 +82,20 @@ pub fn installs() -> Vec<(String, tempfile::TempDir)> {
     }).collect()
 }
 
-/// PLAN-B11 B11-1: where Rails' frozen answers live, one directory per recording (`frozen`'s name).
+/// PLAN-B11 B11-1: where 2.x's frozen answers live, one directory per recording (`frozen`'s name).
 pub fn recorded() -> PathBuf { Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/recorded") }
 
 const SQLITE: &[u8] = b"SQLite format 3\0";
 const PRAGMAS: [&str; 6] = ["page_size", "auto_vacuum", "encoding", "user_version", "application_id", "journal_mode"];
 
-/// Rails' answer under recorded/<name> (PLAN-B11 §2 T1/T3/T4/T5), frozen at the commit tagged rails-oracle-final: each
+/// 2.x's answer under recorded/<name> (PLAN-B11 §2 T1/T3/T4/T5), frozen at the commit tagged rails-oracle-final: each
 /// SQLite database stored as `<file>.sql` (`dump`) and `<file>.pragmas.json`, every other file as it is. The caller gets
 /// the restored files, built once per test run (super::run_template) and shared, so it copies what it writes to.
 pub fn frozen(name: &str, is_whole: fn(&Path) -> bool) -> PathBuf {
     let name = name.replace('/', "_");
     super::run_template(&format!("frozen-{name}"), is_whole, |out| {
         let at = recorded().join(&name);
-        assert!(at.is_dir(), "{name}: no frozen Rails answer at {}", at.display());
+        assert!(at.is_dir(), "{name}: no frozen 2.x answer at {}", at.display());
         restore_tree(&at, out);
     })
 }
@@ -148,15 +148,15 @@ fn load(path: &Path, sql: &str, pragmas: &serde_json::Map<String, serde_json::Va
     let _: String = c.query_row(&format!("PRAGMA journal_mode = {}", pragmas["journal_mode"].as_str().unwrap()), [], |r| r.get(0)).unwrap();
 }
 
-/// One Rails command's answer on `dir` (`args`, whose last one is `dir`), frozen by what it was given: recorded/<test
+/// One 2.x command's answer on `dir` (`args`, whose last one is `dir`), frozen by what it was given: recorded/<test
 /// binary>/<command>-<digest of dir's contents> holds the files the command created or changed, laid over `dir`. An
-/// input that was never frozen (the test now hands Rails something else) fails: no Rails is left to answer it.
+/// input that was never frozen (the test now hands 2.x something else) fails: no 2.x is left to answer it.
 pub fn step(args: &[&str]) {
     let dir = Path::new(args.last().expect("the directory the command writes to"));
     let command = args[..args.len() - 1].join("_").replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
     let digest = { use sha2::{Digest, Sha256}; let mut h = Sha256::new(); for (path, text) in &contents(dir) { h.update(path.as_os_str().as_encoded_bytes()); h.update([0]); h.update(text); h.update([0]); } hex::encode(h.finalize()) };
     let at = recorded().join(env!("CARGO_CRATE_NAME")).join(format!("{command}-{}", &digest[..16]));
-    assert!(at.is_dir(), "Rails' answer to `{}` on this input is not frozen at {}: the input changed since the freeze", args[..args.len() - 1].join(" "), at.display());
+    assert!(at.is_dir(), "2.x's answer to `{}` on this input is not frozen at {}: the input changed since the freeze", args[..args.len() - 1].join(" "), at.display());
     restore_over(&at, dir);
 }
 

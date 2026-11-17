@@ -1,5 +1,5 @@
 //! The Kraken adapter (venue::kraken) over recorded bodies, its signer against the legacy gem's own output, and the
-//! per-venue dispatch and proxy (venue::live). Rails-free: no install, no network beyond local wiremock servers.
+//! per-venue dispatch and proxy (venue::live). 2.x-free: no install, no network beyond local wiremock servers.
 use deltabadger::crypto::Credentials;
 use deltabadger::engine::model::Ticker;
 use deltabadger::engine::venue_rules::KRAKEN;

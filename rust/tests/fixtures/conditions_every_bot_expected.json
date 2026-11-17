@@ -17,7 +17,7 @@
     "weights": [0.3333333333333333, 0.3333333333333333, 0.3333333333333334], "quote_amount": 60, "cap": 12, "minimum": "5", "skipped_cents": ["4.00", "4.00", "4.00"], "placed": [], "stopped": true
   },
   "iii_one_leg_placeable": {
-    "why": "Weights 0.5/0.25/0.25, cap 12 binding on pending 60. Legs 6/3/3: the 6 USD leg clears the 5 USD minimum and is placed (notional 6.00); the two 3 USD legs are below the minimum and, beside a placed leg, are reported as one line with no skipped rows (Rails' record_skipped_orders!). A placeable leg: no stop.",
+    "why": "Weights 0.5/0.25/0.25, cap 12 binding on pending 60. Legs 6/3/3: the 6 USD leg clears the 5 USD minimum and is placed (notional 6.00); the two 3 USD legs are below the minimum and, beside a placed leg, are reported as one line with no skipped rows (2.x's record_skipped_orders!). A placeable leg: no stop.",
     "weights": [0.5, 0.25, 0.25], "quote_amount": 60, "cap": 12, "minimum": "5", "skipped": [], "placed": ["6.00"], "stopped": false
   },
   "iv_not_binding": {

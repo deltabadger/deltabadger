@@ -18,8 +18,8 @@ fn every_recorded_translation_call_is_reproduced() {
             None => (name.as_str(), Arg::Text(value.as_str().unwrap())),
         }).collect();
         let (view, text) = (i18n::t(locale, key, &given), i18n::text(locale, key, &given));
-        if view != call["view"].as_str().unwrap() { failures.push(format!("t({locale}, {key}) = {view:?}, Rails {}", call["view"])); }
-        if text != call["text"].as_str().unwrap() { failures.push(format!("text({locale}, {key}) = {text:?}, Rails {}", call["text"])); }
+        if view != call["view"].as_str().unwrap() { failures.push(format!("t({locale}, {key}) = {view:?}, 2.x {}", call["view"])); }
+        if text != call["text"].as_str().unwrap() { failures.push(format!("text({locale}, {key}) = {text:?}, 2.x {}", call["text"])); }
     }
     assert!(failures.is_empty(), "{} differ:\n{}", failures.len(), failures.join("\n"));
 }
@@ -37,11 +37,11 @@ fn already_safe_markup_is_not_escaped_in_an_html_key() {
     assert!(out.contains("<b>4</b>&nbsp;years") && out.contains("&lt;1&gt;%") && out.contains("3%</b> more"), "{out}");
 }
 
-// PLAN-B11 T7 (L-I18N): the whole table is no longer compared with Rails' I18n: a locale edit is read by build.rs only
+// PLAN-B11 T7 (L-I18N): the whole table is no longer compared with 2.x's I18n: a locale edit is read by build.rs only
 // (its Psych-boolean/null refusal stays), never frozen, since every translation edit would need a re-recording.
 
-/// Listed divergence: Rails commits a write the engine cannot run; Rust answers 422 with this copy.
-/// One key, English only; every other locale falls back to it, as Rails' fallbacks do.
+/// Listed divergence: 2.x commits a write the engine cannot run; Rust answers 422 with this copy.
+/// One key, English only; every other locale falls back to it, as 2.x's fallbacks do.
 #[test]
 fn the_write_refused_copy_carries_the_reason_in_english_in_every_locale() {
     let reason = "bot 7 (scheduled): quote_amount_limited";
@@ -52,8 +52,8 @@ fn the_write_refused_copy_carries_the_reason_in_english_in_every_locale() {
     }
 }
 
-/// A web start on a bot that is already working is refused, as Rails' API refuses it (409
-/// `bot_already_running`); the page re-renders with this flash, as Rails' web controller does (422).
+/// A web start on a bot that is already working is refused, as 2.x's API refuses it (409
+/// `bot_already_running`); the page re-renders with this flash, as 2.x's web controller does (422).
 #[test]
 fn the_already_running_refusal_is_one_english_key_every_locale_falls_back_to() {
     let en = i18n::text("en", "engine.already_running", &[]);
@@ -64,7 +64,7 @@ fn the_already_running_refusal_is_one_english_key_every_locale_falls_back_to() {
 }
 
 /// The dotiw gem's unit names are in the gem, not in rust/locales, so the crate pins a copy
-/// (web::i18n FROM_GEMS). The recorder reads them from Rails; a gem update that rewords one fails here.
+/// (web::i18n FROM_GEMS). The recorder reads them from 2.x; a gem update that rewords one fails here.
 #[test]
 fn the_pinned_unit_names_are_the_dotiw_gems() {
     let recorded = common::vectors()["bot_pages"]["dotiw"].as_object().unwrap().clone();
@@ -75,7 +75,7 @@ fn the_pinned_unit_names_are_the_dotiw_gems() {
     }
 }
 
-/// PLAN-B11 §5: no text a user reads says "Rails". Every translation, every template with its `{# #}` comments taken out,
+/// PLAN-B11 §5: no text a user reads says "2.x". Every translation, every template with its `{# #}` comments taken out,
 /// and every string literal of the web layer and of the eligibility refusals (which pages and API answers show) outside
 /// their unit tests. The literals still saying it are named below, each with why it is not page text or who rewords it.
 #[test]
@@ -121,5 +121,5 @@ fn no_page_text_says_v2() {
             }
         }
     }
-    assert!(found.is_empty(), "says Rails: {found:#?}");
+    assert!(found.is_empty(), "says 2.x: {found:#?}");
 }

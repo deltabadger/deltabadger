@@ -131,7 +131,7 @@ async fn unreadable_listing_stores_nothing_and_preserves_the_watermark() {
             let before = stored(&db, key).await;
             let mut v = venue(&account, Duration::from_millis(1));
             v.listing = Some(body.clone());
-            let failure = run(&db, key, &v, Duration::from_secs(3600)).await.unwrap().unwrap().expect_err("Rails rejects this listing");
+            let failure = run(&db, key, &v, Duration::from_secs(3600)).await.unwrap().unwrap().expect_err("2.x rejects this listing");
             assert!(failure.raised, "{body}: the sync job re-raises the listing error");
             assert_eq!(stored(&db, key).await, before, "{body}: no transactions or watermark changes");
             assert_eq!(v.log.borrow().len(), 2, "{body}: stop after account and listing, before any history read");

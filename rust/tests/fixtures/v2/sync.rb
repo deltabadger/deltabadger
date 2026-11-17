@@ -3,7 +3,7 @@
 # schema_template it needed) is gone, as the grid is frozen (rust/tests/recorded/sync-grid).
 # The Rails half of the sync row-parity harness (rust/tests/sync_parity.rs is the Rust half).
 #   rails runner script/rust/sync.rb grid <root>    # one install per scenario, built with Rails' own models
-#   rails runner script/rust/sync.rb record <root>  # Rails' real jobs per <root>/<scenario>/ -> rails.json
+#   rails runner script/rust/sync.rb record <root>  # Rails' real jobs per <root>/<scenario>/ -> expected.json
 # Always run with every *_DATABASE_URL pointing at scratch files. Alpaca and the hosted market-data API are scripted
 # beneath Rails' own clients, at the Faraday adapter (the contract of script/rust/decisions.rb's ScriptedAlpaca, plus a
 # request log and the market-data host): every line of Clients::Alpaca, Clients::MarketData, Exchanges::Alpaca,
@@ -830,7 +830,7 @@ module SyncParity
       # What Rails itself reads as a split row afterwards (Bot::Restatable#split_row?): a raw_data its JSON type cannot read is nil.
       splits_read = AccountTransaction.where(entry_type: :adjustment).order(:id).count { |row| Bot.new.send(:split_row?, row) }
       report = { 'reading' => reading, 'steps' => steps, 'splits_read' => splits_read, 'changes' => diff(before, snapshot) }
-      File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(report, max_nesting: false))
+      File.write(File.join(dir, 'expected.json'), JSON.pretty_generate(report, max_nesting: false))
       ActiveRecord::Base.connection_pool.disconnect!
     end
     hosted_env.each { |k, v| ENV[k] = v }

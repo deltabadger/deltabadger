@@ -1,5 +1,5 @@
-//! 3.0 plan A8 (PLAN-A8-bot-csv r4): what Rails' recording cannot show. The pages grid (bot_csv_*) holds the export's bytes,
-//! the import's rows and its flashes to Rails; here: a lossless round trip, the import's lock and refusals, and one test per
+//! 3.0 plan A8 (PLAN-A8-bot-csv r4): what 2.x's recording cannot show. The pages grid (bot_csv_*) holds the export's bytes,
+//! the import's rows and its flashes to 2.x; here: a lossless round trip, the import's lock and refusals, and one test per
 //! named divergence and restriction.
 mod common;
 use common::seed::{self, BotSpec};
@@ -181,7 +181,7 @@ async fn a_row_v2_would_insert_but_no_reader_can_read_refuses_the_whole_file() {
         assert_eq!(import(&app, &mut browser, i.a, &csv(&[good, bad])).await, "The CSV file is malformed and cannot be parsed.", "{bad}");
         assert_eq!((count(&i), app.figure_service.marked()), (0, 0), "{bad}");
     }
-    // The same junk in a row Rails passes over (not closed) is passed over.
+    // The same junk in a row 2.x passes over (not closed) is passed over.
     let i = install();
     let (app, mut browser) = signed_in(&i).await;
     let ignored = "yesterday,x,Stop,Hold,12abc,60,60000,BTC,USD,Open";
@@ -215,7 +215,7 @@ async fn the_first_accepted_second_imports_and_every_reader_computes() {
 async fn the_mismatch_names_a_mismatched_quote_and_an_unknown_base_is_counted() {
     let i = install();
     let (app, mut browser) = signed_in(&i).await;
-    // Rails names the first row's raw cell (" usd ", a row that only named another asset).
+    // 2.x names the first row's raw cell (" usd ", a row that only named another asset).
     let file = csv(&["2026-08-01,x,Market,Buy,0.001,60,60000,ETH, usd ,Closed", "2026-08-01,y,Market,Buy,0.001,60,60000,BTC, eur ,Closed"]);
     assert_eq!(import(&app, &mut browser, i.a, &file).await, "Currency mismatch: CSV has 'EUR' but bot uses 'USD' Skipped 2 row(s): not closed, not this bot's assets or quote, or an asset name that fits more than one.");
     let file = csv(&["2026-08-01,x,Market,Buy,0.001,60,60000,ETH,USD,Closed"]);
@@ -249,7 +249,7 @@ async fn the_export_reads_the_rows_as_they_stand() {
     // D-EXPORT-NO-REFRESH: an open order stays out until the engine's poll closes it; nothing asks the venue here.
     seed::insert_row(&i.o.primary, &i.s, i.a, i.s.btc, &json!({ "external_status": 1, "external_id": "OPEN-1", "order_type": 1, "amount": "0.001",
         "price": "60000", "amount_exec": "0", "quote_amount_exec": "0", "created_at": "2026-08-02 10:00:00" }));
-    // D-EXPORT-NIL-CELL: a closed row without a type or side (Rails' import of an unknown Type writes one) is empty cells.
+    // D-EXPORT-NIL-CELL: a closed row without a type or side (2.x's import of an unknown Type writes one) is empty cells.
     closed(&i, i.a, "", "2026-08-04 10:00:00", (0, "0.001", "60", "60000"));
     i.o.primary.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '2026-01-01', '2026-01-01')", []).unwrap();
     i.o.primary.execute("UPDATE transactions SET external_id = NULL, exchange_id = (SELECT max(id) FROM exchanges) WHERE external_id = ''", []).unwrap();

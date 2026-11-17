@@ -1,4 +1,4 @@
-//! Plan 8a T4 / r2 §R6: a signal bot's sizing replayed against Rails' own answers (script/rust/record_signal_vectors.rb):
+//! Plan 8a T4 / r2 §R6: a signal bot's sizing replayed against 2.x's own answers:
 //! #signal_size (a webhook rule), #api_order_data (an API caller's amount), #calculate_best_amount_info on either, and
 //! #venue_takes?, on Kraken, Binance, KuCoin and Alpaca, exact on BigDecimal.
 use deltabadger::engine::amount::{self, TxKind};

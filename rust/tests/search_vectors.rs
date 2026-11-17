@@ -1,4 +1,4 @@
-//! The asset search's string arithmetic against what Ruby computed (script/rust/record_search_vectors.rb):
+//! The asset search's string arithmetic against what 2.x computed:
 //! the jaro_winkler gem's similarity, String#downcase, and the lazy frame's next-page query.
 use deltabadger::web::bot::search;
 use serde_json::Value;

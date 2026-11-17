@@ -131,7 +131,7 @@
           "created_at": "2026-08-10T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -356,7 +356,7 @@
           "created_at": "2026-08-10T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -596,7 +596,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -873,7 +873,7 @@
           "created_at": "2026-08-17T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -1128,7 +1128,7 @@
           "created_at": "2026-08-14T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -1383,7 +1383,7 @@
           "created_at": "2026-08-14T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -1625,7 +1625,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -1863,7 +1863,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -2101,7 +2101,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -2352,7 +2352,7 @@
           "created_at": "2026-08-15T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -2569,7 +2569,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -2807,7 +2807,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -3047,7 +3047,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -3287,7 +3287,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -3525,7 +3525,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -3763,7 +3763,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -3996,7 +3996,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -4247,7 +4247,7 @@
           "created_at": "2026-08-14T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -4502,7 +4502,7 @@
           "created_at": "2026-08-14T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -4791,7 +4791,7 @@
           "created_at": "2026-08-17T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -5029,7 +5029,7 @@
           "created_at": "2026-08-17T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -5262,7 +5262,7 @@
           "created_at": "2026-08-12T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -5526,7 +5526,7 @@
           "created_at": "2026-08-17T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -5846,7 +5846,7 @@
           "created_at": "2026-08-17T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -6088,7 +6088,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -6269,7 +6269,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -6450,7 +6450,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -6624,7 +6624,7 @@
           "created_at": "2026-08-10T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -6811,7 +6811,7 @@
           "created_at": "2026-08-10T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -6998,7 +6998,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -7179,7 +7179,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -7432,7 +7432,7 @@
           "created_at": "2026-08-14T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -7618,7 +7618,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -7685,7 +7685,7 @@
     },
     {
       "name": "redeploy_abandoned",
-      "note": "a redeploy the venue stopped reporting: not in flight by itself (Rails halts only when its own sweep abandons it)",
+      "note": "a redeploy the venue stopped reporting: not in flight by itself (2.x halts only when its own sweep abandons it)",
       "members": [
         {
           "symbol": "AAA",
@@ -7817,7 +7817,7 @@
           "created_at": "2026-08-14T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -8058,7 +8058,7 @@
           "created_at": "2026-08-12T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -8240,7 +8240,7 @@
           "created_at": "2026-08-12T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -8419,7 +8419,7 @@
           "created_at": "2026-08-13T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -8672,7 +8672,7 @@
           "created_at": "2026-08-14T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -8905,7 +8905,7 @@
           "created_at": "2026-08-12T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -9151,7 +9151,7 @@
           "created_at": "2026-08-12T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -9402,7 +9402,7 @@
           "created_at": "2026-08-14T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {
@@ -9657,7 +9657,7 @@
           "created_at": "2026-08-14T15:00:00.000000Z"
         }
       ],
-      "rails": {
+      "expected": {
         "walk": {
           "holdings": {
             "AAA": {

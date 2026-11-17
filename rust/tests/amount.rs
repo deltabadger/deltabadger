@@ -76,9 +76,9 @@ fn every_recorded_v2_sizing_is_reproduced() {
         let sizing = amount::size(bot, &sizing_ticker(&c["ticker"]), &bd(c["x"].as_str().unwrap()), &p, &deltabadger::engine::venue_rules::KRAKEN).unwrap();
         let (plan, below) = match sizing { Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}") };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
-        assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount (Ruby's division) {c}");
+        assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount (2.x's division) {c}");
         assert_eq!(plan.quote_type, c["amount_type"] == "quote", "amount_type {c}");
-        // D-KRAKEN-LIMIT-COSTMIN: Rails checks a limit buy against ordermin only; Rust also against costmin in base, rounded up.
+        // D-KRAKEN-LIMIT-COSTMIN: 2.x checks a limit buy against ordermin only; Rust also against costmin in base, rounded up.
         let t = &c["ticker"];
         let costmin_in_base = || bd(t["minimum_quote_size"].as_str().unwrap()).div(&plan.price).unwrap().ceil(t["base_decimals"].as_str().unwrap().parse().unwrap());
         let under_costmin = c["order_type"] == "limit_order" && plan.volume < costmin_in_base();
@@ -104,7 +104,7 @@ fn rows_bind_decimals_as_v2_does() {
     let t = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     let p = bd("50000.2");
     let Sizing::BelowMinimum(plan) = amount::size(&bot, &t, &bd("0.4"), &p, &deltabadger::engine::venue_rules::KRAKEN).unwrap() else { panic!() };
-    assert_eq!(plan.log_details()["amount"], "0.000007999968000127999488002047991808", "Ruby's 31 digits, unrounded");
+    assert_eq!(plan.log_details()["amount"], "0.000007999968000127999488002047991808", "2.x's 31 digits, unrounded");
     let id = {
         let tx=o.primary.unchecked_transaction().unwrap();
         let fenced=deltabadger::engine::model::check_credential_result(&tx,&None).unwrap();
@@ -140,14 +140,14 @@ fn every_recorded_v2_alpaca_sizing_and_wire_is_reproduced() {
         assert_eq!(refusal.as_deref(), c["refused"].as_str(), "refusal {c}");
         if refusal.is_some() {
             refused += 1;
-            // D-ALPACA-BASE-FLOOR: Rust skips a qty under minimum_base_size before placement (Rails fails it there), except a
-            // zero qty with no base floor, which Rails' refusal still covers.
+            // D-ALPACA-BASE-FLOOR: Rust skips a qty under minimum_base_size before placement (2.x fails it there), except a
+            // zero qty with no base floor, which 2.x's refusal still covers.
             assert_eq!(below, c["below_minimum"].as_bool().unwrap() || !t.minimum_base_size.is_zero(), "below_minimum {c}");
             continue;
         }
         let order = plan.to_order("cl".into(), deadline, ALPACA.wire).unwrap();
         let w = &c["wire"];
-        // D-ALPACA-BASE-FLOOR: both floors against what is sent; Rails compares only the floored budget with the quote floor.
+        // D-ALPACA-BASE-FLOOR: both floors against what is sent; 2.x compares only the floored budget with the quote floor.
         let sent_short = match &order.kind {
             OrderKind::Limit { price } => bd(&order.volume).checked_mul(&bd(price)).unwrap() < t.minimum_quote_size,
             _ => bd(&order.volume).div(&plan.price).unwrap() < t.minimum_base_size,
@@ -172,12 +172,12 @@ fn every_recorded_v2_alpaca_sizing_and_wire_is_reproduced() {
             OrderKind::Crossed { .. } => panic!("no venue in these vectors crosses the book"),
         }
     }
-    assert_eq!(refused, 34, "limit quantities under minimum_base_size Rails refuses");
+    assert_eq!(refused, 34, "limit quantities under minimum_base_size 2.x refuses");
 }
 
 #[test]
 fn wire_decimal_floors_and_pads_in_decimal_as_v2_sends_it() {
-    // Exchanges::Alpaca#wire_decimal, recorded in Ruby 4.0.7.
+    // Exchanges::Alpaca#wire_decimal, recorded on 2.x's interpreter, 4.0.7.
     assert_eq!(amount::wire_decimal(&bd("812037646.065271585"), 9), "812037646.065271585");
     assert_eq!(amount::wire_decimal(&bd("123456789012.123456789"), 9), "123456789012.123456789");
     assert_eq!(amount::wire_decimal(&bd("0.00265"), 4), "0.0026");
@@ -195,12 +195,12 @@ fn a_cancelled_or_abandoned_buy_counts_what_it_filled_and_the_rest_is_owed_again
     seed::insert_tx(&o.primary, &s, id, &tx(0, 4, "2026-09-01 10:00:02", Some("60"), None, None, None));           // abandoned, never filled
     seed::insert_tx(&o.primary, &s, id, &tx(0, 3, "2026-08-31 10:00:00", Some("60"), Some("60"), None, None));     // before the window
     let bot = model::load_bot(&o.primary, id).unwrap();
-    // Rails (#448): two weeks owed (120) + the carry (30) − the 39.96 that filled. The unfilled 50.04 is owed again, and no
+    // 2.x (#448): two weeks owed (120) + the carry (30) − the 39.96 that filled. The unfilled 50.04 is owed again, and no
     // fill ever consumed the carry. The old arithmetic said 150 here.
     assert_eq!(amount::pending_quote_amount(&o.primary, &bot, us("2026-09-08T10:00:00.5Z")).unwrap(), bd("110.04"));
 }
 
-/// One recorded carry row, bound as Rails binds it: decimals as the Float BigDecimal#to_f gives, absent keys NULL.
+/// One recorded carry row, bound as 2.x binds it: decimals as the Float BigDecimal#to_f gives, absent keys NULL.
 fn insert_carry_row(c: &rusqlite::Connection, s: &seed::Seeded, bot_id: i64, row: &serde_json::Value) {
     let text = |k: &str| row.get(k).and_then(serde_json::Value::as_str).map(str::to_string);
     let real = |k: &str| row.get(k).and_then(serde_json::Value::as_str).map(|v| v.parse::<f64>().unwrap_or_else(|_| panic!("{k} {v}")));
@@ -232,7 +232,7 @@ fn every_recorded_v2_carry_is_reproduced() {
     }
 }
 
-/// Bot::Lifecycle#start(start_fresh: false): run now, or wait for the next checkpoint, as Rails decided each recorded case
+/// Bot::Lifecycle#start(start_fresh: false): run now, or wait for the next checkpoint, as 2.x decided each recorded case
 /// (from the Bot::ActionJob it enqueued). A continue start never takes a delayed first run, whatever the start time says.
 #[test]
 fn every_recorded_v2_continue_start_decision_is_reproduced() {
@@ -275,10 +275,10 @@ fn every_recorded_v2_alpaca_stock_wire_is_reproduced() {
         let order = plan.to_order("cl".into(), deadline, ALPACA.wire).unwrap();
         let w = &c["wire"];
         // D-ALPACA-BASE-FLOOR: a limit qty is checked as sent, qty × price against the 1 USD floor ($1 at 186.96 sends
-        // 0.005348737 shares, worth 0.99999...); Rails compares the floored budget.
+        // 0.005348737 shares, worth 0.99999...); 2.x compares the floored budget.
         let sent_short = matches!(&order.kind, OrderKind::Limit { price } if bd(&order.volume).checked_mul(&bd(price)).unwrap() < t.minimum_quote_size);
         assert_eq!(below, c["below_minimum"].as_bool().unwrap() || sent_short, "below_minimum {c}");
-        assert_eq!(w["time_in_force"], "day", "Rails sends a stock as a day order {c}");
+        assert_eq!(w["time_in_force"], "day", "2.x sends a stock as a day order {c}");
         assert!(order.day, "{c}");
         assert_eq!(order.pair, w["symbol"].as_str().unwrap(), "the bare symbol {c}");
         match order.kind {
@@ -356,7 +356,7 @@ fn every_recorded_v2_binance_sizing_and_wire_is_reproduced() {
 }
 
 /// Exchanges::Kucoin's sizing (Bot::OrderSetter under :base_or_quote / :base_and_quote_in_base) and #set_market_order /
-/// #set_limit_order's wire, replayed through amount::size, limit_refusal and to_order (script/rust/record_venue_vectors.rb kucoin).
+/// #set_limit_order's wire, replayed through amount::size, limit_refusal and to_order (the recorded KuCoin venue vectors).
 #[test]
 fn every_recorded_v2_kucoin_sizing_and_wire_is_reproduced() {
     use deltabadger::engine::venue_rules::KUCOIN;
@@ -435,9 +435,9 @@ fn a_sell_is_priced_above_the_last_trade_and_sized_in_base_under_base_and_quote_
     }
 }
 
-/// Plan 6a T8: Rails' one-asset sell on Kraken, Binance and Alpaca — order_price(:sell), `[base || quote / price, free].min`,
+/// Plan 6a T8: 2.x's one-asset sell on Kraken, Binance and Alpaca — order_price(:sell), `[base || quote / price, free].min`,
 /// calculate_best_amount_info(side: :sell) and the market_sell / limit_sell wire — replayed through side_price, size_sell,
-/// limit_refusal and to_order (script/rust/record_sell_sizing_vectors.rb).
+/// limit_refusal and to_order.
 #[test]
 fn every_recorded_v2_sell_sizing_and_wire_is_reproduced() {
     use deltabadger::engine::venue_rules::{ALPACA, BINANCE, KRAKEN};
@@ -519,7 +519,7 @@ fn alpaca_pair(base_decimals: &str, quote_decimals: &str, min_base: &str, min_qu
 fn below(sizing: Sizing) -> bool { match sizing { Sizing::Place(_) => false, Sizing::BelowMinimum(_) => true, other => panic!("{other:?}") } }
 
 /// D-ALPACA-BASE-FLOOR: an Alpaca buy is checked against both floors as it is sent. A limit sends qty from the floored quote
-/// (worth qty × price); a market buy sends the notional (worth notional / price in base). Rails checks the floored budget
+/// (worth qty × price); a market buy sends the notional (worth notional / price in base). 2.x checks the floored budget
 /// against the quote floor only, and fails a limit qty under the base floor at placement.
 #[test]
 fn an_alpaca_buy_is_checked_against_both_floors_as_it_is_sent() {
@@ -555,7 +555,7 @@ fn an_alpaca_buy_is_checked_against_both_floors_as_it_is_sent() {
 }
 
 /// D-KRAKEN-LIMIT-COSTMIN: a Kraken limit buy is checked against costmin in base (rounded up) as well as ordermin, as every
-/// venue with a notional floor is; Rails' Kraken checks ordermin only and the venue rejects the order.
+/// venue with a notional floor is; 2.x's Kraken checks ordermin only and the venue rejects the order.
 #[test]
 fn a_kraken_limit_buy_under_costmin_is_skipped() {
     let (_d, o, s) = install();

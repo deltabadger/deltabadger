@@ -1,8 +1,8 @@
 //! The Bitget trading adapter (venue::bitget, plan VB slice A4) over recorded bodies: its signer against honeymaker's own
 //! requests (the `Prehash` scheme KuCoin and Bitvavo share, base64 with the passphrase as it is), its rules against
 //! Exchanges::Bitget::ERRORS, #parse_order_data, the sizing wire and both sides of #set_market_order / #set_limit_order
-//! recorded from Rails, and its reads, placement, polls, the recovery by clientOid (it can only FIND an order) and cancel.
-//! Rails-free.
+//! recorded from 2.x, and its reads, placement, polls, the recovery by clientOid (it can only FIND an order) and cancel.
+//! 2.x-free.
 mod common;
 use chrono::{DateTime, Utc};
 use deltabadger::engine::amount::{self, OrderPlan, Origin, Sizing, TxKind};
@@ -113,7 +113,7 @@ fn shaped(v: &Value, index: &Value) -> Ticker {
              minimum_base_size: bd(shape["minimum_base_size"].as_str().unwrap()), minimum_quote_size: bd(shape["minimum_quote_size"].as_str().unwrap()), ..btc_usdt() }
 }
 
-/// What Rails handed honeymaker's #place_order, as the adapter's POST body names it (no clientOid).
+/// What 2.x handed honeymaker's #place_order, as the adapter's POST body names it (no clientOid).
 fn want_body(w: &Value) -> Value {
     let mut want = json!({ "symbol": w["symbol"], "side": w["side"], "orderType": w["order_type"], "size": w["size"], "force": w["force"] });
     if let Some(p) = w.get("price") { want["price"] = p.clone(); }
@@ -163,8 +163,8 @@ async fn every_recorded_v2_sizing_and_wire_is_reproduced() {
 
 /// Both sides of #set_market_order (G1) and #set_limit_order (#532) over 4,000 generated orders: the plan the engine
 /// persists (its unfloored amount, the touch it was sized at), through to_order and the adapter. Listed divergence
-/// D-BITGET-ZERO-TOUCH: a quote-sized sell converted at a bid that floors to zero is not sent; Rails sends size "Infinity".
-/// (Rails never sizes a sell in quote: Bot::OrderSetter and Bots::Signal::OrderSetter#venue_takes? both sell in base.)
+/// D-BITGET-ZERO-TOUCH: a quote-sized sell converted at a bid that floors to zero is not sent; 2.x sends size "Infinity".
+/// (2.x never sizes a sell in quote: Bot::OrderSetter and Bots::Signal::OrderSetter#venue_takes? both sell in base.)
 #[tokio::test(flavor = "current_thread")]
 async fn both_sides_of_every_recorded_v2_order_are_reproduced() {
     let v = vectors();
@@ -213,7 +213,7 @@ async fn prices_and_balances_read_as_v2_reads_them() {
     let keys: Vec<String> = t.requests().iter().map(deltabadger::venue::http::request_key).collect();
     assert_eq!(keys[..3], ["GET /api/v2/spot/market/orderbook?limit=1&symbol=BTCUSDT", "GET /api/v2/spot/market/orderbook?limit=1&symbol=BTCUSDT",
                            "GET /api/v2/spot/market/tickers?symbol=BTCUSDT"]);
-    // A zero price raises "Wrong … price"; no book is Rails' Failure; an error envelope on the assets is "Failed to get …".
+    // A zero price raises "Wrong … price"; no book is 2.x's Failure; an error envelope on the assets is "Failed to get …".
     let (_, v) = venue(json!({ "GET /api/v2/spot/market/orderbook": ok(envelope(json!({ "asks": [["0", "1"]], "bids": [["0", "1"]] }))),
                                "GET /api/v2/spot/market/tickers": ok(envelope(json!([]))) }));
     assert_eq!(v.price(&btc_usdt(), PriceSide::Bid).await, Err(VenueError::Rejected(vec!["Wrong bid price for BTCUSDT: 0.0".into()])));
@@ -225,7 +225,7 @@ async fn prices_and_balances_read_as_v2_reads_them() {
     let (_, v) = venue(json!({ "GET /api/v2/spot/account/assets": fail(400, err("40037", "Apikey does not exist")) }));
     let Err(VenueError::Rejected(e)) = v.balance("USDT", true).await else { panic!() };
     assert!(BITGET.is_invalid_key(&e), "{e:?}");
-    // Every row of the whole market, a zero kept as Rails keeps it; a price that is no decimal left out.
+    // Every row of the whole market, a zero kept as 2.x keeps it; a price that is no decimal left out.
     let (_, v) = venue(json!({ "GET /api/v2/spot/market/tickers": ok(envelope(json!([{ "symbol": "BTCUSDT", "lastPr": "64000" }, { "symbol": "ETHUSDT", "lastPr": "0" },
                                                                                      { "symbol": "XUSDT", "lastPr": "12x" }]))) }));
     assert_eq!(v.tickers_prices(&[]).await, Ok(vec![("BTCUSDT".into(), json!("64000.0")), ("ETHUSDT".into(), json!("0.0"))]));
@@ -289,7 +289,7 @@ async fn a_gone_order_is_missing_and_any_other_failure_fails_the_batch() {
 #[tokio::test(flavor = "current_thread")]
 async fn cancel_posts_the_symbol_and_order_id_and_looks_a_legacy_id_up() {
     let (t, v) = venue(json!({ "POST /api/v2/spot/trade/cancel-order": ok(err("43001", "x")) }));
-    assert_eq!(v.cancel("BTCUSDT-123").await, Ok(()), "any 2xx is the cancel, as Rails takes it");
+    assert_eq!(v.cancel("BTCUSDT-123").await, Ok(()), "any 2xx is the cancel, as 2.x takes it");
     assert_eq!(t.requests()[0].body.as_ref().unwrap().to_string(), r#"{"symbol":"BTCUSDT","orderId":"123"}"#);
     let (t, v) = venue(json!({ "GET /api/v2/spot/trade/orderInfo": ok(envelope(json!([{ "symbol": "ETHUSDT", "orderId": "55" }]))),
                                "POST /api/v2/spot/trade/cancel-order": ok(envelope(json!({ "orderId": "55" }))) }));

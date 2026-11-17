@@ -36,7 +36,7 @@ fn a_v2_process_holding_the_shared_lock_blocks_rust() {
     let dir = tempfile::tempdir().unwrap();
     let p = paths(dir.path());
     let v2 = OpenOptions::new().write(true).create(true).truncate(false).open(p.lock_file()).unwrap();
-    v2.try_lock_shared().unwrap(); // what config/initializers/00_engine_lock.rb holds for its lifetime
+    v2.try_lock_shared().unwrap(); // what 2.x's engine-lock initializer holds for its lifetime
     assert!(matches!(lease::lock(&p, t0()), Err(LeaseError::Locked)));
     drop(v2);
     assert!(lease::lock(&p, t0()).is_ok());
@@ -116,7 +116,7 @@ fn claim_records_rust_ownership_encrypted_and_names_where_it_came_from() {
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromV2));
     let raw: String = o.primary.query_row("SELECT value FROM app_configs WHERE key = 'engine_lease'", [], |r| r.get(0)).unwrap();
     let envelope: serde_json::Value = serde_json::from_str(&raw).unwrap();
-    assert!(envelope["p"].is_string() && envelope["h"]["iv"].is_string(), "stored as a Rails envelope");
+    assert!(envelope["p"].is_string() && envelope["h"]["iv"].is_string(), "stored as a 2.x envelope");
     assert_eq!(lease::read(&o.primary, &cipher()).unwrap().unwrap()["engine"], "rust");
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::AfterCrash));
 }
@@ -168,7 +168,7 @@ fn a_claim_stamps_a_new_ownership_and_a_restart_reopens_nothing() {
     let taken = |o: &store::Opened| o.primary.query_row("SELECT value FROM app_configs WHERE key = ?1", [lease::TAKEN_OVER_AT], |r| r.get::<_, String>(0)).optional().unwrap();
     let at = |s: &str| s.parse::<chrono::DateTime<chrono::Utc>>().unwrap();
     lease::claim(&l, &o.primary, &cipher(), "0.1.0", at("2026-10-01T08:00:00Z")).unwrap();
-    assert_eq!(taken(&o).as_deref(), Some("2026-10-01T08:00:00.000Z"), "from Rails: stamped with the claim");
+    assert_eq!(taken(&o).as_deref(), Some("2026-10-01T08:00:00.000Z"), "from 2.x: stamped with the claim");
     lease::claim(&l, &o.primary, &cipher(), "0.1.0", at("2026-10-01T09:00:00Z")).unwrap();
     assert_eq!(taken(&o).as_deref(), Some("2026-10-01T08:00:00.000Z"), "a restart after a crash continues this ownership");
     // A claim by a build without the stamp crashed: the lease says rust, the window opened by the last handback is still open.
@@ -178,8 +178,8 @@ fn a_claim_stamps_a_new_ownership_and_a_restart_reopens_nothing() {
     assert_eq!(taken(&o).as_deref(), Some("2026-10-01T11:00:00.000Z"), "the restart closes the open window");
 }
 
-/// A17-4 (contract item 1): a claim that starts a new ownership (from Rails, after a handback) deletes every index ranking in
-/// its own transaction, since Rails rewrote `indices` rows in place while it owned the install; an ordinary restart keeps
+/// A17-4 (contract item 1): a claim that starts a new ownership (from 2.x, after a handback) deletes every index ranking in
+/// its own transaction, since 2.x rewrote `indices` rows in place while it owned the install; an ordinary restart keeps
 /// them. A claim on a copy no Rust migration ran on has no rankings table and claims all the same.
 #[test]
 fn a_new_ownership_clears_every_index_ranking_and_a_restart_keeps_them() {
@@ -195,7 +195,7 @@ fn a_new_ownership_clears_every_index_ranking_and_a_restart_keeps_them() {
     };
     rank();
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromV2));
-    assert_eq!(rankings(), 0, "from Rails: cleared");
+    assert_eq!(rankings(), 0, "from 2.x: cleared");
     rank();
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::AfterCrash));
     assert_eq!(rankings(), 1, "an ordinary restart keeps them");
@@ -211,8 +211,8 @@ fn a_new_ownership_clears_every_index_ranking_and_a_restart_keeps_them() {
     assert!(matches!(lease::claim(&l, &c, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromV2), "no rankings table: claimed all the same");
 }
 
-/// A17-4 r18: a new ownership removes every composition marker (Rails may have changed membership) and keeps retirements
-/// (the provider's catalogue, not a row Rails rewrites).
+/// A17-4 r18: a new ownership removes every composition marker (2.x may have changed membership) and keeps retirements
+/// (the provider's catalogue, not a row 2.x rewrites).
 #[test]
 fn a_new_ownership_removes_composition_markers_and_keeps_retirements() {
     let dir = common::v2_install();

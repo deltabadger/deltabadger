@@ -384,7 +384,7 @@ fn expected(cell: &Value, before: &Value) -> (u16, Value, Value) {
     (status, body, canonical(rows))
 }
 fn canonical(mut rows: Value) -> Value {
-    // Rails store_accessors read absent and JSON null alike (W2's X0 row comparison).
+    // 2.x store_accessors read absent and JSON null alike (W2's X0 row comparison).
     for row in rows.as_array_mut().unwrap() {
         row["settings"]
             .as_object_mut()
@@ -473,7 +473,7 @@ async fn replay(reads: bool) {
             "{name} web/{}",
             cell["surface"]
         );
-        // A start fans out one `start:` evaluation per scheduled rule (Rails' EvaluateAllJob); nothing else starts.
+        // A start fans out one `start:` evaluation per scheduled rule (2.x's EvaluateAllJob); nothing else starts.
         let starts = i64::from(matches!(name, "start_created" | "start_stopped"));
         let evaluations = |sql: &str| i.c.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
         assert_eq!(evaluations("SELECT count(*) FROM rust_rule_evaluations"), starts, "{name}: evaluations");
@@ -635,7 +635,7 @@ async fn lifecycle_requests_leave_the_same_rows_on_all_three_surfaces() {
 
 #[tokio::test]
 async fn starts_on_unsupported_venues_refuse_without_scheduling() {
-    // D-RULE-BINANCE-US-UNSUPPORTED: no address book, so no destination contract; every other Rails venue withdraws.
+    // D-RULE-BINANCE-US-UNSUPPORTED: no address book, so no destination contract; every other 2.x venue withdraws.
     for (class, name, code) in [("BinanceUs", "Binance.US", "withdrawal_unsupported")] {
         let i = Install::new();
         i.c.execute("DELETE FROM exchanges WHERE id<>1", [])

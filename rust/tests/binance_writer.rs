@@ -323,7 +323,7 @@ async fn production_export_import_matches_gross_dust_and_rejects_suppressed_ids(
     assert!(matches!(import(c,&key,"deltabadger",&changed).unwrap(),Answer::Refused(_)));assert_eq!(state(c),before);
 }
 
-// Prices and tax settings are fixed by the unchanged Rails accounting recorder. The
+// Prices and tax settings are fixed by the unchanged accounting recording. The
 // quantities, fees, ordering and groups below are read back from the actual database.
 fn accounting(c:&Connection,owner:i64,expected:&Value) {
     use deltabadger::{figures::dec::Dec,tracker::{rows,walk::{self,Engine,Row}}};
@@ -765,7 +765,7 @@ async fn repair_matches_recorded_accounting_for_collision_free_and_lost_dust_sib
         // not pretend its affected-source-only scan completed a full sync for a rotated key.
         let version=model::credential_version_by_id(c,key.id).unwrap().unwrap();let tx=model::immediate(c).unwrap();
         sync::cache::record_ledger(&model::fence_versions(&tx,std::slice::from_ref(&version)).unwrap(),key.id,&version,now()).unwrap();tx.commit().unwrap();
-        // Reproduce Rails' retained rows: the unique legacy IDs discard the sibling pair.
+        // Reproduce 2.x's retained rows: the unique legacy IDs discard the sibling pair.
         c.execute("DELETE FROM account_transactions WHERE tx_id LIKE 'dust-a12-v1-%'",[]).unwrap();
         c.execute("DELETE FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:%'",[]).unwrap();
         c.execute("UPDATE account_transactions SET group_id='dust_detail' WHERE tx_id LIKE 'dust-detail-%'",[]).unwrap();

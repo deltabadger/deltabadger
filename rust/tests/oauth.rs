@@ -1,7 +1,7 @@
 //! OAuth parity: 2.70.21 (in its published image, common::v2) and this crate answer the same request sequences on identical installs
 //! under the same clock, and every response and every row written must be the same
-//! (tests/fixtures/v2/oauth.rb is the Rails half). A scenario with a `cut` is also played with the two
-//! taking its legs in turns on one database: the switch to Rust and the handback to Rails.
+//! (tests/fixtures/v2/oauth.rb is the 2.x half). A scenario with a `cut` is also played with the two
+//! taking its legs in turns on one database: the switch to Rust and the handback to 2.x.
 //! `OAUTH_KEEP=<an empty directory>` keeps every install and transcript there.
 mod common;
 use axum::body::Body;
@@ -17,7 +17,7 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use tower::ServiceExt;
 
-/// Headers compared exactly, after masking. What else Rails sends (etag, x-request-id, x-runtime,
+/// Headers compared exactly, after masking. What else 2.x sends (etag, x-request-id, x-runtime,
 /// content-length, vary) is not part of an answer.
 const HEADERS: [&str; 13] = ["location", "content-type", "cache-control", "pragma", "www-authenticate", "retry-after", "x-frame-options", "x-xss-protection",
                              "x-content-type-options", "x-permitted-cross-domain-policies", "referrer-policy", "content-security-policy-report-only", "set-cookie"];
@@ -42,10 +42,10 @@ fn legs(steps: &[Value]) -> Vec<Vec<Value>> {
 /// Which runtime plays leg `leg` of an install of mode `mode` (fixtures/v2/oauth.rb `runtime`).
 fn runtime(mode: &str, leg: usize) -> &'static str {
     match mode {
-        "rails" => "rails",
+        "v2" => "v2",
         "rust" => "rust",
-        "rails_first" => if leg.is_multiple_of(2) { "rails" } else { "rust" },
-        _ => if leg.is_multiple_of(2) { "rust" } else { "rails" },
+        "v2_first" => if leg.is_multiple_of(2) { "v2" } else { "rust" },
+        _ => if leg.is_multiple_of(2) { "rust" } else { "v2" },
     }
 }
 
@@ -132,7 +132,7 @@ fn form_fields(page: &str, action: &str, method: &str) -> Option<Vec<(String, St
 
 /// Every CSRF token a page of this crate carries must unmask to the token of the session the
 /// response left the browser with, and every asset it names must be embedded: the comparison masks
-/// both. (fixtures/v2/oauth_pages.rb `verify_rendered!` checks Rails' pages the same way.)
+/// both. (fixtures/v2/oauth_pages.rb `verify_rendered!` checks 2.x's pages the same way.)
 fn assert_genuine(app: &App, browser: &Browser, body: &str, now: chrono::DateTime<chrono::Utc>, step: &str) {
     let html::Masked { tokens, assets, .. } = html::masked_values(body);
     for path in &assets {
@@ -291,7 +291,7 @@ fn masked(text: &str, masks: &[(String, String)]) -> String {
 
 /// A mask must not hide a broken value. Every generated value has the shape its generator gives
 /// it, is unlike every other, and is the one stored in the row it names. This reads the install's
-/// own database, so it holds the values Rails issued and the ones this crate issued to the same rule.
+/// own database, so it holds the values 2.x issued and the ones this crate issued to the same rule.
 fn assert_generated_values_are_real(dir: &Path, state: &Value) {
     let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
     let vars = state["vars"].as_object().unwrap();
@@ -321,7 +321,7 @@ fn masked_nonce(policy: &str) -> String {
     format!("{}'nonce-[nonce]{}", &policy[..start], &policy[end..])
 }
 
-/// The page Rails' PublicExceptions serves for an error below the app (a path with no route, a body
+/// The page 2.x's PublicExceptions serves for an error below the app (a path with no route, a body
 /// that does not parse, a failed CSRF check under `protect_from_forgery with: :exception`). In
 /// production these go through the app's own exceptions app instead; only the status is compared.
 fn below_the_app(answer: &Value) -> bool {
@@ -337,7 +337,7 @@ fn comparable(answer: &Value, masks: &[(String, String)]) -> Value {
         return answer;
     }
     if below_the_app(answer) { return json!({ "status": answer["status"], "below the app": true }); }
-    let by_v2 = answer["by"] == "rails";
+    let by_v2 = answer["by"] == "v2";
     let header = |name: &str| -> Option<String> {
         match &answer["headers"][name] {
             Value::Array(all) => all.first().and_then(Value::as_str).map(str::to_string),
@@ -351,8 +351,8 @@ fn comparable(answer: &Value, masks: &[(String, String)]) -> Value {
         let value = match name {
             "location" => html::location(&masked(&value, masks)),
             "content-security-policy-report-only" => masked_nonce(&value),
-            // Rails writes its cookie on every response, this crate when the session changed
-            // (web::session): Rails' cookie counts only where its session's content changed.
+            // 2.x writes its cookie on every response, this crate when the session changed
+            // (web::session): 2.x's cookie counts only where its session's content changed.
             "set-cookie" => {
                 if by_v2 && answer["session_changed"] != true { continue; }
                 let all: Vec<String> = match &answer["headers"]["set-cookie"] { Value::Array(all) => all.iter().map(text).collect(), one => text(one).lines().map(str::to_string).collect() };
@@ -366,7 +366,7 @@ fn comparable(answer: &Value, masks: &[(String, String)]) -> Value {
         headers.insert(name, value);
     }
     let body = answer["body"].as_str().unwrap();
-    // Listed divergence (finding F5): Rails also accepts the `plain` challenge method and says so.
+    // Listed divergence (finding F5): 2.x also accepts the `plain` challenge method and says so.
     let body = if by_v2 { body.replace("must be one of plain, S256.", "must be S256.") } else { body.to_string() };
     let content_type = header("content-type").unwrap_or_default();
     let body = if content_type.starts_with("application/json") {
@@ -463,7 +463,7 @@ fn retirement(at: &str, before: &[Value], after: &[Value], presented: Option<&st
     json!(written)
 }
 
-/// Rails' rows with what this crate's retirements wrote laid over them: what the install must hold
+/// 2.x's rows with what this crate's retirements wrote laid over them: what the install must hold
 /// when a leg played by this crate presented tokens. Every cell is then compared.
 fn with_retirements(v2: &Value, raw: &[Value]) -> Value {
     let mut rows = v2.clone();
@@ -492,46 +492,46 @@ fn played(dir: &Path) -> Played {
 
 fn first_difference(name: &str, mode: &str, v2: &[Value], other: &[Value]) -> Option<String> {
     if v2.len() != other.len() {
-        return Some(format!("{name} [{mode}]: Rails answered {} steps, {mode} {}", v2.len(), other.len()));
+        return Some(format!("{name} [{mode}]: 2.x answered {} steps, {mode} {}", v2.len(), other.len()));
     }
-    // Where Rails answered below the app, only the status is its own.
+    // Where 2.x answered below the app, only the status is its own.
     let other: Vec<Value> = v2.iter().zip(other).map(|(a, b)| if a["below the app"] == true { json!({ "status": b["status"], "below the app": true }) } else { b.clone() }).collect();
     let (index, (a, b)) = v2.iter().zip(&other).enumerate().find(|(_, (a, b))| a != b)?;
     if a["status"] != b["status"] || a["headers"] != b["headers"] || !a["body"].is_array() {
-        return Some(format!("{name} [{mode}] step {index}:\n  rails: {a}\n  {mode}: {b}"));
+        return Some(format!("{name} [{mode}] step {index}:\n  2.x: {a}\n  {mode}: {b}"));
     }
     let lines = |body: &Value| body.as_array().map(|lines| lines.iter().map(text).collect::<Vec<_>>()).unwrap_or_else(|| vec![text(body)]);
     Some(format!("{name} [{mode}] step {index}: {}", html::first_difference(&lines(&a["body"]), &lines(&b["body"])).unwrap_or_default()))
 }
 
-/// A scenario's `expect` on a step is the status Rails itself must answer there, so that two equal
+/// A scenario's `expect` on a step is the status 2.x itself must answer there, so that two equal
 /// wrong answers cannot pass.
 fn unmet_expectation(name: &str, steps: &[Value], v2: &Played) -> Option<String> {
     steps.iter().enumerate().find_map(|(index, step)| {
         (!step["expect"].is_null() && v2.raw[index]["status"] != step["expect"])
-            .then(|| format!("{name} step {index}: the scenario expects {}, Rails answered {}", step["expect"], v2.raw[index]["status"]))
+            .then(|| format!("{name} step {index}: the scenario expects {}, 2.x answered {}", step["expect"], v2.raw[index]["status"]))
     })
 }
 
-/// Scenarios whose LAST response this crate deliberately answers otherwise than Rails. Everything
+/// Scenarios whose LAST response this crate deliberately answers otherwise than 2.x. Everything
 /// before it, and (except where stated) the rows, are compared as in any scenario.
-/// - `unrouted_`: Rails has no such route (404). This crate: 501, naming the request.
+/// - `unrouted_`: 2.x has no such route (404). This crate: 501, naming the request.
 /// - `unserved_`: D-OAUTH-NATIVE-UNSERVED. Doorkeeper's out-of-band code page, which no client here can be sent
-///   to: Rails answers it (200 signed in, 302 to /login signed out, 406 for `.json`); this crate 404s.
-/// - `owned_`: D-OAUTH-INTROSPECT-OWN-CLIENT. A token whose client row is gone: Rails tells any client it is
+///   to: 2.x answers it (200 signed in, 302 to /login signed out, 406 for `.json`); this crate 404s.
+/// - `owned_`: D-OAUTH-INTROSPECT-OWN-CLIENT. A token whose client row is gone: 2.x tells any client it is
 ///   active; this crate answers `{"active":false}`.
 /// - `fresher_`: D-OAUTH-INTROSPECT-AFTER-USE. A bearer introspects the token its own use has just retired:
-///   Rails read it before the use (active); this crate after (`{"active":false}`).
-/// - `stricter_`: a POST or DELETE to /oauth/authorize that fails the CSRF check. Rails raises (422,
+///   2.x read it before the use (active); this crate after (`{"active":false}`).
+/// - `stricter_`: a POST or DELETE to /oauth/authorize that fails the CSRF check. 2.x raises (422,
 ///   an error page); this crate's pipeline answers as it does for every page: back, with a flash.
 ///   Nothing is written by either.
-/// - `tighter_`: a `plain` PKCE challenge. Rails shows the consent screen (200); this crate refuses
+/// - `tighter_`: a `plain` PKCE challenge. 2.x shows the consent screen (200); this crate refuses
 ///   (400, the error page). See web::consent.
 ///
 /// A fifth kind, `retired_`, is judged with the modes in the test itself, because who answers how
 /// depends on who played the `use` step: a refresh token from before an access token that was
-/// presented to this crate. Rails honours it for ever (200); once this crate has seen its successor
-/// used, it is retired (400 invalid_grant), for this crate and for Rails after a handback.
+/// presented to this crate. 2.x honours it for ever (200); once this crate has seen its successor
+/// used, it is retired (400 invalid_grant), for this crate and for 2.x after a handback.
 fn listed_divergence(name: &str, steps: &[Value], v2: &Played, rust: &Played) -> Option<Result<(), String>> {
     let kind = ["unrouted_", "unserved_", "owned_", "fresher_", "stricter_", "tighter_"].into_iter().find(|prefix| name.starts_with(prefix))?;
     let last = steps.len() - 1;
@@ -545,15 +545,15 @@ fn listed_divergence(name: &str, steps: &[Value], v2: &Played, rust: &Played) ->
         ours["body"].as_str().unwrap().contains(&format!("{method} {}", step["path"].as_str().unwrap_or_default()))
     };
     let statuses = |v2_status: u64, rust_status: u64| (theirs["status"] == v2_status && ours["status"] == rust_status)
-        .then_some(()).ok_or_else(|| format!("expected Rails {v2_status} and this crate {rust_status}; got {} and {}", theirs["status"], ours["status"]));
-    let same_rows = || (v2.rows == rust.rows).then_some(()).ok_or_else(|| format!("rows differ:\n  rails: {}\n  rust:  {}", v2.rows, rust.rows));
+        .then_some(()).ok_or_else(|| format!("expected 2.x {v2_status} and this crate {rust_status}; got {} and {}", theirs["status"], ours["status"]));
+    let same_rows = || (v2.rows == rust.rows).then_some(()).ok_or_else(|| format!("rows differ:\n  2.x: {}\n  rust:  {}", v2.rows, rust.rows));
     Some(match kind {
         "unrouted_" => statuses(404, 501).and(named.then_some(()).ok_or_else(|| "the 501 does not name the request".to_string())).and_then(|()| same_rows()),
-        "unserved_" => [200, 302, 406].contains(&theirs["status"].as_u64().unwrap_or(0)).then_some(()).ok_or_else(|| format!("Rails answered {}", theirs["status"]))
+        "unserved_" => [200, 302, 406].contains(&theirs["status"].as_u64().unwrap_or(0)).then_some(()).ok_or_else(|| format!("2.x answered {}", theirs["status"]))
             .and_then(|()| statuses(theirs["status"].as_u64().unwrap(), 404)).and_then(|()| same_rows()),
         "owned_" | "fresher_" => statuses(200, 200).and_then(|()| same_rows()).and_then(|()| {
             let (v2_body, rust_body): (Value, Value) = (serde_json::from_str(theirs["body"].as_str().unwrap()).unwrap(), serde_json::from_str(ours["body"].as_str().unwrap()).unwrap());
-            (v2_body["active"] == true && rust_body == json!({ "active": false })).then_some(()).ok_or_else(|| format!("expected Rails active and this crate {{\"active\":false}}; got {v2_body} and {rust_body}"))
+            (v2_body["active"] == true && rust_body == json!({ "active": false })).then_some(()).ok_or_else(|| format!("expected 2.x active and this crate {{\"active\":false}}; got {v2_body} and {rust_body}"))
         }),
         "stricter_" => statuses(422, 302).and_then(|()| same_rows()).and_then(|()| {
             (ours["headers"]["location"][0] == "/" && ours["session_changed"] == true).then_some(()).ok_or_else(|| format!("expected a redirect to / with a flash, got {}", ours["headers"]))
@@ -586,10 +586,10 @@ async fn v2_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows() {
     }
     v2_runner(&root, scratch.path(), &["grid", "/s"]);
 
-    // The catalogue the consent screen and the grants are built from is Rails' own.
+    // The catalogue the consent screen and the grants are built from is 2.x's own.
     let catalogue = read(&root.join("catalogue.json"));
     // D-SPLIT-API: split_bots (off, among the controls) and D-V2-UNRECORDED-API: answer_unrecorded_order (off, among the
-    // trade tools) are this build's own; the rest of the catalogue is Rails'.
+    // trade tools) are this build's own; the rest of the catalogue is 2.x's.
     let ours = |name: &&str| !["split_bots", "answer_unrecorded_order"].contains(name);
     assert_eq!(oauth::TOOL_DEFAULTS.iter().filter(|(name, _)| !ours(name)).collect::<Vec<_>>(), [&("split_bots", false), &("answer_unrecorded_order", false)]);
     assert!(oauth::TOOL_GROUPS.iter().any(|(group, tools)| *group == "control" && tools.contains(&"split_bots")));
@@ -603,12 +603,12 @@ async fn v2_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows() {
         dirs.sort();
         dirs
     };
-    let names: Vec<String> = installs("rails").iter().map(|dir| dir.file_name().unwrap().to_string_lossy().to_string()).collect();
+    let names: Vec<String> = installs("v2").iter().map(|dir| dir.file_name().unwrap().to_string_lossy().to_string()).collect();
     assert!(!names.is_empty(), "the grid is empty");
-    let most_legs = names.iter().map(|name| legs(read(&root.join("rails").join(name).join("scenario.json"))["steps"].as_array().unwrap()).len()).max().unwrap();
+    let most_legs = names.iter().map(|name| legs(read(&root.join("v2").join(name).join("scenario.json"))["steps"].as_array().unwrap()).len()).max().unwrap();
     for leg in 0..most_legs {
         v2_runner(&root, scratch.path(), &["play", "/s", &leg.to_string()]);
-        for mode in ["rust", "rails_first", "rust_first"] {
+        for mode in ["rust", "v2_first", "rust_first"] {
             for dir in installs(mode) {
                 if runtime(mode, leg) == "rust" { play_leg(&dir, leg).await; }
             }
@@ -617,8 +617,8 @@ async fn v2_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows() {
 
     let (mut failures, mut crossed, mut steps_compared) = (vec![], 0, 0);
     for name in &names {
-        let steps = read(&root.join("rails").join(name).join("scenario.json"))["steps"].as_array().unwrap().clone();
-        let v2 = played(&root.join("rails").join(name));
+        let steps = read(&root.join("v2").join(name).join("scenario.json"))["steps"].as_array().unwrap().clone();
+        let v2 = played(&root.join("v2").join(name));
         let rust = played(&root.join("rust").join(name));
         steps_compared += steps.len();
         if let Some(message) = unmet_expectation(name, &steps, &v2) { failures.push(message); }
@@ -628,7 +628,7 @@ async fn v2_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows() {
             None => {}
         }
         let mut modes = vec![("rust", rust)];
-        for mode in ["rails_first", "rust_first"] {
+        for mode in ["v2_first", "rust_first"] {
             let dir = root.join(mode).join(name);
             if dir.is_dir() { modes.push((mode, played(&dir))); crossed += 1; }
         }
@@ -638,15 +638,15 @@ async fn v2_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows() {
             if name.starts_with("retired_") && *mode == "rust" && !retired { failures.push(format!("{name}: no `use` step")); continue; }
             let compared = steps.len() - usize::from(retired);
             if let Some(message) = first_difference(name, mode, &v2.answers[..compared.min(v2.answers.len())], &other.answers[..compared.min(other.answers.len())]) { failures.push(message); continue; }
-            // The rows are Rails' own, with the cells this crate's retirements wrote; nothing is left out.
+            // The rows are 2.x's own, with the cells this crate's retirements wrote; nothing is left out.
             let mut expected = with_retirements(&v2.rows, &other.raw);
             if retired {
                 let (theirs, ours) = (&v2.raw[compared]["status"], &other.raw[compared]["status"]);
                 if *theirs != 200 || *ours != 400 {
-                    failures.push(format!("{name} [{mode}] (listed divergence): expected Rails 200 and a 400 after this crate's retirement; got {theirs} and {ours}"));
+                    failures.push(format!("{name} [{mode}] (listed divergence): expected 2.x 200 and a 400 after this crate's retirement; got {theirs} and {ours}"));
                     continue;
                 }
-                // Rails has the one row more that the retired token was still good for.
+                // 2.x has the one row more that the retired token was still good for.
                 expected["oauth_access_tokens"].as_array_mut().unwrap().pop();
             }
             if expected != other.rows { failures.push(format!("{name} [{mode}]: rows differ\n  expected: {expected}\n  {mode}: {}", other.rows)); }
@@ -787,7 +787,7 @@ async fn a_json_body_is_bounded_and_must_be_json() {
     assert_eq!(count(dir.path(), "oauth_applications"), 1);
 }
 
-/// Token rows as Rails leaves them: `(token, the token it was refreshed from)`, each with the refresh
+/// Token rows as 2.x leaves them: `(token, the token it was refreshed from)`, each with the refresh
 /// token `r<token>`, none revoked, every link kept.
 fn seed_tokens(dir: &Path, rows: &[(String, String)]) {
     let mut seed = String::from("BEGIN;");
@@ -817,7 +817,7 @@ fn refresh_form(token: &str) -> String {
     format!("grant_type=refresh_token&refresh_token={token}&client_id=client-uid")
 }
 
-/// An install that comes from Rails has every refresh token it ever issued still live, in chains of
+/// An install that comes from 2.x has every refresh token it ever issued still live, in chains of
 /// hundreds, and a refresh token redeemed twice has two tokens that share all of that. One
 /// presentation walks `RETIRED_AT_ONCE` rows back and leaves the presented row pointing at the
 /// next; the presentations after it finish the chain. The walk goes through rows that are revoked
@@ -856,7 +856,7 @@ async fn a_long_chain_shared_by_two_tokens_is_retired_to_its_end_and_no_other_ch
     assert_eq!(token_rows(dir.path()), done, "then the rest: every ancestor is retired, and the presented row names nothing more");
     assert_eq!(present(&app, &clock, "second", "2026-09-10T12:00:26Z").await, Ok(1));
     assert_eq!(token_rows(dir.path()), done, "one more presentation writes nothing");
-    assert_eq!(token_rows(dir.path())[252..], as_v2_left_them[252..], "the other chain is as Rails left it");
+    assert_eq!(token_rows(dir.path())[252..], as_v2_left_them[252..], "the other chain is as 2.x left it");
 
     // The retired tokens are refused, the oldest and the latest of them alike; the siblings' own and the other chain's work.
     clock.set(web::at(AT));
@@ -1165,8 +1165,8 @@ async fn no_oauth_refusal_repeats_the_query() {
     assert_eq!(count(dir.path(), "oauth_access_tokens"), 0);
 }
 
-/// D-OAUTH-UNREAD-BODY-REFUSED: a body this crate does not read as Rails does (a GET's, here) is refused whole on
-/// token info and introspection, before any token is used: Rails would read a token from it.
+/// D-OAUTH-UNREAD-BODY-REFUSED: a body this crate does not read as 2.x does (a GET's, here) is refused whole on
+/// token info and introspection, before any token is used: 2.x would read a token from it.
 #[tokio::test(flavor = "current_thread")]
 async fn token_info_refuses_a_get_body() {
     let (dir, app) = seeded();
@@ -1175,7 +1175,7 @@ async fn token_info_refuses_a_get_body() {
     for headers in [vec![("content-length", "18")], vec![("content-length", "18"), ("authorization", "Bearer second")]] {
         assert_eq!(send_with(&app, "GET", "/oauth/token/info", &headers, "access_token=first").await.status, 400, "{headers:?}");
     }
-    // JSON of whitespace alone is Rails' parse error, not an empty body.
+    // JSON of whitespace alone is 2.x's parse error, not an empty body.
     assert_eq!(send_with_type(&app, "POST", "/oauth/introspect?token=first", "application/json", &[("content-length", "1"), ("authorization", "Bearer second")], " ").await.status, 400);
     // `a=x&a[]` is two shapes of one name: Rack's 400.
     assert_eq!(send_with(&app, "GET", "/oauth/token/info?access_token=x&access_token%5B%5D", &[("authorization", "Bearer second")], "").await.status, 400);
@@ -1211,8 +1211,8 @@ async fn a_token_revoked_while_the_request_waited_is_revoked() {
     }
 }
 
-/// A multipart body is a body Rails would read for a token and this crate does not: on the two routes that count the
-/// ways a token was sent it is Rails' 400, before any token is used, so the bearer's predecessor is not retired.
+/// A multipart body is a body 2.x would read for a token and this crate does not: on the two routes that count the
+/// ways a token was sent it is 2.x's 400, before any token is used, so the bearer's predecessor is not retired.
 #[tokio::test(flavor = "current_thread")]
 async fn a_multipart_body_is_refused_before_any_token_is_used() {
     let (dir, app) = seeded();

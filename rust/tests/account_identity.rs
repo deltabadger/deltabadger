@@ -64,7 +64,7 @@ impl Fx {
         identity::record_import(&tx, &self.cipher, self.user, self.exchange(venue), account.map(id).as_ref(), now()).unwrap();
         tx.commit().unwrap();
     }
-    /// The same key material in a fresh envelope: Rails' or Rust's re-save of an unchanged key.
+    /// The same key material in a fresh envelope: 2.x's or Rust's re-save of an unchanged key.
     fn reencrypt(&self, id: i64) {
         let creds = self.credentials(id);
         self.c.execute("UPDATE api_keys SET key = ?1, secret = ?2, passphrase = ?3 WHERE id = ?4",
@@ -224,7 +224,7 @@ fn rust_handles_the_reset_v2_actually_makes() {
     let out = common::v2::v2(fx.dir.path(), scratch.path(), "engine-test-secret", &["runner", "EncryptedCredentials::Reset.new.call"]);
     assert!(out.status.success(), "2.70.21's reset: {}", String::from_utf8_lossy(&out.stderr));
     let c = Connection::open(fx.dir.path().join("production.sqlite3")).unwrap();
-    assert!(!deltabadger::app_config::exists(&c, identity::KEY_CONFIG).unwrap(), "Rails deleted every app_configs row");
+    assert!(!deltabadger::app_config::exists(&c, identity::KEY_CONFIG).unwrap(), "2.x deleted every app_configs row");
     identity::initialize(&c, &fx.cipher, now()).unwrap();
     let fx = Fx { dir: fx.dir, c, cipher: fx.cipher, user: fx.user };
     assert_eq!(fx.account(KUCOIN), Some(None));

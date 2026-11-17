@@ -1,4 +1,4 @@
-//! Rails-free read-only integration contracts.
+//! 2.x-free read-only integration contracts.
 #[test]
 fn first_sync_stays_inside_the_read_boundary_and_adds_no_money_or_credentials() {
     let index=include_str!("../src/web/tracker/index.rs");

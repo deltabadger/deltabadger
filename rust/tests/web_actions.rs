@@ -142,7 +142,7 @@ mod action_transport {
                 assert!(parsed.is_err(), "{case}"); assert_eq!(case["bounded_input_divergence"], true); continue;
             }
             let parsed = match parsed { Ok(p) => p, Err(e) => panic!("{}: {e:?}", case["name"]) };
-            // Task 2 explicitly requires body precedence and nested merging. Installed Rails
+            // Task 2 explicitly requires body precedence and nested merging. Installed 2.x
             // instead shallow-merges query over body. Pin BOTH results; do not pretend parity.
             let divergence = match case["name"].as_str() {
                 Some("query_body_precedence") => Some((json!({ROOT:{"label":"query","interval":"day"}}),json!({ROOT:{"label":"body","interval":"day"}}))),
@@ -150,7 +150,7 @@ mod action_transport {
                 _ => None,
             };
             if let Some((v2, rust)) = divergence {
-                assert_eq!(case["merged"],v2,"Rails request merge changed");
+                assert_eq!(case["merged"],v2,"2.x request merge changed");
                 assert_eq!(case["permitted"],v2[ROOT]);
                 assert_eq!(parsed.value(),&rust,"plan_body_precedence: {}",case["name"]);
                 assert_eq!(parsed.permitted(Kind::Basket),Ok(rust[ROOT].clone()));
@@ -193,7 +193,7 @@ mod action_transport {
         assert_eq!(h.form("POST", "_method=patch&a=1&a[b]=2").await.0, 501);
     }
     /// Rack::MethodOverride's header turns a JSON POST into the action's method before its body is classified: the start
-    /// keeps `start_fresh: false` and an update keeps its value (override_* pages scenarios record the Rails side).
+    /// keeps `start_fresh: false` and an update keeps its value (override_* pages scenarios record the 2.x side).
     #[tokio::test]
     async fn the_override_header_keeps_a_json_body() {
         let h = Harness::new();
@@ -470,11 +470,11 @@ mod action_draft {
                 continue;
             }
             if case.get("exception").is_some() {
-                // Rails exceptions are explicitly refused without writing. No panic or HTTP 500.
+                // 2.x exceptions are explicitly refused without writing. No panic or HTTP 500.
                 if parse.is_ok() {
                     let context = if field(case, "context") == "start" { ValidationContext::Start } else { ValidationContext::Update };
                     { if context == ValidationContext::Start { draft.candidate.status = deltabadger::enums::BotStatus::Scheduled; } draft.validate(&c, context, now, provider, "en") }.map_err(|e| format!("{name}: {e:?}"))?;
-                    assert!(!draft.errors.is_empty(), "{name}: Rails exception must produce field errors");
+                    assert!(!draft.errors.is_empty(), "{name}: 2.x exception must produce field errors");
                     if name == "1/interval/normal/update" {
                         let html = deltabadger::web::bot::settings::draft_column(&c, &ctx, "csrf", &draft, "UTC", false).map_err(|e| format!("{e:?}"))?;
                         assert!(html.contains("is-invalid") && html.contains("value=\"12.5\""), "{html}");
@@ -494,7 +494,7 @@ mod action_draft {
             let errors = draft.errors.iter().map(|e| json!({"field":e.field,"message":e.message})).collect::<Vec<_>>();
             let mut expected_errors = field(case, "errors").as_array().ok_or("errors")?.clone();
             if let Some(lock) = case.get("rust_lock_error") { expected_errors.push(lock.clone()); }
-            // D-START-CAP-COPY: Rails has no text for a start refused with the cap spent (its missing-translation text);
+            // D-START-CAP-COPY: 2.x has no text for a start refused with the cap spent (its missing-translation text);
             // this one gives the refusal its message, and nothing else moves.
             let mut sentence = case.get("rust_sentence").unwrap_or(field(case, "sentence")).as_str().ok_or("sentence")?.to_string();
             for e in &mut expected_errors {
@@ -612,8 +612,8 @@ mod action_write {
         use deltabadger::engine::{amount, model, placement, FixedClock};
         use deltabadger::v2::BigDec;
         let v2 = common::ownership_case("settings_held_until_reconciliation");
-        assert_eq!(v2["rails_update_succeeded"], true);
-        assert_eq!(v2["rails_quote_amount"], 100.0);
+        assert_eq!(v2["v2_update_succeeded"], true);
+        assert_eq!(v2["v2_quote_amount"], 100.0);
         let f = Fixture::new()?;
         let bot = model::load_bot(&f.c, f.id).unwrap();
         let ticker = model::ticker_for(&f.c, &bot).unwrap().ok_or("ticker")?;
@@ -814,11 +814,11 @@ mod action_write {
     }
     #[test]
     fn action_write_carry_decorator_oracle() -> Result {
-        // Fresh Rails runner measurements, Ruby 4.0.7: Accountable + Startable + conditions
+        // Fresh 2.x runner measurements (2.x's interpreter, 4.0.7): Accountable + Startable + conditions
         // + SmartIntervalable + QuoteAmountLimitable, at the microsecond request clock.
         let cases = [
             ("plain", json!({}), json!({}), "2026-09-10 12:00:00", None, "5.0"),
-            // D-START-ANCHOR-STARTED: Rails reads 0.0 here off the start_at a stopped bot's form moved ahead; Rust counts from
+            // D-START-ANCHOR-STARTED: 2.x reads 0.0 here off the start_at a stopped bot's form moved ahead; Rust counts from
             // started_at, as the engine schedules it: the plain answer.
             ("future", json!({"start_time_enabled":true,"start_at":"2026-09-11T12:00:00Z"}), json!({}), "2026-09-10 12:00:00", None, "5.0"),
             ("month", json!({"interval":"month"}), json!({}), "2026-01-31 12:00:00.123456", None, "35.0"),
@@ -844,7 +844,7 @@ mod action_write {
 
     #[test]
     fn action_write_a_basket_subject_change_clears_the_latch() -> Result {
-        // D-SUBJECT-CHANGE-CLEARS-LATCH (Rails keeps a met_at the old subject latched): a save that moves the price rule to
+        // D-SUBJECT-CHANGE-CLEARS-LATCH (2.x keeps a met_at the old subject latched): a save that moves the price rule to
         // another member clears it; a save that keeps the subject keeps it.
         for (new_subject, cleared) in [(true, true), (false, false)] {
             let f=Fixture::new()?;
@@ -1169,7 +1169,7 @@ mod action_write {
     async fn action_lifecycle_start_flags_carry_and_handoff() -> Result {
         for status in [0,2] {
             for paid in [false,true] {
-                // A JSON null starts fresh, as no flag does (Rails reads params[:start_fresh].nil?).
+                // A JSON null starts fresh, as no flag does (2.x reads params[:start_fresh].nil?).
                 for flag in [None,Some(Value::Null),Some(json!(true)),Some(json!(false)),Some(json!("TRUE")),Some(json!("0"))] {
                     let f=Fixture::new()?;
                     f.c.execute("UPDATE bots SET status=?1,transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-10T12:00:00.000Z','$.missed_quote_amount','3.75') WHERE id=?2",(status,f.id))?;
@@ -1264,9 +1264,9 @@ mod action_write {
             assert_eq!(anchor,v2["started_at"].as_str().ok_or("started_at")?,"{mode}");
             assert_eq!(stored["settings"]["start_at"],v2["settings"]["start_at"],"{mode}");
             let mut expected_transient = v2["transient_data"].clone();
-            assert!(expected_transient.get("run_generation").is_none(), "Rails has no ownership generation");
+            assert!(expected_transient.get("run_generation").is_none(), "2.x has no ownership generation");
             expected_transient["run_generation"] = json!(1);
-            assert_eq!(stored["transient"], expected_transient, "{mode}: Rails state plus exactly one Rust start generation");
+            assert_eq!(stored["transient"], expected_transient, "{mode}: 2.x state plus exactly one Rust start generation");
             let status:i64=f.c.query_row("SELECT status FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
             assert_eq!(json!(status),v2["status"],"{mode}");
             let changed=if mode=="date" {changed_before} else {json!(v2["settings_changed_at"])};
@@ -1277,7 +1277,7 @@ mod action_write {
         Ok(())
     }
 
-    /// A continue with the starting time on goes through, as in Rails (it ignores the starting time): the bot keeps its
+    /// A continue with the starting time on goes through, as in 2.x (it ignores the starting time): the bot keeps its
     /// started_at and its rule, and the engine decides the run on started_at's grid (D-START-ANCHOR-STARTED), never before a
     /// start still ahead (D-START-CONTINUE-WAITS). start_at moved off started_at too.
     #[test]
@@ -1313,7 +1313,7 @@ mod action_write {
         Ok(())
     }
 
-    /// D-START-WALL-STEP: a passed time steps to the chosen wall time on the next day, across a clock change too (Rails'
+    /// D-START-WALL-STEP: a passed time steps to the chosen wall time on the next day, across a clock change too (2.x's
     /// fixed UTC day lands an hour early in autumn, late in spring). The start commits with started_at = start_at = it.
     #[test]
     fn action_lifecycle_start_across_a_clock_change_runs_at_the_chosen_time() -> Result {
@@ -1351,7 +1351,7 @@ mod action_write {
         Ok(())
     }
 
-    /// The date field renders in the owner's zone with the resolver that parses it (a Rails name or an IANA id): turning the
+    /// The date field renders in the owner's zone with the resolver that parses it (a 2.x name or an IANA id): turning the
     /// rule on resubmits the rendered field, which keeps the instant, and the start runs at it.
     #[test]
     fn action_date_start_round_trips_through_the_form_in_the_owners_zone() -> Result {
@@ -1373,7 +1373,7 @@ mod action_write {
         Ok(())
     }
 
-    /// ActiveSupport::TimeZone[] knows Rails' names and IANA identifiers; for any other name the start is refused and nothing
+    /// ActiveSupport::TimeZone[] knows 2.x's names and IANA identifiers; for any other name the start is refused and nothing
     /// is written, never computed in UTC.
     #[test]
     fn action_lifecycle_start_in_an_unknown_zone_is_refused() -> Result {
@@ -1419,7 +1419,7 @@ mod action_write {
             let zone=case["zone"].as_str().ok_or("zone missing")?;
             let actual=draft.initial_start_at(now,zone).map_err(|e|format!("{e:?}"))?;
             let expected=case["expected"].as_str().map(|t|t.parse::<chrono::DateTime<chrono::Utc>>()).transpose()?;
-            // D-START-WALL-STEP: where Rails' instant is off the chosen wall time, Rust's is on it.
+            // D-START-WALL-STEP: where 2.x's instant is off the chosen wall time, Rust's is on it.
             let tz=deltabadger::web::timezone::strict(zone).ok_or("zone")?;
             let chosen=draft.candidate.settings.get("start_time_of_day").and_then(Value::as_str).map(|t|format!("{t:0>5}"));
             match (actual,expected) {
@@ -1999,7 +1999,7 @@ mod action_race {
             f.clock.set(harness::at("2026-09-04T10:00:00.000001Z"));
             run::step(&mut engine,&*f.clock).await.map_err(|e|format!("{e:?}"))?;
         }
-        assert_eq!(script.submissions.borrow().len(),1,"Rails recorded {name}: {}; real scheduler at {}: transient={}",row["decision"],f.clock.now(),f.transient()?);
+        assert_eq!(script.submissions.borrow().len(),1,"2.x recorded {name}: {}; real scheduler at {}: transient={}",row["decision"],f.clock.now(),f.transient()?);
         assert_eq!(script.submissions.borrow().first().ok_or("submission")?.0,f.clock.now());
         assert_eq!(f.one::<String>("SELECT started_at FROM bots WHERE id=?1")?,ANCHOR);
         Ok(())
@@ -2321,7 +2321,7 @@ mod auth_decision_clock {
 }
 
 /// A bot stored without a name shows a generated one. A save that does not name it leaves the row
-/// unnamed (Rails' in-memory name is not dirty); submitting the shown name saves it
+/// unnamed (2.x's in-memory name is not dirty); submitting the shown name saves it
 /// (Automation::Labelable#label=).
 #[tokio::test(flavor="current_thread")]
 async fn submitting_the_shown_name_of_an_unnamed_bot_saves_it() -> Result<(),Box<dyn std::error::Error>> {
@@ -2383,8 +2383,8 @@ async fn a_refused_save_carries_no_selling_warning() -> Result<(),Box<dyn std::e
     Ok(())
 }
 
-/// The bot menu's Custom allocation (web::bot::index_switch) where this build parts from Rails: it customizes from the stored
-/// members (D-IDX-CUSTOM-STORED: Rails re-derives the index in the request) and refuses while the engine owns the bot or a
+/// The bot menu's Custom allocation (web::bot::index_switch) where this build parts from 2.x: it customizes from the stored
+/// members (D-IDX-CUSTOM-STORED: 2.x re-derives the index in the request) and refuses while the engine owns the bot or a
 /// resync is due (D-FENCE-PER-BOT); and on success it bumps the run generation.
 mod custom_allocation {
     use super::common;
@@ -2458,7 +2458,7 @@ mod custom_allocation {
     }
 
     /// D-IDX-CUSTOM-STORED: a resync the engine still owes (a settings save or a start asked for it) refuses, so the stored
-    /// members are never older than what Rails would derive.
+    /// members are never older than what 2.x would derive.
     #[test]
     fn a_resync_due_refuses() -> Result {
         let f = Fixture::new()?;
@@ -2546,7 +2546,7 @@ mod custom_allocation {
     }
 
     /// D-IDX-COINGECKO: on a CoinGecko install with no key (no provider at all) this engine ranks no index, so the switch
-    /// Rails would make is refused.
+    /// 2.x would make is refused.
     #[test]
     fn a_coingecko_install_without_a_key_refuses_a_follow() -> Result {
         let f = Fixture::new()?;
@@ -2720,7 +2720,7 @@ mod merge {
         Ok(())
     }
 
-    /// D-MERGE-CAP: past MAX_ASSETS the merged bot is saved as Rails saves it (stopped, not startable), unless a waiting order
+    /// D-MERGE-CAP: past MAX_ASSETS the merged bot is saved as 2.x saves it (stopped, not startable), unless a waiting order
     /// moves with it, which this engine's guard refuses.
     #[test]
     fn over_the_cap_a_moved_waiting_order_refuses() -> Result {
@@ -2877,7 +2877,7 @@ mod split {
     fn d(n: &Num) -> Dec { n.to_d().unwrap() }
     fn dec(text: &str) -> Dec { Dec::parse(text).unwrap() }
     fn sum(values: impl IntoIterator<Item = Dec>) -> Dec { values.into_iter().fold(Dec::zero(), |acc, v| (&acc + &v).unwrap()) }
-    /// What the bot made, in money: value less what went in (split_test.rb's `profit`).
+    /// What the bot made, in money: value less what went in (2.x's split test's `profit`).
     fn profit(m: &Metrics) -> Dec { (&d(&m.total_amount_value_in_quote) - &d(&m.total_quote_amount_invested)).unwrap() }
     /// Units, tax units and tax basis of the holding of `asset`.
     fn holding(m: &Metrics, asset: i64) -> (Dec, Dec, Dec) {
@@ -2920,7 +2920,7 @@ mod split {
     }
 
     /// Unequal weights (70/20/10) give each child its share; a member that no longer trades gets no child, and the survivors
-    /// share the whole schedule (Rails sums the weights with Kahan-Babuska summation, crate::v2::float_sum).
+    /// share the whole schedule (2.x sums the weights with Kahan-Babuska summation, crate::v2::float_sum).
     #[test]
     fn shares_follow_the_weights_and_the_survivors_keep_the_schedule() -> Result {
         let f = Fixture::baskets(&[&[0.7, 0.2, 0.1]])?;
@@ -3065,7 +3065,7 @@ mod split {
         Ok(())
     }
 
-    /// A Yes Rails still holds as a Bot::RedeployJob (no pending flag, no waiting order) is a redeploy in progress: not served.
+    /// A Yes 2.x still holds as a Bot::RedeployJob (no pending flag, no waiting order) is a redeploy in progress: not served.
     #[test]
     fn a_queued_redeploy_job_is_not_served() -> Result {
         let f = Fixture::index(&[0.6, 0.4])?;
@@ -3185,7 +3185,7 @@ mod split {
         Ok(())
     }
 
-    /// Several sources split in one go, in request order: their children and positions interleave as Rails creates them.
+    /// Several sources split in one go, in request order: their children and positions interleave as 2.x creates them.
     #[test]
     fn several_sources_split_in_request_order() -> Result {
         let f = Fixture::baskets(&[&[0.5, 0.5], &[0.6, 0.4]])?;
@@ -3235,7 +3235,7 @@ mod split {
         Ok(())
     }
 
-    /// split_test.rb's swap: the sale is money out for its asset's child and the purchase new money for the other's; units and
+    /// 2.x's split test's swap: the sale is money out for its asset's child and the purchase new money for the other's; units and
     /// tax lots per asset are the source's, and so is what the children made together.
     #[test]
     fn a_swap_splits_into_a_sale_and_a_purchase() -> Result {

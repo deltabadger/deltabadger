@@ -194,7 +194,7 @@ impl Drop for Container {
     fn drop(&mut self) { let _ = Command::new("docker").args(["rm", "-f", &self.id]).output(); }
 }
 
-/// The 2.x image's first start, without Ruby: as root on an empty volume it writes .secrets (mode 600, owned by 1000),
+/// The 2.x image's first start, without 2.x: as root on an empty volume it writes .secrets (mode 600, owned by 1000),
 /// drops to 1000, and serve creates the install; a restart reads the same file and opens the same install.
 #[test]
 fn an_empty_volume_started_as_root_becomes_a_new_install_that_restarts_on_its_own_secrets() {
@@ -312,9 +312,9 @@ fn snapshot(image: &str, volume: &Volume) -> String {
 /// data's own keys.
 struct TwoX { volume: Volume, env: Vec<String>, wrong: Vec<String>, cipher: Cipher }
 
-/// Formats 2-5 (§2): the install exactly as Rails prepares it (v2_install_unmigrated), its `.secrets` written by
+/// Formats 2-5 (§2): the install exactly as 2.x prepares it (v2_install_unmigrated), its `.secrets` written by
 /// 2.70.21's generate_secrets under `gen_env` and then `edit`ed, copied into a named volume; then 2.70.21's
-/// `rake runner` with the container env `env` stores an encrypted app_config, so Rails itself encrypts the one sample
+/// `rake runner` with the container env `env` stores an encrypted app_config, so 2.x itself encrypts the one sample
 /// under its own reading of that file and env. Not a Rust-encrypted seed: a Rust key derivation shared by the fixture
 /// and the image would cancel out, and a sample Rust wrote would open under it. `cipher` (Rust's reading of the same
 /// file) only reads the lease 3.0 writes.
@@ -349,7 +349,7 @@ fn refused_with_c9(image: &str, volume: &Volume, env: &[String]) {
     assert_eq!(snapshot(image, volume), before, "a refused start changes no file");
 }
 
-/// 2.70.21's `rake runner` (its entrypoint loads `.secrets` first, env first) stores an app_config Rails encrypts.
+/// 2.70.21's `rake runner` (its entrypoint loads `.secrets` first, env first) stores an app_config 2.x encrypts.
 fn v2_encrypts_a_sample(volume: &Volume, env: &[&str]) {
     let mount = volume.mount();
     let mut args = vec!["run", "--rm", "--network", "none", "-v", &mount];
@@ -391,7 +391,7 @@ fn lease(image: &str, volume: &Volume, cipher: &Cipher) -> Option<serde_json::Va
     deltabadger::lease::read(&rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap(), cipher).unwrap()
 }
 
-/// Format 1's volume (below): 2.70.21's `migrate` on an empty named volume, then a Rails-encrypted sample.
+/// Format 1's volume (below): 2.70.21's `migrate` on an empty named volume, then a 2.x-encrypted sample.
 fn made_by_2x_migrate(image: &str) -> TwoX {
     let volume = Volume::named();
     docker(&["run", "--rm", "--network", "none", "-v", &volume.mount(), V2_2X, "migrate"]);
@@ -401,7 +401,7 @@ fn made_by_2x_migrate(image: &str) -> TwoX {
 }
 
 /// Format 1, real 2.x: 2.70.21's `migrate` on an empty volume creates the install and its `.secrets` (SECRET_KEY_BASE +
-/// pair), and 2.70.21's `rake runner` stores an encrypted app_config, so Rails itself encrypted it under that file.
+/// pair), and 2.70.21's `rake runner` stores an encrypted app_config, so 2.x itself encrypted it under that file.
 #[test]
 fn format_1_a_volume_made_by_2x_migrate_is_taken_over() {
     let Some(image) = image() else { return };
@@ -490,7 +490,7 @@ const C1_UMBREL: &str = "Deltabadger didn't start: this data is from an older ve
 /// A line as the refusal page writes it (HTML-escaped apostrophes).
 fn on_page(line: &str) -> String { line.replace('\'', "&#39;") }
 
-/// Behind (B2's C1): the newest Rails migrations missing. The refusal page with C1, `/health-check` 503, `/ui-ready`
+/// Behind (B2's C1): the newest 2.x migrations missing. The refusal page with C1, `/health-check` 503, `/ui-ready`
 /// 200, the operator's detail on stderr, SIGTERM → 0, and the volume exactly as it was: no backups folder, `.secrets`
 /// and every data file byte-equal.
 #[test]
@@ -738,7 +738,7 @@ fn migrate_and_setup_on_an_empty_volume_write_secrets_only() {
     }
 }
 
-/// `console` and `rake …` (Rails' own) on a 2.x volume: exit 64, R1 on stderr, every file byte-equal. `export` outside
+/// `console` and `rake …` (2.x's own) on a 2.x volume: exit 64, R1 on stderr, every file byte-equal. `export` outside
 /// launchpad's scratch container (no EXPORT_SCRATCH) is refused with 1 and changes nothing either (PLAN-B4b).
 #[test]
 fn v2_commands_are_refused_and_change_nothing() {
@@ -1034,7 +1034,7 @@ impl Umbrel {
         web
     }
 
-    /// A Rails image's command on the install, with Umbrel's secret, offline: its stdout.
+    /// A 2.x image's command on the install, with Umbrel's secret, offline: its stdout.
     fn v2(&self, v2: &str, command: &[&str]) -> String {
         let mount = self.storage.mount();
         let mut args = vec!["run", "--rm", "--network", "none", "-v", &mount, "-e", UMBREL_SECRET, v2];
@@ -1099,7 +1099,7 @@ fn step_upgrades(image: &str, u: &Umbrel) {
 
 /// (a) r2.2: a 2.34.0 install with data, upgraded by Umbrel's step and taken over by 3.0. The step's migrate enqueues
 /// one Tracker::LedgerJob, one PortfolioSnapshot::BackfillJob and one AccountTransaction::ResolveAssetsJob for the user
-/// (Rails' `limits_concurrency … on_conflict: :discard` drops the later LedgerJobs and BackfillJobs, the QUICK refetch's
+/// (2.x's `limits_concurrency … on_conflict: :discard` drops the later LedgerJobs and BackfillJobs, the QUICK refetch's
 /// among them, while one is waiting). 3.0's start line counts them; the two wakes are journalled in rust_rails_wakes and
 /// run (each job's state shows a run after the wake's time; offline, a run may end in an error); the ResolveAssetsJob is
 /// dropped (D-B3-BEHIND-ASSETS-UNRESOLVED): the old ledger rows keep base_asset_id NULL and are listed under their symbol.
@@ -1146,7 +1146,7 @@ fn umbrels_step_upgrades_a_2_34_install_and_3_0_takes_its_jobs_over() {
     let primary = rusqlite::Connection::open(copy.path().join("production.sqlite3")).unwrap();
     let rows: Vec<(String, Option<i64>)> = primary.prepare("SELECT base_currency, base_asset_id FROM account_transactions ORDER BY id").unwrap()
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
-    // Listed under their symbols: the tracker reads a row without base_asset_id by its symbol, as Rails does; its list is
+    // Listed under their symbols: the tracker reads a row without base_asset_id by its symbol, as 2.x does; its list is
     // proven on such rows in-process (tests/tracker_api.rs seeds every row without one). Not here: an App needs the web
     // assets, which this job's test build doesn't have.
     assert_eq!(rows, [("BTC".to_string(), None), ("QUICK".to_string(), None)], "D-B3-BEHIND-ASSETS-UNRESOLVED");
@@ -1184,7 +1184,7 @@ fn umbrels_step_upgrades_a_2_60_install() {
 
 /// (c) r3.2: a partly upgraded install, as a failed 2.x update leaves it (the 2.34.0 fixture taken by 2.70.21 up to
 /// 20260828094446, just before the first migration that disables its transaction): the step sees it Behind, completes
-/// it, and 3.0 takes it over. `db:migrate:primary`, not r3.2's `db:migrate`: with several databases Rails' `db:migrate
+/// it, and 3.0 takes it over. `db:migrate:primary`, not r3.2's `db:migrate`: with several databases 2.x's `db:migrate
 /// VERSION=` runs that one migration alone. An upgrade killed inside a non-transactional migration is
 /// R-B3-BEHIND-NONTX, not proved here.
 #[test]
@@ -1200,7 +1200,7 @@ fn umbrels_step_completes_a_partly_upgraded_install() {
     assert_eq!(web.stop(), "0", "{}", web.logs());
 }
 
-/// The step on an install it must leave alone: exit 0, no output at all (so no Rails boot and no migrate), every file
+/// The step on an install it must leave alone: exit 0, no output at all (so no 2.x boot and no migrate), every file
 /// byte-equal (`snapshot`: no new row anywhere).
 fn step_leaves_alone(image: &str, u: &Umbrel, what: &str) {
     let before = snapshot(image, &u.storage);
@@ -1211,7 +1211,7 @@ fn step_leaves_alone(image: &str, u: &Umbrel, what: &str) {
 
 /// (d) The step is a no-op on every install that isn't Behind: an empty folder (no install is created: no primary,
 /// no `.secrets`), a 3.0-created install, a 2.70.21 install at the frozen schema, the same install taken over by 3.0,
-/// and handed back to 2.x (B3-4's handback). A Rails boot would refuse the taken-over one and adopt the handed-back one.
+/// and handed back to 2.x (B3-4's handback). A 2.x boot would refuse the taken-over one and adopt the handed-back one.
 #[test]
 fn umbrels_step_leaves_every_install_that_is_not_behind_alone() {
     let Some(image) = image() else { return };
@@ -1399,7 +1399,7 @@ fn umbrel_setup_from(image: &str, web_image: &str, host: &str) -> (u16, String) 
 }
 
 /// R-B5-ORIGIN (PLAN-B5 §1.4): Umbrel users open the app at the name APP_ROOT_URL carries (umbrel.local:3737) or at the
-/// device's address (192.168.1.10:3737 here) or another name. 2.70.21 (the oracle) accepts a form from either: Rails
+/// device's address (192.168.1.10:3737 here) or another name. 2.70.21 (the oracle) accepts a form from either: 2.x
 /// compares `Origin` with the request's own base URL. 3.0 accepts both too (D-B5-ORIGIN-HOST): APP_ROOT_URL's origin or
 /// the request's own. Accepted = the admin is created and the browser sent on to /bots.
 #[test]
@@ -1416,13 +1416,13 @@ fn umbrels_web_accepts_a_form_from_the_address_the_browser_used() {
 
 /// 2.70.21 reads back what this crate writes: it decrypts every value the engine encrypts and Devise verifies every
 /// password hash it makes, so a handed-back install keeps its credentials and logins. The engine writes the values
-/// here, with ruby_vectors.json's secret and plaintexts; the published image's Rails reads them (PLAN-B11 r6.2: was
-/// record_rust_vectors + a test of the deleted Rails suite).
+/// here, with v2_vectors.json's secret and plaintexts; the published image's 2.x reads them (PLAN-B11 r6.2: was
+/// record_rust_vectors + a test of 2.x's deleted test suite).
 #[test]
 fn v2_decrypts_what_rust_encrypts_and_verifies_its_password_hashes() {
     use deltabadger::crypto::hash_password;
     if !common::v2::enabled() { return; }
-    let given: serde_json::Value = serde_json::from_str(include_str!("fixtures/ruby_vectors.json")).unwrap();
+    let given: serde_json::Value = serde_json::from_str(include_str!("fixtures/v2_vectors.json")).unwrap();
     let secret = given["secret_key_base"].as_str().unwrap();
     let cipher = Cipher::new(&EncryptionKeys::resolve(&|_| None, secret).unwrap());
     let ciphertexts: serde_json::Map<String, serde_json::Value> = given["ciphertexts"].as_object().unwrap().iter()

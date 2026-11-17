@@ -1,4 +1,4 @@
-//! The reference-data jobs (rust/src/jobs/{import,reference}.rs). Row parity with Rails is
+//! The reference-data jobs (rust/src/jobs/{import,reference}.rs). Row parity with 2.x is
 //! rust/tests/reference_parity.rs; these pin the Rust-side mechanics parity cannot see.
 //! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
 //! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).
@@ -82,15 +82,15 @@ async fn floating_sizes_are_stored_as_v2s_bigdecimal_of_the_float() {
     asset(&c, "bitcoin", "BTC", "Cryptocurrency");
     asset(&c, "EUR.FOREX", "EUR", "Currency");
     let mut row = pair("bitcoin", "XBTEUR", "XBT");
-    row["minimum_base_size"] = json!(1.0000000000000002);   // Ruby: BigDecimal(1.0000000000000002) => 1.0
-    row["minimum_quote_size"] = json!(0.30000000000000004); // 0.1 + 0.2; Ruby: BigDecimal(0.30000000000000004) => 0.3
+    row["minimum_base_size"] = json!(1.0000000000000002);   // 2.x: BigDecimal(1.0000000000000002) => 1.0
+    row["minimum_quote_size"] = json!(0.30000000000000004); // 0.1 + 0.2; 2.x: BigDecimal(0.30000000000000004) => 0.3
     row["maximum_quote_size"] = json!(1000000);             // an Integer: exact
-    row["maximum_base_size"] = json!(0.12345678901234568);  // 17th digit 8; Ruby truncates: BigDecimal => 0.1234567890123456
+    row["maximum_base_size"] = json!(0.12345678901234568);  // 17th digit 8; 2.x truncates: BigDecimal => 0.1234567890123456
     import_tickers(&Db::new(c, common::seed::cipher()), kraken, vec![row], "2026-10-02T10:15:00Z").await.unwrap();
     let c = reopen(&d);
     assert_eq!(one::<f64>(&c, "SELECT minimum_base_size FROM tickers"), 1.0);
     assert_eq!(one::<i64>(&c, "SELECT minimum_quote_size <= 0.3 FROM tickers"), 1,
-               "an order of 0.30 EUR meets the minimum, as in Rails; the float's own digits (0.30000000000000004) would refuse it");
+               "an order of 0.30 EUR meets the minimum, as in 2.x; the float's own digits (0.30000000000000004) would refuse it");
     assert_eq!(one::<i64>(&c, "SELECT maximum_quote_size FROM tickers"), 1_000_000);
     assert_eq!(one::<f64>(&c, "SELECT maximum_base_size FROM tickers"), 0.1234567890123456,
                "Float#to_d truncates to 16 digits; rounding would give 0.1234567890123457");
@@ -105,7 +105,7 @@ async fn a_conflict_key_met_twice_is_applied_in_order_and_the_last_row_wins() {
     let index = |name: &str| json!({ "external_id": "layer-1", "source": "coingecko", "name": name });
     import::import_indices(&db, import::plan_indices(&[index("L1"), index("Layer 1")]).unwrap(), at("2026-10-02T10:30:00Z"), None).await.unwrap();
     let c = reopen(&d);
-    assert_eq!(one::<String>(&c, "SELECT symbol FROM assets WHERE external_id = 'dup'"), "D2", "as Rails 8.1.4's upsert_all on SQLite");
+    assert_eq!(one::<String>(&c, "SELECT symbol FROM assets WHERE external_id = 'dup'"), "D2", "as 2.x's ActiveRecord 8.1.4 upsert_all on SQLite");
     assert_eq!(one::<String>(&c, "SELECT name FROM indices"), "Layer 1");
 }
 
@@ -122,7 +122,7 @@ async fn assets_publish_in_chunks_and_the_tokenized_registry_is_null_safe() {
     assert_eq!(one::<i64>(&c, "SELECT count(*) FROM assets"), 1_201);
     assert_eq!(one::<f64>(&c, "SELECT circulating_supply FROM assets LIMIT 1"), 120456789.1234568, "BigDecimal(f.round(8), 16).round(8)");
     asset(&c, "nvda-xstock", "NVDAX", "Cryptocurrency");
-    // D-TOK-XSTOCKS (plan A15): the catalogue files the SpaceX xStock as `spacex-xstocks`, which Rails' `%-xstock` misses.
+    // D-TOK-XSTOCKS (plan A15): the catalogue files the SpaceX xStock as `spacex-xstocks`, which 2.x's `%-xstock` misses.
     asset(&c, "spacex-xstocks", "SPCXX", "Cryptocurrency");
     asset(&c, "xstockscoin", "XSC", "Cryptocurrency");
     import::mark_tokenized(&db).await.unwrap();
@@ -362,7 +362,7 @@ async fn without_the_deltabadger_provider_every_data_api_job_fails_and_prune_sti
         let (_d, c) = db();
         let out = run(spec.name, None, c, "2026-10-02T10:30:00Z").await;
         if spec.name == reference::PRUNE { assert_eq!(out, Outcome::Done); }
-        // PLAN-A17: with no provider at all the asset refresh returns, as Rails' `return unless MarketData.configured?`.
+        // PLAN-A17: with no provider at all the asset refresh returns, as 2.x's `return unless MarketData.configured?`.
         // A17-2: so do the venue tickers (SyncAllTickersAndAssetsJob's own guard).
         // A17-4: and the indices (Index::SyncFromCoingeckoJob's own guard).
         else if [reference::ASSETS, reference::TICKERS, reference::INDICES].contains(&spec.name) { assert_eq!(out, Outcome::NothingNew); }
@@ -389,7 +389,7 @@ async fn the_stock_jobs_switch_stops_it_and_a_legacy_row_without_a_backfill_stop
     assert_eq!(one::<String>(&reopen(&d), "SELECT external_id FROM assets WHERE symbol = 'IBIT'"), "alpaca_0b5c");
 }
 
-/// A floating-point canonical id is refused before any write: its spelling would not be Rails' Float#to_s, so the
+/// A floating-point canonical id is refused before any write: its spelling would not be 2.x's Float#to_s, so the
 /// existing-canonical check could miss ("1e+20" against "1.0e+20").
 #[tokio::test(flavor = "current_thread")]
 async fn a_float_canonical_id_is_refused_before_any_write() {
@@ -442,7 +442,7 @@ async fn a_degraded_crypto_payload_creates_usd_imports_nothing_and_says_why() {
     let out = run(reference::ALPACA_CRYPTO, scripted(&t), c, "2026-10-02T10:15:00Z").await;
     assert!(matches!(&out, Outcome::Failed(m) if m.contains("degraded") && m.contains("29 resolved")), "{out:?}");
     let c = reopen(&d);
-    assert_eq!(one::<String>(&c, "SELECT category || ' ' || color FROM assets WHERE external_id = 'usd'"), "Fiat #355E3B", "created before the guard, as Rails does");
+    assert_eq!(one::<String>(&c, "SELECT category || ' ' || color FROM assets WHERE external_id = 'usd'"), "Fiat #355E3B", "created before the guard, as 2.x does");
     assert_eq!(one::<i64>(&c, "SELECT count(*) FROM tickers"), 0);
     assert_eq!(one::<i64>(&c, "SELECT count(*) FROM app_configs"), 0, "no baseline ratchet on a bailed run");
 }
@@ -586,7 +586,7 @@ async fn empty_assets_and_indices_payloads_refresh_nothing() {
     t.reply("GET /api/v1/assets", 200, json!({ "data": [] })).reply("GET /api/v2/indices", 200, json!({ "data": [] }));
     for (job, now) in [(reference::ASSETS, "2026-10-02T00:20:00Z"), (reference::INDICES, "2026-10-02T10:30:00Z")] {
         let (d, c) = db();
-        assert_eq!(run(job, scripted(&t), c, now).await, Outcome::NothingNew, "{job}: Rails writes nothing, and the source keeps its age");
+        assert_eq!(run(job, scripted(&t), c, now).await, Outcome::NothingNew, "{job}: 2.x writes nothing, and the source keeps its age");
         assert_eq!(one::<i64>(&reopen(&d), "SELECT count(*) FROM app_configs"), 0, "{job}: not even an incomplete mark");
     }
 }
@@ -999,10 +999,10 @@ fn row_text(c: &Connection, id: &str, col: &str) -> Option<String> {
     c.query_row(&format!("SELECT {col} FROM indices WHERE external_id = ?1 AND source = 'coingecko'"), [id], |r| r.get(0)).optional().unwrap().flatten()
 }
 fn top_of(c: &Connection, id: &str) -> Vec<String> { serde_json::from_str(&row_text(c, id, "top_coins").unwrap()).unwrap() }
-/// An existing `coingecko` row as Rails' pass leaves it (10 display coins, no weights), unattested.
+/// An existing `coingecko` row as 2.x's pass leaves it (10 display coins, no weights), unattested.
 fn v2_category_row(c: &Connection, id: &str, top: &[&str]) -> i64 {
     c.execute("INSERT INTO indices (external_id, source, name, description, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at) \
-               VALUES (?1, 'coingecko', ?1, 'Rails', ?2, '{}', '{}', '{}', 0, '2026-09-01 10:30:00', '2026-09-01 10:30:00')",
+               VALUES (?1, 'coingecko', ?1, '2.x', ?2, '{}', '{}', '{}', 0, '2026-09-01 10:30:00', '2026-09-01 10:30:00')",
               rusqlite::params![id, json!(top).to_string()]).unwrap();
     c.last_insert_rowid()
 }
@@ -1182,7 +1182,7 @@ fn direct_index_provider_uses_the_environment_key_only_without_a_database_overri
 
 fn twelve() -> Vec<String> { (b'a'..=b'l').map(|ch| format!("coin-{}", ch as char)).collect() }
 
-/// Rails' rules and the named divergences on one run: the slice asked in feed order, then the followed (sorted); Top Coins
+/// 2.x's rules and the named divergences on one run: the slice asked in feed order, then the followed (sorted); Top Coins
 /// first. D-CG-CATEGORY-STORED (every valid member and its cap stored), D-CG-FOLLOWED-KEPT (a followed category kept
 /// through the sweep, written with < 3 valid members), the sweep's cascade (a swept category's ranking goes with it).
 #[tokio::test(flavor = "current_thread")]
@@ -1216,13 +1216,13 @@ async fn the_category_pass_ranks_the_slice_sweeps_and_keeps_what_is_followed() {
     assert_eq!(ids("SELECT external_id FROM indices WHERE source = 'coingecko' ORDER BY external_id"), ["frog-themed-coins", "meme-token", "oracle", "payments"],
                "old-category and launchpad swept; music disqualified; pump-fun skipped (no venue, no row)");
     assert_eq!(one::<i64>(&c, &format!("SELECT count(*) FROM rust_index_rankings WHERE index_id = {old}")), 0, "the sweep cascades its ranking");
-    assert_eq!(top_of(&c, "payments"), coins, "D-CG-CATEGORY-STORED: every valid member, deduped, answer order (Rails: the first 10)");
+    assert_eq!(top_of(&c, "payments"), coins, "D-CG-CATEGORY-STORED: every valid member, deduped, answer order (2.x: the first 10)");
     let weights: Value = serde_json::from_str(&row_text(&c, "payments", "weights").unwrap()).unwrap();
     assert_eq!((weights["coin-a"].as_f64(), weights["coin-l"].as_f64(), weights.as_object().unwrap().len()), (Some(1e9), Some(1e9 - 11.0), 12), "the first answer's cap");
     assert_eq!(row_text(&c, "payments", "name").as_deref(), Some("payments"), "brackets stripped");
     assert_eq!(one::<i64>(&c, "SELECT weight FROM indices WHERE external_id = 'payments'"), 0);
     let by_ex: Value = serde_json::from_str(&row_text(&c, "payments", "top_coins_by_exchange").unwrap()).unwrap();
-    assert_eq!(by_ex["Exchanges::Kraken"].as_array().unwrap().len(), 10, "per venue: Rails' first 10");
+    assert_eq!(by_ex["Exchanges::Kraken"].as_array().unwrap().len(), 10, "per venue: 2.x's first 10");
     assert_eq!(row_text(&c, "payments", "available_exchanges").as_deref(), Some(r#"{"Exchanges::Kraken":10}"#));
     assert_eq!(ranking(&c, "payments").map(|r| r.0).as_deref(), Some("coingecko"));
     assert_eq!(top_of(&c, "frog-themed-coins"), ["coin-c"], "D-CG-FOLLOWED-KEPT: written with one valid member");
@@ -1345,14 +1345,14 @@ async fn the_slice_crosses_midnight_with_its_slot_and_a_later_wake_asks_no_slice
 }
 
 /// The slice's completion is its own row per (fingerprint, slot), whatever the Outcome: a non-followed fetch that fails leaves
-/// it open (logged, Rails' skip); the retry that writes nothing (a disqualified answer) completes it.
+/// it open (logged, 2.x's skip); the retry that writes nothing (a disqualified answer) completes it.
 #[tokio::test(flavor = "current_thread")]
 async fn the_slice_completes_per_fingerprint_and_slot_even_on_a_run_that_writes_nothing() {
     use deltabadger::jobs::categories::SLICE_KEY;
     let (d, _c, _s) = cg_install(&["coin-a"]);
     let t = cg_transport();
     t.reply(CATS_KEY, 200, json!([category("payments", "P")])).reply(&cat_key("payments"), 500, json!({}));
-    assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done, "Top Coins was written; a non-followed failure is Rails' logged skip");
+    assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done, "Top Coins was written; a non-followed failure is 2.x's logged skip");
     assert_eq!(deltabadger::app_config::get_plain(&reopen(&d), SLICE_KEY).unwrap(), None);
     let t = cg_transport();
     t.reply(CATS_KEY, 200, json!([category("payments", "P")])).reply(&cat_key("payments"), 200, members(&[("coin-a", 1.0)]));
@@ -1451,14 +1451,14 @@ async fn availability_is_recomputed_from_the_stored_ranking_without_a_fetch() {
     let c = reopen(&d);
     assert_eq!(row_text(&c, "storage", "available_exchanges").as_deref(), Some(r#"{"Exchanges::Kraken":3}"#));
     assert_eq!(row_text(&c, "storage", "top_coins_by_exchange").as_deref(), Some(r#"{"Exchanges::Kraken":["coin-a","coin-b","coin-c"]}"#),
-               "re-derived from the stored ranking (Rails re-counts its saved per-venue lists)");
+               "re-derived from the stored ranking (2.x re-counts its saved per-venue lists)");
     assert_eq!(ranking(&c, "storage"), ranked_before, "ranked_at untouched");
     assert_eq!(ranking(&c, "oracle"), oracle_before.0, "the failed fetch keeps the ranking");
     assert_ne!(row_text(&c, "oracle", "updated_at"), oracle_before.1, "the availability change moved updated_at");
     assert_eq!(row_text(&c, "oracle", "available_exchanges").as_deref(), Some(r#"{"Exchanges::Kraken":3}"#));
 }
 
-/// Takeover of a 2.x CoinGecko install (D-INDEX-UNATTESTED-HELD): Rails' 10-coin row holds the bot stale and is never composed;
+/// Takeover of a 2.x CoinGecko install (D-INDEX-UNATTESTED-HELD): 2.x's 10-coin row holds the bot stale and is never composed;
 /// the woken run ranks it, and the bot is fresh.
 #[tokio::test(flavor = "current_thread")]
 async fn a_v2_coingecko_row_is_held_until_the_job_ranks_it() {
@@ -1468,9 +1468,9 @@ async fn a_v2_coingecko_row_is_held_until_the_job_ranks_it() {
     v2_category_row(&c, "layer-1", &coins[..10].iter().map(String::as_str).collect::<Vec<_>>());
     let bot = model::load_bot(&c, cg_bot(&c, &s, "layer-1", 1)).unwrap();
     let now = at(CG_NOW);
-    // As Rails' last pull left the fence (a takeover keeps it): only the ranking holds the bot.
+    // As 2.x's last pull left the fence (a takeover keeps it): only the ranking holds the bot.
     deltabadger::engine::provider::record(&c, &deltabadger::engine::provider::fingerprint(&c).unwrap().unwrap(), now).unwrap();
-    assert!(index::ranked_row(&c, "layer-1").unwrap().is_none(), "Rails' row is never selected");
+    assert!(index::ranked_row(&c, "layer-1").unwrap().is_none(), "2.x's row is never selected");
     assert!(staleness::reference_stale(&c, &bot, now).unwrap().is_some(), "held stale");
     assert!(index::ranking_wanted(&c, &bot, now).unwrap(), "and wanted: the tick wakes the job");
     let t = cg_transport();
@@ -1485,9 +1485,9 @@ async fn a_v2_coingecko_row_is_held_until_the_job_ranks_it() {
     assert!(staleness::reference_stale(&c, &bot, now).unwrap().is_none(), "fresh once ranked");
 }
 
-/// The Rust half of the composition check (decisions.rb cannot script CoinGecko beneath a venue tick): the pass's stored
-/// ranking of an answer composes the members and weights Rails' live composition takes from the same answer (its own caps,
-/// to_f; the top N by cap, weighed by cap: index_allocatable.rb:56-123), never the assets' caps.
+/// The Rust half of the composition check (the recording harness cannot script CoinGecko beneath a venue tick): the pass's stored
+/// ranking of an answer composes the members and weights 2.x's live composition takes from the same answer (its own caps,
+/// to_f; the top N by cap, weighed by cap), never the assets' caps.
 #[tokio::test(flavor = "current_thread")]
 async fn a_category_bot_composes_from_the_stored_answer_as_v2_composes_it_live() {
     use deltabadger::engine::{index, model};
@@ -1508,12 +1508,12 @@ async fn a_category_bot_composes_from_the_stored_answer_as_v2_composes_it_live()
     let got: Vec<(String, f64)> = s.query_map([id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
     let names: Vec<&str> = got.iter().map(|(n, _)| n.as_str()).collect();
     assert_eq!(names, ["coin-a", "coin-b", "coin-c"], "the top 3 by the answer's caps");
-    // Rails' blend rounds each target to 6 places.
+    // 2.x's blend rounds each target to 6 places.
     for ((_, w), cap) in got.iter().zip([300.0, 200.0, 100.0]) { assert!((w - cap / 600.0).abs() < 1e-6, "{got:?}"); }
 }
 
 /// The data-api pull stamps every row it upserts `data-api` under its captured fingerprint (the recorded `indices-import`
-/// payload: source 'coingecko' rows included), so they compose on data-api; a Rails row it does not ship stays unattested.
+/// payload: source 'coingecko' rows included), so they compose on data-api; a 2.x row it does not ship stays unattested.
 #[tokio::test(flavor = "current_thread")]
 async fn the_data_api_pull_ranks_what_it_imports_and_nothing_else() {
     use deltabadger::engine::{index, provider};

@@ -1,4 +1,4 @@
-//! Slice 7a: the price rule's comparison against Rails' own (condition_vectors.json), the carry window it opens, and the
+//! Slice 7a: the price rule's comparison against 2.x's own (condition_vectors.json), the carry window it opens, and the
 //! check's writes fenced against a reversal that lands while its price read is out.
 mod common;
 use common::seed::{self, BotSpec};
@@ -29,7 +29,7 @@ fn every_recorded_v2_price_comparison_is_reproduced() {
     }
 }
 
-/// The carry window opens at the condition (price_limitable.rb:106-115): nothing is owed while the rule is unmet, and once met
+/// The carry window opens at the condition: nothing is owed while the rule is unmet, and once met
 /// only the intervals since it was met; while selling the frozen carry stands whatever the rule.
 #[test]
 fn the_carry_window_opens_where_the_condition_was_met() {
@@ -65,7 +65,7 @@ pub fn paused(o: &deltabadger::store::Opened, s: &seed::Seeded, limit: f64) -> i
     id
 }
 
-/// Rails flips a paused bot (reversible.rb:188-191) and cancels its check; a check whose price read is out when the flip lands
+/// 2.x flips a paused bot and cancels its check; a check whose price read is out when the flip lands
 /// writes nothing: no met_at over the reversed row, no re-arm.
 #[tokio::test(flavor = "current_thread")]
 async fn a_reversal_during_the_checks_price_read_fences_its_writes() {
@@ -125,7 +125,7 @@ async fn the_check_answers_as_the_check_job_does() {
 struct Moving(std::rc::Rc<std::cell::Cell<chrono::DateTime<chrono::Utc>>>);
 impl Clock for Moving { fn now(&self) -> chrono::DateTime<chrono::Utc> { self.0.get() } }
 
-/// Rails stamps `Time.current` after get_last_price answers: a read that takes the clock across a minute (or an interval
+/// 2.x stamps `Time.current` after get_last_price answers: a read that takes the clock across a minute (or an interval
 /// checkpoint) stamps met_at, and schedules the next check, at the time it answered, never the time it was sent.
 #[tokio::test(flavor = "current_thread")]
 async fn the_checks_writes_take_the_time_the_price_arrived() {
@@ -222,7 +222,7 @@ async fn the_status_line_never_changes_trading_state_and_keeps_its_info_for_20_s
     assert_eq!(trading_state(&o.primary, id), before);
 }
 
-/// D-INFO-READONLY: a stored met_at at an unmet price is neither cleared nor its carry captured (Rails' job does both, or takes
+/// D-INFO-READONLY: a stored met_at at an unmet price is neither cleared nor its carry captured (2.x's job does both, or takes
 /// the capture back when another rule holds the window); an `after` rule with a stored met_at answers met at any price.
 #[tokio::test(flavor = "current_thread")]
 async fn a_stored_met_at_is_judged_without_a_clear_or_a_capture() {
@@ -267,7 +267,7 @@ async fn both_sides_requested_at_once_are_served_each_on_its_own_rule() {
     assert_eq!(trading_state(&o.primary, id), before);
 }
 
-/// D-INFO-READONLY, the sequence: a stopped bot viewed at an unmet price (where Rails clears its met_at and captures the
+/// D-INFO-READONLY, the sequence: a stopped bot viewed at an unmet price (where 2.x clears its met_at and captures the
 /// carry), then restarted and ticked at a met price, trades exactly as its twin that nobody viewed.
 #[tokio::test(flavor = "current_thread")]
 async fn a_stopped_page_view_changes_nothing_the_restart_and_tick_read() {
@@ -359,7 +359,7 @@ async fn a_newer_request_survives_and_a_settings_change_discards_the_run() {
     assert!(after.transient.get(conditions::INFO_WANTED_KEY).is_some(), "the request stays for the bot as it is now");
 }
 
-/// A failed read leaves no info and no write, as Rails broadcasts nothing; the request is served. An index bot (no
+/// A failed read leaves no info and no write, as 2.x broadcasts nothing; the request is served. An index bot (no
 /// PriceLimitable) gets nothing either.
 #[tokio::test(flavor = "current_thread")]
 async fn a_failed_read_or_an_index_bot_leaves_no_info() {

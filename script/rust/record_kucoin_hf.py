@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate HF-0 contract fixtures from public documentation and pinned SDK models.
 
-No exchange API, credentials, Rails process or production implementation is used.
+No exchange API, credentials, 2.x process or production implementation is used.
   python3 script/rust/record_kucoin_hf.py --source-dir /tmp/kucoin-hf-sources
   python3 script/rust/record_kucoin_hf.py --source-dir /tmp/kucoin-hf-sources --check
 Missing source files are fetched from the URLs below. Retain the cache to reproduce
@@ -394,7 +394,7 @@ def main():
         'items': twins, 'expect': {'ledger_ids': [f'{i["symbol"]}-{i["tradeId"]}' for i in twins], 'unique_fills': 2}})
 
     signing = {'credentials': {'key': 'HF0-EXAMPLE-KEY', 'secret': 'HF0-example-secret', 'passphrase': 'HF0 example passphrase'},
-               'timestamp': '1729577515000', 'oracle': 'Python standard-library hmac/SHA256 + Base64, independent of Rust signer and Rails', 'cases': []}
+               'timestamp': '1729577515000', 'oracle': 'Python standard-library hmac/SHA256 + Base64, independent of the Rust signer and of 2.x', 'cases': []}
     signing_inputs = [
         ('sign_get_mode', request('mode')), ('sign_get_opened', request('opened')),
         ('sign_get_balances', request('balances', [['type', 'trade_hf']])),

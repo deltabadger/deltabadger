@@ -8,9 +8,9 @@
       "price": "0.000000000011",
       "price_decimals": 12,
       "minimum": "1",
-      "rails_pending": "1000000000000.0",
-      "rails_below": false,
-      "rails_wire": {
+      "v2_pending": "1000000000000.0",
+      "v2_below": false,
+      "v2_wire": {
         "symbol": "AAA/USD",
         "side": "buy",
         "type": "limit",
@@ -36,9 +36,9 @@
       "price": "3",
       "price_decimals": 2,
       "minimum": "1",
-      "rails_pending": "1.0",
-      "rails_below": false,
-      "rails_wire": {
+      "v2_pending": "1.0",
+      "v2_below": false,
+      "v2_wire": {
         "symbol": "AAA/USD",
         "side": "buy",
         "type": "limit",
@@ -64,9 +64,9 @@
       "price": "0.000000000011",
       "price_decimals": 12,
       "minimum": "1000000000000",
-      "rails_pending": "1000000000000.0",
-      "rails_below": false,
-      "rails_wire": {
+      "v2_pending": "1000000000000.0",
+      "v2_below": false,
+      "v2_wire": {
         "symbol": "AAA/USD",
         "side": "buy",
         "type": "limit",

@@ -1,5 +1,5 @@
-//! The wizard's two recorded oracles that are not pages: how Rails judges a Kraken or Binance key (key_verdicts.json, every
-//! case replayed through web::settings::key_check) and which callbacks Rails runs when the wizard saves a bot
+//! The wizard's two recorded oracles that are not pages: how 2.x judges a Kraken or Binance key (key_verdicts.json, every
+//! case replayed through web::settings::key_check) and which callbacks 2.x runs when the wizard saves a bot
 //! (bot_create_callbacks.json and index_create_callbacks.json, each one named in web::wizard::create::CALLBACKS and
 //! web::wizard::index_create::CALLBACKS).
 use deltabadger::venue::http::{HttpResponse, TransportError};
@@ -20,7 +20,7 @@ fn answer(recorded: &Value) -> Result<HttpResponse, TransportError> {
     Ok(HttpResponse { status: recorded["status"].as_u64().unwrap() as u16, body: recorded["body"].as_str().unwrap().to_string() })
 }
 
-/// Rails' verdict as `Verdict`: a Failure's text is only logged, so a failure is compared as one.
+/// 2.x's verdict as `Verdict`: a Failure's text is only logged, so a failure is compared as one.
 fn expected(verdict: &Value) -> Verdict {
     match verdict["kind"].as_str().unwrap() {
         "success" => match &verdict["data"] {
@@ -31,7 +31,7 @@ fn expected(verdict: &Value) -> Verdict {
             },
         },
         "failure" => Verdict::Failure(String::new()),
-        other => panic!("Rails raised on a key check ({other}): fix Rails first, then re-record"),
+        other => panic!("2.x raised on a key check ({other}): fix 2.x first, then re-record"),
     }
 }
 
@@ -47,12 +47,12 @@ fn key_verdicts_replay_every_recorded_case() {
         let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
         let ours = key_check::kraken_verdict(kind, &answer(&case["response"]));
         let theirs = expected(&case["verdict"]);
-        assert!(same(&ours, &theirs), "kraken {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
+        assert!(same(&ours, &theirs), "kraken {} {name}: {ours:?}, 2.x {theirs:?}", case["key_type"]);
         // The request: a signed POST with its nonce only, the key in API-Key.
         let request = key_check::kraken_request(deltabadger::venue::kraken::URL);
         assert_eq!((request.method, request.url().host_str().unwrap(), request.path.as_str()),
                    (case["request"]["method"].as_str().unwrap(), case["request"]["host"].as_str().unwrap(), case["request"]["path"].as_str().unwrap()));
-        assert_eq!((case["request"]["query"].clone(), case["request"]["form"].clone()), (json!({}), json!({})), "{name}: Rails sent more than the nonce");
+        assert_eq!((case["request"]["query"].clone(), case["request"]["form"].clone()), (json!({}), json!({})), "{name}: 2.x sent more than the nonce");
         let headers = deltabadger::venue::kraken::private_headers(&request.path, "nonce=1", "test-key", "dGVzdC1zZWNyZXQ=");
         assert!(headers.iter().any(|(name, value)| name == "API-Key" && json!(value) == case["request"]["key_header"]), "{name}: the key header");
         if let Some(messages) = case["permission_message"].as_object() {
@@ -61,7 +61,7 @@ fn key_verdicts_replay_every_recorded_case() {
                 assert_eq!(json!(key_check::permission_message(locale, "kraken", "Kraken", kind, missing, forbidden)), *message, "kraken {name} {locale}");
             }
         } else {
-            assert!(!matches!(ours, Verdict::Permissions { .. }), "{name}: Rails named no permissions");
+            assert!(!matches!(ours, Verdict::Permissions { .. }), "{name}: 2.x named no permissions");
         }
         replayed += 1;
     }
@@ -70,7 +70,7 @@ fn key_verdicts_replay_every_recorded_case() {
         let reading = case["method"] == "get_read_api_key_validity";
         let ours = key_check::binance_verdict(kind, reading, &answer(&case["response"]), "https://api.binance.com/sapi/v1/account/apiRestrictions");
         let theirs = expected(&case["verdict"]);
-        assert!(same(&ours, &theirs), "binance {} {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"], case["method"]);
+        assert!(same(&ours, &theirs), "binance {} {} {name}: {ours:?}, 2.x {theirs:?}", case["key_type"], case["method"]);
         assert!(case.get("permission_message").is_none(), "{name}: Binance reports no permissions");
         let transport = deltabadger::venue::http::ScriptedTransport::default();
         let venue = deltabadger::venue::binance::BinanceVenue::new(transport, deltabadger::venue::binance::URL, "test-secret");
@@ -92,11 +92,11 @@ fn key_verdicts_replay_every_recorded_case() {
         let request = key_check::kucoin_request(deltabadger::venue::kucoin::URL, kind);
         let ours = if kind == 2 { key_check::kucoin_read_verdict(&answer(&case["response"]), request.method, request.url().as_str()) }
                    else { key_check::kucoin_verdict(kind, &answer(&case["response"]), request.method, request.url().as_str()) };
-        // A reading key's balances #get_balances cannot walk raise in Rails (the form answers 500, the queued job is discarded
+        // A reading key's balances #get_balances cannot walk raise in 2.x (the form answers 500, the queued job is discarded
         // and the key stays pending): no verdict, as an inconclusive answer.
         let raised = kind == 2 && case["verdict"]["kind"] == "raises";
         let theirs = if raised { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
-        assert!(same(&ours, &theirs), "kucoin {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
+        assert!(same(&ours, &theirs), "kucoin {} {name}: {ours:?}, 2.x {theirs:?}", case["key_type"]);
         let query: serde_json::Map<String, Value> = request.query.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
         assert_eq!((request.method, request.url().host_str().unwrap(), request.path.as_str(), Value::Object(query), json!({})),
                    (case["request"]["method"].as_str().unwrap(), case["request"]["host"].as_str().unwrap(), case["request"]["path"].as_str().unwrap(),
@@ -116,14 +116,14 @@ fn key_verdicts_replay_every_recorded_case() {
         let url = request.url();
         let ours = if kind == 2 { key_check::gemini_read_verdict(&answer(&case["response"]), url.as_str()) }
                    else { key_check::gemini_verdict(kind, &answer(&case["response"]), url.as_str()) };
-        // Rails raises on balances #get_balances cannot walk (the key stays pending): no verdict, as an inconclusive answer. A
-        // 200 that Faraday leaves unparsed (text/plain "OK") is a valid key to Rails, which reads no `result: error` in it;
+        // 2.x raises on balances #get_balances cannot walk (the key stays pending): no verdict, as an inconclusive answer. A
+        // 200 that Faraday leaves unparsed (text/plain "OK") is a valid key to 2.x, which reads no `result: error` in it;
         // Rust sees no content type and reads a 2xx that is not JSON as no verdict (D-GEMINI-PLAIN-200: never valid on a
         // body Gemini does not send).
         let lenient = name == "plain_text_200" && kind != 2;
         let theirs = if case["verdict"]["kind"] == "raises" || lenient { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
-        if lenient { assert_eq!(case["verdict"]["data"], true, "gemini {name}: Rails no longer accepts it: drop the listed divergence"); }
-        assert!(same(&ours, &theirs), "gemini {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
+        if lenient { assert_eq!(case["verdict"]["data"], true, "gemini {name}: 2.x no longer accepts it: drop the listed divergence"); }
+        assert!(same(&ours, &theirs), "gemini {} {name}: {ours:?}, 2.x {theirs:?}", case["key_type"]);
         assert_eq!((request.method, url.host_str().unwrap(), request.path.as_str(), json!({}), request.body.clone().unwrap()),
                    (case["request"]["method"].as_str().unwrap(), case["request"]["host"].as_str().unwrap(), case["request"]["path"].as_str().unwrap(),
                     case["request"]["query"].clone(), case["request"]["form"].clone()), "gemini {name}");
@@ -132,7 +132,7 @@ fn key_verdicts_replay_every_recorded_case() {
         replayed += 1;
     }
     // Binance.US (plan VB slice A2): the account read, then the cancel probe, each case's whole request sequence replayed
-    // through the check itself over Rails' recorded answers.
+    // through the check itself over 2.x's recorded answers.
     let us = &recorded["binance_us"];
     assert_eq!(serde_json::from_value::<Vec<i64>>(us["invalid_key_codes"].clone()).unwrap(), key_check::BINANCE_INVALID_KEY);
     assert_eq!(json!({ "symbol": key_check::BINANCE_US_PROBE[0].1, "order_id": key_check::BINANCE_US_PROBE[1].1 }), us["trade_probe"]);
@@ -153,7 +153,7 @@ fn key_verdicts_replay_every_recorded_case() {
         let venue = deltabadger::venue::binance::BinanceVenue::new(transport.clone(), deltabadger::venue::binance::US_URL, "test-secret");
         let (_, ours) = rt.block_on(key_check::binance_us_check(&transport, &venue, kind, reading));
         let theirs = expected(&case["verdict"]);
-        assert!(same(&ours, &theirs), "binance_us {} {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"], case["method"]);
+        assert!(same(&ours, &theirs), "binance_us {} {} {name}: {ours:?}, 2.x {theirs:?}", case["key_type"], case["method"]);
         let ours_sent: Vec<Value> = transport.requests().iter().map(|r| {
             let query: serde_json::Map<String, Value> = r.query.iter().filter(|(k, _)| !["signature", "timestamp"].contains(k)).map(|(k, v)| (k.to_string(), json!(v))).collect();
             json!([r.method, r.url().host_str().unwrap(), r.path, query])
@@ -164,8 +164,8 @@ fn key_verdicts_replay_every_recorded_case() {
         replayed += 1;
     }
     // Bitvavo (plan VB slice A3): the balance read, then (a key that is not a withdrawal key) the cancel probe, each case's
-    // whole request sequence replayed through the check over Rails' recorded answers. Listed divergence D-BITVAVO-KEY-TEXT:
-    // a 2xx body that is no JSON passes Rails' check when its content type is not JSON (Faraday leaves it a String, with no
+    // whole request sequence replayed through the check over 2.x's recorded answers. Listed divergence D-BITVAVO-KEY-TEXT:
+    // a 2xx body that is no JSON passes 2.x's check when its content type is not JSON (Faraday leaves it a String, with no
     // errorCode); Rust's transport does not carry the content type and Bitvavo answers JSON, so Rust gives no verdict on it.
     let bv = &recorded["bitvavo"];
     assert_eq!((bv["refused_codes"].clone(), bv["not_found_code"].clone()), (json!(key_check::BITVAVO_REFUSED), json!(deltabadger::venue::bitvavo::ORDER_NOT_FOUND)));
@@ -191,11 +191,11 @@ fn key_verdicts_replay_every_recorded_case() {
         }).collect();
         let theirs_sent: Vec<Value> = sent.iter().map(|r| json!([r["method"], r["host"], r["path"], r["query"]])).collect();
         if name.contains("plain_text_200") {
-            assert!(theirs == Verdict::Valid(true) && matches!(&ours, Verdict::Failure(t) if t == "OK"), "D-BITVAVO-KEY-TEXT {name}: {ours:?}, Rails {theirs:?}");
+            assert!(theirs == Verdict::Valid(true) && matches!(&ours, Verdict::Failure(t) if t == "OK"), "D-BITVAVO-KEY-TEXT {name}: {ours:?}, 2.x {theirs:?}");
             assert_eq!(ours_sent[..], theirs_sent[..ours_sent.len()], "{name}");
             text_passes += 1;
         } else {
-            assert!(same(&ours, &theirs), "bitvavo {} {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"], case["method"]);
+            assert!(same(&ours, &theirs), "bitvavo {} {} {name}: {ours:?}, 2.x {theirs:?}", case["key_type"], case["method"]);
             assert_eq!(ours_sent, theirs_sent, "bitvavo {} {} {name}: the request sequence", case["key_type"], case["method"]);
         }
         assert!(sent.iter().all(|r| r["key_header"] == "test-key" && r["form"] == json!({})), "{name}");
@@ -204,8 +204,8 @@ fn key_verdicts_replay_every_recorded_case() {
     assert_eq!((bitvavo, text_passes), (214, 7), "a recorded Bitvavo case was added or dropped");
     replayed += bitvavo;
     // Bitget (plan VB slice A4): one request per key type (the cancel probe of order 0, the assets read, the balances read),
-    // replayed through the check over Rails' recorded answer. An answer Rails raises on (a `msg` that is no String, balances
-    // it cannot walk) leaves the key pending in Rails (the job is discarded): no verdict here.
+    // replayed through the check over 2.x's recorded answer. An answer 2.x raises on (a `msg` that is no String, balances
+    // it cannot walk) leaves the key pending in 2.x (the job is discarded): no verdict here.
     let bg = &recorded["bitget"];
     assert_eq!((bg["order_not_found_codes"].clone(), bg["no_trade_codes"].clone()), (json!(key_check::BITGET_ORDER_NOT_FOUND), json!(key_check::BITGET_NO_TRADE)));
     let invalid: Vec<String> = deltabadger::engine::venue_rules::BITGET.kinds.iter().find(|(k, _)| *k == "invalid_key").unwrap().1.iter().map(|s| s.to_string()).collect();
@@ -223,7 +223,7 @@ fn key_verdicts_replay_every_recorded_case() {
         let venue = deltabadger::venue::bitget::BitgetVenue::new(transport.clone(), deltabadger::venue::bitget::URL);
         let (_, ours) = rt.block_on(key_check::bitget_check(&transport, &venue, kind));
         let theirs = if case["verdict"]["kind"] == "raises" { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
-        assert!(same(&ours, &theirs), "bitget {} {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"], case["method"]);
+        assert!(same(&ours, &theirs), "bitget {} {} {name}: {ours:?}, 2.x {theirs:?}", case["key_type"], case["method"]);
         let r = &transport.requests()[0];
         let query: serde_json::Map<String, Value> = r.query.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
         assert_eq!((json!(r.method), json!(r.url().host_str().unwrap()), json!(r.path), Value::Object(query), r.body.clone().unwrap_or(json!({}))),
@@ -234,7 +234,7 @@ fn key_verdicts_replay_every_recorded_case() {
     assert_eq!(bitget, 122, "a recorded Bitget case was added or dropped");
     replayed += bitget;
     // MEXC (plan VB slice A5): the account read and its canTrade, then (a reading key's #get_read_api_key_validity) the deposit
-    // history, each case's whole request sequence replayed through the check over Rails' recorded answers.
+    // history, each case's whole request sequence replayed through the check over 2.x's recorded answers.
     let mx = &recorded["mexc"];
     assert_eq!(mx["rejected_codes"], json!(key_check::MEXC_REJECTED));
     let invalid: Vec<String> = deltabadger::engine::venue_rules::MEXC.kinds.iter().find(|(k, _)| *k == "invalid_key").unwrap().1.iter().map(|s| s.to_string()).collect();
@@ -257,13 +257,13 @@ fn key_verdicts_replay_every_recorded_case() {
         let (_, ours) = rt.block_on(key_check::mexc_check(&transport, &venue, kind, reading));
         let theirs = expected(&case["verdict"]);
         // Listed divergence D-MEXC-KEY-TEXT (as Bitvavo's): a deposit history answered 2xx with a body that is no JSON passes
-        // Rails' reading check when its content type is not JSON (Faraday leaves it a String, with no code); Rust's transport
+        // 2.x's reading check when its content type is not JSON (Faraday leaves it a String, with no code); Rust's transport
         // does not carry the content type and MEXC answers JSON, so Rust gives no verdict on it.
         if name.ends_with("deposits plain_text_200") {
-            assert!(theirs == Verdict::Valid(true) && matches!(&ours, Verdict::Failure(t) if t == "OK"), "D-MEXC-KEY-TEXT {name}: {ours:?}, Rails {theirs:?}");
+            assert!(theirs == Verdict::Valid(true) && matches!(&ours, Verdict::Failure(t) if t == "OK"), "D-MEXC-KEY-TEXT {name}: {ours:?}, 2.x {theirs:?}");
             text_passes += 1;
         } else {
-            assert!(same(&ours, &theirs), "mexc {} {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"], case["method"]);
+            assert!(same(&ours, &theirs), "mexc {} {} {name}: {ours:?}, 2.x {theirs:?}", case["key_type"], case["method"]);
         }
         let ours_sent: Vec<Value> = transport.requests().iter().map(|r| {
             let query: serde_json::Map<String, Value> = r.query.iter().filter(|(k, _)| !["signature", "timestamp"].contains(k)).map(|(k, v)| (k.to_string(), json!(v))).collect();
@@ -278,8 +278,8 @@ fn key_verdicts_replay_every_recorded_case() {
     replayed += mexc;
     // Hyperliquid (plan VB slice B1): one /info read per key type (userRole for the address a trading or withdrawal key's secret
     // signs as, none for a secret that is no key; the reading key's spotClearinghouseState), replayed through the check over
-    // Rails' recorded answer. An answer Rails raises on leaves the key pending in Rails: no verdict here. A 200 that Faraday
-    // leaves unparsed (text/plain "OK") reads as no role (trading: invalid) or as no balances (reading: valid) to Rails; Rust
+    // 2.x's recorded answer. An answer 2.x raises on leaves the key pending in 2.x: no verdict here. A 200 that Faraday
+    // leaves unparsed (text/plain "OK") reads as no role (trading: invalid) or as no balances (reading: valid) to 2.x; Rust
     // sees no content type and reads a 2xx that is not JSON as no verdict (D-HL-PLAIN-200: never a verdict on a body
     // Hyperliquid does not send).
     let hl = &recorded["hyperliquid"];
@@ -304,8 +304,8 @@ fn key_verdicts_replay_every_recorded_case() {
         let (_, ours) = rt.block_on(key_check::hyperliquid_check(&venue, &transport, key, case_secret, kind));
         let lenient = name == "plain_text_200";
         let theirs = if case["verdict"]["kind"] == "raises" || lenient { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
-        if lenient { assert_eq!(case["verdict"]["kind"], "success", "hyperliquid {name}: Rails no longer reads it: drop the listed divergence"); }
-        assert!(same(&ours, &theirs), "hyperliquid {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
+        if lenient { assert_eq!(case["verdict"]["kind"], "success", "hyperliquid {name}: 2.x no longer reads it: drop the listed divergence"); }
+        assert!(same(&ours, &theirs), "hyperliquid {} {name}: {ours:?}, 2.x {theirs:?}", case["key_type"]);
         let ours_sent: Vec<Value> = transport.requests().iter().map(|r| json!({ "method": r.method, "host": r.url().host_str().unwrap(), "path": r.path, "form": r.body })).collect();
         let theirs_sent: Vec<Value> = sent.iter().map(|r| json!({ "method": r["method"], "host": r["host"], "path": r["path"], "form": r["form"] })).collect();
         assert_eq!(ours_sent, theirs_sent, "hyperliquid {} {name}: the request", case["key_type"]);
@@ -326,7 +326,7 @@ fn key_verdicts_replay_every_recorded_case() {
         let venue = deltabadger::venue::bybit::BybitVenue::new(transport.clone(), deltabadger::venue::bybit::URL);
         let (_, ours) = rt.block_on(key_check::bybit_check(&transport, &venue, kind));
         let theirs = if case["verdict"]["kind"] == "raises" { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
-        assert!(same(&ours, &theirs), "bybit {} {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"], case["method"]);
+        assert!(same(&ours, &theirs), "bybit {} {} {name}: {ours:?}, 2.x {theirs:?}", case["key_type"], case["method"]);
         let r = &transport.requests()[0];
         let query: serde_json::Map<String, Value> = r.query.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
         assert_eq!((json!(r.method), json!(r.url().host_str().unwrap()), json!(r.path), Value::Object(query), r.body.clone().unwrap_or(json!({}))),
@@ -349,7 +349,7 @@ fn key_verdicts_replay_every_recorded_case() {
         let venue = deltabadger::venue::bitrue::BitrueVenue::new(transport.clone(), deltabadger::venue::bitrue::URL, "test-secret");
         let (_, ours) = rt.block_on(key_check::bitrue_check(&transport, &venue, kind, reading));
         let theirs = if case["verdict"]["kind"] == "raises" { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
-        assert!(same(&ours, &theirs), "bitrue {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
+        assert!(same(&ours, &theirs), "bitrue {} {name}: {ours:?}, 2.x {theirs:?}", case["key_type"]);
         let requests = transport.requests();
         assert_eq!(requests.len(), 1);
         let r = &requests[0];
@@ -370,7 +370,7 @@ fn key_verdicts_replay_every_recorded_case() {
         let venue = deltabadger::venue::bingx::BingxVenue::new(transport.clone(), deltabadger::venue::bingx::URL, "test-secret");
         let (_, ours) = rt.block_on(key_check::bingx_check(&transport, &venue, kind, reading));
         let theirs = if case["verdict"]["kind"] == "raises" { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
-        assert!(same(&ours, &theirs), "bingx {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
+        assert!(same(&ours, &theirs), "bingx {} {name}: {ours:?}, 2.x {theirs:?}", case["key_type"]);
         let requests = transport.requests();
         assert_eq!(requests.len(), 1);
         let r = &requests[0];
@@ -393,7 +393,7 @@ fn key_verdicts_replay_every_recorded_case() {
         }
         let t=deltabadger::venue::http::ScriptedTransport::from_script(&Value::Object(script));
         let (_,ours)=rt.block_on(key_check::coinbase_check(&t,deltabadger::venue::coinbase::URL,kind(case["key_type"].as_str().unwrap()),std::time::Duration::ZERO));
-        assert!(same(&ours,&expected(&case["verdict"])),"Coinbase {}: {ours:?}, Rails {}",case["case"],case["verdict"]);
+        assert!(same(&ours,&expected(&case["verdict"])),"Coinbase {}: {ours:?}, 2.x {}",case["case"],case["verdict"]);
         let ours:Vec<Value>=t.requests().iter().map(|r|json!([r.method,r.url().host_str().unwrap(),r.path])).collect();
         let theirs:Vec<Value>=sent.iter().map(|r|json!([r["method"],r["host"],r["path"]])).collect();
         assert_eq!(ours,theirs,"Coinbase request sequence {}",case["case"]);
@@ -404,7 +404,7 @@ fn key_verdicts_replay_every_recorded_case() {
     assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240 + 70 + 108 + 81 + 82 + 96, "the combined venue key grid: 1,210 existing + 240 MEXC + 70 Hyperliquid + 108 Bybit + 81 Bitrue + 82 Coinbase + 96 BingX cases");
 }
 
-/// A recorded callback list against a port's table: the same callbacks, in Rails' order, each handled.
+/// A recorded callback list against a port's table: the same callbacks, in 2.x's order, each handled.
 fn assert_handled(fixture_name: &str, table: &[(&str, &str, &str, &str, &str)]) {
     let recorded = fixture(fixture_name);
     let mut theirs = vec![];
@@ -417,8 +417,8 @@ fn assert_handled(fixture_name: &str, table: &[(&str, &str, &str, &str, &str)]) 
     }
     let ours: Vec<(String, String, String, String)> = table.iter()
         .map(|(chain, kind, callback, conditions, _)| (chain.to_string(), kind.to_string(), callback.to_string(), conditions.to_string())).collect();
-    for (index, (a, b)) in theirs.iter().zip(&ours).enumerate() { assert_eq!(a, b, "{fixture_name} callback {index}: Rails changed it; port it or name why it does nothing on create"); }
-    assert_eq!(theirs.len(), ours.len(), "{fixture_name}: Rails added or removed a callback");
+    for (index, (a, b)) in theirs.iter().zip(&ours).enumerate() { assert_eq!(a, b, "{fixture_name} callback {index}: 2.x changed it; port it or name why it does nothing on create"); }
+    assert_eq!(theirs.len(), ours.len(), "{fixture_name}: 2.x added or removed a callback");
     assert!(table.iter().all(|(.., handling)| handling.starts_with("ported") || handling.starts_with("no-op") || handling.starts_with("passes")));
 }
 

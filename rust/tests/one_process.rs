@@ -136,7 +136,7 @@ const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, st
     transient_data = json_remove(transient_data, '$.last_action_job_at') WHERE id = ?2 AND status IN (0, 2)";
 
 /// The web's stop (`Lifecycle#stop`) as the web handler writes it: unconditional but for a terminal bot, as
-/// Rails returns early for an archived or deleted one (`lifecycle.rb:91-98`). `?1` now, `?2` the bot.
+/// 2.x returns early for an archived or deleted one. `?1` now, `?2` the bot.
 const WEB_STOP: &str = "UPDATE bots SET status = 2, stopped_at = ?1, stop_message_key = NULL, updated_at = ?1 WHERE id = ?2 AND status NOT IN (3, 7)";
 
 /// The bot's `last_action_job_at`, as stored: a tick ran when it moves.
@@ -387,7 +387,7 @@ async fn a_web_write_holding_the_database_delays_the_engine_but_never_fails_it()
     let v = priced();
     let r = rig(v.clone(), BotSpec::weekly(60.0, &ago(1))).await; // due now
     let mode: String = rusqlite::Connection::open(&r.db).unwrap().query_row("PRAGMA journal_mode", [], |x| x.get(0)).unwrap();
-    assert_eq!(mode, "wal", "Rails' adapter leaves its databases in WAL; Rust never changes it");
+    assert_eq!(mode, "wal", "2.x's adapter leaves its databases in WAL; Rust never changes it");
     // The web's own connection takes SQLite's write lock and holds it 1.5 s (inside both sides' 5 s busy timeout),
     // from before the engine's first write.
     let (held_tx, held) = tokio::sync::oneshot::channel();
@@ -421,8 +421,8 @@ async fn a_web_write_holding_the_database_delays_the_engine_but_never_fails_it()
     assert_eq!(outstanding(&r.db, "OFAKE-1"), 1);
 }
 
-/// A web start on a bot that is already working (a stale tab) is refused, as Rails' API refuses it
-/// (`bot_already_running`, 409) and as Rails' web controller refuses it (422). The start write
+/// A web start on a bot that is already working (a stale tab) is refused, as 2.x's API refuses it
+/// (`bot_already_running`, 409) and as 2.x's web controller refuses it (422). The start write
 /// moves only a created or stopped bot, so it changes nothing; the handler then commits nothing, queues no tick, sends
 /// no wake and re-renders with `engine.already_running`. Had it restarted the bot (a new anchor, no last action), this
 /// pass would buy at once.
@@ -443,8 +443,8 @@ async fn a_web_start_on_a_working_bot_is_refused_and_changes_nothing() {
     assert_eq!(bot_row(&r.db, r.bot), before, "and the pass left the row as it was");
 }
 
-/// The stop never resurrects a terminal bot. Rails' `Lifecycle#stop` returns early for an archived or
-/// a deleted bot (`lifecycle.rb:91-98`), so a stale tab's stop changes no column of either.
+/// The stop never resurrects a terminal bot. 2.x's `Lifecycle#stop` returns early for an archived or
+/// a deleted bot, so a stale tab's stop changes no column of either.
 #[tokio::test(flavor = "current_thread")]
 async fn a_web_stop_leaves_an_archived_or_deleted_bot_as_it_is() {
     for terminal in [BotStatus::Archived, BotStatus::Deleted] {

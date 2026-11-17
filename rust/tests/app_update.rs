@@ -1,5 +1,4 @@
-//! A21 F24: AppUpdate and AppUpdate::CheckJob against what Rails recorded (script/rust/record_app_update.rb →
-//! fixtures/app_update_vectors.json), and the job's schedule, storage and handover.
+//! A21 F24: AppUpdate and AppUpdate::CheckJob against what 2.x recorded (fixtures/app_update_vectors.json), and the job's schedule, storage and handover.
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use deltabadger::engine::FixedClock;
@@ -24,7 +23,7 @@ fn the_ttl_and_the_compose_command_are_the_recorded_ones() {
     assert_eq!(vectors()["compose_command"], json!(app_update::COMPOSE_COMMAND));
 }
 
-/// The answers record_app_update.rb scripts, in its order: `(case, status, content type, body)`, or None for its timeout.
+/// The answers the recording harness scripted, in its order: `(case, status, content type, body)`, or None for its timeout.
 /// `(status, content type, body)`.
 type Answer = (u16, &'static str, String);
 fn answers() -> Vec<(&'static str, Option<Answer>)> {
@@ -80,7 +79,7 @@ async fn refresh_matches_v2_answer_by_answer() {
     }
 }
 
-/// Clients::Github's request: the one URL, Rails' two headers; a 3xx is an answer, never a second request.
+/// Clients::Github's request: the one URL, 2.x's two headers; a 3xx is an answer, never a second request.
 #[tokio::test(flavor = "current_thread")]
 async fn the_request_is_v2_and_a_redirect_is_not_followed() {
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
@@ -101,7 +100,7 @@ async fn the_request_is_v2_and_a_redirect_is_not_followed() {
     }
 }
 
-/// The desktop and an opted-out install never ask (Rails: refresh! sends nothing; the job returns before it).
+/// The desktop and an opted-out install never ask (2.x: refresh! sends nothing; the job returns before it).
 #[tokio::test(flavor = "current_thread")]
 async fn desktop_and_opted_out_never_call_github() {
     for case in vectors()["silent"].as_array().unwrap() {
@@ -153,7 +152,7 @@ async fn the_answer_lasts_twenty_five_hours_from_its_fetch() {
     assert_eq!(db.run(move |c, _| app_update::latest(c, later)).await.unwrap(), None);
 }
 
-/// config/recurring.yml `0 */12 * * *`; a queued Rails check runs once after a takeover.
+/// config/recurring.yml `0 */12 * * *`; a queued 2.x check runs once after a takeover.
 #[test]
 fn schedule_and_handover() {
     use deltabadger::jobs::schedule::Schedule;

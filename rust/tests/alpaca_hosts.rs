@@ -1,6 +1,6 @@
-//! Which Alpaca host each call reaches for each key mode, recorded from Rails (script/rust/record_alpaca_hosts.rb, in a
+//! Which Alpaca host each call reaches for each key mode, recorded from 2.x (in a
 //! clean export) and replayed through the Rust venue: the passphrase goes through `Urls`, the call through the venue
-//! method the engine, the syncs and the tracker use, and the request's host must be the one Rails reached. No request
+//! method the engine, the syncs and the tracker use, and the request's host must be the one 2.x reached. No request
 //! leaves the process (a scripted transport answers).
 mod common;
 use deltabadger::crypto::Credentials;
@@ -62,7 +62,7 @@ async fn every_call_reaches_the_host_v2_reaches_for_its_mode() {
     }
 }
 
-/// The production factory picks the same trading host Rails does for every recorded mode (only `urls()` is read).
+/// The production factory picks the same trading host 2.x does for every recorded mode (only `urls()` is read).
 #[test]
 fn the_factory_picks_v2_host_for_every_recorded_mode() {
     let f = LiveFactory::new();

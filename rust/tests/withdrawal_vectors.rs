@@ -1,4 +1,4 @@
-//! The withdrawal-rule vectors (PLAN-withdrawal-rules X0), recorded from Rails by script/rust/record_withdrawal_vectors.rb
+//! The withdrawal-rule vectors (PLAN-withdrawal-rules X0), recorded from 2.x
 //! under the locked honeymaker. No engine reads them yet (E0 does); this holds the fixture to its pins and its shape.
 use serde_json::Value;
 use std::collections::BTreeSet;

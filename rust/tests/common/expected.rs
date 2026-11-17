@@ -1,4 +1,4 @@
-//! D-B11-EXPECTED-OWNED (PLAN-B11 §2): an answer frozen from Rails is the Rust suite's own expected value. When Rust's
+//! D-B11-EXPECTED-OWNED (PLAN-B11 §2): an answer frozen from 2.x is the Rust suite's own expected value. When Rust's
 //! output changes on purpose, `EXPECTED_REWRITE=1` rewrites the expected file from it and fails the test, so the diff is
 //! reviewed and committed; CI never sets it.
 use std::path::Path;

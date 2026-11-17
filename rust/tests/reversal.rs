@@ -63,7 +63,7 @@ async fn a_cancelled_buy_returns_its_unspent_reserve_once() {
     let (_d, mut e, id, s) = engine(buyer(), v.clone());
     let tx = open_buy(&e.primary, &s, id, "OBUY");
     assert!(matches!(reverse(&e.primary, &s, id, "2026-09-03T12:00:00Z"), Reversal::Reversed));
-    assert_eq!(reversal::work(&bot(&e.primary, id)), (vec![tx], vec![tx]), "registered in Rails' own key, its cancel left for the engine");
+    assert_eq!(reversal::work(&bot(&e.primary, id)), (vec![tx], vec![tx]), "registered in 2.x's own key, its cancel left for the engine");
     assert_eq!(bot(&e.primary, id).transient["missed_quote_amount"], "0.0", "the waiting buy counts at its reserve when captured");
     let v = v.order("OBUY", kraken_cancelled("0.0004", "20"));
     run::step(&mut e, &at("2026-09-03T12:00:01Z")).await.unwrap();
@@ -183,7 +183,7 @@ async fn handback_waits_for_unrecorded_cancels() {
     assert!(matches!(r, Err(deltabadger::engine::EngineError::Unresolved(ref ids)) if ids == &vec![id]), "{r:?}");
 }
 
-/// A reserve still waiting for its buy's final state is Rust's to settle: a Rails without its reader would never credit it,
+/// A reserve still waiting for its buy's final state is Rust's to settle: a 2.x without its reader would never credit it,
 /// so handback waits for it even after the cancel is recorded.
 #[tokio::test(flavor = "current_thread")]
 async fn handback_waits_for_a_reserve_still_waiting_for_its_buy() {
@@ -200,7 +200,7 @@ async fn handback_waits_for_a_reserve_still_waiting_for_its_buy() {
     assert!(matches!(r, Err(deltabadger::engine::EngineError::Unresolved(ref ids)) if ids == &vec![id]), "{r:?}");
 }
 
-/// A final sell can still have a deferred rotation decision after its cancel was recorded. Rails cannot settle it.
+/// A final sell can still have a deferred rotation decision after its cancel was recorded. 2.x cannot settle it.
 #[tokio::test(flavor = "current_thread")]
 async fn handback_waits_for_a_deferred_rotation_decision_until_settled() {
     use deltabadger::engine::{amount_limit, handover, notice, EngineError};
@@ -303,7 +303,7 @@ async fn a_buy_whose_cancel_is_recorded_is_not_registered_again_by_later_reversa
     assert_eq!(reversal::work(&bot(&e.primary, id)).0, vec![tx], "registered once across two buy → sell reversals");
 }
 
-/// A ⇄ click while the account's figures are being refilled answers at once, as Rails' does: the refill's reads run on
+/// A ⇄ click while the account's figures are being refilled answers at once, as 2.x's does: the refill's reads run on
 /// the figures' own connection, and the metrics a refreshed page asks for are published on a task of their own. The
 /// refill is held at its first read (the builder's connection opening) for the whole of the requests.
 #[tokio::test(flavor = "current_thread")]

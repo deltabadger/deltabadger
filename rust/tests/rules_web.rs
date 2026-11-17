@@ -475,7 +475,7 @@ async fn tile_settings_keep_network_tag_and_key() {
     }
 }
 
-// Submit the tile's successful controls in document order, including Rails' hidden
+// Submit the tile's successful controls in document order, including 2.x's hidden
 // stopped status before the checkbox. Only the user's edited control is changed.
 async fn submit_rendered_tile(
     i: &Install,
@@ -1741,7 +1741,7 @@ fn x0_rows(i: &Install) -> Value {
     json!(st.query_map([],|r| {
         let text:String=r.get(5)?;
         let mut settings:Value=serde_json::from_str(&text).unwrap();
-        // JSON null and an absent store_accessor both read as nil in Rails.
+        // JSON null and an absent store_accessor both read as nil in 2.x.
         settings.as_object_mut().unwrap().retain(|_,v|!v.is_null());
         Ok(json!({"id":r.get::<_,i64>(0)?,"type":"Rules::Withdrawal",
             "status":(["created","scheduled","stopped","deleted","executing","retrying","waiting","archived"][r.get::<_,usize>(1)?]),
@@ -1825,7 +1825,7 @@ async fn all_seventy_x0_api_cells_share_web_database_effects() {
                 {"coin":"BTC","address":X0_ADDRESS,"name":"cold","network":"BTC","addressTag":""}
             ]))).mount(&server).await;
         }
-        // V1 requires the selected network to be enabled; X0's Rails API never read it.
+        // V1 requires the selected network to be enabled; X0's 2.x API never read it.
         Mock::given(matchers::path(w::BINANCE_COINS)).respond_with(ResponseTemplate::new(200).set_body_json(json!([
             {"coin":"BTC","networkList":[{"network":"BTC","withdrawEnable":true,"withdrawTag":false,"withdrawFee":"0.0001"}]}
         ]))).mount(&server).await;
@@ -1945,7 +1945,7 @@ async fn all_seventy_x0_api_cells_share_web_database_effects() {
         assert_eq!(
             x0_rows(&i),
             expected,
-            "{} {case}: Rails row and named deltas",
+            "{} {case}: 2.x row and named deltas",
             cell["surface"]
         );
 
