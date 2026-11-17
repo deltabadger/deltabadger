@@ -8,7 +8,7 @@
     "@hotwired/stimulus": "^3.2.2",
     "@hotwired/turbo-rails": "^8.0.23",
     "@rails/actioncable": "^8.1.301",
-    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/api": "^2.12.5",
     "@tauri-apps/plugin-shell": "^2.3.6",
     "@tauri-apps/plugin-dialog": "^2.7.3",
     "@tauri-apps/plugin-fs": "^2.5.2",
@@ -19,7 +19,7 @@
     "flatpickr": "^4.6.13"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.11.5",
+    "@tauri-apps/cli": "^2.12.5",
     "sass": "1.105.1"
   },
   "scripts": {

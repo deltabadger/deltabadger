@@ -8,7 +8,7 @@ authors = ["DeltaBadger"]
 license = "MIT"
 repository = ""
 edition = "2021"
-rust-version = "1.89"
+rust-version = "1.90"
 
 [lib]
 name = "app_lib"
@@ -19,7 +19,7 @@ tauri-build = { version = "2.5", features = [] }
 
 [dependencies]
 # Cargo.lock keeps tauri and its plugins on the minor versions of the @tauri-apps npm packages in bun.lock (tauri build
-# refuses a mismatch), and tauri's own crates (tauri-runtime*, wry, tao, tauri-utils) on the ones tauri 2.11 builds with.
+# refuses a mismatch), and tauri's own crates (tauri-runtime*, wry, tao, tauri-utils) on the ones tauri 2.12 builds with.
 serde_json = "1.0"
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 serde = { version = "1.0", features = ["derive"] }
