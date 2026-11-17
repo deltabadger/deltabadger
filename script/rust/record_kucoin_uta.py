@@ -263,7 +263,7 @@ def signing():
                      'headers': {'KC-API-KEY': cred['key'], 'KC-API-TIMESTAMP': ts, 'KC-API-KEY-VERSION': '2', 'KC-API-SIGN': mac(prehash), 'KC-API-PASSPHRASE': mac(cred['passphrase'])}},
                     request={'method': method, 'path': path, 'query': [list(p) for p in query], 'body_bytes': body_bytes})
     place = {'tradeType': 'SPOT', 'clientOid': CLIENT_OID, 'symbol': SYMBOL, 'side': 'BUY', 'orderType': 'MARKET', 'size': '100.5', 'sizeUnit': 'QUOTECCY'}
-    return {'credentials': cred, 'timestamp': ts, 'oracle': 'Python standard-library hmac/SHA256 + Base64, independent of Rust signer and Rails', 'cases': [
+    return {'credentials': cred, 'timestamp': ts, 'oracle': 'Python standard-library hmac/SHA256 + Base64, independent of the Rust signer and of 2.x', 'cases': [
         sign('sign_get_balance', 'GET', '/api/ua/v2/unified/account/balance'),
         sign('sign_get_detail_order', 'GET', '/api/ua/v2/unified/order/detail', [('tradeType', 'SPOT'), ('symbol', SYMBOL), ('orderId', ORDER_ID)]),
         sign('sign_get_detail_client', 'GET', '/api/ua/v2/unified/order/detail', [('tradeType', 'SPOT'), ('symbol', SYMBOL), ('clientOid', CLIENT_OID)]),

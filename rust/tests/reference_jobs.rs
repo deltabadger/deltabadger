@@ -1002,7 +1002,7 @@ fn top_of(c: &Connection, id: &str) -> Vec<String> { serde_json::from_str(&row_t
 /// An existing `coingecko` row as Rails' pass leaves it (10 display coins, no weights), unattested.
 fn v2_category_row(c: &Connection, id: &str, top: &[&str]) -> i64 {
     c.execute("INSERT INTO indices (external_id, source, name, description, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at) \
-               VALUES (?1, 'coingecko', ?1, '2.x's, ?2, '{}', '{}', '{}', 0, '2026-09-01 10:30:00', '2026-09-01 10:30:00')",
+               VALUES (?1, 'coingecko', ?1, '2.x', ?2, '{}', '{}', '{}', 0, '2026-09-01 10:30:00', '2026-09-01 10:30:00')",
               rusqlite::params![id, json!(top).to_string()]).unwrap();
     c.last_insert_rowid()
 }

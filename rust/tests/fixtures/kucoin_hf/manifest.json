@@ -106,13 +106,13 @@
     }
   },
   "recorder": "script/rust/record_kucoin_hf.py",
-  "recorder_sha256": "ef2740f69fd3fa55ebdc588cebb8a898bdd3b201ca3a4f87662c753033dbe2f9",
+  "recorder_sha256": "65781a85a7e3820e829fa4d7c5d5cee65dde7522eac9bb2b389e4e60f0347ee0",
   "generated_sha256": {
     "account.json": "e54ba4af653aad3d25e181f0fbe238aac465aa4cbc0e7b43064559b81a6198a0",
     "orders.json": "cb12cbc18050acce0a1c26d21a6262f1811ed71b8af65ce4bbc97e0ab8fdc6b6",
     "fills.json": "cc53ea25cfff9ded0bd2e5a0e830d691bd6620a9ea067a1e23c33315fdc6dfd8",
     "errors.json": "22a6f3465e0f8efecb7aa0b2cc87b3c54e588bf28e0e84c8002b71ca44539c45",
-    "signing.json": "232e6f1002fa0722e0919002c1daec7d7d93e4ecb167e7c485b59bb38c347aaf"
+    "signing.json": "9a78d916a2d1a05a461e123193de3a6242c7f534a223df3354d0603b9a78419e"
   },
   "endpoints": {
     "mode": {
