@@ -8,7 +8,7 @@ use common::seed::{self, BotSpec};
 use deltabadger::engine::{accounting, amount_limit, model, polling, splits, tick, Clock, FixedClock};
 use deltabadger::engine::tick::Attempts;
 use deltabadger::enums::BotStatus;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store;
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls};
 use deltabadger::venue::http::{HttpRequest, HttpResponse, ScriptedTransport, Transport, TransportError};
@@ -383,7 +383,7 @@ fn a_stale_basis_is_read_as_unknown() {
 }
 
 #[test]
-fn a_reclaimed_bot_whose_number_rails_changed_and_changed_back_reads_unknown() {
+fn a_reclaimed_bot_whose_number_v2_changed_and_changed_back_reads_unknown() {
     // Rails edited 10 → 20 → 10 after the split: settings_changed_at moved, no stamp did; the handback removed the key.
     let f = recorded(Some("2:1"));
     f.c().execute("UPDATE bots SET settings_changed_at = '2026-09-02 10:00:00' WHERE id = ?1", [f.id]).unwrap();

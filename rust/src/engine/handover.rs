@@ -20,7 +20,7 @@ pub struct Takeover { pub claim: Claim, pub eligible: Vec<i64>, pub deleted_jobs
 /// What a takeover does with a Rails queue row of one class (PLAN-B2 r1.3, r2.5, r3.1-r3.3, r4.2-r4.7, r5 3-4, r6 fork A,
 /// r7.2). Rails never runs again on a taken-over install, so every class it can leave has exactly one of these.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RailsWork {
+pub enum V2Work {
     /// Deleted for every bot the engine owns, set-aside bots included; Rust's own tick, checks and rebalance decide again
     /// (D-UPGRADE-RAILS-CHECKS-REDONE). A claimed or failed one is ordinary work Rails left ambiguous: one activity line on
     /// its bot (D-UPGRADE-RAILS-AMBIGUITY-INHERITED). RebalanceJob's legs are behind Rails' own barrier (rebalancer.rb).
@@ -41,11 +41,11 @@ pub enum RailsWork {
     /// acknowledged.
     Rule,
     /// Journalled for its scope (the job's first argument: a user id, or an api key id for API_KEY_VALIDATOR) in
-    /// RAILS_WAKES_KEY, and woken at every start until the Rust job of that name has run (r3.3, r4.4, r4.5).
+    /// V2_WAKES_KEY, and woken at every start until the Rust job of that name has run (r3.3, r4.4, r4.5).
     Wake(&'static str),
     /// An argumentless job (Asset::FetchAllAssetsDataFromCoingeckoJob, Setup::SeedAndSyncJob; Exchange::SyncTickersAndAssetsJob,
     /// whose one whole TICKERS run serves any venue's row): journalled unscoped (scope
-    /// "") in RAILS_WAKES_KEY and woken at every start until the job's unscoped record shows a run (PLAN-A17 item 12).
+    /// "") in V2_WAKES_KEY and woken at every start until the job's unscoped record shows a run (PLAN-A17 item 12).
     WakeUnscoped(&'static str),
     /// Ibkr::GenerateConnectionKeysJob: the key row's empty material is filled in the claim transaction, as the job does
     /// (two RSA-2048 keys and ffdhe2048, D-IBKR-DHGROUP); material already there is never replaced.
@@ -59,8 +59,8 @@ pub enum RailsWork {
 /// Every job class 2.x can leave in its queue (r3.2, r4.5): each `class … < …` under app/jobs by its full name, each
 /// perform_later receiver, config/recurring.yml's classes and its `command:` runner, and the mailer's job. Pinned against
 /// the repository by tests/handover.rs `every_rails_job_class_has_an_outcome`.
-pub const RAILS_WORK: &[(&str, RailsWork)] = {
-    use RailsWork::*;
+pub const V2_WORK: &[(&str, V2Work)] = {
+    use V2Work::*;
     &[
         ("Bot::ActionJob", Redone), ("Bot::BroadcastAfterScheduledActionJob", Redone), ("Bot::FetchAndUpdateOrderJob", Redone),
         ("Bot::FetchAndUpdateOpenOrdersJob", Redone), ("Bot::PriceLimitCheckJob", Redone), ("Bot::PriceDropLimitCheckJob", Redone),
@@ -103,9 +103,9 @@ pub const RAILS_WORK: &[(&str, RailsWork)] = {
     ]
 };
 
-/// A queue row's outcome by its class_name: a class not in RAILS_WORK is dropped.
-pub fn rails_work(class: &str) -> RailsWork {
-    RAILS_WORK.iter().find(|(name, _)| *name == class).map_or(RailsWork::Dropped, |(_, work)| *work)
+/// A queue row's outcome by its class_name: a class not in V2_WORK is dropped.
+pub fn v2_work(class: &str) -> V2Work {
+    V2_WORK.iter().find(|(name, _)| *name == class).map_or(V2Work::Dropped, |(_, work)| *work)
 }
 
 fn first_gid(arguments: &str) -> Option<String> {
@@ -161,7 +161,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     if !work.hard.is_empty() {
         return Err(EngineError::HardStop(super::set_aside::hard_stop(&super::set_aside::Hard { lines: work.hard, details: work.details })));
     }
-    work.rails_ambiguous = rails_ambiguous(&o.primary)?;
+    work.v2_ambiguous = v2_ambiguous(&o.primary)?;
     // Ibkr::GenerateConnectionKeysJob's material, made before the claim's write lock is taken (RSA takes a moment).
     let ibkr: Vec<(i64, [String; 3])> = work.ibkr.iter().map(|id| {
         use crate::venue::signers::ibkr as signer;
@@ -172,7 +172,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     // repaired by the next start, which repeats the deletes and the normalisation idempotently.
     let tx = model::immediate(&o.primary)?;
     // Bot::StopJob (r1.3): the amount-limit stop Rails had queued happens now, before the check, as Rails would have run it.
-    for (bot, key) in &work.stops { super::tick::stop_for_rails_job(&tx, *bot, key.as_deref(), now)?; }
+    for (bot, key) in &work.stops { super::tick::stop_for_v2_job(&tx, *bot, key.as_deref(), now)?; }
     // PLAN-B2 R3 (D-UPGRADE-SET-ASIDE): before the claim, every working bot or rule this build refuses is stopped with its
     // reasons, and the check runs again on this transaction. What it still refuses is a hard stop: returning drops `tx`,
     // so nothing here is written. The bots the engine then runs are the second check's.
@@ -196,13 +196,13 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     // from Rails' baseline, read once, here, in the commit that closes Rails' ownership window. A restart reseeds nothing.
     super::staleness::seed(&tx, now)?;
     let imported_calls = import_signal_jobs(&tx, &signal_jobs, now)?;
-    apply_queue_work(&tx, &work, matches!(claim, Claim::FromRails), now)?;
+    apply_queue_work(&tx, &work, matches!(claim, Claim::FromV2), now)?;
     // A28-1: what Rails may have sent unrecorded while it owned the install, from the last handback on (r4.1, r5.1).
-    let rails_window = match claim {
-        Claim::FromRails | Claim::AfterHandback => true,
+    let v2_window = match claim {
+        Claim::FromV2 | Claim::AfterHandback => true,
         Claim::AfterCrash => handed_back.is_some_and(|back| taken_before.is_none_or(|taken| taken < back)),
     };
-    if rails_window { super::rails_unrecorded::collect(&tx, &o.queue, handed_back, now)?; }
+    if v2_window { super::v2_unrecorded::collect(&tx, &o.queue, handed_back, now)?; }
     import_wakes(&tx, &work.wakes, now)?;
     for (id, material) in &ibkr { fill_ibkr_keys(&tx, cipher, *id, material, now)?; }
     super::rules::acknowledge_fanouts(&tx, &mut rule_jobs, now)?;
@@ -331,7 +331,7 @@ fn bot_row(c: &Connection, id: i64) -> Result<bool, EngineError> {
 struct Unresolved { bot: i64, marker_id: String, side: Option<crate::venue::Side>, triggered_at: Result<DateTime<Utc>, String> }
 
 /// The DCA bots whose newest activity line is Rails' own placement_ambiguous, read before the takeover writes any line.
-fn rails_ambiguous(c: &Connection) -> Result<Vec<i64>, EngineError> {
+fn v2_ambiguous(c: &Connection) -> Result<Vec<i64>, EngineError> {
     let mut s = c.prepare("SELECT b.id FROM bots b WHERE b.type <> ?1 AND b.status <> ?2 AND (SELECT l.event FROM bot_activity_logs l WHERE l.bot_id = b.id \
                            ORDER BY l.created_at DESC, l.id DESC LIMIT 1) = 'placement_ambiguous' ORDER BY b.id")?;
     let ids = s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64], |r| r.get::<_, i64>(0))?.collect::<Result<_, _>>()?;
@@ -349,10 +349,10 @@ struct QueueWork {
     signals: Vec<Unresolved>,
     /// (bot, class, claimed or failed).
     commands: Vec<(i64, String, bool)>,
-    /// Bots of a claimed or failed Bot::ActionJob (C12), and (rails_ambiguous) those Rails' last line left ambiguous.
+    /// Bots of a claimed or failed Bot::ActionJob (C12), and (v2_ambiguous) those Rails' last line left ambiguous.
     unrecorded: Vec<i64>,
-    rails_ambiguous: Vec<i64>,
-    /// (job, scope) of the wake rows, one per pair (RAILS_WAKES_KEY); the IBKR keys whose material is filled.
+    v2_ambiguous: Vec<i64>,
+    /// (job, scope) of the wake rows, one per pair (V2_WAKES_KEY); the IBKR keys whose material is filled.
     wakes: Vec<(&'static str, Option<i64>)>,
     ibkr: Vec<i64>,
     /// Start-log lines.
@@ -361,15 +361,15 @@ struct QueueWork {
     details: Vec<String>,
 }
 
-/// Every unfinished row's outcome by its class (RAILS_WORK), except the waiting signal calls (signal_jobs), rule jobs
+/// Every unfinished row's outcome by its class (V2_WORK), except the waiting signal calls (signal_jobs), rule jobs
 /// (engine::rules) and resyncs, which are judged on their own.
 fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, EngineError> {
     let c = &o.primary;
     let mut w = QueueWork::default();
     for row in queue_rows(&o.queue)?.into_iter().filter(|r| !skip.contains(&r.id)) {
         let args = row.arguments.as_deref();
-        match rails_work(&row.class) {
-            RailsWork::Redone => {
+        match v2_work(&row.class) {
+            V2Work::Redone => {
                 w.done.push(row.id);
                 // D-UPGRADE-RAILS-AMBIGUITY-INHERITED: an ActionJob a dead process held may have sent an order Rails never
                 // recorded, as Rails' own ambiguity does (action_job.rb's KNOWN GAP); its bot carries one line (C12).
@@ -377,7 +377,7 @@ fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, En
                     if let Some(bot) = bot_of(args, None).filter(|b| !w.unrecorded.contains(b)) { if live_bot(c, bot)? { w.unrecorded.push(bot); } }
                 }
             }
-            RailsWork::Stop => {
+            V2Work::Stop => {
                 w.done.push(row.id);
                 let key = argument(args, 1).and_then(|k| k.get("stop_message_key").and_then(Value::as_str).map(str::to_string));
                 match bot_of(args, None) {
@@ -385,8 +385,8 @@ fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, En
                     None => w.log.push(format!("dropped Bot::StopJob (queue row {}): it names no bot this build can read", row.id)),
                 }
             }
-            RailsWork::Signal if row.ambiguous => unresolved_signal(c, &row, &mut w)?,
-            RailsWork::Command => {
+            V2Work::Signal if row.ambiguous => unresolved_signal(c, &row, &mut w)?,
+            V2Work::Command => {
                 w.done.push(row.id);
                 match bot_of(args, None) {
                     Some(bot) if live_bot(c, bot)? => w.commands.push((bot, row.class.clone(), row.ambiguous)),
@@ -394,7 +394,7 @@ fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, En
                     None => w.log.push(format!("dropped {} (queue row {}): it names no bot this build can read", row.class, row.id)),
                 }
             }
-            RailsWork::FetchOrder => {
+            V2Work::FetchOrder => {
                 // r6 fork A: Rails placed this order and never recorded it; the job holds its id. Nothing here records it.
                 let order = argument(args, 1).map(|v| v.as_str().map_or_else(|| v.to_string(), str::to_string)).unwrap_or_default();
                 match bot_of(args, None) {
@@ -410,7 +410,7 @@ fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, En
                     }
                 }
             }
-            RailsWork::Wake(job) => {
+            V2Work::Wake(job) => {
                 // Waiting, claimed or failed alike: every one of these jobs is safe to run again. Its argument is a plain
                 // integer (ActiveJob serializes an Integer as itself); a row naming nothing there is Rails' RecordNotFound.
                 w.done.push(row.id);
@@ -426,11 +426,11 @@ fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, En
                     }
                 }
             }
-            RailsWork::WakeUnscoped(job) => {
+            V2Work::WakeUnscoped(job) => {
                 w.done.push(row.id);
                 if !w.wakes.contains(&(job, None)) { w.wakes.push((job, None)); }
             }
-            RailsWork::IbkrKeys => {
+            V2Work::IbkrKeys => {
                 // Ibkr::GenerateConnectionKeysJob#perform: nothing for a key that is gone or already has its material.
                 w.done.push(row.id);
                 match first_id(args) {
@@ -438,8 +438,8 @@ fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, En
                     _ => w.dropped += 1,
                 }
             }
-            RailsWork::Dropped => { w.done.push(row.id); w.dropped += 1; }
-            RailsWork::Signal | RailsWork::Resync | RailsWork::Rule => {}
+            V2Work::Dropped => { w.done.push(row.id); w.dropped += 1; }
+            V2Work::Signal | V2Work::Resync | V2Work::Rule => {}
         }
     }
     Ok(w)
@@ -477,7 +477,7 @@ fn unresolved_signal(c: &Connection, row: &QueueRow, w: &mut QueueWork) -> Resul
 }
 
 /// The claim transaction's part of the queue work, after the claim (the stops ran before the check).
-fn apply_queue_work(tx: &Connection, w: &QueueWork, from_rails: bool, now: DateTime<Utc>) -> Result<(), EngineError> {
+fn apply_queue_work(tx: &Connection, w: &QueueWork, from_v2: bool, now: DateTime<Utc>) -> Result<(), EngineError> {
     use super::amount::TxKind;
     use model::Level;
     let mut marked: Vec<i64> = vec![];
@@ -512,7 +512,7 @@ fn apply_queue_work(tx: &Connection, w: &QueueWork, from_rails: bool, now: DateT
     // C12: a claimed or failed ActionJob, and, at the first takeover from Rails, a DCA bot whose last line is Rails' own
     // placement_ambiguous (the order Rails' KNOWN GAP leaves unrecorded).
     let mut bots = w.unrecorded.clone();
-    if from_rails { for id in &w.rails_ambiguous { if !bots.contains(id) { bots.push(*id); } } }
+    if from_v2 { for id in &w.v2_ambiguous { if !bots.contains(id) { bots.push(*id); } } }
     for bot in bots { model::log_activity(tx, bot, UPGRADE_ORDER_UNRECORDED, Level::Warning, json!({}), now)?; }
     Ok(())
 }
@@ -522,15 +522,15 @@ fn apply_queue_work(tx: &Connection, w: &QueueWork, from_rails: bool, now: DateT
 /// app_configs key: the Rust jobs a takeover owes a run, one entry per (job, scope) of a Rails queue row it took (Tracker::
 /// LedgerJob and its ::Retry, PortfolioSnapshot::BackfillJob, ApiKeyValidatorJob), each with the takeover's time. Written in
 /// the claim transaction, beside the rows' ids in QUEUE_DONE_KEY (so a crash before their delete imports nothing twice). At
-/// every start the scheduler wakes each entry (due_rails_wakes) until that job's state for that scope shows a run at or
+/// every start the scheduler wakes each entry (due_v2_wakes) until that job's state for that scope shows a run at or
 /// after the entry's time; a run that failed leaves it for the next start.
 /// D-UPGRADE-RAILS-WAKES: Rails ran such a job once, with its own retries; here it runs at least once after the takeover,
 /// and one whose run keeps failing (a key the validator doesn't cover, a backfill without market data) is woken again at
 /// every start, as a manual wake of it would be. Duplicates of one job and scope run once.
-pub const RAILS_WAKES_KEY: &str = "rust_rails_wakes";
+pub const V2_WAKES_KEY: &str = "rust_rails_wakes";
 
 #[derive(serde::Serialize, serde::Deserialize)]
-struct RailsWake { job: String, scope: String, at: String }
+struct V2Wake { job: String, scope: String, at: String }
 
 /// The table a wake job's scope is a row of, and its name in a log line.
 fn wake_scope(job: &str) -> (&'static str, &'static str) {
@@ -556,7 +556,7 @@ fn exists(c: &Connection, table: &str, id: i64) -> Result<bool, EngineError> {
 /// may be what the user uploaded to IBKR, and is never replaced (D-IBKR-RECONNECT keeps it).
 fn ibkr_blank(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<bool>, EngineError> {
     let signing: Option<Option<String>> = c.query_row("SELECT rsa_signature_key FROM api_keys WHERE id = ?1", [id], |r| r.get(0)).optional()?;
-    Ok(signing.map(|v| v.is_none_or(|v| crate::ruby::blank(&v) || cipher.decrypt(&v).is_ok_and(|p| crate::ruby::blank(&p)))))
+    Ok(signing.map(|v| v.is_none_or(|v| crate::v2::blank(&v) || cipher.decrypt(&v).is_ok_and(|p| crate::v2::blank(&p)))))
 }
 
 /// The job's update!, only while the row is still blank (a key made meanwhile keeps its own).
@@ -567,21 +567,21 @@ fn fill_ibkr_keys(tx: &Connection, cipher: &Cipher, id: i64, [signing, encryptio
     Ok(())
 }
 
-fn rails_wakes(c: &Connection) -> Result<Vec<RailsWake>, EngineError> {
-    let Some(text) = crate::app_config::get_plain(c, RAILS_WAKES_KEY).map_err(EngineError::Data)? else { return Ok(vec![]) };
-    serde_json::from_str(&text).map_err(|e| EngineError::Data(format!("{RAILS_WAKES_KEY}: {e}")))
+fn v2_wakes(c: &Connection) -> Result<Vec<V2Wake>, EngineError> {
+    let Some(text) = crate::app_config::get_plain(c, V2_WAKES_KEY).map_err(EngineError::Data)? else { return Ok(vec![]) };
+    serde_json::from_str(&text).map_err(|e| EngineError::Data(format!("{V2_WAKES_KEY}: {e}")))
 }
 
-fn write_rails_wakes(c: &Connection, wakes: &[RailsWake], now: DateTime<Utc>) -> Result<(), EngineError> {
-    if wakes.is_empty() { return crate::app_config::delete(c, RAILS_WAKES_KEY).map_err(EngineError::Data); }
-    crate::app_config::set_plain(c, RAILS_WAKES_KEY, &serde_json::to_string(wakes).expect("wakes serialise"), now).map_err(EngineError::Data)
+fn write_v2_wakes(c: &Connection, wakes: &[V2Wake], now: DateTime<Utc>) -> Result<(), EngineError> {
+    if wakes.is_empty() { return crate::app_config::delete(c, V2_WAKES_KEY).map_err(EngineError::Data); }
+    crate::app_config::set_plain(c, V2_WAKES_KEY, &serde_json::to_string(wakes).expect("wakes serialise"), now).map_err(EngineError::Data)
 }
 
 /// In the claim transaction: each (job, scope) is journalled at `now`. The time is in the job
 /// state's own precision (jobs::state), so a run recorded after it never reads as earlier.
 fn import_wakes(tx: &Connection, wakes: &[(&'static str, Option<i64>)], now: DateTime<Utc>) -> Result<(), EngineError> {
     if wakes.is_empty() { return Ok(()); }
-    let mut all = rails_wakes(tx)?;
+    let mut all = v2_wakes(tx)?;
     let at = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
     for (job, id) in wakes {
         let scope = id.map_or_else(String::new, |id| id.to_string());
@@ -591,37 +591,37 @@ fn import_wakes(tx: &Connection, wakes: &[(&'static str, Option<i64>)], now: Dat
         // this takeover's. A crash replay never gets here twice for one row (QUEUE_DONE_KEY skips it).
         match all.iter_mut().find(|w| w.job == *job && w.scope == scope) {
             Some(w) => w.at.clone_from(&at),
-            None => all.push(RailsWake { job: job.to_string(), scope, at: at.clone() }),
+            None => all.push(V2Wake { job: job.to_string(), scope, at: at.clone() }),
         }
     }
-    write_rails_wakes(tx, &all, now)
+    write_v2_wakes(tx, &all, now)
 }
 
 /// At every start, before the scheduler runs: the journal's (job, scope) pairs to wake once. An entry whose job has run
 /// for its scope since the entry was made leaves the journal; so does one whose user or key is gone since (with a
 /// start-log line: Rails' job would fail on it). No other precondition is checked: the job's own run decides (r4.4).
-pub fn due_rails_wakes(c: &Connection, now: DateTime<Utc>) -> Result<Vec<(String, Option<String>)>, EngineError> {
+pub fn due_v2_wakes(c: &Connection, now: DateTime<Utc>) -> Result<Vec<(String, Option<String>)>, EngineError> {
     let tx = model::immediate(c)?;
-    let all = rails_wakes(&tx)?;
+    let all = v2_wakes(&tx)?;
     if all.is_empty() { return Ok(vec![]); }
     let before = all.len();
     let mut due = vec![];
     for w in all {
-        let at = crate::codec::parse_time(&w.at).map_err(|e| EngineError::Data(format!("{RAILS_WAKES_KEY}: {}: {e:?}", w.at)))?;
-        // "" is an unscoped entry (RailsWork::WakeUnscoped); every entry before A17 has a numeric scope.
+        let at = crate::codec::parse_time(&w.at).map_err(|e| EngineError::Data(format!("{V2_WAKES_KEY}: {}: {e:?}", w.at)))?;
+        // "" is an unscoped entry (V2Work::WakeUnscoped); every entry before A17 has a numeric scope.
         let scope = (!w.scope.is_empty()).then_some(w.scope.as_str());
         let ran = crate::jobs::state::read(&tx, &w.job, scope).map_err(EngineError::Data)?.last_run_at;
         if ran.is_some_and(|t| t >= at) { continue; }
         if scope.is_none() { due.push(w); continue; }
         let (table, noun) = wake_scope(&w.job);
-        let id: i64 = w.scope.parse().map_err(|e| EngineError::Data(format!("{RAILS_WAKES_KEY}: scope {}: {e}", w.scope)))?;
+        let id: i64 = w.scope.parse().map_err(|e| EngineError::Data(format!("{V2_WAKES_KEY}: scope {}: {e}", w.scope)))?;
         if !exists(&tx, table, id)? {
             super::log(&format!("dropped the {} run Deltabadger owed {noun} {id} from before the update: that {noun} is gone", w.job));
             continue;
         }
         due.push(w);
     }
-    if due.len() != before { write_rails_wakes(&tx, &due, now)?; }
+    if due.len() != before { write_v2_wakes(&tx, &due, now)?; }
     tx.commit()?;
     Ok(due.into_iter().map(|w| { let scope = (!w.scope.is_empty()).then_some(w.scope); (w.job, scope) }).collect())
 }

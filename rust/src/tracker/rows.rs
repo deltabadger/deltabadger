@@ -351,7 +351,7 @@ mod tests {
 
     /// Tax::PriceService.ordered: by instant; a group where its first-stored leg was, its out-legs first; else by id.
     #[test]
-    fn rows_walk_in_rails_order() {
+    fn rows_walk_in_v2_order() {
         let t = "2026-09-02 14:30:00";
         let rows = vec![stored(6, Kind::Buy, Some("g"), t), stored(2, Kind::Deposit, None, "2026-09-03 00:00:00"), stored(7, Kind::Sell, Some("g"), t),
                         stored(5, Kind::Buy, None, t), stored(1, Kind::Fee, None, t)];
@@ -423,7 +423,7 @@ mod tests {
     }
 
     #[test]
-    fn a_venue_is_named_as_rails_names_it() {
+    fn a_venue_is_named_as_v2_names_it() {
         assert_eq!(name_id("Exchanges::BinanceUs"), "binance_us");
         assert_eq!(name_id("Exchanges::Alpaca"), "alpaca");
         assert_eq!(name_id("Exchanges::Ibkr"), "ibkr");

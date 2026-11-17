@@ -24,7 +24,7 @@ use std::cmp::Ordering;
 use std::sync::Arc;
 
 /// The input bounds belong to the engine; figures use its bounded constructors at their boundary.
-pub use crate::ruby::{MAX_INPUT_LEN as MAX_TEXT, MAX_EXPONENT, MAX_DIGITS, MAX_SCALE,
+pub use crate::v2::{MAX_INPUT_LEN as MAX_TEXT, MAX_EXPONENT, MAX_DIGITS, MAX_SCALE,
                       VENUE_MAX_EXPONENT as MAX_VENUE_EXPONENT, VENUE_MAX_DIGITS as MAX_VENUE_DIGITS};
 
 /// Where a number comes in from, which is what it is measured against.
@@ -236,8 +236,8 @@ impl Dec {
         if !clean(text) { return Err(NumError::NotANumber); }
         // The engine owns both sets of caps. The grammar above and the sign of zero belong to figures.
         match door {
-            Door::Database => { crate::ruby::BigDec::parse(text).map_err(|_| NumError::OutOfRange)?; }
-            Door::Venue => { crate::ruby::json_to_d(&Value::String(text.to_string())).map_err(|_| NumError::OutOfRange)?; }
+            Door::Database => { crate::v2::BigDec::parse(text).map_err(|_| NumError::OutOfRange)?; }
+            Door::Venue => { crate::v2::json_to_d(&Value::String(text.to_string())).map_err(|_| NumError::OutOfRange)?; }
         }
         let (negative, digits, scale) = parsed(text).ok_or(NumError::OutOfRange)?;
         Ok(Dec { mag: shared(Mag::from_digits(&digits, scale)), negative })
@@ -270,8 +270,8 @@ impl Dec {
     fn real_digits(f: f64, door: Door, keep: usize) -> Result<Dec, NumError> {
         let (digits, scale) = Dec::float_digits(f, keep)?;
         match door {
-            Door::Database => { crate::ruby::BigDec::from_f64(f).map_err(|_| NumError::OutOfRange)?; }
-            Door::Venue => { crate::ruby::json_to_d(&serde_json::json!(f)).map_err(|_| NumError::OutOfRange)?; }
+            Door::Database => { crate::v2::BigDec::from_f64(f).map_err(|_| NumError::OutOfRange)?; }
+            Door::Venue => { crate::v2::json_to_d(&serde_json::json!(f)).map_err(|_| NumError::OutOfRange)?; }
         }
         Ok(Dec { mag: shared(Mag::from_digits(&digits, scale)), negative: f.is_sign_negative() })
     }
@@ -339,7 +339,7 @@ impl Dec {
 
     /// BigDecimal#round(places), half away from zero; a zero that was rounded from below keeps its sign.
     pub fn round(&self, places: i64) -> Result<Dec, NumError> {
-        crate::ruby::scale(places).map_err(|_| NumError::OutOfRange)?;
+        crate::v2::scale(places).map_err(|_| NumError::OutOfRange)?;
         if -self.mag.exp * FIG as i64 <= places { return Ok(self.clone()); }
         budget::charge(self.mag.len(), self.mag.len())?;
         let (digits, scale) = self.mag.digits();

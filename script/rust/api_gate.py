@@ -40,7 +40,7 @@ MUTATIONS = [
 
 def run(label, marker, pages):
     env = dict(os.environ, PAGES=pages)
-    done = subprocess.run([cargo, 'nextest', 'run', '--locked', '--test', 'pages', '-E', 'test(rails_and_rust_serve)'],
+    done = subprocess.run([cargo, 'nextest', 'run', '--locked', '--test', 'pages', '-E', 'test(v2_and_rust_serve)'],
                           cwd=root / 'rust', env=env, capture_output=True, text=True)
     output = done.stdout + done.stderr
     assert 'could not compile' not in output, f'{label}: compile failure\n{output}'

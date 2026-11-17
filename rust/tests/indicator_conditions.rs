@@ -3,7 +3,7 @@ use common::seed::{self, BotSpec};
 use deltabadger::engine::{conditions::{self, Rule, Evaluated, Checked}, model, FixedClock};
 use deltabadger::engine::tick::PriceCache;
 use deltabadger::engine::candles::Candle;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::{fake::FakeVenue};
 use serde_json::json;
 
@@ -14,7 +14,7 @@ fn candles(value: i64) -> Vec<Candle> {
 }
 
 #[test]
-fn readers_use_rails_defaults_and_refuse_invalid_values_by_name() {
+fn readers_use_v2_defaults_and_refuse_invalid_values_by_name() {
     let (_d, o, s) = common::install();
     for selling in [false, true] {
         for (kind, prefix) in conditions::TRIGGERS.into_iter().filter(|(k, _)| *k != Rule::Price) {
@@ -230,7 +230,7 @@ fn check_and_repair_use_the_paused_rules_timeframe() {
 /// Index and signal gates use the recorded basket decision; Rails does not include these concerns on those classes.
 #[cfg(unix)]
 #[tokio::test(flavor = "current_thread")]
-async fn index_and_signal_candle_gates_match_recorded_rails_basket_twins() {
+async fn index_and_signal_candle_gates_match_recorded_v2_basket_twins() {
     use serde_json::Value;
     use deltabadger::venue::{http::ScriptedTransport, kraken::KrakenVenue};
     let built = tempfile::tempdir().unwrap();
@@ -245,9 +245,9 @@ async fn index_and_signal_candle_gates_match_recorded_rails_basket_twins() {
         names.push(name.to_string());
     }
     assert_eq!(names.len(), 144);
-    common::decisions::rails(&["record", recorded.path().to_str().unwrap()]);
+    common::decisions::v2(&["record", recorded.path().to_str().unwrap()]);
     for name in names {
-        let rails: Value = serde_json::from_str(&std::fs::read_to_string(recorded.path().join(&name).join("rails.json")).unwrap()).unwrap();
+        let v2: Value = serde_json::from_str(&std::fs::read_to_string(recorded.path().join(&name).join("rails.json")).unwrap()).unwrap();
         let scenario: Value = serde_json::from_str(&std::fs::read_to_string(built.path().join(&name).join("scenario.json")).unwrap()).unwrap();
         let selling = name.contains("-sell-");
         let kind = if name.contains("-price_drop-") { Rule::PriceDrop } else if name.contains("-moving_average-") { Rule::MovingAverage } else { Rule::Indicator };
@@ -293,8 +293,8 @@ async fn index_and_signal_candle_gates_match_recorded_rails_basket_twins() {
                     gate!(KrakenVenue::new(http))
                 }
             };
-            assert_eq!(matches!(evaluated, Evaluated::Met { .. }), !rails["sent"].as_array().unwrap().is_empty(), "{name} {bot_type}");
-            let expected = rails["changes"]["bots"].as_array().unwrap().iter().find(|b| b["id"] == 1)
+            assert_eq!(matches!(evaluated, Evaluated::Met { .. }), !v2["sent"].as_array().unwrap().is_empty(), "{name} {bot_type}");
+            let expected = v2["changes"]["bots"].as_array().unwrap().iter().find(|b| b["id"] == 1)
                 .map(|b| b["after"]["transient_data"][&key].clone()).unwrap_or_else(|| original.transient[&key].clone());
             assert_eq!(model::load_bot(&c, 1).unwrap().transient[&key], expected, "{name} {bot_type}: latch write");
             if bot_type == "Bots::Signal" { assert_eq!(model::load_bot(&c, 1).unwrap().transient["missed_quote_amount"], original.transient["missed_quote_amount"], "signal has no carry write"); }

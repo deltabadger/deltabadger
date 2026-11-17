@@ -5,7 +5,7 @@
 mod common;
 use deltabadger::crypto::Credentials;
 use deltabadger::engine::model::Ticker;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::alpaca::{AlpacaVenue, LiveFactory, Urls};
 use deltabadger::venue::http::ScriptedTransport;
 use deltabadger::venue::{NewOrder, OrderKind, PriceSide, Venue};
@@ -24,7 +24,7 @@ fn btc_usd() -> Ticker {
 fn host(base: &str) -> &str { base.split_once("://").map_or(base, |(_, h)| h) }
 
 #[tokio::test(flavor = "current_thread")]
-async fn every_call_reaches_the_host_rails_reaches_for_its_mode() {
+async fn every_call_reaches_the_host_v2_reaches_for_its_mode() {
     let rows = grid()["rows"].as_array().unwrap().clone();
     assert!(rows.len() >= 80);
     for row in rows {
@@ -64,7 +64,7 @@ async fn every_call_reaches_the_host_rails_reaches_for_its_mode() {
 
 /// The production factory picks the same trading host Rails does for every recorded mode (only `urls()` is read).
 #[test]
-fn the_factory_picks_rails_host_for_every_recorded_mode() {
+fn the_factory_picks_v2_host_for_every_recorded_mode() {
     let f = LiveFactory::new();
     for row in grid()["rows"].as_array().unwrap().iter().filter(|r| r["call"] == "account") {
         let credentials = Credentials { ibkr: None, redaction_values: vec![], key: "PK".into(), secret: "s".into(), passphrase: row["passphrase"].as_str().map(str::to_string) };

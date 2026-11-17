@@ -13,9 +13,9 @@
 //! - a trade row whose raw object this can't read (a file import's, a missing or malformed field) is `Unreadable`;
 //!   a Binance convert, fiat payment or dust conversion is `NotATrade` (no order of a bot is ever one).
 use super::activities::{BUY, SELL, SWAP_IN, SWAP_OUT};
-use super::binance_ledger::{ruby_time_at_ms, text};
+use super::binance_ledger::{v2_time_at_ms, text};
 use super::number::{decimal, VENUE};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::Side;
 use crate::venue::{binance::{BINANCE, BINANCE_US}, bingx::BINGX, bitget::BITGET, bitrue::BITRUE, bitvavo::BITVAVO, bybit::BYBIT, coinbase::COINBASE,
                    gemini::GEMINI, hyperliquid::HYPERLIQUID, mexc::MEXC};
@@ -102,7 +102,7 @@ fn reused(c: &Connection, exchange_id: i64, symbol: &str, matching: Match) -> Re
 type Out = Result<Option<Parsed>, String>;
 
 /// A field as text (a string as it is, an integer as its digits), not blank.
-fn s(raw: &Value, k: &str) -> Result<String, String> { text(raw.get(k)).filter(|t| !crate::ruby::blank(t)).ok_or_else(|| format!("no {k}")) }
+fn s(raw: &Value, k: &str) -> Result<String, String> { text(raw.get(k)).filter(|t| !crate::v2::blank(t)).ok_or_else(|| format!("no {k}")) }
 /// A number the venue wrote (string or JSON number), within the venue caps; never a missing value read as 0.
 fn d(raw: &Value, k: &str) -> Result<BigDec, String> {
     let t = match raw.get(k) { Some(Value::String(t)) => t.clone(), Some(Value::Number(n)) => n.to_string(), _ => return Err(format!("no {k}")) };
@@ -111,7 +111,7 @@ fn d(raw: &Value, k: &str) -> Result<BigDec, String> {
 /// A time in milliseconds (number or digits), as the importers store it.
 fn ms(raw: &Value, k: &str) -> Result<DateTime<Utc>, String> {
     let n = match raw.get(k) { Some(Value::Number(n)) => n.as_i64(), Some(Value::String(t)) => t.parse().ok(), _ => None };
-    n.and_then(ruby_time_at_ms).ok_or_else(|| format!("unreadable {k}"))
+    n.and_then(v2_time_at_ms).ok_or_else(|| format!("unreadable {k}"))
 }
 fn rfc3339(raw: &Value, k: &str) -> Result<DateTime<Utc>, String> {
     raw[k].as_str().and_then(|t| DateTime::parse_from_rfc3339(t).ok()).map(|t| t.with_timezone(&Utc)).ok_or_else(|| format!("unreadable {k}"))
@@ -145,7 +145,7 @@ fn symbol_order_id(raw: &Value, tx_id: Option<&str>, bitrue: bool) -> Out {
     let tx_id = tx_id.ok_or("no tx_id")?;
     let symbol = tx_id.strip_suffix(&format!("-{order}-{id}")).filter(|s| !s.is_empty()).ok_or("tx_id names no orderId and id")?;
     let qty = d(raw, "qty")?;
-    let quote = if bitrue && raw.get("quoteQty").is_none_or(|v| v.is_null() || v.as_str().is_some_and(crate::ruby::blank)) { &qty * &d(raw, "price")? } else { d(raw, "quoteQty")? };
+    let quote = if bitrue && raw.get("quoteQty").is_none_or(|v| v.is_null() || v.as_str().is_some_and(crate::v2::blank)) { &qty * &d(raw, "price")? } else { d(raw, "quoteQty")? };
     Ok(Some(Parsed { symbol: symbol.into(), matching: Match::Exact, fill_id: tx_id.into(), key: Key::Ticker(order), side: buyer(raw)?, base_qty: qty,
                      quote_qty: quote, at: ms(raw, "time")? }))
 }
@@ -156,7 +156,7 @@ fn coinbase(raw: &Value, tx_id: Option<&str>) -> Out {
     let product = s(raw, "product_id")?;
     let adjusted = raw["trade_type"].as_str().is_some_and(|t| !t.is_empty() && t != "FILL");
     let id = if adjusted { text(raw.get("entry_id")) } else { None }.or_else(|| text(raw.get("trade_id"))).or_else(|| text(raw.get("entry_id")))
-        .filter(|t| !crate::ruby::blank(t)).ok_or("no trade_id")?;
+        .filter(|t| !crate::v2::blank(t)).ok_or("no trade_id")?;
     if !tx_id.is_some_and(|t| [id.clone(), format!("{id}-in"), format!("{id}-out")].iter().any(|x| x == t)) { return Err("tx_id differs from the fill's id".into()); }
     d(raw, "size")?;
     d(raw, "price")?;

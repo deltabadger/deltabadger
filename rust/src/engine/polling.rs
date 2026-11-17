@@ -7,7 +7,7 @@ use super::amount_limit::{self, Cap};
 use super::{amount, tick, EngineError};
 use crate::codec::{format_time, parse_time};
 use crate::enums::TxExternalStatus;
-use crate::ruby::{inspect, to_sentence, to_sql, BigDec};
+use crate::v2::{inspect, to_sentence, to_sql, BigDec};
 use crate::venue::{OrderState, OrderStatus, Venue, VenueError};
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::types::Value as Sql;
@@ -97,7 +97,7 @@ fn apply_order_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: 
         return Ok(None);
     }
     // A28-2 r5.1 (D-RAILS-UNRECORDED-SETTLED-LOWER): a booked row is never lowered below what its owner confirmed.
-    if super::rails_unrecorded::holds(c, bot_id, tx_id, s, now)? { return Ok(None); }
+    if super::v2_unrecorded::holds(c, bot_id, tx_id, s, now)? { return Ok(None); }
     let cap = apply_body(c, bot_id, tx_id, s, now, execution_only)?;
     if let Some(terminal) = settles {
         super::reconcile::clear(c, tx_id)?;
@@ -398,7 +398,7 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
         if mode == PollMode::Terminal || !reports || skipped.contains(ext) || found.iter().any(|o| &o.txid == ext) { continue; }
         // A28-2 r4.1 (D-RAILS-UNRECORDED-NEVER-STALE): a booked row, back-dated to Rails' tick, is never abandoned by age, nor
         // does its absence fail the bot's sweep: it waits, and the booking watch polls it hourly.
-        if super::rails_unrecorded::booked(c, *id).map_err(db)? { continue; }
+        if super::v2_unrecorded::booked(c, *id).map_err(db)? { continue; }
         if *created >= now.checked_sub_signed(Duration::days(STALE_AFTER_DAYS)).ok_or_else(|| db(super::schedule::time_range_error()))?.timestamp_micros() {
             young.push(ext.clone());
         } else {

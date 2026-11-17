@@ -329,7 +329,7 @@ fn serve_until_running(dir: &Path) -> Vec<String> {
 /// `rust`) sets aside a bot that became refused, and a working bot whose key is gone, instead of refusing.
 #[test]
 fn check_says_what_serve_then_sets_aside_and_every_start_sets_aside_what_it_refuses() {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
     let s = seed::seed_kraken(&c, &seed::cipher());
     let spec = || BotSpec::weekly(60.0, "2099-01-01 00:00:00");
@@ -528,7 +528,7 @@ async fn run_and_serve_restart_a_stale_engine_owned_install_and_start_the_schedu
 }
 
 #[test]
-fn run_and_serve_take_over_an_install_rails_left_stale_and_note_the_staleness() -> Result<(), Box<dyn std::error::Error>> {
+fn run_and_serve_take_over_an_install_v2_left_stale_and_note_the_staleness() -> Result<(), Box<dyn std::error::Error>> {
     // D-UPGRADE-FRESHNESS-AT-TICK (PLAN-B2 R2): only this engine's scheduler, which starts after the claim, can refresh the
     // data, so the takeover admits the bot and notes the staleness; the tick refuses it (tests/tick_basket.rs).
     for command in ["run", "serve"] {
@@ -590,7 +590,7 @@ fn binance_repair_requires_explicit_mode_approval_and_rust_ownership() {
 /// lock is free while it shows, no file changes, and SIGTERM stops it with 0. `run` and `check` still just exit 1.
 #[test]
 fn a_refused_serve_shows_why_on_its_port_and_writes_nothing() {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     c.execute("DELETE FROM schema_migrations WHERE version = (SELECT max(version) FROM schema_migrations)", []).unwrap();
     drop(c);
@@ -632,8 +632,8 @@ const BEHIND_UMBREL: &str = "Deltabadger didn't start: this data is from an olde
 /// age on stderr only.
 #[test]
 fn a_future_heartbeat_refuses_serve_in_plain_words() {
-    let dir = common::rails_install();
-    rails_heartbeat(dir.path(), -600);
+    let dir = common::v2_install();
+    v2_heartbeat(dir.path(), -600);
     let before = files_of(dir.path());
     let r = refused(dir.path(), &mut bare(dir.path(), &["serve"]));
     assert_eq!(r.status, Some(0), "{}", r.stderr);
@@ -664,7 +664,7 @@ fn a_takeover_refused_for_support_shows_plain_words_and_logs_the_lines() {
 }
 
 /// A Solid Queue heartbeat `seconds_ago` old, as a pre-floor 2.x Rails leaves it (no flock).
-fn rails_heartbeat(dir: &Path, seconds_ago: i64) {
+fn v2_heartbeat(dir: &Path, seconds_ago: i64) {
     let at = deltabadger::codec::format_time(chrono::Utc::now() - chrono::Duration::seconds(seconds_ago));
     rusqlite::Connection::open(dir.join("production_queue.sqlite3")).unwrap().execute(
         "INSERT INTO solid_queue_processes (kind, last_heartbeat_at, pid, hostname, created_at, name) VALUES ('Worker', ?1, 1, 'h', ?1, 'w')", [at]).unwrap();
@@ -691,11 +691,11 @@ fn exited(child: &mut Running, within: std::time::Duration) -> std::process::Exi
 /// PLAN-B2 R1, r2.8: a heartbeat about 115 s old (a 2.x container just stopped) makes `serve` wait about 6 s, showing
 /// the wait on its port, then take the install over and serve the app on the same port.
 #[test]
-fn serve_waits_out_a_just_stopped_rails_showing_the_wait_on_its_port_then_takes_over() {
+fn serve_waits_out_a_just_stopped_v2_showing_the_wait_on_its_port_then_takes_over() {
     let (dir, o, s) = common::install_alpaca();
     seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00")); // never due: no call to Alpaca
     drop(o);
-    rails_heartbeat(dir.path(), 115);
+    v2_heartbeat(dir.path(), 115);
     let port = free_port();
     let (mut child, rx) = spawn_logged(cli(dir.path(), &["serve"]).env("PORT", port.to_string()));
     let next = || rx.recv_timeout(std::time::Duration::from_secs(20)).expect("a log line within 20 s");
@@ -729,7 +729,7 @@ fn serve_waits_out_a_just_stopped_rails_showing_the_wait_on_its_port_then_takes_
 fn sigterm_during_serves_wait_exits_0_and_writes_nothing() {
     let (dir, o, _) = common::install_alpaca();
     drop(o);
-    rails_heartbeat(dir.path(), 30);
+    v2_heartbeat(dir.path(), 30);
     let mut serve = cli(dir.path(), &["serve"]); // cli() seeds job state for `serve`: before the snapshot
     let before = files_of(dir.path());
     let (mut child, rx) = spawn_logged(serve.env("PORT", free_port().to_string()));
@@ -744,8 +744,8 @@ fn sigterm_during_serves_wait_exits_0_and_writes_nothing() {
 /// R1: only `run` and `serve` wait. `check` and `handback` still refuse a fresh heartbeat at once, in today's words.
 #[test]
 fn check_and_handback_refuse_a_fresh_heartbeat_at_once() {
-    let dir = common::rails_install();
-    rails_heartbeat(dir.path(), 5);
+    let dir = common::v2_install();
+    v2_heartbeat(dir.path(), 5);
     for cmd in ["check", "handback"] {
         let started = std::time::Instant::now();
         let out = finished(&mut cli(dir.path(), &[cmd]));
@@ -759,12 +759,12 @@ fn check_and_handback_refuse_a_fresh_heartbeat_at_once() {
 /// R1: a Rails that keeps its heartbeat fresh is refused after the one wait, in today's words.
 #[test]
 fn run_refuses_a_heartbeat_still_fresh_after_its_one_wait() {
-    let dir = common::rails_install();
-    rails_heartbeat(dir.path(), 115);
+    let dir = common::v2_install();
+    v2_heartbeat(dir.path(), 115);
     let (mut child, rx) = spawn_logged(&mut cli(dir.path(), &["run"]));
     let waiting = rx.recv_timeout(std::time::Duration::from_secs(20)).expect("the wait's line");
     assert!(waiting.contains("before taking over"), "{waiting}");
-    rails_heartbeat(dir.path(), 0); // still running: it stamps again during the wait
+    v2_heartbeat(dir.path(), 0); // still running: it stamps again during the wait
     assert_eq!(exited(&mut child, std::time::Duration::from_secs(20)).code(), Some(1));
     let mut err = String::new();
     std::io::Read::read_to_string(&mut child.0.stderr.take().unwrap(), &mut err).unwrap();
@@ -781,7 +781,7 @@ fn run_refuses_a_heartbeat_still_fresh_after_its_one_wait() {
 fn a_stop_between_the_wait_and_the_engine_stops_the_engine() {
     let (dir, o, _) = common::install_alpaca();
     drop(o);
-    rails_heartbeat(dir.path(), 115);
+    v2_heartbeat(dir.path(), 115);
     let (mut child, rx) = spawn_logged(cli(dir.path(), &["serve"]).env("PORT", free_port().to_string()).env("DELTABADGER_TEST_PAUSE", "after-wait"));
     let waiting = rx.recv_timeout(std::time::Duration::from_secs(20)).expect("the wait's line");
     let wait: u64 = waiting.split("waiting ").nth(1).and_then(|r| r.split(' ').next()).and_then(|n| n.parse().ok()).expect(&waiting);
@@ -802,7 +802,7 @@ const WRONG_SECRET: &str = "can't read this install with this SECRET_KEY_BASE. U
 /// every file is byte-equal (a migration, the identity reset or a claim would each change one).
 #[test]
 fn serve_with_a_wrong_secret_on_an_unmigrated_2x_install_refuses_before_any_write() {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     let s = seed::seed_kraken(&c, &seed::cipher());
     seed::insert_bot(&c, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
@@ -845,7 +845,7 @@ fn run_with_a_wrong_secret_leaves_known_account_identities_untouched() {
 #[test]
 fn a_v2_0_0_primary_is_behind_before_the_secret_check() {
     let dir = tempfile::tempdir().unwrap();
-    let template = common::rails_install_unmigrated();
+    let template = common::v2_install_unmigrated();
     std::fs::copy(template.path().join("production_queue.sqlite3"), dir.path().join("production_queue.sqlite3")).unwrap();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     c.execute_batch("CREATE TABLE schema_migrations (version varchar NOT NULL PRIMARY KEY)").unwrap();
@@ -868,7 +868,7 @@ fn a_v2_0_0_primary_is_behind_before_the_secret_check() {
 /// says ready, writing nothing; `serve` then takes the install over.
 #[test]
 fn check_assesses_the_install_as_serve_will_after_its_pending_migrations() {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     let s = seed::seed_kraken(&c, &seed::cipher());
     let bot = seed::index_bot(&c, &s, "ignored", 3, 0.0, false);
@@ -958,7 +958,7 @@ fn open_order(c: &rusqlite::Connection, s: &seed::Seeded, bot: i64) {
 }
 
 fn two_x_install(refusing: bool) -> (tempfile::TempDir, i64) {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
     let s = seed::seed_kraken(&c, &seed::cipher());
     let bot = BotSpec::weekly(60.0, "2099-01-01 00:00:00");
@@ -1008,7 +1008,7 @@ fn serve_backs_a_2x_install_up_before_taking_it_over_and_the_copy_restores_it() 
 
 #[test]
 fn a_handed_back_install_is_backed_up_with_its_tax_rows_and_refused_starts_add_one_copy_per_state() {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
     let s = seed::seed_kraken(&c, &seed::cipher());
     let bot = seed::insert_bot(&c, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
@@ -1089,7 +1089,7 @@ fn a_crash_mid_migrate_or_mid_backup_leaves_one_copy_per_state_and_no_partial() 
     let out = bare(dir.path(), &["run"]).env("DELTABADGER_TEST_ABORT", "mid-migrate").output().unwrap();
     assert!(!out.status.success());
     assert_eq!(backups(dir.path()).len(), 1);
-    assert!(run_to_claim(dir.path()).contains("took over (FromRails)"));
+    assert!(run_to_claim(dir.path()).contains("took over (FromV2)"));
     let made = backups(dir.path());
     assert_eq!(made.len(), 2, "the original and the half-migrated state: {made:?}");
     for f in DATABASES.iter().chain(&["digest"]) {
@@ -1108,7 +1108,7 @@ fn a_crash_mid_migrate_or_mid_backup_leaves_one_copy_per_state_and_no_partial() 
     let left = backups(dir.path());
     assert!(left.len() == 1 && left[0].extension().is_some_and(|e| e == "partial"), "{left:?}");
     assert_eq!(files_of(dir.path()), untouched, "nothing migrated before the copy is complete");
-    assert!(run_to_claim(dir.path()).contains("took over (FromRails)"));
+    assert!(run_to_claim(dir.path()).contains("took over (FromV2)"));
     let made = backups(dir.path());
     assert!(made.len() == 1 && made[0].extension().is_none_or(|e| e != "partial"), "{made:?}");
     same(&snapshots(&made[0], false), &before, "the original");
@@ -1144,7 +1144,7 @@ fn a_start_that_cannot_back_up_stops_before_any_write() {
 /// stops, writes and counts nothing twice.
 #[cfg(all(unix, debug_assertions))]
 #[test]
-fn a_crash_between_the_claim_and_the_queue_delete_acts_on_rails_jobs_once() {
+fn a_crash_between_the_claim_and_the_queue_delete_acts_on_v2_jobs_once() {
     let (dir, bot) = two_x_install(false);
     let q = rusqlite::Connection::open(dir.path().join(DATABASES[1])).unwrap();
     let gid = serde_json::json!({ "_aj_globalid": format!("gid://deltabadger/Bots::DcaMultiAsset/{bot}") });
@@ -1182,7 +1182,7 @@ fn a_crash_between_the_claim_and_the_queue_delete_acts_on_rails_jobs_once() {
 /// (PLAN-B2 r3.3, r4.4, r4.5: a waiting LedgerJob, a failed ::Retry, a claimed BackfillJob).
 #[cfg(unix)] // its only caller is unix-only
 fn two_x_install_with_tracker_jobs() -> (tempfile::TempDir, i64, Vec<i64>) {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
     let s = seed::seed_kraken(&c, &seed::cipher());
     // Dated today: the backfill's own check (backfill::wanted) has no past day to sweep, so its run needs no market data.
@@ -1209,7 +1209,7 @@ fn two_x_install_with_tracker_jobs() -> (tempfile::TempDir, i64, Vec<i64>) {
 }
 
 #[cfg(unix)] // its only caller is unix-only
-fn rails_wakes(dir: &Path) -> Option<String> {
+fn v2_wakes(dir: &Path) -> Option<String> {
     rusqlite::Connection::open(dir.join(DATABASES[0])).unwrap().query_row("SELECT value FROM app_configs WHERE key = 'rust_rails_wakes'", [], |r| r.get(0)).ok()
 }
 
@@ -1232,7 +1232,7 @@ fn run_until(dir: &Path, until: &[String]) -> Vec<String> {
 /// nothing again.
 #[cfg(unix)]
 #[test]
-fn rails_tracker_jobs_for_a_user_without_a_key_run_after_the_takeover_and_leave_the_journal() {
+fn v2_tracker_jobs_for_a_user_without_a_key_run_after_the_takeover_and_leave_the_journal() {
     let (dir, user, _) = two_x_install_with_tracker_jobs();
     let ran = |job: &str| format!("[jobs] {job} Some(\"{user}\"):");
     let (ledger, backfill) = (ran("tracker_ledger"), ran("portfolio_backfill"));
@@ -1244,10 +1244,10 @@ fn rails_tracker_jobs_for_a_user_without_a_key_run_after_the_takeover_and_leave_
     }
     let q = rusqlite::Connection::open(dir.path().join(DATABASES[1])).unwrap();
     assert_eq!(q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
-    let journal: Vec<serde_json::Value> = serde_json::from_str(&rails_wakes(dir.path()).expect("journalled until the next start")).unwrap();
+    let journal: Vec<serde_json::Value> = serde_json::from_str(&v2_wakes(dir.path()).expect("journalled until the next start")).unwrap();
     assert_eq!(journal.iter().map(|w| w["job"].as_str().unwrap()).collect::<Vec<_>>(), ["tracker_ledger", "portfolio_backfill"], "LedgerJob and ::Retry are one");
     let again = run_until(dir.path(), &["running".to_string()]);
-    assert_eq!(rails_wakes(dir.path()), None, "the runs are seen at the next start: {again:?}");
+    assert_eq!(v2_wakes(dir.path()), None, "the runs are seen at the next start: {again:?}");
     assert!(!again.iter().any(|l| l.contains(&ledger) || l.contains(&backfill)), "nothing is woken again: {again:?}");
 }
 
@@ -1259,7 +1259,7 @@ fn a_crash_between_the_wake_journal_and_the_queue_delete_imports_nothing_twice()
     let (dir, _, rows) = two_x_install_with_tracker_jobs();
     let out = bare(dir.path(), &["run"]).env("DELTABADGER_TEST_ABORT", "after-queue-commit").output().unwrap();
     assert!(!out.status.success(), "aborted: {}", stderr(&out));
-    let journal = rails_wakes(dir.path()).expect("the journal committed with the claim");
+    let journal = v2_wakes(dir.path()).expect("the journal committed with the claim");
     let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
     let set: String = c.query_row("SELECT value FROM app_configs WHERE key = 'rust_rails_queue_done'", [], |r| r.get(0)).unwrap();
     assert_eq!(serde_json::from_str::<Vec<i64>>(&set).unwrap(), rows);
@@ -1267,7 +1267,7 @@ fn a_crash_between_the_wake_journal_and_the_queue_delete_imports_nothing_twice()
     assert_eq!(q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get::<_, i64>(0)).unwrap(), 3, "rows still queued");
     assert!(run_to_claim(dir.path()).contains("took over (AfterCrash)"));
     assert_eq!(q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "the rows go");
-    assert_eq!(rails_wakes(dir.path()), Some(journal), "nothing journalled twice");
+    assert_eq!(v2_wakes(dir.path()), Some(journal), "nothing journalled twice");
 }
 
 // A16b (PLAN-A16b-reset-password-command.md): `deltabadger reset-password <email> [--stdin | --generate]`, the process.
@@ -1281,7 +1281,7 @@ mod reset_password {
 
     /// An install with the owner and one other account. Returns the owner's stored hash.
     pub fn install() -> (tempfile::TempDir, String) {
-        let dir = common::rails_install();
+        let dir = common::v2_install();
         let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
         let hash = deltabadger::crypto::hash_password(OLD).unwrap();
         for (email, hash) in [("owner@example.com", hash.as_str()), ("someone-else@example.com", "x")] {
@@ -1702,7 +1702,7 @@ fn freeze_b11_9_takeover_installs() {
     assert!(claimed.contains("took over"), "{claimed}");
     let (c, q) = open(settled.path());
     let now = chrono::Utc::now();
-    deltabadger::jobs::state::record_success(&c, deltabadger::engine::rails_unrecorded::JOB, None, now).unwrap();
+    deltabadger::jobs::state::record_success(&c, deltabadger::engine::v2_unrecorded::JOB, None, now).unwrap();
     // tracker/rows.rs's own words for a JSON column it can't read.
     deltabadger::jobs::state::record_error(&c, "tracker_ledger", Some(&user.to_string()), now, "a JSON column Rails did not write").unwrap();
     common::freeze::freeze("takeover", &c, Some(&q));

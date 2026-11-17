@@ -125,7 +125,7 @@ fn listening(port: u16) -> Vec<String> {
 
 /// An install one `serve` made and stopped, with the lease row deleted: an install Rails owns, as far as `serve` can tell,
 /// so the next start backs it up before taking it over.
-fn rails_owned_install() -> tempfile::TempDir {
+fn v2_owned_install() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
     let port = free_port();
     let mut e = start(&mut command(dir.path(), port), port);
@@ -140,7 +140,7 @@ fn rails_owned_install() -> tempfile::TempDir {
     dir
 }
 
-/// The migration `rails_owned_install` leaves pending.
+/// The migration `v2_owned_install` leaves pending.
 const PENDING: &str = "20261107000001";
 
 fn migrated(dir: &Path) -> bool {
@@ -224,7 +224,7 @@ fn the_refusal_page_answers_refused_and_stops_when_stdin_closes() {
 /// C7, the wait for a just-stopped 2.x: `ready <token> starting`, and stdin's end stops it with 0, nothing claimed.
 #[test]
 fn the_starting_page_answers_starting_and_stops_when_stdin_closes() {
-    let dir = rails_owned_install();
+    let dir = v2_owned_install();
     let at = deltabadger::codec::format_time(chrono::Utc::now() - chrono::Duration::seconds(30));
     rusqlite::Connection::open(dir.path().join("production_queue.sqlite3")).unwrap().execute(
         "INSERT INTO solid_queue_processes (kind, last_heartbeat_at, pid, hostname, created_at, name) VALUES ('Worker', ?1, 1, 'h', ?1, 'w')", [at]).unwrap();
@@ -261,7 +261,7 @@ fn stdin_closed_from_the_start_stops_before_the_claim_and_the_next_start_serves(
 #[test]
 fn stdin_closed_at_each_start_barrier_stops_before_the_claim() {
     for (barrier, copied) in [("before-backup", false), ("after-backup", true), ("after-migrate", true), ("before-claim", true)] {
-        let dir = rails_owned_install();
+        let dir = v2_owned_install();
         let release = dir.path().join("release");
         let port = free_port();
         let mut c = command(dir.path(), port);
@@ -313,7 +313,7 @@ fn stdin_closed_once_the_engine_runs_stops_it_on_request() {
 /// access. Made, with its digest, and no `.partial` left.
 #[test]
 fn the_backup_before_a_takeover_completes_on_every_os() {
-    let dir = rails_owned_install();
+    let dir = v2_owned_install();
     let paths = deltabadger::store::Paths::from_env(&|_| None, dir.path());
     match deltabadger::store::backup(&paths, chrono::Utc::now()).unwrap() {
         deltabadger::store::Backup::Made(copy) => {
@@ -861,7 +861,7 @@ fn off_the_desktop_an_update_makes_no_copy() {
 /// A takeover from Rails takes its own copy, and only that one, though it migrates too.
 #[test]
 fn a_takeover_on_the_desktop_takes_only_its_own_copy() {
-    let dir = rails_owned_install();
+    let dir = v2_owned_install();
     let port = free_port();
     let mut c = command(dir.path(), port);
     c.env("DELTABADGER_PLATFORM", "desktop");

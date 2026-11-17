@@ -44,7 +44,7 @@ fn to_i(v: &serde_json::Value) -> i64 {
         _ => 0,
     }
 }
-fn ruby_s(v: &serde_json::Value) -> String { match v { serde_json::Value::String(s) => s.clone(), serde_json::Value::Null => String::new(), other => other.to_string() } }
+fn v2_s(v: &serde_json::Value) -> String { match v { serde_json::Value::String(s) => s.clone(), serde_json::Value::Null => String::new(), other => other.to_string() } }
 
 /// TrackerController#check_pending_report: the pending report's refusal, else its file as an auto-download, else (this
 /// build's own, D-TAX-RECONCILE) the failed alert when the slot's retained request for it failed: no file marks a failure.
@@ -53,9 +53,9 @@ pub(super) fn pending_report(c: &Connection, ctx: &Ctx, owner: i64, settings: &s
     let truthy = |v: &serde_json::Value| !matches!(v, serde_json::Value::Null | serde_json::Value::Bool(false));
     let (country, year) = (&pending["country"], &pending["year"]);
     if !truthy(country) || !truthy(year) { return Ok(String::new()); }
-    let scope = match &pending["report_scope"] { serde_json::Value::String(s) if !crate::ruby::blank(s) => s.clone(), serde_json::Value::Null | serde_json::Value::Bool(false) => "crypto".into(), serde_json::Value::String(_) => "crypto".into(), other => other.to_string() };
+    let scope = match &pending["report_scope"] { serde_json::Value::String(s) if !crate::v2::blank(s) => s.clone(), serde_json::Value::Null | serde_json::Value::Bool(false) => "crypto".into(), serde_json::Value::String(_) => "crypto".into(), other => other.to_string() };
     let tmp = &ctx.app.config.tmp_dir;
-    let (country_s, year_i) = (ruby_s(country), to_i(year));
+    let (country_s, year_i) = (v2_s(country), to_i(year));
     let refusal = crate::tax::job::refusal_path(tmp, owner, &country_s, year_i, &scope);
     if refusal.exists() {
         // `JSON.parse` failing reads as no refusal.
@@ -73,7 +73,7 @@ pub(super) fn pending_report(c: &Connection, ctx: &Ctx, owner: i64, settings: &s
         if failed { return Ok(Refused { message: escape(&i18n::text(ctx.locale, "tracker.tax_report.failed", &[])), style: "danger" }.render()?); }
         return Ok(String::new());
     }
-    let url = with_query(ctx, "/tracker/download_tax_report", &[("country", Some(&country_s)), ("report_scope", Some(&scope)), ("year", Some(&ruby_s(year)))]);
+    let url = with_query(ctx, "/tracker/download_tax_report", &[("country", Some(&country_s)), ("report_scope", Some(&scope)), ("year", Some(&v2_s(year)))]);
     Ok(format!("  <div data-controller=\"auto-download\" data-auto-download-url-value=\"{}\"></div>\n", escape(&url)))
 }
 #[derive(Template)]

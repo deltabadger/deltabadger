@@ -135,7 +135,7 @@ async fn form(app: &App, ctx: &Ctx, status: StatusCode, token: &str, user: &User
 /// GET /password/edit.
 pub async fn edit(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let token = ctx.params.query("reset_password_token").unwrap_or("").to_string();
-    if crate::ruby::blank(&token) { // assert_reset_token_passed
+    if crate::v2::blank(&token) { // assert_reset_token_passed
         flash::set(&ctx.session, flash::ALERT, super::i18n::text(ctx.locale, "devise.passwords.no_token", &[]));
         return Ok(layout::redirect(StatusCode::FOUND, &ctx.path("/login")));
     }
@@ -149,7 +149,7 @@ pub async fn edit(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Res
 /// Devise's validatable on the new password, as errors[:password] and errors[:password_confirmation] hold it.
 fn password_refusal(locale: &str, password: &str, confirmation: Option<&str>) -> Option<Refusal> {
     let (mut on_password, mut on_confirmation) = (vec![], vec![]);
-    if crate::ruby::blank(password) {
+    if crate::v2::blank(password) {
         on_password.push(setup::kind_message(locale, "password", "blank", None)); // Recoverable#reset_password
     } else {
         if confirmation.is_some_and(|c| c != password) { on_confirmation.push(setup::kind_message(locale, "password_confirmation", "confirmation", None)) }
@@ -177,7 +177,7 @@ fn second_factor_gate(c: &Connection, ctx_locale: &str, user: &mut User, code: O
     if user.lock_expired(now) { user.unlock(c, now)? }
     let refuse = |key: &str| Some(Refusal { password: None, confirmation: None, code: Some(super::i18n::text(ctx_locale, key, &[])) });
     if user.locked(now) { return Ok(refuse("devise.failure.locked")) }
-    if code.is_none_or(crate::ruby::blank) { return Ok(refuse("errors.messages.empty_two_fa_token")) }
+    if code.is_none_or(crate::v2::blank) { return Ok(refuse("errors.messages.empty_two_fa_token")) }
     Ok(None)
 }
 

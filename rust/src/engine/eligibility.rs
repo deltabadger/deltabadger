@@ -99,7 +99,7 @@ pub const UNBALANCED: &str = "allocations: weights sum to";
 pub fn allocations_balanced(bot: &Bot) -> bool {
     if bot.bot_type != "Bots::DcaMultiAsset" || bot.weighting() == "market_cap" { return true; }
     let weights: Vec<f64> = bot.allocations().unwrap_or_default().into_iter().map(|(_, w)| w).collect();
-    (crate::ruby::float_sum(&weights) - 1.0).abs() <= ALLOCATION_TOLERANCE
+    (crate::v2::float_sum(&weights) - 1.0).abs() <= ALLOCATION_TOLERANCE
 }
 
 /// bot_reasons, less UNBALANCED: rebalances, liquidations and redeploys do not require weights summing to 100 %.
@@ -121,7 +121,7 @@ fn set(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) && v 
 /// Bot::EvaluateRebalancersJob's candidates. Each rule covers the statuses Rails handles it for. The pending keys stay on
 /// every status: Rails' automatic legs skip deleted/archived bots, but its halt resolutions (Bots::*ResolutionsController,
 /// Bot::Resolve*Job) take any bot, and an archived bot's page offers them.
-fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineError> {
+fn v2_work(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineError> {
     let mut r = vec![];
     // Transaction.statuses is submitted, failed, skipped. Any other status proves neither a fill nor a rejection: the order
     // may still be working at the venue, whatever this bot's own status.
@@ -212,7 +212,7 @@ fn flip_rule_reasons(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineErr
 fn bot_reasons_with(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineError> {
     bot.validate_times()?;
     model::merged_history_cutoff(c, bot)?;
-    let mut r = rails_work(c, bot)?;
+    let mut r = v2_work(c, bot)?;
     // Nothing else in such a history can be read (the shared row reader refuses it): name it and stop.
     if r.iter().any(|reason| reason.ends_with(UNKNOWN_STATUS)) { return Ok(r); }
     if bot.bot_type == model::SIGNAL_TYPE { signal_reasons(c, bot, &mut r)?; return Ok(r); }
@@ -400,8 +400,8 @@ fn sell_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<Reason>) ->
     }
     for key in ["sell_amount", "sell_quote_amount", "smart_interval_base_amount"] {
         if let Some(v) = bot.settings.get(key).filter(|v| !v.is_null()) {
-            if !(v.is_number() || v.as_str().is_some_and(|s| s.trim().is_empty() || crate::ruby::BigDec::parse(s.trim()).is_ok())) { r.push(why(Kind::Settings, format!("{key} is not a number"))); }
-            if super::schedule::to_d(v).is_some_and(|d| d < crate::ruby::BigDec::zero()) { r.push(why(Kind::Settings, format!("{key} is negative"))); }
+            if !(v.is_number() || v.as_str().is_some_and(|s| s.trim().is_empty() || crate::v2::BigDec::parse(s.trim()).is_ok())) { r.push(why(Kind::Settings, format!("{key} is not a number"))); }
+            if super::schedule::to_d(v).is_some_and(|d| d < crate::v2::BigDec::zero()) { r.push(why(Kind::Settings, format!("{key} is negative"))); }
         }
     }
     // The span between two sells, as the web bounds a working bot's (MIN_SPAN_SECONDS, MAX_SPAN_SECONDS).
@@ -424,7 +424,7 @@ fn composition_reasons(bot: &Bot, r: &mut Vec<Reason>) -> Vec<i64> {
     // Bots::DcaMultiAsset::Allocatable#allocations_balanced?.
     if a.iter().any(|(_, w)| *w < 0.0) { r.push(why(Kind::Allocations(Allocations::Negative), "allocations: a negative weight")); }
     if !allocations_balanced(bot) {
-        let sum = crate::ruby::float_sum(&a.iter().map(|(_, w)| *w).collect::<Vec<_>>());
+        let sum = crate::v2::float_sum(&a.iter().map(|(_, w)| *w).collect::<Vec<_>>());
         r.push(why(Kind::Allocations(Allocations::Unbalanced(sum.to_string())), format!("{UNBALANCED} {sum}, not 1")));
     }
     // Keys that name one id ("7", "07") would make the basket carry one asset as two members.
@@ -480,7 +480,7 @@ pub fn unread_special_rows(c: &Connection, bot: &Bot) -> Result<Vec<String>, Eng
 }
 
 /// What of an index bot's special history the walk does not read as Rails writes it. Waiting, pending and abandoned rows
-/// are rails_work's; a rejected row that executed nothing is ignored, as Rails' `submitted` scope ignores it.
+/// are v2_work's; a rejected row that executed nothing is ignored, as Rails' `submitted` scope ignores it.
 fn special_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(), EngineError> {
     let (kinds, sides, statuses): (i64, i64, i64) = c.query_row(
         "SELECT coalesce(sum(transaction_type NOT IN ('LIQUIDATION', 'REBALANCE', 'REDEPLOY')), 0), \
@@ -612,7 +612,7 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
         let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) \
                                             AND (external_id IS NULL OR external_id NOT LIKE 'imported_%') \
                                             AND NOT (?2 AND transaction_type IN ('REBALANCE', 'LIQUIDATION', 'REDEPLOY'))", params![id, composition_only], |r| r.get(0))?;
-        let mut work = rails_work(c, &bot)?;
+        let mut work = v2_work(c, &bot)?;
         // bot_reasons admitted this halt with only the stopped-basket allocation exception left.
         if composition_only { work.retain(|reason| !halt_reason(reason)); }
         // A stopped bot still rebalances (run::run_rebalances), so whatever else it carries must be within the slice.

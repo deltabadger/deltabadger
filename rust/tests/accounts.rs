@@ -34,7 +34,7 @@ impl Mailer for Mail {
 struct Harness { dir: tempfile::TempDir, app: App, mail: Arc<Mail>, clock: Arc<TestClock> }
 
 fn harness_with(behaviour: Behaviour, env: &[(&str, &str)], hook: Option<deltabadger::web::PasswordHook>) -> Harness {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let clock = TestClock::at(AT);
     let extra: serde_json::Map<String, Value> = env.iter().map(|(k, v)| (k.to_string(), Value::String(v.to_string()))).collect();
     let mail = Arc::new(Mail { sent: Mutex::new(vec![]), behaviour });
@@ -215,7 +215,7 @@ async fn the_answer_never_depends_on_mail() {
 /// (a link mailed while SMTP was set up keeps working).
 #[tokio::test(flavor = "current_thread")]
 async fn the_live_mailer_without_smtp_answers_alike() {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let clock = TestClock::at(AT);
     let app = web_support::app(dir.path(), SECRET, clock); // settings::mail::live(), no SMTP configured
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();

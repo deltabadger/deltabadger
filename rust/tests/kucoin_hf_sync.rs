@@ -233,8 +233,8 @@ fn export(rows: &[&str]) -> String {
 }
 /// The export legs of a BTC-USDT buy at `at`: `size` BTC in, `funds` + `fee` USDT out.
 fn buy_legs(size: &str, funds: &str, fee: &str, at: &str) -> Vec<String> {
-    let total = deltabadger::ruby::BigDec::parse(funds).unwrap();
-    let total = (&total + &deltabadger::ruby::BigDec::parse(fee).unwrap()).to_s_f();
+    let total = deltabadger::v2::BigDec::parse(funds).unwrap();
+    let total = (&total + &deltabadger::v2::BigDec::parse(fee).unwrap()).to_s_f();
     vec![format!("BTC,Deposit,{size},0,{at},Spot"), format!("USDT,Withdrawal,{total},{fee},{at},Spot")]
 }
 fn file(legs: &[Vec<String>]) -> String { export(&legs.iter().flatten().map(String::as_str).collect::<Vec<_>>()) }
@@ -268,7 +268,7 @@ async fn l01_pages_boundary_and_large_ids_replayed() {
     assert_eq!(fx.count("SELECT count(*) FROM account_transactions WHERE json_extract(raw_data, '$.family') = 'ClassicHf'"), 102);
     let mut s = fx.c.prepare("SELECT raw_data FROM account_transactions WHERE json_extract(raw_data, '$.family') = 'ClassicHf'").unwrap();
     let raws: Vec<Value> = s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(|r| serde_json::from_str(&r.unwrap()).unwrap()).collect();
-    let total = |k: &str| raws.iter().fold(deltabadger::ruby::BigDec::zero(), |a, r| &a + &deltabadger::ruby::BigDec::parse(r[k].as_str().unwrap()).unwrap()).to_s_f();
+    let total = |k: &str| raws.iter().fold(deltabadger::v2::BigDec::zero(), |a, r| &a + &deltabadger::v2::BigDec::parse(r[k].as_str().unwrap()).unwrap()).to_s_f();
     assert_eq!([total("size"), total("funds"), total("fee")], ["0.00102", "69.071952", "0.069071952"]);
     assert!(raws.iter().all(|r| r["orderId"].as_str().is_some_and(|o| o.starts_with("hf-history-"))));
     assert_eq!(fx.coverage("hf_api").len(), 1, "a complete unit certifies");

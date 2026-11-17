@@ -87,7 +87,7 @@ fn comparable(mut transcript: Value) -> Value {
     transcript
 }
 #[tokio::test(flavor="current_thread")]
-async fn four_reads_match_rails() {
+async fn four_reads_match_v2() {
     for name in ALL_READS {assert_eq!(deltabadger::web::mcp::tools::NAMES.contains(name),EXPECTED_READS.contains(name),"registry stage: {name}");}
     let root=tempfile::tempdir().unwrap();
     // The grid is Rails' own (frozen); Rails plays it in `record` on its own copy, keeping only its answers (rails.json).
@@ -356,15 +356,15 @@ async fn polled_open_market_zero_price_uses_the_nil_branch() {
     o.primary.execute_batch("PRAGMA wal_checkpoint(TRUNCATE)").unwrap(); // the container reads the file, not this process's WAL
     let boot=tempfile::tempdir().unwrap();
     let oracle=boot.path().join("polled-rails.json");
-    let out=common::v2::rails(dir.path(),boot.path(),"engine-test-secret",&["runner",r#"Time.zone='UTC'; order=BotApi::Orders::ListOpen.call(user: User.find(ARGV[0])).data[:orders].sole; presenter=ListOpenOrdersTool.allocate; File.write('/x/polled-rails.json',JSON.generate(zero: presenter.send(:db_line,order),nil: presenter.send(:db_line,order.merge(price: nil))))"#,&s.user_id.to_string()]);
+    let out=common::v2::v2(dir.path(),boot.path(),"engine-test-secret",&["runner",r#"Time.zone='UTC'; order=BotApi::Orders::ListOpen.call(user: User.find(ARGV[0])).data[:orders].sole; presenter=ListOpenOrdersTool.allocate; File.write('/x/polled-rails.json',JSON.generate(zero: presenter.send(:db_line,order),nil: presenter.send(:db_line,order.merge(price: nil))))"#,&s.user_id.to_string()]);
     assert!(out.status.success(),"2.70.21's ListOpen: {}",String::from_utf8_lossy(&out.stderr));
-    let rails=read(&oracle);
+    let v2=read(&oracle);
     let line=got["content"][0]["text"].as_str().unwrap().strip_prefix("Open orders (1):\n").unwrap();
-    assert!(rails["zero"].as_str().unwrap().contains("@ 0.0"));
-    assert_eq!(line,rails["nil"].as_str().unwrap(),"exact Rails no-price branch");
+    assert!(v2["zero"].as_str().unwrap().contains("@ 0.0"));
+    assert_eq!(line,v2["nil"].as_str().unwrap(),"exact Rails no-price branch");
     if let Ok(root)=std::env::var("M3_RECORDINGS") {
         std::fs::create_dir_all(&root).unwrap();
-        std::fs::write(Path::new(&root).join("polled-engine.json"),serde_json::to_string_pretty(&json!({"stored_price":stored.0,"stored_amount_exec":stored.1,"external_status":stored.2,"rails_stored_zero":rails["zero"],"rails_nil_price":rails["nil"],"rust_stored_zero":line})).unwrap()).unwrap();
+        std::fs::write(Path::new(&root).join("polled-engine.json"),serde_json::to_string_pretty(&json!({"stored_price":stored.0,"stored_amount_exec":stored.1,"external_status":stored.2,"rails_stored_zero":v2["zero"],"rails_nil_price":v2["nil"],"rust_stored_zero":line})).unwrap()).unwrap();
     }
     assert_eq!(snapshot(dir.path())["transactions"],before,"MCP preserves the persisted zero");
     o.primary.execute("UPDATE transactions SET price=NULL",[]).unwrap();

@@ -107,7 +107,7 @@ impl Key {
         candidate.key = Some(consumer_key.into());
         candidate.secret = Some(secret.into());
         candidate.extras[0] = Some(access_token.into());
-        if candidate.realm.as_deref().is_none_or(crate::ruby::blank) { candidate.realm = Some(crate::venue::signers::ibkr::DEFAULT_REALM.into()); }
+        if candidate.realm.as_deref().is_none_or(crate::v2::blank) { candidate.realm = Some(crate::venue::signers::ibkr::DEFAULT_REALM.into()); }
         candidate
     }
     fn same(&self, other: &Self) -> bool {
@@ -378,7 +378,7 @@ struct Fix{message:String,trading:bool,trading_path:String,reading_path:String,t
 /// a failure Rails never records; it reads as the sync's own failure.
 struct WarningKey{exchange:i64,name:String,venue:String,status:i64,kind:i64,error:Option<String>,unresolved:bool}
 impl WarningKey{
-    fn failed(&self)->bool{self.unresolved||self.error.as_deref().is_some_and(|e|!crate::ruby::blank(e))}
+    fn failed(&self)->bool{self.unresolved||self.error.as_deref().is_some_and(|e|!crate::v2::blank(e))}
     /// ApiKey#missing_permission?: the venue's own permission_denied texts (Exchange#permission_error?), one table for every venue.
     fn permission(&self)->bool{crate::tracker::import::run::missing_permission(&self.venue,self.error.as_deref())}
 }
@@ -439,7 +439,7 @@ pub fn list(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, 
 /// `@platform_errors` with `@show_platform_form`, a claim that failed.
 pub(super) fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str,show_coingecko_form:bool,platform_errors:Option<&str>)->Result<String,WebError>{
     let setting=|name:&str|auth::app_config(c,&app.cipher,name);
-    let has=|name:&str|Ok::<_,WebError>(setting(name)?.is_some_and(|s|!crate::ruby::blank(&s)));
+    let has=|name:&str|Ok::<_,WebError>(setting(name)?.is_some_and(|s|!crate::v2::blank(&s)));
     let provider=setting("market_data_provider")?.unwrap_or_default();let hosted=app.config.market_data_url;
     let platform_connected=has("platform_connected_at")?;
     let proxies=super::platform::proxies(c)?;
@@ -632,8 +632,8 @@ pub async fn legacy(
   if current.id.is_some() && settling(&tx,user.id,exchange)? { return Ok(Err(Some(SETTLING.to_string()))); }
   let same_keys=same(&current.key,&key)&&same(&current.secret,&secret);
   if venue=="Exchanges::Hyperliquid"{
-   let address=crate::ruby::validation_regex(r"\A0x[0-9a-fA-F]{40}\z").map_err(|_|WebError::Config("invalid wallet pattern".into()))?;
-   let agent=crate::ruby::validation_regex(r"\A(0x)?[0-9a-fA-F]{64}\z").map_err(|_|WebError::Config("invalid agent pattern".into()))?;
+   let address=crate::v2::validation_regex(r"\A0x[0-9a-fA-F]{40}\z").map_err(|_|WebError::Config("invalid wallet pattern".into()))?;
+   let agent=crate::v2::validation_regex(r"\A(0x)?[0-9a-fA-F]{64}\z").map_err(|_|WebError::Config("invalid agent pattern".into()))?;
    if !address.is_match(key.as_deref().unwrap_or(""))||!agent.is_match(secret.as_deref().unwrap_or("")){return Ok(Err(None));}
   }
   if !ported(&venue){return Ok(Err(Some("credential venue is not ported".into())));}
@@ -754,7 +754,7 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     if crate::web::bot::retired_type(&class){ctx.session.lock().tracker_connect=Some(exchange);return Ok(retired_answer(&ctx))}
     if !ported(&class){return Ok(crate::web::layout::not_ported_for(&ctx))}
     ctx.session.lock().tracker_connect=Some(exchange);
-    if !(requested.is_none()&&healthy)&&key.status!=1&&key.key.as_deref().is_some_and(|s|!crate::ruby::blank(s))&&key.secret.as_deref().is_some_and(|s|!crate::ruby::blank(s)){
+    if !(requested.is_none()&&healthy)&&key.status!=1&&key.key.as_deref().is_some_and(|s|!crate::v2::blank(s))&&key.secret.as_deref().is_some_and(|s|!crate::v2::blank(s)){
         if let Some(id)=key.id{
             if let Some(reason)=revalidate(&app,id).await?{
                 let body=turbo::prepend_flash(&flash::render(&flash::take(&ctx.session,&[(flash::ALERT,refusal_text(&ctx,&reason))]))?);

@@ -5,7 +5,7 @@ use deltabadger::engine::schedule::*;
 fn micros(t: &str) -> i64 { t.parse::<DateTime<Utc>>().unwrap().timestamp_micros() }
 
 #[test]
-fn every_recorded_rails_schedule_is_reproduced() {
+fn every_recorded_v2_schedule_is_reproduced() {
     let cases = common::vectors()["schedule"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 351);
     for c in cases {
@@ -50,7 +50,7 @@ fn sell_vectors() -> serde_json::Value {
 }
 
 #[test]
-fn every_recorded_rails_sell_schedule_is_reproduced() {
+fn every_recorded_v2_sell_schedule_is_reproduced() {
     let cases = sell_vectors()["schedule"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 4192);
     let (mut checked, mut short) = (0, 0);

@@ -34,7 +34,7 @@ const DIVERGENCES: [(&str, usize, &str, i64, i64); 9] = [
 ];
 
 #[tokio::test(start_paused = true)]
-async fn every_recorded_catalogue_reads_as_rails() {
+async fn every_recorded_catalogue_reads_as_v2() {
     let vectors: Value = serde_json::from_str(include_str!("fixtures/catalogue_vectors.json")).unwrap();
     let scenarios = vectors["scenarios"].as_array().unwrap();
     assert_eq!(scenarios.len(), 32);
@@ -43,19 +43,19 @@ async fn every_recorded_catalogue_reads_as_rails() {
         let t = Timed { inner: ScriptedTransport::from_script(&sc["script"]), start: Instant::now(), at: RefCell::new(vec![]) };
         let got = catalogue::read(sc["venue"].as_str().unwrap(), &t).await;
 
-        let rails = &sc["rails"];
-        match (&got, rails.get("rows")) {
+        let v2 = &sc["rails"];
+        match (&got, v2.get("rows")) {
             (Ok(rows), Some(expected)) => {
                 let mut expected = expected.clone();
-                for (scenario, i, field, in_rails, in_rust) in DIVERGENCES.iter().filter(|d| d.0 == name) {
-                    assert_eq!(expected[*i][*field], json!(in_rails), "{name}: Rails' {field} of row {i}");
+                for (scenario, i, field, in_v2, in_rust) in DIVERGENCES.iter().filter(|d| d.0 == name) {
+                    assert_eq!(expected[*i][*field], json!(in_v2), "{name}: Rails' {field} of row {i}");
                     expected[*i][*field] = json!(in_rust);
                     assert_eq!(rows[*i][*field], json!(in_rust), "{scenario}: Rust's {field} of row {i}");
                 }
                 assert_eq!(&Value::Array(rows.clone()), &expected, "{name}: rows");
             }
-            (Err(message), None) => assert_eq!(message, rails["message"].as_str().unwrap(), "{name}: failure"),
-            (got, _) => panic!("{name}: Rust {got:?}, Rails {rails}"),
+            (Err(message), None) => assert_eq!(message, v2["message"].as_str().unwrap(), "{name}: failure"),
+            (got, _) => panic!("{name}: Rust {got:?}, Rails {v2}"),
         }
 
         let sent = t.inner.requests();

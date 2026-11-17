@@ -117,7 +117,7 @@ pub async fn setup_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
     let Some(user) = ctx.user() else { return Ok(auth::unauthenticated(&ctx)) };
     if !user.admin { return Ok(md::head(StatusCode::FORBIDDEN)) }
     let key = ctx.params.form("api_key").unwrap_or_default().to_string();
-    if crate::ruby::blank(&key) || !md::key_valid(&app, &key).await { return md::invalid_key(&ctx) }
+    if crate::v2::blank(&key) || !md::key_valid(&app, &key).await { return md::invalid_key(&ctx) }
     md::save_key(&app, key).await?;
     begin(&ctx);
     Ok(redirect(&ctx, PICK_NEW))
@@ -229,7 +229,7 @@ pub async fn pick_create(State(app): State<App>, Extension(ctx): Extension<Ctx>)
         if !config.is_object() { *config = json!({}); }
         if !config["settings"].is_object() { config["settings"] = json!({}); }
         let settings = config["settings"].as_object_mut().expect("an object, made one above");
-        match (index_type.as_deref(), category.filter(|id| !crate::ruby::blank(id))) {
+        match (index_type.as_deref(), category.filter(|id| !crate::v2::blank(id))) {
             (Some("top"), _) => {
                 for key in ["index_type", "index_category_id", "index_name", "index_name_prefix"] { settings.insert(key.into(), Value::Null); }
                 settings.insert("index_type".into(), json!("top"));
@@ -253,7 +253,7 @@ pub async fn pick_create(State(app): State<App>, Extension(ctx): Extension<Ctx>)
 /// The before_actions of the venue step: market data, then an index chosen.
 fn exchange_gate(c: &Connection, app: &App, config: Option<&Value>) -> Result<Option<&'static str>, WebError> {
     if !configured(c, app)? { return Ok(Some(SETUP_NEW)) }
-    let chosen = dig(config, &["settings", "index_type"]).is_some_and(|v| v.as_str().is_some_and(|t| !crate::ruby::blank(t)) || matches!(v, Value::Number(_) | Value::Bool(true)));
+    let chosen = dig(config, &["settings", "index_type"]).is_some_and(|v| v.as_str().is_some_and(|t| !crate::v2::blank(t)) || matches!(v, Value::Number(_) | Value::Bool(true)));
     Ok((!chosen).then_some(PICK_NEW))
 }
 
@@ -289,7 +289,7 @@ struct ExchangeStep { progress: String, sentence: String, table: Table }
 /// none, or for Top Coins), ordered or searched as Bots::Searchable does.
 fn exchange_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) -> Result<String, WebError> {
     let settings = settings_of(config);
-    let category = settings.get("index_category_id").and_then(Value::as_str).filter(|id| !crate::ruby::blank(id));
+    let category = settings.get("index_category_id").and_then(Value::as_str).filter(|id| !crate::v2::blank(id));
     let types: Option<Vec<String>> = match (settings.get("index_type").and_then(Value::as_str), category) {
         (Some("category"), Some(id)) => {
             let available: Option<Option<String>> = c.query_row("SELECT available_exchanges FROM indices WHERE external_id = ?1 ORDER BY id LIMIT 1", [id], |r| r.get(0)).optional()?;
@@ -329,7 +329,7 @@ pub async fn exchange_create(State(app): State<App>, Extension(ctx): Extension<C
     let (inner, config) = (app.clone(), ctx.session.lock().bot_config.clone());
     if let Some(path) = app.db(move |c| exchange_gate(c, &inner, config.as_ref())).await? { return Ok(redirect(&ctx, path)) }
     let Some(exchange) = ctx.params.form(EXCHANGE_FIELD).or_else(|| ctx.params.query(EXCHANGE_FIELD)).map(str::to_string) else { return Ok(layout::bad_request()) };
-    if crate::ruby::blank(&exchange) { return exchange_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY).await }
+    if crate::v2::blank(&exchange) { return exchange_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY).await }
     {
         let mut data = ctx.session.lock();
         let config = data.bot_config.get_or_insert_with(|| json!({}));
@@ -362,7 +362,7 @@ struct QuoteStep { progress: String, sentence: String, create_url: String, csrf:
 /// only when any is an Asset (JSON text for `?2` of `available_quotes`).
 fn narrowed(c: &Connection, settings: &Map<String, Value>, class: &str) -> Result<Option<String>, WebError> {
     let category = settings.get("index_type").and_then(Value::as_str) == Some("category")
-        && settings.get("index_category_id").and_then(Value::as_str).is_some_and(|id| !crate::ruby::blank(id));
+        && settings.get("index_category_id").and_then(Value::as_str).is_some_and(|id| !crate::v2::blank(id));
     if !category { return Ok(None); }
     let coins = index_row(c, settings)?.map(|index| index.top_coins_for_exchange(class)).unwrap_or_default();
     let ids: Vec<i64> = if coins.is_empty() { vec![] } else {
@@ -467,7 +467,7 @@ pub async fn quote_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
         QuoteGate::Open => {}
     }
     let Some(quote) = ctx.params.form(QUOTE_FIELD).or_else(|| ctx.params.query(QUOTE_FIELD)).map(str::to_string) else { return Ok(layout::bad_request()) };
-    if crate::ruby::blank(&quote) { return quote_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, vec![]).await }
+    if crate::v2::blank(&quote) { return quote_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, vec![]).await }
     let config = {
         let mut data = ctx.session.lock();
         let config = data.bot_config.get_or_insert_with(|| json!({}));

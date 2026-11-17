@@ -169,7 +169,7 @@ async fn an_id_another_bot_holds_on_the_venue_is_skipped_as_existing() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_row_rails_would_insert_but_no_reader_can_read_refuses_the_whole_file() {
+async fn a_row_v2_would_insert_but_no_reader_can_read_refuses_the_whole_file() {
     let good = "2026-08-01 10:00:00 UTC,ok,Market,Buy,0.001,60,60000,BTC,USD,Closed";
     for bad in ["yesterday,x,Market,Buy,0.001,60,60000,BTC,USD,Closed", "2026-08-01,x,Stop,Buy,0.001,60,60000,BTC,USD,Closed",
                 "2026-08-01,x,Market,Hold,0.001,60,60000,BTC,USD,Closed", "2026-08-01,x,Market,Buy,12abc,60,60000,BTC,USD,Closed",
@@ -225,7 +225,7 @@ async fn the_mismatch_names_a_mismatched_quote_and_an_unknown_base_is_counted() 
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn the_file_is_read_as_rails_reads_it_and_bounded() {
+async fn the_file_is_read_as_v2_reads_it_and_bounded() {
     let i = install();
     let (app, mut browser) = signed_in(&i).await;
     let mut bom = b"\xef\xbb\xbf".to_vec();

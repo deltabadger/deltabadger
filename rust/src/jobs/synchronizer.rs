@@ -563,7 +563,7 @@ mod tests {
     }
 
     #[test]
-    fn the_map_keeps_rails_order_maps_fiat_and_refuses_ambiguity() {
+    fn the_map_keeps_v2_order_maps_fiat_and_refuses_ambiguity() {
         let crawl = [t("btc", Some("bitcoin"), "USD", None), t("ETH", Some("ethereum"), "EUR", None), t("doge", Some("dogecoin"), "usd", None),
                      t("XDG", Some("other-xdg"), "USD", None), t("COPM", Some("ecomi"), "USD", None),
                      t("SAME", Some("a"), "USD", None), t("SAME", Some("b"), "USD", None),

@@ -108,8 +108,8 @@ pub enum DecodeError {
 /// Every identified venue value is decoded here. Order readers may first retain RawValue tokens to exclude rows with
 /// no identity, without interpreting their numbers. serde_json otherwise reads a bare JSON number as an
 /// f64, so `1e-350` would arrive as 0.0 before any cap could see it. The raw text is scanned first: every bare number
-/// (string contents skipped, escapes honoured) must be within the venue caps (ruby::VENUE_MAX_EXPONENT for the effective
-/// exponent, mantissa included; ruby::VENUE_MAX_DIGITS significant digits), or the whole answer is unreadable.
+/// (string contents skipped, escapes honoured) must be within the venue caps (v2::VENUE_MAX_EXPONENT for the effective
+/// exponent, mantissa included; v2::VENUE_MAX_DIGITS significant digits), or the whole answer is unreadable.
 pub fn decode_json(body: &str) -> Result<Value, DecodeError> {
     let b = body.as_bytes();
     let mut i = 0;
@@ -133,7 +133,7 @@ pub fn decode_json(body: &str) -> Result<Value, DecodeError> {
 
 /// Over borrowed slices only: a hostile token of any length costs no allocation, and its diagnostic quotes a short prefix.
 fn number_in_caps(token: &str) -> Result<(), DecodeError> {
-    use crate::ruby::{VENUE_MAX_DIGITS, VENUE_MAX_EXPONENT};
+    use crate::v2::{VENUE_MAX_DIGITS, VENUE_MAX_EXPONENT};
     // The scanner only takes ASCII bytes into a token, so any byte index is a char boundary.
     let bad = || DecodeError::OutOfRange(format!("unreadable number {}{} ({} characters) in the venue's answer",
         &token[..token.len().min(32)], if token.len() > 32 { "…" } else { "" }, token.len()));
@@ -160,7 +160,7 @@ pub fn client_with(connect: Duration, read: Duration, total: Duration) -> reqwes
 /// else ENV `PROXY_<NAME>` when present (Rails' `presence`: a blank value is none). `app_config` is the decrypted AppConfig
 /// value, read when the venue's client is built.
 pub fn proxy_for(name: &str, app_config: Option<String>, env: &dyn Fn(&str) -> Option<String>) -> Option<String> {
-    let present = |v: Option<String>| v.filter(|v| !crate::ruby::blank(v));
+    let present = |v: Option<String>| v.filter(|v| !crate::v2::blank(v));
     present(app_config).or_else(|| present(env(&format!("PROXY_{}", name.to_uppercase()))))
 }
 

@@ -5,8 +5,8 @@ use crate::{app_config, engine::EngineError};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, types::Value, Transaction};
 
-fn decimal(value: &Value) -> Result<Option<crate::ruby::BigDec>, EngineError> {
-    crate::ruby::from_sql(value.into())
+fn decimal(value: &Value) -> Result<Option<crate::v2::BigDec>, EngineError> {
+    crate::v2::from_sql(value.into())
         .map_err(|e| EngineError::Data(format!("Coinbase repair: unreadable stored amount: {e:?}")))
 }
 pub const FLAG: &str = "rust_coinbase_size_in_quote_repaired_at";

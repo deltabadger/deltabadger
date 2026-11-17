@@ -10,7 +10,7 @@ use super::candles::{Candle, Timeframe};
 use super::model::Ticker;
 use super::EngineError;
 use crate::codec::{format_time, parse_time};
-use crate::ruby::{float_round, from_sql, ruby_sum, BigDec, Num};
+use crate::v2::{float_round, from_sql, v2_sum, BigDec, Num};
 use crate::venue::{Venue, VenueError};
 use chrono::{DateTime, Datelike, Duration, Months, TimeZone, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -156,7 +156,7 @@ fn rsi_of(closes: &[BigDec], period: usize) -> Option<Num> {
             let zero = BigDec::zero();
             (if diff < zero { Num::Dec(&zero - &diff) } else { Num::Int(0) }, if diff > zero { Num::Dec(diff) } else { Num::Int(0) })
         }).unzip();
-        let wilders = |ch: &[Num]| ruby_sum(ch).ok().map(|s| Num::Float(to_f(&s) / period as f64));
+        let wilders = |ch: &[Num]| v2_sum(ch).ok().map(|s| Num::Float(to_f(&s) / period as f64));
         let smooth = |ch: &[Num], last: &Num| mul_f(one, ch.last().expect("period > 0"))?.add(&mul_f(two, last)?).ok();
         up = match &up { None => wilders(&ups), Some(last) => smooth(&ups, last) };
         down = match &down { None => wilders(&downs), Some(last) => smooth(&downs, last) };
@@ -212,7 +212,7 @@ pub async fn moving_average<V: Venue>(venue: &V, cache: &Cache, ticker: &Ticker,
     let closes = closed_candle_closes(venue, ticker, tf, multiplier, now).await?;
     let failed = || VenueError::Rejected(vec![format!("Failed to calculate {} Moving Averages for {} (period: {period})", tf.inspect(), ticker.ticker)]);
     if period == 0 || period > closes.len() { return Err(failed()); }
-    let sum = ruby_sum(&closes[closes.len() - period..].iter().cloned().map(Num::Dec).collect::<Vec<_>>()).map_err(|_| failed())?;
+    let sum = v2_sum(&closes[closes.len() - period..].iter().cloned().map(Num::Dec).collect::<Vec<_>>()).map_err(|_| failed())?;
     let sma = Num::Float(to_f(&sum) / period as f64);
     let ema = if period == 1 { Num::Dec(closes.last().expect("period <= len").clone()) } else {
         let (p0, p1) = match period { 12 => (0.153846, 0.846154), 26 => (0.074074, 0.925926), _ => { let p = 2.0 / (period as f64 + 1.0); (p, 1.0 - p) } };

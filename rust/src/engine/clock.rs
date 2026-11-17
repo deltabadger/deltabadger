@@ -1,7 +1,7 @@
 //! Exchanges::Alpaca#market_open? and #next_market_open_at for one tick (exchanges/alpaca.rb:101-132, :644-662), read fresh
 //! (the engine keeps no clock cache) and FAILING CLOSED (spec Amendment 2026-10-02b, a-e2's ruling). Rails reads any clock
 //! failure that is not a transport raise or a rejected key as nil, and nil as open; here it places nothing and retries.
-use crate::ruby::{time_as_json, to_sentence};
+use crate::v2::{time_as_json, to_sentence};
 use crate::venue::{ClockAnswer, VenueError};
 use chrono::{DateTime, Utc};
 use serde_json::Value;

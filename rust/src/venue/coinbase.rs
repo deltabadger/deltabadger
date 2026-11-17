@@ -6,7 +6,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError}
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, COINBASE as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 pub const URL: &str = "https://api.coinbase.com";
@@ -83,7 +83,7 @@ pub const HISTORY_PAGES: usize = 5;
 pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
     let zero = BigDec::zero();
-    let amount = |v: &Value| crate::ruby::json_to_d(v).ok().flatten().filter(|d| *d >= zero);
+    let amount = |v: &Value| crate::v2::json_to_d(v).ok().flatten().filter(|d| *d >= zero);
     // Absent or null is none; present, a decimal not below zero, positive or none.
     let size = |c: &Value, k: &str| match c.get(k) { None | Some(Value::Null) => Some(None), Some(v) => amount(v).map(|d| d.is_positive().then_some(d)) };
     if o.get("product_id")?.as_str()? != symbol { return None; }
@@ -114,8 +114,8 @@ pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
         _ => return None,
     };
     let filled_base = o.get("filled_size").and_then(amount)?;
-    let total = o.get("total_value_after_fees").and_then(|v| crate::ruby::json_to_d(v).ok().flatten())?;
-    let hold = o.get("outstanding_hold_amount").and_then(|v| crate::ruby::json_to_d(v).ok().flatten())?;
+    let total = o.get("total_value_after_fees").and_then(|v| crate::v2::json_to_d(v).ok().flatten())?;
+    let hold = o.get("outstanding_hold_amount").and_then(|v| crate::v2::json_to_d(v).ok().flatten())?;
     let filled_quote = Some(&total - &hold).filter(|q| *q >= zero)?;
     let filled = filled_base.is_positive();
     let state = match o.get("status")?.as_str()? {

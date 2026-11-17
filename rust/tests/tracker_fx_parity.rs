@@ -54,7 +54,7 @@ fn same_rows(actual: Value, expected: Value, label: &str) {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn current_fx_matches_rails_rows_and_response_bytes() {
+async fn current_fx_matches_v2_rows_and_response_bytes() {
     compare(&["fx_EUR","fx_GBP","fx_CHF","fx_PLN"]).await;
 }
 
@@ -101,9 +101,9 @@ async fn compare(cases: &[&str]) {
         let directory = if name.starts_with("sync_") { std::env::var("D5_SYNC_GRID").unwrap_or_else(|_|root.clone()) } else { root.clone() };
         let source = Path::new(&directory).join(format!("d5_{name}"));
         let scenario: Value = serde_json::from_slice(&std::fs::read(source.join("scenario.json")).unwrap()).unwrap();
-        let rails: Value = serde_json::from_slice(&std::fs::read(source.join("rails.json")).unwrap()).unwrap();
-        assert!(rails["network"].as_array().unwrap().is_empty());
-        let expected = rails["responses"].as_array().unwrap().last().unwrap();
+        let v2: Value = serde_json::from_slice(&std::fs::read(source.join("rails.json")).unwrap()).unwrap();
+        assert!(v2["network"].as_array().unwrap().is_empty());
+        let expected = v2["responses"].as_array().unwrap().last().unwrap();
         let step = scenario["steps"].as_array().unwrap().last().unwrap();
         let dir = tempfile::tempdir().unwrap();
         for name in ["production.sqlite3","production_queue.sqlite3"] { std::fs::copy(source.join(name),dir.path().join(name)).unwrap(); }

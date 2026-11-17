@@ -296,7 +296,7 @@
     },
     "rust/src/venue/alpaca.rs": {
       "upstream": {
-        "pub fn ruby_to_d(v: &Value) -> Result<BigDec, String> { ruby_opt_to_d(v).map(|d| d.unwrap_or_else(BigDec::zero)) }": 1,
+        "pub fn v2_to_d(v: &Value) -> Result<BigDec, String> { v2_opt_to_d(v).map(|d| d.unwrap_or_else(BigDec::zero)) }": 1,
         "match http::decode_json(body).ok().as_ref().and_then(|v| v.get(\"message\")) {": 1,
         "let mut identity: std::collections::HashMap<String, Box<serde_json::value::RawValue>> = serde_json::from_str(raw).unwrap_or_default();": 1,
         "let string = |value: Option<Box<serde_json::value::RawValue>>| value.and_then(|v| serde_json::from_str::<String>(v.get()).ok());": 1,

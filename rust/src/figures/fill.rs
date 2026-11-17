@@ -178,7 +178,7 @@ pub fn action_commitments(c: &Connection, bot_id: i64, since: &str) -> Result<Ve
     budget::within(|| commitments_bounded(c, bot_id, since, Some(100_000)))
 }
 fn commitments_bounded(c: &Connection, bot_id: i64, since: &str, limit: Option<usize>) -> Result<Vec<Commitment>, FiguresError> {
-    use crate::ruby::BigDec;
+    use crate::v2::BigDec;
     // Window membership is Rails' own: SQLite compares the stored text with the quoted boundary
     // (`created_at >= ?`). Parsed times only validate; they never decide membership.
     let mut s = c.prepare("SELECT external_status, quote_amount, price, amount, amount_exec, quote_amount_exec, created_at, created_at >= ?2 FROM transactions WHERE bot_id=?1 AND status=0 AND side=0 AND transaction_type='REGULAR' AND external_status IN (0,1,2,3,4) ORDER BY id")?;
@@ -230,10 +230,10 @@ fn commitments_bounded(c: &Connection, bot_id: i64, since: &str, limit: Option<u
 }
 
 /// Waiting buys claim only requested units still unfilled. Fill validation is shared with the walk.
-pub fn reserved(c: &Connection,bot_id:i64)->Result<std::collections::HashMap<i64,crate::ruby::BigDec>,FiguresError>{ reserved_side(c,bot_id,0) }
+pub fn reserved(c: &Connection,bot_id:i64)->Result<std::collections::HashMap<i64,crate::v2::BigDec>,FiguresError>{ reserved_side(c,bot_id,0) }
 /// `reserved` for the waiting orders on `side` (0 buy, 1 sell): reserved_waiting_amounts(:buy) or (:sell).
-pub fn reserved_side(c: &Connection,bot_id:i64,side:i64)->Result<std::collections::HashMap<i64,crate::ruby::BigDec>,FiguresError>{
-    use crate::ruby::BigDec;
+pub fn reserved_side(c: &Connection,bot_id:i64,side:i64)->Result<std::collections::HashMap<i64,crate::v2::BigDec>,FiguresError>{
+    use crate::v2::BigDec;
     let mut s=c.prepare("SELECT base_asset_id,price,amount,amount_exec,quote_amount_exec FROM transactions WHERE bot_id=?1 AND status=0 AND external_status IN (0,1) AND side=?2")?;
     let mut rows=s.query(rusqlite::params![bot_id,side])?;
     let mut out=std::collections::HashMap::new();
@@ -255,7 +255,7 @@ pub fn reserved_side(c: &Connection,bot_id:i64,side:i64)->Result<std::collection
 }
 
 use crate::engine::EngineError;
-use crate::ruby::{BigDec, from_sql};
+use crate::v2::{BigDec, from_sql};
 pub(crate) struct StoredOrder {
     pub id: i64, pub side: Option<i64>, pub external_status: Option<i64>,
     pub price: Option<BigDec>, pub amount: Option<BigDec>, pub quote_amount: Option<BigDec>, pub amount_exec: Option<BigDec>, pub quote_amount_exec: Option<BigDec>,

@@ -5,7 +5,7 @@
 //! - the phantom agent `{source: "a", connectionId: hash}` hashed as EIP-712 (`Agent(string source,bytes32 connectionId)`,
 //!   domain Exchange / 1 / chainId 1337 / the zero address) and signed by `Eth::Key#sign` (secp256k1, RFC 6979, low s);
 //! - `{r, s, v}` as `sign_typed_data` splits it: r and s as `0x` + hex without leading zeros, v = 27 + recovery id.
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use k256::ecdsa::SigningKey;
 use serde_json::{json, Value};
 use sha3::{Digest, Keccak256};

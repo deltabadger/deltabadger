@@ -196,7 +196,7 @@ pub(crate) fn offered(c: &Connection, ctx: &Ctx, id: i64) -> Result<Vec<wizard::
     let settings: Value = serde_json::from_str(&settings).map_err(|e| super::data(format!("bot {id} settings: {e}")))?;
     // Bots::DcaIndex#current_index: the category's row (any source), else the internal Top Coins.
     let current: Option<i64> = if class.as_deref() != Some("Bots::DcaIndex") { None } else {
-        match (settings.get("index_type").and_then(Value::as_str), settings.get("index_category_id").and_then(Value::as_str).filter(|id| !crate::ruby::blank(id))) {
+        match (settings.get("index_type").and_then(Value::as_str), settings.get("index_category_id").and_then(Value::as_str).filter(|id| !crate::v2::blank(id))) {
             (Some("category"), Some(category)) => c.query_row("SELECT id FROM indices WHERE external_id=?1 ORDER BY id LIMIT 1", [category], |r| r.get(0)).optional()?,
             _ => c.query_row("SELECT id FROM indices WHERE external_id='top-coins' AND source='internal' ORDER BY id LIMIT 1", [], |r| r.get(0)).optional()?,
         }

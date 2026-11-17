@@ -17,7 +17,7 @@ use super::wire::{self, Budget, Node};
 use super::{ load_key, number, parsed, phase, record_sync_error, sql_time, venue_failure, Failure, SyncError, Unread};
 use crate::crypto::Credentials;
 use crate::engine::Clock;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::alpaca::AlpacaVenue;
 use crate::venue::binance;
 use crate::venue::http::Transport;
@@ -1429,7 +1429,7 @@ fn bybit_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Re
             let Ok(row) = Raw::from_node(coin) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
             let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
             let amounts = || -> Result<(BigDec, BigDec), String> {
-                let present = |key: &str| row.value.get(key).is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::ruby::blank(s)));
+                let present = |key: &str| row.value.get(key).is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::v2::blank(s)));
                 let locked = row.decimal("locked")?;
                 let free = if present("walletBalance") { (&(&row.decimal("walletBalance")? - &locked) - &row.decimal("spotBorrow")?).max(BigDec::zero()) }
                            else { row.decimal(if present("availableToWithdraw") { "availableToWithdraw" } else { "free" })? };

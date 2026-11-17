@@ -3,7 +3,7 @@
 //! (.split_ratio_label). No database and no network; pinned by Ruby vectors (rust/tests/sync_vectors.rs).
 use super::number;
 use super::wire::{self, Budget, Node};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, NaiveDate, Utc};
 use serde_json::{json, Value};
 use std::collections::HashMap;

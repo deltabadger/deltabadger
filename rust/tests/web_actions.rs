@@ -129,7 +129,7 @@ mod action_transport {
             self.send(method, "/bots/1", "application/x-www-form-urlencoded", Body::from(text.to_string())).await
         }
     }
-    fn rails_vectors() {
+    fn v2_vectors() {
         let vectors = common::vectors();
         let Some(cases) = vectors["action_transport"]["cases"].as_array() else { panic!("recorded transport cases") };
         let decode = |v: &Value| form_urlencoded::parse(v.as_str().unwrap_or("").as_bytes()).map(|(k,v)| (k.into_owned(),v.into_owned())).collect();
@@ -149,9 +149,9 @@ mod action_transport {
                 Some("nested_merge") => Some((json!({ROOT:{"allocations":{"2":"20","1":"80"}}}),json!({ROOT:{"allocations":{"2":"30","1":"80"}}}))),
                 _ => None,
             };
-            if let Some((rails, rust)) = divergence {
-                assert_eq!(case["merged"],rails,"Rails request merge changed");
-                assert_eq!(case["permitted"],rails[ROOT]);
+            if let Some((v2, rust)) = divergence {
+                assert_eq!(case["merged"],v2,"Rails request merge changed");
+                assert_eq!(case["permitted"],v2[ROOT]);
                 assert_eq!(parsed.value(),&rust,"plan_body_precedence: {}",case["name"]);
                 assert_eq!(parsed.permitted(Kind::Basket),Ok(rust[ROOT].clone()));
             } else {
@@ -270,7 +270,7 @@ mod action_transport {
         let value = json!({ROOT:{"label":["bad"],"quote_amount":{"x":1},"allocations":{"2":20}}});
         let (status, got) = h.send("PATCH", "/bots/1", "application/json", Body::from(value.to_string())).await;
         assert_eq!(status, 200); assert_eq!(got["permitted"], json!({"allocations":{"2":20}}));
-        rails_vectors();
+        v2_vectors();
         assert_eq!(h.form("PATCH", "a[]=1&a[b]=2").await.0, 400);
     }
     #[tokio::test]
@@ -389,7 +389,7 @@ mod action_draft {
     }
 
     #[test]
-    fn action_draft_rails_vectors() -> Result<(), Box<dyn std::error::Error>> {
+    fn action_draft_v2_vectors() -> Result<(), Box<dyn std::error::Error>> {
         let vectors = common::vectors();
         let group = field(&vectors, "bot_actions");
         let cases = field(group, "cases").as_array().ok_or("cases are not an array")?;
@@ -610,10 +610,10 @@ mod action_write {
     #[test]
     fn divergence_settings_held_until_reconciliation() -> Result {
         use deltabadger::engine::{amount, model, placement, FixedClock};
-        use deltabadger::ruby::BigDec;
-        let rails = common::ownership_case("settings_held_until_reconciliation");
-        assert_eq!(rails["rails_update_succeeded"], true);
-        assert_eq!(rails["rails_quote_amount"], 100.0);
+        use deltabadger::v2::BigDec;
+        let v2 = common::ownership_case("settings_held_until_reconciliation");
+        assert_eq!(v2["rails_update_succeeded"], true);
+        assert_eq!(v2["rails_quote_amount"], 100.0);
         let f = Fixture::new()?;
         let bot = model::load_bot(&f.c, f.id).unwrap();
         let ticker = model::ticker_for(&f.c, &bot).unwrap().ok_or("ticker")?;
@@ -1247,9 +1247,9 @@ mod action_write {
     /// at NOW in UTC): the anchor, start_at, and the carry capture, which lands only when start_at changed (hour mode) and
     /// is discarded when it did not (date mode: the stored start_at is written back unchanged).
     #[test]
-    fn action_lifecycle_delayed_date_hour_start_as_rails_writes_it() -> Result {
+    fn action_lifecycle_delayed_date_hour_start_as_v2_writes_it() -> Result {
         let vectors:Value=serde_json::from_str(include_str!("fixtures/start_time_vectors.json"))?;
-        for (mode,time,rails) in [("date","2026-09-11T13:45:00Z",&vectors["schedule"][0]["started"]),("hour","13:45",&vectors["schedule"][3]["started"])] {
+        for (mode,time,v2) in [("date","2026-09-11T13:45:00Z",&vectors["schedule"][0]["started"]),("hour","13:45",&vectors["schedule"][3]["started"])] {
             let f=Fixture::new()?;
             f.c.execute("UPDATE users SET time_zone='UTC'",[])?;
             f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode',?1,'$.start_at',?2,'$.start_time_of_day',?2)",(mode,time))?;
@@ -1261,15 +1261,15 @@ mod action_write {
             assert!(matches!(f.lifecycle(write::Action::Start,None)?,Outcome::Committed(_)),"{mode}");
             let stored=f.stored()?;
             let anchor:String=f.c.query_row("SELECT started_at FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
-            assert_eq!(anchor,rails["started_at"].as_str().ok_or("started_at")?,"{mode}");
-            assert_eq!(stored["settings"]["start_at"],rails["settings"]["start_at"],"{mode}");
-            let mut expected_transient = rails["transient_data"].clone();
+            assert_eq!(anchor,v2["started_at"].as_str().ok_or("started_at")?,"{mode}");
+            assert_eq!(stored["settings"]["start_at"],v2["settings"]["start_at"],"{mode}");
+            let mut expected_transient = v2["transient_data"].clone();
             assert!(expected_transient.get("run_generation").is_none(), "Rails has no ownership generation");
             expected_transient["run_generation"] = json!(1);
             assert_eq!(stored["transient"], expected_transient, "{mode}: Rails state plus exactly one Rust start generation");
             let status:i64=f.c.query_row("SELECT status FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
-            assert_eq!(json!(status),rails["status"],"{mode}");
-            let changed=if mode=="date" {changed_before} else {json!(rails["settings_changed_at"])};
+            assert_eq!(json!(status),v2["status"],"{mode}");
+            let changed=if mode=="date" {changed_before} else {json!(v2["settings_changed_at"])};
             assert_eq!(stored["changed"],changed,"{mode}: the window");
             let report=eligibility::check_install(&f.c).map_err(|e|format!("{e:?}"))?;
             assert!(report.eligible.contains(&f.id),"{mode}: the engine runs it: {:?}",report.problems);
@@ -1407,7 +1407,7 @@ mod action_write {
     }
 
     #[test]
-    fn action_lifecycle_start_time_matches_rails_vectors() -> Result {
+    fn action_lifecycle_start_time_matches_v2_vectors() -> Result {
         let vectors=common::vectors();
         let cases=vectors.get("action_lifecycle").and_then(Value::as_array).ok_or("missing lifecycle vectors")?;
         assert!(cases.len()>=6);
@@ -1961,14 +1961,14 @@ mod action_race {
     async fn stop_during_tick()->Result {price_race(false,false,true).await}
 
     /// 2.70.21's own Continue decisions on a Rust-built install (common::v2::continue_start).
-    async fn rails_continue() -> Result<Value> {
+    async fn v2_continue() -> Result<Value> {
         tokio::task::spawn_blocking(common::v2::continue_start).await?.map_err(Into::into)
     }
 
     async fn continued(name: &str, waits: bool)->Result {
         if !common::v2::enabled() {return Ok(());}
         let mut f=Fixture::new().await?;
-        let vectors=rails_continue().await?;
+        let vectors=v2_continue().await?;
         let row=vectors.as_array().ok_or("continue vectors")?.iter().find(|v|v["name"]==name).ok_or("continue case")?;
         assert_eq!(row["decision"],if waits {"checkpoint"} else {"now"});
         assert_eq!(row["within"],json!(waits));
@@ -2920,7 +2920,7 @@ mod split {
     }
 
     /// Unequal weights (70/20/10) give each child its share; a member that no longer trades gets no child, and the survivors
-    /// share the whole schedule (Rails sums the weights with Kahan-Babuska summation, crate::ruby::float_sum).
+    /// share the whole schedule (Rails sums the weights with Kahan-Babuska summation, crate::v2::float_sum).
     #[test]
     fn shares_follow_the_weights_and_the_survivors_keep_the_schedule() -> Result {
         let f = Fixture::baskets(&[&[0.7, 0.2, 0.1]])?;

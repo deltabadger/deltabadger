@@ -16,7 +16,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError}
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, GEMINI as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::{Map, Value};
 
@@ -103,7 +103,7 @@ fn ms(o: &Value) -> Option<i64> {
 pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
     let zero = BigDec::zero();
-    let amount = |k: &str| o.get(k).and_then(|v| crate::ruby::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
+    let amount = |k: &str| o.get(k).and_then(|v| crate::v2::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
     if o.get("symbol")?.as_str()? != symbol { return None; }
     let id = match o.get("order_id")? {
         Value::Number(n) if n.is_u64() => n.to_string(),
@@ -130,14 +130,14 @@ pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
 }
 
 /// Exchanges::Gemini#get_tickers_prices over /v1/pricefeed: every entry's `dig_or_raise`d `pair`, downcased, and its
-/// `price`, a later entry for a pair replacing an earlier one. DIVERGES on purpose as Binance and KuCoin do (ruby::json_to_d):
+/// `price`, a later entry for a pair replacing an earlier one. DIVERGES on purpose as Binance and KuCoin do (v2::json_to_d):
 /// a price that is no decimal is left out, where Rails reads it as 0.
 pub fn price_feed(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
     let mut out: Vec<(String, BigDec)> = vec![];
     for entry in body.as_array().ok_or_else(unreadable)? {
         let pair = text(super::dig_or_raise(entry, "pair")?)?.to_lowercase();
         let price = super::dig_or_raise(entry, "price")?;
-        let Some(price) = crate::ruby::json_to_d(price).ok().flatten() else { continue };
+        let Some(price) = crate::v2::json_to_d(price).ok().flatten() else { continue };
         out.retain(|(p, _)| *p != pair);
         out.push((pair, price));
     }
@@ -483,7 +483,7 @@ impl<T: Transport> GeminiVenue<T> {
             || (!body["result"].is_null() && body["result"] != "success") {
             return unknown();
         }
-        match body["withdrawalId"].as_str().filter(|id| !crate::ruby::blank(id)) {
+        match body["withdrawalId"].as_str().filter(|id| !crate::v2::blank(id)) {
             Some(id) => SendResult::Accepted { id: id.into() },
             None => unknown(),
         }
@@ -525,7 +525,7 @@ impl<T: Transport> GeminiVenue<T> {
                     return unknown("Gemini transfer time is unreadable", candidates);
                 };
                 let event = match &row["eid"] {
-                    Value::String(id) if !crate::ruby::blank(id) => id.clone(),
+                    Value::String(id) if !crate::v2::blank(id) => id.clone(),
                     Value::Number(id) if id.as_u64().is_some() => id.to_string(),
                     _ => return unknown("Gemini transfer id is unreadable", candidates),
                 };
@@ -537,16 +537,16 @@ impl<T: Transport> GeminiVenue<T> {
                     || row["network"].as_str().is_some_and(|n| n != network) {
                     continue;
                 }
-                let Some(row_amount) = crate::ruby::json_to_d(&row["amount"]).ok().flatten() else {
+                let Some(row_amount) = crate::v2::json_to_d(&row["amount"]).ok().flatten() else {
                     return unknown("Gemini withdrawal candidate amount is unreadable", candidates);
                 };
                 if row_amount != amount { continue; }
-                let Some(status) = row["status"].as_str().filter(|s| !crate::ruby::blank(s)) else {
+                let Some(status) = row["status"].as_str().filter(|s| !crate::v2::blank(s)) else {
                     return unknown("Gemini withdrawal candidate status is unreadable", candidates);
                 };
                 let id = match row.get("withdrawalId") {
                     None | Some(Value::Null) => event.as_str(),
-                    Some(Value::String(id)) if !crate::ruby::blank(id) => id,
+                    Some(Value::String(id)) if !crate::v2::blank(id) => id,
                     _ => return unknown("Gemini withdrawal candidate id is unreadable", candidates),
                 };
                 let Some(time) = DateTime::<Utc>::from_timestamp_millis(time) else {

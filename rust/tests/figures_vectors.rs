@@ -22,7 +22,7 @@ fn tagged(n: &Num) -> Value {
 }
 
 #[test]
-fn a_float_prints_as_ruby_prints_it_and_as_rails_json_does() {
+fn a_float_prints_as_v2_prints_it_and_as_v2_json_does() {
     let v = vectors();
     let (to_s, oj) = (v["float_to_s"].as_array().unwrap(), v["oj_float"].as_array().unwrap());
     assert!(to_s.len() > 1_200 && oj.len() > 1_200);
@@ -36,7 +36,7 @@ fn a_float_prints_as_ruby_prints_it_and_as_rails_json_does() {
 }
 
 #[test]
-fn every_recorded_operation_keeps_rubys_value_and_kind() {
+fn every_recorded_operation_keeps_v2s_value_and_kind() {
     let v = vectors();
     let cases = v["num"].as_array().unwrap();
     assert_eq!(cases.len(), 11_200);
@@ -59,7 +59,7 @@ fn every_recorded_operation_keeps_rubys_value_and_kind() {
 }
 
 #[test]
-fn predicates_conversions_and_rounding_match_ruby() {
+fn predicates_conversions_and_rounding_match_v2() {
     let v = vectors();
     for c in v["predicates"].as_array().unwrap() {
         let n = num(&c[0]);
@@ -84,7 +84,7 @@ fn j(v: &Value) -> J {
 }
 
 #[test]
-fn json_text_and_times_are_written_as_rails_writes_them() {
+fn json_text_and_times_are_written_as_v2_writes_them() {
     let v = vectors();
     for c in v["json"].as_array().unwrap() { assert_eq!(j(&c[0]).write(), c[1].as_str().unwrap()); }
     let times = v["times"].as_array().unwrap();
@@ -126,7 +126,7 @@ fn dec(v: &Value) -> Dec { Dec::parse(v.as_str().unwrap()).unwrap() }
 fn opt_dec(v: &Value) -> Option<Dec> { v.as_str().map(|s| Dec::parse(s).unwrap()) }
 
 #[test]
-fn holdings_that_share_a_symbol_get_the_keys_rails_gives_them() {
+fn holdings_that_share_a_symbol_get_the_keys_v2_gives_them() {
     let v = vectors();
     let cases = v["holding_keys"].as_array().unwrap();
     assert_eq!(cases.len(), 200);
@@ -146,7 +146,7 @@ fn holdings_that_share_a_symbol_get_the_keys_rails_gives_them() {
 fn lot_list(v: &Value) -> Lots { v.as_array().unwrap().iter().map(|l| Lot { amount: dec(&l[0]), cost: opt_dec(&l[1]) }).collect() }
 
 #[test]
-fn tax_lots_cost_lose_shrink_and_split_as_rails_computes_them() {
+fn tax_lots_cost_lose_shrink_and_split_as_v2_computes_them() {
     let v = vectors();
     let cases = v["tax_lots"].as_array().unwrap();
     assert_eq!(cases.len(), 300);
@@ -172,7 +172,7 @@ fn tax_lots_cost_lose_shrink_and_split_as_rails_computes_them() {
 }
 
 #[test]
-fn every_kind_of_fill_moves_the_books_as_rails_moves_them() {
+fn every_kind_of_fill_moves_the_books_as_v2_moves_them() {
     let v = vectors();
     let histories = v["books"].as_array().unwrap();
     assert_eq!(histories.len(), 250);
@@ -262,7 +262,7 @@ fn an_order_row_is_read_as_filled_only_when_it_is_closed() {
 }
 
 #[test]
-fn a_split_ratio_is_read_as_rails_reads_it_or_not_at_all() {
+fn a_split_ratio_is_read_as_v2_reads_it_or_not_at_all() {
     let v = vectors();
     let cases = v["split_factor"].as_array().unwrap();
     assert_eq!(cases.len(), 36);
@@ -274,7 +274,7 @@ fn a_split_ratio_is_read_as_rails_reads_it_or_not_at_all() {
 }
 
 #[test]
-fn the_profit_ratio_is_rubys_float_or_bigdecimal_as_rails_computes_it() {
+fn the_profit_ratio_is_v2s_float_or_bigdecimal_as_v2_computes_it() {
     let v = vectors();
     let cases = v["pnl"].as_array().unwrap();
     assert_eq!(cases.len(), 8);
@@ -292,7 +292,7 @@ use deltabadger::figures::chart::{self, BuyMark};
 use deltabadger::figures::walk::Chart;
 
 #[test]
-fn the_candle_timeframe_follows_the_bots_age_as_rails_picks_it() {
+fn the_candle_timeframe_follows_the_bots_age_as_v2_picks_it() {
     let v = vectors();
     let frames = v["timeframes"].as_array().unwrap();
     assert_eq!(frames.len(), 17);
@@ -302,7 +302,7 @@ fn the_candle_timeframe_follows_the_bots_age_as_rails_picks_it() {
 fn marks(v: &Value) -> Vec<(At, Dec)> { v.as_array().unwrap().iter().map(|m| (At(m[0].as_i64().unwrap()), dec(&m[1]))).collect() }
 
 #[test]
-fn a_price_grid_is_read_between_its_marks_as_rails_reads_it() {
+fn a_price_grid_is_read_between_its_marks_as_v2_reads_it() {
     let v = vectors();
     let cases = v["grid_price"].as_array().unwrap();
     assert_eq!(cases.len(), 120);
@@ -322,7 +322,7 @@ fn a_price_grid_is_read_between_its_marks_as_rails_reads_it() {
 }
 
 #[test]
-fn buy_marks_are_thinned_and_summed_as_rails_thins_them() {
+fn buy_marks_are_thinned_and_summed_as_v2_thins_them() {
     let v = vectors();
     let cases = v["thinned_marks"].as_array().unwrap();
     assert_eq!(cases.len(), 11);
@@ -339,7 +339,7 @@ fn buy_marks_are_thinned_and_summed_as_rails_thins_them() {
 }
 
 #[test]
-fn a_chart_is_marked_at_market_point_for_point_as_rails_marks_it() {
+fn a_chart_is_marked_at_market_point_for_point_as_v2_marks_it() {
     let v = vectors();
     let cases = v["marked_at_market"].as_array().unwrap();
     assert_eq!(cases.len(), 60);
@@ -379,7 +379,7 @@ use deltabadger::figures::totals;
 fn bits(f: f64) -> String { format!("{:016x}", f.to_bits()) }
 
 #[test]
-fn the_accounts_history_is_resampled_column_for_column_as_rails_resamples_it() {
+fn the_accounts_history_is_resampled_column_for_column_as_v2_resamples_it() {
     let v = vectors();
     let cases = v["pnl_history"].as_array().unwrap();
     assert_eq!(cases.len(), 53);

@@ -72,7 +72,7 @@ fn build(c: &Connection, case: &Value) -> Message {
 }
 
 #[test]
-fn rails_and_rust_build_the_same_mails_across_the_grid() {
+fn v2_and_rust_build_the_same_mails_across_the_grid() {
     let dir = tempfile::tempdir().unwrap();
     let frozen = common::frozen("mails", |d| d.join("cases.json").is_file());
     common::copy_tree(&frozen, dir.path());
@@ -92,11 +92,11 @@ fn rails_and_rust_build_the_same_mails_across_the_grid() {
             ours.html = ours.html.replace("0.00001", "1.0e-05");
             plain_decimals += 1;
         }
-        let (rails, rust) = (comparable(case["rails"].as_str().unwrap()), comparable(&ours.encode(now, "<1@rust.test>").unwrap_or_else(|why| panic!("{name}: {why}"))));
-        if rails != rust { failures.push(format!("{name}\n  rails: {rails:?}\n  rust:  {rust:?}")); }
+        let (v2, rust) = (comparable(case["rails"].as_str().unwrap()), comparable(&ours.encode(now, "<1@rust.test>").unwrap_or_else(|why| panic!("{name}: {why}"))));
+        if v2 != rust { failures.push(format!("{name}\n  rails: {v2:?}\n  rust:  {rust:?}")); }
         let envelope = json!({ "from": mailbox(&ours.from).map(|m| m.address), "to": [ours.to] });
         if envelope != case["envelope"] { failures.push(format!("{name}: envelope {envelope}, Rails {}", case["envelope"])); }
-        let encoding = rails.split("Content-Transfer-Encoding: ").nth(1).and_then(|rest| rest.split("\r\n").next()).unwrap_or_default().to_string();
+        let encoding = v2.split("Content-Transfer-Encoding: ").nth(1).and_then(|rest| rest.split("\r\n").next()).unwrap_or_default().to_string();
         *encodings.entry(encoding).or_insert(0) += 1;
     }
     assert!(failures.is_empty(), "{} of {} mails differ:\n{}", failures.len(), cases.len(), failures.join("\n"));

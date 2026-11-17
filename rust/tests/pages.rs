@@ -134,23 +134,23 @@ fn session_compared(step: &Value) -> bool {
 /// D-NO-WIZARD-AUTO-OPEN: the `{}` Rails' bots page left behind stays in its session on the steps after it, where this
 /// crate's session has no wizard: the same empty wizard, until either side writes one. The step where this crate starts
 /// that empty wizard writes the cookie Rails wrote on the bots page.
-fn no_wizard_reset(scenario: &Value, rails: &mut Value, rust: &mut Value) {
+fn no_wizard_reset(scenario: &Value, v2: &mut Value, rust: &mut Value) {
     let mut carried = false;
     for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
         if !session_compared(step) { carried = true; continue; }
         if !carried { continue; }
         let ours = rust["responses"].get(index).and_then(|a| a.get("session")).and_then(|s| s.get("bot_config")).cloned();
-        let Some(theirs) = rails["responses"].get_mut(index).and_then(|a| a.get_mut("session")).and_then(|s| s.get_mut("bot_config")) else { continue };
+        let Some(theirs) = v2["responses"].get_mut(index).and_then(|a| a.get_mut("session")).and_then(|s| s.get_mut("bot_config")) else { continue };
         if *theirs == json!({}) && ours == Some(Value::Null) { *theirs = Value::Null; continue; }
         carried = false;
-        let rails_cookie = rails["responses"][index]["headers"].get("set-cookie").is_some();
-        if ours == Some(json!({})) && rails["responses"][index]["session"]["bot_config"] == json!({}) && !rails_cookie {
+        let v2_cookie = v2["responses"][index]["headers"].get("set-cookie").is_some();
+        if ours == Some(json!({})) && v2["responses"][index]["session"]["bot_config"] == json!({}) && !v2_cookie {
             if let Some(headers) = rust["responses"].get_mut(index).and_then(|a| a.get_mut("headers")).and_then(Value::as_object_mut) { headers.remove("set-cookie"); }
         }
     }
 }
 
-fn rails_answer(recorded: &Value, step: &Value) -> Value {
+fn v2_answer(recorded: &Value, step: &Value) -> Value {
     let changed = recorded["session_changed"].as_bool().expect("pages.rb records whether the session's content changed");
     let headers = recorded["headers"].as_object().unwrap().iter().filter(|(name, _)| (changed && session_compared(step)) || name.as_str() != "set-cookie").map(|(name, value)| {
         let values = match value {
@@ -174,8 +174,8 @@ fn rails_answer(recorded: &Value, step: &Value) -> Value {
         if let Some(value) = recorded.get(key) { answer[key] = value.clone(); }
     }
     if let Some(value) = recorded.get("session").filter(|_| session_compared(step)) { answer["session"] = value.clone(); }
-    if let Some(keys) = recorded.get("jobs").and_then(rails_sync_keys) { answer["sync_keys"] = keys; }
-    if let Some(asked) = recorded.get("jobs").and_then(rails_tax_jobs) { answer["tax_jobs"] = asked; }
+    if let Some(keys) = recorded.get("jobs").and_then(v2_sync_keys) { answer["sync_keys"] = keys; }
+    if let Some(asked) = recorded.get("jobs").and_then(v2_tax_jobs) { answer["tax_jobs"] = asked; }
     answer
 }
 
@@ -200,7 +200,7 @@ const JOB_CLASSES: [(&str, &str); 6] = [("api_key_validator", "ApiKeyValidatorJo
 const SYNC_CLASSES: [&str; 2] = ["AccountTransaction::SyncTrackerJob", "AccountBalance::SyncJob"];
 
 fn job_classes(wakes: &[(String, Option<String>)]) -> Value {
-    let mut classes: Vec<String> = wakes.iter().map(|(name, _)| JOB_CLASSES.iter().find(|(rust, _)| rust == name).map_or_else(|| format!("rust:{name}"), |(_, rails)| rails.to_string())).collect();
+    let mut classes: Vec<String> = wakes.iter().map(|(name, _)| JOB_CLASSES.iter().find(|(rust, _)| rust == name).map_or_else(|| format!("rust:{name}"), |(_, v2)| v2.to_string())).collect();
     classes.sort();
     let mut seen = vec![];
     classes.retain(|class| !SYNC_CLASSES.contains(&class.as_str()) || { let first = !seen.contains(class); seen.push(class.clone()); first });
@@ -219,7 +219,7 @@ fn rust_sync_keys(wakes: &[(String, Option<String>)]) -> Option<Value> {
 }
 
 /// The same from Rails' recorded jobs (`args`: the user, then the key ids).
-fn rails_sync_keys(jobs: &Value) -> Option<Value> {
+fn v2_sync_keys(jobs: &Value) -> Option<Value> {
     let mut keys: BTreeMap<String, Vec<i64>> = BTreeMap::new();
     for job in jobs.as_array().into_iter().flatten() {
         let Some(class) = job["job_class"].as_str().filter(|c| SYNC_CLASSES.contains(c)) else { continue };
@@ -232,7 +232,7 @@ fn rails_sync_keys(jobs: &Value) -> Option<Value> {
 
 /// PLAN-A12 A12-1: the reports a step asked for, as (user, country, year, stablecoin_as_fiat, scope). Rails': the
 /// Tax::GenerateReportJob it enqueued (`perform_later(user_id, country, year, stablecoin[, report_scope])`).
-fn rails_tax_jobs(jobs: &Value) -> Option<Value> {
+fn v2_tax_jobs(jobs: &Value) -> Option<Value> {
     let mut asked: Vec<Value> = jobs.as_array().into_iter().flatten().filter(|job| job["job_class"] == "Tax::GenerateReportJob").map(|job| {
         let args = &job["args"];
         json!([args[0], args[1], args[2], args[3], if args[4].is_null() { json!("crypto") } else { args[4].clone() }])
@@ -400,8 +400,8 @@ fn rank_fixture(dir: &std::path::Path, cipher: &deltabadger::crypto::Cipher, now
     deltabadger::parity::rank_fixture_indices(&c, now).unwrap();
 }
 
-fn action_snapshot_difference(context: &str, rails: &Value, rust: &Value) -> Option<String> {
-    for (side, response) in [("Rails", rails), ("Rust", rust)] {
+fn action_snapshot_difference(context: &str, v2: &Value, rust: &Value) -> Option<String> {
+    for (side, response) in [("Rails", v2), ("Rust", rust)] {
         for key in ["rows_before", "rows_after", "other_rows_before", "other_rows_after"] {
             let Some(rows) = response.get(key).and_then(Value::as_object) else { return Some(format!("{context}: {side} missing {key}")) };
             if key.starts_with("rows_") {
@@ -426,11 +426,11 @@ fn action_snapshot_difference(context: &str, rails: &Value, rust: &Value) -> Opt
     // Rails' installs never hold Rust's own tables (db/schema.rb has none), so those are left out of Rails against
     // Rust; the forbidden-write checks above still cover every table on each side.
     let rust_owned = deltabadger::store::REGISTRY.owned_tables();
-    let rails_tables = |rows: &Value| -> Value {
+    let v2_tables = |rows: &Value| -> Value {
         Value::Object(rows.as_object().into_iter().flatten().filter(|(table, _)| !rust_owned.contains(&table.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect())
     };
     for key in ["rows_before", "rows_after", "other_rows_before", "other_rows_after"] {
-        if let Some(message) = row_difference(&format!("{context} {key}"), &rails_tables(&rails[key]), &rails_tables(&rust[key])) { return Some(message); }
+        if let Some(message) = row_difference(&format!("{context} {key}"), &v2_tables(&v2[key]), &v2_tables(&rust[key])) { return Some(message); }
     }
     None
 }
@@ -799,12 +799,12 @@ fn without_cancel_rereads(rows: &mut Value) -> usize {
 /// left out of this crate's rows too, so an import or key check that records an identity is no forbidden write.
 /// A setting a step wrote is encrypted afresh on each side: the `app_configs` rows of the action snapshots are compared as
 /// AppConfig reads them (a plain value as itself), never as ciphertext.
-fn settings_as_read(scenario: &Value, rails: &mut Value, rust: &mut Value) {
+fn settings_as_read(scenario: &Value, v2: &mut Value, rust: &mut Value) {
     let env = scenario["env"].as_object().cloned().unwrap_or_default();
     let keys = deltabadger::crypto::EncryptionKeys::resolve(&|name: &str| env.get(name).and_then(Value::as_str).map(str::to_string), scenario["secret_key_base"].as_str().unwrap())
         .expect("the scenario's encryption keys");
     let cipher = deltabadger::crypto::Cipher::new(&keys);
-    for side in [rails, rust] {
+    for side in [v2, rust] {
         for answer in side["responses"].as_array_mut().into_iter().flatten() {
             for phase in ["other_rows_before", "other_rows_after"] {
                 let rows = answer.get_mut(phase).and_then(|rows| rows.get_mut("app_configs")).and_then(Value::as_array_mut);
@@ -868,9 +868,9 @@ fn without_low_funds(body: &mut Value) -> usize {
 #[test]
 fn only_the_low_funds_prefix_and_its_colour_are_left_out() {
     let div = |class: &str| format!("    <div class=\"{class}\" data-controller=\"countdown\">");
-    let rails = json!([div("bot-control__status__text text-success"), "      <div style=\"display: inline-block; min-width: 9em;\">"]);
+    let v2 = json!([div("bot-control__status__text text-success"), "      <div style=\"display: inline-block; min-width: 9em;\">"]);
     let mut ours = json!([div("bot-control__status__text "), "      \"Low funds\"", "      <div style=\"display: inline-block; min-width: 9em;\">"]);
-    assert_eq!((without_low_funds(&mut ours), &ours), (1, &rails));
+    assert_eq!((without_low_funds(&mut ours), &ours), (1, &v2));
     let closed = |text: &str| json!([div("bot-control__status__text text-success"), format!("      \"{text}\""), "      <div>"]);
     let mut ours = closed("Market closed · Wenig Guthaben");
     ours[0] = json!(div("bot-control__status__text "));
@@ -924,12 +924,12 @@ fn without_selling_targets(body: &mut Value) -> usize {
 
 #[test]
 fn only_the_selling_targets_are_left_out() {
-    let rails = json!(["    <tbody id=\"orders_list\">", "    </tbody>"]);
+    let v2 = json!(["    <tbody id=\"orders_list\">", "    </tbody>"]);
     let mut ours = json!(["    \" \"", "    <tbody id=\"orders_selling_7\">", "    </tbody>", "    <tbody id=\"orders_list\">", "    </tbody>"]);
-    assert_eq!((without_selling_targets(&mut ours), &ours), (1, &rails));
-    let rails = json!(["  <div class=\"columns\">", "  </div>"]);
+    assert_eq!((without_selling_targets(&mut ours), &ours), (1, &v2));
+    let v2 = json!(["  <div class=\"columns\">", "  </div>"]);
     let mut ours = json!(["  <div class=\"columns\">", "    \" \"", "    <div data-assets=\"[]\" data-blocked=\"false\" hidden=\"\" id=\"selling_state_7\">", "    </div>", "  </div>"]);
-    assert_eq!((without_selling_targets(&mut ours), &ours), (1, &rails));
+    assert_eq!((without_selling_targets(&mut ours), &ours), (1, &v2));
     // The attributes go in the shared normalizer, so every Rails comparison drops them.
     assert_eq!(html::normalize(r#"<div class="columns" data-controller="bot--selling"><a class="rbutton" data-bot--selling-target="sell" data-asset="3" href="/x">Sell</a><i data-asset="4"></i></div>"#),
                html::normalize(r#"<div class="columns"><a class="rbutton" href="/x">Sell</a><i data-asset="4"></i></div>"#));
@@ -988,10 +988,10 @@ fn only_the_market_data_frames_contents_are_left_out() {
 
 #[test]
 fn only_the_settings_jobs_row_is_left_out() {
-    let rails = json!(["      </turbo-frame>", "      \" \"", "    </div>"]);
+    let v2 = json!(["      </turbo-frame>", "      \" \"", "    </div>"]);
     let mut ours = json!(["      </turbo-frame>", "      \" \"", "      <div class=\"sitem\" id=\"jobs\">", "        \" \"", "        <div class=\"srow\">", "          \"Jobs\"",
                           "        </div>", "      </div>", "      \" \"", "    </div>"]);
-    assert_eq!((without_jobs_row(&mut ours), &ours), (1, &rails));
+    assert_eq!((without_jobs_row(&mut ours), &ours), (1, &v2));
     // Another sitem, or a jobs id on anything but an sitem, is still compared.
     for other in [r#"      <div class="sitem" id="app_update">"#, r#"      <div class="srow" id="jobs">"#] {
         let mut ours = json!(["      \" \"", other, "      </div>"]);
@@ -1022,7 +1022,7 @@ fn full_page_dialogs(body: &mut Value) -> Result<usize, String> {
 }
 
 #[test]
-fn full_page_dialogs_are_put_back_as_rails_writes_them() {
+fn full_page_dialogs_are_put_back_as_v2_writes_them() {
     let page = |frame: &str, dialog: &str| json!(html::normalize(&format!("<html><body>{frame}\n  <dialog class=\"{dialog}\">\n    <div class=\"x\">a</div>\n  </dialog></turbo-frame></body></html>")));
     let mut ours = page("<turbo-frame id=\"modal\" complete>", "dialogview");
     assert_eq!((full_page_dialogs(&mut ours), &ours), (Ok(1), &page("<turbo-frame id=\"modal\">", "dialogview")));
@@ -1097,13 +1097,13 @@ fn without_split_tool(answer: &mut Value) -> usize {
 #[test]
 fn only_the_split_tool_switch_and_its_stored_entry_are_left_out() {
     let row = |tool: &str| vec![json!("      \" \""), json!(format!("      <div class=\"srow srow--tool\" data-surface=\"mcp\" data-tool=\"{tool}\">")), json!("        \"x\""), json!("      </div>")];
-    let rails: Vec<Value> = [row("unarchive_bot"), row("sync_tracker")].concat();
+    let v2: Vec<Value> = [row("unarchive_bot"), row("sync_tracker")].concat();
     let ours_body: Vec<Value> = [row("unarchive_bot"), row("split_bots"), row("sync_tracker"), row("answer_unrecorded_order")].concat();
     let mut ours = json!({ "body": ours_body,
         "settings_rows": { "users": [{ "mcp_settings": { "tool_permissions": { "delete_bot": true, "split_bots": true, "answer_unrecorded_order": false } }, "rest_settings": null }],
                            "connected_clients": [{ "mcp_tools": ["delete_bot", "split_bots", "answer_unrecorded_order"], "rest_tools": null }] } });
     assert_eq!(without_split_tool(&mut ours), 2);
-    assert_eq!(ours, json!({ "body": rails, "settings_rows": { "users": [{ "mcp_settings": { "tool_permissions": { "delete_bot": true } }, "rest_settings": null }],
+    assert_eq!(ours, json!({ "body": v2, "settings_rows": { "users": [{ "mcp_settings": { "tool_permissions": { "delete_bot": true } }, "rest_settings": null }],
                                                               "connected_clients": [{ "mcp_tools": ["delete_bot"], "rest_tools": null }] } }));
 }
 
@@ -1112,11 +1112,11 @@ fn only_the_menus_split_item_is_left_out() {
     let item = |href: &str| json!(["      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/bots/7/edit\">", "        \"Rename\"", "      </a>", "      \" \"",
         format!("      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"{href}\">"), "        \"Split\"", "      </a>", "      \" \"",
         "      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/bots/7/archive/edit\">", "        \"Archive\"", "      </a>"]);
-    let rails = json!(["      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/bots/7/edit\">", "        \"Rename\"", "      </a>", "      \" \"",
+    let v2 = json!(["      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/bots/7/edit\">", "        \"Rename\"", "      </a>", "      \" \"",
         "      <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"/bots/7/archive/edit\">", "        \"Archive\"", "      </a>"]);
     for href in ["/bots/split/new?ids%5B%5D=7", "/de/bots/split/new?ids%5B%5D=7"] {
         let mut ours = item(href);
-        assert_eq!((without_split_item(&mut ours), &ours), (1, &rails), "{href}");
+        assert_eq!((without_split_item(&mut ours), &ours), (1, &v2), "{href}");
     }
     // Any other link, a split of several bots or one outside the menu, is still compared.
     for href in ["/bots/split/new?ids%5B%5D=7&ids%5B%5D=8", "/bots/split/new", "/bots/7/split/new?ids%5B%5D=7"] {
@@ -1149,9 +1149,9 @@ fn pending_market(dir: &Path) -> (Vec<i64>, Vec<i64>, Vec<i64>) {
 /// activation link or the "ask your admin" line); on the empty bots page that line's paragraph. Each goes from Rails' page
 /// with the whitespace before it, matched by its exact element and text in any locale; everything else is compared.
 /// Returns how many elements were taken.
-fn without_broker_gate(rails: &mut Value) -> usize {
+fn without_broker_gate(v2: &mut Value) -> usize {
     const LOCALES: [&str; 15] = ["en", "de", "fr", "it", "es", "pt", "nl", "pl", "ru", "bg", "el", "sv", "da", "cs", "sk"];
-    let Value::Array(lines) = rails else { return 0 };
+    let Value::Array(lines) = v2 else { return 0 };
     let texts: Vec<String> = LOCALES.iter().flat_map(|l| ["bot.setup.stocks_ask_admin", "bot.setup.stocks_activate_cta"].map(|key| deltabadger::web::i18n::text(l, key, &[])))
         .map(|text| format!("{text:?}").trim_matches('"').to_string()).collect();
     fn open<'a>(line: &'a Value, tag: &str) -> Option<&'a str> { line.as_str().map(str::trim_start).filter(|l| l.starts_with(&format!("<{tag} ")) || *l == format!("<{tag}>")) }
@@ -1193,8 +1193,8 @@ fn is_space(line: &Value) -> bool { line.as_str().is_some_and(|l| l.trim() == "\
 /// a default of "waiting" moves to the first tab still offered ("successful" when none is), and the control goes when
 /// fewer than two named tabs remain. (A default of "waiting" means neither "all" nor "successful" was offered, so at most
 /// "other" remains and the control always goes: no chip is left to move.) None when Rails offered no "waiting" tab.
-fn without_waiting_tab(rails: &[Value]) -> Option<Vec<Value>> {
-    let mut lines = rails.to_vec();
+fn without_waiting_tab(v2: &[Value]) -> Option<Vec<Value>> {
+    let mut lines = v2.to_vec();
     let default = attr(lines.first()?.as_str()?, "data-order-filter-default")?;
     let option = |l: &Value| l.as_str().filter(|l| l.trim_start().starts_with("<button ") && l.contains(" data-segmented-target=\"option\"")).and_then(|l| attr(l, "data-value"));
     let waiting = lines.iter().position(|l| option(l).as_deref() == Some("waiting"));
@@ -1283,15 +1283,15 @@ async fn an_index_bots_rule_forms_are_its_basket_twins() {
     if !dirs.iter().any(|dir| dir.file_name().is_some_and(|n| n == "twin_index_member")) { return; }
     let last = |v: &Value| v["responses"].as_array().unwrap().last().unwrap()["body"].clone();
     let rust_forms = |name: &'static str| { let root = rust_root.path().join(name); async move { let mut body = last(&run(&root).await); index_rules(&mut body) } };
-    let rails_body = |name: &str| {
+    let v2_body = |name: &str| {
         let dir = dirs.iter().find(|dir| dir.file_name().is_some_and(|n| n == name)).unwrap();
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
         let steps = scenario(dir)["steps"].clone();
-        rails_answer(recorded["responses"].as_array().unwrap().last().unwrap(), steps.as_array().unwrap().last().unwrap())["body"].clone()
+        v2_answer(recorded["responses"].as_array().unwrap().last().unwrap(), steps.as_array().unwrap().last().unwrap())["body"].clone()
     };
     // The twin's price rule and cap forms, keyed for an index bot, its flip option gone.
     let mut twin: Vec<Vec<Value>> = vec![];
-    let Value::Array(lines) = rails_body("twin_basket_member") else { panic!("the twin page is HTML") };
+    let Value::Array(lines) = v2_body("twin_basket_member") else { panic!("the twin page is HTML") };
     let mut i = 0;
     while i < lines.len() {
         let form = lines[i].as_str().is_some_and(|l| l.trim_start().starts_with("<form "));
@@ -1341,15 +1341,15 @@ async fn a_signal_bots_rule_forms_are_its_basket_twins() {
     let (_recording, rust_root, dirs) = recorded_grid("twin_signal_");
     if !dirs.iter().any(|dir| dir.file_name().is_some_and(|n| n == "twin_signal_rules")) { return; }
     let last = |v: &Value| v["responses"].as_array().unwrap().last().unwrap()["body"].clone();
-    let rails_body = |name: &str| {
+    let v2_body = |name: &str| {
         let dir = dirs.iter().find(|dir| dir.file_name().is_some_and(|n| n == name)).unwrap();
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
         let steps = scenario(dir)["steps"].clone();
-        rails_answer(recorded["responses"].as_array().unwrap().last().unwrap(), steps.as_array().unwrap().last().unwrap())["body"].clone()
+        v2_answer(recorded["responses"].as_array().unwrap().last().unwrap(), steps.as_array().unwrap().last().unwrap())["body"].clone()
     };
     // The twins' forms of `switches`, keyed for a signal bot, the flip option gone.
     let twin = |name: &str, switches: &[&str]| -> Vec<Vec<Value>> {
-        let Value::Array(lines) = rails_body(name) else { panic!("the twin page is HTML") };
+        let Value::Array(lines) = v2_body(name) else { panic!("the twin page is HTML") };
         let (mut out, mut i) = (vec![], 0);
         while i < lines.len() {
             let form = lines[i].as_str().is_some_and(|l| l.trim_start().starts_with("<form "));
@@ -1421,9 +1421,9 @@ fn remove_rows(lines: &mut Vec<Value>, remove: &mut dyn FnMut(&str) -> bool) -> 
 /// "waiting" tab (without_waiting_tab), byte for byte; a status bar of
 /// a bot in `bots` that says "Setting orders…" here and not in Rails is compared as Rails drew it. Everything else is
 /// compared. Returns how many rows and bars were taken.
-fn without_pending_market(rails: &mut Value, rust: &mut Value, txs: &[i64], bots: &[i64], waiting_bots: &[i64]) -> usize {
+fn without_pending_market(v2: &mut Value, rust: &mut Value, txs: &[i64], bots: &[i64], waiting_bots: &[i64]) -> usize {
     const LOCALES: [&str; 15] = ["en", "de", "fr", "it", "es", "pt", "nl", "pl", "ru", "bg", "el", "sv", "da", "cs", "sk"];
-    let (Value::Array(theirs), Value::Array(ours)) = (rails, rust) else { return 0 };
+    let (Value::Array(theirs), Value::Array(ours)) = (v2, rust) else { return 0 };
     let ids: Vec<String> = txs.iter().flat_map(|id| [format!("transaction_{id}"), format!("timeline_transaction_{id}")]).collect();
     let removed = remove_rows(theirs, &mut |id| ids.iter().any(|t| t == id));
     let mut lost: Vec<String> = removed.iter().map(|id| id.trim_start_matches("timeline_").to_string()).collect();
@@ -1495,22 +1495,22 @@ fn only_pending_market_rows_their_spill_and_the_setting_bar_are_left_out() {
         json!(lines)
     };
     // Rails: the pending order 9 (both rows) on top, then 8 and 7, then the frame after 7; this crate: 8, 7 and 6.
-    let mut rails = page(vec![tr("timeline_transaction_9", "Open order to buy"), tr("transaction_9", "50"), tr("timeline_transaction_8", "Bought"), tr("bot_activity_log_7", "x")], "a");
+    let mut v2 = page(vec![tr("timeline_transaction_9", "Open order to buy"), tr("transaction_9", "50"), tr("timeline_transaction_8", "Bought"), tr("bot_activity_log_7", "x")], "a");
     let mut rust = page(vec![tr("timeline_transaction_8", "Bought"), tr("bot_activity_log_7", "x"), tr("timeline_transaction_6", "Bought"), tr("transaction_6", "1")], "b");
-    assert_eq!(without_pending_market(&mut rails, &mut rust, &[9], &[], &[]), 1 + 2);
-    assert_eq!(rails, rust);
+    assert_eq!(without_pending_market(&mut v2, &mut rust, &[9], &[], &[]), 1 + 2);
+    assert_eq!(v2, rust);
     // A row this crate shows that Rails' page lacks is still compared when Rails lost nothing; so is a limit order's row.
-    let (mut rails, mut rust) = (page(vec![tr("transaction_5", "Open order to buy")], "a"), page(vec![], "a"));
-    assert_eq!(without_pending_market(&mut rails, &mut rust, &[9], &[], &[]), 0);
-    assert_ne!(rails, rust);
+    let (mut v2, mut rust) = (page(vec![tr("transaction_5", "Open order to buy")], "a"), page(vec![], "a"));
+    assert_eq!(without_pending_market(&mut v2, &mut rust, &[9], &[], &[]), 0);
+    assert_ne!(v2, rust);
     // The bar: taken only for a listed bot that says "Setting orders…" here and not in Rails.
     let bar = |text: &str| json!(["  <div class=\"bot-control__status\" id=\"status_bar_bots_dca_multi_asset_1\">", format!("    \" {text} \""), "  </div>"]);
-    let (mut rails, mut rust) = (bar("Next order in"), bar("Setting orders…"));
-    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[2], &[]), 0, "not a listed bot");
-    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[1], &[]), 1);
-    assert_eq!(rails, rust);
-    let (mut rails, mut rust) = (bar("Next order in"), bar("Paused"));
-    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[1], &[]), 0, "any other difference is compared");
+    let (mut v2, mut rust) = (bar("Next order in"), bar("Setting orders…"));
+    assert_eq!(without_pending_market(&mut v2, &mut rust, &[], &[2], &[]), 0, "not a listed bot");
+    assert_eq!(without_pending_market(&mut v2, &mut rust, &[], &[1], &[]), 1);
+    assert_eq!(v2, rust);
+    let (mut v2, mut rust) = (bar("Next order in"), bar("Paused"));
+    assert_eq!(without_pending_market(&mut v2, &mut rust, &[], &[1], &[]), 0, "any other difference is compared");
 }
 
 #[test]
@@ -1534,10 +1534,10 @@ fn only_the_waiting_tab_of_pending_market_orders_and_its_knock_on_are_left_out()
         lines.push(json!("  </div>"));
         json!(lines)
     };
-    let compare = |rails: Value, rust: Value, waiting_bots: &[i64]| {
-        let (mut rails, mut rust) = (rails, rust);
-        let taken = without_pending_market(&mut rails, &mut rust, &[9], &[1], waiting_bots);
-        (taken, rails == rust)
+    let compare = |v2: Value, rust: Value, waiting_bots: &[i64]| {
+        let (mut v2, mut rust) = (v2, rust);
+        let taken = without_pending_market(&mut v2, &mut rust, &[9], &[1], waiting_bots);
+        (taken, v2 == rust)
     };
     // Its waiting rows all pending market orders: the tab goes, the rest stays.
     assert_eq!(compare(filters("all", &["all", "successful", "waiting", "other"]), filters("all", &["all", "successful", "other"]), &[1]), (1, true));
@@ -1559,25 +1559,25 @@ fn only_the_waiting_tab_of_pending_market_orders_and_its_knock_on_are_left_out()
 
 /// Named divergence (as actions_*_label): Rails writes a bot's label into its label stream as HTML; this crate writes it
 /// as text. Where Rails' label stream holds markup, this crate's must be one escaped text node; the rest is compared.
-fn escaped_label(rails: &mut Value, rust: &Value) -> Result<(), String> {
-    let Some(raw) = rails["body"].as_array() else { return Ok(()) };
+fn escaped_label(v2: &mut Value, rust: &Value) -> Result<(), String> {
+    let Some(raw) = v2["body"].as_array() else { return Ok(()) };
     // The first stream (its opening line, its closing line), when it is the label's.
     let label = |lines: &[Value]| -> Option<(usize, usize)> {
         let start = lines.iter().position(|v| v.as_str().is_some_and(|s| s.trim().starts_with("<turbo-stream")))?;
         lines[start].as_str()?.contains("target=\"label_").then_some(())?;
         Some((start, start + lines[start..].iter().position(|v| v.as_str().is_some_and(|s| s.trim() == "</turbo-stream>"))?))
     };
-    let Some((rails_start, rails_end)) = label(raw) else { return Ok(()) };
+    let Some((v2_start, v2_end)) = label(raw) else { return Ok(()) };
     // Markup inside Rails' label: anything between its <template> and </template> that is a tag.
-    if !raw[rails_start + 2..rails_end - 1].iter().any(|v| v.as_str().is_some_and(|s| s.trim().starts_with('<'))) { return Ok(()); }
+    if !raw[v2_start + 2..v2_end - 1].iter().any(|v| v.as_str().is_some_and(|s| s.trim().starts_with('<'))) { return Ok(()); }
     let ours = rust["body"].as_array().ok_or("Rust HTML")?;
     let (start, end) = label(ours).ok_or("this crate's answer has no label stream first")?;
     if end - start != 4 || !ours[start + 2].as_str().is_some_and(|text| text.trim().starts_with('"') && text.contains("<b>")) {
         return Err(format!("this crate's label is not the submitted text as one text node: {:?}", &ours[start..=end]));
     }
     let mut lines = raw.clone();
-    lines.splice(rails_start..=rails_end, ours[start..=end].iter().cloned());
-    rails["body"] = json!(lines);
+    lines.splice(v2_start..=v2_end, ours[start..=end].iter().cloned());
+    v2["body"] = json!(lines);
     Ok(())
 }
 
@@ -1670,7 +1670,7 @@ fn desktop_scenario(scenario: &Value) -> bool { scenario["env"]["DELTABADGER_PLA
 /// a desktop scenario's browser is signed in with a launcher ticket, not the password Rails' first two steps send; the
 /// desktop's sign-in page, its Settings rows and its script tag are its own. What these scenarios pin, the update row
 /// (`#app_update`), is compared with Rails' on every later step, with the status, the users and the bots.
-fn desktop_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+fn desktop_divergence(name: &str, scenario: &Value, v2: &Value, rust: &Value) -> Option<Result<(), String>> {
     if !desktop_scenario(scenario) { return None; }
     // A body is its normalized lines (`html::normalize`): the row is the element's opening line to its closing one.
     let row = |body: &Value| -> Value {
@@ -1683,7 +1683,7 @@ fn desktop_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value)
     let rows = |v: &Value| -> Vec<Value> {
         v["responses"].as_array().unwrap().iter().skip(2).map(|answer| json!({ "status": answer["status"], "body": row(&answer["body"]) })).collect()
     };
-    let (mut theirs, ours) = (rows(rails), rows(rust));
+    let (mut theirs, ours) = (rows(v2), rows(rust));
     // PLAN-B7 §5.2: the desktop's row says what its own updater does (tauri.js keeps it current); Rails' says the 2.x line.
     let b7 = format!("\"{}\"", deltabadger::web::i18n::text("en", "desktop_update.about", &[]));
     for answer in &mut theirs {
@@ -1707,11 +1707,11 @@ fn desktop_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value)
         }
     }
     if let Some(at) = theirs.iter().position(|answer| answer["body"] == "") {
-        let body = rails["responses"][at + 2]["body"].to_string();
+        let body = v2["responses"][at + 2]["body"].to_string();
         return Some(Err(format!("Rails' step {} has no #app_update row: review this divergence: {}", at + 2, &body[..body.len().min(400)])));
     }
     let whole = |v: &Value, responses: Vec<Value>| json!({ "responses": responses, "users": v["users"], "bots": v["bots"] });
-    Some(difference(name, &whole(rails, theirs), &whole(rust, ours)).map_or(Ok(()), Err))
+    Some(difference(name, &whole(v2, theirs), &whole(rust, ours)).map_or(Ok(()), Err))
 }
 
 async fn mount_ibkr(server: &wiremock::MockServer) {
@@ -1871,7 +1871,7 @@ fn without_rust_tables(answer: &Value) -> Value {
 /// requested stocks and records one shortage notice. The request itself logs nothing (asserted
 /// before run() invokes the engine). Validate the entire row and the next page's now-nonempty
 /// activity feed, then compare every other effect.
-fn index_shortfall_difference(name: &str, scenario: &Value, rails: &Value, rust: &mut Value) -> Result<(), String> {
+fn index_shortfall_difference(name: &str, scenario: &Value, v2: &Value, rust: &mut Value) -> Result<(), String> {
     if name != "follow_index_create_unbounded" { return Ok(()); }
     let steps = scenario["steps"].as_array().ok_or("missing steps")?;
     let resyncs: Vec<_> = steps.iter().enumerate().filter(|(_, step)| step["resync"] == true).collect();
@@ -1883,7 +1883,7 @@ fn index_shortfall_difference(name: &str, scenario: &Value, rails: &Value, rust:
     let expected = json!([{"id":1,"bot_id":1,"created_at":deltabadger::codec::format_time(at),"event":"index_composition_shortfall",
         "level":1,"message":"Index composition: 4 of 10 requested assets are tradable on Alpaca in USD.","details":{"available":4,"requested":10}}]);
     for key in ["rows_before", "rows_after"] {
-        if rails["responses"][index][key]["bot_activity_logs"] != json!([]) { return Err("Rails follow activity changed".into()); }
+        if v2["responses"][index][key]["bot_activity_logs"] != json!([]) { return Err("Rails follow activity changed".into()); }
     }
     if rust["responses"][index]["rows_before"]["bot_activity_logs"] != json!([])
         || rust["responses"][index]["rows_after"]["bot_activity_logs"] != expected {
@@ -1894,7 +1894,7 @@ fn index_shortfall_difference(name: &str, scenario: &Value, rails: &Value, rust:
     }
     // With an activity row, the feed no longer needs its empty placeholder. Pin the exact
     // element (including its whitespace nodes) and require the rest of this page to match.
-    let body = rails["responses"][index + 1]["body"].as_array().ok_or("missing bot page")?;
+    let body = v2["responses"][index + 1]["body"].as_array().ok_or("missing bot page")?;
     let placeholder = ["<tr id=\"orders_list_placeholder\">", "\" \"", "<td class=\"text-center text-inactive\" colspan=\"5\" style=\"padding-bottom: 2rem;\">", "\". . .\"", "</td>", "\" \"", "</tr>", "\" \""];
     let positions: Vec<_> = body.iter().enumerate().filter(|(_, line)| line.as_str().is_some_and(|s| s.trim() == placeholder[0])).map(|(i, _)| i).collect();
     let [start] = positions.as_slice() else { return Err("expected one empty-feed placeholder in Rails".into()) };
@@ -1915,16 +1915,16 @@ fn index_shortfall_difference(name: &str, scenario: &Value, rails: &Value, rust:
 
 /// D-6C-6/8: the request itself is durable engine work, instead of a Rails TTL-only spinner token.
 /// Assert that one field's complete shape before comparing every remaining row and the flash unchanged.
-fn liquidation_request_difference(name:&str,scenario:&Value,rails:&mut Value,rust:&mut Value)->Result<(),String> {
+fn liquidation_request_difference(name:&str,scenario:&Value,v2:&mut Value,rust:&mut Value)->Result<(),String> {
     if !matches!(name,"liquidation_started"|"liquidation_wash_question") {return Ok(())}
     // D-6C-3: exactly the request's clock pre-check moves to the engine.
-    let sent=&rails["responses"].as_array().unwrap().last().unwrap()["venue_requests"];
+    let sent=&v2["responses"].as_array().unwrap().last().unwrap()["venue_requests"];
     if *sent!=json!([{"method":"GET","host":"paper-api.alpaca.markets","path":"/v2/clock","params":[]}]) || rust["responses"].as_array().unwrap().last().unwrap().get("venue_requests").is_some() {
         return Err(format!("unexpected request-side market reads: {sent}"));
     }
-    rails["responses"].as_array_mut().unwrap().last_mut().unwrap().as_object_mut().unwrap().shift_remove("venue_requests");
+    v2["responses"].as_array_mut().unwrap().last_mut().unwrap().as_object_mut().unwrap().shift_remove("venue_requests");
     let at=chrono::DateTime::parse_from_rfc3339(scenario["at"].as_str().unwrap()).unwrap().timestamp();
-    for (value,is_rust) in [(rails,false),(rust,true)] {
+    for (value,is_rust) in [(v2,false),(rust,true)] {
         let bot=&mut value["bots"][0];
         let mut transient:Value=serde_json::from_str(bot["transient_data"].as_str().ok_or("missing transient data")?).map_err(|e|e.to_string())?;
         let marker=transient.as_object_mut().ok_or("invalid transient data")?.shift_remove("liquidation_selling_since").ok_or("request was not persisted")?;
@@ -1942,15 +1942,15 @@ fn liquidation_request_difference(name:&str,scenario:&Value,rails:&mut Value,rus
 /// D-6C-6/8: a Yes is a durable request in the bot's transient data rather than a queued job, and a second Yes before the
 /// engine took the first is refused (`bot.redeploy.in_flight`, 422) where Rails queues it again. Each is asserted on its own
 /// element, then the rest is compared unchanged.
-fn redeploy_request_difference(name:&str,scenario:&Value,rails:&mut Value,rust:&mut Value)->Result<(),String> {
+fn redeploy_request_difference(name:&str,scenario:&Value,v2:&mut Value,rust:&mut Value)->Result<(),String> {
     if !["redeploy_started","redeploy_double_yes"].contains(&name) {return Ok(())}
     let clock=json!([{"method":"GET","host":"paper-api.alpaca.markets","path":"/v2/clock","params":[]}]);
-    for (theirs,ours) in rails["responses"].as_array_mut().unwrap().iter_mut().zip(rust["responses"].as_array_mut().unwrap().iter_mut()).skip(3) {
+    for (theirs,ours) in v2["responses"].as_array_mut().unwrap().iter_mut().zip(rust["responses"].as_array_mut().unwrap().iter_mut()).skip(3) {
         if theirs.get("venue_requests").is_some_and(|sent|*sent!=clock) || ours.get("venue_requests").is_some() {return Err(format!("unexpected request-side market reads: {}",theirs["venue_requests"]))}
         theirs.as_object_mut().unwrap().shift_remove("venue_requests");
     }
     if name=="redeploy_double_yes" {
-        let (theirs,ours)=(rails["responses"].as_array_mut().unwrap().last_mut().unwrap(),rust["responses"].as_array_mut().unwrap().last_mut().unwrap());
+        let (theirs,ours)=(v2["responses"].as_array_mut().unwrap().last_mut().unwrap(),rust["responses"].as_array_mut().unwrap().last_mut().unwrap());
         // Bodies are compared as normalized lines.
         let text=|answer:&Value|answer["body"].as_array().map(|lines|lines.iter().filter_map(Value::as_str).collect::<Vec<_>>().join("\n")).unwrap_or_default();
         let body=text(ours);
@@ -1980,21 +1980,21 @@ fn rebalance_resolution_difference(name:&str,rust:&mut Value)->Result<(),String>
     Ok(())
 }
 
-fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
-    let theirs = rails["responses"].as_array()?;
+fn difference(name: &str, v2: &Value, rust: &Value) -> Option<String> {
+    let theirs = v2["responses"].as_array()?;
     let ours = rust["responses"].as_array()?;
     for (index, (a, b)) in theirs.iter().zip(ours).enumerate() {
         if a["action_snapshot"] == true || b["action_snapshot"] == true || (name.starts_with("actions_") && index + 1 == theirs.len()) {
             if let Some(message) = action_snapshot_difference(&format!("{name} step {index} (Rails {}, Rust {})", a["status"], b["status"]), a, b) { return Some(message); }
         }
     }
-    if rails["users"] != rust["users"] {
-        return Some(format!("{name}: users rows differ\n  rails: {}\n  rust:  {}", rails["users"], rust["users"]));
+    if v2["users"] != rust["users"] {
+        return Some(format!("{name}: users rows differ\n  rails: {}\n  rust:  {}", v2["users"], rust["users"]));
     }
-    if !name.starts_with("actions_") && rails["bots"] != rust["bots"] {
-        return Some(format!("{name}: bots rows differ\n  rails: {}\n  rust:  {}", rails["bots"], rust["bots"]));
+    if !name.starts_with("actions_") && v2["bots"] != rust["bots"] {
+        return Some(format!("{name}: bots rows differ\n  rails: {}\n  rust:  {}", v2["bots"], rust["bots"]));
     }
-    let (ours, theirs) = (rust["responses"].as_array().unwrap(), rails["responses"].as_array().unwrap());
+    let (ours, theirs) = (rust["responses"].as_array().unwrap(), v2["responses"].as_array().unwrap());
     if ours.len() != theirs.len() {
         return Some(format!("{name}: Rails recorded {} responses, this crate gave {}", theirs.len(), ours.len()));
     }
@@ -2032,15 +2032,15 @@ fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
 /// What a scenario states about Rails' own answers, so that "equal" cannot mean "equally wrong":
 /// a step's `expect` is the status Rails must have answered, and `expect_users` the columns the first
 /// `users` row must end with.
-fn unmet_expectation(name: &str, scenario: &Value, rails: &Value) -> Option<String> {
+fn unmet_expectation(name: &str, scenario: &Value, v2: &Value) -> Option<String> {
     for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
-        if !step["expect"].is_null() && rails["responses"][index]["status"] != step["expect"] {
-            return Some(format!("{name} step {index}: the scenario expects {}, Rails answered {}", step["expect"], rails["responses"][index]["status"]));
+        if !step["expect"].is_null() && v2["responses"][index]["status"] != step["expect"] {
+            return Some(format!("{name} step {index}: the scenario expects {}, Rails answered {}", step["expect"], v2["responses"][index]["status"]));
         }
     }
     for (column, value) in scenario["expect_users"].as_object().into_iter().flatten() {
-        if rails["users"][0][column] != *value {
-            return Some(format!("{name}: the scenario expects users.{column} = {value}, Rails left {}", rails["users"][0][column]));
+        if v2["users"][0][column] != *value {
+            return Some(format!("{name}: the scenario expects users.{column} = {value}, Rails left {}", v2["users"][0][column]));
         }
     }
     None
@@ -2049,11 +2049,11 @@ fn unmet_expectation(name: &str, scenario: &Value, rails: &Value) -> Option<Stri
 /// Bot::IndexSwitch slices the settings to the target class's store: the lists index_switch.rs keeps are Rails' own, so a new
 /// store accessor fails here instead of being dropped by a conversion.
 #[test]
-fn index_switch_stored_settings_are_rails() {
+fn index_switch_stored_settings_are_v2() {
     let recording = grid_recording("login_page_en");
-    let rails: Value = serde_json::from_str(&std::fs::read_to_string(recording.path.join("rails/stored_settings.json")).unwrap()).unwrap();
+    let v2: Value = serde_json::from_str(&std::fs::read_to_string(recording.path.join("rails/stored_settings.json")).unwrap()).unwrap();
     use deltabadger::web::bot::index_switch::{STORED_DCA_INDEX, STORED_DCA_MULTI_ASSET};
-    assert_eq!(rails, json!({"Bots::DcaMultiAsset": STORED_DCA_MULTI_ASSET, "Bots::DcaIndex": STORED_DCA_INDEX}));
+    assert_eq!(v2, json!({"Bots::DcaMultiAsset": STORED_DCA_MULTI_ASSET, "Bots::DcaIndex": STORED_DCA_INDEX}));
 }
 
 /// Builds and records only this scope, intersected with PAGES. Each scope has its own cache key and lock;
@@ -2111,10 +2111,10 @@ fn recorded_grid(scope: &str) -> (common::Recording, tempfile::TempDir, Vec<Path
 /// Ruling R: these five legacy fixtures contain priced balances but no producer digest.
 /// Compare the whole response after replacing only Rails' measured tracker SVG with
 /// Rust's asserted unavailable SVG. No amount, other icon, header or row is masked.
-fn unknown_origin_ring(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+fn unknown_origin_ring(name: &str, v2: &Value, rust: &Value) -> Option<Result<(), String>> {
     if !["bot_page_ring", "bots_empty_cash_shown", "bots_empty_with_holdings", "bots_list_ring", "bots_list_ring_with_cash"].contains(&name) { return None; }
     Some((|| {
-        let mut expected=rails.clone();
+        let mut expected=v2.clone();
         let responses=expected["responses"].as_array_mut().ok_or("missing responses")?;
         let actual=rust["responses"].as_array().ok_or("missing actual responses")?;
         if responses.len()!=actual.len(){return Err("response count changed".into());}
@@ -2299,34 +2299,34 @@ const IBKR_RECONNECT: [&str; 13] = [
 
 /// D-LIQUIDATION-ONE-LINE slice 2: a Sell link for a position no longer held answers 200 with a flash run from inside the
 /// modal frame, where Rails answers a bare 404. Everything before that answer, and the rows after it, compare in full.
-fn liquidation_gone_divergence(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+fn liquidation_gone_divergence(name: &str, v2: &Value, rust: &Value) -> Option<Result<(), String>> {
     if name != "liquidation_missing" { return None; }
     let responses = |v: &Value| v["responses"].as_array().unwrap().clone();
-    let (mut theirs, mut ours) = (responses(rails), responses(rust));
-    let (Some(rails_last), Some(rust_last)) = (theirs.pop(), ours.pop()) else { return Some(Err("no responses".into())) };
-    if let Some(message) = difference(name, &json!({ "responses": theirs, "users": rails["users"], "bots": rails["bots"] }), &json!({ "responses": ours, "users": rust["users"], "bots": rust["bots"] })) {
+    let (mut theirs, mut ours) = (responses(v2), responses(rust));
+    let (Some(v2_last), Some(rust_last)) = (theirs.pop(), ours.pop()) else { return Some(Err("no responses".into())) };
+    if let Some(message) = difference(name, &json!({ "responses": theirs, "users": v2["users"], "bots": v2["bots"] }), &json!({ "responses": ours, "users": rust["users"], "bots": rust["bots"] })) {
         return Some(Err(message));
     }
     let body = match &rust_last["body"] { Value::Array(lines) => lines.iter().filter_map(Value::as_str).map(str::trim).collect::<Vec<_>>().join("\n"), other => other.as_str().unwrap_or_default().to_string() };
-    Some(if rails_last["status"] != 404 || rust_last["status"] != 200 {
-        Err(format!("expected Rails 404 and this crate 200: rails {}, rust {}", rails_last["status"], rust_last["status"]))
+    Some(if v2_last["status"] != 404 || rust_last["status"] != 200 {
+        Err(format!("expected Rails 404 and this crate 200: rails {}, rust {}", v2_last["status"], rust_last["status"]))
     } else if !body.contains(r#"<turbo-stream action="prepend" target="flash">"#) || !body.contains("gone is no longer held.") {
         Err(format!("expected the no-longer-held flash in the modal frame: {}", &body[..body.len().min(800)]))
     } else { Ok(()) })
 }
 
-fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+fn listed_divergence(name: &str, scenario: &Value, v2: &Value, rust: &Value) -> Option<Result<(), String>> {
     // A1 serves these historical grid names now: compare the empty rule list and
     // missing-rule delete with Rails in full, including headers and row snapshots.
     if matches!(name, "not_ported_api_get_rules" | "not_ported_api_delete_rules_1") { return None; }
     let kind = ["unrouted_", "refused_api_", "refused_web_", "fixed_api_", "not_ported_api_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
     let responses = |v: &Value| v["responses"].as_array().unwrap().clone();
-    let (mut theirs, mut ours) = (responses(rails), responses(rust));
-    let (Some(rails_last), Some(rust_last)) = (theirs.pop(), ours.pop()) else { return Some(Err("no responses".into())) };
+    let (mut theirs, mut ours) = (responses(v2), responses(rust));
+    let (Some(v2_last), Some(rust_last)) = (theirs.pop(), ours.pop()) else { return Some(Err("no responses".into())) };
     // A refused write leaves the bots Rails changed as they were: its last step's rows hold that (below).
     // So does a refused wizard save (a not_ported_ write whose step snapshots the rows; below, it must have written nothing).
-    let rails_bots = if kind == "refused_api_" || kind == "refused_web_" || kind == "fixed_api_" || (kind == "not_ported_" && rust_last["action_snapshot"] == true) { &rust["bots"] } else { &rails["bots"] };
-    if let Some(message) = difference(name, &json!({ "responses": theirs, "users": rails["users"], "bots": rails_bots }), &json!({ "responses": ours, "users": rust["users"], "bots": rust["bots"] })) {
+    let v2_bots = if kind == "refused_api_" || kind == "refused_web_" || kind == "fixed_api_" || (kind == "not_ported_" && rust_last["action_snapshot"] == true) { &rust["bots"] } else { &v2["bots"] };
+    if let Some(message) = difference(name, &json!({ "responses": theirs, "users": v2["users"], "bots": v2_bots }), &json!({ "responses": ours, "users": rust["users"], "bots": rust["bots"] })) {
         return Some(Err(format!("before its last response: {message}")));
     }
     let step = scenario["steps"].as_array().unwrap().last().unwrap().clone();
@@ -2334,9 +2334,9 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
     let named = rust_last["body"].to_string().contains(&format!("{method} {}", step["path"].as_str().unwrap()));
     let without_location = |v: &Value| { let mut v = v.clone(); v["headers"].as_object_mut().unwrap().remove("location"); v };
     Some(match kind {
-        "stricter_" if without_location(&rails_last) != without_location(&rust_last) => Err(format!("more than the Location differs:\n  rails: {rails_last}\n  rust:  {rust_last}")),
-        "stricter_" if rust_last["headers"]["location"] != "/" || rails_last["headers"]["location"] == "/" => {
-            Err(format!("expected Rails to go back to the referer and this crate to `/`: rails {}, rust {}", rails_last["headers"]["location"], rust_last["headers"]["location"]))
+        "stricter_" if without_location(&v2_last) != without_location(&rust_last) => Err(format!("more than the Location differs:\n  rails: {v2_last}\n  rust:  {rust_last}")),
+        "stricter_" if rust_last["headers"]["location"] != "/" || v2_last["headers"]["location"] == "/" => {
+            Err(format!("expected Rails to go back to the referer and this crate to `/`: rails {}, rust {}", v2_last["headers"]["location"], rust_last["headers"]["location"]))
         }
         "stricter_" => Ok(()),
         "not_ported_api_" => {
@@ -2347,7 +2347,7 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             headers["content-type"] = json!("application/json; charset=utf-8");
             let expected = json!({ "status": 501, "headers": headers, "body": body });
             let without_snapshot = |v: &Value| json!({ "status": v["status"], "headers": v["headers"], "body": v["body"] });
-            if rails_last["status"] == 501 { Err("Rails now answers 501: drop or rename this scenario".into()) }
+            if v2_last["status"] == 501 { Err("Rails now answers 501: drop or rename this scenario".into()) }
             else if without_snapshot(&rust_last) != expected { Err(format!("expected the not_ported envelope:\n  expected: {expected}\n  rust:     {rust_last}")) }
             else { Ok(()) }
         }
@@ -2356,7 +2356,7 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             // `write_refused` envelope, having written nothing.
             let body: Value = serde_json::from_str(rust_last["body"].as_str().unwrap_or_default()).unwrap_or_default();
             let unchanged = rust_last["rows_before"] == rust_last["rows_after"] && rust_last["other_rows_before"] == rust_last["other_rows_after"];
-            if !rails_last["status"].as_u64().is_some_and(|s| (200..300).contains(&s)) { Err(format!("Rails now refuses ({}): drop or rename this scenario", rails_last["status"])) }
+            if !v2_last["status"].as_u64().is_some_and(|s| (200..300).contains(&s)) { Err(format!("Rails now refuses ({}): drop or rename this scenario", v2_last["status"])) }
             else if rust_last["status"] != 409 || body["error"]["code"] != "write_refused" || !body["error"]["message"].as_str().is_some_and(|m| m.starts_with("This app can't run that yet: ")) {
                 Err(format!("expected the write_refused envelope: {rust_last}"))
             }
@@ -2367,9 +2367,9 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             // A Rails defect fixed by name (D-API-CREATE-HYPERLIQUID-LIMIT): Rails refuses its own create and writes nothing;
             // this build makes and starts the bot, a Hyperliquid one with the wizard's limit orders.
             let body: Value = serde_json::from_str(rust_last["body"].as_str().unwrap_or_default()).unwrap_or_default();
-            let theirs: Value = serde_json::from_str(rails_last["body"].as_str().unwrap_or_default()).unwrap_or_default();
+            let theirs: Value = serde_json::from_str(v2_last["body"].as_str().unwrap_or_default()).unwrap_or_default();
             let made = rust_last["rows_after"]["bots"].as_array().into_iter().flatten().find(|bot| bot["id"] == body["data"]["id"]).cloned().unwrap_or_default();
-            if rails_last["status"] != 422 || !theirs["error"]["message"].as_str().is_some_and(|m| m.contains("Limit ordered")) { Err(format!("Rails no longer refuses with the limit-order error: drop or rename this scenario: {rails_last}")) }
+            if v2_last["status"] != 422 || !theirs["error"]["message"].as_str().is_some_and(|m| m.contains("Limit ordered")) { Err(format!("Rails no longer refuses with the limit-order error: drop or rename this scenario: {v2_last}")) }
             else if rust_last["status"] != 201 || made["status"] != 1 || made["settings"]["limit_ordered"] != true { Err(format!("expected the bot made and started with limit orders: {rust_last}")) }
             else { Ok(()) }
         }
@@ -2378,7 +2378,7 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             // CoinGecko install): a web write Rails makes and this build refuses by name, as the flash Rails prepends for a
             // refusal (422 `engine.write_refused`), having written nothing.
             let unchanged = rust_last["rows_before"] == rust_last["rows_after"] && rust_last["other_rows_before"] == rust_last["other_rows_after"];
-            if !rails_last["status"].as_u64().is_some_and(|s| (200..300).contains(&s)) { Err(format!("Rails now refuses ({}): drop or rename this scenario", rails_last["status"])) }
+            if !v2_last["status"].as_u64().is_some_and(|s| (200..300).contains(&s)) { Err(format!("Rails now refuses ({}): drop or rename this scenario", v2_last["status"])) }
             else if rust_last["status"] != 422 || !rust_last["body"].to_string().contains("run that yet: ") { Err(format!("expected the write_refused flash: {rust_last}")) }
             else if !unchanged { Err("the refused write changed rows".into()) }
             else { Ok(()) }
@@ -2389,9 +2389,9 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             let rust_owned = deltabadger::store::REGISTRY.owned_tables();
             let own = |key: &str| -> Value { Value::Object(rust_last[key].as_object().into_iter().flatten().filter(|(t, _)| rust_owned.contains(&t.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect()) };
             if own("rows_before") != own("rows_after") || own("other_rows_before") != own("other_rows_after") { return Some(Err("the refusal wrote to Rust's own tables".into())); }
-            let (rails_rows, rust_rows) = (without_rust_tables(&rails_last), without_rust_tables(&rust_last));
-            if let Some(key) = snapshot.iter().find(|key| rails_rows.get(**key) != rust_rows.get(**key)) {
-                return Some(Err(format!("the refusal's {key} differs:\n  rails: {}\n  rust:  {}", rails_rows[*key], rust_rows[*key])));
+            let (v2_rows, rust_rows) = (without_rust_tables(&v2_last), without_rust_tables(&rust_last));
+            if let Some(key) = snapshot.iter().find(|key| v2_rows.get(**key) != rust_rows.get(**key)) {
+                return Some(Err(format!("the refusal's {key} differs:\n  rails: {}\n  rust:  {}", v2_rows[*key], rust_rows[*key])));
             }
             let mut rust_last = rust_last.clone();
             for key in snapshot { rust_last.as_object_mut().unwrap().remove(key); }
@@ -2402,18 +2402,18 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                 "content-type": "text/html; charset=utf-8", "cache-control": "no-cache",
                 "content-security-policy-report-only": masked_nonce(&deltabadger::web::headers::content_security_policy("n")).0,
             } });
-            if rails_last["status"] != 404 { Err(format!("Rails now answers {}: drop or rename this scenario", rails_last["status"])) }
+            if v2_last["status"] != 404 { Err(format!("Rails now answers {}: drop or rename this scenario", v2_last["status"])) }
             else if rust_last != expected { Err(format!("expected 404 with public/404.html:\n  expected: {expected}\n  rust:     {rust_last}")) }
             else { Ok(()) }
         }
-        _ if rails_last["status"] != if kind == "unrouted_" { 404 } else { 200 } => Err(format!("Rails now answers {}: drop or rename this scenario", rails_last["status"])),
+        _ if v2_last["status"] != if kind == "unrouted_" { 404 } else { 200 } => Err(format!("Rails now answers {}: drop or rename this scenario", v2_last["status"])),
         _ if rust_last["status"] != 501 || !named => Err(format!("expected 501 naming `{method} {}`, got {} {}", step["path"], rust_last["status"], rust_last["body"])),
         "not_ported_" => {
             // A refused write (its step snapshots the rows) leaves every row as it was.
             if rust_last["action_snapshot"] == true && (rust_last["rows_before"] != rust_last["rows_after"] || rust_last["other_rows_before"] != rust_last["other_rows_after"]) {
                 return Some(Err("the refusal wrote rows".into()));
             }
-            let mut expected = rails_last["headers"].clone();
+            let mut expected = v2_last["headers"].clone();
             expected.as_object_mut().unwrap().remove("set-cookie");
             // A frame request that accepts a Turbo Stream gets its refusal as one (layout::not_ported_response); Rails' page is HTML.
             let sent = &step["headers"];
@@ -2451,7 +2451,7 @@ fn refusal_headers(signed_in: bool) -> Value {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn settings_metrics_panel_matches_recorded_rails_bytes() {
+async fn settings_metrics_panel_matches_recorded_v2_bytes() {
     let (_recording, rust_root, dirs) = recorded_grid("actions_settings_metrics_");
     for dir in dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_settings_metrics_"))) {
         for scope in ["", "de"] {
@@ -2464,13 +2464,13 @@ async fn settings_metrics_panel_matches_recorded_rails_bytes() {
             app.attach_engine(Default::default());
             app.attach_jobs(Default::default()).unwrap();
             let mut browser = Browser::default();
-            for (step, rails) in scenario["steps"].as_array().unwrap().iter().zip(recorded["responses"].as_array().unwrap()) {
+            for (step, v2) in scenario["steps"].as_array().unwrap().iter().zip(recorded["responses"].as_array().unwrap()) {
                 let form: Option<Vec<(&str, &str)>> = step["form"].as_object().map(|form| form.iter().map(|(key, value)| (key.as_str(), value.as_str().unwrap())).collect());
                 let headers: Vec<(&str, &str)> = step["headers"].as_object().map(|headers| headers.iter().map(|(key, value)| (key.as_str(), value.as_str().unwrap())).collect()).unwrap_or_default();
                 let csrf = match step["csrf"].as_str() { Some("form") => Csrf::Form, Some("header") => Csrf::Header, _ => Csrf::None };
                 let answer = browser.send(&app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), form.as_deref(), csrf, &headers).await;
-                assert_eq!(answer.status as u64, rails["status"].as_u64().unwrap(), "{name}/{scope}");
-                let Some(sent) = rails["broadcasts"].as_array() else { continue };
+                assert_eq!(answer.status as u64, v2["status"].as_u64().unwrap(), "{name}/{scope}");
+                let Some(sent) = v2["broadcasts"].as_array() else { continue };
                 let changed = name.ends_with("_composition") || name.ends_with("_exchange");
                 assert_eq!(sent.len(), usize::from(changed), "Rails callback inventory: {name}/{scope}");
                 if changed {
@@ -2547,7 +2547,7 @@ async fn settings_metrics_panel_is_computed_off_the_request_and_ends_on_the_late
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn hyperliquid_limit_control_matches_recorded_rails_bytes() {
+async fn hyperliquid_limit_control_matches_recorded_v2_bytes() {
     let (_recording, rust_root, dirs) = recorded_grid("venue_bot_page_hyperliquid_limit_lock");
     let name = "venue_bot_page_hyperliquid_limit_lock";
     // PAGES may select another part of the grid; the unfiltered gate always includes this scenario.
@@ -2560,12 +2560,12 @@ async fn hyperliquid_limit_control_matches_recorded_rails_bytes() {
     app.attach_jobs(Default::default()).unwrap();
     let mut browser = Browser::default();
     let mut controls = 0;
-    for (step, rails) in scenario["steps"].as_array().unwrap().iter().zip(recorded["responses"].as_array().unwrap()) {
+    for (step, v2) in scenario["steps"].as_array().unwrap().iter().zip(recorded["responses"].as_array().unwrap()) {
         let form: Option<Vec<(&str, &str)>> = step["form"].as_object().map(|form| form.iter().map(|(key, value)| (key.as_str(), value.as_str().unwrap())).collect());
         let headers: Vec<(&str, &str)> = step["headers"].as_object().map(|headers| headers.iter().map(|(key, value)| (key.as_str(), value.as_str().unwrap())).collect()).unwrap_or_default();
         let csrf = match step["csrf"].as_str() { Some("form") => Csrf::Form, Some("header") => Csrf::Header, Some("both") => Csrf::Both, _ => Csrf::None };
         let answer = browser.send(&app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), form.as_deref(), csrf, &headers).await;
-        if let Some(diff) = difference(name, &json!({ "responses": [rails_answer(rails, step)] }), &json!({ "responses": [rust_answer(&answer, step)] })) {
+        if let Some(diff) = difference(name, &json!({ "responses": [v2_answer(v2, step)] }), &json!({ "responses": [rust_answer(&answer, step)] })) {
             panic!("{}: {diff}", step["path"]);
         }
         if step["path"].as_str().unwrap().contains("/bots/") {
@@ -2574,7 +2574,7 @@ async fn hyperliquid_limit_control_matches_recorded_rails_bytes() {
                 .and_then(|form| form.split_once("\n  <div class=\"toggle-group\">"))
                 .and_then(|(_, control)| control.split_once("</form>"))
                 .map(|(control, _)| control.to_string()).expect("the page contains its limit-order control");
-            assert_eq!(control(&answer.body), control(rails["body"].as_str().unwrap()), "limit-order control: {}", step["path"]);
+            assert_eq!(control(&answer.body), control(v2["body"].as_str().unwrap()), "limit-order control: {}", step["path"]);
             controls += 1;
         }
     }
@@ -2661,13 +2661,13 @@ fn page_grid_selection_is_complete_and_disjoint() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_serve_the_same_pages_shard_1() { replay_page_shard(0).await; }
+async fn v2_and_rust_serve_the_same_pages_shard_1() { replay_page_shard(0).await; }
 
 #[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_serve_the_same_pages_shard_2() { replay_page_shard(1).await; }
+async fn v2_and_rust_serve_the_same_pages_shard_2() { replay_page_shard(1).await; }
 
 #[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_serve_the_same_pages_shard_3() { replay_page_shard(2).await; }
+async fn v2_and_rust_serve_the_same_pages_shard_3() { replay_page_shard(2).await; }
 
 /// The shard hang: `run` dropped its key server right after a scenario had spent the test task's coop budget.
 #[test]
@@ -2686,10 +2686,10 @@ fn a_mock_server_dropped_with_the_coop_budget_spent_does_not_hang() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_serve_the_same_pages_shard_4() { replay_page_shard(3).await; }
+async fn v2_and_rust_serve_the_same_pages_shard_4() { replay_page_shard(3).await; }
 
 #[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_serve_the_same_pages_shard_5() { replay_page_shard(4).await; }
+async fn v2_and_rust_serve_the_same_pages_shard_5() { replay_page_shard(4).await; }
 
 /// What the page grid is doing now, and since when: the watchdog's view of a shard (one per test process under nextest).
 /// The scenario, the step within it, and when that began.
@@ -2751,7 +2751,7 @@ fn threads() -> String {
 
 async fn replay_page_shard(shard: usize) {
     let measured = std::time::Instant::now();
-    let (_rails_root, rust_root, dirs) = recorded_grid(&format!("shard-{shard}"));
+    let (_v2_root, rust_root, dirs) = recorded_grid(&format!("shard-{shard}"));
     // The frozen shard replays every scenario the inventory puts in it: none dropped, none added.
     let names: Vec<String> = dirs.iter().map(|d| d.file_name().unwrap().to_string_lossy().into_owned()).collect();
     let mut want: Vec<String> = page_inventory()["shards"][shard].as_array().unwrap().iter().map(|n| n.as_str().unwrap().to_string()).collect();
@@ -2780,10 +2780,10 @@ async fn replay_page_shard(shard: usize) {
         let scenario = scenario(dir);
         let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut full_page_frames, mut market_data_frames) = (0, 0, 0, 0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
-        let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| rails_answer(answer, step)).collect();
-        let rails_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
-        let rails = json!({ "responses": answers, "users": recorded["users"], "bots": recorded["bots"] });
-        if let Some(message) = unmet_expectation(&format!("{name}/{scope}"), &scenario, &rails) { failures.push(message); }
+        let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| v2_answer(answer, step)).collect();
+        let v2_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
+        let v2 = json!({ "responses": answers, "users": recorded["users"], "bots": recorded["bots"] });
+        if let Some(message) = unmet_expectation(&format!("{name}/{scope}"), &scenario, &v2) { failures.push(message); }
         // A page that reached the network in Rails was compared on whatever the network said: no scenario may.
         let network = recorded["network"].as_array().expect("pages.rb records the network calls a scenario made");
         if !network.is_empty() { failures.push(format!("{name}/{scope}: Rails reached the network: {network:?}")); }
@@ -2795,17 +2795,17 @@ async fn replay_page_shard(shard: usize) {
         let (pending_txs, pending_bots, waiting_bots) = pending_market(&rust_root.path().join(&name).join(scope));
         let mut rust = run(&rust_root.path().join(&name).join(scope)).await;
         // The listed 3.0 tracker tabs (tabs_3_0): the populated index in its scope frame, or the first-sync page.
-        let mut rails = rails;
-        no_wizard_reset(&scenario, &mut rails, &mut rust);
-        settings_as_read(&scenario, &mut rails, &mut rust);
+        let mut v2 = v2;
+        no_wizard_reset(&scenario, &mut v2, &mut rust);
+        settings_as_read(&scenario, &mut v2, &mut rust);
         let framed: Vec<bool> = rust["responses"].as_array().unwrap().iter().map(|a| a["body"].as_array().is_some_and(|lines| lines.iter().any(|l| l.as_str().is_some_and(|l| l.contains("id=\"tracker_scope\""))))).collect();
-        for (answer, framed) in rails["responses"].as_array_mut().unwrap().iter_mut().zip(framed.into_iter().chain(std::iter::repeat(false))) {
+        for (answer, framed) in v2["responses"].as_array_mut().unwrap().iter_mut().zip(framed.into_iter().chain(std::iter::repeat(false))) {
             let Some(raw) = answer.as_object_mut().unwrap().remove("tracker_raw") else { continue };
             let raw = raw.as_str().unwrap();
             let page = if framed { tabs::tracker_page(raw) } else { tabs::first_sync_page(raw) }.unwrap_or_else(|e| panic!("{name}/{scope}: {e}"));
             answer["body"] = json!(html::normalize(&page));
         }
-        for answer in rails["responses"].as_array_mut().unwrap() { without_market_data_contents(&mut answer["body"]); }
+        for answer in v2["responses"].as_array_mut().unwrap() { without_market_data_contents(&mut answer["body"]); }
         for answer in rust["responses"].as_array_mut().unwrap() {
             market_data_frames += without_market_data_contents(&mut answer["body"]);
             without_low_funds(&mut answer["body"]);
@@ -2826,7 +2826,7 @@ async fn replay_page_shard(shard: usize) {
         if name.starts_with("countdown_") {
             let ours: Vec<Vec<String>> = rust["responses"].as_array_mut().unwrap().iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect();
             // Rails knows a time on every page of these scenarios, and this build must not claim the same one.
-            for (index, (theirs, ours)) in rails_countdowns.iter().zip(&ours).enumerate().skip(2) {
+            for (index, (theirs, ours)) in v2_countdowns.iter().zip(&ours).enumerate().skip(2) {
                 let end = |values: &Vec<String>| values.iter().find(|value| value.starts_with("data-countdown-end-time-value")).cloned();
                 if end(theirs).is_none() || end(theirs) == end(ours) { failures.push(format!("{name}/{scope} step {index}: expected Rails to know the time and this build not to: {theirs:?} / {ours:?}")); }
                 countdown_pages += 1;
@@ -2834,27 +2834,27 @@ async fn replay_page_shard(shard: usize) {
         }
         let expected_countdowns = if name.starts_with("countdown_") { scenario["steps"].as_array().unwrap().len() - 2 } else { 0 };
         if countdown_pages != expected_countdowns { failures.push(format!("{name}/{scope}: expected {expected_countdowns} countdown pages, got {countdown_pages}")); }
-        let mut rails = rails;
+        let mut v2 = v2;
         if name.starts_with("settings_") {
-            for answer in rails["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
+            for answer in v2["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
             for answer in rust["responses"].as_array_mut().unwrap() { without_split_tool(answer); }
         }
         if name.starts_with("hook_") {
-            for answer in rails["responses"].as_array_mut().unwrap() { as_router_bad_request(answer); }
+            for answer in v2["responses"].as_array_mut().unwrap() { as_router_bad_request(answer); }
         }
         if name.starts_with("signal_action_") {
-            for answer in rails["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
+            for answer in v2["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
             let ours = rust["responses"].as_array().unwrap().clone();
-            if let Some(message) = rails["responses"].as_array_mut().unwrap().iter_mut().zip(&ours).find_map(|(a, b)| escaped_label(a, b).err()) {
+            if let Some(message) = v2["responses"].as_array_mut().unwrap().iter_mut().zip(&ours).find_map(|(a, b)| escaped_label(a, b).err()) {
                 failures.push(format!("{name}/{scope} (listed divergence): {message}"));
                 continue;
             }
-            if let Err(message) = without_new_tokens(&mut rails).and_then(|()| without_new_tokens(&mut rust)) {
+            if let Err(message) = without_new_tokens(&mut v2).and_then(|()| without_new_tokens(&mut rust)) {
                 failures.push(format!("{name}/{scope}: {message}"));
                 continue;
             }
             // A cable payload is markup: compared as a page is (html::normalize), as the api_ scenarios compare theirs.
-            for answer in rails["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) {
+            for answer in v2["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) {
                 if let Some(sent) = answer.get_mut("broadcasts").and_then(Value::as_array_mut) {
                     for payload in sent.iter_mut() { *payload = json!(html::normalize(payload.as_str().unwrap_or_default())); }
                 }
@@ -2862,65 +2862,65 @@ async fn replay_page_shard(shard: usize) {
         }
         if name.starts_with("wizard_signal_") {
             // The wizard's save draws each rule's token (plan 8e), on each side its own.
-            if let Err(message) = without_new_tokens(&mut rails).and_then(|()| without_new_tokens(&mut rust)) {
+            if let Err(message) = without_new_tokens(&mut v2).and_then(|()| without_new_tokens(&mut rust)) {
                 failures.push(format!("{name}/{scope}: {message}"));
                 continue;
             }
         }
         if name.starts_with("override_") || name.starts_with("custom_allocation_") || name.starts_with("follow_index_") || name.starts_with("merge_") || name.starts_with("split_") {
             // A bot action under Rack's override header, the menu's class switch and the dashboard's merge and split (which bump the run generation): compared as the API's bot writes are, without the ownership counters.
-            for answer in rails["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) { without_ownership(answer); }
+            for answer in v2["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) { without_ownership(answer); }
             for bot in rust["bots"].as_array_mut().unwrap() { without_counters(bot); }
         }
         if name.starts_with("api_") {
-            for answer in rails["responses"].as_array_mut().unwrap() { as_parse_error(answer); as_router_bad_request(answer); }
-            for answer in rails["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) { without_ownership(answer); }
+            for answer in v2["responses"].as_array_mut().unwrap() { as_parse_error(answer); as_router_bad_request(answer); }
+            for answer in v2["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) { without_ownership(answer); }
             for bot in rust["bots"].as_array_mut().unwrap() { without_counters(bot); }
             // A cable payload is markup: compared as a page is (html::normalize), whitespace between tags aside.
-            for answer in rails["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) {
+            for answer in v2["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) {
                 if let Some(sent) = answer.get_mut("broadcasts").and_then(Value::as_array_mut) {
                     for payload in sent.iter_mut() { *payload = json!(html::normalize(payload.as_str().unwrap_or_default())); }
                 }
             }
         }
         if name.starts_with("settings_pref_regenerate") {
-            if let Err(message) = without_random_tokens(&mut rails).and_then(|()| without_random_tokens(&mut rust)) {
+            if let Err(message) = without_random_tokens(&mut v2).and_then(|()| without_random_tokens(&mut rust)) {
                 failures.push(format!("{name}/{scope} (listed divergence): {message}"));
                 continue;
             }
         }
         if !pending_bots.is_empty() {
             let ours = rust["responses"].as_array_mut().unwrap();
-            for (theirs, ours) in rails["responses"].as_array_mut().unwrap().iter_mut().zip(ours.iter_mut()) {
+            for (theirs, ours) in v2["responses"].as_array_mut().unwrap().iter_mut().zip(ours.iter_mut()) {
                 without_pending_market(&mut theirs["body"], &mut ours["body"], &pending_txs, &pending_bots, &waiting_bots);
                 if let (Some(a), Some(b)) = (theirs.get_mut("broadcasts").and_then(Value::as_array_mut), ours.get_mut("broadcasts").and_then(Value::as_array_mut)) {
                     for (a, b) in a.iter_mut().zip(b.iter_mut()) { without_pending_market(a, b, &pending_txs, &pending_bots, &waiting_bots); }
                 }
             }
         }
-        for answer in rails["responses"].as_array_mut().unwrap() {
+        for answer in v2["responses"].as_array_mut().unwrap() {
             if without_broker_gate(&mut answer["body"]) > 0 { broker_gate_pages += 1; }
         }
         let expected_brokers = expected_broker_pages(&name, &scenario);
         if broker_gate_pages != expected_brokers { failures.push(format!("{name}/{scope}: expected {expected_brokers} broker pages, got {broker_gate_pages}")); }
         if name.starts_with("settings_ibkr_") {
             // D-IBKR-NOECHO: Rails' credentials form shows the stored consumer key, access token and secret; this crate's never does.
-            for answer in rails["responses"].as_array_mut().unwrap() { without_echoed_credentials(&mut answer["body"]); }
+            for answer in v2["responses"].as_array_mut().unwrap() { without_echoed_credentials(&mut answer["body"]); }
             // D-IBKR-RECONNECT: Rails' "generating" for a key its job never completed, here Disconnect only.
             if name == "settings_ibkr_reconnect_generating" {
-                if let Err(message) = rails["responses"].as_array_mut().unwrap().last_mut().map_or(Err("no response".to_string()), |answer| as_reconnect(&mut answer["body"])) {
+                if let Err(message) = v2["responses"].as_array_mut().unwrap().last_mut().map_or(Err("no response".to_string()), |answer| as_reconnect(&mut answer["body"])) {
                     failures.push(format!("{name}/{scope} (listed divergence): {message}"));
                     continue;
                 }
             }
         }
-        if let Err(error)=index_shortfall_difference(&name,&scenario,&rails,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut rails,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut rails)).and_then(|()|without_history_generation(&name,&mut rust)).and_then(|()|tracker_api_difference(&name,&mut rails)).and_then(|()|tax_api_difference(&name,&mut rails)).and_then(|()|account_divergences(&name,&scenario,&mut rails,&mut rust)).and_then(|()|market_data_divergences(&name,&mut rails,&mut rust)).and_then(|()|a18_divergences(&name,&mut rails,&mut rust)).and_then(|()|a20_divergences(&name,&mut rails,&mut rust)).and_then(|()|a20c_divergences(&name,&mut rails,&rust)).and_then(|()|merge_repeat_divergence(&name,&mut rails,&mut rust)) {
+        if let Err(error)=index_shortfall_difference(&name,&scenario,&v2,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut v2,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut v2,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut v2,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut v2)).and_then(|()|without_history_generation(&name,&mut rust)).and_then(|()|tracker_api_difference(&name,&mut v2)).and_then(|()|tax_api_difference(&name,&mut v2)).and_then(|()|account_divergences(&name,&scenario,&mut v2,&mut rust)).and_then(|()|market_data_divergences(&name,&mut v2,&mut rust)).and_then(|()|a18_divergences(&name,&mut v2,&mut rust)).and_then(|()|a20_divergences(&name,&mut v2,&mut rust)).and_then(|()|a20c_divergences(&name,&mut v2,&rust)).and_then(|()|merge_repeat_divergence(&name,&mut v2,&mut rust)) {
             failures.push(format!("{name}/{scope}: {error}")); continue;
         }
-        match unknown_origin_ring(&name, &rails, &rust).or_else(||desktop_divergence(&name, &scenario, &rails, &rust)).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||liquidation_gone_divergence(&name, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
+        match unknown_origin_ring(&name, &v2, &rust).or_else(||desktop_divergence(&name, &scenario, &v2, &rust)).or_else(||action_divergence(&name, &scenario, &v2, &rust)).or_else(||liquidation_gone_divergence(&name, &v2, &rust)).or_else(||listed_divergence(&name, &scenario, &v2, &rust)) {
             Some(Ok(())) => {}
             Some(Err(message)) => failures.push(format!("{name}/{scope} (listed divergence): {message}")),
-            None => if let Some(message) = difference(&format!("{name}/{scope}"), &rails, &rust) { failures.push(message); },
+            None => if let Some(message) = difference(&format!("{name}/{scope}"), &v2, &rust) { failures.push(message); },
         }
     }
     }
@@ -2938,8 +2938,8 @@ fn coingecko_check_requests() -> Value {
 
 /// A17-1's named divergences (PLAN-A17-coingecko-market-data.md), each on the last step it changes, with a witness that Rails
 /// still behaves as described; the rest of the scenario is compared whole.
-fn market_data_divergences(name: &str, rails: &mut Value, rust: &mut Value) -> Result<(), String> {
-    let (Some(theirs), Some(ours)) = (rails["responses"].as_array_mut().and_then(|r| r.last_mut()), rust["responses"].as_array_mut().and_then(|r| r.last_mut())) else { return Ok(()) };
+fn market_data_divergences(name: &str, v2: &mut Value, rust: &mut Value) -> Result<(), String> {
+    let (Some(theirs), Some(ours)) = (v2["responses"].as_array_mut().and_then(|r| r.last_mut()), rust["responses"].as_array_mut().and_then(|r| r.last_mut())) else { return Ok(()) };
     let configs = |v: &Value| v["settings_rows"]["app_configs"].as_array().cloned().unwrap_or_default();
     let config = |v: &Value, key: &str| configs(v).into_iter().find(|row| row["key"] == key).map(|row| row["value"].clone());
     match name {
@@ -2997,9 +2997,9 @@ const STOCKS_WITNESSES: [&str; 6] = ["settings_stocks_update_new_key", "settings
 
 /// A18's named divergences (PLAN-A18-stocks-platform-settings.md), on the write each changes, with a witness that Rails still
 /// behaves as described: this build's answer is `head :unprocessable_entity` with every row as the fixture left it.
-fn a18_divergences(name: &str, rails: &mut Value, rust: &mut Value) -> Result<(), String> {
+fn a18_divergences(name: &str, v2: &mut Value, rust: &mut Value) -> Result<(), String> {
     if !STOCKS_WITNESSES.contains(&name) && name != "settings_platform_destroy_hosted" { return Ok(()) }
-    let (Some(theirs), Some(ours)) = (rails["responses"].as_array_mut().and_then(|r| r.last_mut()), rust["responses"].as_array_mut().and_then(|r| r.last_mut())) else { return Ok(()) };
+    let (Some(theirs), Some(ours)) = (v2["responses"].as_array_mut().and_then(|r| r.last_mut()), rust["responses"].as_array_mut().and_then(|r| r.last_mut())) else { return Ok(()) };
     let rows = |v: &Value, table: &str| v["settings_rows"][table].as_array().cloned().unwrap_or_default();
     let config = |v: &Value, key: &str| rows(v, "app_configs").into_iter().find(|row| row["key"] == key).map(|row| row["value"].clone());
     let seeded = |v: &Value| rows(v, "api_keys").into_iter().any(|row| row["key"] == "stock-key");
@@ -3039,12 +3039,12 @@ fn a18_divergences(name: &str, rails: &mut Value, rust: &mut Value) -> Result<()
 
 /// A20's named divergences (PLAN-A20-small-pages.md), each on the steps it changes, each with a witness that Rails still
 /// behaves as described; everything else is compared whole.
-fn a20_divergences(name: &str, rails: &mut Value, rust: &mut Value) -> Result<(), String> {
+fn a20_divergences(name: &str, v2: &mut Value, rust: &mut Value) -> Result<(), String> {
     fn last(v: &mut Value) -> &mut Value { v["responses"].as_array_mut().and_then(|r| r.last_mut()).expect("a scenario has steps") }
     if name.starts_with("broadcasts_fetch_open_orders") {
         // D-OPEN-ORDERS-WAKE: Rails reads the waiting order inside the request; this build reads nothing there.
         if name == "broadcasts_fetch_open_orders_waiting" {
-            let (theirs, ours) = (last(rails), last(rust));
+            let (theirs, ours) = (last(v2), last(rust));
             if theirs["venue_requests"] != json!([{"method": "GET", "host": "paper-api.alpaca.markets", "path": "/v2/orders/refresh-1", "params": []}]) {
                 return Err(format!("D-OPEN-ORDERS-WAKE: Rails no longer reads the order in the request: {}", theirs["venue_requests"]));
             }
@@ -3065,14 +3065,14 @@ fn a20_divergences(name: &str, rails: &mut Value, rust: &mut Value) -> Result<()
     // D-API-DOCS-FILENAME: Rails' send_file appends its own file name to the disposition it is given.
     if name.starts_with("settings_api_docs") {
         let doubled = json!("attachment; filename=\"deltabadger-api.md\"; filename=\"api.md\"; filename*=UTF-8''api.md");
-        for step in rails["responses"].as_array_mut().into_iter().flatten().filter(|r| r["headers"].get("content-disposition").is_some()) {
+        for step in v2["responses"].as_array_mut().into_iter().flatten().filter(|r| r["headers"].get("content-disposition").is_some()) {
             if step["headers"]["content-disposition"] != doubled { return Err(format!("D-API-DOCS-FILENAME: Rails now sends {}", step["headers"]["content-disposition"])); }
             step["headers"]["content-disposition"] = json!("attachment; filename=\"deltabadger-api.md\"; filename*=UTF-8''deltabadger-api.md");
         }
     }
     // D-TEST-EMAIL-ERROR-SAFE: Rails' alert carries the server's reply, which names the SMTP account; this one its codes only.
     if name == "settings_email_test_failed" {
-        let theirs = last(rails);
+        let theirs = last(v2);
         let reply = "535 5.7.8 Authentication failed for smtp-user@example.com";
         let mut seen = false;
         for line in theirs["body"].as_array_mut().into_iter().flatten() {
@@ -3083,7 +3083,7 @@ fn a20_divergences(name: &str, rails: &mut Value, rust: &mut Value) -> Result<()
     // D-NO-MAIL-SAYS-SO: with registration open, this build redraws the registration row with the mail widget; Rails does not.
     if name == "settings_email_disconnect_registration_open" {
         let opening = "<turbo-stream action=\"replace\" target=\"registration_settings\">";
-        let (theirs, ours) = (last(rails), last(rust));
+        let (theirs, ours) = (last(v2), last(rust));
         if theirs["body"].as_array().into_iter().flatten().any(|l| l.as_str().is_some_and(|l| l.contains(opening))) {
             return Err("D-NO-MAIL-SAYS-SO: Rails now redraws the registration row on a disconnect".into());
         }
@@ -3102,7 +3102,7 @@ fn a20_divergences(name: &str, rails: &mut Value, rust: &mut Value) -> Result<()
 /// visit is about to replace (writing the session to drop it), and the merged bot's page then shows none. This crate's refusal
 /// shows its alert alone and leaves the notice for the bot page, whose session write takes it. Compared as a move: the notice
 /// and the cookie Rails' refusal carries must be the ones this crate's bot page carries, and each answer is compared without them.
-fn merge_repeat_divergence(name: &str, rails: &mut Value, rust: &mut Value) -> Result<(), String> {
+fn merge_repeat_divergence(name: &str, v2: &mut Value, rust: &mut Value) -> Result<(), String> {
     if name != "merge_create_repeat" { return Ok(()); }
     // The notice's flash message, opening line through its closing tag at the same indent, with the text node that separated
     // it from the next message; returned dedented, so a stream's and a page's compare.
@@ -3115,7 +3115,7 @@ fn merge_repeat_divergence(name: &str, rails: &mut Value, rust: &mut Value) -> R
         let end = if lines.get(end + 1).and_then(Value::as_str).is_some_and(|l| l.trim() == "\" \"") { end + 1 } else { end };
         Ok(lines.drain(start..=end).map(|l| l.as_str().unwrap_or_default().get(open..).unwrap_or_default().to_string()).collect())
     }
-    let refusal = rails["responses"].as_array_mut().and_then(|r| r.get_mut(4)).ok_or("no Rails refusal")?;
+    let refusal = v2["responses"].as_array_mut().and_then(|r| r.get_mut(4)).ok_or("no Rails refusal")?;
     let theirs = take_notice(&mut refusal["body"]).map_err(|e| format!("D-REFUSAL-KEEPS-NOTICE: Rails' refusal: {e}"))?;
     let their_cookie = refusal["headers"].as_object_mut().ok_or("no Rails headers")?.remove("set-cookie").ok_or("D-REFUSAL-KEEPS-NOTICE: Rails' refusal kept the session")?;
     let page = rust["responses"].as_array_mut().and_then(|r| r.get_mut(5)).ok_or("no bot page")?;
@@ -3133,7 +3133,7 @@ fn merge_repeat_divergence(name: &str, rails: &mut Value, rust: &mut Value) -> R
 /// A body-less step (HEAD) that carried a rewritten tag takes the new tag too. The names each step adds are pinned
 /// (UNREAD_STEPS: scenario, step, exchanges in order): a step not listed may not differ, and a listed one must, so a
 /// wrong exchange, a missing one, or a Rails fix shows here.
-fn a20c_divergences(name: &str, rails: &mut Value, rust: &Value) -> Result<(), String> {
+fn a20c_divergences(name: &str, v2: &mut Value, rust: &Value) -> Result<(), String> {
     use sha2::{Digest, Sha256};
     const UNREAD: &str = "not read live on this build";
     // The owner holds correct trading keys on Kraken and Binance beside Alpaca (api_case's venues); the second user
@@ -3150,7 +3150,7 @@ fn a20c_divergences(name: &str, rails: &mut Value, rust: &Value) -> Result<(), S
     if !name.starts_with("api_") { return Ok(()); }
     let (mut seen, mut unpinned) = (vec![], vec![]);
     let mut retagged = std::collections::BTreeMap::new();
-    for (step, (theirs, ours)) in rails["responses"].as_array_mut().into_iter().flatten().zip(rust["responses"].as_array().into_iter().flatten()).enumerate() {
+    for (step, (theirs, ours)) in v2["responses"].as_array_mut().into_iter().flatten().zip(rust["responses"].as_array().into_iter().flatten()).enumerate() {
         let (Some(t), Some(o)) = (theirs["body"].as_str(), ours["body"].as_str()) else { continue };
         if t == o { continue; }
         let (Ok(t_json), Ok(o_json)) = (serde_json::from_str::<Value>(t), serde_json::from_str::<Value>(o)) else { continue };
@@ -3172,7 +3172,7 @@ fn a20c_divergences(name: &str, rails: &mut Value, rust: &Value) -> Result<(), S
             retagged.insert(old, new);
         }
     }
-    for theirs in rails["responses"].as_array_mut().into_iter().flatten().filter(|r| r["body"].as_str().is_none_or(str::is_empty)) {
+    for theirs in v2["responses"].as_array_mut().into_iter().flatten().filter(|r| r["body"].as_str().is_none_or(str::is_empty)) {
         if let Some(new) = theirs["headers"]["etag"].as_str().and_then(|t| retagged.get(t)) { theirs["headers"]["etag"] = json!(new); }
     }
     if !unpinned.is_empty() { return Err(format!("D-OPEN-ORDERS-UNREAD-NAMED: steps that name exchanges not pinned: {}", unpinned.join(", "))); }
@@ -3184,12 +3184,12 @@ fn a20c_divergences(name: &str, rails: &mut Value, rust: &Value) -> Result<(), S
 
 /// A16's named divergences (PLAN-A16-signup-password.md), each on the steps it changes, each with a witness that Rails
 /// still behaves as described. What a divergence does not touch is compared whole, the rows and mails of every step included.
-fn account_divergences(name: &str, scenario: &Value, rails: &mut Value, rust: &mut Value) -> Result<(), String> {
+fn account_divergences(name: &str, scenario: &Value, v2: &mut Value, rust: &mut Value) -> Result<(), String> {
     if !name.starts_with("signup_") && !name.starts_with("password_") { return Ok(()) }
-    let steps = rails["responses"].as_array().map_or(0, Vec::len);
+    let steps = v2["responses"].as_array().map_or(0, Vec::len);
     let token = regex::Regex::new(r#"(id="user_reset_password_token" name="user\[reset_password_token\]" type="hidden" value=")[A-Za-z0-9_-]{20}""#).unwrap();
     for index in 0..steps {
-        let (theirs, ours) = (rails["responses"][index].clone(), rust["responses"][index].clone());
+        let (theirs, ours) = (v2["responses"][index].clone(), rust["responses"][index].clone());
         let location = |v: &Value| v["headers"]["location"].as_array().and_then(|l| l.first()).and_then(Value::as_str).or_else(|| v["headers"]["location"].as_str()).unwrap_or("").to_string();
         let text = |v: &Value| v["body"].to_string();
         // The step's locale prefix ("/de/signup" -> "/de").
@@ -3198,17 +3198,17 @@ fn account_divergences(name: &str, scenario: &Value, rails: &mut Value, rust: &m
         let empty = json!(html::normalize(""));
         // This build's redirect, exactly: 303 to `expected` (the step's locale kept), an empty body. Rails' other headers stay
         // and are compared; the Location and the session cookie (the flash) are this build's.
-        let expect_redirect = |rails: &mut Value, expected: &str, divergence: &str| -> Result<(), String> {
+        let expect_redirect = |v2: &mut Value, expected: &str, divergence: &str| -> Result<(), String> {
             let found = location(&ours);
             if ours["status"] != 303 || (found != expected && found != format!("http://localhost:3000{expected}")) || ours["body"] != empty {
                 return Err(format!("{divergence} step {index}: expected 303 to {expected} with no body: {ours}"));
             }
             // The flash lives in the session: this build must write the session cookie, with the attributes Rails gives it.
-            let session = rails["responses"].as_array().into_iter().flatten().find_map(|r| r["headers"].get("set-cookie").cloned());
+            let session = v2["responses"].as_array().into_iter().flatten().find_map(|r| r["headers"].get("set-cookie").cloned());
             if session.is_none() || ours["headers"].get("set-cookie") != session.as_ref() {
                 return Err(format!("{divergence} step {index}: expected the session cookie {session:?} (the flash): {ours}"));
             }
-            let answer = &mut rails["responses"][index];
+            let answer = &mut v2["responses"][index];
             answer["status"] = json!(303);
             answer["body"] = empty.clone();
             answer["headers"]["location"] = ours["headers"]["location"].clone();
@@ -3219,26 +3219,26 @@ fn account_divergences(name: &str, scenario: &Value, rails: &mut Value, rust: &m
         // one); this build answers both 303 to the login page, with the signed_up_but_unconfirmed notice.
         // The flow scenarios follow a link each side mailed with its own random token.
         if name.starts_with("password_flow_") {
-            for side in [&mut *rails, &mut *rust] {
+            for side in [&mut *v2, &mut *rust] {
                 if let Some(lines) = side["responses"][index]["body"].as_array_mut() {
                     for line in lines.iter_mut() { if let Some(l) = line.as_str() { *line = json!(token.replace(l, "${1}[mailed]\"").to_string()); } }
                 }
             }
         }
         if location(&theirs).contains("/thank-you") {
-            expect_redirect(rails, &format!("{prefix}/login"), "D-SIGNUP-NO-THANK-YOU")?;
+            expect_redirect(v2, &format!("{prefix}/login"), "D-SIGNUP-NO-THANK-YOU")?;
         }
         // D-RESET-UPDATE-STALE-TOKEN: Rails re-renders the form with an error on a hidden field, which nobody sees.
         if theirs["status"] == 422 && text(&theirs).contains("user[reset_password_token]") && ours["status"] == 303 {
             if text(&theirs).contains("form__info--invalid") { return Err(format!("D-RESET-UPDATE-STALE-TOKEN step {index}: Rails now shows the error: {theirs}")) }
-            expect_redirect(rails, &format!("{prefix}/password/new"), "D-RESET-UPDATE-STALE-TOKEN")?;
+            expect_redirect(v2, &format!("{prefix}/password/new"), "D-RESET-UPDATE-STALE-TOKEN")?;
             continue;
         }
         // D-RESET-NOTICE-COPY: Rails' reset request shows the confirmation copy.
         for locale in ["en", "de"] {
             let (wrong, right) = (deltabadger::web::i18n::text(locale, "devise.confirmations.send_paranoid_instructions", &[]),
                                   deltabadger::web::i18n::text(locale, "devise.passwords.send_paranoid_instructions", &[]));
-            if let Some(lines) = rails["responses"][index]["body"].as_array_mut() {
+            if let Some(lines) = v2["responses"][index]["body"].as_array_mut() {
                 for line in lines.iter_mut() {
                     if let Some(l) = line.as_str().filter(|l| l.contains(&wrong)) { *line = json!(l.replace(&wrong, &right)); }
                 }
@@ -3248,25 +3248,25 @@ fn account_divergences(name: &str, scenario: &Value, rails: &mut Value, rust: &m
         // minimum length. Compared without them, and this build's form must have them all.
         let devise_refusal = theirs["status"] == 422 && text(&theirs).contains("id=\\\"user_reset_password_token\\\"") && !text(&theirs).contains("data-form--password-strength-length-pattern-value");
         if devise_refusal {
-            let two_factor = text(&rails["responses"][0]).contains("user_otp_code_token");
+            let two_factor = text(&v2["responses"][0]).contains("user_otp_code_token");
             let full = text(&ours);
             if !full.contains("data-form--password-strength-length-pattern-value") || !full.contains("value=\\\"owner@example.com\\\"") || two_factor != full.contains("user_otp_code_token") {
                 return Err(format!("D-RESET-FORM-KEEPS-FIELDS step {index}: this build's form lacks a field: {full}"));
             }
-            for side in [&mut *rails, &mut *rust] { without_reset_form_extras(&mut side["responses"][index]["body"]); }
+            for side in [&mut *v2, &mut *rust] { without_reset_form_extras(&mut side["responses"][index]["body"]); }
         }
     }
     // ActionController::ParameterMissing: Rails' test environment shows its exception page; here 400 with public/400.html.
     if name == "signup_no_user" {
         let page = html::normalize(&String::from_utf8_lossy(deltabadger::web::assets::find("/400.html").unwrap().body));
         let last = steps - 1;
-        if rails["responses"][last]["status"] != 400 || rust["responses"][last]["status"] != 400 || rust["responses"][last]["body"] != json!(page) {
+        if v2["responses"][last]["status"] != 400 || rust["responses"][last]["status"] != 400 || rust["responses"][last]["body"] != json!(page) {
             return Err(format!("expected 400 with public/400.html: {}", rust["responses"][last]));
         }
         // Rails' 400 here is its test environment's exception page; production answers the bare public page with these
         // headers (as_parse_error), which this build's answer is then compared against whole.
-        rails["responses"][last]["body"] = json!(page);
-        rails["responses"][last]["headers"] = json!({
+        v2["responses"][last]["body"] = json!(page);
+        v2["responses"][last]["headers"] = json!({
             "content-type": "text/html; charset=utf-8", "cache-control": "no-cache",
             "content-security-policy-report-only": masked_nonce(&deltabadger::web::headers::content_security_policy("n")).0,
         });
@@ -3335,13 +3335,13 @@ fn tracker_write_step(step: &Value) -> bool {
 
 /// The listed tracker API divergences (PLAN-A11): Rails' answer is turned into the one this build owes, after checking
 /// Rails still answers what the divergence names. Everything else of the scenario (rows, other steps) stays compared.
-fn tracker_api_difference(name: &str, rails: &mut Value) -> Result<(), String> {
+fn tracker_api_difference(name: &str, v2: &mut Value) -> Result<(), String> {
     use deltabadger::web::tracker::api;
-    let responses = rails["responses"].as_array_mut().ok_or("no responses")?;
+    let responses = v2["responses"].as_array_mut().ok_or("no responses")?;
     let status = |responses: &[Value], i: usize| responses[i]["status"].as_u64().unwrap_or(0);
     // Step `i` answered as step `like` (its status, headers and body; and its jobs, since a refusal enqueues none).
-    let answer_as = |responses: &mut Vec<Value>, i: usize, like: usize, rails_status: u64| -> Result<(), String> {
-        if status(responses, i) != rails_status { return Err(format!("step {i}: Rails answers {} where the divergence names {rails_status}", status(responses, i))); }
+    let answer_as = |responses: &mut Vec<Value>, i: usize, like: usize, v2_status: u64| -> Result<(), String> {
+        if status(responses, i) != v2_status { return Err(format!("step {i}: Rails answers {} where the divergence names {v2_status}", status(responses, i))); }
         let reference = responses[like].clone();
         let step = &mut responses[i];
         for key in ["status", "headers", "body", "job_classes"] { step[key] = reference[key].clone(); }
@@ -3384,9 +3384,9 @@ fn tracker_api_difference(name: &str, rails: &mut Value) -> Result<(), String> {
 /// refused up front as 501 `not_ported`, nothing written or queued. Every create Rails accepted (202) in an `api_tax_d_`
 /// scenario becomes that answer, after checking Rails accepted it and enqueued its job; its pending_report write is taken
 /// back (each scenario's accepted creates are its only user writes). Everything else stays compared.
-fn tax_api_difference(name: &str, rails: &mut Value) -> Result<(), String> {
+fn tax_api_difference(name: &str, v2: &mut Value) -> Result<(), String> {
     if !name.starts_with("api_tax_d_not_ported") { return Ok(()) }
-    let responses = rails["responses"].as_array_mut().ok_or("no responses")?;
+    let responses = v2["responses"].as_array_mut().ok_or("no responses")?;
     let mut users_before: Option<Value> = None;
     let mut served_last = false;
     for (i, step) in responses.iter_mut().enumerate() {
@@ -3414,7 +3414,7 @@ fn tax_api_difference(name: &str, rails: &mut Value) -> Result<(), String> {
     }
     let users_before = users_before.ok_or("Rails accepted no create: drop or rename this scenario")?;
     if served_last { return Ok(()) }
-    for user in rails["users"].as_array_mut().ok_or("no users")? {
+    for user in v2["users"].as_array_mut().ok_or("no users")? {
         let before = users_before.as_array().into_iter().flatten().find(|row| row["id"] == user["id"]).ok_or("a user Rails did not hold before")?;
         user["updated_at"] = before["updated_at"].clone();
     }
@@ -3423,7 +3423,7 @@ fn tax_api_difference(name: &str, rails: &mut Value) -> Result<(), String> {
 
 /// The listed bot CSV divergences (PLAN-A8-bot-csv): Rails' answer is turned into the one this build owes, after checking
 /// Rails still does what the divergence names. Everything else of the scenario stays compared.
-fn bot_csv_difference(name: &str, rails: &mut Value) -> Result<(), String> {
+fn bot_csv_difference(name: &str, v2: &mut Value) -> Result<(), String> {
     use deltabadger::web::i18n;
     let notice = |count: i64| if count > 0 { i18n::text("en", "bot.details.stats.import_success", &[("count", i18n::Arg::Count(count))]) }
                               else { i18n::text("en", "bot.details.stats.import_no_new_orders", &[]) };
@@ -3444,13 +3444,13 @@ fn bot_csv_difference(name: &str, rails: &mut Value) -> Result<(), String> {
         "bot_csv_import_quote_mismatch" => {
             let alert = i18n::text("en", "bot.details.stats.import_currency_mismatch", &[("csv_quote", i18n::Arg::Text("EUR")), ("bot_quote", i18n::Arg::Text("USD"))]);
             let (from, to) = (format!(" {alert} "), format!(" {alert}{} ", skipped(1)));
-            let lines = rails["responses"][4]["body"].as_array_mut().ok_or("the page after the import is not markup")?;
+            let lines = v2["responses"][4]["body"].as_array_mut().ok_or("the page after the import is not markup")?;
             let shown = lines.iter_mut().filter_map(|line| line.as_str().filter(|l| l.contains(&from)).map(|l| l.replace(&from, &to)).map(|l| *line = json!(l))).count();
             return if shown == 1 { Ok(()) } else { Err(format!("Rails' page shows {from:?} {shown} times")) };
         }
         _ => return Ok(()),
     };
-    let responses = rails["responses"].as_array_mut().ok_or("no responses")?;
+    let responses = v2["responses"].as_array_mut().ok_or("no responses")?;
     let import = responses.get_mut(step).ok_or("no import step")?;
     let rows = import["rows_after"]["transactions"].as_array_mut().ok_or("no transactions after the import")?;
     let before = rows.len();
@@ -3503,7 +3503,7 @@ async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
         };
         let answer = browser.send(&app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), form.as_deref(), csrf, &headers).await;
         assert_genuine(&app, &browser, &answer, now, name);
-        let mut expected = rails_answer(recorded, step);
+        let mut expected = v2_answer(recorded, step);
         let mut actual = rust_answer(&answer, step);
         assert_eq!(action_rows(&dir, &app.cipher).unwrap().0["bot_activity_logs"], before.0["bot_activity_logs"], "no request-side activity");
         if step["resync"] == true {
@@ -3531,14 +3531,14 @@ async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
         theirs.push(expected);
         ours.push(actual);
     }
-    let rails = json!({"responses":theirs});
+    let v2 = json!({"responses":theirs});
     let mut rust = json!({"responses":ours});
-    index_shortfall_difference(name, &scenario, &rails, &mut rust).unwrap();
-    for (expected, actual) in rails["responses"].as_array().unwrap().iter().zip(rust["responses"].as_array().unwrap()) {
+    index_shortfall_difference(name, &scenario, &v2, &mut rust).unwrap();
+    for (expected, actual) in v2["responses"].as_array().unwrap().iter().zip(rust["responses"].as_array().unwrap()) {
         for key in ["status", "headers", "body"] { assert_eq!(actual[key], expected[key], "{name}: {key}"); }
     }
     for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate().filter(|(_, s)| s["action_snapshot"] == true) {
-        assert_eq!(action_snapshot_difference(name, &rails["responses"][index], &rust["responses"][index]), None, "{step}");
+        assert_eq!(action_snapshot_difference(name, &v2["responses"][index], &rust["responses"][index]), None, "{step}");
     }
 }
 
@@ -3546,39 +3546,39 @@ async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
 fn index_shortfall_divergence_accepts_only_the_exact_resync_notice() {
     let name = "follow_index_create_unbounded";
     let scenario = json!({"at":"2026-09-10T12:00:30.123456Z", "steps":[{"method":"POST","path":"/bots/1/index","resync":true},{"method":"GET","path":"/bots/1"}]});
-    let rails = json!({"responses":[{"rows_before":{"bot_activity_logs":[]},"rows_after":{"bot_activity_logs":[]}},
+    let v2 = json!({"responses":[{"rows_before":{"bot_activity_logs":[]},"rows_after":{"bot_activity_logs":[]}},
         {"body":["<tbody id=\"orders_list\">","<tr id=\"orders_list_placeholder\">","\" \"","<td class=\"text-center text-inactive\" colspan=\"5\" style=\"padding-bottom: 2rem;\">","\". . .\"","</td>","\" \"","</tr>","\" \"","</tbody>"]}]});
     let note = json!({"id":1,"bot_id":1,"created_at":"2026-09-10 12:00:30.123456", "event":"index_composition_shortfall",
         "level":1,"message":"Index composition: 4 of 10 requested assets are tradable on Alpaca in USD.","details":{"available":4,"requested":10}});
-    let mut rust = rails.clone();
+    let mut rust = v2.clone();
     rust["responses"][0]["rows_after"]["bot_activity_logs"] = json!([note]);
     rust["responses"][1]["body"] = json!(["<tbody id=\"orders_list\">","</tbody>"]);
     let mut normalized = rust.clone();
-    index_shortfall_difference(name, &scenario, &rails, &mut normalized).unwrap();
-    assert_eq!(normalized, rails);
+    index_shortfall_difference(name, &scenario, &v2, &mut normalized).unwrap();
+    assert_eq!(normalized, v2);
     for (field, bad) in [("id",json!(2)), ("bot_id",json!(2)), ("created_at",json!("2026-09-11")), ("event",json!("other")),
         ("level",json!(0)), ("message",json!("wrong")), ("details",json!({"available":5,"requested":10}))] {
         let mut changed = rust.clone();
         changed["responses"][0]["rows_after"]["bot_activity_logs"][0][field] = bad;
-        assert!(index_shortfall_difference(name, &scenario, &rails, &mut changed).is_err(), "{field}");
+        assert!(index_shortfall_difference(name, &scenario, &v2, &mut changed).is_err(), "{field}");
     }
     for notes in [json!([]), json!([note,note]), json!([note,{"id":2,"event":"unexpected"}])] {
         let mut changed = rust.clone();
         changed["responses"][0]["rows_after"]["bot_activity_logs"] = notes;
-        assert!(index_shortfall_difference(name, &scenario, &rails, &mut changed).is_err());
+        assert!(index_shortfall_difference(name, &scenario, &v2, &mut changed).is_err());
     }
     let mut changed = rust.clone();
     changed["responses"][0]["rows_before"]["bot_activity_logs"] = json!([note]);
-    assert!(index_shortfall_difference(name, &scenario, &rails, &mut changed).is_err());
+    assert!(index_shortfall_difference(name, &scenario, &v2, &mut changed).is_err());
     let mut changed = rust.clone();
     let mut no_resync = scenario.clone();
     no_resync["steps"][0]["resync"] = json!(false);
-    assert!(index_shortfall_difference(name, &no_resync, &rails, &mut changed).is_err());
+    assert!(index_shortfall_difference(name, &no_resync, &v2, &mut changed).is_err());
     let mut changed = rust.clone();
     changed["responses"][1]["body"] = json!(["unexpected page"]);
-    assert!(index_shortfall_difference(name, &scenario, &rails, &mut changed).is_err());
+    assert!(index_shortfall_difference(name, &scenario, &v2, &mut changed).is_err());
     let mut changed = rust.clone();
-    index_shortfall_difference("follow_index_create", &scenario, &rails, &mut changed).unwrap();
+    index_shortfall_difference("follow_index_create", &scenario, &v2, &mut changed).unwrap();
     assert_eq!(changed, rust, "no allowance for another page scenario");
 }
 
@@ -3590,16 +3590,16 @@ fn assert_action_snapshot_corruption(table: &str, column: &str, changed: Value) 
         "bot_activity_logs": [{"id": 7, "event": "started"}],
         "transactions": [], "api_keys": [], "users": []
     });
-    let rails = json!({"responses": [{"status": 200, "headers": {}, "body": "same",
+    let v2 = json!({"responses": [{"status": 200, "headers": {}, "body": "same",
         "action_snapshot": true, "rows_before": snapshot, "rows_after": snapshot,
         "other_rows_before": {}, "other_rows_after": {}}]});
-    let mut rust = rails.clone();
+    let mut rust = v2.clone();
     rust["responses"][0]["rows_after"][table][0][column] = changed;
-    let message = difference("actions_sensitivity", &rails, &rust)
+    let message = difference("actions_sensitivity", &v2, &rust)
         .unwrap_or_else(|| panic!("corruption of {table}.{column} passed"));
     assert!(message.contains("actions_sensitivity") && message.contains(table)
         && message.contains("id=") && message.contains(column), "{message}");
-    assert_eq!(difference("actions_sensitivity", &rails, &rails), None);
+    assert_eq!(difference("actions_sensitivity", &v2, &v2), None);
 }
 
 #[test]
@@ -3677,39 +3677,39 @@ fn action_snapshot_scopes_writes_to_the_declared_tables() {
 /// Rust's own tables (rust_schema_migrations and the registry's) exist only on Rust's side: they are left out of
 /// Rails against Rust, but a write to one during an action is still a forbidden write.
 #[test]
-fn action_snapshot_leaves_rust_tables_out_of_rails_against_rust_but_not_out_of_forbidden_writes() {
+fn action_snapshot_leaves_rust_tables_out_of_v2_against_rust_but_not_out_of_forbidden_writes() {
     let rows: serde_json::Map<String, Value> = ACTION_TABLES.into_iter().map(|table| (table.to_string(), json!([]))).collect();
-    let rails = json!({"rows_before": rows, "rows_after": rows, "other_rows_before": {}, "other_rows_after": {}});
-    let mut rust = rails.clone();
+    let v2 = json!({"rows_before": rows, "rows_after": rows, "other_rows_before": {}, "other_rows_after": {}});
+    let mut rust = v2.clone();
     for key in ["other_rows_before", "other_rows_after"] { rust[key]["rust_schema_migrations"] = json!([{"version": "20990101000001"}]); }
-    assert_eq!(action_snapshot_difference("rust_tables", &rails, &rust), None, "a Rust-only table is not a Rails difference");
+    assert_eq!(action_snapshot_difference("rust_tables", &v2, &rust), None, "a Rust-only table is not a Rails difference");
     rust["other_rows_after"]["rust_schema_migrations"] = json!([]);
-    let message = action_snapshot_difference("rust_tables", &rails, &rust).unwrap_or_else(|| panic!("a write to a Rust table passed"));
+    let message = action_snapshot_difference("rust_tables", &v2, &rust).unwrap_or_else(|| panic!("a write to a Rust table passed"));
     assert!(message.contains("forbidden write") && message.contains("rust_schema_migrations"), "{message}");
-    let mut rust = rails.clone();
+    let mut rust = v2.clone();
     rust["other_rows_before"]["schema_migrations"] = json!([{"version": "1"}]);
     rust["other_rows_after"]["schema_migrations"] = json!([{"version": "1"}]);
-    assert!(action_snapshot_difference("rust_tables", &rails, &rust).is_some(), "a Rails table still compares");
+    assert!(action_snapshot_difference("rust_tables", &v2, &rust).is_some(), "a Rails table still compares");
 }
 
 #[test]
 fn venue_transcripts_raw_rows_and_session_values_are_compared() {
     let account = json!({"method": "GET", "host": "paper-api.alpaca.markets", "path": "/v2/account", "params": []});
-    let rails = json!({"responses": [{"status": 200, "headers": {}, "body": "same", "venue_requests": [account],
+    let v2 = json!({"responses": [{"status": 200, "headers": {}, "body": "same", "venue_requests": [account],
         "raw_rows": {"bots": [{"id": 1, "settings": "{\"a\":1.0}"}]}, "session": {"tracker_connect": {"exchange_id": 1}}, "job_classes": []}], "users": [], "bots": []});
-    assert_eq!(difference("transcript", &rails, &rails), None);
-    let changed = |key: &str, value: Value| { let mut rust = rails.clone(); rust["responses"][0][key] = value; rust };
+    assert_eq!(difference("transcript", &v2, &v2), None);
+    let changed = |key: &str, value: Value| { let mut rust = v2.clone(); rust["responses"][0][key] = value; rust };
     let extra = json!([account, {"method": "DELETE", "host": "paper-api.alpaca.markets", "path": "/v2/orders/1", "params": []}]);
     for (key, value) in [("venue_requests", extra), ("venue_requests", Value::Null), ("raw_rows", json!({"bots": [{"id": 1, "settings": "{\"a\":1}"}]})),
                          ("session", json!({"tracker_connect": null})), ("job_classes", json!(["rust:ledger_sync"])), ("job_classes", Value::Null)] {
-        let message = difference("transcript", &rails, &changed(key, value.clone())).unwrap_or_else(|| panic!("{key} = {value} passed"));
+        let message = difference("transcript", &v2, &changed(key, value.clone())).unwrap_or_else(|| panic!("{key} = {value} passed"));
         assert!(message.contains(key), "{message}");
     }
 }
 
 /// The explicitly different action contracts still assert both databases, including Rails' writes.
 /// Only the named action response is adapted; authentication and every other fragment stay compared.
-fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(),String>> {
+fn action_divergence(name: &str, scenario: &Value, v2: &Value, rust: &Value) -> Option<Result<(),String>> {
     if !name.starts_with("actions_") { return None }
     // Rust-only ownership bookkeeping is asserted by the lifecycle/placement protocol
     // tests. Keep every business field and response byte in this Rails comparison.
@@ -3724,14 +3724,14 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
         }
         value
     };
-    let rails = business(rails);
+    let v2 = business(v2);
     let rust = business(rust);
-    let (rails, rust) = (&rails, &rust);
+    let (v2, rust) = (&v2, &rust);
     Some((|| {
         if let Some(kind) = scenario.get("divergence") {
             if kind != "crypto_actions" { return Err(format!("unknown divergence: {kind}")); }
         }
-        let mut expected = rails.clone();
+        let mut expected = v2.clone();
         let steps = scenario["steps"].as_array().ok_or("missing steps")?;
         let responses = expected["responses"].as_array_mut().ok_or("missing responses")?;
         let ours = rust["responses"].as_array().ok_or("missing Rust responses")?;
@@ -3830,14 +3830,14 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             let flag=matches!(n,"start_junk"|"start_junk_working");
             let empty=n=="extra_empty_root";
             if start_guard || working_start || working_settings || html || scope || safety || flag || empty {
-                let rails_status=if html {406}
+                let v2_status=if html {406}
                     else if empty {400} else if working_start || flag || matches!(n,"start_no_key"|"start_invalid"|"archive_invalid") {422} else {200};
                 let rust_status=if empty {400} else if html {406} else if scope {501} else if safety {200} else {422};
-                if a["status"]!=rails_status || b["status"]!=rust_status { return Err(format!("{n}: expected Rails {rails_status}, Rust {rust_status}; got {} / {}",a["status"],b["status"])) }
+                if a["status"]!=v2_status || b["status"]!=rust_status { return Err(format!("{n}: expected Rails {v2_status}, Rust {rust_status}; got {} / {}",a["status"],b["status"])) }
                 // HTML update, stop and archive are refused before they write; HTML start still commits first.
                 // Rails' stop skips settings validation, so an invalid row stops as any other does.
-                let rails_rows=expected_action_rows(if n=="stop_invalid" {"extra_html_stop"} else {n},step,&a["rows_before"],rails_status==200 || n=="extra_html_start_start_fresh_true")?;
-                if let Some(error)=row_difference("Rails measured action",&rails_rows,&a["rows_after"]) { return Err(error) }
+                let v2_rows=expected_action_rows(if n=="stop_invalid" {"extra_html_stop"} else {n},step,&a["rows_before"],v2_status==200 || n=="extra_html_start_start_fresh_true")?;
+                if let Some(error)=row_difference("Rails measured action",&v2_rows,&a["rows_after"]) { return Err(error) }
                 let rust_rows=if safety { expected_action_rows(if n=="archive_invalid" {"extra_html_archive"}else{"extra_html_stop"},step,&b["rows_before"],true)? } else { b["rows_before"].clone() };
                 if let Some(error)=row_difference("Rust fixed action contract",&rust_rows,&b["rows_after"]) { return Err(error) }
                 let mut headers=refusal_headers(true);
@@ -4059,8 +4059,8 @@ async fn mount_rule_reads(server: &wiremock::MockServer) {
 
 /// W1's named differences remove only the affected venue option, destination member, or refused action.
 /// The remaining HTML, session, requests and rows still pass through the ordinary comparator.
-fn rules_listed_entry_picker(rails: &mut Value, rust: &Value) -> Result<(), String> {
-    let (Some(a), Some(b)) = (rails.as_array_mut(), rust.as_array()) else { return Ok(()); };
+fn rules_listed_entry_picker(v2: &mut Value, rust: &Value) -> Result<(), String> {
+    let (Some(a), Some(b)) = (v2.as_array_mut(), rust.as_array()) else { return Ok(()); };
     // The recorded W1 grid lists one Gemini destination, with this address and network.
     // Assert the complete new option value, retaining all other attributes and text verbatim.
     let address = "bc1qx0destination0000000000000000000000";
@@ -4107,12 +4107,12 @@ fn rules_start_differences(name: &str, step: &Value, a: &mut Value, b: &Value) -
         if !a["venue_requests"].is_null() || b["venue_requests"]!=read { return Err(format!("D-RULE-ADDRESS-RECHECK: {name} reads the address list and coin list once: {} / {}", a["venue_requests"], b["venue_requests"])) }
         a["venue_requests"]=read;
         // D-RULE-LISTED-ENTRY: the start stores the listed entry's exact network; nothing else in the row differs.
-        let mut rails=a["raw_rows"].clone();
-        let mut settings:Value=serde_json::from_str(rails["rules"][0]["settings"].as_str().unwrap_or("null")).unwrap_or(Value::Null);
+        let mut v2=a["raw_rows"].clone();
+        let mut settings:Value=serde_json::from_str(v2["rules"][0]["settings"].as_str().unwrap_or("null")).unwrap_or(Value::Null);
         if settings.get("network").is_some() { return Err(format!("{name}: the recorded Rails row changed")) }
         settings["network"]=json!("BTC");
-        rails["rules"][0]["settings"]=json!(settings.to_string());
-        if rails!=b["raw_rows"] { return Err(format!("D-RULE-LISTED-ENTRY: {name} adds only the listed network: {} / {}", rails, b["raw_rows"])) }
+        v2["rules"][0]["settings"]=json!(settings.to_string());
+        if v2!=b["raw_rows"] { return Err(format!("D-RULE-LISTED-ENTRY: {name} adds only the listed network: {} / {}", v2, b["raw_rows"])) }
         a["raw_rows"]=b["raw_rows"].clone();
     }
     if name=="rules_tile_start_invalid" {
@@ -4123,13 +4123,13 @@ fn rules_start_differences(name: &str, step: &Value, a: &mut Value, b: &Value) -
     }
     if name=="rules_tile_combined_invalid_start" {
         // D-RULE-ONE-MATRIX: a refused write writes nothing (Rails saves the invalid max_fee_percentage while refusing).
-        let mut rails=a["raw_rows"].clone();
-        let settings:Value=serde_json::from_str(rails["rules"][0]["settings"].as_str().unwrap_or("null")).unwrap_or(Value::Null);
+        let mut v2=a["raw_rows"].clone();
+        let settings:Value=serde_json::from_str(v2["rules"][0]["settings"].as_str().unwrap_or("null")).unwrap_or(Value::Null);
         if settings["max_fee_percentage"]!="-1" { return Err(format!("{name}: the recorded Rails write changed")) }
         let body=a["body"].to_string().replace("Max fee percentage must be greater than 0","max_fee_percentage must be a number greater than 0 and at most 100.");
         a["body"]=serde_json::from_str(&body).unwrap();
-        rails["rules"][0]["settings"]=json!(json!({"withdrawal_percentage":"100","threshold_type":"fee_percentage","max_fee_percentage":"1"}).to_string());
-        if rails!=b["raw_rows"] { return Err(format!("D-RULE-ONE-MATRIX: {name} must leave the rule as it was")) }
+        v2["rules"][0]["settings"]=json!(json!({"withdrawal_percentage":"100","threshold_type":"fee_percentage","max_fee_percentage":"1"}).to_string());
+        if v2!=b["raw_rows"] { return Err(format!("D-RULE-ONE-MATRIX: {name} must leave the rule as it was")) }
         a["raw_rows"]=b["raw_rows"].clone();
     }
     Ok(())
@@ -4217,9 +4217,9 @@ fn rules_service_differences(name: &str, step: &Value, a: &mut Value, b: &Value)
     Ok(())
 }
 
-fn rules_differences(name: &str, scenario: &Value, rails: &mut Value, rust: &mut Value) -> Result<(), String> {
+fn rules_differences(name: &str, scenario: &Value, v2: &mut Value, rust: &mut Value) -> Result<(), String> {
     if !name.starts_with("rules_") { return Ok(()) }
-    for ((a,b),step) in rails["responses"].as_array_mut().unwrap().iter_mut()
+    for ((a,b),step) in v2["responses"].as_array_mut().unwrap().iter_mut()
         .zip(rust["responses"].as_array_mut().unwrap()).zip(scenario["steps"].as_array().unwrap()) {
         rules_service_differences(name, step, a, b)?;
         rules_start_differences(name, step, a, b)?;
@@ -4277,7 +4277,7 @@ fn rules_differences(name: &str, scenario: &Value, rails: &mut Value, rust: &mut
 /// The resolution flows need no venue reads (no rows exist). Replay them in-process too, so the
 /// core page/CSRF/redirect contract remains runnable where the sandbox forbids listening sockets.
 #[tokio::test]
-async fn rebalance_resolution_pages_match_rails_without_a_listener() {
+async fn rebalance_resolution_pages_match_v2_without_a_listener() {
     let (recording,_scratch,dirs)=recorded_grid("rebalance_resolution_");
     if dirs.is_empty() {return} // PAGES can select another part of the inventory.
     assert_eq!(dirs.len(),1+1,"clear and owed-buy resolution flows");
@@ -4289,7 +4289,7 @@ async fn rebalance_resolution_pages_match_rails_without_a_listener() {
         let app=web::app_in(&dir,scenario["secret_key_base"].as_str().unwrap(),None,
             &scenario["env"].as_object().cloned().unwrap_or_default(),TestClock::at(scenario["at"].as_str().unwrap()));
         let mut browser=web::Browser::default();
-        for (step,rails) in scenario["steps"].as_array().unwrap().iter().zip(recorded["responses"].as_array().unwrap()) {
+        for (step,v2) in scenario["steps"].as_array().unwrap().iter().zip(recorded["responses"].as_array().unwrap()) {
             let path=step["path"].as_str().unwrap();
             let token=browser.page.as_deref().and_then(|page| {
                 let doc=scraper::Html::parse_document(page);
@@ -4299,8 +4299,8 @@ async fn rebalance_resolution_pages_match_rails_without_a_listener() {
             if path.ends_with("rebalance_resolutions") {form.push(("halt_token",token.as_deref().expect("Resume carries the halt token")));}
             let csrf=match step["csrf"].as_str() {Some("header")=>Csrf::Header,Some("form")=>Csrf::Form,_=>Csrf::None};
             let answer=browser.send(&app,step["method"].as_str().unwrap(),path,(!form.is_empty()).then_some(form.as_slice()),csrf,&[]).await;
-            assert_eq!(answer.status as u64,rails["status"].as_u64().unwrap(),"{name:?}: {path}: {}",answer.body);
-            if let Some(location)=answer.header("location") {assert_eq!(html::location(location),html::location(rails["headers"]["location"].as_str().unwrap()),"{name:?}: redirect");}
+            assert_eq!(answer.status as u64,v2["status"].as_u64().unwrap(),"{name:?}: {path}: {}",answer.body);
+            if let Some(location)=answer.header("location") {assert_eq!(html::location(location),html::location(v2["headers"]["location"].as_str().unwrap()),"{name:?}: redirect");}
             if path.starts_with("/bots/") && step["method"]=="GET" {
                 let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
                 let body=html::without_rebalance_attestation(&answer.body,&c);
@@ -4310,7 +4310,7 @@ async fn rebalance_resolution_pages_match_rails_without_a_listener() {
                 assert_eq!(without_split_item(&mut ours),usize::from(bot.transient["rebalance_pending"].is_null()),"{name:?}: Split is offered after the pending swap clears");
                 assert_eq!(without_selling_targets(&mut ours),2,"{name:?}: D-LIQUIDATION-ONE-LINE");
                 let ours=ours.as_array().unwrap().iter().map(|line|line.as_str().unwrap().to_string()).collect::<Vec<_>>();
-                if let Some(diff)=html::first_difference(&html::normalize(rails["body"].as_str().unwrap()),&ours) {panic!("{name:?}: {path}: {diff}")}
+                if let Some(diff)=html::first_difference(&html::normalize(v2["body"].as_str().unwrap()),&ours) {panic!("{name:?}: {path}: {diff}")}
             }
         }
         let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();

@@ -48,20 +48,20 @@ pub const INSTALL_FILES: [&str; 2] = ["production.sqlite3", "production_queue.sq
 
 /// A fresh install for the general tests: the primary from `store::create_schema` (rust/schema/baseline.sql) with this
 /// build's Rust migrations applied as `run` and `serve` apply them at startup; no marker, no seeds. The queue is the
-/// Rails-built one (`rails_install_template`), so takeover paths still read a Rails queue.
+/// Rails-built one (`v2_install_template`), so takeover paths still read a Rails queue.
 pub fn baseline_install() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
-    std::fs::copy(rails_install_template().join(INSTALL_FILES[1]), dir.path().join(INSTALL_FILES[1])).unwrap();
+    std::fs::copy(v2_install_template().join(INSTALL_FILES[1]), dir.path().join(INSTALL_FILES[1])).unwrap();
     let c = rusqlite::Connection::open(dir.path().join(INSTALL_FILES[0])).unwrap();
     deltabadger::store::create_schema(&c).expect("baseline.sql builds the primary");
     deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
     dir
 }
 
-/// A fresh copy of an install as Rails prepares one (`rails_install_unmigrated`), with this build's Rust migrations
+/// A fresh copy of an install as Rails prepares one (`v2_install_unmigrated`), with this build's Rust migrations
 /// applied as `run` and `serve` apply them at startup. For the tests whose point is a Rails-built (2.x) install.
-pub fn rails_install() -> tempfile::TempDir {
-    let dir = rails_install_unmigrated();
+pub fn v2_install() -> tempfile::TempDir {
+    let dir = v2_install_unmigrated();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
     dir
@@ -69,8 +69,8 @@ pub fn rails_install() -> tempfile::TempDir {
 
 /// A fresh copy of an install exactly as Rails prepared one (db/schema.rb and db/queue_schema.rb loaded by Rails itself,
 /// frozen at the oracle commit: recorded/rails-install), from the template of this test run. No Rust migration applied.
-pub fn rails_install_unmigrated() -> tempfile::TempDir {
-    let template = rails_install_template();
+pub fn v2_install_unmigrated() -> tempfile::TempDir {
+    let template = v2_install_template();
     let dir = tempfile::tempdir().unwrap();
     for file in INSTALL_FILES {
         std::fs::copy(template.join(file), dir.path().join(file)).unwrap();
@@ -91,15 +91,15 @@ pub fn as_migrations(list: &[(String, String, String)]) -> Vec<deltabadger::stor
     list.iter().map(|(version, name, sql)| deltabadger::store::Migration { version, name, sql }).collect()
 }
 
-/// The template rails_install copies, built once per test run (see `run_template`).
-pub fn rails_install_template() -> &'static Path {
+/// The template v2_install copies, built once per test run (see `run_template`).
+pub fn v2_install_template() -> &'static Path {
     static TEMPLATE: OnceLock<PathBuf> = OnceLock::new();
     TEMPLATE.get_or_init(|| frozen("rails-install", install_template_is_whole))
 }
 
-/// The rails_install template's build, in an explicit base and run, for the tests of the template itself.
+/// The v2_install template's build, in an explicit base and run, for the tests of the template itself.
 pub fn install_template_for(base: &Path, run: &str) -> PathBuf {
-    shared_template(base, &format!("rails-install-{run}"), install_template_is_whole, |out| copy_tree(rails_install_template(), out))
+    shared_template(base, &format!("rails-install-{run}"), install_template_is_whole, |out| copy_tree(v2_install_template(), out))
 }
 
 /// A directory `build` fills once per test RUN and every process of that run then reads (and copies before it
@@ -244,10 +244,10 @@ pub fn conditions_fixture() -> serde_json::Value {
 pub fn recorded_rule_kinds(body: &str) -> String {
     use deltabadger::web::mcp::protocol;
     let fields = |v: &serde_json::Value| v["tools"].as_array().unwrap().iter().find(|t| t["name"] == "update_bot_settings").unwrap()["inputSchema"]["properties"].clone();
-    let (ours, rails) = (fields(protocol::metadata()), fields(&protocol::recorded()));
+    let (ours, v2) = (fields(protocol::metadata()), fields(&protocol::recorded()));
     let mut body = body.to_string();
     for (name, schema) in ours.as_object().unwrap() {
-        let (a, b) = (schema["description"].to_string(), rails[name]["description"].to_string());
+        let (a, b) = (schema["description"].to_string(), v2[name]["description"].to_string());
         if a != b { body = body.replace(a.trim_matches('"'), b.trim_matches('"')); }
     }
     body

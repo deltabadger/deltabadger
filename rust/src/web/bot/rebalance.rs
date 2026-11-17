@@ -15,7 +15,7 @@ pub async fn resolve_with_factory<F: crate::venue::VenueFactory>(State(app):Stat
     factory: impl FnOnce(&rusqlite::Connection, &App) -> F + Send + 'static) -> Result<Response, WebError> {
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let Some(id)=super::id_from_path(&segment) else {return Ok(missing(&ctx))};
-    let Ok(params)=ActionParams::parse_rails(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
+    let Ok(params)=ActionParams::parse_v2(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
     let view=ctx.clone();
     let runtime=tokio::runtime::Handle::current();
     // Match the figures worker: only copy the database path under App::db. The dedicated

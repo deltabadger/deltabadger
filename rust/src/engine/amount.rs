@@ -4,7 +4,7 @@ use super::model::{Bot, Ticker};
 use super::EngineError;
 use crate::codec::format_time;
 use crate::enums::{TxExternalStatus, TxStatus};
-use crate::ruby::{to_sql, BigDec};
+use crate::v2::{to_sql, BigDec};
 use super::venue_rules::{AmountLogic, MinimumLogic, Rounding, VenueRules, WireFormat};
 use crate::venue::{NewOrder, OrderKind, Side};
 use chrono::{DateTime, Utc};
@@ -95,7 +95,7 @@ pub fn size_sell(bot: &Bot, ticker: &Ticker, amount: &BigDec, price: &BigDec) ->
     Ok(if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) })
 }
 
-/// `Err` only for a ticker precision outside `ruby::MAX_SCALE`, which eligibility refuses before any tick.
+/// `Err` only for a ticker precision outside `v2::MAX_SCALE`, which eligibility refuses before any tick.
 pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, rules: &VenueRules) -> Result<Sizing, EngineError> {
     if x.is_zero() { return Ok(Sizing::Nothing); }
     let (base_decimals, quote_decimals, _) = ticker.scales().map_err(EngineError::Data)?;
@@ -214,7 +214,7 @@ impl OrderPlan {
         Ok(limit_below_minimum(t, &qty))
     }
 
-    /// `Err` only for a ticker precision outside `ruby::MAX_SCALE` (then `size` refused the plan already).
+    /// `Err` only for a ticker precision outside `v2::MAX_SCALE` (then `size` refused the plan already).
     pub fn to_order(&self, cl_ord_id: String, deadline: DateTime<Utc>, wire: WireFormat) -> Result<NewOrder, String> {
         let t = &self.ticker;
         let (base_decimals, quote_decimals, price_decimals) = t.scales()?;

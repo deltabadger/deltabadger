@@ -13,7 +13,7 @@ use super::{basket, staleness, Clock, EngineError};
 use chrono::{DateTime, Utc};
 use crate::codec::format_time;
 use crate::enums::BotStatus;
-use crate::ruby::{iso8601_ms, to_sentence, BigDec};
+use crate::v2::{iso8601_ms, to_sentence, BigDec};
 use crate::venue::{PriceSide, Venue, VenueError};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
@@ -120,7 +120,7 @@ pub fn stop_for_amount_limit(c: &Connection, bot_id: i64, cap: super::amount_lim
 
 /// A Bot::StopJob Rails left queued (PLAN-B2 r1.3): the same stop, now, with the key the job carries (none: Rails' `stop`
 /// without one). In the caller's transaction.
-pub fn stop_for_rails_job(c: &Connection, bot_id: i64, stop_message_key: Option<&str>, now: DateTime<Utc>) -> Result<bool, EngineError> {
+pub fn stop_for_v2_job(c: &Connection, bot_id: i64, stop_message_key: Option<&str>, now: DateTime<Utc>) -> Result<bool, EngineError> {
     stop_if(c, bot_id, stop_message_key, None, None, &format!("status NOT IN ({}, {})", BotStatus::Deleted as i64, BotStatus::Archived as i64), now)
 }
 
@@ -983,7 +983,7 @@ const UNSPLITTABLE_CATEGORIES: [&str; 4] = ["Cryptocurrency", "Currency", "Fiat"
 pub fn local_units(c: &Connection, bot: &model::Bot, asset_id: i64) -> Result<BigDec, EngineError> {
     let category: Option<String> = c.query_row("SELECT category FROM assets WHERE id = ?1", [asset_id], |r| r.get(0)).optional()?.flatten();
     if !category.is_some_and(|k| UNSPLITTABLE_CATEGORIES.contains(&k.as_str())) { return Ok(BigDec::zero()); }
-    let dec = |v: rusqlite::types::ValueRef<'_>| crate::ruby::from_sql(v).map_err(|e| EngineError::Data(format!("{e:?}")));
+    let dec = |v: rusqlite::types::ValueRef<'_>| crate::v2::from_sql(v).map_err(|e| EngineError::Data(format!("{e:?}")));
     let mut s = c.prepare("SELECT side, external_status, amount, amount_exec FROM transactions WHERE bot_id = ?1 AND status = 0 AND exchange_id = ?2 AND base_asset_id = ?3")?;
     let mut rows = s.query(params![bot.id, bot.exchange_id, asset_id])?;
     let mut net = BigDec::zero();

@@ -4,7 +4,7 @@ use super::{
 };
 use crate::venue::withdrawal::Kind;
 use crate::{
-    ruby::BigDec,
+    v2::BigDec,
     web::{
         colors, format,
         i18n::{self, escape, Arg},

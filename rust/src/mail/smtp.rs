@@ -117,7 +117,7 @@ impl Settings {
         if config("smtp_provider").as_deref() == Some("custom_smtp") {
             if let (Some(user), Some(password)) = (present(config("smtp_username")), present(config("smtp_password"))) {
                 // `(AppConfig.smtp_port.presence || '587').to_i`
-                let port = crate::ruby::to_i(&present(config("smtp_port")).unwrap_or_else(|| "587".into()));
+                let port = crate::v2::to_i(&present(config("smtp_port")).unwrap_or_else(|| "587".into()));
                 return settings(present(config("smtp_host")).unwrap_or_else(|| "smtp.gmail.com".into()), port.to_string(), "localhost.localdomain", (user, password));
             }
         }

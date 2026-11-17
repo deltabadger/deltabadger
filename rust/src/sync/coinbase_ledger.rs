@@ -7,7 +7,7 @@ use super::{capture_bound_version, continuation, load_key_of, phase, Failure, Sy
 use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::jobs::Db;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::coinbase::{CoinbaseVenue, COINBASE, URL};
 use crate::venue::http::Transport;
 use chrono::{DateTime, Duration, Utc};

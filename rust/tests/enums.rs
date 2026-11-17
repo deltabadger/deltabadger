@@ -2,15 +2,15 @@ mod common;
 use deltabadger::enums::*;
 
 fn assert_matches(fixture: &str, all: &[(&str, i64)]) {
-    let rails = common::vectors()["enums"][fixture].as_object().unwrap().clone();
+    let v2 = common::vectors()["enums"][fixture].as_object().unwrap().clone();
     let ours: serde_json::Map<String, serde_json::Value> = all.iter().map(|(k, v)| (k.to_string(), (*v).into())).collect();
-    assert_eq!(ours, rails, "{fixture}: Rust constants differ from the Rails enum");
+    assert_eq!(ours, v2, "{fixture}: Rust constants differ from the Rails enum");
 }
 
 macro_rules! pairs { ($t:ty) => { <$t>::ALL.iter().map(|(k, v)| (*k, *v as i64)).collect::<Vec<_>>() } }
 
 #[test]
-fn every_enum_matches_rails() {
+fn every_enum_matches_v2() {
     assert_matches("bot_status", &pairs!(BotStatus));
     assert_matches("rule_status", &pairs!(RuleStatus));
     assert_matches("transaction_status", &pairs!(TxStatus));

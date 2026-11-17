@@ -16,10 +16,10 @@ const DIVERGENT: &[Divergent] = &[
     ("cg-tickers-429", "D-CG-429-NO-MORE-CRAWLS", &["/exchanges/gdax/tickers"], &["ethereum"], &["ETH-USD"]),
 ];
 
-fn without(rails: &Value, (_, _, requests, assets, tickers): &Divergent) -> Value {
-    let mut out = rails.clone();
-    out["requests"] = Value::Array(rails["requests"].as_array().unwrap().iter().filter(|r| !requests.iter().any(|x| r.as_str().unwrap().contains(x))).cloned().collect());
-    let changes = |t: &str| rails["changes"][t].as_array().unwrap().clone();
+fn without(v2: &Value, (_, _, requests, assets, tickers): &Divergent) -> Value {
+    let mut out = v2.clone();
+    out["requests"] = Value::Array(v2["requests"].as_array().unwrap().iter().filter(|r| !requests.iter().any(|x| r.as_str().unwrap().contains(x))).cloned().collect());
+    let changes = |t: &str| v2["changes"][t].as_array().unwrap().clone();
     let dropped: Vec<Value> = changes("assets").iter().filter(|c| assets.iter().any(|a| c["after"]["external_id"] == *a)).map(|c| c["id"].clone()).collect();
     out["changes"]["assets"] = Value::Array(changes("assets").into_iter().filter(|c| !dropped.contains(&c["id"])).collect());
     out["changes"]["exchange_assets"] = Value::Array(changes("exchange_assets").into_iter().filter(|c| !dropped.contains(&c["after"]["asset_id"])).collect());
@@ -54,40 +54,40 @@ const CATEGORY_DIVERGENT: &[(&str, &str, &[&str])] = &[
 ];
 
 #[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload() {
-    let rails_root = tempfile::tempdir().unwrap();
+async fn v2_and_rust_write_the_same_reference_rows_for_every_scripted_payload() {
+    let v2_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
     // Frozen (common::frozen): Rails builds the grid, the installs are copied before Rails writes to its copies, Rails records.
     let frozen = common::frozen("reference-grid", |d| d.join("rails").is_dir() && d.join("rust").is_dir());
-    common::copy_tree(&frozen.join("rails"), rails_root.path());
+    common::copy_tree(&frozen.join("rails"), v2_root.path());
     common::copy_tree(&frozen.join("rust"), rust_root.path());
-    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(v2_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), 70, "the grid has {} scenarios", dirs.len());
 
     let mut failures = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
-        let rails_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let v2_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
         let rust_out = deltabadger::parity::reference(&rust_root.path().join(&name)).await.unwrap();
         // The venue catalogues are really read and applied, not failed alike on both sides.
         if name == "cg-tickers-import" {
-            let venues = rails_out["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains("api.kraken.com/") || r.as_str().unwrap().contains("api.coinbase.com/")).count();
-            if venues != 2 || rails_out["changes"]["tickers"].as_array().unwrap().len() < 4 { failures.push(format!("{name}: the catalogues were not applied: {rails_out}")); }
+            let venues = v2_out["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains("api.kraken.com/") || r.as_str().unwrap().contains("api.coinbase.com/")).count();
+            if venues != 2 || v2_out["changes"]["tickers"].as_array().unwrap().len() < 4 { failures.push(format!("{name}: the catalogues were not applied: {v2_out}")); }
         }
         if name.starts_with("coingecko-categories") {
-            let (mut expected, rust) = (categories_view(&rails_out), categories_view(&rust_out));
+            let (mut expected, rust) = (categories_view(&v2_out), categories_view(&rust_out));
             if name == "coingecko-categories" {
                 // D-CG-CATEGORY-STORED, positively: payments' 12 valid members, Rails' first 10, Rust's caps.
                 let payments = |o: &Value| o["changes"]["indices"].as_array().unwrap().iter().find(|c| c["after"]["external_id"] == "payments").map(|c| c["after"].clone()).unwrap_or_default();
-                let (r, u) = (payments(&rails_out), payments(&rust_out));
+                let (r, u) = (payments(&v2_out), payments(&rust_out));
                 if r["top_coins"].as_array().map(Vec::len) != Some(10) || u["top_coins"].as_array().map(Vec::len) != Some(12)
                     || r["weights"] != serde_json::json!({}) || u["weights"].as_object().map(serde_json::Map::len) != Some(12) {
                     failures.push(format!("{name}: D-CG-CATEGORY-STORED not seen\n  rails: {r}\n  rust:  {u}"));
                 }
             }
             if let Some((_, divergence, requests)) = CATEGORY_DIVERGENT.iter().find(|d| d.0 == name) {
-                if rails_out["retry"] != false || rust_out["retry"] != true { failures.push(format!("{name}: {divergence}: Rails retries {} and Rust {}", rails_out["retry"], rust_out["retry"])); }
+                if v2_out["retry"] != false || rust_out["retry"] != true { failures.push(format!("{name}: {divergence}: Rails retries {} and Rust {}", v2_out["retry"], rust_out["retry"])); }
                 expected["retry"] = true.into();
                 let before = expected["requests"].as_array().unwrap().len();
                 expected["requests"] = Value::Array(expected["requests"].as_array().unwrap().iter().filter(|r| !requests.iter().any(|x| r.as_str().unwrap().contains(x))).cloned().collect());
@@ -98,10 +98,10 @@ async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload
         }
         let expected = match DIVERGENT.iter().find(|d| d.0 == name) {
             Some(d) => {
-                if rails_out == rust_out { failures.push(format!("{name}: Rails and Rust agree; the named divergence {} is gone", d.1)); }
-                without(&rails_out, d)
+                if v2_out == rust_out { failures.push(format!("{name}: Rails and Rust agree; the named divergence {} is gone", d.1)); }
+                without(&v2_out, d)
             }
-            None => rails_out,
+            None => v2_out,
         };
         if expected != rust_out { failures.push(format!("{name}\n  rails: {expected}\n  rust:  {rust_out}")); }
     }
@@ -111,12 +111,12 @@ async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload
         rusqlite::Connection::open(root.join("indices-import/production.sqlite3")).unwrap()
             .query_row("SELECT weights FROM indices WHERE external_id = 'nasdaq-100'", [], |r| r.get(0)).unwrap()
     };
-    let (rails_text, rust_text) = (weights(rails_root.path()), weights(rust_root.path()));
-    if rails_text == rust_text || !rails_text.contains("\\u0026") {
-        failures.push(format!("indices-import: Rails no longer escapes JSON text ({rails_text}): drop the listed divergence"));
+    let (v2_text, rust_text) = (weights(v2_root.path()), weights(rust_root.path()));
+    if v2_text == rust_text || !v2_text.contains("\\u0026") {
+        failures.push(format!("indices-import: Rails no longer escapes JSON text ({v2_text}): drop the listed divergence"));
     }
-    if serde_json::from_str::<Value>(&rails_text).unwrap() != serde_json::from_str::<Value>(&rust_text).unwrap() {
-        failures.push(format!("indices-import: the weights JSON differs\n  rails: {rails_text}\n  rust:  {rust_text}"));
+    if serde_json::from_str::<Value>(&v2_text).unwrap() != serde_json::from_str::<Value>(&rust_text).unwrap() {
+        failures.push(format!("indices-import: the weights JSON differs\n  rails: {v2_text}\n  rust:  {rust_text}"));
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }

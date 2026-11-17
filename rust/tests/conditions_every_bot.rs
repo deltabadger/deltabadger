@@ -138,7 +138,7 @@ fn an_index_bots_cap_and_carry_meet_as_f_computes() {
     let now = at("2026-09-01T14:00:00.5Z").timestamp_micros();
     let pending = accounting::pending_quote_amount(&o.primary, &bot, now).unwrap();
     let left = accounting::quote_amount_available(&o.primary, &bot).unwrap().unwrap();
-    let num = |k: &str| deltabadger::ruby::BigDec::parse(case[k].as_str().unwrap()).unwrap();
+    let num = |k: &str| deltabadger::v2::BigDec::parse(case[k].as_str().unwrap()).unwrap();
     assert_eq!((&pending, &left), (&num("pending"), &num("remainder")));
     assert_eq!(pending.min(left), num("total"));
 }

@@ -3,7 +3,7 @@
 use std::path::Path;
 
 /// `decisions.rb <args>`'s answer (the last arg is the directory it wrote to), frozen (super::freeze::step).
-pub fn rails(args: &[&str]) { super::freeze::step(args) }
+pub fn v2(args: &[&str]) { super::freeze::step(args) }
 
 /// `command`'s grid, as `rails(&[command, into])` builds it: frozen (super::frozen), and copied into `into` for every
 /// test that asks.
@@ -20,9 +20,9 @@ pub fn copy_dir(from: &Path, to: &Path) {
 /// R5: failure bookkeeping preserves unrelated NULL evidence. The recorded grids expose
 /// Rails deleting this pre-existing NULL flag; require Rust to preserve it explicitly.
 /// Return a comparison copy of Rails; never rewrite either recorded output or any money field.
-pub fn r5_cleanup_expected(rails: &serde_json::Value, rust: &serde_json::Value) -> serde_json::Value {
+pub fn r5_cleanup_expected(v2: &serde_json::Value, rust: &serde_json::Value) -> serde_json::Value {
     const KEY: &str = "missed_quote_amount_was_set";
-    let mut expected = rails.clone();
+    let mut expected = v2.clone();
     for row in expected["changes"]["bots"].as_array_mut().unwrap() {
         if row["before"]["transient_data"].get(KEY) != Some(&serde_json::Value::Null)
             || !row["after"]["transient_data"].is_object()

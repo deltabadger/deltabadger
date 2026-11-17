@@ -107,7 +107,7 @@ async fn an_order_is_read_from_its_nested_status_and_its_own_fills() {
     let found = v.fills_from_trades(&["BTC-208".into(), "BTC-209".into()], t0()).await.unwrap();
     assert_eq!((found.len(), found[0].txid.as_str(), found[0].status), (1, "BTC-208", OrderStatus::Closed));
     let asked = t.requests().into_iter().filter_map(|r| r.body).find(|b| b["type"] == "userFillsByTime" && b["startTime"] != 1_788_000_000_000u64).unwrap();
-    assert_eq!(asked["startTime"], deltabadger::venue::bitvavo::ruby_ms(t0()));
+    assert_eq!(asked["startTime"], deltabadger::venue::bitvavo::v2_ms(t0()));
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -139,7 +139,7 @@ async fn a_cancel_is_a_success_only_when_hyperliquid_says_so() {
 async fn prices_come_from_the_book_and_the_mids() {
     let t = ScriptedTransport::from_script(&json!({ "POST /info l2Book": [ok(json!({ "levels": [[{ "px": "40.121" }], []] }))], "POST /info allMids": [ok(json!({ "@142": "40.1225" }))] }));
     let v = venue(&t);
-    let zero = deltabadger::ruby::BigDec::zero();
+    let zero = deltabadger::v2::BigDec::zero();
     let ticker = deltabadger::engine::model::Ticker { id: 1, ticker: "@142".into(), base_code: "BTC".into(), quote_code: "USDC".into(), base_symbol: "BTC".into(),
         quote_symbol: "USDC".into(), exchange_name: "Hyperliquid".into(), base_asset_id: 1, quote_asset_id: 2, base_decimals: 2, quote_decimals: 2, price_decimals: 5,
         minimum_base_size: zero.clone(), minimum_quote_size: zero, trading_enabled: true, available: true, crypto: true };
@@ -227,9 +227,9 @@ fn every_hyperliquid_bot_places_limit_orders() {
 /// D-HYPERLIQUID-MARKET-IOC: sign IOC at Rails' unchanged 1% cross, adjusted before
 /// and after crossing with Floor on both sides.
 #[tokio::test(flavor = "current_thread")]
-async fn market_ioc_buy_and_sell_sign_the_rails_crossed_price() {
+async fn market_ioc_buy_and_sell_sign_the_v2_crossed_price() {
     use deltabadger::engine::{amount, model};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     let (_dir, o, s) = common::install_alpaca();
     let id = common::seed::insert_bot(&o.primary, &s, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     let bot = model::load_bot(&o.primary, id).unwrap();
@@ -262,7 +262,7 @@ async fn market_ioc_buy_and_sell_sign_the_rails_crossed_price() {
 #[tokio::test(flavor = "current_thread")]
 async fn market_ioc_fills_no_match_and_uncertainty_settle_through_placement_and_polling() {
     use deltabadger::engine::{amount, model, placement, polling};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     let filled = |size: &str| ok(json!({"status":"ok","response":{"type":"order","data":{"statuses":[{"filled":{"oid":5,"totalSz":size,"avgPx":"40"}}]}}}));
     let no_match = ok(json!({"status":"ok","response":{"type":"order","data":{"statuses":[{"error":"Order could not immediately match against any resting orders."}]}}}));
     for (answer, executed, status) in [(filled("1"), Some("1"), "filled"), (filled("0.4"), Some("0.4"), "filled"),

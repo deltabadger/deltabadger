@@ -21,7 +21,7 @@
 //! Scheduled as every ledger job is (sync::jobs::LedgerSync, Gemini's registry row has a `ledger`), through
 //! ExchangeProxy.for('gemini').
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
-use super::binance_ledger::{amount, entry, objects, page_of, ruby_time_at_ms, text, Fail};
+use super::binance_ledger::{amount, entry, objects, page_of, v2_time_at_ms, text, Fail};
 use super::continuation;
 use super::ledger::Outcome;
 use super::{capture_bound_version, load_key_of, phase, Failure, SyncError};
@@ -45,7 +45,7 @@ pub const MAX_PAGE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_PAGE_NODES: usize = 400_000;
 
 /// `row['timestampms'].to_i`: a number, or a numeric string; anything else is 0.
-fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::ruby::to_i(s), _ => 0 } }
+fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::v2::to_i(s), _ => 0 } }
 
 /// Ruby's class name of a parsed JSON value, as #each_ledger_row names an answer that is not an Array.
 fn class_of(v: &Value) -> &'static str {
@@ -84,7 +84,7 @@ impl Pairs {
 fn trade(raw: Raw, pairs: &Pairs) -> Result<Entry, Fail> {
     let symbol = raw.value["symbol"].as_str().ok_or_else(|| ("unreadable trade symbol".to_string(), true))?;
     let (base, quote) = pairs.of(symbol);
-    let at = ruby_time_at_ms(to_i(&raw.value["timestampms"])).ok_or_else(|| ("unreadable trade timestampms".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["timestampms"])).ok_or_else(|| ("unreadable trade timestampms".to_string(), true))?;
     let (size, price) = (amount(&raw, "amount", "trade")?, raw.decimal("price").map_err(|why| (format!("trade: {why}"), true))?);
     let fee = raw.decimal("fee_amount").map_err(|why| (format!("trade: {why}"), true))?;
     let mut e = entry(if raw.value["type"] == "Buy" { BUY } else { SELL }, &base, size.clone(), &raw, at);
@@ -101,7 +101,7 @@ fn trade(raw: Raw, pairs: &Pairs) -> Result<Entry, Fail> {
 fn transfer(raw: Raw) -> Result<Option<Entry>, Fail> {
     let kind = match raw.value["type"].as_str() { Some("Deposit") => DEPOSIT, Some("Withdrawal") => WITHDRAWAL, _ => return Ok(None) };
     let currency = raw.value["currency"].as_str().map(str::to_uppercase);
-    let at = ruby_time_at_ms(to_i(&raw.value["timestampms"])).ok_or_else(|| ("unreadable transfer timestampms".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["timestampms"])).ok_or_else(|| ("unreadable transfer timestampms".to_string(), true))?;
     let fee = raw.decimal("feeAmount").map_err(|why| (format!("transfer: {why}"), true))?;
     let mut e = entry(kind, "", amount(&raw, "amount", "transfer")?, &raw, at);
     e.base_currency = currency.clone();

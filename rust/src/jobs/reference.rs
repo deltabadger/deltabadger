@@ -160,7 +160,7 @@ fn alpaca_id(c: &Connection) -> Result<Option<i64>, String> {
 }
 
 /// `String#to_i` of a stored count: leading digits, else 0.
-fn ruby_to_i(s: Option<&str>) -> i64 {
+fn v2_to_i(s: Option<&str>) -> i64 {
     let t = s.unwrap_or("").trim_start();
     t[..t.chars().take_while(char::is_ascii_digit).count()].parse().unwrap_or(0)
 }
@@ -169,14 +169,14 @@ fn ruby_to_i(s: Option<&str>) -> i64 {
 /// without one, under 1,000.
 fn stocks_degraded(resolved: i64, last_good: Option<&str>) -> bool {
     if resolved <= 0 { return true; }
-    let baseline = ruby_to_i(last_good);
+    let baseline = v2_to_i(last_good);
     resolved < if baseline > 0 { baseline * 9 / 10 } else { MIN_HEALTHY_ALPACA_LISTINGS }
 }
 
 /// alpaca_crypto_listings_degraded? (:596-606): empty is always degraded; else under max(30, ⌈90 % of the baseline⌉).
 fn crypto_degraded(resolved: i64, last_good: Option<&str>) -> bool {
     if resolved <= 0 { return true; }
-    let baseline = ruby_to_i(last_good);
+    let baseline = v2_to_i(last_good);
     resolved < if baseline > 0 { MIN_HEALTHY_ALPACA_CRYPTO.max((baseline as f64 * 9.0 / 10.0).ceil() as i64) } else { MIN_HEALTHY_ALPACA_CRYPTO }
 }
 
@@ -407,7 +407,7 @@ async fn coingecko_assets(cg: &Clients, cx: &Cx<'_>) -> Outcome {
         if i == 100 { return Outcome::Failed("Too many attempts to get coins with market data from CoinGecko. Adjust the number of pages in the loop if needed.".into()); }
         let rows = match client.markets(Some(batch), None, 250, 1).await {
             Ok(Value::Array(rows)) => rows,
-            Ok(other) => return Outcome::Failed(format!("no implicit conversion of {} into Array", ruby_class(&other))),
+            Ok(other) => return Outcome::Failed(format!("no implicit conversion of {} into Array", v2_class(&other))),
             Err(e) => return api_failure(e),
         };
         for row in rows { if let Some(id) = row["id"].as_str() { by_id.entry(id.to_string()).or_insert_with(|| row.clone()); } } // uniq! keeps the first
@@ -440,7 +440,7 @@ fn crypto_assets(c: &Connection) -> Result<Vec<(i64, String)>, String> {
 /// Asset::COINGECKO_BLACKLISTED_IDS (asset.rb:46-49).
 const BLACKLIST: [&str; 2] = ["covalent", "assister-ai"];
 
-fn ruby_class(v: &Value) -> &'static str {
+fn v2_class(v: &Value) -> &'static str {
     match v { Value::Object(_) => "Hash", Value::String(_) => "String", Value::Null => "nil", Value::Bool(true) => "true", Value::Bool(false) => "false", Value::Number(_) => "Integer", Value::Array(_) => "Array" }
 }
 
@@ -563,7 +563,7 @@ fn ibkr_feed(body: Value) -> Result<Feed, String> {
     let text = |v: &Value| v.as_str().is_some_and(|s| !s.trim().is_empty());
     let decimals = |v: &Value| v.as_u64().is_some();
     let size = |v: &Value| match v {
-        Value::String(s) => crate::ruby::BigDec::parse(s.trim()).is_ok(),
+        Value::String(s) => crate::v2::BigDec::parse(s.trim()).is_ok(),
         Value::Number(_) => true,
         _ => false,
     };

@@ -56,7 +56,7 @@ fn app_config_set_is_a_no_op_for_an_unchanged_value_and_encrypts_a_changed_one()
 use deltabadger::jobs::schedule::{first_due, Jitter, Schedule};
 
 #[test]
-fn schedules_fire_as_rails_cron_does_in_utc() {
+fn schedules_fire_as_v2_cron_does_in_utc() {
     let daily = Schedule::Daily { hour: 10, minute: 15 }; // "15 10 * * *"
     assert_eq!(daily.last_fire(at("2026-10-02T10:14:59Z")), at("2026-10-01T10:15:00Z"));
     assert_eq!(daily.last_fire(at("2026-10-02T10:15:00Z")), at("2026-10-02T10:15:00Z"));

@@ -59,7 +59,7 @@ async fn tick_until_settled(o: &store::Opened, t: &ScriptedTransport, id: i64, s
 fn quote_reads(t: &ScriptedTransport, sym: &str) -> usize { t.requests().iter().filter(|r| r.path == format!("/v2/stocks/{sym}/quotes/latest")).count() }
 
 #[test]
-fn every_recorded_rails_blend_is_reproduced() {
+fn every_recorded_v2_blend_is_reproduced() {
     let cases = common::vectors()["index_blends"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 12);
     for c in cases {
@@ -138,7 +138,7 @@ async fn a_reentrant_keeps_its_entered_at() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_missing_index_fails_the_tick_as_rails_does() {
+async fn a_missing_index_fails_the_tick_as_v2_does() {
     let (_d, o, _s, id, _) = universe(3, 0.0, false);
     o.primary.execute("DELETE FROM indices", []).unwrap();
     o.primary.execute("INSERT INTO indices (external_id, source, created_at, updated_at) VALUES ('other', 'deltabadger', '2026-01-01 00:00:00', '2099-01-01 00:00:00')", []).unwrap();
@@ -228,7 +228,7 @@ async fn an_index_bot_applies_its_spending_cap() {
                        transient_data = json_set(transient_data, '$.quote_amount_limit_enabled_at', '2026-08-01T00:00:00.000Z') WHERE id = ?2", (f["cap"].as_i64().unwrap(), id)).unwrap();
     let bot = model::load_bot(&o.primary, id).unwrap();
     assert!(bot.quote_amount_limited());
-    assert_eq!(amount::exact_cap_available(&o.primary, &bot).unwrap(), Some(deltabadger::ruby::BigDec::parse(f["remainder"].as_str().unwrap()).unwrap()));
+    assert_eq!(amount::exact_cap_available(&o.primary, &bot).unwrap(), Some(deltabadger::v2::BigDec::parse(f["remainder"].as_str().unwrap()).unwrap()));
     assert!(!amount::quote_amount_limit_reached(&o.primary, &bot).unwrap(), "1 USD is over the 0.01 precision floor");
     assert!(eligibility::bot_reasons(&o.primary, &bot).unwrap().is_empty());
     let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
@@ -269,7 +269,7 @@ fn an_index_bot_is_admitted_on_a_top_or_category_index_of_any_source() {
 #[test]
 fn stock_and_index_intents_recheck_status_members_settings_and_every_ticker() {
     use deltabadger::engine::{amount, basket, placement, venue_rules::ALPACA};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     for index in [false,true] {
         for mutation in ["status", "restart", "rerun", "settings", "member", "ticker", "split", "instrument", "unavailable", "provider"] {
             let (_d,o,s)=common::install_alpaca();
@@ -365,7 +365,7 @@ async fn switching_or_removing_the_provider_invalidates_index_admission_and_fres
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn duplicate_ranked_assets_use_the_recorded_rails_asset_map_blend() {
+async fn duplicate_ranked_assets_use_the_recorded_v2_asset_map_blend() {
     let (_d,o,_s,id,_)=universe(3,0.5,false);
     o.primary.execute("UPDATE indices SET top_coins='[\"AAA.US\",\"AAA.US\",\"BBB.US\"]',weights='{\"AAA.US\":100,\"BBB.US\":10}'",[]).unwrap();
     let t=script([100.0;5]);
@@ -440,7 +440,7 @@ async fn a_long_split_history_stands_down_with_a_visible_reason() {
 }
 
 #[test]
-fn encrypted_provider_configuration_and_environment_precedence_match_rails() {
+fn encrypted_provider_configuration_and_environment_precedence_match_v2() {
     use deltabadger::{app_config,engine::{provider,staleness}};
     let (_d,o,_s,id,_)=universe(1,0.0,false);
     for (key,value) in [("market_data_provider","coingecko"),("market_data_url","https://encrypted.invalid"),("market_data_token","encrypted-script-token")] {

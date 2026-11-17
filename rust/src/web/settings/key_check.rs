@@ -184,14 +184,14 @@ fn gemini_field(result: &Result<Option<Value>, String>, field: &str) -> Option<V
 }
 
 /// `x.to_s` of a decoded JSON value (nil is "").
-fn ruby_to_s(v: Option<&Value>) -> String { match v { None => String::new(), Some(Value::String(s)) => s.clone(), Some(other) => other.to_string() } }
+fn v2_to_s(v: Option<&Value>) -> String { match v { None => String::new(), Some(Value::String(s)) => s.clone(), Some(other) => other.to_string() } }
 
 /// Exchanges::Gemini#get_api_key_validity on its probe's answer (`kind` 1, a withdrawal key, read its balances): a success
 /// that is no error envelope is valid; for a trading key Gemini's OrderNotFound to the probe is too (the key got past the
 /// role check); MissingRole or an invalid-key reason is incorrect; anything else no verdict.
 pub fn gemini_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>, url: &str) -> Verdict {
     let result = gemini_result(answer, url);
-    let reason = ruby_to_s(gemini_field(&result, "reason").as_ref());
+    let reason = v2_to_s(gemini_field(&result, "reason").as_ref());
     if result.is_ok() && gemini_field(&result, "result").is_none_or(|r| r != "error") { return Verdict::Valid(true); }
     if kind != 1 && reason == crate::venue::gemini::ORDER_NOT_FOUND { return Verdict::Valid(true); }
     let invalid = crate::engine::venue_rules::GEMINI.kinds.iter().find(|(k, _)| *k == "invalid_key").map_or(&[][..], |(_, p)| *p);
@@ -199,7 +199,7 @@ pub fn gemini_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>, 
     match result {
         Err(text) => Verdict::Failure(text),
         Ok(_) => Verdict::Failure(match gemini_field(&result, "message") {
-            Some(Value::String(m)) if !crate::ruby::blank(&m) => m,
+            Some(Value::String(m)) if !crate::v2::blank(&m) => m,
             _ => format!("Gemini answered {}", if reason.trim().is_empty() { "an error" } else { reason.as_str() }),
         }),
     }
@@ -265,7 +265,7 @@ pub const BINANCE_US_PROBE_PATH: &str = "/api/v3/order";
 
 /// Ruby's `#to_i` of a decoded `code` (an Integer, a Float truncated, a String's leading digits); None where Ruby raises.
 fn code_to_i(code: &Value) -> Option<i64> {
-    match code { Value::Number(n) => n.as_i64().or_else(|| n.as_f64().map(|f| f as i64)), Value::String(s) => Some(crate::ruby::to_i(s)), _ => None }
+    match code { Value::Number(n) => n.as_i64().or_else(|| n.as_f64().map(|f| f as i64)), Value::String(s) => Some(crate::v2::to_i(s)), _ => None }
 }
 
 /// #parse_error_code of a failure's text: the JSON object's `code` (any type), else none.
@@ -397,7 +397,7 @@ pub fn bitvavo_probe_verdict(answer: &Result<HttpResponse, TransportError>, meth
     }
     Some(Verdict::Failure(match failure {
         Some(text) => text,
-        None => field("error").map(|e| text(&e)).filter(|e| !crate::ruby::blank(e))
+        None => field("error").map(|e| text(&e)).filter(|e| !crate::v2::blank(e))
             .unwrap_or_else(|| format!("Bitvavo answered errorCode {}", code.as_ref().map(text).unwrap_or_default())),
     }))
 }
@@ -452,7 +452,7 @@ pub fn bitget_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>, 
     let code_is = |list: &[&str]| code.as_ref().and_then(Value::as_str).is_some_and(|c| list.contains(&c));
     if code_is(&[crate::venue::bitget::OK]) { return Verdict::Valid(true); }
     if code_is(&BITGET_ORDER_NOT_FOUND) { return Verdict::Valid(kind != 1); }
-    let message = msg.as_ref().and_then(Value::as_str).filter(|m| !crate::ruby::blank(m));
+    let message = msg.as_ref().and_then(Value::as_str).filter(|m| !crate::v2::blank(m));
     if code_is(&BITGET_NO_TRADE) || message.is_some_and(|m| crate::engine::venue_rules::BITGET.is_invalid_key(&[m.to_string()])) { return Verdict::Valid(false); }
     match result {
         Ok(_) => Verdict::Failure(message.map_or_else(|| format!("Bitget answered code {}", inspect(code.as_ref())), str::to_string)),
@@ -561,9 +561,9 @@ pub fn mexc_answer_verdict(answer: &Result<HttpResponse, TransportError>, method
     let text = |v: &Value| v.as_str().map_or_else(|| v.to_string(), str::to_string);
     let Some(failure) = failure else {
         // `code.nil? || code.to_i.zero?`
-        let zero = match &code { None => true, Some(Value::Number(n)) => n.as_f64().is_some_and(|f| f.trunc() == 0.0), Some(Value::String(s)) => crate::ruby::to_i(s) == 0, Some(_) => false };
+        let zero = match &code { None => true, Some(Value::Number(n)) => n.as_f64().is_some_and(|f| f.trunc() == 0.0), Some(Value::String(s)) => crate::v2::to_i(s) == 0, Some(_) => false };
         if zero { return Ok(data); }
-        return Err(Verdict::Failure(field("msg").map(|m| text(&m)).filter(|m| !crate::ruby::blank(m))
+        return Err(Verdict::Failure(field("msg").map(|m| text(&m)).filter(|m| !crate::v2::blank(m))
             .unwrap_or_else(|| format!("MEXC answered code {}", code.as_ref().map(text).unwrap_or_default()))));
     };
     // #parse_error_message: the failure's JSON `msg`.
@@ -661,7 +661,7 @@ pub fn bybit_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>, m
     let result = bitget_result(answer, method, url);
     let body = match &result { Ok(Some(v)) => Some(v.clone()), Err(text) => serde_json::from_str::<Value>(text).ok(), _ => None };
     let code = body.as_ref().and_then(|b| b.get("retCode")).filter(|v| !v.is_null()).map(to_s);
-    let message = body.as_ref().and_then(|b| b.get("retMsg")).and_then(Value::as_str).filter(|s| !crate::ruby::blank(s));
+    let message = body.as_ref().and_then(|b| b.get("retMsg")).and_then(Value::as_str).filter(|s| !crate::v2::blank(s));
     if kind == 2 {
         if let Ok(Some(b)) = &result {
             if b["retCode"].as_i64() == Some(0) {

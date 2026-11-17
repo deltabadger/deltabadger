@@ -47,7 +47,7 @@ const IBKR: &str = "orders through MCP or the REST API on this exchange";
 
 /// `value.to_s` as Ruby writes a parameter: text as it is, a Float as Float#to_s.
 pub(crate) fn to_s(v: &Value) -> String {
-    match v { Value::Number(n) if n.is_f64() => crate::ruby::float_to_s(n.as_f64().unwrap_or_default()), _ => crate::web::mcp::tools::str_value(v) }
+    match v { Value::Number(n) if n.is_f64() => crate::v2::float_to_s(n.as_f64().unwrap_or_default()), _ => crate::web::mcp::tools::str_value(v) }
 }
 fn arg<'a>(args: &'a Map<String, Value>, key: &str) -> &'a Value { args.get(key).unwrap_or(&Value::Null) }
 
@@ -286,7 +286,7 @@ pub(crate) fn ambiguous(errors: &str, exchange: &str) -> Res {
 /// BotOrder#answer: what the engine's outcome tells the caller (PLAN-A9 §2.4).
 pub fn answer(q: &Queued, outcome: crate::engine::api_orders::Outcome) -> Res {
     use crate::engine::api_orders::Outcome;
-    let sentence = |errors: &[String]| crate::ruby::to_sentence(errors);
+    let sentence = |errors: &[String]| crate::v2::to_sentence(errors);
     match outcome {
         Outcome::Submitted { transaction_id, order_id, pair } => {
             let mut res = submitted(q, false, transaction_id, Some(&order_id));
@@ -538,7 +538,7 @@ pub fn mcp_text(name: &str, args: &Value, dry_run: bool, res: &Res) -> (String, 
     let d = &res.data;
     let s = |key: &str| crate::web::mcp::tools::str_value(&d[key]);
     // MCP casts a `number` property to a Float, so a whole amount prints as `10.0`.
-    let shown = |key: &str| match &args[key] { Value::Number(n) => crate::ruby::float_to_s(n.as_f64().unwrap_or_default()), v => to_s(v) };
+    let shown = |key: &str| match &args[key] { Value::Number(n) => crate::v2::float_to_s(n.as_f64().unwrap_or_default()), v => to_s(v) };
     if name == "cancel_order" {
         return (if d["id"].is_null() { format!("{prefix}Order {} cancellation submitted on {}.", s("external_id"), s("exchange")) }
             else { format!("{prefix}Order #{} ({} {} on {}) cancellation submitted.", d["id"], s("side").to_uppercase(), s("pair"), s("exchange")) }, false);

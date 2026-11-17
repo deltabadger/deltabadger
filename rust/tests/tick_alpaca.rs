@@ -5,7 +5,7 @@ use deltabadger::engine::placement::{self, Recovery};
 use deltabadger::engine::tick::{self, Attempts, TickOutcome};
 use deltabadger::engine::{model, FixedClock};
 use deltabadger::enums::BotStatus;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store;
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls};
 use deltabadger::venue::http::ScriptedTransport;
@@ -60,7 +60,7 @@ async fn a_market_tick_sends_a_notional_gtc_buy_with_a_client_order_id() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_limit_tick_sends_qty_and_limit_price_floored_and_formatted_as_rails() {
+async fn a_limit_tick_sends_qty_and_limit_price_floored_and_formatted_as_v2() {
     let (_d, o, id, _) = setup(weekly().with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.0025)));
     let t = script(json!({}));
     tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
@@ -101,7 +101,7 @@ async fn a_price_transport_failure_reaches_retry_on_with_the_clients_own_message
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_zero_ask_is_rails_wrong_price_error_naming_the_base() {
+async fn a_zero_ask_is_v2_wrong_price_error_naming_the_base() {
     let (_d, o, id, _) = setup(weekly());
     let t = script(json!({ "GET /v1beta3/crypto/us/latest/quotes": ok(json!({ "quotes": { "BTC/USD": { "ap": 0 } } })) }));
     assert!(matches!(tick_until_settled(&o, &venue(&t), id, at(T0)).await, TickOutcome::Rescheduled));
@@ -300,7 +300,7 @@ async fn a_five_minute_smart_bot_waits_on_its_unresolved_intent_and_never_places
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn the_follow_up_poll_raises_as_rails_job_does() {
+async fn the_follow_up_poll_raises_as_v2_job_does() {
     use deltabadger::engine::polling::{self, FollowUp, PollFailure};
     let (_d, o, id, s) = setup(weekly());
     let tx = seed::insert_tx(&o.primary, &s, id, &TxSpec { status: 0, external_status: Some(1), external_id: Some("OPOLL".into()), order_type: 1, amount: Some("0.000935"),

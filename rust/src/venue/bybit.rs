@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BYBIT as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use super::binance::{build_query, Pairs};
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, Side, VenueError};
@@ -31,7 +31,7 @@ pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous("Bybit: unreada
 pub(crate) fn to_s(v: &Value) -> String { match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() } }
 fn order_id(v: &Value) -> Option<String> {
     match v {
-        Value::String(s) if !crate::ruby::blank(s) => Some(s.clone()),
+        Value::String(s) if !crate::v2::blank(s) => Some(s.clone()),
         Value::Number(n) if n.is_i64() || n.is_u64() => Some(n.to_string()),
         _ => None,
     }
@@ -58,10 +58,10 @@ pub fn ticker_prices(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> 
     Ok(out)
 }
 pub fn free_balance(coin: &Value) -> Result<BigDec, VenueError> {
-    if coin.get("walletBalance").is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::ruby::blank(s))) {
+    if coin.get("walletBalance").is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::v2::blank(s))) {
         return Ok((&(&decimal(&coin["walletBalance"])? - &decimal(&coin["locked"])?) - &decimal(&coin["spotBorrow"])?).max(BigDec::zero()));
     }
-    let old = coin.get("availableToWithdraw").filter(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::ruby::blank(s))).unwrap_or(&coin["free"]);
+    let old = coin.get("availableToWithdraw").filter(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::v2::blank(s))).unwrap_or(&coin["free"]);
     decimal(old)
 }
 pub fn parse_order(id: &str, raw: &Value) -> Result<OrderState, VenueError> {
@@ -158,7 +158,7 @@ impl<T: Transport> BybitVenue<T> {
         while start < until {
             let end = (start + Duration::days(7)).min(until);
             let mut q = query.clone();
-            q.extend([("startTime", super::bitvavo::ruby_ms(start).to_string()), ("endTime", super::bitvavo::ruby_ms(end).to_string())]);
+            q.extend([("startTime", super::bitvavo::v2_ms(start).to_string()), ("endTime", super::bitvavo::v2_ms(end).to_string())]);
             if let Some(o) = first(self.get(HISTORY_PATH, q).await?)? { return Ok(Some(o)); }
             start = end;
         }
@@ -300,7 +300,7 @@ impl<T: Transport> super::Venue for BybitVenue<T> {
                     if page == HISTORY_PAGES { out.complete = false; break; }
                     let mut q = vec![("category", "spot".to_string()), ("symbol", symbol.clone()), ("limit", HISTORY_LIMIT.to_string())];
                     if path == HISTORY_PATH {
-                        q.extend([("startTime", super::bitvavo::ruby_ms(from).to_string()), ("endTime", super::bitvavo::ruby_ms(to).to_string())]);
+                        q.extend([("startTime", super::bitvavo::v2_ms(from).to_string()), ("endTime", super::bitvavo::v2_ms(to).to_string())]);
                     }
                     if !cursor.is_empty() { q.push(("cursor", cursor.clone())); }
                     let listed = super::by_deadline(deadline, self.history_page(&self.request("GET", path, q, None))).await.and_then(|b| {
@@ -396,7 +396,7 @@ impl<T: Transport> super::Venue for BybitVenue<T> {
     async fn cancel(&self, id: &str) -> Result<(), VenueError> {
         let raw = self.find(id).await?.ok_or_else(|| VenueError::Rejected(vec![format!("Bybit no longer knows order {id}")]))?;
         let symbol = to_s(&raw["symbol"]);
-        if crate::ruby::blank(&symbol) { return Err(VenueError::Rejected(vec!["Failed to find Bybit order for cancellation".into()])); }
+        if crate::v2::blank(&symbol) { return Err(VenueError::Rejected(vec!["Failed to find Bybit order for cancellation".into()])); }
         self.call(&self.request("POST", CANCEL_PATH, vec![], Some(json!({"category":"spot","symbol":symbol,"orderId":id}))), false).await.map(|_| ())
     }
 }

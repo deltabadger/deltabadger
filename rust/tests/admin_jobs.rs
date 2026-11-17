@@ -34,7 +34,7 @@ fn registered(c: &Connection) -> Vec<Box<dyn jobs::Job>> {
     all.extend(jobs::reference::catalogue_jobs(&env, PathBuf::from(jobs::reference::BUNDLE), jobs::reference::LiveFetch::default()));
     all.push(Box::new(deltabadger::sync::jobs::IbkrActivation { venues: LiveFactory::new() }));
     all.push(Box::new(deltabadger::sync::binance_order_links::OrderLinks));
-    all.push(Box::new(deltabadger::engine::rails_unrecorded::Report::new(LiveFactory::new())));
+    all.push(Box::new(deltabadger::engine::v2_unrecorded::Report::new(LiveFactory::new())));
     let rates = std::sync::Arc::new(jobs::data_api::RateCache::default());
     all.into_iter().map(|job| jobs::resolve::configured(job, &env, rates.clone())).collect()
 }

@@ -1,4 +1,4 @@
-//! Build-time inputs: the frozen Rails migration versions (rust/schema/rails_versions.txt) and, from the Rails app, the
+//! Build-time inputs: the frozen Rails migration versions (rust/schema/v2_versions.txt) and, from the Rails app, the
 //! translations in rust/locales (src/web/i18n.rs), and the files `serve` hands out (src/web/assets.rs).
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -14,8 +14,8 @@ fn main() {
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
     if let Err(error)=provenance_build_gate::check(&root){eprintln!("R4 provenance gate: {error}");std::process::exit(1);}
     accounting_gate(&root);
-    let rails_versions = migrations(&root, &out);
-    rust_migrations(&root, &out, &rails_versions);
+    let v2_versions = migrations(&root, &out);
+    rust_migrations(&root, &out, &v2_versions);
     locales(&root, &out);
     assets(&root, &out);
     release_version(&root);
@@ -33,7 +33,7 @@ fn release_version(root: &Path) {
     println!("cargo:rustc-env=DELTABADGER_VERSION={version}");
 }
 
-/// The Rails migration versions every 2.x install records in `schema_migrations`, frozen in rust/schema/rails_versions.txt
+/// The Rails migration versions every 2.x install records in `schema_migrations`, frozen in rust/schema/v2_versions.txt
 /// (B1: db/migrate never changes again, and B11 deletes it). tests/store.rs checks the file against db/migrate while
 /// that exists.
 fn migrations(root: &Path, out: &Path) -> Vec<String> {
@@ -52,11 +52,11 @@ fn migrations(root: &Path, out: &Path) -> Vec<String> {
 
 /// rust/migrations as `RUST_MIGRATIONS: &[Migration]` (store.rs), sorted by version. A misnamed file, a repeated
 /// version, a Rails version or a transaction statement stops the build (migration_registry.rs).
-fn rust_migrations(root: &Path, out: &Path, rails_versions: &[String]) {
+fn rust_migrations(root: &Path, out: &Path, v2_versions: &[String]) {
     let dir = root.join("rust/migrations");
     println!("cargo:rerun-if-changed={}", dir.display());
     println!("cargo:rerun-if-changed={}", root.join("rust/migration_registry.rs").display());
-    let found = migration_registry::load(&dir, rails_versions).unwrap_or_else(|e| { eprintln!("Rust migrations: {e}"); std::process::exit(1) });
+    let found = migration_registry::load(&dir, v2_versions).unwrap_or_else(|e| { eprintln!("Rust migrations: {e}"); std::process::exit(1) });
     let body: String = found.iter().map(|(version, name, path)| {
         format!("    Migration {{ version: {version:?}, name: {name:?}, sql: include_str!({:?}) }},\n", path.canonicalize().unwrap().to_str().expect("migration path is UTF-8"))
     }).collect();

@@ -99,7 +99,7 @@ fn route(method: &Method, path: &str) -> Option<Route> {
                 ["unrecorded_orders"] if post => Some("answer_unrecorded_order"),
                 _ => None,
             };
-            let action = if name == Some("get_bot_details") { Action::Read(Reading::Details) } else if name == Some(super::bot::rails_orders::TOOL) { Action::Unrecorded } else { name.and_then(bot_api::Write::tool).map_or(Action::Unported, Action::Write) };
+            let action = if name == Some("get_bot_details") { Action::Read(Reading::Details) } else if name == Some(super::bot::v2_orders::TOOL) { Action::Unrecorded } else { name.and_then(bot_api::Write::tool).map_or(Action::Unported, Action::Write) };
             (name.map(Gate::Tool), action)
         }
         ["transactions"] if get => (tool("list_transactions"), Action::Transactions),
@@ -428,7 +428,7 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             }
         }
         Action::Unrecorded => {
-            use super::bot::rails_orders as ro;
+            use super::bot::v2_orders as ro;
             // PLAN-A28-2b §1: the path's id as digits, the body only (never the query), JSON or form as it came.
             let bot = route.path.iter().find(|(name, _)| *name == "id").and_then(|(_, id)| ro::digits(id));
             let Ok(body) = input.body() else { return Ok(bad_request()) };
@@ -647,12 +647,12 @@ mod tests {
 
     /// script/rust/record_api_json.rb: `{data: value, error: nil}.to_json` for every kind of value an answer holds.
     #[test]
-    fn encode_writes_what_rails_renders() {
+    fn encode_writes_what_v2_renders() {
         let fixture: Value = serde_json::from_str(include_str!("../../tests/fixtures/api_json_vectors.json")).unwrap();
         let mut checked = 0;
         for vector in fixture["vectors"].as_array().unwrap() {
             let (kind, input, rendered) = (vector[0].as_str().unwrap(), vector[1].as_str().unwrap(), vector[2].as_str().unwrap());
-            let decimal = |text: &str| json!(crate::ruby::BigDec::parse(text).unwrap().to_s_f());
+            let decimal = |text: &str| json!(crate::v2::BigDec::parse(text).unwrap().to_s_f());
             let value = match kind {
                 "float" => json!(f64::from_bits(u64::from_str_radix(input, 16).unwrap())),
                 "integer" => input.parse::<i64>().map(Value::from).unwrap_or_else(|_| Value::from(input.parse::<u64>().unwrap())),
@@ -660,7 +660,7 @@ mod tests {
                 "decimal" if input == "-0" => continue,
                 "decimal" => decimal(input),
                 "string" => json!(input),
-                "time" => json!(crate::ruby::iso8601_ms(input.parse().unwrap())),
+                "time" => json!(crate::v2::iso8601_ms(input.parse().unwrap())),
                 "nil" => Value::Null,
                 "true" => json!(true),
                 "false" => json!(false),
@@ -674,7 +674,7 @@ mod tests {
     }
 
     #[test]
-    fn routes_take_rails_format_suffix_and_segments() {
+    fn routes_take_v2_format_suffix_and_segments() {
         let found = |m: Method, p: &str| route(&m, p).map(|r| (r.gate, r.action, r.path));
         assert_eq!(found(Method::GET, "/api/v1/bots.json").map(|r| r.1), Some(Action::Bots));
         assert_eq!(found(Method::HEAD, "/api/v1/tax/jurisdictions").map(|r| r.1), Some(Action::TaxJurisdictions));
@@ -837,7 +837,7 @@ mod tests {
         let sources = [
             include_str!("rest.rs"), include_str!("rest_idempotency.rs"), include_str!("bearer.rs"), include_str!("bot_api.rs"),
             include_str!("bot_api/orders.rs"), include_str!("bot/create.rs"), include_str!("bot/write.rs"), include_str!("bot/signal_write.rs"),
-            include_str!("bot/mcp_input.rs"), include_str!("bot/liquidation.rs"), include_str!("bot/rails_orders.rs"), include_str!("bot/redeploy.rs"), include_str!("bot/split.rs"),
+            include_str!("bot/mcp_input.rs"), include_str!("bot/liquidation.rs"), include_str!("bot/v2_orders.rs"), include_str!("bot/redeploy.rs"), include_str!("bot/split.rs"),
             include_str!("mcp/reads.rs"), include_str!("tracker/api.rs"), include_str!("rules/service.rs"), include_str!("../tax/api.rs"),
         ];
         // The code a build runs: each file above its tests (this file's own examples below are no codes).

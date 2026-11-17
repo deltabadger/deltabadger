@@ -6,7 +6,7 @@ use crate::venue::Attributed;
 use super::model::{self, Bot, Ticker};
 use super::tick::PriceCache;
 use super::{basket, Clock, EngineError};
-use crate::ruby::{float_sum, to_sentence};
+use crate::v2::{float_sum, to_sentence};
 use crate::venue::{PriceSide, Venue, VenueError};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{Map, Value};
@@ -400,7 +400,7 @@ pub fn candidate_pairs(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineE
 
 /// The same over the row Rails reads (`Index.find_by(external_id:)`, the lowest id), on a Rails install that holds no
 /// rankings: for a parity copy (parity::plan_copy), which scripts the prices the recorded tick asks.
-pub fn rails_candidate_pairs(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
+pub fn v2_candidate_pairs(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     let top: Option<Option<String>> = c.query_row("SELECT top_coins FROM indices WHERE external_id = ?1 ORDER BY id LIMIT 1",
         [bot.index_external_id()], |r| r.get(0)).optional()?;
     pairs_of(c, bot, top.flatten())

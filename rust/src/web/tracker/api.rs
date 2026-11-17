@@ -3,7 +3,7 @@
 //! pieces: its CSV writer, candidate query, link and price stores, sync plan and guarded write (`super::guarded`).
 //! The tools' texts are the Rails tools'. Named divergences: specs/PLAN-A11-tracker-api.md.
 use super::{csv_rows, first_sync, guarded, read, row::Row, sync_plan, transaction, Guarded, Step, SyncPlan, CSV_COLUMNS};
-use crate::{codec, ruby::{self, BigDec}, web::{bot_api::{self, Domain, Res}, bot::mcp_input, mcp::{protocol::tool_text, read_limits, tools::str_value}, timezone, App, WebError}};
+use crate::{codec, v2::{self, BigDec}, web::{bot_api::{self, Domain, Res}, bot::mcp_input, mcp::{protocol::tool_text, read_limits, tools::str_value}, timezone, App, WebError}};
 use chrono::{DateTime, NaiveDate};
 use chrono_tz::Tz;
 use rusqlite::{types::Value as Sql, Connection, OptionalExtension};
@@ -103,7 +103,7 @@ fn list(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Resul
         let (mut out, mut lines) = (vec![], vec![]);
         while let Some(r) = rows.next()? {
             let id: i64 = r.get("id")?;
-            let decimal = |name: &str| -> Result<Value, WebError> { Ok(ruby::from_sql(r.get_ref(name)?).map_err(|_| super::row::invalid())?.map_or(Value::Null, |d| json!(d.to_s_f()))) };
+            let decimal = |name: &str| -> Result<Value, WebError> { Ok(v2::from_sql(r.get_ref(name)?).map_err(|_| super::row::invalid())?.map_or(Value::Null, |d| json!(d.to_s_f()))) };
             let at = codec::parse_time(&r.get::<_, String>("transacted_at")?).map_err(|_| super::row::invalid())?;
             let kind: i64 = r.get("entry_type")?;
             let kind = usize::try_from(kind).ok().and_then(|k| ENTRY_TYPES.get(k)).copied().unwrap_or("");
@@ -113,7 +113,7 @@ fn list(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Resul
             let manual: Option<String> = r.get("manual_values")?;
             let stated = stated_price(manual.as_deref())?;
             let venue_valued = Row::load(c, user, id)?.ok_or_else(super::row::invalid)?.counterpart(c)?.is_some();
-            let row = json!({"id": id, "transacted_at": ruby::iso8601_ms(at), "entry_type": kind, "base_amount": decimal("base_amount")?,
+            let row = json!({"id": id, "transacted_at": v2::iso8601_ms(at), "entry_type": kind, "base_amount": decimal("base_amount")?,
                 "base_currency": r.get::<_, Option<String>>("base_currency")?, "quote_amount": decimal("quote_amount")?, "quote_currency": r.get::<_, Option<String>>("quote_currency")?,
                 "fee_amount": decimal("fee_amount")?, "fee_currency": r.get::<_, Option<String>>("fee_currency")?, "exchange": exchange,
                 "linked": linked.is_some() || inverse.is_some(), "linked_transaction_id": if kind == "withdrawal" { linked } else { inverse },

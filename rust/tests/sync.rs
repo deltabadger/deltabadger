@@ -427,7 +427,7 @@ async fn each_key_syncs_from_its_own_modes_host() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn keys_are_chosen_and_read_as_rails_chooses_and_reads_them() {
+async fn keys_are_chosen_and_read_as_v2_chooses_and_reads_them() {
     let (_dir, db, s) = install();
     let (reading, credentials) = db.run(move |c, cipher| Ok((sync::reading_keys(c).map_err(|e| e.0)?, sync::credentials(c, cipher, s.api_key_id).map_err(|e| e.0)?))).await.unwrap();
     assert_eq!((reading, credentials), (vec![s.api_key_id], paper()));
@@ -813,7 +813,7 @@ async fn an_import_longer_than_one_run_continues_where_it_stopped_and_ends_as_on
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn an_import_that_ends_exactly_at_the_cap_and_one_rails_overtook_both_end_well() {
+async fn an_import_that_ends_exactly_at_the_cap_and_one_v2_overtook_both_end_well() {
     let item = |i: usize| interest(&format!("e-{i:03}"), "2026-09-01");
     let three_pages = ledger::Limits { pages: 3, runs: 100 };
     // Exactly three full pages: the run cannot know the ledger ends there, so it stops at its cap; the next run asks
@@ -841,9 +841,9 @@ async fn an_import_that_ends_exactly_at_the_cap_and_one_rails_overtook_both_end_
                "what Rails finds: no watermark, so it reads the whole ledger");
     db.run(|c, _| c.execute("UPDATE api_keys SET last_synced_at = '2026-09-01 00:00:00'", []).map_err(|e| e.to_string())).await.unwrap(); // Rails' own sync
     let before = server.asked().len();
-    let after_rails = ledger::sync_within(&db, &venue, s.api_key_id, &paper(), &clock(), three_pages).await.unwrap().unwrap();
+    let after_v2 = ledger::sync_within(&db, &venue, s.api_key_id, &paper(), &clock(), three_pages).await.unwrap().unwrap();
     assert_eq!(server.asked()[before], (None, Some("2026-08-30T23:00:00Z".to_string())), "no page token; from Rails' watermark less 25 h");
-    assert_eq!((after_rails.complete, one::<i64>(&db, "SELECT count(*) FROM app_configs WHERE key LIKE 'rust_sync.%'").await), (false, 1), "450 activities are again more than three pages: a new import, recorded anew");
+    assert_eq!((after_v2.complete, one::<i64>(&db, "SELECT count(*) FROM app_configs WHERE key LIKE 'rust_sync.%'").await), (false, 1), "450 activities are again more than three pages: a new import, recorded anew");
     let done = ledger::sync_within(&db, &venue, s.api_key_id, &paper(), &clock(), three_pages).await.unwrap().unwrap();
     assert_eq!((done.complete, one::<i64>(&db, "SELECT count(*) FROM account_transactions").await, one::<i64>(&db, "SELECT count(*) FROM app_configs WHERE key LIKE 'rust_sync.%'").await), (true, 450, 0));
 
@@ -1317,7 +1317,7 @@ fn cli(dir: &Path, args: &[&str]) -> Command {
 fn stderr(out: &std::process::Output) -> String { String::from_utf8_lossy(&out.stderr).to_string() }
 
 #[test]
-fn sync_by_hand_takes_the_engine_lock_and_refuses_while_rails_or_an_engine_holds_it() {
+fn sync_by_hand_takes_the_engine_lock_and_refuses_while_v2_or_an_engine_holds_it() {
     let (dir, o, _) = common::install_alpaca();
     // The secret opens only under another instance's SECRET_KEY_BASE: every sync this test runs fails while reading the key,
     // before any request. The real binary's factory reaches Alpaca's real hosts, so no run here may get that far.
@@ -1334,14 +1334,14 @@ fn sync_by_hand_takes_the_engine_lock_and_refuses_while_rails_or_an_engine_holds
 
     // What every Rails process holds for its lifetime (config/initializers/00_engine_lock.rb): shared. A `run` or `serve`
     // holds it exclusive. Either way the sync refuses before it opens a database.
-    let rails = std::fs::OpenOptions::new().write(true).create(true).truncate(false).open(dir.path().join(".engine.lock")).unwrap();
-    rails.try_lock_shared().unwrap();
+    let v2 = std::fs::OpenOptions::new().write(true).create(true).truncate(false).open(dir.path().join(".engine.lock")).unwrap();
+    v2.try_lock_shared().unwrap();
     for kind in ["ledger", "balances"] {
         let out = cli(dir.path(), &["sync", kind]).output().unwrap();
         assert_eq!(out.status.code(), Some(1), "{kind}");
         assert!(stderr(&out).contains("another Deltabadger engine is running on this data"), "{kind}: {}", stderr(&out));
     }
-    drop(rails);
+    drop(v2);
 
     // With the lock free it runs: the job fails reading the key (exit 2), says only that, and sends nothing.
     for kind in ["ledger", "balances"] {
@@ -2208,7 +2208,7 @@ async fn a_venue_quoted_in_a_stablecoin_prices_through_a_fiat_pair_and_the_ecb()
     let wire = ScriptedTransport::from_script(&json!({ "GET /api/v3/ticker/price": [ok(json!([
         { "symbol": "BTCUSDT", "price": "55000" }, { "symbol": "EURUSDT", "price": "1.1" }, { "symbol": "TOKBTC", "price": "0.0001" }]))] }));
     let quotes = deltabadger::sync::venue_quotes::Quotes::new(Box::new({ let wire = wire.clone(); move |_, _| wire.clone() }), None);
-    let wanted = |external: &str, asset: i64, cash: bool| deltabadger::sync::venue_quotes::Wanted { external_id: external.into(), asset, cash, total: deltabadger::ruby::BigDec::one() };
+    let wanted = |external: &str, asset: i64, cash: bool| deltabadger::sync::venue_quotes::Wanted { external_id: external.into(), asset, cash, total: deltabadger::v2::BigDec::one() };
     let found = deltabadger::sync::venue_quotes::VenueQuotes::prices(&quotes, &db, s.api_key_id, binance,
         vec![wanted("bitcoin", ids.0, false), wanted("eur", ids.1, true), wanted("tok", ids.2, false)], clock().now()).await;
     let mut found: Vec<(String, String)> = found.into_iter().map(|(k, v)| (k, v.round(8).to_s_f())).collect();
@@ -2243,7 +2243,7 @@ async fn kraken_pairs_missing_from_its_bulk_ticker_never_cost_the_ones_it_priced
     }).await.unwrap();
     let wire = ScriptedTransport::from_script(&json!({ "GET /0/public/Ticker": [ok(json!({ "error": [], "result": { "XBTUSD": { "c": ["64000", "1"] } } })), { "status": 500, "body": "down" }] }));
     let quotes = deltabadger::sync::venue_quotes::Quotes::new(Box::new({ let wire = wire.clone(); move |_, _| wire.clone() }), None);
-    let wanted = |external: String, asset: i64| deltabadger::sync::venue_quotes::Wanted { external_id: external, asset, cash: false, total: deltabadger::ruby::BigDec::one() };
+    let wanted = |external: String, asset: i64| deltabadger::sync::venue_quotes::Wanted { external_id: external, asset, cash: false, total: deltabadger::v2::BigDec::one() };
     let mut asked = vec![wanted("bitcoin".into(), btc)];
     asked.extend(others.iter().enumerate().map(|(i, id)| wanted(format!("s{i}"), *id)));
     let found = deltabadger::sync::venue_quotes::VenueQuotes::prices(&quotes, &db, s.api_key_id, kraken, asked, clock().now()).await;

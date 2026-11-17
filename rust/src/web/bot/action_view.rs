@@ -11,7 +11,7 @@ pub(super) fn response(body: String, invalid: bool) -> Response {
     (if invalid { StatusCode::UNPROCESSABLE_ENTITY } else { StatusCode::OK }, [(axum::http::header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response()
 }
 pub(super) fn alert(errors: &[FieldError]) -> Result<String, WebError> {
-    let messages = if errors.is_empty() { vec![] } else { vec![flash::Message { style: "danger", text: crate::ruby::to_sentence(&errors.iter().map(|e|e.message.clone()).collect::<Vec<_>>()) }] };
+    let messages = if errors.is_empty() { vec![] } else { vec![flash::Message { style: "danger", text: crate::v2::to_sentence(&errors.iter().map(|e|e.message.clone()).collect::<Vec<_>>()) }] };
     Ok(turbo::prepend_flash(flash::render(&messages)?.trim_end()))
 }
 /// The status bar and the progress bar, each replaced on its own target.

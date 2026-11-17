@@ -267,7 +267,7 @@ mod action_race {
     async fn delete_during_price()->Result {price_race(false,false,false,"/delete").await}
 
     /// 2.70.21's own Continue decisions on a Rust-built install (common::v2::continue_start).
-    async fn rails_continue() -> Result<Value> {
+    async fn v2_continue() -> Result<Value> {
         tokio::task::spawn_blocking(common::v2::continue_start).await?.map_err(Into::into)
     }
 
@@ -276,7 +276,7 @@ mod action_race {
         let f=Fixture::new().await?;
         f.c.execute("UPDATE bots SET settings=json_set(settings,'$.allocations',json(?1)) WHERE id=?2",(json!({f.seed.btc.to_string():1.0}).to_string(),f.id))?;
         f.c.execute("DELETE FROM bot_index_assets WHERE bot_id=?1",[f.id])?;
-        let vectors=rails_continue().await?;
+        let vectors=v2_continue().await?;
         let row=vectors.as_array().ok_or("continue vectors")?.iter().find(|v|v["name"]==name).ok_or("continue case")?;
         assert_eq!(row["decision"],if waits {"checkpoint"} else {"now"});
         assert_eq!(row["within"],json!(waits));

@@ -148,7 +148,7 @@ async fn new(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, WebEr
         Route::Ready(venue, key) => (venue, key),
     };
     // Only a key that is there and not known to be correct is asked about again.
-    let present = |value: &Option<String>| value.as_deref().is_some_and(|text| !crate::ruby::blank(text));
+    let present = |value: &Option<String>| value.as_deref().is_some_and(|text| !crate::v2::blank(text));
     let mut correct = key.status == 1;
     if let (false, true, true, Some(id)) = (correct, present(&key.key), present(&key.secret), key.id) {
         if let Some(reason) = keys::revalidate(&app, id).await? {

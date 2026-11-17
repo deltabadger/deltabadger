@@ -168,7 +168,7 @@ fn unset(value: Option<&Value>) -> bool { matches!(value, None | Some(Value::Nul
 
 /// `present?` on a decoded value.
 fn present(value: Option<&Value>) -> bool {
-    match value { None | Some(Value::Null | Value::Bool(false)) => false, Some(Value::String(text)) => !crate::ruby::blank(text), _ => true }
+    match value { None | Some(Value::Null | Value::Bool(false)) => false, Some(Value::String(text)) => !crate::v2::blank(text), _ => true }
 }
 
 /// `x ||= value`, in place when the key is there (nil or false), else appended.
@@ -206,7 +206,7 @@ fn smart_quote(settings: &Map<String, Value>, tickers: &[Ticker]) -> Value {
     let minimum = crate::engine::accounting::round_up(frequency, scale).max(1.0 / scale);
     let tenth = if amount.1 { (amount.0 as i64).div_euclid(10) as f64 } else { amount.0 / 10.0 };
     let floor = minimum * 10.0;
-    let value = if floor > tenth { if decimals == 0 { floor.round() } else { crate::ruby::float_round(floor, decimals as i32) } } else { tenth };
+    let value = if floor > tenth { if decimals == 0 { floor.round() } else { crate::v2::float_round(floor, decimals as i32) } } else { tenth };
     json!(value)
 }
 
@@ -282,7 +282,7 @@ fn label(c: &Connection, ids: &[i64], locale: &str) -> Result<String, WebError> 
         let symbols: Vec<String> = rows.into_iter().filter_map(|row| row.and_then(|(_, symbol)| symbol)).collect();
         if symbols.len() > 3 { format!("{} + {}", symbols[..3].join(", "), symbols.len() - 3) } else { symbols.join(", ") }
     };
-    Ok(if crate::ruby::blank(&named) { i18n::text(locale, "bot.new", &[]) } else { named })
+    Ok(if crate::v2::blank(&named) { i18n::text(locale, "bot.new", &[]) } else { named })
 }
 
 /// ActiveModel's message for an error code on `attribute`, as `errors.add(attribute, code)` looks it up.

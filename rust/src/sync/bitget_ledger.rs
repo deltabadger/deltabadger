@@ -22,7 +22,7 @@
 //! (D-BITGET-STUCK: Rails asks for the same page forever). AUDIT-bitget S2 (a BGB-deducted fee booked in `feeCoin`), S3 (a
 //! withdrawal's `size` and `fee` booked apart) and S6 (`cTime` read in milliseconds) are ported as Rails reads them.
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
-use super::binance_ledger::{amount, entry, objects, page_of, ruby_time_at_ms, text, Fail};
+use super::binance_ledger::{amount, entry, objects, page_of, v2_time_at_ms, text, Fail};
 use super::continuation;
 use super::ledger::Outcome;
 use super::{capture_bound_version, load_key_of, phase, Failure, SyncError};
@@ -52,12 +52,12 @@ pub const MAX_PAGE_NODES: usize = 400_000;
 const MAX_PAGES: usize = 100_000;
 
 /// `#to_i` of a JSON value (nil.to_i is 0).
-fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::ruby::to_i(s), _ => 0 } }
+fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::v2::to_i(s), _ => 0 } }
 /// `#to_s` of a scalar, as Ruby interpolates it (nil is "").
 fn to_s(v: &Value) -> String { match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() } }
-fn ms(t: DateTime<Utc>) -> i64 { crate::venue::bitvavo::ruby_ms(t) }
+fn ms(t: DateTime<Utc>) -> i64 { crate::venue::bitvavo::v2_ms(t) }
 /// BigDecimal#abs.
-fn abs(d: crate::ruby::BigDec) -> crate::ruby::BigDec { if d < crate::ruby::BigDec::zero() { &crate::ruby::BigDec::zero() - &d } else { d } }
+fn abs(d: crate::v2::BigDec) -> crate::v2::BigDec { if d < crate::v2::BigDec::zero() { &crate::v2::BigDec::zero() - &d } else { d } }
 
 /// The exchange's tickers as #symbol_pair_base / #symbol_pair_quote find them (`tickers.find_by(ticker:)`: the first).
 struct Tickers(Vec<(String, String, String)>);
@@ -81,7 +81,7 @@ impl Tickers {
 fn fill(raw: Raw, tickers: &Tickers) -> Result<Entry, Fail> {
     let (base, quote) = tickers.pair(raw.value["symbol"].as_str());
     let side = match &raw.value["side"] { Value::Null => None, Value::String(s) => Some(s.to_lowercase()), _ => return Err(("unreadable fill side".into(), true)) };
-    let at = ruby_time_at_ms(to_i(&raw.value["cTime"])).ok_or_else(|| ("unreadable fill cTime".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["cTime"])).ok_or_else(|| ("unreadable fill cTime".to_string(), true))?;
     let size = amount(&raw, "size", "fill")?;
     let price = raw.decimal("priceAvg").map_err(|why| (format!("fill: {why}"), true))?;
     let detail = raw.object("feeDetail").map_err(|why| (format!("fill: {why}"), true))?;
@@ -101,7 +101,7 @@ fn fill(raw: Raw, tickers: &Tickers) -> Result<Entry, Fail> {
 /// in its coin (a zero one is stored as none).
 fn transfer(kind: i64, raw: Raw) -> Result<Option<Entry>, Fail> {
     if raw.value["status"].as_str() != Some("success") { return Ok(None); }
-    let at = ruby_time_at_ms(to_i(&raw.value["cTime"])).ok_or_else(|| ("unreadable transfer cTime".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["cTime"])).ok_or_else(|| ("unreadable transfer cTime".to_string(), true))?;
     let coin = raw.value.get("coin").filter(|v| !v.is_null()).map(to_s);
     let what = if kind == DEPOSIT { "deposit" } else { "withdrawal" };
     let mut e = entry(kind, "", amount(&raw, "size", what)?, &raw, at);
@@ -218,7 +218,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
             match self.source {
                 Source::Fills => {
                     let e = fill(raw.clone(), self.tickers)?;
-                    if e.tx_id.as_deref().is_none_or(crate::ruby::blank) {
+                    if e.tx_id.as_deref().is_none_or(crate::v2::blank) {
                         let key = raw.eql_key();
                         if self.bare.contains(&key) { continue; }
                         self.bare.push(key);

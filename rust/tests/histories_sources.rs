@@ -46,7 +46,7 @@ fn round_one_oracles_pin_every_source_and_warning_locale() {
 }
 
 #[test]
-fn round_two_exact_cost_and_rails_minimum_oracles_are_pinned() {
+fn round_two_exact_cost_and_v2_minimum_oracles_are_pinned() {
     let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let v:Value=serde_json::from_slice(&std::fs::read(root.join("rust/tests/fixtures/histories_r2.json")).expect("record round-two vectors")).unwrap();
     assert_eq!(v["synthetic_only"],true);
@@ -81,7 +81,7 @@ fn r6_oracle_sources_are_pinned() {
 
 #[test]
 fn r7_integer_add_overflow_refuses() {
-    use deltabadger::ruby::Num;
+    use deltabadger::v2::Num;
     for (a,b) in [(i64::MAX,1),(i64::MIN,-1)] {
         let result=Num::Int(a).add(&Num::Int(b));
         assert!(result.is_err(), "R7 integer add must refuse: {result:?}");
@@ -91,7 +91,7 @@ fn r7_integer_add_overflow_refuses() {
 }
 #[test]
 fn r7_integer_sub_overflow_refuses() {
-    use deltabadger::ruby::Num;
+    use deltabadger::v2::Num;
     for (a,b) in [(i64::MIN,1),(i64::MAX,-1)] {
         let result=Num::Int(a).sub(&Num::Int(b));
         assert!(result.is_err(), "R7 integer sub must refuse: {result:?}");
@@ -101,13 +101,13 @@ fn r7_integer_sub_overflow_refuses() {
 }
 #[test]
 fn r7_integer_sum_overflow_refuses() {
-    use deltabadger::ruby::{Num,ruby_sum};
+    use deltabadger::v2::{Num,v2_sum};
     for values in [vec![Num::Int(5_000_000_000_000_000_000);2],vec![Num::Int(i64::MIN),Num::Int(-1)],vec![Num::Int(i64::MAX),Num::Int(1),Num::Float(0.0)]] {
-        let result=ruby_sum(&values);
+        let result=v2_sum(&values);
         assert!(result.is_err(), "R7 integer sum must refuse: {result:?}");
         assert!(format!("{result:?}").contains("IntegerOverflow"));
     }
-    assert_eq!(ruby_sum(&[Num::Int(i64::MAX-1),Num::Int(1)]).unwrap(),Num::Int(i64::MAX));
+    assert_eq!(v2_sum(&[Num::Int(i64::MAX-1),Num::Int(1)]).unwrap(),Num::Int(i64::MAX));
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn r8_integer_oracle_is_pinned() {
 }
 
 #[test]
-fn r9_timestamp_parser_and_actual_rails_oracle() {
+fn r9_timestamp_parser_and_actual_v2_oracle() {
     use deltabadger::codec::parse_time;
     let v:serde_json::Value=serde_json::from_str(include_str!("fixtures/histories_r9.json")).unwrap();
     for case in v["cases"].as_array().unwrap() {

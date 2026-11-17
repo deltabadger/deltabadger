@@ -84,7 +84,7 @@ fn frozen_grid(root:&Path)->PathBuf{
     grid
 }
 #[tokio::test(flavor="current_thread")]
-async fn rails_and_rust_mcp_transcripts() {
+async fn v2_and_rust_mcp_transcripts() {
     let root = tempfile::tempdir().unwrap();
     frozen_grid(root.path());
     let dirs: Vec<_> = std::fs::read_dir(root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("steps.json").is_file()).collect();
@@ -119,12 +119,12 @@ async fn rails_and_rust_mcp_transcripts() {
 
 /// 2.70.21 (the published image, common::v2) plays `steps` on the install in `dir`: fixtures/v2/mcp_play.rb, mcp.rb's
 /// `play` at the oracle tag.
-fn rails_leg(boot:&Path,dir:&Path,steps:&[Value],sid:Option<&str>)->Value{
+fn v2_leg(boot:&Path,dir:&Path,steps:&[Value],sid:Option<&str>)->Value{
     std::fs::write(dir.join("leg.json"),serde_json::to_vec(steps).unwrap()).unwrap();
     std::fs::write(boot.join("play.rb"),include_str!("fixtures/v2/mcp_play.rb")).unwrap();
     let mut args=vec!["runner","/x/play.rb","/s"];
     if let Some(id)=sid{args.push(id);}
-    let out=common::v2::rails_in("test",dir,boot,"engine-test-secret",&args);
+    let out=common::v2::v2_in("test",dir,boot,"engine-test-secret",&args);
     assert!(out.status.success(),"2.70.21's MCP leg: {}",String::from_utf8_lossy(&out.stderr));
     read(dir.join("rails.json"))
 }
@@ -152,14 +152,14 @@ async fn sessions_cross_before_and_after_initialized_in_both_directions(){
     let root=tempfile::tempdir().unwrap();let boot=tempfile::tempdir().unwrap();frozen_grid(root.path());
     let steps=vec![initialize(),request("POST",json!({"jsonrpc":"2.0","method":"notifications/initialized"}),true),rpc("tools/list",json!({})),rpc("tools/call",json!({"name":"list_bots","arguments":{}})),request("DELETE",Value::Null,true),rpc("ping",json!({}))];
     let oracle=tempfile::tempdir().unwrap();copy_install(&root.path().join(".template"),oracle.path());
-    let expected=rails_leg(boot.path(),oracle.path(),&steps,None);
-    for cut in [1,2]{for rails_first in [true,false]{
+    let expected=v2_leg(boot.path(),oracle.path(),&steps,None);
+    for cut in [1,2]{for v2_first in [true,false]{
         let dir=tempfile::tempdir().unwrap();copy_install(&root.path().join(".template"),dir.path());
-        let first=if rails_first{rails_leg(boot.path(),dir.path(),&steps[..cut],None)}else{play(dir.path(),&steps[..cut],None).await};
+        let first=if v2_first{v2_leg(boot.path(),dir.path(),&steps[..cut],None)}else{play(dir.path(),&steps[..cut],None).await};
         let sid=first["session"].as_str().unwrap();
-        let mut second=if rails_first{play(dir.path(),&steps[cut..],Some(sid.into())).await}else{rails_leg(boot.path(),dir.path(),&steps[cut..],Some(sid))};
+        let mut second=if v2_first{play(dir.path(),&steps[cut..],Some(sid.into())).await}else{v2_leg(boot.path(),dir.path(),&steps[cut..],Some(sid))};
         let mut responses=first["responses"].as_array().unwrap().clone();responses.extend(second["responses"].as_array().unwrap().clone());second["responses"]=json!(responses);
-        assert_eq!(unversioned(comparable(second)),unversioned(comparable(expected.clone())),"cut {cut}, rails_first {rails_first}");
+        assert_eq!(unversioned(comparable(second)),unversioned(comparable(expected.clone())),"cut {cut}, rails_first {v2_first}");
     }}
 }
 #[tokio::test(flavor="current_thread")]
@@ -192,8 +192,8 @@ async fn a_refresh_and_revocation_cross_the_actual_mcp_endpoint(){
     assert_eq!(issued["responses"][0]["status"],200);
     let pair:Value=serde_json::from_str(issued["responses"][0]["body"].as_str().unwrap()).unwrap();
     let mut init=initialize();init["headers"]["Authorization"]=json!(format!("Bearer {}",pair["access_token"].as_str().unwrap()));
-    let accepted=rails_leg(boot.path(),dir,&[init.clone()],None);assert_eq!(accepted["responses"][0]["status"],200);
-    let handed_back=rails_leg(boot.path(),dir,&[token_request("/oauth/token",json!({"grant_type":"refresh_token","client_id":uid,"refresh_token":pair["refresh_token"]}))],None);
+    let accepted=v2_leg(boot.path(),dir,&[init.clone()],None);assert_eq!(accepted["responses"][0]["status"],200);
+    let handed_back=v2_leg(boot.path(),dir,&[token_request("/oauth/token",json!({"grant_type":"refresh_token","client_id":uid,"refresh_token":pair["refresh_token"]}))],None);
     assert_eq!(handed_back["responses"][0]["status"],200);
     let next:Value=serde_json::from_str(handed_back["responses"][0]["body"].as_str().unwrap()).unwrap();
     init["headers"]["Authorization"]=json!(format!("Bearer {}",next["access_token"].as_str().unwrap()));
@@ -202,8 +202,8 @@ async fn a_refresh_and_revocation_cross_the_actual_mcp_endpoint(){
     let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
     assert_eq!(c.query_row("SELECT count(*) FROM oauth_access_tokens WHERE token IN ('m2-token',?1) AND revoked_at IS NOT NULL",[pair["access_token"].as_str().unwrap()],|r|r.get::<_,i64>(0)).unwrap(),2);drop(c);
     let revoked=play(dir,&[token_request("/oauth/revoke",json!({"client_id":uid,"token":next["access_token"]}))],None).await;assert_eq!(revoked["responses"][0]["status"],200);
-    let rails=rails_leg(boot.path(),dir,&[init.clone()],None);let rust=play(dir,&[init],None).await;
-    assert_eq!(comparable(rust),comparable(rails));
+    let v2=v2_leg(boot.path(),dir,&[init.clone()],None);let rust=play(dir,&[init],None).await;
+    assert_eq!(comparable(rust),comparable(v2));
 }
 #[test]
 fn stale_registry_gate_has_both_refusal_texts(){

@@ -1,7 +1,7 @@
 //! UTA-0 (issue #841): the KuCoin UTA spot fixtures are pinned and self-consistent. No UTA behavior is connected; the
 //! U1–U4 rows of fixtures/kucoin_uta/MATRIX.md drive the real adapter later.
 use base64::{engine::general_purpose::STANDARD, Engine};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use hmac::{Hmac, Mac};
 use serde_json::Value;
 use sha2::{Digest, Sha256};

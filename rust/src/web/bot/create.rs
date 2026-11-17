@@ -7,7 +7,7 @@
 //! a Hyperliquid bot gets the wizard's limit orders (Rails' API create leaves them off and its start then refuses it).
 use super::{action_params::ActionParams, draft::FieldError, mcp_input, signal_write, write::{self, Action, Outcome, Prepared, Step}, For};
 use crate::engine::{eligibility, model};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::web::bot_api::{Domain, Res};
 use crate::web::layout::Ctx;
 use crate::web::mcp::tools::str_value;
@@ -120,7 +120,7 @@ fn pair_not_found(venue: &Venue, symbol: &str, quote: &Value) -> Res {
 type Entry = (String, Option<BigDec>);
 
 /// Ruby's `String#split(',')`: the empty strings at the end are dropped.
-fn ruby_split(s: &str, on: char) -> Vec<&str> {
+fn v2_split(s: &str, on: char) -> Vec<&str> {
     let mut parts: Vec<&str> = s.split(on).collect();
     while parts.last().is_some_and(|p| p.is_empty()) { parts.pop(); }
     parts
@@ -129,7 +129,7 @@ fn ruby_split(s: &str, on: char) -> Vec<&str> {
 /// Create#normalize_asset: a hash's symbol (stripped, upcased) and, when the key is there, a weight in 0..100.
 fn normalize(symbol: &Value, allocation: Option<&Value>) -> Option<Entry> {
     let symbol = mcp_input::strip(&text(symbol)).to_uppercase();
-    if crate::ruby::blank(&symbol) { return None; }
+    if crate::v2::blank(&symbol) { return None; }
     match allocation { None => Some((symbol, None)), Some(v) => within(v, 0, 100).map(|a| (symbol, Some(a))) }
 }
 
@@ -138,7 +138,7 @@ fn basket_entries(p: &Map<String, Value>) -> Option<Vec<Entry>> {
     let (assets, second) = (get(p, "assets"), get(p, "second_base_asset"));
     let entries: Vec<Option<Entry>> = if present(assets) {
         match assets {
-            Value::String(s) => ruby_split(s, ',').into_iter().map(|e| {
+            Value::String(s) => v2_split(s, ',').into_iter().map(|e| {
                 let mut parts = mcp_input::strip(e).splitn(2, ':');
                 let symbol = json!(parts.next().unwrap_or(""));
                 match parts.next() { None => normalize(&symbol, None), Some(a) => normalize(&symbol, Some(&json!(a))) }
@@ -443,7 +443,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn baskets_parse_as_rails_does() {
+    fn baskets_parse_as_v2_does() {
         let p = |v: Value| v.as_object().unwrap().clone();
         let symbols = |v: Value| basket_entries(&p(v)).map(|e| e.into_iter().map(|(s, a)| (s, a.map(|a| a.to_f()))).collect::<Vec<_>>());
         assert_eq!(symbols(json!({"assets": "AAPL:60,msft:40"})), Some(vec![("AAPL".into(), Some(60.0)), ("MSFT".into(), Some(40.0))]));

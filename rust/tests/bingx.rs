@@ -8,7 +8,7 @@ use deltabadger::engine::amount::{self, Sizing};
 use deltabadger::engine::model::{self, Ticker};
 
 use deltabadger::engine::venue_rules::BINGX;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::binance::{Pair, Pairs};
 use deltabadger::venue::bingx::{self, BingxVenue, URL};
 use deltabadger::venue::http::{HttpRequest, ScriptedTransport};
@@ -187,7 +187,7 @@ fn every_recorded_honeymaker_request_is_reproduced() {
 
 /// engine::venue_rules::BINGX is Exchanges::Bingx::ERRORS, and Exchange#ambiguous_placement_error? as it reads them.
 #[test]
-fn the_rules_are_rails_errors() {
+fn the_rules_are_v2_errors() {
     let f = fixture();
     let list = |v: &Value| {
         v.as_array()
@@ -226,7 +226,7 @@ fn the_rules_are_rails_errors() {
 
 /// #parse_order_data (B1), recorded over 10,000 generated GET /openApi/spot/v1/trade/query answers.
 #[test]
-fn every_recorded_rails_order_parse_is_reproduced() {
+fn every_recorded_v2_order_parse_is_reproduced() {
     let v = vectors();
     let cases = v["bingx_orders"].as_array().unwrap();
     assert_eq!(cases.len(), 10_000);
@@ -290,7 +290,7 @@ fn every_recorded_rails_order_parse_is_reproduced() {
 /// zero base minimum among the pairs: the quote minimum alone), through amount::size, limit_refusal, to_order and the
 /// adapter's own POST query.
 #[tokio::test(flavor = "current_thread")]
-async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
+async fn every_recorded_v2_sizing_and_wire_is_reproduced() {
     let (_d, o, s) = common::install();
     use common::seed::{self, BotSpec};
     let market = model::load_bot(
@@ -382,8 +382,8 @@ async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
             .collect();
         assert_eq!(ours.remove("newClientOrderId"), Some(json!(WIRE_CL)), "{c}");
         let mut want = serde_json::Map::new();
-        for (rails, field) in c["wire"].as_object().unwrap() {
-            let camel = match rails.as_str() {
+        for (v2, field) in c["wire"].as_object().unwrap() {
+            let camel = match v2.as_str() {
                 "quote_order_qty" => "quoteOrderQty",
                 "time_in_force" => "timeInForce",
                 other => other,
@@ -493,7 +493,7 @@ async fn public_prices_and_account_balances_follow_the_bingx_envelope() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn market_sizing_preserves_rails_s7_for_both_sides() {
+async fn market_sizing_preserves_v2_s7_for_both_sides() {
     for side in [Side::Buy, Side::Sell] {
         for quote in [true, false] {
             let (t, v) = venue(

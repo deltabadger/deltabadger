@@ -898,17 +898,17 @@ async fn a_pause_still_runs_the_funds_check() {
 /// exited, one unpriced member failing the whole tick. Every scenario's bot is one the engine admits.
 #[cfg(unix)]
 #[tokio::test(flavor = "current_thread")]
-async fn kraken_binance_and_kucoin_baskets_decide_as_rails() {
-    use common::decisions::{built_grid, copy_dir, r5_cleanup_expected, rails};
+async fn kraken_binance_and_kucoin_baskets_decide_as_v2() {
+    use common::decisions::{built_grid, copy_dir, r5_cleanup_expected, v2};
     use deltabadger::engine::eligibility;
-    let rails_root = tempfile::tempdir().unwrap();
+    let v2_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
-    built_grid("grid-venue-basket", rails_root.path());
-    let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    built_grid("grid-venue-basket", v2_root.path());
+    let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(v2_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), 44 + 12, "the venue basket grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
-    rails(&["record", rails_root.path().to_str().unwrap()]);
+    v2(&["record", v2_root.path().to_str().unwrap()]);
     let mut failures = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -928,15 +928,15 @@ async fn kraken_binance_and_kucoin_baskets_decide_as_rails() {
             let mine = json!({ "value": floor.value.to_f(), "reason": format!("{:?}", floor.reason).to_lowercase() });
             if mine != scenario["rails_floor"] { failures.push(format!("{name}: Smart Intervals floor {mine}, Rails {}", scenario["rails_floor"])); }
         }
-        let rails_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let v2_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
         let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
         // Rails drops a NULL missed_quote_amount_was_set on a failed run; the engine keeps it (R5, as every grid compares).
-        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
-        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        let v2_out = r5_cleanup_expected(&v2_out, &rust_out);
+        if v2_out != rust_out { failures.push(format!("{name}\n  rails: {v2_out}\n  rust:  {rust_out}")); }
         // Rails' side must show what each cell exists for, or an equal comparison proves nothing.
-        let sent = rails_out["sent"].as_array().unwrap();
-        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
-        let events = rails_out["changes"]["bot_activity_logs"].to_string();
+        let sent = v2_out["sent"].as_array().unwrap();
+        let rows = v2_out["changes"]["transactions"].as_array().unwrap();
+        let events = v2_out["changes"]["bot_activity_logs"].to_string();
         let pairs: Vec<&str> = sent.iter().filter_map(|o| o["pair"].as_str().or_else(|| o["symbol"].as_str())).collect();
         let case = name.split_once('-').unwrap().1.split_once('-').unwrap().1;
         let pinned = match case {
@@ -954,13 +954,13 @@ async fn kraken_binance_and_kucoin_baskets_decide_as_rails() {
             "market_cap-missing_cap" | "market_cap-zero_cap" => pairs.len() == 2,
             // Slice L: past the merge's cutoff the first own tick warns when every leg is skipped; the same rows unmerged are
             // no first tick; one leg placed is no warning; a row resting on the other venue is never asked for nor touched.
-            "merged-w70-all_below" => sent.is_empty() && rails_out["warned"] == json!([2]),
-            "unmerged-w70-all_below" => rails_out["warned"] == json!([]),
-            "merged-tiers-one_below" => pairs.len() == 2 && events.contains("orders_below_minimum") && rails_out["warned"] == json!([]),
+            "merged-w70-all_below" => sent.is_empty() && v2_out["warned"] == json!([2]),
+            "unmerged-w70-all_below" => v2_out["warned"] == json!([]),
+            "merged-tiers-one_below" => pairs.len() == 2 && events.contains("orders_below_minimum") && v2_out["warned"] == json!([]),
             "merged-w70-foreign_waiting" => pairs.len() == 2 && rows.iter().all(|r| r["before"]["external_id"] != "OFOREIGN-2"),
             _ => true,
         };
-        if !pinned { failures.push(format!("{name}: Rails no longer shows what this cell is for: {rails_out}")); }
+        if !pinned { failures.push(format!("{name}: Rails no longer shows what this cell is for: {v2_out}")); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
@@ -1009,7 +1009,7 @@ async fn every_member_locked_buys_nothing_and_is_no_failure() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_buy_whose_asset_was_locked_after_it_was_sized_is_not_placed() {
     use deltabadger::engine::{amount::{self, TxKind}, placement, rebalance, splits, venue_rules::ALPACA};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::venue::Side;
     let (_d, o, id, _, assets) = basket_bot(60.0, &[0.7, 0.3]);
     basket::refresh_composition(&o.primary, &model::load_bot(&o.primary, id).unwrap(), at("2026-09-01T09:00:00Z")).unwrap().unwrap();
@@ -1095,7 +1095,7 @@ async fn a_ranked_loss_member_is_skipped_while_a_buy_of_it_rests_and_the_next_me
 /// The bot is `executing` on its run.
 fn begin_loss_sale(o: &store::Opened, id: i64, s: &seed::Seeded) -> deltabadger::engine::placement::Intent {
     use deltabadger::engine::{amount, placement, venue_rules::ALPACA};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     let c = &o.primary;
     c.execute("UPDATE bots SET status = 4 WHERE id = ?1", [id]).unwrap();
     let bot = model::load_bot(c, id).unwrap();
@@ -1113,7 +1113,7 @@ async fn send_sale(o: &store::Opened, t: &ScriptedTransport, id: i64, intent: &d
 /// the claim decoded from the stored intent (as after a restart) settles as recovery finds it: accepted → logged once;
 /// absent, or resolved not placed by the operator → kept.
 #[tokio::test(flavor = "current_thread")]
-async fn a_loss_sale_claims_with_its_intent_and_each_outcome_settles_it_as_rails() {
+async fn a_loss_sale_claims_with_its_intent_and_each_outcome_settles_it_as_v2() {
     use deltabadger::engine::placement::{self, OperatorResolution, Recovery, Sent};
     let begun = || { let (d, o, id, s) = loss_seller(); let intent = begin_loss_sale(&o, id, &s); (d, o, id, s, intent) };
     let (_d, o, id, s, intent) = begun();
@@ -1185,7 +1185,7 @@ async fn a_loss_sale_claims_with_its_intent_and_each_outcome_settles_it_as_rails
 #[tokio::test(flavor = "current_thread")]
 async fn a_terminal_sell_written_by_a_poll_confirms_the_lock_from_its_fill() {
     use deltabadger::engine::polling;
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::venue::{OrderState, OrderStatus};
     let now = at("2026-09-03T12:00:00Z");
     let d = |x: &str| BigDec::parse(x).unwrap();

@@ -378,7 +378,7 @@ async fn an_alpaca_listing_whose_asset_is_missing_leaves_a_partial_revision_that
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn after_a_handback_a_rails_refresh_counts_for_a_catalogue_fed_source() {
+async fn after_a_handback_a_v2_refresh_counts_for_a_catalogue_fed_source() {
     let (d, alpaca, _) = install();
     let old = (at(RUN) - Duration::days(40)).to_rfc3339();
     bundle(&d, &snapshot(&[crypto(1, &old)]));

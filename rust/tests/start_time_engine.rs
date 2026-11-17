@@ -7,7 +7,7 @@ use common::seed::{self, BotSpec};
 use deltabadger::engine::run::{self, Engine};
 use deltabadger::engine::{amount, eligibility, model, FixedClock};
 use deltabadger::lease;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store::{self, Paths};
 use deltabadger::venue::fake::{FakeFactory, FakeVenue};
 use rusqlite::Connection;
@@ -38,7 +38,7 @@ fn stored(c: &Connection, id: i64) -> (Value, Value, String) {
 }
 
 #[test]
-fn the_amount_and_the_disable_match_rails() {
+fn the_amount_and_the_disable_match_v2() {
     let (mut reads, mut disables) = (0, 0);
     for v in vectors()["schedule"].as_array().unwrap() {
         let (_d, o, s) = common::install();
@@ -61,10 +61,10 @@ fn the_amount_and_the_disable_match_rails() {
                                     if open { 1 } else { 2 }, (!open).then_some("0.001")]).unwrap();
         amount::disable_starting_time(c, id, time(&v["disabled_at"])).unwrap();
         let (settings, transient, changed) = stored(c, id);
-        let rails = &v["disabled"];
+        let v2 = &v["disabled"];
         assert_eq!(settings["start_time_enabled"], json!(false), "{v}");
-        assert_eq!(transient, rails["transient_data"], "the carry and its marker, as Rails stores them: {v}");
-        assert_eq!(changed, rails["settings_changed_at"].as_str().unwrap(), "the window stays where the start put it: {v}");
+        assert_eq!(transient, v2["transient_data"], "the carry and its marker, as Rails stores them: {v}");
+        assert_eq!(changed, v2["settings_changed_at"].as_str().unwrap(), "the window stays where the start put it: {v}");
         if open {
             // Cancelled after the rule turned off, having filled `bought`: what it never filled is owed with the next run.
             c.execute("UPDATE transactions SET external_status = 3, quote_amount_exec = ?2 WHERE bot_id = ?1", rusqlite::params![id, bought]).unwrap();
@@ -177,7 +177,7 @@ fn edge_state(c: &Connection, s: &seed::Seeded, e: &Value, upto: usize) -> i64 {
 /// started_at): there the two agree to the digit. Where Rails reads a start_at that differs, Rust reads started_at, and the
 /// carry is the unmoved bot's (pinned by the replays below).
 #[test]
-fn the_edge_carry_matches_rails_wherever_rails_anchors_on_started_at() {
+fn the_edge_carry_matches_v2_wherever_v2_anchors_on_started_at() {
     let (mut same, mut moved) = (0, 0);
     for e in vectors()["edges"].as_array().unwrap() {
         for (i, st) in e["steps"].as_array().unwrap().iter().enumerate() {
@@ -353,7 +353,7 @@ async fn a_kept_rule_with_a_moved_start_at_runs_on_started_ats_grid() {
 /// Rails' own record and is kept (Q3): continued through Rust inside the interval, the bot owes one amount and runs now;
 /// taken over without a continue marker, it waits for the next checkpoint and pays it there with the interval's amount.
 #[tokio::test(flavor = "current_thread")]
-async fn a_carry_rails_stored_from_a_moved_start_at_is_spent_as_stored() {
+async fn a_carry_v2_stored_from_a_moved_start_at_is_spent_as_stored() {
     let e = edge("continue after inside second edit");
     let c = t("2026-09-10T12:30:00Z");
     let v = venue();

@@ -10,7 +10,7 @@ use crate::web::format::{self, input_value, Num};
 use crate::web::i18n::{self, escape, Arg};
 use crate::web::layout::Ctx;
 use crate::web::{colors, WebError};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use askama::Template;
 use rusqlite::Connection;
 use serde_json::Value;

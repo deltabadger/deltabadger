@@ -111,15 +111,15 @@ pub(super) fn advanced(ctx: &Ctx, csrf: &str, advanced: bool) -> Result<String, 
 pub(super) fn email(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, show_form: bool) -> Result<String, WebError> {
     let read = |key: &str| crate::web::auth::app_config(c, &app.cipher, key);
     let provider = read("smtp_provider")?;
-    let env_available = app.settings_smtp.address.as_deref().is_some_and(|s| !crate::ruby::blank(s));
+    let env_available = app.settings_smtp.address.as_deref().is_some_and(|s| !crate::v2::blank(s));
     let host = read("smtp_host")?;
     let port = read("smtp_port")?;
-    let has_credentials = read("smtp_username")?.is_some_and(|s| !crate::ruby::blank(&s))
-        && read("smtp_password")?.is_some_and(|s| !crate::ruby::blank(&s));
+    let has_credentials = read("smtp_username")?.is_some_and(|s| !crate::v2::blank(&s))
+        && read("smtp_password")?.is_some_and(|s| !crate::v2::blank(&s));
     let configured_hint = i18n::t(
         ctx.locale,
         "settings.email_notifications.smtp_configured_html",
-        &[("host", Arg::Text(host.as_deref().filter(|s| !crate::ruby::blank(s)).unwrap_or("smtp.gmail.com")))],
+        &[("host", Arg::Text(host.as_deref().filter(|s| !crate::v2::blank(s)).unwrap_or("smtp.gmail.com")))],
     );
     Ok(sections::email_notifications(
         ctx,
@@ -138,7 +138,7 @@ pub(super) fn email(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, show_form:
 /// `enabled` is the tri-state answer: none picked while undecided.
 pub fn question(ctx: &Ctx, enabled: Option<bool>, jurisdiction: Option<&str>) -> String {
     let code = jurisdiction
-        .filter(|s| !crate::ruby::blank(s))
+        .filter(|s| !crate::v2::blank(s))
         .unwrap_or("US");
     let choices = [("US", "US", 30), ("GB", "UK", 30), ("IE", "IE", 28)];
     let label = |name: &str, days: i64| {

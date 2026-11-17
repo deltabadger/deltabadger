@@ -174,7 +174,7 @@ pub fn log(
     c.execute("INSERT INTO rust_rule_log_origins(rule_log_id,owner,client_id,created_at) VALUES(?1,?2,?3,?4)",params![id,format!("rule:{rule}"),client,format_time(now)])?;
     Ok(id)
 }
-pub fn seed_rails_ids(c: &Connection) -> Result<(), EngineError> {
+pub fn seed_v2_ids(c: &Connection) -> Result<(), EngineError> {
     c.execute("INSERT OR IGNORE INTO rust_withdrawal_ids(exchange_id,venue_id,owner,settled_at,source) SELECT r.exchange_id,CAST(json_extract(l.details,'$.withdrawal_id') AS TEXT),'rule:'||r.id,l.created_at,'rails' FROM rule_logs l JOIN rules r ON r.id=l.rule_id WHERE l.status=1 AND json_valid(l.details) AND json_extract(l.details,'$.withdrawal_id') IS NOT NULL",[])?;
     Ok(())
 }
@@ -369,7 +369,7 @@ pub fn import(c: &Connection, jobs: &[Job], now: DateTime<Utc>) -> Result<usize,
         };
         append_journal(c, IMPORT, &job.id, now)?;
     }
-    seed_rails_ids(c)?;
+    seed_v2_ids(c)?;
     Ok(added)
 }
 pub fn cleanup_queue(c: &Connection, q: &Connection) -> Result<usize, EngineError> {

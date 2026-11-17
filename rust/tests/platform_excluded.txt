@@ -7,7 +7,7 @@
 image
 
 # Full suite only (PLAN-B11 §2 "Platform split"): these read the frozen 2.x installs and recordings
-# (rust/tests/recorded/: common::install, rails_install*, common::recording, venue_grid, support/tracker_index_grid.rs),
+# (rust/tests/recorded/: common::install, v2_install*, common::recording, venue_grid, support/tracker_index_grid.rs),
 # and run on Linux in the full suite so the platform legs' time does not triple. Running them per OS is a follow-up.
 account_identity
 accounts

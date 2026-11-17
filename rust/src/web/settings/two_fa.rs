@@ -72,7 +72,7 @@ pub async fn handle(app: App, ctx: Ctx, write: bool) -> Result<Response, WebErro
                         .map_err(|_| WebError::Config("unreadable OTP seed".into()))
                 })
                 .transpose()?;
-            let seed = if !write && seed.as_deref().is_none_or(crate::ruby::blank) {
+            let seed = if !write && seed.as_deref().is_none_or(crate::v2::blank) {
                 let seed = new_seed();
                 let envelope = inner.cipher.encrypt(&seed);
                 tx.execute(

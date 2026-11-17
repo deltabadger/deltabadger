@@ -226,7 +226,7 @@ pub async fn index_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
 /// its pill re-requests it into the merge_modal frame.
 pub async fn merge_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response,WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
-    let Ok(params) = ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let Ok(params) = ActionParams::parse_v2(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
     let (ids, exchange) = super::merge::params(params.value());
     let (inner,mut view,owner) = (app.clone(),ctx.clone(),user.clone());
     let result = app.db(move |c| {
@@ -254,7 +254,7 @@ pub async fn merge_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -
 pub async fn merge_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response,WebError> {
     use super::merge::{perform, Merged};
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
-    let Ok(params) = ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let Ok(params) = ActionParams::parse_v2(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
     let (ids, exchange) = super::merge::params(params.value());
     let (inner, view) = (app.clone(), ctx.clone());
     let result = app.db(move |c| {
@@ -278,7 +278,7 @@ pub async fn merge_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
 pub async fn split_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response,WebError> {
     use super::split::{modal, Loaded, Split};
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
-    let Ok(params) = ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let Ok(params) = ActionParams::parse_v2(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
     let (ids, keep) = super::split::params(params.value());
     let (inner,mut view,owner) = (app.clone(),ctx.clone(),user.clone());
     let result = app.db(move |c| {
@@ -304,7 +304,7 @@ pub async fn split_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -
 pub async fn split_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response,WebError> {
     use super::split::{complete, perform, Performed};
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
-    let Ok(params) = ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let Ok(params) = ActionParams::parse_v2(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
     let (ids, keep) = super::split::params(params.value());
     let (inner, view) = (app.clone(), ctx.clone());
     let result = app.db(move |c| {

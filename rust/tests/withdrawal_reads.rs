@@ -2,7 +2,7 @@
 //! the §6 sizing and the fee stamp. Rails' recorded reads (withdrawal_vectors.json `reads`, honeymaker 0.12.5) are the
 //! oracle where Rails is right; each divergence is asserted narrowly, by name.
 use deltabadger::crypto::Credentials;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::binance::{self, BinanceVenue};
 use deltabadger::venue::gemini::{self, GeminiVenue};
 use deltabadger::venue::http::{HttpRequest, ScriptedTransport};
@@ -35,7 +35,7 @@ fn wire(t: &ScriptedTransport) -> Vec<(String, String, BTreeMap<String, String>)
     t.requests().iter().map(|r| (r.method.to_string(), r.path.clone(), sent(r))).collect()
 }
 fn admitted(entries: &[Entry]) -> Vec<&str> { entries.iter().filter(|e| e.refused.is_none()).map(|e| e.address.as_str()).collect() }
-fn rails_names(c: &Value) -> Vec<&str> { c["value"]["returned"].as_array().unwrap().iter().map(|r| r["name"].as_str().unwrap()).collect() }
+fn v2_names(c: &Value) -> Vec<&str> { c["value"]["returned"].as_array().unwrap().iter().map(|r| r["name"].as_str().unwrap()).collect() }
 fn script(c: &Value) -> ScriptedTransport {
     // The recorder's replies are {"body"} with an implied 200.
     let mut s = c["replies"].clone();
@@ -47,18 +47,18 @@ const ADDRESS: &str = "bc1qx0destination0000000000000000000000";
 // ---- Rails' cells where Rails is right
 
 #[tokio::test(flavor = "current_thread")]
-async fn binance_kraken_and_gemini_list_what_rails_lists_with_the_same_request() {
+async fn binance_kraken_and_gemini_list_what_v2_lists_with_the_same_request() {
     let v = vectors();
     let c = cell(&v, "reads", "binance_listing");
     let t = script(c);
     let entries = BinanceVenue::new(t.clone(), binance::URL, "s").withdrawal_addresses("BTC").await.unwrap();
-    assert_eq!(admitted(&entries), rails_names(c), "the coin's rows, in order");
+    assert_eq!(admitted(&entries), v2_names(c), "the coin's rows, in order");
     assert_eq!(wire(&t), c["requests"].as_array().unwrap().iter().map(recorded).collect::<Vec<_>>());
 
     let c = cell(&v, "reads", "kraken_listing");
     let t = script(c);
     let entries = KrakenVenue::new(t.clone()).withdrawal_addresses("XBT").await.unwrap();
-    assert_eq!(admitted(&entries), rails_names(c), "verified entries only");
+    assert_eq!(admitted(&entries), v2_names(c), "verified entries only");
     assert_eq!(entries[0].key.as_deref(), c["value"]["returned"][0]["key"].as_str());
     assert_eq!(entries[1].refused, Some("the entry is not verified"));
     assert_eq!(wire(&t), c["requests"].as_array().unwrap().iter().map(recorded).collect::<Vec<_>>());
@@ -66,7 +66,7 @@ async fn binance_kraken_and_gemini_list_what_rails_lists_with_the_same_request()
     let c = cell(&v, "reads", "gemini_listing");
     let t = script(c);
     let entries = GeminiVenue::new(t.clone(), gemini::URL).withdrawal_addresses("BTC").await.unwrap();
-    assert_eq!(admitted(&entries), rails_names(c), "active entries, once per scope");
+    assert_eq!(admitted(&entries), v2_names(c), "active entries, once per scope");
     assert_eq!(wire(&t), c["requests"].as_array().unwrap().iter().map(recorded).collect::<Vec<_>>());
     // Gemini lists one address under two scopes: one destination, not an ambiguous pair.
     let d = withdrawal::select(Kind::Gemini, "BTC", &Stored::new(ADDRESS, None, None, None), &entries, None).unwrap();
@@ -74,7 +74,7 @@ async fn binance_kraken_and_gemini_list_what_rails_lists_with_the_same_request()
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn the_kraken_key_rails_sends_with_is_the_key_selected() {
+async fn the_kraken_key_v2_sends_with_is_the_key_selected() {
     // Rails' withdraw looks the key up by address (kraken.rb:486): the recorded Withdraw carries the one Rust selects.
     let v = vectors();
     let c = cell(&v, "execute", "success_kraken");
@@ -86,22 +86,22 @@ async fn the_kraken_key_rails_sends_with_is_the_key_selected() {
 }
 
 #[test]
-fn the_coin_list_stamps_what_rails_writes_for_the_rules_asset() {
+fn the_coin_list_stamps_what_v2_writes_for_the_rules_asset() {
     let v = vectors();
     for name in ["binance_fees_fee_key", "mexc_fees_fee_key"] {
         let c = cell(&v, "reads", name);
         let body = &c["replies"].as_object().unwrap().values().next().unwrap()[0]["body"];
         let coin = withdrawal::coin_networks(body, "BTC", "venue").unwrap().unwrap();
-        let rails = c["exchange_assets"].as_array().unwrap().iter().find(|a| a["asset"] == "BTC").unwrap();
+        let v2 = c["exchange_assets"].as_array().unwrap().iter().find(|a| a["asset"] == "BTC").unwrap();
         let stamp = withdrawal::coin_stamp(&coin).unwrap();
-        assert_eq!(json!(stamp.fee), rails["withdrawal_fee"], "{name}: the default network's fee");
-        assert_eq!(stamp.chains.as_ref(), Some(&rails["withdrawal_chains"]), "{name}: every network, Rails' shape");
-        assert_eq!(rails["withdrawal_fee_updated_at"], v["at"], "{name}: Rails stamps the read's time");
+        assert_eq!(json!(stamp.fee), v2["withdrawal_fee"], "{name}: the default network's fee");
+        assert_eq!(stamp.chains.as_ref(), Some(&v2["withdrawal_chains"]), "{name}: every network, Rails' shape");
+        assert_eq!(v2["withdrawal_fee_updated_at"], v["at"], "{name}: Rails stamps the read's time");
     }
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn the_coin_list_is_read_with_the_requests_rails_sends() {
+async fn the_coin_list_is_read_with_the_requests_v2_sends() {
     let v = vectors();
     let c = cell(&v, "reads", "binance_fees_fee_key");
     let t = script(c);
@@ -155,7 +155,7 @@ fn d_rule_mexc_addresstag_takes_the_memo_from_memo_only() {
 }
 
 #[test]
-fn d_rule_listed_entry_refuses_the_free_form_tag_rails_stored() {
+fn d_rule_listed_entry_refuses_the_free_form_tag_v2_stored() {
     // Rails created this rule with a tag the listed entry does not carry (create.rb:93); its withdraw would send it.
     let v = vectors();
     let c = v["api"].as_array().unwrap().iter().find(|c| c["case"] == "create_listed" && c["surface"] == "rest").unwrap();
@@ -191,8 +191,8 @@ fn binance_coin() -> withdrawal::Coin {
 fn d_rule_fee_stamp_writes_no_unreadable_fee() {
     let v = vectors();
     let c = cell(&v, "reads", "binance_fees_unreadable_fee");
-    let rails = c["exchange_assets"].as_array().unwrap().iter().find(|a| a["asset"] == "BTC").unwrap();
-    assert!(rails["withdrawal_fee"].is_null() && rails["withdrawal_fee_updated_at"] == v["at"], "Rails stamps a missing fee as fresh");
+    let v2 = c["exchange_assets"].as_array().unwrap().iter().find(|a| a["asset"] == "BTC").unwrap();
+    assert!(v2["withdrawal_fee"].is_null() && v2["withdrawal_fee_updated_at"] == v["at"], "Rails stamps a missing fee as fresh");
     let body = &c["replies"]["GET /sapi/v1/capital/config/getall"][0]["body"];
     assert_eq!(withdrawal::coin_stamp(&withdrawal::coin_networks(body, "BTC", "Binance").unwrap().unwrap()), None);
     // Rails writes every coin it can map (USDT here); Rust writes the rule's asset row only, and never creates one.
@@ -404,9 +404,9 @@ async fn binance_and_mexc_fees_are_the_selected_networks() {
 #[tokio::test(flavor = "current_thread")]
 async fn d_rule_log_secrets_no_url_query_or_html_reaches_a_message() {
     let v = vectors();
-    let rails = cell(&v, "classifier", "binance_empty_500")["rule_logs"][0]["message"].as_str().unwrap();
-    assert!(rails.contains("signature="), "Rails writes the signed URL into the row");
-    let safe = withdrawal::log_safe(rails);
+    let v2 = cell(&v, "classifier", "binance_empty_500")["rule_logs"][0]["message"].as_str().unwrap();
+    assert!(v2.contains("signature="), "Rails writes the signed URL into the row");
+    let safe = withdrawal::log_safe(v2);
     assert!(!safe.contains('?') && !safe.contains("signature") && safe.contains("https://api.binance.com/sapi/v1/capital/withdraw/apply"), "{safe}");
     let html = cell(&v, "classifier", "binance_html_502")["rule_logs"][0]["message"].as_str().unwrap().trim_start_matches("Withdrawal failed: ");
     assert_eq!(withdrawal::log_safe(html), "the venue answered with an HTML page");

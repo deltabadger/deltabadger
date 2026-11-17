@@ -415,7 +415,7 @@ pub(super) fn exchange_select(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, 
                 symbols.extend(bot.base_assets.iter().map(|asset| asset.symbol().to_string()));
                 symbols
             };
-            Some(i18n::text(ctx.locale, "bot.exchange_menu.no_alternative", &[("assets", i18n::Arg::Text(&crate::ruby::to_sentence(&symbols)))]))
+            Some(i18n::text(ctx.locale, "bot.exchange_menu.no_alternative", &[("assets", i18n::Arg::Text(&crate::v2::to_sentence(&symbols)))]))
         } else {
             None
         };

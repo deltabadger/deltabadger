@@ -3,7 +3,7 @@ use common::seed::{self, BotSpec, TxSpec};
 use deltabadger::engine::amount::{self, Sizing};
 use deltabadger::engine::model::{self, Ticker};
 use deltabadger::engine::venue_rules::ALPACA;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::OrderKind;
 use serde_json::json;
 
@@ -63,7 +63,7 @@ fn sizing_ticker(t: &serde_json::Value) -> Ticker {
 }
 
 #[test]
-fn every_recorded_rails_sizing_is_reproduced() {
+fn every_recorded_v2_sizing_is_reproduced() {
     let (_d, o, s) = install();
     let market = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
     let limit = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
@@ -98,7 +98,7 @@ fn a_limit_price_that_floors_to_zero_is_refused() {
 }
 
 #[test]
-fn rows_bind_decimals_as_rails_does() {
+fn rows_bind_decimals_as_v2_does() {
     let (_d, o, s) = install();
     let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
     let t = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
@@ -117,7 +117,7 @@ fn rows_bind_decimals_as_rails_does() {
 }
 
 #[test]
-fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
+fn every_recorded_v2_alpaca_sizing_and_wire_is_reproduced() {
     let (_d, o, s) = common::install_alpaca();
     let market = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
     let limit = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
@@ -176,7 +176,7 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
 }
 
 #[test]
-fn wire_decimal_floors_and_pads_in_decimal_as_rails_sends_it() {
+fn wire_decimal_floors_and_pads_in_decimal_as_v2_sends_it() {
     // Exchanges::Alpaca#wire_decimal, recorded in Ruby 4.0.7.
     assert_eq!(amount::wire_decimal(&bd("812037646.065271585"), 9), "812037646.065271585");
     assert_eq!(amount::wire_decimal(&bd("123456789012.123456789"), 9), "123456789012.123456789");
@@ -216,7 +216,7 @@ fn insert_carry_row(c: &rusqlite::Connection, s: &seed::Seeded, bot_id: i64, row
 }
 
 #[test]
-fn every_recorded_rails_carry_is_reproduced() {
+fn every_recorded_v2_carry_is_reproduced() {
     let cases = common::vectors()["carry"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 36);
     for (i, c) in cases.iter().enumerate() {
@@ -235,7 +235,7 @@ fn every_recorded_rails_carry_is_reproduced() {
 /// Bot::Lifecycle#start(start_fresh: false): run now, or wait for the next checkpoint, as Rails decided each recorded case
 /// (from the Bot::ActionJob it enqueued). A continue start never takes a delayed first run, whatever the start time says.
 #[test]
-fn every_recorded_rails_continue_start_decision_is_reproduced() {
+fn every_recorded_v2_continue_start_decision_is_reproduced() {
     let cases = common::vectors()["continue_start"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 7);
     for (i, c) in cases.iter().enumerate() {
@@ -253,7 +253,7 @@ fn every_recorded_rails_continue_start_decision_is_reproduced() {
 }
 
 #[test]
-fn every_recorded_rails_alpaca_stock_wire_is_reproduced() {
+fn every_recorded_v2_alpaca_stock_wire_is_reproduced() {
     let (_d, o, s) = common::install_alpaca();
     let (aapl, _) = seed::add_alpaca_stock(&o.primary, &s, "AAPL");
     let spec = || BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(aapl, 1.0)]);
@@ -309,7 +309,7 @@ fn an_alpaca_limit_quantity_under_the_base_minimum_is_refused_before_sending() {
 }
 
 #[test]
-fn every_recorded_rails_binance_sizing_and_wire_is_reproduced() {
+fn every_recorded_v2_binance_sizing_and_wire_is_reproduced() {
     use deltabadger::engine::venue_rules::BINANCE;
     let (_d, o, s) = install();
     let market = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
@@ -358,7 +358,7 @@ fn every_recorded_rails_binance_sizing_and_wire_is_reproduced() {
 /// Exchanges::Kucoin's sizing (Bot::OrderSetter under :base_or_quote / :base_and_quote_in_base) and #set_market_order /
 /// #set_limit_order's wire, replayed through amount::size, limit_refusal and to_order (script/rust/record_venue_vectors.rb kucoin).
 #[test]
-fn every_recorded_rails_kucoin_sizing_and_wire_is_reproduced() {
+fn every_recorded_v2_kucoin_sizing_and_wire_is_reproduced() {
     use deltabadger::engine::venue_rules::KUCOIN;
     let (_d, o, s) = install();
     let market = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
@@ -439,7 +439,7 @@ fn a_sell_is_priced_above_the_last_trade_and_sized_in_base_under_base_and_quote_
 /// calculate_best_amount_info(side: :sell) and the market_sell / limit_sell wire — replayed through side_price, size_sell,
 /// limit_refusal and to_order (script/rust/record_sell_sizing_vectors.rb).
 #[test]
-fn every_recorded_rails_sell_sizing_and_wire_is_reproduced() {
+fn every_recorded_v2_sell_sizing_and_wire_is_reproduced() {
     use deltabadger::engine::venue_rules::{ALPACA, BINANCE, KRAKEN};
     use deltabadger::venue::Side;
     let (_d, o, s) = install();

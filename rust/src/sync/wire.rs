@@ -226,7 +226,7 @@ fn stored_number(token: &str) -> String {
 /// - but when that text is seventeen characters or more and ends in `0001` or `9999` (Oj takes it for a rounding
 ///   artefact), it is Ruby's `Float#to_s` instead: the shortest digits that read back as the same double.
 ///
-/// Not Ruby's own `Float#to_s`, which this crate has only as the digits behind `Float#to_d` (`ruby::BigDec`): that is
+/// Not Ruby's own `Float#to_s`, which this crate has only as the digits behind `Float#to_d` (`v2::BigDec`): that is
 /// the shortest round-trip form (`0.30000000000000004`, `1.0e-05`), up to seventeen digits; Oj's is a fixed sixteen
 /// with C's exponent, and loses the seventeenth.
 pub fn stored_float(d: f64) -> String {
@@ -246,7 +246,7 @@ pub fn stored_float(d: f64) -> String {
     };
     if g.len() >= 17 && (g.ends_with("0001") || g.ends_with("9999")) {
         // Float#to_s, for a value Ruby prints without an exponent (10^-4 up to 10^16: the only ones that get here).
-        let (digits, exponent, sign) = decimal(&crate::ruby::float_e(d));
+        let (digits, exponent, sign) = decimal(&crate::v2::float_e(d));
         let fixed = fixed(&digits, exponent);
         return format!("{sign}{fixed}{}", if fixed.contains('.') { "" } else { ".0" });
     }
@@ -422,7 +422,7 @@ mod eql_tests {
         eql_key_members(&m)
     }
     #[test]
-    fn eql_key_is_rubys_eql_on_what_json_parse_made() {
+    fn eql_key_is_v2s_eql_on_what_json_parse_made() {
         assert_eq!(key(r#"{"a":1,"b":"x"}"#), key(r#"{"b":"x","a":1}"#), "key order is no difference");
         assert_eq!(key(r#"{"a":"A"}"#), key(r#"{"a":"A"}"#), "a string by its text");
         assert_eq!(key(r#"{"a":1.50}"#), key(r#"{"a":1.5}"#), "a Float by its double");

@@ -447,9 +447,9 @@ pub async fn refresh_fee(
         let Some(destination) = list.and_then(|l| select(rule, l).ok()) else {
             return Ok(());
         };
-        let Some(amount) = crate::ruby::BigDec::parse(&rule.value("min_amount", "0.1"))
+        let Some(amount) = crate::v2::BigDec::parse(&rule.value("min_amount", "0.1"))
             .ok()
-            .filter(crate::ruby::BigDec::is_positive)
+            .filter(crate::v2::BigDec::is_positive)
         else {
             return Ok(());
         };
@@ -486,7 +486,7 @@ pub async fn refresh_fee(
         })
         .await?;
     if written {
-        rule.fee = crate::ruby::BigDec::parse(&stamp.fee).ok();
+        rule.fee = crate::v2::BigDec::parse(&stamp.fee).ok();
         if let Some(Value::Array(chains)) = stamp.chains {
             rule.chains = chains;
         }

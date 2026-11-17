@@ -55,7 +55,7 @@ impl Fetch {
     }
 }
 type RawOrders = Vec<Box<serde_json::value::RawValue>>;
-pub enum Fetched { Bound(Box<Fetched>,Vec<crate::engine::model::CredentialVersion>), Done(Read), Balances(i64,i64,String,crate::ruby::BigDec,Vec<sync::balances::Position>), IbkrBalances(i64,i64,String,String), Orders(i64,Vec<String>,Vec<Value>,HashSet<String>,Vec<(i64,String,Result<RawOrders,String>)>,Vec<String>), Summary(i64,Cache,At,bool) }
+pub enum Fetched { Bound(Box<Fetched>,Vec<crate::engine::model::CredentialVersion>), Done(Read), Balances(i64,i64,String,crate::v2::BigDec,Vec<sync::balances::Position>), IbkrBalances(i64,i64,String,String), Orders(i64,Vec<String>,Vec<Value>,HashSet<String>,Vec<(i64,String,Result<RawOrders,String>)>,Vec<String>), Summary(i64,Cache,At,bool) }
 /// What a read asks for, as each surface names it: MCP by the tool's arguments, REST by its route's parameters.
 pub enum Ask { Details(i64), Balances{name:String,id:Option<String>}, Orders(Option<String>), Summary }
 impl Ask {
@@ -162,7 +162,7 @@ fn account_venue(app:&App,credentials:&Material)->AlpacaVenue<Wire>{
     };
     AlpacaVenue::new(Wire::new(credentials,source).with_origin(credentials.origin.clone()),Urls::pick(credentials.passphrase.as_deref(),&hosts))
 }
-async fn balance_read(venue:&AlpacaVenue<Wire>)->Result<(crate::ruby::BigDec,Vec<sync::balances::Position>),(String,bool)>{
+async fn balance_read(venue:&AlpacaVenue<Wire>)->Result<(crate::v2::BigDec,Vec<sync::balances::Position>),(String,bool)>{
     let cash=sync::parsed(venue.read(false,"/v2/account",vec![],sync::balances::MAX_ACCOUNT_BYTES).await.map_err(sync::venue_failure)?,sync::balances::account).await?;
     let held=sync::parsed(venue.read(false,"/v2/positions",vec![],sync::balances::MAX_LIST_BYTES).await.map_err(sync::venue_failure)?,sync::balances::positions).await?;
     match (cash,held){(Ok(c),Ok(h))=>Ok((c,h)),(Err(e),_)|(_,Err(e))=>Err((e,false))}
@@ -220,7 +220,7 @@ async fn fetch_inner(app:&App,fetch:Fetch)->Fetched{
     }
 }
 /// BotApi::Exchanges::Balances#build_balances over the venue's (asset, free, locked) rows, or the read's failure.
-fn balance_rows(c:&Connection,name:&str,held:Result<Vec<(i64,crate::ruby::BigDec,crate::ruby::BigDec)>,String>)->Result<Read,WebError>{
+fn balance_rows(c:&Connection,name:&str,held:Result<Vec<(i64,crate::v2::BigDec,crate::v2::BigDec)>,String>)->Result<Read,WebError>{
     let mut lines=vec![];let mut rows=vec![];
     for (id,free,locked) in match held{Ok(rows)=>rows,Err(why)=>return Ok(failed(Domain::UpstreamFailed,"balances_fetch_failed",format!("Failed to fetch balances from {name}: {why}")))}{
         let (n,l)=(free.to_f(),locked.to_f()); if n==0.0&&l==0.0{continue}
@@ -323,7 +323,7 @@ fn local_orders(c:&Connection,user:i64,exchange:Option<i64>)->Result<Option<(Vec
         let order_type=match kind{Some(0)=>Some("market_order"),Some(1)=>Some("limit_order"),_=>None};
         let pair=format!("{}/{}",base.unwrap_or_default(),quote.unwrap_or_default());
         out.push(json!({"source":"db","id":id,"external_id":ext,"exchange":name,"side":side,"order_type":order_type,"pair":pair,
-                        "amount":amount.as_ref().map(|n|n.to_s_f()),"price":price.as_ref().map(|n|n.to_s_f()),"created_at":crate::ruby::iso8601_ms(at)}));
+                        "amount":amount.as_ref().map(|n|n.to_s_f()),"price":price.as_ref().map(|n|n.to_s_f()),"created_at":crate::v2::iso8601_ms(at)}));
         let amount=amount.map(|n|n.to_s_f());
         let price=price.filter(|n|!n.is_zero()).map(|n|n.to_s_f());
         let date=crate::web::timezone::local(at,&zone).format("%Y-%m-%d %H:%M");
@@ -492,7 +492,7 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
     }
     if let Some(line)=redeploy_line{lines.push(line);}
     // A28-2b (D-RAILS-UNRECORDED-API): the orders from before the update the owner answers with answer_unrecorded_order.
-    let (unrecorded,unrecorded_lines)=crate::web::bot::rails_orders::listing(c,b.id,&b.quote,now.utc())?;
+    let (unrecorded,unrecorded_lines)=crate::web::bot::v2_orders::listing(c,b.id,&b.quote,now.utc())?;
     lines.extend(unrecorded_lines);
     lines.push(format!("Interval: {}",b.settings["interval"].as_str().unwrap_or("N/A")));
     lines.push(format!("Amount per order: {} {}",tools::str_value(&b.settings["quote_amount"]),b.quote));
@@ -538,7 +538,7 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
     let data=json!({"id":b.id,"label":b.label,"type":b.kind,"status":status,"exchange":b.exchange,"pair":b.pair,"allocations":allocations,"allocation_assets":assets,
                     "holdings":holdings,"exited_holdings":exited_holdings,"locked_members":locked,"redeploy_offer":redeploy,"base_asset":b.base,"quote_asset":b.quote_asset,
                     "interval":b.settings.get("interval").cloned().unwrap_or(Value::Null),"quote_amount":b.settings.get("quote_amount").cloned().unwrap_or(Value::Null),
-                    "orders_executed":count,"started_at":started.map(crate::ruby::iso8601_ms),"metrics":shown_metrics,"metrics_error":shown_error});
+                    "orders_executed":count,"started_at":started.map(crate::v2::iso8601_ms),"metrics":shown_metrics,"metrics_error":shown_error});
     // Only on a bot that has them: every other bot's answer stays Rails' (D-RAILS-UNRECORDED-API).
     let mut data=data;
     if !unrecorded.is_null(){data["unrecorded_orders"]=unrecorded;}

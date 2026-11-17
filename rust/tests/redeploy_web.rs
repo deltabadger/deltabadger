@@ -191,7 +191,7 @@ fn the_prompt_hides_while_a_liquidation_row_waits_and_the_halt_offers_clear() {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn the_page_is_served_during_a_halt_and_clear_answers_rails_flashes() {
+async fn the_page_is_served_during_a_halt_and_clear_answers_v2_flashes() {
     let (_d,o,s,id,app,mut b)=install(); let c=&o.primary;
     model::merge_transient_compact(c,id,&[(redeploy::PENDING_KEY,json!({"id":"halt-nonce","state":"ambiguous"}))]).unwrap();
     let page=b.get(&app,&format!("/bots/{id}")).await;

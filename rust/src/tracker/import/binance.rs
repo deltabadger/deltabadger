@@ -3,7 +3,7 @@
 //! appearance, `partition`, `filter_map`) and every `sort_by` is a stable sort, as Ruby's is on the app's Linux image
 //! (glibc's qsort_r is a merge sort). Pinned by rust/tests/fixtures/import_vectors.json.
 use super::csv::{self, Malformed, Table, UTC_TIME};
-use crate::ruby::{self, BigDec};
+use crate::v2::{self, BigDec};
 use crate::sync::activities::{Entry, Raw};
 use chrono::{DateTime, Utc};
 use regex::Regex;
@@ -89,7 +89,7 @@ pub struct Read { pub entries: Vec<Entry>, pub unrecognised: Vec<String> }
 
 /// Import::BinanceCsv.new(text, offset:).entries, with #unrecognised. `text` is already Import::Run.as_text's.
 pub fn read(text: &str, offset: Option<&str>) -> Result<Read, Malformed> {
-    let offset = offset.filter(|o| !ruby::blank(o)).unwrap_or("+00:00");
+    let offset = offset.filter(|o| !v2::blank(o)).unwrap_or("+00:00");
     let mut reader = Reader { offset: offset.to_string(), unrecognised: vec![] };
     let entries = reader.entries(text)?;
     Ok(Read { entries, unrecognised: reader.unrecognised })
@@ -115,9 +115,9 @@ impl Reader {
         let utc = table.has_header(UTC_TIME);
         let mut rows = vec![];
         for row in &table.rows {
-            let cell = |name: &str| ruby::strip(table.get(row, name).unwrap_or("")).to_string();
+            let cell = |name: &str| v2::strip(table.get(row, name).unwrap_or("")).to_string();
             let op = cell("Operation");
-            if ruby::blank(&op) { continue; }
+            if v2::blank(&op) { continue; }
             let Some(kind) = operation(&op) else { self.note(op); continue };
             let Some(kind) = kind else { continue }; // a deliberate skip, not an unknown
             let change = csv::amount(table.get(row, "Change"))?;
@@ -215,7 +215,7 @@ fn single_entry(row: &Row) -> Option<Entry> {
 /// Dust: one pair per Remark; a batch with any blank remark is one pair against the summed receipt.
 fn dust_entries(at: DateTime<Utc>, rows: &[Row]) -> Vec<Option<Entry>> {
     if rows.is_empty() { return vec![]; }
-    if rows.iter().any(|r| ruby::blank(&r.remark)) { return dust_batch(at, rows, "dustcsv"); }
+    if rows.iter().any(|r| v2::blank(&r.remark)) { return dust_batch(at, rows, "dustcsv"); }
     group_by(rows, |r| r.remark.clone()).into_iter().flat_map(|(remark, legs)| dust_batch(at, &legs, &format!("dustcsv_{remark}"))).collect()
 }
 

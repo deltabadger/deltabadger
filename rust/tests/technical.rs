@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use deltabadger::engine::candles::{Candle, Timeframe};
 use deltabadger::engine::model::{self, Ticker};
 use deltabadger::engine::technical::{self, Cache, MaType, Window};
-use deltabadger::ruby::{BigDec, Num};
+use deltabadger::v2::{BigDec, Num};
 use deltabadger::venue::fake::FakeVenue;
 use deltabadger::venue::VenueError;
 use rusqlite::{params, Connection};
@@ -43,7 +43,7 @@ fn answer(a: &Value) -> Result<Vec<Candle>, VenueError> {
 fn encode(n: &Num) -> Value {
     match n {
         Num::Int(i) => serde_json::json!({ "int": i.to_string() }),
-        Num::Float(f) => serde_json::json!({ "float": format!("{:016x}", f.to_bits()), "s": deltabadger::ruby::float_to_s(*f) }),
+        Num::Float(f) => serde_json::json!({ "float": format!("{:016x}", f.to_bits()), "s": deltabadger::v2::float_to_s(*f) }),
         Num::Dec(d) => serde_json::json!({ "dec": d.to_s_f() }),
     }
 }
@@ -71,7 +71,7 @@ fn ticker_named(id: i64, pd: i64) -> Ticker {
 /// D-COND-RSI-DEGENERATE: where Rails' RSI is Float NaN (a flat series) Rust answers Rails' too-few-closes Failure; the
 /// recording keeps Rails' NaN and this test names each such case.
 #[tokio::test(flavor = "current_thread")]
-async fn indicators_match_rails_to_the_last_digit() {
+async fn indicators_match_v2_to_the_last_digit() {
     let f = fixture();
     let now = at(f["now"].as_str().unwrap());
     let series = f["series"].as_array().unwrap();
@@ -135,7 +135,7 @@ fn row(c: &Connection, id: i64) -> Value {
 /// Calls in order on one cache, each at its own time: high and low per window and timeframe step, the ATH's incremental,
 /// deep and fallback walks, the restated (Alpaca stock) replacement, the known-empty seed, the 20 s and until-close caches.
 #[tokio::test(flavor = "current_thread")]
-async fn high_low_and_ath_sequences_match_rails() {
+async fn high_low_and_ath_sequences_match_v2() {
     let f = fixture();
     let (_dir, o, _s, kraken, stock) = install();
     let c = &o.primary;
@@ -168,10 +168,10 @@ async fn high_low_and_ath_sequences_match_rails() {
             assert_eq!(got, want, "{name}");
             assert_eq!(reads(&venue), step["reads"], "{name}");
             let r = &step["row"];
-            let rails_ath = r["ath"].as_str().map(|s| s.parse::<f64>().unwrap());
-            assert_eq!(row(c, ticker.id), serde_json::json!({ "ath_type": r["ath_type"], "ath": rails_ath, "ath_updated_at": r["ath_updated_at"], "updated_at": r["updated_at"] }), "{name}");
+            let v2_ath = r["ath"].as_str().map(|s| s.parse::<f64>().unwrap());
+            assert_eq!(row(c, ticker.id), serde_json::json!({ "ath_type": r["ath_type"], "ath": v2_ath, "ath_updated_at": r["ath_updated_at"], "updated_at": r["updated_at"] }), "{name}");
             // The row read back as Rails reads it (Float#to_d of the REAL).
-            let read = c.query_row("SELECT ath FROM tickers WHERE id = ?1", [ticker.id], |x| Ok(deltabadger::ruby::from_sql(x.get_ref(0)?).unwrap())).unwrap();
+            let read = c.query_row("SELECT ath FROM tickers WHERE id = ?1", [ticker.id], |x| Ok(deltabadger::v2::from_sql(x.get_ref(0)?).unwrap())).unwrap();
             assert_eq!(dec(read), r["ath_read"], "{name}");
         }
     }

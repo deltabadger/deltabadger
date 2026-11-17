@@ -1,7 +1,7 @@
 mod common;
 use chrono::{DateTime,Utc};
 use common::seed::{self,BotSpec};
-use deltabadger::{engine::{amount,model,placement,eligibility,FixedClock},ruby::{BigDec,Num}};
+use deltabadger::{engine::{amount,model,placement,eligibility,FixedClock},v2::{BigDec,Num}};
 use serde_json::{json,Value};
 fn bd(s:&str)->BigDec { BigDec::parse(s).unwrap() }
 fn now()->DateTime<Utc>{"2026-01-05T12:00:01Z".parse().unwrap()}
@@ -32,7 +32,7 @@ async fn r1_null_closed_fill_refuses_and_places_nothing(){
 
 }
 #[test]
-fn r1_cap_float_bits_and_decimal_conversion_match_rails(){
+fn r1_cap_float_bits_and_decimal_conversion_match_v2(){
     for (cap,spent,bits,decimal,reached) in [(json!(60.03),"60.02",0x3f847ae147ae1000,"0.00999999999999801",true),(json!(100),"99.99",0x3f847ae147ae2000,"0.01000000000000511",false)]{
         let (_d,o,_s,id)=setup(cap,spent);let bot=model::load_bot(&o.primary,id).unwrap();
         let Some(Num::Float(value))=amount::quote_amount_available_num(&o.primary,&bot).unwrap() else{panic!("Rails Float required")};
@@ -63,7 +63,7 @@ fn r1_guard_limits_persisted_intents_and_alpaca_wire(){
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn r1_merged_first_tick_warning_matches_rails_and_never_repeats(){
+async fn r1_merged_first_tick_warning_matches_v2_and_never_repeats(){
     use deltabadger::engine::tick::{self,TickContext,PriceCache};
     use common::scripted::{script,venue,ok};
     let vectors:Value=serde_json::from_str(include_str!("fixtures/histories_r1.json")).unwrap();
@@ -186,7 +186,7 @@ async fn r2_tick_case(name:&str){
     }
 }
 #[tokio::test(flavor="current_thread")]
-async fn r2_reduced_below_minimum_records_rails_row_activity_and_notice(){
+async fn r2_reduced_below_minimum_records_v2_row_activity_and_notice(){
     use common::scripted::{script,venue,ok};
     use deltabadger::engine::tick::{self,TickContext,PriceCache};
     let vectors=r2_vectors(); let case=&vectors["cases"][2];
@@ -330,7 +330,7 @@ async fn r3_malformed_merge_cutoffs_refuse_at_check_guard_and_tick() {
     }
 }
 #[tokio::test(flavor="current_thread")]
-async fn r3_integer_and_ascii_string_cutoffs_match_rails_orders() {
+async fn r3_integer_and_ascii_string_cutoffs_match_v2_orders() {
     use common::scripted::venue;
     let vectors:Value=serde_json::from_str(include_str!("fixtures/histories_r3.json")).unwrap();
     for case in vectors["cases"].as_array().unwrap() {
@@ -615,11 +615,11 @@ async fn r6_settings_tick(mcp:bool) {
     assert_eq!(saved.missed_quote_amount().unwrap().to_s_f(),oracle["normalized"]["carry"]);
 }
 #[tokio::test(flavor="current_thread")]
-async fn r6_web_settings_then_tick_matches_compensated_rails(){r6_settings_tick(false).await;}
+async fn r6_web_settings_then_tick_matches_compensated_v2(){r6_settings_tick(false).await;}
 #[tokio::test(flavor="current_thread")]
-async fn r6_mcp_settings_then_tick_matches_compensated_rails(){r6_settings_tick(true).await;}
+async fn r6_mcp_settings_then_tick_matches_compensated_v2(){r6_settings_tick(true).await;}
 #[tokio::test(flavor="current_thread")]
-async fn r6_engine_and_preview_then_tick_match_compensated_rails() {
+async fn r6_engine_and_preview_then_tick_match_compensated_v2() {
     let (_d,o,s,id)=r6_history();
     let oracle:Value=serde_json::from_str(include_str!("fixtures/histories_r6.json")).unwrap();
     let bot=model::load_bot(&o.primary,id).unwrap();
@@ -644,7 +644,7 @@ fn r6_oracle_sources_are_pinned() {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn r6_web_start_action_then_tick_matches_compensated_rails() {
+async fn r6_web_start_action_then_tick_matches_compensated_v2() {
     let (d,o,s,id)=r6_history();
     o.primary.execute("UPDATE bots SET status=2 WHERE id=?1",[id]).unwrap();
     let app=common::web::app(d.path(),"engine-test-secret",common::web::TestClock::at("2026-01-05T12:00:01Z"));
@@ -950,7 +950,7 @@ async fn r9_call(app:&deltabadger::web::App,sid:&str,name:&str,args:Value)->Valu
     assert_eq!(response.status(),200);serde_json::from_slice(&axum::body::to_bytes(response.into_body(),1_000_000).await.unwrap()).unwrap()
 }
 #[tokio::test(flavor="current_thread")]
-async fn r9_mcp_settings_cancel_resume_tick_spends_rails_40() {
+async fn r9_mcp_settings_cancel_resume_tick_spends_v2_40() {
     for stamp in r9_shapes() {
         let (d,o,s,id)=r9_history(stamp);
         let app=common::web::app(d.path(),"engine-test-secret",common::web::TestClock::at("2026-01-05T12:00:01Z"));
@@ -1085,7 +1085,7 @@ async fn r9c_mcp_can_stop_a_bot_with_damaged_timestamps() {
 // quoted boundary ('2026-01-05 12:00:00'). An RFC3339 row an hour earlier sorts after it ('T' > ' '),
 // so Rails counts its $60. Parsed instants must not decide membership.
 #[tokio::test(flavor="current_thread")]
-async fn r10_window_membership_is_rails_text_comparison() {
+async fn r10_window_membership_is_v2_text_comparison() {
     let (_d,o,s,id)=r9_history("2026-01-05 12:00:00");
     assert_eq!(o.primary.execute("UPDATE transactions SET external_status=2,amount_exec='6',quote_amount_exec='60',created_at='2026-01-05T11:00:00Z' WHERE bot_id=?1 AND external_status=0",[id]).unwrap(),1);
     o.primary.execute("UPDATE bots SET status=1,transient_data=json_set(transient_data,'$.merged_history_until_id',(SELECT max(id) FROM transactions WHERE bot_id=?1)) WHERE id=?1",[id]).unwrap();

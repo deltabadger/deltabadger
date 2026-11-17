@@ -128,7 +128,7 @@ fn classifications(c: &Connection, owner: i64, now: &str, params: &Value) -> Res
 
 async fn mutate(app: App, ctx: Ctx, funds: bool, headers: HeaderMap) -> Result<Response, WebError> {
     let Some(owner) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)); };
-    let params = match ActionParams::parse_rails(&ctx.params) { Ok(p) => p, Err(e) => return Ok(e.status().into_response()) };
+    let params = match ActionParams::parse_v2(&ctx.params) { Ok(p) => p, Err(e) => return Ok(e.status().into_response()) };
     let stream = headers.get(header::ACCEPT).and_then(|h| h.to_str().ok()).is_some_and(|s| s.contains("text/vnd.turbo-stream.html"));
     app.db(move |c| write(c,&ctx,owner,|c,owner,now| {
         let status = if funds { classifications(c,owner,now,params.value())? } else { save_settings(c,owner,now,params.value())? };
@@ -205,7 +205,7 @@ pub const CSV_HEADERS: [&str; 12] = ["date","type","base_currency","base_amount"
 /// `filtered_transactions` (exchange, then the window `from`..`to`, `window::read`) through `AccountTransaction.to_csv`.
 fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebError> {
     use rusqlite::types::Value as Sql;
-    let present = |key: &str| ctx.params.query(key).filter(|v| !crate::ruby::blank(v));
+    let present = |key: &str| ctx.params.query(key).filter(|v| !crate::v2::blank(v));
     // Rails' own query, so that rows at the same instant come out in the same order.
     let mut sql = format!("SELECT {CSV_COLUMNS} FROM account_transactions WHERE user_id=?1");
     let mut binds = vec![Sql::Integer(owner)];
@@ -241,7 +241,7 @@ pub(crate) fn csv_rows(c: &Connection, sql: &str, binds: Vec<rusqlite::types::Va
     let mut rows = statement.query(rusqlite::params_from_iter(binds))?;
     while let Some(r) = rows.next()? {
         let text = |i: usize| -> Result<Cell, WebError> { Ok(r.get::<_, Option<String>>(i)?.map_or(Cell::Nil, Cell::Text)) };
-        let amount = |i: usize| -> Result<Cell, WebError> { Ok(crate::ruby::from_sql(r.get_ref(i)?).map_err(|_| row::invalid())?.map_or(Cell::Nil, |d| Cell::Raw(d.to_s_f()))) };
+        let amount = |i: usize| -> Result<Cell, WebError> { Ok(crate::v2::from_sql(r.get_ref(i)?).map_err(|_| row::invalid())?.map_or(Cell::Nil, |d| Cell::Raw(d.to_s_f()))) };
         let at = codec::parse_time(&r.get::<_, String>(0)?).map_err(|_| row::invalid())?;
         let kind = r.get::<_, i64>(1)?;
         let exchange = r.get::<_, i64>(8)?;

@@ -169,7 +169,7 @@ impl Fx {
     }
     /// A row as Rails' sync wrote it (Exchanges::Kraken#normalize_kraken_ledger_entry): `|amount|`, the fee beside it.
     #[allow(clippy::too_many_arguments)]
-    fn rails_row(&self, user: i64, key: i64, (id, e): &(String, Value), kind: i64, currency: &str, fee: Option<f64>, asset: Option<i64>) -> i64 {
+    fn v2_row(&self, user: i64, key: i64, (id, e): &(String, Value), kind: i64, currency: &str, fee: Option<f64>, asset: Option<i64>) -> i64 {
         let amount = e["amount"].as_str().unwrap().trim_start_matches('-').parse::<f64>().unwrap();
         let at = deltabadger::sync::sql_time(DateTime::<Utc>::from_timestamp(e["time"].as_f64().unwrap() as i64, 0).unwrap());
         self.c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, fee_currency, fee_amount, tx_id, group_id,
@@ -406,24 +406,24 @@ async fn the_upgrade_repairs_only_the_syncing_users_rows() {
          e("U9", "XXBT", "trade", "", "0.0100000000", "0", 0, "T9"));
     let (dot_id, eth_id) = (fx.assets["DOT"], fx.assets["ETH"]);
     for (u, k) in [(user, key), (other, other_key)] {
-        fx.rails_row(u, k, &dot, 6, "DOT.S", Some(0.01), None);
-        fx.rails_row(u, k, &doge, 4, "XDG", None, Some(fx.assets["DOGE"]));
-        fx.rails_row(u, k, &ltc, 4, "XLTC", None, None);
-        fx.rails_row(u, k, &btc, 5, "BTC", Some(0.0001), None);
+        fx.v2_row(u, k, &dot, 6, "DOT.S", Some(0.01), None);
+        fx.v2_row(u, k, &doge, 4, "XDG", None, Some(fx.assets["DOGE"]));
+        fx.v2_row(u, k, &ltc, 4, "XLTC", None, None);
+        fx.v2_row(u, k, &btc, 5, "BTC", Some(0.0001), None);
         // A stored asset that is not the resolver's (DOT for an ETH deposit): the id wins, its currency stays.
-        fx.rails_row(u, k, &eth, 4, "ETH", Some(0.1), Some(dot_id));
+        fx.v2_row(u, k, &eth, 4, "ETH", Some(0.1), Some(dot_id));
     }
     // Linked to another venue's deposit, still valid once rewritten (1.01 ≥ 0.99).
-    let wd = fx.rails_row(user, key, &linked, 5, "ETH", Some(0.01), Some(eth_id));
+    let wd = fx.v2_row(user, key, &linked, 5, "ETH", Some(0.01), Some(eth_id));
     let dep = fx.other_venue_row(user, 4, "ETH", 0.99, secs(16, 7));
     fx.link(wd, dep);
-    let gone = fx.rails_row(user, key, &rejected, 5, "ETH", Some(0.001), Some(eth_id));
+    let gone = fx.v2_row(user, key, &rejected, 5, "ETH", Some(0.001), Some(eth_id));
     fx.c.execute("UPDATE account_transactions SET transfer_link_rejected = 1 WHERE id = ?1", [gone]).unwrap();
     // Linked to a deposit of "DOT.S" on another venue: rewritten to DOT the pair breaks, so the row stays, counted.
-    let stuck = fx.rails_row(user, key, &conflict, 5, "DOT.S", None, None);
+    let stuck = fx.v2_row(user, key, &conflict, 5, "DOT.S", None, None);
     let stuck_dep = fx.other_venue_row(user, 4, "DOT.S", 1.0, secs(16, 9));
     fx.link(stuck, stuck_dep);
-    let priced = fx.rails_row(user, key, &manual, 0, "BTC", None, None);
+    let priced = fx.v2_row(user, key, &manual, 0, "BTC", None, None);
     fx.c.execute("UPDATE account_transactions SET manual_values = '{\"price\":\"60000\"}' WHERE id = ?1", [priced]).unwrap();
     let before_other = fx.dump(other);
     let (dot_entry, manual_entry) = (dot.clone(), manual.clone());
@@ -492,11 +492,11 @@ async fn a_historical_pair_converges_at_completion() {
     let flip_wd = entry("H3", "XETH", "withdrawal", "", "-1.0000000000", "0", secs(2, 1), "W3");
     let flip_dep = entry("H4", "XETH", "deposit", "", "-1.0000000000", "0", secs(2, 2), "D4");
     let eth = Some(fx.assets["ETH"]);
-    let wd = fx.rails_row(user, key, &wd_entry, 5, "ETH", None, eth);
-    let dep = fx.rails_row(user, key, &dep_entry, 4, "ETH", None, eth);
+    let wd = fx.v2_row(user, key, &wd_entry, 5, "ETH", None, eth);
+    let dep = fx.v2_row(user, key, &dep_entry, 4, "ETH", None, eth);
     fx.link(wd, dep);
     fx.c.execute("UPDATE account_transactions SET base_amount = 10 WHERE id = ?1", [dep]).unwrap();
-    let (a, b) = (fx.rails_row(user, key, &flip_wd, 5, "ETH", None, eth), fx.rails_row(user, key, &flip_dep, 4, "ETH", None, eth));
+    let (a, b) = (fx.v2_row(user, key, &flip_wd, 5, "ETH", None, eth), fx.v2_row(user, key, &flip_dep, 4, "ETH", None, eth));
     fx.link(a, b);
     // The deposit first, then the withdrawal, then a recent row that advances the watermark, a page each.
     let recent = entry("H5", "XXBT", "trade", "", "0.0100000000", "0", secs(19, 1), "T5");
@@ -551,7 +551,7 @@ async fn a_replaced_credential_never_applies_the_old_ones_deferred_repairs() {
     let wd_entry = entry("H1", "XETH", "transfer", "spottostaking", "-10.0000000000", "0.2000000000", secs(1, 1), "P1");
     let dep_entry = entry("H2", "ETH.S", "transfer", "stakingfromspot", "10.1000000000", "0", secs(1, 1), "P1");
     let eth = Some(fx.assets["ETH"]);
-    let (wd, dep) = (fx.rails_row(user, key, &wd_entry, 5, "ETH", None, eth), fx.rails_row(user, key, &dep_entry, 4, "ETH", None, eth));
+    let (wd, dep) = (fx.v2_row(user, key, &wd_entry, 5, "ETH", None, eth), fx.v2_row(user, key, &dep_entry, 4, "ETH", None, eth));
     fx.link(wd, dep);
     fx.c.execute("UPDATE account_transactions SET base_amount = 10 WHERE id = ?1", [dep]).unwrap();
     let recent = entry("H5", "XXBT", "trade", "", "0.0100000000", "0", secs(19, 1), "T5");

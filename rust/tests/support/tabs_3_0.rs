@@ -29,8 +29,8 @@ fn class_of(row: &str) -> &'static str {
 }
 
 /// Rails' holdings card, unfolded and its rows marked: the card this crate renders, and the classes its rows hold.
-fn card(rails: &str) -> Result<(String, Vec<&'static str>), String> {
-    let mut card = rails.to_string();
+fn card(v2: &str) -> Result<(String, Vec<&'static str>), String> {
+    let mut card = v2.to_string();
     if let Some(open) = card.find("          <details class=\"tracker-holdings__more\">\n") {
         let close = find(&card, "          </details>\n", open)?;
         let block = card[open..close].to_string();

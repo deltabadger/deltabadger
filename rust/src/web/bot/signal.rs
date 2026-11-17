@@ -4,7 +4,7 @@
 use super::Bot;
 use crate::enums::BotStatus;
 use crate::figures::num::Num;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::web::i18n::{self, escape, Arg};
 use crate::web::layout::Ctx;
 use crate::web::{colors, format, WebError};

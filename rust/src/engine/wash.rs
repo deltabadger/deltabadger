@@ -5,7 +5,7 @@ use super::model::{self, Bot, Level, Ticker};
 use super::EngineError;
 use crate::codec::format_time;
 use crate::figures::{at::At, db::Subject, dec::Dec, lots, walk, FiguresError};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Days, NaiveDate, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::json;
@@ -294,7 +294,7 @@ pub fn reconcile_fill(c: &Connection, bot: &Bot, tx_id: i64, now: DateTime<Utc>)
     let num = |e| EngineError::Data(format!("{e:?}"));
     let (amount, amount_exec, closed, base, base_asset_id) = c.query_row(
         "SELECT amount, amount_exec, external_status = 2, base, base_asset_id FROM transactions WHERE id = ?1", [tx_id],
-        |r| Ok((crate::ruby::from_sql(r.get_ref(0)?), crate::ruby::from_sql(r.get_ref(1)?), r.get::<_, Option<bool>>(2)?, r.get::<_, Option<String>>(3)?, r.get::<_, Option<i64>>(4)?)))?;
+        |r| Ok((crate::v2::from_sql(r.get_ref(0)?), crate::v2::from_sql(r.get_ref(1)?), r.get::<_, Option<bool>>(2)?, r.get::<_, Option<String>>(3)?, r.get::<_, Option<i64>>(4)?)))?;
     let units = match amount_exec.map_err(num)? { Some(u) => Some(u), None if closed == Some(true) => amount.map_err(num)?, None => None };
     if !units.is_some_and(|u| u.is_positive()) { return Ok(()); }
     let at = At::from_utc(now).ok_or_else(|| EngineError::Data("the verdict's time is out of range".into()))?;
@@ -467,7 +467,7 @@ mod tests {
 
     /// The rebalance sell's keys, as Rails writes them; §6's table over them; §7: the key's token is the row's while held.
     #[test]
-    fn a_rebalance_claim_lives_in_rails_keys_and_settles_by_its_reason() {
+    fn a_rebalance_claim_lives_in_v2_keys_and_settles_by_its_reason() {
         let now = now("2026-09-20T12:00:00Z");
         for (reason, restored, cleared) in [(Reason::Accepted, false, true), (Reason::Rejected { safe: true, unknown: false }, true, true),
                                             (Reason::PreTransmission, true, true), (Reason::BelowMinimum, true, true),

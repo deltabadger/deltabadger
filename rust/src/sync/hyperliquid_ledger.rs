@@ -20,14 +20,14 @@
 //! Where it reads more strictly than Rails (as binance_ledger does): an unreadable amount fails the sync (Rails stores a
 //! garbage amount as 0), and an answer that is not a list fails it (Rails' `Array(...)` walks a Hash's pairs and raises).
 use super::activities::{Entry, Raw, AIRDROP, BUY, DEPOSIT, SELL, WITHDRAWAL};
-use super::binance_ledger::{amount, entry, objects, page_of, ruby_time_at_ms, Fail};
+use super::binance_ledger::{amount, entry, objects, page_of, v2_time_at_ms, Fail};
 use super::continuation;
 use super::ledger::Outcome;
 use super::{capture_bound_version, load_key_of, phase, Failure, SyncError};
 use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::jobs::Db;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::http::Transport;
 use crate::venue::hyperliquid::{HyperliquidVenue, FILLS_PAGE, HYPERLIQUID, TIME_PAGE, URL};
 use chrono::Duration;
@@ -41,16 +41,16 @@ pub const MAX_PAGE_NODES: usize = 800_000;
 const MAX_PAGES: usize = 100_000;
 
 /// `#to_i` of a JSON value (nil.to_i is 0).
-fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::ruby::to_i(s), _ => 0 } }
+fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::v2::to_i(s), _ => 0 } }
 /// `#to_s` of a scalar, as Ruby interpolates it (nil is "").
 fn to_s(v: &Value) -> String { match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() } }
 /// Ruby truthiness of a decoded value.
 fn truthy(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) }
 /// `x.presence`: a string that is not blank.
-fn present(v: &Value) -> Option<String> { Some(to_s(v)).filter(|s| !v.is_null() && !crate::ruby::blank(s)) }
+fn present(v: &Value) -> Option<String> { Some(to_s(v)).filter(|s| !v.is_null() && !crate::v2::blank(s)) }
 /// `Time.at(row['time'].to_i / 1000.0).utc`.
 fn at(raw: &Raw, what: &str) -> Result<chrono::DateTime<chrono::Utc>, Fail> {
-    ruby_time_at_ms(to_i(&raw.value["time"])).ok_or_else(|| (format!("unreadable {what} time"), true))
+    v2_time_at_ms(to_i(&raw.value["time"])).ok_or_else(|| (format!("unreadable {what} time"), true))
 }
 
 /// `tickers.pluck(:ticker, :base, :quote).to_h`: a pair name to its base and quote, a later ticker winning.

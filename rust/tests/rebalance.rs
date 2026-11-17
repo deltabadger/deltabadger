@@ -6,7 +6,7 @@ use common::seed::{self, BotSpec};
 use deltabadger::engine::rebalance::{self, Outcome};
 use deltabadger::engine::tick::{PriceCache, TickContext};
 use deltabadger::engine::{eligibility, model, placement, FixedClock};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store;
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls};
 use deltabadger::venue::http::ScriptedTransport;
@@ -522,7 +522,7 @@ async fn a_reversal_awaiting_its_cancels_bars_the_swap() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_handback_settles_a_lost_swap_reply_into_rails_own_pending_state() {
+async fn a_handback_settles_a_lost_swap_reply_into_v2_own_pending_state() {
     let (d, o, id, _, _) = swap_bot(stopped());
     drop(o);
     let paths = store::Paths::from_env(&|_| None, d.path());
@@ -700,9 +700,9 @@ fn crypto_posts(venue: &str, t: &ScriptedTransport) -> Vec<(String, String, Stri
 /// 2.70.21's halt resolution (Bots::RebalanceResolutionsController, R0's Bot::Rebalanceable#resolve_rebalance_halt!) on
 /// the handed-back install, in the published image (common::v2), once the controller's refresh has found no rebalance
 /// order still waiting.
-fn rails_resolves_the_halt(dir: &std::path::Path, bot_id: i64) {
+fn v2_resolves_the_halt(dir: &std::path::Path, bot_id: i64) {
     let boot = tempfile::tempdir().unwrap();
-    let run = common::v2::rails(dir, boot.path(), "engine-test-secret", &["runner", &format!("Bot.find({bot_id}).resolve_rebalance_halt!")]);
+    let run = common::v2::v2(dir, boot.path(), "engine-test-secret", &["runner", &format!("Bot.find({bot_id}).resolve_rebalance_halt!")]);
     assert!(run.status.success(), "the 2.70.21 resolution failed:\n{}", String::from_utf8_lossy(&run.stderr));
 }
 
@@ -794,7 +794,7 @@ async fn an_unfound_crypto_swap_order_halts_and_its_resolution_never_submits_it_
             deltabadger::engine::handover::hand_back(&lock, &o, &Factory(script(json!({}))), &seed::cipher(), &FixedClock(at(T0) + Duration::days(1))).await.unwrap();
             drop(o);
             drop(lock);
-            rails_resolves_the_halt(d.path(), id);
+            v2_resolves_the_halt(d.path(), id);
             let lock = deltabadger::lease::lock(&paths, at(T0) + Duration::days(2)).unwrap();
             let o = store::open(&paths).unwrap();
             deltabadger::engine::handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", at(T0) + Duration::days(2)).unwrap();
@@ -859,7 +859,7 @@ async fn a_resting_buy_of_another_bot_on_the_kraken_key_blocks_the_sale() {
 /// Plan CB T4 and AUDIT #6: active swaps can resume and inherited ambiguous halts remain idle
 /// with an owner-accessible Resume; handback retains Rails' own swap shape.
 #[tokio::test(flavor = "current_thread")]
-async fn a_crypto_rebalancer_is_admitted_mid_swap_and_handed_back_as_rails_left_it() {
+async fn a_crypto_rebalancer_is_admitted_mid_swap_and_handed_back_as_v2_left_it() {
     for venue in ["kraken", "binance", "kucoin"] {
         let (d, id, _) = crypto_swap_bot(venue, json!({}));
         let paths = store::Paths::from_env(&|_| None, d.path());
@@ -1100,7 +1100,7 @@ async fn resolution_rejects_a_stale_halt_and_another_owner() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolution_matches_all_recorded_rails_ledger_branches() {
+async fn resolution_matches_all_recorded_v2_ledger_branches() {
     let fixture:Value=serde_json::from_str(include_str!("fixtures/rebalance_resolutions.json")).unwrap();
     assert_eq!(fixture["cases"].as_array().unwrap().len(),16+16+16,"owed absent/zero/positive × sell and buy absent/closed/cancelled/abandoned");
     for case in fixture["cases"].as_array().unwrap() {
@@ -1206,13 +1206,13 @@ async fn resolution_rolls_back_when_another_admission_blocker_remains() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolution_with_unbalanced_stopped_allocations_matches_rails_and_completes_the_buy() {
+async fn resolution_with_unbalanced_stopped_allocations_matches_v2_and_completes_the_buy() {
     if !common::v2::enabled() { return; }
     let (d, o, id, s, _) = swap_bot(stopped().transient("rebalance_pending", json!({"phase":"ambiguous","remaining_quote_amount":"40","buy_attempted":true})));
     o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json((SELECT json_group_object(key, 0.6) FROM json_each(bots.settings, '$.allocations'))))", []).unwrap();
     let before = model::load_bot(&o.primary, id).unwrap().transient;
     drop(o); // 2.70.21 writes from another kernel's view of the files (Docker Desktop): no connection spans its run
-    rails_resolves_the_halt(d.path(), id);
+    v2_resolves_the_halt(d.path(), id);
     let o = store::open(&store::Paths::from_env(&|_| None, d.path())).unwrap();
     let expected = model::load_bot(&o.primary, id).unwrap().transient;
     o.primary.execute("UPDATE bots SET transient_data=?1 WHERE id=?2", (before.to_string(), id)).unwrap();

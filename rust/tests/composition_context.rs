@@ -4,7 +4,7 @@ use chrono::{DateTime, Duration, Utc};
 use common::scripted::{accepted, ok, script, venue, POST_SEND, PRE_SEND};
 use common::seed::{self, BotSpec};
 use deltabadger::engine::{amount::{self, TxKind}, composition, model, placement::{self, Op}, rebalance, tick, FixedClock};
-use deltabadger::{ruby::BigDec, store, venue::Side};
+use deltabadger::{v2::BigDec, store, venue::Side};
 use serde_json::{json, Value};
 
 fn now() -> DateTime<Utc> { "2026-09-01T12:30:00Z".parse().unwrap() }
@@ -112,7 +112,7 @@ fn shared_predicate_keeps_old_cases_and_bounds_only_legacy_selling_markers() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn tick_stands_down_in_rails_order_and_promotes_orphan_markers() {
+async fn tick_stands_down_in_v2_order_and_promotes_orphan_markers() {
     for (data,event) in [
         (json!({"rebalance_pending":{"phase":"selling"},"liquidation_pending":{"state":"placing"},"redeploy_pending":{"state":"placing"}}),"dca_skipped_rebalance_pending"),
         (json!({"liquidation_pending":{"id":"old","symbol":"BTC","state":"placing"},"redeploy_pending":{"state":"placing"}}),"dca_skipped_liquidation_pending"),
@@ -183,7 +183,7 @@ impl deltabadger::venue::VenueFactory for Factory {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn idle_scan_promotes_stopped_rails_markers_without_an_intent() {
+async fn idle_scan_promotes_stopped_v2_markers_without_an_intent() {
     let (d,o,id,_)=setup(TxKind::Regular);
     o.primary.execute("UPDATE bots SET status=2,transient_data=?1",[json!({"liquidation_pending":{"id":"old","symbol":"BTC","state":"placing"},"redeploy_pending":{"id":"old2","state":"placing"}}).to_string()]).unwrap();
     drop(o);

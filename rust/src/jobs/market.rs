@@ -140,7 +140,7 @@ mod tests {
     }
 
     #[test]
-    fn coingecko_asks_rails_params_and_a_429_stops_the_client() {
+    fn coingecko_asks_v2_params_and_a_429_stops_the_client() {
         tokio::runtime::Builder::new_current_thread().enable_time().start_paused(true).build().unwrap().block_on(async {
             let t = ScriptedTransport::default();
             t.reply("GET /api/v3/ping", 401, json!({})).reply("GET /api/v3/coins/bitcoin/market_chart/range", 429, json!({}));

@@ -115,7 +115,7 @@ fn recorded_conversions_are_byte_equal() {
 }
 
 fn time(v: &Value) -> DateTime<Utc> { v.as_str().unwrap().parse().unwrap() }
-fn dec(v: &Value) -> deltabadger::ruby::BigDec { deltabadger::ruby::BigDec::parse(v.as_str().unwrap()).unwrap() }
+fn dec(v: &Value) -> deltabadger::v2::BigDec { deltabadger::v2::BigDec::parse(v.as_str().unwrap()).unwrap() }
 
 /// §8 2: Rust's next due time and carry for each converted bot equal Rails' for the basket it converted into.
 #[test]
@@ -133,11 +133,11 @@ fn recorded_schedule_and_carry_hold() {
             let next = deltabadger::engine::schedule::checkpoints(anchor, now().timestamp_micros(), bot.effective().unwrap()).unwrap().next_us;
             // D-START-ANCHOR-STARTED (A22): Rails reads a start_at that differs from started_at while the rule is on; the
             // engine reads started_at, as for any basket. The conversion keeps both byte for byte.
-            let rails = time(&after["next_interval_checkpoint_at"]).timestamp_micros();
-            if bot.settings["start_time_enabled"] == json!(true) && bot.settings["start_at"].as_str().map(|s| time(&json!(s)).timestamp_micros()) == Some(rails) {
+            let v2 = time(&after["next_interval_checkpoint_at"]).timestamp_micros();
+            if bot.settings["start_time_enabled"] == json!(true) && bot.settings["start_at"].as_str().map(|s| time(&json!(s)).timestamp_micros()) == Some(v2) {
                 assert_eq!(next, anchor, "{name}: the engine waits for started_at");
             } else {
-                assert_eq!(next, rails, "{name}: next checkpoint");
+                assert_eq!(next, v2, "{name}: next checkpoint");
             }
             let owed = deltabadger::engine::amount::pending_quote_amount(c, &bot, now().timestamp_micros()).unwrap();
             assert_eq!(owed, dec(&after["pending_quote_amount"]), "{name}: pending quote amount");
@@ -158,7 +158,7 @@ fn figures(c: &Connection, id: i64) -> Value {
 /// §8 5 (the figures contract): Rust's pair figures before = Rails' before, the basket's after = Rails' after; before = after
 /// only on consistent fills, and the inconsistent fill changes alike on both sides.
 #[test]
-fn figures_follow_rails_before_and_after() {
+fn figures_follow_v2_before_and_after() {
     let (mut compared, mut off) = (0, vec![]);
     for sc in scenarios() {
         let name = sc["name"].as_str().unwrap();
@@ -274,7 +274,7 @@ fn at(t: DateTime<Utc>) -> FixedClock { FixedClock(t) }
 /// §8 6: a Rails ActionJob scheduled for later: no order before it, one at it, none extra (D-START-ANCHOR-STARTED: the
 /// engine's own schedule lands where Rails' job would have run).
 #[tokio::test(flavor = "current_thread")]
-async fn a_future_rails_job_is_neither_doubled_nor_lost() {
+async fn a_future_v2_job_is_neither_doubled_nor_lost() {
     let sc = scenario("working bot with a future ActionJob");
     let job = time(&serde_json::from_str::<Value>(sc["queue"][0]["arguments"].as_str().unwrap()).unwrap()["scheduled_at"]);
     assert_eq!(job, time(&sc["probes"]["1"]["after"]["next_interval_checkpoint_at"]));
@@ -299,7 +299,7 @@ async fn a_future_rails_job_is_neither_doubled_nor_lost() {
 
 /// §8 6: a due Rails job: exactly one order at the start's first tick. A claimed one: the bot converts and carries C12.
 #[tokio::test(flavor = "current_thread")]
-async fn a_due_rails_job_ticks_once_and_a_claimed_one_carries_its_line() {
+async fn a_due_v2_job_ticks_once_and_a_claimed_one_carries_its_line() {
     let venue = kraken();
     let (_d, t, mut e) = engine(&scenario("due ActionJob"), venue.clone());
     assert_eq!(t.eligible, vec![1]);
@@ -359,7 +359,7 @@ async fn an_untradeable_working_bot_converts_and_its_tick_fails_visibly() {
 /// §8 5b: the converted bot's orders are the amounts Rails' converted bot sizes: a buy at its carry, a sale of
 /// `sell_amount` in base whether its sentence was blank (base, as the single bot sold) or quote.
 #[tokio::test(flavor = "current_thread")]
-async fn converted_orders_are_sized_as_rails_sizes_them() {
+async fn converted_orders_are_sized_as_v2_sizes_them() {
     for name in ["working bot with a future ActionJob", "smart interval bot", "selling, sell_denomination absent", "selling, sell_denomination empty string", "selling, sell_denomination quote"] {
         let sc = scenario(name);
         let probe = &sc["probes"]["1"]["after"];
@@ -377,12 +377,12 @@ async fn converted_orders_are_sized_as_rails_sizes_them() {
         let sent = venue.sent();
         let state: String = e.primary.query_row("SELECT status || ' ' || transient_data || coalesce((SELECT group_concat(event || ':' || details) FROM bot_activity_logs WHERE bot_id = 1), '') FROM bots WHERE id = 1", [], |r| r.get(0)).unwrap();
         assert_eq!(sent.len(), 1, "{name}: {state}");
-        let volume = deltabadger::ruby::BigDec::parse(&sent[0].volume).unwrap();
+        let volume = deltabadger::v2::BigDec::parse(&sent[0].volume).unwrap();
         if let Some(sell) = probe["sell_amount"].as_str() {
             assert!(!sent[0].quote_volume, "{name}: sold in base");
-            assert_eq!(volume, deltabadger::ruby::BigDec::parse(sell).unwrap(), "{name}");
+            assert_eq!(volume, deltabadger::v2::BigDec::parse(sell).unwrap(), "{name}");
         } else {
-            let quote = if sent[0].quote_volume { volume } else { &volume * &deltabadger::ruby::BigDec::parse("100.0").unwrap() };
+            let quote = if sent[0].quote_volume { volume } else { &volume * &deltabadger::v2::BigDec::parse("100.0").unwrap() };
             // What Rails' converted bot owes now (its smart-interval cadence included).
             assert_eq!(quote, dec(&probe["pending_quote_amount"]), "{name}");
         }
@@ -511,7 +511,7 @@ mod web {
 /// read it before and its basket after: unlatched it finds no ticker among the bot's own (not met; a flip doesn't fire);
 /// latched "after" it passes before any lookup. No price is read for any of them.
 #[tokio::test(flavor = "current_thread")]
-async fn a_condition_on_another_market_reads_as_rails_reads_it() {
+async fn a_condition_on_another_market_reads_as_v2_reads_it() {
     use deltabadger::engine::conditions::{self, Rule};
     let mut n = 0;
     for sc in scenarios().into_iter().filter(|s| s["rails_skips"].to_string().contains("condition watches another ticker")) {
@@ -520,9 +520,9 @@ async fn a_condition_on_another_market_reads_as_rails_reads_it() {
         let c = &o.primary;
         assert_eq!(convert(c), vec![1], "{name}");
         let bot = model::load_bot(c, 1).unwrap();
-        let rails = sc["probes"]["1"]["after"]["conditions"].as_object().unwrap().clone();
-        assert_eq!(rails, sc["probes"]["1"]["before"]["conditions"].as_object().unwrap().clone(), "{name}: Rails reads it alike before and after");
-        for (prefix, met) in rails {
+        let v2 = sc["probes"]["1"]["after"]["conditions"].as_object().unwrap().clone();
+        assert_eq!(v2, sc["probes"]["1"]["before"]["conditions"].as_object().unwrap().clone(), "{name}: Rails reads it alike before and after");
+        for (prefix, met) in v2 {
             let selling = prefix.starts_with("sell_");
             let (kind, _) = Rule::of_flag(&format!("{prefix}ed")).unwrap();
             // evaluate_rule's reading before any venue call: a latched "after" rule is met; else its ticker among the bot's own.
@@ -671,15 +671,15 @@ mod surfaces {
         assert_eq!((rb.0, rb.1), (ra.0, ra.1), "the row's amount and average price");
         assert_eq!((rb.2, rb.3), (115.0, 15.0), "the pair's row: the whole bot");
         // The basket's row, as Rails' recorded basket walk after its conversion holds it.
-        let rails = &sc["probes"]["1"]["after"]["metrics"];
-        let held = &rails["asset_breakdown"]["BTC"];
+        let v2 = &sc["probes"]["1"]["after"]["metrics"];
+        let held = &v2["asset_breakdown"]["BTC"];
         let num = |v: &Value| v.as_str().map_or_else(|| v.as_f64().unwrap(), |s| s.parse().unwrap());
-        assert_eq!((num(&held["amount"]), num(&held["quote_invested"]), num(&rails["realised_pnl"])), (0.5, 50.0, 5.0));
+        assert_eq!((num(&held["amount"]), num(&held["quote_invested"]), num(&v2["realised_pnl"])), (0.5, 50.0, 5.0));
         assert_eq!(ra.0, num(&held["amount"]));
         assert_eq!(ra.1, num(&held["quote_invested"]) / num(&held["amount"]), "average price = invested / amount");
         assert_eq!(ra.2, num(&held["amount"]) * 120.0, "the holding at the market");
         assert_eq!(ra.3, 20.0, "P/L on the holding's cost: 60 / 50 - 1");
-        assert_eq!(labelled(&a, "Realised P/L"), num(&rails["realised_pnl"]));
+        assert_eq!(labelled(&a, "Realised P/L"), num(&v2["realised_pnl"]));
         assert!(!b.contains("Realised P/L"));
 
         // The MCP and REST bot reads.
@@ -767,7 +767,7 @@ fn a_working_kept_bot_with_an_open_order_is_the_hard_stop() {
 /// The met stamp evaluate_rule writes is checked too. (The candle rules on the bot's own market read Rails' stubbed SMA/RSI,
 /// which the fake venue has no candles for: ordinary basket conditions, Rails-parity-tested in tests/conditions.rs.)
 #[tokio::test(flavor = "current_thread")]
-async fn a_condition_reads_through_the_tick_as_rails_recorded_it() {
+async fn a_condition_reads_through_the_tick_as_v2_recorded_it() {
     assert_eq!(fixture()["conditions_price"], "100");
     let mut n = 0;
     for sc in scenarios() {
@@ -861,12 +861,12 @@ fn chart(c: &Connection, id: i64) -> Value {
 /// market replayed, the inconsistent fill included. (A basket on an unavailable ticker charts only its fill marks, where
 /// the pair charted the series: Rails' own design, each side compared to its own.)
 #[test]
-fn charts_follow_rails_before_and_after() {
+fn charts_follow_v2_before_and_after() {
     let (mut compared, mut off) = (0, vec![]);
     for sc in scenarios() {
         let name = sc["name"].as_str().unwrap();
         let (before, after) = (&sc["probes"]["1"]["before"]["chart"], &sc["probes"]["1"]["after"]["chart"]);
-        // The same exclusions as figures_follow_rails_before_and_after, for the same reasons.
+        // The same exclusions as figures_follow_v2_before_and_after, for the same reasons.
         if before.is_null() || name == "missing exchange" || name == "clobbered basket, repair skipped: unpriced sell" { continue; }
         let (_d, o) = install(&sc);
         let c = &o.primary;

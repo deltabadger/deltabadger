@@ -482,7 +482,7 @@ mod tests {
     }
 
     #[test]
-    fn paths_are_sanitised_as_rails_does() {
+    fn paths_are_sanitised_as_v2_does() {
         let tmp = Path::new("/t");
         assert_eq!(report_path(tmp, 3, "u.s/../", 2025, "nope"), PathBuf::from("/t/tax_reports/3_US_2025_crypto.csv"));
         assert_eq!(refusal_path(tmp, 3, "DE", 2024, "broker"), PathBuf::from("/t/tax_reports/3_DE_2024_broker.csv.refused.json"));

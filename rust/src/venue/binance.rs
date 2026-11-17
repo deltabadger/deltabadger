@@ -7,7 +7,7 @@ use super::{NewOrder, OrderKind, OrderState, PriceSide};
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BINANCE as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 
 pub const URL: &str = "https://api.binance.com";
@@ -186,7 +186,7 @@ impl<T: Transport> BinanceVenue<T> {
     /// quantities add up to executedQty, else Rails' failure (the order stays waiting).
     async fn fill(&self, order_id: &str, executed: &BigDec) -> Result<Fill, super::VenueError> {
         let mut parts = order_id.split('-');
-        let (symbol, ext) = (parts.next().unwrap_or_default(), crate::ruby::to_i(parts.next().unwrap_or_default()));
+        let (symbol, ext) = (parts.next().unwrap_or_default(), crate::v2::to_i(parts.next().unwrap_or_default()));
         let mut trades: Vec<(i64, serde_json::Value)> = vec![];
         let mut from_id = 0i64;
         let mut exhausted = true;
@@ -264,7 +264,7 @@ pub(crate) fn ticker_prices_or(body: &serde_json::Value, unreadable: fn() -> sup
     for row in body.as_array().ok_or_else(unreadable)? {
         let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
         let price = match super::dig_or_raise(row, "price")? {
-            v @ (serde_json::Value::String(_) | serde_json::Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
+            v @ (serde_json::Value::String(_) | serde_json::Value::Number(_)) => crate::v2::json_to_d(v).ok().flatten(),
             _ => return Err(unreadable()),
         };
         // `prices_hash[ticker] = price`: a symbol listed twice keeps its last price.
@@ -279,7 +279,7 @@ pub(crate) fn unreadable() -> super::VenueError { super::VenueError::Ambiguous(U
 /// else the failure's own text.
 pub fn error_message(text: &str) -> String {
     match serde_json::from_str::<serde_json::Value>(text).ok().as_ref().and_then(|v| v.as_object()).and_then(|o| o.get("msg")) {
-        Some(serde_json::Value::String(s)) if !crate::ruby::blank(s) => s.clone(),
+        Some(serde_json::Value::String(s)) if !crate::v2::blank(s) => s.clone(),
         Some(v) if !v.is_null() && !v.is_string() && v != &serde_json::Value::Bool(false) => v.to_string(),
         _ => text.to_string(),
     }
@@ -293,7 +293,7 @@ pub fn error_code(text: &str) -> Option<String> { body_code(text, "code") }
 pub fn body_code(text: &str, key: &str) -> Option<String> {
     match serde_json::from_str::<serde_json::Value>(text).ok()?.get(key)? {
         serde_json::Value::Number(n) if n.is_i64() || n.is_u64() => Some(n.to_string()),
-        serde_json::Value::String(s) if !crate::ruby::blank(s) => Some(s.clone()),
+        serde_json::Value::String(s) if !crate::v2::blank(s) => Some(s.clone()),
         _ => None,
     }
 }
@@ -523,7 +523,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
         let mut by_symbol: Vec<(&str, Vec<i64>)> = vec![];
         for id in txids {
             let symbol = id.split('-').next().unwrap_or_default();
-            let ext = crate::ruby::to_i(id.rsplit('-').next().unwrap_or_default());
+            let ext = crate::v2::to_i(id.rsplit('-').next().unwrap_or_default());
             match by_symbol.iter_mut().find(|(s, _)| *s == symbol) { Some((_, v)) => v.push(ext), None => by_symbol.push((symbol, vec![ext])) }
         }
         let mut found: Vec<(Order, String)> = vec![];
@@ -637,7 +637,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
 
     /// Exchanges::Binance#get_tickers_prices: /api/v3/ticker/price for every symbol (`symbols:` is ignored, as in Rails),
     /// each `dig_or_raise`d `symbol` and `price`, the price as `price.to_d` reads it (an Integer exactly, a Float by
-    /// Float#to_d, a string as a decimal; a zero is kept). DIVERGES on purpose (ruby::json_to_d, Q6): a string that is no
+    /// Float#to_d, a string as a decimal; a zero is kept). DIVERGES on purpose (v2::json_to_d, Q6): a string that is no
     /// decimal ("abc", "12x") is left out, so the member reads unpriced, where String#to_d makes it 0 or 12. Rails caches
     /// the answer for a minute; this reads fresh. Each price is its decimal's `to_s('F')`.
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, serde_json::Value)>, super::VenueError> {
@@ -743,7 +743,7 @@ pub fn created_order_shaped(symbol: &str, o: &serde_json::Value, shape: &Shape) 
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, OrderStatus, Side};
     use serde_json::Value;
     let zero = BigDec::zero();
-    let amount = |k: &str| o.get(k).and_then(|v| crate::ruby::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
+    let amount = |k: &str| o.get(k).and_then(|v| crate::v2::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
     if o.get("symbol")?.as_str()? != symbol { return None; }
     let id = match o.get("orderId")? {
         Value::Number(n) if n.is_u64() || n.is_i64() => n.to_string(),
@@ -884,7 +884,7 @@ impl<T: Transport> BinanceVenue<T> {
             || coin != &r.coin
             || [coin, address, network, &r.client_id]
                 .iter()
-                .any(|s| crate::ruby::blank(s))
+                .any(|s| crate::v2::blank(s))
             || !BigDec::parse(&r.amount).is_ok_and(|a| a.is_positive())
         {
             return w::capital_not_sent();
@@ -928,7 +928,7 @@ impl<T: Transport> BinanceVenue<T> {
             || coin != &r.coin
             || [coin, address, network, &r.client_id]
                 .iter()
-                .any(|s| crate::ruby::blank(s))
+                .any(|s| crate::v2::blank(s))
         {
             return w::capital_unknown();
         }
@@ -994,7 +994,7 @@ mod tests {
     }
 
     #[test]
-    fn the_timestamp_is_rubys_float_milliseconds() {
+    fn the_timestamp_is_v2s_float_milliseconds() {
         let at: DateTime<Utc> = "2026-09-20T02:30:00.750000Z".parse().unwrap();
         assert_eq!(timestamp_ms(at), 1_789_871_400_750);
     }

@@ -1,12 +1,12 @@
 //! Threshold rebalancing's valuation and ranking core, pure: Bot::Composition::Rebalancer#composition_targets (over the
 //! figures `figures::live` marks), Bot::Rebalancer's ranking (rebalance_deviation, extreme_rebalance_entry,
 //! tradeable_rebalance_entries, get_sell_orders_data's ranking) and Bot::Rebalanceable's drift and due check.
-//! Arithmetic is Ruby's BigDecimal (`ruby::BigDec`); tests/rebalance_math.rs replays Rails' own answers.
+//! Arithmetic is Ruby's BigDecimal (`v2::BigDec`); tests/rebalance_math.rs replays Rails' own answers.
 use super::model::Ticker;
 use super::EngineError;
 use crate::figures::num::Num;
 use crate::figures::walk::Metrics;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use serde_json::Value;
 use std::cmp::Ordering;
 
@@ -311,7 +311,7 @@ pub(crate) async fn holdings<V: crate::venue::Venue>(c: &rusqlite::Connection, v
             // leaves the figures stale (index::priced and the tick's price reads apply the same rule).
             Err(VenueError::Transient(m)) if venue.rules().transport_raises => return Ok(Err(ValueFail::Transient(m))),
             Err(VenueError::Transient(m)) => Err(Failure::Failed(m)),
-            Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => Err(Failure::Failed(crate::ruby::to_sentence(&e))),
+            Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => Err(Failure::Failed(crate::v2::to_sentence(&e))),
             // An answer the venue's reader cannot read: Rails' dig_or_raise KeyError, which nothing on the way rescues.
             Err(VenueError::Ambiguous(m)) => return Ok(Err(ValueFail::Raised(m))),
         }
@@ -699,7 +699,7 @@ struct Row { external_status: Option<i64>, price: Option<BigDec>, amount_exec: O
 
 fn pending_row(c: &Connection, bot_id: i64, id: Option<i64>) -> Result<Option<Row>, EngineError> {
     let Some(id) = id else { return Ok(None) };
-    let dec = |v: rusqlite::types::ValueRef<'_>| crate::ruby::from_sql(v).map_err(|e| EngineError::Data(format!("{e:?}")));
+    let dec = |v: rusqlite::types::ValueRef<'_>| crate::v2::from_sql(v).map_err(|e| EngineError::Data(format!("{e:?}")));
     let mut s = c.prepare("SELECT external_status, price, amount_exec, quote_amount_exec FROM transactions WHERE bot_id = ?1 AND id = ?2")?;
     let mut rows = s.query(params![bot_id, id])?;
     let Some(r) = rows.next()? else { return Ok(None) };
@@ -836,7 +836,7 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, 
     // The venue's own check, read under its lock until the intent commits (an IBKR order's account and position).
     let hold = match venue.placement_hold(&plan.ticker, plan.side).await {
         Ok(hold) => hold,
-        Err(e) => return Ok(Outcome::Failed(e.rejection().map_or_else(|| format!("{e:?}"), crate::ruby::to_sentence))),
+        Err(e) => return Ok(Outcome::Failed(e.rejection().map_or_else(|| format!("{e:?}"), crate::v2::to_sentence))),
     };
     let begun = super::placement::begin_rebalance(c, bot, plan, &[&plan.ticker], &claim.composition, reconciled, &cx.credential_version, venue.placement_identity(), intent_state, loss, hold.as_ref(), clock);
     drop(hold);
@@ -855,7 +855,7 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, 
     };
     Ok(match super::placement::send_recorded(c, venue, bot, &intent, clock).await? {
         Sent::Accepted(txid) => Outcome::Placed(c.query_row("SELECT id FROM transactions WHERE exchange_id = ?1 AND external_id = ?2", params![bot.exchange_id, txid], |r| r.get(0))?),
-        Sent::Rejected(errors) if super::placement::safe_rejection(&errors) => Outcome::Failed(crate::ruby::to_sentence(&errors)),
+        Sent::Rejected(errors) if super::placement::safe_rejection(&errors) => Outcome::Failed(crate::v2::to_sentence(&errors)),
         // A REBALANCE leg is outside D-BELOW-MIN-REJECTION (placement::skips_below_minimum): never BelowMinimum.
         Sent::Rejected(_) | Sent::BelowMinimum(_) => Outcome::Skipped("ambiguous"),
         Sent::NotSent(m) => Outcome::Failed(m),

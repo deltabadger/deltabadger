@@ -13,7 +13,7 @@ fn db()->rusqlite::Connection {
 }
 fn feed(a:Num,b:Num)->Feed{Feed(vec![("usd".into(),Ok(a)),("eur".into(),Ok(b))],None)}
 #[test]
-fn integer_and_float_provider_rates_follow_rails_float_then_bigdecimal() {
+fn integer_and_float_provider_rates_follow_v2_float_then_bigdecimal() {
  let c=db();
  // Values measured with Ruby Float division followed by Float#to_d on the pinned base.
  for (a,b,expected) in [(Num::Int(100),Num::Int(80),"0.8"),(Num::Float(100.0),Num::Float(80.0),"0.8"),
@@ -67,7 +67,7 @@ fn numeric_string_fx_uses_the_shared_float_path() {
 }
 
 #[test]
-fn legacy_display_currency_uses_rails_normalizer_without_stripping_nonblank_codes() {
+fn legacy_display_currency_uses_v2_normalizer_without_stripping_nonblank_codes() {
  let c=db();let f=feed(Num::Int(100),Num::Int(80));
  for raw in ["usd","Usd",""," \t\n","\u{3000}"] {
   let d=totals::denomination(&c,&f,raw).unwrap();assert_eq!(d.currency,"USD");assert_eq!(d.rate.to_s_f(),"1.0");

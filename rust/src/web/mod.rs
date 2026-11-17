@@ -842,7 +842,7 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/redeploy", only(post(bot::redeploy::create).delete(bot::redeploy::destroy)))
         .route("/bots/{id}/rebalance_resolutions", only(post(bot::rebalance::resolve)))
         // A28-2a: the owner's answer to an order Rails sent but never recorded.
-        .route("/bots/{id}/rails_orders", only(post(bot::rails_orders::create)))
+        .route("/bots/{id}/rails_orders", only(post(bot::v2_orders::create)))
         .route("/bots/{id}/transactions/{tx}", only(delete(bot::cancel::destroy)))
         .route("/bots/{id}/export", only(post(bot::csv::export)))
         .route("/bots/{id}/import", only(post(bot::csv::import)))
@@ -1165,7 +1165,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         || params.route_path.strip_prefix("/setup.").is_some_and(|format| !format.contains('/'))) {
         // Rails 8.1.4 shallow-merges query keys over body keys. Normalize once before the
         // pipeline so locale, CSRF, the setup-token gate and permitted user fields agree.
-        match bot::action_params::ActionParams::parse_rails(&params) {
+        match bot::action_params::ActionParams::parse_v2(&params) {
             Ok(parsed) => {
                 params.json = Some(parsed.value().clone());
                 params.form.clear(); // Do not fall back to a body field replaced by a structured query value.

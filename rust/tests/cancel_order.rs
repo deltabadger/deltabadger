@@ -98,7 +98,7 @@ fn cancelled_order() -> Value {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_cancel_answers_rails_notice_writes_no_order_state_and_the_engine_settles_the_row() {
+async fn a_cancel_answers_v2_notice_writes_no_order_state_and_the_engine_settles_the_row() {
     let i = install();
     let t = ScriptedTransport::from_script(&json!({ "GET /v2/orders/OPEN-1": [open_order(), cancelled_order()] }));
     let mut engine = running_engine(&i, &t).await;
@@ -124,7 +124,7 @@ async fn a_cancel_answers_rails_notice_writes_no_order_state_and_the_engine_sett
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_refusal_and_an_invalid_key_answer_rails_failures_and_are_still_re_read() {
+async fn a_refusal_and_an_invalid_key_answer_v2_failures_and_are_still_re_read() {
     let i = install();
     let name: String = i.o.primary.query_row("SELECT name FROM exchanges WHERE id = ?1", [i.s.exchange_id], |r| r.get(0)).unwrap();
     for (status, body, text) in [(422, json!({"code": 42210000, "message": "order is not cancelable"}), "Failed to cancel order".to_string()),
@@ -141,7 +141,7 @@ async fn a_refusal_and_an_invalid_key_answer_rails_failures_and_are_still_re_rea
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn an_unreachable_venue_is_rails_failure_flash_not_a_500() {
+async fn an_unreachable_venue_is_v2_failure_flash_not_a_500() {
     // D-CANCEL-TRANSPORT-FAILURE: nothing listens on this port; Rails' controller would raise.
     let i = install();
     let (app, mut browser) = signed_in(&i, "http://127.0.0.1:9").await;
@@ -459,11 +459,11 @@ async fn kucoin_standalone_orders_by_exchange_id_go_on_their_logged_route_whatev
     let c = &o.primary;
     let (user, exchange, ticker): (i64, i64, i64) = c.query_row("SELECT k.user_id, t.exchange_id, t.id FROM api_keys k JOIN tickers t ON t.exchange_id=k.exchange_id", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
     let fingerprint = hex::encode(<sha2::Sha256 as sha2::Digest>::digest(b"test-key"));
-    let amount = deltabadger::ruby::BigDec::parse("0.001").unwrap();
+    let amount = deltabadger::v2::BigDec::parse("0.001").unwrap();
     let pair = serde_json::Map::new();
     for (ext, mode) in [("SHF-1", "ClassicHf"), ("SUTA-1", "Uta"), ("SCL-1", "ClassicLf")] {
         let id = api_orders::insert(c, &api_orders::New::Standalone { user_id: user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: true, supplied: &pair,
-            standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: true, price: Some(deltabadger::ruby::BigDec::parse("60000").unwrap()), mcp: false } }, at(T0)).unwrap();
+            standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: true, price: Some(deltabadger::v2::BigDec::parse("60000").unwrap()), mcp: false } }, at(T0)).unwrap();
         api_orders::take(c, id, at(T0)).unwrap().unwrap();
         let identity = json!({"host": server.uri(), "key_fingerprint": fingerprint, "kucoin_account_mode": mode});
         assert!(api_orders::claim(c, id, "cl", Some(&identity), &json!({"symbol": "BTC-EUR", "side": "buy", "limit": true})).unwrap());

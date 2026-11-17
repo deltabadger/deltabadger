@@ -133,7 +133,7 @@ fn time(v: &Value) -> Option<DateTime<Utc>> { v.as_i64().and_then(DateTime::<Utc
 
 fn event_json(k: &ledger::EventKey) -> Value { json!([k.0, k.1, k.2.to_s_f(), micros(k.3)]) }
 fn event_of(v: &Value) -> Option<ledger::EventKey> {
-    Some((v[0].as_i64()?, v[1].as_str().map(str::to_string), crate::ruby::BigDec::parse(v[2].as_str()?).ok()?, time(&v[3])))
+    Some((v[0].as_i64()?, v[1].as_str().map(str::to_string), crate::v2::BigDec::parse(v[2].as_str()?).ok()?, time(&v[3])))
 }
 
 impl Record {

@@ -23,7 +23,7 @@
 //! Where it reads more strictly than Rails (as kucoin_ledger does): an unreadable answer or amount fails the sync (Rails
 //! stores a garbage amount as 0).
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
-use super::binance_ledger::{amount, entry, page_of, ruby_time_at_ms, text, Fail};
+use super::binance_ledger::{amount, entry, page_of, v2_time_at_ms, text, Fail};
 use super::continuation;
 use super::ledger::Outcome;
 use super::wire::Node;
@@ -31,7 +31,7 @@ use super::{capture_bound_version, load_key_of, phase, Failure, Key, SyncError};
 use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::jobs::Db;
-use crate::venue::bitvavo::ruby_ms;
+use crate::venue::bitvavo::v2_ms;
 use crate::venue::http::Transport;
 use crate::venue::mexc::{MexcVenue, ACCOUNT_PATH, MEXC, RECV_WINDOW, URL};
 use chrono::{DateTime, Duration, Months, Utc};
@@ -69,10 +69,10 @@ const MAX_PAGES: usize = 100_000;
 
 /// `#to_i` of a JSON value (nil.to_i is 0; a Float truncates).
 fn to_i(v: &Value) -> i64 {
-    match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::ruby::to_i(s), _ => 0 }
+    match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::v2::to_i(s), _ => 0 }
 }
 /// `x.to_d.positive?` (a value that is no decimal reads as 0).
-fn positive(v: &Value) -> bool { crate::ruby::json_to_d(v).ok().flatten().is_some_and(|d| d.is_positive()) }
+fn positive(v: &Value) -> bool { crate::v2::json_to_d(v).ok().flatten().is_some_and(|d| d.is_positive()) }
 /// Exchange#response_field(result, 'code') of a failure's text, compared as Ruby's `==` compares a number with an Integer.
 fn code_is(text: &str, codes: &[i64]) -> bool {
     serde_json::from_str::<Value>(text).ok().and_then(|v| v.get("code").and_then(Value::as_f64)).is_some_and(|c| codes.iter().any(|n| c == *n as f64))
@@ -83,7 +83,7 @@ pub(crate) fn inspect(v: &Value) -> String {
     match v {
         Value::Null => "nil".into(),
         Value::Bool(b) => b.to_string(),
-        Value::Number(n) => if n.is_i64() || n.is_u64() { n.to_string() } else { crate::ruby::float_to_s(n.as_f64().unwrap_or(f64::NAN)) },
+        Value::Number(n) => if n.is_i64() || n.is_u64() { n.to_string() } else { crate::v2::float_to_s(n.as_f64().unwrap_or(f64::NAN)) },
         Value::String(s) => {
             let mut out = String::from("\"");
             for c in s.chars() {
@@ -129,7 +129,7 @@ impl Source {
 /// One deposit as #get_ledger maps it (X9): kept at status 5 or 12; its txId the tx_id.
 fn deposit(raw: Raw) -> Result<Option<Entry>, Fail> {
     if !DEPOSIT_CREDITED.contains(&to_i(&raw.value["status"])) { return Ok(None); }
-    let at = ruby_time_at_ms(to_i(&raw.value["insertTime"])).ok_or_else(|| ("unreadable deposit insertTime".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["insertTime"])).ok_or_else(|| ("unreadable deposit insertTime".to_string(), true))?;
     let mut e = entry(DEPOSIT, "", amount(&raw, "amount", "deposit")?, &raw, at);
     e.base_currency = raw.value["coin"].as_str().map(str::to_string);
     e.tx_id = text(raw.value.get("txId"));
@@ -139,7 +139,7 @@ fn deposit(raw: Raw) -> Result<Option<Entry>, Fail> {
 /// One withdrawal (X8): kept when completed (7); its record id the tx_id, its fee in its coin.
 fn withdrawal(raw: Raw) -> Result<Option<Entry>, Fail> {
     if to_i(&raw.value["status"]) != WITHDRAWAL_COMPLETED { return Ok(None); }
-    let at = ruby_time_at_ms(to_i(&raw.value["applyTime"])).ok_or_else(|| ("unreadable withdrawal applyTime".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["applyTime"])).ok_or_else(|| ("unreadable withdrawal applyTime".to_string(), true))?;
     let mut e = entry(WITHDRAWAL, "", amount(&raw, "amount", "withdrawal")?, &raw, at);
     e.base_currency = raw.value["coin"].as_str().map(str::to_string);
     e.fee_currency = e.base_currency.clone();
@@ -152,13 +152,13 @@ fn withdrawal(raw: Raw) -> Result<Option<Entry>, Fail> {
 /// commission's absolute value in its asset; the tx_id "SYMBOL-<orderId>-<id>".
 fn trade(symbol: &str, base: &str, quote: &str, raw: Raw) -> Result<Entry, Fail> {
     let buy = !matches!(raw.value.get("isBuyer"), None | Some(Value::Null) | Some(Value::Bool(false)));
-    let at = ruby_time_at_ms(to_i(&raw.value["time"])).ok_or_else(|| ("unreadable trade time".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["time"])).ok_or_else(|| ("unreadable trade time".to_string(), true))?;
     let mut e = entry(if buy { BUY } else { SELL }, base, amount(&raw, "qty", "trade")?, &raw, at);
     e.quote_currency = Some(quote.to_string());
     e.quote_amount = Some(amount(&raw, "quoteQty", "trade")?);
     e.fee_currency = raw.value["commissionAsset"].as_str().map(str::to_string);
     let commission = amount(&raw, "commission", "trade")?;
-    e.fee_amount = Some(if commission < crate::ruby::BigDec::zero() { &crate::ruby::BigDec::zero() - &commission } else { commission });
+    e.fee_amount = Some(if commission < crate::v2::BigDec::zero() { &crate::v2::BigDec::zero() - &commission } else { commission });
     let part = |k: &str| text(raw.value.get(k)).unwrap_or_default();
     e.tx_id = Some(format!("{symbol}-{}-{}", part("orderId"), part("id")));
     Ok(e)
@@ -184,8 +184,8 @@ impl<'a, T: Transport> Walk<'a, T> {
         let month = end.checked_sub_months(Months::new(1)).unwrap_or(end).max(end - Duration::days(30));
         // `(...).to_i * 1000`: whole seconds, unlike the transfers' `(from.to_f * 1000).to_i`.
         let trades_from = start.map_or(month, |s| s.max(month)).timestamp() * 1000;
-        let transfers_from = ruby_ms(reach);
-        let mut walk = Self { transfers: begin.transfers, venue, db, key, clock, now_ms: ruby_ms(end), transfers_from, trades_from, source: Source::Deposits,
+        let transfers_from = v2_ms(reach);
+        let mut walk = Self { transfers: begin.transfers, venue, db, key, clock, now_ms: v2_ms(end), transfers_from, trades_from, source: Source::Deposits,
                               window: transfers_from, ranges: vec![], pending: vec![], coins: BTreeSet::new(), pairs: vec![], pair: 0, requests: 0 };
         if let Some(c) = begin.cursor {
             if let Some(source) = c["source"].as_str().and_then(Source::named) {
@@ -392,7 +392,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_list_refusal_names_the_answer_as_ruby_interpolates_it() {
+    fn a_list_refusal_names_the_answer_as_v2_interpolates_it() {
         assert_eq!(not_a_list(&json!({ "code": 700_003, "msg": "Timestamp \"x\"" })).0, r#"MEXC ledger read failed: {"code" => 700003, "msg" => "Timestamp \"x\""}"#);
         assert_eq!(not_a_list(&Value::Null).0, "MEXC ledger read failed: ");
         assert_eq!(not_a_list(&json!({})).0, "MEXC ledger read failed: {}");

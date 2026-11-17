@@ -16,12 +16,12 @@ use serde_json::{json, Value};
 use std::fs::{File, OpenOptions};
 
 pub const KEY: &str = "engine_lease";
-const RAILS_ALIVE_WITHIN_SECONDS: i64 = 120;
+const V2_ALIVE_WITHIN_SECONDS: i64 = 120;
 
 #[derive(Debug)]
 pub enum LeaseError {
     Locked,
-    RailsAlive { seconds_ago: i64 },
+    V2Alive { seconds_ago: i64 },
     Unreadable,
     BinanceIdentityWritten,
     Sqlite(rusqlite::Error),
@@ -32,7 +32,7 @@ impl From<std::io::Error> for LeaseError { fn from(e: std::io::Error) -> Self { 
 
 #[derive(Debug)]
 pub enum Claim {
-    FromRails,
+    FromV2,
     AfterHandback,
     AfterCrash,
 }
@@ -66,7 +66,7 @@ pub fn lock(paths: &Paths, now: DateTime<Utc>) -> Result<EngineLock, LeaseError>
             let latest: Option<String> = q.query_row("SELECT max(last_heartbeat_at) FROM solid_queue_processes", [], |r| r.get(0))?;
             if let Some(at) = latest.as_deref().and_then(|s| parse_time(s).ok()) {
                 let ago = (now - at).num_seconds();
-                if ago < RAILS_ALIVE_WITHIN_SECONDS { return Err(LeaseError::RailsAlive { seconds_ago: ago }); }
+                if ago < V2_ALIVE_WITHIN_SECONDS { return Err(LeaseError::V2Alive { seconds_ago: ago }); }
             }
         }
     }
@@ -77,13 +77,13 @@ pub fn lock(paths: &Paths, now: DateTime<Utc>) -> Result<EngineLock, LeaseError>
 
 /// `run` and `serve` (PLAN-B2 R1, r1.13): a Rails heartbeat under 120 s old is, in 3.0, most likely a 2.x container that
 /// was just stopped, so they wait it out once and then check again exactly as `lock` does. `lock` has dropped its file,
-/// and with it the flock, before it returns RailsAlive, so nothing is held during `wait(seconds_ago, wait_seconds)`
-/// (at most 121 s). A heartbeat in the future (clock skew), a second RailsAlive, or any other error is returned as is.
+/// and with it the flock, before it returns V2Alive, so nothing is held during `wait(seconds_ago, wait_seconds)`
+/// (at most 121 s). A heartbeat in the future (clock skew), a second V2Alive, or any other error is returned as is.
 pub async fn lock_waiting_once<F: std::future::Future<Output = ()>>(paths: &Paths, now: impl Fn() -> DateTime<Utc>,
                                                                    wait: impl FnOnce(i64, u64) -> F) -> Result<EngineLock, LeaseError> {
     match lock(paths, now()) {
-        Err(LeaseError::RailsAlive { seconds_ago }) if (0..RAILS_ALIVE_WITHIN_SECONDS).contains(&seconds_ago) => {
-            wait(seconds_ago, (RAILS_ALIVE_WITHIN_SECONDS - seconds_ago + 1) as u64).await;
+        Err(LeaseError::V2Alive { seconds_ago }) if (0..V2_ALIVE_WITHIN_SECONDS).contains(&seconds_ago) => {
+            wait(seconds_ago, (V2_ALIVE_WITHIN_SECONDS - seconds_ago + 1) as u64).await;
             lock(paths, now())
         }
         other => other,
@@ -170,16 +170,16 @@ pub fn begin_created(_proof: &EngineLock, primary: &Connection, cipher: &Cipher,
 /// Rails' ownership window commit together, and a crash can never leave that window open.
 pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version: &str, now: DateTime<Utc>) -> Result<Claim, LeaseError> {
     let from = match read(primary, cipher)? {
-        None => Claim::FromRails,
+        None => Claim::FromV2,
         Some(v) if v["engine"] == "rust" => Claim::AfterCrash,
         Some(v) if v["released_by"] == "rust" && v["handed_back"] == true => Claim::AfterHandback,
-        Some(_) => Claim::FromRails, // `none` written by a Rails-side tool: Rails owned it last
+        Some(_) => Claim::FromV2, // `none` written by a Rails-side tool: Rails owned it last
     };
     write(primary, cipher, &owned(version, now), now)?;
     // A new ownership closes Rails' window. A restart after a crash continues this engine's own, unless the window it would
     // close is still open (a claim by a build that did not stamp).
     let new_ownership = match from {
-        Claim::FromRails | Claim::AfterHandback => true,
+        Claim::FromV2 | Claim::AfterHandback => true,
         Claim::AfterCrash => match plain_at(primary, HANDED_BACK_AT)? {
             Some(back) => plain_at(primary, TAKEN_OVER_AT)?.is_none_or(|taken| taken < back),
             None => false,

@@ -12,7 +12,7 @@ use super::placement::{self, Claim, Sent, SignalClaim};
 use super::tick::TickContext;
 use super::{Clock, EngineError};
 use crate::enums::BOT_WORKING;
-use crate::ruby::{to_sentence, BigDec};
+use crate::v2::{to_sentence, BigDec};
 use crate::venue::{Attributed, Side, Venue, VenueError};
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::{params, Connection, OptionalExtension};

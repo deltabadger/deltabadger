@@ -860,7 +860,7 @@ fn refusals_and_notes_name_no_internal_plan() {
 #[test]
 fn a_legacy_intent_gets_its_snapshot_at_takeover_and_a_stopped_bot_stays_frozen() {
     use deltabadger::engine::{amount, handover, model, placement, FixedClock};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     let now: chrono::DateTime<chrono::Utc> = "2026-09-30T12:00:00Z".parse().unwrap();
     let (d, o, s) = common::install_alpaca();
     let id = seed::insert_bot(&o.primary, &s, &plain());

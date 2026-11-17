@@ -91,7 +91,7 @@ fn members(c: &Connection, bot: &Bot) -> Result<Vec<(i64, f64)>, WebError> {
                                           rusqlite::params![bot.exchange.id, quote, asset], |r| r.get(0))?;
         if weight > 0.0 && tradeable { pairs.push((asset, weight)); }
     }
-    let total = crate::ruby::float_sum(&pairs.iter().map(|(_, w)| *w).collect::<Vec<_>>());
+    let total = crate::v2::float_sum(&pairs.iter().map(|(_, w)| *w).collect::<Vec<_>>());
     Ok(pairs.into_iter().map(|(asset, weight)| (asset, weight / total)).collect())
 }
 

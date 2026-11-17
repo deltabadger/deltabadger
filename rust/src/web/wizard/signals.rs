@@ -11,7 +11,7 @@ use super::exchanges::{ordered, Table, Venue as Tile};
 use super::keys::{self, FullPage};
 use super::{chips, dig, exchange_id, expired, progress_bar, step_complete, Chip, Step};
 use crate::engine::{eligibility, model};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::web::bot::search::{self, AssetPage, Basket, Item, Side};
 use crate::web::bot::signal_write::{self, Started};
 use crate::web::layout::{self, Ctx, Page};
@@ -45,7 +45,7 @@ fn progress(ctx: &Ctx, step: &str) -> Result<String, WebError> {
 
 /// `bot.base_asset_id` / `quote_asset_id` of the bot built from the session: the stored id, nil when blank.
 fn setting_id(config: Option<&Value>, key: &str) -> Option<i64> {
-    config?.get("settings")?.get(key).filter(|v| match v { Value::Null => false, Value::String(t) => !crate::ruby::blank(t), _ => true }).map(super::to_i)
+    config?.get("settings")?.get(key).filter(|v| match v { Value::Null => false, Value::String(t) => !crate::v2::blank(t), _ => true }).map(super::to_i)
 }
 
 fn base_id(config: Option<&Value>) -> Option<i64> { setting_id(config, "base_asset_id") }
@@ -183,7 +183,7 @@ pub async fn assets_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) 
 pub async fn assets_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
     let Some(id) = field(&ctx, BASE_FIELD) else { return Ok(layout::bad_request()) };
-    if crate::ruby::blank(&id) { return assets_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, &BASE_STEP, false).await }
+    if crate::v2::blank(&id) { return assets_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, &BASE_STEP, false).await }
     merge_setting(&ctx, "base_asset_id", search::to_i(&id));
     Ok(redirect(&ctx, EXCHANGE_NEW))
 }
@@ -223,7 +223,7 @@ pub async fn exchange_create(State(app): State<App>, Extension(ctx): Extension<C
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
     if let Some(answer) = expired(&ctx) { return Ok(answer) }
     let Some(exchange) = field(&ctx, EXCHANGE_FIELD) else { return Ok(layout::bad_request()) };
-    if crate::ruby::blank(&exchange) { return exchange_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY).await }
+    if crate::v2::blank(&exchange) { return exchange_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY).await }
     config_mut(&mut ctx.session.lock().bot_config).insert("exchange_id".into(), json!(exchange));
     Ok(redirect(&ctx, KEY_NEW))
 }
@@ -242,7 +242,7 @@ pub async fn quote_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
     if let Some(answer) = expired(&ctx) { return Ok(answer) }
     let Some(id) = field(&ctx, QUOTE_FIELD) else { return Ok(layout::bad_request()) };
-    if crate::ruby::blank(&id) { return assets_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, &QUOTE_STEP, false).await }
+    if crate::v2::blank(&id) { return assets_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, &QUOTE_STEP, false).await }
     merge_setting(&ctx, "quote_asset_id", search::to_i(&id));
     Ok(redirect(&ctx, CONFIRM_NEW))
 }
@@ -422,7 +422,7 @@ fn head(status: StatusCode) -> Response { (status, [(header::CONTENT_TYPE, "text
 pub async fn update_signal(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
     let index = index(&ctx);
-    let present = |name: &str| field(&ctx, name).filter(|text| !crate::ruby::blank(text));
+    let present = |name: &str| field(&ctx, name).filter(|text| !crate::v2::blank(text));
     let (direction, amount, amount_type, enabled) = (present("direction"), present("amount"), present("amount_type"), field(&ctx, "enabled"));
     let amount = amount.map(|text| crate::web::bot::action_params::numeric(&json!(text), false).map_err(|_| WebError::Config("an amount past what Ruby reads".into()))).transpose()?;
     let found = with_rules(&ctx, |rules| {
@@ -518,7 +518,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ruby_indexes_and_amount_text() {
+    fn v2_indexes_and_amount_text() {
         assert_eq!((at(3, 0), at(3, 2), at(3, 3), at(3, -1), at(3, -4)), (Some(0), Some(2), None, Some(2), None));
         assert_eq!(amount_text(&BigDec::from_f64(40.0).unwrap()), "40");
         assert_eq!(amount_text(&BigDec::from_f64(12.5).unwrap()), "12.5");
@@ -526,7 +526,7 @@ mod tests {
     }
 
     #[test]
-    fn rules_read_the_session_as_rails_builds_them() {
+    fn rules_read_the_session_as_v2_builds_them() {
         let built = rules(&[json!({"direction": "sell", "amount": 150.0, "amount_type": "percentage"}), json!({"direction": "buy", "amount": 0, "enabled": false})]).unwrap();
         assert!(built[0].sell && built[0].percentage && built[0].enabled && !built[0].valid(), "over 100 %");
         assert!(!built[1].sell && !built[1].enabled && !built[1].valid(), "not above 0");

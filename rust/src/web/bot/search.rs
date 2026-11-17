@@ -408,7 +408,7 @@ mod tests {
     }
 
     #[test]
-    fn ruby_slices_and_to_i() {
+    fn v2_slices_and_to_i() {
         let rows = |n: i64| (0..n).map(|id| Row { id, symbol: "X".into(), name: None, color: None, category: None, image_url: None, market_cap_rank: None, exchanges: vec![] }).collect::<Vec<_>>();
         assert_eq!(page_of(rows(25), 20).len(), 5);
         assert_eq!(page_of(rows(25), 25).len(), 0);

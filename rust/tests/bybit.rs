@@ -48,7 +48,7 @@ fn balances_use_wallet_less_locked_and_borrow_with_legacy_fallback() {
 
 use deltabadger::venue::http::HttpRequest;
 use deltabadger::venue::OrderStatus;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 fn fixture() -> Value { serde_json::from_str(include_str!("fixtures/bybit_signing.json")).unwrap() }
 fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/bybit_vectors.json")).unwrap() }
 fn lower(h: &[(String, String)]) -> Vec<(String, String)> { let mut h: Vec<_> = h.iter().map(|(k,v)| (k.to_ascii_lowercase(),v.clone())).collect(); h.sort(); h }
@@ -76,7 +76,7 @@ fn every_recorded_honeymaker_request_is_reproduced() {
 
 /// #parse_order_data recorded over 10,000 generated V5 order answers.
 #[test]
-fn every_recorded_rails_order_parse_is_reproduced() {
+fn every_recorded_v2_order_parse_is_reproduced() {
     let v = vectors();
     let cases = v["bybit_parsed"].as_array().unwrap();
     assert_eq!(cases.len(), 10_000);
@@ -130,7 +130,7 @@ async fn sent_body(order: &NewOrder) -> Result<Value, VenueError> {
 /// :base_and_quote_in_base) and #set_market_order / #set_limit_order's wire, through amount::size, limit_refusal, to_order
 /// (`WireFormat::Bybit`: a market order keeps its unit) and the adapter's POST body.
 #[tokio::test(flavor = "current_thread")]
-async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
+async fn every_recorded_v2_sizing_and_wire_is_reproduced() {
     let (_d, o, s) = common::install();
     use common::seed::{self, BotSpec};
     let market = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
@@ -159,7 +159,7 @@ async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
 
 /// Both sides and units, with quote limits converted at the adjusted limit price before the intent.
 #[tokio::test(flavor = "current_thread")]
-async fn both_sides_of_every_recorded_rails_order_are_reproduced() {
+async fn both_sides_of_every_recorded_v2_order_are_reproduced() {
     let v = vectors();
     let cases = v["bybit_orders"].as_array().unwrap();
     assert_eq!(cases.len(), 4_000);
@@ -305,7 +305,7 @@ async fn lost_or_unreadable_placement_replies_are_never_rejected() {
     }
 }
 #[test]
-fn rules_match_the_recorded_rails_error_patterns() {
+fn rules_match_the_recorded_v2_error_patterns() {
     let f=fixture();
     for (kind,patterns) in BYBIT.kinds {
         let expected: Vec<&str>=f["errors"][kind].as_array().into_iter().flatten().map(|v|v.as_str().unwrap()).collect();
@@ -320,7 +320,7 @@ fn rules_match_the_recorded_rails_error_patterns() {
 }
 
 #[tokio::test]
-async fn prices_and_trading_balances_use_the_rails_v5_fields() {
+async fn prices_and_trading_balances_use_the_v2_v5_fields() {
     use deltabadger::venue::{PriceSide, binance::Pairs};
     let (t,v)=venue(json!({
         "GET /v5/market/tickers":[reply(json!([{"symbol":"BTCUSDT","lastPrice":"64000.5"}]))],

@@ -1053,7 +1053,7 @@ async fn confirmation_is_single_use_wrong_and_superseded_tokens_preserve_rows_an
 // and eligibility guard unchanged while fencing the credential write race.
 #[tokio::test(flavor="current_thread")]
 async fn account_rotation_must_not_erase_an_unresolved_accepted_order() {
-    use deltabadger::{engine::{amount::{self,Sizing},model,placement::{self,Recovery,Sent},FixedClock},ruby::BigDec,venue::{alpaca::{AlpacaVenue,Urls},http::{self,ReqwestTransport}}};
+    use deltabadger::{engine::{amount::{self,Sizing},model,placement::{self,Recovery,Sent},FixedClock},v2::BigDec,venue::{alpaca::{AlpacaVenue,Urls},http::{self,ReqwestTransport}}};
     use wiremock::matchers::header;
     let server=MockServer::start().await;
     let mut h=Harness::at_real_now(server.uri()).await;
@@ -1160,7 +1160,7 @@ async fn credential_fence_covers_every_writer_intents_and_tracked_open_orders() 
 
 #[tokio::test(flavor="current_thread")]
 async fn credential_fence_rereads_intents_created_during_network_validation() {
-    use deltabadger::{engine::{amount::{self,Sizing},model,placement,FixedClock},ruby::BigDec};
+    use deltabadger::{engine::{amount::{self,Sizing},model,placement,FixedClock},v2::BigDec};
     let server=MockServer::start().await;
     let mut h=Harness::new(server.uri()).await;
     let bot_id=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
@@ -1371,7 +1371,7 @@ async fn credential_digest_covers_each_stored_column_and_ignores_sync_metadata()
     h.c.execute("UPDATE bots SET status=4 WHERE id=?1",[id]).unwrap();
     let bot=model::load_bot(&h.c,id).unwrap();
     let ticker=model::ticker_for(&h.c,&bot).unwrap().unwrap();
-    let Sizing::Place(plan)=amount::size(&bot,&ticker,&deltabadger::ruby::BigDec::from_i64(60),&deltabadger::ruby::BigDec::from_i64(50_000),&deltabadger::engine::venue_rules::ALPACA).unwrap() else {panic!("fixture")};
+    let Sizing::Place(plan)=amount::size(&bot,&ticker,&deltabadger::v2::BigDec::from_i64(60),&deltabadger::v2::BigDec::from_i64(50_000),&deltabadger::engine::venue_rules::ALPACA).unwrap() else {panic!("fixture")};
     let composition=placement::composition_snapshot(&h.c,&bot).unwrap();
     let reconciled=deltabadger::engine::splits::snapshot(&h.c,&bot,"2026-09-10T12:00:00Z".parse().unwrap()).unwrap();
     for column in ["key","secret","passphrase","access_token","rsa_signature_key","rsa_encryption_key","dh_param"] {
@@ -1416,7 +1416,7 @@ async fn legacy_key_fields_come_from_api_key_never_a_top_level_query_parameter()
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn identical_saves_change_ciphertext_version_and_keep_rails_timestamps() {
+async fn identical_saves_change_ciphertext_version_and_keep_v2_timestamps() {
     use deltabadger::engine::model;
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account"))
@@ -1553,7 +1553,7 @@ impl deltabadger::venue::http::Transport for RotatesAtResponse {
     }
 }
 fn q_order(h:&Harness)->(deltabadger::engine::model::Bot,deltabadger::engine::amount::OrderPlan) {
-    use deltabadger::{engine::{model,amount::{self,Sizing}},ruby::BigDec};
+    use deltabadger::{engine::{model,amount::{self,Sizing}},v2::BigDec};
     let at=h.app.now();
     let id=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,&deltabadger::codec::format_time(at-chrono::Duration::seconds(1))));
     let bot=model::load_bot(&h.c,id).unwrap();let ticker=model::ticker_for(&h.c,&bot).unwrap().unwrap();
@@ -2325,7 +2325,7 @@ async fn validator_status_commit_wakes_the_running_engine(){
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn reading_key_positions_explicit_unauthorized_is_an_incorrect_key_as_in_rails(){
+async fn reading_key_positions_explicit_unauthorized_is_an_incorrect_key_as_in_v2(){
     use wiremock::matchers::header;
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).with_priority(10).mount(&server).await;
@@ -2447,7 +2447,7 @@ async fn malformed_settings_values_are_refused_without_any_write_or_side_effect(
     assert!(server.received_requests().await.unwrap().is_empty());assert!(h.mail.0.lock().unwrap().is_empty());
 }
 
-async fn rails_password_value(value:&str,expected:u16){
+async fn v2_password_value(value:&str,expected:u16){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;let before=h.snapshot();
     let answer=h.submit("PATCH","/settings/update_password",&[("user[password]",value),("user[password_confirmation]",value),("user[current_password]","Correct-horse-9")],Csrf::Header).await;
     assert_eq!(answer.status,expected);
@@ -2457,13 +2457,13 @@ async fn rails_password_value(value:&str,expected:u16){
     assert!(h.mail.0.lock().unwrap().is_empty());assert!(server.received_requests().await.unwrap().is_empty());
 }
 #[tokio::test(flavor="current_thread")]
-async fn password_non_ascii_letter_counts_as_a_symbol_exactly_as_rails(){rails_password_value("Correcthorse9Ż",200).await;}
+async fn password_non_ascii_letter_counts_as_a_symbol_exactly_as_v2(){v2_password_value("Correcthorse9Ż",200).await;}
 #[tokio::test(flavor="current_thread")]
-async fn password_non_ascii_digit_does_not_satisfy_rails_ascii_digit_rule(){rails_password_value("Correcthorse١!",422).await;}
+async fn password_non_ascii_digit_does_not_satisfy_v2_ascii_digit_rule(){v2_password_value("Correcthorse١!",422).await;}
 #[tokio::test(flavor="current_thread")]
-async fn password_complexity_cannot_combine_characters_from_different_lines(){rails_password_value("Correct\nhorse-9",422).await;}
+async fn password_complexity_cannot_combine_characters_from_different_lines(){v2_password_value("Correct\nhorse-9",422).await;}
 #[tokio::test(flavor="current_thread")]
-async fn whitespace_password_is_rails_noop_and_does_not_replace_the_hash(){rails_password_value("   ",200).await;}
+async fn whitespace_password_is_v2_noop_and_does_not_replace_the_hash(){v2_password_value("   ",200).await;}
 
 #[tokio::test(flavor="current_thread")]
 async fn google_alias_privacy_branch_clears_the_old_delivered_token_and_sends_no_mail(){
@@ -2560,19 +2560,19 @@ async fn email_errors_distinguish_blank_custom_format_and_devise_format_rules(){
     }
 }
 #[tokio::test(flavor="current_thread")]
-async fn password_confirmation_without_a_password_has_rails_presence_error(){
+async fn password_confirmation_without_a_password_has_v2_presence_error(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;let before=h.snapshot();
     let answer=h.submit("PATCH","/settings/update_password",&[("user[password_confirmation]","Another-horse-7"),("user[current_password]","Correct-horse-9")],Csrf::Header).await;
     assert_eq!(answer.status,422);assert_eq!(invalid_field_texts(&answer.body),vec![upcase_first(deltabadger::web::i18n::text("en","errors.messages.blank",&[])),upcase_first(deltabadger::web::i18n::text("en","errors.messages.confirmation",&[("attribute",deltabadger::web::i18n::Arg::Text("Password"))]))]);assert_eq!(h.snapshot(),before);
 }
 #[tokio::test(flavor="current_thread")]
-async fn whitespace_current_password_has_the_rails_blank_error(){
+async fn whitespace_current_password_has_the_v2_blank_error(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;let before=h.snapshot();
     let answer=h.submit("PATCH","/settings/update_email",&[("user[email]","next@example.com"),("user[current_password]","   ")],Csrf::Header).await;
     assert_eq!(answer.status,422);assert_eq!(invalid_field_texts(&answer.body),vec![upcase_first(deltabadger::web::i18n::text("en","errors.messages.blank",&[]));2]);assert_eq!(h.snapshot(),before);
 }
 #[tokio::test(flavor="current_thread")]
-async fn taken_email_privacy_branch_retains_the_raw_pending_input_as_rails_does(){
+async fn taken_email_privacy_branch_retains_the_raw_pending_input_as_v2_does(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     h.c.execute("INSERT INTO users(email,encrypted_password,confirmed_at,created_at,updated_at)VALUES('alice@gmail.com',?1,'2026-01-01','2026-01-01','2026-01-01')",[deltabadger::crypto::hash_password("Correct-horse-9").unwrap()]).unwrap();
     let raw=" ALICE+TAG@googlemail.com ";let answer=h.submit("PATCH","/settings/update_email",&[("user[email]",raw),("user[current_password]","Correct-horse-9")],Csrf::Header).await;
@@ -2726,7 +2726,7 @@ async fn successful_legacy_replacement_retains_credential_identity_and_every_his
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn legacy_same_key_revalidation_keeps_the_stored_realm_as_rails_does(){
+async fn legacy_same_key_revalidation_keeps_the_stored_realm_as_v2_does(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     h.c.execute("UPDATE api_keys SET key_type=0,passphrase=?1 WHERE id=?2",(h.app.cipher.encrypt("live"),h.seed.api_key_id)).unwrap();
     let answer=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","previous-key"),("api_key[secret]","previous-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
@@ -2881,7 +2881,7 @@ async fn i_engine_diagnostics_redact_all_stored_material_in_every_encoding(){
 
 
 #[tokio::test(flavor="current_thread")]
-async fn r1_ruby_name_whitespace_is_ascii() {
+async fn r1_v2_name_whitespace_is_ascii() {
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     for name in ["Alice\u{a0}Smith","Alice\u{2003}Smith"] {
         let before=h.snapshot();
@@ -3626,7 +3626,7 @@ async fn r9_confirmation_resend_is_limited_before_mail_and_keeps_normal_response
 }
 
 #[test]
-fn r9_password_reset_methods_share_one_rails_throttle(){
+fn r9_password_reset_methods_share_one_v2_throttle(){
     use deltabadger::web::rate_limit::Limiter;
     let limiter=Limiter::default();let now=chrono::DateTime::parse_from_rfc3339("2026-09-10T12:00:30.123456Z").unwrap().with_timezone(&chrono::Utc);
     for method in ["POST","PATCH","PUT","POST","PATCH"]{assert!(limiter.hit(&method.parse().unwrap(),"/password","192.0.2.1",now).is_none());}
@@ -3723,11 +3723,11 @@ async fn sign_in_email_matches_recorded_strip(case: &str) {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn sign_in_email_nbsp_is_refused_as_rails_records() { sign_in_email_matches_recorded_strip("nbsp").await; }
+async fn sign_in_email_nbsp_is_refused_as_v2_records() { sign_in_email_matches_recorded_strip("nbsp").await; }
 #[tokio::test(flavor = "current_thread")]
-async fn sign_in_email_em_space_is_refused_as_rails_records() { sign_in_email_matches_recorded_strip("em_space").await; }
+async fn sign_in_email_em_space_is_refused_as_v2_records() { sign_in_email_matches_recorded_strip("em_space").await; }
 #[tokio::test(flavor = "current_thread")]
-async fn sign_in_email_nul_is_stripped_as_rails_records() { sign_in_email_matches_recorded_strip("nul").await; }
+async fn sign_in_email_nul_is_stripped_as_v2_records() { sign_in_email_matches_recorded_strip("nul").await; }
 
 // D5b: the tracker's "connect an exchange" flow (Tracker::PickExchangesController, Tracker::AddApiKeysController).
 fn d5b_venues(c:&rusqlite::Connection){
@@ -3931,7 +3931,7 @@ impl deltabadger::sync::jobs::Connect for LocalVenues {
 /// ApiKeyValidatorJob as Rails performed it on a pending key (validator_effects.json, recorded from Rails before B11):
 /// the venue's own check, the status it leaves, and the balance sync a correct trading key enqueues.
 #[tokio::test(flavor="current_thread")]
-async fn validator_job_matches_rails_on_every_checked_venue(){
+async fn validator_job_matches_v2_on_every_checked_venue(){
     use deltabadger::{jobs::{Job,Cx,Db,Outcome},sync::jobs::{Validator,BALANCE_SYNC}};
     let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let recorded:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(root.join("tests/fixtures/validator_effects.json")).unwrap()).unwrap();

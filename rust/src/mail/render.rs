@@ -5,7 +5,7 @@
 use super::Message;
 use crate::engine::notice::{bounded, Notice, ERROR_LIMIT};
 use crate::engine::{venue_rules, EngineError};
-use crate::ruby::float_to_s;
+use crate::v2::float_to_s;
 use crate::web::i18n::{self, escape, Arg};
 use crate::web::locale;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -129,7 +129,7 @@ pub fn stopped_by_base_amount_limit(from: &str, urls: &Urls, to: &Recipient, lab
 /// D-6D-1: the base cap in the mail at the base's precision (`decimals[:base]`, 8 without one), zeros trimmed. Rails hands
 /// the mailer `base_amount_limit`, a Float printed by Float#to_s ("1.0e-05", "2.0").
 pub fn base_cap_amount(limit: Option<&Value>, decimals: Option<u8>) -> String {
-    let Some(limit) = limit.and_then(|v| crate::ruby::json_to_d(v).ok().flatten()) else { return ruby_to_s(limit) };
+    let Some(limit) = limit.and_then(|v| crate::v2::json_to_d(v).ok().flatten()) else { return v2_to_s(limit) };
     let text = limit.round(decimals.unwrap_or(8)).to_s_f();
     text.strip_suffix(".0").map(str::to_string).unwrap_or(text)
 }
@@ -269,7 +269,7 @@ fn raw_refusal(exchange_type: &str, exchange_name: &str, locale: &str, message: 
         _ => return None,
     };
     match serde_json::from_str::<Value>(message).ok()?.get(field)? {
-        Value::String(s) if !crate::ruby::blank(s) => Some(s.clone()),
+        Value::String(s) if !crate::v2::blank(s) => Some(s.clone()),
         _ => None,
     }
 }
@@ -328,8 +328,8 @@ pub const NAME_LIMIT: usize = 200;
 
 /// A settings value as Ruby prints it in a translation: `quote_amount_limit.to_s`, except D-MAIL-PLAIN-DECIMAL: a Float
 /// Ruby prints in exponent form ("1.0e-05") is written as the settings page writes it ("0.00001").
-fn ruby_to_s(v: Option<&Value>) -> String {
-    let float = |f: f64| { let ruby = float_to_s(f); if ruby.contains('e') { crate::web::format::input_value(&crate::web::format::Num::Float(f)).unwrap_or(ruby) } else { ruby } };
+fn v2_to_s(v: Option<&Value>) -> String {
+    let float = |f: f64| { let v2 = float_to_s(f); if v2.contains('e') { crate::web::format::input_value(&crate::web::format::Num::Float(f)).unwrap_or(v2) } else { v2 } };
     match v {
         Some(Value::Number(n)) => n.as_i64().map(|i| i.to_string()).or_else(|| n.as_f64().map(float)).unwrap_or_default(),
         Some(Value::String(s)) => s.clone(),
@@ -380,7 +380,7 @@ pub fn facts(c: &Connection, bot_id: i64, notice: &Notice) -> Result<Option<Fact
         }),
         Notice::SetAside { reasons } => Some(What::SetAside { reasons: reasons.clone() }),
         Notice::StoppedByAmountLimit => symbol(settings.get("quote_asset_id").and_then(Value::as_i64))?
-            .map(|quote| What::AmountLimit { amount: ruby_to_s(settings.get("quote_amount_limit")), quote }),
+            .map(|quote| What::AmountLimit { amount: v2_to_s(settings.get("quote_amount_limit")), quote }),
         Notice::StoppedByBaseAmountLimit => base_mail_values(c, bot_id, &settings, base_marker.as_deref())?
             .map(|(amount, base)| What::BaseLimit { amount, base }),
     };

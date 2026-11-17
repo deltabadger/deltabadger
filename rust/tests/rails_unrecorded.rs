@@ -4,7 +4,7 @@
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use common::seed::{self, BotSpec, Seeded};
-use deltabadger::engine::{model, rails_unrecorded as ru};
+use deltabadger::engine::{model, v2_unrecorded as ru};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 
@@ -272,7 +272,7 @@ fn every_line_renders_in_english_without_a_missing_key() {
     }
 }
 
-// ---- the oracle: Rails' own verdict on real transport failures (script/rust/rails_unrecorded.rb) -----------------------
+// ---- the oracle: Rails' own verdict on real transport failures (script/rust/v2_unrecorded.rb) -----------------------
 
 fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/rails_unrecorded_vectors.json")).unwrap() }
 

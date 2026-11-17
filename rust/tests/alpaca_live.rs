@@ -4,7 +4,7 @@
 //!     cargo test --test alpaca_live -- --ignored --nocapture --test-threads=1
 use chrono::Utc;
 use deltabadger::engine::model::Ticker;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls, PAPER_TRADING_URL};
 use deltabadger::venue::http::{client, HttpRequest, HttpResponse, ReqwestTransport, Transport, TransportError};
 use deltabadger::venue::{NewOrder, OrderKind, OrderStatus, PriceSide, Venue};

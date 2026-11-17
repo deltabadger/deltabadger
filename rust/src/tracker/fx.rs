@@ -147,7 +147,7 @@ fn sdmx_rows(body: &str) -> Result<Vec<(String, String, String)>, String> {
     let (Some(cur), Some(day), Some(val)) = (col("CURRENCY"), col("TIME_PERIOD"), col("OBS_VALUE")) else { return Ok(vec![]) };
     Ok(rows.filter_map(|r| {
         let v = r.get(val).cloned().unwrap_or_default();
-        if crate::ruby::blank(&v) { return None; }
+        if crate::v2::blank(&v) { return None; }
         Some((r.get(cur).cloned().unwrap_or_default(), r.get(day).cloned().unwrap_or_default(), v))
     }).collect())
 }

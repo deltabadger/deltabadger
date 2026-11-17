@@ -3,7 +3,7 @@
 //! CsvSafe put ahead of a formula character (CsvSafe.unescape), so a round trip is lossless; Rails keeps it. Pinned by
 //! rust/tests/fixtures/import_vectors.json.
 use super::csv::{self, Malformed, Table};
-use crate::ruby;
+use crate::v2;
 use crate::sync::activities::{Entry, Raw};
 use crate::web::tracker::CSV_HEADERS;
 use serde_json::json;
@@ -15,7 +15,7 @@ pub struct Routed { pub exchange: Option<String>, pub entry: Entry }
 /// CsvSafe.unescape: drop the one leading `'` CsvSafe.cell adds, only when what follows reads as a formula.
 pub(crate) fn unescape(v: &str) -> &str {
     const LEADERS: [char; 7] = ['=', '+', '-', '@', '\t', '\r', '\n'];
-    v.strip_prefix('\'').filter(|rest| rest.starts_with(LEADERS) || ruby::strip(rest).starts_with(LEADERS)).unwrap_or(v)
+    v.strip_prefix('\'').filter(|rest| rest.starts_with(LEADERS) || v2::strip(rest).starts_with(LEADERS)).unwrap_or(v)
 }
 
 /// Import::DeltabadgerCsv.new(text).entries, oldest first (stable), with #unrecognised. `text` is Import::Run.as_text's.
@@ -27,14 +27,14 @@ pub fn read(text: &str) -> Result<(Vec<Routed>, Vec<String>), Malformed> {
         let get = |name: &str| table.get(row, name);
         // The text columns only: amounts, the date and the type are read as Rails reads them.
         let text = |name: &str| get(name).map(unescape);
-        let presence = |name: &str| text(name).filter(|v| !ruby::blank(v)).map(str::to_string);
-        let type_name = ruby::strip(get(kind).unwrap_or(""));
+        let presence = |name: &str| text(name).filter(|v| !v2::blank(v)).map(str::to_string);
+        let type_name = v2::strip(get(kind).unwrap_or(""));
         let Some(entry_type) = super::entry_type(type_name) else {
-            if !ruby::blank(type_name) && !unrecognised.iter().any(|u| u == type_name) { unrecognised.push(type_name.to_string()); }
+            if !v2::blank(type_name) && !unrecognised.iter().any(|u| u == type_name) { unrecognised.push(type_name.to_string()); }
             continue;
         };
-        let amount = |name: &str| get(name).filter(|v| !ruby::blank(v)).map(|v| csv::amount(Some(v))).transpose();
-        let exchange = Some(ruby::strip(text(exchange).unwrap_or(""))).filter(|v| !ruby::blank(v)).map(str::to_string);
+        let amount = |name: &str| get(name).filter(|v| !v2::blank(v)).map(|v| csv::amount(Some(v))).transpose();
+        let exchange = Some(v2::strip(text(exchange).unwrap_or(""))).filter(|v| !v2::blank(v)).map(str::to_string);
         let entry = Entry {
             entry_type,
             base_currency: text(base_currency).map(str::to_string),

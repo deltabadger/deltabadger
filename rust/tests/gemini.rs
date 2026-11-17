@@ -11,7 +11,7 @@ use deltabadger::engine::placement::{self, OperatorResolution, Recovery, Sent};
 use deltabadger::engine::tick::{self, Attempts, TickOutcome};
 use deltabadger::engine::venue_rules::{GEMINI, KRAKEN};
 use deltabadger::engine::FixedClock;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store::{self, Paths};
 use deltabadger::venue::binance::Pairs;
 use deltabadger::venue::gemini::{self, GeminiVenue, URL};
@@ -160,7 +160,7 @@ async fn a_crossed_order_is_an_ioc_limit_at_its_price_and_a_limit_order_rests() 
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn placement_answers_map_to_rails_ambiguity_rules() {
+async fn placement_answers_map_to_v2_ambiguity_rules() {
     let crossed = new_order(OrderKind::Crossed { price: "1.21".into() });
     for (reply, want) in [
         (err(400, "InsufficientFunds", "insufficient funds"), "rejected"),

@@ -10,7 +10,7 @@ use super::schedule::checkpoints;
 use super::rebalance::Settlement;
 use super::wash::Reason;
 use super::{polling, Clock, EngineError};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::{Side, Venue, VenueError};
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::{params, Connection};
@@ -813,7 +813,7 @@ pub(crate) async fn dispatch<V: Venue + Attributed>(venue: &V, plan: &OrderPlan,
     };
     match venue.placement_result(&order).await.value {
         Ok(txid) => Sent::Accepted(txid),
-        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
+        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::v2::to_sentence(&e)),
         Err(VenueError::Coded { code, errors }) if skips_minimum && below_minimum(rules.exchange_type, Some(&code), &errors) => Sent::BelowMinimum(errors),
         Err(VenueError::Rejected(e)) if skips_minimum && below_minimum(rules.exchange_type, None, &e) => Sent::BelowMinimum(e),
         Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => Sent::Rejected(e),
@@ -888,8 +888,8 @@ fn record_rejected_in(tx: &rusqlite::Transaction<'_>, bot: &Bot, intent: &Intent
         }
         let settlement = if safe { Settlement::NotPlaced(Reason::Rejected { safe, unknown: false }) }
             else { Settlement::Halt(match intent.plan.kind {
-                TxKind::Rebalance => format!("{} placement failed: {}", intent.plan.side.as_str(), crate::ruby::to_sentence(errors)),
-                TxKind::Liquidation | TxKind::Redeploy => format!("placement failed: {}", crate::ruby::to_sentence(errors)),
+                TxKind::Rebalance => format!("{} placement failed: {}", intent.plan.side.as_str(), crate::v2::to_sentence(errors)),
+                TxKind::Liquidation | TxKind::Redeploy => format!("placement failed: {}", crate::v2::to_sentence(errors)),
                 TxKind::Regular => unreachable!(),
             }) };
         settle(tx, bot.id, intent, settlement, now)?;

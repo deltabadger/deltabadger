@@ -199,7 +199,7 @@ fn tuple_encoding_is_unambiguous_versioned_and_full_sha256() {
 }
 
 #[test]
-fn recorded_rails_collisions_and_negative_controls_remain_the_oracle() {
+fn recorded_v2_collisions_and_negative_controls_remain_the_oracle() {
     let v:Value=serde_json::from_str(include_str!("fixtures/binance_identity.json")).unwrap();
     let cases=v["collisions"].as_array().unwrap();
     assert_eq!(cases.len(),8+8+4+1+2+1,"8 capital/reward/dust + 8 Earn + 4 excluded + flexible mapper + 2 US transfers + negative controls");

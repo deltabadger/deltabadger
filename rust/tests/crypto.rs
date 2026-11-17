@@ -35,7 +35,7 @@ fn keys_from_env_are_used_verbatim_and_half_a_pair_is_refused() {
 }
 
 #[test]
-fn decrypts_every_rails_ciphertext() {
+fn decrypts_every_v2_ciphertext() {
     let cipher = Cipher::new(&fixture_keys());
     for (name, c) in common::vectors()["ciphertexts"].as_object().unwrap() {
         assert_eq!(cipher.decrypt(c["cipher"].as_str().unwrap()).unwrap(), c["plain"].as_str().unwrap(), "{name}");

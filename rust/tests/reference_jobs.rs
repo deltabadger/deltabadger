@@ -76,7 +76,7 @@ async fn import_tickers_dedups_skips_and_realigns_as_marketdata_does() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn floating_sizes_are_stored_as_rubys_bigdecimal_of_the_float() {
+async fn floating_sizes_are_stored_as_v2s_bigdecimal_of_the_float() {
     let (d, c) = db();
     let kraken = exchange(&c, "Exchanges::Kraken", true);
     asset(&c, "bitcoin", "BTC", "Cryptocurrency");
@@ -1000,7 +1000,7 @@ fn row_text(c: &Connection, id: &str, col: &str) -> Option<String> {
 }
 fn top_of(c: &Connection, id: &str) -> Vec<String> { serde_json::from_str(&row_text(c, id, "top_coins").unwrap()).unwrap() }
 /// An existing `coingecko` row as Rails' pass leaves it (10 display coins, no weights), unattested.
-fn rails_category_row(c: &Connection, id: &str, top: &[&str]) -> i64 {
+fn v2_category_row(c: &Connection, id: &str, top: &[&str]) -> i64 {
     c.execute("INSERT INTO indices (external_id, source, name, description, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at) \
                VALUES (?1, 'coingecko', ?1, 'Rails', ?2, '{}', '{}', '{}', 0, '2026-09-01 10:30:00', '2026-09-01 10:30:00')",
               rusqlite::params![id, json!(top).to_string()]).unwrap();
@@ -1194,11 +1194,11 @@ async fn the_category_pass_ranks_the_slice_sweeps_and_keeps_what_is_followed() {
     asset(&c, "unlisted-3", "U3", "Cryptocurrency");
     let fp = deltabadger::engine::provider::fingerprint(&c).unwrap().unwrap();
     // A row this engine ranked, now gone from the feed: swept, its ranking cascaded.
-    let old = rails_category_row(&c, "old-category", &["coin-a"]);
+    let old = v2_category_row(&c, "old-category", &["coin-a"]);
     deltabadger::engine::index::record_ranking(&c, old, "coingecko", &fp, at("2026-09-30T10:31:00Z")).unwrap();
-    rails_category_row(&c, "launchpad", &["coin-a"]); // listed without a description: swept
-    rails_category_row(&c, "oracle", &["coin-a"]);    // followed, gone from the feed: retired (r18), its row kept, not asked
-    rails_category_row(&c, "meme-token", &["coin-b"]); // eligible, not due: untouched
+    v2_category_row(&c, "launchpad", &["coin-a"]); // listed without a description: swept
+    v2_category_row(&c, "oracle", &["coin-a"]);    // followed, gone from the feed: retired (r18), its row kept, not asked
+    v2_category_row(&c, "meme-token", &["coin-b"]); // eligible, not due: untouched
     cg_bot(&c, &s, "oracle", 2);
     cg_bot(&c, &s, "frog-themed-coins", 1);
     let t = cg_transport();
@@ -1433,7 +1433,7 @@ async fn availability_is_recomputed_from_the_stored_ranking_without_a_fetch() {
     let c = reopen(&d);
     deltabadger::engine::provider::bind(&c, &seed::cipher(), &|_| None).unwrap();
     let fp = deltabadger::engine::provider::fingerprint(&c).unwrap().unwrap();
-    let storage = rails_category_row(&c, "storage", &["coin-a", "coin-b", "coin-c"]);
+    let storage = v2_category_row(&c, "storage", &["coin-a", "coin-b", "coin-c"]);
     deltabadger::engine::index::record_ranking(&c, storage, "coingecko", &fp, at("2026-09-29T10:31:00Z")).unwrap();
     let ranked_before = ranking(&c, "storage");
     let oracle_before = (ranking(&c, "oracle"), row_text(&c, "oracle", "updated_at"));
@@ -1461,11 +1461,11 @@ async fn availability_is_recomputed_from_the_stored_ranking_without_a_fetch() {
 /// Takeover of a 2.x CoinGecko install (D-INDEX-UNATTESTED-HELD): Rails' 10-coin row holds the bot stale and is never composed;
 /// the woken run ranks it, and the bot is fresh.
 #[tokio::test(flavor = "current_thread")]
-async fn a_rails_coingecko_row_is_held_until_the_job_ranks_it() {
+async fn a_v2_coingecko_row_is_held_until_the_job_ranks_it() {
     use deltabadger::engine::{index, model, staleness};
     let coins = twelve();
     let (d, c, s) = cg_install(&coins.iter().map(String::as_str).collect::<Vec<_>>());
-    rails_category_row(&c, "layer-1", &coins[..10].iter().map(String::as_str).collect::<Vec<_>>());
+    v2_category_row(&c, "layer-1", &coins[..10].iter().map(String::as_str).collect::<Vec<_>>());
     let bot = model::load_bot(&c, cg_bot(&c, &s, "layer-1", 1)).unwrap();
     let now = at(CG_NOW);
     // As Rails' last pull left the fence (a takeover keeps it): only the ranking holds the bot.
@@ -1489,7 +1489,7 @@ async fn a_rails_coingecko_row_is_held_until_the_job_ranks_it() {
 /// ranking of an answer composes the members and weights Rails' live composition takes from the same answer (its own caps,
 /// to_f; the top N by cap, weighed by cap: index_allocatable.rb:56-123), never the assets' caps.
 #[tokio::test(flavor = "current_thread")]
-async fn a_category_bot_composes_from_the_stored_answer_as_rails_composes_it_live() {
+async fn a_category_bot_composes_from_the_stored_answer_as_v2_composes_it_live() {
     use deltabadger::engine::{index, model};
     let (d, c, s) = cg_install(&["coin-a", "coin-b", "coin-c", "coin-d"]);
     c.execute("UPDATE assets SET market_cap = 1 WHERE external_id LIKE 'coin-%'", []).unwrap(); // conflicting local caps: never read
@@ -1521,7 +1521,7 @@ async fn the_data_api_pull_ranks_what_it_imports_and_nothing_else() {
     let c = o.primary;
     let bot = seed::index_bot(&c, &s, "layer-1", 3, 0.0, false); // a data-api install
     c.execute("DELETE FROM rust_index_rankings", []).unwrap();
-    rails_category_row(&c, "rails-only", &["bitcoin"]);
+    v2_category_row(&c, "rails-only", &["bitcoin"]);
     let t = ScriptedTransport::default();
     t.reply("GET /api/v2/indices", 200, json!({ "data": [
         { "external_id": "nasdaq-100", "source": "deltabadger", "name": "Nasdaq 100", "top_coins": ["AAPL.US"], "weights": { "AAPL.US": 0.08 } },
@@ -1585,7 +1585,7 @@ impl Api for FollowsDuring {
 async fn a_follow_during_the_categories_request_keeps_its_row_and_ranking() {
     let (d, c, s) = cg_install(&["coin-a", "coin-b"]);
     let fp = deltabadger::engine::provider::fingerprint(&c).unwrap().unwrap();
-    let old = rails_category_row(&c, "old-category", &["coin-a"]);
+    let old = v2_category_row(&c, "old-category", &["coin-a"]);
     deltabadger::engine::index::record_ranking(&c, old, "coingecko", &fp, at("2026-09-30T10:31:00Z")).unwrap();
     let before = ranking(&c, "old-category");
     let t = cg_transport();
@@ -1663,7 +1663,7 @@ async fn a_relisted_category_is_unretired_and_fetched_and_held_until_ranked() {
     use deltabadger::engine::{model, staleness};
     let (d, c, s) = cg_install(&["coin-a", "coin-b", "coin-c"]);
     let bot = cg_bot(&c, &s, "oracle", 1);
-    rails_category_row(&c, "oracle", &["coin-a"]);
+    v2_category_row(&c, "oracle", &["coin-a"]);
     c.execute("INSERT INTO rust_index_retired VALUES ('oracle', 'coingecko', '2026-10-01T00:00:00Z')", []).unwrap();
     let t = cg_transport();
     t.reply(CATS_KEY, 200, json!([category("oracle", "O")])).reply(&cat_key("oracle"), 500, json!({}));

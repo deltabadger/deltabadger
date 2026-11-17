@@ -1153,7 +1153,7 @@ fn fold_cfees(rows: &mut Vec<Stored>, expense: bool, folds: &dyn Fn(&Stored) -> 
 }
 
 /// A cell as Ruby's CSV writes it through CsvSafe: a String (escaped when it reads as a formula after Ruby's lstrip, which
-/// takes a NUL too; `ruby::strip` answers the same, as what lstrip leaves never starts with what strip removes), anything
+/// takes a NUL too; `v2::strip` answers the same, as what lstrip leaves never starts with what strip removes), anything
 /// else as its `to_s`, or nil.
 pub(crate) enum Cell { Text(String), Raw(String), Nil }
 
@@ -1169,7 +1169,7 @@ pub(crate) fn line(out: &mut String, cells: &[Cell]) {
         Cell::Nil => String::new(),
         Cell::Raw(v) => quote(v),
         Cell::Text(v) if v.is_empty() => "\"\"".into(),
-        Cell::Text(v) if v.starts_with(LEADERS) || crate::ruby::strip(v).starts_with(LEADERS) => quote(&format!("'{v}")),
+        Cell::Text(v) if v.starts_with(LEADERS) || crate::v2::strip(v).starts_with(LEADERS) => quote(&format!("'{v}")),
         Cell::Text(v) => quote(v),
     }).collect();
     out.push_str(&fields.join(","));

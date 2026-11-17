@@ -5,7 +5,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError}
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BINGX as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 

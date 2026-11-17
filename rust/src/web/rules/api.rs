@@ -102,11 +102,11 @@ impl Request {
                 .get("address")
                 .filter(|v| !v.is_array() && !v.is_object())
                 .map(crate::web::mcp::tools::str_value)
-                .filter(|v| action == Action::Create || !crate::ruby::blank(v)),
+                .filter(|v| action == Action::Create || !crate::v2::blank(v)),
             // A destination change that names its tag carries the whole destination, as the web picker posts it:
             // a blank tag (or network or key) clears the stored one instead of keeping it (an old MEXC memo).
-            destination: (action == Action::Update && !crate::ruby::blank(&text("address")) && args.get("address_tag").is_some()).then(|| {
-                let opt = |name: &str| Some(text(name)).filter(|v| !crate::ruby::blank(v));
+            destination: (action == Action::Update && !crate::v2::blank(&text("address")) && args.get("address_tag").is_some()).then(|| {
+                let opt = |name: &str| Some(text(name)).filter(|v| !crate::v2::blank(v));
                 super::reads::Identity { address: text("address"), network: opt("network"), tag: opt("address_tag"), key: opt("address_name") }
             }),
         };
@@ -169,7 +169,7 @@ impl Request {
                             !v.is_array()
                                 && !v.is_object()
                                 && (*k == "max_interval"
-                                    || !crate::ruby::blank(&crate::web::mcp::tools::str_value(v)))
+                                    || !crate::v2::blank(&crate::web::mcp::tools::str_value(v)))
                         })
                     })
                     .collect();

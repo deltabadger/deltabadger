@@ -8,7 +8,7 @@ use super::{commit, commit_bots, load_key, number, parsed, phase, record_sync_er
 use crate::codec::parse_time;
 use crate::crypto::Credentials;
 use crate::engine::Clock;
-use crate::ruby::{json_to_d, BigDec};
+use crate::v2::{json_to_d, BigDec};
 use crate::venue::alpaca::AlpacaVenue;
 use crate::venue::http::Transport;
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};

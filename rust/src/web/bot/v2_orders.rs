@@ -1,12 +1,12 @@
 //! A28-2a (PLAN-A28-2 §2, r2.1): the owner's answer to a `rails_order_open`/`listed` line. "This was this bot's order"
-//! leaves a request the engine serves (`rails_unrecorded::serve_bookings`); "None of these was this bot's" is decided here.
+//! leaves a request the engine serves (`v2_unrecorded::serve_bookings`); "None of these was this bot's" is decided here.
 //! A28-2b (PLAN-A28-2b, D-RAILS-UNRECORDED-API): MCP's `answer_unrecorded_order` and REST's
 //! `POST /api/v1/bots/:id/unrecorded_orders` answer through the same `answer`; the outcome is read in `get_bot_details`.
 use axum::{extract::{Extension,Path,State},http::StatusCode,response::{IntoResponse,Response}};
 use rusqlite::{Connection,OptionalExtension};
 use serde_json::{json,Map,Value};
 use chrono::{DateTime,Utc};
-use crate::engine::{rails_unrecorded as ru,EngineError};
+use crate::engine::{v2_unrecorded as ru,EngineError};
 use crate::web::{auth,flash,i18n,layout::{self,Ctx},App,WebError};
 use crate::web::bot_api::{Domain,Res};
 
@@ -29,7 +29,7 @@ pub fn answer(c:&Connection,user:i64,bot:i64,obligation:i64,answer:Answer,now:Da
     Ok(Some((venue,done)))
 }
 
-/// POST /bots/:id/rails_orders with `obligation` and `offer` (an offer id) or `none=1`.
+/// POST /bots/:id/v2_orders with `obligation` and `offer` (an offer id) or `none=1`.
 pub async fn create(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segment):Path<String>)->Result<Response,WebError> {
     let Some(user)=ctx.user().map(|u|u.id) else {return Ok(auth::unauthenticated(&ctx))};
     let Some(id)=super::id_from_path(&segment) else {return Ok(super::liquidation::missing(&ctx))};
@@ -134,7 +134,7 @@ pub fn listing(c:&Connection,bot:i64,quote:&str,now:DateTime<Utc>)->Result<(Valu
     if !present {return Ok((Value::Null,vec![]))}
     let Some(l)=ru::listing(c,bot,now)? else {return Ok((Value::Null,vec![]))};
     let en="en";
-    let amount=|v:&Option<crate::ruby::BigDec>| v.as_ref().map(crate::ruby::BigDec::to_s_f);
+    let amount=|v:&Option<crate::v2::BigDec>| v.as_ref().map(crate::v2::BigDec::to_s_f);
     let mut lines=vec![format!("Unrecorded orders from before the update (answer with {TOOL}); carry now {} {quote}:",amount(&l.carry).unwrap_or_else(||"unknown".into()))];
     let mut rows=vec![];
     for o in &l.obligations {

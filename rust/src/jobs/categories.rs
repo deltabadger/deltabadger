@@ -440,7 +440,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn brackets_are_stripped_as_rails_strips_them() {
+    fn brackets_are_stripped_as_v2_strips_them() {
         assert_eq!(strip_brackets("Layer 1 (L1)"), "Layer 1");
         assert_eq!(strip_brackets("YZi Labs (Prev. Binance Labs) Portfolio"), "YZi Labs Portfolio");
         assert_eq!(strip_brackets("  Meme  "), "Meme");

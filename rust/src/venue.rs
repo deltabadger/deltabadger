@@ -33,7 +33,7 @@ use crate::crypto::Credentials;
 use crate::engine::candles::{Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::VenueRules;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::sync::balances::Catalog;
 use chrono::{DateTime, Utc};
 
@@ -174,7 +174,7 @@ impl VenueError {
     pub fn message(&self) -> String {
         match self {
             Self::Transient(message) | Self::Ambiguous(message) => message.clone(),
-            Self::Rejected(errors) | Self::Unauthorized(errors) | Self::Coded { errors, .. } => crate::ruby::to_sentence(errors),
+            Self::Rejected(errors) | Self::Unauthorized(errors) | Self::Coded { errors, .. } => crate::v2::to_sentence(errors),
         }
     }
     /// The refusal's text, for `Rejected` and `Unauthorized` alike.

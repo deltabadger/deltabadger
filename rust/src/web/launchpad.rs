@@ -39,7 +39,7 @@ fn message(text: impl Into<String>) -> Failure { Failure::Message(text.into()) }
 fn present(value: &Value) -> bool {
     match value {
         Value::Null | Value::Bool(false) => false,
-        Value::String(s) => !crate::ruby::blank(s),
+        Value::String(s) => !crate::v2::blank(s),
         Value::Array(a) => !a.is_empty(),
         Value::Object(o) => !o.is_empty(),
         _ => true,
@@ -147,7 +147,7 @@ mod tests {
     const JSON: Option<&str> = Some("application/json; charset=utf-8");
 
     #[test]
-    fn answers_read_as_rails_reads_them() {
+    fn answers_read_as_v2_reads_them() {
         let ok = r#"{"identity":{"name":"Owner","email":"o@example.com"},"market_data":{"url":"https://d.example","token":"t"},"proxies":{"Binance":"http://p","n":1}}"#;
         assert_eq!(read(200, JSON, ok), Ok(Claim { market_url: "https://d.example".into(), market_token: "t".into(),
             proxies: vec![("proxy_binance".into(), "http://p".into()), ("proxy_n".into(), "1".into())], identity: (Some("Owner".into()), Some("o@example.com".into())) }));

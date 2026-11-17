@@ -10,7 +10,7 @@
 //!   symbol or source and stores a garbage amount as 0);
 //! - trades are read per symbol by id (`fromId`: one past the largest trade id stored for it, else 0), every page of
 //!   1000, so a symbol's history is whole whatever its length (Rails reads the 500 most recent, or 500 from a time);
-//!   the watermark still counts what Rails' read returns, stored trades included (`rails_trades_seen`), so it moves as
+//!   the watermark still counts what Rails' read returns, stored trades included (`v2_trades_seen`), so it moves as
 //!   Rails' does;
 //! - the symbols are found again every run, from Binance's exchange information: every pair whose base or quote the
 //!   account ever held (this run's transfers, today's balances, every stored row); Rails re-reads only fiat-quoted pairs
@@ -42,7 +42,7 @@ use super::{capture_bound_version, load_key_of, phase, record_sync_error, sql_ti
 use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::jobs::Db;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::binance::{self, BinanceVenue, BINANCE, BINANCE_US, READ_RECV_WINDOW};
 use crate::venue::http::Transport;
 use chrono::{DateTime, Duration, TimeZone, Utc};
@@ -66,7 +66,7 @@ pub const OVERLAP_HOURS: i64 = 25;
 /// Exchanges::Binance#ledger_window: Rails floors an incremental start to 80 days ago.
 pub const LEDGER_WINDOW_DAYS: i64 = 80;
 /// What one myTrades answer holds when Rails sends no limit.
-pub const RAILS_TRADES: usize = 500;
+pub const V2_TRADES: usize = 500;
 /// What one answer may hold. The exchange information lists every symbol Binance ever had (a few thousand).
 pub const MAX_PAGE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_INFO_BYTES: usize = 64 * 1024 * 1024;
@@ -141,10 +141,10 @@ impl Pacing {
 
 /// `Time.at(ms / 1000.0)` as Rails stores it: the Float quotient, its microseconds truncated (ActiveRecord keeps six
 /// digits of the exact value of that double, so ...123 ms is stored as .122999).
-pub fn ruby_time_at_ms(ms: i64) -> Option<DateTime<Utc>> { ruby_time_at_secs_f(ms as f64 / 1000.0) }
+pub fn v2_time_at_ms(ms: i64) -> Option<DateTime<Utc>> { v2_time_at_secs_f(ms as f64 / 1000.0) }
 
 /// `Time.at(f)` of a Float of seconds as Rails stores it: the double's exact value, its microseconds truncated.
-pub fn ruby_time_at_secs_f(f: f64) -> Option<DateTime<Utc>> {
+pub fn v2_time_at_secs_f(f: f64) -> Option<DateTime<Utc>> {
     if !f.is_finite() { return None; }
     let bits = f.to_bits();
     let negative = bits >> 63 == 1;
@@ -223,7 +223,7 @@ struct Transfers { entries: Vec<Entry>, coins: BTreeSet<String>, pending: Option
 /// One deposit: #get_ledger's deposit entry at status 1, and at 6 (credited); pending at 0 and 8.
 fn deposit(raw: &Raw, out: &mut Transfers) -> Result<(), Fail> {
     let status = raw.value.get("status").and_then(Value::as_i64).ok_or_else(|| ("unreadable deposit status".to_string(), true))?;
-    let at = ruby_time_at_ms(integer(raw, "insertTime", "deposit")?).ok_or_else(|| ("unreadable deposit insertTime".to_string(), true))?;
+    let at = v2_time_at_ms(integer(raw, "insertTime", "deposit")?).ok_or_else(|| ("unreadable deposit insertTime".to_string(), true))?;
     match status {
         1 | 6 => {
             let coin = raw.value["coin"].as_str().ok_or_else(|| ("unreadable deposit coin".to_string(), true))?;
@@ -266,7 +266,7 @@ pub fn normalize_trade(raw: &Raw, symbol: &str, base: &str, quote: &str) -> Resu
     let id = text(raw.value.get("id")).ok_or_else(|| ("unreadable trade id".to_string(), true))?;
     let order = text(raw.value.get("orderId")).ok_or_else(|| ("unreadable trade orderId".to_string(), true))?;
     let trade_id = format!("{symbol}-{order}-{id}");
-    let at = ruby_time_at_ms(integer(raw, "time", "trade")?).ok_or_else(|| ("unreadable trade time".to_string(), true))?;
+    let at = v2_time_at_ms(integer(raw, "time", "trade")?).ok_or_else(|| ("unreadable trade time".to_string(), true))?;
     let (qty, quote_qty, commission) = (amount(raw, "qty", "trade")?, amount(raw, "quoteQty", "trade")?, amount(raw, "commission", "trade")?);
     let commission_asset = raw.value.get("commissionAsset").and_then(Value::as_str).map(str::to_string);
     if fiat_like(quote) {
@@ -403,7 +403,7 @@ async fn fetch<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing:
     let candidates = candidate_symbols(&list, &held, &stored, full);
     let mut seen = t.entries.iter().filter_map(|e| e.transacted_at).max();
     // Rails' trade read starts at the floored start (an incremental sync), or reads the latest page (a full one).
-    let rails_from = (!full).then(|| from.max(ms(now - Duration::days(LEDGER_WINDOW_DAYS))));
+    let v2_from = (!full).then(|| from.max(ms(now - Duration::days(LEDGER_WINDOW_DAYS))));
     let mut identities = t.entries.iter().cloned().enumerate().map(|(n, entry)| {
         let source = if entry.entry_type == DEPOSIT { Source::Deposit } else { Source::Withdrawal };
         identified(entry, source, Context::default()).map(|i| (n, i))
@@ -431,8 +431,8 @@ async fn fetch<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing:
             if entries.len() > MAX_ENTRIES { return Err((format!("more than {MAX_ENTRIES} ledger entries in one run"), true)); }
             match (trades.len() < PAGE, last) { (true, _) | (_, None) => break, (false, Some(l)) => from_id = l + 1 }
         }
-        let rails_reads = if full { t.coins.contains(&s.base) || balances.contains(&s.base) } else { start.pairs.contains(name) };
-        let newest = if rails_reads { rails_trades_seen(start.stored.get(name).map_or(&[][..], Vec::as_slice), &read, rails_from) } else { read.iter().map(|r| r.1).max() };
+        let v2_reads = if full { t.coins.contains(&s.base) || balances.contains(&s.base) } else { start.pairs.contains(name) };
+        let newest = if v2_reads { v2_trades_seen(start.stored.get(name).map_or(&[][..], Vec::as_slice), &read, v2_from) } else { read.iter().map(|r| r.1).max() };
         seen = seen.max(newest);
     }
     let (rest, other_identities) = others(venue, clock, pacing, (!full).then_some(from), us).await?;
@@ -463,7 +463,7 @@ fn listed(page: &Raw, key: &str, what: &str) -> Result<Vec<Raw>, Fail> {
 fn millis_at(raw: &Raw, keys: &[&str], what: &str) -> Result<DateTime<Utc>, Fail> {
     let value = keys.iter().find_map(|k| raw.value.get(*k).filter(|v| !v.is_null()));
     let ms = match value { Some(Value::Number(n)) => n.as_i64(), Some(Value::String(s)) => s.parse().ok(), _ => None };
-    ms.and_then(ruby_time_at_ms).ok_or_else(|| (format!("unreadable {what} {}", keys[0]), true))
+    ms.and_then(v2_time_at_ms).ok_or_else(|| (format!("unreadable {what} {}", keys[0]), true))
 }
 
 fn coin(raw: &Raw, key: &str, what: &str) -> Result<String, Fail> {
@@ -723,13 +723,13 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, transport: T, base: &st
 }
 
 /// The newest trade time Rails' `account_trade_list` returns for one pair, the venue holding `stored` and `read` (by id):
-/// the first RAILS_TRADES from `from` (an incremental sync), else the latest RAILS_TRADES, which end at the newest.
-pub fn rails_trades_seen(stored: &[(i64, DateTime<Utc>)], read: &[(i64, DateTime<Utc>)], from: Option<i64>) -> Option<DateTime<Utc>> {
+/// the first V2_TRADES from `from` (an incremental sync), else the latest V2_TRADES, which end at the newest.
+pub fn v2_trades_seen(stored: &[(i64, DateTime<Utc>)], read: &[(i64, DateTime<Utc>)], from: Option<i64>) -> Option<DateTime<Utc>> {
     let venue: std::collections::BTreeMap<i64, DateTime<Utc>> = stored.iter().chain(read).copied().collect();
     match from {
         // A stored time is Ruby's float read of the venue's milliseconds, at most a microsecond under them.
-        Some(from) => venue.values().filter(|at| ms(**at + Duration::microseconds(1)) >= from).take(RAILS_TRADES).max().copied(),
-        None => venue.values().rev().take(RAILS_TRADES).max().copied(),
+        Some(from) => venue.values().filter(|at| ms(**at + Duration::microseconds(1)) >= from).take(V2_TRADES).max().copied(),
+        None => venue.values().rev().take(V2_TRADES).max().copied(),
     }
 }
 
@@ -747,10 +747,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn times_are_rubys_float_milliseconds() {
-        assert_eq!(sql_time(ruby_time_at_ms(1_785_578_400_123).unwrap()), "2026-08-01 10:00:00.122999");
-        assert_eq!(sql_time(ruby_time_at_ms(1_786_010_400_987).unwrap()), "2026-08-06 10:00:00.986999");
-        assert_eq!(sql_time(ruby_time_at_ms(1_786_096_800_500).unwrap()), "2026-08-07 10:00:00.500000");
+    fn times_are_v2s_float_milliseconds() {
+        assert_eq!(sql_time(v2_time_at_ms(1_785_578_400_123).unwrap()), "2026-08-01 10:00:00.122999");
+        assert_eq!(sql_time(v2_time_at_ms(1_786_010_400_987).unwrap()), "2026-08-06 10:00:00.986999");
+        assert_eq!(sql_time(v2_time_at_ms(1_786_096_800_500).unwrap()), "2026-08-07 10:00:00.500000");
         assert_eq!(sql_time(apply_time("2026-08-10 12:00:00").unwrap()), "2026-08-10 12:00:00");
         assert!(apply_time("2026-08-10T12:00:00Z").is_none());
     }
@@ -764,7 +764,7 @@ mod tests {
     }
 
     #[test]
-    fn a_stored_trade_id_is_read_from_rails_tx_id() {
+    fn a_stored_trade_id_is_read_from_v2_tx_id() {
         assert_eq!(trade_cursor("BTCUSDT-10-100"), Some(("BTCUSDT".into(), 100)));
         assert_eq!(trade_cursor("ETHBTC-3-7-in"), Some(("ETHBTC".into(), 7)));
         assert_eq!(trade_cursor("ETHBTC-3-7-out"), Some(("ETHBTC".into(), 7)));
@@ -774,15 +774,15 @@ mod tests {
     }
 
     #[test]
-    fn rails_trade_page_is_500_from_the_start_or_the_latest_500() {
+    fn v2_trade_page_is_500_from_the_start_or_the_latest_500() {
         let venue_ms = |m: i64| 1_785_000_000_123 + m * 60_000;
-        let at = |m: i64| ruby_time_at_ms(venue_ms(m)).unwrap();
+        let at = |m: i64| v2_time_at_ms(venue_ms(m)).unwrap();
         let stored: Vec<_> = (0..400).map(|i| (i, at(i))).collect();
         let read: Vec<_> = (400..700).map(|i| (i, at(i))).collect();
-        assert_eq!(rails_trades_seen(&stored, &read, Some(venue_ms(10))), Some(at(509)), "500 from the start, stored ones first");
-        assert_eq!(rails_trades_seen(&stored, &read, Some(ms(at(699)))), Some(at(699)), "a trade at the start's millisecond is read");
-        assert_eq!(rails_trades_seen(&stored, &read, Some(venue_ms(699) + 1)), None);
-        assert_eq!(rails_trades_seen(&stored, &read, None), Some(at(699)));
+        assert_eq!(v2_trades_seen(&stored, &read, Some(venue_ms(10))), Some(at(509)), "500 from the start, stored ones first");
+        assert_eq!(v2_trades_seen(&stored, &read, Some(ms(at(699)))), Some(at(699)), "a trade at the start's millisecond is read");
+        assert_eq!(v2_trades_seen(&stored, &read, Some(venue_ms(699) + 1)), None);
+        assert_eq!(v2_trades_seen(&stored, &read, None), Some(at(699)));
     }
 
     #[test]
@@ -794,7 +794,7 @@ mod tests {
     }
 
     #[test]
-    fn a_trade_is_normalized_as_rails_does() {
+    fn a_trade_is_normalized_as_v2_does() {
         let raw = Raw::from_value(serde_json::json!({"id": 7, "orderId": 3, "price": "0.04", "qty": "0.5", "quoteQty": "0.02", "commission": "0.0005", "commissionAsset": "ETH", "time": 1_786_096_800_500_i64, "isBuyer": true}));
         let legs = normalize_trade(&raw, "ETHBTC", "ETH", "BTC").unwrap();
         assert_eq!((legs[0].entry_type, legs[0].tx_id.as_deref(), legs[0].fee_currency.as_deref()), (SWAP_IN, Some("ETHBTC-3-7-in"), Some("ETH")));

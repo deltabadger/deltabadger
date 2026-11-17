@@ -44,7 +44,7 @@ fn oracle(zone: &str, now: DateTime<Utc>, mode: &str, time: &str) -> DateTime<Ut
 /// every case; where Rails differs (D-START-WALL-STEP), Rails' instant is not the chosen wall time, and each cause occurs:
 /// the fixed-UTC step across a change, and a gap moved today leaking into a weekday's target day.
 #[test]
-fn initial_start_at_matches_rails_or_the_chosen_wall_time() {
+fn initial_start_at_matches_v2_or_the_chosen_wall_time() {
     let v = vectors();
     let cases = v["initial_start_at"].as_array().unwrap();
     assert_eq!(cases.len(), 4351);
@@ -52,27 +52,27 @@ fn initial_start_at_matches_rails_or_the_chosen_wall_time() {
     for case in cases {
         let case = case.as_array().unwrap();
         let got = rust(case);
-        let Some(rails) = case[4].as_str() else { assert!(got.is_err(), "{case:?}: Rails nil, Rust {got:?}"); continue };
-        let rails: DateTime<Utc> = rails.parse().unwrap();
+        let Some(v2) = case[4].as_str() else { assert!(got.is_err(), "{case:?}: Rails nil, Rust {got:?}"); continue };
+        let v2: DateTime<Utc> = v2.parse().unwrap();
         let got = got.unwrap_or_else(|e| panic!("{case:?}: {e}"));
         let (zone, now, mode) = (case[0].as_str().unwrap(), case[1].as_str().unwrap().parse().unwrap(), case[2].as_str().unwrap());
-        if mode == "date" { assert_eq!(got, rails, "{case:?}"); same += 1; continue; }
+        if mode == "date" { assert_eq!(got, v2, "{case:?}"); same += 1; continue; }
         let raw = case[3].as_str().unwrap();
         assert_eq!(got, oracle(zone, now, mode, raw), "{case:?}");
         let time = got.with_timezone(&deltabadger::web::timezone::strict(zone).unwrap()).format("%H:%M").to_string();
         let tz = deltabadger::web::timezone::strict(zone).unwrap();
         use chrono::TimeZone;
         if tz.from_local_datetime(&got.with_timezone(&tz).naive_local()).single().is_none() { repeated += 1; }
-        if got == rails { same += 1; continue; }
+        if got == v2 { same += 1; continue; }
         // Rails missed the chosen time: either its wall time is not the chosen one (a fixed-UTC step across a change), or it
         // is the chosen one moved by a gap that was today's, not the target day's.
-        let local = rails.with_timezone(&tz);
+        let local = v2.with_timezone(&tz);
         let today_missing = tz.from_local_datetime(&now.with_timezone(&tz).date_naive().and_time(got.with_timezone(&tz).time())).earliest().is_none();
-        if local.format("%H:%M").to_string() != time && (rails - got).num_minutes().abs() <= 60 {
+        if local.format("%H:%M").to_string() != time && (v2 - got).num_minutes().abs() <= 60 {
             if mode != "hour" && today_missing { leak += 1 } else { step += 1 }
             continue;
         }
-        panic!("{case:?}: Rust {got}, Rails {rails}: neither the same nor Rails off the chosen wall time");
+        panic!("{case:?}: Rust {got}, Rails {v2}: neither the same nor Rails off the chosen wall time");
     }
     assert!(same > 3_500 && step > 0 && leak > 0 && repeated > 0, "{same} same, {step} fixed-day steps, {leak} gap leaks, {repeated} repeated");
 }
@@ -94,7 +94,7 @@ fn a_passed_start_steps_to_the_chosen_wall_time() {
 /// What Rails reads around the delayed first run: next_interval_checkpoint_at and last_interval_checkpoint_at (both
 /// `.round(6)`) from the anchor Bot::Lifecycle#start wrote, just before, exactly at and just after it, and at the next run.
 #[test]
-fn the_checkpoints_around_the_first_run_match_rails() {
+fn the_checkpoints_around_the_first_run_match_v2() {
     let v = vectors();
     let mut n = 0;
     for s in v["schedule"].as_array().unwrap() {

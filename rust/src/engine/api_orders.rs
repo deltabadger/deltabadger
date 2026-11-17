@@ -15,7 +15,7 @@
 use super::model::{self, CredentialVersion};
 use super::EngineError;
 use crate::codec::{format_time, parse_time};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::Side;
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::{params, Connection, OptionalExtension};

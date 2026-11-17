@@ -17,7 +17,7 @@ fn canonical(value:&Value)->String {
             format!("{{{}}}",keys.into_iter().map(|k|format!("{}:{}",json!(k),canonical(&map[k]))).collect::<Vec<_>>().join(","))
         }
         Value::Array(a)=>format!("[{}]",a.iter().map(canonical).collect::<Vec<_>>().join(",")),
-        Value::Number(n) if n.is_f64()=>crate::ruby::float_to_s(n.as_f64().unwrap_or_default()),
+        Value::Number(n) if n.is_f64()=>crate::v2::float_to_s(n.as_f64().unwrap_or_default()),
         v=>v.to_string(),
     }
 }

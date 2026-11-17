@@ -153,7 +153,7 @@ fn take_lock(paths: &Paths) -> EngineLock {
     match lease::lock(paths, chrono::Utc::now()) {
         Ok(l) => l,
         Err(LeaseError::Locked) => fail("another Deltabadger engine is running on this data"),
-        Err(LeaseError::RailsAlive { seconds_ago }) => fail(&format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
+        Err(LeaseError::V2Alive { seconds_ago }) => fail(&format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
         Err(e) => fail(&format!("{e:?}")),
     }
 }

@@ -118,7 +118,7 @@ async fn with_the_market_closed_a_stock_newcomer_is_probed_on_its_last() {
 /// The failure kinds: a returned Failure clears the marker and is published; a rejected key clears it and is not; an Alpaca
 /// transport failure keeps it and retries at n⁴ + 2 s, three attempts in all, then clears it.
 #[tokio::test(flavor = "current_thread")]
-async fn each_failure_kind_keeps_or_clears_the_marker_as_rails_job_ends() {
+async fn each_failure_kind_keeps_or_clears_the_marker_as_v2_job_ends() {
     let r = Rig::new(true, [0.0; 5]);
     r.mark();
     let mut e = r.engine();
@@ -191,7 +191,7 @@ async fn a_refusal_after_the_membership_write_rolls_back_the_marker_clear_too() 
 #[tokio::test(flavor = "current_thread")]
 async fn an_unresolved_placement_defers_the_resync_until_it_settles() {
     use deltabadger::engine::{amount, placement};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     let r = Rig::new(true, [100.0, 200.0, 300.0, 400.0, 500.0]);
     let c = r.c();
     let bot = model::load_bot(&c, r.id).unwrap();
@@ -328,7 +328,7 @@ async fn a_fresh_start_ticks_in_the_same_pass_as_its_resync() {
 /// - the end (Bot::ActionJob's rescue and Bot::BroadcastAfterScheduledActionJob, app/jobs/bot/action_job.rb): the bars,
 ///   now naming the failure and the next try.
 #[tokio::test(flavor = "current_thread")]
-async fn the_page_hears_the_first_tick_as_rails_broadcasts_it() {
+async fn the_page_hears_the_first_tick_as_v2_broadcasts_it() {
     let r = Rig::with(true, [100.0, 200.0, 300.0, 400.0, 500.0], json!({
         "POST /v2/orders": [{ "status": 401, "body": { "code": 40110000, "message": "unauthorized." } }],
         "GET /v2/account": ok(json!({ "cash": "100000", "buying_power": "200000", "non_marginable_buying_power": "100000" })),

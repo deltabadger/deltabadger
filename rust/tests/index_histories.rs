@@ -7,7 +7,7 @@ use common::scripted::{ok, script, venue};
 use common::seed;
 use deltabadger::engine::{accounting, amount, basket, eligibility, model, tick, FixedClock};
 use deltabadger::figures::{at::At, db, walk};
-use deltabadger::ruby::{from_sql, BigDec};
+use deltabadger::v2::{from_sql, BigDec};
 use rusqlite::params;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -122,17 +122,17 @@ fn transport() -> deltabadger::venue::http::ScriptedTransport {
 /// Units per held asset (engine walk and figures walk), and every figure-page book, against `metrics(force: true)`; the
 /// redeploy banked/spent against Redeployable. Every scenario, in flight or not: the walk itself is what Rails walks.
 #[test]
-fn walks_and_books_match_rails_for_every_index_history() {
+fn walks_and_books_match_v2_for_every_index_history() {
     let scenarios = fixture()["scenarios"].as_array().unwrap();
     assert_eq!(scenarios.len(), 42);
     for sc in scenarios {
         let name = sc["name"].as_str().unwrap();
         let b = build(sc);
         let c = &b.o.primary;
-        let rails = &sc["rails"]["walk"];
+        let v2 = &sc["rails"]["walk"];
         let bot = model::load_bot(c, b.id).unwrap();
         let w = basket::walk(c, &bot, at()).unwrap_or_else(|e| panic!("{name}: engine walk {e:?}"));
-        for (sym, want) in rails["holdings"].as_object().unwrap() {
+        for (sym, want) in v2["holdings"].as_object().unwrap() {
             assert_eq!(BigDec::parse(&d(w.amounts.get(&b.assets[sym]).cloned())).unwrap(), BigDec::parse(want["amount"].as_str().unwrap()).unwrap(),
                        "{name}: engine units of {sym}");
         }
@@ -145,13 +145,13 @@ fn walks_and_books_match_rails_for_every_index_history() {
         };
         let holdings: BTreeMap<String, Value> = m.asset_breakdown.iter()
             .map(|(k, h)| (symbol_of(k), json!({ "amount": num(&h.amount), "invested": num(&h.quote_invested) }))).collect();
-        assert_eq!(json!(holdings), rails["holdings"], "{name}: holdings");
+        assert_eq!(json!(holdings), v2["holdings"], "{name}: holdings");
         let walked = m.walked.as_ref().unwrap();
         let got = json!({
             "contributed": num(&m.total_quote_amount_invested), "uninvested_cash": num(&m.rebalance_cash), "realised_cash": num(&walked.realised_cash),
             "estimated_proceeds": num(&m.estimated_proceeds), "realised_pnl": num(&m.realised_pnl), "external_sales": walked.external_sales,
         });
-        let mut want = rails.clone();
+        let mut want = v2.clone();
         want.as_object_mut().unwrap().remove("holdings");
         assert_eq!(got, want, "{name}: books");
         let (banked, spent) = accounting::index_redeploy_totals(&db::orders(c, b.id).unwrap()).unwrap();
@@ -168,10 +168,10 @@ fn walks_and_books_match_rails_for_every_index_history() {
         // Bot::DeclineRedeployJob: refused while in flight, else the offset that reads the offer as zero now. B2-1/MQ7 above:
         // the zero-quote redeploy is spent at its executed value here, so the offset it writes is 12.0 lower.
         let declined = deltabadger::engine::redeploy::decline(c, b.id, bot.user_id, at()).unwrap();
-        let rails_decline = &sc["rails"]["decline"];
-        assert_eq!(declined == deltabadger::engine::redeploy::Declined::Declined, rails_decline["result"] == "success", "{name}: decline");
+        let v2_decline = &sc["rails"]["decline"];
+        assert_eq!(declined == deltabadger::engine::redeploy::Declined::Declined, v2_decline["result"] == "success", "{name}: decline");
         let offset: String = c.query_row("SELECT CAST(redeploy_declined_offset AS TEXT) FROM bots WHERE id = ?1", [b.id], |r| r.get(0)).unwrap();
-        let want = if name == "redeploy_zero_quote" { "14.4" } else { rails_decline["offset"].as_str().unwrap() };
+        let want = if name == "redeploy_zero_quote" { "14.4" } else { v2_decline["offset"].as_str().unwrap() };
         assert_eq!(BigDec::parse(&offset).unwrap(), BigDec::parse(want).unwrap(), "{name}: declined offset");
     }
 }
@@ -203,15 +203,15 @@ fn settled_histories_are_eligible_and_in_flight_ones_refused_by_name() {
 /// The next tick of every eligible scenario: Rails' legs exactly (member, BigDecimal quote with its division digits), the
 /// orders on the wire, and the rows written. A refused scenario places nothing.
 #[tokio::test(flavor = "current_thread")]
-async fn next_ticks_match_rails_and_refused_states_place_nothing() {
+async fn next_ticks_match_v2_and_refused_states_place_nothing() {
     for sc in fixture()["scenarios"].as_array().unwrap() {
         let name = sc["name"].as_str().unwrap();
         let b = build(sc);
         let c = &b.o.primary;
-        let rails = &sc["rails"]["tick"];
+        let v2 = &sc["rails"]["tick"];
         let bot = model::load_bot(c, b.id).unwrap();
         let stood_down = STOOD_DOWN.contains(&name);
-        assert_eq!(stood_down, rails["activity"].as_array().unwrap().iter().any(|a| matches!(a["event"].as_str(), Some("dca_skipped_rebalance_pending" | "dca_skipped_liquidation_pending" | "dca_skipped_redeploy_pending"))), "{name}");
+        assert_eq!(stood_down, v2["activity"].as_array().unwrap().iter().any(|a| matches!(a["event"].as_str(), Some("dca_skipped_rebalance_pending" | "dca_skipped_liquidation_pending" | "dca_skipped_redeploy_pending"))), "{name}");
         if refusal(name).is_none() && !stood_down {
             // The split as get_orders_data computes it, before any rounding.
             let holdings = basket::walk(c, &bot, at()).unwrap().amounts;
@@ -223,7 +223,7 @@ async fn next_ticks_match_rails_and_refused_states_place_nothing() {
             let x = amount::pending_quote_amount(c, &bot, at().timestamp_micros()).unwrap();
             let legs: Vec<Value> = basket::split(&priced, &holdings, &basket::reserved(c, &bot).unwrap(), &x).unwrap().into_iter()
                 .map(|l| json!({ "base": l.ticker.base_symbol, "quote_amount": l.quote.to_s_f() })).collect();
-            let want: Vec<Value> = rails["orders"].as_array().unwrap().iter().map(|o| json!({ "base": o["base"], "quote_amount": o["quote_amount"] })).collect();
+            let want: Vec<Value> = v2["orders"].as_array().unwrap().iter().map(|o| json!({ "base": o["base"], "quote_amount": o["quote_amount"] })).collect();
             assert_eq!(json!(legs), json!(want), "{name}: legs");
         }
         // The engine never ticks a refused bot (run.rs ticks check's eligible list); a waiting row would only be polled.
@@ -240,7 +240,7 @@ async fn next_ticks_match_rails_and_refused_states_place_nothing() {
             assert!(posted.is_empty(), "{name}: refused, yet posted {posted:?}");
             continue;
         }
-        let wire: Vec<Value> = rails["orders"].as_array().unwrap().iter().map(|o| {
+        let wire: Vec<Value> = v2["orders"].as_array().unwrap().iter().map(|o| {
             let q = BigDec::parse(o["submitted_amount"].as_str().unwrap()).unwrap();
             // What is sent: floored to the pair's quote decimals (2), as amount::size sizes it.
             json!({ "symbol": o["base"], "side": o["side"], "notional": format!("{:.2}", q.floor(2).to_f()) })
@@ -254,7 +254,7 @@ async fn next_ticks_match_rails_and_refused_states_place_nothing() {
             "external_status": EXTERNAL[r.get::<_, usize>(3)?], "transaction_type": r.get::<_, String>(4)?,
             "price": d(from_sql(r.get_ref(5)?).unwrap()), "amount": d(from_sql(r.get_ref(6)?).unwrap()), "quote_amount": d(from_sql(r.get_ref(7)?).unwrap()),
         }))).unwrap().map(Result::unwrap).collect();
-        let want: Vec<Value> = rails["rows"].as_array().unwrap().iter().map(|r| {
+        let want: Vec<Value> = v2["rows"].as_array().unwrap().iter().map(|r| {
             let mut r = r.clone();
             for k in ["price", "amount", "quote_amount"] { r[k] = json!(BigDec::parse(r[k].as_str().unwrap()).unwrap().to_s_f()); }
             r
@@ -348,7 +348,7 @@ fn a_partly_executed_unpriced_redeploy_is_read_at_what_executed() {
 /// redeploy. It refuses the takeover whatever the bot's own status (a stopped, archived or deleted bot's order still sits at
 /// the venue), and the tick's sweep refuses rather than skipping the row.
 #[tokio::test(flavor = "current_thread")]
-async fn a_status_rails_never_writes_refuses_the_install_and_the_sweep() {
+async fn a_status_v2_never_writes_refuses_the_install_and_the_sweep() {
     for status in ["NULL", "99"] {
         for bot_status in [2, 7, 3, 1] {
             let b = build(scenario("redeploy_waiting"));

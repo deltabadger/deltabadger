@@ -2,7 +2,7 @@ mod common;
 use deltabadger::engine::venue_rules::{for_exchange, AmountLogic, MinimumLogic, WireFormat, ALPACA, KRAKEN, NETWORK_TRANSIENT_PATTERNS};
 
 #[test]
-fn every_recorded_rails_classification_is_reproduced() {
+fn every_recorded_v2_classification_is_reproduced() {
     let cases = common::vectors()["failure_kinds"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 44);
     for c in cases {
@@ -18,7 +18,7 @@ fn every_recorded_rails_classification_is_reproduced() {
 }
 
 #[test]
-fn each_venue_carries_rails_minimum_logic_wire_and_absence_window() {
+fn each_venue_carries_v2_minimum_logic_wire_and_absence_window() {
     // D-KRAKEN-LIMIT-COSTMIN: Rails' Kraken limit buy is :base (ordermin only); Rust checks costmin too, :base_and_quote_in_base
     // as every venue with a notional floor, so a limit buy under costmin is skipped instead of sent and rejected.
     assert_eq!((KRAKEN.minimum_logic, KRAKEN.wire, KRAKEN.deadline_sent, KRAKEN.transport_raises), (MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase }, WireFormat::Kraken, true, false));
@@ -35,7 +35,7 @@ fn each_venue_carries_rails_minimum_logic_wire_and_absence_window() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn every_recorded_venue_order_number_is_accepted_or_refused_as_in_rails() {
+async fn every_recorded_venue_order_number_is_accepted_or_refused_as_in_v2() {
     use deltabadger::venue::{alpaca, fake::FakeVenue, Venue};
     use serde_json::json;
     let vectors = common::vectors();
@@ -62,7 +62,7 @@ fn prices_fixture() -> serde_json::Value { serde_json::from_str(include_str!("fi
 fn every_recorded_adjusted_and_market_price_is_reproduced() {
     use deltabadger::engine::model::Ticker;
     use deltabadger::engine::venue_rules::{PriceRule, Rounding, VenueRules, BINANCE, HYPERLIQUID, KUCOIN, MARKET_CROSS};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::venue::Side;
     // Exercise the production Hyperliquid rule against the recorded Rails prices.
     let gemini = VenueRules { cross: Some(MARKET_CROSS), ..KRAKEN };
@@ -101,10 +101,10 @@ fn every_recorded_adjusted_and_market_price_is_reproduced() {
 }
 
 #[test]
-fn a_crossed_price_is_adjusted_twice_as_rails_does() {
+fn a_crossed_price_is_adjusted_twice_as_v2_does() {
     use deltabadger::engine::model::Ticker;
     use deltabadger::engine::venue_rules::{Rounding, VenueRules, HYPERLIQUID_PRICE_RULE, MARKET_CROSS};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::venue::Side;
     let d = |s: &str| BigDec::parse(s).unwrap();
     let t = |price_decimals: i64, base_decimals: i64| Ticker { id: 1, ticker: "X".into(), base_code: "B".into(), quote_code: "Q".into(), base_symbol: "B".into(),

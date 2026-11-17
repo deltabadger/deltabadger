@@ -51,7 +51,7 @@ pub fn stored(c: &Connection, app: &App, user: i64) -> Result<Option<Stored>, We
     let mut material = [None, None, None];
     for (slot, value) in material.iter_mut().zip(encrypted) {
         // A blank column is no material (`.blank?`); an unreadable one is D-IBKR-RECONNECT's rejected material.
-        *slot = value.and_then(|v| app.cipher.decrypt(&v).ok()).filter(|v| !crate::ruby::blank(v));
+        *slot = value.and_then(|v| app.cipher.decrypt(&v).ok()).filter(|v| !crate::v2::blank(v));
     }
     Ok(Some(Stored { id, exchange, status, updated_at, material }))
 }
@@ -172,7 +172,7 @@ pub async fn activate(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let field = |name: &str| ctx.params.form(&format!("api_key[{name}]"));
     if ["key", "access_token", "secret"].iter().all(|name| field(name).is_none()) { return Ok(layout::bad_request()); }
     let (consumer, token, secret) = (field("key").unwrap_or_default(), field("access_token").unwrap_or_default(), field("secret").unwrap_or_default());
-    let message = if [consumer, token, secret].iter().any(|value| crate::ruby::blank(value)) {
+    let message = if [consumer, token, secret].iter().any(|value| crate::v2::blank(value)) {
         (flash::ALERT, i18n::text(ctx.locale, "settings.ibkr.missing_fields", &[]))
     } else {
         let candidate = original.with_ibkr_credentials(consumer, token, secret);

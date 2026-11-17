@@ -57,8 +57,8 @@ fn a_fill_names_its_order_only_by_its_whole_id_and_raw_evidence() {
 fn new_fills_link_as_stored_and_never_through_the_generic_lookups() {
     let (dir, o, s) = common::install(); let c = &o.primary; let key = binance(c, &s); let _lock = claim(c, dir.path());
     let b = bot(c, &s); let id = order(c, &s, b, "BTCUSDT-12", 0); let csv_order = order(c, &s, b, "BTCUSDT-99", 0);
-    let entry = |kind: i64, tx: &str, raw: Value| Entry { entry_type: kind, base_currency: Some("BTC".into()), base_amount: deltabadger::ruby::BigDec::parse("0.001").unwrap(),
-        quote_currency: Some("USDT".into()), quote_amount: Some(deltabadger::ruby::BigDec::parse("64").unwrap()), fee_currency: None, fee_amount: None,
+    let entry = |kind: i64, tx: &str, raw: Value| Entry { entry_type: kind, base_currency: Some("BTC".into()), base_amount: deltabadger::v2::BigDec::parse("0.001").unwrap(),
+        quote_currency: Some("USDT".into()), quote_amount: Some(deltabadger::v2::BigDec::parse("64").unwrap()), fee_currency: None, fee_amount: None,
         tx_id: Some(tx.into()), group_id: None, description: None, transacted_at: Some("2026-08-17T10:00:00Z".parse().unwrap()), raw: Raw::from_value(raw) };
     let rows = [entry(0, "BTCUSDT-12-101", fill(json!(12), json!(101))), entry(0, "BTCUSDT-12-102", fill(json!("12"), json!("102"))),
                 // Malformed fills whose generic lookups would match an order: no link.
@@ -124,7 +124,7 @@ fn another_users_order_never_links_on_any_venue() {
     c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('x@example.com','x','X',0,'2026-01-01','2026-01-01')", []).unwrap();
     let other = common::seed::Seeded { user_id: c.last_insert_rowid(), ..s };
     let theirs = bot(c, &other); order(c, &other, theirs, "OXYZ-1", 0);
-    let e = Entry { entry_type: 0, base_currency: Some("BTC".into()), base_amount: deltabadger::ruby::BigDec::parse("0.001").unwrap(), quote_currency: None, quote_amount: None,
+    let e = Entry { entry_type: 0, base_currency: Some("BTC".into()), base_amount: deltabadger::v2::BigDec::parse("0.001").unwrap(), quote_currency: None, quote_amount: None,
                     fee_currency: None, fee_amount: None, tx_id: Some("OXYZ-1".into()), group_id: None, description: None,
                     transacted_at: Some("2026-08-17T10:00:00Z".parse().unwrap()), raw: Raw::from_value(json!({})) };
     let tx = model::immediate(c).unwrap();

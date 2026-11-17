@@ -21,7 +21,7 @@
 //! Bot#merge_transient_data!), so after a handback they stay on the row, unsent, until this engine runs again.
 use super::{eligibility, model, EngineError};
 use crate::crypto::Cipher;
-use crate::ruby::iso8601_ms;
+use crate::v2::iso8601_ms;
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde_json::{json, Map, Value};

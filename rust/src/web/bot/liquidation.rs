@@ -17,7 +17,7 @@ pub(crate) fn held(c:&Connection,id:i64,now:chrono::DateTime<chrono::Utc>)->Resu
         for (key,amount) in &m.asset_breakdown {
             let Some(asset)=m.key_assets.iter().find(|(k,_)|k==key).and_then(|(_,a)|*a) else {continue};
             let Some(ticker)=model::ticker_for_asset(c,&bot,asset)? else {continue};
-            if crate::ruby::BigDec::parse(&amount.amount.to_d().map_err(|e|super::fill_error(e.into()))?.to_s_f()).map_err(|e|super::data(format!("{e:?}")))? >= ticker.minimum_base_size {out.push((key.clone(),asset));}
+            if crate::v2::BigDec::parse(&amount.amount.to_d().map_err(|e|super::fill_error(e.into()))?.to_s_f()).map_err(|e|super::data(format!("{e:?}")))? >= ticker.minimum_base_size {out.push((key.clone(),asset));}
         }
         Ok(out)
     })
@@ -115,7 +115,7 @@ pub(super) fn missing(ctx:&Ctx)->Response {
 pub async fn new(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segment):Path<String>)->Result<Response,WebError> {
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let Some(id)=super::id_from_path(&segment) else {return Ok(missing(&ctx))};
-    let Ok(params)=ActionParams::parse_rails(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
+    let Ok(params)=ActionParams::parse_v2(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
     let (inner,view,owner)=(app.clone(),ctx.clone(),user.clone());
     let result=app.db(move |c| {
         let tx=c.unchecked_transaction()?;
@@ -167,7 +167,7 @@ pub async fn new(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segmen
 pub async fn create(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segment):Path<String>)->Result<Response,WebError> {
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let Some(id)=super::id_from_path(segment.strip_suffix(".turbo_stream").unwrap_or(&segment)) else {return Ok(missing(&ctx))};
-    let Ok(params)=ActionParams::parse_rails(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
+    let Ok(params)=ActionParams::parse_v2(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
     // LiquidationsController#wash_sale_answer_recorded?: this sale can start a window, so an account that has not answered
     // records its answer before the order is queued; no answer, or one not saved, refuses the sale. The bot and the symbols
     // are judged first (set_bot, set_symbols).
@@ -187,9 +187,9 @@ pub async fn create(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(seg
         Ok(Some(true)) => {
             use crate::web::settings::tax::{self,Decision};
             let refused=||tax::refuse(&ctx,i18n::text(ctx.locale,"settings.wash_sale.prompt_missing",&[]));
-            let Some(answer)=ctx.params.form("wash_sale[enabled]").filter(|s|!crate::ruby::blank(s)) else {return refused()};
+            let Some(answer)=ctx.params.form("wash_sale[enabled]").filter(|s|!crate::v2::blank(s)) else {return refused()};
             let enabled=!["0","f","F","false","FALSE","off","OFF"].contains(&answer);
-            let jurisdiction=ctx.params.form("wash_sale[jurisdiction]").filter(|s|!crate::ruby::blank(s)).map(str::to_string);
+            let jurisdiction=ctx.params.form("wash_sale[jurisdiction]").filter(|s|!crate::v2::blank(s)).map(str::to_string);
             let (jobs,inner)=(app.job_wakers()?,app.clone());
             match app.db(move |c|tax::record_decision(c,&inner,&jobs,user.id,enabled,jurisdiction)).await? {
                 Decision::Saved=>{}
@@ -211,7 +211,7 @@ pub async fn create(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(seg
 pub async fn clear(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segment):Path<String>,headers:axum::http::HeaderMap)->Result<Response,WebError> {
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let Some(id)=super::id_from_path(&segment) else {return Ok(missing(&ctx))};
-    let Ok(params)=ActionParams::parse_rails(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
+    let Ok(params)=ActionParams::parse_v2(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
     let view=ctx.clone();
     let result=app.db(move |c| {
         let found:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM bots WHERE id=?1 AND user_id=?2 AND status<>3 AND type IN ('Bots::DcaIndex','Bots::DcaMultiAsset'))",(id,user.id),|r|r.get(0))?;

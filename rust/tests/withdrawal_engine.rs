@@ -3,7 +3,7 @@ mod common;
 use deltabadger::{
     crypto::{Cipher, EncryptionKeys},
     engine::{rules, withdrawal as w, FixedClock},
-    ruby::BigDec,
+    v2::BigDec,
     venue::withdrawal as v,
 };
 use rusqlite::{params, Connection};
@@ -511,7 +511,7 @@ fn two_attempts_require_independent_acks_in_either_order() {
                 &d.c,
                 &d.q,
                 &d.cipher,
-                w::Target::Rails(id),
+                w::Target::V2(id),
                 w::Resolution::NotSent,
                 now(),
             )
@@ -535,8 +535,8 @@ async fn all_resolvers_seed_before_takeover_and_refuse_historical_id() {
                 .unwrap();
         }
         let target = match mode {
-            0 => w::Target::Rails(log),
-            1 => w::Target::RailsJob("job".into()),
+            0 => w::Target::V2(log),
+            1 => w::Target::V2Job("job".into()),
             _ => w::Target::Rule(1),
         };
         assert!(w::resolve(
@@ -606,7 +606,7 @@ fn evaluate_all_claimed_skip_and_recorded_child_do_not_refan() {
         &d.c,
         &d.q,
         &d.cipher,
-        w::Target::RailsJob("child".into()),
+        w::Target::V2Job("child".into()),
         w::Resolution::Recorded(log),
         now(),
     )
@@ -615,7 +615,7 @@ fn evaluate_all_claimed_skip_and_recorded_child_do_not_refan() {
         &d.c,
         &d.q,
         &d.cipher,
-        w::Target::RailsJob("all".into()),
+        w::Target::V2Job("all".into()),
         w::Resolution::Skip,
         now(),
     )
@@ -637,7 +637,7 @@ fn recorded_job_and_ambiguous_log_evidence_are_same_rule() {
         &d.c,
         &d.q,
         &d.cipher,
-        w::Target::Rails(ambiguous),
+        w::Target::V2(ambiguous),
         w::Resolution::Sent {
             id: "X".into(),
             amount: None,
@@ -649,7 +649,7 @@ fn recorded_job_and_ambiguous_log_evidence_are_same_rule() {
         &d.c,
         &d.q,
         &d.cipher,
-        w::Target::RailsJob("child".into()),
+        w::Target::V2Job("child".into()),
         w::Resolution::Recorded(ambiguous),
         now(),
     )
@@ -687,7 +687,7 @@ async fn rust_log_provenance_and_secret_scrubbing() {
     assert!(safe.chars().count() <= 200);
 }
 #[tokio::test]
-async fn missing_key_refuses_recorded_rails_send() {
+async fn missing_key_refuses_recorded_v2_send() {
     let d = Db::new();
     let f = Fake::new(&d);
     d.c.execute("DELETE FROM api_keys", []).unwrap();
@@ -805,7 +805,7 @@ fn unexpected_error_requires_operator_amount_and_recorded_rejects_unrelated_rule
         &d.c,
         &d.q,
         &d.cipher,
-        w::Target::Rails(log),
+        w::Target::V2(log),
         w::Resolution::Sent {
             id: "X".into(),
             amount: None
@@ -817,7 +817,7 @@ fn unexpected_error_requires_operator_amount_and_recorded_rejects_unrelated_rule
         &d.c,
         &d.q,
         &d.cipher,
-        w::Target::Rails(log),
+        w::Target::V2(log),
         w::Resolution::Sent {
             id: "X".into(),
             amount: Some("0.3".into()),
@@ -833,7 +833,7 @@ fn unexpected_error_requires_operator_amount_and_recorded_rejects_unrelated_rule
         &d.c,
         &d.q,
         &d.cipher,
-        w::Target::RailsJob("job".into()),
+        w::Target::V2Job("job".into()),
         w::Resolution::Recorded(unrelated),
         now()
     )
@@ -928,7 +928,7 @@ fn claimed_job_ack_cleanup_crashes_are_idempotent() {
             &d.c,
             &d.q,
             &d.cipher,
-            w::Target::RailsJob("claimed".into()),
+            w::Target::V2Job("claimed".into()),
             w::Resolution::NotSent,
             now(),
         )
@@ -1018,7 +1018,7 @@ fn unresolved_log_can_be_linked_to_job_without_discharging_the_log() {
         &d.c,
         &d.q,
         &d.cipher,
-        w::Target::RailsJob("child".into()),
+        w::Target::V2Job("child".into()),
         w::Resolution::Recorded(log),
         now(),
     )
@@ -1029,7 +1029,7 @@ fn unresolved_log_can_be_linked_to_job_without_discharging_the_log() {
         &d.c,
         &d.q,
         &d.cipher,
-        w::Target::Rails(log),
+        w::Target::V2(log),
         w::Resolution::NotSent,
         now(),
     )
@@ -1117,7 +1117,7 @@ async fn crash_worker() {
                 &d.c,
                 &d.q,
                 &d.cipher,
-                w::Target::RailsJob("claimed".into()),
+                w::Target::V2Job("claimed".into()),
                 w::Resolution::NotSent,
                 now(),
             )
@@ -2577,7 +2577,7 @@ async fn recorder_fences_every_read_and_consumes_prepared_crash() {
     assert_eq!(d.count("rule_logs"), 0);
 }
 #[tokio::test]
-async fn recorder_ambiguous_reply_keeps_intent_and_resolver_seeds_rails_ids() {
+async fn recorder_ambiguous_reply_keeps_intent_and_resolver_seeds_v2_ids() {
     let d = Db::new();
     let f = Fake::new(&d);
     let (_dir, lock) = recorder_lock();

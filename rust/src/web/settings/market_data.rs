@@ -86,7 +86,7 @@ pub(super) fn stored_key(c: &Connection, app: &App) -> Result<String, WebError> 
 /// MarketDataSettings.deltabadger_credentials_available?: the environment's feed, or a claimed platform with its URL and token.
 fn credentials_available(c: &Connection, app: &App) -> Result<bool, WebError> {
     let env = &app.config.market_data_env;
-    let present = |v: &Option<String>| v.as_deref().is_some_and(|s| !crate::ruby::blank(s));
+    let present = |v: &Option<String>| v.as_deref().is_some_and(|s| !crate::v2::blank(s));
     if present(&env.url) { return Ok(true); }
     // `record ? record.value : ENV.fetch(var, '')`.
     let setting = |key: &str, fallback: &Option<String>| -> Result<Option<String>, WebError> {
@@ -112,7 +112,7 @@ pub async fn write(app: App, ctx: Ctx, headers: &axum::http::HeaderMap) -> Resul
 /// the platform's feed needs its credentials (`head :unprocessable_entity` otherwise). Anything else changes nothing.
 async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, WebError> {
     let provider = ctx.params.form("market_data_provider").map(str::to_string);
-    let posted = ctx.params.form("coingecko_api_key").filter(|key| !crate::ruby::blank(key)).map(str::to_string);
+    let posted = ctx.params.form("coingecko_api_key").filter(|key| !crate::v2::blank(key)).map(str::to_string);
     // D-CG-SETTINGS-KEY-CHECKED: a key posted here is checked as the tracker's and the wizard's are; nothing is written for a
     // key CoinGecko refuses. The stored key a switch back uses is not checked again (Rails).
     if provider.as_deref() == Some("coingecko") {
@@ -128,13 +128,13 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
             let mut show_form = false;
             let mut requested = false;
             let notice = match provider.as_deref() {
-                p if p.is_none_or(crate::ruby::blank) => {
+                p if p.is_none_or(crate::v2::blank) => {
                     config(crate::app_config::delete(&tx, "market_data_provider"))?;
                     Some("settings.market_data.disabled")
                 }
                 Some("coingecko") => {
                     let key = match posted { Some(key) => key, None => stored_key(&tx, &inner)? };
-                    if crate::ruby::blank(&key) {
+                    if crate::v2::blank(&key) {
                         config(crate::app_config::delete(&tx, "market_data_provider"))?;
                         show_form = true;
                         None

@@ -1,11 +1,11 @@
 //! Every number a sync reads from an Alpaca answer or from the database, through a conversion that can fail and is
-//! bounded before any arithmetic: a number of any length would otherwise be expanded digit by digit (`ruby::BigDec`),
+//! bounded before any arithmetic: a number of any length would otherwise be expanded digit by digit (`v2::BigDec`),
 //! on the blocking pool, where dropping the job cancels nothing.
 //!
 //! The caps are the engine's: for a venue's number 64 significant digits and a decimal exponent within ±40; for a
 //! value read back from the database 512 digits and ±400; 256 characters of input either way. The engine's own bounded
-//! `ruby::BigDec` is landing on main separately: when it has, `decimal` becomes a thin call to it with these caps.
-use crate::ruby::BigDec;
+//! `v2::BigDec` is landing on main separately: when it has, `decimal` becomes a thin call to it with these caps.
+use crate::v2::BigDec;
 use rusqlite::types::ValueRef;
 
 pub struct Caps { pub chars: usize, pub digits: usize, pub exponent: i64 }

@@ -92,7 +92,7 @@ pub const MAX_COINS: i64 = 100;
 fn text<'a>(settings: &'a Map<String, Value>, key: &str) -> Option<&'a str> { settings.get(key).and_then(Value::as_str) }
 
 fn present(value: Option<&Value>) -> bool {
-    match value { None | Some(Value::Null | Value::Bool(false)) => false, Some(Value::String(text)) => !crate::ruby::blank(text), _ => true }
+    match value { None | Some(Value::Null | Value::Bool(false)) => false, Some(Value::String(text)) => !crate::v2::blank(text), _ => true }
 }
 
 /// Bots::DcaIndex#current_index: (source, top_coins, top_coins_by_exchange) of the category's row (any source), else the
@@ -114,7 +114,7 @@ impl IndexRow {
 fn json_column(text: Option<String>) -> Value { text.and_then(|text| serde_json::from_str(&text).ok()).unwrap_or(Value::Null) }
 
 pub fn index_row(c: &Connection, settings: &Map<String, Value>) -> Result<Option<IndexRow>, WebError> {
-    let category = text(settings, "index_category_id").filter(|id| !crate::ruby::blank(id));
+    let category = text(settings, "index_category_id").filter(|id| !crate::v2::blank(id));
     let read = |r: &rusqlite::Row<'_>| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, Option<String>>(2)?, r.get::<_, Option<String>>(3)?));
     let columns = "SELECT source, top_coins, top_coins_by_exchange, available_exchanges FROM indices";
     let row = match (text(settings, "index_type"), category) {
@@ -159,10 +159,10 @@ pub fn display_index_name(settings: &Map<String, Value>, bounded: Option<i64>, l
     if let (Some((prefix, name)), Some(count)) = (count_named(category), effective) {
         return if holds { name.to_string() } else { format!("{prefix}{count}") };
     }
-    if let Some(name) = text(settings, "index_name").filter(|name| !crate::ruby::blank(name)) { return name.to_string() }
+    if let Some(name) = text(settings, "index_name").filter(|name| !crate::v2::blank(name)) { return name.to_string() }
     match text(settings, "index_type") {
         Some("top") | None => num_coins(settings).map_or_else(|| i18n::text(locale, "bot.dca_index.setup.pick_index.top_coins", &[]), |count| format!("Top {count}")),
-        Some(kind) if crate::ruby::blank(kind) => num_coins(settings).map_or_else(|| i18n::text(locale, "bot.dca_index.setup.pick_index.top_coins", &[]), |count| format!("Top {count}")),
+        Some(kind) if crate::v2::blank(kind) => num_coins(settings).map_or_else(|| i18n::text(locale, "bot.dca_index.setup.pick_index.top_coins", &[]), |count| format!("Top {count}")),
         _ => category.map_or_else(|| "Index".to_string(), titleize),
     }
 }
@@ -189,7 +189,7 @@ fn smart_quote(settings: &Map<String, Value>, decimals: Option<i64>, exchange: f
     let floor = minimum * 10.0;
     // Array#max keeps the first of two equal values; Integer#round(n > 0) is the integer itself.
     let tenth = if amount.is_i64() { (value as i64).div_euclid(10) as f64 } else { value / 10.0 };
-    let round = |x: f64| if decimals == 0 { x.round() } else { crate::ruby::float_round(x, decimals as i32) };
+    let round = |x: f64| if decimals == 0 { x.round() } else { crate::v2::float_round(x, decimals as i32) };
     json!(if floor > tenth { round(floor) } else if amount.is_i64() { tenth } else { round(tenth) })
 }
 
@@ -224,7 +224,7 @@ pub fn build(c: &Connection, config: &Value, locale: &str) -> Result<Built, WebE
     let label = if count_named(category).is_some() || text(&settings, "index_type") != Some("category") { name } else {
         [Some(name), settings.get("num_coins").filter(|v| !v.is_null()).map(|v| v.as_str().map_or_else(|| v.to_string(), str::to_string))].into_iter().flatten().collect::<Vec<_>>().join(" · ")
     };
-    let label = if crate::ruby::blank(&label) { i18n::text(locale, "bot.new", &[]) } else { label };
+    let label = if crate::v2::blank(&label) { i18n::text(locale, "bot.new", &[]) } else { label };
     Ok(Built { exchange_id, settings, label, bounded })
 }
 

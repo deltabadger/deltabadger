@@ -6,17 +6,17 @@ use rust_decimal::Decimal;
 use std::str::FromStr;
 
 #[test]
-fn datetimes_format_and_parse_like_rails_quoted_date() {
+fn datetimes_format_and_parse_like_v2_quoted_date() {
     for pair in common::vectors()["times"].as_array().unwrap() {
         let t: DateTime<Utc> = pair[0].as_str().unwrap().parse().unwrap();
-        let rails = pair[1].as_str().unwrap();
-        assert_eq!(format_time(t), rails);
-        assert_eq!(parse_time(rails).unwrap(), t);
+        let v2 = pair[1].as_str().unwrap();
+        assert_eq!(format_time(t), v2);
+        assert_eq!(parse_time(v2).unwrap(), t);
     }
 }
 
 #[test]
-fn decimals_read_from_real_like_rails() {
+fn decimals_read_from_real_like_v2() {
     for pair in common::vectors()["decimals"].as_array().unwrap() {
         let f = f64::from_bits(u64::from_str_radix(pair[0].as_str().unwrap(), 16).unwrap());
         let got = decimal_from_sql(ValueRef::Real(f)).unwrap().unwrap();

@@ -5,7 +5,7 @@ use super::conditions::{Rule, Support};
 use crate::codec::{format_time, parse_time};
 use crate::crypto::{Cipher, Credentials};
 use crate::enums::{BotStatus, BOT_WORKING};
-use crate::ruby::{from_sql, BigDec, Num};
+use crate::v2::{from_sql, BigDec, Num};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
@@ -560,9 +560,9 @@ pub struct Ticker {
 }
 
 impl Ticker {
-    /// Base, quote and price decimals as rounding scales (`ruby::scale`). Out of range is a data problem eligibility refuses.
+    /// Base, quote and price decimals as rounding scales (`v2::scale`). Out of range is a data problem eligibility refuses.
     pub fn scales(&self) -> Result<(u8, u8, u8), String> {
-        let one = |name: &str, v: i64| crate::ruby::scale(v).map_err(|_| format!("ticker {name} {v} (only 0..={})", crate::ruby::MAX_SCALE));
+        let one = |name: &str, v: i64| crate::v2::scale(v).map_err(|_| format!("ticker {name} {v} (only 0..={})", crate::v2::MAX_SCALE));
         Ok((one("base_decimals", self.base_decimals)?, one("quote_decimals", self.quote_decimals)?, one("price_decimals", self.price_decimals)?))
     }
 }

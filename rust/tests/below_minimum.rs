@@ -13,7 +13,7 @@ use deltabadger::engine::tick::{self, Attempts, TickOutcome};
 use deltabadger::engine::venue_rules::{self, VenueRules};
 use deltabadger::engine::{amount, placement, FixedClock};
 use deltabadger::enums::BotStatus;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store;
 use deltabadger::venue::alpaca::AlpacaVenue;
 use deltabadger::venue::binance::{self, BinanceVenue, Pair, Pairs};

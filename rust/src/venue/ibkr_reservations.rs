@@ -15,7 +15,7 @@ use crate::codec::format_time;
 use crate::engine::amount::OrderPlan;
 use crate::engine::model::{self, Bot};
 use crate::engine::EngineError;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 

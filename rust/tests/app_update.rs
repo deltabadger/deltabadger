@@ -61,28 +61,28 @@ fn release_json(r: Option<Release>) -> Value { r.map_or(Value::Null, |r| json!({
 
 /// refresh! per answer against one cache: what it returns, and what the cache holds after (a failure keeps the last).
 #[tokio::test(flavor = "current_thread")]
-async fn refresh_matches_rails_answer_by_answer() {
+async fn refresh_matches_v2_answer_by_answer() {
     let recorded = vectors()["refresh"].as_array().unwrap().clone();
     let answers = answers();
     assert_eq!(recorded.iter().map(|r| r["case"].as_str().unwrap()).collect::<Vec<_>>(), answers.iter().map(|a| a.0).collect::<Vec<_>>());
     let (_d, c) = db();
     let db = Db::new(c, common::seed::cipher());
     let now = at("2026-11-03T12:00:00Z");
-    for ((name, answer), rails) in answers.into_iter().zip(recorded) {
+    for ((name, answer), v2) in answers.into_iter().zip(recorded) {
         let returned = answer.as_ref().and_then(|(s, ct, b)| app_update::release_from(*s, ct, b.as_bytes()));
-        assert_eq!(release_json(returned), rails["returned"], "{name}: returned");
+        assert_eq!(release_json(returned), v2["returned"], "{name}: returned");
         let job = Check { enabled: true, fetch: Scripted { next: RefCell::new(Some(answer.map(|(s, ct, b)| (s, ct.to_string(), b.into_bytes())).ok_or_else(|| "timeout".to_string()))), calls: RefCell::new(0) } };
         let outcome = job.run(Cx { db: db.clone(), clock: &FixedClock(now), wakers: Default::default() }, vec![]).await;
-        assert_eq!(outcome, if rails["returned"].is_null() { Outcome::NothingNew } else { Outcome::Done }, "{name}: outcome");
+        assert_eq!(outcome, if v2["returned"].is_null() { Outcome::NothingNew } else { Outcome::Done }, "{name}: outcome");
         assert_eq!(*job.fetch.calls.borrow(), 1);
         let cached = db.run(move |c, _| app_update::latest(c, now)).await.unwrap();
-        assert_eq!(release_json(cached), rails["cached"], "{name}: cached");
+        assert_eq!(release_json(cached), v2["cached"], "{name}: cached");
     }
 }
 
 /// Clients::Github's request: the one URL, Rails' two headers; a 3xx is an answer, never a second request.
 #[tokio::test(flavor = "current_thread")]
-async fn the_request_is_rails_and_a_redirect_is_not_followed() {
+async fn the_request_is_v2_and_a_redirect_is_not_followed() {
     use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
     let (github, elsewhere) = (MockServer::start().await, MockServer::start().await);
     Mock::given(matchers::method("GET")).and(matchers::path("/repos/deltabadger/deltabadger/releases/latest"))
@@ -93,10 +93,10 @@ async fn the_request_is_rails_and_a_redirect_is_not_followed() {
     let (status, content_type, body) = fetch.latest().await.unwrap();
     assert_eq!((status, app_update::release_from(status, &content_type, &body).map(|r| r.version)), (302, Some("3.0.3".to_string())));
     let request = &github.received_requests().await.unwrap()[0];
-    let rails = &vectors()["refresh"][0]["requests"][0];
+    let v2 = &vectors()["refresh"][0]["requests"][0];
     // WebMock writes the default port out.
-    assert_eq!(rails["url"], json!(app_update::LATEST.replacen("api.github.com", "api.github.com:443", 1)));
-    for (name, value) in rails["headers"].as_object().unwrap() {
+    assert_eq!(v2["url"], json!(app_update::LATEST.replacen("api.github.com", "api.github.com:443", 1)));
+    for (name, value) in v2["headers"].as_object().unwrap() {
         assert_eq!(request.headers.get(name.as_str()).unwrap().to_str().unwrap(), value.as_str().unwrap(), "{name}");
     }
 }
@@ -127,7 +127,7 @@ fn available_is_gem_version_pair_by_pair() {
 }
 
 #[test]
-fn platform_and_switch_are_rails_per_environment() {
+fn platform_and_switch_are_v2_per_environment() {
     for case in vectors()["enabled"].as_array().unwrap() {
         let env = |k: &str| match k { "DELTABADGER_PLATFORM" => case["platform_marker"].as_str().map(String::from), "DELTABADGER_UPDATE_CHECK" => case["update_check"].as_str().map(String::from), _ => None };
         let platform = match app_update::platform(&env) { Platform::Desktop => "desktop", Platform::Umbrel => "umbrel", Platform::Docker => "docker", Platform::Unknown => "unknown" };
@@ -162,6 +162,6 @@ fn schedule_and_handover() {
     let s = spec.schedule.unwrap();
     assert_eq!(s.next_fire(at("2026-11-03T05:00:00Z")), at("2026-11-03T12:00:00Z"));
     assert_eq!(s.next_fire(at("2026-11-03T12:00:00Z")), at("2026-11-04T00:00:00Z"));
-    assert!(matches!(deltabadger::engine::handover::rails_work("AppUpdate::CheckJob"), deltabadger::engine::handover::RailsWork::WakeUnscoped("app_update_check_job")));
-    assert!(matches!(deltabadger::engine::handover::rails_work("Asset::InferColorFromImageJob"), deltabadger::engine::handover::RailsWork::Wake("infer_color_from_image_job")));
+    assert!(matches!(deltabadger::engine::handover::v2_work("AppUpdate::CheckJob"), deltabadger::engine::handover::V2Work::WakeUnscoped("app_update_check_job")));
+    assert!(matches!(deltabadger::engine::handover::v2_work("Asset::InferColorFromImageJob"), deltabadger::engine::handover::V2Work::Wake("infer_color_from_image_job")));
 }

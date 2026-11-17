@@ -7,7 +7,7 @@
 //! Public endpoints only: no key, nothing signed. Request contracts are Rails' (honeymaker 0.12.5's clients), pinned by
 //! rust/tests/catalogue.rs against script/rust/catalogue_vectors.rb's recordings.
 use super::http::{self, HttpRequest, Transport, TransportError};
-use crate::ruby::{self, BigDec};
+use crate::v2::{self, BigDec};
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -105,7 +105,7 @@ async fn gemini_ask<T: Transport>(t: &T, base: &str, path: String, limit: usize)
 struct Failure { errors: Vec<String>, status: Option<u16>, transient: bool }
 
 impl Failure {
-    fn sentence(self) -> String { ruby::to_sentence(&self.errors) }
+    fn sentence(self) -> String { v2::to_sentence(&self.errors) }
     /// parse_error_message: the body's `keys[0]` (Bybit: `retMsg || msg`) when the body is a JSON object naming one, else
     /// the failure as it came.
     fn venue_message(self, keys: &[&str]) -> String {
@@ -304,7 +304,7 @@ pub fn parse_hyperliquid(meta: &Value) -> Result<Vec<Value>, String> {
 
 pub fn parse_kraken(answer: &Value) -> Result<Vec<Value>, String> {
     let errors = dig(answer, &["error"])?.as_array().ok_or("undefined method 'any?' for the error")?;
-    if errors.iter().any(truthy) { return Err(ruby::to_sentence(&errors.iter().map(to_s).collect::<Vec<_>>())); }
+    if errors.iter().any(truthy) { return Err(v2::to_sentence(&errors.iter().map(to_s).collect::<Vec<_>>())); }
     // Every tokenized pair comes back twice (an SPV key and an x key) under one wsname: keyed by wsname, the first wins.
     let mut pairs: Vec<(&str, &Value)> = vec![];
     for info in answer["result"].as_object().ok_or("undefined method 'each_with_object' for the result")?.values() {
@@ -377,7 +377,7 @@ pub fn parse_mexc(info: &Value) -> Result<Vec<Value>, String> {
 pub fn decimals(v: &Value) -> i64 {
     let text = match v {
         Value::String(s) => s.clone(),
-        Value::Number(n) => match n.as_f64() { Some(f) if !(n.is_i64() || n.is_u64()) => ruby::float_to_s(f), _ => n.to_string() },
+        Value::Number(n) => match n.as_f64() { Some(f) if !(n.is_i64() || n.is_u64()) => v2::float_to_s(f), _ => n.to_string() },
         Value::Null => String::new(),
         other => other.to_string(),
     };
@@ -426,9 +426,9 @@ fn dig<'a>(v: &'a Value, keys: &[&str]) -> Result<&'a Value, String> {
     if found.is_null() { Err(format!("Key path {} not found", keys.join(" -> "))) } else { Ok(found) }
 }
 
-fn list(v: &Value) -> Result<&Vec<Value>, String> { v.as_array().ok_or_else(|| format!("undefined method 'map' for {}", ruby::raw(v))) }
+fn list(v: &Value) -> Result<&Vec<Value>, String> { v.as_array().ok_or_else(|| format!("undefined method 'map' for {}", v2::raw(v))) }
 fn some(v: Option<&Value>) -> Result<&Value, String> { v.ok_or_else(|| "undefined method '[]' for nil (a missing filter)".to_string()) }
-fn string(v: &Value) -> Result<&str, String> { v.as_str().ok_or_else(|| format!("{} is not a string", ruby::raw(v))) }
+fn string(v: &Value) -> Result<&str, String> { v.as_str().ok_or_else(|| format!("{} is not a string", v2::raw(v))) }
 
 /// `filters.find { |f| f['filterType'].in?(types) }`.
 fn filter<'a>(filters: &'a Value, types: &[&str]) -> Result<Option<&'a Value>, String> { filter_in(list(filters)?, types) }
@@ -439,7 +439,7 @@ fn filter_in<'a>(filters: &'a [Value], types: &[&str]) -> Result<Option<&'a Valu
 /// Ruby truthiness: all but nil and false.
 fn truthy(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) }
 /// `present?`: truthy and not a blank string.
-fn present(v: &Value) -> bool { truthy(v) && v.as_str().is_none_or(|s| !ruby::blank(s)) }
+fn present(v: &Value) -> bool { truthy(v) && v.as_str().is_none_or(|s| !v2::blank(s)) }
 /// `a || b`.
 fn or<'a>(a: &'a Value, b: &'a Value) -> &'a Value { if truthy(a) { a } else { b } }
 /// `"#{v}"`.
@@ -456,23 +456,23 @@ fn split(s: &str, sep: char) -> Vec<&str> {
 fn to_i(v: &Value) -> Result<i64, String> {
     match v {
         Value::Null => Ok(0),
-        Value::String(s) => Ok(ruby::to_i(s)),
+        Value::String(s) => Ok(v2::to_i(s)),
         Value::Number(n) => n.as_i64().or_else(|| n.as_f64().filter(|f| f.is_finite()).map(|f| f.trunc() as i64)).ok_or_else(|| format!("{n} has no to_i")),
-        other => Err(format!("undefined method 'to_i' for {}", ruby::raw(other))),
+        other => Err(format!("undefined method 'to_i' for {}", v2::raw(other))),
     }
 }
 /// Ruby's `v.to_d`: the value, and whether it is a negative zero (BigDecimal keeps the sign of 0: "-0".to_d is -0.0,
 /// written "-0.0"). nil is 0, a number as Integer#to_d and Float#to_d read it, a string as String#to_d (`loose`).
 /// None: Ruby reads it as Infinity or NaN.
-fn ruby_d(v: &Value) -> Result<Option<(BigDec, bool)>, String> {
+fn v2_d(v: &Value) -> Result<Option<(BigDec, bool)>, String> {
     match v {
         Value::Null => Ok(Some((BigDec::zero(), false))),
         Value::String(s) => loose(s),
         Value::Number(n) => {
             let minus = n.as_f64().is_some_and(|f| f == 0.0 && f.is_sign_negative()) && !(n.is_i64() || n.is_u64());
-            ruby::json_to_d(v).map(|d| Some((d.unwrap_or_else(BigDec::zero), minus))).map_err(|e| format!("{e:?}"))
+            v2::json_to_d(v).map(|d| Some((d.unwrap_or_else(BigDec::zero), minus))).map_err(|e| format!("{e:?}"))
         }
-        other => Err(format!("undefined method 'to_d' for {}", ruby::raw(other))),
+        other => Err(format!("undefined method 'to_d' for {}", v2::raw(other))),
     }
 }
 
@@ -486,7 +486,7 @@ fn ruby_d(v: &Value) -> Result<Option<(BigDec, bool)>, String> {
 /// written (`d`) is nil, as Rails' `as_json` writes it.
 fn to_d(v: &Value) -> Result<BigDec, String> { finite(v).map(|(x, _)| x) }
 fn finite(v: &Value) -> Result<(BigDec, bool), String> {
-    ruby_d(v)?.ok_or_else(|| format!("{} reads as Infinity or NaN (D-CG-NONFINITE-REFUSED)", ruby::raw(v)))
+    v2_d(v)?.ok_or_else(|| format!("{} reads as Infinity or NaN (D-CG-NONFINITE-REFUSED)", v2::raw(v)))
 }
 
 /// String#to_d (BigDecimal 4.1.3's VpAlloc, not strict), over the text up to its first NUL (a C string ends there):
@@ -529,7 +529,7 @@ fn loose(s: &str) -> Result<Option<(BigDec, bool)>, String> {
 }
 
 /// `v.to_d` as `as_json` writes it: BigDecimal#to_s, plain ("-0.0" for a negative zero); a non-finite one as nil.
-fn d(v: &Value) -> Result<Value, String> { Ok(ruby_d(v)?.map_or(Value::Null, |(x, minus)| signed(&x, minus))) }
+fn d(v: &Value) -> Result<Value, String> { Ok(v2_d(v)?.map_or(Value::Null, |(x, minus)| signed(&x, minus))) }
 fn signed(x: &BigDec, minus: bool) -> Value { if minus && x.is_zero() { json!("-0.0") } else { dec(x) } }
 fn dec(x: &BigDec) -> Value { Value::String(x.to_s_f()) }
 
@@ -538,7 +538,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn decimals_reads_as_rails_but_exponents_by_value() {
+    fn decimals_reads_as_v2_but_exponents_by_value() {
         for (v, n) in [(json!("0.00001000"), 5), (json!("1.00000000"), 0), (json!("100"), 0), (json!("10.0"), 0), (json!("0.10"), 1),
                        (json!(0.01), 2), (json!(5), 0), (Value::Null, 0), (json!("5."), 1), (json!(0.0001), 4)] {
             assert_eq!(decimals(&v), n, "{v}");
@@ -580,7 +580,7 @@ mod tests {
     /// D-CG-NONFINITE-REFUSED: Rails reads tick_size "Infinity" as BigDecimal Infinity, whose decimals are 0, and lists the
     /// pair with base_decimals 0. Rust fails Gemini's catalogue instead.
     #[test]
-    fn a_gemini_step_rails_reads_as_infinity_fails_the_venue() {
+    fn a_gemini_step_v2_reads_as_infinity_fails_the_venue() {
         let detail = json!({ "symbol": "BTCUSD", "base_currency": "BTC", "quote_currency": "USD", "tick_size": "Infinity",
                              "quote_increment": 0.01, "min_order_size": "0.00001", "status": "open", "product_type": "spot" });
         let err = parse_gemini("Gemini", &[("btcusd".into(), detail.clone())]).unwrap_err();

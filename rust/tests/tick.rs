@@ -155,7 +155,7 @@ async fn an_unreadable_balance_body_fails_the_tick_without_a_retry() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_price_read_failure_carries_rails_no_price_message() {
+async fn a_price_read_failure_carries_v2_no_price_message() {
     let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     let mut attempts = Attempts::default();
     for _ in 0..4 { tick::tick(&o.primary, &FakeVenue::new(), id, &clock("2026-09-01T10:00:01Z"), &mut attempts).await.unwrap(); }

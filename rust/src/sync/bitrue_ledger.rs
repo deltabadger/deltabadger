@@ -4,7 +4,7 @@
 //! 250 ms before each history request; admission reserves it. Rails starts at 2018-07-01, without a lookback clamp.
 //! D-BITRUE-PAGE: a repeated full transfer page fails with its endpoint rather than Rails' undefined `path` exception.
 use super::activities::{Entry, Raw, BUY, SELL, DEPOSIT, WITHDRAWAL};
-use super::binance_ledger::{amount, entry, page_of, ruby_time_at_ms, text, Fail};
+use super::binance_ledger::{amount, entry, page_of, v2_time_at_ms, text, Fail};
 use super::{continuation, capture_bound_version, load_key_of, phase, Failure, Key, SyncError};
 use super::ledger::Outcome;
 use super::wire::Node;
@@ -12,7 +12,7 @@ use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::jobs::Db;
 use crate::venue::bitrue::{BitrueVenue, ACCOUNT_PATH, BITRUE, RECV_WINDOW, URL};
-use crate::venue::bitvavo::ruby_ms;
+use crate::venue::bitvavo::v2_ms;
 use crate::venue::http::Transport;
 use chrono::{Duration, Utc};
 use serde_json::{json, Value};
@@ -28,10 +28,10 @@ pub const READ_PAUSE: std::time::Duration = std::time::Duration::from_millis(250
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 const MAX_NODES: usize = 8_000_000;
 
-fn to_i(v: &Value) -> i64 { match v { Value::String(s) => crate::ruby::to_i(s), Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().unwrap_or_default() as i64), _ => 0 } }
+fn to_i(v: &Value) -> i64 { match v { Value::String(s) => crate::v2::to_i(s), Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().unwrap_or_default() as i64), _ => 0 } }
 fn field(v: &Value, key: &str) -> String { text(v.get(key)).unwrap_or_default() }
 fn shown(v: &Value) -> String { match v { Value::Null => String::new(), Value::String(s) => s.clone(), other => super::mexc_ledger::inspect(other) } }
-fn positive(v: &Value) -> bool { crate::ruby::json_to_d(v).ok().flatten().is_some_and(|d| d.is_positive()) }
+fn positive(v: &Value) -> bool { crate::v2::json_to_d(v).ok().flatten().is_some_and(|d| d.is_positive()) }
 fn rows(node: &Node, member: Option<&str>) -> Result<Vec<String>, Fail> {
     let n = match member { Some(k) => match node { Node::Object(m) => m.iter().find(|(name,_)| name == k).map(|(_,v)| v), _ => None }, None => Some(node) };
     match n { Some(Node::Array(a)) => Ok(a.iter().map(Node::text).collect()), None if member.is_some() => Ok(vec![]), Some(Node::Scalar(s)) if member.is_some() && s == "null" => Ok(vec![]),
@@ -73,7 +73,7 @@ fn listing_pairs(node: &Node) -> Result<Vec<(String, String, String)>, Fail> {
 }
 
 fn trade(symbol: &str, base: &str, quote: &str, r: Raw) -> Result<Entry, Fail> {
-    let at = ruby_time_at_ms(to_i(&r.value["time"])).ok_or_else(|| ("unreadable trade time".into(), true))?;
+    let at = v2_time_at_ms(to_i(&r.value["time"])).ok_or_else(|| ("unreadable trade time".into(), true))?;
     let buy = !matches!(r.value.get("isBuyer"), None | Some(Value::Null | Value::Bool(false)));
     let qty = amount(&r, "qty", "trade")?;
     let quote_amount = if r.value.get("quoteQty").is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false)) && v.as_str().is_none_or(|s| !s.trim().is_empty())) {
@@ -84,12 +84,12 @@ fn trade(symbol: &str, base: &str, quote: &str, r: Raw) -> Result<Entry, Fail> {
     let fee = r.value.get("commissionAsset").filter(|v| !matches!(v, Value::Null | Value::Bool(false))).or_else(|| r.value.get("commissionAssert"));
     e.fee_currency = text(fee).filter(|s| !s.trim().is_empty()).map(|s| s.to_uppercase());
     let commission = amount(&r, "commission", "trade")?;
-    e.fee_amount = Some(if commission < crate::ruby::BigDec::zero() { &crate::ruby::BigDec::zero() - &commission } else { commission });
+    e.fee_amount = Some(if commission < crate::v2::BigDec::zero() { &crate::v2::BigDec::zero() - &commission } else { commission });
     e.tx_id = Some(format!("{symbol}-{}-{}", field(&r.value, "orderId"), field(&r.value, "id")));
     Ok(e)
 }
 fn transfer(r: Raw, deposit: bool) -> Result<Entry, Fail> {
-    let at = ruby_time_at_ms(to_i(&r.value["createdAt"])).ok_or_else(|| ("unreadable transfer time".into(), true))?;
+    let at = v2_time_at_ms(to_i(&r.value["createdAt"])).ok_or_else(|| ("unreadable transfer time".into(), true))?;
     let coin = field(&r.value, "symbol").split('_').next().unwrap_or_default().to_uppercase();
     let mut e = entry(if deposit { DEPOSIT } else { WITHDRAWAL }, &coin, amount(&r, "amount", "transfer")?, &r, at);
     let id = field(&r.value, "id");
@@ -131,12 +131,12 @@ struct Walk<'a, T: Transport> {
 }
 impl<'a, T: Transport> Walk<'a, T> {
     fn new(venue: &'a BitrueVenue<T>, db: &'a Db, key: &'a Key, clock: &'a dyn Clock, pause: std::time::Duration, begin: continuation::Begin<'_>) -> Self {
-        let start = ruby_ms(begin.start.unwrap_or_else(|| "2018-07-01T00:00:00Z".parse::<chrono::DateTime<Utc>>().expect("Rails LEDGER_FROM")));
+        let start = v2_ms(begin.start.unwrap_or_else(|| "2018-07-01T00:00:00Z".parse::<chrono::DateTime<Utc>>().expect("Rails LEDGER_FROM")));
         let c = begin.cursor.and_then(Cursor::of).unwrap_or(Cursor {
             source: Source::Account, status_page: 0, window: start, ranges: vec![], pending: vec![], coins: BTreeSet::new(), pairs: vec![], pair: 0,
             transfer_coins: vec![], coin: 0, offset: 0, seen: HashSet::new(),
         });
-        Self { transfers: begin.transfers, venue, db, key, clock, start, end: ruby_ms(begin.end), pause, c }
+        Self { transfers: begin.transfers, venue, db, key, clock, start, end: v2_ms(begin.end), pause, c }
     }
     async fn get(&self, path: &str, mut params: Vec<(&'static str, String)>, paced: bool) -> Result<Node, Fail> {
         if paced && !self.pause.is_zero() { tokio::time::sleep(self.pause).await; }

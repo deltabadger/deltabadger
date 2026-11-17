@@ -17,7 +17,7 @@
 //! - D-KR-5: rows an earlier sync wrote are rewritten to what this sync reads (`repair`), by the conflict rules of plan §2.6
 //!   and r3 rows 2 and 5: a linked row is written only into a valid pair, else deferred to the import's completion.
 use super::activities::{Entry, Raw, AIRDROP, BUY, DEPOSIT, FEE, OTHER_INCOME, SELL, UNSUPPORTED_ACTIVITY, WITHDRAWAL};
-use super::binance_ledger::{page_of, ruby_time_at_secs_f, Fail};
+use super::binance_ledger::{page_of, v2_time_at_secs_f, Fail};
 use super::continuation;
 use super::ledger::{only, rule_venue, spellings, AssetRule, Outcome};
 use super::wire::Node;
@@ -25,7 +25,7 @@ use super::{capture_bound_version, load_key_of, phase, sql_time, Failure, Key, S
 use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::jobs::Db;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::http::Transport;
 use crate::venue::kraken::{KrakenVenue, LEDGERS};
 use chrono::{DateTime, NaiveDate, Utc};
@@ -210,7 +210,7 @@ pub(super) fn normalise(id: &str, raw: Raw, identity: &KrakenIdentity) -> Result
     let code = raw.value["asset"].as_str().ok_or_else(|| ("unreadable ledger entry asset".to_string(), true))?.to_string();
     let amount = raw.number("amount").map_err(|why| (format!("ledger entry: {why}"), true))?.ok_or_else(|| ("unreadable ledger entry amount: missing".to_string(), true))?;
     let fee = raw.number("fee").map_err(|why| (format!("ledger entry: {why}"), true))?.unwrap_or_else(BigDec::zero);
-    let at = raw.value["time"].as_f64().and_then(ruby_time_at_secs_f).ok_or_else(|| ("unreadable ledger entry time".to_string(), true))?;
+    let at = raw.value["time"].as_f64().and_then(v2_time_at_secs_f).ok_or_else(|| ("unreadable ledger entry time".to_string(), true))?;
     let symbol = identity.identify(&code, Some(at.date_naive())).0;
     let zero = BigDec::zero();
     let abs = |d: &BigDec| if *d < zero { &zero - d } else { d.clone() };

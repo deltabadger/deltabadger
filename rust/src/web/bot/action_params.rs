@@ -45,7 +45,7 @@ impl ActionParams {
 
     /// Rails' controller parameter merge: query keys replace body keys shallowly.
     /// Existing bot actions retain their separately approved body-winning merge.
-    pub fn parse_rails(params: &Params) -> Result<Self, ParamError> {
+    pub fn parse_v2(params: &Params) -> Result<Self, ParamError> {
         let mut parsed = Self::parse(params)?;
         let query = form(&params.query)?;
         let object = parsed.0.as_object_mut().ok_or(ParamError::Shape)?;
@@ -406,7 +406,7 @@ pub fn accounting_numeric(value: &Value) -> Result<Value, NumericError> {
 fn numeric_with_bound(value: &Value, integer: bool, accounting: bool) -> Result<Value, NumericError> {
     if value.is_boolean() || value.is_array() || value.is_object() { return Err(NumericError::Shape); }
     let input = value.as_str().map(str::to_owned).unwrap_or_else(|| value.to_string());
-    if input.len() > crate::ruby::MAX_INPUT_LEN { return Err(NumericError::Bound); }
+    if input.len() > crate::v2::MAX_INPUT_LEN { return Err(NumericError::Bound); }
     let s = input.trim_start_matches([' ', '\t', '\n', '\r', '\u{000b}', '\u{000c}']);
     let mut chars = s.chars().peekable();
     let mut prefix = String::new();
@@ -437,7 +437,7 @@ fn numeric_with_bound(value: &Value, integer: bool, accounting: bool) -> Result<
         if count > 0 { prefix.push_str(&exponent); }
     }
     if accounting {
-        let exact = crate::ruby::BigDec::parse(&prefix).map_err(|_| NumericError::Bound)?;
+        let exact = crate::v2::BigDec::parse(&prefix).map_err(|_| NumericError::Bound)?;
         crate::engine::accounting::bounded_decimal(&exact).map_err(|_| NumericError::Bound)?;
     }
     if integer {

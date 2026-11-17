@@ -3,7 +3,7 @@
 //! venue's order and fill ids its documented answer carries. Rows the importer builds itself are built through it
 //! (binance_ledger::normalize_trade, coinbase_ledger::fill, activities::normalize). No Rails, no network.
 use chrono::{DateTime, Utc};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::sync::activities::{CryptoPairs, Entry, Raw};
 use deltabadger::sync::fills::{read, supported, Fill, LedgerRow, Read};
 use deltabadger::venue::Side;

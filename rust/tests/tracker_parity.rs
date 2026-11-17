@@ -22,22 +22,22 @@ fn reviewed(name: &str) -> PathBuf { PathBuf::from(env!("CARGO_MANIFEST_DIR")).j
 
 /// The figures each reviewed divergence was checked by hand to state (Rust, and Rails where it names Rails' error).
 fn reviewed_figures(outputs: &std::collections::HashMap<String, (Value, Value)>) {
-    let side = |name: &str, rails: bool| { let (a, b) = &outputs[name]; if rails { a.clone() } else { b.clone() } };
+    let side = |name: &str, v2: bool| { let (a, b) = &outputs[name]; if v2 { a.clone() } else { b.clone() } };
     // "SYMBOL quantity@cost" of a scope's positions, in symbol order; a scope is "whole" or an exchange id.
-    let positions = |name: &str, scope: &str, rails: bool| -> String {
-        let out = side(name, rails);
+    let positions = |name: &str, scope: &str, v2: bool| -> String {
+        let out = side(name, v2);
         let s = if scope == "whole" { out["ledger"]["whole"].clone() } else { out["ledger"]["venues"][scope].clone() };
         s["positions"].as_array().unwrap().iter().map(|p| format!("{} {}@{}", p["symbol"].as_str().unwrap(), p["quantity"].as_str().unwrap(), p["cost"].as_str().unwrap()))
             .collect::<Vec<_>>().join(", ")
     };
-    let field = |name: &str, scope: &str, key: &str, rails: bool| -> String {
-        let out = side(name, rails);
+    let field = |name: &str, scope: &str, key: &str, v2: bool| -> String {
+        let out = side(name, v2);
         let s = if scope == "whole" { out["ledger"]["whole"].clone() } else { out["ledger"]["venues"][scope].clone() };
         s[key].as_str().map_or_else(|| s[key].to_string(), str::to_string)
     };
-    let figure = |name: &str, key: &str, rails: bool| side(name, rails)["ledger"]["figures"]["whole"][key].as_str().unwrap().to_string();
-    let snapshot = |name: &str, date: &str, rails: bool| -> (String, String) {
-        let out = side(name, rails);
+    let figure = |name: &str, key: &str, v2: bool| side(name, v2)["ledger"]["figures"]["whole"][key].as_str().unwrap().to_string();
+    let snapshot = |name: &str, date: &str, v2: bool| -> (String, String) {
+        let out = side(name, v2);
         let row = out["tables"]["portfolio_snapshots"].as_array().unwrap().iter().find(|r| r["date"] == date).unwrap().clone();
         let num = |v: &Value| match v { Value::Object(m) => f64::from_be_bytes(u64::from_str_radix(m["f"].as_str().unwrap(), 16).unwrap().to_be_bytes()).to_string(), v => v.to_string() };
         (num(&row["value_usd"]), num(&row["held_value_usd"]))
@@ -81,7 +81,7 @@ fn reviewed_figures(outputs: &std::collections::HashMap<String, (Value, Value)>)
                ("50020.0".into(), r#"[["USDT","10.0"]]"#.into()));
     assert_eq!(snapshot("cq_stable_base_sell_fee_short", "2026-09-16", false), ("60010".into(), "60000".into()));
     // Since the sync: both coins move (ETH, unpriced at the venue, at its cost).
-    let holdings = |name: &str, rails: bool| side(name, rails)["ledger"]["figures"]["whole"]["holdings"].as_array().unwrap().iter()
+    let holdings = |name: &str, v2: bool| side(name, v2)["ledger"]["figures"]["whole"]["holdings"].as_array().unwrap().iter()
         .map(|h| format!("{} {}", h["symbol"].as_str().unwrap(), h["quantity"].as_str().unwrap())).collect::<Vec<_>>().join(", ");
     assert_eq!((holdings("cq_since_sync_buy", false), figure("cq_since_sync_buy", "value", false)), ("BTC 0.499, ETH 10.0".into(), "54940.0".into()));
     assert_eq!(holdings("cq_since_sync_buy", true), "BTC 0.999, ETH 10.0");
@@ -105,11 +105,11 @@ fn reviewed_figures(outputs: &std::collections::HashMap<String, (Value, Value)>)
     assert_eq!(snapshot("same_coin_sale_fee", "2026-09-20", false), ("1599.4".into(), "599.4".into()));
     assert_eq!(snapshot("fees_fifo_never_applied", "2026-09-09", false), ("85340".into(), "85140".into()), "0.005 ETH less at the history's close");
     // D-TRACKER-TRANSFER-ORDER (A Binance 2, B Kraken 3, C Bybit 4): no phantom opening, nothing invested twice.
-    for (name, rust, rails) in [("to_same_second_transfer_past_deposit", "10000.0", "30000.0"), ("to_chain_funded_by_deposit", "60000.0", "120000.0"),
+    for (name, rust, v2) in [("to_same_second_transfer_past_deposit", "10000.0", "30000.0"), ("to_chain_funded_by_deposit", "60000.0", "120000.0"),
                                 ("to_chain_ab_bc", "60000.0", "120000.0"), ("to_reciprocal_ab_ba", "60000.0", "120000.0"), ("to_cycle_unfunded", "60000.0", "120000.0"),
                                 ("to_cycle_funded_forward", "60000.0", "180000.0"), ("to_opening_then_reciprocal", "60000.0", "120000.0"),
                                 ("to_adjustments_then_reciprocal", "60000.0", "120000.0")] {
-        assert_eq!((field(name, "whole", "total_invested", false), field(name, "whole", "total_invested", true)), (rust.into(), rails.into()), "{name}");
+        assert_eq!((field(name, "whole", "total_invested", false), field(name, "whole", "total_invested", true)), (rust.into(), v2.into()), "{name}");
     }
     assert_eq!((field("to_same_second_transfer_past_deposit", "whole", "realised", false), field("to_same_second_transfer_past_deposit", "whole", "openings", false)), ("10000.0".into(), "[]".into()));
     assert_eq!(positions("to_chain_funded_by_deposit", "whole", false), "BTC 1.0@60000.0");
@@ -125,17 +125,17 @@ fn reviewed_figures(outputs: &std::collections::HashMap<String, (Value, Value)>)
 
 /// PLAN-A17 A17-3's named divergences on a CoinGecko install, read from both sides' output.
 fn coingecko_divergences(outputs: &std::collections::HashMap<String, (Value, Value)>) {
-    let paths = |name: &str, rails: bool| -> Vec<String> {
+    let paths = |name: &str, v2: bool| -> Vec<String> {
         let (a, b) = &outputs[name];
-        (if rails { a } else { b })["requests"]["market"].as_array().unwrap().iter().map(|r| {
+        (if v2 { a } else { b })["requests"]["market"].as_array().unwrap().iter().map(|r| {
             let q: std::collections::BTreeMap<String, String> = r[1].as_array().unwrap().iter().map(|kv| (kv[0].as_str().unwrap().into(), kv[1].as_str().unwrap().into())).collect();
             let day = |k: &str| q.get(k).and_then(|t| t.parse::<i64>().ok()).and_then(|t| chrono::DateTime::from_timestamp(t, 0)).map(|t| t.date_naive().to_string()).unwrap_or_default();
             format!("{} {}..{}", r[0].as_str().unwrap().trim_start_matches("GET /api/v3/").trim_end_matches("/market_chart/range"), day("from"), day("to"))
         }).collect()
     };
-    let stored = |name: &str, rails: bool, asset: &str| -> Vec<String> {
+    let stored = |name: &str, v2: bool, asset: &str| -> Vec<String> {
         let (a, b) = &outputs[name];
-        let mut days: Vec<String> = (if rails { a } else { b })["tables"]["historical_prices"].as_array().unwrap().iter()
+        let mut days: Vec<String> = (if v2 { a } else { b })["tables"]["historical_prices"].as_array().unwrap().iter()
             .filter(|r| r["asset"] == asset).map(|r| r["date"].as_str().unwrap().to_string()).collect();
         days.sort();
         days
@@ -146,9 +146,9 @@ fn coingecko_divergences(outputs: &std::collections::HashMap<String, (Value, Val
     assert!(paths("cg_endpoint_429", true).iter().any(|p| p.starts_with("coins/ethereum")));
     assert!(stored("cg_endpoint_429", false, "ETH").is_empty() && !stored("cg_endpoint_429", true, "ETH").is_empty());
     // The backfill's gaps stay pending in Rust (the price generation unstamped, so the next run sweeps again); Rails stamps it.
-    let generation = |name: &str, rails: bool| -> Value {
+    let generation = |name: &str, v2: bool| -> Value {
         let (a, b) = &outputs[name];
-        (if rails { a } else { b })["tables"].as_object().unwrap().iter().find(|(k, _)| k.starts_with("snapshot_price_generation_")).map(|(_, v)| v.clone()).unwrap()
+        (if v2 { a } else { b })["tables"].as_object().unwrap().iter().find(|(k, _)| k.starts_with("snapshot_price_generation_")).map(|(_, v)| v.clone()).unwrap()
     };
     for name in ["cg_endpoint_429", "cg_ping_429"] { assert!(generation(name, false).is_null() && !generation(name, true).is_null(), "{name}"); }
     // The ping's 429: Rails read it as a demo key and stored bitcoin's days; Rust asked nothing past each run's ping.
@@ -158,12 +158,12 @@ fn coingecko_divergences(outputs: &std::collections::HashMap<String, (Value, Val
     // 2025 (the first UTC midnight after the run's clock less 365 days) and stored the window's days, the cutoff's first.
     assert!(paths("cg_window_crossing", true).contains(&"coins/bitcoin 2025-09-15..2026-10-01".to_string()));
     assert!(paths("cg_window_crossing", false).contains(&"coins/bitcoin 2025-10-02..2026-10-01".to_string()));
-    let (rust, rails) = (stored("cg_window_crossing", false, "BTC"), stored("cg_window_crossing", true, "BTC"));
-    assert_eq!((rust.first().map(String::as_str), rust.len(), rails.len()), (Some("2025-10-02"), 364, 1), "{rails:?}");
+    let (rust, v2) = (stored("cg_window_crossing", false, "BTC"), stored("cg_window_crossing", true, "BTC"));
+    assert_eq!((rust.first().map(String::as_str), rust.len(), v2.len()), (Some("2025-10-02"), 364, 1), "{v2:?}");
     // The older days already stored are kept and read on both sides; Rust adds the window's.
-    let (rust, rails) = (stored("cg_window_older_stored", false, "BTC"), stored("cg_window_older_stored", true, "BTC"));
-    assert_eq!((rust.first().map(String::as_str), rails.first().map(String::as_str)), (Some("2025-09-15"), Some("2025-09-15")));
-    assert!(rust.contains(&"2025-10-02".to_string()) && !rails.contains(&"2025-10-02".to_string()));
+    let (rust, v2) = (stored("cg_window_older_stored", false, "BTC"), stored("cg_window_older_stored", true, "BTC"));
+    assert_eq!((rust.first().map(String::as_str), v2.first().map(String::as_str)), (Some("2025-09-15"), Some("2025-09-15")));
+    assert!(rust.contains(&"2025-10-02".to_string()) && !v2.contains(&"2025-10-02".to_string()));
     // Wholly before the cutoff: the walk's ETH lookups are not asked by Rust; Rails asked each and was refused.
     assert!(!paths("cg_window_wholly_before", false).iter().any(|p| p.starts_with("coins/ethereum 2025-06") || p.starts_with("coins/ethereum 2025-04")));
     assert!(paths("cg_window_wholly_before", true).iter().any(|p| p == "coins/ethereum 2025-06-10..2025-06-11"));
@@ -172,11 +172,11 @@ fn coingecko_divergences(outputs: &std::collections::HashMap<String, (Value, Val
 /// R: legacy fixture balances have no credential provenance. Retain every historical
 /// amount; R4 refuses today's snapshots and associated wash-lock publication until a producer sync succeeds.
 const UNKNOWN_ORIGIN: &[&str] = &["other_venue_balance", "a_failed_sync_and_stale_prices", "stale_prices_alone", "cash_beyond_the_history_and_an_unpriced_holding", "a_failed_price_fetched_again", "bought_since_the_sync", "buys_priced", "coin_fee_stated_price", "coin_fee_then_withdrawal", "departed_and_cash_short", "dividends_fees_withdrawal", "linked_dollars", "old_loss_outside_the_horizon", "return_of_capital", "sale_gain_with_a_losing_lot", "sell_at_loss_wash_off", "sell_at_loss_wash_on", "sold_before_any_buy", "split_priced_by_a_second_fetch"];
-fn unknown_origin(name:&str,rails:&Value,rust:&Value,before_locks:&Value)->Option<Result<(),String>> {
+fn unknown_origin(name:&str,v2:&Value,rust:&Value,before_locks:&Value)->Option<Result<(),String>> {
     if !UNKNOWN_ORIGIN.contains(&name){return None;}
     Some((|| {
-        if rails["ledger_error"]!=Value::Null || rails["ledger"]==Value::Null{return Err("Rails no longer publishes this legacy balance calculation".into());}
-        let mut expected=rails.clone();
+        if v2["ledger_error"]!=Value::Null || v2["ledger"]==Value::Null{return Err("Rails no longer publishes this legacy balance calculation".into());}
+        let mut expected=v2.clone();
         expected["ledger"]=Value::Null;
         expected["ledger_error"]=json!(deltabadger::engine::model::CREDENTIALS_CHANGED);
         expected["tables"]["wash_sale_locks"]=before_locks.clone();
@@ -190,14 +190,14 @@ fn unknown_origin(name:&str,rails:&Value,rust:&Value,before_locks:&Value)->Optio
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_tracker_grid() {
-    let rails_root = tempfile::tempdir().unwrap();
+async fn v2_and_rust_state_identical_figures_snapshots_and_locks_across_the_tracker_grid() {
+    let v2_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
     // Frozen (common::frozen): Rails builds the grid, the installs are copied before Rails writes to its copies, Rails records.
     let frozen = common::frozen("tracker-grid", |d| d.join("rails").is_dir() && d.join("rust").is_dir());
-    common::copy_tree(&frozen.join("rails"), rails_root.path());
+    common::copy_tree(&frozen.join("rails"), v2_root.path());
     common::copy_tree(&frozen.join("rust"), rust_root.path());
-    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(v2_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), 67 + 23 + 12 + 9, "the tracker grid");
 
@@ -212,14 +212,14 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
         let before_locks=deltabadger::tracker::parity::tables(&initial,&cipher,scenario["user_id"].as_i64().unwrap()).unwrap()["wash_sale_locks"].clone();
         drop(initial);
         let mut rust_out = deltabadger::tracker::parity::run(&rust_root.path().join(&name), cipher.clone()).await.unwrap_or_else(|e| panic!("{name}: {e}"));
-        let mut rails_out = read(&d.join("rails.json"));
+        let mut v2_out = read(&d.join("rails.json"));
         // A transport failure ends both runs with it: Rails raises Client::TransientNetworkError wrapping Faraday's error, Rust
         // states the transport's message. The text is each side's own; that both ended on it is compared.
         if scenario["transport_failure"] == true {
             for key in ["ledger_error", "backfill_error"] {
-                let (rails_e, rust_e) = (rails_out[key].as_str().unwrap_or_default().to_string(), rust_out[key].as_str().unwrap_or_default().to_string());
-                assert!(!rust_e.is_empty() && rails_e == format!("Client::TransientNetworkError: Faraday::ConnectionFailed: {rust_e}"), "{name} {key}: {rails_e} / {rust_e}");
-                (rails_out[key], rust_out[key]) = (json!("transport failure"), json!("transport failure"));
+                let (v2_e, rust_e) = (v2_out[key].as_str().unwrap_or_default().to_string(), rust_out[key].as_str().unwrap_or_default().to_string());
+                assert!(!rust_e.is_empty() && v2_e == format!("Client::TransientNetworkError: Faraday::ConnectionFailed: {rust_e}"), "{name} {key}: {v2_e} / {rust_e}");
+                (v2_out[key], rust_out[key]) = (json!("transport failure"), json!("transport failure"));
             }
         }
         // A reviewed divergence (D-TRACKER-…): Rust's output is the file checked by hand, and Rails' is not.
@@ -228,21 +228,21 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
             let path = reviewed(&name);
             let text = serde_json::to_string_pretty(&rust_out).unwrap() + "\n";
             if std::env::var("TRACKER_DIVERGENCES_WRITE").is_ok() { std::fs::create_dir_all(path.parent().unwrap()).unwrap(); std::fs::write(&path, &text).unwrap(); }
-            if rails_out == rust_out { failures.push(format!("{name}: {id} names a divergence, but Rust stated Rails' output")); }
+            if v2_out == rust_out { failures.push(format!("{name}: {id} names a divergence, but Rust stated Rails' output")); }
             match std::fs::read_to_string(&path) {
                 Ok(want) if want == text => {}
-                Ok(_) => failures.push(format!("{name}: not the reviewed {id} output ({})\n  rails: {rails_out}\n  rust:  {rust_out}", path.display())),
-                Err(e) => failures.push(format!("{name}: {}: {e}\n  rails: {rails_out}\n  rust:  {rust_out}", path.display())),
+                Ok(_) => failures.push(format!("{name}: not the reviewed {id} output ({})\n  rails: {v2_out}\n  rust:  {rust_out}", path.display())),
+                Err(e) => failures.push(format!("{name}: {}: {e}\n  rails: {v2_out}\n  rust:  {rust_out}", path.display())),
             }
             reviewed_names.push(name.clone());
-            outputs.insert(name, (rails_out, rust_out));
+            outputs.insert(name, (v2_out, rust_out));
             continue;
         }
-        match unknown_origin(&name,&rails_out,&rust_out,&before_locks) {
-            Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {rails_out}\n  rust:  {rust_out}")),
+        match unknown_origin(&name,&v2_out,&rust_out,&before_locks) {
+            Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {v2_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => divergences.push(name),
-            None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
-            None => { outputs.insert(name, (rails_out, rust_out)); }
+            None if v2_out != rust_out => failures.push(format!("{name}\n  rails: {v2_out}\n  rust:  {rust_out}")),
+            None => { outputs.insert(name, (v2_out, rust_out)); }
         }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
@@ -258,7 +258,7 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     assert_eq!(divergences,expected,"all reviewed legacy-origin and original divergences are exercised");
 
     // What the grid must have exercised, read from Rails' own output.
-    let rails_of = |name: &str| read(&rails_root.path().join(name).join("rails.json"));
+    let v2_of = |name: &str| read(&v2_root.path().join(name).join("rails.json"));
     // The page's figures (Plan tracker holdings S0b): every one stated somewhere in the grid, not only zeros, and only
     // where Rust's are compared (a listed divergence nulls Rust's expected ledger).
     let compared: Vec<&PathBuf> = dirs.iter().filter(|d| !UNKNOWN_ORIGIN.contains(&d.file_name().unwrap().to_string_lossy().as_ref())).collect();
@@ -269,7 +269,7 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     let nonzero = |field: &str| summaries.iter().filter(|s| s[field].as_str().is_some_and(|v| v != "0.0")).count();
     for field in ["received", "realised", "fees", "cash_usd", "unpriced_proceeds"] { assert!(nonzero(field) > 0, "no scenario states {field}"); }
     assert!(summaries.iter().any(|s| s["realised"].as_str().is_some_and(|v| v.starts_with('-'))), "a realised loss");
-    assert!(rails_of("return_of_capital_past_basis")["ledger"]["whole"]["realised"].as_str().is_some_and(|v| v != "0.0"), "return of capital past the basis is realised");
+    assert!(v2_of("return_of_capital_past_basis")["ledger"]["whole"]["realised"].as_str().is_some_and(|v| v != "0.0"), "return of capital past the basis is realised");
     assert!(summaries.iter().any(|s| s["openings"].as_array().is_some_and(|o| !o.is_empty())), "an opening");
     let trips: Vec<&Value> = summaries.iter().flat_map(|s| s["round_trips"].as_array().into_iter().flatten()).collect();
     assert!(trips.iter().any(|t| t["incomplete"] == true) && trips.iter().any(|t| t["incomplete"] == false), "complete and incomplete round trips");
@@ -283,35 +283,35 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     let kinds: std::collections::HashSet<&str> = figures.iter().flat_map(|f| f["notes"].as_array().into_iter().flatten()).filter_map(|n| n["kind"].as_str()).collect();
     for kind in ["left", "arrived", "since_sync", "unpriced_held", "estimated", "cash_out", "cash_in", "unpriced", "figures_disagree", "at_par"] { assert!(kinds.contains(kind), "no scenario writes a {kind} note"); }
     assert!(holdings.iter().any(|h| h["note"].is_object()), "a holding's own note");
-    assert!(rails_of("departed_coin_names_its_venue")["ledger"]["figures"]["whole"]["notes"].as_array().unwrap().iter()
+    assert!(v2_of("departed_coin_names_its_venue")["ledger"]["figures"]["whole"]["notes"].as_array().unwrap().iter()
         .any(|n| n["kind"] == "left" && n["held"] == "0.0" && n["exchange"].is_string()), "a departed coin's note names its venue");
     assert!(figures.iter().flat_map(|f| f["notes"].as_array().into_iter().flatten()).any(|n| n["exchange"].is_string()), "a note naming its venue");
     let snapshots = |out: &Value| out["tables"]["portfolio_snapshots"].as_array().unwrap().clone();
     let today = |out: &Value| snapshots(out).into_iter().find(|r| r["date"] == "2026-10-01").unwrap();
-    assert_eq!(snapshots(&rails_of("empty")), Vec::<Value>::new());
-    assert_eq!(rails_of("empty")["tables"]["snapshot_history_version_1"], "1_0_");
-    assert_eq!(snapshots(&rails_of("buys_priced")).len(), 31, "every day from the first transaction, and today");
-    assert!(snapshots(&rails_of("buys_priced")).iter().any(|r| r["partial"] == 1 && r["date"].as_str() < Some("2026-10-01")), "a hole past the carry limit is partial");
-    let lock = |name: &str| rails_of(name)["tables"]["wash_sale_locks"].clone();
+    assert_eq!(snapshots(&v2_of("empty")), Vec::<Value>::new());
+    assert_eq!(v2_of("empty")["tables"]["snapshot_history_version_1"], "1_0_");
+    assert_eq!(snapshots(&v2_of("buys_priced")).len(), 31, "every day from the first transaction, and today");
+    assert!(snapshots(&v2_of("buys_priced")).iter().any(|r| r["partial"] == 1 && r["date"].as_str() < Some("2026-10-01")), "a hole past the carry limit is partial");
+    let lock = |name: &str| v2_of(name)["tables"]["wash_sale_locks"].clone();
     assert_eq!(lock("sell_at_loss_wash_on")[0]["buy_locked_until"], "2026-10-21 00:00:00");
     assert_eq!(lock("sell_at_loss_wash_on")[0]["source"], "ledger");
     assert_eq!(lock("sell_at_loss_wash_off"), json!([]));
     assert_eq!(lock("old_loss_outside_the_horizon"), json!([]));
-    assert_eq!(rails_of("coin_fee_then_withdrawal")["ledger"]["whole"]["total_invested"], "80.0", "the withdrawal takes the $20 lot's basis");
+    assert_eq!(v2_of("coin_fee_then_withdrawal")["ledger"]["whole"]["total_invested"], "80.0", "the withdrawal takes the $20 lot's basis");
     assert_eq!(lock("a_failed_price_fetched_again")[0]["buy_locked_until"], "2026-10-11 00:00:00", "the second fetch's price arms the loss");
-    assert_eq!(rails_of("a_failed_price_fetched_again")["requests"]["market"].as_array().unwrap().len(), 2, "the empty fetch, then again");
+    assert_eq!(v2_of("a_failed_price_fetched_again")["requests"]["market"].as_array().unwrap().len(), 2, "the empty fetch, then again");
     assert_eq!((lock("sale_gain_with_a_losing_lot")[0]["buy_locked_until"].clone(), lock("sale_gain_with_a_losing_lot")[0]["confirmed_locked_until"].clone()),
                (json!("2026-12-01 00:00:00"), json!("2026-10-24 00:00:00")), "a net gain with a losing lot still locks; a longer lock is kept");
-    assert_eq!(rails_of("split_priced_by_a_second_fetch")["requests"]["market"].as_array().unwrap().len(), 2, "the prefetch, then the day's own window");
-    assert_eq!(rails_of("coin_fee_unpriced")["requests"]["market"].as_array().unwrap().len(), 5);
-    assert_eq!(today(&rails_of("coin_fee_unpriced"))["partial"], 1, "a price nobody had");
-    assert_eq!(rails_of("coin_fee_stated_price")["requests"]["market"].as_array().unwrap().len(), 1, "the backfill's range only");
+    assert_eq!(v2_of("split_priced_by_a_second_fetch")["requests"]["market"].as_array().unwrap().len(), 2, "the prefetch, then the day's own window");
+    assert_eq!(v2_of("coin_fee_unpriced")["requests"]["market"].as_array().unwrap().len(), 5);
+    assert_eq!(today(&v2_of("coin_fee_unpriced"))["partial"], 1, "a price nobody had");
+    assert_eq!(v2_of("coin_fee_stated_price")["requests"]["market"].as_array().unwrap().len(), 1, "the backfill's range only");
     for name in ["a_failed_sync_and_stale_prices", "stale_prices_alone", "cash_beyond_the_history_and_an_unpriced_holding"] {
-        assert_eq!(today(&rails_of(name))["partial"], 1, "{name}");
+        assert_eq!(today(&v2_of(name))["partial"], 1, "{name}");
     }
-    assert_eq!(today(&rails_of("buys_priced"))["partial"], 0);
+    assert_eq!(today(&v2_of("buys_priced"))["partial"], 0);
     // Every venue's history (Plan D2b-2a), as Rails states it.
-    let requests = |name: &str, kind: &str| rails_of(name)["requests"][kind].as_array().unwrap().len();
+    let requests = |name: &str, kind: &str| v2_of(name)["requests"][kind].as_array().unwrap().len();
     assert_eq!((requests("ecb_stale_table_loads", "ecb"), requests("ecb_falls_back_to_bundesbank", "ecb"), requests("ecb_fails_then_loads", "ecb")), (1, 12, 13),
                "the ECB; the Bundesbank behind it; a failed load, then the next pass's load");
     assert_eq!(requests("repeated_same_day_missing", "market"), 11, "a day nobody prices is asked for at every lookup");
@@ -321,29 +321,29 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     assert_ne!(lock("wash_mixed_priced_unpriced_lots_loss"), json!([]));
     assert_ne!(lock("wash_fee_only_missing"), json!([]), "a fee nobody priced leaves the proceeds' verdict");
     for name in ["binance_unpriced_coin", "fx_missing_btc_cross", "standalone_fiat_fee_missing_fx", "kraken_style_fiat_leg_fee_buy_no_rate"] {
-        assert_eq!(today(&rails_of(name))["partial"], 1, "{name}");
+        assert_eq!(today(&v2_of(name))["partial"], 1, "{name}");
     }
     for name in ["binance_usdt_buy_bnb_fee", "binance_convert_and_dust", "binance_eur_deposit_and_buy", "same_coin_sale_fee", "kraken_style_fiat_leg_fee_sell"] {
-        assert_eq!(today(&rails_of(name))["partial"], 0, "{name}");
+        assert_eq!(today(&v2_of(name))["partial"], 0, "{name}");
     }
-    let asked = rails_of("btc_coin_beside_btc_security")["requests"]["market"].clone();
+    let asked = v2_of("btc_coin_beside_btc_security")["requests"]["market"].clone();
     assert!(asked.as_array().unwrap().iter().any(|r| r.to_string().contains("\"bitcoin\"")) && !asked.to_string().contains("BTC.US"),
             "the coin's fees at a broker listing a BTC security are priced as bitcoin: {asked}");
-    assert!(rails_of("btc_coin_beside_btc_security")["tables"]["historical_prices"].as_array().unwrap().iter()
+    assert!(v2_of("btc_coin_beside_btc_security")["tables"]["historical_prices"].as_array().unwrap().iter()
         .filter(|r| r["asset"] == "BTC").all(|r| r["price"].to_string().contains("60000")), "the bare key holds bitcoin's closes only");
-    assert_eq!(rails_of("binance_to_alpaca_linked_transfer")["ledger"]["venues"].as_object().unwrap().len(), 2, "the transfer's two venues");
+    assert_eq!(v2_of("binance_to_alpaca_linked_transfer")["ledger"]["venues"].as_object().unwrap().len(), 2, "the transfer's two venues");
     // The backfill for every venue (Plan D2b-2b).
-    let ecb_path_calls = |name: &str| rails_of(name)["requests"]["ecb"].as_array().unwrap().iter().filter(|r| r[0].as_str().is_some_and(|k| k.contains("/service/data/EXR/"))).count();
+    let ecb_path_calls = |name: &str| v2_of(name)["requests"]["ecb"].as_array().unwrap().iter().filter(|r| r[0].as_str().is_some_and(|k| k.contains("/service/data/EXR/"))).count();
     assert_eq!(ecb_path_calls("ecb_fails_then_loads_backfill"), 4, "the ledger's load and the backfill's three, the last one loading");
-    let eur = snapshots(&rails_of("backfill_old_eur_cash_without_current_fx"));
+    let eur = snapshots(&v2_of("backfill_old_eur_cash_without_current_fx"));
     assert!(eur.iter().any(|r| r["partial"] == 0 && r["date"].as_str() < Some("2026-09-10")) && eur.iter().any(|r| r["partial"] == 1 && r["date"].as_str() < Some("2026-10-01")),
             "EUR valued while a rate is within a week, partial after");
-    assert!(snapshots(&rails_of("borrowed_only_history")).len() > 20, "a history of the borrowed wallets alone");
-    let venue_days = |name: &str| rails_of(name)["tables"]["portfolio_venue_snapshots"].as_array().unwrap().iter().map(|r| r["exchange_id"].as_i64().unwrap()).collect::<std::collections::BTreeSet<_>>();
+    assert!(snapshots(&v2_of("borrowed_only_history")).len() > 20, "a history of the borrowed wallets alone");
+    let venue_days = |name: &str| v2_of(name)["tables"]["portfolio_venue_snapshots"].as_array().unwrap().iter().map(|r| r["exchange_id"].as_i64().unwrap()).collect::<std::collections::BTreeSet<_>>();
     assert_eq!(venue_days("binance_to_alpaca_linked_transfer").len(), 2, "each venue's history under its own exchange");
     assert_eq!(requests("backfill_prices_read_before_the_walk", "market"), 2, "the backfill's empty range, then the walk's prefetch");
-    assert!(snapshots(&rails_of("backfill_prices_read_before_the_walk")).iter().all(|r| r["partial"] == 1 || r["date"].as_str() < Some("2026-09-10")),
+    assert!(snapshots(&v2_of("backfill_prices_read_before_the_walk")).iter().all(|r| r["partial"] == 1 || r["date"].as_str() < Some("2026-09-10")),
             "valued from the prices read before the walk: none");
-    assert!(snapshots(&rails_of("ibkr_stock_from_stored_closes")).iter().any(|r| r["date"] == "2026-09-29" && r["partial"] == 0), "IBKR's AAPL from its stored closes");
+    assert!(snapshots(&v2_of("ibkr_stock_from_stored_closes")).iter().any(|r| r["date"] == "2026-09-29" && r["partial"] == 0), "IBKR's AAPL from its stored closes");
     assert_eq!(requests("ibkr_stock_from_stored_closes", "alpaca") + requests("ibkr_stock_from_stored_closes", "market"), 0);
 }

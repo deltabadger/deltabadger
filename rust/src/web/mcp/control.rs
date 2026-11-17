@@ -54,7 +54,7 @@ pub fn create(c:&Connection,app:&App,who:Bearer,kind:crate::web::bot::create::Ki
     let res=bot_api::create(c,app,who.user_id,kind,&args.as_object().cloned().unwrap_or_default())?;
     if res.code.is_some() {return Ok(tool_text(&res.message,true));}
     let (d,s)=(&res.data,tools::str_value);
-    let float=|v:&Value| v.as_f64().map_or_else(||s(v),crate::ruby::float_to_s);
+    let float=|v:&Value| v.as_f64().map_or_else(||s(v),crate::v2::float_to_s);
     let upcase=|v:&Value| s(v).to_uppercase();
     Ok(tool_text(&match kind {
         Kind::Dca=>{

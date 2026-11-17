@@ -70,7 +70,7 @@ fn keys(d: &tempfile::TempDir) -> Vec<(String, String)> {
 const UNPORTED_POST: &str = "POST /api/v1/orders is not served by this build yet.";
 
 #[tokio::test(flavor = "current_thread")]
-async fn rest_refuses_what_rails_hands_the_venue_and_queues_standalone_past_every_check() {
+async fn rest_refuses_what_v2_hands_the_venue_and_queues_standalone_past_every_check() {
     let (d, app, bot) = install();
     let pair = json!({"type": "market_buy", "exchange_name": "Alpaca", "base_asset": "BTC", "quote_asset": "USD"});
     let with = |extra: Value| { let mut b = pair.clone(); b.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone()); b };
@@ -210,7 +210,7 @@ fn buy(k: &Kraken, amount: Value) -> Value { json!({"type": "market_buy", "bot_i
 fn refusal(status: u16, code: &str, message: &str) -> (u16, Value) { (status, json!({"data": null, "error": {"code": code, "message": message}})) }
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]
-async fn a_bot_order_waits_for_one_engine_pass_and_answers_rails_bytes_then_replays() {
+async fn a_bot_order_waits_for_one_engine_pass_and_answers_v2_bytes_then_replays() {
     let mut k = kraken(priced());
     let request = post(&k.app, buy(&k, json!("100")), "one");
     queued(&k, 1).await;
@@ -290,7 +290,7 @@ async fn a_request_no_pass_takes_within_ten_seconds_is_withdrawn_and_never_sent(
     use deltabadger::engine::api_orders;
     let bot = deltabadger::engine::model::load_bot(k.c(), k.bot).unwrap();
     let side = deltabadger::venue::Side::Buy;
-    let amount = deltabadger::ruby::BigDec::parse("1").unwrap();
+    let amount = deltabadger::v2::BigDec::parse("1").unwrap();
     let empty = serde_json::Map::new();
     let new = || api_orders::New::Bot { user_id: k.user, bot: &bot, side, amount: &amount, in_base: false, supplied: &empty };
     let first = api_orders::insert(k.c(), &new(), kt(0).0).unwrap();
@@ -337,7 +337,7 @@ async fn a_restart_withdraws_queued_requests_answers_taken_ones_busy_and_leaves_
     let mut k = kraken(priced());
     use deltabadger::engine::api_orders;
     let bot = deltabadger::engine::model::load_bot(k.c(), k.bot).unwrap();
-    let amount = deltabadger::ruby::BigDec::parse("100").unwrap();
+    let amount = deltabadger::v2::BigDec::parse("100").unwrap();
     let empty = serde_json::Map::new();
     let new = || api_orders::New::Bot { user_id: k.user, bot: &bot, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty };
     let (q, t, s) = (api_orders::insert(k.c(), &new(), kt(0).0).unwrap(), api_orders::insert(k.c(), &new(), kt(0).0).unwrap(), api_orders::insert(k.c(), &new(), kt(0).0).unwrap());
@@ -461,8 +461,8 @@ async fn the_send_fence_enforces_send_by() {
     let k = kraken(priced());
     let bot = model::load_bot(k.c(), k.bot).unwrap();
     let ticker = model::ticker_for(k.c(), &bot).unwrap().unwrap();
-    let price = deltabadger::ruby::BigDec::parse("50000.2").unwrap();
-    let quote = deltabadger::ruby::BigDec::parse("100").unwrap();
+    let price = deltabadger::v2::BigDec::parse("50000.2").unwrap();
+    let quote = deltabadger::v2::BigDec::parse("100").unwrap();
     let (plan, _) = amount::size_order(&ticker, deltabadger::venue::Side::Buy, &price, &quote.div(&price).unwrap(), &quote,
                                        deltabadger::engine::venue_rules::for_exchange("Exchanges::Kraken").unwrap().minimum_logic, amount::TxKind::Regular).unwrap();
     let version = model::credential_version(k.c(), &bot).unwrap();
@@ -522,7 +522,7 @@ fn retained(k: &Kraken) -> Vec<(String, Option<String>)> {
 }
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]
-async fn a_standalone_order_is_placed_in_one_pass_answers_rails_bytes_replays_and_is_kept_for_cancel() {
+async fn a_standalone_order_is_placed_in_one_pass_answers_v2_bytes_replays_and_is_kept_for_cancel() {
     let mut k = kraken(priced());
     let request = post(&k.app, standalone("market_buy", json!({"amount": "100"})), "one");
     queued(&k, 1).await;
@@ -604,7 +604,7 @@ async fn a_standalone_order_asks_again_at_its_claim_what_changed_after_validatio
     k.c().execute("DELETE FROM wash_sale_locks", []).unwrap();
     let ticker: i64 = k.c().query_row("SELECT id FROM tickers", [], |r| r.get(0)).unwrap();
     let exchange: i64 = k.c().query_row("SELECT exchange_id FROM tickers", [], |r| r.get(0)).unwrap();
-    let amount = deltabadger::ruby::BigDec::parse("100").unwrap();
+    let amount = deltabadger::v2::BigDec::parse("100").unwrap();
     let pair: serde_json::Map<String, Value> = [("base_asset".to_string(), json!("BTC")), ("quote_asset".to_string(), json!("EUR"))].into_iter().collect();
     let id = api_orders::insert(k.c(), &api_orders::New::Standalone { user_id: k.user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &pair,
         standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: true } }, kt(0).0).unwrap();
@@ -647,7 +647,7 @@ async fn a_restart_answers_a_standalone_sending_order_unknown_and_never_sends_it
     use deltabadger::engine::api_orders;
     let ticker: i64 = k.c().query_row("SELECT id FROM tickers", [], |r| r.get(0)).unwrap();
     let exchange: i64 = k.c().query_row("SELECT exchange_id FROM tickers", [], |r| r.get(0)).unwrap();
-    let amount = deltabadger::ruby::BigDec::parse("100").unwrap();
+    let amount = deltabadger::v2::BigDec::parse("100").unwrap();
     let pair = serde_json::Map::new();
     let new = || api_orders::New::Standalone { user_id: k.user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &pair,
         standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: false } };
@@ -686,7 +686,7 @@ async fn limit_order_sizes_as_place_limit_order() {
     let ticker = deltabadger::engine::model::ticker_by_id(k.c(), k.c().query_row("SELECT exchange_id FROM tickers", [], |r| r.get(0)).unwrap(),
                                                           k.c().query_row("SELECT id FROM tickers", [], |r| r.get(0)).unwrap()).unwrap().unwrap();
     let rules = for_exchange("Exchanges::Kraken").unwrap();
-    let d = |s: &str| deltabadger::ruby::BigDec::parse(s).unwrap();
+    let d = |s: &str| deltabadger::v2::BigDec::parse(s).unwrap();
     let buy = deltabadger::venue::Side::Buy;
     let sized = |amount: &str, quote: bool, price: &str| limit_order(&ticker, rules, buy, &d(amount), quote, &d(price)).map(|p| (p.volume.to_s_f(), p.price.to_s_f()));
     let (min, base, code) = (ticker.minimum_base_size.to_s_f(), ticker.base_code.clone(), ticker.ticker.clone());
@@ -853,7 +853,7 @@ fn an_answer_read_and_forgotten_before_the_key_completed_is_ambiguous_even_when_
     let id: i64 = k.count("SELECT id FROM rust_api_orders");
     api_orders::forget(k.c(), id).unwrap(); // the web read the answer; the process died before completing the key
     let bot = deltabadger::engine::model::load_bot(k.c(), k.bot).unwrap();
-    let (amount, empty) = (deltabadger::ruby::BigDec::parse("100").unwrap(), serde_json::Map::new());
+    let (amount, empty) = (deltabadger::v2::BigDec::parse("100").unwrap(), serde_json::Map::new());
     let other = api_orders::insert(k.c(), &api_orders::New::Bot { user_id: k.user, bot: &bot, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty }, kt(1).0).unwrap();
     assert_eq!(other, id, "the id is reused");
     drop(web);
@@ -933,7 +933,7 @@ async fn the_retried_sweep_settles_every_dead_order_row_and_never_touches_a_key(
     queued(&k, 1).await;
     // Dead rows the failed first sweep left, dated after `built` (a clock stepped back).
     let bot = deltabadger::engine::model::load_bot(k.c(), k.bot).unwrap();
-    let (amount, empty) = (deltabadger::ruby::BigDec::parse("100").unwrap(), serde_json::Map::new());
+    let (amount, empty) = (deltabadger::v2::BigDec::parse("100").unwrap(), serde_json::Map::new());
     let late = "2099-01-01T00:00:00Z".parse::<chrono::DateTime<chrono::Utc>>().unwrap();
     let new = api_orders::New::Bot { user_id: k.user, bot: &bot, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty };
     let (queued_dead, taken_dead) = (api_orders::insert(k.c(), &new, late).unwrap(), api_orders::insert(k.c(), &new, late).unwrap());

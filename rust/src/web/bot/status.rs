@@ -3,7 +3,7 @@
 use super::{start, Bot, Kind};
 use crate::engine::schedule::Unrounded;
 use crate::enums::BotStatus;
-use crate::ruby::to_sentence;
+use crate::v2::to_sentence;
 use crate::web::format::{float_to_s, iso8601};
 use crate::web::layout::Ctx;
 use crate::web::{i18n, WebError};
@@ -317,8 +317,8 @@ pub fn low_funds(c: &Connection, bot: &Bot) -> Result<bool, WebError> {
     if crate::sync::cache::stale(c, user, Some(bot.exchange.id))? { return Ok(false); }
     if crate::jobs::state::read(c, crate::sync::jobs::BALANCE_SYNC, Some(&key.to_string())).map_err(super::data)?.incomplete_since.is_some() { return Ok(false); }
     let free = c.query_row("SELECT free FROM account_balances WHERE user_id = ?1 AND exchange_id = ?2 AND asset_id = ?3", [user, bot.exchange.id, quote.id],
-                           |r| Ok(crate::ruby::from_sql(r.get_ref(0)?))).optional()?
-        .map(|free| free.map_err(|e| super::data(format!("{e:?}")))).transpose()?.flatten().unwrap_or_else(crate::ruby::BigDec::zero);
+                           |r| Ok(crate::v2::from_sql(r.get_ref(0)?))).optional()?
+        .map(|free| free.map_err(|e| super::data(format!("{e:?}")))).transpose()?.flatten().unwrap_or_else(crate::v2::BigDec::zero);
     let buffer = crate::engine::accounting::funds_buffer(bot.number("quote_amount").map_or(0.0, |n| n.to_f()), bot.text("interval"),
                                                          crate::engine::accounting::web_funds_cap_left(c, bot)?)?;
     Ok(free < buffer)

@@ -34,7 +34,7 @@ fn seeded(env: &BTreeMap<String, String>, now: DateTime<Utc>) -> Tables {
 }
 
 #[test]
-fn rust_seeds_what_rails_seeds_under_each_environment() {
+fn rust_seeds_what_v2_seeds_under_each_environment() {
     let path = manifest("tests/fixtures/seeds_rails.json");
     let mut fixture: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
     let now = DateTime::parse_from_rfc3339(fixture["now"].as_str().unwrap()).unwrap().with_timezone(&Utc);
@@ -60,11 +60,11 @@ fn rust_seeds_what_rails_seeds_under_each_environment() {
     for s in scenarios {
         let name = s["name"].as_str().unwrap();
         let env: BTreeMap<String, String> = serde_json::from_value(s["env"].clone()).unwrap();
-        let rails = tables(s);
+        let v2 = tables(s);
         let rust = seeded(&env, now);
         assert_eq!(rust.keys().collect::<Vec<_>>(), first.keys().collect::<Vec<_>>(), "{name}: the tables");
         for (table, rows) in &rust {
-            let expected = rails.get(table).unwrap_or(&first[table]);
+            let expected = v2.get(table).unwrap_or(&first[table]);
             if let Some(i) = (0..rows.len().max(expected.len())).find(|&i| rows.get(i) != expected.get(i)) {
                 panic!("{name}: {table} differs first at row {i} of {} (Rails {}):\n  Rails {:?}\n  Rust  {:?}",
                        rows.len(), expected.len(), expected.get(i), rows.get(i));

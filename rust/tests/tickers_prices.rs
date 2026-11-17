@@ -10,7 +10,7 @@ use serde_json::{Map, Value};
 
 fn fixture() -> Value { serde_json::from_str(include_str!("fixtures/tickers_prices_vectors.json")).unwrap() }
 
-/// The sanctioned divergence (plan CB Q6, ruby::json_to_d): a price string that is no finite decimal is left out, so the
+/// The sanctioned divergence (plan CB Q6, v2::json_to_d): a price string that is no finite decimal is left out, so the
 /// member reads unpriced and nothing trades, where String#to_d reads "abc" as 0, "12x" as 12 and keeps "Infinity". Each
 /// case names the code Rails priced and Rust leaves out; every other case agrees exactly.
 const OMITTED: [(&str, &str, &str); 7] = [
@@ -28,7 +28,7 @@ async fn answer(venue: &str, transport: ScriptedTransport, symbols: &[String]) -
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn every_recorded_bulk_price_read_is_answered_as_rails_answers_it() {
+async fn every_recorded_bulk_price_read_is_answered_as_v2_answers_it() {
     let fixture = fixture();
     let cases = fixture["cases"].as_array().unwrap();
     assert_eq!(cases.len(), 113);
@@ -43,8 +43,8 @@ async fn every_recorded_bulk_price_read_is_answered_as_rails_answers_it() {
         if Value::from(requests.clone()) != case["requests"] { failures.push(format!("{venue} {name}: requested {requests:?}, Rails {}", case["requests"])); }
         let network = case["http"].as_object().unwrap().values().flat_map(|r| r.as_array().unwrap()).any(|r| r.get("network").is_some());
         let ok = match (&got, case.get("prices"), case.get("failure"), case.get("raised")) {
-            (Ok(prices), Some(rails), _, _) => {
-                let mut want = rails.as_object().unwrap().clone();
+            (Ok(prices), Some(v2), _, _) => {
+                let mut want = v2.as_object().unwrap().clone();
                 for (_, _, code) in OMITTED.iter().filter(|(v, n, _)| *v == venue && *n == name) {
                     assert!(want.remove(*code).is_some(), "{venue} {name}: Rails no longer prices {code}; drop it from OMITTED");
                     diverged.push(name.to_string());
@@ -53,9 +53,9 @@ async fn every_recorded_bulk_price_read_is_answered_as_rails_answers_it() {
             }
             // honeymaker returns a transport failure as a Failure: the figures go stale (rebalance::value, transport_raises false).
             (Err(VenueError::Transient(_)), _, Some(_), _) => network,
-            (Err(VenueError::Rejected(e)), _, Some(rails), _) => !network && Value::from(e.clone()) == *rails,
+            (Err(VenueError::Rejected(e)), _, Some(v2), _) => !network && Value::from(e.clone()) == *v2,
             // Rails' KeyError keeps its text ("Key path price not found"); another raise is the adapter's unreadable answer.
-            (Err(VenueError::Ambiguous(m)), _, _, Some(_)) => case.get("message").is_none_or(|rails| rails == m),
+            (Err(VenueError::Ambiguous(m)), _, _, Some(_)) => case.get("message").is_none_or(|v2| v2 == m),
             _ => false,
         };
         if !ok { failures.push(format!("{venue} {name}: rust {got:?}\n  rails {}", Value::Object(case.as_object().unwrap().clone()))); }

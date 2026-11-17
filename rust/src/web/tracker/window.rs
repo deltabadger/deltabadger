@@ -29,7 +29,7 @@ fn day(raw: &str) -> Result<NaiveDate, Bad> {
 
 /// Rails' `params[:from].present?` (the last value of a repeated key, as `Params::query` reads it).
 pub fn present<'a>(ctx: &'a Ctx, key: &str) -> Option<&'a str> {
-    ctx.params.query(key).filter(|v| !crate::ruby::blank(v))
+    ctx.params.query(key).filter(|v| !crate::v2::blank(v))
 }
 
 /// `Exchange.find(params[:exchange_id])` on a structured value, which runs before any date is read: a hash finds nothing

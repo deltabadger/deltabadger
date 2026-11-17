@@ -5,7 +5,7 @@
 //! A route walks at most `MAX_LEGS` pairs, each one way or the other (base→quote at its price, quote→base at the
 //! inverse), through any assets, to a fiat end: USD, or a fiat with a rate to USD (the ECB's). A stablecoin is never an
 //! end: it is priced by its own route like any coin. Only pairs with a positive price are walked.
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use std::collections::{BTreeMap, HashMap};
 
 pub const MAX_LEGS: usize = 3;

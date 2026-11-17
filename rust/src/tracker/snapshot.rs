@@ -134,7 +134,7 @@ mod tests {
     /// decimal(20, 8) as ActiveRecord writes it: `BigDecimal#round(8).to_s('F')` (measured in Ruby: 1.12345679, 2.0,
     /// -1.0, 0.00000001).
     #[test]
-    fn a_value_is_written_as_rails_writes_a_decimal_column() {
+    fn a_value_is_written_as_v2_writes_a_decimal_column() {
         let written: Vec<String> = ["1.123456785", "2", "-1.000000004", "0.000000005"].iter().map(|v| column(&Dec::strict(v).unwrap()).unwrap()).collect();
         assert_eq!(written, ["1.12345679", "2.0", "-1.0", "0.00000001"]);
     }

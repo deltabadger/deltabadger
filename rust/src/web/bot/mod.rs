@@ -6,7 +6,7 @@ pub mod actions;
 pub mod liquidation;
 pub mod redeploy;
 pub mod rebalance;
-pub mod rails_orders;
+pub mod v2_orders;
 pub mod action_view;
 pub mod cancel;
 pub mod csv;
@@ -36,7 +36,7 @@ use crate::engine::schedule::{self, Checkpoints, Effective, Interval, Unrounded}
 use crate::engine::EngineError;
 use crate::engine::conditions::{self, Rule, Support};
 use crate::enums::{ApiKeyStatus, BotStatus, BOT_WORKING};
-use crate::ruby::{scale, BigDec};
+use crate::v2::{scale, BigDec};
 pub use super::format::{stored, Stored, Unreadable, UNREADABLE};
 
 /// Both numeric bounds and the action validator's history budget use the existing 501 read
@@ -60,7 +60,7 @@ pub const MAX_COINS: i64 = 100;
 /// decimals, and the column has no bound of its own (db/schema.rb, app/models/ticker.rb). 14 is
 /// where the bound is because it is as far as `format::float_round` is Ruby's: past 14 digits MRI
 /// rounds a Float through a Rational (float.c, `rb_float_round`), which is not ported. It is inside
-/// `ruby::MAX_SCALE`, the engine's bound on a rounding scale, and tighter only because the pages
+/// `v2::MAX_SCALE`, the engine's bound on a rounding scale, and tighter only because the pages
 /// round Floats, which the engine never does. Real tickers go past it: MEXC lists two with 15
 /// (db/seed_data/tickers/mexc.json), on a venue these pages do not serve yet. On Alpaca, the one
 /// venue served, stocks are written with 9 and 2 (app/models/exchanges/alpaca.rb) and crypto with
@@ -98,7 +98,7 @@ fn data(message: String) -> WebError {
 }
 
 /// `tickers.base_decimals` and `quote_decimals` as a rounding scale: the only way a precision out
-/// of the database reaches a rounding here (`ruby::scale`).
+/// of the database reaches a rounding here (`v2::scale`).
 struct Scale(u8);
 
 impl FromSql for Scale {
@@ -127,7 +127,7 @@ fn plain_decimal(text: &str) -> bool {
     let digits = text.strip_prefix('-').unwrap_or(text);
     let (whole, fraction) = digits.split_once('.').unwrap_or((digits, "0"));
     let all_digits = |part: &str| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit());
-    text.len() <= crate::ruby::MAX_INPUT_LEN && all_digits(whole) && all_digits(fraction)
+    text.len() <= crate::v2::MAX_INPUT_LEN && all_digits(whole) && all_digits(fraction)
 }
 
 /// `allocations[id].to_f`: a weight as a Float, from a number or from a text that is plainly one.
@@ -333,7 +333,7 @@ enum Shape {
     Share,
     /// `true` or `false`: Rails validates every switch as exactly one of the two.
     Flag,
-    /// `missed_quote_amount`, which Rails reads with `to_d` and validates as not negative: a number, or a decimal text within `ruby::BigDec`'s bounds.
+    /// `missed_quote_amount`, which Rails reads with `to_d` and validates as not negative: a number, or a decimal text within `v2::BigDec`'s bounds.
     Carry,
     /// A JSON number without a fraction.
     Integer,
@@ -423,7 +423,7 @@ fn fits(value: &Value, shape: &Shape) -> bool {
         Shape::Share => value.as_f64().is_some_and(|share| (0.0..=1.0).contains(&share)),
         Shape::Flag => value.is_boolean(),
         // Rails writes the carry as a BigDecimal, which a JSON column holds as its text ("9999999999999999999999999999900.0"
-        // after a budget of 1e31): any text `ruby::BigDec` reads within its bounds, not negative.
+        // after a budget of 1e31): any text `v2::BigDec` reads within its bounds, not negative.
         Shape::Carry => match value {
             Value::Number(number) => number.as_f64().is_some_and(|carry| carry >= 0.0),
             Value::String(text) => text.is_empty() || BigDec::parse(text).is_ok_and(|carry| carry >= BigDec::zero()),
@@ -1144,7 +1144,7 @@ pub fn id_from_path(segment: &str) -> Option<i64> {
 }
 
 /// Array#sum over Floats (array.c ary_sum): Kahan-Babuska compensated summation, not a left fold.
-// ponytail: copy of ruby::float_sum on the rust-baskets branch; use that one once it is on main.
+// ponytail: copy of v2::float_sum on the rust-baskets branch; use that one once it is on main.
 fn float_sum(xs: impl IntoIterator<Item = f64>) -> f64 {
     let (mut f, mut c) = (0.0f64, 0.0f64);
     for x in xs {
@@ -1159,7 +1159,7 @@ fn float_sum(xs: impl IntoIterator<Item = f64>) -> f64 {
 mod tests {
     /// Ruby: `([0.1] * 9 + [0.099]).sum` is 0.9990000000000001, inside allocations_balanced?'s 0.001; a left fold is not.
     #[test]
-    fn allocations_add_up_as_ruby_adds_them() {
+    fn allocations_add_up_as_v2_adds_them() {
         let weights = [0.1; 9].into_iter().chain([0.099]);
         assert_eq!(super::float_sum(weights), 0.9990000000000001);
         assert!((super::float_sum([0.1; 9].into_iter().chain([0.099])) - 1.0).abs() <= 0.001);

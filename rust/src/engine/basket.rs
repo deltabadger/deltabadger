@@ -8,7 +8,7 @@ use super::EngineError;
 use super::splits::{self, SplitEvent};
 use crate::codec::format_time;
 use crate::figures::{books::{Books, Fill, Ledger}, db, dec::Dec, fill, num::Num};
-use crate::ruby::{decimal_column, float_sum, from_sql, BigDec};
+use crate::v2::{decimal_column, float_sum, from_sql, BigDec};
 use chrono::{DateTime, Utc};
 use rusqlite::types::{Value as Sql, ValueRef};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -154,7 +154,7 @@ pub fn market_cap_weights(c: &Connection, matched: &[i64]) -> Result<Option<Vec<
         let cap = match r.get_ref(1)? {
             ValueRef::Integer(i) => Some(i as f64),
             ValueRef::Real(f) => Some(f.trunc()),
-            ValueRef::Text(t) => Some(crate::ruby::to_i(&String::from_utf8_lossy(t)) as f64),
+            ValueRef::Text(t) => Some(crate::v2::to_i(&String::from_utf8_lossy(t)) as f64),
             ValueRef::Null => Some(0.0),
             ValueRef::Blob(_) => None,
         };

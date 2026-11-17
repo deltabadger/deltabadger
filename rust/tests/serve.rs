@@ -107,7 +107,7 @@ fn serve_answers_on_its_port_and_holds_the_engine_lock() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn up_is_rails_health_page_without_a_session() {
+async fn up_is_v2_health_page_without_a_session() {
     let (dir, opened, _) = common::install();
     drop(opened);
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
@@ -117,7 +117,7 @@ async fn up_is_rails_health_page_without_a_session() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn health_check_is_rails_liveness_probe_without_a_session() {
+async fn health_check_is_v2_liveness_probe_without_a_session() {
     let (dir, opened, _) = common::install();
     drop(opened);
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
@@ -248,7 +248,7 @@ async fn a_query_string_is_bounded_in_bytes_and_in_fields_before_it_is_routed() 
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn up_carries_the_headers_rails_middleware_adds() {
+async fn up_carries_the_headers_v2_middleware_adds() {
     let (dir, opened, _) = common::install();
     drop(opened);
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
@@ -1908,9 +1908,9 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     let precise = Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap();
     assert_eq!(precise.quote_decimals(), Some(14));
     assert!(start::smart_interval_minimum(&precise).value.to_f() > 0.0 && !start::check(c, &precise, now, true, "en").unwrap().invalid);
-    assert_eq!(deltabadger::ruby::BigDec::parse("1.23456789").unwrap().round(precise.quote_decimals().unwrap()).to_s_f(), "1.23456789");
+    assert_eq!(deltabadger::v2::BigDec::parse("1.23456789").unwrap().round(precise.quote_decimals().unwrap()).to_s_f(), "1.23456789");
     c.execute_batch("ROLLBACK TO bound; RELEASE bound;").unwrap();
-    // A decimal the columns hold and `ruby::BigDec` does not read (its bounds: 256 characters, an exponent within ±400, 512
+    // A decimal the columns hold and `v2::BigDec` does not read (its bounds: 256 characters, an exponent within ±400, 512
     // digits written out). The row alone is not refused; reading it fails with the mark the handlers answer the 501 page for,
     // and nothing is sized by it. SQLite keeps a text it cannot read as a number as the text it is.
     for (table, column) in [("tickers", "minimum_quote_size"), ("bot_index_assets", "target_allocation")] {
@@ -3326,7 +3326,7 @@ async fn a_stale_create_form_creates_nothing() {
 /// `resources :bots` also draws `POST /bots` and `DELETE /bots/:id`, actions BotsController never had (a 404 in Rails too,
 /// D-LEGACY-BOTS-CREATE-DESTROY-ABSENT), and `PUT /bots/:id`, Rails' update as much as PATCH is.
 #[tokio::test(flavor = "current_thread")]
-async fn bots_resource_routes_rails_draws() {
+async fn bots_resource_routes_v2_draws() {
     let (_dir, opened, seeded, app, mut browser) = legacy_fixture(None);
     // Stopped: a working bot's settings form is locked, so neither method would write.
     let spec = common::seed::BotSpec { status: deltabadger::enums::BotStatus::Stopped as i64, ..common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00") };

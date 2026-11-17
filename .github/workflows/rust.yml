@@ -187,7 +187,7 @@ jobs:
       # The command tests run Umbrel's and the own-server compose files through the Compose v2 the runners ship.
       - name: Docker Compose
         run: docker compose version
-      # The takeover tests start on volumes made by the last 2.x image and on the install 2.x prepared (rails_install,
+      # The takeover tests start on volumes made by the last 2.x image and on the install 2.x prepared (v2_install,
       # frozen); the Behind guard's tests on volumes made by 2.34.0 and 2.60.0, and run the guard on 2.70.21 pinned by
       # digest (this pull records that digest, so the compose finds it). The 2.x interop tests (PLAN-B11 T8) run 2.70.21
       # on what this build writes.

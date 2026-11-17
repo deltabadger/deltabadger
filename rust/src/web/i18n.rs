@@ -888,7 +888,7 @@ const FROM_GEMS: &[(&str, &str)] = &[
     ("en.bot_activity.events.rails_order_listed_one", "Before the update, an order from this bot may have gone through without being recorded (%{when}). %{venue} has an order from that time that no bot recorded: %{orders}. If it was this bot's, the bot may have traded more than planned. This may not be every order from that time. Check your %{venue} order history."),
     // A28-2 (PLAN-A28-2): the owner's booking of an order Rails sent unrecorded, and its watch.
     ("en.bot_activity.events.rails_order_recovered", "Added an order from before the update to this bot's history: %{order}."),
-    // A28-2a: the line's buttons, their confirmations and the POST's flash (web::bot::rails_orders).
+    // A28-2a: the line's buttons, their confirmations and the POST's flash (web::bot::v2_orders).
     // A28-2b (D-RAILS-UNRECORDED-API): the Settings switch of this build's own tool, as A28's copy in English for every locale.
     ("en.settings.mcp.tools.answer_unrecorded_order.label", "Answer unrecorded order"),
     ("en.settings.mcp.tools.answer_unrecorded_order.description", "Say which order from before the update was a bot's, or that none was"),

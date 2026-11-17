@@ -79,7 +79,7 @@ fn the_pinned_unit_names_are_the_dotiw_gems() {
 /// and every string literal of the web layer and of the eligibility refusals (which pages and API answers show) outside
 /// their unit tests. The literals still saying it are named below, each with why it is not page text or who rewords it.
 #[test]
-fn no_page_text_says_rails() {
+fn no_page_text_says_v2() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let word = regex::Regex::new(r"(?i)\brails\b").unwrap();
     let mut found: Vec<String> = i18n::all().iter().filter(|(_, text)| word.is_match(text)).map(|(key, _)| format!("translation {key}")).collect();

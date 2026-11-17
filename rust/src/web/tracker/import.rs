@@ -53,7 +53,7 @@ fn token(value: Option<&str>) -> bool {
     value.is_some_and(|t| t.len() == 16 && t.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')))
 }
 
-fn present(value: Option<&str>) -> Option<&str> { value.filter(|v| !crate::ruby::blank(v)) }
+fn present(value: Option<&str>) -> Option<&str> { value.filter(|v| !crate::v2::blank(v)) }
 
 fn uploads(ctx: &Ctx, user: i64) -> PathBuf { ctx.app.config.tmp_dir.join("imports").join(user.to_string()) }
 
@@ -175,7 +175,7 @@ mod tests {
     }
 
     #[test]
-    fn blank_and_token_follow_rails() {
+    fn blank_and_token_follow_v2() {
         assert!(super::blank(b"") && super::blank(b" \r\n\t\x0b\x0c"));
         assert!(!super::blank(b"\xef\xbb\xbf") && !super::blank(b"a"));
         assert!(super::token(Some("0123456789abcdef")));

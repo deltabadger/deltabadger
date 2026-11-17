@@ -730,8 +730,8 @@ pub mod test_support {
 
     /// (version, name, sql) of each migration in `dir`, or the build's own refusal of it.
     pub fn load(dir: &Path) -> Result<Vec<(String, String, String)>, String> {
-        let rails: Vec<String> = MIGRATIONS.iter().map(|v| v.to_string()).collect();
-        migration_registry::load(dir, &rails)?.into_iter()
+        let v2: Vec<String> = MIGRATIONS.iter().map(|v| v.to_string()).collect();
+        migration_registry::load(dir, &v2)?.into_iter()
             .map(|(version, name, path)| std::fs::read_to_string(&path).map(|sql| (version, name, sql)).map_err(|e| e.to_string()))
             .collect()
     }
@@ -739,7 +739,7 @@ pub mod test_support {
 
 /// The schema of a Rails-built primary (db/schema.rb as script/rust/prepare_install.rb loads it), replayed: every
 /// `sqlite_master` statement in Rails' order, its `sqlite_sequence` rows, the 123 frozen `schema_migrations` rows
-/// (schema/rails_versions.txt) and `ar_internal_metadata` `environment = production`. Rails' `schema_sha1` row is not
+/// (schema/v2_versions.txt) and `ar_internal_metadata` `environment = production`. Rails' `schema_sha1` row is not
 /// written: nothing reads it in production (divergence D-BOOT-NO-SCHEMA-SHA1). Generated and proved equal to Rails by
 /// tests/schema_baseline.rs; Rust migrations then run on top as on any 2.x install.
 const BASELINE: &str = include_str!("../schema/baseline.sql");
