@@ -6,6 +6,10 @@ da:
             assets_syncing: "Vi synkroniserer aktiverne for denne børs – kig forbi igen om et øjeblik."
             stocks_ask_admin: "Bed din administrator om at aktivere aktiehandel."
             stocks_activate_cta: "Aktivér aktiehandel i indstillingerne"
+            add_more_assets: "Tilføj flere aktiver"
+            venue_groups:
+                brokers: "Mæglere"
+                exchanges: "Børser"
             progress_steps:
                 assets: "Aktiver"
                 currencies: "Vælg aktiv"

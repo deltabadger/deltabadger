@@ -1,0 +1,805 @@
+@use "../variables" as *
+
+// The sheet: a fixed-size card with a side column beside the pane it opens. Settings puts its menu
+// in the column, the DCA wizard its track. On a phone the column turns into a row under the top
+// edge. Below the sheet's own rules: the settings rows — label and hint on the left, the control
+// on the right, the control dropping under its label on a phone.
+
+.sheet-dialog
+    padding: 0
+
+.sheet
+    position: relative
+    display: flex
+    width: min(110rem, 100vw - 4rem)
+    height: min(86rem, 100dvh - 4rem)
+    background: var(--washed)
+    border-radius: 2rem
+    box-shadow: var(--shadow-strong)
+    overflow: hidden
+    // On a phone it is the screen: no margin, no rounded corners.
+    @media (max-width: 767.9px)
+        width: 100vw
+        height: 100dvh
+        border-radius: 0
+        box-shadow: none
+
+.sheet__close
+    position: absolute
+    top: 1.5rem
+    right: 1.5rem
+    // Above the pane's stuck search (z-index 2), which comes later in the page and would otherwise take its clicks.
+    z-index: 3
+    // Square, so border-radius 50% is a circle: padding alone left the button's line box taller than wide.
+    display: flex
+    align-items: center
+    justify-content: center
+    width: 4rem
+    height: 4rem
+    padding: 0
+    // Content scrolls under the ×; a frosted disc in the pane's own colour keeps it legible
+    // without a bar across the top.
+    background: color-mix(in srgb, var(--washed) 75%, transparent)
+    backdrop-filter: blur(0.75rem)
+    border: 0
+    border-radius: 50%
+    cursor: pointer
+    svg
+        width: 2.5rem
+        height: 2.5rem
+    path
+        fill: var(--stone)
+    // Level with the tabs, which start 2rem down.
+    &:hover
+        background: color-mix(in srgb, var(--paper-on-washed) 90%, transparent)
+        path
+            fill: var(--ink)
+
+// The frame is the layout: the sidebar comes back with every section, so it is drawn by the server
+// with the right item active.
+.sheet__frame
+    display: grid
+    grid-template-columns: 26rem minmax(0, 1fr)
+    width: 100%
+    min-height: 0
+    @media (max-width: 767.9px)
+        grid-template-columns: minmax(0, 1fr)
+        grid-template-rows: auto minmax(0, 1fr)
+
+.sheet__side
+    display: flex
+    flex-direction: column
+    gap: 0.25rem
+    padding: 1.5rem
+    border-right: 1px solid var(--zinc)
+    // The tabs are the top line, and the close button sits at its end: the row stops short of it,
+    // so a tab scrolls out of sight before it can slide under the ×.
+    @media (max-width: 767.9px)
+        padding: 1.5rem 5rem 1.5rem 0
+        border-right: 0
+        border-bottom: 1px solid var(--zinc)
+.sheet__menu
+    display: flex
+    flex-direction: column
+    gap: 0.25rem
+    // A row of tabs that scrolls sideways when the section names outgrow the screen.
+    @media (max-width: 767.9px)
+        padding: 0 1.5rem
+        flex-direction: row
+        overflow-x: auto
+        scrollbar-width: none
+        // Faded rather than cut at either end: a tab sliced mid-word reads as a broken label, a
+        // fading one as more to scroll to. At rest the first tab's text starts past the fade.
+        mask-image: linear-gradient(to right, transparent, #000 2rem, #000 calc(100% - 6rem), transparent)
+
+.sheet__item
+    display: flex
+    align-items: center
+    gap: 1.25rem
+    padding: 0.75rem 1.75rem
+    border-radius: 1rem
+    font-size: 1.75rem
+    line-height: 2.5rem
+    font-weight: 500
+    color: var(--ash)
+    text-decoration: none
+    white-space: nowrap
+    svg
+        flex: none
+        width: 2.5rem
+        height: 2.5rem
+    path
+        fill: currentColor
+    &:hover
+        color: var(--ink)
+        background: var(--paper-on-washed)
+    &--active, &--active:hover
+        color: var(--ink)
+        background: var(--silver)
+    @media (max-width: 767.9px)
+        flex: none
+        svg
+            display: none
+
+.sheet__version
+    margin-top: auto
+    padding: 1rem 2rem
+    font-size: 1.5rem
+    color: var(--concrete)
+    @media (max-width: 767.9px)
+        display: none
+
+// The DCA wizard's track (D-WIZARD-TRACK): where the flow stands, not a menu — no hover, no pointer,
+// no active background. A marker per step joined by a line: done filled, current ringed, upcoming
+// hollow. On a phone it is one row under the top edge, and only the current step keeps its label.
+.sheet__track
+    display: flex
+    flex-direction: column
+    margin: 0
+    padding: 1.5rem
+    list-style: none
+    gap: 0
+    @media (max-width: 767.9px)
+        flex-direction: row
+        align-items: center
+        min-height: 4rem
+        padding: 0 6rem 0 2rem
+        // A long label on a narrow phone: the row scrolls sideways, as the settings menu does (sheet_controller brings
+        // the current step into view).
+        overflow-x: auto
+        scrollbar-width: none
+
+.sheet__step
+    position: relative
+    padding: 0 0 3.5rem
+    font-size: 1.75rem
+    line-height: 2.5rem
+    font-weight: 500
+    color: var(--concrete)
+    &:last-child
+        padding-bottom: 0
+    // The line down to the next step's marker.
+    &:not(:last-child)::after
+        content: ""
+        position: absolute
+        top: 2.25rem
+        bottom: 0rem
+        left: calc(0.75rem - 0.0625rem)
+        width: 0.125rem
+        background: var(--zinc)
+    &--done
+        color: var(--ash)
+        &:not(:last-child)::after
+            background: var(--link)
+    &--current
+        color: var(--ink)
+        font-weight: 600
+    @media (max-width: 767.9px)
+        display: flex
+        flex: none
+        align-items: center
+        gap: 1rem
+        padding: 0
+        white-space: nowrap
+        &:not(:last-child)::after
+            position: static
+            flex: none
+            width: 2rem
+            height: 0.125rem
+            margin-right: 1rem
+
+// The track's control (not the settings menu's .sheet__item): what an item shows and, when it does something (a way back, the order switch, the advance), what is clicked: the
+// marker is part of it, so a phone's bare marker is a target too. Plain items take no pointer and no hover.
+.sheet__control-form
+    display: contents
+.sheet__control
+    position: relative
+    display: flex
+    align-items: center
+    min-height: 2.5rem
+    margin: 0
+    padding: 0 0 0 3.5rem
+    border: 0
+    background: none
+    color: inherit
+    font: inherit
+    text-align: left
+    text-decoration: none
+    cursor: default
+    // The marker, centred on the label's first line.
+    &::before
+        content: ""
+        position: absolute
+        top: 0.5rem
+        left: 0
+        box-sizing: border-box
+        width: 1.5rem
+        height: 1.5rem
+        border: 0.1875rem solid var(--steel)
+        border-radius: 50%
+        background: var(--washed)
+    .sheet__step--done > &::before, .sheet__step--done > .sheet__control-form > &::before
+        border-color: var(--link)
+        background: var(--link)
+    .sheet__step--current > &::before, .sheet__step--current > .sheet__control-form > &::before
+        border-color: var(--link)
+        box-shadow: 0 0 0 0.375rem color-mix(in srgb, var(--link) 20%, transparent)
+    @at-root a#{&}, button#{&}
+        cursor: pointer
+        &:hover
+            color: var(--ink)
+        &:focus-visible
+            outline: 0.25rem solid color-mix(in srgb, var(--link) 40%, transparent)
+            outline-offset: 0.25rem
+            border-radius: 0.5rem
+    // On a phone the track is words only — "Exchange — Assets — Currency" — its state in the text's colour and weight.
+    @media (max-width: 767.9px)
+        min-height: 4rem
+        &::before
+            display: none
+        padding: 0
+
+.sheet__label--tickers
+    display: flex
+    align-items: center
+    gap: 0.75rem
+    .ticker-group
+        display: flex
+.sheet__more-count
+    font-size: 1.5rem
+    color: var(--stone)
+
+// The pane's search box (the exchange and quote steps): the search the sentence held.
+// The pane's search (the exchange and quote steps' .sheet__search, the asset step's own box): first in the pane and stuck
+// to its top edge; a thin line under it once something has scrolled beneath (sheet_controller's sheet__pane--scrolled).
+.sheet__pane--flush
+    .sheet__search, .wizard-assets > .modal--search
+        position: sticky
+        top: 0
+        z-index: 2
+        order: -1
+        margin: 0
+        background: var(--washed)
+        transition: box-shadow 0.15s ease
+    .modal--search__input
+        box-shadow: none !important
+    &.sheet__pane--scrolled
+        .sheet__search, .wizard-assets > .modal--search
+            box-shadow: 0 1px 0 var(--zinc)
+    // The wizard's steps have no "more below" arrow.
+    > .sheet__more
+        display: none
+// The asset step's way on, under the basket.
+.sheet__next
+    display: flex
+    justify-content: flex-start
+    padding-left: 2rem
+
+.sheet__pane
+    overflow-y: auto
+    overscroll-behavior: contain
+    outline: none
+    padding: 2.5rem
+    @media (max-width: 767.9px)
+        padding: 1rem 2rem 4rem
+    // The DCA wizard's steps carry their own padding (the exchange grid, the search and its rows, the key card), drawn
+    // for a full-width card; Settings' rows and sticky headings are laid out against the pane's.
+    &--flush
+        padding: 0
+    // A thin bar of our own instead of the system one, kept 2rem clear of the card's rounded corners —
+    // from 768px up only: on a phone the sheet is the screen, and the system's overlay bar is the one to keep.
+    // Only the ::-webkit- rules (Chrome, Safari, the desktop WebView): Chrome drops them once
+    // scrollbar-width or scrollbar-color is set, so those two are for Firefox alone.
+    @media (min-width: 768px)
+        &::-webkit-scrollbar
+            width: 1.5rem
+        &::-webkit-scrollbar-track
+            margin-block: 1.5rem
+            background: transparent
+        &::-webkit-scrollbar-thumb
+            // The transparent border insets the thumb from the card's edge.
+            border: 0.5rem solid transparent
+            border-radius: 1rem
+            background: color-mix(in srgb, var(--steel) 40%, transparent) padding-box
+        &::-webkit-scrollbar-thumb:hover
+            background-color: color-mix(in srgb, var(--steel) 70%, transparent)
+        @supports (-moz-appearance: none)
+            scrollbar-width: thin
+            scrollbar-color: color-mix(in srgb, var(--steel) 40%, transparent) transparent
+
+// More below the fold (sheet_controller adds it last in the pane): an arrow on a circle,
+// pinned to the pane's bottom edge over the content. It takes no room: the pane scrolls as far with it.
+.sheet__more
+    // Always laid out (it takes no room), shown by opacity so it fades in and out.
+    display: block
+    opacity: 0
+    transition: opacity 0.2s ease
+    position: sticky
+    bottom: 0
+    width: 4rem
+    height: 4rem
+    margin: -4rem auto 0
+    border-radius: 50%
+    background: var(--silver)
+    pointer-events: none
+    z-index: 2
+    .sheet__pane--more > &
+        opacity: 1
+    &::after
+        content: ""
+        position: absolute
+        inset: 1rem
+        background: var(--stone)
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 7L8 13L2 7'/%3E%3Cpath d='M8 12L8 1'/%3E%3C/svg%3E") center / contain no-repeat
+
+// A DCA step in the pane. Its layout was sized for a card the page scrolled; here the pane scrolls
+// and sets the width, so nothing in it is wider than the pane (the basket's remove buttons stay in view).
+.sheet__pane .bot-creation-layout
+    gap: 3rem
+    padding-bottom: 1rem
+    @media (min-width: 768px)
+        gap: 4rem
+        padding: 0 0 2rem
+    .wizard-assets, .modal--search
+        width: auto
+        max-width: none
+    // It was pulled up under the sentence, which is gone.
+    .wizard-assets__list
+        top: 0
+
+.sheet__heading
+    // Sticks to the pane's top edge and covers what scrolls under it; its bottom edge fades out.
+    // It bleeds across the pane's side padding so the cover runs edge to edge.
+    // Sticky offsets count from inside the pane's padding: minus that padding pins it to the pane's edge.
+    position: sticky
+    top: -3rem
+    z-index: 1
+    // The padding sets a stuck heading on the baseline of the sidebar's first item.
+    margin: 2.875rem -2.25rem 0
+    padding: 2.75rem 2.25rem 2rem
+    background: var(--washed)
+    font-size: 2rem
+    font-weight: 600
+    color: var(--ink)
+    &::after
+        content: ""
+        position: absolute
+        top: 100%
+        left: 0
+        right: 0
+        height: 2rem
+        background: linear-gradient(var(--washed), transparent)
+        pointer-events: none
+    @media (max-width: 767.9px)
+        top: -1rem
+        margin-left: -2rem
+        margin-right: -2rem
+        padding-left: 2rem
+        padding-right: 2rem
+
+// The pane's first heading starts where it sticks, so it never moves before it is pushed away.
+.sheet__pane > .sheet__heading:first-child,
+.sheet__pane > turbo-frame:first-child > .sheet__heading:first-child
+    margin-top: -3rem
+    @media (max-width: 767.9px)
+        margin-top: -1rem
+
+.sheet__intro, .sheet__empty
+    margin: 0.5rem 0 1rem
+    font-size: 1.5rem
+    color: var(--stone)
+    text-wrap: pretty
+
+.sheet__empty
+    padding: 1rem 0
+
+.sheet__back
+    display: inline-flex
+    align-items: center
+    gap: 1rem
+    margin-bottom: 2rem
+    font-size: 1.5rem
+    color: var(--stone)
+    text-decoration: none
+    svg
+        width: 2rem
+        height: 2rem
+    &:hover
+        color: var(--ink)
+
+.sheet__prose
+    font-size: 1.5rem
+    color: var(--ash)
+    ol, ul
+        padding-left: 2.5rem
+
+// One setting.
+.srow
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    justify-content: space-between
+    gap: 1.5rem 3rem
+    padding: 2rem 0
+    &__text
+        flex: 1 1 24rem
+        min-width: 0
+        // With a mark (an exchange logo): the mark in its own column, the label and the hint beside it.
+        &--icon
+            display: grid
+            grid-template-columns: 2rem minmax(0, 1fr)
+            column-gap: 1.5rem
+            .srow__hint
+                grid-column: 2
+    // One label line tall, at the label's size, with the mark centred in it: level with the first
+    // line however the label or the hint wraps.
+    &__icon
+        display: flex
+        align-items: center
+        align-self: start
+        height: 1lh
+        font-size: 1.75rem
+        svg
+            width: 2rem
+            height: 2rem
+            *
+                fill: var(--concrete)
+    &__label
+        font-size: 1.75rem
+        font-weight: 500
+        color: var(--ink)
+    // A qualifier on the label's own line ("Binance  Tracker"): the hint's colour, not its line.
+    &__aside
+        margin-left: 1rem
+        font-size: 1.5rem
+        font-weight: 400
+        color: var(--stone)
+    &__hint
+        margin-top: 0.5rem
+        font-size: 1.5rem
+        color: var(--stone)
+        text-wrap: pretty
+        overflow-wrap: anywhere
+        b
+            color: var(--ash)
+    &__control
+        display: flex
+        flex-wrap: wrap
+        align-items: center
+        justify-content: flex-end
+        gap: 1rem
+        margin-left: auto
+        max-width: 100%
+        form
+            display: flex
+            margin: 0
+    &__more
+        flex-basis: 100%
+        font-size: 1.5rem
+        color: var(--stone)
+    // A setting whose control is a block of its own (the wash-sale question).
+    &--block
+        flex-direction: column
+        align-items: stretch
+        // In a column the text's 24rem basis would be a HEIGHT: a block of empty space under the label.
+        .srow__text
+            flex: none
+        // The row's own padding already closes it; the opened form's would double it.
+        .sform--stack
+            padding-bottom: 0
+    // A group heading in a tool list: the switch beside it covers every tool under it.
+    &--group
+        margin-top: 2rem
+        padding-bottom: 1rem
+        .srow__label
+            font-size: 1.5rem
+            font-weight: 600
+            text-transform: uppercase
+            letter-spacing: 0.02em
+            color: var(--stone)
+    &--tool
+        padding: 1.25rem 0
+    &--client
+        .srow__label
+            font-weight: 600
+    // A group whose heading is itself the switch (market data): the heading's type, the row's layout.
+    &--heading
+        margin-top: 4rem
+        .srow__label
+            font-size: 2rem
+            font-weight: 600
+
+// A row that opens into a small form (email, password): a <details> whose summary is the row, so it
+// needs no script and the button that opened it closes it. Only the disclosure triangle goes.
+summary:has(> .srow)
+    display: block
+    list-style: none
+    cursor: pointer
+    &::-webkit-details-marker
+        display: none
+
+// Dividers go between the items of a section — never above its first item, never between
+// sections. An item is a row, or a box holding one (a frame, a client card, an inset form); a
+// heading, an intro or a tool group's label is not, so the item after one starts clean.
+:is(.srow, .sitem):not(.srow--heading, .srow--group) + :is(.srow, .sitem):not(.srow--group)
+    border-top: 1px solid var(--zinc)
+
+// A frame is inline by default, and an inline box draws its border around each line, not the row.
+turbo-frame.sitem
+    display: block
+
+.sform
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    gap: 1rem
+    margin: 0
+    &__error
+        margin: 0
+        font-size: 1.5rem
+        color: var(--berry)
+    // The opened form: one field a line, under the row that opened it.
+    &--stack
+        flex-direction: column
+        align-items: stretch
+        max-width: 44rem
+        padding-bottom: 2rem
+        .rinput--text
+            width: 100%
+        > .rbutton
+            align-self: flex-start
+    // A form that is a row of its own, under the row it belongs to.
+    &--inset
+        padding-top: 2rem
+        max-width: none
+        > :not(.srow)
+            max-width: 44rem
+
+.sswitch
+    display: inline-flex
+    margin: 0
+    .toggle
+        display: inline-flex
+    // Over the whole row it sits in — the row is the nearest positioned box. Anything else the row
+    // offers (a button, a confirm) is lifted above it, so those still get their own clicks.
+    &__hit
+        position: absolute
+        inset: 0
+        cursor: pointer
+
+.srow:has(.sswitch__hit)
+    position: relative
+    .srow__control > :not(.sswitch)
+        position: relative
+        z-index: 1
+
+// A destructive button that asks first: the panel hangs under it with what will happen.
+.sconfirm
+    position: relative
+    > summary
+        list-style: none
+        cursor: pointer
+        &::-webkit-details-marker
+            display: none
+    &[open] > summary
+        color: var(--ink)
+        box-shadow: var(--shadow-indent)
+    &__panel
+        position: absolute
+        top: calc(100% + 0.75rem)
+        right: 0
+        z-index: 10
+        display: flex
+        flex-direction: column
+        align-items: flex-end
+        gap: 1.5rem
+        width: min(32rem, 100vw - 6rem)
+        padding: 1.5rem
+        background: var(--dropdown-bg)
+        border-radius: 1.5rem
+        box-shadow: 0 0 0 0.125rem var(--dropdown-border) inset, 0 0.5rem 1rem 0 rgba(6, 26, 79, 0.10)
+        p
+            margin: 0
+            align-self: stretch
+            font-size: 1.5rem
+            color: var(--ash)
+            text-wrap: pretty
+        form
+            margin: 0
+
+// The walkthrough under a key form, closed until asked for.
+// A walkthrough beside a key form, always open: Settings' CoinGecko key (.shelp) and the DCA wizard's key step (the
+// connect card's .set-api__instructions in the sheet) read the same — a quiet card, a title, numbered steps.
+.shelp, .sheet__pane .set-api--connect .set-api__instructions
+    display: flex
+    flex-direction: column
+    gap: 1.5rem
+    max-width: 44rem
+    margin: 0
+    padding: 2rem 2.5rem
+    border: 0
+    border-radius: 1.5rem
+    background: var(--paper-on-washed)
+    font-size: 1.5rem
+    line-height: 1.6
+    color: var(--ash)
+    @media (max-width: 767.9px)
+        padding: 1.5rem 2rem
+    p, ol, ul
+        margin: 0
+        font-size: 1.5rem
+        color: var(--ash)
+    ol, ul
+        display: flex
+        flex-direction: column
+        gap: 0.75rem
+        padding-left: 2.5rem
+    li::marker
+        color: var(--stone)
+        font-variant-numeric: tabular-nums
+    li > ol, li > ul
+        margin-top: 0.5rem
+        padding-left: 2rem
+        gap: 0.5rem
+    b
+        color: var(--ink)
+    a
+        color: var(--link) !important
+        text-decoration: underline
+        &:hover
+            color: var(--link-hover)
+            text-decoration: none
+.shelp__title, .sheet__pane .set-api--connect .set-api__eyebrow
+    margin: 0
+    font-size: 1.75rem
+    line-height: 2.5rem
+    letter-spacing: 0
+    text-transform: none
+    font-weight: 600
+    color: var(--ink)
+
+.sclient
+    margin-top: 1rem
+
+.settings-locked
+    margin: 0.5rem 0 0
+    padding: 0
+    list-style: none
+
+// A row inside an opened form: the form's own spacing places it.
+.srow--flush
+    padding: 0
+
+// On a phone a row with an input puts it on its own line, full width — right-aligned under the
+// label it only left a gap where the label had been.
+@media (max-width: 767.9px)
+    .srow__control:has(.rinput)
+        flex: 1 1 100%
+        flex-wrap: nowrap
+        form
+            flex: 1
+            min-width: 0
+        .rinput
+            flex: 1
+            min-width: 0
+            width: auto
+    // A short label keeps its control beside it; only a control that cannot fit drops under.
+    .srow__text
+        flex-basis: 12rem
+
+// D-WIZARD-VENUE-GROUPS: the DCA exchange step's "Brokers" and "Exchanges", each heading over its own grid. The heading
+// reads as Settings' group labels (.srow--group).
+.exchange-groups
+    display: flex
+    flex-direction: column
+    gap: 3rem
+    padding-top: 3rem
+.exchange-group__heading
+    // The grid's own side padding (_exchange-picker.sass), so the heading starts over its first tile.
+    margin: 0 0 1.5rem
+    padding: 0 2rem
+    @media (min-width: 768px)
+        padding: 0 3rem
+    font-size: 1.5rem
+    font-weight: 600
+    text-transform: uppercase
+    letter-spacing: 0.02em
+    color: var(--stone)
+
+// D-WIZARD-SHEET-KEY-FORM: the key step reads as a Settings section — the pane's padding, a heading-sized title beside a
+// small mark, the fields and Connect as Settings' stacked form (.sform--stack), the walkthrough a quiet card under it.
+.sheet__pane .bot-creation-layout--api
+    padding: 2.5rem
+    // One column, centred in the pane both ways; a walkthrough taller than the pane grows it and scrolls from the top.
+    box-sizing: border-box
+    min-height: 100%
+    justify-content: center
+    align-items: center
+    @media (max-width: 767.9px)
+        padding: 1rem 2rem 4rem
+    > .vt-step-body
+        width: 100%
+        max-width: 44rem
+    // Settings' rhythm: 1rem between the fields, Connect and the walkthrough; more under the title, as under a heading.
+    .set-api
+        gap: 1rem
+        margin: 0
+        padding: 0
+    // One grid for the card: the form's own boxes join it (display: contents), so the venue's name and Connect share the
+    // first line; with Alpaca's Paper/Live switch, the switch and Connect share the line under the name. The fields, the
+    // reason a key was refused and the walkthrough run full width under them. Only drawn so: in the page Connect still
+    // comes after the fields.
+    .set-api--connect
+        display: grid
+        grid-template-columns: minmax(0, 1fr) auto
+        align-items: center
+        @media (min-width: 768px)
+            padding: 3rem 0
+        > *, .set-api__form > *
+            grid-column: 1 / -1
+        .set-api__form
+            display: contents
+        .set-api__brand
+            grid-row: 1
+            grid-column: 1
+            flex-direction: row
+            align-items: center
+            gap: 1.25rem
+            margin: 0
+            text-align: left
+        .set-api__mark
+            width: 2.5rem
+            height: 2.5rem
+        .set-api__title
+            font-size: 2rem
+            line-height: 2.5rem
+        .rinput--text
+            width: 100%
+        .set-api__actions
+            grid-row: 1
+            grid-column: 2
+            justify-content: flex-end
+        .set-api__mode
+            grid-row: 2
+            grid-column: 1
+            justify-self: start
+            margin: 0
+        &:has(.set-api__mode) .set-api__actions
+            grid-row: 2
+        .sform__error
+            margin: 0
+
+// The basket's remove: the bot page's quiet × (.asset-allocation__remove), not a boxed button.
+.sheet__pane .wizard-assets__action .rbutton
+    height: 2rem
+    min-width: 2rem
+    padding: 0
+    font-size: 2.5rem
+    line-height: 2rem
+    color: var(--concrete)
+    background: none
+    box-shadow: none
+    &:hover
+        color: var(--ink)
+
+// "Add more assets": the label over the results, set apart from the basket and its Next above it; it reads as the
+// exchange step's group headings.
+.sheet__more-assets
+    margin: 2rem 0 0
+    padding: 0 2rem
+    font-size: 1.5rem
+    font-weight: 600
+    text-transform: uppercase
+    letter-spacing: 0.02em
+    color: var(--stone)
+
+// A basket row is laid out as a result row (_modal-search.sass): the same columns and cell padding, so the ticker, the
+// logo and the name line up with the list under it.
+.sheet__pane .wizard-assets__row
+    grid-template-columns: 11.25rem 1fr auto
+    .modal--search__cell
+        padding: 0.75rem 0.25rem 0.75rem 1rem
+        &:first-child
+            padding-left: 2rem
+    .wizard-assets__action
+        padding-right: 2rem

@@ -6,6 +6,10 @@ pl:
             assets_syncing: "Synchronizujemy aktywa tej giełdy – sprawdź ponownie za chwilę."
             stocks_ask_admin: "Poproś administratora o włączenie handlu akcjami."
             stocks_activate_cta: "Włącz handel akcjami w ustawieniach"
+            add_more_assets: "Dodaj więcej aktywów"
+            venue_groups:
+                brokers: "Brokerzy"
+                exchanges: "Giełdy"
             progress_steps:
                 assets: "Aktywa"
                 currencies: "Wybierz aktywo"

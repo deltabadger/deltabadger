@@ -1,7 +1,7 @@
 //! The DCA wizard's asset step (Bots::DcaSingleAssets::PickBuyableAssetsController): the basket is collected here, one asset
 //! at a time, and leaves through `advance`. The URL stays in the single namespace; once anything is chosen the later steps
 //! are the multi namespace's. Every GET but `new`'s `||= {}` leaves the session alone: Turbo prefetches on hover.
-use super::{chips, chosen_ids, current_variant, exchange_id, expired, first_incomplete_after, progress, reset_keys_but_exchange, sentence, BotType, Chip,
+use super::{chips, chosen_ids, current_variant, exchange_id, expired, first_incomplete_after, reset_keys_but_exchange, steer, BotType, Chip,
             SentenceOf, Step, StepOrder, Variant, EXCHANGE_KEY};
 use crate::web::bot::search::{self, AssetPage, Basket, Item, Side};
 use crate::web::layout::{self, Ctx, Page};
@@ -62,11 +62,11 @@ fn eligible(c: &Connection, basket: &Basket) -> Result<Vec<crate::web::bot::Exch
 struct New<'a> {
     v: &'a Ctx,
     csrf: &'a str,
-    close_url: String,
-    progress: String,
-    sentence: String,
+    search: String,
+    next_url: String,
+    next_label: String,
+    more_label: String,
     chosen: Vec<Chip>,
-    basket_open: bool,
     remove_url: String,
     remove_title: String,
     no_common_exchange: Option<String>,
@@ -109,17 +109,17 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool
         .then(|| ctx.t("bot.setup.assets_syncing"));
     let order = StepOrder::new(BotType::Single, chosen.variant);
     let exchange = super::exchange_name(c, chosen.venue)?;
-    let sentence = sentence(ctx, &csrf, SentenceOf { order: &order, step: Step::Currencies, multi: !chosen.chips.is_empty(), chips: chips(c, &chosen.ids)?, exchange })?;
+    let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Currencies, multi: !chosen.chips.is_empty(), chips: chips(c, &chosen.ids)?, exchange }, true)?;
     let body = New {
-        v: ctx, csrf: &csrf, close_url: ctx.path("/bots"), progress: progress(ctx, &order, Step::Currencies)?, sentence,
-        basket_open: params.query("basket") == Some("open"),
+        v: ctx, csrf: &csrf, search: steered.search,
+        next_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/advance"), next_label: ctx.t("button.next"), more_label: ctx.t("bot.setup.add_more_assets"),
         remove_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/remove"), remove_title: ctx.t("bot.dca_multi_asset.remove_asset"),
         no_common_exchange,
         max_reached: (chosen.chips.len() >= MAX_ASSETS).then(|| i18n::t(ctx.locale, "bot.dca_multi_asset.max_assets_reached", &[("max", i18n::Arg::Text("100"))])),
         search_url: ctx.path(NEW), create_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset"), syncing, field_name: FIELD, items, next,
         chosen: chosen.chips,
     }.render()?;
-    Ok((body, false))
+    Ok((super::sheet(ctx, &steered.track, &body)?, false))
 }
 
 /// The step page, through the layout (or bare, for a lazy page of results).
@@ -264,10 +264,13 @@ fn stock_basket(c: &Connection, ids: &[i64]) -> Result<bool, WebError> {
     Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM assets WHERE category = 'Stock' AND id IN (SELECT value FROM json_each(?1)))", [json!(ids).to_string()], |r| r.get(0))?)
 }
 
+/// A stock broker, as Bots::StockBrokerRoutable names them: the exchange step lists these apart (D-WIZARD-VENUE-GROUPS).
+pub fn broker(class: &str) -> bool { matches!(class, "Exchanges::Alpaca" | "Exchanges::Ibkr") }
+
 /// Bots::StockBrokerRoutable#available_stock_brokers: the stock venues listing every member, quoted in USD (the quote set only
 /// in memory).
 pub fn stock_brokers(c: &Connection, basket: &Basket, usd: Option<i64>) -> Result<Vec<i64>, WebError> {
     let priced = Basket { quote_asset_id: basket.quote_asset_id.or(usd), ..basket.clone() };
-    Ok(search::available_exchanges(c, &priced, None)?.into_iter().filter(|venue| matches!(venue.class.as_str(), "Exchanges::Alpaca" | "Exchanges::Ibkr"))
+    Ok(search::available_exchanges(c, &priced, None)?.into_iter().filter(|venue| broker(&venue.class))
         .map(|venue| venue.id).collect())
 }

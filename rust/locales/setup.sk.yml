@@ -6,6 +6,10 @@ sk:
             assets_syncing: "Synchronizujeme aktíva tejto burzy – skús to o chvíľu znova."
             stocks_ask_admin: "Požiadaj svojho administrátora o aktiváciu obchodovania s akciami."
             stocks_activate_cta: "Aktivovať obchodovanie s akciami v nastaveniach"
+            add_more_assets: "Pridať ďalšie aktíva"
+            venue_groups:
+                brokers: "Brokeri"
+                exchanges: "Burzy"
             progress_steps:
                 assets: "Aktíva"
                 currencies: "Vyberte aktivum"

@@ -100,7 +100,7 @@ pub fn frozen(name: &str, is_whole: fn(&Path) -> bool) -> PathBuf {
     })
 }
 
-fn restore_tree(from: &Path, to: &Path) {
+pub fn restore_tree(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
     for entry in std::fs::read_dir(from).unwrap().flatten() {
         let (path, name) = (entry.path(), entry.file_name().to_string_lossy().into_owned());
@@ -112,8 +112,8 @@ fn restore_tree(from: &Path, to: &Path) {
                 let pragmas = serde_json::from_slice(&std::fs::read(from.join(format!("{db}.pragmas.json"))).unwrap()).unwrap();
                 load(&to.join(db), &current_version(&std::fs::read_to_string(&path).unwrap()), &pragmas);
             }
-            None => match std::fs::read_to_string(&path).ok().filter(|t| t.contains(FROZEN_VERSION)) {
-                Some(text) => std::fs::write(to.join(&name), current_version(&text)).unwrap(),
+            None => match std::fs::read_to_string(&path).ok().filter(|t| t.contains(FROZEN_VERSION) || RENAMED.iter().any(|(frozen, _)| t.contains(frozen))) {
+                Some(text) => std::fs::write(to.join(&name), current(&text)).unwrap(),
                 None => { std::fs::copy(&path, to.join(&name)).unwrap(); }
             },
         }
@@ -124,7 +124,26 @@ fn restore_tree(from: &Path, to: &Path) {
 /// bump would fail every recording that shows it: `restore_tree` swaps it in the two places 2.x shows the version, the
 /// settings nav and MCP's serverInfo, raw or JSON-escaped, and nowhere else.
 pub const FROZEN_VERSION: &str = "3.0.0-beta.8";
-const VERSION_AT: [&str; 4] = [r#"settings__version">"#, r#"settings__version\">"#, r#""Deltabadger","version":""#, r#""Deltabadger\",\"version\":\""#];
+const VERSION_AT: [&str; 4] = [r#"sheet__version">"#, r#"sheet__version\">"#, r#""Deltabadger","version":""#, r#""Deltabadger\",\"version\":\""#];
+
+/// The settings dialog's class names the 2.x pages carry, and the ones this build writes for them (D-SHEET-NAME), raw or
+/// JSON-escaped, in the order they are swapped: the two renamed elements before the `settings__` prefix, which takes the
+/// rest one to one. `settings-locked`, the `settings_pane` frame and the `/settings/…` paths are not among them.
+const RENAMED: [(&str, &str); 8] = [
+    ("settings__nav", "sheet__side"),
+    ("settings__items", "sheet__menu"),
+    ("settings__", "sheet__"),
+    ("dialog sdialog", "dialog sheet-dialog"),
+    (r#"class="settings""#, r#"class="sheet""#),
+    (r#"class=\"settings\""#, r#"class=\"sheet\""#),
+    (r#"data-controller="settings-nav""#, r#"data-controller="sheet""#),
+    (r#"data-controller=\"settings-nav\""#, r#"data-controller=\"sheet\""#),
+];
+
+/// A recorded text file as this build would write it: the retired class names, then the release.
+pub fn current(text: &str) -> String {
+    current_version(&RENAMED.iter().fold(text.to_string(), |t, (frozen, now)| t.replace(frozen, now)))
+}
 
 pub fn current_version(text: &str) -> String {
     VERSION_AT.iter().fold(text.to_string(), |t, at| t.replace(&format!("{at}{FROZEN_VERSION}"), &format!("{at}{}", deltabadger::VERSION)))

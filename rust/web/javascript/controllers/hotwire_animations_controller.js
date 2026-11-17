@@ -39,6 +39,8 @@ export default class extends Controller {
   }
 
   #handleStreamEvent = (event) => {
+    // The DCA wizard's key step answers a refused key with its frame again: the same step.
+    if (event.target.target === "modal_content") this.#keepPaneScroll(event);
     const actionStr = this.#capitalizeAction(event.target.action);
     this.#animateElementToRemove(event.target.target, actionStr, event);
     if (event.target.firstElementChild instanceof HTMLTemplateElement) {
@@ -47,17 +49,31 @@ export default class extends Controller {
   }
 
   #handleFrameEvent = (event) => {
+    // A same-step render of a DCA step (a refused submission, adding or removing a basket member)
+    // replaces the sheet's pane, which is the scroller there: it keeps the place the user had.
+    if (event.target.id === "modal_content" &&
+        (this.lastFormSubmissionSuccessful === false || document.documentElement.dataset.wizardDir === "stay")) {
+      this.#keepPaneScroll(event);
+    }
+
     if (this.lastFormSubmissionSuccessful === false) {
       this.lastFormSubmissionSuccessful = null;
       return;
     }
 
-    // The dialog is the wizard's only scroller and it outlives the steps rendered inside it, so a
-    // step swapped in after the user scrolled the last one would open partway down. A same-step
-    // re-render ("stay") keeps its place.
+    // The full-page dialog (Index, Signal) is the wizard's only scroller and it outlives the steps
+    // rendered inside it, so a step swapped in after the user scrolled the last one would open
+    // partway down. A same-step re-render ("stay") keeps its place. The DCA sheet's pane is new
+    // with each step, so it starts at the top anyway.
     const stepChange = event.target.id === "modal_content" &&
       document.documentElement.dataset.wizardDir !== "stay";
     const scrollStepToTop = () => event.target.closest("dialog")?.scrollTo({ top: 0 });
+
+    // The DCA sheet: a step change is instant, as a settings section is.
+    if (event.target.id === "modal_content" && event.target.classList.contains("sheet__frame")) {
+      delete document.documentElement.dataset.wizardDir;
+      return;
+    }
 
     // Wrap the wizard frame swap in a View Transition so named parts
     // (conversational sentence + step body) can morph / slide.
@@ -89,6 +105,24 @@ export default class extends Controller {
     // Fallback: existing class-based animate-in/out path.
     this.#animateElementToRemove(event.detail.newFrame.id, "", event);
     this.#animateElementToAdd(event.detail.newFrame, "");
+  }
+
+  // The sheet's pane scrolls, and it is inside the frame being replaced: its scrollTop is read
+  // before the render and set on the new pane after it.
+  #keepPaneScroll(event) {
+    const frame = document.getElementById("modal_content");
+    const top = frame?.querySelector(".sheet__pane")?.scrollTop;
+    if (!top) return;
+    const render = event.detail.render;
+    event.detail.render = async (...args) => {
+      await render(...args);
+      // On the next frame: Turbo focuses the step's autofocus field (the search box) after the render, which scrolls the
+      // pane to it.
+      requestAnimationFrame(() => {
+        const pane = document.getElementById("modal_content")?.querySelector(".sheet__pane");
+        if (pane) pane.scrollTop = top;
+      });
+    };
   }
 
   // Set the wizard direction flag *before* Turbo kicks off the transition, so the

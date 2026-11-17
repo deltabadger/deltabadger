@@ -1,7 +1,7 @@
 @use "../variables" as *
 
 .ticker, .tag
-    font-size: 1.75rem
+    font-size: 1.5rem
     background: var(--stone)
     border-radius: 2rem
     justify-content: center
@@ -22,7 +22,7 @@
     display: block
     min-width: 8rem
     @media (min-width: 768px)
-        min-width: 10rem
+        min-width: 9rem
     &--stock
         border: 2px solid var(--link)
         color: var(--link)
@@ -37,7 +37,7 @@
         max-width: 6rem
         text-transform: uppercase
         @media (min-width: 768px)
-            max-width: 8rem
+            max-width: 9rem
         &::placeholder
             color: var(--paper) !important
         &:focus
@@ -45,11 +45,16 @@
     &.filled
         input
             cursor: pointer
+    &--small
+        line-height: 2.5rem
+        height: 2.5rem
+        font-size: 1.5rem
+        min-width: 8rem !important
 .ticker-group
     display: flex
     .ticker
         transition: all 0.2s ease-in-out
-        max-width: 11rem
+        max-width: 9rem
         box-shadow: var(--shadow-paper-horizontal)
     .ticker--more
         margin-left: 7.5rem
@@ -66,6 +71,8 @@
     &--2
         .ticker:not(:last-child)
             margin-right: -8.75rem
+        .ticker--small:not(:last-child)
+            margin-right: -7rem
     &--many
         .ticker:not(:last-child)
             margin-right: -8.75rem
@@ -74,6 +81,8 @@
         .ticker:not(:first-child):not(.ticker--more)
             border-radius: 0 2rem 2rem 0
             color: transparent
+        .ticker--small:not(:last-child)
+            margin-right: -7rem
     // One stacked row; when it runs out of width ticker_fold_controller folds the tail into "+N".
     // Every chip overhangs the next by the overlap, the last one too, and the padding takes that
     // overhang: the box is exactly as wide as the chips look, which is what the fold measures.

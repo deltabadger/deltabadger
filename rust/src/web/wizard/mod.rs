@@ -2,7 +2,7 @@
 //! (Bots::DcaSingleAssets::OrdersController), with the step order they share (Bots::Wizard::StepOrder and
 //! Bots::Wizard::Navigable), and its steps: assets (`assets`), exchange (`exchanges`, single and multi namespaces), stock broker
 //! (`brokers`), API key (`keys`, both namespaces) and quote (`spendable`), whose POST saves the bot (`create`). The
-//! conversational sentence, the progress bar and the stock activation notice the steps share are here. The index wizard
+//! conversational sentence, the sheet with its track (D-WIZARD-SHEET) and the stock activation notice the steps share are here. The index wizard
 //! (Bots::DcaIndexes::*) is `index`, its save `index_create`; it shares the exchange table, the key step and the quote search.
 //! The signal wizard (Bots::Signals::*) is `signals`, with the key step's fourth namespace.
 //!
@@ -65,11 +65,6 @@ impl StepOrder {
     }
 
     pub fn first(&self) -> Step { self.steps[0] }
-
-    /// StepOrder#progress: index-based even spacing, 25/50/75/100 for four steps.
-    pub fn progress(&self, step: Step) -> i64 {
-        self.steps.iter().position(|s| *s == step).map_or(0, |index| ((index as f64 + 1.0) * 100.0 / self.steps.len() as f64).round() as i64)
-    }
 
     pub fn next_after(&self, step: Step) -> Option<Step> {
         let index = self.steps.iter().position(|s| *s == step)?;
@@ -245,19 +240,24 @@ pub struct Chip {
     pub name: String,
     pub class: &'static str,
     pub pill: String,
+    /// The asset's logo, as a search result draws it.
+    pub logo: String,
 }
 
 /// The Assets of `ids` in that order, skipping ids that are no row (`ids.filter_map { by_id[_] }`).
 pub fn chips(c: &Connection, ids: &[i64]) -> Result<Vec<Chip>, WebError> {
-    let mut statement = c.prepare("SELECT id, symbol, name, color, category FROM assets WHERE id = ?1")?;
+    let mut statement = c.prepare("SELECT id, symbol, name, color, category, image_url FROM assets WHERE id = ?1")?;
     let mut chips = vec![];
     for id in ids {
         let found = statement.query_row([id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, Option<String>>(2)?,
-                                                       r.get::<_, Option<String>>(3)?, r.get::<_, Option<String>>(4)?))).optional()?;
-        let Some((id, symbol, name, color, category)) = found else { continue };
+                                                       r.get::<_, Option<String>>(3)?, r.get::<_, Option<String>>(4)?, r.get::<_, Option<String>>(5)?))).optional()?;
+        let Some((id, symbol, name, color, category, image)) = found else { continue };
+        let symbol = symbol.unwrap_or_default();
         chips.push(Chip {
-            id, symbol: symbol.unwrap_or_default(), name: name.unwrap_or_default(), class: colors::ticker_class(category.as_deref(), color.as_deref()),
+            id, name: name.unwrap_or_default(), class: colors::ticker_class(category.as_deref(), color.as_deref()),
             pill: colors::pill_color(color.as_deref()).ok_or_else(|| WebError::Config("an asset colour 2.x cannot read".into()))?,
+            logo: crate::web::tracker::row::asset_logo(image, color, symbol.clone(), category)?,
+            symbol,
         });
     }
     Ok(chips)
@@ -273,19 +273,32 @@ pub fn exchange_name(c: &Connection, id: Option<i64>) -> Result<Option<String>, 
 #[template(path = "wizard/_progress.html")]
 struct Progress { title: String, progress: i64 }
 
-/// bots/{dca_single_assets,dca_multi_assets}/_new_step_progress_bar: the step's share of the order; the exchange step reads
-/// "Pick exchange".
-pub fn progress(ctx: &Ctx, order: &StepOrder, step: Step) -> Result<String, WebError> {
-    let key = if step == Step::Exchange { "pick_exchange".to_string() } else { step.key().to_string() };
-    progress_bar(ctx.t(&format!("bot.setup.progress_steps.{key}")), order.progress(step))
-}
-
 /// bots/_new_step_progress_bar: a step's title and its share of the wizard.
 pub fn progress_bar(title: String, progress: i64) -> Result<String, WebError> {
     Ok(Progress { title, progress }.render()?)
 }
 
-/// What bots/wizard/_sentence reads.
+#[derive(Template)]
+#[template(path = "wizard/_sheet_frame.html")]
+struct SheetFrame<'a> { track: &'a str, content: &'a str }
+
+#[derive(Template)]
+#[template(path = "wizard/sheet.html")]
+struct Sheet<'a> { close_url: String, close_label: String, track: &'a str, content: &'a str }
+
+/// D-WIZARD-SHEET: a DCA step as the sheet Settings uses, the track beside the pane holding `content`. The frame around both is
+/// `modal_content`, so every form, stream and transition that targets it is unchanged.
+pub fn sheet(ctx: &Ctx, track: &str, content: &str) -> Result<String, WebError> {
+    Ok(Sheet { close_url: ctx.path("/bots"), close_label: ctx.t("button.close"), track, content }.render()?)
+}
+
+/// What `sheet` puts in its `modal_content` frame, for a stream that updates the frame.
+pub fn sheet_frame(track: &str, content: &str) -> Result<String, WebError> {
+    Ok(SheetFrame { track, content }.render()?)
+}
+
+/// What a DCA step knows of the wizard: the slots of 2.x's bots/wizard/_sentence ("Buy {assets} on {exchange} spending
+/// {quote}"), which this build draws as the track and the pane's search box (D-WIZARD-NO-SENTENCE).
 pub struct SentenceOf<'a> {
     pub order: &'a StepOrder,
     pub step: Step,
@@ -295,62 +308,90 @@ pub struct SentenceOf<'a> {
     pub exchange: Option<String>,
 }
 
-pub struct Sentence {
-    kind: &'static str,
-    step: &'static str,
-    invite_only: bool,
-    on_asset_step: bool,
-    chips: Vec<Chip>,
-    stack_class: &'static str,
-    exchange: &'static str,
-    exchange_name: String,
-    exchange_back: bool,
-    exchange_url: String,
-    quote_visible: bool,
-    asset_step_url: String,
-    advance_url: String,
-    order_url: String,
-    quote_search_url: String,
-    csrf: String,
+/// What a track item does when clicked: the request the sentence's slot made in the same state, or nothing.
+pub struct Action { kind: &'static str, url: String, fields: Vec<(&'static str, &'static str)>, back: bool }
+
+impl Action {
+    fn plain() -> Self { Action { kind: "plain", url: String::new(), fields: vec![], back: false } }
+    fn get(url: String, back: bool) -> Self { Action { kind: "get", url, fields: vec![], back } }
+    fn post(url: String, fields: Vec<(&'static str, &'static str)>, back: bool) -> Self { Action { kind: "post", url, fields, back } }
 }
 
-#[derive(Template)]
-#[template(path = "wizard/_sentence.html")]
-struct SentenceView<'a> { s: &'a Sentence }
+/// One item of the track (D-WIZARD-TRACK r4): Exchange, Assets or Currency, by position done, current or upcoming; its label,
+/// or the venue's name, or the chosen tickers (five at most, `more` beyond); and what it does, by the sentence's slot state.
+pub struct Item { state: &'static str, label: String, chips: Vec<Chip>, more: usize, stack_class: &'static str, action: Action }
 
-/// bots/wizard/_sentence: "Buy {assets} on {exchange} spending {quote}", each slot active, filled or a placeholder that switches
-/// the order (on the first step) or advances out of the asset step.
-pub fn sentence(ctx: &Ctx, csrf: &str, of: SentenceOf) -> Result<String, WebError> {
+#[derive(Template)]
+#[template(path = "wizard/_track.html")]
+struct Track<'a> { items: Vec<Item>, csrf: &'a str }
+
+#[derive(Template)]
+#[template(path = "wizard/_search.html")]
+struct Search<'a> { frame: &'a str, url: &'a str, placeholder: &'a str }
+
+/// A DCA step's track, and the search box its pane opens with (empty when the step has none).
+pub struct Steer { pub track: String, pub search: String }
+
+/// D-WIZARD-NO-SENTENCE, D-WIZARD-TRACK: the sentence's slot states, computed as bots/wizard/_sentence computes them, drawn as
+/// the track's three items in the order in force and the pane's search box. Each item does what its slot did (a done step's
+/// way back, the order switch, the asset step's advance), whatever its position; `actions: false` draws them all plain (the
+/// stock-broker step, which has no sentence).
+pub fn steer(ctx: &Ctx, csrf: &str, of: SentenceOf, actions: bool) -> Result<Steer, WebError> {
     let on_first_step = of.order.first() == of.step;
     let on_asset_step = of.step == Step::Currencies;
     let at = |step: Step| of.order.steps.iter().position(|s| *s == step);
     let exchange_before_assets = at(Step::Exchange) < at(Step::Currencies).or_else(|| at(Step::Assets));
     let filled = of.exchange.is_some();
+    let invite_only = of.step == Step::Exchange && on_first_step && of.chips.is_empty();
+    let exchange_url = ctx.path(if of.multi { "/bots/dca_multi_assets/pick_exchange/new" } else { "/bots/dca_single_assets/pick_exchange/new" });
+    let (advance_url, order_url) = (ctx.path("/bots/dca_single_assets/pick_buyable_asset/advance"), ctx.path("/bots/dca_single_assets/order"));
+    let quote_search_url = ctx.path("/bots/dca_multi_assets/pick_spendable_asset/new");
     let exchange = if of.step == Step::Exchange { "active" }
         else if filled && on_asset_step { "filled_advance" }
         else if filled { "filled" }
         else if on_first_step && of.chips.is_empty() { "switch" }
         else if on_asset_step { "advance" }
         else { "inert" };
-    let s = Sentence {
-        kind: if of.multi { "multi" } else { "single" },
-        step: of.step.key(),
-        invite_only: of.step == Step::Exchange && on_first_step && of.chips.is_empty(),
-        on_asset_step,
-        stack_class: match of.chips.len() { 0 | 1 => "", 2 => "ticker-group--2", _ => "ticker-group--many" },
-        quote_visible: !of.chips.is_empty() && filled,
-        chips: of.chips,
-        exchange,
-        exchange_name: of.exchange.unwrap_or_default(),
-        exchange_back: exchange_before_assets,
-        exchange_url: ctx.path(if of.multi { "/bots/dca_multi_assets/pick_exchange/new" } else { "/bots/dca_single_assets/pick_exchange/new" }),
-        asset_step_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/new"),
-        advance_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/advance"),
-        order_url: ctx.path("/bots/dca_single_assets/order"),
-        quote_search_url: ctx.path("/bots/dca_multi_assets/pick_spendable_asset/new"),
-        csrf: csrf.to_string(),
+    let quote = if of.chips.is_empty() || !filled { "absent" } else if of.step == Step::Spendable { "search" } else if on_asset_step { "advance" } else { "inert" };
+    let exchange_action = match (invite_only, exchange) {
+        (true, _) | (_, "active" | "inert") => Action::plain(),
+        (_, "filled") => Action::get(exchange_url.clone(), true),
+        (_, "filled_advance") => Action::post(advance_url.clone(), vec![("to", "exchange")], exchange_before_assets),
+        (_, "switch") => Action::post(order_url.clone(), vec![("flow", "exchange_first")], false),
+        _ => Action::post(advance_url.clone(), vec![], false),
     };
-    Ok(SentenceView { s: &s }.render()?)
+    let assets_action = if on_asset_step { Action::plain() }
+        else if !of.chips.is_empty() { Action::get(ctx.path("/bots/dca_single_assets/pick_buyable_asset/new"), true) }
+        else { Action::post(order_url.clone(), vec![("flow", "asset_first")], false) };
+    let quote_action = if !invite_only && quote == "advance" { Action::post(advance_url.clone(), vec![], false) } else { Action::plain() };
+    let search = match (invite_only, exchange, quote) {
+        (false, "active", _) => Search { frame: "exchange-picker", url: &exchange_url, placeholder: "exchange" }.render()?,
+        (_, _, "search") => Search { frame: "asset-picker", url: &quote_search_url, placeholder: "USD" }.render()?,
+        _ => String::new(),
+    };
+    // Position: the key and broker steps are the exchange's item.
+    let item_of = |step: Step| match step { Step::Exchange | Step::Api => 0, Step::Currencies | Step::Assets => 1, Step::Spendable => 2 };
+    let mut order: Vec<usize> = vec![];
+    for step in of.order.steps { let item = item_of(*step); if !order.contains(&item) { order.push(item); } }
+    let current = order.iter().position(|item| *item == item_of(of.step));
+    let more = of.chips.len().saturating_sub(5);
+    let stack_class = match of.chips.len() { 0 | 1 => "", 2 => "ticker-group--2", _ => "ticker-group--many" };
+    let mut chips = Some(of.chips.into_iter().take(5).collect::<Vec<_>>());
+    let mut actions_by_item = [Some(exchange_action), Some(assets_action), Some(quote_action)];
+    let mut items = vec![];
+    for (place, item) in order.iter().enumerate() {
+        let state = match current { Some(current) if place < current => "done", Some(current) if place == current => "current", _ => "upcoming" };
+        let action = actions_by_item[*item].take().filter(|_| actions).unwrap_or_else(Action::plain);
+        let key = ["exchange", "assets", "spendable"][*item];
+        let mut entry = Item { state, label: ctx.t(&format!("bot.setup.progress_steps.{key}")), chips: vec![], more: 0, stack_class: "", action };
+        match item {
+            0 => if let (Some(name), false) = (&of.exchange, of.step == Step::Exchange) { entry.label = name.clone(); },
+            1 => { entry.chips = chips.take().unwrap_or_default(); entry.more = more; entry.stack_class = stack_class; }
+            _ => {}
+        }
+        items.push(entry);
+    }
+    Ok(Steer { track: Track { items, csrf }.render()?, search })
 }
 
 /// Bots::WizardSessionGuard#redirect_if_session_expired: a guarded POST with no wizard begun (`session[:bot_config].blank?`) is
@@ -447,13 +488,11 @@ mod tests {
     }
 
     #[test]
-    fn chosen_ids_read_either_shape_and_progress_spaces_evenly() {
+    fn chosen_ids_read_either_shape() {
         assert_eq!(chosen_ids(Some(&json!({"settings": {"base_asset_ids": ["3", 3, 0, null, 5]}}))), vec![3, 5]);
         assert_eq!(chosen_ids(Some(&json!({"settings": {"base_asset_ids": [], "base_asset_id": "7"}}))), vec![7], "an empty list falls back to the one asset");
         assert_eq!(exchange_id(Some(&json!({"exchange_id": " "}))), None);
         assert_eq!(exchange_id(Some(&json!({"exchange_id": "4"}))), Some(4));
-        let order = StepOrder::new(BotType::Single, Variant::ExchangeFirst);
-        assert_eq!((order.progress(Step::Exchange), order.progress(Step::Currencies), order.progress(Step::Assets)), (25, 75, 0));
     }
 
     #[test]

@@ -133,7 +133,7 @@ html:has(#modal dialog[open])
             animation: modal-zoom-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075) both
     // The settings card zooms in when it is inserted, not on [complete]: visited as a page its frame
     // never completes, and switching sections replaces only the pane inside it, so it zooms once.
-    .settings
+    .sheet
         animation: modal-zoom-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075) both
     .modal--closing,
     .dialogview__vertical-center--closing
@@ -308,7 +308,6 @@ html:has(#modal dialog[open])
     max-height: calc(100vh - 2rem)
     position: relative
     background: var(--washed)
-    border-radius: 2rem
     overflow: hidden
     @media screen and (min-width: 576px)
         max-width: calc(100vw - 4rem)
@@ -321,14 +320,12 @@ html:has(#modal dialog[open])
         left: 2rem
         path,circle
             stroke: var(--steel)
-        @media screen and (min-width: 768px)
-            left: 3rem
     &__input
         box-shadow: 0 0.125rem var(--slider-track) !important
         background: rgba(0,0,0,0)
         font-weight: 500
         width: 100%
-        padding: 2rem 2rem 2rem 7rem
+        padding: 2rem 2rem 2rem 6rem
         font-size: 2rem
         border: none
         height: 7rem
@@ -362,12 +359,10 @@ html:has(#modal dialog[open])
                 grid-template-columns: 11.25rem 1fr 1fr
                 width: 100%
                 cursor: pointer
-                @media (min-width: 768px)
-                    grid-template-columns: 13rem 1fr 1fr
     &__cell
         font-size: 1.75rem
         text-align: left
-        padding: 1rem 0.25rem 1rem 1rem
+        padding: 0.75rem 0.25rem 0.75rem 1rem
         line-height: 3rem
         font-weight: 500
         overflow: hidden
@@ -375,9 +370,6 @@ html:has(#modal dialog[open])
         text-wrap: nowrap
         &:first-child
             padding-left: 2rem
-        @media screen and (min-width: 768px)
-            &:first-child
-                padding-left: 3rem
         &--ticker
             font-weight: 600
             color: var(--ink)
@@ -405,10 +397,12 @@ html:has(#modal dialog[open])
         &--exchanges
             font-weight: 400
             color: var(--stone)
-            text-align: end
-            padding-right: 2.5rem
-            @media (min-width: 768px)
-                padding-right: 3rem
+            text-align: start
+            padding-right: 2rem
+            // More exchanges than the cell holds (sheet_controller marks it): they fade out at its right edge
+            // instead of being cut off there.
+            &.is-overflowing
+                mask-image: linear-gradient(to right, #000 calc(100% - 6rem), transparent calc(100% - 2rem))
             svg
                 width: 2rem
                 height: 2rem

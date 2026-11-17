@@ -260,7 +260,7 @@ pub struct Account<'a> {
 pub fn account(ctx: &Ctx, a: &Account) -> String {
     let instance = a
         .admin
-        .map(|(registration, email, update)| format!("\n  <h3 class=\"settings__heading\">{}</h3>\n  {registration}\n  {email}\n  \n{update}{}", ctx.t("settings.sections.instance"), jobs(ctx)))
+        .map(|(registration, email, update)| format!("\n  <h3 class=\"sheet__heading\">{}</h3>\n  {registration}\n  {email}\n  \n{update}{}", ctx.t("settings.sections.instance"), jobs(ctx)))
         .unwrap_or_default();
     // D-DESKTOP-NO-ACCOUNT-PAGES: a section with no rows (the desktop's Profile and Security) has no heading either.
     let sections = [
@@ -271,7 +271,7 @@ pub fn account(ctx: &Ctx, a: &Account) -> String {
     ];
     let mut out = String::new();
     for (heading, rows) in sections.iter().filter(|(_, rows)| !rows.trim().is_empty()) {
-        let first = if out.is_empty() { "  <h3 class=\"settings__heading settings__heading--first\">" } else { "\n\n<h3 class=\"settings__heading\">" };
+        let first = if out.is_empty() { "  <h3 class=\"sheet__heading sheet__heading--first\">" } else { "\n\n<h3 class=\"sheet__heading\">" };
         out.push_str(&format!("{first}{}</h3>\n{rows}", ctx.t(heading)));
     }
     format!("{out}\n{instance}")
@@ -468,7 +468,7 @@ pub fn market_data(ctx: &Ctx, csrf: &str, m: &Market) -> String {
         } else {
             let key = ctx.t("setup.coingecko_api_key");
             format!(
-                "\n            {}\n              <input value=\"coingecko\" type=\"hidden\" name=\"market_data_provider\" id=\"market_data_provider\" />\n              <input required=\"required\" autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"{key}\" aria-label=\"{key}\" type=\"text\" name=\"coingecko_api_key\" id=\"coingecko_api_key\" />\n              {}\n              <details class=\"shelp\">\n                <summary>{}</summary>\n                <div class=\"settings__prose\">{}</div>\n              </details>\n</form>",
+                "\n            {}\n              <input value=\"coingecko\" type=\"hidden\" name=\"market_data_provider\" id=\"market_data_provider\" />\n              <input required=\"required\" autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"{key}\" aria-label=\"{key}\" type=\"text\" name=\"coingecko_api_key\" id=\"coingecko_api_key\" />\n              {}\n              <section class=\"shelp\">\n                <h3 class=\"shelp__title\">{}</h3>\n                <div class=\"sheet__prose\">{}</div>\n              </section>\n</form>",
                 form_open(" class=\"sform sform--stack sform--inset sitem\" data-turbo-frame=\"market_data_settings\"", &ctx.path("/settings/update_market_data"), "patch", csrf),
                 submit(&connect, &validating),
                 crate::web::i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", crate::web::i18n::Arg::Text("CoinGecko"))]),
@@ -531,9 +531,9 @@ pub fn api_keys(ctx: &Ctx, csrf: &str, keys: &[Key]) -> String {
     for (index, (heading, withdrawal)) in [("settings.index.trading_keys_section", false), ("settings.index.withdrawal_keys_section", true)].into_iter().enumerate() {
         let group: Vec<&Key> = keys.iter().filter(|key| key.withdrawal == withdrawal).collect();
         if index > 0 && group.is_empty() { continue; }
-        out.push_str(&format!("\n    <h3 class=\"settings__heading{}\">{}</h3>", if index == 0 { " settings__heading--first" } else { "" }, ctx.t(heading)));
+        out.push_str(&format!("\n    <h3 class=\"sheet__heading{}\">{}</h3>", if index == 0 { " sheet__heading--first" } else { "" }, ctx.t(heading)));
         if group.is_empty() {
-            out.push_str(&format!("\n      <p class=\"settings__empty\">{}</p>\n", ctx.t("settings.sections.no_keys")));
+            out.push_str(&format!("\n      <p class=\"sheet__empty\">{}</p>\n", ctx.t("settings.sections.no_keys")));
         }
         for key in group {
             let permissions = if key.instructions {
@@ -586,7 +586,7 @@ pub fn mcp(ctx: &Ctx, csrf: &str, root: &str, dry_run: bool) -> String {
         switch(csrf, &ctx.path("/settings/update_mcp_dry_run"), "mcp_settings", "enabled", if dry_run { "0" } else { "1" }, if dry_run { "on" } else { "off" }, Some(&ctx.t("settings.mcp.dry_run_label")), &[])
     );
     format!(
-        "<turbo-frame id=\"mcp_settings\">\n  <h3 class=\"settings__heading settings__heading--first\">{}</h3>\n  <p class=\"settings__intro\">{}</p>\n\n  {}\n  {}</turbo-frame>",
+        "<turbo-frame id=\"mcp_settings\">\n  <h3 class=\"sheet__heading sheet__heading--first\">{}</h3>\n  <p class=\"sheet__intro\">{}</p>\n\n  {}\n  {}</turbo-frame>",
         ctx.t("settings.sections.mcp_server"),
         ctx.t("settings.mcp.description"),
         row("URL", None, "", "", None, Some(&url)),
@@ -608,7 +608,7 @@ pub fn rest(ctx: &Ctx, csrf: &str, root: &str, token: &str) -> String {
         escape(&ctx.path("/settings/download_api_docs"))
     );
     format!(
-        "<turbo-frame id=\"rest_settings\">\n  <h3 class=\"settings__heading settings__heading--first\">{}</h3>\n  <p class=\"settings__intro\">{}</p>\n\n\n  {}\n  {}\n  {}</turbo-frame>",
+        "<turbo-frame id=\"rest_settings\">\n  <h3 class=\"sheet__heading sheet__heading--first\">{}</h3>\n  <p class=\"sheet__intro\">{}</p>\n\n\n  {}\n  {}\n  {}</turbo-frame>",
         ctx.t("settings.rest.title"),
         ctx.t("settings.rest.description"),
         row("URL", None, "", "", None, Some(&url)),
@@ -621,7 +621,7 @@ pub fn rest(ctx: &Ctx, csrf: &str, root: &str, token: &str) -> String {
 pub fn tool_permissions(ctx: &Ctx, csrf: &str, surface: &str, enabled: &[String]) -> String {
     let (tool_url, group_url) = (ctx.path(&format!("/settings/update_{surface}_tool_permissions")), ctx.path(&format!("/settings/update_{surface}_tool_group_permissions")));
     let mut out = format!(
-        "<turbo-frame id=\"tool_permissions\">\n  <h3 class=\"settings__heading\">{}</h3>\n  <p class=\"settings__intro\">{}</p>\n",
+        "<turbo-frame id=\"tool_permissions\">\n  <h3 class=\"sheet__heading\">{}</h3>\n  <p class=\"sheet__intro\">{}</p>\n",
         ctx.t("settings.mcp.tools_title"),
         ctx.t("settings.mcp.tools_description")
     );
@@ -666,11 +666,11 @@ pub struct Client {
 
 /// settings/widgets/_connected_clients for one surface.
 pub fn connected_clients(ctx: &Ctx, csrf: &str, surface: &str, clients: &[Client]) -> String {
-    let mut out = format!("<turbo-frame id=\"connected_clients\">\n  <h3 class=\"settings__heading\">{}</h3>", ctx.t("settings.mcp.connected_clients"));
+    let mut out = format!("<turbo-frame id=\"connected_clients\">\n  <h3 class=\"sheet__heading\">{}</h3>", ctx.t("settings.mcp.connected_clients"));
     if clients.is_empty() {
-        out.push_str(&format!("\n    <p class=\"settings__empty\">{}</p>", ctx.t("settings.mcp.no_clients")));
+        out.push_str(&format!("\n    <p class=\"sheet__empty\">{}</p>", ctx.t("settings.mcp.no_clients")));
     } else {
-        out.push_str(&format!("\n    <p class=\"settings__intro\">{}</p>", ctx.t("settings.mcp.client_permissions_hint")));
+        out.push_str(&format!("\n    <p class=\"sheet__intro\">{}</p>", ctx.t("settings.mcp.client_permissions_hint")));
         for client in clients {
             let revoke = format!(
                 "\n    {}\n",
