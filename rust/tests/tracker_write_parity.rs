@@ -58,7 +58,7 @@ fn same_rows(actual: Value, expected: Value, label: &str) {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn implemented_writes_match_the_recorded_rails_bytes_and_all_primary_rows() {
+async fn implemented_writes_match_the_recorded_v2_bytes_and_all_primary_rows() {
     compare(&["settings_validation_zone", "settings_validation_blank_zone", "settings_validation_locale",
         "settings_validation_blank_locale", "settings_validation_currency", "settings_validation_lower_currency",
         "settings_validation_jurisdiction", "settings_validation_email", "settings_validation_valid_context"]).await;
@@ -67,7 +67,7 @@ async fn implemented_writes_match_the_recorded_rails_bytes_and_all_primary_rows(
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn price_and_transfer_match_rails_bytes_and_all_primary_rows() {
+async fn price_and_transfer_match_v2_bytes_and_all_primary_rows() {
     compare(&["price_accept_0","price_accept_1","price_accept_2","link_accept_0","link_accept_1","link_accept_2","link_sql_precision","link_sql_reverse","price_blank_currency","price_overflow","price_12.5","price_0","price_-1","price_abc","price_clear","price_venue","link_unlink","link_missing","link_success","price_hidden","price_missing","price_small","price_negative_adjustment","price_cash_eur","price_flag","price_group_clear","price_quote_clear"]).await;
     let locales:Vec<String>=deltabadger::web::locale::LOCALES.iter().map(|locale|format!("price_locale_{locale}")).collect();
     compare(&locales.iter().map(String::as_str).collect::<Vec<_>>()).await;
@@ -98,12 +98,12 @@ fn mask_csrf(body: &str) -> String {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn import_dialog_and_the_no_file_answer_match_rails() {
+async fn import_dialog_and_the_no_file_answer_match_v2() {
     compare(&["import_new","import_missing"]).await;
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn importing_a_file_matches_rails_bytes_and_all_primary_rows() {
+async fn importing_a_file_matches_v2_bytes_and_all_primary_rows() {
     compare(&["import_binance_ok","import_nothing_new","import_unknown_timezone","import_unreadable","import_ambiguous","import_answer","import_bad_key"]).await;
 }
 
@@ -113,7 +113,7 @@ fn mask_import_token(body: &str) -> String {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn export_modal_is_read_only_and_matches_rails_bytes() {
+async fn export_modal_is_read_only_and_matches_v2_bytes() {
     compare(&["export_modal","modal_settings","modal_broker","modal_broker_empty","modal_broker_foreign_country"]).await;
     let locales:Vec<String>=deltabadger::web::locale::LOCALES.iter().map(|locale|format!("modal_locale_{locale}")).collect();
     compare(&locales.iter().map(String::as_str).collect::<Vec<_>>()).await;
@@ -139,7 +139,7 @@ fn rust_effects(c: &Connection, name: &str, key_before: Option<String>) {
 /// A12-1: the tracker's tax report create (`tax_*`) and download (`download_*`) against Rails' answers, rows, enqueued
 /// job, files and flash.
 #[tokio::test(flavor="current_thread")]
-async fn tax_report_requests_and_downloads_match_rails() {
+async fn tax_report_requests_and_downloads_match_v2() {
     compare(&["tax_invalid","tax_lower_case","tax_pending","tax_crypto","tax_stablecoin","tax_locale_de","tax_stale_refusal",
         "tax_generating","tax_generating_refused","tax_broker","tax_de","tax_fr","tax_pl_2018",
         "download_expired","download_refused","download_ready","download_broker"]).await;
@@ -231,9 +231,9 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
         let directory = if name.starts_with("sync_") { std::env::var("D5_SYNC_GRID").unwrap_or_else(|_|root.clone()) } else { root.clone() };
         let source = Path::new(&directory).join(format!("d5_{name}"));
         let scenario: Value = serde_json::from_slice(&std::fs::read(source.join("scenario.json")).unwrap()).unwrap();
-        let rails: Value = serde_json::from_slice(&std::fs::read(source.join("rails.json")).unwrap()).unwrap();
-        assert!(rails["network"].as_array().unwrap().is_empty());
-        let expected = rails["responses"].as_array().unwrap().last().unwrap();
+        let v2: Value = serde_json::from_slice(&std::fs::read(source.join("rails.json")).unwrap()).unwrap();
+        assert!(v2["network"].as_array().unwrap().is_empty());
+        let expected = v2["responses"].as_array().unwrap().last().unwrap();
         let step = scenario["steps"].as_array().unwrap().last().unwrap();
         let dir = tempfile::tempdir().unwrap();
         for name in ["production.sqlite3","production_queue.sqlite3"] { std::fs::copy(source.join(name),dir.path().join(name)).unwrap(); }
@@ -332,9 +332,9 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
             }
             let body = if name == "import_new" { without_kucoin_format(&answer.body) } else if tax { reconcile(&answer.body) } else { answer.body.clone() };
             let body = if body.contains("<style>.pl-carry{") { without_pl_carry(&body) } else { body };
-            let rails_body = if name == TAX_RECONCILED { std::fs::read_to_string(source.join("reconciled.html")).unwrap() } else { expected["body"].as_str().unwrap().to_string() };
-            let rails_body = if rails_body.contains("data-stablecoin-ambiguous=") { stablecoin_question(&rails_body) } else { rails_body };
-            assert_eq!(mask_csrf(&body),mask_csrf(&rails_body),"{name}: body bytes");
+            let v2_body = if name == TAX_RECONCILED { std::fs::read_to_string(source.join("reconciled.html")).unwrap() } else { expected["body"].as_str().unwrap().to_string() };
+            let v2_body = if v2_body.contains("data-stablecoin-ambiguous=") { stablecoin_question(&v2_body) } else { v2_body };
+            assert_eq!(mask_csrf(&body),mask_csrf(&v2_body),"{name}: body bytes");
         } }
         else {
             // Existing web-foundation exception contract: public error file and below-controller
@@ -395,8 +395,8 @@ fn tax_effects(c: &Connection, name: &str, source: &Path, dir: &Path, expected: 
     let tax_wakes = wakes.iter().filter(|(job, _)| job == "tax_report").count();
     assert_eq!(tax_wakes, jobs.len(), "{name}: tax_report wakes {wakes:?}");
     assert!(wakes.iter().all(|(job, scope)| job == "tax_report" && scope.is_none()), "{name}: only the unscoped tax_report is woken: {wakes:?}");
-    let rails = if name == TAX_RECONCILED { source.join("tmp_before") } else { source.join("tmp") };
-    assert_eq!(tax_files(&dir.join("tmp")), tax_files(&rails), "{name}: report files after the request");
+    let v2 = if name == TAX_RECONCILED { source.join("tmp_before") } else { source.join("tmp") };
+    assert_eq!(tax_files(&dir.join("tmp")), tax_files(&v2), "{name}: report files after the request");
     if name == "download_ready" || name == "download_broker" {
         assert!(tax_files(&source.join("tmp")).is_empty() && tax_files(&dir.join("tmp")).is_empty(), "{name}: the downloaded report is deleted on both sides");
     }

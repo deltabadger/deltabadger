@@ -102,7 +102,7 @@ fn comparable(status: u64, headers: &BTreeMap<String, String>, body: &str) -> Va
 }
 
 /// Rails writes its cookie on every response; this crate only when the session's content changed (web::session).
-fn rails_answer(name: &str, recorded: &Value, launchpad: Option<&str>) -> Value {
+fn v2_answer(name: &str, recorded: &Value, launchpad: Option<&str>) -> Value {
     let changed = recorded["session_changed"].as_bool().unwrap();
     let headers = recorded["headers"].as_object().unwrap().iter()
         .filter(|(name, _)| changed || name.as_str() != "set-cookie")
@@ -251,11 +251,11 @@ fn clock_now(at: &str) -> chrono::DateTime<chrono::Utc> { at.parse().unwrap() }
 /// The user rows, compared column by column. What differs by design is checked on its own terms: the bcrypt
 /// hash must verify the submitted password (Rails' test environment hashes at cost 1, this crate at 11), and the
 /// OTP seed must decrypt, under the same keys, to a 32-character base32 seed in active_model_otp's envelope.
-fn users_difference(app: &App, scenario: &Value, rails: &[Value], rust: &[serde_json::Map<String, Value>]) -> Option<String> {
-    if rails.len() != rust.len() { return Some(format!("{} user rows in Rails, {} here", rails.len(), rust.len())); }
+fn users_difference(app: &App, scenario: &Value, v2: &[Value], rust: &[serde_json::Map<String, Value>]) -> Option<String> {
+    if v2.len() != rust.len() { return Some(format!("{} user rows in Rails, {} here", v2.len(), rust.len())); }
     let seeded = scenario["seed"]["users"].as_array().unwrap().len();
     let password = scenario["steps"].as_array().unwrap().iter().rev().find_map(|s| s["form"]["user[password]"].as_str().or_else(|| s["json"]["user"]["password"].as_str()));
-    for (index, (theirs, ours)) in rails.iter().zip(rust).enumerate() {
+    for (index, (theirs, ours)) in v2.iter().zip(rust).enumerate() {
         for (column, value) in theirs.as_object().unwrap() {
             let mine = ours.get(column).unwrap_or(&Value::Null);
             let created = index >= seeded;
@@ -268,9 +268,9 @@ fn users_difference(app: &App, scenario: &Value, rails: &[Value], rust: &[serde_
                     let (Some(envelope), Some(theirs)) = (mine.as_str(), value.as_str()) else { return Some("no OTP seed".into()) };
                     let shape = |text: &str| { let v: Value = serde_json::from_str(text).unwrap(); v["h"].as_object().unwrap().keys().cloned().collect::<Vec<_>>() };
                     let seed = app.cipher.decrypt(envelope).unwrap_or_default();
-                    let rails_seed = app.cipher.decrypt(theirs).unwrap_or_default();
-                    shape(envelope) == shape(theirs) && seed.len() == 32 && rails_seed.len() == 32
-                        && seed.bytes().all(|b| b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".contains(&b)) && seed != rails_seed
+                    let v2_seed = app.cipher.decrypt(theirs).unwrap_or_default();
+                    shape(envelope) == shape(theirs) && seed.len() == 32 && v2_seed.len() == 32
+                        && seed.bytes().all(|b| b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".contains(&b)) && seed != v2_seed
                 }
                 _ => value == mine,
             };
@@ -280,20 +280,20 @@ fn users_difference(app: &App, scenario: &Value, rails: &[Value], rust: &[serde_
     None
 }
 
-fn app_configs_difference(app: &App, rails: &[Value], rust: &[serde_json::Map<String, Value>]) -> Option<String> {
+fn app_configs_difference(app: &App, v2: &[Value], rust: &[serde_json::Map<String, Value>]) -> Option<String> {
     let plain = |row: &serde_json::Map<String, Value>| {
         let mut row = row.clone();
         if let Some(value) = row.get("value").and_then(Value::as_str) { row.insert("value".into(), json!(app.cipher.decrypt(value).unwrap())); }
         Value::Object(row)
     };
-    let theirs: Vec<Value> = rails.iter().map(|r| plain(r.as_object().unwrap())).collect();
+    let theirs: Vec<Value> = v2.iter().map(|r| plain(r.as_object().unwrap())).collect();
     let ours: Vec<Value> = rust.iter().map(plain).collect();
     (theirs != ours).then(|| format!("app_configs differ:\n  rails: {theirs:?}\n  rust:  {ours:?}"))
 }
 
-fn first_difference(name: &str, rails: &[Value], rust: &[Value]) -> Option<String> {
-    if rails.len() != rust.len() { return Some(format!("{name}: {} responses in Rails, {} here", rails.len(), rust.len())); }
-    for (index, (a, b)) in rails.iter().zip(rust).enumerate() {
+fn first_difference(name: &str, v2: &[Value], rust: &[Value]) -> Option<String> {
+    if v2.len() != rust.len() { return Some(format!("{name}: {} responses in Rails, {} here", v2.len(), rust.len())); }
+    for (index, (a, b)) in v2.iter().zip(rust).enumerate() {
         if a == b { continue; }
         if a["status"] != b["status"] || a["headers"] != b["headers"] {
             return Some(format!("{name} step {index}:\n  rails: {} {}\n  rust:  {} {}", a["status"], a["headers"], b["status"], b["headers"]));
@@ -308,7 +308,7 @@ fn first_difference(name: &str, rails: &[Value], rust: &[Value]) -> Option<Strin
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_answer_the_setup_grid_alike() {
+async fn v2_and_rust_answer_the_setup_grid_alike() {
     let only = std::env::var("SETUP").ok();
     let mut failures = vec![];
     let scenarios = vectors()["scenarios"].as_object().unwrap();
@@ -316,23 +316,23 @@ async fn rails_and_rust_answer_the_setup_grid_alike() {
     for (name, scenario) in scenarios {
         if only.as_deref().is_some_and(|prefixes| !prefixes.split(',').any(|p| name.starts_with(p))) { continue; }
         let mut played = play(name, scenario).await;
-        let mut rails: Vec<Value> = scenario["responses"].as_array().unwrap().iter().map(|r| rails_answer(name, r, scenario["launchpad_url"].as_str())).collect();
+        let mut v2: Vec<Value> = scenario["responses"].as_array().unwrap().iter().map(|r| v2_answer(name, r, scenario["launchpad_url"].as_str())).collect();
         if name == "invalid_missing_user" || name == "followup_json_empty_user" {
             // ActionController::ParameterMissing. Rails' test environment shows its exception page for it; in
             // production it is a bare 400. Here: 400 with public/400.html, made below the controllers.
-            let (Some(theirs), Some(ours)) = (rails.pop(), played.responses.pop()) else { panic!("{name}: no responses") };
+            let (Some(theirs), Some(ours)) = (v2.pop(), played.responses.pop()) else { panic!("{name}: no responses") };
             let page = html::normalize(&String::from_utf8_lossy(web::assets::find("/400.html").unwrap().body));
             if theirs["status"] != 400 || ours["status"] != 400 || ours["body"] != json!(page) { failures.push(format!("{name}: expected 400 with public/400.html, got {ours}")); }
         }
         if name == "create_name_newline" {
             // D-SIGNUP-NAME-ONE-LINE (PLAN-A16): Rails' `^…$` accepts "Evil\nOwner" and creates the admin; this build refuses
             // the name with Rails' own name_invalid message and creates nothing.
-            let (Some(theirs), Some(ours)) = (rails.last(), played.responses.last()) else { panic!("{name}: no responses") };
+            let (Some(theirs), Some(ours)) = (v2.last(), played.responses.last()) else { panic!("{name}: no responses") };
             let refused = ours["status"] == 422 && ours["body"].to_string().contains(&web::i18n::text("en", "devise.registrations.new.name_invalid", &[]));
             if theirs["status"] != 302 || !refused || !table(played.dir.path(), "users").is_empty() { failures.push(format!("{name}: expected Rails 302 and this build's 422 name refusal with no user, got {ours}")); }
             continue;
         }
-        if let Some(message) = first_difference(name, &rails, &played.responses) { failures.push(message); continue; }
+        if let Some(message) = first_difference(name, &v2, &played.responses) { failures.push(message); continue; }
         // The claim requests the launchpad received, and Setup::SeedAndSyncJob: enqueued in Rails, woken here.
         if scenario["launchpad_requests"] != json!(played.requests) { failures.push(format!("{name}: launchpad requests: Rails {}, Rust {:?}", scenario["launchpad_requests"], played.requests)); }
         let enqueued = scenario["enqueued"].as_array().unwrap().iter().filter(|job| *job == "Setup::SeedAndSyncJob").count();
@@ -490,7 +490,7 @@ async fn serve_binds_an_install_without_an_admin() {
 /// User#valid? on the setup form's fields, in all 15 locales: the full messages, in Rails' order, for names,
 /// emails and passwords around every rule, beside an existing member and a Gmail account.
 #[test]
-fn validation_messages_match_rails_in_every_locale() {
+fn validation_messages_match_v2_in_every_locale() {
     let dir = install();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     c.execute_batch("INSERT INTO users (name, email, created_at, updated_at) VALUES ('Member', 'member@example.com', '2026-01-01', '2026-01-01'), ('Gmail', 'jan.doe@gmail.com', '2026-01-01', '2026-01-01')").unwrap();

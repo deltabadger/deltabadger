@@ -28,10 +28,10 @@ fn a_shared_hold_on_another_handle_blocks_the_exclusive_lock() {
     let dir = tempfile::tempdir().unwrap();
     let p = paths(dir.path());
     std::fs::create_dir_all(p.lock_file().parent().unwrap()).unwrap();
-    let rails = std::fs::OpenOptions::new().write(true).create(true).truncate(false).open(p.lock_file()).unwrap(); // a Rails process
-    rails.try_lock_shared().unwrap();
+    let v2 = std::fs::OpenOptions::new().write(true).create(true).truncate(false).open(p.lock_file()).unwrap(); // a Rails process
+    v2.try_lock_shared().unwrap();
     assert!(matches!(lock(&p, Utc::now()), Err(LeaseError::Locked)), "(b) a shared hold blocks the exclusive lock");
 
-    drop(rails);
+    drop(v2);
     lock(&p, Utc::now()).expect("(c) released, the exclusive lock succeeds");
 }

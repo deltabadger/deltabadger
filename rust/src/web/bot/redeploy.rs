@@ -86,7 +86,7 @@ pub async fn destroy(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(se
 pub async fn clear(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segment):Path<String>,headers:HeaderMap)->Result<Response,WebError> {
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let Some(id)=super::id_from_path(&segment) else {return Ok(missing(&ctx))};
-    let Ok(params)=ActionParams::parse_rails(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
+    let Ok(params)=ActionParams::parse_v2(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
     let view=ctx.clone();
     let result=app.db(move |c| {
         let found:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM bots WHERE id=?1 AND user_id=?2 AND status<>3 AND type IN ('Bots::DcaIndex','Bots::DcaMultiAsset'))",(id,user.id),|r|r.get(0))?;

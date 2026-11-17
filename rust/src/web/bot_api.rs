@@ -334,9 +334,9 @@ pub fn transactions(c: &Connection, user: i64, bot_id: &Value, limit: &Value) ->
     let mut out = vec![];
     for (id, bot_id, time, side, status, base, quote) in rows {
         let [price, _, _, amount, cost] = crate::figures::fill::display_amounts(c, id)?;
-        let text = |n: Option<crate::ruby::BigDec>| n.map_or(Value::Null, |n| json!(n.to_s_f()));
+        let text = |n: Option<crate::v2::BigDec>| n.map_or(Value::Null, |n| json!(n.to_s_f()));
         let at = crate::codec::parse_time(&time).map_err(|e| WebError::Config(format!("transaction timestamp: {e:?}")))?;
-        out.push(json!({"id": id, "bot_id": bot_id, "created_at": crate::ruby::iso8601_ms(at),
+        out.push(json!({"id": id, "bot_id": bot_id, "created_at": crate::v2::iso8601_ms(at),
                         "side": side.and_then(|s| usize::try_from(s).ok()).and_then(|s| ["buy","sell"].get(s).copied()).unwrap_or(""),
                         "status": status.and_then(|s| ["submitted","failed","skipped"].get(s).copied()).unwrap_or(""),
                         "amount_exec": text(amount), "base": base, "price": text(price), "quote": quote, "quote_amount_exec": text(cost)}));

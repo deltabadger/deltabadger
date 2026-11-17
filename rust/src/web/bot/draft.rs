@@ -26,7 +26,7 @@ pub struct SaveEffects {
 use super::{action_params, start, Asset, Bot, Exchange, For, Kind, Ticker};
 use crate::engine::conditions::{support, Rule, Support, TRIGGERS};
 use crate::enums::BotStatus;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::web::{format, i18n, WebError};
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};

@@ -139,8 +139,8 @@ pub fn dry_run(c:&Connection,cipher:&Cipher,key:&Key,version:&CredentialVersion,
     }
     if m.tally.fetched!=m.tally.missing+m.tally.present+m.tally.suppressed+m.tally.unresolved {return Err(refuse("coverage equality failed"))}
     for sums in m.tally.amounts.values() {
-        let value=|category:&str|crate::ruby::BigDec::parse(sums.get(category).map_or("0",String::as_str)).map_err(|_|refuse("invalid sum"));
-        let mut parts=crate::ruby::BigDec::zero();
+        let value=|category:&str|crate::v2::BigDec::parse(sums.get(category).map_or("0",String::as_str)).map_err(|_|refuse("invalid sum"));
+        let mut parts=crate::v2::BigDec::zero();
         for category in ["missing","present","suppressed","unresolved"] {parts=&parts+&value(category)?;}
         if parts!=value("fetched")? {return Err(refuse("decimal coverage equality failed"))}
     }
@@ -161,7 +161,7 @@ fn tally(t:&mut Tally,input:&[Input],old:&BTreeMap<i64,String>,after:Option<&str
         let counts=t.counts.entry(scope.clone()).or_default();for category in ["fetched",category] {*counts.entry(category.into()).or_default()+=1;}
         let sums=t.amounts.entry(scope).or_default();
         for category in ["fetched",category] {let old=sums.entry(category.into()).or_insert_with(||"0.0".into());
-            *old=(&crate::ruby::BigDec::parse(old).map_err(|_|refuse("invalid sum"))?+&i.entry.base_amount).to_s_f();}
+            *old=(&crate::v2::BigDec::parse(old).map_err(|_|refuse("invalid sum"))?+&i.entry.base_amount).to_s_f();}
     } Ok(())
 }
 /// Validate even a zero-batch approval. Nothing is written on a no-op or stale approval.

@@ -1,6 +1,6 @@
 //! A basket's after-save composition callback (manual or market-cap weights), inside the settings writer's transaction.
 use super::Bot;
-use crate::{codec, ruby::BigDec, web::{format::Num, WebError}};
+use crate::{codec, v2::BigDec, web::{format::Num, WebError}};
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};
 

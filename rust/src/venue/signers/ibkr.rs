@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn nonces_and_randoms_have_rails_shapes() {
+    fn nonces_and_randoms_have_v2_shapes() {
         let (a, b) = (nonce(), nonce());
         assert!(a.len() == 16 && a.bytes().all(|c| c.is_ascii_alphanumeric()) && a != b);
         let r = dh_random();

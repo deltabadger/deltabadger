@@ -6,7 +6,7 @@ use deltabadger::engine::amount::{self, Sizing};
 use deltabadger::engine::placement;
 use deltabadger::engine::venue_rules::KRAKEN;
 use deltabadger::engine::{model, EngineError, FixedClock};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::lease;
 use deltabadger::store::{self, Paths};
 use deltabadger::venue::fake::{AddOutcome, FakeFactory, FakeVenue};

@@ -1,7 +1,7 @@
 //! What Import::Run and Ruby's CSV give the import readers: the upload as text (`as_text`), the rows
 //! (`CSV.parse(text, headers: true)`, csv 3.3.6), the filename's zone (`offset_from`), a cell's time (`time`) and a cell's
 //! amount (`amount`). Pinned by rust/tests/fixtures/import_vectors.json (script/rust/record_import_vectors.rb).
-use crate::ruby::{self, BigDec};
+use crate::v2::{self, BigDec};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use regex::Regex;
 use std::sync::LazyLock;
@@ -140,7 +140,7 @@ const MONTHS: [&str; 12] = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "au
 /// Import::Run.time: a real date and time of day, read in its own zone if it states one, else at `offset` ("±HH:MM",
 /// as Time.parse reads the text with the offset appended), else in UTC (the process zone the app runs in).
 pub fn time(value: Option<&str>, offset: Option<&str>) -> Result<DateTime<Utc>, Malformed> {
-    let text = ruby::strip(value.unwrap_or(""));
+    let text = v2::strip(value.unwrap_or(""));
     let bad = || Malformed(format!("unreadable time {text:?}"));
     let c = TIME.captures(text).ok_or_else(bad)?;
     let num = |name: &str| c.name(name).map(|m| m.as_str().parse::<u32>().expect("digits"));
@@ -177,7 +177,7 @@ static DECIMAL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^([+-]?)(?:([0-9
 /// Import::Run.amount: a plain decimal (an exponent allowed), read exactly as `to_d` reads it. BigDec's own bounds
 /// (MAX_INPUT_LEN characters, 10^±MAX_EXPONENT, MAX_DIGITS digits) also refuse a value Ruby would have read.
 pub fn amount(value: Option<&str>) -> Result<BigDec, Malformed> {
-    let text = ruby::strip(value.unwrap_or(""));
+    let text = v2::strip(value.unwrap_or(""));
     let bad = || Malformed(format!("unreadable amount {text:?}"));
     let c = DECIMAL.captures(text).ok_or_else(bad)?;
     let part = |i: usize| c.get(i).map_or("", |m| m.as_str());
@@ -195,7 +195,7 @@ mod tests {
     fn some(v: &[&str]) -> Row { v.iter().map(|x| Some(x.to_string())).collect() }
 
     #[test]
-    fn rows_as_ruby_csv_reads_them() {
+    fn rows_as_v2_csv_reads_them() {
         assert_eq!(table("a,b\n1,2\r\n3,4\n").unwrap().1, vec![some(&["1", "2\r"]), some(&["3", "4"])]);
         assert!(table("a,b\r\n1,x\ry\r\n").is_err());
         assert_eq!(table("a,b\r1,x\ny\r").unwrap().1, vec![some(&["1", "x\ny"])]);

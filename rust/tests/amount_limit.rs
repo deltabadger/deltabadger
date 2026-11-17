@@ -5,7 +5,7 @@ use common::seed::{self, BotSpec, TxSpec};
 use deltabadger::engine::tick::{self, Attempts, TickOutcome};
 use deltabadger::engine::{amount, model, placement, polling, FixedClock};
 use deltabadger::enums::BotStatus;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store;
 use serde_json::{json, Value};
 
@@ -34,7 +34,7 @@ fn filled(id: &str, quote_exec_qty: &str) -> Value {
 }
 
 #[test]
-fn the_tally_counts_each_bucket_as_rails_does() {
+fn the_tally_counts_each_bucket_as_v2_does() {
     let (_d, o, s) = common::install_alpaca();
     let id = seed::insert_bot(&o.primary, &s, &limited(json!(500.0)));
     for t in [

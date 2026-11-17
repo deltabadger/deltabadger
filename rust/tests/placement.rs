@@ -4,7 +4,7 @@ use common::seed::{self, BotSpec};
 use deltabadger::engine::amount::{self, Sizing};
 use deltabadger::engine::placement::{self, OperatorResolution, Recovery, Sent};
 use deltabadger::engine::{model, FixedClock, SteppingClock};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store::{self, Paths};
 use deltabadger::venue::fake::{AddOutcome, FakeVenue};
 use serde_json::json;
@@ -375,9 +375,9 @@ async fn ownership_rechecks_generation_after_waiting_for_the_dispatch_write_lock
 
 #[test]
 fn divergence_stale_tick_completion_cannot_write_over_a_new_run() {
-    let rails = common::ownership_case("stale_tick_completion");
-    assert_eq!(rails["rails_write_succeeded"], true);
-    assert_eq!(rails["rails_status"], "waiting");
+    let v2 = common::ownership_case("stale_tick_completion");
+    assert_eq!(v2["rails_write_succeeded"], true);
+    assert_eq!(v2["rails_status"], "waiting");
     let (_d, o, bot, _) = setup();
     o.primary.execute("UPDATE bots SET status=4, transient_data=json_set(transient_data,'$.run_generation',1) WHERE id=?1", [bot.id]).unwrap();
     assert!(matches!(model::transition_owned(&o.primary, &bot, deltabadger::enums::BotStatus::Waiting, t0()), Err(deltabadger::engine::EngineError::RunFenced)));

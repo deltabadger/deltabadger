@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     crypto::Cipher,
-    ruby::BigDec,
+    v2::BigDec,
     venue::{withdrawal as v, VenueError},
 };
 use chrono::{DateTime, Utc};
@@ -463,10 +463,10 @@ fn decimal(s: &str) -> Result<BigDec, EngineError> {
 }
 fn setting_number(settings: &Value, key: &str, default: &str) -> Result<BigDec, EngineError> {
     let value = &settings[key];
-    if value.is_null() || value.as_str().is_some_and(crate::ruby::blank) {
+    if value.is_null() || value.as_str().is_some_and(crate::v2::blank) {
         return decimal(default);
     }
-    crate::ruby::json_to_d(value)
+    crate::v2::json_to_d(value)
         .map_err(|_| data("invalid withdrawal number"))?
         .ok_or_else(|| data("invalid withdrawal number"))
 }
@@ -1288,7 +1288,7 @@ fn settle_result(
     };
     match result {
         SendResult::Accepted { id } if !id.trim().is_empty() => {
-            rules::seed_rails_ids(&tx)?;
+            rules::seed_v2_ids(&tx)?;
             let inserted=tx.execute("INSERT OR IGNORE INTO rust_withdrawal_ids(exchange_id,venue_id,owner,settled_at,source) VALUES(?1,?2,?3,?4,'rust')",params![request.exchange_id,id,current.owner,crate::codec::format_time(now)])?;
             if inserted == 0 {
                 uncertain(&tx, &current, state, "duplicate venue id")?;
@@ -1452,9 +1452,9 @@ fn clean_candidates(candidates: Vec<Value>) -> Vec<Value> {
 pub enum Target {
     Rule(i64),
     Recorder(String),
-    Rails(i64),
-    RailsJob(String),
-    RailsList(i64),
+    V2(i64),
+    V2Job(String),
+    V2List(i64),
 }
 #[derive(Clone, Debug)]
 pub enum Resolution {
@@ -1475,7 +1475,7 @@ pub fn parse_cli(args: &[String]) -> Result<(Target, Resolution), EngineError> {
     };
     let (target, rest) = match args.first().map(String::as_str) {
         Some("--rails-list") if args.len() == 2 => {
-            return Ok((Target::RailsList(id(args.get(1))?), Resolution::List))
+            return Ok((Target::V2List(id(args.get(1))?), Resolution::List))
         }
         Some("--recorder") => (
             Target::Recorder(
@@ -1486,9 +1486,9 @@ pub fn parse_cli(args: &[String]) -> Result<(Target, Resolution), EngineError> {
             ),
             &args[2..],
         ),
-        Some("--rails") => (Target::Rails(id(args.get(1))?), &args[2..]),
+        Some("--rails") => (Target::V2(id(args.get(1))?), &args[2..]),
         Some("--rails-job") => (
-            Target::RailsJob(
+            Target::V2Job(
                 args.get(1)
                     .filter(|s| !s.is_empty())
                     .ok_or_else(usage)?
@@ -1506,8 +1506,8 @@ pub fn parse_cli(args: &[String]) -> Result<(Target, Resolution), EngineError> {
         .as_slice()
     {
         ["--not-sent"] => Resolution::NotSent,
-        ["--skip"] if matches!(target, Target::RailsJob(_)) => Resolution::Skip,
-        ["--recorded", log] if matches!(target, Target::RailsJob(_)) => {
+        ["--skip"] if matches!(target, Target::V2Job(_)) => Resolution::Skip,
+        ["--recorded", log] if matches!(target, Target::V2Job(_)) => {
             Resolution::Recorded(log.parse().map_err(|_| usage())?)
         }
         ["--sent", id] if !id.trim().is_empty() => Resolution::Sent {
@@ -1537,14 +1537,14 @@ pub fn resolve(
     now: DateTime<Utc>,
 ) -> Result<(), EngineError> {
     let tx = model::immediate(c)?;
-    rules::seed_rails_ids(&tx)?;
+    rules::seed_v2_ids(&tx)?;
     if let Resolution::Sent { id, .. } = &resolution {
         let exchange=match &target{
    Target::Recorder(scenario)=>load(&tx,cipher,&format!("recorder:{scenario}"))?.ok_or_else(||data("no recorder intent"))?.request.exchange_id,
    Target::Rule(id)=>load(&tx,cipher,&format!("rule:{id}"))?.ok_or_else(||data("no withdrawal intent"))?.request.exchange_id,
-   Target::Rails(id)=>tx.query_row("SELECT r.exchange_id FROM rules r JOIN rule_logs l ON l.rule_id=r.id WHERE l.id=?1",[id],|r|r.get(0))?,
-   Target::RailsJob(id)=>{let j=rules::jobs(&tx,q)?.into_iter().find(|j|j.id==*id).ok_or_else(||data("no such Rails job"))?;let rule=j.rule.ok_or_else(||data("EvaluateAllJob accepts --skip only"))?;tx.query_row("SELECT exchange_id FROM rules WHERE id=?1",[rule],|r|r.get(0))?},
-   Target::RailsList(_)=>return Err(data("list accepts no resolution")),};
+   Target::V2(id)=>tx.query_row("SELECT r.exchange_id FROM rules r JOIN rule_logs l ON l.rule_id=r.id WHERE l.id=?1",[id],|r|r.get(0))?,
+   Target::V2Job(id)=>{let j=rules::jobs(&tx,q)?.into_iter().find(|j|j.id==*id).ok_or_else(||data("no such Rails job"))?;let rule=j.rule.ok_or_else(||data("EvaluateAllJob accepts --skip only"))?;tx.query_row("SELECT exchange_id FROM rules WHERE id=?1",[rule],|r|r.get(0))?},
+   Target::V2List(_)=>return Err(data("list accepts no resolution")),};
         let exists: bool = tx.query_row(
             "SELECT EXISTS(SELECT 1 FROM rust_withdrawal_ids WHERE exchange_id=?1 AND venue_id=?2)",
             params![exchange, id],
@@ -1569,7 +1569,7 @@ fn resolve_in(
 ) -> Result<(), EngineError> {
     let at = crate::codec::format_time(now);
     match target {
-        Target::RailsList(_) => Err(data("use open_attempts to list Rails evidence")),
+        Target::V2List(_) => Err(data("use open_attempts to list Rails evidence")),
         Target::Rule(_) | Target::Recorder(_) => {
             let owner = match target {
                 Target::Rule(id) => format!("rule:{id}"),
@@ -1609,7 +1609,7 @@ fn resolve_in(
             remove(c, &i, &i.state)?;
             Ok(())
         }
-        Target::Rails(log) => {
+        Target::V2(log) => {
             let rule = rules::open_attempts(c, None)?
                 .into_iter()
                 .find(|(id, _)| *id == log)
@@ -1625,7 +1625,7 @@ fn resolve_in(
             c.execute("INSERT INTO rust_rails_attempt_acks(rule_log_id,rule_id,resolution,venue_id,at) VALUES(?1,?2,?3,?4,?5)",params![log,rule,name,venue,at])?;
             Ok(())
         }
-        Target::RailsJob(job) => {
+        Target::V2Job(job) => {
             let j = rules::jobs(c, q)?
                 .into_iter()
                 .find(|j| j.id == job)
@@ -1691,7 +1691,7 @@ fn insert_operator_id(
     if id.trim().is_empty() {
         return Err(data("withdrawal id must not be empty"));
     }
-    rules::seed_rails_ids(c)?;
+    rules::seed_v2_ids(c)?;
     c.execute("INSERT INTO rust_withdrawal_ids(exchange_id,venue_id,owner,settled_at,source) VALUES(?1,?2,?3,?4,'operator')",params![exchange,id,owner,crate::codec::format_time(now)])?;
     Ok(())
 }

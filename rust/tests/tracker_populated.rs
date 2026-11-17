@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 use std::{path::Path, sync::Arc};
 
 /// The Rails page, cut where its regions begin and end.
-fn rails_regions(body: &str) -> [String; 5] {
+fn v2_regions(body: &str) -> [String; 5] {
     let cut = |from: &str, to: &str| -> String {
         let Some(start) = body.find(from) else { return String::new() };
         let end = body[start..].find(to).map_or(body.len(), |i| start + i);
@@ -38,7 +38,7 @@ const OUTSIDE_LOCAL_DAY: [(&str, &str); 2] = [("populated_window_santiago", "202
 
 /// D-TRACKER-FILTER-ISO-ONLY: windows Rails parses and serves (200); Rust answers 400. Every other `populated_bad_` case
 /// is a Rails exception: 500 (D-TRACKER-FILTER-BAD-INPUT, Rust 400) or `exchange_id[a]`'s RecordNotFound (404, parity).
-const RAILS_PARSES: [&str; 3] = ["populated_bad_nov", "populated_bad_compact", "populated_bad_slashes"];
+const V2_PARSES: [&str; 3] = ["populated_bad_nov", "populated_bad_compact", "populated_bad_slashes"];
 
 /// Rails' regions with SPEC's never-a-number rule applied (RULING-D5B2B §4), each a listed money divergence: where
 /// Rust withholds an amount the cell states why, and the holdings card is its reason. Balances that are stale, unpriced
@@ -81,16 +81,16 @@ fn unpriced_card(name: &str, ours: &str, theirs: &str) -> (String, String) {
     };
     let card = |page: &str| cut(page, "<div class=\"widget tracker-holdings", "</div>\n\n    </div>\n  </div>\n");
     // The positions table states no price, gain or return for it where Rails states its cost as its value.
-    let rails_cells = "    <td><small>$</small>30,030.00</td>\n    <td class=\"tracker-row__cash\">+<small>$</small>0.00</td>\n    <td class=\"text-success\">+0.0%</td>\n";
+    let v2_cells = "    <td><small>$</small>30,030.00</td>\n    <td class=\"tracker-row__cash\">+<small>$</small>0.00</td>\n    <td class=\"text-success\">+0.0%</td>\n";
     let rust_cells = "    <td></td>\n    <td class=\"tracker-row__cash\"></td>\n    <td title=\"No cost basis for this holding, so no P/L is shown.\"><span class=\"no-value\">—</span></td>\n";
-    assert_eq!(theirs.matches(rails_cells).count(), 1, "{name}: Rails' cost-as-value cells");
-    (card(&cut(ours, "<div class=\"widget tracker-notice\"", "</div>\n")), card(&theirs.replacen(rails_cells, rust_cells, 1)))
+    assert_eq!(theirs.matches(v2_cells).count(), 1, "{name}: Rails' cost-as-value cells");
+    (card(&cut(ours, "<div class=\"widget tracker-notice\"", "</div>\n")), card(&theirs.replacen(v2_cells, rust_cells, 1)))
 }
 
 /// Rails' page with the listed divergences applied (`withheld`), and with no display rate each transaction row's money
 /// stated as unavailable (D5a's rule: never a dollar figure where the reader's currency was asked for).
 fn withheld_page(name: &str, body: &str) -> String {
-    let [_, _, tiles, holdings, _] = rails_regions(body);
+    let [_, _, tiles, holdings, _] = v2_regions(body);
     let (new_tiles, new_holdings) = withheld(name, tiles.clone(), holdings.clone());
     let mut out = body.to_string();
     if !tiles.is_empty() { out = out.replacen(&tiles, &new_tiles, 1); }
@@ -137,7 +137,7 @@ fn stamp(c: &Connection, at: chrono::DateTime<chrono::Utc>) {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn populated_regions_match_rails() {
+async fn populated_regions_match_v2() {
     let generated;
     let root = match std::env::var("D5_POPULATED_GRID") {
         Ok(root) => root,
@@ -155,8 +155,8 @@ async fn populated_regions_match_rails() {
         if !selected.is_empty() && !selected.split(',').any(|s| s == name) { continue; }
         let source = Path::new(&root).join(&name);
         let scenario: Value = serde_json::from_slice(&std::fs::read(source.join("scenario.json")).unwrap()).unwrap();
-        let rails: Value = serde_json::from_slice(&std::fs::read(source.join("rails.json")).unwrap()).unwrap();
-        let expected = rails["responses"].as_array().unwrap().last().unwrap();
+        let v2: Value = serde_json::from_slice(&std::fs::read(source.join("rails.json")).unwrap()).unwrap();
+        let expected = v2["responses"].as_array().unwrap().last().unwrap();
         let step = scenario["steps"].as_array().unwrap().last().unwrap();
         let dir = tempfile::tempdir().unwrap();
         for file in ["production.sqlite3", "production_queue.sqlite3"] { std::fs::copy(source.join(file), dir.path().join(file)).unwrap(); }
@@ -202,11 +202,11 @@ async fn populated_regions_match_rails() {
         let answer = browser.send(&app, "GET", step["path"].as_str().unwrap(), None, common::web::Csrf::None, &headers).await;
         if name.starts_with("populated_bad_") {
             // What Rails did is the recording's (its status, and its exception when it raised); Rust's answer is listed.
-            let rails_status = expected["status"].as_i64().unwrap();
-            let (want_rails, want_rust, page) = if RAILS_PARSES.contains(&name.as_str()) { (200, 400, include_str!("../web/public/400.html")) }
+            let v2_status = expected["status"].as_i64().unwrap();
+            let (want_v2, want_rust, page) = if V2_PARSES.contains(&name.as_str()) { (200, 400, include_str!("../web/public/400.html")) }
                 else if name == "populated_bad_exchange_hash" { (404, 404, include_str!("../web/public/404.html")) }
                 else { (500, 400, include_str!("../web/public/400.html")) };
-            assert_eq!((rails_status, expected.get("exception").is_some()), (want_rails, want_rails != 200), "{name}: what Rails did");
+            assert_eq!((v2_status, expected.get("exception").is_some()), (want_v2, want_v2 != 200), "{name}: what Rails did");
             assert_eq!((answer.status, answer.body.as_str()), (want_rust, page), "{name}");
             continue;
         }
@@ -214,17 +214,17 @@ async fn populated_regions_match_rails() {
         if let Some((_, unit)) = NO_RATE.iter().find(|(n, _)| *n == name) {
             assert!(!answer.body.contains(&format!("<small>{unit}</small>")), "{name}: a figure under {unit} with no rate");
         }
-        let mut rails_body = expected["body"].as_str().unwrap().to_string();
+        let mut v2_body = expected["body"].as_str().unwrap().to_string();
         if let Some((_, at)) = OUTSIDE_LOCAL_DAY.iter().find(|(n, _)| *n == name) {
             let id: i64 = c.query_row("SELECT id FROM account_transactions WHERE transacted_at=?1", [at], |r| r.get(0)).unwrap();
-            let start = rails_body.find(&format!("<tr id=\"account_transaction_{id}\"")).unwrap_or_else(|| panic!("{name}: Rails shows the row"));
-            let start = rails_body[..start].rfind('\n').unwrap() + 1;
+            let start = v2_body.find(&format!("<tr id=\"account_transaction_{id}\"")).unwrap_or_else(|| panic!("{name}: Rails shows the row"));
+            let start = v2_body[..start].rfind('\n').unwrap() + 1;
             // The row's partial and the blank line its loop writes after it.
-            let end = start + rails_body[start..].find("</tr>\n\n").unwrap() + 7;
-            rails_body.replace_range(start..end, "");
+            let end = start + v2_body[start..].find("</tr>\n\n").unwrap() + 7;
+            v2_body.replace_range(start..end, "");
         }
         let ours = grid::masked(&answer.body, Some(&app), Some(&token));
-        let theirs = grid::masked(&tabs::tracker_page(&withheld_page(&name, &rails_body)).unwrap_or_else(|e| panic!("{name}: {e}")), None, None);
+        let theirs = grid::masked(&tabs::tracker_page(&withheld_page(&name, &v2_body)).unwrap_or_else(|e| panic!("{name}: {e}")), None, None);
         let (ours, theirs) = if name == "populated_unpriced" { unpriced_card(&name, &ours, &theirs) } else { (ours, theirs) };
         if ours != theirs {
             std::fs::write(Path::new(&root).join(format!("{name}.rust.html")), &ours).unwrap();

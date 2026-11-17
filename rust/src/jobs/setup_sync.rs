@@ -31,7 +31,7 @@ pub fn request(c: &rusqlite::Connection, now: chrono::DateTime<chrono::Utc>) -> 
 /// connection with unfinished work is recovered; completed or never-connected installs stay idle.
 pub fn unfinished(c: &rusqlite::Connection, cipher: &crate::crypto::Cipher) -> Result<bool, String> {
     if app_config::get_plain(c, REQUEST)?.is_some() { return Ok(true); }
-    let connected = app_config::get(c, cipher, "platform_connected_at")?.is_some_and(|at| !crate::ruby::blank(&at));
+    let connected = app_config::get(c, cipher, "platform_connected_at")?.is_some_and(|at| !crate::v2::blank(&at));
     Ok(connected && matches!(app_config::get(c, cipher, STATUS)?.as_deref(), Some("pending" | "in_progress")))
 }
 

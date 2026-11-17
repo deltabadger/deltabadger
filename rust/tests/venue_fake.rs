@@ -1,5 +1,5 @@
 use deltabadger::engine::model::Ticker;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::fake::{kraken_order, AddOutcome, FakeVenue};
 use deltabadger::venue::*;
 use serde_json::json;
@@ -17,7 +17,7 @@ fn order(cl: &str) -> NewOrder {
 fn at() -> chrono::DateTime<chrono::Utc> { "2026-09-30T11:00:00Z".parse().unwrap() }
 
 #[tokio::test(flavor = "current_thread")]
-async fn raw_kraken_bodies_are_parsed_as_rails_parses_them() {
+async fn raw_kraken_bodies_are_parsed_as_v2_parses_them() {
     let v = FakeVenue::from_script(&json!({ "http": {
         "/0/public/Ticker": [{ "error": [], "result": { "XXBTZEUR": { "a": ["50000.2", "1", "1.000"], "b": ["49990.1", "1", "1.000"], "c": ["49995.3", "0.001"], "v": ["12.5", "30.1"], "p": ["49995.3", "49995.3"], "t": [100, 250], "l": ["49995.3", "49995.3"], "h": ["49995.3", "49995.3"], "o": "49995.3" } } }],
         "/0/private/AddOrder": [{ "error": [], "result": { "descr": { "order": "buy" }, "txid": ["OTX-1"] } }, { "error": ["EOrder:Insufficient funds"] }],

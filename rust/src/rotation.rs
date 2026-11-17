@@ -256,7 +256,7 @@ pub fn written_under_another_key(c: &Connection, cipher: &Cipher) -> rusqlite::R
 /// of these is a setting the reset clears too. The retired Alpaca keys (D-STOCKS-RETIRED) are left out: no code names
 /// them (settings.rs no_code_reads_the_install_alpaca_credential), and AppConfig only ever stored them encrypted, so the
 /// encrypted-row rule clears them.
-pub const RAILS_SETTINGS: &[&str] = &["coingecko_api_key", "setup_sync_status", "market_data_provider", "market_data_url", "market_data_token",
+pub const V2_SETTINGS: &[&str] = &["coingecko_api_key", "setup_sync_status", "market_data_provider", "market_data_url", "market_data_token",
     "platform_connected_at", "registration_open", "smtp_provider", "smtp_username", "smtp_password", "smtp_host", "smtp_port"];
 const PROXY_PREFIX: &str = "proxy_";
 
@@ -266,7 +266,7 @@ fn settings_reset(c: &Connection) -> rusqlite::Result<Vec<String>> {
     let mut s = c.prepare("SELECT key, value FROM app_configs ORDER BY key")?;
     let rows = s.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows.into_iter().filter(|(k, v)| k != crate::lease::KEY
-        && (v.as_deref().is_some_and(crate::crypto::is_envelope) || RAILS_SETTINGS.contains(&k.as_str()) || k.starts_with(PROXY_PREFIX)))
+        && (v.as_deref().is_some_and(crate::crypto::is_envelope) || V2_SETTINGS.contains(&k.as_str()) || k.starts_with(PROXY_PREFIX)))
         .map(|(k, _)| k).collect())
 }
 
@@ -723,7 +723,7 @@ fn left_over(c: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Vec<String>
         for (id, bot, unreported, offered) in rows {
             let n = name(c, bot)?;
             if unreported { lines.push(format!("{n}: an order your previous version may have placed hasn't been checked yet: start the app once so it checks.")); }
-            else if offered && crate::engine::rails_unrecorded::decision(c, id).map_err(|e| rusqlite::Error::UserFunctionError(Box::new(std::io::Error::other(format!("{e:?}")))))?.is_none() {
+            else if offered && crate::engine::v2_unrecorded::decision(c, id).map_err(|e| rusqlite::Error::UserFunctionError(Box::new(std::io::Error::other(format!("{e:?}")))))?.is_none() {
                 lines.push(format!("{n}: its page asks whether an order your previous version may have placed is yours."));
             }
         }
@@ -793,7 +793,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_guard_reads_as_rails_does() {
+    fn the_guard_reads_as_v2_does() {
         let none = |_: &str| None;
         assert!(published("changeme") && !published("changeme "));
         assert!(short(&"x".repeat(31)) && !short(&"x".repeat(32)));

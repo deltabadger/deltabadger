@@ -5,7 +5,7 @@ use super::tick::PriceCache;
 use super::{accounting, placement, technical, Clock, EngineError};
 use super::candles::Timeframe;
 use crate::enums::BotStatus;
-use crate::ruby::{iso8601_ms, BigDec, Num};
+use crate::v2::{iso8601_ms, BigDec, Num};
 use crate::venue::{Attributed, PriceSide, Venue, VenueError};
 use crate::web::bot::Kind;
 use chrono::{DateTime, Duration, Timelike, Utc};
@@ -344,7 +344,7 @@ async fn reading<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, rule: &Con
     let met = latched || match common.value_condition.as_deref() {
         Some("below") => comparison == Ordering::Less, Some("above") => comparison == Ordering::Greater, _ => false,
     };
-    let value = match value { Num::Int(i) => i.to_string(), Num::Float(f) => crate::ruby::float_to_s(f), Num::Dec(d) => d.to_s_f() };
+    let value = match value { Num::Int(i) => i.to_string(), Num::Float(f) => crate::v2::float_to_s(f), Num::Dec(d) => d.to_s_f() };
     Ok(Ok((met, Some(json!({"value": value, "condition_met": met})))))
 }
 
@@ -424,7 +424,7 @@ pub fn live_info<'a>(stored: Option<&'a Value>, rule: &str, side: &str, now: Dat
 /// broadcast_price_limit_info_update's hash: the pair's asset symbols, the price rounded to `decimals[:quote]`, the answer.
 /// None: no quote precision (`round(nil)` raises in Rails: no info).
 fn info_value(ticker: &Ticker, decimals: Option<i64>, price: &BigDec, met: bool) -> Option<Value> {
-    let places = crate::ruby::scale(decimals?).ok()?;
+    let places = crate::v2::scale(decimals?).ok()?;
     Some(json!({ "base": ticker.base_symbol, "quote": ticker.quote_symbol, "price": price.round(places).to_s_f(), "condition_met": met }))
 }
 
@@ -597,7 +597,7 @@ pub enum Checked {
 /// parse_venue_number's ArgumentError (alpaca.rb:611), which the adapter words "unreadable … price for …" or, for a number
 /// out of range, "unreadable number …". VenueError carries no raise/Result distinction, so this reads that wording.
 pub fn raised(e: &VenueError) -> Option<String> {
-    match e { VenueError::Rejected(m) | VenueError::Unauthorized(m) | VenueError::Coded { errors: m, .. } if m.first().is_some_and(|m| m.starts_with("Wrong ") || m.starts_with("invalid value for BigDecimal") || m.starts_with("unreadable ")) => Some(crate::ruby::to_sentence(m)), _ => None }
+    match e { VenueError::Rejected(m) | VenueError::Unauthorized(m) | VenueError::Coded { errors: m, .. } if m.first().is_some_and(|m| m.starts_with("Wrong ") || m.starts_with("invalid value for BigDecimal") || m.starts_with("unreadable ")) => Some(crate::v2::to_sentence(m)), _ => None }
 }
 
 /// Rust-only marker of a check that raised (Bot::LimitCheckJobBase lets the job die): the chain waits for Repair.

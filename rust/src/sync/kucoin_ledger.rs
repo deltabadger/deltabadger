@@ -17,14 +17,14 @@
 //!
 //! Scheduled as every ledger job is (sync::jobs::LedgerSync, KuCoin's registry row has a `ledger`), through ExchangeProxy.for('kucoin').
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
-use super::binance_ledger::{amount, entry, objects, page_of, ruby_time_at_ms, text, Fail};
+use super::binance_ledger::{amount, entry, objects, page_of, v2_time_at_ms, text, Fail};
 use super::continuation;
 use super::ledger::Outcome;
 use super::{capture_bound_version, load_key_of, phase, Failure, SyncError};
 use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::jobs::Db;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::http::Transport;
 use crate::venue::kucoin::{KucoinVenue, KUCOIN, URL};
 use chrono::Duration;
@@ -52,7 +52,7 @@ pub const MAX_PAGE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_PAGE_NODES: usize = 400_000;
 
 /// `#to_i` of a JSON count (nil.to_i is 0).
-fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_default(), Value::String(s) => crate::ruby::to_i(s), _ => 0 } }
+fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_default(), Value::String(s) => crate::v2::to_i(s), _ => 0 } }
 fn to_s(v: &Value) -> Option<String> { match v { Value::Null => None, Value::String(s) => Some(s.clone()), other => Some(other.to_string()) } }
 /// Exchange#throttled_error? for KuCoin (ERRORS[:throttle]).
 fn throttled(text: &str) -> bool { ["429000", "Too Many Requests"].iter().any(|p| text.contains(p)) }
@@ -110,7 +110,7 @@ pub(crate) fn fill(raw: Raw) -> Result<Entry, Fail> {
     let symbol = raw.value["symbol"].as_str().ok_or_else(|| ("unreadable fill symbol".to_string(), true))?.to_string();
     let mut parts = symbol.split('-');
     let (base, quote) = (parts.next().unwrap_or_default().to_string(), parts.next().map(str::to_string));
-    let at = ruby_time_at_ms(to_i(&raw.value["createdAt"])).ok_or_else(|| ("unreadable fill createdAt".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["createdAt"])).ok_or_else(|| ("unreadable fill createdAt".to_string(), true))?;
     let side = raw.value["side"] == "buy";
     let (size, funds) = (amount(&raw, "size", "fill")?, amount(&raw, "funds", "fill")?);
     let fee = raw.number("fee").map_err(|why| (format!("fill: {why}"), true))?.map(|f| if f < BigDec::zero() { &BigDec::zero() - &f } else { f });
@@ -126,11 +126,11 @@ pub(crate) fn fill(raw: Raw) -> Result<Entry, Fail> {
 /// One deposit or withdrawal: keyed by its record id, else its walletTxId (the on-chain hash a batch shares).
 fn transfer(entry_type: i64, raw: Raw) -> Result<Entry, Fail> {
     let currency = raw.value["currency"].as_str().ok_or_else(|| ("unreadable transfer currency".to_string(), true))?.to_string();
-    let at = ruby_time_at_ms(to_i(&raw.value["createdAt"])).ok_or_else(|| ("unreadable transfer createdAt".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["createdAt"])).ok_or_else(|| ("unreadable transfer createdAt".to_string(), true))?;
     let mut e = entry(entry_type, &currency, amount(&raw, "amount", "transfer")?, &raw, at);
     e.fee_currency = Some(currency);
     e.fee_amount = raw.number("fee").map_err(|why| (format!("transfer: {why}"), true))?;
-    let present = |k: &str| text(raw.value.get(k)).filter(|s| !crate::ruby::blank(s));
+    let present = |k: &str| text(raw.value.get(k)).filter(|s| !crate::v2::blank(s));
     e.tx_id = present("id").or_else(|| present("walletTxId"));
     Ok(e)
 }

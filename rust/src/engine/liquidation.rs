@@ -1,6 +1,6 @@
 //! Bot::LiquidateExitedJob and Composition::Liquidatable: one-shot, user-named market sales.
 use super::{amount::{self, TxKind}, composition, model::{self, Level}, placement, rebalance, tick, Clock, EngineError};
-use crate::{enums::BotStatus, ruby::BigDec, venue::{Attributed, Side, Venue}};
+use crate::{enums::BotStatus, v2::BigDec, venue::{Attributed, Side, Venue}};
 use rusqlite::Connection;
 use serde_json::{json, Value};
 

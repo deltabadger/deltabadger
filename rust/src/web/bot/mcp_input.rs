@@ -1,7 +1,7 @@
 //! BotApi input dialect. No SQL writes: the shared writer owns validation and persistence.
 use super::{draft::{Draft, FieldError}, write::Failure, Kind};
 use crate::engine::conditions::{support, Support};
-use crate::{ruby::BigDec, web::WebError};
+use crate::{v2::BigDec, web::WebError};
 use rusqlite::Connection;
 use serde_json::{json, Map, Value};
 
@@ -146,7 +146,7 @@ pub fn posted(draft: &mut Draft, fields: &Value) -> Result<Map<String, Value>, I
             _ => match schema["type"].as_str().or_else(|| schema["type"][0].as_str()) {
                 // A page switch posts "1" or "0"; a bare false would be blank to the page's parser. Anything else (REST's
                 // text) is posted as its `to_s`.
-                Some("boolean") => json!(match value { Value::Bool(true) => "1".into(), Value::Bool(false) => "0".into(), other => ruby_s(other) }),
+                Some("boolean") => json!(match value { Value::Bool(true) => "1".into(), Value::Bool(false) => "0".into(), other => v2_s(other) }),
                 Some("number") if name.ends_with("_id") || name.ends_with("_period") || name == "num_coins" => {
                     // BotApi::Number.integer: a whole number however it arrived; the Float itself is judged first.
                     let whole = value.as_f64().is_none_or(|n| n.fract() == 0.0);
@@ -160,7 +160,7 @@ pub fn posted(draft: &mut Draft, fields: &Value) -> Result<Map<String, Value>, I
                     None => return Err(fail(draft, invalid(name))),
                 },
                 // `value.to_s`.
-                _ => json!(ruby_s(value)),
+                _ => json!(v2_s(value)),
             },
         };
         form.insert(name.into(), posted);
@@ -180,7 +180,7 @@ fn unicode_ascii_alias(draft:&Draft,name:&str)->bool {
 }
 
 /// `value.to_s` for a scalar parameter.
-fn ruby_s(value: &Value) -> String { crate::web::mcp::tools::str_value(value) }
+fn v2_s(value: &Value) -> String { crate::web::mcp::tools::str_value(value) }
 
 fn weights(draft: &Draft, value: &Value) -> Result<Value,(&'static str,String)> {
     let invalid = || ("invalid_allocations", "allocations must be 'SYMBOL:percent,…' or {symbol: percent}.".to_owned());

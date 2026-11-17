@@ -5,7 +5,7 @@ use chrono::{DateTime, Duration, Utc};
 use common::scripted::{accepted, ok};
 use common::seed::{self, BotSpec};
 use deltabadger::engine::{model, redeploy, run, FixedClock};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store;
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls};
 use deltabadger::venue::http::ScriptedTransport;
@@ -358,8 +358,8 @@ async fn handback_refuses_a_redeploy_request() {
 const D_6C_12: [&str; 4] = ["kraken", "kucoin", "bitvavo", "bitrue"];
 
 #[cfg(unix)]
-fn redeploy_grid_difference(name: &str, _: &std::path::Path, rails: &Value, rust: &Value) -> Result<(), String> {
-    let mut expected = rails.clone();
+fn redeploy_grid_difference(name: &str, _: &std::path::Path, v2: &Value, rust: &Value) -> Result<(), String> {
+    let mut expected = v2.clone();
     if name.contains("-hyperliquid-") {
         // D-HYPERLIQUID-MARKET-IOC: the same crossed price and size as Rails, sent IOC instead of GTC.
         for order in expected["sent"].as_array_mut().unwrap() {
@@ -373,7 +373,7 @@ fn redeploy_grid_difference(name: &str, _: &std::path::Path, rails: &Value, rust
     if name == "redeploy-alpaca-basket-below_minimum" {
         // D-ALPACA-BASE-FLOOR: Rails sends a notional whose base is under minimum_base_size; Rust skips it, and nothing placed
         // is Rails' own below_minimums line.
-        assert_eq!(rails["sent"].as_array().unwrap().len(), 1);
+        assert_eq!(v2["sent"].as_array().unwrap().len(), 1);
         let logs: Vec<_> = rust["changes"]["bot_activity_logs"].as_array().unwrap().iter().map(|l| (l["after"]["event"].clone(), l["after"]["details"].clone())).collect();
         assert_eq!(logs, vec![(json!("redeploy_skipped"), json!({"base":"BTC","reason":"below_minimum"})), (json!("redeploy_below_minimums"), json!({"reason":["below_minimums"]}))]);
         expected["sent"] = json!([]);
@@ -382,7 +382,7 @@ fn redeploy_grid_difference(name: &str, _: &std::path::Path, rails: &Value, rust
         return if expected == *rust { Ok(()) } else { Err(format!("rails: {expected}\nrust: {rust}")) };
     }
     if D_6C_12.contains(&venue) {
-        let (want, got) = (&rails["sent"][0], &rust["sent"][0]);
+        let (want, got) = (&v2["sent"][0], &rust["sent"][0]);
         let ok = match venue {
             "kraken" => want.get("oflags").is_none() && got["oflags"] == "viqc" && got["volume"] == "320.0",
             "kucoin" => want.get("size").is_some() && want.get("funds").is_none() && got["funds"] == "320.0" && got.get("size").is_none(),
@@ -461,7 +461,7 @@ fn redeploy_grid_difference(name: &str, _: &std::path::Path, rails: &Value, rust
 
 #[cfg(unix)]
 #[tokio::test(flavor = "current_thread")]
-async fn rails_redeploy_grid_matches_every_venue() {
+async fn v2_redeploy_grid_matches_every_venue() {
     let outputs = common::venue_grid::run_venue_grid("grid-redeploy", 168, &[common::venue_grid::Validator {
         names: &|name| name.contains("-hyperliquid-") || name.ends_with("-timeout") || name.ends_with("-pre_send") || name == "redeploy-alpaca-basket-below_minimum"
             || (name.ends_with("-accepted") && D_6C_12.iter().any(|v| name.starts_with(&format!("redeploy-{v}-")))),

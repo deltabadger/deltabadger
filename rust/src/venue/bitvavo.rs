@@ -18,7 +18,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError}
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BITVAVO as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -69,7 +69,7 @@ pub fn headers(r: &HttpRequest, key: &str, secret: &str, timestamp_ms: i64) -> V
 
 /// Ruby's `(time.to_f * 1000).to_i`, as Exchanges::Bitvavo turns a time into its milliseconds: Time#to_f of whole
 /// nanoseconds is their Float over a billion (time.c `rb_time_unmagnify_to_float`), so 02:00:00.250 is ...249.
-pub fn ruby_ms(t: DateTime<Utc>) -> i64 {
+pub fn v2_ms(t: DateTime<Utc>) -> i64 {
     let nanos = i128::from(t.timestamp()) * 1_000_000_000 + i128::from(t.timestamp_subsec_nanos());
     let seconds = if nanos % 1_000_000_000 == 0 { (nanos / 1_000_000_000) as f64 } else { nanos as f64 / 1e9 };
     (seconds * 1000.0) as i64
@@ -131,7 +131,7 @@ pub fn parse_order(order_id: &str, o: &Value) -> Result<OrderState, VenueError> 
 pub fn created_order(market: &str, o: &Value) -> Option<super::CreatedOrder> {
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
     let zero = BigDec::zero();
-    let amount = |k: &str| o.get(k).and_then(|v| crate::ruby::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
+    let amount = |k: &str| o.get(k).and_then(|v| crate::v2::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
     // Absent or null is none; present, a decimal not below zero, positive or none.
     let size = |k: &str| match o.get(k) { None | Some(Value::Null) => Some(None), Some(_) => amount(k).map(|d| d.is_positive().then_some(d)) };
     if o.get("market")?.as_str()? != market { return None; }
@@ -168,7 +168,7 @@ pub fn ticker_prices(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> 
         let market = super::dig_or_raise(row, "market")?.as_str().ok_or_else(unreadable)?.to_string();
         let price = match &row["price"] {
             Value::Null => None,
-            v @ (Value::String(_) | Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
+            v @ (Value::String(_) | Value::Number(_)) => crate::v2::json_to_d(v).ok().flatten(),
             _ => return Err(unreadable()),
         };
         if let Some(p) = price.filter(BigDec::is_positive) {
@@ -290,9 +290,9 @@ impl<T: Transport> BitvavoVenue<T> {
             let page = page.as_array().ok_or_else(unreadable)?;
             let mut fresh = 0;
             for t in page { if seen.insert(to_s(&t["id"])) { trades.push(t.clone()); fresh += 1; } }
-            let oldest = page.iter().map(|t| crate::ruby::to_i(&to_s(&t["timestamp"]))).min();
+            let oldest = page.iter().map(|t| crate::v2::to_i(&to_s(&t["timestamp"]))).min();
             if page.len() < TRADES_PAGE || start_ms.is_some_and(|s| oldest.is_some_and(|o| o < s)) {
-                return Ok(trades.into_iter().filter(|t| start_ms.is_none_or(|s| crate::ruby::to_i(&to_s(&t["timestamp"])) >= s)).collect());
+                return Ok(trades.into_iter().filter(|t| start_ms.is_none_or(|s| crate::v2::to_i(&to_s(&t["timestamp"])) >= s)).collect());
             }
             if fresh == 0 { return Err(VenueError::Rejected(vec![format!("Bitvavo trades on {market} returned a full page with nothing new")])); }
             cursor = Some(to_s(&page[page.len() - 1]["id"]));
@@ -446,7 +446,7 @@ impl<T: Transport> super::Venue for BitvavoVenue<T> {
         let mut out = vec![];
         for id in txids {
             let (market, ext) = split_order_id(id);
-            let trades: Vec<Value> = self.read_trades(&market, Some(ruby_ms(since)), std::time::Duration::ZERO).await?
+            let trades: Vec<Value> = self.read_trades(&market, Some(v2_ms(since)), std::time::Duration::ZERO).await?
                 .into_iter().filter(|t| to_s(&t["orderId"]) == ext).collect();
             if !trades.is_empty() { out.push(order_from_trades(id, &market, &trades)?); }
         }
@@ -531,7 +531,7 @@ mod tests {
         assert_eq!(error_code(r#"{"errorCode":240,"error":"No order found."}"#), Some(240));
         assert_eq!(error_code(r#"{"errorCode":"240"}"#), None, "a String never equals Rails' Integer");
         assert_eq!(error_code("<html>404</html>"), None);
-        assert_eq!(ruby_ms("2026-09-20T02:00:00.250000Z".parse().unwrap()), 1_789_869_600_249, "as Ruby's Float");
-        assert_eq!(ruby_ms("2026-09-15T00:00:00Z".parse().unwrap()), 1_789_430_400_000);
+        assert_eq!(v2_ms("2026-09-20T02:00:00.250000Z".parse().unwrap()), 1_789_869_600_249, "as Ruby's Float");
+        assert_eq!(v2_ms("2026-09-15T00:00:00Z".parse().unwrap()), 1_789_430_400_000);
     }
 }

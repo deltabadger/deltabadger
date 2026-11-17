@@ -11,7 +11,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError}
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, KUCOIN as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -106,7 +106,7 @@ fn truthy(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) }
 /// `#to_s` of a scalar, as Ruby interpolates it.
 fn to_s(v: &Value) -> String { match v { Value::String(s) => s.clone(), other => other.to_string() } }
 /// `#to_i` of a JSON page count (nil.to_i is 0).
-fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_default(), Value::String(s) => crate::ruby::to_i(s), _ => 0 } }
+fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_default(), Value::String(s) => crate::v2::to_i(s), _ => 0 } }
 /// The envelope's code as `to_s` reads it; an answer without one is unreadable.
 fn code(body: &Value) -> Result<String, VenueError> { match body.get("code") { Some(c @ (Value::String(_) | Value::Number(_))) => Ok(to_s(c)), _ => Err(unreadable()) } }
 const OK: &str = "200000";
@@ -306,7 +306,7 @@ pub fn all_tickers(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
         let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
         let price = match &row["last"] {
             Value::Null => None,
-            v @ (Value::String(_) | Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
+            v @ (Value::String(_) | Value::Number(_)) => crate::v2::json_to_d(v).ok().flatten(),
             _ => return Err(unreadable()),
         };
         // `prices_hash[symbol] = price if price.positive?`: a later positive price for the same symbol replaces it.
@@ -870,7 +870,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
 
     /// Exchanges::Kucoin#get_tickers_prices: the allTickers read `price(Last)` makes, every `data.ticker` row by its
     /// `dig_or_raise`d `symbol`, the price `last&.to_d || 0` kept only when positive. No `data.ticker` is Rails' "Failed to
-    /// get KuCoin tickers". DIVERGES on purpose as Binance does (ruby::json_to_d, Q6): a `last` that is no decimal is left
+    /// get KuCoin tickers". DIVERGES on purpose as Binance does (v2::json_to_d, Q6): a `last` that is no decimal is left
     /// out, where String#to_d reads "12x" as 12. Rails caches the answer for a minute; this reads fresh. Each price is its
     /// decimal's `to_s('F')`.
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {

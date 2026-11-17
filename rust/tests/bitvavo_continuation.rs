@@ -178,7 +178,7 @@ async fn a_boundary_row_read_again_with_its_fields_reordered_is_not_stored_again
 /// A venue that answers every trades page with the first fails as #read_trades fails ("a full page with nothing new"),
 /// in one run and when it is read a page a run, never an import that checkpoints the same cursor forever.
 #[tokio::test(flavor = "current_thread")]
-async fn a_full_trades_page_repeated_fails_as_rails_does_across_runs() {
+async fn a_full_trades_page_repeated_fails_as_v2_does_across_runs() {
     let account = Rc::new(account());
     for latency in [Duration::from_millis(1), Duration::from_secs(60)] {
         let (_d, db, key) = install();

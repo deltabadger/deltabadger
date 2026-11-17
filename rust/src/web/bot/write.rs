@@ -1,7 +1,7 @@
 //! Settings and lifecycle writes own their observation, response construction and post-commit delivery.
 //! Call from App::db: cancelling its await must not cancel the committed write's wake.
 use super::{action_params::ActionParams, composition, draft::{Draft, FieldError, ParseError, ValidationContext}, Bot, For, Kind};
-use crate::{codec, engine::{eligibility, model}, ruby::BigDec};
+use crate::{codec, engine::{eligibility, model}, v2::BigDec};
 use crate::web::format::Num;
 use crate::web::{bot_api::Domain, bots, i18n, layout::Ctx, WebError};
 use rusqlite::{Connection, OptionalExtension};
@@ -294,7 +294,7 @@ pub use crate::engine::accounting::web_pending as pending;
 use crate::engine::accounting::{web_effective_amount as effective_amount, web_serialized as serialized, web_minimum as minimum};
 /// A stored transient value against the one assigned, by Ruby's `==`: `assigned` is nil, a BigDecimal (written as its
 /// text) or a settings number. A stored text is a String, never equal to a BigDecimal.
-fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
+fn v2_equal(stored: &Value, assigned: &Value) -> bool {
     let Some(old) = Num::from_json(stored).and_then(|n| n.to_d()) else { return stored.is_null() && assigned.is_null() };
     match assigned {
         // A text that is no number equals no stored number.
@@ -307,7 +307,7 @@ fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
 /// ActiveRecord::Store writes an assignment only when it differs, by Ruby's ==, from what the store holds: a captured
 /// carry equal to the stored one (a frozen seller's `0.to_d` over a stored `0`) keeps the stored spelling.
 pub(super) fn stored_carry(raw: &serde_json::Map<String, Value>, value: Value) -> Value {
-    match raw.get("missed_quote_amount") { Some(old) if ruby_equal(old, &value) => old.clone(), _ => value }
+    match raw.get("missed_quote_amount") { Some(old) if v2_equal(old, &value) => old.clone(), _ => value }
 }
 
 /// A start also ends a takeover's set-aside (engine::set_aside::KEY): the owner has started the bot again.
@@ -577,7 +577,7 @@ pub fn lifecycle_in<T>(
             if draft.raw_transient.contains_key("last_action_job_at") { start.push(("last_action_job_at",Value::Null)); }
             let own=|key:&String| key=="last_action_job_at" || start.iter().any(|(k,_)| k==key);
             let same=effects.transient.set.keys().all(own) && effects.transient.remove.is_empty()
-                && start.iter().all(|(k,v)| draft.raw_transient.get(*k).is_some_and(|old| ruby_equal(old,v)));
+                && start.iter().all(|(k,v)| draft.raw_transient.get(*k).is_some_and(|old| v2_equal(old,v)));
             if same { effects.transient.set.retain(|k,_| !own(k)); } else { for (k,v) in start { effects.transient.set.insert(k.into(),v); } }
         }
         for (key,value) in &effects.settings.set { one(tx.execute(SET_SETTING,(path(key,false)?,if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }

@@ -427,7 +427,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn step_order_matches_rails() {
+    fn step_order_matches_v2() {
         use Step::*;
         let single_asset_first = StepOrder::new(BotType::Single, Variant::AssetFirst);
         assert_eq!(single_asset_first.first(), Currencies);

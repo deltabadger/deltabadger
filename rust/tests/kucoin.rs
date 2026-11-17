@@ -9,7 +9,7 @@ use deltabadger::engine::model::{self, Ticker};
 use deltabadger::engine::placement::{self, OperatorResolution, Recovery, Sent};
 use deltabadger::engine::venue_rules::KUCOIN;
 use deltabadger::engine::FixedClock;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store::{self, Paths};
 use deltabadger::venue::binance::{Pair, Pairs};
 use deltabadger::venue::http::{self, HttpRequest, ScriptedTransport};
@@ -183,18 +183,18 @@ async fn only_the_success_code_means_balances() {
 #[test]
 fn the_rules_are_exchanges_kucoins() {
     let f = fixture();
-    let rails = &f["errors"];
+    let v2 = &f["errors"];
     let list = |v: &Value| v.as_array().unwrap().iter().map(|s| s.as_str().unwrap().to_string()).collect::<Vec<_>>();
     for (kind, patterns) in KUCOIN.kinds {
-        let want = if rails.get(kind).is_some() { list(&rails[kind]) } else { vec![] };
+        let want = if v2.get(kind).is_some() { list(&v2[kind]) } else { vec![] };
         assert_eq!(patterns.iter().map(|s| s.to_string()).collect::<Vec<_>>(), want, "{kind}");
     }
     let mut transient = list(&f["network_transient"]);
-    transient.extend(list(&rails["transient"]));
+    transient.extend(list(&v2["transient"]));
     assert_eq!(KUCOIN.transient_text.iter().map(|s| s.to_string()).collect::<Vec<_>>(), transient, "Exchange#transient_error?");
     // r5: every transient answer Rails' #ambiguous_placement_error? reads as unknown is unknown here, the placement-safe ones excepted.
-    let safe = list(&rails["placement_safe_transient"]);
-    for m in list(&rails["transient"]) {
+    let safe = list(&v2["placement_safe_transient"]);
+    for m in list(&v2["transient"]) {
         assert_eq!(KUCOIN.add_outcome_unknown(std::slice::from_ref(&m)), !safe.contains(&m), "{m}");
     }
     for m in ["KuCoin API error 500000: Internal Server Error", "KuCoin API error 230005: The system is busy, please try again later.",
@@ -217,18 +217,18 @@ fn order(kind: OrderKind, quote: bool, volume: &str, side: Side) -> NewOrder {
 fn accepted() -> Value { env(json!({ "orderId": "6716f0a2c1b6d10007a3b1c5" })) }
 
 #[tokio::test(flavor = "current_thread")]
-async fn each_order_posts_the_bytes_rails_posts_with_the_intent_id_as_client_oid() {
+async fn each_order_posts_the_bytes_v2_posts_with_the_intent_id_as_client_oid() {
     let f = fixture();
     let key = f["api_key"].as_array().unwrap().clone();
     let orders = f["orders"].as_array().unwrap().clone();
     assert_eq!(orders.len(), 8);
     for o in orders {
-        let rails: Value = serde_json::from_str(o["body"].as_str().unwrap()).unwrap();
+        let v2: Value = serde_json::from_str(o["body"].as_str().unwrap()).unwrap();
         let side = if o["side"] == "sell" { Side::Sell } else { Side::Buy };
-        let new = match rails["type"].as_str().unwrap() {
-            "market" if rails.get("funds").is_some() => order(OrderKind::Market, true, rails["funds"].as_str().unwrap(), side),
-            "market" => order(OrderKind::Market, false, rails["size"].as_str().unwrap(), side),
-            _ => order(OrderKind::Limit { price: rails["price"].as_str().unwrap().into() }, false, rails["size"].as_str().unwrap(), side),
+        let new = match v2["type"].as_str().unwrap() {
+            "market" if v2.get("funds").is_some() => order(OrderKind::Market, true, v2["funds"].as_str().unwrap(), side),
+            "market" => order(OrderKind::Market, false, v2["size"].as_str().unwrap(), side),
+            _ => order(OrderKind::Limit { price: v2["price"].as_str().unwrap().into() }, false, v2["size"].as_str().unwrap(), side),
         };
         let (t, v) = venue(json!({ "POST /api/v1/orders": accepted() }));
         assert_eq!(v.add_order(&new).await, Ok("6716f0a2c1b6d10007a3b1c5".into()), "the stored id is the raw orderId");
@@ -241,7 +241,7 @@ async fn each_order_posts_the_bytes_rails_posts_with_the_intent_id_as_client_oid
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn placement_answers_map_to_rails_ambiguity_rules() {
+async fn placement_answers_map_to_v2_ambiguity_rules() {
     let unknown = |e: &VenueError| matches!(e, VenueError::Rejected(m) if KUCOIN.add_outcome_unknown(m));
     let rejected = |m: &str| Err::<String, _>(VenueError::Rejected(vec![m.into()]));
     let no_id = Err::<String, _>(VenueError::Ambiguous(kucoin::NO_ORDER_ID.into()));
@@ -585,7 +585,7 @@ async fn an_order_neither_lookup_finds_halts_the_bot_until_the_operator_resolves
 // ---- K5: #parse_order_data, recorded (script/rust/record_venue_vectors.rb kucoin)
 
 #[test]
-fn every_recorded_rails_order_parse_is_reproduced() {
+fn every_recorded_v2_order_parse_is_reproduced() {
     let v: Value = serde_json::from_str(include_str!("fixtures/kucoin_vectors.json")).unwrap();
     let mut p = Pairs::default();
     p.by_symbol.insert("BTC-USDT".into(), Pair { base: "BTC".into(), quote: "USDT".into(), price_decimals: 1 });

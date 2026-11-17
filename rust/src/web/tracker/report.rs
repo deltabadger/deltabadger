@@ -93,7 +93,7 @@ pub async fn tax_report(State(app): State<crate::web::App>, Extension(ctx): Exte
 /// the form again and nothing saved.
 pub async fn tax_report_pl(State(app): State<crate::web::App>, Extension(ctx): Extension<Ctx>, headers: HeaderMap) -> Result<Response, WebError> {
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
-    let year = ctx.params.form("year").map_or(0, crate::ruby::to_i);
+    let year = ctx.params.form("year").map_or(0, crate::v2::to_i);
     // Absent keeps what is saved and "" clears it, as on REST and MCP; the text is read as typed (no trimming).
     let raw = ctx.params.form("pl_carried_costs").map(str::to_string);
     let Ok(carry) = crate::tax::pl::carried(raw.clone().map(Value::String).as_ref()) else {
@@ -110,7 +110,7 @@ type Asked = (Option<String>, Option<String>, Option<String>, Option<String>);
 async fn generate(app: crate::web::App, ctx: Ctx, headers: HeaderMap, asked: Asked, carry: Option<Option<crate::figures::dec::Dec>>) -> Result<Response, WebError> {
     let Some(owner) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)) };
     let (country, year, scope, stablecoin) = asked;
-    let year = year.as_deref().map_or(0, crate::ruby::to_i);
+    let year = year.as_deref().map_or(0, crate::v2::to_i);
     let scope = match scope.as_deref() { Some(s) if job::SCOPES.contains(&s) => job::scope_of(s), _ => "crypto" };
     // `Tax::Jurisdictions.for(country)`: the registry's exact key.
     let Some(country) = country.filter(|c| super::modal::COUNTRIES.contains(&c.as_str())) else {
@@ -165,7 +165,7 @@ async fn generate(app: crate::web::App, ctx: Ctx, headers: HeaderMap, asked: Ask
 pub async fn download_tax_report(State(app): State<crate::web::App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(owner) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)) };
     let country = ctx.params.query("country").unwrap_or("").to_string();
-    let year = ctx.params.query("year").map_or(0, crate::ruby::to_i);
+    let year = ctx.params.query("year").map_or(0, crate::v2::to_i);
     let raw_scope = ctx.params.query("report_scope").map(str::to_string);
     let scope = job::scope_of(raw_scope.as_deref().unwrap_or(""));
     let tmp = app.config.tmp_dir.clone();

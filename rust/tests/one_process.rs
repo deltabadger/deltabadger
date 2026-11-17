@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use deltabadger::venue::fake::{FakeFactory, FakeVenue};
 use deltabadger::web::App;
-use deltabadger::{codec, lease, ruby};
+use deltabadger::{codec, lease, v2};
 use deltabadger::store::{self, Paths};
 use serde_json::json;
 use std::io::{Read, Write};
@@ -218,7 +218,7 @@ async fn a_web_start_or_settings_write_followed_by_wake_engine_ticks_without_wai
         ("start", BotSpec { status: 2, ..BotSpec::weekly(60.0, &ago(1)) }, WEB_START),
         // A settings write: weekly → hourly makes the last hour's checkpoint due.
         ("settings", BotSpec::weekly(60.0, &ago(two_hours + 30))
-             .transient("last_action_job_at", json!(ruby::iso8601_ms(chrono::Utc::now() - chrono::Duration::seconds(two_hours)))),
+             .transient("last_action_job_at", json!(v2::iso8601_ms(chrono::Utc::now() - chrono::Duration::seconds(two_hours)))),
          "UPDATE bots SET settings = json_set(settings, '$.interval', 'hour'), settings_changed_at = ?1 WHERE id = ?2"),
     ];
     for (case, spec, write) in cases {
@@ -293,7 +293,7 @@ async fn a_web_write_that_skips_the_guard_trips_the_debug_assertion_naming_the_b
 #[tokio::test(flavor = "current_thread")]
 async fn a_web_write_that_strands_an_unresolved_order_trips_the_debug_assertion_naming_the_bot() {
     use deltabadger::engine::{amount, placement, venue_rules, FixedClock};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     // Stopped, so nothing ticks it; its order was sent and the reply lost (Kraken's deadline is ahead: still pending).
     let Rig { _dir: _keep, engine, app, listener, bot, db, s, .. } = rig(priced(), BotSpec { status: 2, ..BotSpec::weekly(60.0, "2099-01-01 00:00:00") }).await;
     let c = rusqlite::Connection::open(&db).unwrap();
@@ -432,7 +432,7 @@ async fn a_web_start_on_a_working_bot_is_refused_and_changes_nothing() {
     let v = priced();
     // Working (scheduled), bought two hours ago: not due again for most of a week.
     let mut r = rig(v.clone(), BotSpec::weekly(60.0, &ago(two_hours + 30))
-        .transient("last_action_job_at", json!(ruby::iso8601_ms(chrono::Utc::now() - chrono::Duration::seconds(two_hours))))).await;
+        .transient("last_action_job_at", json!(v2::iso8601_ms(chrono::Utc::now() - chrono::Duration::seconds(two_hours))))).await;
     let before = bot_row(&r.db, r.bot);
     let (bot, now) = (r.bot, codec::format_time(chrono::Utc::now()));
     let moved = r.app.db(move |c| Ok(c.execute(WEB_START, rusqlite::params![now, bot])?)).await.unwrap();

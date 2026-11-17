@@ -3,13 +3,13 @@
 use super::status::humanized_error;
 use super::Bot;
 use crate::codec::{format_time, parse_time};
-use crate::ruby::{to_sentence, BigDec};
+use crate::v2::{to_sentence, BigDec};
 use crate::web::auth::User;
 use crate::web::bots::CASH;
 use crate::web::format::{self, Num};
 use crate::web::i18n::{self, escape, Arg};
 use crate::web::layout::Ctx;
-use crate::engine::rails_unrecorded::{self, ObligationView};
+use crate::engine::v2_unrecorded::{self, ObligationView};
 use crate::web::{turbo, WebError};
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};
@@ -373,20 +373,20 @@ impl<'a> Rows<'a> {
             // PLAN-B2 C3, C4 (B2-6): a takeover's lines for Rails' queued work.
             "upgrade_signal_unresolved" => event(&log.event, &[("call", Arg::Text(&detail("call")))]),
             "upgrade_command_dropped" => event(&log.event, &[("action", Arg::Text(&detail("action")))]),
-            // A28-1: Rails' unrecorded-order candidates (engine::rails_unrecorded).
+            // A28-1: Rails' unrecorded-order candidates (engine::v2_unrecorded).
             "rails_order_candidates" => {
                 let one = log.details.get("count").and_then(Value::as_i64) == Some(1);
                 event(if one { "rails_order_candidate" } else { "rails_order_candidates" },
                       &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("trades", Arg::Text(&detail("trades")))])
             }
-            // A28-3: the venue's own orders (engine::rails_unrecorded::merged).
+            // A28-3: the venue's own orders (engine::v2_unrecorded::merged).
             "rails_order_open" => event(&log.event, &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("orders", Arg::Text(&detail("orders")))]),
             "rails_order_listed" => {
                 let one = log.details.get("count").and_then(Value::as_i64) == Some(1);
                 event(if one { "rails_order_listed_one" } else { "rails_order_listed" },
                       &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("orders", Arg::Text(&detail("orders")))])
             }
-            // A28-2: the owner's booking of one of those orders, and what follows it (engine::rails_unrecorded).
+            // A28-2: the owner's booking of one of those orders, and what follows it (engine::v2_unrecorded).
             "rails_order_recovered" => event(&log.event, &[("order", Arg::Text(&detail("order")))]),
             "rails_order_not_added" => event(&format!("rails_order_not_added_{}", detail("reason")), &[("venue", Arg::Text(&detail("venue")))]),
             "rails_order_not_mine" => event(&log.event, &[]),
@@ -405,12 +405,12 @@ impl<'a> Rows<'a> {
     fn activity(&self, log: &Log) -> Result<String,WebError> {
         Ok(format!("<tr id=\"bot_activity_log_{}\" class=\"text-inactive\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"{}\">\n  \
                  <td scope=\"row\" class=\"table__when\">{}</td>\n  <td colspan=\"{}\" class=\"table__sentence\">{}{}</td>\n</tr>",
-                log.id, if self.hidden { "other" } else { "all" }, self.when(log.created_at), if self.hidden { 1 } else { 3 }, escape(&self.activity_summary(log)?), self.rails_order_answers(log)))
+                log.id, if self.hidden { "other" } else { "all" }, self.when(log.created_at), if self.hidden { 1 } else { 3 }, escape(&self.activity_summary(log)?), self.v2_order_answers(log)))
     }
 
     /// A28-2a (PLAN-A28-2 §1, r1.7): the owner's answers under a `rails_order_open`/`listed` line whose group is undecided:
     /// one form per offer and one "none"; "Checking…" while a request waits; nothing once decided, or on any other line.
-    fn rails_order_answers(&self, log: &Log) -> String {
+    fn v2_order_answers(&self, log: &Log) -> String {
         if !matches!(log.event.as_str(), "rails_order_open" | "rails_order_listed") || self.broadcast { return String::new(); }
         let Some(view) = log.details.get("obligation").and_then(Value::as_i64).and_then(|id| self.obligations.get(&id)) else { return String::new() };
         if view.resolved { return String::new(); }
@@ -446,7 +446,7 @@ impl<'a> Rows<'a> {
             _ => None,
         }).collect();
         if !ids.is_empty() {
-            self.obligations = rails_unrecorded::offers_for(c, self.bot.id, &ids, self.ctx.now)?.into_iter().map(|view| (view.obligation, view)).collect();
+            self.obligations = v2_unrecorded::offers_for(c, self.bot.id, &ids, self.ctx.now)?.into_iter().map(|view| (view.obligation, view)).collect();
         }
         Ok(self)
     }

@@ -3,7 +3,7 @@
 //! an imported row as any submitted REGULAR row; so must every reader here. Also B1's PAXG basket (Cryptocurrency/tokenized).
 mod common;
 use chrono::{DateTime, Duration, Utc};
-use deltabadger::{engine::{accounting, amount, basket, eligibility, model, tick}, ruby::BigDec};
+use deltabadger::{engine::{accounting, amount, basket, eligibility, model, tick}, v2::BigDec};
 use rusqlite::{types::Value as Sql, Connection};
 use serde_json::{json, Value};
 
@@ -41,7 +41,7 @@ fn build(case: &Value) -> (tempfile::TempDir, deltabadger::store::Opened, model:
 }
 
 #[test]
-fn imported_rows_read_as_rails_reads_them() {
+fn imported_rows_read_as_v2_reads_them() {
     let v = vectors();
     let cases = v["cases"].as_array().unwrap();
     assert_eq!(cases.len(), 10);
@@ -88,7 +88,7 @@ fn imported_rows_read_as_rails_reads_them() {
 
 /// Rails' importer stores a CSV type outside market/limit as a NULL order_type (insert_all's enum cast).
 #[test]
-fn the_recorded_rows_are_what_rails_stores() {
+fn the_recorded_rows_are_what_v2_stores() {
     let v = vectors();
     let odd = v["cases"].as_array().unwrap().iter().find(|c| c["name"] == "odd_type").unwrap();
     assert_eq!(odd["stored"][0]["order_type"], Value::Null);

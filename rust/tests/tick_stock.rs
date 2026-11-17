@@ -183,7 +183,7 @@ async fn a_clock_that_cannot_be_trusted_places_nothing_and_retries() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_clock_timeout_retries_as_rails_does() {
+async fn a_clock_timeout_retries_as_v2_does() {
     let (_d, o, id, _, _) = setup(weekly());
     let t = script(json!({ "GET /v2/clock": [{ "network": "post_send", "message": "Faraday::TimeoutError: Net::ReadTimeout" }] }));
     assert!(matches!(tick_until_settled(&o, &t, id, at(T0)).await, TickOutcome::Rescheduled));
@@ -232,7 +232,7 @@ async fn a_parked_bot_is_not_ticked_before_next_open_and_buys_at_it() {
 use deltabadger::enums::BotStatus;
 
 #[tokio::test(flavor = "current_thread")]
-async fn clock_reschedule_survives_restart_until_the_rails_checkpoint() {
+async fn clock_reschedule_survives_restart_until_the_v2_checkpoint() {
     let (dir, o, id, _, _) = setup(weekly());
     let failed = script(json!({ "GET /v2/clock": [{ "network": "post_send", "message": "Faraday::TimeoutError: Net::ReadTimeout" }] }));
     assert!(matches!(tick_until_settled(&o, &failed, id, at(T0)).await, TickOutcome::Rescheduled));
@@ -373,7 +373,7 @@ async fn a_bot_refused_for_a_ledger_refresh_another_bots_order_started_places_af
     let mut b_orders: Vec<_> = posted[1..].iter().map(|o| (o["symbol"].as_str().unwrap().to_string(), o["notional"].as_str().unwrap().to_string())).collect();
     b_orders.sort();
     assert_eq!(b_orders, vec![("AAPL".into(), "30.00".into()), ("MSFT".into(), "30.00".into())], "B buys its whole amount once");
-    assert_eq!(last_action(&o, b).as_deref(), Some(deltabadger::ruby::iso8601_ms(t1).as_str()));
+    assert_eq!(last_action(&o, b).as_deref(), Some(deltabadger::v2::iso8601_ms(t1).as_str()));
     assert_eq!(orders_of(&o, a).len(), 1, "A is not bought again");
 }
 

@@ -228,7 +228,7 @@ pub trait PriceSource {
 /// outlives a restart).
 #[derive(Default)]
 pub struct RateCache {
-    rates: std::sync::Mutex<std::collections::HashMap<String, (crate::ruby::BigDec, chrono::DateTime<chrono::Utc>)>>,
+    rates: std::sync::Mutex<std::collections::HashMap<String, (crate::v2::BigDec, chrono::DateTime<chrono::Utc>)>>,
     coingecko: std::sync::Mutex<Option<(Value, chrono::DateTime<chrono::Utc>)>>,
 }
 
@@ -237,11 +237,11 @@ impl RateCache {
     /// Coingecko's `expires_in: 60.seconds` (get_exchange_rates and get_price).
     pub const COINGECKO: chrono::TimeDelta = chrono::TimeDelta::seconds(60);
     /// The rate for `from` written less than DURATION before `now` (ActiveSupport::Cache::Entry#expired? at `now`).
-    pub fn get(&self, from: &str, now: chrono::DateTime<chrono::Utc>) -> Option<crate::ruby::BigDec> {
+    pub fn get(&self, from: &str, now: chrono::DateTime<chrono::Utc>) -> Option<crate::v2::BigDec> {
         let held = self.rates.lock().unwrap_or_else(|e| e.into_inner());
         held.get(from).filter(|(_, at)| now < *at + Self::DURATION).map(|(rate, _)| rate.clone())
     }
-    pub fn put(&self, from: &str, rate: crate::ruby::BigDec, now: chrono::DateTime<chrono::Utc>) {
+    pub fn put(&self, from: &str, rate: crate::v2::BigDec, now: chrono::DateTime<chrono::Utc>) {
         self.rates.lock().unwrap_or_else(|e| e.into_inner()).insert(from.to_string(), (rate, now));
     }
     /// CoinGecko's exchange rates answered less than 60 s before `now`.

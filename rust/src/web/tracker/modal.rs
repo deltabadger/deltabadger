@@ -55,7 +55,7 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<String,WebError>{
         countries.push_str(&format!("              <option value=\"{code}\" {} data-stablecoin-ambiguous=\"{}\">{}</option>\n",if settings["country"]==code{"selected"}else{""},crate::tax::jurisdictions::find(code).is_some_and(|j|j.stablecoin_ambiguous),ctx.t(&format!("tracker.export_modal.countries.{code}"))));
     }
     let year=ctx.now.year();
-    let selected=if settings["year"].is_null(){i64::from(year-1)}else{crate::ruby::to_i(&text(&settings["year"]))};
+    let selected=if settings["year"].is_null(){i64::from(year-1)}else{crate::v2::to_i(&text(&settings["year"]))};
     let mut offered:Vec<i32>=(year-5..=year).chain(2023..=2025).collect();offered.sort_unstable();offered.dedup();
     let pl=pl_blocks(c,ctx,owner,&(year-5..=year).collect::<Vec<_>>())?;
     let mut years=String::new();
@@ -108,7 +108,7 @@ pub async fn setup_coingecko(State(app):State<App>,Extension(ctx):Extension<Ctx>
     let Some(user)=ctx.user()else{return Ok(auth::unauthenticated(&ctx))};
     if !user.admin{return Ok(md::head(axum::http::StatusCode::FORBIDDEN))}
     let key=ctx.params.form("api_key").unwrap_or_default().to_string();
-    if crate::ruby::blank(&key)||!md::key_valid(&app,&key).await{return md::invalid_key(&ctx)}
+    if crate::v2::blank(&key)||!md::key_valid(&app,&key).await{return md::invalid_key(&ctx)}
     md::save_key(&app,key).await?;
     Ok(([(header::CONTENT_TYPE,crate::web::turbo::CONTENT_TYPE)],crate::web::turbo::redirect(&ctx.path("/tracker"))).into_response())
 }

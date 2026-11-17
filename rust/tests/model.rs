@@ -8,7 +8,7 @@ use serde_json::json;
 fn now() -> chrono::DateTime<chrono::Utc> { "2026-09-30T12:00:00.123456Z".parse().unwrap() }
 
 #[test]
-fn a_bot_reads_back_as_rails_stored_it() {
+fn a_bot_reads_back_as_v2_stored_it() {
     let (_d, o, s) = install();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00.5")
         .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.0025))
@@ -23,7 +23,7 @@ fn a_bot_reads_back_as_rails_stored_it() {
 }
 
 #[test]
-fn settings_are_read_with_rails_readers_and_defaults() {
+fn settings_are_read_with_v2_readers_and_defaults() {
     let (_d, o, s) = install();
     let read = |spec: BotSpec| model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &spec)).unwrap();
     let base = || BotSpec::weekly(60.0, "2026-09-01 10:00:00");
@@ -37,7 +37,7 @@ fn settings_are_read_with_rails_readers_and_defaults() {
 }
 
 #[test]
-fn credentials_follow_rails_api_key_lookup() {
+fn credentials_follow_v2_api_key_lookup() {
     let (_d, o, s) = install();
     let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
     o.primary.execute("UPDATE api_keys SET status = 2", []).unwrap(); // incorrect: Rails still uses it
@@ -114,7 +114,7 @@ fn an_unparseable_last_action_job_at_is_a_data_error() {
 }
 
 #[test]
-fn a_blank_limit_distance_is_rails_default_and_garbage_is_unreadable() {
+fn a_blank_limit_distance_is_v2_default_and_garbage_is_unreadable() {
     let (_d, o, s) = install();
     let read = |v: serde_json::Value| model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
         .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", v))).unwrap().limit_distance().map(|d| d.to_s_f());
@@ -209,8 +209,8 @@ fn a_safety_write_retries_busy_until_the_short_competing_transaction_commits() {
 /// Bot::PriceLimitable's readers (price_limitable.rb:131-169, after_initialize): on only at `== true`, the buy side's `||=`
 /// defaults, the sell side's read-time fallbacks, the stored action, ticker id and met_at.
 #[test]
-fn a_price_rule_reads_as_rails_reads_it() {
-    use deltabadger::ruby::Num;
+fn a_price_rule_reads_as_v2_reads_it() {
+    use deltabadger::v2::Num;
     let (_d, o, s) = install();
     let read = |spec: BotSpec, selling: bool| model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &spec)).unwrap().price_rule(selling);
     let base = || BotSpec::weekly(60.0, "2026-09-01 10:00:00");

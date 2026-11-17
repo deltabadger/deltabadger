@@ -3,7 +3,7 @@
 //! derived from the stored rows of one UTC second at a time, so supersets, subsets and re-uploads reconcile row by row
 //! and the result never depends on upload order. `read` is database-free; `store` runs in the import's transaction.
 use super::csv::{self, Malformed, Table};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::sync::activities::{Entry, Raw, ADJUSTMENT, BUY, DEPOSIT, FEE, SELL, SWAP_IN, SWAP_OUT, WITHDRAWAL};
 use crate::sync::{ledger, sql_time, Key, SyncError};
 use chrono::{DateTime, Timelike, Utc};
@@ -67,7 +67,7 @@ pub fn read(table: &Table) -> Result<Vec<SourceRow>, Malformed> {
     let mut seen: HashMap<String, usize> = HashMap::new();
     let mut rows = vec![];
     for row in table.rows.iter().filter(|r| !r.is_empty()) {
-        let cell = |name: &str| crate::ruby::strip(table.get(row, name).unwrap_or("")).to_string();
+        let cell = |name: &str| crate::v2::strip(table.get(row, name).unwrap_or("")).to_string();
         let (currency, kind) = (cell("Currency"), cell("Type"));
         if currency.is_empty() || kind.is_empty() { return Err(Malformed("a row without its currency or type".into())); }
         let inflow = match cell("Side").as_str() { "Deposit" => true, "Withdrawal" => false, _ => return Err(Malformed("a row whose side is neither Deposit nor Withdrawal".into())) };

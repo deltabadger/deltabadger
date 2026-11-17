@@ -21,7 +21,7 @@ pub mod mail;
 pub mod parity;
 pub mod password_input;
 pub mod rotation;
-pub mod ruby;
+pub mod v2;
 pub mod stop;
 pub mod store;
 pub mod supervisor;

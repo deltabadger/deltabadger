@@ -24,7 +24,7 @@ pub struct Draft {
     pub messages: std::collections::BTreeMap<String, String>,
 }
 fn matches(pattern: &str, value: &str) -> Result<bool, WebError> {
-    Ok(crate::ruby::validation_regex(pattern)
+    Ok(crate::v2::validation_regex(pattern)
         .map_err(|_| WebError::Config("invalid account validation pattern".into()))?
         .is_match(value))
 }
@@ -100,7 +100,7 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
             }
             "update_time_zone"=>{
                 if let Some(value)=view.params.form("user[time_zone]"){
-                    let zone=if crate::ruby::blank(value){"UTC"}else{value};
+                    let zone=if crate::v2::blank(value){"UTC"}else{value};
                     if crate::web::timezone::zone(zone).is_none(){draft.errors.push("time_zone".into());}
                     else if zone!=current.time_zone {tx.execute("UPDATE users SET time_zone=?1,updated_at=?2 WHERE id=?3",(zone,&now,user.id))?;}
                 }
@@ -108,19 +108,19 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
             }
             "update_locale"=>{
                 if let Some(value)=view.params.form("user[locale]"){
-                    let locale=if crate::ruby::blank(value){None}else{Some(value)};
+                    let locale=if crate::v2::blank(value){None}else{Some(value)};
                     if locale.is_some_and(|v|crate::web::locale::known(v).is_none()){draft.errors.push("locale".into());}
                     else if locale!=current.locale.as_deref(){tx.execute("UPDATE users SET locale=?1,updated_at=?2 WHERE id=?3",(locale,&now,user.id))?;}
                 }
                 notice=Some("settings.language_and_timezone.language_updated");
             }
             "update_password"=>{
-                let password=view.params.form("user[password]").filter(|p|!crate::ruby::blank(p)).unwrap_or("");
+                let password=view.params.form("user[password]").filter(|p|!crate::v2::blank(p)).unwrap_or("");
                 if !password.is_empty(){
                     if password.chars().count()<8||password.chars().count()>128||!password_complexity(password){draft.errors.push("password".into());}
                     if view.params.form("user[password_confirmation]").is_some_and(|confirm|confirm!=password){draft.errors.push("password_confirmation".into());}
                 }
-                if password.is_empty()&&view.params.form("user[password_confirmation]").is_some_and(|p|!crate::ruby::blank(p)){draft.errors.push("password".into());draft.errors.push("password_confirmation".into());}
+                if password.is_empty()&&view.params.form("user[password_confirmation]").is_some_and(|p|!crate::v2::blank(p)){draft.errors.push("password".into());draft.errors.push("password_confirmation".into());}
                 if !correct{draft.errors.push("current_password".into());}
                 if draft.errors.is_empty()&&!password.is_empty(){
                     let encrypted=hash_password(password).map_err(|_|WebError::Config("password hashing failed".into()))?;
@@ -132,7 +132,7 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
             }
             "update_email"=>{
                 let email=match view.params.form("user[email]"){Some(email)=>email,None=>&current.email};
-                let email=crate::ruby::strip(email).to_lowercase();
+                let email=crate::v2::strip(email).to_lowercase();
                 draft.email=Some(email.clone());
                 if email.is_empty()||!matches(r"\A[^@\s]+@[^@\s]+\z",&email)?||!matches(r"(?m)^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$",&email)?{draft.errors.push("email".into());}
                 if !correct{draft.errors.push("current_password".into());}
@@ -168,14 +168,14 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
               },
               "password"=>{
                 let mut messages=vec![];let p=view.params.form("user[password]").unwrap_or("");
-                if crate::ruby::blank(p){i18n::text(view.locale,"errors.messages.blank",&[])}else{let n=p.chars().count();
+                if crate::v2::blank(p){i18n::text(view.locale,"errors.messages.blank",&[])}else{let n=p.chars().count();
                 if n<8{messages.push(i18n::text(view.locale,"errors.messages.too_short",&[("count",i18n::Arg::Count(8))]));}
                 if n>128{messages.push(i18n::text(view.locale,"errors.messages.too_long",&[("count",i18n::Arg::Count(128))]));}
                 let p=view.params.form("user[password]").unwrap_or("");
                 if !password_complexity(p){messages.push(i18n::text(view.locale,"errors.messages.too_simple_password",&[]));}
                 messages.join(", ")}
               },
-              "current_password"=>i18n::text(view.locale,if view.params.form("user[current_password]").is_none_or(crate::ruby::blank){"errors.messages.blank"}else{"errors.messages.invalid"},&[]),
+              "current_password"=>i18n::text(view.locale,if view.params.form("user[current_password]").is_none_or(crate::v2::blank){"errors.messages.blank"}else{"errors.messages.invalid"},&[]),
               _=>i18n::text(view.locale,"errors.messages.inclusion",&[])
             };
             let mut chars=message.chars();let capitalized=chars.next().map(|ch|ch.to_uppercase().collect::<String>()+chars.as_str()).unwrap_or_default();
@@ -304,7 +304,7 @@ pub fn confirmation_validation(c:&rusqlite::Connection,email:&str,id:i64)->Resul
         return Ok(Some("errors.messages.inclusion"));
     }
     let jurisdiction:Option<String>=c.query_row("SELECT wash_sale_jurisdiction FROM users WHERE id=?1",[id],|r|r.get(0))?;
-    if jurisdiction.as_deref().is_some_and(|v|!crate::ruby::blank(v)&&!["US","GB","IE"].contains(&v)){
+    if jurisdiction.as_deref().is_some_and(|v|!crate::v2::blank(v)&&!["US","GB","IE"].contains(&v)){
         return Ok(Some("errors.messages.inclusion"));
     }
     Ok(None)

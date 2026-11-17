@@ -9,7 +9,7 @@
 //! Every terminal state applied to a row with an HF record goes through `admit` (polling, recovery, `reconcile-order`).
 use super::model;
 use super::EngineError;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::{OrderState, OrderStatus};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};

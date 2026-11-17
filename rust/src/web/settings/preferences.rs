@@ -94,7 +94,7 @@ async fn display_currency(app: App, ctx: Ctx, headers: HeaderMap, user: User) ->
     let code = ctx
         .params
         .form("user[display_currency]")
-        .map(|value| if crate::ruby::blank(value) { "USD".to_string() } else { value.to_uppercase() });
+        .map(|value| if crate::v2::blank(value) { "USD".to_string() } else { value.to_uppercase() });
     let inner = app.clone();
     // The candidate is written inside the save, so its inclusion is judged where the model judges it.
     let errors = app
@@ -133,7 +133,7 @@ async fn hide_balances(app: App, ctx: Ctx, headers: HeaderMap, user: User) -> Re
     let request_id = headers
         .get("x-turbo-request-id")
         .and_then(|v| v.to_str().ok())
-        .filter(|id| !crate::ruby::blank(id))
+        .filter(|id| !crate::v2::blank(id))
         .map_or_else(String::new, |id| format!(" request-id=\"{}\"", escape(id)));
     app.hub.broadcast(
         &format!("user_{}:preferences", user.id),
@@ -221,7 +221,7 @@ async fn email_notifications(app: App, ctx: Ctx) -> Result<Response, WebError> {
             let config = |result: Result<(), String>| result.map_err(WebError::Config);
             let mut show_form = false;
             let provider = form("smtp_provider");
-            let blank = provider.as_deref().is_none_or(crate::ruby::blank);
+            let blank = provider.as_deref().is_none_or(crate::v2::blank);
             let notice = match provider.as_deref() {
                 _ if blank => {
                     config(crate::app_config::delete(&tx, "smtp_provider"))?;
@@ -235,7 +235,7 @@ async fn email_notifications(app: App, ctx: Ctx) -> Result<Response, WebError> {
                         }
                     };
                     let (username, password) = (kept("smtp_username")?, kept("smtp_password")?);
-                    let present = |value: &Option<String>| value.as_deref().is_some_and(|s| !crate::ruby::blank(s));
+                    let present = |value: &Option<String>| value.as_deref().is_some_and(|s| !crate::v2::blank(s));
                     if present(&username) && present(&password) {
                         config(crate::app_config::set(&tx, cipher, "smtp_provider", "custom_smtp", now))?;
                         for (key, value) in [

@@ -18,7 +18,7 @@ fn only_row(c: &Value) -> (&str, &str) {
 }
 
 #[test]
-fn every_plan_classifier_case_is_recorded_as_one_rails_row() {
+fn every_plan_classifier_case_is_recorded_as_one_v2_row() {
     let v = vectors();
     for name in ["gemini_http_500_system", "gemini_http_400_insufficient_funds", "binance_code_4026", "binance_code_4027", "binance_html_502",
                  "kraken_max_fee_exceeded", "kraken_internal_error", "mexc_code_10101", "mexc_code_500",

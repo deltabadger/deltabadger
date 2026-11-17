@@ -153,7 +153,7 @@ fn two_creates_racing_take_one_slot() {
 }
 
 #[test]
-fn status_and_download_read_the_files_in_rails_order() {
+fn status_and_download_read_the_files_in_v2_order() {
     let i = install();
     let app = app(&i);
     let status = |c: &Connection| deltabadger::tax::api::status(c, &app, i.user, &args(json!({"country": "US", "year": 2025}))).unwrap().data;
@@ -483,7 +483,7 @@ async fn the_pl_form_generates_with_its_carry_and_keeps_the_modal_on_a_refused_a
 /// (D-UPGRADE-RAILS-WORK-DROPPED); the leftover `pending_report` shows nothing in progress on the tracker page, and the
 /// API/MCP status says `none`: the user asks for the report again.
 #[tokio::test]
-async fn a_rails_report_job_dropped_at_takeover_leaves_nothing_in_progress() {
+async fn a_v2_report_job_dropped_at_takeover_leaves_nothing_in_progress() {
     let i = install();
     open(&i).execute("UPDATE users SET tracker_settings='{\"pending_report\":{\"country\":\"US\",\"year\":2025,\"report_scope\":\"crypto\"}}' WHERE id=?1", [i.user]).unwrap();
     let paths = deltabadger::store::Paths::from_env(&|_| None, i.d.path());
@@ -572,11 +572,11 @@ async fn a_broker_run_fetches_its_closes_then_publishes_the_report() {
     let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "DE", 2025, "broker")).unwrap();
     assert!(csv.contains("13,Sonstige Fonds,Vorabpauschale (vor Teilfreistellung),160.3\n"), "{csv}");
     let vectors: Value = serde_json::from_str(include_str!("fixtures/tax_vectors.json")).unwrap();
-    let rails = vectors["scenarios"].as_array().unwrap().iter().find(|s| s["name"] == "de_broker_fetched").unwrap()["rails"]["csv"].as_str().unwrap().to_string();
+    let v2 = vectors["scenarios"].as_array().unwrap().iter().find(|s| s["name"] == "de_broker_fetched").unwrap()["rails"]["csv"].as_str().unwrap().to_string();
     let before_notes = |csv: &str| csv.split("\n\nRECHTLICHE HINWEISE\n").next().unwrap().to_string();
     let named = before_notes(&csv).lines().filter(|l| !l.starts_with("WARNUNG:")).collect::<Vec<_>>().join("\n");
     let named = named.split("\n\nHINWEISE\n").next().unwrap().to_string();
-    assert_eq!(named, before_notes(&rails));
+    assert_eq!(named, before_notes(&v2));
     assert!(csv.contains("FNDX,\"Vorabpauschale 2024: Ausschüttungen des Fonds vor Ihrem ersten Kauf"), "{csv}");
 }
 

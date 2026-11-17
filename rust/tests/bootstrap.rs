@@ -264,7 +264,7 @@ fn refused_after(change: &str) -> String {
 }
 
 #[test]
-fn a_rails_history_other_than_the_frozen_one_is_refused() {
+fn a_v2_history_other_than_the_frozen_one_is_refused() {
     let said = refused_after("DELETE FROM schema_migrations WHERE version = (SELECT max(version) FROM schema_migrations)");
     assert!(said.contains("this data is behind this build"), "{said}");
 }
@@ -335,10 +335,10 @@ fn a_queue_with_anything_else_in_it_refuses_and_neither_file_is_written() {
 /// T4: Rust creates a queue only for a primary it is creating.
 #[test]
 fn an_install_with_its_queue_missing_is_still_missing() {
-    let rails = common::rails_install();
+    let v2 = common::v2_install();
     let rust = tempfile::tempdir().unwrap();
     run_until(rust.path(), "after-claim");
-    for (what, dir) in [("Rails-built", rails.path()), ("Rust-born", rust.path())] {
+    for (what, dir) in [("Rails-built", v2.path()), ("Rust-born", rust.path())] {
         for suffix in ["", "-wal", "-shm"] { let _ = std::fs::remove_file(dir.join(format!("{QUEUE}{suffix}"))); }
         let missing = deltabadger::store::check(&deltabadger::store::Paths::from_env(&|_| None, dir)).unwrap_err();
         assert!(matches!(&missing, deltabadger::store::StoreError::Missing { path } if path.ends_with(QUEUE)), "{what}: {missing:?}");

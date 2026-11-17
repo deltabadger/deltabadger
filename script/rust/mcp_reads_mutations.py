@@ -15,7 +15,7 @@ limits = 'rust/src/web/mcp/read_limits.rs'
 fill = 'rust/src/figures/fill.rs'
 contract = 'mcp_reads_contract'
 for tool in ['get_exchange_balances', 'list_open_orders', 'get_bot_details', 'get_portfolio_summary']:
-    add(tool + ' branch', reads, '"' + tool + '"=>', '"removed_' + tool + '"=>', 'mcp_reads', 'four_reads_match_rails', 'order row cap' if tool=='list_open_orders' else 'normalized $230/+15% required' if tool=='get_portfolio_summary' else 'm3_owner')
+    add(tool + ' branch', reads, '"' + tool + '"=>', '"removed_' + tool + '"=>', 'mcp_reads', 'four_reads_match_v2', 'order row cap' if tool=='list_open_orders' else 'normalized $230/+15% required' if tool=='get_portfolio_summary' else 'm3_owner')
     add(tool + ' permission', tools, '    let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;\n    Ok(if', '    if name=="' + tool + '" {return Ok(None)}\n    let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;\n    Ok(if', contract, 'every_read_is_hidden_until_granted_and_removed_when_disabled', 'called `Option::unwrap()` on a `None` value')
 add('row cap', limits, 'n<=limit', 'n<limit', contract, 'every_row_cap_accepts_the_boundary_and_refuses_the_next_row', 'at')
 add('stored string cap', limits, 'size>STRING', 'size>=STRING', contract, 'stored_strings_are_bounded_in_bytes_before_they_are_loaded', 'assertion')
@@ -32,8 +32,8 @@ add('fill positive quantity', fill, 'quantity.filter(|q|q.is_positive())', 'quan
 add('fill reported value priority', fill, 'raw.quote_amount_exec.as_ref().filter(|v|v.is_positive())', 'raw.price.as_ref().filter(|v|v.is_positive())', contract, 'fill_completeness_covers_every_quantity_value_column_combination', 'assertion')
 add('fill missing value refusal', fill, 'return Err(FiguresError::NotComputed("executed fill value unavailable".into()))', 'return Ok(None)', contract, 'fill_completeness_covers_every_quantity_value_column_combination', 'assertion')
 add('fill exact value multiplication', fill, '(price*quantity)?', '(price+quantity)?', contract, 'normalized_fill_multiplies_decimals_without_float_rounding', 'assertion')
-add('bot owner lookup', reads, 'b.id=?1 AND b.user_id=?2 AND b.status!=3', 'b.id=?1 AND ?2 IS NOT NULL AND b.status!=3', 'mcp_reads', 'four_reads_match_rails', 'm3_unknown_bot')
-add('open order deduplication', reads, 'if ids.contains(id){continue}', 'if false && ids.contains(id){continue}', 'mcp_reads', 'four_reads_match_rails', 'm3_deduplicate')
+add('bot owner lookup', reads, 'b.id=?1 AND b.user_id=?2 AND b.status!=3', 'b.id=?1 AND ?2 IS NOT NULL AND b.status!=3', 'mcp_reads', 'four_reads_match_v2', 'm3_unknown_bot')
+add('open order deduplication', reads, 'if ids.contains(id){continue}', 'if false && ids.contains(id){continue}', 'mcp_reads', 'four_reads_match_v2', 'm3_deduplicate')
 original = {path: path.read_text() for _, path, *_ in cases}
 evidence = pathlib.Path(os.environ['M4_EVIDENCE']) / 'm3-mutations'
 evidence.mkdir(exist_ok=True)

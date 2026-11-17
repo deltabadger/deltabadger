@@ -21,7 +21,7 @@
 use super::{Db, CHUNK};
 use crate::codec::format_time;
 use crate::crypto::Cipher;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use rusqlite::types::Value as Sql;
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension, Transaction, TransactionBehavior};
@@ -256,7 +256,7 @@ pub(crate) fn decimal(v: &Value) -> R<Option<String>> {
 fn supply(v: &Value) -> R<Option<String>> {
     if let Value::Number(n) = v {
         if !(n.is_i64() || n.is_u64()) {
-            let d = BigDec::parse(&crate::ruby::float_e(n.as_f64().unwrap_or(0.0))).map_err(|e| format!("{e:?}"))?;
+            let d = BigDec::parse(&crate::v2::float_e(n.as_f64().unwrap_or(0.0))).map_err(|e| format!("{e:?}"))?;
             return Ok(Some(d.round(8).round_sig(16).round(8).to_s_f()));
         }
     }

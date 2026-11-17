@@ -5,7 +5,7 @@
 use super::{action_params::ActionParams, action_view, draft::{Draft, FieldError}, page, signal, status, write::{self, Action, Failure, Outcome}, Bot, For, Kind};
 use crate::engine::{eligibility, model::{self, Level, SIGNAL_TYPE}};
 use crate::enums::BotStatus;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::web::bot_api::Shown;
 use crate::web::{auth, bots, flash, i18n::{self, Arg}, layout::{self, Ctx}, turbo, App, WebError};
 use axum::{extract::{Extension, Path, State}, http::{header, HeaderMap, StatusCode}, response::{IntoResponse, Response}};
@@ -40,7 +40,7 @@ fn head_ok() -> Response { (StatusCode::OK, [(header::CONTENT_TYPE, "text/vnd.tu
 pub(crate) fn sentence(errors: &[FieldError]) -> String {
     let mut fields: Vec<&str> = vec![];
     for e in errors { if !fields.contains(&e.field.as_str()) { fields.push(&e.field); } }
-    crate::ruby::to_sentence(&fields.iter().flat_map(|f| errors.iter().filter(move |e| e.field == *f).map(|e| e.message.clone())).collect::<Vec<_>>())
+    crate::v2::to_sentence(&fields.iter().flat_map(|f| errors.iter().filter(move |e| e.field == *f).map(|e| e.message.clone())).collect::<Vec<_>>())
 }
 
 /// An ActiveModel error's message, looked up as `errors.add(field, code)` looks it up for a Bots::Signal (a missing
@@ -670,11 +670,11 @@ fn lifecycle_write(c: &Connection, locale: &str, heard: &Ctx, bot: &Bot, action:
 pub fn insert_created(c: &Connection, owner: i64, exchange: i64, settings: &Value, label: Option<&str>, rules: &[NewRule], locale: &str, now: chrono::DateTime<chrono::Utc>) -> Result<i64, WebError> {
     let at = crate::codec::format_time(now);
     let base = settings.get("base_asset_id").and_then(Value::as_i64);
-    let label = match label.filter(|l| !crate::ruby::blank(l)) {
+    let label = match label.filter(|l| !crate::v2::blank(l)) {
         Some(label) => label.to_string(),
         None => {
             let name: Option<String> = c.query_row("SELECT name FROM assets WHERE id = ?1", [base], |r| r.get(0)).optional()?.flatten();
-            name.filter(|n| !crate::ruby::blank(n)).unwrap_or_else(|| i18n::text(locale, "bot.new", &[]))
+            name.filter(|n| !crate::v2::blank(n)).unwrap_or_else(|| i18n::text(locale, "bot.new", &[]))
         }
     };
     let position: i64 = c.query_row("SELECT COALESCE(MAX(position), 0) + 1 FROM bots WHERE user_id = ?1", [owner], |r| r.get(0))?;

@@ -148,11 +148,11 @@ pub async fn answer(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path
     let Some(user) = ctx.user().map(|user| user.id) else { return Ok(auth::unauthenticated(&ctx)) };
     let Some(id) = super::id_from_path(&segment) else { return Ok(layout::missing()) };
     if !app.db(move |c| owned(c, user, id)).await? { return Ok(layout::missing()); }
-    let Some(answer) = ctx.params.form("wash_sale[enabled]").filter(|s| !crate::ruby::blank(s)) else {
+    let Some(answer) = ctx.params.form("wash_sale[enabled]").filter(|s| !crate::v2::blank(s)) else {
         return tax::refuse(&ctx, i18n::text(ctx.locale, "settings.wash_sale.prompt_missing", &[]));
     };
     let enabled = !["0", "f", "F", "false", "FALSE", "off", "OFF"].contains(&answer);
-    let jurisdiction = ctx.params.form("wash_sale[jurisdiction]").filter(|s| !crate::ruby::blank(s)).map(str::to_string);
+    let jurisdiction = ctx.params.form("wash_sale[jurisdiction]").filter(|s| !crate::v2::blank(s)).map(str::to_string);
     let (jobs, inner) = (app.job_wakers()?, app.clone());
     match app.db(move |c| tax::record_decision(c, &inner, &jobs, user, enabled, jurisdiction)).await? {
         // `errors.full_messages.to_sentence`: the attribute's name with the inclusion message.

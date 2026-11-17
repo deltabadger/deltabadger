@@ -11,7 +11,7 @@ use deltabadger::engine::amount::{OrderPlan, Origin, TxKind};
 use deltabadger::engine::model::{self, credential_version_by_id};
 use deltabadger::engine::placement::{self, Begun, Recovery, Sent};
 use deltabadger::engine::{polling, FixedClock};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::http::ScriptedTransport;
 use deltabadger::venue::ibkr::{self, IBKR};
 use deltabadger::venue::ibkr_account;

@@ -33,7 +33,7 @@ def run(name, selection=None):
         code = subprocess.run(args, cwd=root, stdout=log, stderr=subprocess.STDOUT).returncode
     return code, (out / f'{name}.log').read_text()
 
-page = 'test(=early_index_pages_match_rails_and_every_get_keeps_all_rows)'
+page = 'test(=early_index_pages_match_v2_and_every_get_keeps_all_rows)'
 mutants = [
     ('currency_case', 'totals', 'code.to_uppercase()', 'code.to_string()', 'binary(=tracker_index_currency)'),
     ('currency_blank', 'totals', 'code.trim().is_empty()', 'code.is_empty()', 'binary(=tracker_index_currency)'),
@@ -50,7 +50,7 @@ mutants = [
     ('scope_bounds', 'index', 'ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty())', 'ctx.params.query("exchange_id").filter(|_|false)', page),
     ('date_deferral', 'index', 'if ["from","to"].iter().any(|key|ctx.params.query(key).is_some_and(|v|!v.trim().is_empty()))', 'if false && ["from","to"].iter().any(|key|ctx.params.query(key).is_some_and(|v|!v.trim().is_empty()))', page),
     ('date_last_value', 'index', '["from","to"].iter().any(|key|ctx.params.query(key).is_some_and(|v|!v.trim().is_empty()))', 'ctx.params.query.iter().any(|(k,v)| (k=="from" || k=="to") && !v.trim().is_empty())', 'test(=repeated_scalar_dates_use_the_last_value)'),
-    ('shell_before_frame', 'index', '    if ctx.turbo_frame.is_some() {return layout::frame(&ctx.csrf_token(),&page);}\n    let shell=Shell::load(c,&ctx.app,user)?;', '    let shell=Shell::load(c,&ctx.app,user)?;\n    if ctx.turbo_frame.is_some() {return layout::frame(&ctx.csrf_token(),&page);}', 'test(=turbo_frame_skips_unreadable_navbar_but_full_layout_keeps_rails_error)'),
+    ('shell_before_frame', 'index', '    if ctx.turbo_frame.is_some() {return layout::frame(&ctx.csrf_token(),&page);}\n    let shell=Shell::load(c,&ctx.app,user)?;', '    let shell=Shell::load(c,&ctx.app,user)?;\n    if ctx.turbo_frame.is_some() {return layout::frame(&ctx.csrf_token(),&page);}', 'test(=turbo_frame_skips_unreadable_navbar_but_full_layout_keeps_v2_error)'),
     ('missing_presentation', 'template', '{% if missing %}', '{% if false %}', page),
 ]
 try:

@@ -266,7 +266,7 @@ impl ResetTokens {
     /// TokenGenerator#digest: `None` for a blank token (Devise digests it to `false`, which matches no row).
     pub fn digest(&self, raw: &str) -> Option<String> {
         use hmac::Mac;
-        if crate::ruby::blank(raw) { return None }
+        if crate::v2::blank(raw) { return None }
         let mut mac = <hmac::Hmac<Sha256> as Mac>::new_from_slice(&self.key).expect("HMAC takes any key length");
         mac.update(raw.as_bytes());
         Some(hex::encode(mac.finalize().into_bytes()))

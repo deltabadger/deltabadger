@@ -7,7 +7,7 @@ use deltabadger::engine::model::{self, PriceRule};
 use deltabadger::engine::tick::PriceCache;
 use deltabadger::engine::{accounting, Clock, EngineError, FixedClock};
 use deltabadger::enums::BotStatus;
-use deltabadger::ruby::{BigDec, Num};
+use deltabadger::v2::{BigDec, Num};
 use deltabadger::venue::fake::FakeVenue;
 use serde_json::{json, Value};
 
@@ -17,7 +17,7 @@ fn num(v: &Value) -> Num {
 }
 
 #[test]
-fn every_recorded_rails_price_comparison_is_reproduced() {
+fn every_recorded_v2_price_comparison_is_reproduced() {
     let fixture: Value = serde_json::from_str(include_str!("fixtures/condition_vectors.json")).unwrap();
     let cases = fixture["cases"].as_array().unwrap();
     assert_eq!(cases.len(), 1200);

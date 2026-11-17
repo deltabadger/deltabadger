@@ -10,7 +10,7 @@ use deltabadger::engine::signal::{self, Step};
 use deltabadger::engine::tick::{PriceCache, TickContext};
 use deltabadger::engine::venue_rules::AmountLogic;
 use deltabadger::engine::{accounting, model, placement, FixedClock};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::fake::{FakeVenue, AddOutcome};
 use deltabadger::web;
 use rusqlite::{params, Connection};
@@ -253,7 +253,7 @@ async fn a_binding_cap_clamps_the_buy_to_the_remainder() {
 
 /// A cap that does not bind leaves Rails' own below-minimum skip: the skipped row and its line.
 #[tokio::test(flavor = "current_thread", start_paused = true)]
-async fn under_the_minimum_without_a_binding_cap_is_rails_skipped_row() {
+async fn under_the_minimum_without_a_binding_cap_is_v2_skipped_row() {
     let (settings, transient) = capped(json!(1000));
     let s = sig("1", settings, transient);
     let v = priced();
@@ -368,30 +368,30 @@ enum Gate { Pass, Held, Failed }
 /// status and check jobs are not compared (a signal bot has none of them).
 #[cfg(unix)] // the Rails grid recorder (common::decisions) is Unix-only, as in parity.rs
 #[tokio::test(flavor = "current_thread")]
-async fn signal_cells_decide_as_the_rails_basket_twins_gate() {
+async fn signal_cells_decide_as_the_v2_basket_twins_gate() {
     const CASES: [&str; 15] = ["below_met", "below_unmet", "below_at_limit", "above_met", "above_unmet", "between_reversed_met", "between_unmet",
         "after_stored", "after_unmet", "after_met", "while_stored_met", "while_stored_unmet", "missing_ticker", "server_error", "rejected_key"];
     let built = tempfile::tempdir().unwrap();
     common::decisions::built_grid("grid-conditions", built.path());
-    let rails_root = tempfile::tempdir().unwrap();
+    let v2_root = tempfile::tempdir().unwrap();
     let mut names = vec![];
     for side in ["buy", "sell"] {
         for case in CASES {
             let name = format!("cond-kraken-{side}-{case}");
-            common::decisions::copy_dir(&built.path().join(&name), &rails_root.path().join(&name));
+            common::decisions::copy_dir(&built.path().join(&name), &v2_root.path().join(&name));
             names.push((name, side));
         }
     }
     let rust_root = tempfile::tempdir().unwrap();
-    for (name, _) in &names { common::decisions::copy_dir(&rails_root.path().join(name), &rust_root.path().join(name)); }
-    common::decisions::rails(&["record", rails_root.path().to_str().unwrap()]);
+    for (name, _) in &names { common::decisions::copy_dir(&v2_root.path().join(name), &rust_root.path().join(name)); }
+    common::decisions::v2(&["record", v2_root.path().to_str().unwrap()]);
     let mut failures = vec![];
     for (name, side) in &names {
-        let rails: Value = serde_json::from_str(&std::fs::read_to_string(rails_root.path().join(name).join("rails.json")).unwrap()).unwrap();
-        let (rails_met, rails_gate) = rails_cell(&rails, side);
+        let v2: Value = serde_json::from_str(&std::fs::read_to_string(v2_root.path().join(name).join("rails.json")).unwrap()).unwrap();
+        let (v2_met, v2_gate) = v2_cell(&v2, side);
         let (rust_met, rust_gate) = signal_cell(&rust_root.path().join(name), side).await;
-        if (&rails_met, &rails_gate) != (&rust_met, &rust_gate) {
-            failures.push(format!("{name}: Rails basket met_at {rails_met:?} gate {rails_gate:?}; signal met_at {rust_met:?} gate {rust_gate:?}"));
+        if (&v2_met, &v2_gate) != (&rust_met, &rust_gate) {
+            failures.push(format!("{name}: Rails basket met_at {v2_met:?} gate {v2_gate:?}; signal met_at {rust_met:?} gate {rust_gate:?}"));
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
@@ -409,12 +409,12 @@ fn met_write(before: Option<&Value>, after: Option<&Value>) -> &'static str {
 }
 
 #[cfg(unix)]
-fn rails_cell(rails: &Value, side: &str) -> (&'static str, Gate) {
+fn v2_cell(v2: &Value, side: &str) -> (&'static str, Gate) {
     let key = if side == "sell" { "sell_price_limit_condition_met_at" } else { "price_limit_condition_met_at" };
-    let bot = rails["changes"]["bots"].as_array().unwrap().iter().find(|b| b["id"] == json!(1));
+    let bot = v2["changes"]["bots"].as_array().unwrap().iter().find(|b| b["id"] == json!(1));
     let met = bot.map_or("kept", |b| met_write(b["before"]["transient_data"].get(key), b["after"]["transient_data"].get(key)));
-    let gate = if !rails["sent"].as_array().unwrap().is_empty() { Gate::Pass }
-        else if !rails["checks"].as_array().unwrap().is_empty() { Gate::Held } else { Gate::Failed };
+    let gate = if !v2["sent"].as_array().unwrap().is_empty() { Gate::Pass }
+        else if !v2["checks"].as_array().unwrap().is_empty() { Gate::Held } else { Gate::Failed };
     (met, gate)
 }
 

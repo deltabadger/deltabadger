@@ -174,7 +174,7 @@ mod tests {
     fn d(s: &str) -> NaiveDate { NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap() }
 
     #[test]
-    fn the_registry_is_rails_order_and_the_ported_set_is_fifo_without_a_summary() {
+    fn the_registry_is_v2_order_and_the_ported_set_is_fifo_without_a_summary() {
         assert_eq!(REGISTRY.map(|j| j.code), crate::web::tracker::modal::COUNTRIES);
         for c in PORTED { let j = find(c).unwrap(); assert!(["fifo", "lifo", "fifo_4week", "weighted_average", "share_pooling", "pvct", "wealth_snapshot"].contains(&j.method), "{c}"); }
         let bg = find("BG").unwrap();

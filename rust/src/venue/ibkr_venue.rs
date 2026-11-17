@@ -37,7 +37,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PlacementHold, PriceSi
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::VenueRules;
 use crate::engine::Clock;
-use crate::ruby::{json_to_d, BigDec};
+use crate::v2::{json_to_d, BigDec};
 use chrono::{DateTime, TimeDelta, Utc};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -364,7 +364,7 @@ fn as_i64(v: &Value) -> Option<i64> { v.as_i64().or_else(|| v.as_str().and_then(
 /// D-IBKR-PRICE over a snapshot answer for `conid`'s `field`, at `now`.
 fn usable_price(answer: &Value, conid: i64, field: &str, now: DateTime<Utc>) -> Result<BigDec, String> {
     let row = first_row(answer).ok_or("no snapshot row")?;
-    if row.get("conid").and_then(as_i64) != Some(conid) { return Err(format!("the answer is for conid {}", row.get("conid").map(crate::ruby::raw).unwrap_or_default())) }
+    if row.get("conid").and_then(as_i64) != Some(conid) { return Err(format!("the answer is for conid {}", row.get("conid").map(crate::v2::raw).unwrap_or_default())) }
     let value = match row.get(field).map(json_to_d) {
         Some(Ok(Some(v))) if v.is_positive() => v,
         Some(Ok(Some(_))) => return Err(format!("field {field} is not positive")),
@@ -386,7 +386,7 @@ fn parse_rules(answer: &Value) -> Result<ContractRules, String> {
     };
     match rules.get("priceMagnifier").or_else(|| answer.get("priceMagnifier")).map(json_to_d) {
         Some(Ok(Some(m))) if m == BigDec::one() => {}
-        Some(Ok(Some(_))) => return Err(format!("price magnifier {} is not supported", crate::ruby::raw(rules.get("priceMagnifier").or_else(|| answer.get("priceMagnifier")).unwrap_or(&Value::Null)))),
+        Some(Ok(Some(_))) => return Err(format!("price magnifier {} is not supported", crate::v2::raw(rules.get("priceMagnifier").or_else(|| answer.get("priceMagnifier")).unwrap_or(&Value::Null)))),
         _ => return Err("no price magnifier stated".into()),
     }
     let size_increment = positive(rules.get("sizeIncrement"), "sizeIncrement")?;
@@ -580,7 +580,7 @@ mod tests {
     }
 
     #[test]
-    fn the_status_map_is_rails_but_a_pending_cancel_is_open() {
+    fn the_status_map_is_v2_but_a_pending_cancel_is_open() {
         for (s, want) in [("Filled", OrderStatus::Closed), ("Cancelled", OrderStatus::Cancelled), ("PendingCancel", OrderStatus::Open), ("Inactive", OrderStatus::Cancelled),
                           ("Submitted", OrderStatus::Open), ("PreSubmitted", OrderStatus::Open), ("PendingSubmit", OrderStatus::Open), ("Rejected", OrderStatus::Failed),
                           ("ApiPending", OrderStatus::Unknown), ("", OrderStatus::Unknown)] { assert_eq!(status(s), want, "{s}"); }

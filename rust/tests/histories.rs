@@ -1,6 +1,6 @@
 mod common;
 use common::seed::{self, BotSpec};
-use deltabadger::{engine::{amount, basket, model}, ruby::BigDec};
+use deltabadger::{engine::{amount, basket, model}, v2::BigDec};
 use chrono::{DateTime, Duration, Utc};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;

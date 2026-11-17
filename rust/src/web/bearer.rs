@@ -74,7 +74,7 @@ pub struct Bearer {
 }
 
 /// Ruby's `\s`: space, tab, line feed, vertical tab, form feed, carriage return.
-fn ruby_space(c: char) -> bool {
+fn v2_space(c: char) -> bool {
     matches!(c, ' ' | '\t' | '\n' | '\x0B' | '\x0C' | '\r')
 }
 
@@ -84,11 +84,11 @@ fn ruby_space(c: char) -> bool {
 pub fn bearer_token(header: Option<&str>) -> Option<&str> {
     let header = header?;
     let rest = header.get(..6).filter(|scheme| scheme.eq_ignore_ascii_case("bearer")).map(|_| &header[6..])?;
-    if !rest.starts_with(ruby_space) || header.contains(['\n', '\r']) {
+    if !rest.starts_with(v2_space) || header.contains(['\n', '\r']) {
         return None;
     }
     // String#strip also removes NUL at the end.
-    Some(rest.trim_matches(|c: char| ruby_space(c) || c == '\0')).filter(|token| !token.is_empty())
+    Some(rest.trim_matches(|c: char| v2_space(c) || c == '\0')).filter(|token| !token.is_empty())
 }
 
 fn find(c: &Connection, header: Option<&str>) -> Result<Result<AccessToken, Refusal>, WebError> {

@@ -137,7 +137,7 @@ async fn control_transcripts() {
         // the exact request, then compare every other primary column and JSON key.
         let name=dir.file_name().unwrap().to_string_lossy();
         let mut requests=0;
-        for (row,rails) in got["rows"]["bots"].as_array_mut().unwrap().iter_mut().zip(want["rows"]["bots"].as_array().unwrap()) {
+        for (row,v2) in got["rows"]["bots"].as_array_mut().unwrap().iter_mut().zip(want["rows"]["bots"].as_array().unwrap()) {
             // Plan CI T3b: the composition resync Rails enqueues (Bots::DcaIndex#start, #resync_index_composition) is the
             // engine's marker on the row; tests/web_actions.rs and tests/index_resync.rs pin when it is written.
             if let Some(marker)=row["transient_data"].as_object_mut().unwrap().shift_remove("rust_index_resync") {
@@ -147,12 +147,12 @@ async fn control_transcripts() {
             if let Some(request)=row["transient_data"].as_object_mut().unwrap().shift_remove("rust_continue_start") {
                 requests+=1;
                 assert_eq!(request,json!({"requested_at":AT,"was_stopped":name!="start_continue_created"}));
-                assert_eq!(rails["status"],1);
+                assert_eq!(v2["status"],1);
             }
         }
         if name.ends_with("schedule_bounds") {
-            let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert!(rails["result"]["content"][0]["text"].as_str().unwrap().contains(if name.starts_with("settings_") {"settings updated:"} else {"started successfully."}));
+            let v2:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
+            assert!(v2["result"]["content"][0]["text"].as_str().unwrap().contains(if name.starts_with("settings_") {"settings updated:"} else {"started successfully."}));
             let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
             let expected=if name.starts_with("settings_") {"Failed to update bot: Quote amount The invested amount must be greater than 0"} else {"Failed to start bot 'Control': Quote amount The invested amount must be greater than 0"};
             assert_eq!(response["result"]["content"][0]["text"],expected);
@@ -185,8 +185,8 @@ async fn control_transcripts() {
         }
         // D-API-CREATE-REFUSED: a bot Rails makes and starts that this build's engine does not run is refused, nothing written.
         if name.starts_with("create_refused_") {
-            let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert!(rails["result"]["content"][0]["text"].as_str().unwrap().contains("created and started"),"Rails creates {name}");
+            let v2:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
+            assert!(v2["result"]["content"][0]["text"].as_str().unwrap().contains("created and started"),"Rails creates {name}");
             let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
             let text=response["result"]["content"][0]["text"].as_str().unwrap();
             assert!(text.starts_with("This app can't run that yet:") && response["result"]["isError"]==true,"{name}: {text}");
@@ -197,9 +197,9 @@ async fn control_transcripts() {
         }
         if name.starts_with("paper_refused_") {
             // ApplicationMCPTool: paper trading refuses start_bot before lookup, validation or any write.
-            let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert_eq!(rails["result"]["content"][0]["text"],"[DRY RUN] Paper trading is on, so nothing was created or started: 'start_bot' would leave a bot or rule running that moves real money. Turn Paper Trading off in Settings > MCP to use it.","{name}");
-            assert_eq!(rails["result"]["isError"],true,"{name}");
+            let v2:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
+            assert_eq!(v2["result"]["content"][0]["text"],"[DRY RUN] Paper trading is on, so nothing was created or started: 'start_bot' would leave a bot or rule running that moves real money. Turn Paper Trading off in Settings > MCP to use it.","{name}");
+            assert_eq!(v2["result"]["isError"],true,"{name}");
         }
         if name.starts_with("start_bot_r1_key_") {
             // #507 rejects missing/pending/incorrect keys in production validation, before arming a tick.
@@ -212,8 +212,8 @@ async fn control_transcripts() {
             // Fall through to the full transcript/row comparison: no normalization or divergence.
         }
         if name=="settings_r2_unicode_symbol" {
-            let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert_eq!(rails["result"]["content"][0]["text"],"Bot 'Control' settings updated: allocations.","R2 Unicode Rails accepts");
+            let v2:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
+            assert_eq!(v2["result"]["content"][0]["text"],"Bot 'Control' settings updated: allocations.","R2 Unicode Rails accepts");
             assert_eq!(want["rows"]["bots"][0]["settings"]["allocations"],json!({"16":0.7,"17":0.3}));
             let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
             assert_eq!(response["result"]["content"][0]["text"],"ſOL is not in this basket; add it with add_asset_id first.","R2 Unicode ASCII-only refusal");
@@ -228,8 +228,8 @@ async fn control_transcripts() {
             continue; // BUILD.md explicitly keeps ASCII lookup; no parity normalization.
         }
         if name.starts_with("settings_r2_negative_carry_") || name=="start_bot_r2_negative_carry" {
-            let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert!(rails["result"]["content"][0]["text"].as_str().unwrap().contains(if name.starts_with("settings_") {"settings updated:"} else {"started successfully."}),"R2 carry Rails accepts {name}");
+            let v2:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
+            assert!(v2["result"]["content"][0]["text"].as_str().unwrap().contains(if name.starts_with("settings_") {"settings updated:"} else {"started successfully."}),"R2 carry Rails accepts {name}");
             if let Ok(path)=std::env::var("M4_EVIDENCE") {
                 std::fs::write(std::path::Path::new(&path).join(format!("{name}.json")),serde_json::to_vec_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();
             }
@@ -276,8 +276,8 @@ async fn control_transcripts() {
                 assert_eq!(derived,name!="settings_form_case_market_cap_off","{name}: {}",want["rows"]["bot_index_assets"]);
             }
             if rebalancing {
-                let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-                assert!(rails["result"]["content"][0]["text"].as_str().unwrap().contains("settings updated:"),"Rails saves {name}");
+                let v2:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
+                assert!(v2["result"]["content"][0]["text"].as_str().unwrap().contains("settings updated:"),"Rails saves {name}");
                 let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
                 let text=response["result"]["content"][0]["text"].as_str().unwrap();
                 assert!(text.starts_with("This app can't run that yet:") && text.contains("has work only the full app handles (rebalancing)"),"{name}: {text}");
@@ -451,7 +451,7 @@ fn changes(before:&Value,after:&Value)->Value {
     json!(changes)
 }
 #[tokio::test(flavor="current_thread")]
-async fn real_rails_ticks_and_mcp_tools_race_on_identical_files() {
+async fn real_v2_ticks_and_mcp_tools_race_on_identical_files() {
     use deltabadger::{crypto::{Cipher,EncryptionKeys},engine::{model,tick,provider},venue::alpaca::{AlpacaVenue,Urls}};
     use std::rc::Rc;
     // Rails' races, frozen (common::frozen); every Rust leg works on its own copy.
@@ -461,7 +461,7 @@ async fn real_rails_ticks_and_mcp_tools_race_on_identical_files() {
     // mcp_control_races.rb records the six lifecycle/settings controls. Liquidation's and redeploy's request/clear races
     // and their real MCP entry points are exercised in liquidation.rs, liquidation_web.rs and redeploy_web.rs.
     for name in deltabadger::web::mcp::control::NAMES.into_iter().filter(|n|!["liquidate_exited_asset","answer_redeploy_offer"].contains(n)) {
-        let dir=output.join(name);let rails=read(dir.join("race.json"));
+        let dir=output.join(name);let v2=read(dir.join("race.json"));
         let rust=tempfile::tempdir().unwrap();
         copy_install(&dir,rust.path());
         std::fs::copy(dir.join("before.sqlite3"),rust.path().join("production.sqlite3")).unwrap();
@@ -481,38 +481,38 @@ async fn real_rails_ticks_and_mcp_tools_race_on_identical_files() {
         let before=snapshot(rust.path());
         let step=read(dir.join("tool.json"));
         let got=play(rust.path(),&[step],Some(init["session"].as_str().unwrap().to_owned())).await;
-        assert_eq!(got["responses"][0]["status"],rails["response"]["status"],"{name}");
-        assert_eq!(got["responses"][0]["body"],rails["response"]["body"],"{name}: byte-equal racing response");
-        assert_eq!(changes(&before,&got["rows"]),changes(&rails["before_tool"],&rails["at_tool"]),"{name}: exact tool write delta");
+        assert_eq!(got["responses"][0]["status"],v2["response"]["status"],"{name}");
+        assert_eq!(got["responses"][0]["body"],v2["response"]["body"],"{name}: byte-equal racing response");
+        assert_eq!(changes(&before,&got["rows"]),changes(&v2["before_tool"],&v2["at_tool"]),"{name}: exact tool write delta");
         script.release.notify_one();
         tokio::time::timeout(std::time::Duration::from_secs(20),&mut future).await.unwrap().unwrap();
         let safety=["stop_bot","archive_bot","delete_bot"].contains(&name);
-        assert_eq!(rails["sent"].as_array().unwrap().len(),if safety {0} else {2},"{name}: Rails placement fence");
+        assert_eq!(v2["sent"].as_array().unwrap().len(),if safety {0} else {2},"{name}: Rails placement fence");
         assert_eq!(script.sent.borrow().len(),if safety {0} else {2},"{name}: placement fence");
         let state=model::load_bot(&c,1).unwrap();
-        assert_eq!(state.status as i64,rails["final"]["bots"][0]["status"].as_i64().unwrap(),"{name}: never resurrected");
+        assert_eq!(state.status as i64,v2["final"]["bots"][0]["status"].as_i64().unwrap(),"{name}: never resurrected");
         if !safety {
-            for (got,want) in script.sent.borrow().iter().zip(rails["sent"].as_array().unwrap()) {
+            for (got,want) in script.sent.borrow().iter().zip(v2["sent"].as_array().unwrap()) {
                 assert_eq!(got["symbol"],want["symbol"]);
-                let amount=|v:&Value|{let text=v.as_str().map(str::to_owned).unwrap_or_else(||v.to_string());deltabadger::ruby::BigDec::parse(&text).unwrap()};
+                let amount=|v:&Value|{let text=v.as_str().map(str::to_owned).unwrap_or_else(||v.to_string());deltabadger::v2::BigDec::parse(&text).unwrap()};
                 assert_eq!(amount(&got["notional"]),amount(&want["notional"]),"{name}: exact scripted contribution");
             }
         }
     }
     // Fresh MCP start: complete HTTP and row parity, actual immediate scheduler,
     // exact first contribution, no second contribution at the same clock.
-    let dir=output.join("fresh_start");let rails=read(dir.join("fresh.json"));
-    assert_eq!(rails["job_at"],Value::Null);
+    let dir=output.join("fresh_start");let v2=read(dir.join("fresh.json"));
+    assert_eq!(v2["job_at"],Value::Null);
     let rust=tempfile::tempdir().unwrap();copy_install(&dir,rust.path());
     std::fs::copy(dir.join("before.sqlite3"),rust.path().join("production.sqlite3")).unwrap();
     let steps=read(dir.join("steps.json"));
     let got=play(rust.path(),steps.as_array().unwrap(),None).await;
-    assert_eq!(comparable(got),comparable(rails["tool"].clone()),"fresh start: all HTTP bytes and columns");
+    assert_eq!(comparable(got),comparable(v2["tool"].clone()),"fresh start: all HTTP bytes and columns");
     let c=rusqlite::Connection::open(rust.path().join("production.sqlite3")).unwrap();
     let secret=std::fs::read_to_string(rust.path().join("secret_key_base")).unwrap();
     let cipher=Cipher::new(&EncryptionKeys::resolve(&|_|None,&secret).unwrap());provider::bind(&c,&cipher,&|_|None).unwrap();
     let mut polls=serde_json::Map::new();
-    for (i,order) in rails["sent"].as_array().unwrap().iter().enumerate() {
+    for (i,order) in v2["sent"].as_array().unwrap().iter().enumerate() {
         polls.insert(format!("GET /v2/orders/OTX-{}",i+1),json!([common::scripted::ok(json!({"id":format!("OTX-{}",i+1),"status":"new","symbol":order["symbol"],"type":"market","side":"buy","notional":order["notional"],"qty":null,"filled_qty":"0","filled_avg_price":null,"limit_price":null}))]));
     }
     let script=PriceBarrier{transport:common::scripted::script(json!(polls)),entered:Rc::new(tokio::sync::Notify::new()),release:Rc::new(tokio::sync::Notify::new()),held:Rc::new(std::cell::Cell::new(true)),sent:Rc::new(std::cell::RefCell::new(vec![]))};
@@ -523,9 +523,9 @@ async fn real_rails_ticks_and_mcp_tools_race_on_identical_files() {
     let mut engine=deltabadger::engine::run::Engine::new(c,script.clone(),cipher,lock);
     deltabadger::engine::run::step(&mut engine,&*clock).await.unwrap();
     assert_eq!(script.sent.borrow().len(),2,"fresh start immediately buys both legs");
-    for (got,want) in script.sent.borrow().iter().zip(rails["sent"].as_array().unwrap()) {
+    for (got,want) in script.sent.borrow().iter().zip(v2["sent"].as_array().unwrap()) {
         assert_eq!(got["symbol"],want["symbol"]);
-        let amount=|value:&Value|deltabadger::ruby::BigDec::parse(&value.as_str().map(str::to_owned).unwrap_or_else(||value.to_string())).unwrap();
+        let amount=|value:&Value|deltabadger::v2::BigDec::parse(&value.as_str().map(str::to_owned).unwrap_or_else(||value.to_string())).unwrap();
         assert_eq!(amount(&got["notional"]),amount(&want["notional"]),"fresh start exact contribution");
     }
     deltabadger::engine::run::step(&mut engine,&*clock).await.unwrap();

@@ -33,7 +33,7 @@ fn seed_case(c: &Connection, s: &seed::Seeded, case: &Value) -> (i64, BTreeMap<S
         let f = |i: usize| b[i].as_str().unwrap().to_string();
         let (base, at, amount, price) = (f(0), f(1), f(2), f(3));
         let symbol: String = c.query_row("SELECT symbol FROM assets WHERE id = ?1", [assets[&base]], |r| r.get(0)).unwrap();
-        let quote = (&deltabadger::ruby::BigDec::parse(&amount).unwrap() * &deltabadger::ruby::BigDec::parse(&price).unwrap()).to_s_f();
+        let quote = (&deltabadger::v2::BigDec::parse(&amount).unwrap() * &deltabadger::v2::BigDec::parse(&price).unwrap()).to_s_f();
         c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, price, \
                    amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, \
                    error_messages, created_at, updated_at) \
@@ -52,7 +52,7 @@ fn seed_case(c: &Connection, s: &seed::Seeded, case: &Value) -> (i64, BTreeMap<S
 }
 
 #[test]
-fn every_recorded_rails_split_walk_is_reproduced() {
+fn every_recorded_v2_split_walk_is_reproduced() {
     let cases = common::vectors()["split_walks"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 19);
     for case in cases {
@@ -75,7 +75,7 @@ fn every_recorded_rails_split_walk_is_reproduced() {
 
 #[test]
 fn plausible_but_wrong_split_ratios_fail_the_position_backstop() {
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     let d = |s| BigDec::parse(s).unwrap();
     // S3/S5 and S8 pass the row rules. S7b is only slightly wrong and must not use a relative tolerance.
     for (ratio, delta, first, before, actual) in [
@@ -95,7 +95,7 @@ fn plausible_but_wrong_split_ratios_fail_the_position_backstop() {
 
 #[tokio::test(flavor="current_thread")]
 async fn a_wrong_split_stands_down_then_correct_rows_clear_without_any_order() {
-    use deltabadger::{venue::{alpaca::{AlpacaVenue,Urls},http::ScriptedTransport}, ruby::BigDec};
+    use deltabadger::{venue::{alpaca::{AlpacaVenue,Urls},http::ScriptedTransport}, v2::BigDec};
     use serde_json::json;
     let (_dir,o,s)=common::install_alpaca();
     let (asset,_)=seed::add_alpaca_stock(&o.primary,&s,"KLAC");
@@ -129,7 +129,7 @@ async fn a_wrong_split_stands_down_then_correct_rows_clear_without_any_order() {
 
 #[test]
 fn long_split_walks_refuse_both_numeric_growth_and_cumulative_work() {
-    use deltabadger::{ruby::BigDec,figures::budget};
+    use deltabadger::{v2::BigDec,figures::budget};
     let (_d,o,s)=common::install_alpaca();
     let case=serde_json::json!({"assets":[{"base":"AAA","symbol":"AAA"}],"allocations":["AAA"],"buys":[["AAA","2026-01-01 00:00:00","1","100"]],"splits":[]});
     let (id,assets)=seed_case(&o.primary,&s,&case);
@@ -184,7 +184,7 @@ fn an_archived_account_history_exhausts_one_budget_and_visibly_stands_down() {
 /// restated by name.
 #[test]
 fn a_split_of_a_security_never_restates_the_coin_that_shares_its_ticker() {
-    use deltabadger::figures::{at::At, budget, db::Order, fill::Raw, splits::{self as rails, Holding}};
+    use deltabadger::figures::{at::At, budget, db::Order, fill::Raw, splits::{self as v2, Holding}};
     let now = At::from_sql("2026-10-01 00:00:00").unwrap();
     // (holding the coin?, the split row records the security?, the account also bought the security?) → (factors, unresolved)
     for (coin_held, recorded, both_classes, factors, unresolved) in [
@@ -214,9 +214,9 @@ fn a_split_of_a_security_never_restates_the_coin_that_shares_its_ticker() {
                               base: Some("BTC".into()), asset_id: Some(held), sell: false, buy: true, closed: true, kind: "REGULAR".into(), abandoned_request: None }];
         let holdings = [Holding { key: "BTC".into(), asset_id: Some(held), strings: vec!["BTC".into()] }];
         let case = (coin_held, recorded, both_classes);
-        let events = budget::within(|| rails::events(c, s.user_id, &orders, &holdings, now)).unwrap();
+        let events = budget::within(|| v2::events(c, s.user_id, &orders, &holdings, now)).unwrap();
         assert_eq!(events.iter().map(|e| e.factor.to_s_f()).collect::<Vec<_>>(), factors, "{case:?}");
-        assert_eq!(budget::within(|| rails::unresolved(c, s.user_id, &orders, &holdings, now)).unwrap(), unresolved, "{case:?}");
+        assert_eq!(budget::within(|| v2::unresolved(c, s.user_id, &orders, &holdings, now)).unwrap(), unresolved, "{case:?}");
     }
 }
 
@@ -239,7 +239,7 @@ fn same_day_events(c: &Connection, s: &seed::Seeded, identity: &str, conflict: b
 
 #[test]
 fn distinct_same_day_events_compose_bot_figures() {
-    use deltabadger::{figures::{at::At, budget, db, splits as figures}, ruby::BigDec};
+    use deltabadger::{figures::{at::At, budget, db, splits as figures}, v2::BigDec};
     for identity in ["corporate_action_id", "group_id"] {
         for reverse in [false, true] {
             let (_dir, o, s) = common::install_alpaca();
@@ -290,7 +290,7 @@ async fn conflicting_reports_of_one_event_remain_refused() {
 
 #[test]
 fn distinct_events_multiply_equal_ratios_and_require_each_factor() {
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     let (_dir, o, s) = common::install_alpaca();
     let (bot, asset) = same_day_events(&o.primary, &s, "corporate_action_id", false, false);
     let now = "2026-09-10T14:00:00Z".parse().unwrap();
@@ -308,7 +308,7 @@ fn distinct_events_multiply_equal_ratios_and_require_each_factor() {
 /// the restated basis is no loss.
 #[test]
 fn the_wash_sale_verdict_reads_a_coins_lots_whole_and_a_stocks_lots_restated() {
-    use deltabadger::{engine::wash, ruby::BigDec};
+    use deltabadger::{engine::wash, v2::BigDec};
     let now: DateTime<Utc> = "2026-09-10T00:00:00Z".parse().unwrap();
     let dec = |s: &str| BigDec::parse(s).unwrap();
     let buy = |c: &Connection, s: &seed::Seeded, bot: i64, asset: i64, base: &str, amount: &str, price: &str, quote: &str| {

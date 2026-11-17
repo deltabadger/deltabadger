@@ -2,7 +2,7 @@
 //! sums: Bot::SmartIntervalable's floor, Bot::QuoteAmountLimitable's remainder, and
 //! `bot.invalid?(:start)`.
 use super::Bot;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::web::format::{input_value, Num};
 use crate::web::{i18n, WebError};
 use chrono::{DateTime, Utc};

@@ -27,7 +27,7 @@
 //!   writes every coin the venue lists (creating rows), and stamps a missing or unreadable fee as fresh for 24 hours.
 //! - D-RULE-LOG-SECRETS: no error text this module returns carries a URL query, a signature or an HTML body.
 use super::VenueError;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
@@ -106,7 +106,7 @@ pub struct Stored { pub address: String, pub network: Option<String>, pub tag: O
 
 impl Stored {
     pub fn new(address: &str, network: Option<&str>, tag: Option<&str>, key: Option<&str>) -> Self {
-        let present = |v: Option<&str>| v.filter(|s| !crate::ruby::blank(s)).map(str::to_string);
+        let present = |v: Option<&str>| v.filter(|s| !crate::v2::blank(s)).map(str::to_string);
         Self { address: address.to_string(), network: present(network), tag: present(tag), key: present(key) }
     }
 }
@@ -149,9 +149,9 @@ impl Coin {
 
 pub(crate) fn not_connected() -> VenueError { VenueError::Rejected(vec!["withdrawals are not connected for this venue".into()]) }
 fn unreadable(venue: &str) -> VenueError { VenueError::Ambiguous(format!("{venue}: unreadable withdrawal answer")) }
-fn text(v: &Value) -> Option<String> { v.as_str().filter(|s| !crate::ruby::blank(s)).map(str::to_string) }
+fn text(v: &Value) -> Option<String> { v.as_str().filter(|s| !crate::v2::blank(s)).map(str::to_string) }
 /// A fee: a finite decimal ≥ 0, else unknown.
-pub fn known_fee(v: &Value) -> Option<BigDec> { crate::ruby::json_to_d(v).ok().flatten().filter(|f| *f >= BigDec::zero()) }
+pub fn known_fee(v: &Value) -> Option<BigDec> { crate::v2::json_to_d(v).ok().flatten().filter(|f| *f >= BigDec::zero()) }
 
 // ---- D-RULE-LOG-SECRETS
 
@@ -315,7 +315,7 @@ fn destination(kind: Kind, coin: &str, stored: &Stored, e: &Entry, networks: Opt
         Kind::Kraken => {
             let key = e.key.clone().ok_or(Refusal::Inadmissible("the entry names no key"))?;
             // Rails lists an entry without a method too (kraken.rb:477 compact_blank); the method only narrows the lookup.
-            let method = e.network.clone().filter(|m| !crate::ruby::blank(m));
+            let method = e.network.clone().filter(|m| !crate::v2::blank(m));
             Ok(Destination::Kraken { asset: coin.to_string(), key, address, method })
         }
         Kind::Gemini => {
@@ -338,7 +338,7 @@ pub fn network_fee(coin: &Coin, network: &str) -> Option<BigDec> {
 pub fn kraken_quote(body: &Value, requested: &BigDec) -> Result<Option<BigDec>, VenueError> {
     super::kraken::check(body)?;
     let r = &body["result"];
-    let (Some(net), Some(fee)) = (crate::ruby::json_to_d(&r["amount"]).ok().flatten(), known_fee(&r["fee"])) else { return Ok(None) };
+    let (Some(net), Some(fee)) = (crate::v2::json_to_d(&r["amount"]).ok().flatten(), known_fee(&r["fee"])) else { return Ok(None) };
     Ok((&net + &fee == *requested).then_some(fee))
 }
 
@@ -552,7 +552,7 @@ pub(crate) fn capital_match(
     let required = |key: &str| {
         row[key]
             .as_str()
-            .filter(|s| !crate::ruby::blank(s))
+            .filter(|s| !crate::v2::blank(s))
             .ok_or(())
     };
     let optional = |key: &str| match row.get(key) {
@@ -563,7 +563,7 @@ pub(crate) fn capital_match(
     let id = required("id")?;
     let coin = required("coin")?;
     let address = required("address")?;
-    let amount = crate::ruby::json_to_d(&row["amount"])
+    let amount = crate::v2::json_to_d(&row["amount"])
         .ok()
         .flatten()
         .filter(BigDec::is_positive)
@@ -627,7 +627,7 @@ pub(crate) fn capital_match(
         (Kind::Binance, 0 | 2 | 4 | 6) | (Kind::Mexc, 1..=7 | 10) => FoundStatus::Sent,
         (Kind::Binance, 1 | 3 | 5) | (Kind::Mexc, 8 | 9) => FoundStatus::Failed {
             reason: crate::engine::rules::safe_message(
-                info.filter(|s| !crate::ruby::blank(s))
+                info.filter(|s| !crate::v2::blank(s))
                     .unwrap_or("the venue reports that the withdrawal failed"),
             ),
         },

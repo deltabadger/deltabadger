@@ -87,7 +87,7 @@ mod locales {
     use deltabadger::web::{locale, normalize_path};
 
     #[test]
-    fn the_locales_are_rails_available_locales() {
+    fn the_locales_are_v2_available_locales() {
         let recorded = &common::vectors()["i18n"];
         assert_eq!(serde_json::json!(locale::LOCALES), recorded["locales"]);
         assert_eq!(locale::DEFAULT, recorded["default"].as_str().unwrap());
@@ -168,7 +168,7 @@ mod locales {
     }
 
     #[test]
-    fn paths_are_normalised_as_rails_routes_them() {
+    fn paths_are_normalised_as_v2_routes_them() {
         for pair in common::vectors()["rack_attack"]["normalize"].as_array().unwrap() {
             assert_eq!(normalize_path(pair[0].as_str().unwrap()), pair[1].as_str().unwrap());
         }
@@ -234,7 +234,7 @@ mod time_zones {
     use deltabadger::web::timezone;
 
     #[test]
-    fn every_rails_time_zone_name_maps_to_a_zone_chrono_tz_knows() {
+    fn every_v2_time_zone_name_maps_to_a_zone_chrono_tz_knows() {
         let table: serde_json::Map<String, serde_json::Value> = serde_json::from_str(include_str!("../src/web/time_zones.json")).unwrap();
         assert!(table.len() >= 150, "{} names", table.len());
         for (name, iana) in &table {
@@ -320,7 +320,7 @@ mod sessions {
     }
 
     #[test]
-    fn the_cookie_header_is_rails_session_cookie_under_our_name() {
+    fn the_cookie_header_is_v2_session_cookie_under_our_name() {
         let now = at("2026-09-10T12:00:30.123456Z");
         assert_eq!(session::set_cookie("v", now, false), "_deltabadger_rust_session=v; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax");
         assert_eq!(session::set_cookie("v", now, true), "_deltabadger_rust_session=v; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; secure; httponly; samesite=lax");
@@ -332,7 +332,7 @@ mod sessions {
     }
 
     #[test]
-    fn secure_cookies_and_the_proxy_rule_follow_rails_env_resolution() {
+    fn secure_cookies_and_the_proxy_rule_follow_v2_env_resolution() {
         let config = |pairs: &'static [(&'static str, &'static str)]| {
             Config::from_env(&move |name| pairs.iter().find(|(k, _)| *k == name).map(|(_, v)| v.to_string()).or((name == "SECRET_KEY_BASE").then(|| "s".to_string()))).unwrap()
         };
@@ -452,7 +452,7 @@ mod csrf_tokens {
     /// and Action Dispatch, which follow the headers a proxy in front writes (the scheme it
     /// terminated, the host it was asked for). Recorded by script/rust/record_vectors.rb.
     #[test]
-    fn without_app_root_url_the_origin_is_rails_base_url_with_what_a_proxy_forwarded() {
+    fn without_app_root_url_the_origin_is_v2_base_url_with_what_a_proxy_forwarded() {
         let config = |pairs: &'static [(&'static str, &'static str)]| {
             Config::from_env(&move |name| pairs.iter().find(|(k, _)| *k == name).map(|(_, v)| v.to_string()).or((name == "SECRET_KEY_BASE").then(|| "s".to_string()))).unwrap()
         };
@@ -500,7 +500,7 @@ mod response_headers {
     use deltabadger::web::headers;
 
     #[test]
-    fn the_policy_is_the_one_rails_test_pins() {
+    fn the_policy_is_the_one_v2_test_pins() {
         // test/integration/content_security_policy_test.rb `expected_policy`.
         assert_eq!(headers::content_security_policy("N0nce=="),
                    "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; \
@@ -510,7 +510,7 @@ mod response_headers {
     }
 
     #[test]
-    fn cache_control_follows_rails_and_never_overrides_a_handler() {
+    fn cache_control_follows_v2_and_never_overrides_a_handler() {
         let value = |status, signed_in| { let mut h = HeaderMap::new(); headers::controller_defaults(&mut h, status, signed_in); h["cache-control"].to_str().unwrap().to_string() };
         assert_eq!(value(StatusCode::OK, false), "max-age=0, private, must-revalidate");
         assert_eq!(value(StatusCode::FOUND, false), "no-cache");
@@ -536,7 +536,7 @@ mod turbo_streams {
     use deltabadger::web::turbo;
 
     #[test]
-    fn stream_elements_are_turbo_rails_markup() {
+    fn stream_elements_are_turbo_v2_markup() {
         let recorded = &common::vectors()["turbo"];
         let want = |name: &str| recorded[name].as_str().unwrap().to_string();
         assert_eq!(turbo::stream("replace", "bot_1", "<p>a &amp; b</p>"), want("replace"));
@@ -686,14 +686,14 @@ mod rate_limits {
             ("198.51.100.99, ::ffff:203.0.113.7", "203.0.113.7"),
             ("198.51.100.99, [::ffff:203.0.113.7]:443", "203.0.113.7"),
         ];
-        let (mut rails_believed_a_forged_header, mut stricter) = (0, 0);
+        let (mut v2_believed_a_forged_header, mut stricter) = (0, 0);
         for case in common::vectors()["remote_ip"].as_array().unwrap() {
             let peer = case["remote_addr"].as_str().unwrap();
             let got = rate_limit::remote_ip(peer.parse().ok(), case["forwarded_for"].as_str(), case["client_ip"].as_str()).map(|ip| ip.to_string());
             let listed = STRICTER.iter().find(|(header, _)| case["forwarded_for"] == *header);
             if case["peer_trusted"] != true {
                 assert_eq!(got.as_deref(), Some(peer), "a peer that is no trusted proxy is the client, whatever it sends: {case}");
-                rails_believed_a_forged_header += usize::from(case["ip"] != peer);
+                v2_believed_a_forged_header += usize::from(case["ip"] != peer);
             } else if let Some((_, ours)) = listed {
                 assert_eq!(got.as_deref(), Some(*ours), "{case}");
                 assert_ne!(case["ip"], *ours, "Rails answers the same now: take this one off the list. {case}");
@@ -702,7 +702,7 @@ mod rate_limits {
                 assert_eq!(got.as_deref(), case["ip"].as_str(), "behind a trusted proxy the answer is Rails': {case}");
             }
         }
-        assert_eq!(rails_believed_a_forged_header, 4, "the vectors where Rails takes the caller's own header for its address");
+        assert_eq!(v2_believed_a_forged_header, 4, "the vectors where Rails takes the caller's own header for its address");
         assert_eq!(stricter, STRICTER.len(), "every listed difference has its vector");
         let config = |behind: &'static str| Config::from_env(&move |name| match name { "SECRET_KEY_BASE" => Some("s".into()), "BEHIND_PROXY" => Some(behind.into()), _ => None }).unwrap();
         let forwarded = header_map(&[("x-forwarded-for", "198.51.100.7")]);
@@ -734,7 +734,7 @@ mod navbar_numbers {
     use deltabadger::web::{bots, shell};
 
     #[test]
-    fn the_bot_count_icon_is_sized_as_rails_sizes_it() {
+    fn the_bot_count_icon_is_sized_as_v2_sizes_it() {
         for case in common::vectors()["navbar"]["bot_count"].as_array().unwrap() {
             let size = shell::bot_count_font_size(case["count"].as_i64().unwrap());
             assert_eq!((size.to_string().as_str(), shell::bot_count_baseline(size).as_str()), (case["font_size"].as_str().unwrap(), case["baseline"].as_str().unwrap()), "{case}");
@@ -742,7 +742,7 @@ mod navbar_numbers {
     }
 
     #[test]
-    fn cash_is_what_rails_calls_cash_and_shown_when_the_tracker_says_so() {
+    fn cash_is_what_v2_calls_cash_and_shown_when_the_tracker_says_so() {
         let recorded = &common::vectors()["tracker"];
         assert_eq!(serde_json::json!(bots::CASH), recorded["cash"], "Tracker::UnfundedCash's FIAT and STABLECOINS");
         for case in recorded["show_cash"].as_array().unwrap() {
@@ -831,7 +831,7 @@ mod oauth_rules {
     use deltabadger::web::{rate_limit, Params};
 
     #[test]
-    fn a_uri_is_read_as_ruby_reads_it() {
+    fn a_uri_is_read_as_v2_reads_it() {
         let uri = Uri::parse("HTTPS://user:pw@Client.Example:8443/a/b?x=[1]&y=%z1#frag").unwrap();
         assert_eq!((uri.scheme.as_deref(), uri.userinfo.as_deref(), uri.host.as_deref(), uri.path.as_str(), uri.query.as_deref(), uri.fragment.as_deref(), uri.opaque),
                    (Some("https"), Some("user:pw"), Some("Client.Example"), "/a/b", Some("x=[1]&y=%z1"), Some("frag"), false));
@@ -869,7 +869,7 @@ mod oauth_rules {
 
     /// What Ruby's URI.parse makes of a text, and what URI#to_s writes back (script/rust/record_vectors.rb).
     #[test]
-    fn a_uri_has_the_parts_and_the_text_ruby_gives_it() {
+    fn a_uri_has_the_parts_and_the_text_v2_gives_it() {
         let recorded = super::common::vectors()["oauth_uri"]["parse"].as_array().unwrap().clone();
         assert!(recorded.len() >= 55 && recorded.iter().filter(|case| case["parts"].is_null()).count() >= 10, "{} vectors", recorded.len());
         for case in &recorded {
@@ -924,7 +924,7 @@ mod oauth_rules {
 
     /// Ruby's Base64.decode64, and Doorkeeper's reading of an `Authorization: Basic` header with it.
     #[test]
-    fn a_basic_header_is_decoded_as_ruby_decodes_it() {
+    fn a_basic_header_is_decoded_as_v2_decodes_it() {
         let recorded = super::common::vectors()["oauth_basic"].clone();
         let (decoded, credentials) = (recorded["decode64"].as_array().unwrap(), recorded["credentials"].as_array().unwrap());
         assert!(decoded.len() >= 25 && credentials.len() >= 20 && credentials.iter().filter(|case| case["credentials"].is_null()).count() >= 8, "{} and {} vectors", decoded.len(), credentials.len());
@@ -1044,7 +1044,7 @@ mod bearer_header {
 
 mod bot_page_formats {
     use super::common;
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::web::format::{self, Num};
     use serde_json::Value;
 
@@ -1064,14 +1064,14 @@ mod bot_page_formats {
     }
 
     #[test]
-    fn a_float_prints_as_ruby_prints_it() {
+    fn a_float_prints_as_v2_prints_it() {
         for case in cases("float_to_s") {
             assert_eq!(format::float_to_s(float(&case["float"]).unwrap()), case["text"].as_str().unwrap(), "{case}");
         }
     }
 
     #[test]
-    fn a_float_rounds_as_ruby_rounds_it() {
+    fn a_float_rounds_as_v2_rounds_it() {
         for case in cases("float_round") {
             let rounded = format::float_round(float(&case["float"]).unwrap(), case["digits"].as_i64().unwrap());
             assert_eq!(rounded.to_bits(), float(&case["rounded"]).unwrap().to_bits(), "{case}: {rounded}");
@@ -1082,7 +1082,7 @@ mod bot_page_formats {
     }
 
     #[test]
-    fn a_stored_number_is_written_into_an_input_as_rails_writes_it() {
+    fn a_stored_number_is_written_into_an_input_as_v2_writes_it() {
         for case in cases("input_value") {
             assert_eq!(format::input_value(&number(&case, "number")).as_deref(), case["text"].as_str(), "{case}");
         }
@@ -1105,7 +1105,7 @@ mod bot_page_formats {
     }
 
     #[test]
-    fn what_is_left_of_a_spending_cap_is_computed_in_rubys_classes() {
+    fn what_is_left_of_a_spending_cap_is_computed_in_v2s_classes() {
         for case in cases("limit_left") {
             let spent = case["spent"].as_str().map_or(Num::Int(0), |text| Num::Dec(BigDec::parse(text).unwrap()));
             let left = number(&case, "limit").sub(&spent).unwrap().at_least_zero();
@@ -1115,7 +1115,7 @@ mod bot_page_formats {
     }
 
     #[test]
-    fn a_duration_reads_as_rails_words_it() {
+    fn a_duration_reads_as_v2_words_it() {
         for case in cases("distance_of_time") {
             let seconds = float(&case["seconds"]).unwrap_or_else(|| case["seconds"].as_f64().unwrap());
             let words = format::distance_of_time_in_words(seconds, case["now"].as_str().unwrap().parse().unwrap(), case["locale"].as_str().unwrap());
@@ -1124,12 +1124,12 @@ mod bot_page_formats {
     }
 
     #[test]
-    fn a_text_is_read_as_an_integer_as_ruby_reads_it() {
+    fn a_text_is_read_as_an_integer_as_v2_reads_it() {
         let cases = cases("string_to_i");
         assert!(cases.len() > 35, "only {} texts were recorded", cases.len());
         for case in cases {
-            let ruby: Option<i128> = case["integer"].as_str().unwrap().parse().ok();
-            assert_eq!(Some(format::to_i(case["text"].as_str().unwrap())), ruby, "{case}");
+            let v2: Option<i128> = case["integer"].as_str().unwrap().parse().ok();
+            assert_eq!(Some(format::to_i(case["text"].as_str().unwrap())), v2, "{case}");
         }
         // Where Ruby goes on counting, this stops; no id is anywhere near.
         assert_eq!(format::to_i(&"9".repeat(60)), i128::MAX);
@@ -1166,7 +1166,7 @@ mod bot_page_formats {
 
 mod colours_and_ring {
     use super::common;
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::web::{colors, ring};
     use serde_json::Value;
 
@@ -1175,7 +1175,7 @@ mod colours_and_ring {
     }
 
     #[test]
-    fn colours_and_pills_are_rails_own() {
+    fn colours_and_pills_are_v2_own() {
         for case in cases("ensure_contrast") {
             assert_eq!(colors::ensure_contrast(case["color"].as_str().unwrap()).as_deref(), case["contrast"].as_str(), "{case}");
         }
@@ -1304,7 +1304,7 @@ mod status_bar {
     }
 
     #[test]
-    fn the_progress_bar_is_as_wide_as_rails_draws_it() {
+    fn the_progress_bar_is_as_wide_as_v2_draws_it() {
         for case in common::vectors()["bot_pages"]["progress"].as_array().unwrap() {
             let time = |key: &str| case[key].as_str().unwrap().parse::<chrono::DateTime<chrono::Utc>>().unwrap();
             let from = status::Instant::from_micros(time("from").timestamp_micros());
@@ -1314,7 +1314,7 @@ mod status_bar {
     }
 
     #[test]
-    fn a_checkpoint_is_held_where_rails_job_table_holds_it() {
+    fn a_checkpoint_is_held_where_v2_job_table_holds_it() {
         let cases = common::vectors()["bot_pages"]["job_time"].as_array().unwrap().clone();
         let micros = |text: &str| text.parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_micros();
         let mut early = 0;
@@ -1330,7 +1330,7 @@ mod status_bar {
     /// when it enqueues the job: the time the job is held at, the second `iso8601` prints, `to_f`
     /// itself and `Time#-` in both directions, for checkpoints that are not on the microsecond grid.
     #[test]
-    fn a_checkpoint_off_the_microsecond_grid_is_held_and_measured_as_ruby_does() {
+    fn a_checkpoint_off_the_microsecond_grid_is_held_and_measured_as_v2_does() {
         use deltabadger::engine::schedule::Unrounded;
         let cases = common::vectors()["bot_pages"]["exact_times"].as_array().unwrap().clone();
         let time = |text: &str| text.parse::<chrono::DateTime<chrono::Utc>>().unwrap();

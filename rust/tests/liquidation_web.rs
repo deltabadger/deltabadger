@@ -65,7 +65,7 @@ fn api_selection_is_all_or_nothing_and_dry_run_does_not_write() {
     assert_eq!(api(&c,&app,s.user_id,id,json!({"symbol":"BTC"})).code,Some("write_refused"));
 }
 #[test]
-fn api_asks_no_wash_question_and_uses_rails_domain_codes() {
+fn api_asks_no_wash_question_and_uses_v2_domain_codes() {
     let (_d,c,s,id,app,_)=install();
     // BotApi::Bots::LiquidateExited never asks the wash-sale question (only the web confirmation does): an account that has
     // not answered is not refused for it (WS-4b), as one with the rule on is not (WS-4a).
@@ -439,7 +439,7 @@ async fn the_feed_names_each_reason_and_keeps_legacy_lines() {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn an_orders_event_announces_only_the_lines_below_it_and_never_the_rails_order_answers() {
+async fn an_orders_event_announces_only_the_lines_below_it_and_never_the_v2_order_answers() {
     let (_d,c,s,id,app,_)=install();
     let mut lines=deltabadger::web::bot::live::Lines::starting(&c).unwrap();
     // A batch: order A, then a skip, then order B a minute later; both orders' events are read after all three writes.

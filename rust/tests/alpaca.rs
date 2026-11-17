@@ -1,6 +1,6 @@
 mod common;
 use deltabadger::engine::model::Ticker;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::alpaca::{self, AlpacaVenue, Urls, DATA_URL, PAPER_TRADING_URL, TRADING_URL};
 use deltabadger::venue::http::{client, ReqwestTransport, ScriptedTransport};
 use deltabadger::venue::{NewOrder, OrderKind, OrderStatus, PriceSide, Venue, VenueError};
@@ -36,7 +36,7 @@ fn live_host_for_exactly_live() {
 }
 
 #[test]
-fn every_recorded_rails_order_parse_is_reproduced() {
+fn every_recorded_v2_order_parse_is_reproduced() {
     let cases = common::vectors()["alpaca_orders"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 39);
     for c in cases {
@@ -57,7 +57,7 @@ fn every_recorded_rails_order_parse_is_reproduced() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn one_side_per_call_and_a_zero_or_missing_price_is_rails_error() {
+async fn one_side_per_call_and_a_zero_or_missing_price_is_v2_error() {
     let (t, v) = venue(json!({
         "GET /v1beta3/crypto/us/latest/quotes": ok(json!({ "quotes": { "BTC/USD": { "ap": 64321.5, "bp": 64300.25 } } })),
         "GET /v1beta3/crypto/us/latest/trades": ok(json!({ "trades": { "BTC/USD": { "p": 64310.75 } } })) }));
@@ -91,7 +91,7 @@ async fn a_market_buy_is_notional_and_a_limit_buy_is_qty_and_limit_price_each_wi
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_refusal_carries_rails_message() {
+async fn a_refusal_carries_v2_message() {
     let cases = [
         (403, json!({ "buying_power": "0", "code": 40310000, "cost_basis": "60", "message": "insufficient buying power" }), "insufficient buying power"),
         (401, json!({ "code": 40110000, "message": "unauthorized." }), "unauthorized."),
@@ -251,7 +251,7 @@ fn preflight_accepts_a_live_key_and_refuses_an_undecryptable_passphrase() {
 /// A Kraken bot passes preflight like Rails: a connected key is all it needs (no live gate). Without a key it is refused as
 /// on Alpaca.
 #[test]
-fn a_kraken_bot_passes_preflight_like_rails() {
+fn a_kraken_bot_passes_preflight_like_v2() {
     use common::seed::{self, BotSpec};
     let (_d, o, s) = common::install();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
@@ -279,7 +279,7 @@ async fn a_stock_is_priced_by_its_base_in_the_path_with_no_feed() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_zero_or_missing_stock_quote_is_rails_error() {
+async fn a_zero_or_missing_stock_quote_is_v2_error() {
     let (_t, v) = venue(json!({ "GET /v2/stocks/AAPL/quotes/latest": ok(json!({ "quote": { "ap": 0, "bp": 0 } })),
                                 "GET /v2/stocks/AAPL/trades/latest": ok(json!({ "trade": null })) }));
     assert_eq!(v.price(&aapl(), PriceSide::Ask).await, Err(VenueError::Rejected(vec!["Wrong ask price for AAPL: 0.0".into()])));
@@ -306,7 +306,7 @@ async fn a_stock_bot_spends_buying_power_and_a_crypto_bot_non_marginable_buying_
 }
 
 #[test]
-fn a_binance_bot_passes_preflight_like_rails_under_krakens_restrictions() {
+fn a_binance_bot_passes_preflight_like_v2_under_krakens_restrictions() {
     use common::seed::{self, BotSpec};
     use deltabadger::engine::eligibility;
     let (_d, o, s) = common::install();
@@ -423,7 +423,7 @@ async fn the_settled_quote_is_cash_below_buying_power_and_buys_keep_buying_power
 /// parse_venue_number raises ArgumentError on a price it cannot read (alpaca.rb:611): a raise, never a failed Result, so
 /// the price gate fails the tick and the price check's chain ends (conditions::raised), as for a zero price.
 #[tokio::test(flavor = "current_thread")]
-async fn an_unreadable_price_is_rails_raise() {
+async fn an_unreadable_price_is_v2_raise() {
     let (_t, v) = venue(json!({ "GET /v2/stocks/AAPL/trades/latest": ok(json!({ "trade": { "p": "garbage" } })) }));
     let err = v.price(&aapl(), PriceSide::Last).await.unwrap_err();
     assert_eq!(err, VenueError::Rejected(vec!["unreadable last price for AAPL: garbage".into()]));

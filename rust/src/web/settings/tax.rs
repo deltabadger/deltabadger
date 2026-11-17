@@ -29,7 +29,7 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
     let Some(answer) = ctx
         .params
         .form("wash_sale[enabled]")
-        .filter(|s| !crate::ruby::blank(s))
+        .filter(|s| !crate::v2::blank(s))
     else {
         return refuse(
             &ctx,
@@ -40,7 +40,7 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
     let jurisdiction = ctx
         .params
         .form("wash_sale[jurisdiction]")
-        .filter(|s| !crate::ruby::blank(s))
+        .filter(|s| !crate::v2::blank(s))
         .map(str::to_string);
     let jobs = app.job_wakers()?;
     let inner = app.clone();
@@ -80,7 +80,7 @@ pub fn record_decision(c: &Connection, app: &App, jobs: &crate::jobs::Wakers, us
     let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
     let (old, old_jurisdiction): (Option<bool>, Option<String>) = tx.query_row("SELECT wash_sale_enabled,wash_sale_jurisdiction FROM users WHERE id=?1", [user], |r| Ok((r.get(0)?, r.get(1)?)))?;
     let jurisdiction = jurisdiction.or(old_jurisdiction.clone());
-    if jurisdiction.as_deref().is_some_and(|s| !crate::ruby::blank(s) && !["US", "GB", "IE"].contains(&s)) { return Ok(Decision::Invalid); }
+    if jurisdiction.as_deref().is_some_and(|s| !crate::v2::blank(s) && !["US", "GB", "IE"].contains(&s)) { return Ok(Decision::Invalid); }
     let changed = old != Some(enabled) || old_jurisdiction != jurisdiction;
     if changed { tx.execute("UPDATE users SET wash_sale_enabled=?1,wash_sale_jurisdiction=?2,updated_at=?3 WHERE id=?4", (enabled, jurisdiction, format_time(app.now()), user))?; }
     if let Err(refusal) = eligibility::guard(&tx, &app.cipher, None) { return Ok(Decision::Refused(refusal.reason())); }

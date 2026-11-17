@@ -109,8 +109,8 @@ async fn ibkr_key_verdicts_replay_every_recorded_case() {
         };
         assert_eq!(ours, expected, "{name}");
         let sent: Vec<String> = t.requests().iter().map(|r| format!("{} {}", r.method, r.path)).collect();
-        let rails: Vec<String> = case["requests"].as_array().unwrap().iter().map(|r| format!("{} {}", r["method"].as_str().unwrap(), r["path"].as_str().unwrap())).collect();
-        assert_eq!(sent, rails, "{name}: the request sequence");
+        let v2: Vec<String> = case["requests"].as_array().unwrap().iter().map(|r| format!("{} {}", r["method"].as_str().unwrap(), r["path"].as_str().unwrap())).collect();
+        assert_eq!(sent, v2, "{name}: the request sequence");
         if let Some(init) = t.requests().iter().find(|r| r.path == INIT) { assert_eq!(init.body, Some(json!({ "publish": true, "compete": true }))); }
         replayed += 1;
     }

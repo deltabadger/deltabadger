@@ -54,7 +54,7 @@ const PERMISSION_DENIED: [(&str, &[&str]); 9] = [
 ];
 
 pub(crate) fn missing_permission(exchange_type: &str, error: Option<&str>) -> bool {
-    let Some(error) = error.filter(|e| !crate::ruby::blank(e)) else { return false };
+    let Some(error) = error.filter(|e| !crate::v2::blank(e)) else { return false };
     PERMISSION_DENIED.iter().find(|(t, _)| *t == exchange_type).is_some_and(|(_, words)| words.iter().any(|w| error.contains(w)))
 }
 

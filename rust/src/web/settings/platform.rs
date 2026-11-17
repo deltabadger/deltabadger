@@ -41,7 +41,7 @@ pub async fn write(app: App, ctx: Ctx, headers: &axum::http::HeaderMap) -> Resul
 /// the claim's error at 422 otherwise.
 async fn create(app: App, ctx: Ctx) -> Result<Response, WebError> {
     // `params[:claim_code]`: a query value over the body's, as setup reads it (Rails 8.1 shallow-merges the query over the body).
-    let Ok(params) = crate::web::bot::action_params::ActionParams::parse_rails(&ctx.params) else { return Ok(crate::web::layout::bad_request()) };
+    let Ok(params) = crate::web::bot::action_params::ActionParams::parse_v2(&ctx.params) else { return Ok(crate::web::layout::bad_request()) };
     let code = params.value().get("claim_code").cloned().unwrap_or(serde_json::Value::Null);
     let outcome = setup::redeem(&app, code, ctx.now, false).await?;
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());

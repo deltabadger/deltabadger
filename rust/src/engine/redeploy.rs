@@ -1,7 +1,7 @@
 //! Bot::RedeployJob and Bot::Composition::Redeployable: the user's Yes puts a liquidation's proceeds back into the composition.
 use super::{amount::{self, OrderPlan, Origin, TxKind}, basket, composition, model::{self, Level, Ticker}, placement, rebalance, tick, Clock, EngineError};
 use super::venue_rules::{AmountLogic, Rounding, VenueRules};
-use crate::{enums::BotStatus, figures::{dec::Dec, db::Subject, walk::Metrics, FiguresError}, ruby::BigDec, venue::{Attributed, Side, Venue}};
+use crate::{enums::BotStatus, figures::{dec::Dec, db::Subject, walk::Metrics, FiguresError}, v2::BigDec, venue::{Attributed, Side, Venue}};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
 
@@ -151,7 +151,7 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, clock: &dyn Clock
         let price = match tick::market_price_read(venue, bot, &member.ticker, Side::Buy, clock, cx).await? {
             Ok(p) => p,
             Err(crate::venue::VenueError::Transient(m) | crate::venue::VenueError::Ambiguous(m)) => return Err(EngineError::Data(format!("No price for {}: {m}", member.ticker.base_symbol))),
-            Err(e) => return Err(EngineError::Data(format!("No price for {}: {}", member.ticker.base_symbol, crate::ruby::to_sentence(e.rejection().unwrap_or_default())))),
+            Err(e) => return Err(EngineError::Data(format!("No price for {}: {}", member.ticker.base_symbol, crate::v2::to_sentence(e.rejection().unwrap_or_default())))),
         };
         priced.push(basket::Priced { member, reference: price.clone(), price });
     }
@@ -270,7 +270,7 @@ pub fn resolve(c: &Connection, id: i64, user: i64, nonce: &str, now: chrono::Dat
         // Recovery committed a different intent meanwhile: it is not this halt's to remove.
         if intent.plan.kind != TxKind::Redeploy || intent.cl_ord_id != nonce { return Ok(None); }
         let stored = tx.query_row("SELECT redeploy_declined_offset FROM bots WHERE id=?1", [id], |r| r.get::<_, rusqlite::types::Value>(0))?;
-        let stored = crate::ruby::from_sql((&stored).into()).map_err(data)?.unwrap_or_else(BigDec::zero);
+        let stored = crate::v2::from_sql((&stored).into()).map_err(data)?.unwrap_or_else(BigDec::zero);
         tx.execute("UPDATE bots SET redeploy_declined_offset=?1 WHERE id=?2", ((&stored + &intent.plan.quote_amount).to_s_f(), id))?;
         model::merge_transient_compact(&tx, id, &[("rust_placement", Value::Null)])?;
     }

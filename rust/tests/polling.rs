@@ -51,7 +51,7 @@ async fn an_unchanged_order_is_not_rewritten() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn an_unknown_status_fails_the_sweep_with_rails_message() {
+async fn an_unknown_status_fails_the_sweep_with_v2_message() {
     let (_d, o, s, b) = setup(json!({}));
     seed::insert_tx(&o.primary, &s, b, &open_market("2026-09-29 10:00:00", "OTX-4"));
     let v = FakeVenue::new().order("OTX-4", json!({ "status": "pending", "price": "0", "vol": "60", "vol_exec": "0", "cost": "0", "oflags": "viqc", "descr": { "ordertype": "market" } }));
@@ -177,7 +177,7 @@ async fn an_unreadable_created_at_fails_the_sweep_and_abandons_nothing() {
 
 #[test]
 fn a_blank_row_is_filled_from_the_orders_own_pair_never_the_bots_first_member() {
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::venue::{OrderState, OrderStatus};
     let (_d, o, s) = common::install_alpaca();
     let (eth, _) = seed::add_eth_sol(&o.primary, &s);
@@ -229,12 +229,12 @@ async fn stored_trade_lookup_time_out_of_range_is_refused() {
 struct NoMissing(FakeVenue);
 impl deltabadger::venue::Venue for NoMissing {
     fn rules(&self) -> &'static deltabadger::engine::venue_rules::VenueRules { &deltabadger::engine::venue_rules::BINANCE }
-    async fn price(&self, t: &model::Ticker, s: deltabadger::venue::PriceSide) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.price(t, s).await }
+    async fn price(&self, t: &model::Ticker, s: deltabadger::venue::PriceSide) -> Result<deltabadger::v2::BigDec, deltabadger::venue::VenueError> { self.0.price(t, s).await }
     async fn add_order(&self, o: &deltabadger::venue::NewOrder) -> Result<String, deltabadger::venue::VenueError> { self.0.add_order(o).await }
     async fn orders(&self, ids: &[String]) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.orders(ids).await }
     async fn order_by_client_id(&self, id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.order_by_client_id(id, symbol, since).await }
     async fn fills_from_trades(&self, ids: &[String], since: DateTime<Utc>) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.fills_from_trades(ids, since).await }
-    async fn balance(&self, s: &str, c: bool) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.balance(s, c).await }
+    async fn balance(&self, s: &str, c: bool) -> Result<deltabadger::v2::BigDec, deltabadger::venue::VenueError> { self.0.balance(s, c).await }
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -254,7 +254,7 @@ async fn a_venue_that_names_no_missing_ids_leaves_an_unreported_row_waiting_even
 
 #[test]
 fn a_fill_with_no_stated_quote_amount_leaves_the_column_as_it_is() {
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::venue::{OrderState, OrderStatus};
     let (_d, o, s, b) = setup(json!({}));
     let tx = seed::insert_tx(&o.primary, &s, b, &TxSpec { quote_amount_exec: Some("12.5"), amount_exec: Some("0"), ..open_market("2026-09-29 10:00:00", "OHIST-1") });

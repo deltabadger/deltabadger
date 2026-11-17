@@ -43,13 +43,13 @@ fn colors_of(name: &str) -> Option<Vec<String>> { asset_color::dominant_colors(&
 fn pick_of(name: &str) -> Option<String> { colors_of(name).and_then(|c| asset_color::most_vivid_color(&c)) }
 
 #[test]
-fn pins_and_overrides_are_rails() {
+fn pins_and_overrides_are_v2() {
     let ours: serde_json::Map<String, Value> = asset_color::OVERRIDES.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
     assert_eq!(Value::Object(ours), recorded()["overrides"]);
 }
 
 #[test]
-fn most_vivid_color_is_rails() {
+fn most_vivid_color_is_v2() {
     for case in recorded()["vivid"].as_array().unwrap() {
         let colors: Vec<String> = serde_json::from_value(case["colors"].clone()).unwrap();
         assert_eq!(json!(asset_color::most_vivid_color(&colors)), case["pick"], "{colors:?}");
@@ -57,7 +57,7 @@ fn most_vivid_color_is_rails() {
 }
 
 #[test]
-fn sniffing_is_rails() {
+fn sniffing_is_v2() {
     for l in recorded()["logos"].as_array().unwrap() {
         let name = l["file"].as_str().unwrap();
         let ours = asset_color::sniff(&logo(name)).map(|f| match f { image::ImageFormat::Png => "png", image::ImageFormat::Jpeg => "jpg", image::ImageFormat::Gif => "gif", image::ImageFormat::WebP => "webp", _ => "other" });
@@ -68,7 +68,7 @@ fn sniffing_is_rails() {
 /// allowed_source? for every recorded URL under each market-data configuration, the configured host read whatever the
 /// provider (here CoinGecko, with a retained market_data_url).
 #[test]
-fn allow_list_matches_rails() {
+fn allow_list_matches_v2() {
     let mut cases = 0;
     for case in recorded()["allowed"].as_array().unwrap() {
         let (_d, c) = install("coingecko");
@@ -143,13 +143,13 @@ fn quantizer_agreement_with_imagemagick() {
     let (mut exact, mut nears, mut misses, mut picks, mut real) = (vec![], vec![], vec![], vec![], 0);
     for l in recorded()["logos"].as_array().unwrap() {
         let name = l["file"].as_str().unwrap();
-        let Some(rails) = l["pick"].as_str() else { assert_eq!(pick_of(name), None, "{name}: Rails gets no colour"); continue };
+        let Some(v2) = l["pick"].as_str() else { assert_eq!(pick_of(name), None, "{name}: Rails gets no colour"); continue };
         let ours = pick_of(name).unwrap_or_else(|| panic!("{name}: no colour"));
-        if synthetic.contains(&name) { assert_eq!(ours, rails, "{name}: a synthetic case must match ImageMagick"); continue; }
+        if synthetic.contains(&name) { assert_eq!(ours, v2, "{name}: a synthetic case must match ImageMagick"); continue; }
         real += 1;
         picks.push((name.to_string(), ours.clone()));
-        if ours == rails { exact.push(name.to_string()) } else if near(&ours, rails) { nears.push(name.to_string()) } else { misses.push(name.to_string()) }
-        eprintln!("{name:24} rails {rails} rust {ours}{}", if ours == rails { "" } else if near(&ours, rails) { "  near" } else { "  MISS" });
+        if ours == v2 { exact.push(name.to_string()) } else if near(&ours, v2) { nears.push(name.to_string()) } else { misses.push(name.to_string()) }
+        eprintln!("{name:24} rails {v2} rust {ours}{}", if ours == v2 { "" } else if near(&ours, v2) { "  near" } else { "  MISS" });
     }
     eprintln!("{real} logos: {} exact, {} near, {} miss ({misses:?})", exact.len(), nears.len(), misses.len());
     assert_eq!(picks.iter().map(|(n, p)| (n.as_str(), p.as_str())).collect::<Vec<_>>(), RUST_PICKS, "Rust's picks moved: re-measure and re-pin");
@@ -159,7 +159,7 @@ fn quantizer_agreement_with_imagemagick() {
 
 /// Asset#infer_color_from_image's guards, case by case, on the job itself (bitcoin's logo served).
 #[tokio::test(flavor = "current_thread")]
-async fn guards_are_rails() {
+async fn guards_are_v2() {
     let bitcoin = pick_of("bitcoin.png").unwrap();
     for case in recorded()["guards"].as_array().unwrap() {
         let (d, c) = install(case["provider"].as_str().unwrap());
@@ -181,7 +181,7 @@ async fn guards_are_rails() {
 
 /// A 3xx is an answer (its body sniffed), never followed; 4xx/5xx and an empty body give nothing.
 #[tokio::test(flavor = "current_thread")]
-async fn statuses_are_rails_and_a_redirect_is_not_followed() {
+async fn statuses_are_v2_and_a_redirect_is_not_followed() {
     let elsewhere = MockServer::start().await;
     Mock::given(matchers::any()).respond_with(ResponseTemplate::new(200).set_body_bytes(logo("bitcoin.png"))).expect(0).mount(&elsewhere).await;
     for case in recorded()["statuses"].as_array().unwrap() {

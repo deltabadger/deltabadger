@@ -247,7 +247,7 @@ async fn a_crash_after_the_intent_commit_never_reruns_the_call_and_recovery_sett
     // begin_signal committed (the call consumed with it), then the process died before the send.
     let bot = model::load_bot(&s.e.primary, s.bot).unwrap();
     let ticker = model::ticker_for(&s.e.primary, &bot).unwrap().unwrap();
-    let price = deltabadger::ruby::BigDec::parse("50000.2").unwrap();
+    let price = deltabadger::v2::BigDec::parse("50000.2").unwrap();
     let (plan, _) = deltabadger::engine::amount::size_order(&ticker, deltabadger::venue::Side::Buy, &price, &price.div(&price).unwrap(), &price,
         deltabadger::engine::venue_rules::KRAKEN.minimum_logic, deltabadger::engine::amount::TxKind::Regular).unwrap();
     let the_call = bot.signal_calls().unwrap().remove(0);
@@ -601,7 +601,7 @@ async fn a_signal_buy_of_a_locked_asset_consumes_the_call_and_places_nothing() {
     // Locked after it was sized: the intent's transaction consumes the call and writes no intent.
     call(c, s.bot, s.rule, 2, T0);
     let ticker = model::ticker_for(c, &bot).unwrap().unwrap();
-    let price = deltabadger::ruby::BigDec::parse("50000.2").unwrap();
+    let price = deltabadger::v2::BigDec::parse("50000.2").unwrap();
     let size = |side| deltabadger::engine::amount::size_order(&ticker, side, &price, &price.div(&price).unwrap(), &price,
         deltabadger::engine::venue_rules::KRAKEN.minimum_logic, deltabadger::engine::amount::TxKind::Regular).unwrap().0;
     let the_call = model::load_bot(c, s.bot).unwrap().signal_calls().unwrap().remove(0);
@@ -659,7 +659,7 @@ async fn a_signal_bot_taken_over_stale_refuses_its_calls_and_api_orders_until_it
     assert!(failed.len() == 1 && failed[0].1["error"].as_str().is_some_and(|m| m.contains("reference data stale: Alpaca crypto tickers")), "{failed:?}");
 
     let loaded = model::load_bot(&e.primary, bot).unwrap();
-    let amount = deltabadger::ruby::BigDec::parse("60").unwrap();
+    let amount = deltabadger::v2::BigDec::parse("60").unwrap();
     let empty = serde_json::Map::new();
     let id = api_orders::insert(&e.primary, &api_orders::New::Bot { user_id: s.user_id, bot: &loaded, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty }, t(T0) + chrono::Duration::seconds(2)).unwrap();
     run::step(&mut e, &plus(T0, 3.0)).await.unwrap();

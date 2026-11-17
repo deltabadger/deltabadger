@@ -110,7 +110,7 @@ fn transfer(c:&Connection,ctx:&Ctx,owner:i64,now:&str,id:i64,fx:&super::fx::Prep
 }
 async fn mutate(app:App,ctx:Ctx,id:String,is_price:bool,headers:HeaderMap)->Result<Response,WebError>{
     let Some(owner)=ctx.user().map(|u|u.id)else{return Ok(auth::unauthenticated(&ctx))};
-    let params=match ActionParams::parse_rails(&ctx.params){Ok(p)=>p,Err(e)=>return Ok(e.status().into_response())};
+    let params=match ActionParams::parse_v2(&ctx.params){Ok(p)=>p,Err(e)=>return Ok(e.status().into_response())};
     let Some(id)=crate::web::bot::id_from_path(&id) else{return Ok(super::layout::missing())};
     // Resolve ownership before doing any network work. The writer loads the row again.
     if !app.db(move|c|Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE id=?1 AND user_id=?2)",(id,owner),|r|r.get::<_,bool>(0))?)).await? {return Ok(super::layout::missing());}

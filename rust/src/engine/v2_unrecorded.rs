@@ -378,7 +378,7 @@ fn reading_key(c: &Connection, user: i64, exchange: i64) -> Result<Option<i64>, 
 
 /// One venue order no bot recorded (`key` in the external_id form), with its fills inside the window.
 #[derive(Clone, Debug, PartialEq)]
-struct Trade { key: String, side: Side, ticker: i64, base: crate::ruby::BigDec, quote: crate::ruby::BigDec, at: DateTime<Utc> }
+struct Trade { key: String, side: Side, ticker: i64, base: crate::v2::BigDec, quote: crate::v2::BigDec, at: DateTime<Utc> }
 
 impl Trade {
     fn describe(&self, c: &Connection) -> Result<String, EngineError> {
@@ -744,7 +744,7 @@ fn merged(c: &Connection, p: &Prepared, created: &Created, linked: &mut Linked) 
                                                       "complete": created.complete, "conflict": conflict }) }, live.into_iter().cloned().collect())))
 }
 
-type BigDec = crate::ruby::BigDec;
+type BigDec = crate::v2::BigDec;
 /// Per order key, the base and quote of its imported fills.
 type Sums = std::collections::HashMap<String, (BigDec, BigDec)>;
 
@@ -1020,7 +1020,7 @@ pub fn offers_for(c: &Connection, bot: i64, obligations: &[i64], now: DateTime<U
                                                                    params![b.exchange_id, f.symbol], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
             let Some((base, quote, places)) = names else { continue };
             // The price as the booking writes it: to the ticker's price step.
-            let after = match (f.side, crate::ruby::scale(places).ok().and_then(|p| waiting_value(&f, p))) {
+            let after = match (f.side, crate::v2::scale(places).ok().and_then(|p| waiting_value(&f, p))) {
                 (Side::Sell, _) => before.clone(),
                 (Side::Buy, Some(v)) => carry(Some((&format_time(o.from), &v))),
                 (Side::Buy, None) => None,
@@ -1336,10 +1336,10 @@ fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Ciphe
     let (interval, stamped): (Option<String>, Option<f64>) = if b.o.source == FAILED_ROW {
         c.query_row("SELECT bot_interval, bot_quote_amount FROM transactions WHERE id = ?1", [b.o.source_ref], |r| Ok((r.get(0)?, r.get(1)?)))?
     } else {
-        (bot.interval().map(|i| i.as_str().to_string()), Some(crate::ruby::to_sql(&bot.quote_amount_num()?.to_dec().map_err(|e| EngineError::Data(format!("{e:?}")))?)))
+        (bot.interval().map(|i| i.as_str().to_string()), Some(crate::v2::to_sql(&bot.quote_amount_num()?.to_dec().map_err(|e| EngineError::Data(format!("{e:?}")))?)))
     };
     c.execute("UPDATE transactions SET amount = ?2, quote_amount = ?3, price = ?4, bot_interval = ?5, bot_quote_amount = ?6 WHERE id = ?1",
-              params![row, amount.as_ref().map(crate::ruby::to_sql), quote_amount.as_ref().map(crate::ruby::to_sql), crate::ruby::to_sql(&price), interval.unwrap_or_default(), stamped])?;
+              params![row, amount.as_ref().map(crate::v2::to_sql), quote_amount.as_ref().map(crate::v2::to_sql), crate::v2::to_sql(&price), interval.unwrap_or_default(), stamped])?;
     link_fills(c, bot.user_id, exchange, venue_type, &fresh.external_id, since, row)?;
     for id in &ids {
         c.execute("INSERT INTO rust_rails_unrecorded_resolutions (obligation_id, resolution, offer_id, transaction_id, resolved_at, confirmed_base, confirmed_quote) \

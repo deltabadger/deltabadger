@@ -9,7 +9,7 @@ const T: &str = "2026-01-01 00:00:00";
 fn right() -> Cipher { common::seed::cipher() }
 fn wrong() -> Cipher { Cipher::new(&EncryptionKeys::resolve(&|_| None, "another-instance").unwrap()) }
 fn install() -> (tempfile::TempDir, Connection) {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
     (dir, c)
 }

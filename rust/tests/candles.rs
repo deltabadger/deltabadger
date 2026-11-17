@@ -3,7 +3,7 @@
 //! Kraken first (slice 7b-1), then Binance, Binance.US and Alpaca (stocks and crypto), then every other venue that trades.
 use deltabadger::engine::candles::{Candle, Timeframe};
 use deltabadger::engine::model::Ticker;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls};
 use deltabadger::venue::binance::BinanceVenue;
 use deltabadger::venue::http::{self, HttpRequest, HttpResponse, ScriptedTransport, Transport, TransportError};
@@ -80,7 +80,7 @@ fn row(c: &Candle) -> Value {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn every_recorded_candle_read_is_answered_as_rails_answers_it() {
+async fn every_recorded_candle_read_is_answered_as_v2_answers_it() {
     let (mut failures, mut unreadable, mut envelope, mut throttled, mut total) = (vec![], 0, 0, 0, 0);
     for &(venue, count) in VENUES {
         let fixture = fixture(venue);
@@ -124,8 +124,8 @@ async fn every_recorded_candle_read_is_answered_as_rails_answers_it() {
             let ok = match (&got, case.get("candles"), case.get("failure"), case.get("raised")) {
                 // Rails answers candles (or, where it reads such a row as none, its Failure); Rust refuses.
                 (Err(VenueError::Ambiguous(_)), _, _, _) if listed(UNREADABLE) => { unreadable += 1; true }
-                (Err(VenueError::Rejected(_)), Some(rails), _, _) if listed(ENVELOPE) => { envelope += 1; rails == &Value::Array(vec![]) }
-                (Ok(candles), Some(rails), _, _) => Value::from(candles.iter().map(row).collect::<Vec<_>>()) == *rails,
+                (Err(VenueError::Rejected(_)), Some(v2), _, _) if listed(ENVELOPE) => { envelope += 1; v2 == &Value::Array(vec![]) }
+                (Ok(candles), Some(v2), _, _) => Value::from(candles.iter().map(row).collect::<Vec<_>>()) == *v2,
                 // honeymaker returns a transport failure as a Failure; the engine reads it as a transient read failure.
                 // honeymaker returns it; Clients::Alpaca raises Client::TransientNetworkError.
                 (Err(VenueError::Transient(_)), _, Some(_), _) => network,
@@ -134,7 +134,7 @@ async fn every_recorded_candle_read_is_answered_as_rails_answers_it() {
                     throttled += 1;
                     THROTTLED.iter().any(|(v, n, text)| (*v, *n) == (venue, name) && e[0].contains(text))
                 }
-                (Err(e @ (VenueError::Rejected(_) | VenueError::Unauthorized(_) | VenueError::Coded { .. })), _, Some(rails), _) => !network && Value::from(e.rejection().unwrap().to_vec()) == *rails,
+                (Err(e @ (VenueError::Rejected(_) | VenueError::Unauthorized(_) | VenueError::Coded { .. })), _, Some(v2), _) => !network && Value::from(e.rejection().unwrap().to_vec()) == *v2,
                 // Rails' KeyError keeps its text ("Key path error not found"); any other raise is the adapter's unreadable answer.
                 (Err(VenueError::Ambiguous(m)), _, _, Some(raised)) => raised != "KeyError" || case["message"] == *m,
                 _ => false,

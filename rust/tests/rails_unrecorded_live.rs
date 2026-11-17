@@ -18,7 +18,7 @@
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use common::seed::{self, BotSpec, Seeded};
-use deltabadger::engine::rails_unrecorded::{self as ru, Report};
+use deltabadger::engine::v2_unrecorded::{self as ru, Report};
 use deltabadger::jobs::Db;
 use deltabadger::venue::http::ScriptedTransport;
 use deltabadger::venue::{alpaca, binance, bingx, bitget, bitrue, bitvavo, bybit, coinbase, gemini, hyperliquid, kraken, kucoin, mexc, Venue, VenueFactory};
@@ -311,7 +311,7 @@ fn alpaca_recorded() -> Vec<Value> { serde_json::from_str(include_str!("fixtures
 fn alpaca_row(o: &O) -> Value {
     let mut r = alpaca_recorded().into_iter().find(|r| r["asset_class"] == "crypto" && r["status"] == "filled").unwrap();
     let status = match o.state { St::Open => "new", St::Partly => "partially_filled", St::Filled => "filled", St::PartlyCancelled | St::Cancelled => "canceled" };
-    let dec = |s: &str| deltabadger::ruby::BigDec::parse(s).unwrap();
+    let dec = |s: &str| deltabadger::v2::BigDec::parse(s).unwrap();
     let avg = if dec(o.exec).is_positive() { json!(dec(o.cum).div(&dec(o.exec)).unwrap().to_s_f()) } else { Value::Null };
     for (k, v) in [("id", json!(alpaca_id(o.id))), ("client_order_id", json!(format!("c-{}", o.id))), ("symbol", json!("BTC/EUR")), ("side", json!(if o.sell { "sell" } else { "buy" })),
                    ("type", json!(if o.limit.is_some() { "limit" } else { "market" })), ("order_type", json!(if o.limit.is_some() { "limit" } else { "market" })),
@@ -1078,7 +1078,7 @@ fn hl_venue_for<T: deltabadger::venue::http::Transport + Clone>(tr: &T, coin: &s
 /// The recorded answers (the Hyperliquid Assistance Fund's spot orders and fills, scrubbed by the recorder).
 fn hl_recorded() -> Vec<Value> { serde_json::from_str(include_str!("fixtures/order_lists/hyperliquid/historical_orders.json")).unwrap() }
 fn hl_fills_recorded() -> Vec<Value> { serde_json::from_str(include_str!("fixtures/order_lists/hyperliquid/user_fills_by_time.json")).unwrap() }
-fn dec(s: &str) -> deltabadger::ruby::BigDec { deltabadger::ruby::BigDec::parse(s).unwrap() }
+fn dec(s: &str) -> deltabadger::v2::BigDec { deltabadger::v2::BigDec::parse(s).unwrap() }
 
 /// A recorded `filled` row edited into `o` (a limit: Hyperliquid has no other order): oid, coin (the seeded pair), side,
 /// limitPx, origSz, `sz` (what is left; an `open` row is written at placement, so all of it), status, both times (the

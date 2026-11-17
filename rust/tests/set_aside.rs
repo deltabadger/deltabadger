@@ -180,7 +180,7 @@ fn a_bot_without_a_type_fails_the_takeover_before_anything_is_written() {
 /// Codex review: a set-aside bot's Rails jobs go at every start, not only the one that set it aside (a crash between the
 /// claim's commit and the queue delete leaves them).
 #[test]
-fn a_set_aside_bots_rails_jobs_go_at_a_later_start_too() {
+fn a_set_aside_bots_v2_jobs_go_at_a_later_start_too() {
     let (dir, o, s) = common::install();
     let bot = seed::insert_bot(&o.primary, &s, &plain().with("future_price_drop_limited", json!(true)));
     take_over(dir.path(), &o).unwrap();

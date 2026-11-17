@@ -55,7 +55,7 @@ async fn a_server_without_starttls_is_refused_when_a_user_name_is_set_and_nothin
 }
 
 #[tokio::test]
-async fn a_server_without_starttls_gets_the_mail_in_the_clear_when_there_is_no_user_name_as_rails_sends_it() {
+async fn a_server_without_starttls_gets_the_mail_in_the_clear_when_there_is_no_user_name_as_v2_sends_it() {
     // An open relay configured by SMTP_ADDRESS alone. D-SMTP-NO-AUTH: Rails still sends AUTH with empty credentials; Rust
     // sends no AUTH when no user name or password is set.
     let server = smtp::start(Behaviour { starttls: false, auth: false, ..Default::default() }).await;

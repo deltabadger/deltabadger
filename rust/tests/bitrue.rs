@@ -8,7 +8,7 @@ use deltabadger::engine::amount::{self, Sizing};
 use deltabadger::engine::model::{self, Ticker};
 use deltabadger::engine::placement;
 use deltabadger::engine::venue_rules::BITRUE;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::binance::{Pair, Pairs};
 use deltabadger::venue::http::{self, HttpRequest, ScriptedTransport};
 use deltabadger::venue::bitrue::{self, BitrueVenue, ABSENCE_UNPROVEN, URL};
@@ -87,7 +87,7 @@ fn every_recorded_honeymaker_request_is_reproduced() {
 
 /// engine::venue_rules::BITRUE is Exchanges::Bitrue::ERRORS, and Exchange#ambiguous_placement_error? as it reads them.
 #[test]
-fn the_rules_are_rails_errors() {
+fn the_rules_are_v2_errors() {
     let f = fixture();
     let list = |v: &Value| v.as_array().map(|a| a.iter().map(|s| s.as_str().unwrap().to_string()).collect::<Vec<_>>()).unwrap_or_default();
     for (kind, patterns) in BITRUE.kinds {
@@ -107,7 +107,7 @@ fn the_rules_are_rails_errors() {
 
 /// #parse_order_data (T2, T3), recorded over 10,000 generated GET /api/v1/order answers.
 #[test]
-fn every_recorded_rails_order_parse_is_reproduced() {
+fn every_recorded_v2_order_parse_is_reproduced() {
     let v = vectors();
     let cases = v["bitrue_orders"].as_array().unwrap();
     assert_eq!(cases.len(), 10_000);
@@ -136,7 +136,7 @@ fn every_recorded_rails_order_parse_is_reproduced() {
 /// zero base minimum among the pairs: the quote minimum converted to base), through amount::size, limit_refusal, to_order and the
 /// adapter's own POST query.
 #[tokio::test(flavor = "current_thread")]
-async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
+async fn every_recorded_v2_sizing_and_wire_is_reproduced() {
     let (_d, o, s) = common::install();
     use common::seed::{self, BotSpec};
     let market = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
@@ -167,8 +167,8 @@ async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
         let mut ours: serde_json::Map<String, Value> = sent(&t.requests()[0]).into_iter().map(|(k, v)| (k, json!(v))).collect();
         assert_eq!((ours.remove("newClientOrderId"), ours.remove("recvWindow")), (Some(json!(WIRE_CL)), Some(json!("5000"))), "{c}");
         let mut want = serde_json::Map::new();
-        for (rails, field) in c["wire"].as_object().unwrap() {
-            let camel = match rails.as_str() { "quote_order_qty" => "quoteOrderQty", "time_in_force" => "timeInForce", other => other };
+        for (v2, field) in c["wire"].as_object().unwrap() {
+            let camel = match v2.as_str() { "quote_order_qty" => "quoteOrderQty", "time_in_force" => "timeInForce", other => other };
             want.insert(camel.to_string(), field.clone());
         }
         if want.contains_key("quoteOrderQty") { quote += 1; }
@@ -180,7 +180,7 @@ async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
 // ---- reads
 
 #[tokio::test(flavor = "current_thread")]
-async fn prices_and_balances_read_as_rails_reads_them() {
+async fn prices_and_balances_read_as_v2_reads_them() {
     let book = json!({ "symbol": "BTCUSDT", "bidPrice": "64000.10", "bidQty": "1.5", "askPrice": "64000.11", "askQty": "0.2" });
     let (t, v) = venue(json!({ "GET /api/v1/ticker/bookTicker": ok(book), "GET /api/v1/ticker/price": ok(json!({ "symbol": "BTCUSDT", "price": "64000.05" })),
                                "GET /api/v1/account": ok(json!({ "canTrade": true, "balances": [{ "asset": "btc", "free": "0.5", "locked": "0.1" }, { "asset": "usdt", "free": "100.25", "locked": "0" }] })) }));
@@ -234,7 +234,7 @@ async fn oversized_non_uuid_client_order_ids_are_rejected_without_sending() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn placement_answers_map_as_rails_maps_them() {
+async fn placement_answers_map_as_v2_maps_them() {
     let place = |reply: Value| async move { venue(json!({ "POST /api/v1/order": reply })).1.add_order(&order(OrderKind::Market, false, "0.000937")).await };
     assert_eq!(place(ok(json!({ "symbol": "BTCUSDT", "orderId": "443776347957968896" }))).await, Ok("BTCUSDT-443776347957968896".into()));
     assert!(matches!(place(ok(json!({ "symbol": "BTCUSDT" }))).await, Err(VenueError::Ambiguous(_))), "no orderId: it may have been placed");

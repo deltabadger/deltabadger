@@ -18,7 +18,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError}
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, MEXC as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -416,7 +416,7 @@ impl<T: Transport> MexcVenue<T> {
         if coin != &r.coin
             || [coin, address, network, net_work, &r.client_id]
                 .iter()
-                .any(|s| crate::ruby::blank(s))
+                .any(|s| crate::v2::blank(s))
             || !BigDec::parse(&r.amount).is_ok_and(|a| a.is_positive())
         {
             return w::capital_not_sent();
@@ -458,7 +458,7 @@ impl<T: Transport> MexcVenue<T> {
         if coin != &r.coin
             || [coin, address, network, net_work, &r.client_id]
                 .iter()
-                .any(|s| crate::ruby::blank(s))
+                .any(|s| crate::v2::blank(s))
         {
             return w::capital_unknown();
         }
@@ -536,7 +536,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn an_order_id_splits_as_ruby_splits_it() {
+    fn an_order_id_splits_as_v2_splits_it() {
         assert_eq!(split("BTCUSDT-C02__443776347957968896"), ("BTCUSDT".to_string(), Some("C02__443776347957968896".to_string())));
         assert_eq!(split("BTCUSDT-"), ("BTCUSDT".to_string(), None));
         assert_eq!(split("A-B-C"), ("A".to_string(), Some("B".to_string())));

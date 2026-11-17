@@ -2,7 +2,7 @@
 //! Network work and input assembly happen outside the transaction.
 //! The caller supplies complete collision buckets; errors must roll back the enclosing transaction.
 use super::{activities::Entry, binance_identity::{classify, Candidate, Decision, Event}, ledger::{self, Outcome}, Key, SyncError};
-use crate::{app_config, crypto::Cipher, engine::model::FencedTransaction, ruby::BigDec};
+use crate::{app_config, crypto::Cipher, engine::model::FencedTransaction, v2::BigDec};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};

@@ -23,7 +23,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, Side, Venue
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BITGET as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -154,7 +154,7 @@ pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> { c
 pub fn created_order_in(symbol: &str, o: &Value, unfilled: bool) -> Option<super::CreatedOrder> {
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState};
     let zero = BigDec::zero();
-    let amount = |k: &str| o.get(k).and_then(|v| crate::ruby::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
+    let amount = |k: &str| o.get(k).and_then(|v| crate::v2::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
     if o.get("symbol")?.as_str()? != symbol { return None; }
     let id = o.get("orderId")?.as_str().filter(|s| !s.is_empty())?;
     let ms = match o.get("cTime")? { Value::String(s) if s.bytes().all(|b| b.is_ascii_digit()) => s.parse::<i64>().ok()?, Value::Number(n) => n.as_i64()?, _ => return None };
@@ -192,7 +192,7 @@ pub fn ticker_prices(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> 
     for row in data.as_array().ok_or_else(unreadable)? {
         let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
         let price = match super::dig_or_raise(row, "lastPr")? {
-            v @ (Value::String(_) | Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
+            v @ (Value::String(_) | Value::Number(_)) => crate::v2::json_to_d(v).ok().flatten(),
             _ => return Err(unreadable()),
         };
         if let Some(p) = price {

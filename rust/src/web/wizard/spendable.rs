@@ -83,7 +83,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     if let Some(answer) = expired(&ctx) { return Ok(answer) }
     let Some(quote) = ctx.params.form(FIELD).or_else(|| ctx.params.query(FIELD)).map(str::to_string) else { return Ok(layout::bad_request()) };
-    if crate::ruby::blank(&quote) { return render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, false, vec![]).await }
+    if crate::v2::blank(&quote) { return render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, false, vec![]).await }
     let config = {
         let mut data = ctx.session.lock();
         let config = data.bot_config.get_or_insert_with(|| json!({}));

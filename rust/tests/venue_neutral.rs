@@ -7,7 +7,7 @@ use deltabadger::engine::run::{self, Engine};
 use deltabadger::engine::venue_rules::KRAKEN;
 use deltabadger::engine::{amount, placement, polling, FixedClock, SteppingClock};
 use deltabadger::lease;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store::{self, Paths};
 use deltabadger::venue::fake::FakeVenue;
 use deltabadger::venue::{OrderState, OrderStatus, PriceSide, Venue, VenueError, VenueFactory};
@@ -21,7 +21,7 @@ fn xbteur() -> Ticker {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_zero_kraken_book_is_refused_with_rails_message_naming_the_pair() {
+async fn a_zero_kraken_book_is_refused_with_v2_message_naming_the_pair() {
     let v = FakeVenue::new().ticker("XXBTZEUR", "0", "0", "0");
     assert_eq!(v.price(&xbteur(), PriceSide::Ask).await, Err(VenueError::Rejected(vec!["Wrong ask price for XBTEUR: 0.0".into()])));
     assert_eq!(v.price(&xbteur(), PriceSide::Last).await, Err(VenueError::Rejected(vec!["Wrong last price for XBTEUR: 0.0".into()])));

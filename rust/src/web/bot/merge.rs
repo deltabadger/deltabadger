@@ -27,7 +27,7 @@ pub fn params(value: &Value) -> (Vec<i64>, Option<i64>) {
     for id in self::ids(value, "ids") { if !ids.contains(&id) { ids.push(id); } }
     let exchange = match value.get("exchange_id") {
         None | Some(Value::Null) => None,
-        Some(Value::String(text)) if crate::ruby::blank(text) => None,
+        Some(Value::String(text)) if crate::v2::blank(text) => None,
         Some(other) => Some(wizard::to_i(other)),
     };
     (ids, exchange)

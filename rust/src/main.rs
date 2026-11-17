@@ -130,9 +130,9 @@ fn main() {
             check_readable(&paths,&cipher,&env);
             store::migrate(&paths,&lock).unwrap_or_else(|e|refuse_store(e, &paths, &env));
             let o=store::open(&paths).unwrap_or_else(|e|refuse_store(e, &paths, &env));
-            if let Target::RailsList(id)=target {
+            if let Target::V2List(id)=target {
                 let tx=deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e|fail(&format!("{e:?}")));
-                deltabadger::engine::rules::seed_rails_ids(&tx).unwrap_or_else(|e|fail(&format!("{e:?}")));
+                deltabadger::engine::rules::seed_v2_ids(&tx).unwrap_or_else(|e|fail(&format!("{e:?}")));
                 tx.commit().unwrap_or_else(|e|fail(&format!("{e:?}")));
                 for (attempt,rule) in deltabadger::engine::rules::open_attempts(&o.primary,Some(id)).unwrap_or_else(|e|fail(&format!("{e:?}"))) {println!("rule {rule}: Rails attempt {attempt}");}
             } else {
@@ -234,7 +234,7 @@ fn reset_password(env: &dyn Fn(&str) -> Option<String>) {
         if busy(&e) { fail("the database is busy; try again in a moment. Nothing was changed") }
         fail(&format!("cannot change the password: {}; nothing was changed", web_problem(e)))
     };
-    let email = deltabadger::ruby::strip(&email).to_lowercase();
+    let email = deltabadger::v2::strip(&email).to_lowercase();
     let Some(user_id) = owner_lookup(&o.primary, &email).unwrap_or_else(|e| refuse_db(e)) else {
         fail(&format!("no account with the email {email}; nothing was changed"))
     };
@@ -405,7 +405,7 @@ fn lock_refused(paths: &Paths, e: LeaseError) -> ! {
         // Not on the refusal page: the engine that holds the lock is the one serving this install.
         LeaseError::Locked => { deltabadger::eline!("deltabadger: another Deltabadger engine is running on this data"); std::process::exit(1) }
         // A heartbeat in the future is a clock ahead of this one: the detail's negative age says so.
-        LeaseError::RailsAlive { seconds_ago } => fail_with(RAILS_ALIVE, &format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
+        LeaseError::V2Alive { seconds_ago } => fail_with(V2_ALIVE, &format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
         LeaseError::Io(e) => fail(&format!("{}: {e}", paths.lock_file().display())),
         e => fail(&format!("{e:?}")),
     }
@@ -426,7 +426,7 @@ const BEHIND_UMBREL: &str = "Deltabadger didn't start: this data is from an olde
 fn behind(env: &dyn Fn(&str) -> Option<String>) -> &'static str {
     if env("DELTABADGER_PLATFORM").is_some_and(|p| p.trim().eq_ignore_ascii_case("umbrel")) { BEHIND_UMBREL } else { BEHIND }
 }
-const RAILS_ALIVE: &str = "Deltabadger didn't start: your previous version of Deltabadger still seems to be running on this data. \
+const V2_ALIVE: &str = "Deltabadger didn't start: your previous version of Deltabadger still seems to be running on this data. \
                            Stop it, then start this again. Nothing was changed.";
 // Not "Nothing was changed": the Rust migrations and the backup ran before the takeover refused.
 const TAKEOVER_INELIGIBLE: &str = "Deltabadger didn't start: some of your data has to be checked by support first. Nothing was bought or \
@@ -619,11 +619,11 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     // D-BINANCE-ORDER-LINK: stored Binance fills link to their bot orders, at every start.
     registered.push(Box::new(deltabadger::sync::binance_order_links::OrderLinks));
     // A28-1: the lines for Rails' unrecorded-order candidates, hourly; A28-3: with the served venues' order history read live.
-    registered.push(Box::new(deltabadger::engine::rails_unrecorded::Report::new(LiveFactory::new())));
+    registered.push(Box::new(deltabadger::engine::v2_unrecorded::Report::new(LiveFactory::new())));
     let resume_setup = jobs::setup_sync::unfinished(&own.primary, &cipher)?;
     let unbound = deltabadger::sync::jobs::unbound_ibkr_keys(&own.primary).map_err(|e| e.to_string())?;
-    // PLAN-B2 r3.3, r4.4: the runs a stopped 2.x left queued (handover::RAILS_WAKES_KEY), woken until each has run.
-    let rails_wakes = handover::due_rails_wakes(&own.primary, chrono::Utc::now()).map_err(|e| format!("{RAILS_WAKES}: {e:?}", RAILS_WAKES = handover::RAILS_WAKES_KEY))?;
+    // PLAN-B2 r3.3, r4.4: the runs a stopped 2.x left queued (handover::V2_WAKES_KEY), woken until each has run.
+    let v2_wakes = handover::due_v2_wakes(&own.primary, chrono::Utc::now()).map_err(|e| format!("{V2_WAKES}: {e:?}", V2_WAKES = handover::V2_WAKES_KEY))?;
     let registered = registered.into_iter().map(|job| jobs::resolve::configured(job, env, rates.clone())).collect();
     let resolve = jobs::resolve::configured_resolver(jobs::resolve::all(LiveFactory::new(), api, deltabadger::tracker::jobs::system_wall()), env, rates);
     let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe())).with_resolver(resolve);
@@ -636,7 +636,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     for key in unbound {
         scheduler.wakers().wake(deltabadger::sync::jobs::API_KEY_VALIDATOR, Some(&key.to_string()), None);
     }
-    for (job, scope) in &rails_wakes { scheduler.wakers().wake(job, scope.as_deref(), None); }
+    for (job, scope) in &v2_wakes { scheduler.wakers().wake(job, scope.as_deref(), None); }
     scheduler.wakers().attach_engine(engine.wake_handle());
     let scheduler = if let Some(web) = app {
         web.attach_jobs(scheduler.wakers()).map_err(|_| "could not attach job scheduler".to_string())?;

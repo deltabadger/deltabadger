@@ -9,7 +9,7 @@ fn t0() -> chrono::DateTime<Utc> { Utc.with_ymd_and_hms(2026, 9, 30, 12, 0, 0).u
 fn cipher() -> Cipher { Cipher::new(&EncryptionKeys::resolve(&|_| None, "lease-test-secret").unwrap()) }
 fn paths(dir: &std::path::Path) -> Paths { Paths::from_env(&|_| None, dir) }
 
-fn rails_heartbeat(p: &Paths, at: chrono::DateTime<Utc>) {
+fn v2_heartbeat(p: &Paths, at: chrono::DateTime<Utc>) {
     rusqlite::Connection::open(&p.queue).unwrap().execute(
         "INSERT INTO solid_queue_processes (kind, last_heartbeat_at, pid, hostname, created_at, name) VALUES ('Worker', ?1, 1, 'h', ?1, 'w')",
         [deltabadger::codec::format_time(at)]).unwrap();
@@ -31,23 +31,23 @@ fn a_second_rust_process_is_locked_out() {
 }
 
 #[test]
-fn a_rails_process_holding_the_shared_lock_blocks_rust() {
-    drop(common::rails_install()); // build the install template first: a child forked meanwhile inherits the fd below
+fn a_v2_process_holding_the_shared_lock_blocks_rust() {
+    drop(common::v2_install()); // build the install template first: a child forked meanwhile inherits the fd below
     let dir = tempfile::tempdir().unwrap();
     let p = paths(dir.path());
-    let rails = OpenOptions::new().write(true).create(true).truncate(false).open(p.lock_file()).unwrap();
-    rails.try_lock_shared().unwrap(); // what config/initializers/00_engine_lock.rb holds for its lifetime
+    let v2 = OpenOptions::new().write(true).create(true).truncate(false).open(p.lock_file()).unwrap();
+    v2.try_lock_shared().unwrap(); // what config/initializers/00_engine_lock.rb holds for its lifetime
     assert!(matches!(lease::lock(&p, t0()), Err(LeaseError::Locked)));
-    drop(rails);
+    drop(v2);
     assert!(lease::lock(&p, t0()).is_ok());
 }
 
 #[test]
-fn a_live_pre_floor_rails_blocks_until_its_heartbeat_is_stale() {
-    let dir = common::rails_install();
+fn a_live_pre_floor_v2_blocks_until_its_heartbeat_is_stale() {
+    let dir = common::v2_install();
     let p = paths(dir.path());
-    rails_heartbeat(&p, t0());
-    assert!(matches!(lease::lock(&p, t0() + Duration::seconds(119)), Err(LeaseError::RailsAlive { seconds_ago: 119 })));
+    v2_heartbeat(&p, t0());
+    assert!(matches!(lease::lock(&p, t0() + Duration::seconds(119)), Err(LeaseError::V2Alive { seconds_ago: 119 })));
     assert!(lease::lock(&p, t0() + Duration::seconds(121)).is_ok());
 }
 
@@ -66,10 +66,10 @@ fn lock_waiting(p: &Paths, start: chrono::DateTime<Utc>, during: impl FnOnce(chr
 }
 
 #[test]
-fn a_just_stopped_rails_is_waited_out_once_then_checked_again() {
-    let dir = common::rails_install();
+fn a_just_stopped_v2_is_waited_out_once_then_checked_again() {
+    let dir = common::v2_install();
     let p = paths(dir.path());
-    rails_heartbeat(&p, t0());
+    v2_heartbeat(&p, t0());
     // 30 s old: waits 120 - 30 + 1 = 91 s, then takes the lock.
     let (taken, waits) = lock_waiting(&p, t0() + Duration::seconds(30), |_| {});
     assert!(taken.is_ok(), "{:?}", taken.err());
@@ -77,31 +77,31 @@ fn a_just_stopped_rails_is_waited_out_once_then_checked_again() {
     drop(taken);
 
     // Refreshed during the wait: refused after it, with no second wait.
-    let (taken, waits) = lock_waiting(&p, t0() + Duration::seconds(30), |now| rails_heartbeat(&p, now - Duration::seconds(5)));
-    assert!(matches!(taken, Err(LeaseError::RailsAlive { seconds_ago: 5 })), "{:?}", taken.err());
+    let (taken, waits) = lock_waiting(&p, t0() + Duration::seconds(30), |now| v2_heartbeat(&p, now - Duration::seconds(5)));
+    assert!(matches!(taken, Err(LeaseError::V2Alive { seconds_ago: 5 })), "{:?}", taken.err());
     assert_eq!(waits, vec![(30, 91)]);
 }
 
 #[test]
 fn a_heartbeat_in_the_future_is_refused_at_once() {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let p = paths(dir.path());
-    rails_heartbeat(&p, t0() + Duration::seconds(10));
+    v2_heartbeat(&p, t0() + Duration::seconds(10));
     let (taken, waits) = lock_waiting(&p, t0(), |_| {});
-    assert!(matches!(taken, Err(LeaseError::RailsAlive { seconds_ago: -10 })), "{:?}", taken.err());
+    assert!(matches!(taken, Err(LeaseError::V2Alive { seconds_ago: -10 })), "{:?}", taken.err());
     assert!(waits.is_empty());
 }
 
 #[test]
-fn a_rails_that_takes_the_lock_during_the_wait_is_refused_as_locked() {
-    let dir = common::rails_install();
+fn a_v2_that_takes_the_lock_during_the_wait_is_refused_as_locked() {
+    let dir = common::v2_install();
     let p = paths(dir.path());
-    rails_heartbeat(&p, t0());
-    let rails = std::cell::RefCell::new(None);
+    v2_heartbeat(&p, t0());
+    let v2 = std::cell::RefCell::new(None);
     let (taken, waits) = lock_waiting(&p, t0() + Duration::seconds(100), |_| {
         let f = OpenOptions::new().write(true).open(p.lock_file()).unwrap();
         f.try_lock_shared().expect("the lock is not held during the wait");
-        *rails.borrow_mut() = Some(f);
+        *v2.borrow_mut() = Some(f);
     });
     assert!(matches!(taken, Err(LeaseError::Locked)), "{:?}", taken.err());
     assert_eq!(waits, vec![(100, 21)]);
@@ -109,11 +109,11 @@ fn a_rails_that_takes_the_lock_during_the_wait_is_refused_as_locked() {
 
 #[test]
 fn claim_records_rust_ownership_encrypted_and_names_where_it_came_from() {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let p = paths(dir.path());
     let l = lease::lock(&p, t0()).unwrap();
     let o = store::open(&p).unwrap();
-    assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromRails));
+    assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromV2));
     let raw: String = o.primary.query_row("SELECT value FROM app_configs WHERE key = 'engine_lease'", [], |r| r.get(0)).unwrap();
     let envelope: serde_json::Value = serde_json::from_str(&raw).unwrap();
     assert!(envelope["p"].is_string() && envelope["h"]["iv"].is_string(), "stored as a Rails envelope");
@@ -123,7 +123,7 @@ fn claim_records_rust_ownership_encrypted_and_names_where_it_came_from() {
 
 #[test]
 fn hand_back_is_recorded_and_the_next_claim_sees_it() {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let p = paths(dir.path());
     let l = lease::lock(&p, t0()).unwrap();
     let o = store::open(&p).unwrap();
@@ -136,7 +136,7 @@ fn hand_back_is_recorded_and_the_next_claim_sees_it() {
 
 #[test]
 fn an_unreadable_row_is_refused_not_overwritten() {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let p = paths(dir.path());
     let l = lease::lock(&p, t0()).unwrap();
     let o = store::open(&p).unwrap();
@@ -148,7 +148,7 @@ fn an_unreadable_row_is_refused_not_overwritten() {
 
 #[test]
 fn a_clone_of_the_lock_keeps_the_install_locked_until_the_last_one_drops() {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let p = paths(dir.path());
     let first = lease::lock(&p, t0()).unwrap();
     let held = first.clone(); // what `serve` keeps after the engine has taken (and dropped) the first
@@ -161,7 +161,7 @@ fn a_clone_of_the_lock_keeps_the_install_locked_until_the_last_one_drops() {
 #[test]
 fn a_claim_stamps_a_new_ownership_and_a_restart_reopens_nothing() {
     use rusqlite::OptionalExtension;
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let p = paths(dir.path());
     let l = lease::lock(&p, t0()).unwrap();
     let o = store::open(&p).unwrap();
@@ -183,7 +183,7 @@ fn a_claim_stamps_a_new_ownership_and_a_restart_reopens_nothing() {
 /// them. A claim on a copy no Rust migration ran on has no rankings table and claims all the same.
 #[test]
 fn a_new_ownership_clears_every_index_ranking_and_a_restart_keeps_them() {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let p = paths(dir.path());
     let l = lease::lock(&p, t0()).unwrap();
     let o = store::open(&p).unwrap();
@@ -194,7 +194,7 @@ fn a_new_ownership_clears_every_index_ranking_and_a_restart_keeps_them() {
         deltabadger::engine::index::record_ranking(&o.primary, id, "coingecko", "a-fingerprint", t0()).unwrap();
     };
     rank();
-    assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromRails));
+    assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromV2));
     assert_eq!(rankings(), 0, "from Rails: cleared");
     rank();
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::AfterCrash));
@@ -204,18 +204,18 @@ fn a_new_ownership_clears_every_index_ranking_and_a_restart_keeps_them() {
     assert_eq!(rankings(), 0, "after a handback: cleared");
     drop(o);
     drop(l);
-    let bare = common::rails_install_unmigrated();
+    let bare = common::v2_install_unmigrated();
     let p = paths(bare.path());
     let l = lease::lock(&p, t0()).unwrap();
     let c = rusqlite::Connection::open(bare.path().join("production.sqlite3")).unwrap();
-    assert!(matches!(lease::claim(&l, &c, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromRails), "no rankings table: claimed all the same");
+    assert!(matches!(lease::claim(&l, &c, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromV2), "no rankings table: claimed all the same");
 }
 
 /// A17-4 r18: a new ownership removes every composition marker (Rails may have changed membership) and keeps retirements
 /// (the provider's catalogue, not a row Rails rewrites).
 #[test]
 fn a_new_ownership_removes_composition_markers_and_keeps_retirements() {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let p = paths(dir.path());
     let l = lease::lock(&p, t0()).unwrap();
     let o = store::open(&p).unwrap();
@@ -223,7 +223,7 @@ fn a_new_ownership_removes_composition_markers_and_keeps_retirements() {
     o.primary.execute("INSERT INTO bots (type, status, user_id, settings, transient_data, created_at, updated_at) VALUES ('Bots::DcaIndex', 2, 1, '{}', '{\"rust_composed_index\":\"layer-1\",\"n\":1}', '2026-01-01', '2026-01-01')", []).unwrap();
     o.primary.execute("INSERT INTO rust_index_retired VALUES ('layer-1', 'coingecko', '2026-09-01T00:00:00Z')", []).unwrap();
     let marker = || o.primary.query_row("SELECT json_extract(transient_data, '$.rust_composed_index') FROM bots", [], |r| r.get::<_, Option<String>>(0)).unwrap();
-    assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromRails));
+    assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromV2));
     assert_eq!(marker(), None, "removed");
     assert_eq!(o.primary.query_row("SELECT json_extract(transient_data, '$.n') FROM bots", [], |r| r.get::<_, i64>(0)).unwrap(), 1, "the rest kept");
     assert_eq!(o.primary.query_row("SELECT count(*) FROM rust_index_retired", [], |r| r.get::<_, i64>(0)).unwrap(), 1, "the retirement kept");

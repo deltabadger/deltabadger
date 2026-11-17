@@ -3,7 +3,7 @@
 //! production.rb's root URL. Rails-free.
 use chrono::{TimeZone, Utc};
 use deltabadger::mail::{mailbox, Message};
-use deltabadger::ruby::{float_to_s, to_i};
+use deltabadger::v2::{float_to_s, to_i};
 use serde_json::{json, Value};
 
 fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/mail_vectors.json")).expect("mail_vectors.json parses") }
@@ -65,7 +65,7 @@ fn a_value_with_a_control_character_never_reaches_a_header() {
 }
 
 #[test]
-fn floats_print_as_ruby_prints_them() {
+fn floats_print_as_v2_prints_them() {
     for pair in vectors()["floats"].as_array().unwrap() {
         let Some(bits) = pair[0]["f"].as_str() else { continue }; // an Integer: Rust's own to_string
         let f = f64::from_bits(u64::from_str_radix(bits, 16).unwrap());
@@ -74,7 +74,7 @@ fn floats_print_as_ruby_prints_them() {
 }
 
 #[test]
-fn text_is_read_as_a_number_as_ruby_reads_it() {
+fn text_is_read_as_a_number_as_v2_reads_it() {
     let cases = vectors()["ints"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 19);
     for pair in &cases { assert_eq!(to_i(pair[0].as_str().unwrap()), pair[1].as_i64().unwrap(), "{:?}.to_i", pair[0]); }
@@ -118,7 +118,7 @@ fn env_of(case: &Value) -> impl Fn(&str) -> Option<String> + '_ {
 }
 
 #[test]
-fn smtp_settings_and_the_sender_resolve_as_rails_resolves_them() {
+fn smtp_settings_and_the_sender_resolve_as_v2_resolves_them() {
     let v = vectors();
     let defaults = &v["smtp_defaults"];
     assert_eq!((defaults["open_timeout"].as_u64(), defaults["read_timeout"].as_u64()), (Some(5), Some(5)));
@@ -130,7 +130,7 @@ fn smtp_settings_and_the_sender_resolve_as_rails_resolves_them() {
         let config = |key: &str| c["app_config"].get(key).and_then(Value::as_str).map(str::to_string);
         assert_eq!(smtp::notifications_sender(&env, &config), c["sender"].as_str().unwrap(), "sender of {c}");
         // What Mail::SMTP ends up with: SmtpSettings.current over the mail gem's defaults.
-        let rails = |key: &str| c["settings"].get(key).filter(|v| !v.is_null()).unwrap_or(&defaults[key]).clone();
+        let v2 = |key: &str| c["settings"].get(key).filter(|v| !v.is_null()).unwrap_or(&defaults[key]).clone();
         let text = |v: Value| v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string());
         let ours = match smtp::Settings::current(&env, &config) {
             Ok(ours) => ours,
@@ -138,17 +138,17 @@ fn smtp_settings_and_the_sender_resolve_as_rails_resolves_them() {
             Err(why) if c["settings"].is_null() => { assert_eq!(why, "no SMTP_ADDRESS, and no SMTP settings saved", "{c}"); continue }
             // The one recorded configuration Rails accepts and this crate does not: an empty SMTP_DOMAIN, which Rails
             // would send as `EHLO ` (a listed divergence).
-            Err(why) => { assert_eq!((why.as_str(), text(rails("domain")).as_str()), ("SMTP_DOMAIN is not a host name or an address literal", ""), "{c}"); refused += 1; continue }
+            Err(why) => { assert_eq!((why.as_str(), text(v2("domain")).as_str()), ("SMTP_DOMAIN is not a host name or an address literal", ""), "{c}"); refused += 1; continue }
         };
         assert!(!c["settings"].is_null(), "not configured in Rails, configured here: {c}");
-        assert_eq!(ours.address, text(rails("address")), "address of {c}");
-        assert_eq!(ours.port, text(rails("port")), "port of {c}");
-        assert_eq!(ours.domain, text(rails("domain")), "domain of {c}");
-        assert_eq!(ours.credentials, (text(rails("user_name")), text(rails("password"))), "credentials of {c}");
+        assert_eq!(ours.address, text(v2("address")), "address of {c}");
+        assert_eq!(ours.port, text(v2("port")), "port of {c}");
+        assert_eq!(ours.domain, text(v2("domain")), "domain of {c}");
+        assert_eq!(ours.credentials, (text(v2("user_name")), text(v2("password"))), "credentials of {c}");
         assert_eq!((ours.open_timeout.as_secs(), ours.read_timeout.as_secs()), (5, 5));
         // STARTTLS is required exactly when Rails requires it (`enable_starttls: :always`): a non-empty user name or
         // password, whitespace included.
-        assert_eq!(ours.has_secret(), text(rails("enable_starttls")) == "always", "STARTTLS rule of {c}");
+        assert_eq!(ours.has_secret(), text(v2("enable_starttls")) == "always", "STARTTLS rule of {c}");
         configured += 1;
     }
     assert_eq!((configured, refused), (15, 1), "of the 22 recorded configurations; the other six are \"not configured\" in Rails too");
@@ -184,7 +184,7 @@ fn the_root_url_is_what_production_rb_derives() {
 }
 
 #[test]
-fn a_stored_locale_rails_does_not_know_is_english_and_a_missing_one_is_the_default() {
+fn a_stored_locale_v2_does_not_know_is_english_and_a_missing_one_is_the_default() {
     // A listed divergence: Rails raises I18n::InvalidLocale for the first and sends nothing.
     assert_eq!((render::user_locale(Some("xx")), render::user_locale(None), render::user_locale(Some("pl"))), ("en", "en", "pl"));
 }
@@ -215,12 +215,12 @@ use deltabadger::mail::sender;
 
 #[test]
 fn the_first_retries_wait_as_long_as_the_delivery_job_does() {
-    let ruby: Vec<u64> = vectors()["retry_waits"].as_array().unwrap().iter().map(|w| w.as_u64().unwrap()).collect();
+    let v2: Vec<u64> = vectors()["retry_waits"].as_array().unwrap().iter().map(|w| w.as_u64().unwrap()).collect();
     let dir = tempfile::tempdir().unwrap();
     let db = rusqlite::Connection::open(dir.path().join("x.sqlite3")).unwrap();
     let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "mail-test-secret").unwrap());
     let s = sender::Sender::new(db, cipher, &|_| None, deltabadger::engine::SystemClock);
     let ours: Vec<u64> = s.waits.iter().map(|w| w.as_secs()).collect();
-    assert_eq!(ours[..4], ruby[..], "ApplicationMailDeliveryJob: polynomially_longer, attempts 2 to 5");
+    assert_eq!(ours[..4], v2[..], "ApplicationMailDeliveryJob: polynomially_longer, attempts 2 to 5");
     assert_eq!(ours[4..], [3600], "then hourly, until the marker is seven days old");
 }

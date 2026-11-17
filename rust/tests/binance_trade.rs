@@ -1,7 +1,7 @@
 //! The Binance trading adapter (venue::binance) over recorded bodies, its signer against honeymaker's own output, and its
 //! answers mapped as Exchanges::Binance and Exchange#ambiguous_placement_error? map them. Rails-free: no install, no network.
 use deltabadger::engine::model::Ticker;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::binance::{BinanceVenue, Pair, Pairs};
 use deltabadger::venue::http::{self, ScriptedTransport};
 use deltabadger::venue::{NewOrder, OrderKind, PriceSide, Venue, VenueError};
@@ -120,7 +120,7 @@ fn order(kind: OrderKind, quote: bool, volume: &str) -> NewOrder {
 fn accepted() -> Value { ok(json!({ "symbol": "BTCUSDT", "orderId": 28457, "orderListId": -1, "clientOrderId": CL, "transactTime": 1789871400750u64 })) }
 
 #[tokio::test(flavor = "current_thread")]
-async fn each_buy_posts_the_fields_rails_sends_plus_the_client_order_id() {
+async fn each_buy_posts_the_fields_v2_sends_plus_the_client_order_id() {
     let cases = [
         (order(OrderKind::Market, true, "60.5"), vec![("newClientOrderId", CL), ("quoteOrderQty", "60.5"), ("recvWindow", "5000"),
             ("selfTradePreventionMode", "EXPIRE_MAKER"), ("side", "BUY"), ("symbol", "BTCUSDT"), ("type", "MARKET")]),
@@ -140,7 +140,7 @@ async fn each_buy_posts_the_fields_rails_sends_plus_the_client_order_id() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn placement_answers_map_to_rails_ambiguity_rules() {
+async fn placement_answers_map_to_v2_ambiguity_rules() {
     let m1021 = "Timestamp for this request is outside of the recvWindow.";
     let ahead = "Timestamp for this request was 1000ms ahead of the server's time.";
     let cases: Vec<(Value, Result<String, VenueError>)> = vec![
@@ -180,7 +180,7 @@ async fn placement_answers_map_to_rails_ambiguity_rules() {
 // ---- polls: Exchanges::Binance#get_orders / #get_order, #parse_order_data, the fill rebuild from myTrades
 
 #[test]
-fn every_recorded_rails_trade_parse_and_aggregate_is_reproduced() {
+fn every_recorded_v2_trade_parse_and_aggregate_is_reproduced() {
     use deltabadger::venue::binance::{aggregate, parse_trade};
     let cases = vectors()["binance_fills"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 10_000);
@@ -259,7 +259,7 @@ async fn an_executed_order_is_rebuilt_from_all_its_trades_net_of_commission() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_fill_whose_trades_do_not_add_up_yet_is_rails_failure_and_the_order_waits() {
+async fn a_fill_whose_trades_do_not_add_up_yet_is_v2_failure_and_the_order_waits() {
     for page in [json!([]), json!([trade(1, 5, "64000.00", "0.0006", "0", "USDT")])] {
         let (_, v) = venue(json!({ "GET /api/v3/allOrders": ok(json!([raw_order(5, "FILLED", "MARKET", "0.00100000", "64.00000000")])), "GET /api/v3/myTrades": ok(page.clone()) }));
         assert_eq!(v.orders(&["BTCUSDT-5".into()]).await,

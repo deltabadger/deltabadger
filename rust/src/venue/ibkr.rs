@@ -311,7 +311,7 @@ impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
         let answer = self.request(self.http("POST", LST_PATH, vec![], None)).await;
         self.login.state().minting = None;
         let answer = answer?;
-        let dh_response = answer.get("diffie_hellman_response").and_then(Value::as_str).filter(|s| !crate::ruby::blank(s))
+        let dh_response = answer.get("diffie_hellman_response").and_then(Value::as_str).filter(|s| !crate::v2::blank(s))
             .ok_or(Error::Auth("live_session_token: missing diffie_hellman_response"))?;
         let invalid = Error::Auth("live_session_token failed validation");
         let lst = signer.live_session_token(&dh_random, dh_response, &prepend).ok_or(invalid.clone())?;

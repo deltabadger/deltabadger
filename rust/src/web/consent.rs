@@ -155,7 +155,7 @@ fn pre_authorize(c: &Connection, asked: &Asked) -> Result<Result<PreAuth, Refusa
 
 /// Rack's `Cache-Control` for the status. Oauth::BaseController has no `set_no_cache`, so these
 /// pages are not `no-store` even for a signed-in owner.
-fn cached_as_rails(mut response: Response) -> Response {
+fn cached_as_v2(mut response: Response) -> Response {
     let status = response.status();
     headers::cache_control(response.headers_mut(), status, false);
     response
@@ -169,7 +169,7 @@ struct ErrorPage<'a> {
 
 /// Doorkeeper's stock error page, without a layout.
 fn error_page(status: StatusCode, description: &str) -> Result<Response, WebError> {
-    Ok(cached_as_rails(layout::html(status, ErrorPage { description }.render()?)))
+    Ok(cached_as_v2(layout::html(status, ErrorPage { description }.render()?)))
 }
 
 fn refusal_status(refused: &Refusal) -> StatusCode {
@@ -185,7 +185,7 @@ fn to_client(asked: &Asked, redirect_uri: &str, parameters: &[(&str, &str)]) -> 
     if let Ok(value) = axum::http::HeaderValue::from_str(&location) {
         response.headers_mut().insert(header::LOCATION, value);
     }
-    cached_as_rails(response)
+    cached_as_v2(response)
 }
 
 #[derive(Template)]
@@ -231,7 +231,7 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>, headers
         cancel: t("button.cancel"), connect: t("button.connect"),
         asked: &asked, pre_auth: &pre_auth,
     };
-    Ok(cached_as_rails(layout::html(StatusCode::OK, page.render()?)))
+    Ok(cached_as_v2(layout::html(StatusCode::OK, page.render()?)))
 }
 
 /// ConnectedClients::RecordConsent: a new connection gets a row with no tool lists (NULL), so the
@@ -273,7 +273,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         Err(refused) => {
             let mut body = json!({ "error": refused.error, "error_description": refused.description });
             if !state.trim().is_empty() { body["state"] = json!(state); }
-            cached_as_rails((refusal_status(&refused), [(header::CONTENT_TYPE, "application/json; charset=utf-8")], body.to_string()).into_response())
+            cached_as_v2((refusal_status(&refused), [(header::CONTENT_TYPE, "application/json; charset=utf-8")], body.to_string()).into_response())
         }
     })
 }

@@ -39,7 +39,7 @@ fn dir_with(files: &[(&str, &str)]) -> tempfile::TempDir {
 
 #[test]
 fn an_install_upgraded_from_the_current_schema_gets_the_probe_once() {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let p = paths(dir.path());
     let list = probe_migrations();
     let registry = Registry { migrations: &as_migrations(&list), tables: PROBE_TABLES, retired: &[] };
@@ -55,13 +55,13 @@ fn an_install_upgraded_from_the_current_schema_gets_the_probe_once() {
     assert_eq!(store::migrate_with(&p, &l, &registry).unwrap(), Vec::<String>::new(), "a restart applies nothing");
     assert_eq!(snapshot(&p), before, "and writes nothing");
     // Rails' history is Rails' own: still exactly its migrations.
-    let rails: i64 = Connection::open(&p.primary).unwrap().query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
-    assert_eq!(rails as usize, MIGRATIONS.len());
+    let v2: i64 = Connection::open(&p.primary).unwrap().query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
+    assert_eq!(v2 as usize, MIGRATIONS.len());
 }
 
 #[test]
 fn a_failed_migration_leaves_nothing_of_itself_keeps_the_ones_before_and_a_restart_applies_only_it() {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let p = paths(dir.path());
     let first = ("20990101000001_create_probe.sql", "CREATE TABLE rust_migration_probe (id INTEGER PRIMARY KEY);");
     let broken = dir_with(&[first, ("20990101000002_add_half.sql", "CREATE TABLE half (id INTEGER PRIMARY KEY);\nINSERT INTO nowhere VALUES (1);")]);
@@ -92,7 +92,7 @@ fn a_failed_migration_leaves_nothing_of_itself_keeps_the_ones_before_and_a_resta
 #[test]
 fn a_migration_that_ends_its_own_transaction_is_rolled_back_and_refused() {
     for end in ["END", "COMMIT"] {
-        let dir = common::rails_install_unmigrated();
+        let dir = common::v2_install_unmigrated();
         let p = paths(dir.path());
         let sql = format!("CREATE TABLE escaped (id INTEGER PRIMARY KEY); {end};");
         let migrations = [Migration { version: "20990101000001", name: "escape", sql: &sql }];
@@ -105,7 +105,7 @@ fn a_migration_that_ends_its_own_transaction_is_rolled_back_and_refused() {
 
 #[test]
 fn check_reports_pending_migrations_and_writes_nothing() {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let p = paths(dir.path());
     let list = probe_migrations();
     let registry = Registry { migrations: &as_migrations(&list), tables: PROBE_TABLES, retired: &[] };
@@ -121,7 +121,7 @@ fn check_reports_pending_migrations_and_writes_nothing() {
 
 #[test]
 fn an_unknown_rust_migration_is_unsupported_even_with_others_pending() {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let p = paths(dir.path());
     exec(&p.primary, "CREATE TABLE rust_schema_migrations (version TEXT NOT NULL PRIMARY KEY, applied_at TEXT NOT NULL);
                       INSERT INTO rust_schema_migrations VALUES ('29991231000000', '2099-12-31 00:00:00');");
@@ -134,7 +134,7 @@ fn an_unknown_rust_migration_is_unsupported_even_with_others_pending() {
 /// A binary rolled back across a Rust migration refuses the install (the recovery is the operator's backup).
 #[test]
 fn an_older_binary_refuses_an_install_a_newer_one_migrated() {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let p = paths(dir.path());
     let list = probe_migrations();
     let registry = Registry { migrations: &as_migrations(&list), tables: PROBE_TABLES, retired: &[] };
@@ -148,7 +148,7 @@ fn an_older_binary_refuses_an_install_a_newer_one_migrated() {
 type Case = (&'static str, bool, &'static str, fn(&StoreError) -> bool);
 
 #[test]
-fn pending_migrations_never_hide_a_rails_or_queue_problem() {
+fn pending_migrations_never_hide_a_v2_or_queue_problem() {
     let list = probe_migrations();
     let registry = Registry { migrations: &as_migrations(&list), tables: PROBE_TABLES, retired: &[] };
     let cases: [Case; 3] = [
@@ -160,7 +160,7 @@ fn pending_migrations_never_hide_a_rails_or_queue_problem() {
          |e| matches!(e, StoreError::Behind { .. })),
     ];
     for (name, in_queue, sql, expected) in cases {
-        let dir = common::rails_install_unmigrated();
+        let dir = common::v2_install_unmigrated();
         let p = paths(dir.path());
         exec(if in_queue { &p.queue } else { &p.primary }, sql);
         match store::check_with(&p, &registry) {
@@ -177,7 +177,7 @@ fn pending_migrations_never_hide_a_rails_or_queue_problem() {
 fn a_recorded_migration_whose_table_is_missing_or_wrong_is_incompatible() {
     for (name, sql) in [("missing", "DROP TABLE rust_migration_probe"),
                         ("wrong", "DROP TABLE rust_migration_probe; CREATE TABLE rust_migration_probe (other TEXT)")] {
-        let dir = common::rails_install_unmigrated();
+        let dir = common::v2_install_unmigrated();
         let p = paths(dir.path());
         let list = probe_migrations();
         let registry = Registry { migrations: &as_migrations(&list), tables: PROBE_TABLES, retired: &[] };
@@ -194,7 +194,7 @@ fn a_recorded_migration_whose_table_is_missing_or_wrong_is_incompatible() {
 /// migrates) refuses before touching either database.
 #[test]
 fn no_second_process_migrates_while_one_holds_the_engine_lock() {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let p = paths(dir.path());
     let held = lock(&p);
     assert!(matches!(lease::lock(&p, chrono::Utc::now()), Err(LeaseError::Locked)));
@@ -211,7 +211,7 @@ fn no_second_process_migrates_while_one_holds_the_engine_lock() {
 /// migrated, and none of them migrates it.
 #[test]
 fn open_based_commands_work_on_an_unmigrated_install_and_never_migrate_it() {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let p = paths(dir.path());
     store::open(&p).unwrap();
     for args in [&["check"][..], &["handback"], &["sync", "balances"]] {
@@ -230,11 +230,11 @@ fn open_based_commands_work_on_an_unmigrated_install_and_never_migrate_it() {
 type Refused<'a> = (&'a str, &'a [(&'a str, &'a str)], &'a str);
 
 #[test]
-fn the_build_refuses_a_misnamed_or_repeated_version_a_rails_version_a_transaction_statement_and_an_altered_table() {
-    let rails = format!("{}_clash.sql", MIGRATIONS[0]);
+fn the_build_refuses_a_misnamed_or_repeated_version_a_v2_version_a_transaction_statement_and_an_altered_table() {
+    let v2 = format!("{}_clash.sql", MIGRATIONS[0]);
     let refused: &[Refused<'_>] = &[
         ("repeated version", &[("20990101000001_a.sql", "SELECT 1;"), ("20990101000001_b.sql", "SELECT 1;")], "used by two"),
-        ("Rails version", &[(&rails, "SELECT 1;")], "Rails migration"),
+        ("Rails version", &[(&v2, "SELECT 1;")], "Rails migration"),
         ("misnamed", &[("2099_short.sql", "SELECT 1;")], "named"),
         ("no name", &[("20990101000001_.sql", "SELECT 1;")], "named"),
         ("BEGIN", &[("20990101000001_t.sql", "BEGIN;\nCREATE TABLE t (id INTEGER);")], "BEGIN"),
@@ -307,7 +307,7 @@ fn the_build_embeds_exactly_rust_migrations_and_each_contract_names_one() {
 #[test]
 fn the_kucoin_cutoffs_move_from_app_configs_to_their_own_table() {
     const CUTOFFS: &str = "20261023000001";
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let p = paths(dir.path());
     let before = &RUST_MIGRATIONS[..RUST_MIGRATIONS.iter().position(|m| m.version == CUTOFFS).unwrap()];
     let tables = &REGISTRY.tables[..REGISTRY.tables.iter().position(|(v, _)| *v == CUTOFFS).unwrap()];
@@ -333,7 +333,7 @@ const STRAY: &str = "20261025000001";
 
 /// An unmigrated install brought up to just before the stray-conditions migration, opened, with the Kraken fixtures seeded.
 fn before_stray() -> (tempfile::TempDir, Paths, store::Opened, common::seed::Seeded) {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let p = paths(dir.path());
     let n = RUST_MIGRATIONS.iter().position(|m| m.version == STRAY).unwrap();
     let k = REGISTRY.tables.iter().position(|(v, _)| *v >= STRAY).unwrap_or(REGISTRY.tables.len());
@@ -430,7 +430,7 @@ fn replacements() -> Vec<(String, String, String)> {
 }
 /// An install that applied the fixture's first migration, with rows in both tables.
 fn before_replacement(list: &[(String, String, String)]) -> (tempfile::TempDir, Paths) {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let p = paths(dir.path());
     let m = as_migrations(list);
     store::migrate_with(&p, &lock(&p), &Registry { migrations: &m[..1], tables: &FX_TABLES[..2], retired: &[] }).unwrap();
@@ -578,7 +578,7 @@ fn an_install_with_a_replacement_pending_is_not_opened() {
     store::migrate_with(&p, &lock(&p), &full).unwrap();
     store::open_with(&p, &full).unwrap();
 
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let p = paths(dir.path());
     assert_eq!(store::check_open_with(&p, &full).unwrap(), pending(&[CREATED, REPLACED]));
     store::open_with(&p, &full).unwrap();
@@ -688,9 +688,9 @@ fn the_frozen_beta_fixture_holds_every_stored_name_the_rename_moves() {
 /// The migrator's own guard, whatever the build's scan let through: a file that drops or rebuilds a table no Rust
 /// contract names (a Rails-born one) is rolled back and refused.
 #[test]
-fn a_migration_that_drops_or_rebuilds_a_rails_table_is_rolled_back() {
+fn a_migration_that_drops_or_rebuilds_a_v2_table_is_rolled_back() {
     for sql in ["DROP TABLE rules;", "DROP TABLE rules; CREATE TABLE rules (id INTEGER PRIMARY KEY, status INTEGER NOT NULL);"] {
-        let dir = common::rails_install_unmigrated();
+        let dir = common::v2_install_unmigrated();
         let p = paths(dir.path());
         let before = contents(&p);
         let migrations = [Migration { version: "20990101000001", name: "unsafe", sql }];

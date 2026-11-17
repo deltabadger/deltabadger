@@ -14,7 +14,7 @@
 use super::write;
 use crate::engine::{composition, eligibility, model};
 use crate::figures::{at::At, dec::Dec, fill};
-use crate::ruby::{self, BigDec};
+use crate::v2::{self, BigDec};
 use crate::tax::{line, Cell};
 use crate::tracker::import::{csv::Table, deltabadger::unescape};
 use crate::web::{auth, flash, i18n, layout::{self, Ctx}, App, WebError};
@@ -66,7 +66,7 @@ fn orders_csv(c: &Connection, id: i64, bot_exchange: Option<i64>, zone: &str) ->
                            FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status = 2 ORDER BY created_at, id")?;
     let mut rows = s.query([id])?;
     let dec = |r: &rusqlite::Row, i: usize| -> Result<Option<BigDec>, WebError> {
-        ruby::from_sql(r.get_ref(i)?).map_err(|e| WebError::Config(format!("transaction decimal: {e:?}")))
+        v2::from_sql(r.get_ref(i)?).map_err(|e| WebError::Config(format!("transaction decimal: {e:?}")))
     };
     let raw = |d: Option<BigDec>| d.map_or(Cell::Nil, |d| Cell::Raw(d.to_s_f()));
     let text = |t: Option<String>| t.map_or(Cell::Nil, Cell::Text);
@@ -133,7 +133,7 @@ static TIME: LazyLock<Regex> = LazyLock::new(|| Regex::new(concat!(
     r" *(Z|UTC|[+-][0-9]{2}:?[0-9]{2})?$")).unwrap());
 
 fn read_time(cell: Option<&str>) -> Option<DateTime<Utc>> {
-    let c = TIME.captures(ruby::strip(cell?))?;
+    let c = TIME.captures(v2::strip(cell?))?;
     let n = |i: usize| c.get(i).map_or(Some(0), |m| m.as_str().parse::<u32>().ok());
     let date = NaiveDate::from_ymd_opt(c[1].parse().ok()?, n(2)?, n(3)?)?;
     let nanos = c.get(7).map_or(Some(0), |f| format!("{:0<9}", f.as_str()).parse::<u32>().ok())?;
@@ -154,7 +154,7 @@ fn read_time(cell: Option<&str>) -> Option<DateTime<Utc>> {
 
 /// `row[name].to_d` where it holds a plain decimal; blank is 0, as Rails reads nil (D-IMPORT-UNREADABLE).
 fn read_number(cell: Option<&str>) -> Option<BigDec> {
-    match cell.filter(|v| !ruby::blank(v)) {
+    match cell.filter(|v| !v2::blank(v)) {
         None => Some(BigDec::zero()),
         Some(v) => crate::tracker::import::csv::amount(Some(v)).ok().map(|d| d.round(18)),
     }
@@ -183,7 +183,7 @@ fn venue_import_names(c: &Connection, exchange: i64, quote: Option<i64>) -> Resu
     let mut s = c.prepare("SELECT t.base, a.symbol, t.base_asset_id FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 AND t.quote_asset_id IS ?2")?;
     for row in s.query_map(params![exchange, quote], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?)))? {
         let (base, symbol, id) = row?;
-        for name in [base.as_deref().map(crate::figures::db::base_spelling), symbol.as_deref()].into_iter().flatten().filter(|n| !ruby::blank(n)) {
+        for name in [base.as_deref().map(crate::figures::db::base_spelling), symbol.as_deref()].into_iter().flatten().filter(|n| !v2::blank(n)) {
             names.entry(name.to_uppercase()).or_default().insert(id);
         }
     }
@@ -245,7 +245,7 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
     let (mut skipped, mut mismatched_quote, mut seen, mut candidates) = (0usize, None::<String>, HashSet::new(), vec![]);
     for row in &table.rows {
         let get = |name: &str| table.get(row, name);
-        let cell = |name: &str| get(name).map(|v| ruby::strip(unescape(v)).to_uppercase());
+        let cell = |name: &str| get(name).map(|v| v2::strip(unescape(v)).to_uppercase());
         let (csv_base, csv_quote) = (cell("Base Asset"), cell("Quote Asset"));
         let named = csv_base.as_ref().and_then(|b| base_names.get(b));
         if !((members.is_none() || named.is_some()) && csv_quote == bot_quote) {
@@ -268,7 +268,7 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
         if held.contains(&original) && original.starts_with(&own) { continue; }
         let order_id = format!("{own}{original}");
         if held.contains(&order_id) { continue; }
-        let status = get("Status").map(|s| ruby::strip(unescape(s)).to_lowercase());
+        let status = get("Status").map(|s| v2::strip(unescape(s)).to_lowercase());
         if status.as_deref() != Some("closed") { skipped += 1; continue; }
         // D-IMPORT-DUP: the same id twice in the file, or one another bot holds on this venue.
         if !seen.insert(order_id.clone()) { continue; }
@@ -287,7 +287,7 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
     let stamp = crate::codec::format_time(now);
     let mut written = vec![];
     for row in &candidates {
-        let (amount, value, price) = (ruby::to_sql(&row.amount), ruby::to_sql(&row.value), ruby::to_sql(&row.price));
+        let (amount, value, price) = (v2::to_sql(&row.amount), v2::to_sql(&row.value), v2::to_sql(&row.price));
         tx.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, created_at, updated_at, order_type, side, amount, amount_exec, quote_amount, \
                     quote_amount_exec, price, base, quote, base_asset_id, quote_asset_id, status, external_status) \
                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8, ?9, ?9, ?10, ?11, ?12, ?13, ?14, 0, 2)",

@@ -628,7 +628,7 @@ fn bitget_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Op
     let rows = match body.get_mut("data").map_or(Value::Null, Value::take) {
         Value::Array(rows) => rows,
         Value::Null => vec![],
-        Value::String(text) if crate::ruby::blank(&text) => vec![],
+        Value::String(text) if crate::v2::blank(&text) => vec![],
         Value::Object(map) if map.is_empty() => vec![],
         _ => return Err(unreadable()),
     };
@@ -1098,7 +1098,7 @@ fn mexc_interval(timeframe: i64) -> Option<&'static str> {
 }
 /// Exchanges::Bingx#get_tickers_prices over the whole answer: a `code` other than 0 (none reads as 0, as `nil.to_i`) is
 /// the venue's failure; otherwise the rows of `data` (`bingx::ticker_prices`).
-fn bingx_prices(body: &Value) -> Result<Vec<(String, crate::ruby::BigDec)>, crate::venue::VenueError> {
+fn bingx_prices(body: &Value) -> Result<Vec<(String, crate::v2::BigDec)>, crate::venue::VenueError> {
     if bingx::code(body).unwrap_or(0) != 0 { return Err(crate::venue::VenueError::Rejected(vec![])); }
     bingx::ticker_prices(crate::venue::dig_or_raise(body, "data")?)
 }
@@ -1115,7 +1115,7 @@ fn bybit_interval(timeframe: i64) -> Option<&'static str> {
 }
 /// Exchanges::Bybit#get_tickers_prices over the whole answer: a retCode other than the Integer 0 is the venue's failure;
 /// otherwise the rows of `result.list` (`bybit::ticker_prices`).
-fn bybit_prices(body: &Value) -> Result<Vec<(String, crate::ruby::BigDec)>, crate::venue::VenueError> {
+fn bybit_prices(body: &Value) -> Result<Vec<(String, crate::v2::BigDec)>, crate::venue::VenueError> {
     if body.get("retCode").and_then(Value::as_i64) != Some(0) { return Err(crate::venue::VenueError::Rejected(vec![])); }
     bybit::ticker_prices(body)
 }
@@ -1161,7 +1161,7 @@ impl MarketData for Reader<'_> {
         // Binance's ticker/price (Binance.US's too, at its host), MEXC's (Binance's shape), Bitrue's ticker/24hr, BingX's
         // market/ticker, Bitvavo's ticker/price, Bitget's market/tickers, Bybit's spot market/tickers, Gemini's pricefeed and
         // Coinbase's market/products.
-        type Parse = fn(&Value) -> Result<Vec<(String, crate::ruby::BigDec)>, crate::venue::VenueError>;
+        type Parse = fn(&Value) -> Result<Vec<(String, crate::v2::BigDec)>, crate::venue::VenueError>;
         let whole_market = crate::venue::registry::row(&venue.exchange_type).and_then(|row| Some((row.base, match row.figures? {
             Figures::Binance => (crate::venue::binance::TICKER_PRICE, crate::venue::binance::ticker_prices as Parse, None),
             Figures::Mexc => (mexc::TICKER_PRICE, mexc::ticker_prices as Parse, None),
@@ -1221,7 +1221,7 @@ impl MarketData for Reader<'_> {
             // Exchanges::Kraken#get_tickers_prices(symbols:): the bulk Ticker, kept to the bot's codes, then one Ticker per
             // code it did not return. Each read is held for every bot of the fill; a failed one fails this bot's prices.
             let ticker = |query: Vec<(&'static str, String)>| HttpRequest { method: "GET", base: row.base.into(), path: KRAKEN_TICKER.into(), query, body: None, not_after: None };
-            let price = |p: crate::ruby::BigDec| Dec::venue_number(&Value::String(p.to_s_f()));
+            let price = |p: crate::v2::BigDec| Dec::venue_number(&Value::String(p.to_s_f()));
             let Answer::Json(body) = self.get(ticker(vec![]))? else { return Err(Failure::Failed(UNAVAILABLE.into())) };
             let (prices, missing) = crate::venue::kraken::ticker_prices(&body, symbols).map_err(|_| Failure::Failed(UNAVAILABLE.into()))?;
             let mut out: Vec<(String, Member<Dec>)> = prices.into_iter().map(|(code, p)| (code, price(p))).collect();
@@ -1587,7 +1587,7 @@ mod r4_cache_tests {
     fn hourly(start: i64, end: i64) -> impl Iterator<Item = i64> { (0..).map(move |i| start - start.rem_euclid(H) + i * H).skip_while(move |t| *t < start).take_while(move |t| *t <= end) }
 
     #[tokio::test]
-    async fn a_kucoin_series_walks_its_windows_as_rails_does(){
+    async fn a_kucoin_series_walks_its_windows_as_v2_does(){
         // Windows of 1500 hours: candles, an empty one (a gap in the listing), candles, then the window that reaches now.
         let now = SINCE + 3500 * H + 1800;
         let listed = SINCE + 1700 * H;
@@ -1714,7 +1714,7 @@ mod r4_cache_tests {
     }
 
     #[tokio::test]
-    async fn a_binance_series_walks_its_pages_as_rails_does(){
+    async fn a_binance_series_walks_its_pages_as_v2_does(){
         let producer = model::credential_version_by_id(&db(),1).unwrap().unwrap();
         let req = HttpRequest { method: "GET", base: crate::venue::binance::US_URL.into(), path: BINANCE_KLINES.into(), body: None, not_after: None,
                                 query: vec![("interval", "1h".into()), ("since", SINCE.to_string()), ("symbol", "BTCUSD".into())] };
@@ -1757,7 +1757,7 @@ mod r4_cache_tests {
     }
 
     #[tokio::test]
-    async fn mexc_bitrue_and_bingx_series_are_read_as_rails_reads_them(){
+    async fn mexc_bitrue_and_bingx_series_are_read_as_v2_reads_them(){
         let producer = model::credential_version_by_id(&db(),1).unwrap().unwrap();
         let now = SINCE + 1200 * H + 1800;
         let ok = |body: Value| HttpResponse { status: 200, body: body.to_string() };
@@ -1799,7 +1799,7 @@ mod r4_cache_tests {
     }
 
     #[tokio::test]
-    async fn bitvavo_bitget_and_bybit_series_are_read_as_rails_reads_them(){
+    async fn bitvavo_bitget_and_bybit_series_are_read_as_v2_reads_them(){
         let producer = model::credential_version_by_id(&db(),1).unwrap().unwrap();
         let now = SINCE + 2000 * H + 1800;
         let ok = |body: Value| HttpResponse { status: 200, body: body.to_string() };
@@ -2003,7 +2003,7 @@ mod r4_cache_tests {
     fn ibkr_venue() -> Venue { Venue { exchange_id: 7, exchange_type: ibkr::IBKR.into() } }
 
     #[tokio::test]
-    async fn gemini_hyperliquid_and_coinbase_series_are_read_as_rails_reads_them(){
+    async fn gemini_hyperliquid_and_coinbase_series_are_read_as_v2_reads_them(){
         let producer = model::credential_version_by_id(&db(),1).unwrap().unwrap();
         let now = SINCE + 2000 * H + 1800; // the hour from SINCE + 2000 h is open
         let ok = |body: Value| HttpResponse { status: 200, body: body.to_string() };
@@ -2068,7 +2068,7 @@ mod r4_cache_tests {
     /// Gemini's series is only filtered by its start (`c[0] >= start_at`), so a fractional start leaves out the candle a
     /// fraction before it; Coinbase's start is a parameter, its whole seconds (`to_i`).
     #[test]
-    fn a_fractional_start_is_rounded_up_only_where_rails_filters_by_it(){
+    fn a_fractional_start_is_rounded_up_only_where_v2_filters_by_it(){
         let since = At(SINCE * 1_000_000_000 + 500_000_000);
         let asked = |exchange_type: &str| {
             let empty = Cache::default();
@@ -2082,7 +2082,7 @@ mod r4_cache_tests {
     }
 
     #[test]
-    fn the_three_venues_name_the_chart_timeframes_as_rails_does(){
+    fn the_three_venues_name_the_chart_timeframes_as_v2_does(){
         let chart = [60, 300, 900, 1800, 3600, 86_400];
         assert_eq!(chart.map(gemini_resolution), [Some("1m"), Some("5m"), Some("15m"), Some("30m"), Some("1hr"), Some("1day")]);
         assert_eq!(chart.map(hyperliquid_interval), [Some("1m"), Some("5m"), Some("15m"), Some("30m"), Some("1h"), Some("1d")]);

@@ -92,7 +92,7 @@ async fn partial_fill_then_cancel_banks_only_executed_proceeds() {
     assert_eq!(one::<i64>(&o,"SELECT external_status FROM transactions WHERE external_id='OTX-1'"),3);
 }
 #[tokio::test(flavor="current_thread")]
-async fn ambiguous_first_holding_stops_the_batch_and_promotes_rails_intents() {
+async fn ambiguous_first_holding_stops_the_batch_and_promotes_v2_intents() {
     for orphan in [false,true] {
         let (_d,o,id,s,eth)=swap_bot(stopped());
         if orphan { model::merge_transient_compact(&o.primary,id,&[("liquidation_pending",json!({"id":"rails","symbol":"BTC","state":"placing"}))]).unwrap(); }
@@ -319,8 +319,8 @@ async fn zero_open_then_terminal_missing_then_late_positive_proceeds_for_both_te
             (5,if terminal=="filled" {deltabadger::venue::OrderStatus::Closed} else {deltabadger::venue::OrderStatus::Cancelled},"0.001",None)] {
             let mut state=deltabadger::venue::fake::kraken_order("LATE",&json!({"status":"open","vol":"0.002","vol_exec":"0","cost":"0","price":"0","oflags":"","descr":{"pair":"BTCUSD","type":"sell","ordertype":"market"}}));
             state.status=status;
-            state.amount_exec=deltabadger::ruby::BigDec::parse(exec).unwrap();
-            state.quote_amount_exec=quote.map(|q|deltabadger::ruby::BigDec::parse(q).unwrap());
+            state.amount_exec=deltabadger::v2::BigDec::parse(exec).unwrap();
+            state.quote_amount_exec=quote.map(|q|deltabadger::v2::BigDec::parse(q).unwrap());
             let version=model::credential_version(&o.primary,&model::load_bot(&o.primary,id).unwrap()).unwrap();
             model::credential_write(&o.primary,&version,|tx|polling::apply_in(tx,id,row,&state,false,at(T0)+Duration::seconds(seconds))).unwrap();
         }
@@ -337,8 +337,8 @@ async fn zero_open_then_terminal_missing_then_late_positive_proceeds_for_both_te
 /// D-HYPERLIQUID-MARKET-IOC: liquidation sends the same crossed sell price and base
 /// quantity as Rails, with IOC instead of GTC. All database effects remain in the comparison.
 #[cfg(unix)]
-fn hyperliquid_ioc_expected(rails: &Value, rust: &Value) -> Value {
-    let mut expected = rails.clone();
+fn hyperliquid_ioc_expected(v2: &Value, rust: &Value) -> Value {
+    let mut expected = v2.clone();
     for order in expected["sent"].as_array_mut().unwrap() {
         assert_eq!(order["b"], false);
         assert_eq!(order["p"], "63360");
@@ -352,8 +352,8 @@ fn hyperliquid_ioc_expected(rails: &Value, rust: &Value) -> Value {
 /// D-LIQUIDATION-ONE-LINE on Rails' side (its `liquidation_placed` lines go in common::decisions::status_lines_expected):
 /// a skip Rails calls `unpriced` where this crate read no free balance is named `no_free_balance`.
 #[cfg(unix)]
-fn one_line_expected(rails: &Value, rust: &Value) -> Value {
-    let mut expected = rails.clone();
+fn one_line_expected(v2: &Value, rust: &Value) -> Value {
+    let mut expected = v2.clone();
     let Some(logs) = expected["changes"]["bot_activity_logs"].as_array_mut() else { return expected };
     for (i, row) in logs.iter_mut().enumerate() {
         let ours = &rust["changes"]["bot_activity_logs"][i]["after"];
@@ -365,9 +365,9 @@ fn one_line_expected(rails: &Value, rust: &Value) -> Value {
 }
 
 #[cfg(unix)]
-fn liquidation_grid_difference(name: &str, _: &std::path::Path, rails: &Value, rust: &Value) -> Result<(),String> {
-    let rails = &one_line_expected(rails, rust);
-    let mut expected=if name.contains("-hyperliquid-") { hyperliquid_ioc_expected(rails, rust) } else { rails.clone() };
+fn liquidation_grid_difference(name: &str, _: &std::path::Path, v2: &Value, rust: &Value) -> Result<(),String> {
+    let v2 = &one_line_expected(v2, rust);
+    let mut expected=if name.contains("-hyperliquid-") { hyperliquid_ioc_expected(v2, rust) } else { v2.clone() };
     if name.ends_with("-split_unresolved") {
         // D-6C-SPLIT-HOLD (T3): refuse before sizing, with the explicit reconciliation reason.
         assert_eq!(expected["changes"]["bot_activity_logs"][0]["after"]["details"]["reason"],json!(["not_held"]));
@@ -413,9 +413,9 @@ fn liquidation_grid_difference(name: &str, _: &std::path::Path, rails: &Value, r
             assert_eq!(log["level"],2);
             assert_eq!(log["details"]["base"],"BTC");
             assert_eq!(log["details"]["amount"],"0.01");
-            let price=deltabadger::ruby::BigDec::parse(log["details"]["price"].as_str().unwrap()).unwrap();
-            let quote=deltabadger::ruby::BigDec::parse(log["details"]["quote_amount"].as_str().unwrap()).unwrap();
-            assert_eq!(&price*&deltabadger::ruby::BigDec::parse("0.01").unwrap(),quote);
+            let price=deltabadger::v2::BigDec::parse(log["details"]["price"].as_str().unwrap()).unwrap();
+            let quote=deltabadger::v2::BigDec::parse(log["details"]["quote_amount"].as_str().unwrap()).unwrap();
+            assert_eq!(&price*&deltabadger::v2::BigDec::parse("0.01").unwrap(),quote);
             let prefix=if hyperliquid {"placement failed: Hyperliquid::Error: Network error: "} else {"placement failed: "};
             let message=log["details"]["reason"].as_str().unwrap().strip_prefix(prefix).unwrap();
             assert!(message.starts_with("Connection refused - connect(2) for \"") && message.ends_with("\" port 443"));
@@ -433,7 +433,7 @@ fn liquidation_grid_difference(name: &str, _: &std::path::Path, rails: &Value, r
 
 #[cfg(unix)]
 #[tokio::test(flavor="current_thread")]
-async fn rails_liquidation_grid_matches_every_venue() {
+async fn v2_liquidation_grid_matches_every_venue() {
     let outputs=common::venue_grid::run_venue_grid("grid-liquidation",450,&[common::venue_grid::Validator {
         names:&|_|true,
         check:&liquidation_grid_difference,

@@ -614,7 +614,7 @@ pub(crate) fn broadcast_metrics_panel(ctx:&crate::web::layout::Ctx,id:i64,stream
 
 /// The rebalance drift the account's last kept figures read for `bot`, as Rails' settings answer reads its cached
 /// metrics_with_current_prices (`Some(None)`: they read none), or None while none are kept in this locale and paths.
-pub(crate) fn kept_drift(c:&Connection,app:&App,user:i64,bot:i64,locale:&str,prefix:&str)->Option<Option<crate::ruby::BigDec>> {
+pub(crate) fn kept_drift(c:&Connection,app:&App,user:i64,bot:i64,locale:&str,prefix:&str)->Option<Option<crate::v2::BigDec>> {
     if matches!(app.figure_source,Source::Disabled) { return None; }
     let info=read_info(c,app,user).ok()?;
     let (cache,_,revision)=app.figure_service.stale(user,&info.identity,app.now().timestamp())?;
@@ -623,7 +623,7 @@ pub(crate) fn kept_drift(c:&Connection,app:&App,user:i64,bot:i64,locale:&str,pre
     let kept=kept["figures"]["bots"][bot.to_string()].get("rebalance_drift")?;
     if kept[1].as_str()!=Some(super::rebalance_inputs(c,bot).ok()?.as_str()) { return None; }
     match &kept[0] {
-        Value::String(drift)=>crate::ruby::BigDec::parse(drift).ok().map(Some),
+        Value::String(drift)=>crate::v2::BigDec::parse(drift).ok().map(Some),
         _=>Some(None),
     }
 }

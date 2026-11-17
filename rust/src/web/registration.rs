@@ -88,7 +88,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     let email = email.as_deref().map(setup::normalized_email).unwrap_or_default();
     // Devise hashes on assignment, before validation, and only a present password: one computation on every path that
     // has one, the taken path included.
-    let hash = match password.as_deref().filter(|p| !crate::ruby::blank(p)) {
+    let hash = match password.as_deref().filter(|p| !crate::v2::blank(p)) {
         Some(password) => match app.password_hash(password.to_string()).await? {
             None => return Ok(auth::busy()),
             Some(None) => return Err(WebError::Config("no random salt for a new account's password".into())),

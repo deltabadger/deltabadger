@@ -7,7 +7,7 @@ mod grid;
 use grid::snapshot;
 
 #[tokio::test(flavor="current_thread")]
-async fn early_index_pages_match_rails_and_every_get_keeps_all_rows() { check_grid(&[]).await; }
+async fn early_index_pages_match_v2_and_every_get_keeps_all_rows() { check_grid(&[]).await; }
 
 #[tokio::test(flavor="current_thread")]
 async fn repeated_scalar_dates_use_the_last_value() {
@@ -15,7 +15,7 @@ async fn repeated_scalar_dates_use_the_last_value() {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn turbo_frame_skips_unreadable_navbar_but_full_layout_keeps_rails_error() {
+async fn turbo_frame_skips_unreadable_navbar_but_full_layout_keeps_v2_error() {
     check_grid(&["index_unreadable_color_frame","index_unreadable_color_full"]).await;
 }
 

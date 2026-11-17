@@ -119,7 +119,7 @@ fn rebalance(c: &Connection, s: &Subject, m: &Metrics, locale: &str, now: At) ->
     let engine = |e: crate::engine::EngineError| match e { crate::engine::EngineError::Sqlite(e) => FiguresError::Sqlite(e), e => FiguresError::Data(format!("{e:?}")) };
     let bot = model::load_bot(c, s.bot.id).map_err(engine)?;
     let on = crate::web::bot::cast_boolean(bot.settings.get("rebalance_enabled"));
-    let drift = (|| -> Result<Option<crate::ruby::BigDec>, FiguresError> {
+    let drift = (|| -> Result<Option<crate::v2::BigDec>, FiguresError> {
         if !rebalance::is_pending(&bot.transient) && !eligibility::allocations_balanced(&bot) { return Ok(None); }
         let members = rebalance::members(c, &bot, s).map_err(engine)?;
         // Its arithmetic is the figures': each member is a step of the page's budget.
@@ -133,7 +133,7 @@ fn rebalance(c: &Connection, s: &Subject, m: &Metrics, locale: &str, now: At) ->
     // Read for a rule that is off only so that turning it on can show it: what Rails would not read then refuses nothing.
     let drift = match drift { Err(FiguresError::Data(_)) if !on => None, other => other? };
     // Kept with what it was measured on, so that a save after any of it changed reads it as gone (`loading::kept_drift`).
-    let kept = json!([drift.as_ref().map(crate::ruby::BigDec::to_s_f), rebalance_inputs(c, s.bot.id)?]);
+    let kept = json!([drift.as_ref().map(crate::v2::BigDec::to_s_f), rebalance_inputs(c, s.bot.id)?]);
     if !on { return Ok((None, kept)); }
     let ambiguous = bot.transient[rebalance::PENDING_KEY]["phase"] == rebalance::PHASE_AMBIGUOUS;
     let threshold = rebalance::threshold(&bot.settings).map_err(engine)?;

@@ -105,7 +105,7 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, lines: &mut Vec<String>
 }
 
 pub fn normalize(body: &str) -> Vec<String> {
-    let body = login_icon_as_rails(body);
+    let body = login_icon_as_v2(body);
     let mut lines = Vec::new();
     walk(Html::parse_document(&body).tree.root(), 0, &mut lines);
     lines
@@ -114,7 +114,7 @@ pub fn normalize(body: &str) -> Vec<String> {
 /// Named divergence D-LOGIN-APP-ICON: the login page shows the app's icon (the desktop intro's image) where Rails draws the
 /// signet; it is put back as the signet Rails writes there, so the rest of the page is still compared. Rails never writes
 /// the icon, so its bodies pass through unchanged.
-fn login_icon_as_rails(body: &str) -> std::borrow::Cow<'_, str> {
+fn login_icon_as_v2(body: &str) -> std::borrow::Cow<'_, str> {
     const ICON: &str = "<img class=\"devise__icon\" src=\"";
     let Some(start) = body.find(ICON) else { return body.into() };
     let Some(end) = body[start..].find('>').map(|at| start + at + 1) else { return body.into() };
@@ -171,10 +171,10 @@ pub fn location(value: &str) -> String {
 }
 
 /// Where two normalised pages first differ, with a few lines of context from each.
-pub fn first_difference(rails: &[String], rust: &[String]) -> Option<String> {
-    let at = rails.iter().zip(rust.iter()).position(|(a, b)| a != b).or((rails.len() != rust.len()).then_some(rails.len().min(rust.len())))?;
+pub fn first_difference(v2: &[String], rust: &[String]) -> Option<String> {
+    let at = v2.iter().zip(rust.iter()).position(|(a, b)| a != b).or((v2.len() != rust.len()).then_some(v2.len().min(rust.len())))?;
     let context = |lines: &[String]| lines[at.saturating_sub(3)..(at + 3).min(lines.len())].join("\n    ");
-    Some(format!("line {at}\n  rails:\n    {}\n  rust:\n    {}", context(rails), context(rust)))
+    Some(format!("line {at}\n  rails:\n    {}\n  rust:\n    {}", context(v2), context(rust)))
 }
 
 /// D-A6-STALE: Rails has no halt token. Validate the one extra hidden field against the actual

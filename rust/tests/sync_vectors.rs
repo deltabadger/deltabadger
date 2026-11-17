@@ -1,7 +1,7 @@
 //! The sync's pure mappings against vectors recorded from Rails (script/rust/record_sync_vectors.rb). Rails-free.
 use deltabadger::codec::format_time;
 use deltabadger::crypto::Credentials;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::sync::activities::{self, CryptoPair, CryptoPairs, Raw};
 use deltabadger::sync::wire::{self, Budget, Node, Refused};
 use deltabadger::sync::{number, scrub, SYNC_ERROR_LIMIT};
@@ -67,7 +67,7 @@ fn pairs() -> CryptoPairs {
 }
 
 #[test]
-fn every_recorded_activity_becomes_the_entry_rails_makes_of_it() {
+fn every_recorded_activity_becomes_the_entry_v2_makes_of_it() {
     let streams = list(&vectors()["ledger_entries"]);
     let (mut failures, mut total) = (vec![], 0);
     for stream in &streams {
@@ -90,7 +90,7 @@ fn every_recorded_activity_becomes_the_entry_rails_makes_of_it() {
 }
 
 #[test]
-fn activity_times_are_read_as_rails_reads_them() {
+fn activity_times_are_read_as_v2_reads_them() {
     let times = &vectors()["times"];
     for c in list(&times["trade"]) {
         let fill = json!({ "id": "f", "activity_type": "FILL", "symbol": "AAPL", "side": "buy", "qty": "1", "price": "1", "transaction_time": c[0] });
@@ -107,7 +107,7 @@ fn activity_times_are_read_as_rails_reads_them() {
 }
 
 /// Every number of an answer is bounded before any arithmetic (`sync::number`): one value per way of being hostile.
-/// None of these may reach `ruby::BigDec`, which expands a number digit by digit, on a thread a dropped job cannot stop.
+/// None of these may reach `v2::BigDec`, which expands a number digit by digit, on a thread a dropped job cannot stop.
 #[test]
 fn every_hostile_number_is_refused_before_any_arithmetic_and_every_plain_one_is_read() {
     let started = std::time::Instant::now();
@@ -180,7 +180,7 @@ fn no_split_quantity_makes_the_ratio_loop_overflow_or_lie() {
 /// re-generated. A key met twice keeps its last value in its first place, at every level; more than 100 levels are
 /// refused; what Ruby's parser refuses is refused.
 #[test]
-fn an_answer_is_held_as_rubys_parser_holds_it() {
+fn an_answer_is_held_as_v2s_parser_holds_it() {
     // The value, with every number as a number (Ruby prints a Float its own way, and -0.0 as 0.0), and the keys in order.
     fn keys(v: &Value, out: &mut Vec<String>) {
         match v {
@@ -204,7 +204,7 @@ fn an_answer_is_held_as_rubys_parser_holds_it() {
             (None, Some("nesting")) => { nesting += 1; assert_eq!(read, Err(Refused::TooDeep), "{text}"); }
             (None, Some(_)) => { refused += 1; assert_eq!(read, Err(Refused::NotJson), "{text}"); }
             (Some(_), _) if stricter.contains(&text) => assert_eq!(read, Err(Refused::NotJson), "{text}"),
-            (Some(ruby), _) => { held += 1; assert_eq!(exact(&read.unwrap_or_else(|e| panic!("{text}: {e:?}")).text()).unwrap(), exact(ruby).unwrap(), "{text}"); }
+            (Some(v2), _) => { held += 1; assert_eq!(exact(&read.unwrap_or_else(|e| panic!("{text}: {e:?}")).text()).unwrap(), exact(v2).unwrap(), "{text}"); }
             other => panic!("{text}: {other:?}"),
         }
     }
@@ -307,7 +307,7 @@ fn a_value_that_is_not_json_is_refused_even_where_a_later_one_overwrites_it() {
 }
 
 #[test]
-fn the_copied_constants_are_rails_constants() {
+fn the_copied_constants_are_v2_constants() {
     let c = &vectors()["constants"];
     assert_eq!(json!(activities::SPLIT_TYPES), c["split_types"]);
     for t in list(&c["cash_activity_types"]) { assert!(activities::cash_activity(t.as_str().unwrap()), "{t}"); }
@@ -344,7 +344,7 @@ async fn a_response_body_over_the_limit_is_refused_while_it_is_read() {
 // ---- the ledger's pure parts (Task 4) ----
 
 #[test]
-fn the_after_parameter_and_the_ledgers_constants_are_rails() {
+fn the_after_parameter_and_the_ledgers_constants_are_v2() {
     use deltabadger::sync::ledger;
     for c in list(&vectors()["times"]["after"]) {
         assert_eq!(json!(ledger::after(deltabadger::codec::parse_time(c[0].as_str().unwrap()).unwrap())), c[1], "{c}");
@@ -399,7 +399,7 @@ fn decimal_columns_are_cast_as_active_model_casts_them() {
 }
 
 #[test]
-fn a_market_price_is_read_as_rails_reads_it() {
+fn a_market_price_is_read_as_v2_reads_it() {
     use deltabadger::sync::balances;
     for c in list(&vectors()["price_to_f"]) {
         let found = balances::parse_prices(&json!({ "data": { "coin": { "usd": c[0] } } }), &["coin".to_string(), "absent".to_string()]);

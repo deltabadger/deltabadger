@@ -157,7 +157,7 @@ async fn the_recorded_answers_fail_past_the_window_as_kucoins_funds_rejection_an
         let free = stamp.as_ref().is_none_or(|(at, _)| *at < later - Duration::days(1));
         if free { stamp = Some((later, deltabadger::codec::format_time(later))); }
         let (_, stamped) = stamp.clone().unwrap();
-        let marker = free.then(|| json!({ "quote_asset": k.s.quote, "stamped_at": deltabadger::ruby::iso8601_ms(later) }).to_string());
+        let marker = free.then(|| json!({ "quote_asset": k.s.quote, "stamped_at": deltabadger::v2::iso8601_ms(later) }).to_string());
         assert_eq!(k.failure(), (RETRYING, Some("insufficient_funds".into()), Some(stamped.clone()), marker), "{id}: retrying, the funds mail owed if the day's budget is free");
         mails += usize::from(free);
         assert_eq!(k.logs(), logs, "{id}: a rejected placement writes no line of its own: the failed row is the activity");
@@ -304,7 +304,7 @@ async fn a_recovered_zero_fill_fails_once_when_it_settles() {
         let k = install(1);
         let bot = k.bot();
         let ticker = model::ticker_for(&k.o.primary, &bot).unwrap().unwrap();
-        let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60), &deltabadger::ruby::BigDec::from_i64(64_000),
+        let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &deltabadger::v2::BigDec::from_i64(60), &deltabadger::v2::BigDec::from_i64(64_000),
                                                          &deltabadger::engine::venue_rules::KUCOIN).unwrap() else { panic!() };
         let placed = at(CASE[0].1);
         let sent = ScriptedTransport::from_script(&json!({ "POST /api/v1/orders": [{ "network": "post_send", "message": "read timeout" }] }));

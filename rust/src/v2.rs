@@ -389,7 +389,7 @@ impl Num {
 /// Array#sum (array.c ary_sum) over Integers, Floats and BigDecimals: Integers add exactly; from the first Float on, a
 /// Kahan-Babuska sum in doubles that starts from the Integer prefix (later Integers join as doubles); anything else leaves
 /// that path (the double so far, uncompensated, as Ruby's `not_float` does) and is added with `+`. Empty is Integer 0.
-pub fn ruby_sum(xs: &[Num]) -> Result<Num, CodecError> {
+pub fn v2_sum(xs: &[Num]) -> Result<Num, CodecError> {
     let mut i = 0;
     let mut n: i64 = 0;
     while let Some(Num::Int(x)) = xs.get(i) { n = n.checked_add(*x).ok_or(CodecError::IntegerOverflow("ruby_sum"))?; i += 1; }
@@ -498,7 +498,7 @@ pub fn validation_regex(pattern: &str) -> Result<regex::Regex, regex::Error> {
 #[cfg(test)]
 mod settings_whitespace_tests {
     #[test]
-    fn ruby_whitespace_separates_regexp_strip_and_blank_semantics(){
+    fn v2_whitespace_separates_regexp_strip_and_blank_semantics(){
         let name=super::validation_regex(r"\A\p{L}+(\s+\p{L}+)*\z").unwrap();
         for separator in [" ","\t","\n","\r","\x0b","\x0c"]{assert!(name.is_match(&format!("Alice{separator}Smith")));}
         for separator in ["\u{a0}","\u{2003}"]{assert!(!name.is_match(&format!("Alice{separator}Smith")));assert_eq!(super::strip(separator),separator);assert!(super::blank(separator));}

@@ -2,7 +2,7 @@
 //! holding. Pinned by the "bot_pages" vectors.
 use super::colors;
 use super::format::{float_round, float_to_s};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 
 const CIRCUMFERENCE: f64 = 2.0 * std::f64::consts::PI * 9.0; // ICON_RADIUS
 const MIN_SPAN: f64 = 2.0 + 2.0; // ICON_GAP + ICON_STROKE

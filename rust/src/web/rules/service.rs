@@ -7,7 +7,7 @@ use super::{
     reads,
 };
 use crate::{
-    ruby::BigDec,
+    v2::BigDec,
     web::{App, WebError},
 };
 use rusqlite::{params, Connection, OptionalExtension};
@@ -110,9 +110,9 @@ pub async fn create_named(
     asset_symbol: &str,
     patch: Patch,
 ) -> Result<Result<Outcome, Refusal>, WebError> {
-    if crate::ruby::blank(exchange_name)
-        || crate::ruby::blank(asset_symbol)
-        || patch.address.as_deref().is_none_or(crate::ruby::blank)
+    if crate::v2::blank(exchange_name)
+        || crate::v2::blank(asset_symbol)
+        || patch.address.as_deref().is_none_or(crate::v2::blank)
     {
         return Ok(Err(refuse(
             Status::ValidationFailed,
@@ -244,7 +244,7 @@ fn bounds(rule: &Rule) -> Result<(), Refusal> {
     } else {
         "max_fee_percentage"
     };
-    if crate::ruby::blank(&rule.text(required)) {
+    if crate::v2::blank(&rule.text(required)) {
         return Err(refuse(
             Status::ValidationFailed,
             "missing_required_parameter",
@@ -257,7 +257,7 @@ fn bounds(rule: &Rule) -> Result<(), Refusal> {
         ("min_amount", false),
     ] {
         let value = rule.text(field);
-        if crate::ruby::blank(&value) && field != "withdrawal_percentage" {
+        if crate::v2::blank(&value) && field != "withdrawal_percentage" {
             continue;
         }
         if !BigDec::parse(&value)
@@ -275,7 +275,7 @@ fn bounds(rule: &Rule) -> Result<(), Refusal> {
     }
     // Rails treats max_interval as days. Accept a positive integer or no deadline.
     let interval = rule.text("max_interval");
-    if !crate::ruby::blank(&interval) && !interval.parse::<i64>().is_ok_and(|n| n > 0) {
+    if !crate::v2::blank(&interval) && !interval.parse::<i64>().is_ok_and(|n| n > 0) {
         return Err(refuse(
             Status::ValidationFailed,
             "invalid_number",
@@ -391,9 +391,9 @@ fn apply_patch(r: &mut Rule, patch: &Patch, create: bool) -> Result<(), Refusal>
     for field in FIELDS.iter().chain(DESTINATION_FIELDS) {
         if let Some(value) = patch.settings.get(field) {
             let value = model::string(value);
-            if *field == "max_interval" && crate::ruby::blank(&value) {
+            if *field == "max_interval" && crate::v2::blank(&value) {
                 r.settings[field.to_string()] = Value::Null;
-            } else if !crate::ruby::blank(&value) {
+            } else if !crate::v2::blank(&value) {
                 r.settings[field.to_string()] = json!(value);
             }
         }

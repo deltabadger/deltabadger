@@ -227,9 +227,9 @@ async fn setup_sync_runs_tickers_first_and_stops_on_a_closed_quota() {
 /// The takeover: a queued per-venue Rails job wakes one whole TICKERS run; the fan-out stays dropped.
 #[test]
 fn the_takeover_wakes_the_tickers_run() {
-    use deltabadger::engine::handover::{rails_work, RailsWork};
-    assert_eq!(rails_work("Exchange::SyncTickersAndAssetsJob"), RailsWork::WakeUnscoped(reference::TICKERS));
-    assert_eq!(rails_work("Exchange::SyncAllTickersAndAssetsJob"), RailsWork::Dropped);
+    use deltabadger::engine::handover::{v2_work, V2Work};
+    assert_eq!(v2_work("Exchange::SyncTickersAndAssetsJob"), V2Work::WakeUnscoped(reference::TICKERS));
+    assert_eq!(v2_work("Exchange::SyncAllTickersAndAssetsJob"), V2Work::Dropped);
 }
 
 /// A Binance-scale venue: ~2,000 new pairs from one crawl publish in bounded units (assets, rows, sweep), every pair landed.
@@ -261,7 +261,7 @@ async fn a_binance_scale_venue_publishes_in_bounded_units() {
 /// An import interrupted after its assets were published: a fresh, non-forced run the same day re-applies the catalogue
 /// and leaves the lost discovery's new pairs waiting for the claim's expiry; a day on, they resolve.
 #[tokio::test(flavor = "current_thread")]
-async fn an_interrupted_import_recovers_as_rails_does() {
+async fn an_interrupted_import_recovers_as_v2_does() {
     let (d, c, ids) = install(&[KRAKEN]);
     let (a, b) = (asset(&c, "coin-a"), asset(&c, "coin-b"));
     ticker(&c, ids[0], a, b, "AB", "A", "B");
@@ -402,7 +402,7 @@ async fn the_catalogue_takes_the_venues_proxy() {
 
 /// Fiat.currencies, recorded from Rails (script/rust/record_fiat_currencies.rb), as the synchronizer's.
 #[test]
-fn the_fiat_currencies_are_rails() {
+fn the_fiat_currencies_are_v2() {
     let v: Value = serde_json::from_str(include_str!("fixtures/fiat_currencies.json")).unwrap();
     let rust: Vec<Value> = synchronizer::FIAT.iter()
         .map(|(id, sym, name, color)| json!({ "external_id": id, "symbol": sym, "name": name, "category": "Currency", "color": color })).collect();

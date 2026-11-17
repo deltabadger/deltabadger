@@ -979,7 +979,7 @@
     "edits": [
       {
         "file": "web/settings/account.rs",
-        "old": ".filter(|p|!crate::ruby::blank(p))",
+        "old": ".filter(|p|!crate::v2::blank(p))",
         "new": "",
         "count": 1,
         "which": null
@@ -1898,11 +1898,11 @@
   },
   {
     "label": "r1-ruby-unicode-whitespace",
-    "expression": "test(r1_ruby_name_whitespace)",
+    "expression": "test(r1_v2_name_whitespace)",
     "lib": false,
     "edits": [
       {
-        "file": "ruby.rs",
+        "file": "v2.rs",
         "old": "regex::Regex::new(&pattern.replace(r\"\\s\", r\"[\\x09-\\x0d\\x20]\"))",
         "new": "regex::Regex::new(pattern)",
         "count": 1,
@@ -2295,7 +2295,7 @@
     "edits": [
       {
         "file": "web/settings/confirmation.rs",
-        "old": "let email=crate::ruby::strip(&email).to_lowercase();",
+        "old": "let email=crate::v2::strip(&email).to_lowercase();",
         "new": "let email=email;",
         "count": 1,
         "which": null

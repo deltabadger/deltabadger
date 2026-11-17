@@ -13,7 +13,7 @@ fn report(what: &str, failures: Vec<String>, total: usize) {
 
 /// The recorder's `serialize`: decimals as to_s('F'), times as iso8601(6), raw_data as its stored text.
 fn serialize(e: &Entry, exchange: Option<&Option<String>>) -> Value {
-    let d = |v: &Option<deltabadger::ruby::BigDec>| v.as_ref().map(|d| d.to_s_f());
+    let d = |v: &Option<deltabadger::v2::BigDec>| v.as_ref().map(|d| d.to_s_f());
     let mut out = json!({
         "entry_type": TYPES[e.entry_type as usize], "base_currency": e.base_currency, "base_amount": e.base_amount.to_s_f(),
         "quote_currency": e.quote_currency, "quote_amount": d(&e.quote_amount), "fee_currency": e.fee_currency, "fee_amount": d(&e.fee_amount),
@@ -59,7 +59,7 @@ fn every_recorded_text_offset_and_amount_is_reproduced() {
     for c in amounts {
         let text = c[0].as_str().unwrap();
         let got = csv::amount(Some(text)).map(|d| d.to_s_f()).ok();
-        let want = decimal.is_match(deltabadger::ruby::strip(text)).then(|| c[1].as_str().unwrap().to_string());
+        let want = decimal.is_match(deltabadger::v2::strip(text)).then(|| c[1].as_str().unwrap().to_string());
         if got != want { failures.push(format!("amount {text:?}: {got:?} != {want:?}")); }
     }
     report("primitives", failures, cases.len() + offsets.len() + amounts.len());

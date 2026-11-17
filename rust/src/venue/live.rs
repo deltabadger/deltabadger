@@ -20,7 +20,7 @@ use super::{ClockAnswer, NewOrder, OrderState, PriceSide, Venue, VenueError};
 use crate::crypto::Cipher;
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::VenueRules;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 

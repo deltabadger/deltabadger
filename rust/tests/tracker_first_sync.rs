@@ -3,6 +3,6 @@ mod common;
 #[path="support/tracker_index_grid.rs"]
 mod grid;
 #[tokio::test(flavor="current_thread")]
-async fn populated_first_sync_pages_match_rails_and_never_write() {
+async fn populated_first_sync_pages_match_v2_and_never_write() {
     grid::check_grid("script/rust/pages_tracker_first_sync.rb","D5_FIRST_GRID",125,&[], |name|if name=="first_deferred_balance"{grid::Mode::Holdings}else if name=="first_bad_iso" || (name.starts_with("first_deferred_") && ["calendar_gap","julian_leap","date_grammar","structured"].iter().any(|d|name.contains(d))){grid::Mode::BadRequest}else if name.starts_with("first_deferred_"){grid::Mode::Served}else if name.starts_with("first_bad_"){grid::Mode::Exact}else{grid::Mode::FirstSync}).await;
 }

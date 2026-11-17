@@ -105,7 +105,7 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool
     }
     let csrf = ctx.csrf_token();
     let no_common_exchange = (!chosen.chips.is_empty() && eligible(c, &scope)?.is_empty()).then(|| ctx.t("bot.dca_multi_asset.no_common_exchange"));
-    let syncing = (items.is_empty() && chosen.chips.is_empty() && chosen.venue.is_some() && params.query("query").is_none_or(crate::ruby::blank))
+    let syncing = (items.is_empty() && chosen.chips.is_empty() && chosen.venue.is_some() && params.query("query").is_none_or(crate::v2::blank))
         .then(|| ctx.t("bot.setup.assets_syncing"));
     let order = StepOrder::new(BotType::Single, chosen.variant);
     let exchange = super::exchange_name(c, chosen.venue)?;

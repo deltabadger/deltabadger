@@ -3,7 +3,7 @@
 //! classes; spent, pending, compensated cap buckets and the exact-cost guard live only here.
 use super::{model::Bot, amount::OrderPlan, EngineError};
 use super::schedule::{checkpoints, effective, interval_count, Effective};
-use crate::{codec::{self, format_time}, enums::BotStatus, ruby::{ruby_sum, BigDec, Num, round6_micros}};
+use crate::{codec::{self, format_time}, enums::BotStatus, v2::{v2_sum, BigDec, Num, round6_micros}};
 /// Opaque normalized money: only accounting can read these fields. The normalizer
 /// constructs values; adapters may pass them around but cannot sum or inspect money.
 /// No Debug/serialization/amount accessors expose the private monetary fields.
@@ -211,7 +211,7 @@ pub fn quote_amount_available_num(c: &Connection, bot: &Bot) -> Result<Option<Nu
 /// RULING-B2A-R1b/R1c: the ONLY cap Float arithmetic boundary. Preserve SQL numeric kinds,
 /// Ruby Array#sum, operand coercion and Float comparison. Sizing receives Float#to_d via to_dec.
 /// Exact normalized availability is checked separately under the placement write lock.
-fn rails_cap_availability(limit: Num, rows: &[Commitment], intent: Option<BigDec>, precision: Option<i64>) -> Result<(Num, bool), EngineError> {
+fn v2_cap_availability(limit: Num, rows: &[Commitment], intent: Option<BigDec>, precision: Option<i64>) -> Result<(Num, bool), EngineError> {
         bounded_num(&limit)?;
         if let Some(ref amount) = intent { bounded_decimal(amount)?; }
         let mut closed = vec![];
@@ -229,8 +229,8 @@ fn rails_cap_availability(limit: Num, rows: &[Commitment], intent: Option<BigDec
                 _ => stopped.push(value),
             }
         }
-        let mut spent = ruby_sum(&closed).map_err(EngineError::Arithmetic)?.add(&ruby_sum(&waiting).map_err(EngineError::Arithmetic)?).map_err(EngineError::Arithmetic)?
-            .add(&ruby_sum(&stopped).map_err(EngineError::Arithmetic)?).map_err(EngineError::Arithmetic)?;
+        let mut spent = v2_sum(&closed).map_err(EngineError::Arithmetic)?.add(&v2_sum(&waiting).map_err(EngineError::Arithmetic)?).map_err(EngineError::Arithmetic)?
+            .add(&v2_sum(&stopped).map_err(EngineError::Arithmetic)?).map_err(EngineError::Arithmetic)?;
     if let Some(quote) = intent { spent = spent.add(&Num::Dec(quote)).map_err(EngineError::Arithmetic)?; }
     let left = limit.sub(&spent).map_err(EngineError::Arithmetic)?;
     let left = if left.is_negative() { Num::Int(0) } else { left };
@@ -260,7 +260,7 @@ fn engine_cap(c: &Connection, bot: &Bot, precision: Option<i64>) -> Result<(Opti
         None => vec![],
     };
     let intent = buy_intent_quote(bot)?;
-    let (left, reached) = rails_cap_availability(limit, &rows, intent, precision)?;
+    let (left, reached) = v2_cap_availability(limit, &rows, intent, precision)?;
     Ok((Some(left), reached))
 }
 
@@ -292,11 +292,11 @@ fn tickers_min_decimals(c: &Connection, bot: &Bot, column: &'static str) -> Resu
 }
 
 /// Bot::BaseAmountLimitable#base_amount_available_before_limit_reached and #base_amount_limit_reached?, with Ruby's numerics
-/// (`rails_cap_availability`'s buckets, the rows from `fill::sold_commitments`): `base_amount_limit.to_d` less closed +
+/// (`v2_cap_availability`'s buckets, the rows from `fill::sold_commitments`): `base_amount_limit.to_d` less closed +
 /// waiting + stopped, floored at 0, and reached under `1.0 / 10**min(base_decimals)`. An unresolved REGULAR sell intent is
 /// counted at its amount, as an unresolved buy is in the quote cap. The engine and the web's start validation both read it.
 fn base_cap(limit: Num, rows: &[Commitment], intent: Option<BigDec>, decimals: Option<i64>) -> Result<(Num, bool), EngineError> {
-    rails_cap_availability(Num::Dec(limit.to_dec().map_err(data)?), rows, intent, decimals)
+    v2_cap_availability(Num::Dec(limit.to_dec().map_err(data)?), rows, intent, decimals)
 }
 
 /// An unresolved placement intent's base, counted as sold until it settles: a REGULAR SELL's only (an intent without a side
@@ -609,10 +609,10 @@ fn checkpoint(anchor: DateTime<Utc>, now: DateTime<Utc>, eff: Effective) -> Resu
         Effective::MonthSeconds(_) => {
             let mut k = (elapsed/d).floor() as i64;
             for _ in 0..4 {
-                if crate::ruby::exceeds(us,(d,k),now.timestamp_micros()) { k = k.checked_sub(1).ok_or_else(start::history_error)?; } else { break; }
+                if crate::v2::exceeds(us,(d,k),now.timestamp_micros()) { k = k.checked_sub(1).ok_or_else(start::history_error)?; } else { break; }
             }
             for _ in 0..4 {
-                if !crate::ruby::exceeds(us,(d,k),now.timestamp_micros()) || k < 1 { k = k.checked_add(1).ok_or_else(start::history_error)?; } else { break; }
+                if !crate::v2::exceeds(us,(d,k),now.timestamp_micros()) || k < 1 { k = k.checked_add(1).ok_or_else(start::history_error)?; } else { break; }
             }
             vec![(d,k.checked_sub(1).ok_or_else(start::history_error)?)]
         }
@@ -639,7 +639,7 @@ pub fn web_amount_limit(c: &Connection, bot: &WebBot) -> Result<Option<start::Li
         BigDec::parse(v["quote_amount"].as_str().ok_or_else(||error("unreadable intent quote"))?).map_err(|_|error("unreadable intent quote"))
     }).transpose()?;
     let precision = bot.tickers.iter().map(|t| i64::from(t.quote_decimals)).min();
-    let (left, reached) = rails_cap_availability(core(limit), &rows, intent, precision)?;
+    let (left, reached) = v2_cap_availability(core(limit), &rows, intent, precision)?;
     Ok(Some(start::Limit { left: Some(view(left)), reached }))
 }
 /// Automation::Schedulable::INTERVALS, in seconds as `interval_duration.to_f` gives them.

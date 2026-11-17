@@ -152,7 +152,7 @@ pub async fn tile(
         for name in ["withdrawal_percentage","threshold_type","max_fee_percentage","min_amount","max_interval"] {
             if let Some(value)=field(name) { patch.settings[name]=json!(value); }
         }
-        patch.address=field("address").filter(|s|!crate::ruby::blank(s)).map(str::to_owned);
+        patch.address=field("address").filter(|s|!crate::v2::blank(s)).map(str::to_owned);
         patch.destination=match field("destination").map(reads::Identity::parse).transpose() {
             Ok(identity)=>identity,
             Err(_)=>return alert(&ctx,i18n::text(ctx.locale,crate::venue::withdrawal::NOT_LISTED_KEY,&[]),true),

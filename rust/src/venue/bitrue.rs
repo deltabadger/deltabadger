@@ -9,7 +9,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError}
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BITRUE as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -44,7 +44,7 @@ pub fn ticker_prices(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> 
     for row in body.as_array().ok_or_else(unreadable)? {
         let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
         let price = match &row["lastPrice"] {
-            v @ (Value::String(_) | Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
+            v @ (Value::String(_) | Value::Number(_)) => crate::v2::json_to_d(v).ok().flatten(),
             Value::Null => None,
             _ => return Err(unreadable()),
         };
@@ -62,7 +62,7 @@ pub fn error_code(text: &str) -> Option<f64> { serde_json::from_str::<Value>(tex
 
 fn gone(body: &str) -> bool {
     serde_json::from_str::<Value>(body).ok().is_some_and(|v| match &v["code"] {
-        Value::String(s) => crate::ruby::to_i(s) == ORDER_GONE_CODE,
+        Value::String(s) => crate::v2::to_i(s) == ORDER_GONE_CODE,
         Value::Number(n) => n.as_f64().is_some_and(|n| n as i64 == ORDER_GONE_CODE),
         _ => false,
     })

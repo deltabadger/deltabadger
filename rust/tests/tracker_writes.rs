@@ -185,7 +185,7 @@ async fn unauthenticated_writes_and_foreign_classification_ids_change_nothing_fo
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn tracker_json_uses_rails_query_precedence_and_scalar_casting() {
+async fn tracker_json_uses_v2_query_precedence_and_scalar_casting() {
     let (_dir,c,owner,app,mut b) = install();
     let headers = [("origin","http://localhost:3000"),("accept","text/vnd.turbo-stream.html"),("content-type","application/json")];
     let a = b.send_body(&app,"PATCH","/tracker/save_export_settings?country=DE",Some(json!({"country":"US","year":2024}).to_string()),Csrf::Header,&headers).await;

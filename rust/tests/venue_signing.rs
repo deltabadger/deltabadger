@@ -4,7 +4,7 @@
 use aws_lc_rs::signature::{UnparsedPublicKey, ECDSA_P256_SHA256_FIXED};
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::signers::{coinbase, gemini, hyperliquid, ibkr, Nonce};
 use hyperliquid::{Action, OrderWire};
 use serde_json::Value;
@@ -226,7 +226,7 @@ fn ibkr_material(f: &Value, dh_param: &str) -> ibkr::Material {
 }
 
 #[test]
-fn ibkr_helpers_match_rails_on_every_recorded_edge() {
+fn ibkr_helpers_match_v2_on_every_recorded_edge() {
     let f = fixture("ibkr");
     for (input, want) in f["escape"].as_object().unwrap() { assert_eq!(ibkr::escape(input), want.as_str().unwrap(), "escape {input:?}") }
     for (n, want) in f["to_byte_array"].as_object().unwrap() {
@@ -275,7 +275,7 @@ fn ibkr_matches_the_python_reference_vectors() {
 }
 
 #[test]
-fn ibkr_oauth_builders_are_byte_equal_to_rails() {
+fn ibkr_oauth_builders_are_byte_equal_to_v2() {
     let f = fixture("ibkr");
     let signer = ibkr::Signer::new(&ibkr_material(&f, f["signing"][0]["dh_param"].as_str().unwrap())).unwrap();
     assert_eq!(signer.prepend().unwrap(), f["prepend"].as_str().unwrap(), "the decrypted secret keeps its leading 0x00");
@@ -298,7 +298,7 @@ fn ibkr_oauth_builders_are_byte_equal_to_rails() {
 /// The exit criterion of slice I0: with Rails' frozen nonces, timestamp and DH random, the scripted server's DH answer and
 /// the fixed keys, the LST and the Authorization header of every request Clients::Ibkr::Session sent are reproduced.
 #[test]
-fn ibkr_session_requests_and_the_lst_are_byte_equal_to_rails() {
+fn ibkr_session_requests_and_the_lst_are_byte_equal_to_v2() {
     let f = fixture("ibkr");
     let sessions = f["signing"].as_array().unwrap();
     assert_eq!(sessions.iter().map(|s| s["label"].as_str().unwrap()).collect::<Vec<_>>(), ["session_test dh", "ffdhe2048"]);
@@ -358,7 +358,7 @@ fn ibkr_refuses_unreadable_key_material() {
 /// `OpenSSL::PKey::RSA.new` and agree, ffdhe2048 loads in `OpenSSL::PKey::DH.new` with Rails' own p and g, and the key
 /// Ruby writes back (`to_pem`, PKCS#1, what Rails stores) signs in Rust byte-equal to Ruby's signature.
 #[test]
-fn ibkr_generated_keys_round_trip_through_ruby_openssl() {
+fn ibkr_generated_keys_round_trip_through_v2_openssl() {
     if !common::v2::enabled() { return; }
     let (private, public) = ibkr::generate_rsa();
     assert!(private.starts_with("-----BEGIN PRIVATE KEY-----\n") && public.starts_with("-----BEGIN PUBLIC KEY-----\n"));
@@ -366,7 +366,7 @@ fn ibkr_generated_keys_round_trip_through_ruby_openssl() {
     for (name, body) in [("private.pem", private.as_str()), ("public.pem", public.as_str()), ("dh.pem", &ibkr::ffdhe2048_pem())] {
         std::fs::write(dir.path().join(name), body).unwrap();
     }
-    const RUBY: &str = r##"
+    const V2: &str = r##"
         d = ARGV.fetch(0)
         key = OpenSSL::PKey::RSA.new(File.read("#{d}/private.pem"))
         pub = OpenSSL::PKey::RSA.new(File.read("#{d}/public.pem"))
@@ -376,7 +376,7 @@ fn ibkr_generated_keys_round_trip_through_ruby_openssl() {
                             public_pem: key.public_key.to_pem, pkcs1_pem: key.to_pem, dh_p: dh.p.to_s(16).downcase, dh_g: dh.g.to_i,
                             dh_pem: dh.to_pem, signature: Base64.strict_encode64(key.sign(OpenSSL::Digest.new("SHA256"), msg)))
     "##;
-    let out = common::v2::run(&[(dir.path(), "/d")], &[("SNIPPET", RUBY)], r#"ruby -ropenssl -rjson -rbase64 -e "$SNIPPET" /d"#);
+    let out = common::v2::run(&[(dir.path(), "/d")], &[("SNIPPET", V2)], r#"ruby -ropenssl -rjson -rbase64 -e "$SNIPPET" /d"#);
     assert!(out.status.success(), "2.70.21's ruby: {}", String::from_utf8_lossy(&out.stderr));
     let r: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!((r["private"].as_bool(), r["bits"].as_u64(), r["public_matches"].as_bool()), (Some(true), Some(2048), Some(true)));

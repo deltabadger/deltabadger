@@ -400,7 +400,7 @@ pub async fn reorder(State(app): State<App>, Extension(ctx): Extension<Ctx>, hea
     use axum::response::IntoResponse;
     let Some(user) = ctx.user().map(|user| user.id) else { return Ok(auth::unauthenticated_in_format(&ctx, &headers)) };
     // `params[:ids]`: the query over the body (JSON or form), as Rails merges them.
-    let Ok(params) = bot::action_params::ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let Ok(params) = bot::action_params::ActionParams::parse_v2(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
     let sent: Vec<i64> = match params.value().get("ids") {
         None | Some(Value::Null) => vec![],
         Some(Value::Array(items)) => items.iter().map(super::wizard::to_i).collect(),

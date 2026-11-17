@@ -124,7 +124,7 @@ pub fn preflight(c: &Connection, bot: &Bot, repair: bool) -> Result<Result<Conve
 fn to_i(v: Option<&Value>) -> Option<i64> {
     match v {
         None | Some(Value::Null) => Some(0),
-        Some(Value::String(s)) => Some(crate::ruby::to_i(s)),
+        Some(Value::String(s)) => Some(crate::v2::to_i(s)),
         Some(Value::Number(n)) => n.as_i64().or_else(|| n.as_f64().filter(|f| f.abs() < 9.2e18).map(|f| f.trunc() as i64)),
         _ => None,
     }
@@ -166,7 +166,7 @@ fn convert(tx: &Connection, bot: &Bot, from: &str, plan: Conversion, now: DateTi
         return Ok(true);
     };
     let mut set: Vec<(&str, Sql)> = vec![];
-    let integer = |v: &Sql| match v { Sql::Integer(i) => Some(*i), Sql::Real(f) => Some(f.trunc() as i64), Sql::Text(s) => Some(crate::ruby::to_i(s)), _ => None };
+    let integer = |v: &Sql| match v { Sql::Integer(i) => Some(*i), Sql::Real(f) => Some(f.trunc() as i64), Sql::Text(s) => Some(crate::v2::to_i(s)), _ => None };
     if integer(&ticker) != Some(plan.ticker) { set.push(("ticker_id", Sql::Integer(plan.ticker))); }
     // decimal(10,6): ActiveRecord casts to six places before it compares (0.9999999 reads 1.0).
     let six = |f: f64| (f * 1e6).round() == 1e6;

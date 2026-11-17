@@ -143,7 +143,7 @@ async fn a_tick_sized_before_the_reversal_is_fenced_and_the_barrier_holds_placem
     let sized = bot(&e.primary, id);
     reverse(&e.primary, &s, id, "2026-09-03T12:00:00Z");
     assert!(model::require_run(&e.primary, &sized).is_err(), "the bumped generation fences a tick that claimed the old run");
-    let d = |x: &str| deltabadger::ruby::BigDec::parse(x).unwrap();
+    let d = |x: &str| deltabadger::v2::BigDec::parse(x).unwrap();
     let plan = deltabadger::engine::amount::OrderPlan { ticker: model::ticker_for(&e.primary, &sized).unwrap().unwrap(), side: deltabadger::venue::Side::Buy, limit: false,
         price: d("50000"), amount: d("0.0012"), quote_amount: d("60"), quote_type: true, volume: d("60"), kind: deltabadger::engine::amount::TxKind::Regular,
         origin: deltabadger::engine::amount::Origin::QuoteBudget, wire_price: None };
@@ -503,7 +503,7 @@ async fn both_sides_flip_once_per_checkpoint_without_orders() {
 #[tokio::test(flavor = "current_thread")]
 async fn an_inner_price_pause_rearms_then_the_outer_ma_trigger_flips() {
     use deltabadger::engine::candles::Candle;
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     let series = |value| (1..=30).rev().map(|day| Candle {
         at: t("2026-09-08T00:00:00Z") - chrono::Duration::days(day),
         open: BigDec::from_i64(value), high: BigDec::from_i64(value), low: BigDec::from_i64(value),
@@ -618,7 +618,7 @@ async fn an_ineligible_trigger_flip_keeps_buying_and_the_engine_running() {
 #[tokio::test(flavor = "current_thread")]
 async fn an_ineligible_outer_flip_still_reads_the_inner_pause() {
     use deltabadger::engine::candles::Candle;
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     let candles = (1..=30).rev().map(|day| Candle {
         at: t("2026-09-08T00:00:00Z") - chrono::Duration::days(day),
         open: BigDec::from_i64(60000), high: BigDec::from_i64(60000), low: BigDec::from_i64(60000),

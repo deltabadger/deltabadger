@@ -10,7 +10,7 @@ fn first_sync_stays_inside_the_read_boundary_and_adds_no_money_or_credentials() 
 }
 
 #[test]
-fn completion_payloads_match_recorded_rails_jobs() {
+fn completion_payloads_match_recorded_v2_jobs() {
     let fixture: serde_json::Value = serde_json::from_str(include_str!("fixtures/tracker_completion.json")).unwrap();
     for owner in [1, 42] {
         let messages = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));

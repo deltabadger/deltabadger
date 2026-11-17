@@ -1,6 +1,6 @@
 mod common;
 use chrono::{DateTime, Utc};
-use deltabadger::ruby::*;
+use deltabadger::v2::*;
 
 fn micros(t: &str) -> i64 { t.parse::<DateTime<Utc>>().unwrap().timestamp_micros() }
 fn bd(s: &str) -> BigDec { BigDec::parse(s).unwrap() }
@@ -44,7 +44,7 @@ fn zero_divisors_are_refused_not_infinite() {
 }
 
 #[test]
-fn columns_read_and_write_as_rails_does() {
+fn columns_read_and_write_as_v2_does() {
     use rusqlite::types::ValueRef;
     assert_eq!(from_sql(ValueRef::Integer(60)).unwrap(), Some(bd("60")));
     assert_eq!(from_sql(ValueRef::Real(30.0003)).unwrap(), Some(bd("30.0003")));
@@ -55,7 +55,7 @@ fn columns_read_and_write_as_rails_does() {
 }
 
 #[test]
-fn iso8601_ms_and_round6_match_ruby_time() {
+fn iso8601_ms_and_round6_match_v2_time() {
     let r = &common::vectors()["ruby"];
     for p in r["iso8601_ms"].as_array().unwrap() {
         assert_eq!(iso8601_ms(p[0].as_str().unwrap().parse().unwrap()), p[1].as_str().unwrap());
@@ -67,7 +67,7 @@ fn iso8601_ms_and_round6_match_ruby_time() {
 }
 
 #[test]
-fn to_sentence_and_inspect_match_ruby() {
+fn to_sentence_and_inspect_match_v2() {
     let r = &common::vectors()["ruby"];
     let strs = |v: &serde_json::Value| v.as_array().unwrap().iter().map(|s| s.as_str().unwrap().to_string()).collect::<Vec<_>>();
     for p in r["to_sentence"].as_array().unwrap() { assert_eq!(to_sentence(&strs(&p[0])), p[1].as_str().unwrap()); }
@@ -87,7 +87,7 @@ fn float_to_d_reads_what_the_codec_cannot() {
 fn bits(v: &serde_json::Value) -> f64 { f64::from_bits(u64::from_str_radix(v.as_str().unwrap(), 16).unwrap()) }
 
 #[test]
-fn multi_term_round6_matches_ruby_time_arithmetic() {
+fn multi_term_round6_matches_v2_time_arithmetic() {
     let rows = common::vectors()["ruby"]["round6_multi"].as_array().unwrap().clone();
     assert!(rows.len() >= 5);
     for p in &rows {
@@ -97,7 +97,7 @@ fn multi_term_round6_matches_ruby_time_arithmetic() {
 }
 
 #[test]
-fn exceeds_matches_ruby_on_the_boundary_and_either_side() {
+fn exceeds_matches_v2_on_the_boundary_and_either_side() {
     let rows = common::vectors()["ruby"]["exceeds"].as_array().unwrap().clone();
     assert!(rows.len() >= 12);
     for p in &rows {
@@ -107,7 +107,7 @@ fn exceeds_matches_ruby_on_the_boundary_and_either_side() {
 }
 
 #[test]
-fn float_sum_is_rubys_compensated_sum() {
+fn float_sum_is_v2s_compensated_sum() {
     let cases = common::vectors()["float_sum"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 22);
     for c in cases {
@@ -133,14 +133,14 @@ fn time_as_json_is_activesupports_rendering_of_a_parsed_clock_time() {
     assert_eq!(cases.len(), 6);
     for (raw, want) in cases {
         let t = chrono::DateTime::parse_from_rfc3339(&raw).unwrap();
-        assert_eq!(deltabadger::ruby::time_as_json(&raw, &t), want.as_str().unwrap(), "{raw}");
+        assert_eq!(deltabadger::v2::time_as_json(&raw, &t), want.as_str().unwrap(), "{raw}");
     }
 }
 
 /// Float#to_d and Float#to_s over 10k recorded floats, ties between two shortest digit strings among them
 /// (script/rust/record_float_digits.rb). Every Rust port of either is held to the same rows.
 #[test]
-fn float_digits_match_ruby_on_ties_and_everything_else() {
+fn float_digits_match_v2_on_ties_and_everything_else() {
     let fixture: serde_json::Value = serde_json::from_str(include_str!("fixtures/float_digits.json")).unwrap();
     let rows = fixture["floats"].as_array().unwrap();
     assert!(rows.len() >= 10_000 && rows.iter().filter(|r| r[3] == true).count() >= 100);

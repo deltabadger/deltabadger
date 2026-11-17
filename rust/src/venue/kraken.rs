@@ -13,7 +13,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, Venue, Venu
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, KRAKEN};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use base64::Engine;
 use chrono::{DateTime, SecondsFormat, Utc};
 use hmac::{Hmac, Mac};
@@ -51,7 +51,7 @@ pub fn www_form(pairs: &[(String, String)]) -> String {
 
 /// Base64.decode64 = String#unpack1("m"): ruby/pack.c's lenient branch (bytes outside the alphabet are skipped; '=' in the
 /// third or fourth slot ends the input). Ported from honeymaker's core (crates/honeymaker/src/encode.rs).
-fn ruby_decode64(input: &[u8]) -> Vec<u8> {
+fn v2_decode64(input: &[u8]) -> Vec<u8> {
     const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let table = |c: u8| T.iter().position(|&x| x == c).map_or(-1, |p| p as i32);
     let n = input.len();
@@ -102,7 +102,7 @@ pub fn private_headers(path: &str, body: &str, key: &str, secret: &str) -> Vec<(
     let nonce = body.split('&').find_map(|kv| kv.strip_prefix("nonce=")).unwrap_or("");
     let mut message = path.as_bytes().to_vec();
     message.extend_from_slice(&Sha256::digest(format!("{nonce}{body}").as_bytes()));
-    let Ok(mut mac) = Hmac::<Sha512>::new_from_slice(&ruby_decode64(secret.as_bytes())) else { return public_headers() };
+    let Ok(mut mac) = Hmac::<Sha512>::new_from_slice(&v2_decode64(secret.as_bytes())) else { return public_headers() };
     mac.update(&message);
     vec![("API-Key".into(), key.into()), ("API-Sign".into(), base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())),
          ("Accept".into(), "application/json".into()), ("Content-Type".into(), "application/x-www-form-urlencoded".into()),
@@ -132,12 +132,12 @@ pub(crate) fn private_form(r: &HttpRequest, key: &str) -> String {
 // ---- parsing: Exchanges::Kraken#parse_order_data and friends
 
 /// A Kraken decimal: absent or null is None (Ruby's nil). Anything present must be a finite decimal within BigDec's bounds,
-/// or the whole answer is unreadable — never a zero price, fill or balance. DIVERGES from Ruby on purpose (ruby::json_to_d):
+/// or the whole answer is unreadable — never a zero price, fill or balance. DIVERGES from Ruby on purpose (v2::json_to_d):
 /// Rails' `.to_d` reads "garbage" as 0 and "NaN" as NaN.
-fn dec(v: &Value) -> Result<Option<BigDec>, VenueError> { crate::ruby::json_to_d(v).map_err(|_| unreadable()) }
+fn dec(v: &Value) -> Result<Option<BigDec>, VenueError> { crate::v2::json_to_d(v).map_err(|_| unreadable()) }
 pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous(UNREADABLE.into()) }
 /// `#to_s` of a JSON scalar, as Ruby interpolates an `error` entry.
-fn ruby_to_s(v: &Value) -> String { v.as_str().map_or_else(|| v.to_string(), str::to_string) }
+fn v2_to_s(v: &Value) -> String { v.as_str().map_or_else(|| v.to_string(), str::to_string) }
 
 /// `Ok(())` for a clean body; `Rejected` for a non-empty `error`; `Ambiguous` when `error` is missing or not an array, or a
 /// success body has no `result` (honeymaker 0.12.3: unreadable).
@@ -265,7 +265,7 @@ pub(crate) fn last_price(data: &Value) -> Result<Option<BigDec>, VenueError> {
     };
     // BigDecimal(value.to_s): the gem's JSON hands a number over as an Integer (exact) or a Float, whose to_s → BigDecimal
     // keeps Float#to_d's digits (recorded: 1.2345678901234567 reads 1.234567890123457).
-    Ok(match &first { Value::String(_) | Value::Number(_) => crate::ruby::json_to_d(&first).ok().flatten(), _ => None })
+    Ok(match &first { Value::String(_) | Value::Number(_) => crate::v2::json_to_d(&first).ok().flatten(), _ => None })
 }
 
 /// Clients::Kraken#get_ticker_information's path: the whole market with no pair, one pair with one.
@@ -308,7 +308,7 @@ pub fn ticker_query(pair: &str) -> Vec<(&'static str, String)> { std::iter::once
 /// is no integer) is unreadable. A float time (Ruby's `Time.at` takes it) is unreadable too: Kraken sends integers.
 pub fn ohlc_rows(body: &Value) -> Result<Vec<(i64, &[Value])>, VenueError> {
     let errors = super::dig_or_raise(body, "error")?.as_array().ok_or_else(unreadable)?;
-    if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(ruby_to_s).collect())); }
+    if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(v2_to_s).collect())); }
     let result = body.get("result").and_then(Value::as_object).ok_or_else(unreadable)?;
     let rows = result.iter().find(|(name, _)| *name != "last").and_then(|(_, rows)| rows.as_array()).ok_or_else(unreadable)?;
     rows.iter().map(|row| {
@@ -329,7 +329,7 @@ pub type Prices = Vec<(String, BigDec)>;
 /// figures.
 pub fn ticker_prices(body: &Value, symbols: &[String]) -> Result<(Prices, Vec<String>), VenueError> {
     let errors = super::dig_or_raise(body, "error")?.as_array().ok_or_else(unreadable)?;
-    if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(ruby_to_s).collect())); }
+    if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(v2_to_s).collect())); }
     let returned = body["result"].as_object().ok_or_else(unreadable)?;
     let mut out = vec![];
     for (code, data) in returned {
@@ -342,8 +342,8 @@ pub fn ticker_prices(body: &Value, symbols: &[String]) -> Result<(Prices, Vec<St
 /// `result` fails the whole read, and the first entry's price is the code's, whatever key Kraken names it by.
 pub fn pair_price(body: &Value, code: &str) -> Result<Option<BigDec>, VenueError> {
     let errors = super::dig_or_raise(body, "error")?.as_array().ok_or_else(unreadable)?;
-    if errors.iter().any(|e| ruby_to_s(e).contains("Unknown asset pair")) { return Ok(None); }
-    if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(ruby_to_s).collect())); }
+    if errors.iter().any(|e| v2_to_s(e).contains("Unknown asset pair")) { return Ok(None); }
+    if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(v2_to_s).collect())); }
     let entries = super::dig_or_raise(body, "result")?.as_object().ok_or_else(unreadable)?;
     let Some(data) = entries.values().next() else {
         return Err(VenueError::Rejected(vec![format!("Failed to get Kraken tickers prices (ticker: {code})")]));
@@ -439,7 +439,7 @@ impl<T: Transport> KrakenVenue<T> {
         let errors = body.as_ref().and_then(|b| b["error"].as_array()).cloned().unwrap_or_default();
         // A28-3d-1 r2.1: a refusing error is the key's whatever the HTTP status.
         let refused = errors.iter().any(|e| e.as_str().is_some_and(|e| HISTORY_REFUSED.contains(&e)));
-        let text = if errors.is_empty() { resp.body.clone() } else { errors.iter().map(ruby_to_s).collect::<Vec<_>>().join(", ") };
+        let text = if errors.is_empty() { resp.body.clone() } else { errors.iter().map(v2_to_s).collect::<Vec<_>>().join(", ") };
         if refused || !(200..300).contains(&resp.status) || !errors.is_empty() {
             return Err(if refused || matches!(resp.status, 401 | 403) { Refused(message(&text)) } else { Retry(message(&text)) });
         }
@@ -773,7 +773,7 @@ impl<T: Transport> KrakenVenue<T> {
         }
         match body["result"]["refid"]
             .as_str()
-            .filter(|id| !crate::ruby::blank(id))
+            .filter(|id| !crate::v2::blank(id))
         {
             Some(id) => SendResult::Accepted { id: id.into() },
             None => unknown(),
@@ -796,7 +796,7 @@ impl<T: Transport> KrakenVenue<T> {
             return unknown("Kraken withdrawal destination is not Kraken's", vec![]);
         };
         // WithdrawStatus takes the method as an optional filter; an entry listed without one is looked up by asset.
-        let method = method.as_deref().filter(|m| !crate::ruby::blank(m));
+        let method = method.as_deref().filter(|m| !crate::v2::blank(m));
         let Ok(at) = crate::codec::parse_time(&r.created_at) else {
             return unknown("Kraken withdrawal time is unreadable", vec![]);
         };
@@ -863,7 +863,7 @@ impl<T: Transport> KrakenVenue<T> {
                 ) else {
                     return unknown("Kraken withdrawal candidate is unreadable", candidates);
                 };
-                let Some(row_amount) = crate::ruby::json_to_d(&row["amount"]).ok().flatten() else {
+                let Some(row_amount) = crate::v2::json_to_d(&row["amount"]).ok().flatten() else {
                     return unknown(
                         "Kraken withdrawal candidate amount is unreadable",
                         candidates,
@@ -875,7 +875,7 @@ impl<T: Transport> KrakenVenue<T> {
                 if method.is_some_and(|method| row["method"].as_str().is_some_and(|m| m != method)) {
                     continue;
                 }
-                if crate::ruby::blank(id) {
+                if crate::v2::blank(id) {
                     return unknown("Kraken withdrawal candidate id is unreadable", candidates);
                 }
                 let prop = match row.get("status-prop") {

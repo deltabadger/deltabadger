@@ -3,7 +3,7 @@
 //! #transient_error? / #throttled_error?, #minimum_amount_logic, the order wire format, and when an order the engine
 //! sent can be proven absent.
 use super::model::Ticker;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::Side;
 
 /// One branch of Bot::OrderSetter#calculate_best_amount_info (order_setter.rb:23-77).
@@ -124,7 +124,7 @@ impl VenueRules {
     pub fn is_invalid_key(&self, messages: &[String]) -> bool { self.kinds.iter().any(|(k, pats)| *k == "invalid_key" && any(pats, messages)) }
     pub fn add_outcome_unknown(&self, messages: &[String]) -> bool { any(self.add_outcome_unknown, messages) }
 
-    /// Ticker#adjusted_price → Exchange#adjusted_price. `Err` where Rails raises: a scale outside `ruby::MAX_SCALE`, or
+    /// Ticker#adjusted_price → Exchange#adjusted_price. `Err` where Rails raises: a scale outside `v2::MAX_SCALE`, or
     /// Hyperliquid's `clamp(0, max_decimals)` with a negative max (base_decimals above 8 raises ArgumentError).
     pub fn adjusted_price(&self, price: &BigDec, ticker: &Ticker, method: Rounding) -> Result<BigDec, String> {
         let decimals = match self.price_rule {
@@ -136,7 +136,7 @@ impl VenueRules {
                 (figures - exponent(price)).clamp(0, max)
             }
         };
-        let places = crate::ruby::scale(decimals).map_err(|_| format!("price decimals {decimals} (only 0..={})", crate::ruby::MAX_SCALE))?;
+        let places = crate::v2::scale(decimals).map_err(|_| format!("price decimals {decimals} (only 0..={})", crate::v2::MAX_SCALE))?;
         Ok(match method { Rounding::Floor => price.floor(places), Rounding::Ceil => price.ceil(places), Rounding::Round => price.round(places) })
     }
 

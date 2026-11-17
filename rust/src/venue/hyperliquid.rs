@@ -40,7 +40,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError}
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, HYPERLIQUID as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 
@@ -71,7 +71,7 @@ fn or_zero(v: &Value) -> Result<BigDec, VenueError> { if v.is_null() { Ok(BigDec
 fn to_s(v: &Value) -> String { match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() } }
 
 /// Ruby's String#inspect.
-fn ruby_string(s: &str) -> String {
+fn v2_string(s: &str) -> String {
     let mut out = String::from("\"");
     let mut chars = s.chars().peekable();
     while let Some(c) = chars.next() {
@@ -92,10 +92,10 @@ pub fn inspect(v: &Value) -> String {
     match v {
         Value::Null => "nil".into(),
         Value::Bool(b) => b.to_string(),
-        Value::Number(n) => if n.is_f64() { crate::ruby::float_to_s(n.as_f64().unwrap_or_default()) } else { n.to_string() },
-        Value::String(s) => ruby_string(s),
+        Value::Number(n) => if n.is_f64() { crate::v2::float_to_s(n.as_f64().unwrap_or_default()) } else { n.to_string() },
+        Value::String(s) => v2_string(s),
         Value::Array(a) => format!("[{}]", a.iter().map(inspect).collect::<Vec<_>>().join(", ")),
-        Value::Object(m) => format!("{{{}}}", m.iter().map(|(k, v)| format!("{} => {}", ruby_string(k), inspect(v))).collect::<Vec<_>>().join(", ")),
+        Value::Object(m) => format!("{{{}}}", m.iter().map(|(k, v)| format!("{} => {}", v2_string(k), inspect(v))).collect::<Vec<_>>().join(", ")),
     }
 }
 
@@ -413,7 +413,7 @@ pub fn history_row(symbol: &str, base: &str, raw: &Value) -> Option<(super::Crea
 }
 
 /// `row['time'].to_i`.
-fn time_ms(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::ruby::to_i(s), _ => 0 } }
+fn time_ms(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::v2::to_i(s), _ => 0 } }
 
 /// `page.tally`, in the page's order: each distinct row (Ruby's Hash#eql?, which serde's map equality matches) and how often.
 pub fn tally(page: &[Value]) -> Vec<(Value, usize)> {
@@ -426,7 +426,7 @@ pub fn tally(page: &[Value]) -> Vec<(Value, usize)> {
 /// pairs: every coin's mid; a mid that is no decimal is left out (as Binance's and KuCoin's). Shared by the engine
 /// (`tickers_prices`) and the figures.
 pub fn mids(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
-    Ok(body.as_object().ok_or_else(unreadable)?.iter().filter_map(|(pair, v)| crate::ruby::json_to_d(v).ok().flatten().map(|p| (pair.clone(), p))).collect())
+    Ok(body.as_object().ok_or_else(unreadable)?.iter().filter_map(|(pair, v)| crate::v2::json_to_d(v).ok().flatten().map(|p| (pair.clone(), p))).collect())
 }
 
 /// Exchanges::Hyperliquid#get_candles' interval for each timeframe: 3 days, 1 week and 1 month are daily, built.
@@ -579,7 +579,7 @@ impl<T: Transport> super::Venue for HyperliquidVenue<T> {
         if response["status"] != "ok" { return Err(VenueError::Ambiguous(format!("Hyperliquid order failed: {}", inspect(&response)))); }
         // From here the venue said "ok": a missing acknowledgement is not a rejection.
         let status = match &response["response"]["data"]["statuses"] { Value::Array(s) if !s.is_empty() => s[0].clone(), _ => return Err(VenueError::Ambiguous(NO_STATUSES.into())) };
-        if !matches!(&status["error"], Value::Null) && !crate::ruby::blank(&to_s(&status["error"])) {
+        if !matches!(&status["error"], Value::Null) && !crate::v2::blank(&to_s(&status["error"])) {
             return Err(VenueError::Rejected(vec![format!("Hyperliquid order failed: {}", to_s(&status["error"]))]));
         }
         let oid = [&status["resting"]["oid"], &status["filled"]["oid"]].into_iter().find(|v| !v.is_null()).map(to_s);
@@ -591,7 +591,7 @@ impl<T: Transport> super::Venue for HyperliquidVenue<T> {
     async fn orders(&self, txids: &[String]) -> Result<Vec<OrderState>, VenueError> {
         let mut out = vec![];
         for id in txids {
-            if let Some(o) = self.get_order(id, crate::ruby::to_i(split_order_id(id).1).into()).await? { out.push(o); }
+            if let Some(o) = self.get_order(id, crate::v2::to_i(split_order_id(id).1).into()).await? { out.push(o); }
         }
         Ok(out)
     }
@@ -617,7 +617,7 @@ impl<T: Transport> super::Venue for HyperliquidVenue<T> {
     /// leaves it missing (Bot::StaleOrderResolver decides); a failed read fails.
     async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> {
         if txids.is_empty() { return Ok(vec![]); }
-        let fills = self.read_by_time("userFillsByTime", "user_fills_by_time", crate::venue::bitvavo::ruby_ms(since), FILLS_PAGE).await?;
+        let fills = self.read_by_time("userFillsByTime", "user_fills_by_time", crate::venue::bitvavo::v2_ms(since), FILLS_PAGE).await?;
         let mut out = vec![];
         for id in txids {
             let oid = split_order_id(id).1;
@@ -648,7 +648,7 @@ impl<T: Transport> super::Venue for HyperliquidVenue<T> {
     /// orderStatus names for the order (H4). A success only when Hyperliquid answers "ok" with the cancel's status "success"
     /// (D-HL-CANCEL-REFUSED: Rails takes any HTTP 200 as cancelled).
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
-        let oid = crate::ruby::to_i(split_order_id(txid).1);
+        let oid = crate::v2::to_i(split_order_id(txid).1);
         let raw = self.info("orderStatus", vec![("user", self.user.clone().into()), ("oid", oid.into())]).await?;
         let Some(coin) = raw["order"]["order"]["coin"].as_str() else { return Err(VenueError::Rejected(vec![format!("Hyperliquid does not know order {txid}")])) };
         let asset = self.asset(coin).await?;
@@ -663,7 +663,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ids_cloids_statuses_and_inspect_read_as_rails_does() {
+    fn ids_cloids_statuses_and_inspect_read_as_v2_does() {
         assert_eq!(split_order_id("PURR-123"), ("PURR", "123"));
         assert_eq!(split_order_id("A-B-9"), ("A-B", "9"), "the oid follows the last dash");
         assert_eq!(cloid("0b1d2c3e-4f50-6172-8394-a5b6c7d8e9f0").as_deref(), Some("0x0b1d2c3e4f5061728394a5b6c7d8e9f0"));
@@ -674,7 +674,7 @@ mod tests {
         }
         assert_eq!(inspect(&json!({"status": "err", "response": "User or API Wallet 0x1 does not exist.", "n": 1, "f": 1.5, "b": true, "z": null, "a": [1, {}]})),
                    r#"{"status" => "err", "response" => "User or API Wallet 0x1 does not exist.", "n" => 1, "f" => 1.5, "b" => true, "z" => nil, "a" => [1, {}]}"#);
-        assert_eq!(ruby_string("\u{1}a\"\\#{x}é\u{7f}\u{1b}"), r#""\u0001a\"\\\#{x}é\u007F\e""#);
+        assert_eq!(v2_string("\u{1}a\"\\#{x}é\u{7f}\u{1b}"), r#""\u0001a\"\\\#{x}é\u007F\e""#);
     }
 
     #[test]

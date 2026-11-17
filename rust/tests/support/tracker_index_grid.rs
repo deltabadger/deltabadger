@@ -94,9 +94,9 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         if !selected.is_empty() && !selected.contains(&name.as_str()) {continue;}
         let source=Path::new(&root).join(&name);
         let scenario:Value=serde_json::from_slice(&std::fs::read(source.join("scenario.json")).unwrap()).unwrap();
-        let rails:Value=serde_json::from_slice(&std::fs::read(source.join("rails.json")).unwrap()).unwrap();
-        assert!(rails["network"].as_array().unwrap().is_empty());
-        let expected=rails["responses"].as_array().unwrap().last().unwrap();
+        let v2:Value=serde_json::from_slice(&std::fs::read(source.join("rails.json")).unwrap()).unwrap();
+        assert!(v2["network"].as_array().unwrap().is_empty());
+        let expected=v2["responses"].as_array().unwrap().last().unwrap();
         let step=scenario["steps"].as_array().unwrap().last().unwrap();
         let dir=tempfile::tempdir().unwrap();
         for file in ["production.sqlite3","production_queue.sqlite3"]{std::fs::copy(source.join(file),dir.path().join(file)).unwrap();}

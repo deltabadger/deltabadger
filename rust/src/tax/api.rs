@@ -37,7 +37,7 @@ fn jurisdiction(code: &str) -> Option<(String, String)> {
 /// BotApi::Tax::Params.resolve: (code, year, name, method).
 fn params(country: Option<&Value>, year: Option<&Value>) -> Result<(String, i64, String, String), Res> {
     let code = to_s(country).trim().to_uppercase();
-    if crate::ruby::blank(&code) || to_s(year).trim().is_empty() {
+    if crate::v2::blank(&code) || to_s(year).trim().is_empty() {
         return Err(failure(Domain::ValidationFailed, "missing_required_parameter", "Missing required parameter(s): country, year."));
     }
     let number = year.and_then(crate::web::bot_api::orders::integer).filter(|y| (2009..=2100).contains(y));

@@ -9,7 +9,7 @@ use deltabadger::engine::amount::{self, OrderPlan, Origin, Sizing, TxKind};
 use deltabadger::engine::model::{self, Ticker};
 use deltabadger::engine::placement;
 use deltabadger::engine::venue_rules::BITGET;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::binance::Pairs;
 use deltabadger::venue::bitget::{self, BitgetVenue, URL};
 use deltabadger::venue::http::{HttpRequest, ScriptedTransport};
@@ -68,7 +68,7 @@ fn every_recorded_honeymaker_request_is_reproduced() {
 
 /// engine::venue_rules::BITGET is Exchanges::Bitget::ERRORS, and Exchange#ambiguous_placement_error? as it reads them.
 #[test]
-fn the_rules_are_rails_errors() {
+fn the_rules_are_v2_errors() {
     let f = fixture();
     let list = |v: &Value| v.as_array().map(|a| a.iter().map(|s| s.as_str().unwrap().to_string()).collect::<Vec<_>>()).unwrap_or_default();
     for (kind, patterns) in BITGET.kinds {
@@ -88,7 +88,7 @@ fn the_rules_are_rails_errors() {
 
 /// #parse_order_data (G2), recorded over 10,000 generated orderInfo answers.
 #[test]
-fn every_recorded_rails_order_parse_is_reproduced() {
+fn every_recorded_v2_order_parse_is_reproduced() {
     let v = vectors();
     let cases = v["bitget_parsed"].as_array().unwrap();
     assert_eq!(cases.len(), 10_000);
@@ -133,7 +133,7 @@ async fn sent_body(order: &NewOrder) -> Result<Value, VenueError> {
 /// :base_and_quote_in_base) and #set_market_order / #set_limit_order's wire, through amount::size, limit_refusal, to_order
 /// (`WireFormat::Bitget`: a base market buy turned into quote coins at the ask it was sized at) and the adapter's POST body.
 #[tokio::test(flavor = "current_thread")]
-async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
+async fn every_recorded_v2_sizing_and_wire_is_reproduced() {
     let (_d, o, s) = common::install();
     use common::seed::{self, BotSpec};
     let market = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
@@ -166,7 +166,7 @@ async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
 /// D-BITGET-ZERO-TOUCH: a quote-sized sell converted at a bid that floors to zero is not sent; Rails sends size "Infinity".
 /// (Rails never sizes a sell in quote: Bot::OrderSetter and Bots::Signal::OrderSetter#venue_takes? both sell in base.)
 #[tokio::test(flavor = "current_thread")]
-async fn both_sides_of_every_recorded_rails_order_are_reproduced() {
+async fn both_sides_of_every_recorded_v2_order_are_reproduced() {
     let v = vectors();
     let cases = v["bitget_orders"].as_array().unwrap();
     assert_eq!(cases.len(), 4_000);
@@ -200,7 +200,7 @@ async fn both_sides_of_every_recorded_rails_order_are_reproduced() {
 // ---- reads
 
 #[tokio::test(flavor = "current_thread")]
-async fn prices_and_balances_read_as_rails_reads_them() {
+async fn prices_and_balances_read_as_v2_reads_them() {
     let book = envelope(json!({ "asks": [["64001.37", "0.2"]], "bids": [["64000", "1.5"]], "ts": "1" }));
     let assets = envelope(json!([{ "coin": "BTC", "available": "0.5", "frozen": "0.1", "locked": "0" }, { "coin": "USDT", "available": "100.25", "frozen": "0", "locked": "0" }]));
     let (t, v) = venue(json!({ "GET /api/v2/spot/market/orderbook": ok(book), "GET /api/v2/spot/market/tickers": ok(envelope(json!([{ "symbol": "BTCUSDT", "lastPr": "64000.5" }]))),
@@ -236,7 +236,7 @@ async fn prices_and_balances_read_as_rails_reads_them() {
 // ---- placement
 
 #[tokio::test(flavor = "current_thread")]
-async fn placement_answers_map_as_rails_maps_them() {
+async fn placement_answers_map_as_v2_maps_them() {
     let place = |reply: Value| async move { venue(json!({ "POST /api/v2/spot/trade/place-order": reply })).1.add_order(&order(OrderKind::Market, true, "60", Side::Buy)).await };
     assert_eq!(place(ok(envelope(json!({ "orderId": "1001", "clientOid": CL })))).await, Ok("BTCUSDT-1001".into()));
     assert_eq!(place(ok(envelope(json!({})))).await, Err(VenueError::Ambiguous(bitget::NO_ORDER_ID.into())));
