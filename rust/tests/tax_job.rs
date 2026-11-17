@@ -572,7 +572,7 @@ async fn a_broker_run_fetches_its_closes_then_publishes_the_report() {
     let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "DE", 2025, "broker")).unwrap();
     assert!(csv.contains("13,Sonstige Fonds,Vorabpauschale (vor Teilfreistellung),160.3\n"), "{csv}");
     let vectors: Value = serde_json::from_str(include_str!("fixtures/tax_vectors.json")).unwrap();
-    let v2 = vectors["scenarios"].as_array().unwrap().iter().find(|s| s["name"] == "de_broker_fetched").unwrap()["rails"]["csv"].as_str().unwrap().to_string();
+    let v2 = vectors["scenarios"].as_array().unwrap().iter().find(|s| s["name"] == "de_broker_fetched").unwrap()["expected"]["csv"].as_str().unwrap().to_string();
     let before_notes = |csv: &str| csv.split("\n\nRECHTLICHE HINWEISE\n").next().unwrap().to_string();
     let named = before_notes(&csv).lines().filter(|l| !l.starts_with("WARNUNG:")).collect::<Vec<_>>().join("\n");
     let named = named.split("\n\nHINWEISE\n").next().unwrap().to_string();

@@ -65,7 +65,7 @@ async fn a_run_that_fails_after_its_first_unit_leaves_the_source_ageing_through_
         listings.push(json!({ "base_asset_id": format!("crypto:coin-{i}"), "symbol": format!("C{i}/USD"), "base_decimals": 9, "quote_decimals": 2, "price_decimals": 2 }));
     }
     handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", at("2026-09-30T08:00:00Z")).unwrap();
-    assert_eq!(state::read(&o.primary, reference::ALPACA_CRYPTO, None).unwrap().rails_at, Some(at("2026-09-29T10:15:00Z")), "Rails' baseline, read once at the takeover");
+    assert_eq!(state::read(&o.primary, reference::ALPACA_CRYPTO, None).unwrap().rails_at, Some(at("2026-09-29T10:15:00Z")), "2.x's baseline, read once at the takeover");
 
     // The 10-01 run commits its first unit (500 tickers) and fails in the second.
     o.primary.execute_batch(&format!("CREATE TRIGGER late_failure BEFORE INSERT ON tickers WHEN NEW.ticker = 'C{}/USD' \
@@ -121,7 +121,7 @@ async fn after_a_handback_only_a_v2_refresh_makes_the_column_count_again() {
     assert!(matches!(staleness::verdict(&o.primary, &bot, now).unwrap(), Verdict::Stale(_)), "a stamp from before the handback may be ours: not trusted");
     // Rails runs after the handback and refreshes the catalogue: its stamp is newer than the handback.
     stamp(&o.primary, "2026-10-01 13:00:00");
-    assert!(matches!(staleness::verdict(&o.primary, &bot, now).unwrap(), Verdict::Fresh), "only Rails can have written after the handback");
+    assert!(matches!(staleness::verdict(&o.primary, &bot, now).unwrap(), Verdict::Fresh), "only 2.x can have written after the handback");
     assert!(!staleness::report(&o.primary, now).unwrap().iter().any(|l| l.starts_with("Alpaca crypto tickers:") && l.contains("STALE")));
 }
 
@@ -157,7 +157,7 @@ async fn only_a_refresh_inside_v2_last_ownership_window_counts_through_a_later_t
     handover::hand_back(&lock, &o, &FakeFactory::default(), &seed::cipher(), &FixedClock(at("2026-10-01T12:00:00Z"))).await.unwrap();
     // Rails owns the install and refreshes the catalogue: inside its open window, so the door admits it.
     stamp(&o.primary, "2026-10-01 13:00:00");
-    assert!(matches!(staleness::verdict(&o.primary, &bot, at("2026-10-02T00:00:00Z")).unwrap(), Verdict::Fresh), "Rails' own refresh counts");
+    assert!(matches!(staleness::verdict(&o.primary, &bot, at("2026-10-02T00:00:00Z")).unwrap(), Verdict::Fresh), "2.x's own refresh counts");
     // This engine claims it again (the window closes at 10-02 01:00) and crashes before any later transaction.
     drop((lock, o));
     let (lock, o) = (lease::lock(&p, at("2026-10-02T01:00:00Z")).unwrap(), store::open(&p).unwrap());

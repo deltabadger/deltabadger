@@ -33,7 +33,7 @@ pub async fn run_venue_grid(grid: &str, expected: usize, validators: &[Validator
     let mut outputs = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
-        let v2_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let v2_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("expected.json")).unwrap()).unwrap();
         let rust_dir = rust_root.path().join(&name);
         let rust_out = if grid == "grid-kucoin" {
             let mut classic = deltabadger::parity::decide_kucoin_context(&rust_dir, false).await.unwrap();
@@ -59,7 +59,7 @@ pub async fn run_venue_grid(grid: &str, expected: usize, validators: &[Validator
         let expected = r5_cleanup_expected(&v2_out, &rust_out);
         match validators.iter().find(|v| (v.names)(&name)) {
             Some(v) => if let Err(e) = (v.check)(&name, &rust_dir, &expected, &rust_out) { failures.push(format!("{name} (listed divergence): {e}")) },
-            None if expected != rust_out => failures.push(format!("{name}\n  rails: {expected}\n  rust:  {rust_out}")),
+            None if expected != rust_out => failures.push(format!("{name}\n  2.x: {expected}\n  rust:  {rust_out}")),
             None => {}
         }
         outputs.push((name, v2_out));

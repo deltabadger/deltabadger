@@ -42,10 +42,10 @@ fn legs(steps: &[Value]) -> Vec<Vec<Value>> {
 /// Which runtime plays leg `leg` of an install of mode `mode` (fixtures/v2/oauth.rb `runtime`).
 fn runtime(mode: &str, leg: usize) -> &'static str {
     match mode {
-        "rails" => "rails",
+        "v2" => "v2",
         "rust" => "rust",
-        "rails_first" => if leg.is_multiple_of(2) { "rails" } else { "rust" },
-        _ => if leg.is_multiple_of(2) { "rust" } else { "rails" },
+        "v2_first" => if leg.is_multiple_of(2) { "v2" } else { "rust" },
+        _ => if leg.is_multiple_of(2) { "rust" } else { "v2" },
     }
 }
 
@@ -337,7 +337,7 @@ fn comparable(answer: &Value, masks: &[(String, String)]) -> Value {
         return answer;
     }
     if below_the_app(answer) { return json!({ "status": answer["status"], "below the app": true }); }
-    let by_v2 = answer["by"] == "rails";
+    let by_v2 = answer["by"] == "v2";
     let header = |name: &str| -> Option<String> {
         match &answer["headers"][name] {
             Value::Array(all) => all.first().and_then(Value::as_str).map(str::to_string),
@@ -492,13 +492,13 @@ fn played(dir: &Path) -> Played {
 
 fn first_difference(name: &str, mode: &str, v2: &[Value], other: &[Value]) -> Option<String> {
     if v2.len() != other.len() {
-        return Some(format!("{name} [{mode}]: Rails answered {} steps, {mode} {}", v2.len(), other.len()));
+        return Some(format!("{name} [{mode}]: 2.x answered {} steps, {mode} {}", v2.len(), other.len()));
     }
     // Where Rails answered below the app, only the status is its own.
     let other: Vec<Value> = v2.iter().zip(other).map(|(a, b)| if a["below the app"] == true { json!({ "status": b["status"], "below the app": true }) } else { b.clone() }).collect();
     let (index, (a, b)) = v2.iter().zip(&other).enumerate().find(|(_, (a, b))| a != b)?;
     if a["status"] != b["status"] || a["headers"] != b["headers"] || !a["body"].is_array() {
-        return Some(format!("{name} [{mode}] step {index}:\n  rails: {a}\n  {mode}: {b}"));
+        return Some(format!("{name} [{mode}] step {index}:\n  2.x: {a}\n  {mode}: {b}"));
     }
     let lines = |body: &Value| body.as_array().map(|lines| lines.iter().map(text).collect::<Vec<_>>()).unwrap_or_else(|| vec![text(body)]);
     Some(format!("{name} [{mode}] step {index}: {}", html::first_difference(&lines(&a["body"]), &lines(&b["body"])).unwrap_or_default()))
@@ -509,7 +509,7 @@ fn first_difference(name: &str, mode: &str, v2: &[Value], other: &[Value]) -> Op
 fn unmet_expectation(name: &str, steps: &[Value], v2: &Played) -> Option<String> {
     steps.iter().enumerate().find_map(|(index, step)| {
         (!step["expect"].is_null() && v2.raw[index]["status"] != step["expect"])
-            .then(|| format!("{name} step {index}: the scenario expects {}, Rails answered {}", step["expect"], v2.raw[index]["status"]))
+            .then(|| format!("{name} step {index}: the scenario expects {}, 2.x answered {}", step["expect"], v2.raw[index]["status"]))
     })
 }
 
@@ -545,15 +545,15 @@ fn listed_divergence(name: &str, steps: &[Value], v2: &Played, rust: &Played) ->
         ours["body"].as_str().unwrap().contains(&format!("{method} {}", step["path"].as_str().unwrap_or_default()))
     };
     let statuses = |v2_status: u64, rust_status: u64| (theirs["status"] == v2_status && ours["status"] == rust_status)
-        .then_some(()).ok_or_else(|| format!("expected Rails {v2_status} and this crate {rust_status}; got {} and {}", theirs["status"], ours["status"]));
-    let same_rows = || (v2.rows == rust.rows).then_some(()).ok_or_else(|| format!("rows differ:\n  rails: {}\n  rust:  {}", v2.rows, rust.rows));
+        .then_some(()).ok_or_else(|| format!("expected 2.x {v2_status} and this crate {rust_status}; got {} and {}", theirs["status"], ours["status"]));
+    let same_rows = || (v2.rows == rust.rows).then_some(()).ok_or_else(|| format!("rows differ:\n  2.x: {}\n  rust:  {}", v2.rows, rust.rows));
     Some(match kind {
         "unrouted_" => statuses(404, 501).and(named.then_some(()).ok_or_else(|| "the 501 does not name the request".to_string())).and_then(|()| same_rows()),
-        "unserved_" => [200, 302, 406].contains(&theirs["status"].as_u64().unwrap_or(0)).then_some(()).ok_or_else(|| format!("Rails answered {}", theirs["status"]))
+        "unserved_" => [200, 302, 406].contains(&theirs["status"].as_u64().unwrap_or(0)).then_some(()).ok_or_else(|| format!("2.x answered {}", theirs["status"]))
             .and_then(|()| statuses(theirs["status"].as_u64().unwrap(), 404)).and_then(|()| same_rows()),
         "owned_" | "fresher_" => statuses(200, 200).and_then(|()| same_rows()).and_then(|()| {
             let (v2_body, rust_body): (Value, Value) = (serde_json::from_str(theirs["body"].as_str().unwrap()).unwrap(), serde_json::from_str(ours["body"].as_str().unwrap()).unwrap());
-            (v2_body["active"] == true && rust_body == json!({ "active": false })).then_some(()).ok_or_else(|| format!("expected Rails active and this crate {{\"active\":false}}; got {v2_body} and {rust_body}"))
+            (v2_body["active"] == true && rust_body == json!({ "active": false })).then_some(()).ok_or_else(|| format!("expected 2.x active and this crate {{\"active\":false}}; got {v2_body} and {rust_body}"))
         }),
         "stricter_" => statuses(422, 302).and_then(|()| same_rows()).and_then(|()| {
             (ours["headers"]["location"][0] == "/" && ours["session_changed"] == true).then_some(()).ok_or_else(|| format!("expected a redirect to / with a flash, got {}", ours["headers"]))
@@ -603,12 +603,12 @@ async fn v2_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows() {
         dirs.sort();
         dirs
     };
-    let names: Vec<String> = installs("rails").iter().map(|dir| dir.file_name().unwrap().to_string_lossy().to_string()).collect();
+    let names: Vec<String> = installs("v2").iter().map(|dir| dir.file_name().unwrap().to_string_lossy().to_string()).collect();
     assert!(!names.is_empty(), "the grid is empty");
-    let most_legs = names.iter().map(|name| legs(read(&root.join("rails").join(name).join("scenario.json"))["steps"].as_array().unwrap()).len()).max().unwrap();
+    let most_legs = names.iter().map(|name| legs(read(&root.join("v2").join(name).join("scenario.json"))["steps"].as_array().unwrap()).len()).max().unwrap();
     for leg in 0..most_legs {
         v2_runner(&root, scratch.path(), &["play", "/s", &leg.to_string()]);
-        for mode in ["rust", "rails_first", "rust_first"] {
+        for mode in ["rust", "v2_first", "rust_first"] {
             for dir in installs(mode) {
                 if runtime(mode, leg) == "rust" { play_leg(&dir, leg).await; }
             }
@@ -617,8 +617,8 @@ async fn v2_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows() {
 
     let (mut failures, mut crossed, mut steps_compared) = (vec![], 0, 0);
     for name in &names {
-        let steps = read(&root.join("rails").join(name).join("scenario.json"))["steps"].as_array().unwrap().clone();
-        let v2 = played(&root.join("rails").join(name));
+        let steps = read(&root.join("v2").join(name).join("scenario.json"))["steps"].as_array().unwrap().clone();
+        let v2 = played(&root.join("v2").join(name));
         let rust = played(&root.join("rust").join(name));
         steps_compared += steps.len();
         if let Some(message) = unmet_expectation(name, &steps, &v2) { failures.push(message); }
@@ -628,7 +628,7 @@ async fn v2_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows() {
             None => {}
         }
         let mut modes = vec![("rust", rust)];
-        for mode in ["rails_first", "rust_first"] {
+        for mode in ["v2_first", "rust_first"] {
             let dir = root.join(mode).join(name);
             if dir.is_dir() { modes.push((mode, played(&dir))); crossed += 1; }
         }
@@ -643,7 +643,7 @@ async fn v2_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows() {
             if retired {
                 let (theirs, ours) = (&v2.raw[compared]["status"], &other.raw[compared]["status"]);
                 if *theirs != 200 || *ours != 400 {
-                    failures.push(format!("{name} [{mode}] (listed divergence): expected Rails 200 and a 400 after this crate's retirement; got {theirs} and {ours}"));
+                    failures.push(format!("{name} [{mode}] (listed divergence): expected 2.x 200 and a 400 after this crate's retirement; got {theirs} and {ours}"));
                     continue;
                 }
                 // Rails has the one row more that the retired token was still good for.
@@ -856,7 +856,7 @@ async fn a_long_chain_shared_by_two_tokens_is_retired_to_its_end_and_no_other_ch
     assert_eq!(token_rows(dir.path()), done, "then the rest: every ancestor is retired, and the presented row names nothing more");
     assert_eq!(present(&app, &clock, "second", "2026-09-10T12:00:26Z").await, Ok(1));
     assert_eq!(token_rows(dir.path()), done, "one more presentation writes nothing");
-    assert_eq!(token_rows(dir.path())[252..], as_v2_left_them[252..], "the other chain is as Rails left it");
+    assert_eq!(token_rows(dir.path())[252..], as_v2_left_them[252..], "the other chain is as 2.x left it");
 
     // The retired tokens are refused, the oldest and the latest of them alike; the siblings' own and the other chain's work.
     clock.set(web::at(AT));

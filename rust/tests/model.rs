@@ -33,7 +33,7 @@ fn settings_are_read_with_v2_readers_and_defaults() {
     assert!(read(base().with("smart_intervaled", json!(1)).with("smart_interval_quote_amount", json!(20.0))).smart_quote_amount().is_none());
     assert_eq!(read(base().with("smart_intervaled", json!(true)).with("smart_interval_quote_amount", json!(20.0))).smart_quote_amount(), Some(20.0));
     assert!(read(base().with("smart_intervaled", json!(true)).with("smart_interval_quote_amount", json!("20"))).smart_quote_amount().is_none(),
-            "a string amount raises TypeError in Rails: never a number here");
+            "a string amount raises TypeError in 2.x: never a number here");
 }
 
 #[test]
@@ -230,7 +230,7 @@ fn a_price_rule_reads_as_v2_reads_it() {
     // `||=` on the buy side: false takes the default; the sell side keeps a stored false, which Rails cannot compare.
     assert_eq!(read(base().with("price_limited", json!(true)).with("price_limit", json!(false)), false).unwrap().unwrap().limit, Num::Int(1_000_000));
     assert!(read(base().with("sell_price_limited", json!(true)).with("sell_price_limit", json!(false)), true).is_err());
-    assert!(read(base().with("price_limited", json!(true)).with("price_limit", json!("100")), false).is_err(), "a string limit raises in Rails");
+    assert!(read(base().with("price_limited", json!(true)).with("price_limit", json!("100")), false).is_err(), "a string limit raises in 2.x");
 }
 
 /// `waiting` on a price rule is the pause itself, not a cut-short tick: unstick leaves it, and a waiting bot that is not

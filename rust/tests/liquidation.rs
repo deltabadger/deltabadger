@@ -95,7 +95,7 @@ async fn partial_fill_then_cancel_banks_only_executed_proceeds() {
 async fn ambiguous_first_holding_stops_the_batch_and_promotes_v2_intents() {
     for orphan in [false,true] {
         let (_d,o,id,s,eth)=swap_bot(stopped());
-        if orphan { model::merge_transient_compact(&o.primary,id,&[("liquidation_pending",json!({"id":"rails","symbol":"BTC","state":"placing"}))]).unwrap(); }
+        if orphan { model::merge_transient_compact(&o.primary,id,&[("liquidation_pending",json!({"id":"v2","symbol":"BTC","state":"placing"}))]).unwrap(); }
         let t=script(json!({"POST /v2/orders":[{"network":"post_send","message":common::scripted::POST_SEND}]}));
         sell(&o,&t,id,json!([["BTC",s.btc],["ETH",eth]])).await;
         assert_eq!(t.posted_orders().len(),usize::from(!orphan));
@@ -345,7 +345,7 @@ fn hyperliquid_ioc_expected(v2: &Value, rust: &Value) -> Value {
         assert_eq!(order["t"]["limit"]["tif"], "Gtc");
         order["t"]["limit"]["tif"] = json!("Ioc");
     }
-    assert_eq!(expected["sent"], rust["sent"], "only time-in-force differs; price and quantity match Rails");
+    assert_eq!(expected["sent"], rust["sent"], "only time-in-force differs; price and quantity match 2.x");
     expected
 }
 
@@ -428,7 +428,7 @@ fn liquidation_grid_difference(name: &str, _: &std::path::Path, v2: &Value, rust
             }
         }
     }
-    if expected==*rust {Ok(())} else {Err(format!("rails: {expected}\nrust: {rust}"))}
+    if expected==*rust {Ok(())} else {Err(format!("2.x: {expected}\nrust: {rust}"))}
 }
 
 #[cfg(unix)]

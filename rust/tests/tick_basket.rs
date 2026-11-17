@@ -52,7 +52,7 @@ async fn a_rejected_middle_leg_stops_the_tick_and_never_sends_the_rest() {
     assert_eq!(rows, vec![(0, Some("OTX-1".into())), (1, None)], "leg 1 submitted, leg 2 failed, nothing for leg 3");
     let b = model::load_bot(&o.primary, id).unwrap();
     assert_eq!((b.status, b.last_failure_kind().as_deref()), (BotStatus::Retrying, Some("insufficient_funds")));
-    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 0, "a failed row this tick: Rails logs nothing");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 0, "a failed row this tick: 2.x logs nothing");
     assert!(one::<bool>(&o, "SELECT last_end_of_funds_notification IS NOT NULL FROM bots"), "Bot::Failable stamps the shared budget");
 }
 
@@ -142,7 +142,7 @@ async fn a_skipped_leg_is_reported_even_when_a_later_leg_fails() {
     let t = script(json!({ "POST /v2/orders": [accepted("OTX-1"), { "status": 403, "body": { "code": 40310000, "message": "insufficient buying power" } }] }));
     assert!(matches!(run(&o, &venue(&t), id, at(T0)).await, TickOutcome::Rescheduled));
     let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'orders_below_minimum'");
-    assert_eq!(serde_json::from_str::<Value>(&details).unwrap(), json!({ "count": 1, "bases": "ETH" }), "Rails' ensure reports it on the failure path");
+    assert_eq!(serde_json::from_str::<Value>(&details).unwrap(), json!({ "count": 1, "bases": "ETH" }), "2.x's ensure reports it on the failure path");
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions WHERE status = 1"), 1, "SOL's failed row");
 }
 
@@ -926,13 +926,13 @@ async fn kraken_binance_and_kucoin_baskets_decide_as_v2() {
             let (user, id): (i64, i64) = c.query_row("SELECT user_id, id FROM bots", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
             let floor = start::smart_interval_minimum(&WebBot::find(&c, user, id, For::Settings, "en").unwrap().unwrap());
             let mine = json!({ "value": floor.value.to_f(), "reason": format!("{:?}", floor.reason).to_lowercase() });
-            if mine != scenario["rails_floor"] { failures.push(format!("{name}: Smart Intervals floor {mine}, Rails {}", scenario["rails_floor"])); }
+            if mine != scenario["rails_floor"] { failures.push(format!("{name}: Smart Intervals floor {mine}, 2.x {}", scenario["rails_floor"])); }
         }
-        let v2_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let v2_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("expected.json")).unwrap()).unwrap();
         let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
         // Rails drops a NULL missed_quote_amount_was_set on a failed run; the engine keeps it (R5, as every grid compares).
         let v2_out = r5_cleanup_expected(&v2_out, &rust_out);
-        if v2_out != rust_out { failures.push(format!("{name}\n  rails: {v2_out}\n  rust:  {rust_out}")); }
+        if v2_out != rust_out { failures.push(format!("{name}\n  2.x: {v2_out}\n  rust:  {rust_out}")); }
         // Rails' side must show what each cell exists for, or an equal comparison proves nothing.
         let sent = v2_out["sent"].as_array().unwrap();
         let rows = v2_out["changes"]["transactions"].as_array().unwrap();
@@ -960,7 +960,7 @@ async fn kraken_binance_and_kucoin_baskets_decide_as_v2() {
             "merged-w70-foreign_waiting" => pairs.len() == 2 && rows.iter().all(|r| r["before"]["external_id"] != "OFOREIGN-2"),
             _ => true,
         };
-        if !pinned { failures.push(format!("{name}: Rails no longer shows what this cell is for: {v2_out}")); }
+        if !pinned { failures.push(format!("{name}: 2.x no longer shows what this cell is for: {v2_out}")); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
@@ -1135,7 +1135,7 @@ async fn a_loss_sale_claims_with_its_intent_and_each_outcome_settles_it_as_v2() 
     let (_d, o, id, s, intent) = begun();
     assert!(matches!(send_sale(&o, &btc_free(json!({ "POST /v2/orders": [{ "network": "pre_send", "message": PRE_SEND }] })), id, &intent).await, Sent::NotSent(_)));
     let (until, _, token) = lock_of(&o, s.btc).unwrap();
-    assert_eq!((until.as_deref(), token.is_some(), wash_lines(&o).len()), (Some(DEADLINE), true, 0), "kept: Rails re-raises it and keeps the claim");
+    assert_eq!((until.as_deref(), token.is_some(), wash_lines(&o).len()), (Some(DEADLINE), true, 0), "kept: 2.x re-raises it and keeps the claim");
 
     let (_d, o, id, s, intent) = begun();
     o.primary.execute("UPDATE bots SET status = 2", []).unwrap();
@@ -1169,7 +1169,7 @@ async fn a_loss_sale_claims_with_its_intent_and_each_outcome_settles_it_as_v2() 
             let bot = model::load_bot(&o.primary, id).unwrap();
             assert!(matches!(placement::recover(&o.primary, &venue(&t), &bot, &FixedClock(at(SELL_AT) + Duration::hours(1))).await.unwrap(), Recovery::NotPlaced));
         }
-        assert_eq!((lock_of(&o, s.btc), wash_lines(&o).len()), (held, 0), "operator {operator}: kept, as a Rails worker crash keeps it");
+        assert_eq!((lock_of(&o, s.btc), wash_lines(&o).len()), (held, 0), "operator {operator}: kept, as a 2.x worker crash keeps it");
     }
 
     // The rule off, through a whole tick: no verdict, no claim, no row.

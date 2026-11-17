@@ -116,7 +116,7 @@ fn claim_records_rust_ownership_encrypted_and_names_where_it_came_from() {
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromV2));
     let raw: String = o.primary.query_row("SELECT value FROM app_configs WHERE key = 'engine_lease'", [], |r| r.get(0)).unwrap();
     let envelope: serde_json::Value = serde_json::from_str(&raw).unwrap();
-    assert!(envelope["p"].is_string() && envelope["h"]["iv"].is_string(), "stored as a Rails envelope");
+    assert!(envelope["p"].is_string() && envelope["h"]["iv"].is_string(), "stored as a 2.x envelope");
     assert_eq!(lease::read(&o.primary, &cipher()).unwrap().unwrap()["engine"], "rust");
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::AfterCrash));
 }
@@ -168,7 +168,7 @@ fn a_claim_stamps_a_new_ownership_and_a_restart_reopens_nothing() {
     let taken = |o: &store::Opened| o.primary.query_row("SELECT value FROM app_configs WHERE key = ?1", [lease::TAKEN_OVER_AT], |r| r.get::<_, String>(0)).optional().unwrap();
     let at = |s: &str| s.parse::<chrono::DateTime<chrono::Utc>>().unwrap();
     lease::claim(&l, &o.primary, &cipher(), "0.1.0", at("2026-10-01T08:00:00Z")).unwrap();
-    assert_eq!(taken(&o).as_deref(), Some("2026-10-01T08:00:00.000Z"), "from Rails: stamped with the claim");
+    assert_eq!(taken(&o).as_deref(), Some("2026-10-01T08:00:00.000Z"), "from 2.x: stamped with the claim");
     lease::claim(&l, &o.primary, &cipher(), "0.1.0", at("2026-10-01T09:00:00Z")).unwrap();
     assert_eq!(taken(&o).as_deref(), Some("2026-10-01T08:00:00.000Z"), "a restart after a crash continues this ownership");
     // A claim by a build without the stamp crashed: the lease says rust, the window opened by the last handback is still open.
@@ -195,7 +195,7 @@ fn a_new_ownership_clears_every_index_ranking_and_a_restart_keeps_them() {
     };
     rank();
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromV2));
-    assert_eq!(rankings(), 0, "from Rails: cleared");
+    assert_eq!(rankings(), 0, "from 2.x: cleared");
     rank();
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::AfterCrash));
     assert_eq!(rankings(), 1, "an ordinary restart keeps them");

@@ -186,7 +186,7 @@ fn an_active_rule_refuses_the_install() {
 fn a_stopped_bot_outside_the_slice_refuses_only_when_it_has_pending_work() {
     let (_d, o, s) = install();
     let quiet = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain().with("future_limited", json!(true)) });
-    assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(), "a quiet stopped bot is Rails' business later, not now");
+    assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(), "a quiet stopped bot is 2.x's business later, not now");
     seed::insert_tx(&o.primary, &s, quiet, &TxSpec { status: 0, external_status: Some(1), external_id: Some("OOPEN".into()), order_type: 1,
         amount: Some("0.001"), quote_amount: None, price: Some("50000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-20 10:00:00".into() });
     assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains(&format!("bot {quiet}")) && p.contains("outstanding order")));
@@ -266,7 +266,7 @@ fn a_limit_bot_whose_distance_is_not_a_number_is_refused() {
     }
     let (_d, o, s) = install();
     let blank = seed::insert_bot(&o.primary, &s, &plain().with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!("")));
-    assert_eq!(eligibility::check_install(&o.primary).unwrap().eligible, vec![blank], "blank is Rails' 0.001 default");
+    assert_eq!(eligibility::check_install(&o.primary).unwrap().eligible, vec![blank], "blank is 2.x's 0.001 default");
 }
 
 #[test]
@@ -621,7 +621,7 @@ fn an_index_bots_rules_are_admitted_by_what_the_engine_runs_on_it() {
     assert_eq!(reasons(", '$.sell_price_limited', json('true'), '$.sell_price_drop_limited', json('true'), '$.sell_indicator_limited', 'yes'"), Vec::<String>::new(), "the sell side is inert");
     assert_eq!(reasons(", '$.price_limited', json('true'), '$.price_limit_action', 'start_selling'"), Vec::<String>::new(), "a flip is inert");
     assert_eq!(reasons(", '$.price_drop_limited', json('true')"), Vec::<String>::new(), "implemented candle rule");
-    assert_eq!(reasons(", '$.price_limited', '1'"), vec!["price_limited"], "a switch Rails reads as off is refused");
+    assert_eq!(reasons(", '$.price_limited', '1'"), vec!["price_limited"], "a switch 2.x reads as off is refused");
 }
 
 /// Baskets admit both pause rules and direction flips.
@@ -957,7 +957,7 @@ fn a_price_rule_with_the_pause_action_is_eligible() {
     assert!(reasons(rule().with("price_limit_action", json!("start_selling"))).is_empty());
     assert!(reasons(plain().with("sell_price_limited", json!(true)).with("sell_price_limit_action", json!("start_buying"))).is_empty());
     assert_eq!(reasons(rule().with("price_limit", json!("50000"))), vec![r#"price_limit "50000" is not a number"#]);
-    assert_eq!(reasons(rule().with("price_limited", json!("1"))), vec!["price_limited"], "a flag Rails reads as off, but set: refused");
+    assert_eq!(reasons(rule().with("price_limited", json!("1"))), vec!["price_limited"], "a flag 2.x reads as off, but set: refused");
     for other in ["price_drop_limited", "moving_average_limited", "indicator_limited"] {
         assert!(reasons(plain().with(other, json!(true))).is_empty(), "{other}");
     }
@@ -1067,7 +1067,7 @@ fn no_signal_venue_is_refused_as_not_recorded() {
         for e in std::fs::read_dir(dir).unwrap().flatten() {
             let p = e.path();
             if p.is_dir() { walk(&p, hits); }
-            else if p.extension().is_some_and(|x| x == "rs") && std::fs::read_to_string(&p).unwrap().contains(concat!("not recorded ", "against Rails yet")) {
+            else if p.extension().is_some_and(|x| x == "rs") && std::fs::read_to_string(&p).unwrap().contains(concat!("not recorded ", "against 2.x yet")) {
                 hits.push(p.display().to_string());
             }
         }

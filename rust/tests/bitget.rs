@@ -289,7 +289,7 @@ async fn a_gone_order_is_missing_and_any_other_failure_fails_the_batch() {
 #[tokio::test(flavor = "current_thread")]
 async fn cancel_posts_the_symbol_and_order_id_and_looks_a_legacy_id_up() {
     let (t, v) = venue(json!({ "POST /api/v2/spot/trade/cancel-order": ok(err("43001", "x")) }));
-    assert_eq!(v.cancel("BTCUSDT-123").await, Ok(()), "any 2xx is the cancel, as Rails takes it");
+    assert_eq!(v.cancel("BTCUSDT-123").await, Ok(()), "any 2xx is the cancel, as 2.x takes it");
     assert_eq!(t.requests()[0].body.as_ref().unwrap().to_string(), r#"{"symbol":"BTCUSDT","orderId":"123"}"#);
     let (t, v) = venue(json!({ "GET /api/v2/spot/trade/orderInfo": ok(envelope(json!([{ "symbol": "ETHUSDT", "orderId": "55" }]))),
                                "POST /api/v2/spot/trade/cancel-order": ok(envelope(json!({ "orderId": "55" }))) }));

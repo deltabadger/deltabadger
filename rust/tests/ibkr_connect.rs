@@ -118,7 +118,7 @@ async fn a_queued_key_job_fills_a_blank_key_at_takeover_and_never_rotates_one() 
         let mut fx = hosted().await;
         let before = if blank {
             fx.c.execute("INSERT INTO api_keys(user_id, exchange_id, key_type, status, created_at, updated_at) VALUES(?1, ?2, 0, 0, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", (fx.user, fx.exchange)).unwrap();
-            assert!(fx.page().await.contains("be used now"), "Rails' job never ran: D-IBKR-RECONNECT");
+            assert!(fx.page().await.contains("be used now"), "2.x's job never ran: D-IBKR-RECONNECT");
             None
         } else {
             assert_eq!(fx.post("/settings/ibkr_connect", &[]).await, 302);

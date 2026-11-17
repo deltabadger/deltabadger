@@ -4,7 +4,7 @@ use deltabadger::store::{self, Paths, StoreError};
 #[test]
 fn a_v2_prepared_install_satisfies_the_engine_contract() {
     let dir = common::v2_install();
-    store::check(&Paths::from_env(&|_| None, dir.path())).expect("every engine table and column is present as Rails creates it");
+    store::check(&Paths::from_env(&|_| None, dir.path())).expect("every engine table and column is present as 2.x creates it");
 }
 
 #[test]

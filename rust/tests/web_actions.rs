@@ -150,7 +150,7 @@ mod action_transport {
                 _ => None,
             };
             if let Some((v2, rust)) = divergence {
-                assert_eq!(case["merged"],v2,"Rails request merge changed");
+                assert_eq!(case["merged"],v2,"2.x request merge changed");
                 assert_eq!(case["permitted"],v2[ROOT]);
                 assert_eq!(parsed.value(),&rust,"plan_body_precedence: {}",case["name"]);
                 assert_eq!(parsed.permitted(Kind::Basket),Ok(rust[ROOT].clone()));
@@ -474,7 +474,7 @@ mod action_draft {
                 if parse.is_ok() {
                     let context = if field(case, "context") == "start" { ValidationContext::Start } else { ValidationContext::Update };
                     { if context == ValidationContext::Start { draft.candidate.status = deltabadger::enums::BotStatus::Scheduled; } draft.validate(&c, context, now, provider, "en") }.map_err(|e| format!("{name}: {e:?}"))?;
-                    assert!(!draft.errors.is_empty(), "{name}: Rails exception must produce field errors");
+                    assert!(!draft.errors.is_empty(), "{name}: 2.x exception must produce field errors");
                     if name == "1/interval/normal/update" {
                         let html = deltabadger::web::bot::settings::draft_column(&c, &ctx, "csrf", &draft, "UTC", false).map_err(|e| format!("{e:?}"))?;
                         assert!(html.contains("is-invalid") && html.contains("value=\"12.5\""), "{html}");
@@ -612,8 +612,8 @@ mod action_write {
         use deltabadger::engine::{amount, model, placement, FixedClock};
         use deltabadger::v2::BigDec;
         let v2 = common::ownership_case("settings_held_until_reconciliation");
-        assert_eq!(v2["rails_update_succeeded"], true);
-        assert_eq!(v2["rails_quote_amount"], 100.0);
+        assert_eq!(v2["v2_update_succeeded"], true);
+        assert_eq!(v2["v2_quote_amount"], 100.0);
         let f = Fixture::new()?;
         let bot = model::load_bot(&f.c, f.id).unwrap();
         let ticker = model::ticker_for(&f.c, &bot).unwrap().ok_or("ticker")?;
@@ -1264,9 +1264,9 @@ mod action_write {
             assert_eq!(anchor,v2["started_at"].as_str().ok_or("started_at")?,"{mode}");
             assert_eq!(stored["settings"]["start_at"],v2["settings"]["start_at"],"{mode}");
             let mut expected_transient = v2["transient_data"].clone();
-            assert!(expected_transient.get("run_generation").is_none(), "Rails has no ownership generation");
+            assert!(expected_transient.get("run_generation").is_none(), "2.x has no ownership generation");
             expected_transient["run_generation"] = json!(1);
-            assert_eq!(stored["transient"], expected_transient, "{mode}: Rails state plus exactly one Rust start generation");
+            assert_eq!(stored["transient"], expected_transient, "{mode}: 2.x state plus exactly one Rust start generation");
             let status:i64=f.c.query_row("SELECT status FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
             assert_eq!(json!(status),v2["status"],"{mode}");
             let changed=if mode=="date" {changed_before} else {json!(v2["settings_changed_at"])};
@@ -1999,7 +1999,7 @@ mod action_race {
             f.clock.set(harness::at("2026-09-04T10:00:00.000001Z"));
             run::step(&mut engine,&*f.clock).await.map_err(|e|format!("{e:?}"))?;
         }
-        assert_eq!(script.submissions.borrow().len(),1,"Rails recorded {name}: {}; real scheduler at {}: transient={}",row["decision"],f.clock.now(),f.transient()?);
+        assert_eq!(script.submissions.borrow().len(),1,"2.x recorded {name}: {}; real scheduler at {}: transient={}",row["decision"],f.clock.now(),f.transient()?);
         assert_eq!(script.submissions.borrow().first().ok_or("submission")?.0,f.clock.now());
         assert_eq!(f.one::<String>("SELECT started_at FROM bots WHERE id=?1")?,ANCHOR);
         Ok(())

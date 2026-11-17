@@ -1,4 +1,4 @@
-//! The web layer's pure parts, each held to what Rails recorded (tests/fixtures/ruby_vectors.json).
+//! The web layer's pure parts, each held to what Rails recorded (tests/fixtures/v2_vectors.json).
 mod common;
 #[path = "support/settings_fixture.rs"]
 mod fixture;
@@ -240,7 +240,7 @@ mod time_zones {
         for (name, iana) in &table {
             assert_eq!(timezone::zone(name).map(|z| z.name()), iana.as_str(), "{name}");
         }
-        assert_eq!(timezone::zone("Europe/Warsaw"), None, "the column holds Rails names, not IANA ids");
+        assert_eq!(timezone::zone("Europe/Warsaw"), None, "the column holds 2.x names, not IANA ids");
         assert_eq!(timezone::local(at("2026-07-01T12:00:00Z"), "Warsaw").to_rfc3339(), "2026-07-01T14:00:00+02:00");
         assert_eq!(timezone::local(at("2026-01-01T12:00:00Z"), "Eastern Time (US & Canada)").to_rfc3339(), "2026-01-01T07:00:00-05:00");
         assert_eq!(timezone::local(at("2026-01-01T12:00:00Z"), "Nowhere").to_rfc3339(), "2026-01-01T12:00:00+00:00");
@@ -326,7 +326,7 @@ mod sessions {
         assert_eq!(session::set_cookie("v", now, true), "_deltabadger_rust_session=v; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; secure; httponly; samesite=lax");
         let headers = header_map(&[("cookie", "other=1; _deltabadger_rust_session=abc-_; _deltabadger_session=rails")]);
         assert_eq!(session::cookie_values(&headers).collect::<Vec<_>>(), ["abc-_"]);
-        assert_eq!(session::cookie_values(&header_map(&[("cookie", "_deltabadger_session=rails")])).next(), None, "Rails' cookie is not ours");
+        assert_eq!(session::cookie_values(&header_map(&[("cookie", "_deltabadger_session=rails")])).next(), None, "2.x's cookie is not ours");
         let several = header_map(&[("cookie", "_deltabadger_rust_session=a; _deltabadger_rust_session_x=b; x_deltabadger_rust_session=c; _deltabadger_rust_session=d")]);
         assert_eq!(session::cookie_values(&several).collect::<Vec<_>>(), ["a", "d"], "every cookie of our exact name, in order; a longer name is another cookie");
     }
@@ -358,7 +358,7 @@ mod csrf_tokens {
         let token = csrf::new_token();
         let (first, second) = (csrf::masked(&token), csrf::masked(&token));
         assert_ne!(first, second);
-        assert_eq!(first.len(), 86, "64 bytes, base64url without padding, as Rails' tokens");
+        assert_eq!(first.len(), 86, "64 bytes, base64url without padding, as 2.x's tokens");
         assert!(csrf::valid(&token, &first) && csrf::valid(&token, &second));
         assert!(!csrf::valid(&csrf::new_token(), &first), "another session's token");
         assert!(!csrf::valid(&token, &token), "the raw token is not accepted");
@@ -373,7 +373,7 @@ mod csrf_tokens {
         let with_header = |value: &str| header_map(&[("x-csrf-token", value)]);
         assert!(csrf::verified(Some(&token), &HeaderMap::new(), Some(&masked), ours));
         assert!(csrf::verified(Some(&token), &with_header(&masked), None, ours));
-        assert!(csrf::verified(Some(&token), &with_header(&masked), Some("not-a-token"), ours), "an invalid field beside a valid header, as Rails");
+        assert!(csrf::verified(Some(&token), &with_header(&masked), Some("not-a-token"), ours), "an invalid field beside a valid header, as 2.x");
         assert!(csrf::verified(Some(&token), &with_header("not-a-token"), Some(&masked), ours));
         assert!(!csrf::verified(Some(&token), &with_header("not-a-token"), Some("neither"), ours));
         assert!(!csrf::verified(Some(&token), &HeaderMap::new(), None, ours));
@@ -696,13 +696,13 @@ mod rate_limits {
                 v2_believed_a_forged_header += usize::from(case["ip"] != peer);
             } else if let Some((_, ours)) = listed {
                 assert_eq!(got.as_deref(), Some(*ours), "{case}");
-                assert_ne!(case["ip"], *ours, "Rails answers the same now: take this one off the list. {case}");
+                assert_ne!(case["ip"], *ours, "2.x answers the same now: take this one off the list. {case}");
                 stricter += 1;
             } else {
-                assert_eq!(got.as_deref(), case["ip"].as_str(), "behind a trusted proxy the answer is Rails': {case}");
+                assert_eq!(got.as_deref(), case["ip"].as_str(), "behind a trusted proxy the answer is 2.x's: {case}");
             }
         }
-        assert_eq!(v2_believed_a_forged_header, 4, "the vectors where Rails takes the caller's own header for its address");
+        assert_eq!(v2_believed_a_forged_header, 4, "the vectors where 2.x takes the caller's own header for its address");
         assert_eq!(stricter, STRICTER.len(), "every listed difference has its vector");
         let config = |behind: &'static str| Config::from_env(&move |name| match name { "SECRET_KEY_BASE" => Some("s".into()), "BEHIND_PROXY" => Some(behind.into()), _ => None }).unwrap();
         let forwarded = header_map(&[("x-forwarded-for", "198.51.100.7")]);
@@ -874,8 +874,8 @@ mod oauth_rules {
         assert!(recorded.len() >= 55 && recorded.iter().filter(|case| case["parts"].is_null()).count() >= 10, "{} vectors", recorded.len());
         for case in &recorded {
             let (parsed, parts) = (Uri::parse(case["uri"].as_str().unwrap()), &case["parts"]);
-            let Some(uri) = parsed else { assert!(parts.is_null(), "{case}: Ruby parses it"); continue };
-            assert!(!parts.is_null(), "{case}: Ruby refuses it, this crate read {uri:?}");
+            let Some(uri) = parsed else { assert!(parts.is_null(), "{case}: 2.x parses it"); continue };
+            assert!(!parts.is_null(), "{case}: 2.x refuses it, this crate read {uri:?}");
             assert_eq!((uri.scheme.as_deref(), uri.opaque, uri.fragment.as_deref()), (parts["scheme"].as_str(), parts["opaque"] == true, parts["fragment"].as_str()), "{case}");
             if uri.opaque { continue; }
             assert_eq!((uri.userinfo.as_deref(), uri.host.as_deref(), Some(uri.path.as_str()), uri.query.as_deref()),
@@ -961,7 +961,7 @@ mod oauth_rules {
         assert_eq!(given(&[], &[("client_id", "abc"), ("client_secret", "s")], &[]), "abc/s");
         assert_eq!(given(&[("authorization", "Bearer whatever")], &[("client_id", "abc")], &[]), "abc/-", "a Bearer header is not client authentication");
         assert_eq!(given(&[("authorization", "Basic YWJjOg==")], &[], &[]), "abc/");
-        assert_eq!(given(&[("authorization", "basic YWJjOnM")], &[("client_id", "abc")], &[]), "abc/s", "unpadded, as Ruby's decode64 takes it");
+        assert_eq!(given(&[("authorization", "basic YWJjOnM")], &[("client_id", "abc")], &[]), "abc/s", "unpadded, as 2.x's decode64 takes it");
         assert_eq!(given(&[("authorization", "Basic YWJjOg==")], &[("client_id", "other")], &[]), "none", "the two ids disagree");
         assert_eq!(given(&[("authorization", "Basic YWJjOg==")], &[("client_id", "abc"), ("client_secret", "s")], &[]), "multiple");
         assert_eq!(given(&[("authorization", "Digest x")], &[("client_id", "abc")], &[]), "none", "another scheme is somebody else's authentication");
@@ -1142,12 +1142,12 @@ mod bot_page_formats {
         for (at, zones) in common::vectors()["bot_pages"]["zones"].as_object().unwrap() {
             for (zone, abbreviation) in zones.as_object().unwrap() {
                 let ours = format::zone_abbreviation(at.parse().unwrap(), zone);
-                if ours != abbreviation.as_str().unwrap() { different.push(format!("{zone} at {at}: {ours} here, {abbreviation} in Rails")); }
+                if ours != abbreviation.as_str().unwrap() { different.push(format!("{zone} at {at}: {ours} here, {abbreviation} in 2.x")); }
             }
         }
         // The two sides carry their own copy of the time zone database (tzinfo-data 2026.4 in Rails,
         // chrono-tz's in this crate), and Morocco's rules for the end of 2026 are not the same in both.
-        assert_eq!(different, ["Casablanca at 2026-11-01T05:59:00Z: +01 here, \"+00\" in Rails"], "the zone databases disagree elsewhere too");
+        assert_eq!(different, ["Casablanca at 2026-11-01T05:59:00Z: +01 here, \"+00\" in 2.x"], "the zone databases disagree elsewhere too");
         for case in cases("table_when") {
             let (at, zone) = (case["at"].as_str().unwrap().parse().unwrap(), case["zone"].as_str().unwrap());
             let ours = (format::table_date(at, zone), format::table_clock(at, zone, case["locale"].as_str().unwrap()), format::iso8601(at), format::datetime_local(at, zone));
@@ -1179,7 +1179,7 @@ mod colours_and_ring {
         for case in cases("ensure_contrast") {
             assert_eq!(colors::ensure_contrast(case["color"].as_str().unwrap()).as_deref(), case["contrast"].as_str(), "{case}");
         }
-        assert_eq!(colors::ensure_contrast("#fff"), None, "Ruby raises on a colour without a blue channel");
+        assert_eq!(colors::ensure_contrast("#fff"), None, "2.x raises on a colour without a blue channel");
         for case in cases("ticker_class") {
             assert_eq!(colors::ticker_class(case["category"].as_str(), case["color"].as_str()), case["class"].as_str().unwrap(), "{case}");
         }

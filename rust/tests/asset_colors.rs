@@ -143,13 +143,13 @@ fn quantizer_agreement_with_imagemagick() {
     let (mut exact, mut nears, mut misses, mut picks, mut real) = (vec![], vec![], vec![], vec![], 0);
     for l in recorded()["logos"].as_array().unwrap() {
         let name = l["file"].as_str().unwrap();
-        let Some(v2) = l["pick"].as_str() else { assert_eq!(pick_of(name), None, "{name}: Rails gets no colour"); continue };
+        let Some(v2) = l["pick"].as_str() else { assert_eq!(pick_of(name), None, "{name}: 2.x gets no colour"); continue };
         let ours = pick_of(name).unwrap_or_else(|| panic!("{name}: no colour"));
         if synthetic.contains(&name) { assert_eq!(ours, v2, "{name}: a synthetic case must match ImageMagick"); continue; }
         real += 1;
         picks.push((name.to_string(), ours.clone()));
         if ours == v2 { exact.push(name.to_string()) } else if near(&ours, v2) { nears.push(name.to_string()) } else { misses.push(name.to_string()) }
-        eprintln!("{name:24} rails {v2} rust {ours}{}", if ours == v2 { "" } else if near(&ours, v2) { "  near" } else { "  MISS" });
+        eprintln!("{name:24} 2.x {v2} rust {ours}{}", if ours == v2 { "" } else if near(&ours, v2) { "  near" } else { "  MISS" });
     }
     eprintln!("{real} logos: {} exact, {} near, {} miss ({misses:?})", exact.len(), nears.len(), misses.len());
     assert_eq!(picks.iter().map(|(n, p)| (n.as_str(), p.as_str())).collect::<Vec<_>>(), RUST_PICKS, "Rust's picks moved: re-measure and re-pin");

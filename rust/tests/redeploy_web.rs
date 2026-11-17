@@ -208,7 +208,7 @@ async fn the_page_is_served_during_a_halt_and_clear_answers_v2_flashes() {
     for (nonce,cleared) in [("stale",false),("halt-nonce",true)] {
         let answer=b.send(&app,"POST",&path,Some(&[("intent_id",nonce)]),Csrf::Header,HEADERS).await;
         assert!(matches!(answer.status,302|303),"{}",answer.body);
-        assert!(b.get(&app,&format!("/bots/{id}")).await.body.contains("Cleared. The bot can trade again."),"Rails' flash for both");
+        assert!(b.get(&app,&format!("/bots/{id}")).await.body.contains("Cleared. The bot can trade again."),"2.x's flash for both");
         assert_eq!(model::load_bot(c,id).unwrap().transient[redeploy::PENDING_KEY].is_null(),cleared,"{nonce}");
     }
     assert_eq!(events(c,"redeploy_manually_resolved"),1);

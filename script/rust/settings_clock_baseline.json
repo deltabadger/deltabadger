@@ -1219,7 +1219,7 @@
       "21c7b026f3c95f929de6d269866766f82dc1026bee67dd4b632a7f08535fca42"
     ]
   },
-  "rust/tests/ruby.rs": {
+  "rust/tests/v2.rs": {
     "sha256": "f8c7a351aa11c0f5fd6f8b5cc4a1581128eaaac5cd85a2b147310382744fc234",
     "scopes": [
       "0d9eed5e423628c439d68d608b95a69c4f925b0792aec1b66ffb29fb9ccb9e53",

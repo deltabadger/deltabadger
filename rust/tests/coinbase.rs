@@ -245,7 +245,7 @@ fn startup_repair_is_scoped_atomic_and_idempotent() {
     // runs again and fixes the new row, leaving the already repaired ones untouched.
     assert_eq!(c.execute("UPDATE account_transactions SET base_amount=CAST('9.947791211' AS NUMERIC), updated_at='2026-09-21' WHERE id=901", []).unwrap(), 1);
     let tx = c.unchecked_transaction().unwrap();
-    assert_eq!(deltabadger::sync::coinbase_repair::run(&tx, now).unwrap(), 1, "a row Rails imported after a handback is repaired at the next takeover");
+    assert_eq!(deltabadger::sync::coinbase_repair::run(&tx, now).unwrap(), 1, "a row 2.x imported after a handback is repaired at the next takeover");
     tx.commit().unwrap();
     assert_eq!(read(901).0, stored(&base));
     assert_eq!(read(902).2, "2026-09-20", "rows already repaired stay untouched");

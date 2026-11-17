@@ -387,11 +387,11 @@ async fn signal_cells_decide_as_the_v2_basket_twins_gate() {
     common::decisions::v2(&["record", v2_root.path().to_str().unwrap()]);
     let mut failures = vec![];
     for (name, side) in &names {
-        let v2: Value = serde_json::from_str(&std::fs::read_to_string(v2_root.path().join(name).join("rails.json")).unwrap()).unwrap();
+        let v2: Value = serde_json::from_str(&std::fs::read_to_string(v2_root.path().join(name).join("expected.json")).unwrap()).unwrap();
         let (v2_met, v2_gate) = v2_cell(&v2, side);
         let (rust_met, rust_gate) = signal_cell(&rust_root.path().join(name), side).await;
         if (&v2_met, &v2_gate) != (&rust_met, &rust_gate) {
-            failures.push(format!("{name}: Rails basket met_at {v2_met:?} gate {v2_gate:?}; signal met_at {rust_met:?} gate {rust_gate:?}"));
+            failures.push(format!("{name}: 2.x basket met_at {v2_met:?} gate {v2_gate:?}; signal met_at {rust_met:?} gate {rust_gate:?}"));
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));

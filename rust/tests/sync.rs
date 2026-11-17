@@ -594,7 +594,7 @@ async fn a_run_reports_done_even_with_nothing_to_import_and_failed_with_the_keys
     assert_eq!(one::<String>(&db, "SELECT count(*) || ' ' || sum(usd_value IS NULL) FROM account_balances").await, "3 1", "the coin has no price without a market source");
     let t = ScriptedTransport::from_script(&json!({ "GET /v2/account": [{ "status": 401, "body": { "message": "unauthorized." } }] }));
     assert_eq!(BalanceSync::new(Scripted(t.clone()), Rc::new(NoPrices), s.api_key_id).run(cx(&db, &clock), vec![Wake::Manual(None)]).await, Outcome::Failed("unauthorized.".into()));
-    assert_eq!(one::<i64>(&db, "SELECT status FROM api_keys").await, 2, "a balance read Alpaca calls unauthorized marks the key incorrect, as Rails does");
+    assert_eq!(one::<i64>(&db, "SELECT status FROM api_keys").await, 2, "a balance read Alpaca calls unauthorized marks the key incorrect, as 2.x does");
     // The job of a key that stopped being a reading key fails without a request (Rails' job skips it; a job has no "skipped").
     let before = t.requests().len();
     let outcome = BalanceSync::new(Scripted(t.clone()), Rc::new(NoPrices), s.api_key_id).run(cx(&db, &clock), vec![Wake::Schedule]).await;
@@ -673,7 +673,7 @@ async fn a_read_of_the_ledger_past_any_limit_fails_the_run_and_moves_nothing() {
          json!({ ACTIVITIES: [text(format!("[{{\"id\":\"long\",\"list\":[{}]}}]", vec!["0"; 100_000].join(",")))] }),
          "an activities page with more values than one answer may hold".into()),
         ("page tokens that come round again", json!({ ACTIVITIES: [page(0..99, "token-a"), page(100..199, "token-b"), page(200..299, "token-a")] }), repeat.clone()),
-        ("a page token that does not move (Rails fails this one too)", json!({ ACTIVITIES: [page(0..99, "token-a"), page(100..199, "token-a")] }), repeat.clone()),
+        ("a page token that does not move (2.x fails this one too)", json!({ ACTIVITIES: [page(0..99, "token-a"), page(100..199, "token-a")] }), repeat.clone()),
         ("a short last page that ends on a token already used", json!({ ACTIVITIES: [page(0..99, "token-a"), ok(json!([item("token-a".into())]))] }), repeat.clone()),
         ("a full page whose last activity has no id", json!({ ACTIVITIES: [ok(Value::Array((0..100).map(|i| if i == 99 { json!({ "activity_type": "INT", "net_amount": "1", "date": "2026-09-01" }) } else { item(format!("i{i}")) }).collect()))] }),
          "a full page of the ledger ends with an activity that has no id: nothing was read".into()),
@@ -838,11 +838,11 @@ async fn an_import_that_ends_exactly_at_the_cap_and_one_v2_overtook_both_end_wel
     let venue = server.venue();
     assert!(!ledger::sync_within(&db, &venue, s.api_key_id, &paper(), &clock(), three_pages).await.unwrap().unwrap().complete);
     assert_eq!(one::<String>(&db, "SELECT coalesce(last_synced_at, 'none') || ' ' || (SELECT count(*) FROM app_configs WHERE key = 'rust_sync.ledger:1') FROM api_keys").await, "none 1",
-               "what Rails finds: no watermark, so it reads the whole ledger");
+               "what 2.x finds: no watermark, so it reads the whole ledger");
     db.run(|c, _| c.execute("UPDATE api_keys SET last_synced_at = '2026-09-01 00:00:00'", []).map_err(|e| e.to_string())).await.unwrap(); // Rails' own sync
     let before = server.asked().len();
     let after_v2 = ledger::sync_within(&db, &venue, s.api_key_id, &paper(), &clock(), three_pages).await.unwrap().unwrap();
-    assert_eq!(server.asked()[before], (None, Some("2026-08-30T23:00:00Z".to_string())), "no page token; from Rails' watermark less 25 h");
+    assert_eq!(server.asked()[before], (None, Some("2026-08-30T23:00:00Z".to_string())), "no page token; from 2.x's watermark less 25 h");
     assert_eq!((after_v2.complete, one::<i64>(&db, "SELECT count(*) FROM app_configs WHERE key LIKE 'rust_sync.%'").await), (false, 1), "450 activities are again more than three pages: a new import, recorded anew");
     let done = ledger::sync_within(&db, &venue, s.api_key_id, &paper(), &clock(), three_pages).await.unwrap().unwrap();
     assert_eq!((done.complete, one::<i64>(&db, "SELECT count(*) FROM account_transactions").await, one::<i64>(&db, "SELECT count(*) FROM app_configs WHERE key LIKE 'rust_sync.%'").await), (true, 450, 0));
@@ -986,7 +986,7 @@ async fn a_split_too_long_for_a_run_fails_it_and_the_import_is_ended_after_its_r
     let cases: Vec<(&str, Vec<Value>, usize)> = vec![
         ("550 legs of one split, and nothing after them (a short last page)", legs(550).collect(), 6),
         ("550 legs, then 50 other activities on the same page", legs(550).chain((0..50).map(|i| interest(&format!("z-{i:03}"), "2026-09-16"))).collect(), 6),
-        ("one leg, then 100,000 cancelled activities (Rails drops them, so the split never ends)", legs(1).chain((0..100_000).map(cancelled)).collect(), 6),
+        ("one leg, then 100,000 cancelled activities (2.x drops them, so the split never ends)", legs(1).chain((0..100_000).map(cancelled)).collect(), 6),
         ("700 legs", legs(700).collect(), 6),
     ];
     for (what, ledger, requests) in cases {

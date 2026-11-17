@@ -21,7 +21,7 @@ module OauthParity
   VERIFIER = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'.freeze
   CHALLENGE = Base64.urlsafe_encode64(Digest::SHA256.digest(VERIFIER), padding: false).freeze
   REDIRECT = 'https://client.example/callback'.freeze
-  MODES = %w[rails rust rails_first rust_first].freeze
+  MODES = %w[v2 rust v2_first rust_first].freeze
   SEEDED_AT = '2026-01-01 00:00:00.000000'.freeze
   PERSONAL_TOKEN = ('ab' * 32).freeze
 
@@ -749,9 +749,9 @@ module OauthParity
 
   def runtime(mode, leg)
     case mode
-    when 'rails', 'rust' then mode
-    when 'rails_first' then leg.even? ? 'rails' : 'rust'
-    else leg.even? ? 'rust' : 'rails'
+    when 'v2', 'rust' then mode
+    when 'v2_first' then leg.even? ? 'v2' : 'rust'
+    else leg.even? ? 'rust' : 'v2'
     end
   end
 
@@ -843,7 +843,7 @@ module OauthParity
       dir = File.dirname(path)
       scenario = JSON.parse(File.read(path))
       steps = legs(scenario['steps'])[leg]
-      next unless steps && runtime(File.basename(File.dirname(dir)), leg) == 'rails'
+      next unless steps && runtime(File.basename(File.dirname(dir)), leg) == 'v2'
 
       play_leg(dir, scenario, steps)
       played += 1
@@ -891,7 +891,7 @@ module OauthParity
                                    'host' => (URI.parse(step['url']).host rescue nil) }
                  else requested("#{dir} step #{index}", clients, step, vars)
                  end
-        transcript << answer.merge('by' => 'rails')
+        transcript << answer.merge('by' => 'v2')
       end
     end
     travel_back

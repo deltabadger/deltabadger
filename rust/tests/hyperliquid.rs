@@ -75,7 +75,7 @@ async fn a_placement_is_refused_only_on_an_answer_that_proves_it() {
     }
     let t = script(ok(json!({ "status": "err", "response": "User or API Wallet 0x1 does not exist." })));
     let Err(VenueError::Rejected(m)) = venue(&t).add_order(&new_order(OrderKind::Limit { price: "40.022".into() }, "1.49")).await else { panic!() };
-    assert_eq!(m, ["Hyperliquid order failed: {\"status\" => \"err\", \"response\" => \"User or API Wallet 0x1 does not exist.\"}"], "Ruby's Hash#to_s");
+    assert_eq!(m, ["Hyperliquid order failed: {\"status\" => \"err\", \"response\" => \"User or API Wallet 0x1 does not exist.\"}"], "2.x's Hash#to_s");
     assert!(HYPERLIQUID.is_invalid_key(&m), "Exchanges::Hyperliquid::ERRORS[:invalid_key] condemns it");
     // A value float_to_wire cannot carry is a refused order, never re-rounded; nothing is sent.
     let t = ScriptedTransport::from_script(&json!({}));

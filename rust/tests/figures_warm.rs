@@ -244,7 +244,7 @@ async fn render_runs_no_figure_computation() {
         let fingerprint = if unchanged { 0 } else { install.app.db(|c| Ok(budget::scope(budget::FIGURE, || loading::revision(c, 1)).1.steps)).await.unwrap() };
         assert_eq!(steps, fingerprint, "{case}: a page computed figures");
         if unchanged { assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 0, "{case}: a page read what only a computation reads"); }
-        if case.starts_with("ready, n") || case == "ready, another locale" || case == "expired" { assert!(shown.is_none(), "{case}: Rails' loading state"); }
+        if case.starts_with("ready, n") || case == "ready, another locale" || case == "expired" { assert!(shown.is_none(), "{case}: 2.x's loading state"); }
     }
 }
 
@@ -309,7 +309,7 @@ async fn kept_output_lifetime_follows_the_cut_and_lock_deadline() {
         let snapshot = loading::prepare(&install.app, 1).await.unwrap();
         let app = install.app.clone();
         let shown = install.app.db(move |c| loading::render_page(&app, c, 1, &snapshot, "en", "token", "")).await.unwrap();
-        assert!(shown.is_none(), "{until_at}: Rails' loading state, never the old figures");
+        assert!(shown.is_none(), "{until_at}: 2.x's loading state, never the old figures");
         until(10, "the next fill's figures", async || {
             matches!(loading::prepare(&install.app, 1).await.unwrap(), Snapshot::Ready(_, at, ..) if at.utc() == until_at)
         }).await;
@@ -1039,7 +1039,7 @@ async fn warm_with(install: &Install, extra: i64) -> Value {
 async fn a_cacheless_bots_first_order_holds_back_the_stale_headline() {
     let install = Install::new(1, 150);
     let before = warm_with(&install, 100).await;
-    assert_eq!(before["bots"]["100"]["cached"], false, "no order: Rails caches nothing for it");
+    assert_eq!(before["bots"]["100"]["cached"], false, "no order: 2.x caches nothing for it");
     order(&install.connection(), 100, "b1");
     let snapshot = loading::prepare(&install.app, 1).await.unwrap();
     assert!(matches!(snapshot, loading::Snapshot::Stale(..)), "the refill runs");

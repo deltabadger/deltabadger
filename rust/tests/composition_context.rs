@@ -124,7 +124,7 @@ async fn tick_stands_down_in_v2_order_and_promotes_orphan_markers() {
         tick::tick(&o.primary,&venue(&t),id,&FixedClock(now()),&mut Default::default()).await.unwrap();
         assert!(events(&o).contains(&event.to_string()),"{:?}",events(&o));
         if event != "dca_skipped_redeploy_pending" {
-            assert!(!events(&o).contains(&"redeploy_ambiguous".to_string()), "Rails reaches redeploy only after liquidation stands aside");
+            assert!(!events(&o).contains(&"redeploy_ambiguous".to_string()), "2.x reaches redeploy only after liquidation stands aside");
         }
         assert!(t.posted_orders().is_empty());
     }

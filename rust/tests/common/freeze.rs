@@ -95,7 +95,7 @@ pub fn frozen(name: &str, is_whole: fn(&Path) -> bool) -> PathBuf {
     let name = name.replace('/', "_");
     super::run_template(&format!("frozen-{name}"), is_whole, |out| {
         let at = recorded().join(&name);
-        assert!(at.is_dir(), "{name}: no frozen Rails answer at {}", at.display());
+        assert!(at.is_dir(), "{name}: no frozen 2.x answer at {}", at.display());
         restore_tree(&at, out);
     })
 }
@@ -156,7 +156,7 @@ pub fn step(args: &[&str]) {
     let command = args[..args.len() - 1].join("_").replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
     let digest = { use sha2::{Digest, Sha256}; let mut h = Sha256::new(); for (path, text) in &contents(dir) { h.update(path.as_os_str().as_encoded_bytes()); h.update([0]); h.update(text); h.update([0]); } hex::encode(h.finalize()) };
     let at = recorded().join(env!("CARGO_CRATE_NAME")).join(format!("{command}-{}", &digest[..16]));
-    assert!(at.is_dir(), "Rails' answer to `{}` on this input is not frozen at {}: the input changed since the freeze", args[..args.len() - 1].join(" "), at.display());
+    assert!(at.is_dir(), "2.x's answer to `{}` on this input is not frozen at {}: the input changed since the freeze", args[..args.len() - 1].join(" "), at.display());
     restore_over(&at, dir);
 }
 

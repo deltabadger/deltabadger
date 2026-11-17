@@ -140,7 +140,7 @@ fn smtp_settings_and_the_sender_resolve_as_v2_resolves_them() {
             // would send as `EHLO ` (a listed divergence).
             Err(why) => { assert_eq!((why.as_str(), text(v2("domain")).as_str()), ("SMTP_DOMAIN is not a host name or an address literal", ""), "{c}"); refused += 1; continue }
         };
-        assert!(!c["settings"].is_null(), "not configured in Rails, configured here: {c}");
+        assert!(!c["settings"].is_null(), "not configured in 2.x, configured here: {c}");
         assert_eq!(ours.address, text(v2("address")), "address of {c}");
         assert_eq!(ours.port, text(v2("port")), "port of {c}");
         assert_eq!(ours.domain, text(v2("domain")), "domain of {c}");
@@ -151,7 +151,7 @@ fn smtp_settings_and_the_sender_resolve_as_v2_resolves_them() {
         assert_eq!(ours.has_secret(), text(v2("enable_starttls")) == "always", "STARTTLS rule of {c}");
         configured += 1;
     }
-    assert_eq!((configured, refused), (15, 1), "of the 22 recorded configurations; the other six are \"not configured\" in Rails too");
+    assert_eq!((configured, refused), (15, 1), "of the 22 recorded configurations; the other six are \"not configured\" in 2.x too");
 }
 
 #[test]

@@ -232,7 +232,7 @@ async fn an_import_stopped_at_every_page_boundary_stores_what_one_run_stores() {
         }
         assert_eq!(v.log.borrow().len(), requests, "{pages} pages a run: every page read once, none twice");
         assert_eq!(runs as usize, requests.div_ceil(pages as usize), "{pages} pages a run");
-        assert_eq!(result(&db).await, (rows.clone(), watermark.clone(), None, false), "{pages} pages a run: Rails' single-run rows and watermark");
+        assert_eq!(result(&db).await, (rows.clone(), watermark.clone(), None, false), "{pages} pages a run: 2.x's single-run rows and watermark");
     }
 }
 

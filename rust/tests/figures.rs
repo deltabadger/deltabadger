@@ -64,10 +64,10 @@ struct Grid { scenarios: Vec<Scenario> }
 fn grid() -> &'static Grid {
     static GRID: OnceLock<Grid> = OnceLock::new();
     GRID.get_or_init(|| {
-        let recorded = common::frozen("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir());
-        let v2_root = recorded.join("rails");
+        let recorded = common::frozen("figures-grid", |dir| dir.join("expected").is_dir() && dir.join("input").is_dir());
+        let v2_root = recorded.join("expected");
         let rust_root = tempfile::tempdir().unwrap();
-        common::copy_tree(&recorded.join("rust"), rust_root.path());
+        common::copy_tree(&recorded.join("input"), rust_root.path());
         let mut dirs: Vec<PathBuf> = std::fs::read_dir(&v2_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("scenario.json").exists()).collect();
         dirs.sort();
         let scenarios = dirs.iter().map(|dir| {
@@ -81,7 +81,7 @@ fn grid() -> &'static Grid {
             let took = started.elapsed();
             // Reading a database in WAL mode creates its -wal and -shm files; a write would put bytes in the first.
             let logged = std::fs::metadata(copy.join("production.sqlite3-wal")).map_or(0, |log| log.len());
-            Scenario { normalized: serde_json::from_str(&std::fs::read_to_string(dir.join("normalized.json")).unwrap()).unwrap(), v2: serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap(), rust, before, after: state(), logged, took, name }
+            Scenario { normalized: serde_json::from_str(&std::fs::read_to_string(dir.join("normalized.json")).unwrap()).unwrap(), v2: serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap(), rust, before, after: state(), logged, took, name }
         }).collect();
         Grid { scenarios } // rust_root is dropped here, and its directory removed
     })
@@ -102,9 +102,9 @@ fn difference(name: &str, path: &str, v2: &Value, rust: &Value, out: &mut Vec<St
         (Value::String(a), Value::String(b)) if a != b => {
             let at = a.bytes().zip(b.bytes()).position(|(x, y)| x != y).unwrap_or(a.len().min(b.len()));
             let cut = |s: &str| s.get(at.saturating_sub(120)..(at + 80).min(s.len())).unwrap_or("<not on a character boundary>").to_string();
-            out.push(format!("{name} {path}, character {at}\n  rails: {}\n  rust:  {}", cut(a), cut(b)));
+            out.push(format!("{name} {path}, character {at}\n  2.x: {}\n  rust:  {}", cut(a), cut(b)));
         }
-        (a, b) if a != b => out.push(format!("{name} {path}\n  rails: {a}\n  rust:  {b}")),
+        (a, b) if a != b => out.push(format!("{name} {path}\n  2.x: {a}\n  rust:  {b}")),
         _ => {}
     }
 }
@@ -123,7 +123,7 @@ fn compare(what: &str, pick: impl Fn(&Value) -> Value) {
                     let control=grid.scenarios.iter().find(|s|s.name=="account_deltabadger").unwrap();
                     for field in ["global_pnl","global_pnl_snapshot"] {
                         let recorded = &expected[field];
-                        assert!(recorded.as_str().is_some_and(|text| text.contains("TypeError")), "{}: Rails' {field} was {recorded}, not its TypeError", scenario.name);
+                        assert!(recorded.as_str().is_some_and(|text| text.contains("TypeError")), "{}: 2.x's {field} was {recorded}, not its TypeError", scenario.name);
                         expected[field]=control.normalized[field].clone();
                     }
                 }
@@ -150,7 +150,7 @@ fn the_walk_over_the_orders_matches_v2_in_every_scenario() {
     // The grid means what it says only if the figures in it are figures: no scenario's walk ends in a raise.
     let walked = grid().scenarios.iter().flat_map(|s| s.v2["bots"].as_object().unwrap().values()).filter_map(|bot| bot["metrics"].as_str())
         .filter(|metrics| !metrics.contains("\"raised\"")).count();
-    assert_eq!(walked, 214, "bots walked on the Rails side");
+    assert_eq!(walked, 214, "bots walked on the 2.x side");
 }
 
 #[test]
@@ -182,7 +182,7 @@ fn a_long_history_is_computed_in_linear_time() {
     println!("long_history took {:?}; the slowest other scenario {slowest:?}", scenario.took);
     // Beside them, for the record: what Rails took over the same figures (with its cache cold, as here).
     for scenario in grid().scenarios.iter().filter(|s| ["long_history", "priced_pairs", "unpriced_rebalances"].contains(&s.name.as_str())) {
-        println!("{}: Rails {} s, this library {:?}", scenario.name, scenario.v2["seconds"], scenario.took);
+        println!("{}: 2.x {} s, this library {:?}", scenario.name, scenario.v2["seconds"], scenario.took);
     }
 }
 
@@ -288,7 +288,7 @@ fn the_market_is_asked_for_exactly_what_v2_asks_it() {
         assert_eq!(scenario.normalized["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
     }
     let asked: usize = grid().scenarios.iter().map(|s| s.v2["requests"].as_array().map_or(0, Vec::len)).sum();
-    assert_eq!(asked, 972, "requests on the Rails side");
+    assert_eq!(asked, 972, "requests on the 2.x side");
 }
 
 /// The one scenario with a bot this library does not compute: a bot of a type no build knows, beside a basket.
@@ -304,7 +304,7 @@ fn a_bot_of_another_type_is_not_computed_and_neither_is_a_total_that_needs_it() 
     for total in ["global_pnl", "global_pnl_snapshot", "pnl_history"] {
         assert_eq!(rust[total], serde_json::json!({ "not_computed": reason }), "{total}");
         // Rails cannot load the bot either, and raises.
-        assert!(scenario.v2[total].as_str().is_some_and(|text| text.contains("SubclassNotFound")), "Rails' {total}: {}", scenario.v2[total]);
+        assert!(scenario.v2[total].as_str().is_some_and(|text| text.contains("SubclassNotFound")), "2.x's {total}: {}", scenario.v2[total]);
     }
     // The basket beside it is computed as in any other scenario (the three tests above compare it).
     assert!(rust["bots"]["1"]["metrics"].is_string());
@@ -332,7 +332,7 @@ fn a_security_split_never_restates_the_coin() {
     let (nameonly, recorded) = (of("crypto_security_split_nameonly"), of("crypto_security_split"));
     // Rails restated the coin: its walk marks the restatement that moved a position; the twin's has none.
     let marked = |sc: &Scenario| sc.normalized["bots"].as_object().unwrap().values().any(|b| b["metrics"].as_str().is_some_and(|m| m.contains("\"restated_at\"")));
-    assert!(marked(nameonly) && !marked(recorded), "Rails no longer restates the coin: drop the divergence");
+    assert!(marked(nameonly) && !marked(recorded), "2.x no longer restates the coin: drop the divergence");
     // The account's figures (totals, snapshot, history) are the twin's too.
     let whole = nameonly.rust.as_ref().unwrap();
     for (figure, value) in recorded.normalized.as_object().unwrap().iter().filter(|(k, _)| *k != "bots") {
@@ -380,7 +380,7 @@ fn pair_fill_value_divergence_is_validated_against_v2() {
     for (name, quantity, value) in [("pair_row_open_partial", "1.4", "140.4"), ("pair_row_zero_proceeds", "1.3", "130.6")] {
         let s = of(name);
         let (v2, rust) = (metrics(&s.v2), metrics(s.rust.as_ref().unwrap()));
-        assert_eq!(v2["total_base_amount"], "1.0", "{name}: Rails no longer omits the fill");
+        assert_eq!(v2["total_base_amount"], "1.0", "{name}: 2.x no longer omits the fill");
         assert_eq!(v2["total_quote_amount_invested"], "100.0");
         assert_eq!(rust["total_base_amount"], quantity);
         assert_eq!(rust["total_quote_amount_invested"], value);
@@ -446,7 +446,7 @@ fn what_is_not_computed_is_named() {
     // Unreadable batch prices are omitted by Rails and named as no_price above; an unreadable candle
     // still prevents the chart from being computed.
     for (place, reason, v2) in &found {
-        if reason == number { assert!(v2.contains("null"), "{place}: Rails has {v2}"); }
+        if reason == number { assert!(v2.contains("null"), "{place}: 2.x has {v2}"); }
     }
 }
 
@@ -632,13 +632,13 @@ fn coingecko_accounts_convert_through_the_web_as_v2_does() {
     tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(coingecko_accounts_convert());
 }
 async fn coingecko_accounts_convert() {
-    let recorded = common::frozen("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir());
+    let recorded = common::frozen("figures-grid", |dir| dir.join("expected").is_dir() && dir.join("input").is_dir());
     for name in ["account_coingecko", "account_string_price_coingecko"] {
         let v2 = &grid().scenarios.iter().find(|s| s.name == name).unwrap().v2;
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("production.sqlite3");
-        std::fs::copy(recorded.join("rust").join(name).join("production.sqlite3"), &file).unwrap();
-        let sc: Value = serde_json::from_str(&std::fs::read_to_string(recorded.join("rust").join(name).join("scenario.json")).unwrap()).unwrap();
+        std::fs::copy(recorded.join("input").join(name).join("production.sqlite3"), &file).unwrap();
+        let sc: Value = serde_json::from_str(&std::fs::read_to_string(recorded.join("input").join(name).join("scenario.json")).unwrap()).unwrap();
         // figures.rb keys a price by its ids and currency; the wire keys a request by its whole sorted query.
         let mut script = serde_json::Map::new();
         for (key, reply) in sc["script"].as_object().unwrap() {
@@ -669,6 +669,6 @@ async fn coingecko_accounts_convert() {
         let asked = log.lock().unwrap().clone();
         assert_eq!(asked.iter().filter(|k| k.ends_with("/exchange_rates")).count(), 1, "{name}: {asked:?}");
         let theirs: Vec<&str> = v2["requests"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
-        for request in asked.iter().filter(|k| !k.contains("/ping")) { assert!(theirs.contains(&request.as_str()), "{name}: Rails never asked {request}: {theirs:?}"); }
+        for request in asked.iter().filter(|k| !k.contains("/ping")) { assert!(theirs.contains(&request.as_str()), "{name}: 2.x never asked {request}: {theirs:?}"); }
     }
 }

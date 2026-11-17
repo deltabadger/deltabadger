@@ -232,7 +232,7 @@ async fn the_last_key_deleted_leaves_its_rows_as_current_history(){
     let (_dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);delete_key(&o.primary,s.api_key_id);
     let db=Db::new(o.primary,common::seed::cipher());
     assert_eq!(job(s.user_id).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
-    assert!(matches!(state(&db,s.user_id).await,State::Warm(_)),"Rails shows a deleted key's history");
+    assert!(matches!(state(&db,s.user_id).await,State::Warm(_)),"2.x shows a deleted key's history");
 }
 #[tokio::test(flavor="current_thread")]
 async fn a_key_deleted_beside_a_connected_venue_leaves_its_rows_as_current_history(){

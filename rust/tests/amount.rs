@@ -76,7 +76,7 @@ fn every_recorded_v2_sizing_is_reproduced() {
         let sizing = amount::size(bot, &sizing_ticker(&c["ticker"]), &bd(c["x"].as_str().unwrap()), &p, &deltabadger::engine::venue_rules::KRAKEN).unwrap();
         let (plan, below) = match sizing { Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}") };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
-        assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount (Ruby's division) {c}");
+        assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount (2.x's division) {c}");
         assert_eq!(plan.quote_type, c["amount_type"] == "quote", "amount_type {c}");
         // D-KRAKEN-LIMIT-COSTMIN: Rails checks a limit buy against ordermin only; Rust also against costmin in base, rounded up.
         let t = &c["ticker"];
@@ -104,7 +104,7 @@ fn rows_bind_decimals_as_v2_does() {
     let t = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     let p = bd("50000.2");
     let Sizing::BelowMinimum(plan) = amount::size(&bot, &t, &bd("0.4"), &p, &deltabadger::engine::venue_rules::KRAKEN).unwrap() else { panic!() };
-    assert_eq!(plan.log_details()["amount"], "0.000007999968000127999488002047991808", "Ruby's 31 digits, unrounded");
+    assert_eq!(plan.log_details()["amount"], "0.000007999968000127999488002047991808", "2.x's 31 digits, unrounded");
     let id = {
         let tx=o.primary.unchecked_transaction().unwrap();
         let fenced=deltabadger::engine::model::check_credential_result(&tx,&None).unwrap();
@@ -172,7 +172,7 @@ fn every_recorded_v2_alpaca_sizing_and_wire_is_reproduced() {
             OrderKind::Crossed { .. } => panic!("no venue in these vectors crosses the book"),
         }
     }
-    assert_eq!(refused, 34, "limit quantities under minimum_base_size Rails refuses");
+    assert_eq!(refused, 34, "limit quantities under minimum_base_size 2.x refuses");
 }
 
 #[test]
@@ -278,7 +278,7 @@ fn every_recorded_v2_alpaca_stock_wire_is_reproduced() {
         // 0.005348737 shares, worth 0.99999...); Rails compares the floored budget.
         let sent_short = matches!(&order.kind, OrderKind::Limit { price } if bd(&order.volume).checked_mul(&bd(price)).unwrap() < t.minimum_quote_size);
         assert_eq!(below, c["below_minimum"].as_bool().unwrap() || sent_short, "below_minimum {c}");
-        assert_eq!(w["time_in_force"], "day", "Rails sends a stock as a day order {c}");
+        assert_eq!(w["time_in_force"], "day", "2.x sends a stock as a day order {c}");
         assert!(order.day, "{c}");
         assert_eq!(order.pair, w["symbol"].as_str().unwrap(), "the bare symbol {c}");
         match order.kind {

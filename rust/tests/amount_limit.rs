@@ -592,7 +592,7 @@ fn sized(o: &store::Opened, bot: &model::Bot, venue: &str, x: &str, form: Form) 
     let ticker = model::ticker_for(&o.primary, bot).unwrap().unwrap();
     let rules = deltabadger::engine::venue_rules::for_exchange(venue).unwrap();
     let amount::Sizing::Place(plan) = amount::size(bot, &ticker, &bd(x), &bd(form_price(form)), rules).unwrap() else { panic!("{venue} {form:?} {x}: sized to place") };
-    assert_eq!(plan.quote_type, form == Form::Quote, "{venue} {form:?}: Rails sizes this form");
+    assert_eq!(plan.quote_type, form == Form::Quote, "{venue} {form:?}: 2.x sizes this form");
     plan
 }
 

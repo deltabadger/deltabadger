@@ -94,7 +94,7 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         if !selected.is_empty() && !selected.contains(&name.as_str()) {continue;}
         let source=Path::new(&root).join(&name);
         let scenario:Value=serde_json::from_slice(&std::fs::read(source.join("scenario.json")).unwrap()).unwrap();
-        let v2:Value=serde_json::from_slice(&std::fs::read(source.join("rails.json")).unwrap()).unwrap();
+        let v2:Value=serde_json::from_slice(&std::fs::read(source.join("expected.json")).unwrap()).unwrap();
         assert!(v2["network"].as_array().unwrap().is_empty());
         let expected=v2["responses"].as_array().unwrap().last().unwrap();
         let step=scenario["steps"].as_array().unwrap().last().unwrap();
@@ -166,7 +166,7 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         // PLAN-A19 (D-TRACKER-FILTER-ISO-ONLY, D-TRACKER-FILTER-BAD-INPUT): a window this build does not read. What Rails
         // did stays recorded (it served the page, or raised); Rust answers 400.
         if matches!(mode(&name),Mode::BadRequest) {
-            assert!(expected["status"]==json!(200) || (expected["status"]==json!(500) && expected.get("exception").is_some()),"{name}: Rails served or raised: {}",expected["status"]);
+            assert!(expected["status"]==json!(200) || (expected["status"]==json!(500) && expected.get("exception").is_some()),"{name}: 2.x served or raised: {}",expected["status"]);
             assert_eq!((answer.status,answer.body.as_str()),(400,include_str!("../../web/public/400.html")),"{name}");continue;
         }
         assert_eq!(json!(answer.status),expected["status"],"{name}");
@@ -208,7 +208,7 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
                 }
             }
             std::fs::write(source.join("rust.html"),&actual).unwrap();
-            std::fs::write(source.join("rails-masked.html"),masked(expected["body"].as_str().unwrap(),None,None)).unwrap();
+            std::fs::write(source.join("expected-masked.html"),masked(expected["body"].as_str().unwrap(),None,None)).unwrap();
         }
         if matches!(mode(&name),Mode::FirstSync) && !c.query_row("SELECT hide_balances FROM users WHERE id=?1",[owner],|r|r.get::<_,bool>(0)).unwrap() {
             let zero=match name.as_str() {
@@ -218,7 +218,7 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
                 "first_currency_PLN"=>"      0.00 <small>zł</small>\n",
                 _=>"      <small>$</small>0.00\n",
             };
-            assert_eq!(oracle.matches(zero).count(),1,"{name}: measured Rails zero cell");
+            assert_eq!(oracle.matches(zero).count(),1,"{name}: measured 2.x zero cell");
             let locale=step["path"].as_str().unwrap().split('/').nth(1).unwrap();
             let locale=if deltabadger::web::locale::LOCALES.contains(&locale){locale}else{"en"};
             let reason=deltabadger::web::i18n::t(locale,"tracker.portfolio.never_synced",&[]);
@@ -227,7 +227,7 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         }
         if matches!(mode(&name),Mode::FirstSync) {
             std::fs::write(source.join("rust.html"),&actual).unwrap();
-            std::fs::write(source.join("rails-masked.html"),masked(expected["body"].as_str().unwrap(),None,None)).unwrap();
+            std::fs::write(source.join("expected-masked.html"),masked(expected["body"].as_str().unwrap(),None,None)).unwrap();
         }
         // The listed 3.0 tabs (tabs_3_0): a first-sync page's card is the record's Holdings pane.
         if oracle.contains("<div class=\"widget tracker-holdings") && oracle.contains("    <div class=\"tracker-record\" data-controller=\"tracker--record\">") {

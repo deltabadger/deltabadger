@@ -18,8 +18,8 @@ fn every_recorded_translation_call_is_reproduced() {
             None => (name.as_str(), Arg::Text(value.as_str().unwrap())),
         }).collect();
         let (view, text) = (i18n::t(locale, key, &given), i18n::text(locale, key, &given));
-        if view != call["view"].as_str().unwrap() { failures.push(format!("t({locale}, {key}) = {view:?}, Rails {}", call["view"])); }
-        if text != call["text"].as_str().unwrap() { failures.push(format!("text({locale}, {key}) = {text:?}, Rails {}", call["text"])); }
+        if view != call["view"].as_str().unwrap() { failures.push(format!("t({locale}, {key}) = {view:?}, 2.x {}", call["view"])); }
+        if text != call["text"].as_str().unwrap() { failures.push(format!("text({locale}, {key}) = {text:?}, 2.x {}", call["text"])); }
     }
     assert!(failures.is_empty(), "{} differ:\n{}", failures.len(), failures.join("\n"));
 }
@@ -121,5 +121,5 @@ fn no_page_text_says_v2() {
             }
         }
     }
-    assert!(found.is_empty(), "says Rails: {found:#?}");
+    assert!(found.is_empty(), "says 2.x: {found:#?}");
 }

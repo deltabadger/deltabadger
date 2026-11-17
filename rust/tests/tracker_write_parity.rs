@@ -184,10 +184,10 @@ fn stablecoin_question(body: &str) -> String {
     let mut out = body.to_string();
     for code in ["AT", "SK"] {
         let option = regex::Regex::new(&format!(r#"(<option value="{code}" [^>]*data-stablecoin-ambiguous=")true(")"#)).unwrap();
-        assert!(option.is_match(&out), "Rails asks the stablecoin question for {code}");
+        assert!(option.is_match(&out), "2.x asks the stablecoin question for {code}");
         out = option.replace(&out, "${1}false${2}").into_owned();
     }
-    assert!(!out.contains(r#"data-stablecoin-ambiguous="true""#), "Rails asks it for no other country");
+    assert!(!out.contains(r#"data-stablecoin-ambiguous="true""#), "2.x asks it for no other country");
     out
 }
 
@@ -231,7 +231,7 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
         let directory = if name.starts_with("sync_") { std::env::var("D5_SYNC_GRID").unwrap_or_else(|_|root.clone()) } else { root.clone() };
         let source = Path::new(&directory).join(format!("d5_{name}"));
         let scenario: Value = serde_json::from_slice(&std::fs::read(source.join("scenario.json")).unwrap()).unwrap();
-        let v2: Value = serde_json::from_slice(&std::fs::read(source.join("rails.json")).unwrap()).unwrap();
+        let v2: Value = serde_json::from_slice(&std::fs::read(source.join("expected.json")).unwrap()).unwrap();
         assert!(v2["network"].as_array().unwrap().is_empty());
         let expected = v2["responses"].as_array().unwrap().last().unwrap();
         let step = scenario["steps"].as_array().unwrap().last().unwrap();
@@ -320,7 +320,7 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
         // D-TRACKER-SETTINGS-422: a settings save the user validation refuses answers 422, as fund_classifications does;
         // Rails ignores update's false return and answers 200.
         let status = if name.starts_with("settings_validation_") && name != "settings_validation_valid_context" {
-            assert_eq!(expected["status"], 200, "{name}: Rails now refuses the save: drop D-TRACKER-SETTINGS-422"); 422
+            assert_eq!(expected["status"], 200, "{name}: 2.x now refuses the save: drop D-TRACKER-SETTINGS-422"); 422
         } else { expected["status"].as_u64().unwrap() };
         assert_eq!(u64::from(answer.status),status,"{name}");
         if expected.get("exception").is_none() { {
@@ -383,7 +383,7 @@ fn tax_effects(c: &Connection, name: &str, source: &Path, dir: &Path, expected: 
     for row in before { assert!(after.contains(row), "{name}: an earlier request moved: {row}"); }
     let new: Vec<&Value> = after.iter().filter(|row| !before.iter().any(|old| old["request"] == row["request"])).collect();
     let jobs: Vec<&Value> = expected["jobs"].as_array().unwrap().iter().filter(|job| job["job_class"] == "Tax::GenerateReportJob").collect();
-    assert_eq!(new.len(), jobs.len(), "{name}: requests queued against Rails' enqueued jobs {jobs:?}");
+    assert_eq!(new.len(), jobs.len(), "{name}: requests queued against 2.x's enqueued jobs {jobs:?}");
     for (row, job) in new.iter().zip(&jobs) {
         let request = row["request"].as_str().unwrap();
         assert!(request.len() == 32 && request.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)), "{name}: request token {request}");

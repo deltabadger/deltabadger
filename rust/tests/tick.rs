@@ -32,7 +32,7 @@ async fn a_market_tick_places_one_order_and_goes_back_to_scheduled() {
     let b = bot(&o, id);
     assert_eq!(b.status, BotStatus::Scheduled);
     assert_eq!(b.transient["last_action_job_at"], "2026-09-01T10:00:00.500Z");
-    assert!(!b.transient.as_object().unwrap().contains_key("waiting_for_market_open"), "Rails writes nil over nothing as no change");
+    assert!(!b.transient.as_object().unwrap().contains_key("waiting_for_market_open"), "2.x writes nil over nothing as no change");
     assert_eq!(one::<String>(&o, "SELECT external_id FROM transactions"), "OTX-1");
     assert_eq!(v.calls("/0/private/BalanceEx"), 1, "Fundable reads the balance after the orders");
 }
@@ -95,7 +95,7 @@ async fn a_rejection_is_a_failed_row_and_a_second_invalid_key_stops_the_bot() {
     let v = priced().next_add(AddOutcome::Reject(vec!["EAPI:Invalid key".into()])).next_add(AddOutcome::Reject(vec!["EAPI:Invalid key".into()]));
     assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:01Z").await, TickOutcome::Rescheduled));
     assert_eq!(bot(&o, id).last_failure_kind().as_deref(), Some("invalid_key"));
-    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 0, "a failed row this tick: Rails logs nothing");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 0, "a failed row this tick: 2.x logs nothing");
     assert!(matches!(run(&o, &v, id, "2026-09-08T10:00:01Z").await, TickOutcome::Stopped));
     assert_eq!(bot(&o, id).status, BotStatus::Stopped);
     assert_eq!(one::<String>(&o, &format!("SELECT stop_message_key FROM bots WHERE id = {id}")), "bot.status.stopped_by_error.invalid_key");
@@ -251,7 +251,7 @@ async fn a_failure_owes_one_error_mail_a_day_for_its_kind() {
     let error = "EGeneral:Invalid arguments:volume minimum not met";
     run(&o, &rejecting(error), id, "2026-09-01T10:00:01Z").await;
     let t = transient(&o, id);
-    assert_eq!(t["failure_notifications"], json!({ "unknown": "2026-09-01T10:00:01Z" }), "Time.current.iso8601, under the key Rails uses for no kind");
+    assert_eq!(t["failure_notifications"], json!({ "unknown": "2026-09-01T10:00:01Z" }), "Time.current.iso8601, under the key 2.x uses for no kind");
     assert_eq!(t[notice::ERROR], json!({ "unknown": { "error": error, "stamped_at": "2026-09-01T10:00:01.000Z" } }));
     assert_eq!(one::<Option<String>>(&o, &format!("SELECT last_end_of_funds_notification FROM bots WHERE id = {id}")), None);
     // Inside the day: no second mail, whatever happened to the first. A success in between changes nothing (the budget is never cleared).

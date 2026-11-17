@@ -80,11 +80,11 @@ async fn ibkr_key_verdicts_replay_every_recorded_case() {
             ("success", Value::Bool(true)) => "correct",
             ("success", d) if d == "pending_activation" => "pending_activation",
             ("failure", _) => "failure",
-            other => panic!("{name}: Rails answered {other:?}"),
+            other => panic!("{name}: 2.x answered {other:?}"),
         };
         if name == "lock_busy" {
             // D-IBKR-LOCK-TIMEOUT: Rails reads IbkrLock::Timeout (no status) as pending activation; here it is no verdict.
-            assert_eq!(theirs, "pending_activation", "Rails no longer reads a busy login as pending activation: drop the divergence");
+            assert_eq!(theirs, "pending_activation", "2.x no longer reads a busy login as pending activation: drop the divergence");
             assert!(matches!(key_check::ibkr_verdict(&Err(Error::LockTimeout)), IbkrVerdict::Failure(_)));
             replayed += 1;
             continue;
@@ -104,7 +104,7 @@ async fn ibkr_key_verdicts_replay_every_recorded_case() {
             _ => match theirs {
                 "correct" => IbkrVerdict::Account(if name == "paper_account" { "DU1234567" } else { "U1234567" }.into()),
                 "pending_activation" => IbkrVerdict::PendingActivation,
-                _ => { assert!(matches!(ours, IbkrVerdict::Failure(_)), "{name}: {ours:?}, Rails a failure"); ours.clone() }
+                _ => { assert!(matches!(ours, IbkrVerdict::Failure(_)), "{name}: {ours:?}, 2.x a failure"); ours.clone() }
             },
         };
         assert_eq!(ours, expected, "{name}");

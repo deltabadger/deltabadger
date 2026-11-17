@@ -338,7 +338,7 @@ fn an_install_with_its_queue_missing_is_still_missing() {
     let v2 = common::v2_install();
     let rust = tempfile::tempdir().unwrap();
     run_until(rust.path(), "after-claim");
-    for (what, dir) in [("Rails-built", v2.path()), ("Rust-born", rust.path())] {
+    for (what, dir) in [("2.x-built", v2.path()), ("Rust-born", rust.path())] {
         for suffix in ["", "-wal", "-shm"] { let _ = std::fs::remove_file(dir.join(format!("{QUEUE}{suffix}"))); }
         let missing = deltabadger::store::check(&deltabadger::store::Paths::from_env(&|_| None, dir)).unwrap_err();
         assert!(matches!(&missing, deltabadger::store::StoreError::Missing { path } if path.ends_with(QUEUE)), "{what}: {missing:?}");

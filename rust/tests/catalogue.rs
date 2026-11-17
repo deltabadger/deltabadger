@@ -43,19 +43,19 @@ async fn every_recorded_catalogue_reads_as_v2() {
         let t = Timed { inner: ScriptedTransport::from_script(&sc["script"]), start: Instant::now(), at: RefCell::new(vec![]) };
         let got = catalogue::read(sc["venue"].as_str().unwrap(), &t).await;
 
-        let v2 = &sc["rails"];
+        let v2 = &sc["expected"];
         match (&got, v2.get("rows")) {
             (Ok(rows), Some(expected)) => {
                 let mut expected = expected.clone();
                 for (scenario, i, field, in_v2, in_rust) in DIVERGENCES.iter().filter(|d| d.0 == name) {
-                    assert_eq!(expected[*i][*field], json!(in_v2), "{name}: Rails' {field} of row {i}");
+                    assert_eq!(expected[*i][*field], json!(in_v2), "{name}: 2.x's {field} of row {i}");
                     expected[*i][*field] = json!(in_rust);
                     assert_eq!(rows[*i][*field], json!(in_rust), "{scenario}: Rust's {field} of row {i}");
                 }
                 assert_eq!(&Value::Array(rows.clone()), &expected, "{name}: rows");
             }
             (Err(message), None) => assert_eq!(message, v2["message"].as_str().unwrap(), "{name}: failure"),
-            (got, _) => panic!("{name}: Rust {got:?}, Rails {v2}"),
+            (got, _) => panic!("{name}: Rust {got:?}, 2.x {v2}"),
         }
 
         let sent = t.inner.requests();
@@ -67,7 +67,7 @@ async fn every_recorded_catalogue_reads_as_v2() {
             let got = json!({ "method": r.method, "host": r.base, "path": r.path, "query": query, "body": r.body });
             let want_req = json!({ "method": want["method"], "host": want["host"], "path": want["path"], "query": want["query"], "body": want["body"] });
             assert_eq!(got, want_req, "{name}: request");
-            assert_eq!(at.as_secs_f64(), want["at"].as_f64().unwrap(), "{name}: {} sent after Rails' waits", r.path);
+            assert_eq!(at.as_secs_f64(), want["at"].as_f64().unwrap(), "{name}: {} sent after 2.x's waits", r.path);
         }
         assert_eq!(t.start.elapsed().as_secs_f64(), sc["slept"].as_f64().unwrap(), "{name}: time slept");
     }

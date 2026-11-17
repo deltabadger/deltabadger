@@ -256,7 +256,7 @@ async fn up_carries_the_headers_v2_middleware_adds() {
     assert!(answer.header("content-security-policy-report-only").unwrap().contains("script-src 'self' 'nonce-"));
     assert_eq!(answer.header("x-frame-options"), Some("SAMEORIGIN"));
     assert_eq!(answer.header("cache-control"), Some("max-age=0, private, must-revalidate"));
-    assert_eq!(answer.header("content-security-policy"), None, "nothing is enforced yet: report-only, as in Rails");
+    assert_eq!(answer.header("content-security-policy"), None, "nothing is enforced yet: report-only, as in 2.x");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -1409,7 +1409,8 @@ fn a_real_browser_signs_in_to_an_empty_install() -> Result<(), Box<dyn std::erro
     opened.primary.execute("UPDATE users SET encrypted_password=?1,confirmed_at='2026-01-01 00:00:00' WHERE id=?2",(hash,seeded.user_id))?;
     drop(opened);
     let port = free_port();
-    let mut server = Child(serve_command(dir.path(),port).stdout(Stdio::null()).stderr(Stdio::null()).spawn()?);
+    // The install is encrypted under the engine test secret (common::seed::cipher), not the web tests' SECRET.
+    let mut server = Child(serve_command(dir.path(),port).env("SECRET_KEY_BASE", "engine-test-secret").stdout(Stdio::null()).stderr(Stdio::null()).spawn()?);
     let deadline = Instant::now() + Duration::from_secs(15);
     while !up_within(port,Duration::from_secs(1)) {
         if Instant::now() >= deadline || server.0.try_wait()?.is_some() { return Err("empty-install server did not start".into()); }
@@ -1780,7 +1781,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert_eq!(refused(&|s| s["quote_amount"] = json!(0), true), Some("settings no form would have saved"));
     assert_eq!(refused(&|s| s["interval"] = json!("year"), true), Some("settings no form would have saved"));
     assert_eq!(refused(&|s| s["start_time_mode"] = json!("noon"), true), Some("settings no form would have saved"));
-    assert_eq!(refused(&|s| { s.as_object_mut().unwrap().remove("price_limit"); }, true), None, "Rails has a default for it");
+    assert_eq!(refused(&|s| { s.as_object_mut().unwrap().remove("price_limit"); }, true), None, "2.x has a default for it");
     assert_eq!(refused(&|s| { s.as_object_mut().unwrap().remove("allocations"); }, true), Some("settings the wizard always stores are missing"));
     assert_eq!(refused(&|s| s["limit_order_pcnt_distance"] = json!(2), true), Some("settings no form would have saved"));
     assert_eq!(refused(&|s| s["smart_interval_quote_amount"] = json!("5"), true), Some("settings no form would have saved"));
@@ -1843,7 +1844,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     c.execute("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, created_at, updated_at) VALUES (?1, ?2, ?3, 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
               (id, seeded.btc, seeded.ticker_id)).unwrap();
     c.execute("UPDATE tickers SET available = 0", []).unwrap();
-    assert_eq!(capped_at(json!(0.001)), None, "a sub-cent cap on a bot whose members are no longer listed, as Rails saves it");
+    assert_eq!(capped_at(json!(0.001)), None, "a sub-cent cap on a bot whose members are no longer listed, as 2.x saves it");
     c.execute("UPDATE tickers SET available = 1", []).unwrap();
     c.execute("DELETE FROM bot_index_assets WHERE bot_id = ?1", [id]).unwrap();
     // The two times the pages read out of `transient_data`, and the carry Rails validates as not negative.
@@ -1861,7 +1862,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     c.execute("UPDATE bots SET transient_data = '{}' WHERE id = ?1", [id]).unwrap();
     assert_eq!(refused(&|_| {}, true), None, "the rule on is served (PLAN-wash-sale WS-4a)");
     c.execute("UPDATE users SET wash_sale_enabled = NULL", []).unwrap();
-    assert_eq!(bot::wash::due(c, seeded.user_id, id, chrono::Utc::now()).unwrap(), None, "not answered, and nothing traded: Rails asks nothing yet");
+    assert_eq!(bot::wash::due(c, seeded.user_id, id, chrono::Utc::now()).unwrap(), None, "not answered, and nothing traded: 2.x asks nothing yet");
     c.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();
     store(&settings);
     for (sql, reason) in [

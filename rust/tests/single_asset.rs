@@ -79,7 +79,7 @@ fn kept(reason: &str) -> Option<Skip> {
         "unexpected composition rows" => Skip::Memberships,
         // D-SINGLE-QUIET-AT-CLAIM, D-SINGLE-UNTRADEABLE-CONVERTS, D-SINGLE-CONDITION-CONVERTS.
         "executing" | "job in flight" | "ticker not tradeable" | "condition watches another ticker" => return None,
-        other => panic!("an unmapped Rails skip: {other}"),
+        other => panic!("an unmapped 2.x skip: {other}"),
     })
 }
 
@@ -106,7 +106,7 @@ fn recorded_conversions_are_byte_equal() {
         assert_eq!(ids, expected, "{name}: converted");
         assert!(convert(c).is_empty(), "{name}: a second pass converts nothing");
         for table in ["bots", "bot_index_assets", "transactions"] { assert_eq!(rows(c, table), sc["after"][table], "{name}: {table} after a second pass"); }
-        for skip in sc["rails_skips"].as_array().unwrap() {
+        for skip in sc["v2_skips"].as_array().unwrap() {
             let (id, reason) = (skip[0].as_i64().unwrap(), skip[1].as_str().unwrap());
             let Some(want) = kept(reason) else { assert_eq!(sc["mode"], "forced", "{name}"); assert!(ids.contains(&id), "{name}: Rust converts it"); continue };
             assert_eq!(single_asset::skip(c, &model::load_bot(c, id).unwrap()).unwrap(), want, "{name}");
@@ -180,7 +180,7 @@ fn figures_follow_v2_before_and_after() {
     assert!(compared >= 50, "{compared}");
     let odd = scenario("a buy whose price differs from its executed value");
     let (b, a) = (&odd["probes"]["1"]["before"]["metrics"], &odd["probes"]["1"]["after"]["metrics"]);
-    assert_ne!(b["total_amount_value_in_quote"], a["total_amount_value_in_quote"], "Rails' own figures change with the conversion");
+    assert_ne!(b["total_amount_value_in_quote"], a["total_amount_value_in_quote"], "2.x's own figures change with the conversion");
     let plain = scenario("stopped bot");
     let (b, a) = (&plain["probes"]["1"]["before"]["metrics"], &plain["probes"]["1"]["after"]["metrics"]);
     for key in ["total_quote_amount_invested", "total_amount_value_in_quote", "pnl"] { assert_eq!(b[key], a[key], "consistent fills: {key}"); }
@@ -213,7 +213,7 @@ fn a_takeover_converts_what_it_can_and_names_what_it_keeps() {
                 if let Some(a) = aside { assert!(!a.reasons.iter().any(|r| r.starts_with("This is an older kind of bot")), "{name}: {a:?}"); }
                 continue;
             }
-            let reason = sc["rails_skips"].as_array().unwrap().iter().find(|s| s[0] == id).map(|s| s[1].as_str().unwrap().to_string()).unwrap_or_else(|| panic!("{name}: kept without a Rails skip"));
+            let reason = sc["v2_skips"].as_array().unwrap().iter().find(|s| s[0] == id).map(|s| s[1].as_str().unwrap().to_string()).unwrap_or_else(|| panic!("{name}: kept without a 2.x skip"));
             let sentence = set_aside::legacy_sentence(c, id, &kept(&reason).unwrap()).unwrap();
             let working = [1, 4, 5, 6].contains(&b["status"].as_i64().unwrap());
             if working {
@@ -290,7 +290,7 @@ async fn a_future_v2_job_is_neither_doubled_nor_lost() {
     assert_eq!(t.eligible, vec![1]);
     run::step(&mut e, &at(now())).await.unwrap();
     run::step(&mut e, &at(job - chrono::Duration::seconds(1))).await.unwrap();
-    assert!(venue.sent().is_empty(), "nothing before Rails' job time");
+    assert!(venue.sent().is_empty(), "nothing before 2.x's job time");
     run::step(&mut e, &at(job + chrono::Duration::milliseconds(1))).await.unwrap();
     assert_eq!(venue.sent().len(), 1, "one order at it");
     run::step(&mut e, &at(job + chrono::Duration::seconds(2))).await.unwrap();
@@ -514,14 +514,14 @@ mod web {
 async fn a_condition_on_another_market_reads_as_v2_reads_it() {
     use deltabadger::engine::conditions::{self, Rule};
     let mut n = 0;
-    for sc in scenarios().into_iter().filter(|s| s["rails_skips"].to_string().contains("condition watches another ticker")) {
+    for sc in scenarios().into_iter().filter(|s| s["v2_skips"].to_string().contains("condition watches another ticker")) {
         let name = sc["name"].as_str().unwrap();
         let (_d, o) = install(&sc);
         let c = &o.primary;
         assert_eq!(convert(c), vec![1], "{name}");
         let bot = model::load_bot(c, 1).unwrap();
         let v2 = sc["probes"]["1"]["after"]["conditions"].as_object().unwrap().clone();
-        assert_eq!(v2, sc["probes"]["1"]["before"]["conditions"].as_object().unwrap().clone(), "{name}: Rails reads it alike before and after");
+        assert_eq!(v2, sc["probes"]["1"]["before"]["conditions"].as_object().unwrap().clone(), "{name}: 2.x reads it alike before and after");
         for (prefix, met) in v2 {
             let selling = prefix.starts_with("sell_");
             let (kind, _) = Rule::of_flag(&format!("{prefix}ed")).unwrap();
@@ -772,7 +772,7 @@ async fn a_condition_reads_through_the_tick_as_v2_recorded_it() {
     let mut n = 0;
     for sc in scenarios() {
         let name = sc["name"].as_str().unwrap();
-        let foreign = sc["rails_skips"].to_string().contains("condition watches another ticker");
+        let foreign = sc["v2_skips"].to_string().contains("condition watches another ticker");
         if !foreign && !name.starts_with("price_limit on its own") && !name.starts_with("sell_price_limit on its own") { continue; }
         let settings: Value = serde_json::from_str(sc["before"]["bots"][0]["settings"].as_str().unwrap()).unwrap();
         let selling = settings["direction"] == "selling";
@@ -792,7 +792,7 @@ async fn a_condition_reads_through_the_tick_as_v2_recorded_it() {
         let sent = venue.sent();
         let stamped = after.transient.get(format!("{prefix}_condition_met_at")).is_some_and(|v| !v.is_null());
         // A flip that fires turns the bot and starts its new side afresh: its stamp is not kept.
-        if !(met && flip) { assert_eq!(stamped, met, "{name}: {prefix} reads as Rails recorded it"); }
+        if !(met && flip) { assert_eq!(stamped, met, "{name}: {prefix} reads as 2.x recorded it"); }
         match (met, flip) {
             (false, false) => {
                 assert!(sent.is_empty(), "{name}: held");
@@ -870,9 +870,9 @@ fn charts_follow_v2_before_and_after() {
         if before.is_null() || name == "missing exchange" || name == "clobbered basket, repair skipped: unpriced sell" { continue; }
         let (_d, o) = install(&sc);
         let c = &o.primary;
-        if &chart(c, 1) != before { off.push(format!("{name}: before\n  rust  {}\n  rails {before}", chart(c, 1))); }
+        if &chart(c, 1) != before { off.push(format!("{name}: before\n  rust  {}\n  2.x {before}", chart(c, 1))); }
         convert(c);
-        if !after.is_null() && &chart(c, 1) != after { off.push(format!("{name}: after\n  rust  {}\n  rails {after}", chart(c, 1))); }
+        if !after.is_null() && &chart(c, 1) != after { off.push(format!("{name}: after\n  rust  {}\n  2.x {after}", chart(c, 1))); }
         compared += 1;
     }
     assert!(off.is_empty(), "{}", off.join("\n"));

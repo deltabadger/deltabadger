@@ -393,7 +393,7 @@ async fn after_a_handback_a_v2_refresh_counts_for_a_catalogue_fed_source() {
         deltabadger::app_config::set_plain(&c, k, &t.to_rfc3339(), t).unwrap();
     }
     c.execute("UPDATE exchange_assets SET updated_at = ?1 WHERE exchange_id = ?2", rusqlite::params![deltabadger::codec::format_time(refreshed), alpaca.exchange_id]).unwrap();
-    assert!(matches!(staleness::verdict(&c, &bot, now).unwrap(), staleness::Verdict::Fresh), "Rails' refresh in its window counts");
+    assert!(matches!(staleness::verdict(&c, &bot, now).unwrap(), staleness::Verdict::Fresh), "2.x's refresh in its window counts");
     let line = staleness::report(&c, now).unwrap().into_iter().find(|l| l.starts_with("Alpaca crypto tickers")).unwrap();
     assert!(!line.contains("STALE") && line.contains("49h bound"), "{line}");
 }

@@ -120,5 +120,5 @@ fn a_crossed_price_is_adjusted_twice_as_v2_does() {
     assert_eq!(hl.adjusted_price(&d("123456.789"), &t(8, 2), Rounding::Floor).unwrap(), d("123456"), "an integer ≥ 10k keeps every digit");
     assert_eq!(hl.adjusted_price(&d("12345.6"), &t(8, 2), Rounding::Ceil).unwrap(), d("12346"));
     assert_eq!(hl.adjusted_price(&d("0.000012345678"), &t(8, 2), Rounding::Floor).unwrap(), d("0.000012"), "capped at 8 - base_decimals places");
-    assert!(hl.adjusted_price(&d("1.5"), &t(8, 9), Rounding::Floor).is_err(), "Rails' clamp(0, -1) raises");
+    assert!(hl.adjusted_price(&d("1.5"), &t(8, 9), Rounding::Floor).is_err(), "2.x's clamp(0, -1) raises");
 }

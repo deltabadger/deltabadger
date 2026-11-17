@@ -1416,13 +1416,13 @@ fn umbrels_web_accepts_a_form_from_the_address_the_browser_used() {
 
 /// 2.70.21 reads back what this crate writes: it decrypts every value the engine encrypts and Devise verifies every
 /// password hash it makes, so a handed-back install keeps its credentials and logins. The engine writes the values
-/// here, with ruby_vectors.json's secret and plaintexts; the published image's Rails reads them (PLAN-B11 r6.2: was
+/// here, with v2_vectors.json's secret and plaintexts; the published image's Rails reads them (PLAN-B11 r6.2: was
 /// record_rust_vectors + a test of the deleted Rails suite).
 #[test]
 fn v2_decrypts_what_rust_encrypts_and_verifies_its_password_hashes() {
     use deltabadger::crypto::hash_password;
     if !common::v2::enabled() { return; }
-    let given: serde_json::Value = serde_json::from_str(include_str!("fixtures/ruby_vectors.json")).unwrap();
+    let given: serde_json::Value = serde_json::from_str(include_str!("fixtures/v2_vectors.json")).unwrap();
     let secret = given["secret_key_base"].as_str().unwrap();
     let cipher = Cipher::new(&EncryptionKeys::resolve(&|_| None, secret).unwrap());
     let ciphertexts: serde_json::Map<String, serde_json::Value> = given["ciphertexts"].as_object().unwrap().iter()

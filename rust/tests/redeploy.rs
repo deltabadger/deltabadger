@@ -233,7 +233,7 @@ async fn timeout_then_clear_then_yes_with_surplus_cash_buys_nothing_twice() {
 fn an_offset_above_banked_offers_zero_and_dust_offers_zero() {
     let (_d, o, id, _, _) = proceeds_bot("640", "100");
     o.primary.execute("UPDATE bots SET redeploy_declined_offset='150'", []).unwrap();
-    assert_eq!(offer(&o.primary, id), 0.0, "D-6C-9: Rails clamps, never unavailable");
+    assert_eq!(offer(&o.primary, id), 0.0, "D-6C-9: 2.x clamps, never unavailable");
     o.primary.execute("UPDATE bots SET redeploy_declined_offset='99.5'", []).unwrap();
     assert_eq!(offer(&o.primary, id), 0.0, "0.5 is under the composition's 1 USD floor");
 }
@@ -379,7 +379,7 @@ fn redeploy_grid_difference(name: &str, _: &std::path::Path, v2: &Value, rust: &
         expected["sent"] = json!([]);
         expected["changes"]["transactions"] = json!([]);
         expected["changes"]["bot_activity_logs"] = rust["changes"]["bot_activity_logs"].clone();
-        return if expected == *rust { Ok(()) } else { Err(format!("rails: {expected}\nrust: {rust}")) };
+        return if expected == *rust { Ok(()) } else { Err(format!("2.x: {expected}\nrust: {rust}")) };
     }
     if D_6C_12.contains(&venue) {
         let (want, got) = (&v2["sent"][0], &rust["sent"][0]);
@@ -456,7 +456,7 @@ fn redeploy_grid_difference(name: &str, _: &std::path::Path, v2: &Value, rust: &
             }
         }
     }
-    if expected == *rust { Ok(()) } else { Err(format!("rails: {expected}\nrust: {rust}")) }
+    if expected == *rust { Ok(()) } else { Err(format!("2.x: {expected}\nrust: {rust}")) }
 }
 
 #[cfg(unix)]

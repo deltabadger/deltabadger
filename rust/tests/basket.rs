@@ -165,7 +165,7 @@ fn every_recorded_v2_split_is_reproduced() {
                 assert_eq!(&got, want, "case {i}: {case}");
             }
             (Err(decimals), Value::Null) => assert_eq!(case["failure"], format!("limit price rounds to zero at {decimals} decimals"), "case {i}"),
-            (got, want) => panic!("case {i}: Rust {:?}, Rails {want}", got.map(|legs| legs.len())),
+            (got, want) => panic!("case {i}: Rust {:?}, 2.x {want}", got.map(|legs| legs.len())),
         }
     }
 }
@@ -192,7 +192,7 @@ fn every_recorded_v2_amount_cap_is_reproduced() {
             (Num::Int(n), "Integer") => n.to_string() == want["i"].as_str().unwrap(),
             _ => false,
         };
-        assert!(same, "case {i}: Rust {got:?}, Rails {want}: {case}");
+        assert!(same, "case {i}: Rust {got:?}, 2.x {want}: {case}");
         assert_eq!(amount::quote_amount_limit_reached(&o.primary, &bot).unwrap(), case["reached"] == true, "case {i}: {case}");
     }
 }
@@ -226,7 +226,7 @@ fn every_recorded_v2_base_cap_is_reproduced() {
             (Num::Int(n), "Integer") => n.to_string() == want["i"].as_str().unwrap(),
             _ => false,
         };
-        assert!(same, "case {i}: Rust {got:?}, Rails {want}: {case}");
+        assert!(same, "case {i}: Rust {got:?}, 2.x {want}: {case}");
         assert_eq!(accounting::base_amount_limit_reached(&o.primary, &bot).unwrap(), case["d6d3"]["reached"] == true, "case {i}: {case}");
     }
     assert!(diverged >= 50, "the abandoned sells must exercise D-6D-3: {diverged} cases");

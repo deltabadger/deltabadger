@@ -1208,7 +1208,7 @@ async fn a_classic_only_history_still_fails_whole_on_a_refused_source() {
     api.0.deposits.borrow_mut().push(transfer("d1", "USDT", "10", "2026-10-29T13:00:00Z"));
     api.0.failing.borrow_mut().push(FILLS_PATH);
     assert!(fx.sync(&api).await.is_err());
-    assert!(fx.tx_ids().is_empty(), "Rails' single read: nothing stored");
+    assert!(fx.tx_ids().is_empty(), "2.x's single read: nothing stored");
     assert!(api.requests(DEPOSITS_PATH).is_empty());
 }
 

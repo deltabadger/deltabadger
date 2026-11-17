@@ -32,7 +32,7 @@ async fn raw_kraken_bodies_are_parsed_as_v2_parses_them() {
     let o = &v.orders(&["OTX-1".into()]).await.unwrap()[0];
     assert_eq!((o.status, o.quote_amount.clone(), o.amount.clone()), (OrderStatus::Closed, Some(bd("60")), None));
     assert_eq!(v.balance("EUR", true).await.unwrap(), bd("1000"));
-    assert_eq!(v.balance("USD", true).await.unwrap(), BigDec::zero(), "absent from BalanceEx: Rails' {{ free: 0 }} default");
+    assert_eq!(v.balance("USD", true).await.unwrap(), BigDec::zero(), "absent from BalanceEx: 2.x's {{ free: 0 }} default");
 }
 
 #[tokio::test(flavor = "current_thread")]

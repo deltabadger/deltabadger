@@ -104,7 +104,7 @@ fn comparable(mut transcript: Value) -> Value {
 #[tokio::test(flavor="current_thread")]
 async fn control_transcripts() {
     let root = tempfile::tempdir().unwrap();
-    // The grid is Rails' own (frozen); Rails plays it in `record` on its own copy, keeping only its answers (rails.json).
+    // The grid is Rails' own (frozen); Rails plays it in `record` on its own copy, keeping only its answers (expected.json).
     let grid=common::frozen("mcp-control-grid",common::has_subdirs);
     common::copy_tree(&grid,root.path());
     let dirs: Vec<_> = std::fs::read_dir(root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("steps.json").is_file()).collect();
@@ -131,7 +131,7 @@ async fn control_transcripts() {
     // PLAN-A9 O1: a dry run's order id is random on both sides (Exchange::Dryable#create_dry_order).
     let dry=regex::Regex::new(r"dry-order-[0-9a-f-]{26}").unwrap();
     for (dir,got) in dirs.iter().zip(results) {
-        let want = read(dir.join("rails.json"));
+        let want = read(dir.join("expected.json"));
         let (mut got,want)=(comparable(got),comparable(want));
         // Plan 3c divergence 9: the engine is held for the HTTP snapshot. Assert
         // the exact request, then compare every other primary column and JSON key.
@@ -161,7 +161,7 @@ async fn control_transcripts() {
                 assert_eq!(got["rows"][table],got["before_business"][table],"schedule refusal rolls back {name}: {table}");
             }
             if let Ok(path)=std::env::var("M4_EVIDENCE") {
-                std::fs::write(std::path::Path::new(&path).join(format!("{name}.json")),serde_json::to_vec_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();
+                std::fs::write(std::path::Path::new(&path).join(format!("{name}.json")),serde_json::to_vec_pretty(&json!({"expected":want,"rust":got})).unwrap()).unwrap();
             }
             continue;
         }
@@ -180,13 +180,13 @@ async fn control_transcripts() {
             assert_eq!(names,["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","create_bot","start_bot","stop_bot","update_bot_settings","list_open_orders","list_tax_jurisdictions","create_index_bot","create_signal_bot","delete_bot","archive_bot","unarchive_bot"],"complete recorded grant without a cursor");
             assert!(body["result"].get("nextCursor").is_none());
             if let Ok(root)=std::env::var("M4_EVIDENCE") {
-                std::fs::write(std::path::Path::new(&root).join("registry-pages.json"),serde_json::to_string_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();
+                std::fs::write(std::path::Path::new(&root).join("registry-pages.json"),serde_json::to_string_pretty(&json!({"expected":want,"rust":got})).unwrap()).unwrap();
             }
         }
         // D-API-CREATE-REFUSED: a bot Rails makes and starts that this build's engine does not run is refused, nothing written.
         if name.starts_with("create_refused_") {
             let v2:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert!(v2["result"]["content"][0]["text"].as_str().unwrap().contains("created and started"),"Rails creates {name}");
+            assert!(v2["result"]["content"][0]["text"].as_str().unwrap().contains("created and started"),"2.x creates {name}");
             let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
             let text=response["result"]["content"][0]["text"].as_str().unwrap();
             assert!(text.starts_with("This app can't run that yet:") && response["result"]["isError"]==true,"{name}: {text}");
@@ -205,7 +205,7 @@ async fn control_transcripts() {
             // #507 rejects missing/pending/incorrect keys in production validation, before arming a tick.
             for transcript in [&want, &got] {
                 let response:Value=serde_json::from_str(transcript["responses"][2]["body"].as_str().unwrap()).unwrap();
-                assert_eq!(response["result"]["isError"],true,"Rails validation classification {name}");
+                assert_eq!(response["result"]["isError"],true,"2.x validation classification {name}");
                 assert_eq!(response["result"]["content"][0]["text"],"Failed to start bot 'Control': A valid trading API key is required to start this bot.","{name}");
                 assert_eq!(transcript["rows"]["bots"][0]["status"],0,"key refusal does not arm {name}");
             }
@@ -213,7 +213,7 @@ async fn control_transcripts() {
         }
         if name=="settings_r2_unicode_symbol" {
             let v2:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert_eq!(v2["result"]["content"][0]["text"],"Bot 'Control' settings updated: allocations.","R2 Unicode Rails accepts");
+            assert_eq!(v2["result"]["content"][0]["text"],"Bot 'Control' settings updated: allocations.","R2 Unicode 2.x accepts");
             assert_eq!(want["rows"]["bots"][0]["settings"]["allocations"],json!({"16":0.7,"17":0.3}));
             let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
             assert_eq!(response["result"]["content"][0]["text"],"ſOL is not in this basket; add it with add_asset_id first.","R2 Unicode ASCII-only refusal");
@@ -223,15 +223,15 @@ async fn control_transcripts() {
             }
             if let Ok(path)=std::env::var("M4_EVIDENCE") {
                 let path=std::path::Path::new(&path).join("r2-unicode-symbol.json");
-                std::fs::write(path,serde_json::to_vec_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();
+                std::fs::write(path,serde_json::to_vec_pretty(&json!({"expected":want,"rust":got})).unwrap()).unwrap();
             }
             continue; // BUILD.md explicitly keeps ASCII lookup; no parity normalization.
         }
         if name.starts_with("settings_r2_negative_carry_") || name=="start_bot_r2_negative_carry" {
             let v2:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert!(v2["result"]["content"][0]["text"].as_str().unwrap().contains(if name.starts_with("settings_") {"settings updated:"} else {"started successfully."}),"R2 carry Rails accepts {name}");
+            assert!(v2["result"]["content"][0]["text"].as_str().unwrap().contains(if name.starts_with("settings_") {"settings updated:"} else {"started successfully."}),"R2 carry 2.x accepts {name}");
             if let Ok(path)=std::env::var("M4_EVIDENCE") {
-                std::fs::write(std::path::Path::new(&path).join(format!("{name}.json")),serde_json::to_vec_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();
+                std::fs::write(std::path::Path::new(&path).join(format!("{name}.json")),serde_json::to_vec_pretty(&json!({"expected":want,"rust":got})).unwrap()).unwrap();
             }
         }
         if name.starts_with("settings_form_") {
@@ -249,7 +249,7 @@ async fn control_transcripts() {
                 let support=support(deltabadger::web::bot::Kind::Index,rule,selling,if flip {"start_selling"} else {"pause"});
                 if !selling {
                     let text=|t:&Value|->String{let r:Value=serde_json::from_str(t["responses"][2]["body"].as_str().unwrap()).unwrap();r["result"]["content"][0]["text"].as_str().unwrap().to_string()};
-                    assert_eq!(text(&want),format!("{field} applies to basket bots only."),"Rails refuses {name}");
+                    assert_eq!(text(&want),format!("{field} applies to basket bots only."),"2.x refuses {name}");
                     let got_text=text(&got);
                     match support {
                         Support::Implemented => {
@@ -277,7 +277,7 @@ async fn control_transcripts() {
             }
             if rebalancing {
                 let v2:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-                assert!(v2["result"]["content"][0]["text"].as_str().unwrap().contains("settings updated:"),"Rails saves {name}");
+                assert!(v2["result"]["content"][0]["text"].as_str().unwrap().contains("settings updated:"),"2.x saves {name}");
                 let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
                 let text=response["result"]["content"][0]["text"].as_str().unwrap();
                 assert!(text.starts_with("This app can't run that yet:") && text.contains("has work only the full app handles (rebalancing)"),"{name}: {text}");
@@ -297,7 +297,7 @@ async fn control_transcripts() {
             // D-ORDER-DRY-CANCEL: Rails' Exchange::Dryable#dry_cancel_order raises; this build answers the success text with
             // no venue call, and neither side writes a row.
             let answer=|t:&Value|->Value{serde_json::from_str::<Value>(t["responses"][2]["body"].as_str().unwrap()).unwrap()["result"].clone()};
-            assert_eq!(answer(&want)["isError"],true,"Rails raises on {name}: {}",answer(&want));
+            assert_eq!(answer(&want)["isError"],true,"2.x raises on {name}: {}",answer(&want));
             let expected=if name=="order_dry_cancel" {"[DRY RUN] Order #1 (BUY QQQM/USD on Alpaca) cancellation submitted."} else {"[DRY RUN] Order venue-9 cancellation submitted on Alpaca."};
             assert_eq!(answer(&got),json!({"content":[{"type":"text","text":expected}]}),"{name}");
             for table in ["bots","transactions","api_keys","users"] { assert_eq!(got["rows"][table],want["rows"][table],"{name}: {table}"); }
@@ -346,7 +346,7 @@ fn tracker_difference(name:&str,want:&mut Value)->Result<(),String> {
             "tracker_d_link_kind"=>shown=="No matching transfer within 14 days.",
             _=>shown.starts_with("Sync started for "),
         };
-        if !named { return Err(format!("step {i}: Rails answers {shown:?}")); }
+        if !named { return Err(format!("step {i}: 2.x answers {shown:?}")); }
         let mut body:Value=serde_json::from_str(want["responses"][i]["body"].as_str().unwrap()).unwrap();
         body["result"]=owed.clone();
         want["responses"][i]["body"]=json!(serde_json::to_string(&body).unwrap());
@@ -359,7 +359,7 @@ fn tracker_difference(name:&str,want:&mut Value)->Result<(),String> {
             stored+=1;
         }
         // Two calls Rails answered alike share their stored copies: the first rewrite took both.
-        if stored==0 && !rewritten.contains(&old) { return Err(format!("step {i}: the session holds no copy of Rails' result")); }
+        if stored==0 && !rewritten.contains(&old) { return Err(format!("step {i}: the session holds no copy of 2.x's result")); }
         rewritten.push(old);
     }
     Ok(())
@@ -393,18 +393,18 @@ fn tax_difference(name:&str,want:&mut Value,got:&Value)->Result<(),String> {
         }
         gated+=1;
     }
-    if gated==0 { return Err("Rails started no report: drop or rename this scenario".into()) }
-    let jobs=want["rows"].as_object_mut().unwrap().shift_remove("tax_jobs").ok_or("Rails queued no report")?;
+    if gated==0 { return Err("2.x started no report: drop or rename this scenario".into()) }
+    let jobs=want["rows"].as_object_mut().unwrap().shift_remove("tax_jobs").ok_or("2.x queued no report")?;
     let (served,held):(Vec<Value>,Vec<Value>)=jobs.as_array().into_iter().flatten().cloned()
         .partition(|j|deltabadger::tax::jurisdictions::ported(&j[1].as_str().unwrap_or_default().to_uppercase(),j[2].as_i64().unwrap_or(0)));
-    if held.len()!=gated { return Err(format!("Rails queued {jobs} for {gated} started reports")) }
+    if held.len()!=gated { return Err(format!("2.x queued {jobs} for {gated} started reports")) }
     if !served.is_empty() { want["rows"]["tax_jobs"]=json!(served); }
     if served_last { return Ok(()) }
     let users=want["rows"]["users"].as_array_mut().ok_or("no users")?;
     for (theirs,ours) in users.iter_mut().zip(got["rows"]["users"].as_array().ok_or("no users")?) {
         let mut same=theirs.clone();
         for key in ["tracker_settings","updated_at"] { same[key]=ours[key].clone(); }
-        if same!=*ours { return Err(format!("Rails' user differs beyond its pending report: {theirs}")) }
+        if same!=*ours { return Err(format!("2.x's user differs beyond its pending report: {theirs}")) }
         *theirs=ours.clone();
     }
     Ok(())
@@ -487,7 +487,7 @@ async fn real_v2_ticks_and_mcp_tools_race_on_identical_files() {
         script.release.notify_one();
         tokio::time::timeout(std::time::Duration::from_secs(20),&mut future).await.unwrap().unwrap();
         let safety=["stop_bot","archive_bot","delete_bot"].contains(&name);
-        assert_eq!(v2["sent"].as_array().unwrap().len(),if safety {0} else {2},"{name}: Rails placement fence");
+        assert_eq!(v2["sent"].as_array().unwrap().len(),if safety {0} else {2},"{name}: 2.x placement fence");
         assert_eq!(script.sent.borrow().len(),if safety {0} else {2},"{name}: placement fence");
         let state=model::load_bot(&c,1).unwrap();
         assert_eq!(state.status as i64,v2["final"]["bots"][0]["status"].as_i64().unwrap(),"{name}: never resurrected");

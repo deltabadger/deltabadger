@@ -118,7 +118,7 @@ async fn every_recorded_candle_read_is_answered_as_v2_answers_it() {
             // A POST is recorded with its body (Hyperliquid).
             let requests: Vec<String> = transport.requests().iter()
                 .map(|r| match &r.body { Some(b) => format!("{} {b}", http::request_key(r)), None => http::request_key(r) }).collect();
-            if Value::from(requests.clone()) != case["requests"] { failures.push(format!("{venue} {name}: requested {requests:?}, Rails {}", case["requests"])); }
+            if Value::from(requests.clone()) != case["requests"] { failures.push(format!("{venue} {name}: requested {requests:?}, 2.x {}", case["requests"])); }
             let network = case["http"].as_object().unwrap().values().flat_map(|r| r.as_array().unwrap()).any(|r| r.get("network").is_some());
             let listed = |list: &[(&str, &str)]| list.contains(&(venue, name));
             let ok = match (&got, case.get("candles"), case.get("failure"), case.get("raised")) {
@@ -139,7 +139,7 @@ async fn every_recorded_candle_read_is_answered_as_v2_answers_it() {
                 (Err(VenueError::Ambiguous(m)), _, _, Some(raised)) => raised != "KeyError" || case["message"] == *m,
                 _ => false,
             };
-            if !ok { failures.push(format!("{venue} {name}: rust {got:?}\n  rails {}", Value::Object(case.as_object().unwrap().clone()))); }
+            if !ok { failures.push(format!("{venue} {name}: rust {got:?}\n  2.x {}", Value::Object(case.as_object().unwrap().clone()))); }
         }
     }
     assert!(failures.is_empty(), "{} of {total} cases differ:\n{}", failures.len(), failures.join("\n"));

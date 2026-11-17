@@ -93,5 +93,5 @@ async fn prices_are_looked_up_by_external_id_as_market_data_get_prices_does() {
     assert_eq!(t.requests()[0].query, vec![("coin_ids", "bitcoin,USD.FOREX,delisted,missing,texty".to_string()), ("vs_currencies", "usd".to_string())],
                "uniq'd in order, comma-joined, as Clients::MarketData#get_prices sends them");
     assert_eq!(source.prices(&ids, "usd").await.unwrap_err(), ApiError::Failed { status: Some(502), message: r#"{"error":"Failed to fetch prices"}"#.into() },
-               "with_rescue's failure; Rails' caller would then try CoinGecko (not ported)");
+               "with_rescue's failure; 2.x's caller would then try CoinGecko (not ported)");
 }

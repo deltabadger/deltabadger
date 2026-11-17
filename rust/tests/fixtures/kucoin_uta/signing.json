@@ -5,7 +5,7 @@
     "passphrase": "UTA0 example passphrase"
   },
   "timestamp": "1764741957000",
-  "oracle": "Python standard-library hmac/SHA256 + Base64, independent of Rust signer and Rails",
+  "oracle": "Python standard-library hmac/SHA256 + Base64, independent of the Rust signer and of 2.x",
   "cases": [
     {
       "id": "sign_get_balance",

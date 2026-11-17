@@ -63,7 +63,7 @@ fn the_amount_and_the_disable_match_v2() {
         let (settings, transient, changed) = stored(c, id);
         let v2 = &v["disabled"];
         assert_eq!(settings["start_time_enabled"], json!(false), "{v}");
-        assert_eq!(transient, v2["transient_data"], "the carry and its marker, as Rails stores them: {v}");
+        assert_eq!(transient, v2["transient_data"], "the carry and its marker, as 2.x stores them: {v}");
         assert_eq!(changed, v2["settings_changed_at"].as_str().unwrap(), "the window stays where the start put it: {v}");
         if open {
             // Cancelled after the rule turned off, having filled `bought`: what it never filled is owed with the next run.
@@ -121,7 +121,7 @@ async fn the_first_run_waits_for_the_start_and_then_turns_the_rule_off() {
                 (deltabadger::venue::OrderKind::Limit { price }, false) => &dec(&order.volume) * &dec(price),
                 (_, false) => &dec(&order.volume) * &dec("50000.0"), // a market buy sized in base at the ask
             };
-            assert!(&owed - &quote < dec("0.001") && quote <= owed, "the order is the amount Rails owes: {quote:?} for {owed:?}");
+            assert!(&owed - &quote < dec("0.001") && quote <= owed, "the order is the amount 2.x owes: {quote:?} for {owed:?}");
         }
         assert_eq!(stored(&e.primary, id).0["start_time_enabled"], json!(false), "the run turns the rule off: {v}");
         let next = time(&first["next"]);
@@ -247,7 +247,7 @@ async fn a_continue_with_start_at_moved_later_waits_on_started_ats_grid() {
     let v = venue();
     let (_d, mut en, id) = edge_engine(&e, "start_at form", Some(c), v.clone());
     let got = replay(&mut en, &v, &[c, t("2026-09-11T07:29:59Z"), t("2026-09-11T07:30:00.250Z"), t("2026-09-12T07:29:59Z")]).await;
-    assert_eq!(got, amounts(&["0", "0", "60", "0"]), "Rails: 120 at once");
+    assert_eq!(got, amounts(&["0", "0", "60", "0"]), "2.x: 120 at once");
     assert_eq!(stored(&en.primary, id).0["start_time_enabled"], json!(false));
 }
 
@@ -324,7 +324,7 @@ async fn a_start_at_moved_on_a_running_bot_keeps_the_first_orders_window() {
         let (_d, mut en, id) = edge_engine(&e, "before first run", None, v.clone());
         let changed = stored(&en.primary, id).2;
         let got = replay(&mut en, &v, &[t("2026-09-10T07:29:59Z"), t("2026-09-10T07:30:00.250Z")]).await;
-        assert_eq!(got, amounts(&["0", first]), "{name}: the first run at started_at (Rails owed 0 there for an earlier start_at or a month)");
+        assert_eq!(got, amounts(&["0", first]), "{name}: the first run at started_at (2.x owed 0 there for an earlier start_at or a month)");
         let (settings, _, after) = stored(&en.primary, id);
         assert_eq!((settings["start_time_enabled"].clone(), after), (json!(false), changed), "{name}: flag only, the window stays");
         if name.ends_with("open") {
@@ -358,7 +358,7 @@ async fn a_carry_v2_stored_from_a_moved_start_at_is_spent_as_stored() {
     let c = t("2026-09-10T12:30:00Z");
     let v = venue();
     let (_d, mut en, _id) = edge_engine(&e, "continue", Some(c), v.clone());
-    assert_eq!(replay(&mut en, &v, &[c, t("2026-09-11T07:30:00.250Z")]).await, amounts(&["60", "60"]), "Rails: 180, then 60");
+    assert_eq!(replay(&mut en, &v, &[c, t("2026-09-11T07:30:00.250Z")]).await, amounts(&["60", "60"]), "2.x: 180, then 60");
     let v = venue();
     let (_d, mut en, _id) = edge_engine(&e, "continue", None, v.clone());
     assert_eq!(replay(&mut en, &v, &[c, t("2026-09-11T07:30:00.250Z")]).await, amounts(&["0", "120"]));

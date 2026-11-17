@@ -639,7 +639,7 @@ fn a_future_heartbeat_refuses_serve_in_plain_words() {
     assert_eq!(r.status, Some(0), "{}", r.stderr);
     let line = "Deltabadger didn't start: your previous version of Deltabadger still seems to be running on this data. Stop it, then start this again. Nothing was changed.";
     assert!(r.stderr.contains(&format!("deltabadger: {line}\ndeltabadger: 2.x looks alive (job heartbeat -")), "{}", r.stderr);
-    assert!(r.page.contains(&line.replace('\'', "&#39;")) && !r.page.contains("heartbeat") && !r.page.contains("Rails"), "{}", r.page);
+    assert!(r.page.contains(&line.replace('\'', "&#39;")) && !r.page.contains("heartbeat") && !r.page.contains("2.x"), "{}", r.page);
     assert_eq!(files_of(dir.path()), before);
 }
 
@@ -1694,7 +1694,7 @@ fn freeze_b11_9_takeover_installs() {
     assert!(!out.status.success(), "aborted: {}", stderr(&out));
     let (c, q) = open(mid.path());
     let queued: i64 = q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get(0)).unwrap();
-    assert!(queued > 0, "Rails' rows still queued");
+    assert!(queued > 0, "2.x's rows still queued");
     common::freeze::freeze("mid_takeover", &c, Some(&q));
 
     let (settled, user) = build();

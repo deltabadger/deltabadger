@@ -204,7 +204,7 @@ fn float_to_wire_matches_hyperliquid_rb_on_every_recorded_edge() {
         match (hyperliquid::float_to_wire(&bd(x)), c["wire"].as_str()) {
             (Ok(got), Some(want)) => assert_eq!(got, want, "{x}"),
             (Err(_), None) => assert!(c["error"].as_str().unwrap().contains("float_to_wire causes rounding"), "{x}"),
-            (got, _) => panic!("{x}: {got:?}, Ruby {c}"),
+            (got, _) => panic!("{x}: {got:?}, 2.x {c}"),
         }
     }
 }
@@ -302,7 +302,7 @@ fn ibkr_session_requests_and_the_lst_are_byte_equal_to_v2() {
     let f = fixture("ibkr");
     let sessions = f["signing"].as_array().unwrap();
     assert_eq!(sessions.iter().map(|s| s["label"].as_str().unwrap()).collect::<Vec<_>>(), ["session_test dh", "ffdhe2048"]);
-    assert_eq!(sessions[1]["dh_param"].as_str().unwrap(), ibkr::ffdhe2048_pem(), "D-IBKR-DHGROUP: the PEM Rails mints with");
+    assert_eq!(sessions[1]["dh_param"].as_str().unwrap(), ibkr::ffdhe2048_pem(), "D-IBKR-DHGROUP: the PEM 2.x mints with");
     for s in sessions {
         let label = s["label"].as_str().unwrap();
         let str_ = |n: &str| s[n].as_str().unwrap();
@@ -380,9 +380,9 @@ fn ibkr_generated_keys_round_trip_through_v2_openssl() {
     assert!(out.status.success(), "2.70.21's ruby: {}", String::from_utf8_lossy(&out.stderr));
     let r: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!((r["private"].as_bool(), r["bits"].as_u64(), r["public_matches"].as_bool()), (Some(true), Some(2048), Some(true)));
-    assert_eq!(r["public_pem"].as_str().unwrap(), public, "Ruby's public_key.to_pem, byte for byte");
+    assert_eq!(r["public_pem"].as_str().unwrap(), public, "2.x's public_key.to_pem, byte for byte");
     assert_eq!((r["dh_p"].as_str().unwrap(), r["dh_g"].as_u64()), (ibkr::FFDHE2048_P, Some(2)));
-    assert_eq!(r["dh_pem"].as_str().unwrap(), ibkr::ffdhe2048_pem(), "Ruby's DH#to_pem, byte for byte");
+    assert_eq!(r["dh_pem"].as_str().unwrap(), ibkr::ffdhe2048_pem(), "2.x's DH#to_pem, byte for byte");
     let pkcs1 = r["pkcs1_pem"].as_str().unwrap();
     assert!(pkcs1.starts_with("-----BEGIN RSA PRIVATE KEY-----"));
     let dh = ibkr::ffdhe2048_pem();
@@ -390,6 +390,6 @@ fn ibkr_generated_keys_round_trip_through_v2_openssl() {
                                                 signature_key: key.into(), encryption_key: key.into(), dh_param: dh.clone(), realm: String::new() };
     let msg = "POST&https%3A%2F%2Fapi.ibkr.com&x";
     let want = ibkr::escape(r["signature"].as_str().unwrap());
-    assert_eq!(ibkr::Signer::new(&material(pkcs1)).unwrap().rsa_sha256_signature(msg), want, "Ruby's PKCS#1 PEM back in Rust");
+    assert_eq!(ibkr::Signer::new(&material(pkcs1)).unwrap().rsa_sha256_signature(msg), want, "2.x's PKCS#1 PEM back in Rust");
     assert_eq!(ibkr::Signer::new(&material(&private)).unwrap().rsa_sha256_signature(msg), want, "Rust's own PKCS#8 PEM");
 }

@@ -563,9 +563,9 @@ fn stream_names_are_signed_in_v2_shape_under_our_own_key() {
     let signed = cable::signed_stream_name(&key, "user_7:bot_updates");
     let recorded = common::vectors()["turbo"]["stream_from"].as_str().unwrap().to_string();
     let v2_signed = recorded.split("signed-stream-name=\"").nth(1).unwrap().split('"').next().unwrap();
-    assert_eq!(signed.split("--").next(), v2_signed.split("--").next(), "the data part is base64 of the JSON string, as in Rails");
+    assert_eq!(signed.split("--").next(), v2_signed.split("--").next(), "the data part is base64 of the JSON string, as in 2.x");
     assert_eq!(cable::verified_stream_name(&key, &signed).as_deref(), Some("user_7:bot_updates"));
-    assert_eq!(cable::verified_stream_name(&key, v2_signed), None, "a name Rails signed is not ours");
+    assert_eq!(cable::verified_stream_name(&key, v2_signed), None, "a name 2.x signed is not ours");
     assert_eq!(cable::verified_stream_name(&[8u8; 32], &signed), None);
     assert_eq!(cable::stream_source(&key, "user_7:bot_updates").replace(&signed, v2_signed), recorded, "the element is turbo_stream_from's");
 }

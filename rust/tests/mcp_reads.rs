@@ -90,7 +90,7 @@ fn comparable(mut transcript: Value) -> Value {
 async fn four_reads_match_v2() {
     for name in ALL_READS {assert_eq!(deltabadger::web::mcp::tools::NAMES.contains(name),EXPECTED_READS.contains(name),"registry stage: {name}");}
     let root=tempfile::tempdir().unwrap();
-    // The grid is Rails' own (frozen); Rails plays it in `record` on its own copy, keeping only its answers (rails.json).
+    // The grid is Rails' own (frozen); Rails plays it in `record` on its own copy, keeping only its answers (expected.json).
     let grid=common::frozen("mcp-reads-grid",common::has_subdirs);
     common::copy_tree(&grid,root.path());
     let mut actual=vec![];
@@ -124,13 +124,13 @@ async fn four_reads_match_v2() {
             let destination=std::path::Path::new(&root).join(dir.file_name().unwrap());
             std::fs::create_dir_all(&destination).unwrap();
             std::fs::write(destination.join("rust.json"),serde_json::to_string_pretty(got).unwrap()).unwrap();
-            for file in ["rails.json","steps.json"]{std::fs::copy(dir.join(file),destination.join(file)).unwrap();}
+            for file in ["expected.json","steps.json"]{std::fs::copy(dir.join(file),destination.join(file)).unwrap();}
         }
     }
     let mut failed=vec![];
     for (dir,steps,got) in actual {
         let name=dir.file_name().unwrap().to_str().unwrap();
-        let mut want=read(dir.join("rails.json"));
+        let mut want=read(dir.join("expected.json"));
         if ["m3_priced_fill_control","m3_basket_priced_fill","m3_index_priced_fill"].contains(&name) {
             let texts=want["responses"].as_array().unwrap().iter().map(|r|r["body"].as_str().unwrap()).collect::<Vec<_>>().join(" ");
             assert!(texts.contains("Global P/L: +15.0%") && texts.contains("+$30.0"),"$200 + $30 = $230 priced control");
@@ -201,12 +201,12 @@ async fn four_reads_match_v2() {
             };
             let from = json!({"isError":true,"content":[{"type":"text","text":"An unexpected error occurred."}]});
             let to = json!({"content":[{"type":"text","text":format!("Portfolio Summary\n================\nTotal bots: 1 (1 active, 0 stopped, 0 not started)\n\n{summary}")}]});
-            assert_eq!(replace_json(&mut want, &from, &to), 2, "{name}: exact Rails error in response and stored message");
+            assert_eq!(replace_json(&mut want, &from, &to), 2, "{name}: exact 2.x error in response and stored message");
         }
         if name.ends_with("_label") {
             // Both sides name the bot in the response and leave the stored label and updated_at alone.
             let original=if name.ends_with("_null_label"){Value::Null}else{json!("   ")};
-            assert_eq!(want["rows"]["bots"][0]["label"],original,"{name}: Rails read saved no label");
+            assert_eq!(want["rows"]["bots"][0]["label"],original,"{name}: 2.x read saved no label");
             assert_eq!(got["rows"]["bots"][0]["label"],original,"{name}: stored label unchanged");
         }
         let (got,mut want)=(comparable(got),comparable(want));
@@ -355,13 +355,13 @@ async fn polled_open_market_zero_price_uses_the_nil_branch() {
     // Read the actual engine-polled database through 2.70.21's own service/presenter (the published image: common::v2).
     o.primary.execute_batch("PRAGMA wal_checkpoint(TRUNCATE)").unwrap(); // the container reads the file, not this process's WAL
     let boot=tempfile::tempdir().unwrap();
-    let oracle=boot.path().join("polled-rails.json");
-    let out=common::v2::v2(dir.path(),boot.path(),"engine-test-secret",&["runner",r#"Time.zone='UTC'; order=BotApi::Orders::ListOpen.call(user: User.find(ARGV[0])).data[:orders].sole; presenter=ListOpenOrdersTool.allocate; File.write('/x/polled-rails.json',JSON.generate(zero: presenter.send(:db_line,order),nil: presenter.send(:db_line,order.merge(price: nil))))"#,&s.user_id.to_string()]);
+    let oracle=boot.path().join("polled-expected.json");
+    let out=common::v2::v2(dir.path(),boot.path(),"engine-test-secret",&["runner",r#"Time.zone='UTC'; order=BotApi::Orders::ListOpen.call(user: User.find(ARGV[0])).data[:orders].sole; presenter=ListOpenOrdersTool.allocate; File.write('/x/polled-expected.json',JSON.generate(zero: presenter.send(:db_line,order),nil: presenter.send(:db_line,order.merge(price: nil))))"#,&s.user_id.to_string()]);
     assert!(out.status.success(),"2.70.21's ListOpen: {}",String::from_utf8_lossy(&out.stderr));
     let v2=read(&oracle);
     let line=got["content"][0]["text"].as_str().unwrap().strip_prefix("Open orders (1):\n").unwrap();
     assert!(v2["zero"].as_str().unwrap().contains("@ 0.0"));
-    assert_eq!(line,v2["nil"].as_str().unwrap(),"exact Rails no-price branch");
+    assert_eq!(line,v2["nil"].as_str().unwrap(),"exact 2.x no-price branch");
     if let Ok(root)=std::env::var("M3_RECORDINGS") {
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(Path::new(&root).join("polled-engine.json"),serde_json::to_string_pretty(&json!({"stored_price":stored.0,"stored_amount_exec":stored.1,"external_status":stored.2,"rails_stored_zero":v2["zero"],"rails_nil_price":v2["nil"],"rust_stored_zero":line})).unwrap()).unwrap();

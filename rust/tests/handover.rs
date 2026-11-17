@@ -58,7 +58,7 @@ fn an_ineligible_working_bot_is_set_aside_and_the_install_is_taken_over() {
     assert_eq!(bot.status, deltabadger::enums::BotStatus::Stopped);
     assert!(deltabadger::engine::set_aside::reasons(bot.transient.get(deltabadger::engine::set_aside::KEY)).is_some_and(|r| r.len() == 1), "{:?}", bot.transient);
     assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust");
-    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0, "the stopped bot's Rails job goes");
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0, "the stopped bot's 2.x job goes");
 }
 
 /// PLAN-B2 R4, r1.4: an ineligible bot with work in flight cannot be set aside (row 26): the takeover refuses with C6, and
@@ -86,7 +86,7 @@ fn an_ineligible_bot_with_work_in_flight_is_a_hard_stop_and_nothing_is_written()
     }
     assert_eq!((dump(&o.primary), count(&o.primary, "SELECT count(*) FROM bot_activity_logs")), before, "the stop rolled back");
     assert!(lease::read(&o.primary, &seed::cipher()).unwrap().is_none(), "no claim");
-    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 1, "Rails' job untouched");
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 1, "2.x's job untouched");
 }
 
 #[test]
@@ -126,10 +126,10 @@ async fn an_unresolved_order_blocks_handback_and_v2_keeps_refusing() {
     placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now())).unwrap();
     let factory = FakeFactory(FakeVenue::new().lookup_fails(1));
     assert!(matches!(handover::hand_back(&l, &o, &factory, &seed::cipher(), &deltabadger::engine::FixedClock(now())).await, Err(EngineError::Unresolved(ref v)) if v == &vec![b]));
-    assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "still Rust's: Rails must refuse");
+    assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "still Rust's: 2.x must refuse");
     drop((l, o));
     let (booted, stderr) = v2_boot(dir.path());
-    assert!(!booted && stderr.contains("still owns this data"), "Rails refuses because the lease says rust: {stderr}");
+    assert!(!booted && stderr.contains("still owns this data"), "2.x refuses because the lease says rust: {stderr}");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -145,7 +145,7 @@ async fn a_completed_handback_is_adopted_by_v2() {
     assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 1);
     assert_eq!(model::load_bot(&o.primary, b).unwrap().status, deltabadger::enums::BotStatus::Scheduled);
     drop((l, o));
-    assert!(v2_boot(dir.path()).0, "Rails starts after a completed handback");
+    assert!(v2_boot(dir.path()).0, "2.x starts after a completed handback");
     let q = rusqlite::Connection::open(dir.path().join("production_queue.sqlite3")).unwrap();
     assert_eq!(count(&q, "SELECT count(*) FROM solid_queue_jobs WHERE class_name = 'Bot::RepairOrphanedBotsJob'"), 1, "adopted: repair enqueued");
 }
@@ -197,7 +197,7 @@ async fn v2_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
         let stdout = String::from_utf8_lossy(&out.stdout);
         assert!(!stdout.contains(" down ") && !stdout.contains("NO FILE"), "{task}: {stdout}");
     }
-    assert!(v2_boot(dir.path()).0, "Rails starts after a completed handback");
+    assert!(v2_boot(dir.path()).0, "2.x starts after a completed handback");
     let c = rusqlite::Connection::open(&p.primary).unwrap();
     assert_eq!(count(&c, "SELECT count(*) FROM rust_schema_migrations"), store::REGISTRY.migrations.len() as i64 + 1, "Rust's record untouched");
     assert_eq!(count(&c, "SELECT count(*) FROM sqlite_master WHERE name = 'rust_migration_probe'"), 1);
@@ -397,7 +397,7 @@ async fn a_deferral_crash_then_handback_then_v2_tick_buys_nothing_before_the_nex
     assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(at)).await.unwrap(), 1);
     let bot = model::load_bot(&o.primary, b).unwrap();
     assert_eq!(bot.status, deltabadger::enums::BotStatus::Scheduled);
-    assert!(bot.transient.get("rust_defer_until").is_none(), "the engine's key does not reach Rails");
+    assert!(bot.transient.get("rust_defer_until").is_none(), "the engine's key does not reach 2.x");
     drop((l, o));
     // Rails boots, adopts the handback, and its repair sweep (run here at the handback's time) re-arms the bot.
     let (booted, err) = v2_boot_running(dir.path(),
@@ -406,7 +406,7 @@ async fn a_deferral_crash_then_handback_then_v2_tick_buys_nothing_before_the_nex
     let q = rusqlite::Connection::open(dir.path().join("production_queue.sqlite3")).unwrap();
     let at: String = q.query_row("SELECT e.scheduled_at FROM solid_queue_scheduled_executions e JOIN solid_queue_jobs j ON j.id = e.job_id \
                                   WHERE j.class_name = 'Bot::ActionJob'", [], |r| r.get(0)).unwrap();
-    assert!(at.starts_with("2026-09-08 10:00:00"), "Rails' first run is the deferred checkpoint, not earlier: {at}");
+    assert!(at.starts_with("2026-09-08 10:00:00"), "2.x's first run is the deferred checkpoint, not earlier: {at}");
 }
 
 /// The web continued a bot and the engine never passed before the handback: the request is the engine's own key, so it goes.
@@ -423,7 +423,7 @@ async fn a_handback_removes_an_unhandled_continue_request() {
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", at).unwrap();
     assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(at)).await.unwrap(), 1);
     let bot = model::load_bot(&o.primary, b).unwrap();
-    assert!(bot.transient.get("rust_continue_start").is_none(), "the engine's key does not reach Rails");
+    assert!(bot.transient.get("rust_continue_start").is_none(), "the engine's key does not reach 2.x");
     assert_eq!(bot.status, deltabadger::enums::BotStatus::Scheduled);
 }
 
@@ -485,7 +485,7 @@ async fn a_price_paused_bot_is_handed_over_paused_and_v2_restarts_its_check() {
     model::log_activity(&o.primary, b, "limit_paused", model::Level::Info, json!({ "limit_type": "price" }), "2026-09-30T11:00:00.001Z".parse().unwrap()).unwrap();
     job(&o.queue, "Bot::PriceLimitCheckJob", &format!("gid://deltabadger/Bots::DcaMultiAsset/{b}"));
     let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
-    assert_eq!((t.deleted_jobs, t.normalised), (1, 0), "Rails' check chain goes; the pause is not a cut-short tick");
+    assert_eq!((t.deleted_jobs, t.normalised), (1, 0), "2.x's check chain goes; the pause is not a cut-short tick");
     assert_eq!(model::load_bot(&o.primary, b).unwrap().status, deltabadger::enums::BotStatus::Waiting);
     o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_condition_check_dead', json('true')) WHERE id = ?1", [b]).unwrap();
     assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 0);
@@ -536,7 +536,7 @@ async fn v2_pending_resyncs_become_markers_at_takeover_and_v2_adopts_them_once_a
     assert_eq!((n(stopped), rows(&o)), (Some(3), 2));
 
     handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
-    assert_eq!((n(created), n(stopped)), (Some(1), Some(3)), "kept for Rails");
+    assert_eq!((n(created), n(stopped)), (Some(1), Some(3)), "kept for 2.x");
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap(); // a Rust reclaim before Rails booted
     assert_eq!((n(created), n(stopped)), (Some(1), Some(3)), "found intact");
     handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
@@ -548,7 +548,7 @@ async fn v2_pending_resyncs_become_markers_at_takeover_and_v2_adopts_them_once_a
                            AND id NOT IN (SELECT job_id FROM solid_queue_failed_executions) ORDER BY id").unwrap();
     let enqueued: Vec<String> = s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(Result::unwrap)
         .map(|a| serde_json::from_str::<serde_json::Value>(&a).unwrap()["arguments"][0]["_aj_globalid"].as_str().unwrap().to_string()).collect();
-    assert_eq!(enqueued, [gid(archived), gid(created), gid(stopped)], "the archived bot's own Rails row, then one per marked bot");
+    assert_eq!(enqueued, [gid(archived), gid(created), gid(stopped)], "the archived bot's own 2.x row, then one per marked bot");
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     assert_eq!(count(&c, "SELECT count(*) FROM bots WHERE json_type(transient_data, '$.rust_index_resync') IS NOT NULL"), 0, "adopted: the key goes");
 }
@@ -630,7 +630,7 @@ fn v2_signal_jobs_become_the_engines_calls_and_leave_the_queue() {
     assert_eq!((t.imported_calls, t.deleted_jobs, t.eligible.clone()), (3, 6, vec![1]));
     assert_eq!(signal_calls_of(&o), ["ready", "blocked", "scheduled"].map(|n| imported(&fixture, n)).to_vec());
     assert_eq!(signal_calls_of(&o)[0].triggered_at, "2026-09-30T11:58:01.123456Z".parse::<DateTime<Utc>>().unwrap(), "the TimeWithZone, to the microsecond");
-    assert_eq!(job_ids(&o.queue), [job_id(&fixture, "finished")], "Rails' record of the finished job stays");
+    assert_eq!(job_ids(&o.queue), [job_id(&fixture, "finished")], "2.x's record of the finished job stays");
     assert_eq!(marker_of(&o)["id"], format!("rails-job:{}", job_id(&fixture, "failed")), "the failed job is the bot's marker");
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_ready_executions") + count(&o.queue, "SELECT count(*) FROM solid_queue_blocked_executions")
                + count(&o.queue, "SELECT count(*) FROM solid_queue_scheduled_executions"), 0, "executions cascade");
@@ -986,7 +986,7 @@ async fn an_hf_enabled_kucoin_history_refuses_the_handback_and_a_classic_only_on
 fn every_v2_job_class_has_an_outcome() {
     // PLAN-B11 T6: 2.x's job classes (every `class … < …` under app/jobs, every constant `perform_later` receiver in app/ and
     // lib/, recurring.yml's classes and SolidQueue::RecurringJob, the mailer's job), read at the oracle commit.
-    let found: std::collections::BTreeSet<String> = std::fs::read_to_string(common::freeze::recorded().join("rails_job_classes.txt")).unwrap()
+    let found: std::collections::BTreeSet<String> = std::fs::read_to_string(common::freeze::recorded().join("v2_job_classes.txt")).unwrap()
         .lines().map(str::to_string).collect();
     for class in ["Tracker::LedgerJob::Retry", "Bot::ActionJob", "SolidQueue::RecurringJob", "ActionMailer::MailDeliveryJob"] {
         assert!(found.contains(class), "the frozen list has {class}: {found:?}");
@@ -1323,7 +1323,7 @@ async fn a_handback_after_a_crash_before_the_queue_delete_hands_v2_none_of_those
     set_exec(&o.queue, row, "ready");
     deltabadger::app_config::set_plain(&o.primary, handover::QUEUE_DONE_KEY, &json!([row]).to_string(), now()).unwrap();
     handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
-    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs WHERE class_name = 'Bot::RedeployJob'"), 0, "the dropped command never reaches Rails");
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs WHERE class_name = 'Bot::RedeployJob'"), 0, "the dropped command never reaches 2.x");
     assert_eq!(deltabadger::app_config::get_plain(&o.primary, handover::QUEUE_DONE_KEY).unwrap(), None);
 }
 
@@ -1750,5 +1750,5 @@ async fn v2_unrecorded_candidates_are_collected_per_v2_ownership_only() {
     let v2 = line_id(&o.primary, b, back + chrono::Duration::hours(1));
     let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", back + chrono::Duration::hours(2)).unwrap();
     assert!(matches!(t.claim, Claim::FromV2));
-    assert_eq!(unrecorded_refs(&o.primary), [first, v2], "only Rails' new line; never the engine's own {own}");
+    assert_eq!(unrecorded_refs(&o.primary), [first, v2], "only 2.x's new line; never the engine's own {own}");
 }

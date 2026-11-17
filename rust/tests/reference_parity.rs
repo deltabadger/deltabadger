@@ -58,9 +58,9 @@ async fn v2_and_rust_write_the_same_reference_rows_for_every_scripted_payload() 
     let v2_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
     // Frozen (common::frozen): Rails builds the grid, the installs are copied before Rails writes to its copies, Rails records.
-    let frozen = common::frozen("reference-grid", |d| d.join("rails").is_dir() && d.join("rust").is_dir());
-    common::copy_tree(&frozen.join("rails"), v2_root.path());
-    common::copy_tree(&frozen.join("rust"), rust_root.path());
+    let frozen = common::frozen("reference-grid", |d| d.join("expected").is_dir() && d.join("input").is_dir());
+    common::copy_tree(&frozen.join("expected"), v2_root.path());
+    common::copy_tree(&frozen.join("input"), rust_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(v2_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), 70, "the grid has {} scenarios", dirs.len());
@@ -68,7 +68,7 @@ async fn v2_and_rust_write_the_same_reference_rows_for_every_scripted_payload() 
     let mut failures = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
-        let v2_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let v2_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("expected.json")).unwrap()).unwrap();
         let rust_out = deltabadger::parity::reference(&rust_root.path().join(&name)).await.unwrap();
         // The venue catalogues are really read and applied, not failed alike on both sides.
         if name == "cg-tickers-import" {
@@ -83,27 +83,27 @@ async fn v2_and_rust_write_the_same_reference_rows_for_every_scripted_payload() 
                 let (r, u) = (payments(&v2_out), payments(&rust_out));
                 if r["top_coins"].as_array().map(Vec::len) != Some(10) || u["top_coins"].as_array().map(Vec::len) != Some(12)
                     || r["weights"] != serde_json::json!({}) || u["weights"].as_object().map(serde_json::Map::len) != Some(12) {
-                    failures.push(format!("{name}: D-CG-CATEGORY-STORED not seen\n  rails: {r}\n  rust:  {u}"));
+                    failures.push(format!("{name}: D-CG-CATEGORY-STORED not seen\n  2.x: {r}\n  rust:  {u}"));
                 }
             }
             if let Some((_, divergence, requests)) = CATEGORY_DIVERGENT.iter().find(|d| d.0 == name) {
-                if v2_out["retry"] != false || rust_out["retry"] != true { failures.push(format!("{name}: {divergence}: Rails retries {} and Rust {}", v2_out["retry"], rust_out["retry"])); }
+                if v2_out["retry"] != false || rust_out["retry"] != true { failures.push(format!("{name}: {divergence}: 2.x retries {} and Rust {}", v2_out["retry"], rust_out["retry"])); }
                 expected["retry"] = true.into();
                 let before = expected["requests"].as_array().unwrap().len();
                 expected["requests"] = Value::Array(expected["requests"].as_array().unwrap().iter().filter(|r| !requests.iter().any(|x| r.as_str().unwrap().contains(x))).cloned().collect());
-                if expected["requests"].as_array().unwrap().len() != before - requests.len() { failures.push(format!("{name}: {divergence}: Rails no longer makes {requests:?}")); }
+                if expected["requests"].as_array().unwrap().len() != before - requests.len() { failures.push(format!("{name}: {divergence}: 2.x no longer makes {requests:?}")); }
             }
-            if expected != rust { failures.push(format!("{name}\n  rails: {expected}\n  rust:  {rust}")); }
+            if expected != rust { failures.push(format!("{name}\n  2.x: {expected}\n  rust:  {rust}")); }
             continue;
         }
         let expected = match DIVERGENT.iter().find(|d| d.0 == name) {
             Some(d) => {
-                if v2_out == rust_out { failures.push(format!("{name}: Rails and Rust agree; the named divergence {} is gone", d.1)); }
+                if v2_out == rust_out { failures.push(format!("{name}: 2.x and Rust agree; the named divergence {} is gone", d.1)); }
                 without(&v2_out, d)
             }
             None => v2_out,
         };
-        if expected != rust_out { failures.push(format!("{name}\n  rails: {expected}\n  rust:  {rust_out}")); }
+        if expected != rust_out { failures.push(format!("{name}\n  2.x: {expected}\n  rust:  {rust_out}")); }
     }
     // Listed divergence: a JSON column's text. ActiveSupport escapes <, > and & (as \u003c and so on) and serde does not;
     // both snapshots compare the parsed JSON, which is equal.
@@ -113,10 +113,10 @@ async fn v2_and_rust_write_the_same_reference_rows_for_every_scripted_payload() 
     };
     let (v2_text, rust_text) = (weights(v2_root.path()), weights(rust_root.path()));
     if v2_text == rust_text || !v2_text.contains("\\u0026") {
-        failures.push(format!("indices-import: Rails no longer escapes JSON text ({v2_text}): drop the listed divergence"));
+        failures.push(format!("indices-import: 2.x no longer escapes JSON text ({v2_text}): drop the listed divergence"));
     }
     if serde_json::from_str::<Value>(&v2_text).unwrap() != serde_json::from_str::<Value>(&rust_text).unwrap() {
-        failures.push(format!("indices-import: the weights JSON differs\n  rails: {v2_text}\n  rust:  {rust_text}"));
+        failures.push(format!("indices-import: the weights JSON differs\n  2.x: {v2_text}\n  rust:  {rust_text}"));
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }

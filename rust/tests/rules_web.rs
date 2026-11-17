@@ -1945,7 +1945,7 @@ async fn all_seventy_x0_api_cells_share_web_database_effects() {
         assert_eq!(
             x0_rows(&i),
             expected,
-            "{} {case}: Rails row and named deltas",
+            "{} {case}: 2.x row and named deltas",
             cell["surface"]
         );
 

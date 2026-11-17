@@ -276,7 +276,7 @@ async fn each_order_is_asked_alone_and_a_gone_one_is_missing() {
     assert_eq!(v.orders(&["BTCUSDT-C02__1".into()]).await, Ok(vec![]));
     let (_, v) = venue(json!({ "GET /api/v3/order": gone() }));
     assert_eq!(v.order_identified("BTCUSDT-C02__1", |_, _, _| Ok(true)).await, Err(VenueError::Rejected(vec!["MEXC no longer knows order BTCUSDT-C02__1".into()])));
-    assert_eq!(v.fills_from_trades(&["BTCUSDT-C02__1".into()], Utc::now()).await, Ok(vec![]), "Rails reads no trades for an order");
+    assert_eq!(v.fills_from_trades(&["BTCUSDT-C02__1".into()], Utc::now()).await, Ok(vec![]), "2.x reads no trades for an order");
 }
 
 #[tokio::test(flavor = "current_thread")]

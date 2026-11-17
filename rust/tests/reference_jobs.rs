@@ -90,7 +90,7 @@ async fn floating_sizes_are_stored_as_v2s_bigdecimal_of_the_float() {
     let c = reopen(&d);
     assert_eq!(one::<f64>(&c, "SELECT minimum_base_size FROM tickers"), 1.0);
     assert_eq!(one::<i64>(&c, "SELECT minimum_quote_size <= 0.3 FROM tickers"), 1,
-               "an order of 0.30 EUR meets the minimum, as in Rails; the float's own digits (0.30000000000000004) would refuse it");
+               "an order of 0.30 EUR meets the minimum, as in 2.x; the float's own digits (0.30000000000000004) would refuse it");
     assert_eq!(one::<i64>(&c, "SELECT maximum_quote_size FROM tickers"), 1_000_000);
     assert_eq!(one::<f64>(&c, "SELECT maximum_base_size FROM tickers"), 0.1234567890123456,
                "Float#to_d truncates to 16 digits; rounding would give 0.1234567890123457");
@@ -105,7 +105,7 @@ async fn a_conflict_key_met_twice_is_applied_in_order_and_the_last_row_wins() {
     let index = |name: &str| json!({ "external_id": "layer-1", "source": "coingecko", "name": name });
     import::import_indices(&db, import::plan_indices(&[index("L1"), index("Layer 1")]).unwrap(), at("2026-10-02T10:30:00Z"), None).await.unwrap();
     let c = reopen(&d);
-    assert_eq!(one::<String>(&c, "SELECT symbol FROM assets WHERE external_id = 'dup'"), "D2", "as Rails 8.1.4's upsert_all on SQLite");
+    assert_eq!(one::<String>(&c, "SELECT symbol FROM assets WHERE external_id = 'dup'"), "D2", "as 2.x's ActiveRecord 8.1.4 upsert_all on SQLite");
     assert_eq!(one::<String>(&c, "SELECT name FROM indices"), "Layer 1");
 }
 
@@ -442,7 +442,7 @@ async fn a_degraded_crypto_payload_creates_usd_imports_nothing_and_says_why() {
     let out = run(reference::ALPACA_CRYPTO, scripted(&t), c, "2026-10-02T10:15:00Z").await;
     assert!(matches!(&out, Outcome::Failed(m) if m.contains("degraded") && m.contains("29 resolved")), "{out:?}");
     let c = reopen(&d);
-    assert_eq!(one::<String>(&c, "SELECT category || ' ' || color FROM assets WHERE external_id = 'usd'"), "Fiat #355E3B", "created before the guard, as Rails does");
+    assert_eq!(one::<String>(&c, "SELECT category || ' ' || color FROM assets WHERE external_id = 'usd'"), "Fiat #355E3B", "created before the guard, as 2.x does");
     assert_eq!(one::<i64>(&c, "SELECT count(*) FROM tickers"), 0);
     assert_eq!(one::<i64>(&c, "SELECT count(*) FROM app_configs"), 0, "no baseline ratchet on a bailed run");
 }
@@ -586,7 +586,7 @@ async fn empty_assets_and_indices_payloads_refresh_nothing() {
     t.reply("GET /api/v1/assets", 200, json!({ "data": [] })).reply("GET /api/v2/indices", 200, json!({ "data": [] }));
     for (job, now) in [(reference::ASSETS, "2026-10-02T00:20:00Z"), (reference::INDICES, "2026-10-02T10:30:00Z")] {
         let (d, c) = db();
-        assert_eq!(run(job, scripted(&t), c, now).await, Outcome::NothingNew, "{job}: Rails writes nothing, and the source keeps its age");
+        assert_eq!(run(job, scripted(&t), c, now).await, Outcome::NothingNew, "{job}: 2.x writes nothing, and the source keeps its age");
         assert_eq!(one::<i64>(&reopen(&d), "SELECT count(*) FROM app_configs"), 0, "{job}: not even an incomplete mark");
     }
 }
@@ -1002,7 +1002,7 @@ fn top_of(c: &Connection, id: &str) -> Vec<String> { serde_json::from_str(&row_t
 /// An existing `coingecko` row as Rails' pass leaves it (10 display coins, no weights), unattested.
 fn v2_category_row(c: &Connection, id: &str, top: &[&str]) -> i64 {
     c.execute("INSERT INTO indices (external_id, source, name, description, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at) \
-               VALUES (?1, 'coingecko', ?1, 'Rails', ?2, '{}', '{}', '{}', 0, '2026-09-01 10:30:00', '2026-09-01 10:30:00')",
+               VALUES (?1, 'coingecko', ?1, '2.x's, ?2, '{}', '{}', '{}', 0, '2026-09-01 10:30:00', '2026-09-01 10:30:00')",
               rusqlite::params![id, json!(top).to_string()]).unwrap();
     c.last_insert_rowid()
 }
@@ -1216,13 +1216,13 @@ async fn the_category_pass_ranks_the_slice_sweeps_and_keeps_what_is_followed() {
     assert_eq!(ids("SELECT external_id FROM indices WHERE source = 'coingecko' ORDER BY external_id"), ["frog-themed-coins", "meme-token", "oracle", "payments"],
                "old-category and launchpad swept; music disqualified; pump-fun skipped (no venue, no row)");
     assert_eq!(one::<i64>(&c, &format!("SELECT count(*) FROM rust_index_rankings WHERE index_id = {old}")), 0, "the sweep cascades its ranking");
-    assert_eq!(top_of(&c, "payments"), coins, "D-CG-CATEGORY-STORED: every valid member, deduped, answer order (Rails: the first 10)");
+    assert_eq!(top_of(&c, "payments"), coins, "D-CG-CATEGORY-STORED: every valid member, deduped, answer order (2.x: the first 10)");
     let weights: Value = serde_json::from_str(&row_text(&c, "payments", "weights").unwrap()).unwrap();
     assert_eq!((weights["coin-a"].as_f64(), weights["coin-l"].as_f64(), weights.as_object().unwrap().len()), (Some(1e9), Some(1e9 - 11.0), 12), "the first answer's cap");
     assert_eq!(row_text(&c, "payments", "name").as_deref(), Some("payments"), "brackets stripped");
     assert_eq!(one::<i64>(&c, "SELECT weight FROM indices WHERE external_id = 'payments'"), 0);
     let by_ex: Value = serde_json::from_str(&row_text(&c, "payments", "top_coins_by_exchange").unwrap()).unwrap();
-    assert_eq!(by_ex["Exchanges::Kraken"].as_array().unwrap().len(), 10, "per venue: Rails' first 10");
+    assert_eq!(by_ex["Exchanges::Kraken"].as_array().unwrap().len(), 10, "per venue: 2.x's first 10");
     assert_eq!(row_text(&c, "payments", "available_exchanges").as_deref(), Some(r#"{"Exchanges::Kraken":10}"#));
     assert_eq!(ranking(&c, "payments").map(|r| r.0).as_deref(), Some("coingecko"));
     assert_eq!(top_of(&c, "frog-themed-coins"), ["coin-c"], "D-CG-FOLLOWED-KEPT: written with one valid member");
@@ -1352,7 +1352,7 @@ async fn the_slice_completes_per_fingerprint_and_slot_even_on_a_run_that_writes_
     let (d, _c, _s) = cg_install(&["coin-a"]);
     let t = cg_transport();
     t.reply(CATS_KEY, 200, json!([category("payments", "P")])).reply(&cat_key("payments"), 500, json!({}));
-    assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done, "Top Coins was written; a non-followed failure is Rails' logged skip");
+    assert_eq!(cg_run(&d, &t, CG_NOW).await, Outcome::Done, "Top Coins was written; a non-followed failure is 2.x's logged skip");
     assert_eq!(deltabadger::app_config::get_plain(&reopen(&d), SLICE_KEY).unwrap(), None);
     let t = cg_transport();
     t.reply(CATS_KEY, 200, json!([category("payments", "P")])).reply(&cat_key("payments"), 200, members(&[("coin-a", 1.0)]));
@@ -1451,7 +1451,7 @@ async fn availability_is_recomputed_from_the_stored_ranking_without_a_fetch() {
     let c = reopen(&d);
     assert_eq!(row_text(&c, "storage", "available_exchanges").as_deref(), Some(r#"{"Exchanges::Kraken":3}"#));
     assert_eq!(row_text(&c, "storage", "top_coins_by_exchange").as_deref(), Some(r#"{"Exchanges::Kraken":["coin-a","coin-b","coin-c"]}"#),
-               "re-derived from the stored ranking (Rails re-counts its saved per-venue lists)");
+               "re-derived from the stored ranking (2.x re-counts its saved per-venue lists)");
     assert_eq!(ranking(&c, "storage"), ranked_before, "ranked_at untouched");
     assert_eq!(ranking(&c, "oracle"), oracle_before.0, "the failed fetch keeps the ranking");
     assert_ne!(row_text(&c, "oracle", "updated_at"), oracle_before.1, "the availability change moved updated_at");
@@ -1470,7 +1470,7 @@ async fn a_v2_coingecko_row_is_held_until_the_job_ranks_it() {
     let now = at(CG_NOW);
     // As Rails' last pull left the fence (a takeover keeps it): only the ranking holds the bot.
     deltabadger::engine::provider::record(&c, &deltabadger::engine::provider::fingerprint(&c).unwrap().unwrap(), now).unwrap();
-    assert!(index::ranked_row(&c, "layer-1").unwrap().is_none(), "Rails' row is never selected");
+    assert!(index::ranked_row(&c, "layer-1").unwrap().is_none(), "2.x's row is never selected");
     assert!(staleness::reference_stale(&c, &bot, now).unwrap().is_some(), "held stale");
     assert!(index::ranking_wanted(&c, &bot, now).unwrap(), "and wanted: the tick wakes the job");
     let t = cg_transport();

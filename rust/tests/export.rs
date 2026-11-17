@@ -129,7 +129,7 @@ fn the_files_are_v2_files_of_the_same_install() {
     let f = fixture();
     assert_eq!(printed.last().unwrap(), f["printed"].as_str().unwrap().trim_end());
     let v2: Vec<&str> = f["files"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).filter(|p| !CACHE_CABLE.contains(p)).collect();
-    assert_eq!(output_files(&b), v2, "D-EXPORT-NO-CACHE-CABLE: Rails' files less cache and cable");
+    assert_eq!(output_files(&b), v2, "D-EXPORT-NO-CACHE-CABLE: 2.x's files less cache and cable");
     assert_eq!(std::fs::read_to_string(b.out("csv/tracker.csv")).unwrap(), f["tracker_csv"].as_str().unwrap());
     for (name, body) in f["bots"].as_object().unwrap() {
         assert_eq!(std::fs::read_to_string(b.out(&format!("csv/bots/{name}"))).unwrap_or_else(|_| panic!("no {name}")), body.as_str().unwrap(), "{name}");
@@ -225,7 +225,7 @@ fn policy_covers_coverage() {
     assert_eq!(policy, deltabadger::rotation::COVERAGE.to_vec());
     let deleted: Vec<String> = export::APP_CONFIGS_DELETED.iter().filter_map(|k| match k { export::Key::Exact(k) => Some(k.to_string()), _ => None }).collect();
     let v2: Vec<String> = serde_json::from_value(fixture()["app_config_keys"].clone()).unwrap();
-    assert_eq!(&deleted[..v2.len()], &v2[..], "Rails' 13 keys");
+    assert_eq!(&deleted[..v2.len()], &v2[..], "2.x's 13 keys");
     let prefixes: Vec<String> = export::APP_CONFIGS_DELETED.iter().filter_map(|k| match k { export::Key::Prefix(p) => Some(p.to_string()), _ => None }).collect();
     assert_eq!(prefixes, serde_json::from_value::<Vec<String>>(fixture()["app_config_prefixes"].clone()).unwrap());
     assert_eq!(export::SESSION_TABLES.to_vec(), serde_json::from_value::<Vec<String>>(fixture()["session_tables"].clone()).unwrap());
@@ -548,7 +548,7 @@ fn written_keys(sources: &[(String, String)]) -> Vec<(String, String)> {
 
 /// Writers whose key is relayed from a caller the scan already resolves (or from a test's fixture), by file and expression.
 const RELAYED: &[(&str, &str, &str)] = &[
-    ("src/web/settings/platform.rs", "key", "a platform setting relayed from its caller's list, each a Rails setting"),
+    ("src/web/settings/platform.rs", "key", "a platform setting relayed from its caller's list, each a 2.x setting"),
     ("src/web/settings/mail.rs", "key", "the SMTP settings: smtp_ keys, deleted"),
     ("src/web/settings/market_data.rs", "key", "the market-data settings: deleted"),
     ("src/web/tracker/first_sync.rs", "key", "tests: a fixture row"),

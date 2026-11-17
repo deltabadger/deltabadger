@@ -11,7 +11,7 @@ fn sources_and_history_vectors_are_reviewable() {
     for name in ["null_price_buy","cancelled_partial_buy"] {
         let c=v["cases"].as_array().unwrap().iter().find(|c|c["name"]==name).unwrap();
         // Rails reads a buy's known fill through Transaction.normalized_fill: no divergence left.
-        assert_eq!(c["rails_unchanged"],c["normalized"],"{name}");
+        assert_eq!(c["v2_unchanged"],c["normalized"],"{name}");
         assert_eq!(c["normalized"]["orders"][0]["quote"],"60.0");
         assert_eq!(c["normalized"]["contributed"],"100.0");
     }
@@ -19,16 +19,16 @@ fn sources_and_history_vectors_are_reviewable() {
     for (name,first,later) in [("merge_before_start","100.0","200.0"),("merge_at_start","0.0","100.0"),("merge_kraken_foreign","100.0","200.0"),
                                ("merge_binance_foreign","100.0","200.0"),("merge_kucoin_foreign","100.0","200.0")] {
         let c=v["cases"].as_array().unwrap().iter().find(|c|c["name"]==name).unwrap();
-        assert_eq!(c["rails_unchanged"],c["normalized"]);
+        assert_eq!(c["v2_unchanged"],c["normalized"]);
         assert_eq!(c["normalized"]["pending"],first);
         assert_eq!(c["one_week_pending"],later);
-        assert_eq!(c["one_week_rails_pending"],later);
+        assert_eq!(c["one_week_v2_pending"],later);
     }
     // Plan B2: a Tokenized Stock is never sold against the venue's balance (Bot::Rebalancer::UNSPLITTABLE_CATEGORIES).
     for name in ["hyperliquid_tokenized_one","hyperliquid_tokenized_two"] {
         let c=v["cases"].as_array().unwrap().iter().find(|c|c["name"]==name).unwrap();
         assert_eq!((c["exchange"].as_str(),c["category"].as_str()),(Some("Exchanges::Hyperliquid"),Some("Tokenized Stock")));
-        assert_eq!(c["rails_unchanged"]["local_units"],serde_json::json!({"AAA":"0.0","BBB":"0.0"}),"{name}");
+        assert_eq!(c["v2_unchanged"]["local_units"],serde_json::json!({"AAA":"0.0","BBB":"0.0"}),"{name}");
     }
 }
 
@@ -52,7 +52,7 @@ fn round_two_exact_cost_and_v2_minimum_oracles_are_pinned() {
     assert_eq!(v["synthetic_only"],true);
     assert_eq!(v["cases"].as_array().unwrap().len(),3);
     assert_eq!(v["cases"][0]["steps"],1);
-    assert_eq!(v["cases"][1]["rails_wire"]["qty"],"0.333333333");
+    assert_eq!(v["cases"][1]["v2_wire"]["qty"],"0.333333333");
     assert_eq!(v["cases"][2]["captures"][0]["payloads"].as_object().unwrap().len(),15);
 }
 
@@ -74,7 +74,7 @@ fn round_three_sql_boundary_oracles_are_pinned() {
 #[test]
 fn r6_oracle_sources_are_pinned() {
     let v:Value=serde_json::from_str(include_str!("fixtures/histories_r6.json")).unwrap();
-    assert_eq!(v["rails_unchanged"],v["normalized"]);
+    assert_eq!(v["v2_unchanged"],v["normalized"]);
     assert_eq!(v["normalized"]["orders"][0]["notional"],"9.99");
 }
 
@@ -113,12 +113,12 @@ fn r7_integer_sum_overflow_refuses() {
 #[test]
 fn r7_integer_oracle_is_pinned() {
     let v:serde_json::Value=serde_json::from_str(include_str!("fixtures/histories_r7.json")).unwrap();
-    assert_eq!(v["rails_unchanged"],v["normalized"]);
+    assert_eq!(v["v2_unchanged"],v["normalized"]);
     assert_eq!(v["normalized"]["sql_kinds"],serde_json::json!(["integer","integer"]));
     assert_eq!(v["normalized"]["cap"],"0");
     assert_eq!(v["normalized"]["carry"],"0.0");
     assert_eq!(v["normalized"]["orders"],serde_json::json!([]));
-    assert_eq!(v["closed_reconstructed"]["rails_unchanged"]["cap"],serde_json::Value::Null);
+    assert_eq!(v["closed_reconstructed"]["v2_unchanged"]["cap"],serde_json::Value::Null);
     assert_eq!(v["closed_reconstructed"]["normalized"]["cap"],"90.0");
     assert_eq!(v["closed_reconstructed"]["normalized"]["pending"],"90.0");
 }

@@ -129,7 +129,7 @@ fn walks_and_books_match_v2_for_every_index_history() {
         let name = sc["name"].as_str().unwrap();
         let b = build(sc);
         let c = &b.o.primary;
-        let v2 = &sc["rails"]["walk"];
+        let v2 = &sc["expected"]["walk"];
         let bot = model::load_bot(c, b.id).unwrap();
         let w = basket::walk(c, &bot, at()).unwrap_or_else(|e| panic!("{name}: engine walk {e:?}"));
         for (sym, want) in v2["holdings"].as_object().unwrap() {
@@ -158,17 +158,17 @@ fn walks_and_books_match_v2_for_every_index_history() {
         // Redeployable#redeploy_spent sums the proceeds the venue reported, so a closed redeploy reporting 0 spends nothing
         // in Rails; Rust values it at price × units (0.03 × 400) like every buy. The offer is capped at the walk's realised
         // cash, 14.4 on both sides, so it is Rails' offer; a decline writes 12.0 less (it can only under-offer later).
-        let spent_want = if name == "redeploy_zero_quote" { "12.0" } else { sc["rails"]["redeploy"]["spent"].as_str().unwrap() };
-        assert_eq!((banked.to_s_f(), spent.to_s_f()), (sc["rails"]["redeploy"]["banked"].as_str().unwrap().into(), spent_want.into()),
+        let spent_want = if name == "redeploy_zero_quote" { "12.0" } else { sc["expected"]["redeploy"]["spent"].as_str().unwrap() };
+        assert_eq!((banked.to_s_f(), spent.to_s_f()), (sc["expected"]["redeploy"]["banked"].as_str().unwrap().into(), spent_want.into()),
                    "{name}: redeploy banked/spent");
-        assert_eq!(amount::pending_quote_amount(c, &bot, at().timestamp_micros()).unwrap().to_s_f(), sc["rails"]["pending_quote_amount"], "{name}: carry");
+        assert_eq!(amount::pending_quote_amount(c, &bot, at().timestamp_micros()).unwrap().to_s_f(), sc["expected"]["pending_quote_amount"], "{name}: carry");
         // D-6C-9: the one offer the engine, the panel and MCP read; Rails' clamp to zero and its smallest-minimum floor.
         let offer = deltabadger::engine::redeploy::offer(c, &subject, &m).unwrap();
-        assert_eq!(BigDec::parse(&offer.to_s_f()).unwrap(), BigDec::parse(sc["rails"]["redeploy"]["offer"].as_str().unwrap()).unwrap(), "{name}: offer");
+        assert_eq!(BigDec::parse(&offer.to_s_f()).unwrap(), BigDec::parse(sc["expected"]["redeploy"]["offer"].as_str().unwrap()).unwrap(), "{name}: offer");
         // Bot::DeclineRedeployJob: refused while in flight, else the offset that reads the offer as zero now. B2-1/MQ7 above:
         // the zero-quote redeploy is spent at its executed value here, so the offset it writes is 12.0 lower.
         let declined = deltabadger::engine::redeploy::decline(c, b.id, bot.user_id, at()).unwrap();
-        let v2_decline = &sc["rails"]["decline"];
+        let v2_decline = &sc["expected"]["decline"];
         assert_eq!(declined == deltabadger::engine::redeploy::Declined::Declined, v2_decline["result"] == "success", "{name}: decline");
         let offset: String = c.query_row("SELECT CAST(redeploy_declined_offset AS TEXT) FROM bots WHERE id = ?1", [b.id], |r| r.get(0)).unwrap();
         let want = if name == "redeploy_zero_quote" { "14.4" } else { v2_decline["offset"].as_str().unwrap() };
@@ -208,7 +208,7 @@ async fn next_ticks_match_v2_and_refused_states_place_nothing() {
         let name = sc["name"].as_str().unwrap();
         let b = build(sc);
         let c = &b.o.primary;
-        let v2 = &sc["rails"]["tick"];
+        let v2 = &sc["expected"]["tick"];
         let bot = model::load_bot(c, b.id).unwrap();
         let stood_down = STOOD_DOWN.contains(&name);
         assert_eq!(stood_down, v2["activity"].as_array().unwrap().iter().any(|a| matches!(a["event"].as_str(), Some("dca_skipped_rebalance_pending" | "dca_skipped_liquidation_pending" | "dca_skipped_redeploy_pending"))), "{name}");

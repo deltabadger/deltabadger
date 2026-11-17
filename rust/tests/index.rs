@@ -990,7 +990,7 @@ fn of_two_rows_with_one_id_the_current_providers_newest_ranking_is_read() {
     assert_eq!(read(), Some(first), "the second row is unranked");
     rank(c, second, "data-api", at("2026-09-01T10:30:00Z"));
     rank(c, first, "data-api", at("2026-09-01T10:30:00Z"));
-    assert_eq!(read(), Some(first), "one import: the lowest id, as Rails' find_by");
+    assert_eq!(read(), Some(first), "one import: the lowest id, as 2.x's find_by");
     rank(c, second, "data-api", at("2026-09-02T10:30:00Z"));
     assert_eq!(read(), Some(second), "a later import that ships the id under another source: the newer");
     let pairs = index::candidate_pairs(c, &model::load_bot(c, id).unwrap()).unwrap();
@@ -1003,7 +1003,7 @@ fn of_two_rows_with_one_id_the_current_providers_newest_ranking_is_read() {
     assert_eq!(staleness::stale(c, &bot, at(T0)).unwrap().map(|s| s.source), Some(staleness::RANKING_SOURCE), "held, not composed");
     assert!(index::ranking_wanted(c, &bot, at(T0)).unwrap());
     c.execute("DELETE FROM indices WHERE external_id = 'nasdaq-100'", []).unwrap();
-    assert_eq!(c.query_row("SELECT count(*) FROM rust_index_rankings", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "Rails' delete cascades");
+    assert_eq!(c.query_row("SELECT count(*) FROM rust_index_rankings", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "2.x's delete cascades");
     assert!(staleness::stale(c, &bot, at(T0)).unwrap().is_none(), "no row with the id at all: the composition's own Index not found");
     assert!(index::ranking_wanted(c, &bot, at(T0)).unwrap(), "and the pull is still woken");
 }

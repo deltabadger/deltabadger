@@ -63,7 +63,7 @@ async fn a_cancelled_buy_returns_its_unspent_reserve_once() {
     let (_d, mut e, id, s) = engine(buyer(), v.clone());
     let tx = open_buy(&e.primary, &s, id, "OBUY");
     assert!(matches!(reverse(&e.primary, &s, id, "2026-09-03T12:00:00Z"), Reversal::Reversed));
-    assert_eq!(reversal::work(&bot(&e.primary, id)), (vec![tx], vec![tx]), "registered in Rails' own key, its cancel left for the engine");
+    assert_eq!(reversal::work(&bot(&e.primary, id)), (vec![tx], vec![tx]), "registered in 2.x's own key, its cancel left for the engine");
     assert_eq!(bot(&e.primary, id).transient["missed_quote_amount"], "0.0", "the waiting buy counts at its reserve when captured");
     let v = v.order("OBUY", kraken_cancelled("0.0004", "20"));
     run::step(&mut e, &at("2026-09-03T12:00:01Z")).await.unwrap();

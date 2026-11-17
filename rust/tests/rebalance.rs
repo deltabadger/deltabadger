@@ -877,7 +877,7 @@ async fn a_crypto_rebalancer_is_admitted_mid_swap_and_handed_back_as_v2_left_it(
         let o = store::open(&paths).unwrap();
         deltabadger::engine::handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", at(T0)).unwrap();
         deltabadger::engine::handover::hand_back(&lock, &o, &Factory(script(json!({}))), &seed::cipher(), &FixedClock(at(T0))).await.unwrap();
-        assert_eq!(pending(&o, id), swap, "{venue}: Rails reads back the swap it left");
+        assert_eq!(pending(&o, id), swap, "{venue}: 2.x reads back the swap it left");
         // An inherited halt is admitted idle now that its owner can resolve it here.
         o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rebalance_pending.phase', 'ambiguous')", []).unwrap();
         assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(), "{venue}");
@@ -941,9 +941,9 @@ async fn a_loss_rebalance_sell_claims_in_its_keys_and_an_acceptance_logs_and_cle
     let (until, _, token) = lock_row(&o, s.btc).unwrap();
     assert_eq!(until.as_deref(), Some(SWAP_DEADLINE));
     assert_eq!(claim_keys(&o, id), (Value::Null, json!(token.clone().unwrap()), json!(s.btc)), "§7: while held, the key's token is the row's");
-    assert!(intent.wash_claim.is_none() && model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap().get("wash_claim").is_none(), "Rails' keys, not the intent");
+    assert!(intent.wash_claim.is_none() && model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap().get("wash_claim").is_none(), "2.x's keys, not the intent");
     assert!(matches!(send(&o, &script(json!({})), id, &intent).await, placement::Sent::Accepted(_)));
-    assert_eq!(events(&o), vec!["wash_sale_locked"], "logged after the placement, as Rails");
+    assert_eq!(events(&o), vec!["wash_sale_locked"], "logged after the placement, as 2.x");
     assert_eq!(claim_keys(&o, id), (Value::Null, Value::Null, Value::Null), "cleared on acceptance");
     assert_eq!(lock_row(&o, s.btc).unwrap().2, token, "the lock itself stands");
     // The rule off, through the whole pass: no verdict, no keys, no row.
@@ -984,7 +984,7 @@ async fn an_unknown_rebalance_sell_keeps_its_claim_until_recovery_settles_it() {
             let bot = model::load_bot(&o.primary, id).unwrap();
             assert!(matches!(placement::recover(&o.primary, &venue(&t), &bot, &FixedClock(at(T0) + Duration::hours(4))).await.unwrap(), placement::Recovery::NotPlaced));
         }
-        assert_eq!((lock_row(&o, s.btc), claim_keys(&o, id)), held, "operator {operator}: kept, as a Rails worker crash keeps both");
+        assert_eq!((lock_row(&o, s.btc), claim_keys(&o, id)), held, "operator {operator}: kept, as a 2.x worker crash keeps both");
         assert!(!events(&o).contains(&"wash_sale_locked".to_string()));
     }
 }

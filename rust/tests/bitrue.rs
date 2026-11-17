@@ -144,7 +144,7 @@ async fn every_recorded_v2_sizing_and_wire_is_reproduced() {
         .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.0025)))).unwrap();
     let v = vectors();
     let cases = v["bitrue_sizing"].as_array().unwrap();
-    assert_eq!(cases.len(), 10_787, "the Rails sizing and wire vectors");
+    assert_eq!(cases.len(), 10_787, "the 2.x sizing and wire vectors");
     let deadline: DateTime<Utc> = "2026-09-01T10:00:10Z".parse().unwrap();
     let (mut quote, mut refused, mut zero_base) = (0, 0, 0);
     for c in cases {
@@ -278,7 +278,7 @@ async fn each_order_is_asked_alone_and_a_gone_one_is_missing() {
     assert!(matches!(v.orders(&["BTCUSDT-1".into()]).await, Err(VenueError::Rejected(_))));
     let (_, v) = venue(json!({ "GET /api/v1/order": gone() }));
     assert_eq!(v.order_identified("BTCUSDT-1", |_, _, _| Ok(true)).await, Err(VenueError::Rejected(vec!["Bitrue no longer knows order BTCUSDT-1".into()])));
-    assert_eq!(v.fills_from_trades(&["BTCUSDT-1".into()], Utc::now()).await, Ok(vec![]), "Rails reads no trades for an order");
+    assert_eq!(v.fills_from_trades(&["BTCUSDT-1".into()], Utc::now()).await, Ok(vec![]), "2.x reads no trades for an order");
 }
 
 #[tokio::test(flavor = "current_thread")]

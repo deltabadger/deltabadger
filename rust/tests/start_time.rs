@@ -52,7 +52,7 @@ fn initial_start_at_matches_v2_or_the_chosen_wall_time() {
     for case in cases {
         let case = case.as_array().unwrap();
         let got = rust(case);
-        let Some(v2) = case[4].as_str() else { assert!(got.is_err(), "{case:?}: Rails nil, Rust {got:?}"); continue };
+        let Some(v2) = case[4].as_str() else { assert!(got.is_err(), "{case:?}: 2.x nil, Rust {got:?}"); continue };
         let v2: DateTime<Utc> = v2.parse().unwrap();
         let got = got.unwrap_or_else(|e| panic!("{case:?}: {e}"));
         let (zone, now, mode) = (case[0].as_str().unwrap(), case[1].as_str().unwrap().parse().unwrap(), case[2].as_str().unwrap());
@@ -72,7 +72,7 @@ fn initial_start_at_matches_v2_or_the_chosen_wall_time() {
             if mode != "hour" && today_missing { leak += 1 } else { step += 1 }
             continue;
         }
-        panic!("{case:?}: Rust {got}, Rails {v2}: neither the same nor Rails off the chosen wall time");
+        panic!("{case:?}: Rust {got}, 2.x {v2}: neither the same nor 2.x off the chosen wall time");
     }
     assert!(same > 3_500 && step > 0 && leak > 0 && repeated > 0, "{same} same, {step} fixed-day steps, {leak} gap leaks, {repeated} repeated");
 }

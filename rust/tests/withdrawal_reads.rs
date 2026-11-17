@@ -95,8 +95,8 @@ fn the_coin_list_stamps_what_v2_writes_for_the_rules_asset() {
         let v2 = c["exchange_assets"].as_array().unwrap().iter().find(|a| a["asset"] == "BTC").unwrap();
         let stamp = withdrawal::coin_stamp(&coin).unwrap();
         assert_eq!(json!(stamp.fee), v2["withdrawal_fee"], "{name}: the default network's fee");
-        assert_eq!(stamp.chains.as_ref(), Some(&v2["withdrawal_chains"]), "{name}: every network, Rails' shape");
-        assert_eq!(v2["withdrawal_fee_updated_at"], v["at"], "{name}: Rails stamps the read's time");
+        assert_eq!(stamp.chains.as_ref(), Some(&v2["withdrawal_chains"]), "{name}: every network, 2.x's shape");
+        assert_eq!(v2["withdrawal_fee_updated_at"], v["at"], "{name}: 2.x stamps the read's time");
     }
 }
 
@@ -120,7 +120,7 @@ async fn the_coin_list_is_read_with_the_requests_v2_sends() {
 async fn d_rule_mexc_listing_reads_every_page_of_data() {
     let v = vectors();
     let c = cell(&v, "reads", "mexc_listing_paginated");
-    assert_eq!(c["value"]["raised"], "TypeError", "Rails' Array(result.data) raises on MEXC's page object");
+    assert_eq!(c["value"]["raised"], "TypeError", "2.x's Array(result.data) raises on MEXC's page object");
     let t = script(c);
     let entries = MexcVenue::new(t.clone(), mexc::URL, "s").withdrawal_addresses("BTC").await.unwrap();
     assert_eq!(admitted(&entries), [ADDRESS]);
@@ -192,7 +192,7 @@ fn d_rule_fee_stamp_writes_no_unreadable_fee() {
     let v = vectors();
     let c = cell(&v, "reads", "binance_fees_unreadable_fee");
     let v2 = c["exchange_assets"].as_array().unwrap().iter().find(|a| a["asset"] == "BTC").unwrap();
-    assert!(v2["withdrawal_fee"].is_null() && v2["withdrawal_fee_updated_at"] == v["at"], "Rails stamps a missing fee as fresh");
+    assert!(v2["withdrawal_fee"].is_null() && v2["withdrawal_fee_updated_at"] == v["at"], "2.x stamps a missing fee as fresh");
     let body = &c["replies"]["GET /sapi/v1/capital/config/getall"][0]["body"];
     assert_eq!(withdrawal::coin_stamp(&withdrawal::coin_networks(body, "BTC", "Binance").unwrap().unwrap()), None);
     // Rails writes every coin it can map (USDT here); Rust writes the rule's asset row only, and never creates one.
@@ -215,7 +215,7 @@ fn q1_the_fee_list_is_read_with_the_withdrawal_key_when_there_is_no_fee_key() {
     let v = vectors();
     for name in ["binance_fees_no_fee_key", "mexc_fees_no_fee_key"] {
         let c = cell(&v, "reads", name);
-        assert!(c["requests"].as_array().unwrap().is_empty() && c["value"]["data"] == json!({}), "{name}: Rails reads no fee without a FeeApiKey");
+        assert!(c["requests"].as_array().unwrap().is_empty() && c["value"]["data"] == json!({}), "{name}: 2.x reads no fee without a FeeApiKey");
     }
     let cipher = common::seed::cipher();
     let db = db();
@@ -405,7 +405,7 @@ async fn binance_and_mexc_fees_are_the_selected_networks() {
 async fn d_rule_log_secrets_no_url_query_or_html_reaches_a_message() {
     let v = vectors();
     let v2 = cell(&v, "classifier", "binance_empty_500")["rule_logs"][0]["message"].as_str().unwrap();
-    assert!(v2.contains("signature="), "Rails writes the signed URL into the row");
+    assert!(v2.contains("signature="), "2.x writes the signed URL into the row");
     let safe = withdrawal::log_safe(v2);
     assert!(!safe.contains('?') && !safe.contains("signature") && safe.contains("https://api.binance.com/sapi/v1/capital/withdraw/apply"), "{safe}");
     let html = cell(&v, "classifier", "binance_html_502")["rule_logs"][0]["message"].as_str().unwrap().trim_start_matches("Withdrawal failed: ");

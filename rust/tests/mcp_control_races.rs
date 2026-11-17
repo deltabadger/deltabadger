@@ -307,7 +307,7 @@ mod action_race {
             f.clock.set(harness::at("2026-09-04T10:00:00.000001Z"));
             run::step(&mut engine,&*f.clock).await.map_err(|e|format!("{e:?}"))?;
         }
-        assert_eq!(script.submissions.borrow().len(),1,"Rails recorded {name}: {}; real scheduler at {}: transient={}",row["decision"],f.clock.now(),f.transient()?);
+        assert_eq!(script.submissions.borrow().len(),1,"2.x recorded {name}: {}; real scheduler at {}: transient={}",row["decision"],f.clock.now(),f.transient()?);
         assert_eq!(script.submissions.borrow().first().ok_or("submission")?.0,f.clock.now());
         assert_eq!(f.one::<String>("SELECT started_at FROM bots WHERE id=?1")?,ANCHOR);
         Ok(())

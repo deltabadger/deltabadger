@@ -387,7 +387,7 @@ async fn a_web_write_holding_the_database_delays_the_engine_but_never_fails_it()
     let v = priced();
     let r = rig(v.clone(), BotSpec::weekly(60.0, &ago(1))).await; // due now
     let mode: String = rusqlite::Connection::open(&r.db).unwrap().query_row("PRAGMA journal_mode", [], |x| x.get(0)).unwrap();
-    assert_eq!(mode, "wal", "Rails' adapter leaves its databases in WAL; Rust never changes it");
+    assert_eq!(mode, "wal", "2.x's adapter leaves its databases in WAL; Rust never changes it");
     // The web's own connection takes SQLite's write lock and holds it 1.5 s (inside both sides' 5 s busy timeout),
     // from before the engine's first write.
     let (held_tx, held) = tokio::sync::oneshot::channel();

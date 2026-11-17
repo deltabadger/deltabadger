@@ -139,7 +139,7 @@ async fn chart_frames(name: &str, state: &str, id: &str, browser: &mut common::w
     assert_eq!(ours, v2_page, "{name} {state}: the page's chart frame");
     let Some(src) = ours.0 else {
         assert_eq!(raw_bot_chart(&page.body), raw_bot_chart(v2["page"].as_str().unwrap()), "{name} {state}: the inline chart, byte for byte");
-        assert!(v2["chart"].is_null(), "{name} {state}: Rails loaded a frame for an inline chart");
+        assert!(v2["chart"].is_null(), "{name} {state}: 2.x loaded a frame for an inline chart");
         return page.body;
     };
     let chart = browser.get(app, &src).await;
@@ -306,12 +306,12 @@ async fn figures_fragments_match_the_v2_page_partials() {
         let name = dir.file_name().unwrap().to_str().unwrap();
         if name == "boundaries" { boundaries(&dir); currencies += 100; continue; }
         let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
-        let mut expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+        let mut expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
         if name == "crypto_security_split_nameonly" {
             // D-SPLIT-NEVER-A-COIN: Rails' name fallback restates the coin by the security's split; this page is Rails' own
             // rendering of the twin whose report recorded the security.
-            let twin: Value = serde_json::from_str(&std::fs::read_to_string(dir.with_file_name("crypto_security_split").join("rails.json")).unwrap()).unwrap();
-            assert_ne!(expected["bots"], twin["bots"], "{name}: Rails no longer restates the coin: drop the divergence");
+            let twin: Value = serde_json::from_str(&std::fs::read_to_string(dir.with_file_name("crypto_security_split").join("expected.json")).unwrap()).unwrap();
+            assert_ne!(expected["bots"], twin["bots"], "{name}: 2.x no longer restates the coin: drop the divergence");
             expected = twin;
         }
         if ["pair_row_zero_proceeds", "pair_row_open_partial"].contains(&name) {
@@ -322,7 +322,7 @@ async fn figures_fragments_match_the_v2_page_partials() {
                 doc.select(&scraper::Selector::parse("tr[data-symbol] td:nth-child(3)").unwrap())
                     .map(|e| deltabadger::figures::dec::Dec::parse(e.text().collect::<String>().trim()).unwrap().to_s_f()).collect::<Vec<_>>()
             };
-            assert_eq!(quantity(&expected), vec!["1.0"], "{name}: Rails no longer omits the partial fill");
+            assert_eq!(quantity(&expected), vec!["1.0"], "{name}: 2.x no longer omits the partial fill");
             let normalized: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("normalized.json")).unwrap()).unwrap();
             assert_eq!(quantity(&normalized), vec![if name == "pair_row_open_partial" { "1.4" } else { "1.3" }]);
             expected = normalized;
@@ -344,7 +344,7 @@ async fn figures_fragments_match_the_v2_page_partials() {
             let reader=Reader::new(&cache,now.utc().timestamp());
             let err=deltabadger::web::figure::account(&c,sc["user_id"].as_i64().unwrap(),&reader,now,"en","token","").unwrap_err();
             assert!(matches!(err,deltabadger::figures::FiguresError::NotComputed(ref why) if why=="executed fill value unavailable"));
-            assert!(!expected["bots"]["1"]["tile"].as_str().unwrap().contains("no-value"),"Rails recorded its skipped-row figure");
+            assert!(!expected["bots"]["1"]["tile"].as_str().unwrap().contains("no-value"),"2.x recorded its skipped-row figure");
             use deltabadger::web::{App,Config,figure::loading::{self,Snapshot,Source}};
             // The fill fails, and keeps why with the failure: the page reads no order to say it.
             let env=common::web::env(common::web::SECRET);
@@ -910,9 +910,9 @@ async fn figures_fragments_match_the_v2_page_partials() {
             // no portfolio value, no row value or P/L, no chart and no headline. Rails draws each from the last fill's price
             // (its broadcast and chart frame draw the stale chart). The note says the venue did not answer.
             for (id, parts) in expected["bots"].as_object().unwrap() {
-                assert!(parts["chart"].as_str().unwrap().contains("data-bot--chart-series"), "{name}: Rails draws the stale chart");
+                assert!(parts["chart"].as_str().unwrap().contains("data-bot--chart-series"), "{name}: 2.x draws the stale chart");
                 let ours = &actual["bots"][id];
-                assert_eq!(ours["cached"], false, "{name}: Rails never caches stale figures");
+                assert_eq!(ours["cached"], false, "{name}: 2.x never caches stale figures");
                 no_widget(ours["tile"].as_str().unwrap(), Some("pnl_bots_"));
                 assert_eq!(ours["chart"].as_str().unwrap(), deltabadger::web::figure::NOT_CHARTED, "{name}: chart");
                 let metrics = ours["metrics"].as_str().unwrap();
@@ -956,7 +956,7 @@ async fn figures_fragments_match_the_v2_page_partials() {
             continue; // Deliberate unavailable state; Rails retains stale ledger figures here.
         }
         if name.starts_with("locked_") {
-            assert!(expected["bots"]["1"]["metrics"].as_str().unwrap().contains("wash_sale_table"), "{name}: Rails did not record a lock");
+            assert!(expected["bots"]["1"]["metrics"].as_str().unwrap().contains("wash_sale_table"), "{name}: 2.x did not record a lock");
         }
         if name == "index_specials" {
             // The bot page of an index bot with liquidation, redeploy and rebalance legs, once its figures are filled: served,
@@ -1008,7 +1008,7 @@ async fn figures_fragments_match_the_v2_page_partials() {
                 }
                 let wanted=expected["broadcasts"].as_array().unwrap().iter().find(|entry| {
                     entry[0]==stream && entry[1].as_str().is_some_and(|s| s.contains(&format!("target=\"{target}\"")))
-                }).unwrap_or_else(||panic!("{name}: no Rails broadcast to {stream} {target}"));
+                }).unwrap_or_else(||panic!("{name}: no 2.x broadcast to {stream} {target}"));
                 if ["price_untraded", "index_rotation", "old_rows"].contains(&name) { continue; }
                 // This grid renders `actual` with a page's token ("token"); a real broadcast has none, as Rails' has none.
                 let payload = if name == "redeploy_halt" || name.starts_with("framed_rebalance_halt") { payload.replace(GRID_TOKEN_FIELD, "") } else { payload };
@@ -1040,13 +1040,13 @@ async fn figures_fragments_match_the_v2_page_partials() {
                     // D4 (3.0, Rust only): a pair that only sells states what it sold and what that brought in, where Rails states an
                     // investment; its row, chart, tile and totals are Rails'.
                     assert!(got.contains("Sold") && got.contains("Received") && !got.contains("Invested"), "{name}: {got}");
-                    assert!(parts[part].as_str().unwrap().contains("Invested"), "{name}: Rails states an investment");
+                    assert!(parts[part].as_str().unwrap().contains("Invested"), "{name}: 2.x states an investment");
                     assert_eq!(sell_only_table(&got), sell_only_table(parts[part].as_str().unwrap()), "{name} bot {id} metrics");
                     continue;
                 }
                 if name == "stranded_offset" && part == "metrics" {
                     // D-6C-9: Rails' clamp to zero, and a read never rewrites the saved decline.
-                    assert_eq!(expected["offset"][0], expected["offset"][1], "{name}: a Rails read keeps the saved decline");
+                    assert_eq!(expected["offset"][0], expected["offset"][1], "{name}: a 2.x read keeps the saved decline");
                 }
                 assert_eq!(common::html::normalize(&got), common::html::normalize(parts[part].as_str().unwrap()), "{name} bot {id} {part}");
             }
@@ -1107,7 +1107,7 @@ async fn signal_pages(name: &str, dir: &Path, sc: &Value, expected: &Value, actu
             let src=bot_chart(&page.body).0.expect("a frame that asks");
             let frame=browser.get(&app,&src).await;
             assert!(frame.body.contains("<div id=\"chart\" hidden=\"hidden\">"),"{name}: D3, no stale chart: {}",frame.body);
-            assert!(v2["chart"].as_str().unwrap().contains("data-bot--chart-series"),"{name}: Rails' frame draws the stale chart");
+            assert!(v2["chart"].as_str().unwrap().contains("data-bot--chart-series"),"{name}: 2.x's frame draws the stale chart");
             continue;
         }
         chart_frames(name,"warm",id,&mut browser,&app,v2).await;
@@ -1140,7 +1140,7 @@ fn rebalance_rule(body: &str) -> (String, String) {
 /// fragment with its readout, the second <div>, left out).
 fn note_only(v2: &str) -> String {
     let doc = scraper::Html::parse_fragment(v2);
-    let note = doc.select(&scraper::Selector::parse("#settings-rebalance-info > div").unwrap()).next().expect("Rails' note").html();
+    let note = doc.select(&scraper::Selector::parse("#settings-rebalance-info > div").unwrap()).next().expect("2.x's note").html();
     format!("<small id=\"settings-rebalance-info\" class=\"small-info\">\n    {note}\n    \n  </small>")
 }
 /// D-REB-DRIFT-LATE on the figures' stream: what follows the page is the readout Rails rendered with its cold page.
@@ -1148,9 +1148,9 @@ fn drift_late(name: &str, payload: &str, expected: &Value) {
     let v2 = expected["cold"]["bots"]["1"]["page"].as_str().unwrap_or_else(|| panic!("{name}: a drift readout on a page the grid does not frame"));
     let document = scraper::Html::parse_document(v2);
     let info = document.select(&scraper::Selector::parse("#settings-rebalance-info").unwrap()).next()
-        .unwrap_or_else(|| panic!("{name}: no Rails rebalance note")).html();
+        .unwrap_or_else(|| panic!("{name}: no 2.x rebalance note")).html();
     assert_eq!(info.contains("off its target split"), !name.starts_with("framed_rebalance_halt"),
-        "{name}: Rails reads drift only when the swap is not halted");
+        "{name}: 2.x reads drift only when the swap is not halted");
     let streamed = scraper::Html::parse_fragment(payload);
     let template = streamed.select(&scraper::Selector::parse("template").unwrap()).next().unwrap().inner_html();
     assert_eq!(common::html::normalize(template.trim_end()), common::html::normalize(&info), "{name}: the streamed drift readout");
@@ -1162,7 +1162,7 @@ fn rebalance_broadcast(name: &str, payload: &str, expected: &Value, root: &Path)
     if name == "framed_rebalance_halt_selling" {
         let page = expected["cold"]["bots"]["1"]["page"].as_str().unwrap();
         assert!(!page.contains("id=\"settings-rebalance-info\""));
-        let twin: Value = serde_json::from_slice(&std::fs::read(root.join("framed_rebalance_halt/rails.json")).unwrap()).unwrap();
+        let twin: Value = serde_json::from_slice(&std::fs::read(root.join("framed_rebalance_halt/expected.json")).unwrap()).unwrap();
         drift_late("framed_rebalance_halt", payload, &twin);
     } else { drift_late(name, payload, expected); }
 }
@@ -1326,11 +1326,11 @@ async fn save_fields(name: &str, browser: &mut common::web::Browser, app: &delta
 
 /// Denomination#format at the edges of its sign, as Rails wrote each (page_figures.rb#boundaries).
 fn boundaries(dir: &Path) {
-    let cases: Vec<(String, String, String, usize, String)> = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+    let cases: Vec<(String, String, String, usize, String)> = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
     assert!(cases.len() > 100);
     let wrong: Vec<String> = cases.iter().filter_map(|(currency, rate, usd, digits, v2)| {
         let ours = deltabadger::web::figure::denominated(currency, rate, usd, *digits).unwrap();
-        (&ours != v2).then(|| format!("{currency} {usd} at {digits}: Rails {v2}, ours {ours}"))
+        (&ours != v2).then(|| format!("{currency} {usd} at {digits}: 2.x {v2}, ours {ours}"))
     }).collect();
     assert!(wrong.is_empty(), "{wrong:#?}");
 }
@@ -1358,7 +1358,7 @@ async fn display_currency(name: &str, dir: &Path, sc: &Value, expected: &Value) 
     assert!(!ours.is_empty(), "{name}: no bots");
     for (id, figures) in ours {
         for part in parts {
-            let v2 = expected["bots"][id][*part].as_str().unwrap_or_else(|| panic!("{name}: Rails has no {part} for bot {id}"));
+            let v2 = expected["bots"][id][*part].as_str().unwrap_or_else(|| panic!("{name}: 2.x has no {part} for bot {id}"));
             assert_eq!(common::html::normalize(figures[*part].as_str().unwrap()), common::html::normalize(v2), "{name} bot {id} {part}");
         }
     }
@@ -1369,7 +1369,7 @@ async fn display_currency(name: &str, dir: &Path, sc: &Value, expected: &Value) 
         let target = target(&payload);
         if !(target == "global-pnl" || target.starts_with("pnl_bots_")) { continue; }
         let wanted = expected["broadcasts"].as_array().unwrap().iter().find(|entry| entry[0] == stream && entry[1].as_str().is_some_and(|s| s.contains(&format!("target=\"{target}\""))))
-            .unwrap_or_else(|| panic!("{name}: no Rails broadcast to {stream} {target}"));
+            .unwrap_or_else(|| panic!("{name}: no 2.x broadcast to {stream} {target}"));
         assert_eq!(common::html::normalize(&payload), common::html::normalize(wanted[1].as_str().unwrap()), "{name} broadcast {stream} {target}");
     }
     let headline = actual["account"].as_str().unwrap();
@@ -1567,12 +1567,12 @@ async fn chronology_matches_v2_fresh_bytes() {
                 if key.ends_with(" metrics") && unpriced { assert!(html.contains("The exchange API does not respond"), "{name}: {key}: {html}"); }
             }
         } else {
-            for (key, want) in &fresh { assert_eq!(ours.get(key), Some(want), "{name}: {key}: this build against Rails computed fresh at t_c"); }
+            for (key, want) in &fresh { assert_eq!(ours.get(key), Some(want), "{name}: {key}: this build against 2.x computed fresh at t_c"); }
             assert_eq!(ours.len(), fresh.len(), "{name}");
         }
         let differing: Vec<&String> = fresh.keys().filter(|key| actual[*key] != fresh[*key]).collect();
-        if w1.contains(&name) { assert!(!differing.is_empty() && differing.iter().all(|key| key.ends_with(" chart") || *key == "account"), "{name}: W1 is the chart Rails kept: {differing:?}"); }
-        else { assert!(differing.is_empty(), "{name}: Rails' cached read and its fresh computation differ outside W1: {differing:?}"); }
+        if w1.contains(&name) { assert!(!differing.is_empty() && differing.iter().all(|key| key.ends_with(" chart") || *key == "account"), "{name}: W1 is the chart 2.x kept: {differing:?}"); }
+        else { assert!(differing.is_empty(), "{name}: 2.x's cached read and its fresh computation differ outside W1: {differing:?}"); }
     }
     }
 }
@@ -1591,7 +1591,7 @@ async fn cold_pages_match_v2_loading_state() {
     for name in ["basket_buys", "hidden", "owner_account"] {
         let dir = scratch.path().join(name);
         let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
-        let expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+        let expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
         let user = sc["user_id"].as_i64().unwrap();
         let work = tempfile::tempdir().unwrap();
         let file = work.path().join("production.sqlite3");
@@ -1640,7 +1640,7 @@ async fn rebalance_halted_pages_match_v2_cold_and_warm() {
     for name in ["framed_rebalance_halt","framed_rebalance_halt_off","framed_rebalance_halt_selling"] {
         let dir=scratch.path().join(name);
         let sc:Value=serde_json::from_slice(&std::fs::read(dir.join("scenario.json")).unwrap()).unwrap();
-        let expected:Value=serde_json::from_slice(&std::fs::read(dir.join("rails.json")).unwrap()).unwrap();
+        let expected:Value=serde_json::from_slice(&std::fs::read(dir.join("expected.json")).unwrap()).unwrap();
         let env=common::web::env(common::web::SECRET);
         let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
         let user=sc["user_id"].as_i64().unwrap();

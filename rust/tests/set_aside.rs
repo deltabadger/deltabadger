@@ -56,7 +56,7 @@ fn each_kind_of_candidate_is_stopped_with_its_reason_and_the_other_bots_run() {
         assert_eq!(key, set_aside::STOP_KEY);
     }
     let (rule_status, log): (i64, String) = c.query_row("SELECT r.status, l.message FROM rules r JOIN rule_logs l ON l.rule_id = r.id WHERE r.id = ?1", [rule], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
-    assert_eq!(rule_status, 2, "Rails' stopped");
+    assert_eq!(rule_status, 2, "2.x's stopped");
     assert_eq!(log, "Withdrawals from Bitrue aren't supported yet, so this rule was stopped while updating your data. Nothing was withdrawn.");
     // A restart finds nothing more to set aside: the stopped bots are no longer refused.
     let again = take_over(dir.path(), &o).unwrap();

@@ -175,7 +175,7 @@ const UNKNOWN_ORIGIN: &[&str] = &["other_venue_balance", "a_failed_sync_and_stal
 fn unknown_origin(name:&str,v2:&Value,rust:&Value,before_locks:&Value)->Option<Result<(),String>> {
     if !UNKNOWN_ORIGIN.contains(&name){return None;}
     Some((|| {
-        if v2["ledger_error"]!=Value::Null || v2["ledger"]==Value::Null{return Err("Rails no longer publishes this legacy balance calculation".into());}
+        if v2["ledger_error"]!=Value::Null || v2["ledger"]==Value::Null{return Err("2.x no longer publishes this legacy balance calculation".into());}
         let mut expected=v2.clone();
         expected["ledger"]=Value::Null;
         expected["ledger_error"]=json!(deltabadger::engine::model::CREDENTIALS_CHANGED);
@@ -194,9 +194,9 @@ async fn v2_and_rust_state_identical_figures_snapshots_and_locks_across_the_trac
     let v2_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
     // Frozen (common::frozen): Rails builds the grid, the installs are copied before Rails writes to its copies, Rails records.
-    let frozen = common::frozen("tracker-grid", |d| d.join("rails").is_dir() && d.join("rust").is_dir());
-    common::copy_tree(&frozen.join("rails"), v2_root.path());
-    common::copy_tree(&frozen.join("rust"), rust_root.path());
+    let frozen = common::frozen("tracker-grid", |d| d.join("expected").is_dir() && d.join("input").is_dir());
+    common::copy_tree(&frozen.join("expected"), v2_root.path());
+    common::copy_tree(&frozen.join("input"), rust_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(v2_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), 67 + 23 + 12 + 9, "the tracker grid");
@@ -212,7 +212,7 @@ async fn v2_and_rust_state_identical_figures_snapshots_and_locks_across_the_trac
         let before_locks=deltabadger::tracker::parity::tables(&initial,&cipher,scenario["user_id"].as_i64().unwrap()).unwrap()["wash_sale_locks"].clone();
         drop(initial);
         let mut rust_out = deltabadger::tracker::parity::run(&rust_root.path().join(&name), cipher.clone()).await.unwrap_or_else(|e| panic!("{name}: {e}"));
-        let mut v2_out = read(&d.join("rails.json"));
+        let mut v2_out = read(&d.join("expected.json"));
         // A transport failure ends both runs with it: Rails raises Client::TransientNetworkError wrapping Faraday's error, Rust
         // states the transport's message. The text is each side's own; that both ended on it is compared.
         if scenario["transport_failure"] == true {
@@ -228,20 +228,20 @@ async fn v2_and_rust_state_identical_figures_snapshots_and_locks_across_the_trac
             let path = reviewed(&name);
             let text = serde_json::to_string_pretty(&rust_out).unwrap() + "\n";
             if std::env::var("TRACKER_DIVERGENCES_WRITE").is_ok() { std::fs::create_dir_all(path.parent().unwrap()).unwrap(); std::fs::write(&path, &text).unwrap(); }
-            if v2_out == rust_out { failures.push(format!("{name}: {id} names a divergence, but Rust stated Rails' output")); }
+            if v2_out == rust_out { failures.push(format!("{name}: {id} names a divergence, but Rust stated 2.x's output")); }
             match std::fs::read_to_string(&path) {
                 Ok(want) if want == text => {}
-                Ok(_) => failures.push(format!("{name}: not the reviewed {id} output ({})\n  rails: {v2_out}\n  rust:  {rust_out}", path.display())),
-                Err(e) => failures.push(format!("{name}: {}: {e}\n  rails: {v2_out}\n  rust:  {rust_out}", path.display())),
+                Ok(_) => failures.push(format!("{name}: not the reviewed {id} output ({})\n  2.x: {v2_out}\n  rust:  {rust_out}", path.display())),
+                Err(e) => failures.push(format!("{name}: {}: {e}\n  2.x: {v2_out}\n  rust:  {rust_out}", path.display())),
             }
             reviewed_names.push(name.clone());
             outputs.insert(name, (v2_out, rust_out));
             continue;
         }
         match unknown_origin(&name,&v2_out,&rust_out,&before_locks) {
-            Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {v2_out}\n  rust:  {rust_out}")),
+            Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  2.x: {v2_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => divergences.push(name),
-            None if v2_out != rust_out => failures.push(format!("{name}\n  rails: {v2_out}\n  rust:  {rust_out}")),
+            None if v2_out != rust_out => failures.push(format!("{name}\n  2.x: {v2_out}\n  rust:  {rust_out}")),
             None => { outputs.insert(name, (v2_out, rust_out)); }
         }
     }
@@ -258,12 +258,12 @@ async fn v2_and_rust_state_identical_figures_snapshots_and_locks_across_the_trac
     assert_eq!(divergences,expected,"all reviewed legacy-origin and original divergences are exercised");
 
     // What the grid must have exercised, read from Rails' own output.
-    let v2_of = |name: &str| read(&v2_root.path().join(name).join("rails.json"));
+    let v2_of = |name: &str| read(&v2_root.path().join(name).join("expected.json"));
     // The page's figures (Plan tracker holdings S0b): every one stated somewhere in the grid, not only zeros, and only
     // where Rust's are compared (a listed divergence nulls Rust's expected ledger).
     let compared: Vec<&PathBuf> = dirs.iter().filter(|d| !UNKNOWN_ORIGIN.contains(&d.file_name().unwrap().to_string_lossy().as_ref())).collect();
     let summaries: Vec<Value> = compared.iter().flat_map(|d| {
-        let ledger = read(&d.join("rails.json"))["ledger"].clone();
+        let ledger = read(&d.join("expected.json"))["ledger"].clone();
         std::iter::once(ledger["whole"].clone()).chain(ledger["venues"].as_object().map(|v| v.values().cloned().collect::<Vec<_>>()).unwrap_or_default())
     }).filter(|s| !s.is_null()).collect();
     let nonzero = |field: &str| summaries.iter().filter(|s| s[field].as_str().is_some_and(|v| v != "0.0")).count();
@@ -276,7 +276,7 @@ async fn v2_and_rust_state_identical_figures_snapshots_and_locks_across_the_trac
     assert!(trips.iter().any(|t| t["opened_at"].is_string()), "a round trip's opening date");
     assert!(summaries.iter().flat_map(|s| s["positions"].as_array().into_iter().flatten()).all(|p| p["opened_at"].is_string()), "every position's date");
     // Tracker::Figures::Result: every field stated, every note kind written, on a holding and in the list.
-    let figures: Vec<Value> = compared.iter().flat_map(|d| read(&d.join("rails.json"))["ledger"]["figures"].as_object().map(|f| f.values().cloned().collect::<Vec<_>>()).unwrap_or_default()).collect();
+    let figures: Vec<Value> = compared.iter().flat_map(|d| read(&d.join("expected.json"))["ledger"]["figures"].as_object().map(|f| f.values().cloned().collect::<Vec<_>>()).unwrap_or_default()).collect();
     for field in ["fees", "realised", "unrealised", "total"] { assert!(figures.iter().any(|f| f[field].as_str().is_some_and(|v| v != "0.0")), "no scenario states figures {field}"); }
     let holdings: Vec<&Value> = figures.iter().flat_map(|f| f["holdings"].as_array().into_iter().flatten()).collect();
     assert!(holdings.iter().any(|h| h["percent"].is_string()) && holdings.iter().any(|h| h["unrealised"].is_string()), "a holding's gain");

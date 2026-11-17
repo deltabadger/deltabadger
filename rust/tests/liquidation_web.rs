@@ -182,7 +182,7 @@ async fn clear_http_accounts_for_shown_rows_and_status_lasts_through_taken_reque
         model::merge_transient_compact(&c,id,&[("liquidation_selling_since",request)]).unwrap();
         let page=b.get(&app,&format!("/bots/{id}")).await;
         assert_eq!(page.status,200,"{}",page.body);
-        assert_eq!(status_text(&page.body,id),"Selling…","request remains visible after the Rails TTL, including taken requests");
+        assert_eq!(status_text(&page.body,id),"Selling…","request remains visible after the 2.x TTL, including taken requests");
     }
     model::merge_transient_compact(&c,id,&[("liquidation_selling_since",Value::Null),("liquidation_pending",json!({"id":"halt","state":"ambiguous","symbol":"BTC"}))]).unwrap();
     let page=b.get(&app,&format!("/bots/{id}")).await;

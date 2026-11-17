@@ -252,7 +252,7 @@ fn clock_now(at: &str) -> chrono::DateTime<chrono::Utc> { at.parse().unwrap() }
 /// hash must verify the submitted password (Rails' test environment hashes at cost 1, this crate at 11), and the
 /// OTP seed must decrypt, under the same keys, to a 32-character base32 seed in active_model_otp's envelope.
 fn users_difference(app: &App, scenario: &Value, v2: &[Value], rust: &[serde_json::Map<String, Value>]) -> Option<String> {
-    if v2.len() != rust.len() { return Some(format!("{} user rows in Rails, {} here", v2.len(), rust.len())); }
+    if v2.len() != rust.len() { return Some(format!("{} user rows in 2.x, {} here", v2.len(), rust.len())); }
     let seeded = scenario["seed"]["users"].as_array().unwrap().len();
     let password = scenario["steps"].as_array().unwrap().iter().rev().find_map(|s| s["form"]["user[password]"].as_str().or_else(|| s["json"]["user"]["password"].as_str()));
     for (index, (theirs, ours)) in v2.iter().zip(rust).enumerate() {
@@ -274,7 +274,7 @@ fn users_difference(app: &App, scenario: &Value, v2: &[Value], rust: &[serde_jso
                 }
                 _ => value == mine,
             };
-            if !same { return Some(format!("users[{index}].{column}: Rails {value}, Rust {mine}")); }
+            if !same { return Some(format!("users[{index}].{column}: 2.x {value}, Rust {mine}")); }
         }
     }
     None
@@ -288,15 +288,15 @@ fn app_configs_difference(app: &App, v2: &[Value], rust: &[serde_json::Map<Strin
     };
     let theirs: Vec<Value> = v2.iter().map(|r| plain(r.as_object().unwrap())).collect();
     let ours: Vec<Value> = rust.iter().map(plain).collect();
-    (theirs != ours).then(|| format!("app_configs differ:\n  rails: {theirs:?}\n  rust:  {ours:?}"))
+    (theirs != ours).then(|| format!("app_configs differ:\n  2.x: {theirs:?}\n  rust:  {ours:?}"))
 }
 
 fn first_difference(name: &str, v2: &[Value], rust: &[Value]) -> Option<String> {
-    if v2.len() != rust.len() { return Some(format!("{name}: {} responses in Rails, {} here", v2.len(), rust.len())); }
+    if v2.len() != rust.len() { return Some(format!("{name}: {} responses in 2.x, {} here", v2.len(), rust.len())); }
     for (index, (a, b)) in v2.iter().zip(rust).enumerate() {
         if a == b { continue; }
         if a["status"] != b["status"] || a["headers"] != b["headers"] {
-            return Some(format!("{name} step {index}:\n  rails: {} {}\n  rust:  {} {}", a["status"], a["headers"], b["status"], b["headers"]));
+            return Some(format!("{name} step {index}:\n  2.x: {} {}\n  rust:  {} {}", a["status"], a["headers"], b["status"], b["headers"]));
         }
         let lines = |body: &Value| match body {
             Value::Array(lines) => lines.iter().map(|l| l.as_str().unwrap_or_default().to_string()).collect::<Vec<_>>(),
@@ -329,14 +329,14 @@ async fn v2_and_rust_answer_the_setup_grid_alike() {
             // the name with Rails' own name_invalid message and creates nothing.
             let (Some(theirs), Some(ours)) = (v2.last(), played.responses.last()) else { panic!("{name}: no responses") };
             let refused = ours["status"] == 422 && ours["body"].to_string().contains(&web::i18n::text("en", "devise.registrations.new.name_invalid", &[]));
-            if theirs["status"] != 302 || !refused || !table(played.dir.path(), "users").is_empty() { failures.push(format!("{name}: expected Rails 302 and this build's 422 name refusal with no user, got {ours}")); }
+            if theirs["status"] != 302 || !refused || !table(played.dir.path(), "users").is_empty() { failures.push(format!("{name}: expected 2.x 302 and this build's 422 name refusal with no user, got {ours}")); }
             continue;
         }
         if let Some(message) = first_difference(name, &v2, &played.responses) { failures.push(message); continue; }
         // The claim requests the launchpad received, and Setup::SeedAndSyncJob: enqueued in Rails, woken here.
-        if scenario["launchpad_requests"] != json!(played.requests) { failures.push(format!("{name}: launchpad requests: Rails {}, Rust {:?}", scenario["launchpad_requests"], played.requests)); }
+        if scenario["launchpad_requests"] != json!(played.requests) { failures.push(format!("{name}: launchpad requests: 2.x {}, Rust {:?}", scenario["launchpad_requests"], played.requests)); }
         let enqueued = scenario["enqueued"].as_array().unwrap().iter().filter(|job| *job == "Setup::SeedAndSyncJob").count();
-        if enqueued != played.woken { failures.push(format!("{name}: Rails enqueued the setup sync {enqueued} times, Rust woke it {}", played.woken)); }
+        if enqueued != played.woken { failures.push(format!("{name}: 2.x enqueued the setup sync {enqueued} times, Rust woke it {}", played.woken)); }
         let users = table(played.dir.path(), "users");
         if let Some(message) = users_difference(&played.app, scenario, scenario["users"].as_array().unwrap(), &users) { failures.push(format!("{name}: {message}")); }
         if let Some(message) = app_configs_difference(&played.app, scenario["app_configs"].as_array().unwrap(), &table(played.dir.path(), "app_configs")) { failures.push(format!("{name}: {message}")); }

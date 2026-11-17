@@ -26,7 +26,7 @@ fn cold_figures_owner_scope_cash_and_asset_identity_are_exact(){
     }
     assert_eq!(before,c.total_changes());c.pragma_update(None,"query_only",false).unwrap();
     c.execute_batch("INSERT INTO account_balances VALUES(7,2,1,4,1,0,100,'2026-10-08 12:00:00','2026-10-08 12:00:00'),(7,1,3,5,1,0,20,'2026-10-08 12:00:00','2026-10-08 12:00:00')").unwrap();
-    let result=holdings::cold(&c,7,None,false).unwrap();assert_eq!(result.holdings.len(),2,"cold Rails groups by asset identity");assert_eq!(result.holdings[0].value.as_ref().unwrap().to_s_f(),"300.0");
+    let result=holdings::cold(&c,7,None,false).unwrap();assert_eq!(result.holdings.len(),2,"cold 2.x groups by asset identity");assert_eq!(result.holdings[0].value.as_ref().unwrap().to_s_f(),"300.0");
 }
 /// PLAN-venue-prices S1: an unpriced holding is kept and listed after the priced ones, with no value.
 #[test]

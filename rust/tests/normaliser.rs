@@ -68,9 +68,9 @@ fn the_masked_values_can_be_read_before_they_are_masked() {
 #[test]
 fn a_location_on_another_host_never_equals_a_local_path() {
     use common::html::location;
-    assert_eq!(location("http://localhost:3000/bots?filter=a"), location("/bots?filter=a"), "Rails' absolute URL and this crate's path");
+    assert_eq!(location("http://localhost:3000/bots?filter=a"), location("/bots?filter=a"), "2.x's absolute URL and this crate's path");
     assert_eq!(location("http://localhost:3000"), location("/"));
-    assert_eq!(location("http://localhost:3000//evil.test/path"), location("/evil.test/path"), "the same page of this host: Rails' router squeezes slashes");
+    assert_eq!(location("http://localhost:3000//evil.test/path"), location("/evil.test/path"), "the same page of this host: 2.x's router squeezes slashes");
     assert_eq!(location("/login/"), location("/login"));
     // The mutation that must show: a redirect that leaves the site.
     assert_ne!(location("//bots"), location("/bots"), "`//bots` is the host `bots`");

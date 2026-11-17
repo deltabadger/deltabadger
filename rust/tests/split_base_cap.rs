@@ -120,12 +120,12 @@ fn events(f: &Fixture) -> Vec<String> {
 
 #[test]
 fn a_forward_split_doubles_the_cap_and_the_sales_and_a_reverse_one_divides_them() {
-    assert_eq!(recorded(None).left(), dec("6"), "no split: Rails' 10 − 4");
-    assert_eq!(recorded(Some("2:1")).left(), dec("12"), "20 − 8, not Rails' 6");
+    assert_eq!(recorded(None).left(), dec("6"), "no split: 2.x's 10 − 4");
+    assert_eq!(recorded(Some("2:1")).left(), dec("12"), "20 − 8, not 2.x's 6");
     let f = seller(json!(10));
     f.sell(f.aapl, 2, "5", Some("5"), SOLD_AT);
     f.split("AAPL", SPLIT_AT, Some("1:10"));
-    assert_eq!(f.left(), dec("0.5"), "10/10 − 5/10, not Rails' 5");
+    assert_eq!(f.left(), dec("0.5"), "10/10 − 5/10, not 2.x's 5");
     // At the floor: 1e-9 at AAPL's 9 decimals. Restated, 1 − 0.9999999995 is under it; as traded 10 − 9.999999995 is not.
     let f = seller(json!(10));
     f.sell(f.aapl, 2, "9.999999995", Some("9.999999995"), SOLD_AT);
@@ -180,7 +180,7 @@ async fn the_recorded_case_sells_twelve_and_holds_nothing() {
     let f = recorded(None);
     let t = script(holding("AAPL", "32"));
     tick_with(&f, t.clone(), &FixedClock(at(NOW))).await;
-    assert_eq!(sold(&t), ["6.000000000"], "Rails' 6 with no split");
+    assert_eq!(sold(&t), ["6.000000000"], "2.x's 6 with no split");
 }
 
 #[test]
@@ -397,7 +397,7 @@ fn with_no_stamp_every_event_up_to_the_last_save_is_a_candidate() {
     let f = seller(json!(10));
     f.c().execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.base_amount_limit_enabled_at') WHERE id = ?1", [f.id]).unwrap();
     f.sell(f.aapl, 2, "4", Some("4"), SOLD_AT);
-    assert_eq!(f.left(), dec("10"), "no window: Rails' figure");
+    assert_eq!(f.left(), dec("10"), "no window: 2.x's figure");
     f.split("AAPL", SPLIT_AT, Some("2:1"));
     assert_eq!(f.left(), dec("10"), "least reading 10×1");
     let f = seller(json!(10));

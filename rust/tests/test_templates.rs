@@ -28,7 +28,7 @@ fn changing_one_install_leaves_the_template_and_every_other_install_as_they_were
 fn template_build_child() {
     let Ok(spec) = std::env::var("TEMPLATE_BUILD_CHILD") else { return };
     let (base, run) = spec.split_once('\n').unwrap();
-    common::shared_template(Path::new(base), &format!("rails-install-{run}"), |_| true, |out| {
+    common::shared_template(Path::new(base), &format!("v2-install-{run}"), |_| true, |out| {
         std::fs::copy(common::v2_install_template().join(common::INSTALL_FILES[0]), out.join(common::INSTALL_FILES[0])).unwrap();
         loop { std::thread::park(); }
     });
@@ -51,7 +51,7 @@ fn a_template_build_killed_part_way_is_never_handed_out_and_the_next_build_repla
     }
     child.kill().unwrap();
     child.wait().unwrap();
-    let published = base.path().join(format!("rails-install-{run}"));
+    let published = base.path().join(format!("v2-install-{run}"));
     assert!(!published.exists(), "the build finished before it was killed; nothing was tested");
     assert!(staging(base.path()), "the killed build left its staging directory");
 

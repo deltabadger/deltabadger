@@ -244,7 +244,7 @@ fn the_recorded_parity_texts_this_changes_read_a_sentence() {
         ("Exchanges::Gemini", "Gemini", r#"{"result":"error","reason":"InvalidPrice","message":"Invalid price for symbol BTCUSD"}"#, "Invalid price for symbol BTCUSD".into()),
     ] {
         assert_eq!(en(venue, name, message), want, "{venue} {message}");
-        assert_eq!(render::humanize_error_before_raw_refusals(venue, name, "en", message), message, "Rails' reading: raw");
+        assert_eq!(render::humanize_error_before_raw_refusals(venue, name, "en", message), message, "2.x's reading: raw");
     }
 }
 

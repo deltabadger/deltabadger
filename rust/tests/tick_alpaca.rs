@@ -54,7 +54,7 @@ async fn a_market_tick_sends_a_notional_gtc_buy_with_a_client_order_id() {
     assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
     assert_eq!(t.posted_orders(), vec![json!({ "symbol": "BTC/USD", "side": "buy", "type": "market", "time_in_force": "gtc", "notional": "60.00" })]);
     let sent = t.requests().into_iter().find(|r| r.method == "POST").unwrap();
-    assert_eq!(sent.body.unwrap()["client_order_id"].as_str().map(str::len), Some(36), "Rust's own UUID (Rails sends none)");
+    assert_eq!(sent.body.unwrap()["client_order_id"].as_str().map(str::len), Some(36), "Rust's own UUID (2.x sends none)");
     assert_eq!(one::<String>(&o, "SELECT external_id FROM transactions"), "OTX-1");
     assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none());
 }
@@ -78,7 +78,7 @@ async fn a_balance_transport_failure_after_a_placement_reschedules_without_retry
     assert_eq!(t.posted_orders().len(), 1, "a retry would buy twice");
     let b = model::load_bot(&o.primary, id).unwrap();
     assert_eq!((b.status, b.last_failure_kind().as_deref()), (BotStatus::Retrying, Some("transient")));
-    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event LIKE 'execution_%'"), 0, "Rails writes no activity row here");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event LIKE 'execution_%'"), 0, "2.x writes no activity row here");
     assert_eq!(attempts.transient, 0);
 }
 
@@ -118,7 +118,7 @@ async fn the_sweep_ignores_a_rejected_order_and_the_tick_goes_on() {
     let t = script(json!({ "GET /v2/orders/OREJ": ok(json!({ "id": "OREJ", "status": "rejected", "symbol": "BTC/USD", "type": "market", "side": "buy", "notional": "60", "qty": null, "filled_qty": "0", "filled_avg_price": null, "limit_price": null })) }));
     let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
     assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
-    assert_eq!(one::<i64>(&o, "SELECT external_status FROM transactions WHERE external_id = 'OREJ'"), 0, "still unknown: Rails' polls have no branch for :failed");
+    assert_eq!(one::<i64>(&o, "SELECT external_status FROM transactions WHERE external_id = 'OREJ'"), 0, "still unknown: 2.x's polls have no branch for :failed");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -222,7 +222,7 @@ async fn a_retry_within_five_seconds_reuses_the_cached_price() {
             other => { assert!(matches!(other, TickOutcome::Done { placed: true }), "{other:?}"); break; }
         }
     }
-    assert_eq!(t.requests().iter().filter(|r| r.path.ends_with("/trades")).count(), 1, "the retry read the cache, as Rails' does");
+    assert_eq!(t.requests().iter().filter(|r| r.path.ends_with("/trades")).count(), 1, "the retry read the cache, as 2.x's does");
     assert_eq!(t.posted_orders()[1]["limit_price"], "64149.97", "the second POST uses the cached 64310.75, not 70000");
 }
 
@@ -312,7 +312,7 @@ async fn the_follow_up_poll_raises_as_v2_job_does() {
     assert_eq!(one::<f64>(&o, "SELECT amount_exec FROM transactions WHERE external_id = 'OPOLL'"), 0.0004, "the partial fill is recorded");
     let failing = script(json!({ "GET /v2/orders/OPOLL": [{ "status": 500, "body": { "message": "internal server error" } }] }));
     assert_eq!(polling::follow_up(&o.primary, &venue(&failing), id, tx, now).await,
-               Err(PollFailure::General(format!("Failed to fetch order {tx}. Result: [\"internal server error\"]"))), "Rails names the transaction id");
+               Err(PollFailure::General(format!("Failed to fetch order {tx}. Result: [\"internal server error\"]"))), "2.x names the transaction id");
 }
 
 // The engine's own process_start wiring (run.rs, step_bot and reconcile_idle): a restarted `run` must not trust an

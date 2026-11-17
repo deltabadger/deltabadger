@@ -53,7 +53,7 @@ async fn export_is_v2_own_csv_and_saves_the_export_type() {
             (case["settings_before"].as_str(), OLD, seeded.user_id)).unwrap();
         let answer = browser.send(&app, "GET", case["path"].as_str().unwrap(), None, Csrf::None, &[]).await;
         if let Some((_, v2)) = refused.iter().find(|(n, _)| *n == name) {
-            assert_eq!(case["status"].as_i64(), Some(*v2), "{name}: what Rails did");
+            assert_eq!(case["status"].as_i64(), Some(*v2), "{name}: what 2.x did");
             assert_eq!((answer.status, answer.body.as_str()), (400, include_str!("../web/public/400.html")), "{name}");
         } else {
             assert_eq!(i64::from(answer.status), case["status"].as_i64().unwrap(), "{name}: {}", answer.body);

@@ -1678,7 +1678,7 @@ async fn r07_takeover_marks_rows_by_who_placed_them() {
     tx.commit().unwrap();
     let by_v2 = open_row(&o.primary, &bot, "C1", "2026-10-30 12:30:00", json!({}));
     handover::take_over(&l, &o, &common::seed::cipher(), "test", at("2026-10-30T13:00:00Z")).unwrap();
-    assert_eq!(origin(&o.primary, by_v2).as_deref(), Some("unproven"), "placed in the Rails window");
+    assert_eq!(origin(&o.primary, by_v2).as_deref(), Some("unproven"), "placed in the 2.x window");
     assert_eq!(origin(&o.primary, rust).as_deref(), Some("classic"), "never re-marked");
 }
 

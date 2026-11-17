@@ -41,7 +41,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 pub fn vectors() -> serde_json::Value {
-    serde_json::from_str(include_str!("../fixtures/ruby_vectors.json")).expect("ruby_vectors.json parses")
+    serde_json::from_str(include_str!("../fixtures/v2_vectors.json")).expect("v2_vectors.json parses")
 }
 
 pub const INSTALL_FILES: [&str; 2] = ["production.sqlite3", "production_queue.sqlite3"];
@@ -68,7 +68,7 @@ pub fn v2_install() -> tempfile::TempDir {
 }
 
 /// A fresh copy of an install exactly as Rails prepared one (db/schema.rb and db/queue_schema.rb loaded by Rails itself,
-/// frozen at the oracle commit: recorded/rails-install), from the template of this test run. No Rust migration applied.
+/// frozen at the oracle commit: recorded/v2-install), from the template of this test run. No Rust migration applied.
 pub fn v2_install_unmigrated() -> tempfile::TempDir {
     let template = v2_install_template();
     let dir = tempfile::tempdir().unwrap();
@@ -94,12 +94,12 @@ pub fn as_migrations(list: &[(String, String, String)]) -> Vec<deltabadger::stor
 /// The template v2_install copies, built once per test run (see `run_template`).
 pub fn v2_install_template() -> &'static Path {
     static TEMPLATE: OnceLock<PathBuf> = OnceLock::new();
-    TEMPLATE.get_or_init(|| frozen("rails-install", install_template_is_whole))
+    TEMPLATE.get_or_init(|| frozen("v2-install", install_template_is_whole))
 }
 
 /// The v2_install template's build, in an explicit base and run, for the tests of the template itself.
 pub fn install_template_for(base: &Path, run: &str) -> PathBuf {
-    shared_template(base, &format!("rails-install-{run}"), install_template_is_whole, |out| copy_tree(v2_install_template(), out))
+    shared_template(base, &format!("v2-install-{run}"), install_template_is_whole, |out| copy_tree(v2_install_template(), out))
 }
 
 /// A directory `build` fills once per test RUN and every process of that run then reads (and copies before it

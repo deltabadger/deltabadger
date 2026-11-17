@@ -71,7 +71,7 @@ fn nbp(c: &Connection, s: &Value) {
 }
 
 fn v2(s: &Value) -> Outcome {
-    let v2 = &s["rails"];
+    let v2 = &s["expected"];
     match v2.get("csv") {
         Some(csv) => Outcome::Csv(csv.as_str().unwrap().to_string()),
         None => Outcome::Refused {
@@ -117,11 +117,11 @@ fn the_crypto_report_is_v2_own_or_the_named_divergence() {
             continue;
         }
         match expect.strip_prefix("diverges: ") {
-            None => if got != v2(s) { failures.push(format!("{name}: not Rails' file\n--- rails\n{:?}\n--- rust\n{got:?}", v2(s))) },
+            None => if got != v2(s) { failures.push(format!("{name}: not 2.x's file\n--- 2.x\n{:?}\n--- rust\n{got:?}", v2(s))) },
             Some(id) => {
                 assert!(id.starts_with("D-TAX-"), "{name}: {id}");
                 let Outcome::Csv(csv) = &got else { failures.push(format!("{name}: refused, {got:?}")); continue };
-                if *csv == match v2(s) { Outcome::Csv(r) => r, _ => String::new() } { failures.push(format!("{name}: {id} names a divergence, but Rust wrote Rails' file")); }
+                if *csv == match v2(s) { Outcome::Csv(r) => r, _ => String::new() } { failures.push(format!("{name}: {id} names a divergence, but Rust wrote 2.x's file")); }
                 let path = divergence(name);
                 if write { std::fs::create_dir_all(path.parent().unwrap()).unwrap(); std::fs::write(&path, csv).unwrap(); }
                 match std::fs::read_to_string(&path) {
@@ -205,22 +205,22 @@ fn the_broker_report_is_v2_own_or_the_named_divergence() {
         let (user, year) = (s["user_id"].as_i64().unwrap(), s["year"].as_i64().unwrap());
         let checked = deltabadger::tax::broker::check(&c, user, s["country"].as_str().unwrap(), year);
         if expect == "failed" {
-            if s["rails"].get("failed").is_none() { failures.push(format!("{name}: Rails did not fail")); }
+            if s["expected"].get("failed").is_none() { failures.push(format!("{name}: 2.x did not fail")); }
             if checked.is_ok() { failures.push(format!("{name}: the run must fail")); }
             continue;
         }
         if let Err(e) = checked { failures.push(format!("{name}: {e}")); continue; }
         let csv = match deltabadger::tax::broker::report(&c, user, year as i32, &Default::default()) { Ok(csv) => csv, Err(e) => { failures.push(format!("{name}: {e:?}")); continue } };
-        let v2 = s["rails"]["csv"].as_str().unwrap_or("");
+        let v2 = s["expected"]["csv"].as_str().unwrap_or("");
         // D-TAX-BROKER-DISCLOSURES: this build's legal notes, every one, and none of the three Rails states that no longer hold.
         if csv[before_disclosures(&csv).len()..] != notes() { failures.push(format!("{name}: not this build's legal notes")); }
         match expect.strip_prefix("diverges: ") {
             None => if before_disclosures(&csv) != before_disclosures(v2) {
-                failures.push(format!("{name}: not Rails' file\n--- rails\n{v2}\n--- rust\n{csv}"));
+                failures.push(format!("{name}: not 2.x's file\n--- 2.x\n{v2}\n--- rust\n{csv}"));
             },
             Some(id) => {
                 assert!(id.starts_with("D-TAX-BROKER-"), "{name}: {id}");
-                if before_disclosures(&csv) == before_disclosures(v2) { failures.push(format!("{name}: {id} names a divergence, but Rust wrote Rails' figures")); }
+                if before_disclosures(&csv) == before_disclosures(v2) { failures.push(format!("{name}: {id} names a divergence, but Rust wrote 2.x's figures")); }
                 let path = divergence(name);
                 if write { std::fs::create_dir_all(path.parent().unwrap()).unwrap(); std::fs::write(&path, &csv).unwrap(); }
                 match std::fs::read_to_string(&path) {

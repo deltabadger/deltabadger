@@ -38,7 +38,7 @@ fn every_recorded_scrub_and_its_stored_cut_is_reproduced() {
             failures.push(format!("{}\n  rust: {scrubbed}\n  ruby: {}", c["text"], c["scrubbed"]));
         }
     }
-    assert_eq!(protected, 23, "only the 23 credential-bearing vectors diverge; the other 29 retain exact Rails output");
+    assert_eq!(protected, 23, "only the 23 credential-bearing vectors diverge; the other 29 retain exact 2.x output");
     report("scrubs", failures, cases.len());
 }
 
@@ -47,14 +47,14 @@ fn every_recorded_split_ratio_and_rationalisation_is_reproduced() {
     let cases = list(&vectors()["split_ratio_label"]);
     assert!(cases.len() > 300);
     let failures: Vec<String> = cases.iter().filter_map(|c| {
-        let got = activities::split_ratio_label(&bd(c[0].as_str().unwrap()), &bd(c[1].as_str().unwrap())).expect("a ratio Ruby computed");
-        (json!(got) != c[2]).then(|| format!("{} -> {} = {got:?}, Ruby {}", c[0], c[1], c[2]))
+        let got = activities::split_ratio_label(&bd(c[0].as_str().unwrap()), &bd(c[1].as_str().unwrap())).expect("a ratio 2.x computed");
+        (json!(got) != c[2]).then(|| format!("{} -> {} = {got:?}, 2.x {}", c[0], c[1], c[2]))
     }).collect();
     report("split ratios", failures, cases.len());
     let cases = list(&vectors()["rationalize"]);
     assert_eq!(cases.len(), 300);
     let failures: Vec<String> = cases.iter().filter_map(|c| {
-        let (p, q) = activities::rationalize(float(&c[0]), float(&c[1])).expect("a fraction Ruby computed");
+        let (p, q) = activities::rationalize(float(&c[0]), float(&c[1])).expect("a fraction 2.x computed");
         ((p.to_string(), q.to_string()) != (c[2].as_str().unwrap().to_string(), c[3].as_str().unwrap().to_string())).then(|| format!("{c} = {p}/{q}"))
     }).collect();
     report("rationalisations", failures, cases.len());
@@ -248,7 +248,7 @@ fn raw_data_is_written_as_the_apps_json_column_writes_it() {
     for c in &cases {
         let text = c[0].as_str().unwrap();
         let stored = wire::read(text, &mut Budget(usize::MAX), None).unwrap_or_else(|e| panic!("{text}: {e:?}")).stored();
-        if json!(stored) != c[1] && !(c[1].is_null() && stored == "null") { failures.push(format!("{text}: rust {stored}, rails {}", c[1])); }
+        if json!(stored) != c[1] && !(c[1].is_null() && stored == "null") { failures.push(format!("{text}: rust {stored}, 2.x {}", c[1])); }
     }
     assert_eq!(cases.len(), 802);
     report("stored JSON texts", failures, cases.len());

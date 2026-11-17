@@ -1,15 +1,15 @@
 {
   "cases": {
     "same_timestamp_restart": {
-      "rails_fenced": false
+      "v2_fenced": false
     },
     "stale_tick_completion": {
-      "rails_write_succeeded": true,
-      "rails_status": "waiting"
+      "v2_write_succeeded": true,
+      "v2_status": "waiting"
     },
     "settings_held_until_reconciliation": {
-      "rails_update_succeeded": true,
-      "rails_quote_amount": 100.0
+      "v2_update_succeeded": true,
+      "v2_quote_amount": 100.0
     }
   }
 }

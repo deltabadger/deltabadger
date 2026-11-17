@@ -86,7 +86,7 @@ async fn a_market_buy_is_notional_and_a_limit_buy_is_qty_and_limit_price_each_wi
     let bodies: Vec<Value> = t.requests().into_iter().map(|r| r.body.unwrap()).collect();
     assert_eq!(bodies[0], json!({ "symbol": "BTC/USD", "side": "buy", "type": "market", "time_in_force": "gtc", "notional": "60.00", "client_order_id": "c-1" }));
     assert_eq!(bodies[1], json!({ "symbol": "BTC/USD", "side": "buy", "type": "limit", "time_in_force": "gtc", "qty": "0.000935308", "limit_price": "64149.97", "client_order_id": "c-1" }));
-    assert_eq!(bodies[0].as_object().unwrap().keys().map(String::as_str).collect::<Vec<_>>(), ["symbol", "side", "type", "time_in_force", "notional", "client_order_id"], "Rails' key order");
+    assert_eq!(bodies[0].as_object().unwrap().keys().map(String::as_str).collect::<Vec<_>>(), ["symbol", "side", "type", "time_in_force", "notional", "client_order_id"], "2.x's key order");
     assert_eq!(t.requests()[0].base, PAPER_TRADING_URL);
 }
 
@@ -131,7 +131,7 @@ async fn a_post_that_may_have_landed_is_ambiguous() {
 async fn permanent_transport_failures_are_failures_as_client_network_failure_returns_them() {
     let cert = || json!([{ "network": "permanent", "message": "Faraday::SSLError: certificate verify failed" }]);
     let (_, v) = venue(json!({ "POST /v2/orders": cert() }));
-    assert_eq!(v.add_order(&market("60.00")).await, Err(VenueError::Rejected(vec!["Faraday::SSLError: certificate verify failed".into()])), "Rails writes a failed row");
+    assert_eq!(v.add_order(&market("60.00")).await, Err(VenueError::Rejected(vec!["Faraday::SSLError: certificate verify failed".into()])), "2.x writes a failed row");
     let (_, v) = venue(json!({ "GET /v2/account": cert() }));
     assert_eq!(v.balance("USD", true).await, Err(VenueError::Rejected(vec!["Faraday::SSLError: certificate verify failed".into()])), "a Failure: Fundable reads it as not low");
     let (_, v) = venue(json!({ "GET /v2/orders/A": status(301, json!("")) }));
@@ -226,7 +226,7 @@ async fn factory_hosts_follow_the_key() {
     assert_eq!(identity, json!({ "alpaca_live": true, "key_fingerprint": "fcab7fcc2b4cffd9bb45003bfc2e468a04ef6f77ca8200a7341f027631584d25" }));
     assert!(!identity.to_string().contains("\"s\""), "the secret is never in the identity: {identity}");
     match f.for_bot("Exchanges::Alpaca", creds(Some("live"))) { LiveVenue::Alpaca(v) => assert_eq!(v.urls().trading, TRADING_URL), _ => panic!("an Alpaca venue") }
-    assert_eq!(f.alpaca(None, vec![]).urls().trading, PAPER_TRADING_URL, "no key is Rails' paper_mode?(nil)");
+    assert_eq!(f.alpaca(None, vec![]).urls().trading, PAPER_TRADING_URL, "no key is 2.x's paper_mode?(nil)");
     match f.for_bot("Exchanges::Kraken", creds(None)).price(&btc_usd(), PriceSide::Ask).await {
         Err(VenueError::Transient(m)) => assert!(m.contains("Exchanges::Kraken is not connected"), "{m}"),
         other => panic!("another exchange sends nothing: {other:?}"),
@@ -240,7 +240,7 @@ fn preflight_accepts_a_live_key_and_refuses_an_undecryptable_passphrase() {
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     assert_eq!(alpaca::preflight(&o.primary, &seed::cipher()), Ok(vec![id]));
     o.primary.execute("UPDATE api_keys SET passphrase = ?1", [seed::cipher().encrypt("live")]).unwrap();
-    assert_eq!(alpaca::preflight(&o.primary, &seed::cipher()), Ok(vec![id]), "a live key trades as in Rails");
+    assert_eq!(alpaca::preflight(&o.primary, &seed::cipher()), Ok(vec![id]), "a live key trades as in 2.x");
     // Only the passphrase is unreadable: it must never default to paper.
     let other = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "another-instance").unwrap());
     o.primary.execute("UPDATE api_keys SET passphrase = ?1", [other.encrypt("paper")]).unwrap();
@@ -274,7 +274,7 @@ async fn a_stock_is_priced_by_its_base_in_the_path_with_no_feed() {
     assert_eq!(v.price(&aapl(), PriceSide::Last).await.unwrap(), bd("187.41"));
     for r in t.requests() {
         assert_eq!(r.base, DATA_URL, "the market data host");
-        assert!(r.query.is_empty(), "Rails sends no feed and no symbols parameter: {:?}", r.query);
+        assert!(r.query.is_empty(), "2.x sends no feed and no symbols parameter: {:?}", r.query);
     }
 }
 
@@ -397,7 +397,7 @@ async fn an_unreadable_or_ambiguous_holding_is_an_error_never_zero() {
         Ok(deltabadger::sync::balances::Catalog::new(vec![2, 3, 6], &[t("AAPL", 3), t("AAPL", 6)], vec![2]))
     };
     let v = account(json!([{ "asset_class": "us_equity", "symbol": "AAPL", "qty": "10", "qty_available": "10" }]));
-    assert!(v.free_base_identified(&apple(), two).await.is_err(), "two assets answer to AAPL: Rails' skip would read 0");
+    assert!(v.free_base_identified(&apple(), two).await.is_err(), "two assets answer to AAPL: 2.x's skip would read 0");
     let v = account(json!([{ "asset_class": "us_equity", "symbol": "AAPL", "qty": "10" }]));
     assert_eq!(v.free_base_identified(&apple(), catalog).await, Err(VenueError::Rejected(vec!["a position without a quantity".into()])));
     let v = account(json!([{ "asset_class": "us_equity", "symbol": "", "qty": "10", "qty_available": "1" }]));

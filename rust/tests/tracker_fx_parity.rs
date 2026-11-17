@@ -101,7 +101,7 @@ async fn compare(cases: &[&str]) {
         let directory = if name.starts_with("sync_") { std::env::var("D5_SYNC_GRID").unwrap_or_else(|_|root.clone()) } else { root.clone() };
         let source = Path::new(&directory).join(format!("d5_{name}"));
         let scenario: Value = serde_json::from_slice(&std::fs::read(source.join("scenario.json")).unwrap()).unwrap();
-        let v2: Value = serde_json::from_slice(&std::fs::read(source.join("rails.json")).unwrap()).unwrap();
+        let v2: Value = serde_json::from_slice(&std::fs::read(source.join("expected.json")).unwrap()).unwrap();
         assert!(v2["network"].as_array().unwrap().is_empty());
         let expected = v2["responses"].as_array().unwrap().last().unwrap();
         let step = scenario["steps"].as_array().unwrap().last().unwrap();

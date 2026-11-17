@@ -40,13 +40,13 @@ async fn every_recorded_bulk_price_read_is_answered_as_v2_answers_it() {
         let transport = ScriptedTransport::from_script(&case["http"]);
         let got = answer(venue, transport.clone(), &symbols).await;
         let requests: Vec<String> = transport.requests().iter().map(http::request_key).collect();
-        if Value::from(requests.clone()) != case["requests"] { failures.push(format!("{venue} {name}: requested {requests:?}, Rails {}", case["requests"])); }
+        if Value::from(requests.clone()) != case["requests"] { failures.push(format!("{venue} {name}: requested {requests:?}, 2.x {}", case["requests"])); }
         let network = case["http"].as_object().unwrap().values().flat_map(|r| r.as_array().unwrap()).any(|r| r.get("network").is_some());
         let ok = match (&got, case.get("prices"), case.get("failure"), case.get("raised")) {
             (Ok(prices), Some(v2), _, _) => {
                 let mut want = v2.as_object().unwrap().clone();
                 for (_, _, code) in OMITTED.iter().filter(|(v, n, _)| *v == venue && *n == name) {
-                    assert!(want.remove(*code).is_some(), "{venue} {name}: Rails no longer prices {code}; drop it from OMITTED");
+                    assert!(want.remove(*code).is_some(), "{venue} {name}: 2.x no longer prices {code}; drop it from OMITTED");
                     diverged.push(name.to_string());
                 }
                 prices.iter().cloned().collect::<Map<String, Value>>() == want && prices.len() == want.len()
@@ -58,7 +58,7 @@ async fn every_recorded_bulk_price_read_is_answered_as_v2_answers_it() {
             (Err(VenueError::Ambiguous(m)), _, _, Some(_)) => case.get("message").is_none_or(|v2| v2 == m),
             _ => false,
         };
-        if !ok { failures.push(format!("{venue} {name}: rust {got:?}\n  rails {}", Value::Object(case.as_object().unwrap().clone()))); }
+        if !ok { failures.push(format!("{venue} {name}: rust {got:?}\n  2.x {}", Value::Object(case.as_object().unwrap().clone()))); }
     }
     assert!(failures.is_empty(), "{} of {} cases differ:\n{}", failures.len(), cases.len(), failures.join("\n"));
     assert_eq!(diverged.len(), OMITTED.len(), "every listed divergence is still recorded");

@@ -98,7 +98,7 @@ fn only_explicit_terminal_evidence_on_a_market_order_is_kept_and_it_settles_stri
     let parse = |raw: &Value| kucoin::parse_order(id, raw, &Pairs::default());
     let s = parse(&base).unwrap();
     let created = at(created);
-    assert_eq!((s.status, s.zero_fill_at, s.settles_at()), (OrderStatus::Unknown, Some(created), Some(created + ZERO_FILL_SETTLE)), "parsed as Rails parses it");
+    assert_eq!((s.status, s.zero_fill_at, s.settles_at()), (OrderStatus::Unknown, Some(created), Some(created + ZERO_FILL_SETTLE)), "parsed as 2.x parses it");
     assert_eq!(s.clone().settled(created + Duration::seconds(30)).status, OrderStatus::Unknown, "young");
     assert_eq!(s.clone().settled(created + ZERO_FILL_SETTLE).status, OrderStatus::Unknown, "exactly one minute is not older");
     let done = s.clone().settled(created + ZERO_FILL_SETTLE + Duration::milliseconds(1));
@@ -146,7 +146,7 @@ async fn the_recorded_answers_fail_past_the_window_as_kucoins_funds_rejection_an
         let unknown = Err(PollFailure::General(format!("Order {id} status is unknown.")));
         let logs = k.logs();
         for young in [Duration::seconds(30), ZERO_FILL_SETTLE] {
-            assert_eq!(polling::sweep(&k.o.primary, &kv(&t), &k.bot(), at(created) + young).await, unknown, "{id}: inside the window the sweep raises, as Rails");
+            assert_eq!(polling::sweep(&k.o.primary, &kv(&t), &k.bot(), at(created) + young).await, unknown, "{id}: inside the window the sweep raises, as 2.x");
         }
         assert_eq!((k.row(id).0, k.failed(id).0, k.failure().0, k.logs()), (0, 0, 1, logs.clone()), "{id}: nothing written while young");
         let later = at(created) + ZERO_FILL_SETTLE + Duration::seconds(1);

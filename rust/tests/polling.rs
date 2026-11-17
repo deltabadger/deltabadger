@@ -34,7 +34,7 @@ async fn a_closed_fill_updates_the_row_and_leaves_the_carry_alone() {
     polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.unwrap();
     let (ext, price, qexec): (i64, f64, f64) = o.primary.query_row("SELECT external_status, price, quote_amount_exec FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
     assert_eq!((ext, price, qexec), (2, 50010.5, 60.0));
-    assert_eq!(bot(&o, b).transient["missed_quote_amount"], json!("100.0"), "Rails (#448): a fill is credited by its own row, never by the carry");
+    assert_eq!(bot(&o, b).transient["missed_quote_amount"], json!("100.0"), "2.x (#448): a fill is credited by its own row, never by the carry");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -47,7 +47,7 @@ async fn an_unchanged_order_is_not_rewritten() {
     let before: String = o.primary.query_row("SELECT updated_at FROM transactions WHERE id = ?1", [tx], |r| r.get(0)).unwrap();
     polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.unwrap();
     let after: String = o.primary.query_row("SELECT updated_at FROM transactions WHERE id = ?1", [tx], |r| r.get(0)).unwrap();
-    assert_eq!(before, after, "Rails' update with no changes writes nothing");
+    assert_eq!(before, after, "2.x's update with no changes writes nothing");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -162,7 +162,7 @@ async fn a_poll_writes_nothing_to_the_bot() {
     let before: String = o.primary.query_row("SELECT json_array(updated_at, transient_data) FROM bots WHERE id = ?1", [b], |r| r.get(0)).unwrap();
     polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.unwrap();
     let after: String = o.primary.query_row("SELECT json_array(updated_at, transient_data) FROM bots WHERE id = ?1", [b], |r| r.get(0)).unwrap();
-    assert_eq!(after, before, "Rails' polls (#448) no longer rewrite the carry, so the bot row is untouched");
+    assert_eq!(after, before, "2.x's polls (#448) no longer rewrite the carry, so the bot row is untouched");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -244,7 +244,7 @@ async fn a_venue_that_names_no_missing_ids_leaves_an_unreported_row_waiting_even
     let v = NoMissing(FakeVenue::new());
     polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.unwrap();
     let ext: i64 = o.primary.query_row("SELECT external_status FROM transactions WHERE id = ?1", [old], |r| r.get(0)).unwrap();
-    assert_eq!(ext, 0, "Rails never abandons a Binance row get_orders did not return");
+    assert_eq!(ext, 0, "2.x never abandons a Binance row get_orders did not return");
     assert_eq!(v.0.calls("/0/private/TradesHistory"), 0, "no trade recovery for an id the venue did not name missing");
     // Under Kraken's rules the same row is abandoned (the contrast that makes the flag matter).
     polling::sweep(&o.primary, &FakeVenue::new(), &bot(&o, b), now()).await.unwrap();
