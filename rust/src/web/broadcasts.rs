@@ -1,5 +1,5 @@
 //! BroadcastsController, for the three figures a page waits on: `broadcast--on-connect` posts here once every stream
-//! source of the page is connected (rust/web/javascript/controllers/broadcast/on_connect_controller.js). Rails answers
+//! source of the page is connected (rust/web/javascript/controllers/broadcast/on_connect_controller.js). 2.x answers
 //! `head :ok` at once and leaves the broadcast to a job; so does this build, and the work is `figure::loading::publish`.
 //! `wake_dispatcher`, the four limit rules' info and the orders table's refresh (`fetch_open_orders`) are served too.
 use super::layout::Ctx;
@@ -9,7 +9,7 @@ use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde_json::Value;
 
-/// `head status`: no body, and the type Rails gives an answer without one.
+/// `head status`: no body, and the type 2.x gives an answer without one.
 fn head(status: StatusCode) -> Response {
     (status, [(header::CONTENT_TYPE, "text/html")]).into_response()
 }
@@ -24,7 +24,7 @@ fn id(ctx: &Ctx, name: &str) -> Option<i64> {
     }
 }
 
-/// As Rails' job does, the work never changes the answer, and the answer never waits for it: it runs on a task of its
+/// As 2.x's job does, the work never changes the answer, and the answer never waits for it: it runs on a task of its
 /// own (`perform_later`). A publication that fails is retried by the `figures` service.
 fn publish(app: &App, user: i64) {
     let app = app.clone();
@@ -55,7 +55,7 @@ pub async fn global_pnl_update(State(app): State<App>, Extension(ctx): Extension
     Ok(head(StatusCode::OK))
 }
 
-/// `wake_dispatcher`: a page back from the background. Rails releases the overdue scheduled jobs and, a second on,
+/// `wake_dispatcher`: a page back from the background. 2.x releases the overdue scheduled jobs and, a second on,
 /// broadcasts each working bot's status bar (Bot::BroadcastAfterScheduledActionJob). This build has no job queue to
 /// release: the engine is woken to look at its bots now, and the bars go out as that job sends them.
 pub async fn wake_dispatcher(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
@@ -71,7 +71,7 @@ pub async fn wake_dispatcher(State(app): State<App>, Extension(ctx): Extension<C
     Ok(head(StatusCode::OK))
 }
 
-/// `price_limit_info_update`: the price rule's status line. Rails enqueues Bot::BroadcastPriceLimitInfoUpdateJob; this build
+/// `price_limit_info_update`: the price rule's status line. 2.x enqueues Bot::BroadcastPriceLimitInfoUpdateJob; this build
 /// leaves a versioned request for the engine (conditions::INFO_WANTED_KEY, a Rust-only key: updated_at untouched, outside the
 /// parity snapshots) with the request's locale (ActiveJob restores the enqueuer's) and side, and wakes it. The engine reads the
 /// price, judges the rule without writing it (D-INFO-READONLY) and stores the info, which the web renders (EngineEvent::ConditionInfo).
@@ -105,7 +105,7 @@ async fn info_update(app: App, ctx: Ctx, rule: Option<&'static str>) -> Result<R
 }
 
 /// `fetch_open_orders`: the orders table's refresh while the bot has waiting orders. A bot that is not the user's is "not
-/// found"; a deleted one is found. D-OPEN-ORDERS-WAKE: Rails runs Bot::FetchAndUpdateOpenOrdersJob inside the request, reading
+/// found"; a deleted one is found. D-OPEN-ORDERS-WAKE: 2.x runs Bot::FetchAndUpdateOpenOrdersJob inside the request, reading
 /// the venue; venue calls stay in the engine here, so the request leaves a versioned refresh request (polling::REFRESH_KEY)
 /// and wakes it, and the page hears the rows the engine's sweep writes. The page never reads this answer.
 pub async fn fetch_open_orders(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {

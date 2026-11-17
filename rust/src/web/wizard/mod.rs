@@ -6,7 +6,7 @@
 //! (Bots::DcaIndexes::*) is `index`, its save `index_create`; it shares the exchange table, the key step and the quote search.
 //! The signal wizard (Bots::Signals::*) is `signals`, with the key step's fourth namespace.
 //!
-//! The wizard's state is `session[:bot_config]` (web::session), a JSON object with string keys as Rails'
+//! The wizard's state is `session[:bot_config]` (web::session), a JSON object with string keys as 2.x's
 //! cookie serializer holds it.
 use super::layout::{self, Ctx, Page};
 use super::shell::{self, Shell};
@@ -195,7 +195,7 @@ impl Step {
     }
 }
 
-/// Ruby's `to_i` on a decoded session value: an Integer as it is, a String read as Ruby reads it, nothing else a number.
+/// 2.x's `to_i` on a decoded session value: an Integer as it is, a String read as 2.x reads it, nothing else a number.
 pub fn to_i(value: &Value) -> i64 {
     match value {
         Value::Number(number) => number.as_i64().unwrap_or_else(|| number.as_f64().map_or(0, |f| f as i64)),
@@ -257,7 +257,7 @@ pub fn chips(c: &Connection, ids: &[i64]) -> Result<Vec<Chip>, WebError> {
         let Some((id, symbol, name, color, category)) = found else { continue };
         chips.push(Chip {
             id, symbol: symbol.unwrap_or_default(), name: name.unwrap_or_default(), class: colors::ticker_class(category.as_deref(), color.as_deref()),
-            pill: colors::pill_color(color.as_deref()).ok_or_else(|| WebError::Config("an asset colour Ruby cannot read".into()))?,
+            pill: colors::pill_color(color.as_deref()).ok_or_else(|| WebError::Config("an asset colour 2.x cannot read".into()))?,
         });
     }
     Ok(chips)
@@ -363,8 +363,8 @@ pub fn expired(ctx: &Ctx) -> Option<Response> {
 /// 3.0 A26 (D-LEGACY-STALE-CREATE): the old create forms (`POST /bots/dca_multi_assets`, `POST /bots/dca_indexes`,
 /// `/bots/dca_indexes/confirm_settings(/new)`), which Rust's wizards replaced with a create at their last step. Nothing
 /// is read from the form or the session: no bot is made, and the wizard's state is dropped. The browser goes to the
-/// wizard's start, as a Turbo Stream when it asked for one (how Rails' create left the modal). A 2.x tab never gets
-/// here: it carries Rails' cookie and token, which the pipeline turns back first.
+/// wizard's start, as a Turbo Stream when it asked for one (how 2.x's create left the modal). A 2.x tab never gets
+/// here: it carries 2.x's cookie and token, which the pipeline turns back first.
 pub async fn stale(Extension(ctx): Extension<Ctx>) -> Response {
     ctx.session.lock().bot_config = None;
     let start = ctx.path("/bots/new");

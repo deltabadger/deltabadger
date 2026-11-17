@@ -47,7 +47,7 @@ pub struct Draft {
     pub errors: Vec<FieldError>,
     pub sliders: Option<Value>,
     pub submitted: Map<String, Value>,
-    /// The zone Rails' Time.current is in when this save runs: the caller's own over MCP (ActionMCP sets it),
+    /// The zone 2.x's Time.current is in when this save runs: the caller's own over MCP (ActionMCP sets it),
     /// UTC on the web. The *_enabled_at callbacks store their time in it.
     pub callback_zone: Option<String>,
     /// `errors` as the last validate added them, before it grouped them by field: ActiveModel's full_messages order,
@@ -300,7 +300,7 @@ pub(super) fn form_field(kind: Kind, key: &str) -> bool {
 }
 
 /// D-IDX-CONDITIONS / D-IDX-CAP: an index bot's page and API take the fields of the rules this build runs on it
-/// (`conditions::support`): the cap and the buy side's price rule. Rails' index bot has none.
+/// (`conditions::support`): the cap and the buy side's price rule. 2.x's index bot has none.
 fn index_rule_field(key: &str) -> bool {
     field_rule(key).is_some_and(|(rule, selling)| support(Kind::Index, rule, selling, "pause") == Support::Implemented)
 }
@@ -456,7 +456,7 @@ impl Draft {
     }
     fn number(&mut self, locale: &str, field: &str, lower: Option<(f64, bool)>, upper: Option<f64>, integer: bool) -> Option<f64> {
         let value = self.read(field);
-        // Numericality is a strict numeric read. The request parser has already applied Ruby's
+        // Numericality is a strict numeric read. The request parser has already applied 2.x's
         // prefix coercion; a malformed stored value must not become a successful zero here.
         let n = match &value { Value::Number(n) => n.as_f64(), Value::String(s) => s.trim().parse::<f64>().ok(), _ => None }.filter(|n| n.is_finite());
         let Some(n) = n else { self.error(locale, field, "not_a_number", None); return None };
@@ -476,7 +476,7 @@ impl Draft {
         keys.iter().any(|key| !equal_option(self.raw_settings.get(*key), self.candidate.settings.get(*key)))
     }
 
-    /// Shared writer boundary, after Rails validation so Rails refusals keep their order/text.
+    /// Shared writer boundary, after 2.x validation so 2.x refusals keep their order/text.
     /// Returns true only for an additional Rust schedule-range refusal.
     pub fn validate_schedule_bounds(&mut self, locale: &str, now: DateTime<Utc>) -> Result<bool,WebError> {
         if !self.errors.is_empty() { return Ok(false); }
@@ -641,7 +641,7 @@ impl Draft {
             self.inclusion(locale, "sell_denomination", &["base", "quote"]);
             for field in ["sell_amount", "sell_quote_amount"] {
                 if present(&self.read(field)) {
-                    // Rails readers call to_d (an invalid stored string becomes zero).
+                    // 2.x readers call to_d (an invalid stored string becomes zero).
                     if numeric(&self.read(field), false)?.as_f64().is_some_and(|v| v <= 0.0) { self.error(locale, field, "greater_than", Some(0.0)); }
                 }
             }
@@ -651,7 +651,7 @@ impl Draft {
             }
         }
         // The action contract also freezes index composition while running or pending.
-        // Rails currently applies this lock only to baskets; retain its recorded message.
+        // 2.x currently applies this lock only to baskets; retain its recorded message.
         if self.candidate.kind == Kind::Index && context == ValidationContext::Update
             && (self.original.working() || self.candidate.transient.get("rebalance_pending").is_some_and(present))
             && (self.composition_changed() || self.original.exchange.id != self.candidate.exchange.id) {
@@ -694,7 +694,7 @@ impl Draft {
     }
 
     /// A14b (D-SPLIT-BASE-CAP): whether this save writes a new basis for the base cap (accounting::BASIS_KEY): the saved state
-    /// has the switch on, and the switch turns on, the number changes by value (Ruby's numeric equality: 10 is 10.0), or the
+    /// has the switch on, and the switch turns on, the number changes by value (2.x's numeric equality: 10 is 10.0), or the
     /// one asset changes. Anything else leaves the basis, or its absence, as it is.
     fn writes_basis(&self) -> bool {
         let on = |s: &Map<String, Value>| s.get("base_amount_limited") == Some(&json!(true));
@@ -838,7 +838,7 @@ impl Draft {
 
     fn conditions(&mut self, locale: &str) {
         // Follow each concern's declaration order, including the intentionally asymmetric
-        // price/sell-price validations in Rails.
+        // price/sell-price validations in 2.x.
         self.boolean(locale, "price_limited");
         for sell in [false, true] {
             let prefix = if sell { "sell_price_limit" } else { "price_limit" };
@@ -919,7 +919,7 @@ impl Draft {
     }
 
     /// `@bot.exchange.nil? || @bot.quote_asset.nil? || @bot.interval_duration.nil?` on the candidate:
-    /// a reference Rails cannot draw, so a refused update shows the bot as stored.
+    /// a reference 2.x cannot draw, so a refused update shows the bot as stored.
     pub fn undrawable(&self) -> bool {
         self.exchange_missing || self.candidate.quote_asset.is_none() || self.candidate.interval().is_none()
     }
@@ -1014,7 +1014,7 @@ fn changes(before: &Map<String, Value>, after: &Map<String, Value>) -> JsonChang
         remove: before.keys().filter(|key| !after.contains_key(*key)).cloned().collect() }
 }
 
-// Ruby Hash equality compares Numbers by value, but distinguishes an absent key from JSON null.
+// 2.x's Hash equality compares Numbers by value, but distinguishes an absent key from JSON null.
 fn equal_option(a: Option<&Value>, b: Option<&Value>) -> bool {
     match (a, b) { (Some(a), Some(b)) => equal(a, b), (None, None) => true, _ => false }
 }
@@ -1045,7 +1045,7 @@ impl Draft {
     }
 }
 
-/// What Rails' readers give a sell-side setting the row lacks (`value.nil? ? default : value`, the concerns' sell fallbacks):
+/// What 2.x's readers give a sell-side setting the row lacks (`value.nil? ? default : value`, the concerns' sell fallbacks):
 /// `field` with its `sell_` prefix. Null where the reader has no fallback.
 pub(super) fn sell_default(field: &str) -> Value {
     if field == "base_amount_limited" || field.starts_with("sell_") && field.ends_with("ed") { return json!(false); }

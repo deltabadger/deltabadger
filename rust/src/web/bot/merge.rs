@@ -3,10 +3,10 @@
 //! for the bots the user picked (the first is the anchor), `create` merges exactly the bots the modal named, in one write
 //! transaction that calls no venue and no market-data service.
 //!
-//! The fence is per bot (write::engine_holds, D-FENCE-PER-BOT): Rails takes every source venue's lease and refuses while a job
+//! The fence is per bot (write::engine_holds, D-FENCE-PER-BOT): 2.x takes every source venue's lease and refuses while a job
 //! holds one; this build refuses while the engine holds a source and bumps every source's run generation.
-//! D-MERGE-REVERSAL-PENDING: a source whose ⇄ reversal still has cancels or reserve credits to settle is refused (Rails
-//! merges it), so the merged bot is never credited a carry Rails does not move.
+//! D-MERGE-REVERSAL-PENDING: a source whose ⇄ reversal still has cancels or reserve credits to settle is refused (2.x
+//! merges it), so the merged bot is never credited a carry 2.x does not move.
 use super::{index_switch, write, Bot, For, Kind};
 use crate::engine::{eligibility, model, reversal};
 use crate::enums::BotStatus;
@@ -159,7 +159,7 @@ impl Merge {
             && !index_switch::in_flight(c, &source.engine, now.utc())? && members && !reversal_pending(&source.engine))
     }
 
-    /// Bot::Merge#reason, in its order. The books are read fresh here, as Rails' `reason` reads them for verify_books!.
+    /// Bot::Merge#reason, in its order. The books are read fresh here, as 2.x's `reason` reads them for verify_books!.
     fn reason(&mut self, c: &Connection, now: At) -> Result<Option<Reason>, WebError> {
         if self.bots.len() < self.ids.len() { return Ok(Some(Reason::Plain("missing"))); }
         if self.bots.len() < 2 { return Ok(Some(Reason::Plain("too_few"))); }
@@ -196,7 +196,7 @@ impl Merge {
         }
     }
 
-    /// The anchor's `unavailable`: a source the engine holds right now (the lease Rails could not take).
+    /// The anchor's `unavailable`: a source the engine holds right now (the lease 2.x could not take).
     fn unavailable(&self, locale: &str) -> String { Self::translate(locale, &Reason::Bot("unavailable", self.anchor().bot.label.clone())) }
 
     /// `{asset id => weight}`: the summed weights, normalised by the basket's own normaliser (3 dp, sums to 1).
@@ -361,7 +361,7 @@ fn write_merged(tx: &Connection, ctx: &Ctx, owner: i64, merge: &Merge, now: Date
     built.settings.insert("allocations".into(), Value::Object(allocations));
     built.set_members(tx, members, ctx.locale)?;
     let errors = wizard::create::validate(tx, &built, ctx.locale)?;
-    // `save!`: a merged bot Rails cannot save raises.
+    // `save!`: a merged bot 2.x cannot save raises.
     if !errors.is_empty() { return Err(super::data(format!("merged bot invalid: {}", errors.join(", ")))); }
     let id = wizard::create::insert_as(tx, owner, built, now, BotStatus::Stopped, anchor.position)?;
 
@@ -370,7 +370,7 @@ fn write_merged(tx: &Connection, ctx: &Ctx, owner: i64, merge: &Merge, now: Date
     tx.execute("UPDATE transactions SET bot_id = ?1 WHERE bot_id IN (SELECT value FROM json_each(?2))", (id, &list))?;
     tx.execute("UPDATE bot_activity_logs SET bot_id = ?1 WHERE bot_id IN (SELECT value FROM json_each(?2))", (id, &list))?;
     fold_memberships(tx, id, &list, exchange, anchor.bot.setting("quote_asset_id").and_then(Value::as_i64), now)?;
-    // `bots.sum(&:redeploy_declined_offset)`, a BigDecimal, written as its text (the column's affinity stores it as Rails' does).
+    // `bots.sum(&:redeploy_declined_offset)`, a BigDecimal, written as its text (the column's affinity stores it as 2.x's does).
     let mut offset = Dec::zero();
     for source in &merge.bots {
         let value = Dec::parse(&source.offset).map_err(|e| super::data(format!("bot {}: redeploy_declined_offset {e:?}", source.bot.id)))?;

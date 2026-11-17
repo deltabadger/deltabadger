@@ -4,7 +4,7 @@
 //! saves the bot (index_create). Every step but the first sends the browser to it while no market data is configured.
 //!
 //! What this engine runs is an index bot on Alpaca, Kraken or Binance on a data-api install (eligibility::admission and index_reasons);
-//! the steps offer what Rails offers, and the key and quote steps refuse, by name, an index bot this build would not run.
+//! the steps offer what 2.x offers, and the key and quote steps refuse, by name, an index bot this build would not run.
 use super::exchanges::{ordered, Table, Venue as Tile};
 use super::index_create::{self as create, count_named, display_index_name, index_row};
 use super::keys::FullPage;
@@ -185,7 +185,7 @@ pub(crate) fn tiles(c: &Connection, app: &App, followable: Option<&Followable>) 
         for coin in &coins {
             if pills.len() >= TILE_PILLS { break }
             let Some((id, symbol, color)) = assets.get(coin) else { continue };
-            pills.push(Pill { id: *id, symbol: symbol.clone(), color: colors::pill_color(color.as_deref()).ok_or_else(|| WebError::Config("an asset colour Ruby cannot read".into()))? });
+            pills.push(Pill { id: *id, symbol: symbol.clone(), color: colors::pill_color(color.as_deref()).ok_or_else(|| WebError::Config("an asset colour 2.x cannot read".into()))? });
         }
         let most = available.and_then(|text| serde_json::from_str::<Value>(&text).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default()
             .values().filter_map(|count| count.as_i64().or_else(|| count.as_f64().map(|f| f as i64))).max().unwrap_or(0);
@@ -409,7 +409,7 @@ fn quote_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) -> 
             for row in s.query_map(rusqlite::params![venue.id, json!(coins).to_string()], |r| Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?, r.get::<_, Option<String>>(3)?)))? {
                 let (quote, id, symbol, color) = row?;
                 let Some(quote) = quote else { continue };
-                by_quote.push((quote, Pill { id, symbol: symbol.unwrap_or_default(), color: colors::pill_color(color.as_deref()).ok_or_else(|| WebError::Config("an asset colour Ruby cannot read".into()))? }));
+                by_quote.push((quote, Pill { id, symbol: symbol.unwrap_or_default(), color: colors::pill_color(color.as_deref()).ok_or_else(|| WebError::Config("an asset colour 2.x cannot read".into()))? }));
             }
         }
     }
@@ -456,7 +456,7 @@ enum Saved { Created(i64), Invalid(String) }
 
 /// POST .../pick_spendable_asset: the quote joins the session's settings with the index wizard's defaults (quote_amount 100,
 /// interval week, allocation_flattening 0.0, where none is set), and the bot is saved: created, not started. A blank quote
-/// re-renders the step (422); a bot Rails would not save re-renders it with the reason, the session keeping what was merged.
+/// re-renders the step (422); a bot 2.x would not save re-renders it with the reason, the session keeping what was merged.
 pub async fn quote_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     if let Some(answer) = expired(&ctx) { return Ok(answer) }

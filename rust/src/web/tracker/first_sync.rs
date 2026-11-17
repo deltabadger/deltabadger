@@ -28,7 +28,7 @@ use axum::{http::StatusCode,response::Response};
 struct Page<'a>{v:&'a Ctx,preferences:String,tax_report:String,sync:String,csrf:String,hidden:bool,show_cash:bool,scope:Option<String>,export_path:String,from:String,to:String,record_switch:String,hint:String,unavailable:String,cold:Option<super::holdings::Presentation>,holdings:String}
 
 /// `Date.parse` of what an HTML date control submits, an ISO day: `None` for any other grammar, which stays refused, and an
-/// error for an impossible day, which Rails raises on.
+/// error for an impossible day, which 2.x raises on.
 pub(super) fn iso_day(raw:&str)->Result<Option<chrono::NaiveDate>,WebError>{
     if raw.len()!=10 || raw.as_bytes().get(4)!=Some(&b'-') || raw.as_bytes().get(7)!=Some(&b'-') || !raw.bytes().enumerate().all(|(i,b)|i==4||i==7||b.is_ascii_digit()){return Ok(None);}
     if raw < "1583-01-01" {return Ok(None);}
@@ -51,7 +51,7 @@ pub(super) fn render_with(c:&Connection,ctx:&Ctx,owner:i64,cold:Option<super::ho
     let settings:Option<String>=c.query_row("SELECT tracker_settings FROM users WHERE id=?1",[owner],|r|r.get(0))?;
     let shape:serde_json::Value=match settings.as_deref(){Some(raw)=>serde_json::from_str(raw).map_err(|_|super::row::invalid())?,None=>serde_json::Value::Null};
     if !shape.is_null() && !shape.is_object(){return Err(super::row::invalid());}
-    // Rails' show_cash? expects a JSON object; syntax and shape are checked before this helper.
+    // 2.x's show_cash? expects a JSON object; syntax and shape are checked before this helper.
     let show_cash=crate::web::bots::show_cash(settings.as_deref());
     // The record opens on the Holdings pane (3.0, Rust only): the card, or the never-synced one, under its class filter.
     let record_switch=super::record::switch(ctx)?;

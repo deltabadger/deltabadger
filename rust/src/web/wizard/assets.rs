@@ -46,7 +46,7 @@ fn chosen(c: &Connection, config: Option<&Value>) -> Result<Chosen, WebError> {
 
 impl Chosen {
     /// `search_scope`: before the first pick the blank one-asset bot, then the basket. Neither sees the session's quote.
-    /// ponytail: the blank bot's scope is read as an empty basket's, which leaves out a retired venue Rails' one-pair scope still
+    /// ponytail: the blank bot's scope is read as an empty basket's, which leaves out a retired venue 2.x's one-pair scope still
     /// lists (Exchange.available, not .tradeable) and a chosen venue no longer available; no install of this build has either.
     fn scope(&self) -> Basket { Basket { exchange_id: self.venue, quote_asset_id: None, base_asset_ids: self.ids.clone() } }
 }

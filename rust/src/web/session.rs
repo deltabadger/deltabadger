@@ -1,10 +1,10 @@
-//! The session: one encrypted cookie, `_deltabadger_rust_session`. It is deliberately not Rails'
+//! The session: one encrypted cookie, `_deltabadger_rust_session`. It is deliberately not 2.x's
 //! `_deltabadger_session`: switching engines costs one sign-in. AES-256-GCM under a key
 //! derived from `secret_key_base` for this purpose only; the cookie name is the associated data.
-//! Attributes as config/application.rb sets them for Rails: 30 days, HttpOnly, SameSite=Lax, and
-//! Secure exactly when Rails' cookie would be.
+//! Attributes as 2.x sets them: 30 days, HttpOnly, SameSite=Lax, and
+//! Secure exactly when 2.x's cookie would be.
 //!
-//! Unlike Rails, the cookie is not written again on every response. It is written when the session's
+//! Unlike 2.x, the cookie is not written again on every response. It is written when the session's
 //! content changed in the request, and at no other time. A response to an older request, one that
 //! still carried the previous cookie, then cannot put that previous session back over a newer one (a
 //! sign-in lost to a background request, a sign-out undone by a request that was still in flight).
@@ -21,18 +21,18 @@ use serde_json::{json, Value};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 pub const COOKIE: &str = "_deltabadger_rust_session";
-/// `expire_after: 30.days` (pinned by tests/session.rs against the recorded Rails setting).
+/// `expire_after: 30.days` (pinned by tests/session.rs against the recorded 2.x setting).
 pub const LIFETIME_SECONDS: i64 = 30 * 24 * 60 * 60;
 /// ActionDispatch::Cookies::MAX_COOKIE_SIZE: a cookie's name and value together.
 pub const MAX_COOKIE_BYTES: usize = 4096;
 
-/// Rails' `check_for_overflow!`: a session this large is refused (CookieOverflow), never cut short.
+/// 2.x's `check_for_overflow!`: a session this large is refused (CookieOverflow), never cut short.
 pub fn overflows(sealed: &str) -> bool {
     COOKIE.len() + sealed.len() > MAX_COOKIE_BYTES
 }
 
 /// The second-factor step of a sign-in that has passed the password stage (Users::SessionsController), tied to the password
-/// it passed by that password's salt (D-PENDING-SIGN-IN-BOUND-TO-PASSWORD: Rails' pending_user_id is not), so a password
+/// it passed by that password's salt (D-PENDING-SIGN-IN-BOUND-TO-PASSWORD: 2.x's pending_user_id is not), so a password
 /// change ends it as it ends a session. A pending sign-in without the salt (an older cookie) reads as none.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Pending {
@@ -43,7 +43,7 @@ pub struct Pending {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SessionData {
-    /// The new-bot wizard's `session[:bot_config]`, string keys as Rails' JSON cookie serializer holds them.
+    /// The new-bot wizard's `session[:bot_config]`, string keys as 2.x's JSON cookie serializer holds them.
     /// `None` (never set) and `{}` (BotsController#new) are different sessions.
     pub bot_config: Option<Value>,
     /// The withdrawal wizard, independent of the bot wizard.
@@ -164,7 +164,7 @@ pub fn from_request(key: &[u8; 32], headers: &HeaderMap, now: DateTime<Utc>) -> 
     cookie_values(headers).find_map(|value| read(key, value, now))
 }
 
-/// `Set-Cookie` as Rails writes its session cookie, under our name.
+/// `Set-Cookie` as 2.x writes its session cookie, under our name.
 pub fn set_cookie(value: &str, now: DateTime<Utc>, secure: bool) -> HeaderValue {
     let expires = (now + Duration::seconds(LIFETIME_SECONDS)).format("%a, %d %b %Y %H:%M:%S GMT");
     let secure = if secure { "; secure" } else { "" };

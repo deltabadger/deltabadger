@@ -1,8 +1,8 @@
-//! CSRF protection as Rails' `protect_from_forgery` gives it to the pages and the compiled JS:
+//! CSRF protection as 2.x's `protect_from_forgery` gives it to the pages and the compiled JS:
 //! one random token per session, handed out masked (a fresh one-time pad each time, so a compressed
 //! response never repeats it), in `<meta name="csrf-token">` and the hidden `authenticity_token`
 //! field, and accepted from that field or the `X-CSRF-Token` header. A request with an `Origin`
-//! header must also come from this deployment's own origin (Rails' forgery_protection_origin_check).
+//! header must also come from this deployment's own origin (2.x's forgery_protection_origin_check).
 use axum::http::{header, HeaderMap};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD as B64URL, Engine};
 use subtle::ConstantTimeEq;
@@ -33,10 +33,10 @@ pub fn valid(token: &str, submitted: &str) -> bool {
     unmasked.ct_eq(&raw).into()
 }
 
-/// Rails' forgery_protection_origin_check: a request without an `Origin` header passes (some user
+/// 2.x's forgery_protection_origin_check: a request without an `Origin` header passes (some user
 /// agents send none); one with it must name one of `expected` exactly, scheme, host and port (this
 /// deployment's origins, `Config::form_origins`). A header that is not text, or that is `null`, names
-/// no origin of ours and fails. (Rails raises on `null`, a 422; here it is the same refusal as any
+/// no origin of ours and fails. (2.x raises on `null`, a 422; here it is the same refusal as any
 /// other mismatch.)
 pub fn same_origin(headers: &HeaderMap, expected: &[Option<&str>]) -> bool {
     match headers.get(header::ORIGIN) {
@@ -46,7 +46,7 @@ pub fn same_origin(headers: &HeaderMap, expected: &[Option<&str>]) -> bool {
 }
 
 /// The whole check for a non-GET request: our origin, and a valid token in the form field or in the
-/// `X-CSRF-Token` header. Either one is enough, as in Rails (`any_authenticity_token_valid?`): an
+/// `X-CSRF-Token` header. Either one is enough, as in 2.x (`any_authenticity_token_valid?`): an
 /// invalid field beside a valid header passes.
 pub fn verified(token: Option<&str>, headers: &HeaderMap, form_token: Option<&str>, expected_origin: &[Option<&str>]) -> bool {
     let Some(token) = token else { return false };

@@ -1,7 +1,7 @@
-//! What the bot page hears while the engine works on the bot: the broadcasts Rails makes from its jobs and callbacks,
+//! What the bot page hears while the engine works on the bot: the broadcasts 2.x makes from its jobs and callbacks,
 //! rendered as the owner sees them (Bot#with_user_locale) from the rows as they are when the event is read. A status the
-//! engine changed (a tick's claim, a follow-up fill's amount-limit stop) redraws the status as Rails' after_update_commit
-//! does (app/models/bot.rb:38-40); a tick's end redraws the
+//! engine changed (a tick's claim, a follow-up fill's amount-limit stop) redraws the status as 2.x's after_update_commit
+//! does; a tick's end redraws the
 //! bars, as Bot::ActionJob's rescue and Bot::BroadcastAfterScheduledActionJob do, and the buttons and columns lock too when
 //! the tick stopped the bot (Bot::StopJob's status change); each order inserted or written is Transaction's
 //! after_create_commit / after_update_commit (Bot#broadcast_new_order, #broadcast_updated_order).
@@ -22,7 +22,7 @@ pub(super) fn owner_ctx(app: &App, owner: User) -> Ctx {
           method: axum::http::Method::GET, locale, nonce: String::new(), now: app.now(), turbo_frame: None, stream: false }
 }
 
-/// The messages one event owes the bot's page, in Rails' order.
+/// The messages one event owes the bot's page, in 2.x's order.
 pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(String, String)>, WebError> {
     let bot_id = match event {
         EngineEvent::StatusChanged { bot_id } | EngineEvent::TickEnded { bot_id } | EngineEvent::OrderRecorded { bot_id, .. } | EngineEvent::OrderWritten { bot_id, .. }
@@ -32,7 +32,7 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
     let owner: Option<i64> = OptionalExtension::optional(c.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0)))?;
     let Some(owner) = owner.and_then(|id| User::find(c, id).transpose()).transpose()? else { return Ok(vec![]) };
     let ctx = owner_ctx(app, owner.clone());
-    // A bot this build does not render, or deleted meanwhile: Rails' job finds nothing to draw either.
+    // A bot this build does not render, or deleted meanwhile: 2.x's job finds nothing to draw either.
     let Some(bot) = Bot::find(c, owner.id, bot_id, For::Page, ctx.locale)? else { return Ok(vec![]) };
     if bot.unrendered().is_some() { return Ok(vec![]); }
     let stream = format!("user_{}:bot_updates", owner.id);
@@ -101,7 +101,7 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
 
 /// The `live` service of `deltabadger serve`: each event the engine sends (EngineEvent::is_live), and each the web asks for
 /// (`web`, App::announce), is rendered and broadcast one at a time, so what the page last receives is what was last read
-/// (D-LIQUIDATION-ONE-LINE). A render that fails is logged and dropped, as a Rails broadcast job that raised is; the next
+/// (D-LIQUIDATION-ONE-LINE). A render that fails is logged and dropped, as a 2.x broadcast job that raised is; the next
 /// event, or a reload, shows the bot as it is.
 pub async fn follow(app: App, mut events: tokio::sync::mpsc::UnboundedReceiver<EngineEvent>, mut web: Option<tokio::sync::mpsc::UnboundedReceiver<EngineEvent>>,
                     mut stop: tokio::sync::watch::Receiver<bool>) -> Result<(), String> {

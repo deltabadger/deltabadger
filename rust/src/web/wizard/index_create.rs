@@ -1,8 +1,8 @@
 //! The index wizard's save of a new Bots::DcaIndex (Bots::DcaIndexes::PickSpendableAssetsController, by way of
 //! Bots::Wizard::PickSpendableAssetsController#finalise_and_redirect): `bot_relation.new(session config)`,
-//! `set_missed_quote_amount`, `save`. Every callback Rails runs on that save is listed in `CALLBACKS` with how this port
-//! handles it; tests/fixtures/index_create_callbacks.json pins Rails' list (script/rust/record_bot_create_callbacks.rb), so a
-//! callback added or changed there fails `index_create_callbacks_are_all_handled` until this file follows. Rails derives no
+//! `set_missed_quote_amount`, `save`. Every callback 2.x runs on that save is listed in `CALLBACKS` with how this port
+//! handles it; tests/fixtures/index_create_callbacks.json pins 2.x's list, so a
+//! callback added or changed there fails `index_create_callbacks_are_all_handled` until this file follows. 2.x derives no
 //! composition on create (no bot_index_assets row): the first buy does.
 use crate::codec::format_time;
 use crate::web::{i18n, WebError};
@@ -105,7 +105,7 @@ impl IndexRow {
         match self.by_exchange.get(exchange_type) {
             Some(Value::Array(ids)) => ids.iter().filter_map(|id| id.as_str().map(str::to_string)).collect(),
             Some(Value::Null) | None => self.top_coins.clone(),
-            // A value that is not a list is what Rails would `||` past only when nil.
+            // A value that is not a list is what 2.x would `||` past only when nil.
             Some(_) => vec![],
         }
     }
@@ -143,7 +143,7 @@ fn num_coins(settings: &Map<String, Value>) -> Option<i64> {
 }
 
 /// "Layer-1" as ActiveSupport's `titleize` writes "layer-1": words split on `-`, `_` and spaces, each capitalised.
-// ponytail: the words a category id holds; Rails' inflector also knows acronyms and keeps apostrophes, which no id uses.
+// ponytail: the words a category id holds; 2.x's inflector also knows acronyms and keeps apostrophes, which no id uses.
 fn titleize(id: &str) -> String {
     id.split(['-', '_', ' ']).filter(|word| !word.is_empty()).map(|word| {
         let mut chars = word.chars();
@@ -193,7 +193,7 @@ fn smart_quote(settings: &Map<String, Value>, decimals: Option<i64>, exchange: f
     json!(if floor > tenth { round(floor) } else if amount.is_i64() { tenth } else { round(tenth) })
 }
 
-/// after_initialize (in the order Rails runs it: Smart Intervals, limit orders, the index's own), set_missed_quote_amount
+/// after_initialize (in the order 2.x runs it: Smart Intervals, limit orders, the index's own), set_missed_quote_amount
 /// and the before_validation callbacks (set_default_label, then clamp_num_coins_to_bounded_index, which default_label runs
 /// first itself).
 pub fn build(c: &Connection, config: &Value, locale: &str) -> Result<Built, WebError> {

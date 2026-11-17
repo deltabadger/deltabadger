@@ -1,7 +1,7 @@
 //! The wizard's save of a new Bots::DcaMultiAsset (Bots::Wizard::PickSpendableAssetsController#finalise_and_redirect):
-//! `bot_relation.new(session config)`, `set_missed_quote_amount`, `save`. Every callback Rails runs on that save is listed in
-//! `CALLBACKS` with how this port handles it; tests/fixtures/bot_create_callbacks.json pins Rails' list
-//! (script/rust/record_bot_create_callbacks.rb), so a callback added or changed there fails `bot_create_callbacks_are_all_handled`
+//! `bot_relation.new(session config)`, `set_missed_quote_amount`, `save`. Every callback 2.x runs on that save is listed in
+//! `CALLBACKS` with how this port handles it; tests/fixtures/bot_create_callbacks.json pins 2.x's list,
+//! so a callback added or changed there fails `bot_create_callbacks_are_all_handled`
 //! until this file follows. The insert, the composition rows and the guard run in one write transaction.
 use crate::codec::format_time;
 use crate::web::{i18n, WebError};
@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Map, Value};
 
-/// (chain, kind, callback, its conditions joined by " & ", how this port handles it). Chains as Rails names them:
+/// (chain, kind, callback, its conditions joined by " & ", how this port handles it). Chains as 2.x names them:
 /// initialize (after_initialize), validation (before/after_validation), validate (validate/validates), save, create, commit.
 pub const CALLBACKS: &[(&str, &str, &str, &str, &str)] = &[
     ("initialize", "after", "initialize_indicator_limitable_settings", "the callback did not return false", "ported: defaults (build)"),
@@ -133,20 +133,20 @@ pub const CALLBACKS: &[(&str, &str, &str, &str, &str)] = &[
     ("save", "before", "set_price_limit_enabled_at", "will_save_change_to_settings?", "no-op on create: the switch is as after_initialize left it (recorded)"),
     ("save", "before", "set_price_limit_condition_met_at", "will_save_change_to_settings?", "no-op on create: the switch is as after_initialize left it (recorded)"),
     ("save", "before", "set_price_limit_in_ticker_id", "will_save_change_to_exchange_id?", "ported: buy and sell ticker defaults"),
-    ("save", "before", "reset_price_limit_info_cache", "will_save_change_to_settings?", "no-op: Rails.cache only"),
+    ("save", "before", "reset_price_limit_info_cache", "will_save_change_to_settings?", "no-op: 2.x's cache only"),
     ("save", "before", "set_price_limit_value_condition", "will_save_change_to_settings?", "no-op on create: the timing condition is while"),
     ("save", "before", "set_price_drop_limit_enabled_at", "will_save_change_to_settings?", "no-op on create: the switch is as after_initialize left it (recorded)"),
     ("save", "before", "set_price_drop_limit_condition_met_at", "will_save_change_to_settings?", "no-op on create: the switch is as after_initialize left it (recorded)"),
     ("save", "before", "set_price_drop_limit_in_ticker_id", "will_save_change_to_exchange_id?", "ported: buy and sell ticker defaults"),
-    ("save", "before", "reset_price_drop_limit_info_cache", "will_save_change_to_settings?", "no-op: Rails.cache only"),
+    ("save", "before", "reset_price_drop_limit_info_cache", "will_save_change_to_settings?", "no-op: 2.x's cache only"),
     ("save", "before", "set_moving_average_limit_enabled_at", "will_save_change_to_settings?", "no-op on create: the switch is as after_initialize left it (recorded)"),
     ("save", "before", "set_moving_average_limit_condition_met_at", "will_save_change_to_settings?", "no-op on create: the switch is as after_initialize left it (recorded)"),
     ("save", "before", "set_moving_average_limit_in_ticker_id", "will_save_change_to_exchange_id?", "ported: buy and sell ticker defaults"),
-    ("save", "before", "reset_moving_average_limit_info_cache", "will_save_change_to_settings?", "no-op: Rails.cache only"),
+    ("save", "before", "reset_moving_average_limit_info_cache", "will_save_change_to_settings?", "no-op: 2.x's cache only"),
     ("save", "before", "set_indicator_limit_enabled_at", "will_save_change_to_settings?", "no-op on create: the switch is as after_initialize left it (recorded)"),
     ("save", "before", "set_indicator_limit_condition_met_at", "will_save_change_to_settings?", "no-op on create: the switch is as after_initialize left it (recorded)"),
     ("save", "before", "set_indicator_limit_in_ticker_id", "will_save_change_to_exchange_id?", "ported: buy and sell ticker defaults"),
-    ("save", "before", "reset_indicator_limit_info_cache", "will_save_change_to_settings?", "no-op: Rails.cache only"),
+    ("save", "before", "reset_indicator_limit_info_cache", "will_save_change_to_settings?", "no-op: 2.x's cache only"),
     ("save", "before", "check_missed_quote_amount_was_set", "", "ported: transient_data (owes 0, the capture flag cleared)"),
     ("save", "around", "around_save_collection_association", "", "no-op: no association in memory"),
     ("create", "after", "autosave_associated_records_for_index_assets", "the callback did not return false", "no-op: none in memory"),
@@ -163,7 +163,7 @@ pub const CALLBACKS: &[(&str, &str, &str, &str, &str)] = &[
 
 fn to_i(value: &Value) -> i64 { super::to_i(value) }
 
-/// Ruby truthiness, for `||=`.
+/// 2.x's truthiness, for `||=`.
 fn unset(value: Option<&Value>) -> bool { matches!(value, None | Some(Value::Null | Value::Bool(false))) }
 
 /// `present?` on a decoded value.
@@ -231,7 +231,7 @@ pub fn lock_limit_orders(c: &Connection, config: &mut Value) -> Result<(), WebEr
 /// The bot `bot_relation.new(config)` builds and `save` writes, after its callbacks.
 pub struct Built { pub exchange_id: Option<i64>, pub quote: Option<i64>, pub settings: Map<String, Value>, pub label: String, members: Vec<i64> }
 
-/// after_initialize, set_missed_quote_amount and the before_validation callbacks, in Rails' order.
+/// after_initialize, set_missed_quote_amount and the before_validation callbacks, in 2.x's order.
 pub fn build(c: &Connection, config: &Value, locale: &str) -> Result<Built, WebError> {
     let exchange_id = super::exchange_id(Some(config));
     let mut settings = config.get("settings").and_then(Value::as_object).cloned().unwrap_or_default();
@@ -370,7 +370,7 @@ pub fn insert_as(c: &Connection, user: i64, mut bot: Built, now: DateTime<Utc>, 
     // D-IBKR-ACCOUNT: a bot created on a bound IBKR key belongs to its account from the start.
     crate::venue::ibkr_account::assign_bot_account(c, id, now)?;
     let loaded = crate::engine::model::load_bot(c, id)?;
-    // A derivation that finds nothing tradeable is Rails' Failure, which the after_save callback does not act on.
+    // A derivation that finds nothing tradeable is 2.x's Failure, which the after_save callback does not act on.
     let _ = crate::engine::basket::refresh_composition(c, &loaded, now)?;
     Ok(id)
 }

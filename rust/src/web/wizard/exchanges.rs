@@ -51,7 +51,7 @@ pub fn ordered(venues: Vec<Exchange>, query: Option<&str>) -> Vec<Exchange> {
                 let score = if crate::v2::blank(&venue.name) { 0.0 } else { search::jaro_winkler(&search::downcase(&venue.name), &query) };
                 (venue, score)
             }).filter(|(_, score)| *score >= 0.7).collect();
-            // ponytail: a stable sort; Ruby's sort_by is not, so two venues tied on beta and score may come out in another order.
+            // ponytail: a stable sort; 2.x's sort_by is not, so two venues tied on beta and score may come out in another order.
             scored.sort_by(|(a, x), (b, y)| beta(a).cmp(&beta(b)).then_with(|| y.total_cmp(x)));
             scored.into_iter().map(|(venue, _)| venue).collect()
         }

@@ -41,8 +41,8 @@ pub fn smart_interval_minimum_message(bot: &Bot, minimum: &Minimum, locale: &str
 
 /// Bot::QuoteAmountLimitable: what is left of the spending cap, and whether that is nothing.
 pub struct Limit {
-    /// `quote_amount_available_before_limit_reached`, in whichever of Ruby's number classes the sums came out as.
-    /// `None` when a closed buy never reported its cost: Rails' nil, the spend unknown.
+    /// `quote_amount_available_before_limit_reached`, in whichever of 2.x's number classes the sums came out as.
+    /// `None` when a closed buy never reported its cost: 2.x's nil, the spend unknown.
     pub left: Option<Num>,
     pub reached: bool,
 }
@@ -57,8 +57,7 @@ pub(super) fn hhmm(value: Option<&str>) -> bool {
 }
 
 /// What `bot.invalid?(:start)` leaves behind: whether the bot may not start, and the errors on the
-/// attributes that have a form field on the page, which Rails then prints under that field
-/// (config/initializers/inline_form_errors.rb).
+/// attributes that have a form field on the page, which 2.x then prints under that field.
 #[derive(Default)]
 pub struct Check {
     pub invalid: bool,
@@ -79,7 +78,7 @@ pub fn check(c: &Connection, bot: &Bot, now: DateTime<Utc>, market_data_configur
     check_unsaved(c, bot, None, now, market_data_configured, locale)
 }
 
-/// `invalid?(:start)` on a bot an update refused: Rails asks the unsaved record, whose changes (a venue, a composition) are
+/// `invalid?(:start)` on a bot an update refused: 2.x asks the unsaved record, whose changes (a venue, a composition) are
 /// still measured against the stored row.
 pub fn check_unsaved(c: &Connection, bot: &Bot, stored: Option<&Bot>, now: DateTime<Utc>, market_data_configured: bool, locale: &str) -> Result<Check, WebError> {
     let mut draft = super::draft::Draft::from_bot(bot.clone());
@@ -107,8 +106,8 @@ pub fn parse_hhmm(time_of_day: Option<&str>) -> Result<(u32, u32), &'static str>
 }
 
 /// A chosen starting wall time in `zone`, as TimeZone#local resolves it, with D-START-REPEAT-EARLIER: a wall time that
-/// occurs twice that day is its earlier occurrence (Rails' pick in every zone recorded, Dublin and Casablanca included,
-/// where Rails follows the server's zoneinfo flags), and one that does not occur moves forward an hour at a time until it
+/// occurs twice that day is its earlier occurrence (2.x's pick in every zone recorded, Dublin and Casablanca included,
+/// where 2.x follows the server's zoneinfo flags), and one that does not occur moves forward an hour at a time until it
 /// does (TimeWithZone's `@time += 1.hour; retry`, a 30-minute gap included). `None` past chrono's range.
 pub fn local(zone: chrono_tz::Tz, naive: chrono::NaiveDateTime) -> Option<DateTime<Utc>> {
     use chrono::{LocalResult, TimeZone};
@@ -123,18 +122,18 @@ pub fn local(zone: chrono_tz::Tz, naive: chrono::NaiveDateTime) -> Option<DateTi
 }
 
 /// Bot::Startable#initial_start_at for an enabled rule, in the zone named `zone` (User#time_zone; an unknown name is
-/// refused, D-START-ZONE-UNKNOWN: Rails would read UTC, and no stored row can hold one). `Err` where Rails answers nil (an
+/// refused, D-START-ZONE-UNKNOWN: 2.x would read UTC, and no stored row can hold one). `Err` where 2.x answers nil (an
 /// unknown mode, a malformed time or date): the :start validation refuses those first, and nil must never read as "start
 /// now" here.
 ///
 /// D-START-WALL-STEP: the chosen wall time on the first day (of the chosen weekday) whose instant is after `now`, each day
-/// resolved on its own. Rails steps a passed candidate by fixed UTC days (`candidate + 1.day` / `+ 7.days`) and adds
+/// resolved on its own. 2.x steps a passed candidate by fixed UTC days (`candidate + 1.day` / `+ 7.days`) and adds
 /// calendar days to today's gap-moved wall time, so across a clock change it runs up to an hour early or late.
 pub fn initial_start_at(mode: Option<&str>, time_of_day: Option<&str>, start_at: Option<&str>, now: DateTime<Utc>, zone: &str)
     -> Result<DateTime<Utc>, &'static str> {
     use chrono::{Datelike, Duration};
     let mode = mode.ok_or("missing start mode")?;
-    // ActiveSupport::TimeZone[] takes a Rails zone name or an IANA identifier.
+    // ActiveSupport::TimeZone[] takes a 2.x zone name or an IANA identifier.
     let zone = crate::web::timezone::strict(zone).ok_or("unknown time zone")?;
     if mode == "date" {
         return crate::codec::parse_time(start_at.ok_or("invalid start date")?).map_err(|_| "invalid start date");

@@ -333,7 +333,7 @@ pub fn tile(ctx: &Ctx, r: &Rule, list: Option<&Listing>) -> Result<String, WebEr
     .render()?)
 }
 
-/// D-RULE-LOG-SECRETS also applies to legacy Rails rows, including HTML after a log prefix.
+/// D-RULE-LOG-SECRETS also applies to legacy 2.x rows, including HTML after a log prefix.
 pub fn safe_message(message: &str) -> String {
     let url = regex::Regex::new(r#"https?://[^\s"'<>]+"#).expect("static URL pattern");
     let no_url = url.replace_all(message, "[redacted URL]");

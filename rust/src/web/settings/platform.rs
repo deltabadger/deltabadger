@@ -2,10 +2,10 @@
 //! (SettingsController#update_stocks, #disconnect_stocks).
 //!
 //! Divergences:
-//! - D-STOCKS-RETIRED: both stocks writes answer `head :unprocessable_entity` and write nothing, Rails' own answer when the
+//! - D-STOCKS-RETIRED: both stocks writes answer `head :unprocessable_entity` and write nothing, 2.x's own answer when the
 //!   catalogue comes from elsewhere. Here it always does (D-ALPACA-CATALOGUE), and an Alpaca key is a venue key on API keys
 //!   (D-BROKERS-AS-VENUES): no page of this build posts to either route.
-//! - D-PLATFORM-HOSTED-KEPT: a disconnect on a hosted install (MARKET_DATA_URL set) is refused and writes nothing. Rails
+//! - D-PLATFORM-HOSTED-KEPT: a disconnect on a hosted install (MARKET_DATA_URL set) is refused and writes nothing. 2.x
 //!   deletes the claim's rows there, the exchange proxies among them, though its widget offers no disconnect.
 use super::{keys, market_data};
 use crate::web::{auth, layout::Ctx, setup, turbo, App, WebError};
@@ -40,7 +40,7 @@ pub async fn write(app: App, ctx: Ctx, headers: &axum::http::HeaderMap) -> Resul
 /// Platform::RedeemClaim (setup's, without its open-setup check), then the widget: the notice on success, the form with
 /// the claim's error at 422 otherwise.
 async fn create(app: App, ctx: Ctx) -> Result<Response, WebError> {
-    // `params[:claim_code]`: a query value over the body's, as setup reads it (Rails 8.1 shallow-merges the query over the body).
+    // `params[:claim_code]`: a query value over the body's, as setup reads it (2.x shallow-merges the query over the body).
     let Ok(params) = crate::web::bot::action_params::ActionParams::parse_v2(&ctx.params) else { return Ok(crate::web::layout::bad_request()) };
     let code = params.value().get("claim_code").cloned().unwrap_or(serde_json::Value::Null);
     let outcome = setup::redeem(&app, code, ctx.now, false).await?;
@@ -51,7 +51,7 @@ async fn create(app: App, ctx: Ctx) -> Result<Response, WebError> {
         .await?;
     match proxies {
         Some(proxies) => market_data::widget_and_flash(&ctx, &widget, Some(if proxies { "settings.platform.connected_with_proxies" } else { "settings.platform.connected_without_proxies" })),
-        // Rails prepends the flash only `if flash.any?`: a message the session still carries, none of its own.
+        // 2.x prepends the flash only `if flash.any?`: a message the session still carries, none of its own.
         None => {
             let pending = crate::web::flash::take(&ctx.session, &[]);
             let mut body = turbo::stream("replace", "market_data_settings", widget.trim_end());

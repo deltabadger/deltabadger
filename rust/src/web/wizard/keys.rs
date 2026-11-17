@@ -115,7 +115,7 @@ fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>
 /// What the step decided before any venue is asked.
 enum Route { To(&'static str), Retired(&'static str), Refused, Ready(Venue, Box<keys::Key>) }
 
-/// The checks `new` and `create` share, in Rails' order: a retired venue, (on `new`) an earlier step not complete, no venue chosen.
+/// The checks `new` and `create` share, in 2.x's order: a retired venue, (on `new`) an earlier step not complete, no venue chosen.
 fn route(c: &Connection, app: &App, user: i64, config: Option<&Value>, namespace: Namespace, on_new: bool) -> Result<Route, WebError> {
     // The index step's before_action: no market data, no index wizard.
     if namespace == Namespace::Index && !crate::web::bots::market_data(c, app)?.1 { return Ok(Route::To(super::index::SETUP_NEW)) }

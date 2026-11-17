@@ -1,9 +1,9 @@
 //! Account mail (confirmation, password reset, "email already taken") crosses the same SMTP boundary as the mail service.
 //!
-//! D-ACCOUNT-MAIL-OFF-REQUEST: Rails sends these inside the request (Devise's deliver_now), so a known address waited
+//! D-ACCOUNT-MAIL-OFF-REQUEST: 2.x sends these inside the request (Devise's deliver_now), so a known address waited
 //! for SMTP and an unknown one did not, and an SMTP error was a 500 for known addresses only. Here the answer is decided
 //! first and `send` can neither fail nor wait: what it cannot prepare or deliver is logged by kind (never an address
-//! or a token) and dropped, as Rails' interceptor drops mail when SMTP is not configured. The raw token lives only in
+//! or a token) and dropped, as 2.x's interceptor drops mail when SMTP is not configured. The raw token lives only in
 //! the delivery task's memory, never at rest. At most `ACCOUNT_MAILS_AT_ONCE` deliveries run at once; one more is
 //! dropped, not queued.
 use crate::{
@@ -85,7 +85,7 @@ pub async fn send(app: &App, mail: AccountMail, locale: &'static str) {
         return log(kind, "dropped: too many account mails are being sent");
     };
     let delivery = app.settings_mailer.deliver(message, settings, app.now());
-    // Delivery continues after a browser disconnects, as Rails' after-commit callback does.
+    // Delivery continues after a browser disconnects, as 2.x's after-commit callback does.
     tokio::spawn(async move {
         let _permit = permit;
         if let Err(error) = delivery.await { log(kind, &format!("not sent: {}", reason(&error))) }
@@ -170,7 +170,7 @@ enum TestMail { NotConfigured, Refused(String), Ready(Box<(Message, smtp::Settin
 /// SettingsController#send_test_email (admin only): TestMailer.test_email(current_user).deliver_now, inside the request.
 /// The wait is the SMTP client's own bound: 5 s to connect, 5 s for each reply, 30 s for the whole delivery; a server that
 /// does not answer in time is an alert naming the stage ("greeting: no answer in time").
-/// D-TEST-EMAIL-ERROR-SAFE: Rails' alert carries `e.message`, the server's reply text, which can name the SMTP account. This
+/// D-TEST-EMAIL-ERROR-SAFE: 2.x's alert carries `e.message`, the server's reply text, which can name the SMTP account. This
 /// alert carries smtp::Failure's stage and codes only, never server text or a credential.
 pub async fn send_test(app: App, ctx: crate::web::layout::Ctx) -> Result<axum::response::Response, WebError> {
     use crate::web::{flash, i18n, turbo};
@@ -186,7 +186,7 @@ pub async fn send_test(app: App, ctx: crate::web::layout::Ctx) -> Result<axum::r
         let settings = match smtp::Settings::current(&inner.settings_smtp, &read) {
             Ok(settings) => settings,
             Err(reason) if reason == NOT_SET_UP => return Ok(TestMail::NotConfigured),
-            // SmtpSettings.configured? is true for what this build refuses to send with: Rails' delivery fails there.
+            // SmtpSettings.configured? is true for what this build refuses to send with: 2.x's delivery fails there.
             Err(reason) => return Ok(TestMail::Refused(reason)),
         };
         let name: String = c.query_row("SELECT COALESCE(name,'') FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;

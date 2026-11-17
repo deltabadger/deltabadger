@@ -37,8 +37,8 @@ fn unit(currency: &str) -> &str {
 }
 /// Denomination::SUFFIXED: written after the amount in the countries that use it.
 fn suffixed(currency: &str) -> bool { matches!(currency, "CHF" | "PLN") }
-/// The thousands mark Rails writes in the headline's attribute: `number.currency.format.delimiter`, falling back to
-/// `number.format.delimiter`, then ','. Measured on every locale Rails ships (fallbacks on, no rails-i18n gem, no number
+/// The thousands mark 2.x writes in the headline's attribute: `number.currency.format.delimiter`, falling back to
+/// `number.format.delimiter`, then ','. Measured on every locale 2.x ships (fallbacks on, no third-party locale gem, no number
 /// keys in rust/locales): ',' in each, so there is no table to keep.
 const DELIMITER: &str = ",";
 /// The account's display currency (User#denomination): the conversion is a held one, and when it cannot be had the
@@ -50,7 +50,7 @@ fn denomination(c: &Connection, market: &dyn MarketData, display_currency: &str)
     }
 }
 const FX_UNAVAILABLE: &str = "Currency conversion unavailable";
-/// A figure that needed a conversion that cannot be had is absent, as Rails' is (a Failure, nil): never a page's error.
+/// A figure that needed a conversion that cannot be had is absent, as 2.x's is (a Failure, nil): never a page's error.
 fn without_fx<T>(result: Result<Option<T>, FiguresError>) -> Result<Option<T>, FiguresError> {
     match result { Err(FiguresError::NotComputed(reason)) if reason == FX_UNAVAILABLE => Ok(None), other => other }
 }
@@ -130,7 +130,7 @@ fn rebalance(c: &Connection, s: &Subject, m: &Metrics, locale: &str, now: At) ->
         budget::check()?;
         Ok(drift)
     })();
-    // Read for a rule that is off only so that turning it on can show it: what Rails would not read then refuses nothing.
+    // Read for a rule that is off only so that turning it on can show it: what 2.x would not read then refuses nothing.
     let drift = match drift { Err(FiguresError::Data(_)) if !on => None, other => other? };
     // Kept with what it was measured on, so that a save after any of it changed reads it as gone (`loading::kept_drift`).
     let kept = json!([drift.as_ref().map(crate::v2::BigDec::to_s_f), rebalance_inputs(c, s.bot.id)?]);
@@ -140,7 +140,7 @@ fn rebalance(c: &Connection, s: &Subject, m: &Metrics, locale: &str, now: At) ->
     Ok((Some(crate::web::bot::settings::rebalance_info(locale, ambiguous, drift.as_ref(), Some(&threshold), rebalance::below_minimum(&bot.transient))), kept))
 }
 /// NumbersHelper#format_value: below one, rounded to `max_decimals`, its trailing zeros dropped (a bare zero stays), printed
-/// as Ruby prints it (a Float's exponent form included); from one on, two decimals.
+/// as 2.x prints it (a Float's exponent form included); from one on, two decimals.
 pub(crate) fn format_value(value: &Num, max_decimals: u8) -> Result<String, crate::figures::num::NumError> {
     let abs = if value.is_negative() { Num::Int(0).sub(value)? } else { value.clone() };
     if abs.lt(&Num::Int(1))? {
@@ -164,7 +164,7 @@ fn tile(id: i64, kind: &str, m: &Metrics, unavailable: bool, profit: Option<&Num
     // Figures that cannot be stated leave the tile without them: no widget, no dash.
     if let Some(pnl) = m.pnl.as_ref().filter(|_| !unavailable) {
         body = format!("<div class=\"bot-tile__pnl {}\">\n<span class=\"pnl-percent\">{}</span>\n", colour(pnl), percent(pnl, 2)?);
-        // Bot#profit_in_usd in the account's currency; absent with balances hidden or without a rate, as in Rails.
+        // Bot#profit_in_usd in the account's currency; absent with balances hidden or without a rate, as in 2.x.
         if let Some(profit) = profit {
             body.push_str(&format!("<span class=\"pnl-amount\">{}{}</span>\n", if profit.is_positive() { "+" } else { "" }, shown(d, profit, 2)?));
         }
@@ -238,20 +238,20 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
         // One rate into the account's currency, and one per quote currency, for the whole page (BotsController#index).
         let shown_in = denomination(c, market, &user.display_currency)?;
         let mut rates = totals::Rates::default();
-        // A bot whose live prices raised (a transient read) is left out, as Rails' metrics job for that bot raises and is
+        // A bot whose live prices raised (a transient read) is left out, as 2.x's metrics job for that bot raises and is
         // retried: its panels stay loading while every other bot's figures stand. The headline is held back while such a
         // bot has orders (User#global_pnl_snapshot: loading while a traded bot has no figures).
         let mut withheld = false;
         let mut raised = vec![];
         let mut history_cold = false;
-        // A pair bot's marked chart that raised (Rails: its live figures cached and broadcast, the chart retried): the
+        // A pair bot's marked chart that raised (2.x: its live figures cached and broadcast, the chart retried): the
         // headline is shown without history.
         let mut marked_raised = false;
         for (id, class) in db::account_bots(c, user_id)? {
             let (_, kind) = kind_of(class.as_deref());
             if class.as_deref().is_some_and(pair::is_pair) {
                 // Bots::DcaSingleAsset::Measurable, which Bots::Signal includes: the walk, the live pass and the marked chart,
-                // each saying whether Rails caches it.
+                // each saying whether 2.x caches it.
                 let live = match pair::metrics(c, id, now).and_then(|walked| pair::live(c, &walked, market, now)) {
                     Err(FiguresError::Raised(_)) => {
                         bots.insert(id.to_string(), raised_targets(c, id, kind, locale)?);
@@ -270,7 +270,7 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
                         other => without_fx(other)?,
                     }
                 };
-                // D3 (3.0, Rust only): a stale pair's chart is not drawn, as a basket's is not: Rails' broadcast draws it.
+                // D3 (3.0, Rust only): a stale pair's chart is not drawn, as a basket's is not: 2.x's broadcast draws it.
                 let chart = match &marked { Some((m, _)) => plot::render(c, &live.subject, &m.metrics, &[], user.hide_balances, locale, &user.time_zone, true)?, None => plot::NOT_CHARTED.into() };
                 bots.insert(id.to_string(), json!({ "tile": tile(id, kind, &live.metrics, live.metrics.prices_stale, profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": chart, "missing": [],
                     "cached": cached,
@@ -306,7 +306,7 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
                 }
             };
             bots.insert(id.to_string(), json!({ "tile": tile(id, kind, &marked_live, marked_live.prices_stale || !missing.is_empty(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone, false)?, "missing": missing,
-                // What Rails would find in its cache (Measurable#metrics_with_current_prices): stale figures, or ones with no
+                // What 2.x would find in its cache (Measurable#metrics_with_current_prices): stale figures, or ones with no
                 // chart point yet, are never written, so its bot page reads them as still loading.
                 "cached": !marked_live.prices_stale && !marked_live.chart.labels.is_empty(),
                 // And the marked chart (metrics_with_current_prices_and_candles) only once a holding had candles to mark it
@@ -322,7 +322,7 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
         // (marked, as a page reads them)
         let parts = |marked: bool, page: bool| computed.iter().map(|d| {
             let figures = if !marked { Some(&d.live) } else if page && !d.read { None } else { d.marked.as_ref() };
-            // No marked track: no part of the history, as Rails skips it.
+            // No marked track: no part of the history, as 2.x skips it.
             totals::Part { bot_id: d.subject.bot.id, quote: d.subject.quote.as_deref(), traded: figures.is_some() && !d.subject.orders.is_empty(), figures: Ok(figures) }
         }).collect::<Vec<_>>();
         let pnl = without_fx(totals::global_pnl(c,market,&mut totals::Rates::default(),&parts(false,false)))?;
@@ -330,14 +330,14 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
         let (history, page_history) = (history(false)?, if computed.iter().all(|d| d.read) { None } else { Some(history(true)?) });
         let mut out = json!({"bots": bots});
         if !raised.is_empty() { out["raised"] = json!(raised); }
-        // A pair's chart that raised is retried, as Rails retries its metrics job: these figures last the price's minute.
+        // A pair's chart that raised is retried, as 2.x retries its metrics job: these figures last the price's minute.
         if marked_raised { out["retry"] = Value::Bool(true); }
         // A traded bot without figures: no total without it (User#global_pnl_snapshot), and its target stays empty for the
         // next fill's publication.
         if withheld { out["account"] = Value::String("<div id=\"global-pnl\"></div>".into()); }
         if !withheld {
-            // The publication is Rails' live pass (PnlHistory.snapshot(live: true)): its history reads every bot's chart as
-            // computed, marked or not. A page reads Rails' caches: while a bot's marked chart is cold, its headline has no
+            // The publication is 2.x's live pass (PnlHistory.snapshot(live: true)): its history reads every bot's chart as
+            // computed, marked or not. A page reads 2.x's caches: while a bot's marked chart is cold, its headline has no
             // history yet, and the page asks for the live pass (@global_pnl_history_loading).
             out["account"] = Value::String(headline::render(pnl.as_ref(),history.as_ref(),unavailable,user.hide_balances,&shown_in)?);
             if history_cold && !marked_raised {
@@ -364,7 +364,7 @@ pub fn streams(c:&Connection,user:i64,rendered:&Value)->Result<Vec<(String,Strin
         let (class,kind)=kind_of(class.as_deref());
         let page=format!("{}:bot_updates",URL_SAFE_NO_PAD.encode(format!("gid://deltabadger/Bots::{class}/{id}")));
         for (part,target,stream) in [("tile",format!("pnl_bots_{kind}_{id}"),format!("user_{user}:bot_updates")),("metrics","metrics".into(),page.clone()),("chart","chart".into(),page.clone()),
-                                     // D-REB-DRIFT-LATE: Rails renders the drift with the page; here it follows on the bot's page stream.
+                                     // D-REB-DRIFT-LATE: 2.x renders the drift with the page; here it follows on the bot's page stream.
                                      ("rebalance_info","settings-rebalance-info".into(),page)]{
             if let Some(html)=rendered["bots"][id.to_string()][part].as_str(){out.push((stream,crate::web::turbo::stream("replace",&target,html)));}
         }

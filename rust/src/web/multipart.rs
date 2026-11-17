@@ -1,6 +1,6 @@
 //! `multipart/form-data` (RFC 7578), read by `entry` for the one route that takes a file:
 //! POST /tracker/import. Text parts become form fields; the part named `file` is kept as raw bytes
-//! with its filename, as Rails' `params[:file].read.b` and `original_filename`.
+//! with its filename, as 2.x's `params[:file].read.b` and `original_filename`.
 
 /// The most parts one body may hold. The import form posts four.
 pub const PARTS: usize = 64;

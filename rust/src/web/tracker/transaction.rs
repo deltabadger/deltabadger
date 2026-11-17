@@ -14,7 +14,7 @@ pub(super) fn plain(text:&str)->Option<Dec>{
 }
 fn stream(c:&Connection,ctx:&Ctx,owner:i64,ids:&[i64],d:Option<&crate::figures::totals::Denomination>)->Result<String,WebError>{
     let mut out=String::new();
-    // Rails reloads WHERE id IN (...) in primary-key order, rather than withdrawal order.
+    // 2.x reloads WHERE id IN (...) in primary-key order, rather than withdrawal order.
     let mut ids=ids.to_vec();ids.sort_unstable();ids.dedup();
     for id in ids{let row=Row::load(c,owner,id)?.ok_or_else(invalid)?;out.push_str(&turbo::stream("replace",&format!("account_transaction_{id}"),&match d {Some(d)=>row::render(c,ctx,&row,d)?,None=>row::unavailable(id)}));}
     Ok(out)
@@ -34,7 +34,7 @@ fn validate_save(c:&Connection,row:&Row,linked:Option<i64>)->Result<(),WebError>
     }
     Ok(())
 }
-/// AccountTransaction#set_manual(:price, …) + save!: the stated price as text (Rails' decimal `to_s`), or cleared; written
+/// AccountTransaction#set_manual(:price, …) + save!: the stated price as text (2.x's decimal `to_s`), or cleared; written
 /// only when it changed, after the model's validations.
 pub(super) fn store_price(c:&Connection,owner:i64,now:&str,row:&Row,usd:Option<String>)->Result<(),WebError>{
     let mut manual=row.manual.as_object().cloned().ok_or_else(invalid)?;
@@ -102,7 +102,7 @@ fn transfer(c:&Connection,ctx:&Ctx,owner:i64,now:&str,id:i64,fx:&super::fx::Prep
     let d=fx.denomination(c,owner,ctx.app.now().timestamp())?;
     let mut body=stream(c,ctx,owner,&ids,d.as_ref())?;
     // The foundation flash template has insignificant boundary whitespace; this route
-    // also pins Rails' unnormalised bytes, including the blank line after the icon.
+    // also pins 2.x's unnormalised bytes, including the blank line after the icon.
     let messages=flash::render(&flash::take(&ctx.session,&[(kind,ctx.t(message))]))?;
     let messages=messages.trim_matches('\n').replace("</svg>\n</button>","</svg>\n\n</button>");
     body.push_str(&turbo::prepend_flash(&messages));

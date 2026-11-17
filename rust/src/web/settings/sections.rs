@@ -1,5 +1,5 @@
 //! The settings sections' rows, as app/views/settings/widgets/* render them inside the dialog
-//! (rust/tests/pages.rs holds each to Rails' markup).
+//! (rust/tests/pages.rs holds each to 2.x's markup).
 use super::dialog::{row, switch};
 use crate::web::{i18n::escape, layout::Ctx};
 use std::collections::BTreeMap;
@@ -10,7 +10,7 @@ pub fn form_open(attributes: &str, action: &str, method: &str, csrf: &str) -> St
     format!("<form{attributes} action=\"{}\" accept-charset=\"UTF-8\" method=\"post\">{method_field}<input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" />", escape(action))
 }
 
-/// ActionView's field_error_proc as config/initializers/inline_form_errors.rb sets it: Nokogiri re-writes the
+/// ActionView's field_error_proc as 2.x sets it: Nokogiri re-writes the
 /// field with ` is-invalid` appended to its class (minimising `readonly="readonly"` as it does), and the
 /// message goes under it. `input` is the field's tag.
 pub fn field(input: &str, error: Option<&String>) -> String {
@@ -278,7 +278,7 @@ pub fn account(ctx: &Ctx, a: &Account) -> String {
 }
 
 /// A25 (D-JOBS-SETTINGS-LINK): the admin's way to /jobs, last in the Instance section, on every platform (the desktop
-/// window has no address bar). Rails has no link to its dashboard. Never locale-prefixed: `/de/jobs` is not the page.
+/// window has no address bar). 2.x has no link to its dashboard. Never locale-prefixed: `/de/jobs` is not the page.
 pub fn jobs(ctx: &Ctx) -> String {
     let open = format!("\n        <a class=\"rbutton rbutton--secondary\" data-turbo-frame=\"_top\" href=\"/jobs\">{}</a>\n", ctx.t("settings.jobs.open"));
     format!("  <div id=\"jobs\" class=\"sitem\">\n    {}\n  </div>\n", row(&ctx.t("settings.jobs.title"), Some(&ctx.t("settings.jobs.hint")), "", "", None, Some(&open)))
@@ -287,7 +287,7 @@ pub fn jobs(ctx: &Ctx) -> String {
 /// settings/widgets/_app_update: nothing is claimed without an answer. The desktop always gets its button (its own updater
 /// answers); elsewhere a stored release newer than `current` is "available", an older or equal one "up to date", and no
 /// answer (none yet, expired, or never asked) renders nothing. Whether the check is switched off is not read here: an
-/// answer still stored shows until it expires, as Rails' cache entry does.
+/// answer still stored shows until it expires, as 2.x's cache entry does.
 pub fn app_update(ctx: &Ctx, platform: crate::jobs::app_update::Platform, latest: Option<&crate::jobs::app_update::Release>, current: &str) -> String {
     use crate::jobs::app_update::{self as update, Platform};
     let desktop = platform == Platform::Desktop;

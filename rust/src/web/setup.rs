@@ -2,7 +2,7 @@
 //! that ApplicationController puts in front of every page while no admin user exists. Rust serves it on an install
 //! `db:prepare` made; creating that install (schema, seeds, secrets) stays with the entrypoint.
 //!
-//! Stricter than Rails: both admin creation and claim writes recheck for an admin in an IMMEDIATE transaction.
+//! Stricter than 2.x: both admin creation and claim writes recheck for an admin in an IMMEDIATE transaction.
 //! Two forms submitted at once cannot make two admins, and a claim in flight cannot change configuration after
 //! setup closes. A losing admin creation redirects to the root; a losing claim renders a failure.
 use super::layout::{self, Ctx, Page};
@@ -49,7 +49,7 @@ pub fn token_matches(given: &str, expected: &str) -> bool {
     !crate::v2::blank(expected) && bool::from(Sha256::digest(given.as_bytes()).ct_eq(&Sha256::digest(expected.as_bytes())))
 }
 
-/// Entry has already applied Rails' shallow, query-winning merge for every setup route.
+/// Entry has already applied 2.x's shallow, query-winning merge for every setup route.
 fn parameter(params: &Params, name: &str) -> serde_json::Value {
     params.json.as_ref().and_then(|parameters| parameters.get(name)).cloned().unwrap_or(serde_json::Value::Null)
 }
@@ -140,7 +140,7 @@ struct NewView<'a> {
     csrf: &'a str,
     languages: Vec<layout::Language>,
     errors: &'a [FieldError],
-    /// config/initializers/inline_form_errors.rb on the password field: its messages, joined, first letter up.
+    /// 2.x's inline form errors on the password field: its messages, joined, first letter up.
     password_error: Option<String>,
     claim_action: String,
     claim_error: Option<String>,
@@ -228,7 +228,7 @@ pub(crate) async fn redeem(app: &App, code: serde_json::Value, now: chrono::Date
     Ok(Ok(identity))
 }
 
-/// The setup action for `/setup.<format>`: Rails routes the format to the same action, and its filters answer as
+/// The setup action for `/setup.<format>`: 2.x routes the format to the same action, and its filters answer as
 /// for `/setup` (the locked page is HTML whatever the format). HTML dispatches to new/create. Any
 /// other single-segment path is this build's refusal, as without this route.
 pub async fn formatted(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
@@ -349,7 +349,7 @@ pub fn normalized_email(email: &str) -> String {
     crate::v2::strip(email).to_lowercase()
 }
 
-/// One validation error of the new admin, in the order Rails adds them.
+/// One validation error of the new admin, in the order 2.x adds them.
 pub struct FieldError {
     pub attribute: &'static str,
     /// The message alone, as `errors[attribute]` holds it.
@@ -360,7 +360,7 @@ pub struct FieldError {
     pub kind: Option<&'static str>,
 }
 
-/// User#valid? for a new admin from the setup form, in Rails' order: Devise's validatable
+/// User#valid? for a new admin from the setup form, in 2.x's order: Devise's validatable
 /// (email presence, uniqueness, format; password presence, length), then the model's own (name presence and
 /// pattern, email pattern and Google alias, password complexity). The preference inclusions always hold here.
 /// `email` is already normalised.
@@ -390,7 +390,7 @@ pub fn validate(c: &Connection, locale: &str, name: Option<&str>, email: &str, p
     if name.is_none_or(blank) {
         errors.push(("name", Message::Kind("blank", None)));
     }
-    // Ruby's `=~` with `^…$`: a match on any line passes, so Rails accepts "Ann\nanything". D-SIGNUP-NAME-ONE-LINE: a
+    // 2.x's `=~` with `^…$`: a match on any line passes, so 2.x accepts "Ann\nanything". D-SIGNUP-NAME-ONE-LINE: a
     // name with a line break is refused here, with the same message.
     if !name.is_some_and(|name| !name.contains(['\n', '\r']) && pattern(r"(?m)^\p{L}+(\s+\p{L}+)*$", name).unwrap_or(false)) {
         errors.push(("name", Message::Text(i18n::text(locale, "devise.registrations.new.name_invalid", &[]))));

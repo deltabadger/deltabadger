@@ -12,7 +12,7 @@ use axum::response::Response;
 use rusqlite::Connection;
 use serde_json::Value;
 
-/// Tracker::UnfundedCash.cash?: its FIAT and STABLECOINS (pinned by tests/web.rs against Rails' lists).
+/// Tracker::UnfundedCash.cash?: its FIAT and STABLECOINS (pinned by tests/web.rs against 2.x's lists).
 pub const CASH: [&str; 21] = [
     "AED", "AUD", "BGN", "BUSD", "CAD", "CHF", "CZK", "DAI", "DKK", "EUR", "FDUSD", "GBP", "JPY", "PLN", "PYUSD", "RLUSD", "SEK", "TUSD", "USD",
     "USDC", "USDT",
@@ -154,7 +154,7 @@ pub fn market_data(c: &Connection, app: &App) -> Result<(bool, bool), WebError> 
 }
 
 /// `Bot::Merge.mergeable?` and `Bot::Split.splittable?` for a bot `bot::refusal` has let through: neither while a
-/// rebalance swap is pending (bot/merge.rb, bot/split.rb); a liquidation or redeploy in flight is refused before.
+/// rebalance swap is pending; a liquidation or redeploy in flight is refused before.
 pub(crate) fn mergeable(bot: &Bot) -> (bool, bool) {
     let members = bot.memberships.iter().filter(|m| m.in_index).count();
     let eligible = !matches!(bot.status, BotStatus::Archived | BotStatus::Deleted | BotStatus::Executing) && !bot.rebalance_pending();
@@ -260,7 +260,7 @@ impl Refused {
 }
 
 enum Listing {
-    /// No bot that is not deleted: the welcome page (D-STOCKS-NO-GATE: without Rails' "ask your admin" line).
+    /// No bot that is not deleted: the welcome page (D-STOCKS-NO-GATE: without 2.x's "ask your admin" line).
     Empty,
     Body(String),
 }
@@ -399,7 +399,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
 pub async fn reorder(State(app): State<App>, Extension(ctx): Extension<Ctx>, headers: axum::http::HeaderMap) -> Result<Response, WebError> {
     use axum::response::IntoResponse;
     let Some(user) = ctx.user().map(|user| user.id) else { return Ok(auth::unauthenticated_in_format(&ctx, &headers)) };
-    // `params[:ids]`: the query over the body (JSON or form), as Rails merges them.
+    // `params[:ids]`: the query over the body (JSON or form), as 2.x merges them.
     let Ok(params) = bot::action_params::ActionParams::parse_v2(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
     let sent: Vec<i64> = match params.value().get("ids") {
         None | Some(Value::Null) => vec![],

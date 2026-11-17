@@ -1,4 +1,4 @@
-//! Rails' first-own-tick modal. No request data, new route or session token enters a broadcast.
+//! 2.x's first-own-tick modal. No request data, new route or session token enters a broadcast.
 use super::{App,WebError,i18n::{self,Arg},turbo};
 use askama::Template;
 use rusqlite::{Connection,params,OptionalExtension};

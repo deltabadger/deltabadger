@@ -1,13 +1,13 @@
 //! HooksController: `POST /hook/:token`, the address a signal bot's rule is called at (plan 8b). Outside the
 //! session, CSRF and locale pipeline, as ActionController::API is. The token is the whole authentication, so this is the
-//! one unauthenticated path that moves money and it does as little as Rails does: one lookup, one claim, one call. The
+//! one unauthenticated path that moves money and it does as little as 2.x does: one lookup, one claim, one call. The
 //! body is never the trade; `entry` reads it (bounded, so a stalled body spends no claim) only as Rack would, for
 //! Rack::MethodOverride and for the parse ActionDispatch refuses with a 400.
 //!
-//! Where Rails enqueues Bot::SignalJob, this build appends the call to `bots.transient_data.rust_signal_calls` in the
-//! same SQLite transaction as the claim (engine::signal consumes it), through `eligibility::guard`. Rails' window where
+//! Where 2.x enqueues Bot::SignalJob, this build appends the call to `bots.transient_data.rust_signal_calls` in the
+//! same SQLite transaction as the claim (engine::signal consumes it), through `eligibility::guard`. 2.x's window where
 //! the claim and the enqueue diverge does not exist here: a call that is not kept rolls its claim back, and the answer
-//! is the 503 Rails gives when its enqueue fails.
+//! is the 503 2.x gives when its enqueue fails.
 //!
 //! The token is a bearer secret: it is in no log line this module writes (`mask_hook_path` is the shared mask).
 use super::rest::{self, Answer};
@@ -36,7 +36,7 @@ pub fn router() -> Router<App> {
 #[derive(Clone, Copy)]
 pub struct Unparseable;
 
-/// HookTokenFilter (config/initializers/filter_parameter_logging.rb): a path as a log line may print it.
+/// HookTokenFilter: a path as a log line may print it.
 pub fn mask_hook_path(path: &str) -> std::borrow::Cow<'_, str> {
     let Some(rest) = path.strip_prefix("/hook/") else { return path.into() };
     let end = rest.find(['/', '?']).unwrap_or(rest.len());
@@ -65,7 +65,7 @@ pub enum Outcome {
     /// No rule has the token, or its bot is deleted: 404.
     NotFound,
     /// `{"status":"ignored","reason":…}`: the claim was lost (cooldown), or won on a bot that is not working or a rule
-    /// that is off (the claim is then spent, as in Rails).
+    /// that is off (the claim is then spent, as in 2.x).
     Ignored(&'static str),
     /// The claim and the call committed together: 202.
     Accepted,

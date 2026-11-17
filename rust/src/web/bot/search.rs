@@ -242,12 +242,12 @@ pub fn ranked_rows(c: &Connection, available: &str, mut args: Vec<rusqlite::type
             let mut found = rows(c, &format!("{select} {available} AND LOWER(symbol) = ?6 {ranked}"), &args)?;
             found.extend(rows(c, &format!("{select} {available} AND LOWER(symbol) LIKE ?7 AND id NOT IN ({exact}) {ranked}"), &args)?);
             found.extend(rows(c, &format!("{select} {available} AND LOWER(name) LIKE ?8 AND id NOT IN ({exact}) AND id NOT IN ({prefix}) {ranked}"), &args)?);
-            // Phase 4: the first 2000 others in rowid order (Rails' LIMIT without ORDER BY), kept when symbol or name is 0.85 alike.
+            // Phase 4: the first 2000 others in rowid order (2.x's LIMIT without ORDER BY), kept when symbol or name is 0.85 alike.
             args.push(serde_json::json!(found.iter().map(|row| row.id).collect::<Vec<_>>()).to_string().into());
             let candidates = rows(c, &format!("{select} {available} AND id NOT IN (SELECT value FROM json_each(?9)) ORDER BY id LIMIT 2000"), &args)?;
             let score = |text: &Option<String>| text.as_deref().filter(|text| !blank(text)).map_or(0.0, |text| jaro_winkler(&downcase(text), &q));
             let mut fuzzy: Vec<Row> = candidates.into_iter().filter(|row| score(&Some(row.symbol.clone())).max(score(&row.name)) >= 0.85).collect();
-            // ponytail: a stable sort; Ruby's sort_by is not, so 17 or more fuzzy matches tied on rank may come out in another order.
+            // ponytail: a stable sort; 2.x's sort_by is not, so 17 or more fuzzy matches tied on rank may come out in another order.
             fuzzy.sort_by_key(|row| row.market_cap_rank.map_or(i128::MAX, i128::from));
             found.extend(fuzzy);
             found
@@ -299,7 +299,7 @@ pub fn attach_exchanges(c: &Connection, basket: &Basket, side: Side, page: &mut 
     Ok(())
 }
 
-/// `all_assets[offset, ASSET_PAGE_SIZE] || []`, Ruby's slice with a negative start counted from the end.
+/// `all_assets[offset, ASSET_PAGE_SIZE] || []`, 2.x's slice with a negative start counted from the end.
 pub fn page_of(rows: Vec<Row>, offset: i64) -> Vec<Row> {
     let size = rows.len() as i64;
     let start = if offset < 0 { offset + size } else { offset };
@@ -322,7 +322,7 @@ pub(crate) fn items(rows: Vec<Row>) -> Result<Vec<Item>, WebError> {
     rows.into_iter().map(|row| Ok(Item {
         id: row.id,
         ticker_class: colors::ticker_class(row.category.as_deref(), row.color.as_deref()),
-        pill: colors::pill_color(row.color.as_deref()).ok_or_else(|| WebError::Config("an asset colour Ruby cannot read".into()))?,
+        pill: colors::pill_color(row.color.as_deref()).ok_or_else(|| WebError::Config("an asset colour 2.x cannot read".into()))?,
         logo: crate::web::tracker::row::asset_logo(row.image_url, row.color, row.symbol.clone(), row.category)?,
         symbol: row.symbol,
         name: row.name.unwrap_or_default(),

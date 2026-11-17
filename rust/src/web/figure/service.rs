@@ -20,7 +20,7 @@ struct Workers { compute:Arc<tokio::sync::Semaphore>, builder:Mutex<Builder>, ti
 type BuilderHook=Box<dyn FnOnce(&rusqlite::Connection)+Send>;
 #[derive(Default)]
 struct Builder { connection:Option<rusqlite::Connection>, path:Option<String>, hooks:Vec<BuilderHook>, logged:Vec<String> }
-/// Readers never block a writer or each other only in WAL, which Rails sets and this build leaves alone (`store::configure`).
+/// Readers never block a writer or each other only in WAL, which 2.x sets and this build leaves alone (`store::configure`).
 const NOT_WAL:&str="figures: database not in WAL; page latency during background work is not guaranteed";
 impl Default for Workers {
     fn default()->Self { Workers{ compute:Arc::new(tokio::sync::Semaphore::new(1)), builder:Mutex::default(), timeout:Mutex::new(std::time::Duration::from_secs(90)), panels:Default::default() } }
@@ -158,13 +158,13 @@ impl Service {
         if let Some(allowance)=state.wanted.get_mut(&user) { *allowance-=1; }
         let cache=state.entries.get(&user).filter(|e|crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()).map(|e|e.cache.clone()).unwrap_or_default(); // allow-swallow: an Option; an account with no cache for these credentials starts empty
         state.serial=state.serial.wrapping_add(1);let serial=state.serial;state.active+=1;state.active_users.insert(user);
-        // Rails keeps a bot's cached figures until its recompute overwrites them: the last ready ones stay showable.
+        // 2.x keeps a bot's cached figures until its recompute overwrites them: the last ready ones stay showable.
         let last=state.entries.get(&user).filter(|e|crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()).and_then(Entry::saved);
         state.entries.insert(user,Entry{identity:identity.into(),revision,serial,started:now,until:now,loading:true,ready:false,reason:None,cache:cache.clone(),last});
         Load::Start(Ticket{service:self.clone(),user,serial,finished:false},cache)
     }
     /// The last ready figures of this account for these credentials, whatever revision they were filled for, while their
-    /// lifetime lasts: what a page shows while a fill for a later revision runs or waits (Rails' per-bot cache, read
+    /// lifetime lasts: what a page shows while a fill for a later revision runs or waits (2.x's per-bot cache, read
     /// until its recompute overwrites it).
     pub fn stale(&self,user:i64,identity:&str,now:i64)->Option<Saved> {
         let state=self.state();

@@ -5,8 +5,8 @@ pub fn metadata() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
     DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); tax_stablecoin(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); unrecorded_orders(&mut data); data })
 }
-/// A1 listed additions. Rails' six rule tools, extended with W2's one-matrix fields.
-/// The Rails definitions remain source-pinned by withdrawal_vectors.json.
+/// A1 listed additions. 2.x's six rule tools, extended with W2's one-matrix fields.
+/// The 2.x definitions remain source-pinned by withdrawal_vectors.json.
 fn withdrawal_rules(data: &mut Value) {
     let property = |kind: &str, description: &str| json!({"type":kind,"description":description});
     let Some(tools) = data["tools"].as_array_mut() else { return };
@@ -49,7 +49,7 @@ fn withdrawal_rules(data: &mut Value) {
     // The same order as AppConfig's recorded catalogue and the permission registry.
     tools.sort_by_key(|tool| crate::web::oauth::TOOL_DEFAULTS.iter().position(|(name, _)| tool["name"] == *name));
 }
-/// D-SPLIT-API: the split_bots tool, this build's own (Rails has no such tool), after the recorded ones.
+/// D-SPLIT-API: the split_bots tool, this build's own (2.x has no such tool), after the recorded ones.
 fn split_bots(data: &mut Value) {
     let ids = |description: &str| json!({"type": "array", "items": {"type": "integer"}, "description": description});
     let Some(tools) = data["tools"].as_array_mut() else { return };
@@ -100,10 +100,10 @@ fn tax_stablecoin(data: &mut Value) {
     tool["inputSchema"]["properties"]["stablecoin_as_fiat"]["description"] = json!(TAX_STABLECOIN);
     tool["inputSchema"]["properties"]["pl_carried_costs"] = json!({"type": ["string", "number", "null"], "description": TAX_PL_CARRY});
 }
-/// The schemas as recorded from Rails, before the description overlay and listed additions.
+/// The schemas as recorded from 2.x, before the description overlay and listed additions.
 pub fn recorded() -> Value { serde_json::from_str(include_str!("metadata.json")).unwrap_or(Value::Null) }
 /// D-MCP-COND-KINDS: update_bot_settings' rule fields say which bot kinds take them (conditions::support), where this build
-/// runs a rule on an index or signal bot that Rails' does not have: the only change to the recorded schemas. A signal bot
+/// runs a rule on an index or signal bot that 2.x's does not have: the only change to the recorded schemas. A signal bot
 /// watches its own pair (no subject field).
 fn rule_kinds(data: &mut Value) {
     use crate::engine::conditions::{support, Support};

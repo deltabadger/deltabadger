@@ -1,11 +1,11 @@
 //! `filtered_transactions`' date window (TrackerController, PLAN-A19): one reader for the page's transactions table, the
 //! first-sync page and the CSV export. Named divergences:
-//! - D-TRACKER-FILTER-USER-DAYS: `from`/`to` are days in the user's zone, the zone the rows are printed in (Rails cuts
+//! - D-TRACKER-FILTER-USER-DAYS: `from`/`to` are days in the user's zone, the zone the rows are printed in (2.x cuts
 //!   UTC days, so a row printed on the 4th could sit inside `to=…03`).
-//! - D-TRACKER-FILTER-ISO-ONLY: `YYYY-MM-DD` only, what the date control and the app's own links send (Rails'
+//! - D-TRACKER-FILTER-ISO-ONLY: `YYYY-MM-DD` only, what the date control and the app's own links send (2.x's
 //!   `Date.parse` also reads `Nov 3`, `20261103`, and `11/03/2026` as 11 March); every other text is a 400.
 //! - D-TRACKER-FILTER-BAD-INPUT: an unparseable or non-existent day, or a structured key (`from[]`, `exchange_id[k]`, …),
-//!   where Rails raises (500), is a 400.
+//!   where 2.x raises (500), is a 400.
 use super::{first_sync, Ctx};
 use chrono::{DateTime, NaiveDate, Utc};
 use chrono_tz::Tz;
@@ -27,13 +27,13 @@ fn day(raw: &str) -> Result<NaiveDate, Bad> {
     match first_sync::iso_day(raw) { Ok(Some(day)) => Ok(day), _ => Err(Bad) }
 }
 
-/// Rails' `params[:from].present?` (the last value of a repeated key, as `Params::query` reads it).
+/// 2.x's `params[:from].present?` (the last value of a repeated key, as `Params::query` reads it).
 pub fn present<'a>(ctx: &'a Ctx, key: &str) -> Option<&'a str> {
     ctx.params.query(key).filter(|v| !crate::v2::blank(v))
 }
 
 /// `Exchange.find(params[:exchange_id])` on a structured value, which runs before any date is read: a hash finds nothing
-/// (RecordNotFound, 404, as Rails); an array finds its ids (404 when one is missing), and then Rails fails on
+/// (RecordNotFound, 404, as 2.x); an array finds its ids (404 when one is missing), and then 2.x fails on
 /// `for_exchange(array)` (500; D-TRACKER-FILTER-BAD-INPUT: 400). `None` when the venue is a plain value or absent.
 pub fn structured_exchange(c: &rusqlite::Connection, ctx: &Ctx) -> Result<Option<axum::response::Response>, crate::web::WebError> {
     let keys: Vec<&(String, String)> = ctx.params.query.iter().filter(|(k, _)| k.starts_with("exchange_id[")).collect();
@@ -46,7 +46,7 @@ pub fn structured_exchange(c: &rusqlite::Connection, ctx: &Ctx) -> Result<Option
     Ok(Some(crate::web::layout::bad_request()))
 }
 
-/// The structured keys Rails crashes on, and each present day.
+/// The structured keys 2.x crashes on, and each present day.
 pub fn read(ctx: &Ctx, zone: Tz) -> Result<Window, Bad> {
     if ctx.params.query.iter().any(|(k, _)| k.starts_with("exchange_id[") || k.starts_with("from[") || k.starts_with("to[")) { return Err(Bad); }
     let bound = |key: &str, clock: (u32, u32, u32, u32)| -> Result<Option<String>, Bad> {

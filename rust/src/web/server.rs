@@ -43,7 +43,7 @@ impl Default for Limits {
 static BINDING: std::sync::OnceLock<std::net::IpAddr> = std::sync::OnceLock::new();
 
 /// `serve`'s `BINDING`, set once at start: the address the app, the refusal page and the starting page listen on. The
-/// desktop sets 127.0.0.1, as 2.x passed `-b 127.0.0.1` to Rails (PLAN-B6 §1.3); unset, 0.0.0.0 (Docker, Umbrel).
+/// desktop sets 127.0.0.1, as 2.x passed `-b 127.0.0.1` to its server (PLAN-B6 §1.3); unset, 0.0.0.0 (Docker, Umbrel).
 pub fn set_binding(ip: std::net::IpAddr) { let _ = BINDING.set(ip); }
 
 pub fn binding() -> std::net::IpAddr { BINDING.get().copied().unwrap_or(std::net::Ipv4Addr::UNSPECIFIED.into()) }

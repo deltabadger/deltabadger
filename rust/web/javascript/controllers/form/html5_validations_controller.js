@@ -88,7 +88,7 @@ export default class extends Controller {
       !['file', 'reset', 'submit', 'button'].includes(field.type)
   }
 
-  // The server renders the same div for model errors (config/initializers/inline_form_errors.rb),
+  // The server renders the same div for model errors,
   // right after the field and before this controller ever runs. Take ownership of those so they
   // land where a client-side message would, and so typing clears them.
   #adoptServerRenderedErrors() {

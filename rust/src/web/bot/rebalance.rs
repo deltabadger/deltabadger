@@ -1,4 +1,4 @@
-//! The halted rebalance's owner-attested Resume. Rails exposes this only on the bot page.
+//! The halted rebalance's owner-attested Resume. 2.x exposes this only on the bot page.
 use axum::{extract::{Extension,Path,State},http::{HeaderMap,StatusCode},response::{IntoResponse,Response}};
 use crate::{engine::{model,rebalance},web::{auth,flash,i18n,layout::{self,Ctx},App,WebError}};
 use super::{action_params::ActionParams,liquidation::{changed,missing}};

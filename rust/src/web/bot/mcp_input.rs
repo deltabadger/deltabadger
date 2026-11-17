@@ -5,7 +5,7 @@ use crate::{v2::BigDec, web::WebError};
 use rusqlite::Connection;
 use serde_json::{json, Map, Value};
 
-/// Ruby String#strip removes NUL, TAB..CR and ASCII space, preserving Unicode spaces.
+/// 2.x's String#strip removes NUL, TAB..CR and ASCII space, preserving Unicode spaces.
 pub fn strip(text:&str)->&str {
     text.trim_matches(|c:char| matches!(c,'\0'|'\t'|'\n'|'\u{000b}'|'\u{000c}'|'\r'|' '))
 }
@@ -128,7 +128,7 @@ pub fn posted(draft: &mut Draft, fields: &Value) -> Result<Map<String, Value>, I
                 Ok(posted) => posted,
                 Err((code, message)) => {
                     // Classify the unsupported alias only; this cannot resolve an asset or
-                    // enable a write. NBSP and other Rails-invalid names retain Invalid.
+                    // enable a write. NBSP and other 2.x-invalid names retain Invalid.
                     let alias = message.strip_suffix(" is not in this basket; add it with add_asset_id first.")
                         .is_some_and(|name| unicode_ascii_alias(draft, name));
                     let refused = fail(draft, (code, message));
@@ -187,7 +187,7 @@ fn weights(draft: &Draft, value: &Value) -> Result<Value,(&'static str,String)> 
     let mut given=Vec::new();
     match value {
         Value::String(s) => {
-            // Ruby split drops trailing empty entries.
+            // 2.x's split drops trailing empty entries.
             for entry in s.trim_end_matches(',').split(',') {
                 let Some((name,pct))=strip(entry).split_once(':') else { return Err(invalid()); };
                 given.push((name.to_owned(),json!(pct)));
@@ -254,7 +254,7 @@ pub fn full_messages(errors: &[FieldError]) -> String {
     }).collect::<Vec<_>>().join(", ")
 }
 
-/// Reuse the existing Rails/Oj encoder for persisted MCP settings and JSON-RPC history.
+/// Reuse the existing 2.x/Oj encoder for persisted MCP settings and JSON-RPC history.
 pub fn encode(value: &Value) -> String {
     match value {
         Value::Null=>"null".into(), Value::Bool(b)=>b.to_string(),

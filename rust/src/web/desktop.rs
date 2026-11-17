@@ -150,7 +150,7 @@ pub fn map_locale(os: &str) -> &'static str {
     super::locale::known(&language).unwrap_or(super::locale::DEFAULT)
 }
 
-/// An IANA zone as the Rails name `users.time_zone` holds, the first in name order when several share it, else `UTC`.
+/// An IANA zone as the 2.x name `users.time_zone` holds, the first in name order when several share it, else `UTC`.
 pub fn map_zone(iana: &str) -> String {
     let Ok(zone) = iana.parse::<chrono_tz::Tz>() else { return "UTC".into() };
     let mut names: Vec<&String> = super::timezone::names().filter(|n| super::timezone::zone(n) == Some(zone)).collect();

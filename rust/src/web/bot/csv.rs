@@ -1,12 +1,12 @@
 //! Bots::ExportsController and Bots::ImportsController (Bot::Exportable): the bot's closed orders as a CSV file, and such a
 //! file read back into a bot. PLAN-A8-bot-csv (r0–r4) names every divergence:
-//! - D-EXPORT-NO-REFRESH: no venue call; the file is the database as it stands (Rails polls the waiting rows first).
-//! - D-EXPORT-NIL-CELL: a closed row without an order type or side is an empty cell (Rails raises).
-//! - D-IMPORT-TIME / R-IMPORT-READABLE / D-IMPORT-UNREADABLE: a row Rails would insert is read strictly (its time, type,
+//! - D-EXPORT-NO-REFRESH: no venue call; the file is the database as it stands (2.x polls the waiting rows first).
+//! - D-EXPORT-NIL-CELL: a closed row without an order type or side is an empty cell (2.x raises).
+//! - D-IMPORT-TIME / R-IMPORT-READABLE / D-IMPORT-UNREADABLE: a row 2.x would insert is read strictly (its time, type,
 //!   side and numbers) and as every reader reads it (`fill::for_engine`, 1970 ≤ time < 2200); one that fails refuses the
 //!   whole file as malformed, nothing written, no exception text shown.
 //! - D-IMPORT-REIMPORT / D-IMPORT-DUP: an id the bot already holds is never imported twice; the count is what was written.
-//! - R-IMPORT-INDEX-NO-ASSET: an index bot's row naming no one asset is skipped (Rails stores it without one).
+//! - R-IMPORT-INDEX-NO-ASSET: an index bot's row naming no one asset is skipped (2.x stores it without one).
 //! - D-IMPORT-MISMATCH-QUOTE / D-IMPORT-COUNTS: the mismatch names a mismatched row's quote; skipped rows are counted.
 //! - D-IMPORT-BUSY: refused while the engine holds the bot or an operation is in flight; an import that goes ahead bumps the
 //!   bot's history generation, so a rebalance, liquidation or redeploy leg sized before it is fenced.
@@ -77,7 +77,7 @@ fn orders_csv(c: &Connection, id: i64, bot_exchange: Option<i64>, zone: &str) ->
         let exchange: i64 = r.get(11)?;
         // venue_order_id: another venue's row names its venue.
         // A row with no id still names its venue (`"#{name}:#{nil}"`), so two such rows of different venues stay two.
-        // A bot with no venue (the association is optional) names every row's venue, as `nil == id` is false in Rails.
+        // A bot with no venue (the association is optional) names every row's venue, as `nil == id` is false in 2.x.
         let order_id = if Some(exchange) == bot_exchange { external } else {
             Some(format!("{}:{}", venues.get(&exchange).cloned().unwrap_or_else(|| exchange.to_string()), external.unwrap_or_default()))
         };
@@ -105,9 +105,9 @@ fn orders_csv(c: &Connection, id: i64, bot_exchange: Option<i64>, zone: &str) ->
     Ok(out)
 }
 
-/// The bot's file in `deltabadger export` (PLAN-B4b §2.1): Rails' `Bot.find_each` takes every bot, deleted and archived
+/// The bot's file in `deltabadger export` (PLAN-B4b §2.1): 2.x's `Bot.find_each` takes every bot, deleted and archived
 /// included, so it is loaded without the web's owner and not-deleted filter. A bot whose owner is gone is written in UTC
-/// (D-EXPORT-ORPHAN-BOT: Rails raises on `user.time_zone`). None when there is no such bot.
+/// (D-EXPORT-ORPHAN-BOT: 2.x raises on `user.time_zone`). None when there is no such bot.
 pub fn export_csv(c: &Connection, id: i64) -> Result<Option<String>, WebError> {
     let bot = c.query_row("SELECT b.exchange_id, coalesce(u.time_zone, 'UTC') FROM bots b LEFT JOIN users u ON u.id = b.user_id WHERE b.id = ?1", [id],
                           |r| Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, String>(1)?))).optional()?;
@@ -152,7 +152,7 @@ fn read_time(cell: Option<&str>) -> Option<DateTime<Utc>> {
     window.contains(&at).then_some(at)
 }
 
-/// `row[name].to_d` where it holds a plain decimal; blank is 0, as Rails reads nil (D-IMPORT-UNREADABLE).
+/// `row[name].to_d` where it holds a plain decimal; blank is 0, as 2.x reads nil (D-IMPORT-UNREADABLE).
 fn read_number(cell: Option<&str>) -> Option<BigDec> {
     match cell.filter(|v| !v2::blank(v)) {
         None => Some(BigDec::zero()),
@@ -201,7 +201,7 @@ pub enum Imported {
     Refused(String),
     /// Nothing written and a row's quote differs from the bot's: that quote and the bot's.
     QuoteMismatch { csv: String, bot: String, skipped: usize },
-    /// Rows written, and rows skipped as not closed, not this bot's or ambiguous (existing ones are Rails' sentence).
+    /// Rows written, and rows skipped as not closed, not this bot's or ambiguous (existing ones are 2.x's sentence).
     Done { imported: usize, skipped: usize },
 }
 
@@ -209,7 +209,7 @@ struct Candidate { order_id: String, at: DateTime<Utc>, order_type: i64, side: i
 
 /// Bot::Exportable#import_orders_csv, under the write lock and the engine's guard. Call inside `App::db`.
 pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &[u8]) -> Result<Imported, WebError> {
-    // The upload as Rails reads it: no byte order mark dropped (it fails the header check), invalid UTF-8 malformed.
+    // The upload as 2.x reads it: no byte order mark dropped (it fails the header check), invalid UTF-8 malformed.
     let Ok(text) = std::str::from_utf8(bytes) else { return Ok(Imported::Malformed) };
     let Ok(table) = Table::parse(text) else { return Ok(Imported::Malformed) };
     if table.headers.len() != HEADERS.len() || table.headers.iter().zip(HEADERS).any(|(h, e)| h.as_deref() != Some(e)) { return Ok(Imported::InvalidFormat) }

@@ -15,7 +15,7 @@ pub fn count(n:usize,limit:usize)->bool {n<=limit}
 /// All identifiers below come from static callers or SQLite schema, never request data.
 pub fn table(c:&Connection,table:&str,filter:&str,cap:usize,user:i64,total:&mut usize)->Result<bool,WebError>{
     let cols=c.prepare(&format!("PRAGMA table_info({table})"))?.query_map([],|r|r.get::<_,String>(1))?.collect::<Result<Vec<_>,_>>()?;
-    // A table this install doesn't have holds no rows (a Rails-only schema has no rust_* tables).
+    // A table this install doesn't have holds no rows (a 2.x-only schema has no rust_* tables).
     if cols.is_empty(){return Ok(true)}
     let lengths=cols.iter().map(|name|format!("COALESCE(length(CAST(\"{}\" AS BLOB)),0)",name.replace('"',"\"\""))).collect::<Vec<_>>();
     let sql=format!("SELECT {} FROM {table} WHERE {filter} LIMIT {}",lengths.join(","),cap+1);

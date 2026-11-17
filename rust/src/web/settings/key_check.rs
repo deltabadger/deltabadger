@@ -1,6 +1,6 @@
 //! The key checks of the venues that report what a key may do: Exchanges::Kraken#key_permission_validity (GetApiKeyInfo's
 //! permission list against KEY_PERMISSIONS) and Exchanges::Binance#trading_key_validity / #reading_key_validity (the
-//! apiRestrictions flags). Each verdict is a pure function of the venue's answer, replayed against the recorded Rails
+//! apiRestrictions flags). Each verdict is a pure function of the venue's answer, replayed against the recorded 2.x
 //! verdicts (tests/fixtures/key_verdicts.json); `check` sends the one request and reads it. Exchanges::Kucoin#get_api_key_validity
 //! probes instead (a cancel of the zero order id, or a trading-account read for a withdrawal key). Exchanges::BinanceUs has no
 //! apiRestrictions: a signed account read, then (for a key that may trade or withdraw) a cancel of an order that cannot
@@ -10,7 +10,7 @@ use crate::venue::http::{HttpRequest, HttpResponse, Transport, TransportError};
 use crate::web::i18n;
 use serde_json::Value;
 
-/// What Rails' check answers: `Success(true|false)`, `Success({missing_permissions:, forbidden_permissions:})`, or a Failure.
+/// What 2.x's check answers: `Success(true|false)`, `Success({missing_permissions:, forbidden_permissions:})`, or a Failure.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Verdict { Valid(bool), Permissions { missing: Vec<String>, forbidden: Vec<String> }, Failure(String) }
 
@@ -51,7 +51,7 @@ fn transport(error: &TransportError) -> String {
     match error { TransportError::NotSent(m) | TransportError::MaybeSent(m) | TransportError::Permanent(m) => m.clone() }
 }
 
-/// Ruby truthiness of a decoded value.
+/// 2.x's truthiness of a decoded value.
 fn truthy(value: &Value) -> bool { !matches!(value, Value::Null | Value::Bool(false)) }
 
 /// Exchanges::Kraken#key_permission_validity on GetApiKeyInfo's answer.
@@ -71,7 +71,7 @@ pub fn kraken_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>) 
     if errors.iter().any(truthy) {
         return Verdict::Failure(errors.iter().map(|e| e.as_str().map_or_else(|| e.to_string(), str::to_string)).collect::<Vec<_>>().join(", "));
     }
-    // ponytail: a `result` that is not an object makes Ruby's `dig` raise (a 500); here it is no permission list.
+    // ponytail: a `result` that is not an object makes 2.x's `dig` raise (a 500); here it is no permission list.
     let Some(Value::Array(held)) = data.get("result").and_then(|result| result.get("permissions")) else {
         return Verdict::Failure("Kraken returned no permission list for this key".into());
     };
@@ -86,7 +86,7 @@ pub fn kraken_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>) 
 pub fn binance_verdict(kind: i64, reading: bool, answer: &Result<HttpResponse, TransportError>, url: &str) -> Verdict {
     let response = match answer { Ok(response) => response, Err(error) => return Verdict::Failure(transport(error)) };
     if !(200..300).contains(&response.status) {
-        // #parse_error_code: the failure text's JSON `code`, compared as Ruby's Integer#== does (a "-2015" string is not one).
+        // #parse_error_code: the failure text's JSON `code`, compared as 2.x's Integer#== does (a "-2015" string is not one).
         let text = raised(response, "GET", url);
         let code = serde_json::from_str::<Value>(&text).ok().and_then(|value| value.get("code").cloned());
         let invalid = code.as_ref().and_then(Value::as_f64).is_some_and(|code| BINANCE_INVALID_KEY.iter().any(|known| *known as f64 == code));
@@ -161,7 +161,7 @@ pub fn kucoin_read_verdict(answer: &Result<HttpResponse, TransportError>, method
                 let parts: Vec<String> = ["code", "msg"].iter().filter_map(|name| body.get(*name).filter(|v| !v.is_null()).map(text)).collect();
                 format!("Failed to get KuCoin balances: {}", parts.join(" "))
             }
-            // ponytail: Ruby raises on an envelope that is not a Hash (a 500); here it is no verdict.
+            // ponytail: 2.x raises on an envelope that is not a Hash (a 500); here it is no verdict.
             _ => "KuCoin sent an unreadable answer to the key check".into(),
         },
     };
@@ -206,9 +206,9 @@ pub fn gemini_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>, 
 }
 
 /// Exchange#get_read_api_key_validity on Gemini (a reading key): #get_balances(asset_ids: []), its balances read. Balances
-/// are valid when Rails can walk them (a list of rows each naming its currency); null is "Failed to get Gemini balances";
-/// a failure is incorrect where Gemini's invalid-key reasons condemn it, else no verdict. Rows Rails cannot walk raise in
-/// Rails (no verdict either).
+/// are valid when 2.x can walk them (a list of rows each naming its currency); null is "Failed to get Gemini balances";
+/// a failure is incorrect where Gemini's invalid-key reasons condemn it, else no verdict. Rows 2.x cannot walk raise in
+/// 2.x (no verdict either).
 pub fn gemini_read_verdict(answer: &Result<HttpResponse, TransportError>, url: &str) -> Verdict {
     let failure = match gemini_result(answer, url) {
         Ok(Some(Value::Array(rows))) => {
@@ -263,7 +263,7 @@ pub const BINANCE_US_PROBE: [(&str, &str); 2] = [("symbol", "ETHBTC"), ("orderId
 pub const BINANCE_US_ACCOUNT_PATH: &str = "/api/v3/account";
 pub const BINANCE_US_PROBE_PATH: &str = "/api/v3/order";
 
-/// Ruby's `#to_i` of a decoded `code` (an Integer, a Float truncated, a String's leading digits); None where Ruby raises.
+/// 2.x's `#to_i` of a decoded `code` (an Integer, a Float truncated, a String's leading digits); None where 2.x raises.
 fn code_to_i(code: &Value) -> Option<i64> {
     match code { Value::Number(n) => n.as_i64().or_else(|| n.as_f64().map(|f| f as i64)), Value::String(s) => Some(crate::v2::to_i(s)), _ => None }
 }
@@ -273,7 +273,7 @@ fn error_code(text: &str) -> Option<Value> {
     serde_json::from_str::<Value>(text).ok().and_then(|v| v.as_object().and_then(|o| o.get("code").cloned())).filter(|c| !c.is_null())
 }
 
-/// `code == n` as Ruby compares a decoded number with an Integer (a String never equals one).
+/// `code == n` as 2.x compares a decoded number with an Integer (a String never equals one).
 fn code_is(code: Option<&Value>, n: i64) -> bool { code.and_then(Value::as_f64).is_some_and(|c| c == n as f64) }
 
 /// An answer as honeymaker hands it to the check: the 2xx body decoded (Ok(None) when it is not a JSON object), or the
@@ -368,7 +368,7 @@ pub const BITVAVO_PROBE: [(&str, &str); 2] = [("market", "BTC-EUR"), ("orderId",
 /// Exchanges::Bitvavo::KEY_CHECK_REFUSED: 310 no Trade, 311 no View.
 pub const BITVAVO_REFUSED: [i64; 2] = [310, 311];
 
-/// `code == n` as Ruby compares a decoded number with an Integer (a String never equals one).
+/// `code == n` as 2.x compares a decoded number with an Integer (a String never equals one).
 fn number_is(code: Option<&Value>, n: i64) -> bool { code.and_then(Value::as_f64).is_some_and(|c| c == n as f64) }
 
 /// Exchanges::Bitvavo#get_api_key_validity on one probe's answer: None when the key got past it (a success without an
@@ -435,7 +435,7 @@ fn bitget_result(answer: &Result<HttpResponse, TransportError>, method: &str, ur
     serde_json::from_str::<Value>(&response.body).map(Some).map_err(|_| response.body.clone())
 }
 
-/// Ruby's `#inspect` of a decoded code, as "Bitget answered code …" names it.
+/// 2.x's `#inspect` of a decoded code, as "Bitget answered code …" names it.
 fn inspect(v: Option<&Value>) -> String { match v { None => "nil".into(), Some(Value::String(s)) => format!("{s:?}"), Some(other) => other.to_string() } }
 
 /// Exchanges::Bitget#classify_api_key_validity on the probe's answer (`kind` 1, a withdrawal key, read its assets), the code
@@ -462,7 +462,7 @@ pub fn bitget_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>, 
 
 /// Exchange#get_read_api_key_validity on Bitget (a reading key): #get_balances(asset_ids: []), its assets read. Balances only
 /// under the success code with `data`, each row naming its coin; else "Failed to get Bitget balances: <code> <msg>"; a failure
-/// the venue's invalid-key words condemn (#condemning_invalid_key_error?) is incorrect. An answer Rails cannot walk raises
+/// the venue's invalid-key words condemn (#condemning_invalid_key_error?) is incorrect. An answer 2.x cannot walk raises
 /// there (no verdict here).
 pub fn bitget_read_verdict(answer: &Result<HttpResponse, TransportError>, url: &str) -> Verdict {
     let text = |v: &Value| v.as_str().map_or_else(|| v.to_string(), str::to_string);
@@ -482,7 +482,7 @@ pub fn bitget_read_verdict(answer: &Result<HttpResponse, TransportError>, url: &
                 }
             }
         }
-        // ponytail: Ruby raises on an answer that is not a Hash (a 500); here it is no verdict.
+        // ponytail: 2.x raises on an answer that is not a Hash (a 500); here it is no verdict.
         Ok(_) => return Verdict::Failure("Bitget sent an unreadable answer to the key check".into()),
     };
     if crate::engine::venue_rules::BITGET.is_invalid_key(std::slice::from_ref(&failure)) { Verdict::Valid(false) } else { Verdict::Failure(failure) }
@@ -503,7 +503,7 @@ pub async fn bitget_check<T: Transport>(transport: &T, venue: &crate::venue::bit
 }
 
 /// Bitrue's trading/withdrawal account check, or the inherited read-only balance check.
-/// A withdrawal key needs a readable account; Rails does not inspect canWithdraw here.
+/// A withdrawal key needs a readable account; 2.x does not inspect canWithdraw here.
 pub fn bitrue_verdict(kind: i64, reading: bool, answer: &Result<HttpResponse, TransportError>, url: &str) -> Verdict {
     let response = match answer { Ok(r) => r, Err(e) => return Verdict::Failure(transport(e)) };
     if !(200..300).contains(&response.status) {
@@ -608,7 +608,7 @@ pub fn hyperliquid_verdict(address: &str, signer: &str, answer: &Result<HttpResp
     let to_s = |v: Option<&Value>| match v { None | Some(Value::Null) => String::new(), Some(Value::String(s)) => s.clone(), Some(other) => other.to_string() };
     Verdict::Valid(match role.get("role").and_then(Value::as_str) {
         Some("agent") => match role.get("data") {
-            // `role.dig('data', 'user')`: dig raises on a `data` that is no Hash (no verdict, as Rails' job is discarded).
+            // `role.dig('data', 'user')`: dig raises on a `data` that is no Hash (no verdict, as 2.x's job is discarded).
             Some(Value::Object(data)) => to_s(data.get("user")).eq_ignore_ascii_case(address),
             None | Some(Value::Null) => false,
             Some(_) => return Verdict::Failure("Hyperliquid sent a role it cannot read".into()),
@@ -619,8 +619,8 @@ pub fn hyperliquid_verdict(address: &str, signer: &str, answer: &Result<HttpResp
 }
 
 /// Exchange#get_read_api_key_validity on Hyperliquid (a reading key): #get_balances(asset_ids: []), the address's
-/// spotClearinghouseState. Valid when Rails can walk the answer (an object whose `balances` is absent, null or a list of
-/// objects); a failure is incorrect where "User or API Wallet" condemns it, else no verdict. An answer Rails cannot walk
+/// spotClearinghouseState. Valid when 2.x can walk the answer (an object whose `balances` is absent, null or a list of
+/// objects); a failure is incorrect where "User or API Wallet" condemns it, else no verdict. An answer 2.x cannot walk
 /// raises there (no verdict here).
 pub fn hyperliquid_read_verdict(answer: &Result<HttpResponse, TransportError>, url: &str) -> Verdict {
     match hyperliquid_result(answer, url) {
@@ -693,11 +693,11 @@ pub enum IbkrVerdict { Account(String), PendingActivation, Incorrect(&'static st
 /// Exchanges::Ibkr#get_api_key_validity on `/iserver/accounts`' answer (through Session#signed_request, healed once):
 /// - accounts listed → correct; none → pending activation;
 /// - a 401 (an unactivated key and a revoked one answer alike), a failed LST mint (Session::AuthError) or key material
-///   that does not open (Rails' StandardError, no status) → pending activation;
+///   that does not open (2.x's StandardError, no status) → pending activation;
 /// - any other status, an unreadable answer, a lost connection → no verdict.
 ///
 /// Divergences: D-IBKR-ACCOUNT (several accounts → incorrect; an account id that is not U…/DU…/DF… → no verdict, as a
-/// non-JSON 200 Rails reads as one account is); D-IBKR-LOCK-TIMEOUT (a login busy past its wait → no verdict: Rails reads
+/// non-JSON 200 2.x reads as one account is); D-IBKR-LOCK-TIMEOUT (a login busy past its wait → no verdict: 2.x reads
 /// IbkrLock::Timeout's status-less failure as pending activation, restarting the 14-day clock its own comment rules out).
 pub fn ibkr_verdict(answer: &Result<Value, crate::venue::ibkr::Error>) -> IbkrVerdict {
     use crate::venue::ibkr::Error;
@@ -731,7 +731,7 @@ pub(crate) async fn ibkr_validity(base: &str, client: reqwest::Client, credentia
     let Some(material) = credentials.ibkr.as_deref() else { return failure("the IBKR connection is incomplete".into()) };
     let login = match crate::venue::ibkr::Login::new(material.clone(), producer.clone()) {
         Ok(login) => std::sync::Arc::new(login),
-        // Session#initialize raises on DH params or keys that do not parse: Rails' StandardError, no status.
+        // Session#initialize raises on DH params or keys that do not parse: 2.x's StandardError, no status.
         Err(_) => return Validity::PendingActivation,
     };
     let transport = crate::venue::http::ReqwestTransport::ibkr(client, login.clone()).with_sensitive_values(credentials.redaction_values.clone());
@@ -779,10 +779,10 @@ pub(crate) async fn check_identified_captured(venue: &str, base: &str, client: r
         let answer = transport.send(&request).await;
         let verdict = if kind == 2 { kucoin_read_verdict(&answer, request.method, request.url().as_str()) }
                       else { kucoin_verdict(kind, &answer, request.method, request.url().as_str()) };
-        // D-KUCOIN-HF-MODE: a key Rails' check judges correct is then read for its account mode; an unknown mode is a
+        // D-KUCOIN-HF-MODE: a key 2.x's check judges correct is then read for its account mode; an unknown mode is a
         // failure. UTA r1.9: a trading or read key it does not judge correct is read once too, and only a Unified
         // account changes the outcome (the classic probe does not decide there); any other mode or a failed read keeps
-        // Rails' verdict. An incorrect key stays incorrect: the mode read is authenticated.
+        // 2.x's verdict. An incorrect key stays incorrect: the mode read is authenticated.
         use crate::venue::kucoin_account::AccountMode;
         let mut mode = None;
         if let Some(version) = version {

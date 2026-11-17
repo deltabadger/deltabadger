@@ -12,7 +12,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Res
     let id = ctx.params.query("asset_id").filter(|id| !crate::v2::blank(id)).map(|id| {
         if !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()) { id.parse::<i64>().ok() } else { None }
     });
-    // `params[:symbol].to_s.strip` then present?; String#upcase is Unicode, SQLite's UPPER is ASCII (as Rails' SQL is).
+    // `params[:symbol].to_s.strip` then present?; String#upcase is Unicode, SQLite's UPPER is ASCII (as 2.x's SQL is).
     let symbol = crate::v2::strip(ctx.params.query("symbol").unwrap_or("")).to_uppercase();
     let read = |r: &rusqlite::Row| Ok(Asset { symbol: r.get::<_, Option<String>>(0)?.unwrap_or_default(), name: r.get::<_, Option<String>>(1)?.unwrap_or_default(),
                                                color: r.get(2)?, image: r.get(3)?, category: r.get(4)? });

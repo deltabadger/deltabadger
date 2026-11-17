@@ -251,7 +251,7 @@ pub async fn listing(app: &App, rule: &Rule, networks: bool) -> Result<Option<Li
         Ok(entries) => entries,
         Err(_) => return Ok(None),
     };
-    // V1 retains refused entries for diagnostics. Display reads follow Rails' active/verified
+    // V1 retains refused entries for diagnostics. Display reads follow 2.x's active/verified
     // address books, so an entirely refused list renders the empty-wallet state.
     if !networks {
         entries.retain(|entry| entry.refused.is_none());

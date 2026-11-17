@@ -1,4 +1,4 @@
-//! J: confirmation has Rails' unlimited lifetime. The current token authorizes one pending change.
+//! J: confirmation has 2.x's unlimited lifetime. The current token authorizes one pending change.
 use crate::{codec::format_time, web::{auth, flash, i18n, layout::{self, Ctx, Page}, App, WebError}};
 use askama::Template;
 use axum::{extract::{Extension, State}, http::StatusCode, response::Response};

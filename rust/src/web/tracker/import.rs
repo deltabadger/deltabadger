@@ -1,6 +1,6 @@
 //! Tracker::ImportsController: the dialog, and a file read into the ledger (tracker::import::run). The one question it
 //! can ask (which of two Binance accounts a file came from) parks the upload at `<tmp>/imports/<user>/<token>.csv` and
-//! its zone in `session["import_offsets"][token]`, the paths and keys Rails uses, until the answer comes back.
+//! its zone in `session["import_offsets"][token]`, the paths and keys 2.x uses, until the answer comes back.
 use super::{auth, Ctx, WebError};
 use crate::tracker::import::run::{self, Answer};
 use crate::web::bots::{Segmented, SegmentedOption};
@@ -43,7 +43,7 @@ pub async fn new(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     Ok(html(StatusCode::OK, New { ctx: &ctx, csrf: ctx.csrf_token(), formats, default_format: DEFAULT_FORMAT }.render()?))
 }
 
-/// Rails' `text.blank?` on the upload's binary string: empty, or ASCII whitespace only.
+/// 2.x's `text.blank?` on the upload's binary string: empty, or ASCII whitespace only.
 fn blank(bytes: &[u8]) -> bool {
     bytes.iter().all(|b| matches!(b, b' ' | b'\t' | b'\n' | 0x0b | 0x0c | b'\r'))
 }

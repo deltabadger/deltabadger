@@ -50,7 +50,7 @@ pub(crate) fn guarded<T>(c: &Connection, app: &App, owner: i64,
         tx.rollback()?;
         return Ok(Guarded::Refused(refusal.reason().to_string()));
     }
-    // Rails permits valid classification rows to survive another row's validation error.
+    // 2.x permits valid classification rows to survive another row's validation error.
     // Database errors above instead unwind the whole transaction and propagate to the 500.
     tx.commit()?;
     app.wake_engine();
@@ -90,7 +90,7 @@ fn save_settings(c: &Connection, owner: i64, now: &str, params: &Value) -> Resul
         }
     }
     let updated = Value::Object(settings);
-    // D-TRACKER-SETTINGS-422: a refused save answers 422, as fund_classifications does (Rails ignores update's false
+    // D-TRACKER-SETTINGS-422: a refused save answers 422, as fund_classifications does (2.x ignores update's false
     // return and still answers head :ok).
     if !super::user::validate_save(c, owner)? { return Ok(StatusCode::UNPROCESSABLE_ENTITY); }
     if was_null || updated != original {
@@ -185,7 +185,7 @@ pub async fn sync(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Res
     })).await
 }
 
-/// TrackerController#export. Rails saves `export_type` before it reads, so this GET writes: the same write as
+/// TrackerController#export. 2.x saves `export_type` before it reads, so this GET writes: the same write as
 /// save_export_settings, committed in its own immediate transaction before the read, which runs with writes disabled.
 pub async fn export(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(owner) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)); };
@@ -206,7 +206,7 @@ pub const CSV_HEADERS: [&str; 12] = ["date","type","base_currency","base_amount"
 fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebError> {
     use rusqlite::types::Value as Sql;
     let present = |key: &str| ctx.params.query(key).filter(|v| !crate::v2::blank(v));
-    // Rails' own query, so that rows at the same instant come out in the same order.
+    // 2.x's own query, so that rows at the same instant come out in the same order.
     let mut sql = format!("SELECT {CSV_COLUMNS} FROM account_transactions WHERE user_id=?1");
     let mut binds = vec![Sql::Integer(owner)];
     if let Some(raw) = present("exchange_id") {
@@ -247,7 +247,7 @@ pub(crate) fn csv_rows(c: &Connection, sql: &str, binds: Vec<rusqlite::types::Va
         let exchange = r.get::<_, i64>(8)?;
         if let std::collections::hash_map::Entry::Vacant(slot) = venues.entry(exchange) {
             let kind: Option<Option<String>> = c.query_row("SELECT type FROM exchanges WHERE id=?1", [exchange], |r| r.get(0)).optional()?;
-            // A row whose venue is gone: Rails fails on nil.name_id.
+            // A row whose venue is gone: 2.x fails on nil.name_id.
             let kind = kind.ok_or_else(row::invalid)?;
             slot.insert(crate::tracker::rows::name_id(kind.as_deref().unwrap_or("Exchange")));
         }
