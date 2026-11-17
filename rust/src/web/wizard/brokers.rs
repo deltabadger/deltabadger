@@ -1,6 +1,6 @@
 //! The DCA wizard's stock-broker step (Bots::DcaMultiAssets::PickStockBrokersController): a stock basket picked asset-first
 //! that more than one stock venue lists comes here instead of the crypto exchange picker. A broker is committed with the USD
-//! quote default (Bots::StockBrokerRoutable#finalize_stock_broker!). Interactive Brokers is offered as Rails offers it; its key
+//! quote default (Bots::StockBrokerRoutable#finalize_stock_broker!). Interactive Brokers is offered as 2.x offers it; its key
 //! step is a venue this build does not trade (wizard::keys), the refusal the plan names.
 use super::keys::stock_bot;
 use super::{basket_ids, current_variant, dig, BotType, Step, StepOrder, QUOTE_KEY};

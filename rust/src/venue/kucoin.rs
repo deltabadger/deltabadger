@@ -1,6 +1,6 @@
 //! Honeymaker::Clients::Kucoin and Exchanges::Kucoin for the engine's spot orders (plan K, slices K1-K3): prices, balances,
-//! placement, polls, cancel and recovery by client order id. Rails is the oracle; each method names the Ruby it ports. The
-//! classic (LF) endpoints, as Rails runs them (plan K ruling O1); `venue::live` builds it for every KuCoin bot.
+//! placement, polls, cancel and recovery by client order id. 2.x is the oracle; each method names the 2.x method it ports. The
+//! classic (LF) endpoints, as 2.x runs them (plan K ruling O1); `venue::live` builds it for every KuCoin bot.
 //!
 //! Signing (Honeymaker::Clients::Kucoin#signed_headers): KC-API-SIGN = base64(HMAC-SHA256(secret, timestamp + METHOD + path +
 //! `?query` (a GET with params) | the JSON body (a POST) | nothing (a DELETE))), the passphrase likewise HMAC'd, key version 2.
@@ -11,7 +11,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError}
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, KUCOIN as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -36,7 +36,7 @@ pub const UNREADABLE: &str = "KuCoin: unreadable response";
 pub const NO_ORDER_ID: &str = "KuCoin answered the order with no order id";
 /// Plan K r4: on KuCoin absence is never concluded. The exact client-order lookup only sees active orders and the done-orders
 /// scan only what KuCoin still keeps, so a miss in both proves nothing; the intent waits for `deltabadger resolve-placement`.
-/// A divergence: Rails sends a fresh random clientOid and has no lookup at all.
+/// A divergence: 2.x sends a fresh random clientOid and has no lookup at all.
 pub const ABSENCE_UNPROVEN: &str = "KuCoin: neither the client order lookup nor the done-orders scan found this order, and KuCoin cannot prove it absent; settle it with `deltabadger resolve-placement`";
 /// allTickers is the whole market in one body (about 1 MB): its read stops at this many bytes, never a price from a cut body.
 pub const ALL_TICKERS_LIMIT: usize = 4 * 1024 * 1024;
@@ -101,12 +101,12 @@ fn field<'a>(v: &'a Value, key: &str) -> Result<&'a Value, VenueError> { super::
 fn required(v: &Value) -> Result<BigDec, VenueError> { super::json::required(v, unreadable) }
 /// `x&.to_d`: null or absent is None.
 fn optional(v: &Value) -> Result<Option<BigDec>, VenueError> { if v.is_null() { Ok(None) } else { required(v).map(Some) } }
-/// Ruby's truthiness of a JSON value: only null (or absent) and false are false.
+/// 2.x's truthiness of a JSON value: only null (or absent) and false are false.
 fn truthy(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) }
-/// `#to_s` of a scalar, as Ruby interpolates it.
+/// `#to_s` of a scalar, as 2.x interpolates it.
 fn to_s(v: &Value) -> String { match v { Value::String(s) => s.clone(), other => other.to_string() } }
 /// `#to_i` of a JSON page count (nil.to_i is 0).
-fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_default(), Value::String(s) => crate::ruby::to_i(s), _ => 0 } }
+fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_default(), Value::String(s) => crate::v2::to_i(s), _ => 0 } }
 /// The envelope's code as `to_s` reads it; an answer without one is unreadable.
 fn code(body: &Value) -> Result<String, VenueError> { match body.get("code") { Some(c @ (Value::String(_) | Value::Number(_))) => Ok(to_s(c)), _ => Err(unreadable()) } }
 const OK: &str = "200000";
@@ -126,7 +126,7 @@ pub fn not_found(messages: &[String]) -> bool {
     ORDER_NOT_FOUND_MESSAGES.iter().any(|m| joined.contains(m))
 }
 
-/// Exchanges::Kucoin#parse_order_type: `market` or `limit` (any case), else Rails raises.
+/// Exchanges::Kucoin#parse_order_type: `market` or `limit` (any case), else 2.x raises.
 fn limit_type(v: &Value) -> Result<bool, VenueError> {
     let t = v.as_str().ok_or_else(unreadable)?;
     match t.to_lowercase().as_str() {
@@ -152,7 +152,7 @@ pub fn parse_order(order_id: &str, o: &Value, pairs: &Pairs) -> Result<OrderStat
     let status = if truthy(&o["cancelExist"]) { OrderStatus::Cancelled } else if truthy(&o["isActive"]) { OrderStatus::Open }
                  else if amount_exec.is_positive() { OrderStatus::Closed } else { OrderStatus::Unknown };
     // D-KUCOIN-ZERO-FILL-FUNDS: only explicit terminal evidence on a market order (both flags JSON false, both dealt amounts
-    // present and exactly 0, a readable createdAt) is kept for the poll to settle (OrderState::settled); all else as Rails.
+    // present and exactly 0, a readable createdAt) is kept for the poll to settle (OrderState::settled); all else as 2.x.
     let zero = |v: &Option<BigDec>| v.as_ref().is_some_and(BigDec::is_zero);
     let zero_fill_at = (status == OrderStatus::Unknown && !limit && o["isActive"] == Value::Bool(false) && o["cancelExist"] == Value::Bool(false)
                         && zero(&deal_size) && zero(&deal_funds))
@@ -161,7 +161,7 @@ pub fn parse_order(order_id: &str, o: &Value, pairs: &Pairs) -> Result<OrderStat
                     amount_exec, quote_amount_exec: Some(deal_funds.unwrap_or_else(BigDec::zero)), limit, sell, pair: Some(symbol.into()), asset_class: None })
 }
 
-/// A28-3d-5: the classic order list the history read asks (r1.1: whatever the account's mode, where Rails placed), its page
+/// A28-3d-5: the classic order list the history read asks (r1.1: whatever the account's mode, where 2.x placed), its page
 /// cap, and KuCoin's reach for done orders (D-HISTORY-DOC-RETENTION: cancelled ones are kept a month).
 pub const ORDERS: &str = "/api/v1/orders";
 pub const HISTORY_PAGES: i64 = 5;
@@ -185,10 +185,10 @@ pub const HISTORY_REFUSED: [&str; 6] = [
 
 /// A28-3d-5 (D-HISTORY-DOC-BUILT): one `/api/v1/orders` row read strictly in `parse_order`'s fields: `symbol` the asked one;
 /// `id` a non-empty string (the bare id `add_order` stores); `createdAt` ms, a JSON integer > 0; `side` buy/sell and `type`
-/// limit/market in any case (r1.3, as Rails reads them); a limit at its raw `price` > 0 sized `size` > 0 (its `funds` unread); a market
+/// limit/market in any case (r1.3, as 2.x reads them); a limit at its raw `price` > 0 sized `size` > 0 (its `funds` unread); a market
 /// sized by exactly one of `size` (base) / `funds` (quote) > 0; `dealSize`, `dealFunds` present and not negative. State as
-/// Rails' map: `cancelExist` ended, `isActive` open, neither with something dealt filled; neither with nothing dealt (Unknown,
-/// D-KUCOIN-ZERO-FILL-FUNDS' case) None. D-HISTORY-KUCOIN-FLAGS-STRICT: both flags must be JSON booleans; Rails reads an
+/// 2.x's map: `cancelExist` ended, `isActive` open, neither with something dealt filled; neither with nothing dealt (Unknown,
+/// D-KUCOIN-ZERO-FILL-FUNDS' case) None. D-HISTORY-KUCOIN-FLAGS-STRICT: both flags must be JSON booleans; 2.x reads an
 /// absent one as false.
 pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
@@ -295,7 +295,7 @@ pub fn parse_hf_order(o: &Value, want: &HfOrder, pairs: &Pairs) -> Result<OrderS
 
 /// The prices of an allTickers answer, as Exchanges::Kucoin#get_tickers_prices reads them: every `data.ticker` row by its
 /// `dig_or_raise`d `symbol`, its `last` kept only when positive, a later row for a symbol replacing an earlier one. No
-/// `data.ticker` is Rails' "Failed to get KuCoin tickers". Shared by the engine (`tickers_prices`) and the figures.
+/// `data.ticker` is 2.x's "Failed to get KuCoin tickers". Shared by the engine (`tickers_prices`) and the figures.
 pub fn all_tickers(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
     let failed = || VenueError::Rejected(vec!["Failed to get KuCoin tickers".into()]);
     // Hash#dig: a `data` that is not a hash (or a body that is not one) raises.
@@ -306,7 +306,7 @@ pub fn all_tickers(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
         let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
         let price = match &row["last"] {
             Value::Null => None,
-            v @ (Value::String(_) | Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
+            v @ (Value::String(_) | Value::Number(_)) => crate::v2::json_to_d(v).ok().flatten(),
             _ => return Err(unreadable()),
         };
         // `prices_hash[symbol] = price if price.positive?`: a later positive price for the same symbol replaces it.
@@ -319,7 +319,7 @@ pub fn all_tickers(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
 }
 
 impl<T: Transport> KucoinVenue<T> {
-    /// Classic wire adapter, also used by the unchanged Rails replay. Runtime construction attaches captured context.
+    /// Classic wire adapter, also used by the unchanged 2.x replay. Runtime construction attaches captured context.
     pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None, account: None, missing_context: false } }
     pub fn with_account_context(mut self, version: crate::engine::model::CredentialVersion, resolver: super::kucoin_account::Resolver) -> Self {
         self.account = Some(AccountContext { version, resolver, prepared: Default::default() });
@@ -339,7 +339,7 @@ impl<T: Transport> KucoinVenue<T> {
         if self.account.is_none() { return Ok(super::kucoin_account::AccountMode::ClassicLf); }
         super::kucoin_account::detect(&self.transport, &self.base).await
     }
-    /// The order API of new orders and balances: the prepared detection's. Unprepared (the Rails replay): classic.
+    /// The order API of new orders and balances: the prepared detection's. Unprepared (the 2.x replay): classic.
     pub fn family(&self) -> Family {
         let prepared = self.account.as_ref().and_then(|a| *a.prepared.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
         match prepared.map(|d| d.mode) {
@@ -462,7 +462,7 @@ impl<T: Transport> KucoinVenue<T> {
 
     /// Exchanges::Kucoin#each_page: currentPage 1.. to totalPage, every page on the success code ("Failed to get KuCoin
     /// history: <code> <msg>" else), each item handed to `each`. `capped`: a first page naming more than RANGE_CAP rows fails.
-    /// ponytail: Rails waits a throttled page out (6 × 10 s) and halves an over-cap fills range down to an hour; here both
+    /// ponytail: 2.x waits a throttled page out (6 × 10 s) and halves an over-cap fills range down to an hour; here both
     /// fail the read, and the caller's poll is retried later, so nothing is ever read as complete.
     async fn each_page(&self, path: &str, query: &[(&'static str, String)], capped: bool, mut each: impl FnMut(&Value)) -> Result<(), VenueError> {
         for page in 1..=MAX_PAGES {
@@ -650,10 +650,10 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     }
     /// Exchanges::Kucoin#get_candles: windows of 1500 periods from the start (`startAt`/`endAt` in whole seconds, a month's
     /// 1500 calendar months), each ending at now at the latest, at most MAX_CANDLE_PAGES of them (then what was read, as
-    /// Rails' cap). Each window's candles in time order; the next window from a second after its latest, or a second after
+    /// 2.x's cap). Each window's candles in time order; the next window from a second after its latest, or a second after
     /// its end when it had none; the walk ends at the window reaching now. Deduped by time (the first kept) and sorted; 3
     /// days built from daily candles and 1 month from weekly. Rows are [time, open, close, high, low, volume, …]. DIVERGES
-    /// (D-COND-CANDLE-ERROR-ENVELOPE): a code other than 200000 is the venue's refusal (Client#api_error), where Rails reads
+    /// (D-COND-CANDLE-ERROR-ENVELOPE): a code other than 200000 is the venue's refusal (Client#api_error), where 2.x reads
     /// its missing `data` as no candles.
     async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
         let window = |from: DateTime<Utc>| match timeframe {
@@ -677,7 +677,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
                 }).collect::<Result<Vec<_>, _>>()?,
                 _ => return Err(unreadable()),
             };
-            // ponytail: sorted by time; Rails sorts by the raw value, which differs only for times of different lengths.
+            // ponytail: sorted by time; 2.x sorts by the raw value, which differs only for times of different lengths.
             page.sort_by_key(|c| c.at);
             let latest = page.last().map(|c| c.at);
             out.extend(page);
@@ -730,7 +730,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
 
     /// #set_market_order / #set_limit_order through Clients::Kucoin#place_order: POST /api/v1/orders with clientOid, side,
     /// symbol, type, then a market order's `size` or `funds`, or a limit order's `size` and `price`. `clientOid` is the
-    /// intent id (spec E §2.6; Rails sends a fresh random UUID). Sent at most once. The stored id is the raw orderId. An
+    /// intent id (spec E §2.6; 2.x sends a fresh random UUID). Sent at most once. The stored id is the raw orderId. An
     /// error envelope is honeymaker's api_error text (the placement layer reads 500000/230005 as unknown, 400002 as safe);
     /// a success without an orderId, or an answer without a code, may have placed the order: Ambiguous.
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
@@ -826,7 +826,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
         Ok(out)
     }
 
-    /// A28-3d-5 (D-HISTORY-DOC-BUILT: Rails reads KuCoin orders by id only; the window listing is the docs'): the classic
+    /// A28-3d-5 (D-HISTORY-DOC-BUILT: 2.x reads KuCoin orders by id only; the window listing is the docs'): the classic
     /// `/api/v1/orders`, `status=active` then `status=done`, by symbol and `startAt`/`endAt` in ms, `currentPage` 1.. at 500
     /// a page while `currentPage < totalPage`, at most five pages (cap or unreadable page metadata: incomplete). r1.1: no
     /// account-mode gate; a classic list that fails is the read's failure. A window over 7 days is refused (KuCoin's range);
@@ -869,9 +869,9 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> { self.available(|code| code == ticker.quote_code).await }
 
     /// Exchanges::Kucoin#get_tickers_prices: the allTickers read `price(Last)` makes, every `data.ticker` row by its
-    /// `dig_or_raise`d `symbol`, the price `last&.to_d || 0` kept only when positive. No `data.ticker` is Rails' "Failed to
-    /// get KuCoin tickers". DIVERGES on purpose as Binance does (ruby::json_to_d, Q6): a `last` that is no decimal is left
-    /// out, where String#to_d reads "12x" as 12. Rails caches the answer for a minute; this reads fresh. Each price is its
+    /// `dig_or_raise`d `symbol`, the price `last&.to_d || 0` kept only when positive. No `data.ticker` is 2.x's "Failed to
+    /// get KuCoin tickers". DIVERGES on purpose as Binance does (v2::json_to_d, Q6): a `last` that is no decimal is left
+    /// out, where String#to_d reads "12x" as 12. 2.x caches the answer for a minute; this reads fresh. Each price is its
     /// decimal's `to_s('F')`.
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
         // A 2xx body that is not JSON is honeymaker's Failure (its text), never a raise.
@@ -883,7 +883,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
         Ok(all_tickers(&body)?.into_iter().map(|(symbol, price)| (symbol, Value::String(price.to_s_f()))).collect())
     }
 
-    /// #cancel_order through Clients::Kucoin#cancel_order: DELETE /api/v1/orders/{id}. A divergence: Rails takes any 2xx as a
+    /// #cancel_order through Clients::Kucoin#cancel_order: DELETE /api/v1/orders/{id}. A divergence: 2.x takes any 2xx as a
     /// cancel; here only the success code is, an error envelope is the venue's refusal.
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
         let body = self.call(&self.request("DELETE", format!("/api/v1/orders/{txid}"), vec![], None), false, http::MAX_BODY).await?;

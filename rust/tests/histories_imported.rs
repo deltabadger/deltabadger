@@ -1,9 +1,9 @@
-//! Imported rows (script/rust/record_histories_imported.rb records fixtures/histories_imported.json): synthetic bots fed
-//! through Rails' own CSV import, their tables installed as Rails stored them, then read by the engine's readers. Rails reads
+//! Imported rows (recorded in fixtures/histories_imported.json): synthetic bots fed
+//! through 2.x's own CSV import, their tables installed as 2.x stored them, then read by the engine's readers. 2.x reads
 //! an imported row as any submitted REGULAR row; so must every reader here. Also B1's PAXG basket (Cryptocurrency/tokenized).
 mod common;
 use chrono::{DateTime, Duration, Utc};
-use deltabadger::{engine::{accounting, amount, basket, eligibility, model, tick}, ruby::BigDec};
+use deltabadger::{engine::{accounting, amount, basket, eligibility, model, tick}, v2::BigDec};
 use rusqlite::{types::Value as Sql, Connection};
 use serde_json::{json, Value};
 
@@ -41,7 +41,7 @@ fn build(case: &Value) -> (tempfile::TempDir, deltabadger::store::Opened, model:
 }
 
 #[test]
-fn imported_rows_read_as_rails_reads_them() {
+fn imported_rows_read_as_v2_reads_them() {
     let v = vectors();
     let cases = v["cases"].as_array().unwrap();
     assert_eq!(cases.len(), 10);
@@ -86,9 +86,9 @@ fn imported_rows_read_as_rails_reads_them() {
     }
 }
 
-/// Rails' importer stores a CSV type outside market/limit as a NULL order_type (insert_all's enum cast).
+/// 2.x's importer stores a CSV type outside market/limit as a NULL order_type (insert_all's enum cast).
 #[test]
-fn the_recorded_rows_are_what_rails_stores() {
+fn the_recorded_rows_are_what_v2_stores() {
     let v = vectors();
     let odd = v["cases"].as_array().unwrap().iter().find(|c| c["name"] == "odd_type").unwrap();
     assert_eq!(odd["stored"][0]["order_type"], Value::Null);
@@ -110,7 +110,7 @@ fn terminal_imported_rows_are_admitted_and_legacy_open_ones_refused() {
         let (_d, o, bot) = build(case);
         let reasons = eligibility::bot_reasons(&o.primary, &bot).unwrap();
         if name == "legacy_open" {
-            assert!(reasons.iter().any(|r| r == "1 legacy imported row(s) left open (Rails never polls or settles them)"), "{reasons:?}");
+            assert!(reasons.iter().any(|r| r == "1 legacy imported row(s) left open (2.x never polls or settles them)"), "{reasons:?}");
             continue;
         }
         assert!(!reasons.iter().any(|r| r.contains("imported") || r.contains("asset category")), "{name}: {reasons:?}");

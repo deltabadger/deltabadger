@@ -1,6 +1,6 @@
 //! PLAN-A12 A12-1: the tax report's request rows, run, publish and recovery (D-TAX-QUEUE, D-TAX-RECONCILE,
-//! D-TAX-NOT-PORTED-GATE), which no Rails recording can show: races, crash points and the per-request panels. The
-//! surfaces' answers are held to Rails by the page and MCP grids (api_tax_*, d5_tax_*, tax_*).
+//! D-TAX-NOT-PORTED-GATE), which no 2.x recording can show: races, crash points and the per-request panels. The
+//! surfaces' answers are held to 2.x by the page and MCP grids (api_tax_*, d5_tax_*, tax_*).
 mod common;
 use common::web::{self, Browser, Csrf, TestClock};
 use deltabadger::engine::FixedClock;
@@ -153,7 +153,7 @@ fn two_creates_racing_take_one_slot() {
 }
 
 #[test]
-fn status_and_download_read_the_files_in_rails_order() {
+fn status_and_download_read_the_files_in_v2_order() {
     let i = install();
     let app = app(&i);
     let status = |c: &Connection| deltabadger::tax::api::status(c, &app, i.user, &args(json!({"country": "US", "year": 2025}))).unwrap().data;
@@ -167,7 +167,7 @@ fn status_and_download_read_the_files_in_rails_order() {
     let download = || deltabadger::tax::api::download(&app, i.user, &args(json!({"country": "US", "year": 2025}))).unwrap();
     assert_eq!(download().err().and_then(|r| r.code), Some("report_refused"));
     write(&tax::report_path(&tmp(&i), i.user, "US", 2025, "crypto"), "a,b\n");
-    // File first, then refusal (Rails' order), and the API never deletes.
+    // File first, then refusal (2.x's order), and the API never deletes.
     assert_eq!(status(&c)["state"], "ready");
     assert_eq!(download().ok(), Some(("a,b\n".to_string(), "deltabadger-tax-report-us-2025.csv".to_string())));
     assert_eq!(download().ok().map(|d| d.0).as_deref(), Some("a,b\n"));
@@ -182,7 +182,7 @@ fn the_not_ported_gate_refuses_before_anything_is_queued() {
     assert_eq!((res.status, res.code), (deltabadger::web::bot_api::Domain::NotPorted, Some("not_ported")));
     let text = deltabadger::tax::api::mcp(&c, &app, i.user, "generate_tax_report", &json!({"country": "FR", "year": 2018.0})).unwrap();
     assert_eq!(text["isError"], true, "{text}");
-    // Validation still answers first, as Rails.
+    // Validation still answers first, as 2.x.
     assert_eq!(deltabadger::tax::api::create(&c, &app, i.user, &args(json!({"country": "ZZ", "year": 2025})), "en").unwrap().code, Some("unknown_country"));
     assert!(rows(&c).is_empty());
     // An install on CoinGecko prices is served (PLAN-A17 A17-3 lifted the gate).
@@ -207,7 +207,7 @@ async fn a_failed_run_keeps_its_failed_outcome_and_tells_its_panel() {
     assert_eq!(files(&tmp(&i)), Vec::<String>::new());
 }
 
-/// r3 item 3: a wealth report on an install with no market-data provider runs as Rails' does: the NL 2025 file values the
+/// r3 item 3: a wealth report on an install with no market-data provider runs as 2.x's does: the NL 2025 file values the
 /// holdings of 1 January 2026 with no stored price, so it is ready and counts the missing value.
 #[tokio::test]
 async fn a_wealth_report_without_market_data_is_ready_and_counts_what_is_missing() {
@@ -289,7 +289,7 @@ async fn the_web_request_answers_its_own_panel_and_restores_a_refusal_it_could_n
     let (app, mut browser) = signed_in(&i).await;
     let refusal = tax::refusal_path(&tmp(&i), i.user, "US", 2025, "crypto");
     write(&refusal, r#"{"reason":"tokenized_unsupported","symbols":["TSLAx"]}"#);
-    // Another request holds the slot: not accepted, the refusal comes back and is the answer (Rails' reconcile).
+    // Another request holds the slot: not accepted, the refusal comes back and is the answer (2.x's reconcile).
     queued(&open(&i), i.user, R2, "US", "running");
     let busy = browser.send(&app, "GET", "/tracker/tax_report?country=US&year=2025", None, Csrf::None, &TURBO).await;
     assert_eq!(busy.status, 200);
@@ -480,10 +480,10 @@ async fn the_pl_form_generates_with_its_carry_and_keeps_the_modal_on_a_refused_a
 }
 
 /// PLAN-B2 r7.2 (B2-6b pin): a 2.x install stopped while its Tax::GenerateReportJob was queued. The takeover drops the job
-/// (D-UPGRADE-RAILS-WORK-DROPPED); the leftover `pending_report` shows nothing in progress on the tracker page, and the
+/// (D-UPGRADE-V2-WORK-DROPPED); the leftover `pending_report` shows nothing in progress on the tracker page, and the
 /// API/MCP status says `none`: the user asks for the report again.
 #[tokio::test]
-async fn a_rails_report_job_dropped_at_takeover_leaves_nothing_in_progress() {
+async fn a_v2_report_job_dropped_at_takeover_leaves_nothing_in_progress() {
     let i = install();
     open(&i).execute("UPDATE users SET tracker_settings='{\"pending_report\":{\"country\":\"US\",\"year\":2025,\"report_scope\":\"crypto\"}}' WHERE id=?1", [i.user]).unwrap();
     let paths = deltabadger::store::Paths::from_env(&|_| None, i.d.path());
@@ -539,7 +539,7 @@ fn closes(c: &Connection) -> Vec<(String, String)> {
 }
 
 /// The run fetches the year-boundary closes from the broker (the year's first trading days and its last days, every page),
-/// stores them, and writes the report: Rails' file for the same history and bars (`de_broker_fetched` in tax_vectors.json)
+/// stores them, and writes the report: 2.x's file for the same history and bars (`de_broker_fetched` in tax_vectors.json)
 /// but for the named parts: the incomplete banner and the unseen-distributions warning (D-TAX-BROKER-VAP-DISTRIBUTIONS: FNDX
 /// was bought with nothing held) and the legal notes (D-TAX-BROKER-DISCLOSURES). VAP 2024 = 100 × 100 × 0.7 × 2.29 % = 160.30.
 #[tokio::test]
@@ -572,11 +572,11 @@ async fn a_broker_run_fetches_its_closes_then_publishes_the_report() {
     let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "DE", 2025, "broker")).unwrap();
     assert!(csv.contains("13,Sonstige Fonds,Vorabpauschale (vor Teilfreistellung),160.3\n"), "{csv}");
     let vectors: Value = serde_json::from_str(include_str!("fixtures/tax_vectors.json")).unwrap();
-    let rails = vectors["scenarios"].as_array().unwrap().iter().find(|s| s["name"] == "de_broker_fetched").unwrap()["rails"]["csv"].as_str().unwrap().to_string();
+    let v2 = vectors["scenarios"].as_array().unwrap().iter().find(|s| s["name"] == "de_broker_fetched").unwrap()["expected"]["csv"].as_str().unwrap().to_string();
     let before_notes = |csv: &str| csv.split("\n\nRECHTLICHE HINWEISE\n").next().unwrap().to_string();
     let named = before_notes(&csv).lines().filter(|l| !l.starts_with("WARNUNG:")).collect::<Vec<_>>().join("\n");
     let named = named.split("\n\nHINWEISE\n").next().unwrap().to_string();
-    assert_eq!(named, before_notes(&rails));
+    assert_eq!(named, before_notes(&v2));
     assert!(csv.contains("FNDX,\"Vorabpauschale 2024: Ausschüttungen des Fonds vor Ihrem ersten Kauf"), "{csv}");
 }
 

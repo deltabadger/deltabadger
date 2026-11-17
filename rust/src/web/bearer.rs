@@ -1,7 +1,7 @@
-//! Who an `Authorization: Bearer <token>` header speaks for: app/lib/oauth_bearer_token_resolver.rb
+//! Who an `Authorization: Bearer <token>` header speaks for: 2.x's bearer token resolver
 //! on Doorkeeper's `oauth_access_tokens`. The MCP endpoint calls `authenticate` with scope `mcp`.
 //!
-//! The header is read by hand. Rails' resolver uses `/\ABearer\s+(.+)\z/i`, which CodeQL flags
+//! The header is read by hand. 2.x's resolver uses `/\ABearer\s+(.+)\z/i`, which CodeQL flags
 //! (rb/polynomial-redos): `\s+` and `.+` can both take the same spaces. Here the scheme, the
 //! whitespace and the token are taken in one pass each.
 use super::oauth::{scopes, AccessToken};
@@ -73,8 +73,8 @@ pub struct Bearer {
     pub token_id: i64,
 }
 
-/// Ruby's `\s`: space, tab, line feed, vertical tab, form feed, carriage return.
-fn ruby_space(c: char) -> bool {
+/// 2.x's `\s`: space, tab, line feed, vertical tab, form feed, carriage return.
+fn v2_space(c: char) -> bool {
     matches!(c, ' ' | '\t' | '\n' | '\x0B' | '\x0C' | '\r')
 }
 
@@ -84,11 +84,11 @@ fn ruby_space(c: char) -> bool {
 pub fn bearer_token(header: Option<&str>) -> Option<&str> {
     let header = header?;
     let rest = header.get(..6).filter(|scheme| scheme.eq_ignore_ascii_case("bearer")).map(|_| &header[6..])?;
-    if !rest.starts_with(ruby_space) || header.contains(['\n', '\r']) {
+    if !rest.starts_with(v2_space) || header.contains(['\n', '\r']) {
         return None;
     }
     // String#strip also removes NUL at the end.
-    Some(rest.trim_matches(|c: char| ruby_space(c) || c == '\0')).filter(|token| !token.is_empty())
+    Some(rest.trim_matches(|c: char| v2_space(c) || c == '\0')).filter(|token| !token.is_empty())
 }
 
 fn find(c: &Connection, header: Option<&str>) -> Result<Result<AccessToken, Refusal>, WebError> {
@@ -108,7 +108,7 @@ fn check(c: &Connection, token: &AccessToken, required_scope: &str, now: DateTim
 }
 
 /// OauthBearerTokenResolver.call: a read. The token is looked up by its stored (plain) value; the
-/// comparison is the index's, as in Rails. Called inside `App::db`; the time the row is judged by
+/// comparison is the index's, as in 2.x. Called inside `App::db`; the time the row is judged by
 /// is read here, with the database in hand, not when the request arrived.
 pub fn resolve(c: &Connection, header: Option<&str>, required_scope: &str, clock: &dyn Clock) -> Result<Result<Bearer, Refusal>, WebError> {
     match find(c, header)? {
@@ -132,7 +132,7 @@ pub const RETIRED_AT_ONCE: usize = 100;
 /// next row to look at, or `''` when the chain has ended, and the next presentation goes on from
 /// there. That is a value Doorkeeper itself would follow (Doorkeeper::OAuth::Token.authenticate
 /// revokes the row it names and empties it), and nothing else in Doorkeeper or the app reads the
-/// column, so a revoked row that still names its predecessor is read by Rails as any revoked row.
+/// column, so a revoked row that still names its predecessor is read by 2.x as any revoked row.
 ///
 /// Stored links are data: a row seen before in this walk (a loop, or a row that names itself or
 /// the presented one) ends the chain, and the presented row is never revoked by its own walk. A loop
@@ -172,9 +172,9 @@ fn retire_ancestors(c: &Connection, presented: &AccessToken, now: DateTime<Utc>)
 /// among the ancestors of a token that was presented.
 ///
 /// Doorkeeper means the same for the one token before (Doorkeeper::OAuth::Token.authenticate), and
-/// Rails never makes even that call: its resolver looks the token up directly, so under Rails every
+/// 2.x never makes even that call: its resolver looks the token up directly, so under 2.x every
 /// refresh token ever issued stays valid until the client is revoked. This goes further than
-/// Doorkeeper on purpose: an install that comes from Rails has every old refresh token still live.
+/// Doorkeeper on purpose: an install that comes from 2.x has every old refresh token still live.
 ///
 /// Called inside `App::db`. The time is read from `clock` after the write lock is held.
 pub fn authenticate(c: &Connection, header: Option<&str>, required_scope: &str, clock: &dyn Clock) -> Result<Result<Bearer, Refusal>, WebError> {

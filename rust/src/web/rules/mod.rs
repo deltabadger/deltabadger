@@ -152,14 +152,14 @@ pub async fn tile(
         for name in ["withdrawal_percentage","threshold_type","max_fee_percentage","min_amount","max_interval"] {
             if let Some(value)=field(name) { patch.settings[name]=json!(value); }
         }
-        patch.address=field("address").filter(|s|!crate::ruby::blank(s)).map(str::to_owned);
+        patch.address=field("address").filter(|s|!crate::v2::blank(s)).map(str::to_owned);
         patch.destination=match field("destination").map(reads::Identity::parse).transpose() {
             Ok(identity)=>identity,
             Err(_)=>return alert(&ctx,i18n::text(ctx.locale,crate::venue::withdrawal::NOT_LISTED_KEY,&[]),true),
         };
         let inner=app.clone();
         let Some(rule)=app.db(move|c|model::load(c,&inner,user.id,id)).await? else {return Ok(layout::missing())};
-        // Rails has no separate toggle-submit parameter. Created and stopped tiles
+        // 2.x has no separate toggle-submit parameter. Created and stopped tiles
         // both post the hidden stopped value when their settings are edited.
         match field("status") {
             Some("scheduled") if rule.status!=1=>service::Command::Start(id,patch),
@@ -218,7 +218,7 @@ pub async fn confirm_destroy(
     .render()?;
     Ok(layout::html(StatusCode::OK, body))
 }
-/// D-RULE-POST-404: Rails routes the resource POST but defines no create action.
+/// D-RULE-POST-404: 2.x routes the resource POST but defines no create action.
 pub async fn missing() -> Response {
     layout::missing()
 }

@@ -1,7 +1,7 @@
 //! IBKR placement (Ibkr plan I4b): the order through `Session::submit` with `cOID` and the reply whitelist, the sell
 //! reservations (D-IBKR-SELLCAP), the bot-account checks, recovery by cOID, and the handback fence.
 //!
-//! Every IBKR answer here is provisional (tests/fixtures/ibkr_orders.json): the shapes Rails' parser expects, not recorded
+//! Every IBKR answer here is provisional (tests/fixtures/ibkr_orders.json): the shapes 2.x's parser expects, not recorded
 //! from IBKR. The registry row cannot trade until a paper login has recorded them (`a_trading_ibkr_row_needs_paper_order_fixtures`).
 mod common;
 use chrono::{DateTime, Duration, Utc};
@@ -11,7 +11,7 @@ use deltabadger::engine::amount::{OrderPlan, Origin, TxKind};
 use deltabadger::engine::model::{self, credential_version_by_id};
 use deltabadger::engine::placement::{self, Begun, Recovery, Sent};
 use deltabadger::engine::{polling, FixedClock};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::http::ScriptedTransport;
 use deltabadger::venue::ibkr::{self, IBKR};
 use deltabadger::venue::ibkr_account;
@@ -40,7 +40,7 @@ fn answer(name: &str, subs: &[(&str, Value)]) -> Value {
     serde_json::from_str(&text).unwrap()
 }
 
-/// Rails' recorded mint and brokerage-session answers, under the DH random they validate with.
+/// 2.x's recorded mint and brokerage-session answers, under the DH random they validate with.
 fn mint_and_init() -> (Value, Value) {
     let v = fixture("ibkr_key_verdicts.json");
     ibkr::fix_dh_random(Some(v["ibkr"]["dh_random"].as_str().unwrap().into()));

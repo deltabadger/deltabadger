@@ -1,6 +1,6 @@
 //! Bot::ResyncIndexCompositionJob in the engine (plan CI T3b): the durable `rust_index_resync` marker, consumed at pass start
-//! before any tick, for any status. Its derivation is the tick's, proven against Rails in tests/parity.rs (grid-venue-index);
-//! these pin what Rails' queue gives for free: it runs once after each trigger, survives a restart, and is never lost to a
+//! before any tick, for any status. Its derivation is the tick's, proven against 2.x in tests/parity.rs (grid-venue-index);
+//! these pin what 2.x's queue gives for free: it runs once after each trigger, survives a restart, and is never lost to a
 //! trigger landing mid-run or to a write that rolls back.
 mod common;
 use chrono::{DateTime, Utc};
@@ -105,7 +105,7 @@ async fn a_marked_stopped_bot_resyncs_at_the_first_pass_after_a_restart_and_its_
     assert_eq!(r.t.requests().len(), before, "nothing pending: no second run");
 }
 
-/// IndexAllocatable#probe_side with the market closed: a stock newcomer is probed on its last (Rails' job has no market gate).
+/// IndexAllocatable#probe_side with the market closed: a stock newcomer is probed on its last (2.x's job has no market gate).
 #[tokio::test(flavor = "current_thread")]
 async fn with_the_market_closed_a_stock_newcomer_is_probed_on_its_last() {
     let r = Rig::new(false, [100.0, 200.0, 300.0, 400.0, 500.0]);
@@ -118,7 +118,7 @@ async fn with_the_market_closed_a_stock_newcomer_is_probed_on_its_last() {
 /// The failure kinds: a returned Failure clears the marker and is published; a rejected key clears it and is not; an Alpaca
 /// transport failure keeps it and retries at n⁴ + 2 s, three attempts in all, then clears it.
 #[tokio::test(flavor = "current_thread")]
-async fn each_failure_kind_keeps_or_clears_the_marker_as_rails_job_ends() {
+async fn each_failure_kind_keeps_or_clears_the_marker_as_v2_job_ends() {
     let r = Rig::new(true, [0.0; 5]);
     r.mark();
     let mut e = r.engine();
@@ -191,7 +191,7 @@ async fn a_refusal_after_the_membership_write_rolls_back_the_marker_clear_too() 
 #[tokio::test(flavor = "current_thread")]
 async fn an_unresolved_placement_defers_the_resync_until_it_settles() {
     use deltabadger::engine::{amount, placement};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     let r = Rig::new(true, [100.0, 200.0, 300.0, 400.0, 500.0]);
     let c = r.c();
     let bot = model::load_bot(&c, r.id).unwrap();
@@ -211,8 +211,8 @@ async fn an_unresolved_placement_defers_the_resync_until_it_settles() {
 }
 
 /// A marked bot outside this engine's slice (a stopped Interactive Brokers index bot), and one with no exchange: the first waits for
-/// Rails without a venue ever being built for it (its marker kept for adopt_handback!), the second is never enqueued by
-/// Rails and its marker goes. Other marked bots resync meanwhile.
+/// 2.x without a venue ever being built for it (its marker kept for adopt_handback!), the second is never enqueued by
+/// 2.x and its marker goes. Other marked bots resync meanwhile.
 #[tokio::test(flavor = "current_thread")]
 async fn a_bot_outside_the_slice_keeps_its_marker_and_no_venue_is_built_for_it() {
     let r = Rig::new(true, [100.0, 200.0, 300.0, 400.0, 500.0]);
@@ -289,7 +289,7 @@ async fn a_tokenized_member_fails_only_its_index_bots_tick() {
     assert!(t.requests().iter().all(|r| r.method != "POST"), "nothing placed");
     assert_eq!(members(), 0);
     let failed: String = c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'execution_failed'", [index], |r| r.get(0)).unwrap();
-    assert!(failed.contains("tokenized NVDAX on Binance (no recorded Rails vector for tokenized pairs on this venue)"), "{failed}");
+    assert!(failed.contains("tokenized NVDAX on Binance (no recorded 2.x vector for tokenized pairs on this venue)"), "{failed}");
 
     c.execute("UPDATE indices SET top_coins = '[\"bitcoin\",\"ethereum\",\"nvda-xstock\"]'", []).unwrap(); // the next pull
     seed::fresh_stock_jobs(c, at("2026-09-08T14:00:00Z"));
@@ -317,18 +317,18 @@ async fn a_fresh_start_ticks_in_the_same_pass_as_its_resync() {
     assert_eq!(ticked.as_deref(), Some("2026-09-03T15:00:00.000Z"), "the first tick ran in the resync's pass");
 }
 
-/// The page of a freshly started bot hears its first tick as Rails broadcasts it, here one whose order the venue refuses
+/// The page of a freshly started bot hears its first tick as 2.x broadcasts it, here one whose order the venue refuses
 /// (the key rejected). The engine announces the claim, each row and the end, in that order; each is rendered for the
-/// owner's page as Rails renders it:
-/// - the claim (`executing`, Bot after_update_commit, app/models/bot.rb:38-40): status and progress bars, both Start/Stop
+/// owner's page as 2.x renders it:
+/// - the claim (`executing`, Bot after_update_commit): status and progress bars, both Start/Stop
 ///   buttons, the columns lock, on `user_<id>:bot_updates`;
-/// - the failed row (Transaction after_create_commit → Bot#broadcast_new_order, bot.rb:316-348): the placeholder removed
+/// - the failed row (Transaction after_create_commit → Bot#broadcast_new_order): the placeholder removed
 ///   with the bot's first row, the row's sentence prepended on the bot's page stream (no columnar row: it was not
 ///   accepted), the order filters replaced;
-/// - the end (Bot::ActionJob's rescue and Bot::BroadcastAfterScheduledActionJob, app/jobs/bot/action_job.rb): the bars,
+/// - the end (Bot::ActionJob's rescue and Bot::BroadcastAfterScheduledActionJob): the bars,
 ///   now naming the failure and the next try.
 #[tokio::test(flavor = "current_thread")]
-async fn the_page_hears_the_first_tick_as_rails_broadcasts_it() {
+async fn the_page_hears_the_first_tick_as_v2_broadcasts_it() {
     let r = Rig::with(true, [100.0, 200.0, 300.0, 400.0, 500.0], json!({
         "POST /v2/orders": [{ "status": 401, "body": { "code": 40110000, "message": "unauthorized." } }],
         "GET /v2/account": ok(json!({ "cash": "100000", "buying_power": "200000", "non_marginable_buying_power": "100000" })),
@@ -377,10 +377,10 @@ async fn the_page_hears_the_first_tick_as_rails_broadcasts_it() {
 }
 
 /// The owner's switch of a Layer-1 index bot from Binance to KuCoin (settings saved while stopped, then a start): its stored
-/// members still name Binance's tickers, ZEC among them, and KuCoin lists no ZEC at its quote. Rails' resync re-derives the
+/// members still name Binance's tickers, ZEC among them, and KuCoin lists no ZEC at its quote. 2.x's resync re-derives the
 /// members from KuCoin's tickers (IndexAllocatable#derive_composition), marks ZEC out of the index (update_bot_index_assets)
 /// and the next Bot::ActionJob buys what it seated. A stored member without a ticker here is what that resync replaces, not
-/// a reason to leave the bot to Rails: the marker is consumed, the members are KuCoin's, the start is admitted and it ticks.
+/// a reason to leave the bot to 2.x: the marker is consumed, the members are KuCoin's, the start is admitted and it ticks.
 #[tokio::test(flavor = "current_thread")]
 async fn an_index_bot_switched_to_a_venue_without_one_of_its_members_resyncs_and_ticks() {
     use deltabadger::venue::{binance::Pairs, kucoin::{KucoinVenue, URL}};
@@ -454,7 +454,7 @@ async fn an_index_bot_switched_to_a_venue_without_one_of_its_members_resyncs_and
     assert!(resync.is_some());
     run::step(&mut e, &FixedClock(at(now))).await.expect("the pass stays Ok");
     let resync: Option<String> = c.query_row("SELECT json_extract(transient_data, '$.rust_index_resync') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
-    assert_eq!(resync, None, "the resync ran here, not left to Rails");
+    assert_eq!(resync, None, "the resync ran here, not left to 2.x");
     let eth_kc: i64 = c.query_row("SELECT id FROM tickers WHERE exchange_id = ?1 AND ticker = 'ETH-USDT'", [kucoin], |r| r.get(0)).unwrap();
     assert_eq!(rows(), vec![("BTC".into(), true, s.ticker_id), ("ETH".into(), true, eth_kc), ("ZEC".into(), false, old[1])],
                "BTC and ETH seated on KuCoin's tickers; ZEC, untradable there, out of the index (its row a holding only)");
@@ -503,7 +503,7 @@ fn ranking_wakes(rx: &mut tokio::sync::mpsc::UnboundedReceiver<EngineEvent>) -> 
 }
 fn wants_ranking(e: &EngineEvent) -> bool { matches!(e, EngineEvent::RankingMissing { .. }) }
 
-/// Contract item 2 (r2 P1): a stopped bot whose index has no usable ranking (here: a Rails row, or after a takeover) is not
+/// Contract item 2 (r2 P1): a stopped bot whose index has no usable ranking (here: a 2.x row, or after a takeover) is not
 /// resynced; its marker stays, the INDICES job is woken once per slot, and the resync applies once the ranking lands.
 #[tokio::test(flavor = "current_thread")]
 async fn a_resync_of_an_unranked_index_is_held_with_its_marker_and_wakes_the_ranking_once() {

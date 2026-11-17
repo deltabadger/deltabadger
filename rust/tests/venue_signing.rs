@@ -1,10 +1,10 @@
 //! Slice S (PLAN-VB §1.2): the Gemini, Coinbase and Hyperliquid signers against the requests honeymaker 0.12.5 and
-//! hyperliquid-rb 0.1.1 sent under frozen clocks, nonces and throwaway keys (script/rust/record_venue_signing.rb); and IBKR's
-//! OAuth 1.0a + live session token (slice I0) against Clients::Ibkr::Oauth/Session and oauth_test.rb's Python vectors.
+//! hyperliquid-rb 0.1.1 sent under frozen clocks, nonces and throwaway keys; and IBKR's
+//! OAuth 1.0a + live session token (slice I0) against Clients::Ibkr::Oauth/Session and 2.x's OAuth test's Python vectors.
 use aws_lc_rs::signature::{UnparsedPublicKey, ECDSA_P256_SHA256_FIXED};
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::signers::{coinbase, gemini, hyperliquid, ibkr, Nonce};
 use hyperliquid::{Action, OrderWire};
 use serde_json::Value;
@@ -204,7 +204,7 @@ fn float_to_wire_matches_hyperliquid_rb_on_every_recorded_edge() {
         match (hyperliquid::float_to_wire(&bd(x)), c["wire"].as_str()) {
             (Ok(got), Some(want)) => assert_eq!(got, want, "{x}"),
             (Err(_), None) => assert!(c["error"].as_str().unwrap().contains("float_to_wire causes rounding"), "{x}"),
-            (got, _) => panic!("{x}: {got:?}, Ruby {c}"),
+            (got, _) => panic!("{x}: {got:?}, 2.x {c}"),
         }
     }
 }
@@ -226,7 +226,7 @@ fn ibkr_material(f: &Value, dh_param: &str) -> ibkr::Material {
 }
 
 #[test]
-fn ibkr_helpers_match_rails_on_every_recorded_edge() {
+fn ibkr_helpers_match_v2_on_every_recorded_edge() {
     let f = fixture("ibkr");
     for (input, want) in f["escape"].as_object().unwrap() { assert_eq!(ibkr::escape(input), want.as_str().unwrap(), "escape {input:?}") }
     for (n, want) in f["to_byte_array"].as_object().unwrap() {
@@ -249,7 +249,7 @@ fn ibkr_helpers_match_rails_on_every_recorded_edge() {
     }
 }
 
-/// oauth_test.rb's vectors, computed in Python against IBKR's reference (ibind oauth1a.py): a second, independent oracle.
+/// 2.x's OAuth test vectors, computed in Python against IBKR's reference (ibind oauth1a.py): a second, independent oracle.
 #[test]
 fn ibkr_matches_the_python_reference_vectors() {
     assert_eq!(ibkr::escape("a b~c/d"), "a+b~c%2Fd");
@@ -275,7 +275,7 @@ fn ibkr_matches_the_python_reference_vectors() {
 }
 
 #[test]
-fn ibkr_oauth_builders_are_byte_equal_to_rails() {
+fn ibkr_oauth_builders_are_byte_equal_to_v2() {
     let f = fixture("ibkr");
     let signer = ibkr::Signer::new(&ibkr_material(&f, f["signing"][0]["dh_param"].as_str().unwrap())).unwrap();
     assert_eq!(signer.prepend().unwrap(), f["prepend"].as_str().unwrap(), "the decrypted secret keeps its leading 0x00");
@@ -295,14 +295,14 @@ fn ibkr_oauth_builders_are_byte_equal_to_rails() {
     }
 }
 
-/// The exit criterion of slice I0: with Rails' frozen nonces, timestamp and DH random, the scripted server's DH answer and
+/// The exit criterion of slice I0: with 2.x's frozen nonces, timestamp and DH random, the scripted server's DH answer and
 /// the fixed keys, the LST and the Authorization header of every request Clients::Ibkr::Session sent are reproduced.
 #[test]
-fn ibkr_session_requests_and_the_lst_are_byte_equal_to_rails() {
+fn ibkr_session_requests_and_the_lst_are_byte_equal_to_v2() {
     let f = fixture("ibkr");
     let sessions = f["signing"].as_array().unwrap();
     assert_eq!(sessions.iter().map(|s| s["label"].as_str().unwrap()).collect::<Vec<_>>(), ["session_test dh", "ffdhe2048"]);
-    assert_eq!(sessions[1]["dh_param"].as_str().unwrap(), ibkr::ffdhe2048_pem(), "D-IBKR-DHGROUP: the PEM Rails mints with");
+    assert_eq!(sessions[1]["dh_param"].as_str().unwrap(), ibkr::ffdhe2048_pem(), "D-IBKR-DHGROUP: the PEM 2.x mints with");
     for s in sessions {
         let label = s["label"].as_str().unwrap();
         let str_ = |n: &str| s[n].as_str().unwrap();
@@ -354,11 +354,11 @@ fn ibkr_refuses_unreadable_key_material() {
     assert_eq!(ibkr::Signer::new(&bad_secret).unwrap().prepend(), None, "a secret that does not decrypt");
 }
 
-/// The connect wizard's keys (I3) as Ruby's OpenSSL reads them (2.70.21's own ruby, in the published image: common::v2): Rust's PKCS#8 private PEM and SPKI public PEM load in
-/// `OpenSSL::PKey::RSA.new` and agree, ffdhe2048 loads in `OpenSSL::PKey::DH.new` with Rails' own p and g, and the key
-/// Ruby writes back (`to_pem`, PKCS#1, what Rails stores) signs in Rust byte-equal to Ruby's signature.
+/// The connect wizard's keys (I3) as 2.x's OpenSSL reads them (2.70.21's own interpreter, in the published image: common::v2): Rust's PKCS#8 private PEM and SPKI public PEM load in
+/// `OpenSSL::PKey::RSA.new` and agree, ffdhe2048 loads in `OpenSSL::PKey::DH.new` with 2.x's own p and g, and the key
+/// 2.x writes back (`to_pem`, PKCS#1, what 2.x stores) signs in Rust byte-equal to 2.x's signature.
 #[test]
-fn ibkr_generated_keys_round_trip_through_ruby_openssl() {
+fn ibkr_generated_keys_round_trip_through_v2_openssl() {
     if !common::v2::enabled() { return; }
     let (private, public) = ibkr::generate_rsa();
     assert!(private.starts_with("-----BEGIN PRIVATE KEY-----\n") && public.starts_with("-----BEGIN PUBLIC KEY-----\n"));
@@ -366,7 +366,7 @@ fn ibkr_generated_keys_round_trip_through_ruby_openssl() {
     for (name, body) in [("private.pem", private.as_str()), ("public.pem", public.as_str()), ("dh.pem", &ibkr::ffdhe2048_pem())] {
         std::fs::write(dir.path().join(name), body).unwrap();
     }
-    const RUBY: &str = r##"
+    const V2: &str = r##"
         d = ARGV.fetch(0)
         key = OpenSSL::PKey::RSA.new(File.read("#{d}/private.pem"))
         pub = OpenSSL::PKey::RSA.new(File.read("#{d}/public.pem"))
@@ -376,13 +376,13 @@ fn ibkr_generated_keys_round_trip_through_ruby_openssl() {
                             public_pem: key.public_key.to_pem, pkcs1_pem: key.to_pem, dh_p: dh.p.to_s(16).downcase, dh_g: dh.g.to_i,
                             dh_pem: dh.to_pem, signature: Base64.strict_encode64(key.sign(OpenSSL::Digest.new("SHA256"), msg)))
     "##;
-    let out = common::v2::run(&[(dir.path(), "/d")], &[("SNIPPET", RUBY)], r#"ruby -ropenssl -rjson -rbase64 -e "$SNIPPET" /d"#);
-    assert!(out.status.success(), "2.70.21's ruby: {}", String::from_utf8_lossy(&out.stderr));
+    let out = common::v2::run(&[(dir.path(), "/d")], &[("SNIPPET", V2)], r#"ruby -ropenssl -rjson -rbase64 -e "$SNIPPET" /d"#);
+    assert!(out.status.success(), "2.70.21's interpreter: {}", String::from_utf8_lossy(&out.stderr));
     let r: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!((r["private"].as_bool(), r["bits"].as_u64(), r["public_matches"].as_bool()), (Some(true), Some(2048), Some(true)));
-    assert_eq!(r["public_pem"].as_str().unwrap(), public, "Ruby's public_key.to_pem, byte for byte");
+    assert_eq!(r["public_pem"].as_str().unwrap(), public, "2.x's public_key.to_pem, byte for byte");
     assert_eq!((r["dh_p"].as_str().unwrap(), r["dh_g"].as_u64()), (ibkr::FFDHE2048_P, Some(2)));
-    assert_eq!(r["dh_pem"].as_str().unwrap(), ibkr::ffdhe2048_pem(), "Ruby's DH#to_pem, byte for byte");
+    assert_eq!(r["dh_pem"].as_str().unwrap(), ibkr::ffdhe2048_pem(), "2.x's DH#to_pem, byte for byte");
     let pkcs1 = r["pkcs1_pem"].as_str().unwrap();
     assert!(pkcs1.starts_with("-----BEGIN RSA PRIVATE KEY-----"));
     let dh = ibkr::ffdhe2048_pem();
@@ -390,6 +390,6 @@ fn ibkr_generated_keys_round_trip_through_ruby_openssl() {
                                                 signature_key: key.into(), encryption_key: key.into(), dh_param: dh.clone(), realm: String::new() };
     let msg = "POST&https%3A%2F%2Fapi.ibkr.com&x";
     let want = ibkr::escape(r["signature"].as_str().unwrap());
-    assert_eq!(ibkr::Signer::new(&material(pkcs1)).unwrap().rsa_sha256_signature(msg), want, "Ruby's PKCS#1 PEM back in Rust");
+    assert_eq!(ibkr::Signer::new(&material(pkcs1)).unwrap().rsa_sha256_signature(msg), want, "2.x's PKCS#1 PEM back in Rust");
     assert_eq!(ibkr::Signer::new(&material(&private)).unwrap().rsa_sha256_signature(msg), want, "Rust's own PKCS#8 PEM");
 }

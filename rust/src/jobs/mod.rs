@@ -1,4 +1,4 @@
-//! The in-process scheduler. While the Rust engine owns an install, Rails and Solid Queue are stopped, so the
+//! The in-process scheduler. While the Rust engine owns an install, 2.x and Solid Queue are stopped, so the
 //! recurring jobs of config/recurring.yml that the install needs run here. There is no job table: like the bots' ticks
 //! (engine/run.rs), each job's next run is derived from its schedule and its last success (state.rs).
 //!
@@ -7,7 +7,7 @@
 //! deadline (Spec::deadline, DEADLINE by default): past it the run is dropped and recorded as an error. A retry is a later
 //! due time, never a sleep. A wake (Wakers::wake, or an engine event the job wants) makes the job due from the moment the
 //! runner sees it. One that arrives while the job runs runs it again right after: Solid Queue's discard-on-conflict, plus
-//! the delay Rails adds so a sync lands after the one in flight (app/models/transaction.rb:46-49), become "run again once
+//! the delay 2.x adds so a sync lands after the one in flight, become "run again once
 //! the current run ends". On stop, the job in hand is dropped at its next await and nothing is recorded for it, so a
 //! scheduled run is due again at the next start. A job's blocking work is a sequence of bounded units (one chunk each,
 //! import::publish), so a deadline or a stop takes effect within one unit: no abandoned closure outlives its unit.
@@ -204,9 +204,9 @@ pub enum Outcome {
     /// The run ended well but refreshed nothing (an empty payload, no venue to serve): recorded as a run only, so the
     /// source keeps its age.
     NothingNew,
-    /// An error Rails logs, raises or returns without retrying. Recorded as the job's last error.
+    /// An error 2.x logs, raises or returns without retrying. Recorded as the job's last error.
     Failed(String),
-    /// Client::TransientNetworkError, or any failure the job's Rails class retries.
+    /// Client::TransientNetworkError, or any failure the job's 2.x class retries.
     Transient(String),
     /// Client::RateLimitedError.
     RateLimited(String),

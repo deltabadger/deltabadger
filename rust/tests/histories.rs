@@ -1,6 +1,6 @@
 mod common;
 use common::seed::{self, BotSpec};
-use deltabadger::{engine::{amount, basket, model}, ruby::BigDec};
+use deltabadger::{engine::{amount, basket, model}, v2::BigDec};
 use chrono::{DateTime, Duration, Utc};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -157,7 +157,7 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(),"{reason}: rollback");
     }
     // What 6b T8 lifted for an Alpaca basket: the rule, a swap pending in a phase this engine resumes (an empty hash is no
-    // swap, Rails' `present?`), and a settled REBALANCE row the walk books.
+    // swap, 2.x's `present?`), and a settled REBALANCE row the walk books.
     for sql in [
         "UPDATE bots SET transient_data=json_set(transient_data,'$.liquidation_pending',json('{}'))",
         "UPDATE bots SET transient_data=json_set(transient_data,'$.redeploy_pending',json('{}'))",
@@ -220,7 +220,7 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
         ("DELETE FROM users","user not found"),
         ("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'),'$.quote_amount_limit','bad')","quote_amount_limit"),
         ("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true')),transient_data=json_set(transient_data,'$.quote_amount_limit_enabled_at',json('{}'))","quote_amount_limit_enabled_at"),
-        // Sell rows are no refusal since 6a (the walk reads them on every venue); a direction Rails does not have still is.
+        // Sell rows are no refusal since 6a (the walk reads them on every venue); a direction 2.x does not have still is.
         ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"bad\":1}'))","a weight this build does not read"),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{}'))","allocations: none"),

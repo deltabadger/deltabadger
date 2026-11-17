@@ -1,7 +1,7 @@
 //! The OAuth 2.1 provider in front of the MCP server, as Doorkeeper 6 and the app's own controllers
-//! (app/controllers/oauth) serve it, on Doorkeeper's tables as Doorkeeper writes them. Rails and this
+//! (app/controllers/oauth) serve it, on Doorkeeper's tables as Doorkeeper writes them. 2.x and this
 //! crate can therefore take turns on one database: a client registered and authorised under one
-//! refreshes and calls under the other. tests/oauth.rs holds every answer here to Rails'.
+//! refreshes and calls under the other. tests/oauth.rs holds every answer here to 2.x's.
 //!
 //! This file has what a client calls on its own, without a browser: the two discovery documents,
 //! registration, the token endpoint and revocation. None of them is cookie-authenticated, so they
@@ -27,7 +27,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use subtle::ConstantTimeEq;
 
-/// config/initializers/doorkeeper.rb: `default_scopes :mcp`, `optional_scopes :api`.
+/// 2.x's Doorkeeper setup: `default_scopes :mcp`, `optional_scopes :api`.
 pub const SCOPES: [&str; 2] = ["mcp", "api"];
 pub const DEFAULT_SCOPE: &str = "mcp";
 /// `access_token_expires_in 1.hour`, and Doorkeeper's default for an authorization code.
@@ -57,11 +57,11 @@ pub mod text {
     pub fn missing(parameter: &str) -> String { format!("Missing required parameter: {parameter}.") }
 }
 
-/// Ruby's `Base64.decode64` (`String#unpack1("m")`), which takes what a strict decoder refuses:
+/// 2.x's `Base64.decode64` (`String#unpack1("m")`), which takes what a strict decoder refuses:
 /// every character outside the alphabet is passed over, whitespace included; a `=` where the third
 /// or fourth character of a group would stand ends the value; and a last group of two or three
 /// characters gives one or two bytes. A client's `Authorization: Basic` value is decoded this way
-/// before its authentication methods are counted, so one that Rails reads is read here.
+/// before its authentication methods are counted, so one that 2.x reads is read here.
 pub fn decode64(text: &str) -> Vec<u8> {
     let six = |byte: u8| match byte {
         b'A'..=b'Z' => Some(byte - b'A'),
@@ -95,7 +95,7 @@ pub fn decode64(text: &str) -> Vec<u8> {
 
 /// Doorkeeper's ClientSecretBasic.credentials_from: the client id and secret of an
 /// `Authorization: Basic` header, or nothing when the header is not one or names no client. The
-/// scheme is `basic` in any case and one space; the value is decoded as Ruby decodes it and cut at
+/// scheme is `basic` in any case and one space; the value is decoded as 2.x decodes it and cut at
 /// its first colon.
 pub fn basic_credentials(authorization: &str) -> Option<(String, Option<String>)> {
     let value = authorization.get(..6).filter(|scheme| scheme.eq_ignore_ascii_case("basic ")).map(|_| &authorization[6..])?;
@@ -104,12 +104,12 @@ pub fn basic_credentials(authorization: &str) -> Option<(String, Option<String>)
         Some(colon) => (&decoded[..colon], Some(&decoded[colon + 1..])),
         None => (&decoded[..], None),
     };
-    // Ruby's `blank?`. Bytes that are not text name no client that exists: they are kept as a marker, not dropped.
+    // 2.x's `blank?`. Bytes that are not text name no client that exists: they are kept as a marker, not dropped.
     if id.iter().all(|byte| matches!(byte, b' ' | b'\t' | b'\n' | 0x0B | 0x0C | b'\r')) { return None; }
     Some((String::from_utf8_lossy(id).into_owned(), secret.map(|secret| String::from_utf8_lossy(secret).into_owned())))
 }
 
-/// Ruby's `blank?` for a parameter: absent, empty, or only whitespace.
+/// 2.x's `blank?` for a parameter: absent, empty, or only whitespace.
 pub fn present(value: Option<&str>) -> Option<&str> {
     value.filter(|v| !v.trim().is_empty())
 }
@@ -135,24 +135,24 @@ pub fn scopes_valid(requested: &str, allowed: &[&str]) -> bool {
     !requested.trim().is_empty() && !requested.contains(['\n', '\r', '\t']) && requested.split_whitespace().all(|scope| allowed.contains(&scope))
 }
 
-/// A URI as Ruby's `URI.parse` (URI::RFC3986_Parser) reads it, for the questions asked here: the
-/// same strings parse, into the same parts. `None` where Ruby raises `URI::InvalidURIError`. Ruby is
+/// A URI as 2.x's `URI.parse` (URI::RFC3986_Parser) reads it, for the questions asked here: the
+/// same strings parse, into the same parts. `None` where 2.x raises `URI::InvalidURIError`. 2.x is
 /// strict about every part but the query, which may hold any character but `#` and is then
-/// rewritten (`normal_query`); a redirect URI a client registered under Rails must not be refused
-/// here over a character Ruby let through, and must be compared as Ruby compares it.
-/// tests/web.rs holds `parse`, `to_string` and the rules built on them to vectors recorded from Ruby.
+/// rewritten (`normal_query`); a redirect URI a client registered under 2.x must not be refused
+/// here over a character 2.x let through, and must be compared as 2.x compares it.
+/// tests/web.rs holds `parse`, `to_string` and the rules built on them to vectors recorded from 2.x.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Uri {
-    /// Lower case, as Ruby gives it.
+    /// Lower case, as 2.x gives it.
     pub scheme: Option<String>,
     pub userinfo: Option<String>,
     /// As written; an IPv6 literal keeps its brackets.
     pub host: Option<String>,
-    /// The port as written, without leading zeros. `None` when there is none or it is empty: Ruby
+    /// The port as written, without leading zeros. `None` when there is none or it is empty: 2.x
     /// then has the scheme's default.
     pub port: Option<String>,
     pub path: String,
-    /// As Ruby keeps it: see `normal_query`.
+    /// As 2.x keeps it: see `normal_query`.
     pub query: Option<String>,
     pub fragment: Option<String>,
     /// `scheme:rest` with no authority and no leading slash (`urn:x`, `mailto:a@b`).
@@ -161,7 +161,7 @@ pub struct Uri {
 
 /// URI::Generic#query=: tabs, carriage returns and line feeds are taken out, and every character
 /// outside ``!$%&()*+,-./0-9:;=?@A-Z[\]^_a-z{|}~`` is written as `%XX`. `None` for the one thing
-/// Ruby refuses in a query: a `%` followed by two characters that are both not hex digits.
+/// 2.x refuses in a query: a `%` followed by two characters that are both not hex digits.
 fn normal_query(query: &str) -> Option<String> {
     let kept: Vec<u8> = query.bytes().filter(|b| !matches!(b, b'\t' | b'\r' | b'\n')).collect();
     if kept.windows(3).any(|w| w[0] == b'%' && !w[1].is_ascii_hexdigit() && !w[2].is_ascii_hexdigit()) {
@@ -207,7 +207,7 @@ impl Uri {
                     None => host_port.split_once(':').unwrap_or((host_port, "")),
                 };
                 if !port.bytes().all(|b| b.is_ascii_digit()) || !uri_characters(userinfo.unwrap_or(""), ":") || (!host.starts_with('[') && !uri_characters(host, "")) { return None; }
-                // Ruby keeps the port as a number: `:0443` is 443.
+                // 2.x keeps the port as a number: `:0443` is 443.
                 let port = (!port.is_empty()).then(|| { let digits = port.trim_start_matches('0'); if digits.is_empty() { "0" } else { digits }.to_string() });
                 // An empty userinfo (`http://@host/`) is none.
                 (userinfo.filter(|userinfo| !userinfo.is_empty()).map(str::to_string), Some(host.to_string()), port)
@@ -281,12 +281,12 @@ pub fn redirect_uri_allowed(requested: &str, registered: &str) -> bool {
     })
 }
 
-/// Doorkeeper's RedirectUriValidator, which Rails runs on a client's row before it is saved: what
+/// Doorkeeper's RedirectUriValidator, which 2.x runs on a client's row before it is saved: what
 /// is wrong with `redirect_uri`, the registered URIs as they are stored (joined by line feeds), in
-/// Rails' words, or nothing. The validator looks at the stored text split at whitespace, not at the
+/// 2.x's words, or nothing. The validator looks at the stored text split at whitespace, not at the
 /// URIs as they were sent: a URI with a space in its query is two entries here, as it will be for
 /// `redirect_uri_allowed`. Each kind of error is named once, in the order it was first met; an
-/// entry Ruby cannot parse ends the check.
+/// entry 2.x cannot parse ends the check.
 pub fn redirect_uri_errors(redirect_uri: &str) -> Vec<&'static str> {
     let mut errors: Vec<&'static str> = Vec::new();
     let mut add = |error: &'static str| if !errors.contains(&error) { errors.push(error) };
@@ -305,7 +305,7 @@ pub fn redirect_uri_errors(redirect_uri: &str) -> Vec<&'static str> {
 }
 
 /// URI.decode_www_form_component, on bytes: `+` is a space and `%XX` a byte. A `%` that is not
-/// followed by two hex digits stays as it is (Ruby raises there, and Rails answers 500).
+/// followed by two hex digits stays as it is (2.x raises there, and 2.x answers 500).
 fn unescape(text: &str) -> Vec<u8> {
     let bytes = text.as_bytes();
     let hex = |b: u8| char::from(b).to_digit(16).and_then(|digit| u8::try_from(digit).ok());
@@ -326,7 +326,7 @@ fn escape(bytes: &[u8]) -> String {
 }
 
 /// Doorkeeper's URIBuilder: `redirect_uri` with `parameters` added to its query (replacing a
-/// parameter of the same name where it stands), or as its fragment, and the whole written as Ruby
+/// parameter of the same name where it stands), or as its fragment, and the whole written as 2.x
 /// writes a URI (`Uri`'s `to_string`). The URI's own query is read as Rack::Utils.parse_query reads
 /// it: a name without `=` has no value, a name given again after a value collects both. A parameter
 /// whose one value is blank is left out, the answer's and the URI's own alike.
@@ -378,7 +378,7 @@ pub enum Credentials {
     Multiple,
 }
 
-/// The request's body parameters, then its query's: Rails' `params`, in which the query wins.
+/// The request's body parameters, then its query's: 2.x's `params`, in which the query wins.
 pub struct Sent<'a> {
     pub params: &'a Params,
 }
@@ -398,7 +398,7 @@ impl Sent<'_> {
         self.params.query(name).map(str::to_string).or_else(|| self.body(name))
     }
 
-    /// A parameter that has to say something: Ruby's `presence`.
+    /// A parameter that has to say something: 2.x's `presence`.
     pub fn present(&self, name: &str) -> Option<String> {
         self.get(name).filter(|value| !value.trim().is_empty())
     }
@@ -438,7 +438,7 @@ pub fn credentials(headers: &HeaderMap, sent: &Sent) -> Credentials {
 /// What a client id or secret sent as a list or hash stands as: no client has it, and it never equals a Basic header's.
 const UNUSABLE: &str = "\u{0}";
 
-/// A JSON body as Rails renders one. `Cache-Control` is Rack's for the status unless the caller set it.
+/// A JSON body as 2.x renders one. `Cache-Control` is Rack's for the status unless the caller set it.
 fn json_response(status: StatusCode, body: &Value) -> Response {
     let mut response = (status, [(header::CONTENT_TYPE, "application/json; charset=utf-8")], body.to_string()).into_response();
     // Rack::ETag answers a 201 as it answers a 200.
@@ -465,9 +465,9 @@ pub fn token_error(error: &str, description: &str) -> Response {
 
 /// AppConfig::MCP_TOOL_DEFAULTS: every tool and whether the owner has it on before any override, in
 /// the catalogue's order. The names are permanent identifiers: they are what a grant stores.
-/// AppConfig::REST_TOOL_DEFAULTS is the same names, all off. tests/oauth.rs compares both with Rails, and tests/web.rs with app/models/app_config.rb.
-/// D-SPLIT-API: `split_bots` (off) is this build's own; Rails' catalogue has no such tool. So is `answer_unrecorded_order`
-/// (off, D-RAILS-UNRECORDED-API).
+/// AppConfig::REST_TOOL_DEFAULTS is the same names, all off. tests/oauth.rs and tests/web.rs compare both with 2.x.
+/// D-SPLIT-API: `split_bots` (off) is this build's own; 2.x's catalogue has no such tool. So is `answer_unrecorded_order`
+/// (off, D-V2-UNRECORDED-API).
 pub const TOOL_DEFAULTS: [(&str, bool); 41] = [
     ("list_bots", true), ("get_bot_details", true), ("list_exchanges", true), ("get_exchange_balances", true), ("get_portfolio_summary", true),
     ("list_transactions", true), ("create_bot", false), ("start_bot", false), ("stop_bot", false), ("update_bot_settings", false),
@@ -481,7 +481,7 @@ pub const TOOL_DEFAULTS: [(&str, bool); 41] = [
 ];
 
 /// AppConfig::TOOL_GROUPS: the catalogue as Settings groups it, `split_bots` among the controls (D-SPLIT-API),
-/// `answer_unrecorded_order` among the trade tools (D-RAILS-UNRECORDED-API).
+/// `answer_unrecorded_order` among the trade tools (D-V2-UNRECORDED-API).
 pub const TOOL_GROUPS: [(&str, &[&str]); 4] = [
     ("read", &["list_bots", "get_bot_details", "list_exchanges", "get_exchange_balances", "get_portfolio_summary", "list_transactions",
                "list_open_orders", "list_rules", "list_indices"]),
@@ -501,9 +501,9 @@ pub(crate) fn time(column: &str, text: Option<String>) -> Result<Option<DateTime
     text.map(|t| parse_time(&t).map_err(|e| data_error(column, e))).transpose()
 }
 
-/// Whether `now` is after `from + seconds`. Rails writes lifetimes of 600 and 3600; a number no date
+/// Whether `now` is after `from + seconds`. 2.x writes lifetimes of 600 and 3600; a number no date
 /// can hold (a row written by hand) must not stop the process: such a lifetime is never over, or
-/// always when it is negative, as in Ruby's arithmetic.
+/// always when it is negative, as in 2.x's arithmetic.
 pub(crate) fn past(from: DateTime<Utc>, seconds: i64, now: DateTime<Utc>) -> bool {
     match Duration::try_seconds(seconds).and_then(|life| from.checked_add_signed(life)) {
         Some(until) => now > until,
@@ -565,7 +565,7 @@ pub(crate) fn transaction<T>(c: &Connection, clock: &dyn Clock, work: impl FnOnc
     }
 }
 
-/// Around every route of this file: rack-attack's limit, then the handler, then the headers Rails'
+/// Around every route of this file: rack-attack's limit, then the handler, then the headers 2.x's
 /// middleware and controllers add. No session is read and no cookie is written: these routes act
 /// for whoever holds the client id, the code or the token in the request, never for a browser's
 /// signed-in user, which is also why they need no CSRF token.
@@ -625,7 +625,7 @@ pub async fn protected_resource(State(app): State<App>, headers: HeaderMap) -> R
     Ok(json_response(StatusCode::OK, &json!({ "resource": format!("{base}/mcp"), "authorization_servers": [base], "bearer_methods_supported": ["header"] })))
 }
 
-/// Ruby's `String#strip`.
+/// 2.x's `String#strip`.
 fn strip(text: &str) -> &str {
     text.trim_matches([' ', '\t', '\n', '\x0B', '\x0C', '\r', '\0'])
 }
@@ -638,7 +638,7 @@ fn registration_error(error: &str, description: &str) -> Response {
     json_response(StatusCode::BAD_REQUEST, &json!({ "error": error, "error_description": description }))
 }
 
-/// `Array(params[:redirect_uris])`, each as text. Rails' `params` is the query and the body, and
+/// `Array(params[:redirect_uris])`, each as text. 2.x's `params` is the query and the body, and
 /// the query wins: the query's `redirect_uris[]` fields or its one `redirect_uris`, else a JSON
 /// array or one JSON value, else the form's fields.
 fn redirect_uris(params: &Params) -> Vec<String> {
@@ -720,7 +720,7 @@ pub struct Application {
     pub redirect_uri: String,
     pub scopes: String,
     pub confidential: bool,
-    /// The per-user REST token's application: refused every grant flow (doorkeeper.rb).
+    /// The per-user REST token's application: refused every grant flow.
     pub personal: bool,
 }
 
@@ -815,7 +815,7 @@ fn grant(c: &Connection, code: &str) -> Result<Option<Grant>, WebError> {
 }
 
 /// PKCE (RFC 7636): the verifier against the challenge the grant was issued for, in constant time.
-/// `plain` is no longer issued (web::consent) but a grant Rails issued with it is still honoured.
+/// `plain` is no longer issued (web::consent) but a grant 2.x issued with it is still honoured.
 fn verifier_matches(grant: &Grant, verifier: &str) -> bool {
     let challenge = grant.code_challenge.as_deref().unwrap_or("");
     let expected = match grant.code_challenge_method.as_deref() {
@@ -980,7 +980,7 @@ pub fn carried_token(headers: &HeaderMap, shaped: &Shaped) -> Carried {
     }
 }
 
-/// One parameter as Rails' `params` holds it: absent, a text, or a list or hash (`token[]=…`, `token[a]=…`, a JSON
+/// One parameter as 2.x's `params` holds it: absent, a text, or a list or hash (`token[]=…`, `token[a]=…`, a JSON
 /// array or object), which names no token row.
 pub enum Param {
     Absent,
@@ -1001,7 +1001,7 @@ impl Param {
         }
     }
 
-    /// Ruby's `presence`: blank text is nothing.
+    /// 2.x's `presence`: blank text is nothing.
     fn given(&self) -> bool {
         match self { Self::Text(text) => !text.trim().is_empty(), Self::Structured => true, Self::Absent => false }
     }
@@ -1009,14 +1009,14 @@ impl Param {
 
 /// A request's query and body parameters as Rack builds them (web::bot::action_params::form, the nested shapes
 /// `a[]` and `a[b]` included), kept apart: Doorkeeper counts a token sent in each as a way of sending it, and
-/// Rails' `params` takes the query's value of a name over the body's.
+/// 2.x's `params` takes the query's value of a name over the body's.
 pub struct Shaped {
     query: Value,
     body: Value,
 }
 
 impl Shaped {
-    /// `None` when Rack refuses the query or the form (a name used as two shapes): Rails' 400, before anything is read.
+    /// `None` when Rack refuses the query or the form (a name used as two shapes): 2.x's 400, before anything is read.
     pub fn of(params: &Params) -> Option<Self> {
         // Shapes are checked as Rack checks them, on the fields as sent: `a=x&a[]` is two shapes of `a`, refused.
         super::bot::action_params::form(&params.query).ok()?;
@@ -1068,13 +1068,13 @@ fn live(row: &AccessToken, as_refresh: bool, now: DateTime<Utc>) -> bool {
 /// D-OAUTH-INTROSPECT-OWN-CLIENT: a token is described only to its own client. Doorkeeper's default rule also tells
 /// any authenticated client about a token whose client row is gone; here that token is inactive to everyone.
 /// D-OAUTH-INTROSPECT-AFTER-USE: the token asked about is read after the bearer's use, so a token that use has just
-/// retired is reported inactive (Rails read it before and called it active).
+/// retired is reported inactive (2.x read it before and called it active).
 ///
 /// A bearer may not introspect itself nor a token of another client (401, Doorkeeper's), and a client is told no
 /// more than `{"active":false}` about a token that is not live or not its own.
 pub async fn introspect(State(app): State<App>, Extension(params): Extension<Arc<Params>>, unread: Option<Extension<super::hook::Unparseable>>, headers: HeaderMap)
                         -> Result<Response, WebError> {
-    // Rails reads `params[:token]` first: a query or form Rack refuses is its 400 before anything else.
+    // 2.x reads `params[:token]` first: a query or form Rack refuses is its 400 before anything else.
     let Some(shaped) = Shaped::of(&params).filter(|_| unread.is_none()) else { return Ok(super::layout::bad_request()) };
     let sent = Sent { params: &params };
     let credentials = credentials(&headers, &sent);
@@ -1131,7 +1131,7 @@ pub async fn introspect(State(app): State<App>, Extension(params): Extension<Arc
     })
 }
 
-/// Doorkeeper's `expires_in_seconds`: what is left of the token's life at `now`, in whole seconds rounded as Ruby's
+/// Doorkeeper's `expires_in_seconds`: what is left of the token's life at `now`, in whole seconds rounded as 2.x's
 /// `Float#round` (half away from zero), never below 0. `None` for a token that never expires.
 fn seconds_left(row: &AccessToken, now: DateTime<Utc>) -> Option<i64> {
     let life = Duration::try_seconds(row.expires_in?)?;
@@ -1143,7 +1143,7 @@ fn seconds_left(row: &AccessToken, now: DateTime<Utc>) -> Option<i64> {
 /// (`carried_token`), described to whoever holds it. The request is a use of the token (web::bearer::use_token).
 pub async fn token_info(State(app): State<App>, Extension(params): Extension<Arc<Params>>, unread: Option<Extension<super::hook::Unparseable>>, headers: HeaderMap)
                         -> Result<Response, WebError> {
-    // A query Rack cannot read is Rails' 400, before any token is used.
+    // A query Rack cannot read is 2.x's 400, before any token is used.
     let Some(shaped) = Shaped::of(&params).filter(|_| unread.is_none()) else { return Ok(super::layout::bad_request()) };
     let token = match carried_token(&headers, &shaped) {
         Carried::Multiple => return Ok(token_error("invalid_request", text::MULTIPLE_TOKEN_METHODS)),
@@ -1163,14 +1163,14 @@ pub async fn token_info(State(app): State<App>, Extension(params): Extension<Arc
     })
 }
 
-/// The paths whose Rails route takes a `(.:format)` suffix that this crate serves at the bare path: one segment after
-/// a `.`, without `/` or `.` in it (Rails' format segment). Matchit has no suffix parameters.
+/// The paths whose 2.x route takes a `(.:format)` suffix that this crate serves at the bare path: one segment after
+/// a `.`, without `/` or `.` in it (2.x's format segment). Matchit has no suffix parameters.
 const FORMATTED: [&str; 6] = ["/oauth/introspect", "/oauth/token/info", "/oauth/authorize/native", "/oauth/token", "/oauth/revoke", "/oauth/register"];
 
 /// The two routes that read every parameter as Rack does, so that a query or form Rack cannot read (a `%` without
-/// two hex digits, bytes that are not UTF-8) is refused whole, as in Rails (`web::hook::Unparseable`). A multipart
-/// body, whose fields Rails would read and this crate does not, is refused the same way: a token in it would be a
-/// way of sending one that nothing here counted; so is every other body this crate does not read as Rails does
+/// two hex digits, bytes that are not UTF-8) is refused whole, as in 2.x (`web::hook::Unparseable`). A multipart
+/// body, whose fields 2.x would read and this crate does not, is refused the same way: a token in it would be a
+/// way of sending one that nothing here counted; so is every other body this crate does not read as 2.x does
 /// (the entry's `body_read_alike`).
 pub const RACK_READ: [&str; 2] = ["/oauth/introspect", "/oauth/token/info"];
 

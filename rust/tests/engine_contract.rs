@@ -2,14 +2,14 @@ mod common;
 use deltabadger::store::{self, Paths, StoreError};
 
 #[test]
-fn a_rails_prepared_install_satisfies_the_engine_contract() {
-    let dir = common::rails_install();
-    store::check(&Paths::from_env(&|_| None, dir.path())).expect("every engine table and column is present as Rails creates it");
+fn a_v2_prepared_install_satisfies_the_engine_contract() {
+    let dir = common::v2_install();
+    store::check(&Paths::from_env(&|_| None, dir.path())).expect("every engine table and column is present as 2.x creates it");
 }
 
 #[test]
 fn a_missing_engine_column_is_named() {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let p = Paths::from_env(&|_| None, dir.path());
     rusqlite::Connection::open(&p.primary).unwrap()
         .execute_batch("ALTER TABLE transactions DROP COLUMN quote_amount_exec").unwrap();
@@ -20,8 +20,8 @@ fn a_missing_engine_column_is_named() {
 }
 
 #[test]
-fn the_seed_helpers_write_rows_rails_can_read() {
-    let dir = common::rails_install();
+fn the_seed_helpers_write_rows_v2_can_read() {
+    let dir = common::v2_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let o = store::open(&p).unwrap();
     let s = common::seed::seed_kraken(&o.primary, &common::seed::cipher());
@@ -32,7 +32,7 @@ fn the_seed_helpers_write_rows_rails_can_read() {
 
 #[test]
 fn the_api_key_passphrase_is_part_of_the_contract() {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let p = Paths::from_env(&|_| None, dir.path());
     rusqlite::Connection::open(&p.primary).unwrap().execute_batch("ALTER TABLE api_keys DROP COLUMN passphrase").unwrap();
     match store::check(&p) {
@@ -45,7 +45,7 @@ fn the_api_key_passphrase_is_part_of_the_contract() {
 fn the_basket_and_staleness_columns_are_part_of_the_contract() {
     for (table, column) in [("bot_index_assets", "target_allocation"), ("bot_index_assets", "in_index"), ("bot_index_assets", "exited_at"),
                             ("tickers", "updated_at"), ("exchange_assets", "updated_at"), ("account_transactions", "raw_data")] {
-        let dir = common::rails_install();
+        let dir = common::v2_install();
         let p = Paths::from_env(&|_| None, dir.path());
         rusqlite::Connection::open(&p.primary).unwrap().execute_batch(&format!("ALTER TABLE {table} DROP COLUMN {column}")).unwrap();
         match store::check(&p) {

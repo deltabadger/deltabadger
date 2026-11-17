@@ -1,6 +1,6 @@
 //! Rules::Withdrawal's page data and calculations. No evaluation or withdrawal runs here.
 use crate::{
-    ruby::BigDec,
+    v2::BigDec,
     web::{bot::Asset, wizard::keys::Venue, App, WebError},
 };
 use rusqlite::{params, Connection, OptionalExtension};
@@ -41,7 +41,7 @@ impl Rule {
     }
     pub fn percentage(&self) -> String {
         let p = self.text("withdrawal_percentage");
-        if crate::ruby::blank(&p) {
+        if crate::v2::blank(&p) {
             "100".into()
         } else {
             p
@@ -61,7 +61,7 @@ impl Rule {
         self.chains
             .iter()
             .find(|c| c["name"].as_str() == Some(self.text("network").as_str()))
-            .and_then(|c| crate::ruby::json_to_d(&c["fee"]).ok().flatten())
+            .and_then(|c| crate::v2::json_to_d(&c["fee"]).ok().flatten())
             .or_else(|| self.fee.clone())
             .unwrap_or_else(BigDec::zero)
     }

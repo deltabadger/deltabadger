@@ -7,8 +7,8 @@ use rusqlite::{Connection, types::{Value as Sql, ValueRef}};
 use serde_json::{json, Map, Value};
 use std::path::Path;
 
-/// Every Rails table's rows. Rust's own tables (`REGISTRY.owned_tables()`) and the one app_configs row Rust writes on
-/// an import (the identity key, `identity::KEY_CONFIG`) are left out: Rails has neither; `rust_effects` asserts them.
+/// Every 2.x table's rows. Rust's own tables (`REGISTRY.owned_tables()`) and the one app_configs row Rust writes on
+/// an import (the identity key, `identity::KEY_CONFIG`) are left out: 2.x has neither; `rust_effects` asserts them.
 fn snapshot(c: &Connection) -> Value {
     let owned = deltabadger::store::REGISTRY.owned_tables();
     let names: Vec<String> = c.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap()
@@ -52,13 +52,13 @@ fn scalar(value: &Value) -> Sql {
         Value::String(v) => Sql::Text(v.clone()), _ => Sql::Text(value.to_string()) }
 }
 fn same_rows(actual: Value, expected: Value, label: &str) {
-    // Rails' action snapshot already serializes SQLite values, not ActiveRecord attributes.
+    // 2.x's action snapshot already serializes SQLite values, not ActiveRecord attributes.
     for (table,rows) in expected.as_object().unwrap() { assert_eq!(&actual[table],rows,"{label}: {table}"); }
     assert_eq!(actual.as_object().unwrap().len(),expected.as_object().unwrap().len());
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn implemented_writes_match_the_recorded_rails_bytes_and_all_primary_rows() {
+async fn implemented_writes_match_the_recorded_v2_bytes_and_all_primary_rows() {
     compare(&["settings_validation_zone", "settings_validation_blank_zone", "settings_validation_locale",
         "settings_validation_blank_locale", "settings_validation_currency", "settings_validation_lower_currency",
         "settings_validation_jurisdiction", "settings_validation_email", "settings_validation_valid_context"]).await;
@@ -67,7 +67,7 @@ async fn implemented_writes_match_the_recorded_rails_bytes_and_all_primary_rows(
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn price_and_transfer_match_rails_bytes_and_all_primary_rows() {
+async fn price_and_transfer_match_v2_bytes_and_all_primary_rows() {
     compare(&["price_accept_0","price_accept_1","price_accept_2","link_accept_0","link_accept_1","link_accept_2","link_sql_precision","link_sql_reverse","price_blank_currency","price_overflow","price_12.5","price_0","price_-1","price_abc","price_clear","price_venue","link_unlink","link_missing","link_success","price_hidden","price_missing","price_small","price_negative_adjustment","price_cash_eur","price_flag","price_group_clear","price_quote_clear"]).await;
     let locales:Vec<String>=deltabadger::web::locale::LOCALES.iter().map(|locale|format!("price_locale_{locale}")).collect();
     compare(&locales.iter().map(String::as_str).collect::<Vec<_>>()).await;
@@ -98,12 +98,12 @@ fn mask_csrf(body: &str) -> String {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn import_dialog_and_the_no_file_answer_match_rails() {
+async fn import_dialog_and_the_no_file_answer_match_v2() {
     compare(&["import_new","import_missing"]).await;
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn importing_a_file_matches_rails_bytes_and_all_primary_rows() {
+async fn importing_a_file_matches_v2_bytes_and_all_primary_rows() {
     compare(&["import_binance_ok","import_nothing_new","import_unknown_timezone","import_unreadable","import_ambiguous","import_answer","import_bad_key"]).await;
 }
 
@@ -113,7 +113,7 @@ fn mask_import_token(body: &str) -> String {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn export_modal_is_read_only_and_matches_rails_bytes() {
+async fn export_modal_is_read_only_and_matches_v2_bytes() {
     compare(&["export_modal","modal_settings","modal_broker","modal_broker_empty","modal_broker_foreign_country"]).await;
     let locales:Vec<String>=deltabadger::web::locale::LOCALES.iter().map(|locale|format!("modal_locale_{locale}")).collect();
     compare(&locales.iter().map(String::as_str).collect::<Vec<_>>()).await;
@@ -123,7 +123,7 @@ async fn export_modal_is_read_only_and_matches_rails_bytes() {
 /// and with it already present.
 const IDENTITY_CASES: [&str; 2] = ["import_binance_ok", "import_answer"];
 
-/// What a migrated import writes beside Rails' rows: the identity key, created once and reused; one import observation
+/// What a migrated import writes beside 2.x's rows: the identity key, created once and reused; one import observation
 /// per identity-bearing file; no KuCoin source rows.
 fn rust_effects(c: &Connection, name: &str, key_before: Option<String>) {
     let count = |sql: &str| c.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
@@ -136,27 +136,27 @@ fn rust_effects(c: &Connection, name: &str, key_before: Option<String>) {
     assert_eq!(count("SELECT count(*) FROM import_rows"), 0, "{name}");
 }
 
-/// A12-1: the tracker's tax report create (`tax_*`) and download (`download_*`) against Rails' answers, rows, enqueued
+/// A12-1: the tracker's tax report create (`tax_*`) and download (`download_*`) against 2.x's answers, rows, enqueued
 /// job, files and flash.
 #[tokio::test(flavor="current_thread")]
-async fn tax_report_requests_and_downloads_match_rails() {
+async fn tax_report_requests_and_downloads_match_v2() {
     compare(&["tax_invalid","tax_lower_case","tax_pending","tax_crypto","tax_stablecoin","tax_locale_de","tax_stale_refusal",
         "tax_generating","tax_generating_refused","tax_broker","tax_de","tax_fr","tax_pl_2018",
         "download_expired","download_refused","download_ready","download_broker"]).await;
 }
 
 /// D-TAX-NOT-PORTED-GATE (PLAN-A12 item 6): a create this build cannot compute (a year it does not serve: France before 2019,
-/// Poland before 2019) answers the refused flash and writes, queues and moves nothing. Rails accepts both. The broker scope is
-/// served since A12-7 (`tax_broker` is queued as Rails queues it; its run fails as Rails' does, for a country other than DE).
+/// Poland before 2019) answers the refused flash and writes, queues and moves nothing. 2.x accepts both. The broker scope is
+/// served since A12-7 (`tax_broker` is queued as 2.x queues it; its run fails as 2.x's does, for a country other than DE).
 const TAX_GATED: [&str; 2] = ["tax_pl_2018", "tax_fr"];
-/// D-TAX-RECONCILE under a running report: Rails' `Generating.accepted?` reads Solid Queue's discarded job as accepted
+/// D-TAX-RECONCILE under a running report: 2.x's `Generating.accepted?` reads Solid Queue's discarded job as accepted
 /// (Active Job sets `successfully_enqueued` after the adapter returns; the destroyed row leaves no provider_job_id), so
 /// it deletes the user's refusal and shows progress for a run that never happens. Rust keeps the refusal and answers its
-/// flash, which pages_tracker.rb renders with Rails' partial (`reconciled.html`).
+/// flash, which the recording harness renders with 2.x's partial (`reconciled.html`).
 const TAX_RECONCILED: &str = "tax_generating_refused";
 
 /// D-TAX-RECONCILE: every tax panel Rust renders is the request's own (`tax-report-<request>`, `data-tax-request`, and on
-/// the progress panel the reconcile-on-connect controller); Rails' all share `tax-report-progress`. Normalised to Rails'.
+/// the progress panel the reconcile-on-connect controller); 2.x's all share `tax-report-progress`. Normalised to 2.x's.
 fn reconcile(body: &str) -> String {
     let id = regex::Regex::new(r#"id="tax-report-[0-9a-f]{32}""#).unwrap();
     let attributes = regex::Regex::new(r#" data-tax-request="[0-9a-f]{32}"| data-controller="broadcast--on-connect"| data-broadcast--on-connect-[a-z-]+-value="[^"]*""#).unwrap();
@@ -177,23 +177,23 @@ fn tax_files(root: &Path) -> std::collections::BTreeMap<String, String> {
         .map(|e| (e.file_name().to_string_lossy().into_owned(), std::fs::read_to_string(e.path()).unwrap())).collect()
 }
 
-/// D-IMPORT-FORMATS: the dialog offers Rust's KuCoin format beside Rails' two; the rest of it is Rails' bytes.
-/// D-TAX-STABLECOIN-QUESTION: Rails asks "treat stablecoins as fiat" for AT and SK; the report reads the flag for neither
+/// D-IMPORT-FORMATS: the dialog offers Rust's KuCoin format beside 2.x's two; the rest of it is 2.x's bytes.
+/// D-TAX-STABLECOIN-QUESTION: 2.x asks "treat stablecoins as fiat" for AT and SK; the report reads the flag for neither
 /// (D-TAX-AT-STABLECOIN, D-TAX-SK-SWAPS), so no country option is marked ambiguous and the checkbox is never shown.
 fn stablecoin_question(body: &str) -> String {
     let mut out = body.to_string();
     for code in ["AT", "SK"] {
         let option = regex::Regex::new(&format!(r#"(<option value="{code}" [^>]*data-stablecoin-ambiguous=")true(")"#)).unwrap();
-        assert!(option.is_match(&out), "Rails asks the stablecoin question for {code}");
+        assert!(option.is_match(&out), "2.x asks the stablecoin question for {code}");
         out = option.replace(&out, "${1}false${2}").into_owned();
     }
-    assert!(!out.contains(r#"data-stablecoin-ambiguous="true""#), "Rails asks it for no other country");
+    assert!(!out.contains(r#"data-stablecoin-ambiguous="true""#), "2.x asks it for no other country");
     out
 }
 
 /// D-TAX-PL-DECLARED-CARRY (Rust-only, approved): the modal's PL forms, one per offered crypto year from 2019 (2021–2026 at
 /// the recordings' 2026 clock), each empty (no recording declares a carry), with the style that shows the selected one,
-/// directly before the footer. Rust's body without them is Rails' body.
+/// directly before the footer. Rust's body without them is 2.x's body.
 fn without_pl_carry(body: &str) -> String {
     let block = regex::Regex::new(r#"(?s)      <style>\.pl-carry\{display:none\}[^<]*</style>\n((?:<form id="pl-carry-\d{4}" .*?</form>\n)+)(      <div class="modal__footer">)"#).unwrap();
     let found = block.captures(body).expect("the PL forms before the footer");
@@ -231,20 +231,20 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
         let directory = if name.starts_with("sync_") { std::env::var("D5_SYNC_GRID").unwrap_or_else(|_|root.clone()) } else { root.clone() };
         let source = Path::new(&directory).join(format!("d5_{name}"));
         let scenario: Value = serde_json::from_slice(&std::fs::read(source.join("scenario.json")).unwrap()).unwrap();
-        let rails: Value = serde_json::from_slice(&std::fs::read(source.join("rails.json")).unwrap()).unwrap();
-        assert!(rails["network"].as_array().unwrap().is_empty());
-        let expected = rails["responses"].as_array().unwrap().last().unwrap();
+        let v2: Value = serde_json::from_slice(&std::fs::read(source.join("expected.json")).unwrap()).unwrap();
+        assert!(v2["network"].as_array().unwrap().is_empty());
+        let expected = v2["responses"].as_array().unwrap().last().unwrap();
         let step = scenario["steps"].as_array().unwrap().last().unwrap();
         let dir = tempfile::tempdir().unwrap();
         for name in ["production.sqlite3","production_queue.sqlite3"] { std::fs::copy(source.join(name),dir.path().join(name)).unwrap(); }
-        // A12-1: the report files as they were before Rails' request (Rails' tmp/ holds what its request left).
+        // A12-1: the report files as they were before 2.x's request (2.x's tmp/ holds what its request left).
         let tax = name.starts_with("tax_") || name.starts_with("download_");
         if source.join("tmp_before").is_dir() { common::copy_tree(&source.join("tmp_before"), &dir.path().join("tmp")); }
         let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
         // A migrated install, as `serve` runs on.
         deltabadger::store::test_support::migrate(&c).unwrap();
         // The record directory contains the post-request database. Rebuild the pre-request
-        // row state from the recorder before opening App, retaining the real Rails schema.
+        // row state from the recorder before opening App, retaining the real 2.x schema.
         c.execute_batch("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE").unwrap();
         let before = combined(expected,"before");
         for (table,rows) in before.as_object().unwrap() {
@@ -265,7 +265,7 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
         if identity_key { deltabadger::identity::key(&c,&app.cipher,app.now()).unwrap(); }
         let key_before = deltabadger::app_config::get_plain(&c,deltabadger::identity::KEY_CONFIG).unwrap();
         same_rows(snapshot(&c),before.clone(),&format!("{name} before"));
-        // The running crypto report Rails' step found in Solid Queue (pages_tracker.rb `d5_tax_generating`), as Rust holds it.
+        // The running crypto report 2.x's step found in Solid Queue (the recorded `d5_tax_generating`), as Rust holds it.
         if step["before"] == "d5_tax_generating" {
             c.execute("INSERT INTO rust_tax_reports(request,user_id,scope,country,year,stablecoin_as_fiat,locale,state,created_at)
                 SELECT '00000000000000000000000000000001',id,'crypto','US',2025,0,'en','queued','2026-09-10 12:00:00' FROM users ORDER BY id LIMIT 1",[]).expect("rust_tax_reports (A12-1)");
@@ -318,9 +318,9 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
             continue;
         }
         // D-TRACKER-SETTINGS-422: a settings save the user validation refuses answers 422, as fund_classifications does;
-        // Rails ignores update's false return and answers 200.
+        // 2.x ignores update's false return and answers 200.
         let status = if name.starts_with("settings_validation_") && name != "settings_validation_valid_context" {
-            assert_eq!(expected["status"], 200, "{name}: Rails now refuses the save: drop D-TRACKER-SETTINGS-422"); 422
+            assert_eq!(expected["status"], 200, "{name}: 2.x now refuses the save: drop D-TRACKER-SETTINGS-422"); 422
         } else { expected["status"].as_u64().unwrap() };
         assert_eq!(u64::from(answer.status),status,"{name}");
         if expected.get("exception").is_none() { {
@@ -332,13 +332,13 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
             }
             let body = if name == "import_new" { without_kucoin_format(&answer.body) } else if tax { reconcile(&answer.body) } else { answer.body.clone() };
             let body = if body.contains("<style>.pl-carry{") { without_pl_carry(&body) } else { body };
-            let rails_body = if name == TAX_RECONCILED { std::fs::read_to_string(source.join("reconciled.html")).unwrap() } else { expected["body"].as_str().unwrap().to_string() };
-            let rails_body = if rails_body.contains("data-stablecoin-ambiguous=") { stablecoin_question(&rails_body) } else { rails_body };
-            assert_eq!(mask_csrf(&body),mask_csrf(&rails_body),"{name}: body bytes");
+            let v2_body = if name == TAX_RECONCILED { std::fs::read_to_string(source.join("reconciled.html")).unwrap() } else { expected["body"].as_str().unwrap().to_string() };
+            let v2_body = if v2_body.contains("data-stablecoin-ambiguous=") { stablecoin_question(&v2_body) } else { v2_body };
+            assert_eq!(mask_csrf(&body),mask_csrf(&v2_body),"{name}: body bytes");
         } }
         else {
             // Existing web-foundation exception contract: public error file and below-controller
-            // headers. Rails recordings omit their debugging page, which is not production HTML.
+            // headers. 2.x recordings omit their debugging page, which is not production HTML.
             let page = if answer.status == 404 { include_str!("../web/public/404.html") } else if answer.status == 422 { include_str!("../web/public/422.html") } else { include_str!("../web/public/500.html") };
             assert_eq!(answer.body,page,"{name}: public error page");
             assert_eq!(answer.header("content-type"),Some("text/html; charset=utf-8"));
@@ -373,17 +373,17 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
     }
 }
 
-/// A tax step's request rows, wakes and files against Rails' enqueued Tax::GenerateReportJob and its tmp/: every
+/// A tax step's request rows, wakes and files against 2.x's enqueued Tax::GenerateReportJob and its tmp/: every
 /// accepted create inserts one queued row with the job's arguments (`[user, country, year, stablecoin, scope]`) and
 /// request locale, wakes `tax_report` once, and names that row on its panel; nothing else moves a row; the files left
-/// are Rails' (a download deletes its CSV; a refusal steps aside), Rust's staging names never among them.
+/// are 2.x's (a download deletes its CSV; a refusal steps aside), Rust's staging names never among them.
 #[allow(clippy::too_many_arguments)]
 fn tax_effects(c: &Connection, name: &str, source: &Path, dir: &Path, expected: &Value, body: &str, before: &[Value], wakes: &[(String, Option<String>)]) {
     let after = tax_rows(c);
     for row in before { assert!(after.contains(row), "{name}: an earlier request moved: {row}"); }
     let new: Vec<&Value> = after.iter().filter(|row| !before.iter().any(|old| old["request"] == row["request"])).collect();
     let jobs: Vec<&Value> = expected["jobs"].as_array().unwrap().iter().filter(|job| job["job_class"] == "Tax::GenerateReportJob").collect();
-    assert_eq!(new.len(), jobs.len(), "{name}: requests queued against Rails' enqueued jobs {jobs:?}");
+    assert_eq!(new.len(), jobs.len(), "{name}: requests queued against 2.x's enqueued jobs {jobs:?}");
     for (row, job) in new.iter().zip(&jobs) {
         let request = row["request"].as_str().unwrap();
         assert!(request.len() == 32 && request.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)), "{name}: request token {request}");
@@ -395,8 +395,8 @@ fn tax_effects(c: &Connection, name: &str, source: &Path, dir: &Path, expected: 
     let tax_wakes = wakes.iter().filter(|(job, _)| job == "tax_report").count();
     assert_eq!(tax_wakes, jobs.len(), "{name}: tax_report wakes {wakes:?}");
     assert!(wakes.iter().all(|(job, scope)| job == "tax_report" && scope.is_none()), "{name}: only the unscoped tax_report is woken: {wakes:?}");
-    let rails = if name == TAX_RECONCILED { source.join("tmp_before") } else { source.join("tmp") };
-    assert_eq!(tax_files(&dir.join("tmp")), tax_files(&rails), "{name}: report files after the request");
+    let v2 = if name == TAX_RECONCILED { source.join("tmp_before") } else { source.join("tmp") };
+    assert_eq!(tax_files(&dir.join("tmp")), tax_files(&v2), "{name}: report files after the request");
     if name == "download_ready" || name == "download_broker" {
         assert!(tax_files(&source.join("tmp")).is_empty() && tax_files(&dir.join("tmp")).is_empty(), "{name}: the downloaded report is deleted on both sides");
     }

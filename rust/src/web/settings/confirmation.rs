@@ -1,4 +1,4 @@
-//! J: confirmation has Rails' unlimited lifetime. The current token authorizes one pending change.
+//! J: confirmation has 2.x's unlimited lifetime. The current token authorizes one pending change.
 use crate::{codec::format_time, web::{auth, flash, i18n, layout::{self, Ctx, Page}, App, WebError}};
 use askama::Template;
 use axum::{extract::{Extension, State}, http::StatusCode, response::Response};
@@ -23,10 +23,10 @@ pub async fn show(State(app):State<App>,Extension(ctx):Extension<Ctx>)->Result<R
         let found:Option<(i64,String,Option<String>,Option<String>)>=tx.query_row("SELECT id,confirmation_token,confirmed_at,unconfirmed_email FROM users WHERE confirmation_token=?1",[&token],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).optional()?;
         let Some((id,stored,confirmed,pending))=found else{return Ok((false,false,None));};
         if token.is_empty()||!bool::from(stored.as_bytes().ct_eq(token.as_bytes())){return Ok((false,false,None));}
-        let pending=pending.filter(|s|!crate::ruby::blank(s));
+        let pending=pending.filter(|s|!crate::v2::blank(s));
         if confirmed.is_some()&&pending.is_none(){return Ok((false,true,Some("errors.messages.already_confirmed")));}
         if let Some(email)=pending{
-            let email=crate::ruby::strip(&email).to_lowercase();
+            let email=crate::v2::strip(&email).to_lowercase();
             if let Some(error)=super::account::confirmation_validation(&tx,&email,id)?{return Ok((false,true,Some(error)));}
             tx.execute("UPDATE users SET email=?1,unconfirmed_email=NULL,confirmed_at=?2,reset_password_token=NULL,reset_password_sent_at=NULL,updated_at=?2 WHERE id=?3",(email,format_time(inner.now()),id))?;
         }else{
@@ -46,14 +46,14 @@ pub async fn show(State(app):State<App>,Extension(ctx):Extension<Ctx>)->Result<R
 /// Devise's resend action always gives the same privacy response, including unknown addresses.
 pub async fn create(State(app):State<App>,Extension(ctx):Extension<Ctx>)->Result<Response,WebError>{
     if !ctx.params.form.iter().any(|(name,_)|name.starts_with("user[")){return Ok(layout::redirect(StatusCode::SEE_OTHER,&ctx.path("/login")))}
-    let address=crate::ruby::strip(ctx.params.form("user[email]").unwrap_or_default()).to_lowercase();
+    let address=crate::v2::strip(ctx.params.form("user[email]").unwrap_or_default()).to_lowercase();
     let inner=app.clone();
     let delivery=app.db(move|c|{
         let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
         type Pending=(i64,String,Option<String>,Option<String>,Option<String>);
         let found:Option<Pending>=tx.query_row("SELECT id,email,confirmed_at,unconfirmed_email,confirmation_token FROM users WHERE unconfirmed_email=?1 OR email=?1 ORDER BY CASE WHEN unconfirmed_email=?1 THEN 0 ELSE 1 END,id LIMIT 1",[&address],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).optional()?;
         let Some((id,email,confirmed,pending,stored))=found else{return Ok(None)};
-        let pending=pending.filter(|v|!crate::ruby::blank(v));
+        let pending=pending.filter(|v|!crate::v2::blank(v));
         if confirmed.is_some()&&pending.is_none(){return Ok(None)}
         let token=match stored{Some(token)=>token,None=>{
             let token=crate::crypto::friendly_token();

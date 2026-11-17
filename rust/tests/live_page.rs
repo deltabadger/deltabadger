@@ -65,8 +65,8 @@ fn shape(messages: &[(String, String)]) -> Vec<(String, String)> {
     }).filter(|(_, target)| !target.starts_with("orders_selling_") && !target.starts_with("selling_state_")).collect()
 }
 
-/// A follow-up fill that spends the amount limit stops the bot (Bot::StopJob → Bot#stop, an update! of the status): Rails'
-/// after_update_commit redraws the bars, both buttons and unlocks the columns (app/models/bot.rb:38-40), after the row's own
+/// A follow-up fill that spends the amount limit stops the bot (Bot::StopJob → Bot#stop, an update! of the status): 2.x's
+/// after_update_commit redraws the bars, both buttons and unlocks the columns, after the row's own
 /// broadcast_updated_order.
 #[tokio::test(flavor = "current_thread")]
 async fn a_follow_up_fill_that_stops_the_bot_redraws_its_status_and_unlocks_its_settings() {
@@ -140,7 +140,7 @@ async fn a_tick_whose_sweep_fills_a_resting_order_announces_it() {
 }
 
 /// A tick that placed several orders: each row is rendered once all are in, so none reads as the bot's first. Each removes
-/// the placeholder (Rails removes it with the first; a remove of a missing target does nothing in Turbo).
+/// the placeholder (2.x removes it with the first; a remove of a missing target does nothing in Turbo).
 #[test]
 fn every_new_row_removes_the_placeholder() {
     let r = Rig::new(&BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
@@ -174,7 +174,7 @@ fn a_signal_bots_marker_redraws_its_unresolved_placement_panel() {
     assert!(!html.contains("authenticity_token"), "a broadcast carries no token: {html}");
     c.execute("UPDATE bots SET transient_data = '{}' WHERE id = ?1", [signal]).unwrap();
     let lifted = r.render(&EngineEvent::SignalMarkerChanged { bot_id: signal });
-    // The partial as Rails renders it on its own (signal_action_resolution records it), not as the settings column indents it.
+    // The partial as 2.x renders it on its own (signal_action_resolution records it), not as the settings column indents it.
     assert_eq!(lifted, vec![(stream(signal), "<turbo-stream action=\"replace\" target=\"signal-unresolved-placement\"><template>  <div id=\"signal-unresolved-placement\" hidden></div>\n</template></turbo-stream>".to_string())]);
     assert!(r.render(&EngineEvent::SignalMarkerChanged { bot_id: r.id }).is_empty(), "a basket has no such panel");
 }
@@ -227,7 +227,7 @@ async fn the_engine_serves_the_price_status_line_and_the_page_hears_it() {
     assert!(shown[0].1.contains("text-success") && shown[0].1.contains("64000.5"), "{}", shown[0].1);
 }
 
-/// D-INFO-SIDE: each side's line has its own element. The active side's is Rails' `settings-price-limit-info`; a signal bot's
+/// D-INFO-SIDE: each side's line has its own element. The active side's is 2.x's `settings-price-limit-info`; a signal bot's
 /// sell group is `settings-sell-price-limit-info`; a basket's other side has no line on its page, so nothing is rendered.
 #[test]
 fn each_sides_status_line_renders_into_its_own_element() {
@@ -290,7 +290,7 @@ fn transient(r: &Rig, key: &str) -> Value {
 }
 
 /// D-OPEN-ORDERS-WAKE (3.0 A20): the orders table's refresh request reaches no venue; the engine's next pass sweeps the bot
-/// (stopped: Rails' job runs whatever the status), announces the row it wrote, and serves the request.
+/// (stopped: 2.x's job runs whatever the status), announces the row it wrote, and serves the request.
 #[tokio::test(flavor = "current_thread")]
 async fn an_open_orders_refresh_is_swept_by_the_engine_and_never_by_the_request() {
     use deltabadger::engine::polling;
@@ -355,7 +355,7 @@ async fn a_failed_refresh_is_served_and_leaves_the_bot_as_it_was() {
 }
 
 /// A refresh that commits a fill and then raises (an order whose status is unknown, after one that filled): the fill stays,
-/// is announced, and its amount-limit stop runs (Rails' StopJob from the fill callback); the request is served.
+/// is announced, and its amount-limit stop runs (2.x's StopJob from the fill callback); the request is served.
 #[tokio::test(flavor = "current_thread")]
 async fn a_refresh_that_fills_then_raises_keeps_the_fill_and_its_amount_limit_stop() {
     use deltabadger::engine::{model, polling};

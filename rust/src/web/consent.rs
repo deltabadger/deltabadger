@@ -1,6 +1,6 @@
 //! The authorization endpoint: `GET /oauth/authorize` shows the consent screen to the signed-in
 //! owner, `POST` approves and `DELETE` denies. Doorkeeper's AuthorizationsController with the app's
-//! view (app/views/doorkeeper/authorizations/new.html.erb) and its after-authorization hook
+//! view and its after-authorization hook
 //! (ConnectedClients::RecordConsent), on the Rust session: these three go through the pipeline like
 //! any page, so approving and denying need the session's CSRF token.
 //!
@@ -79,7 +79,7 @@ struct Asked {
 
 impl Asked {
     fn of(ctx: &Ctx) -> Self {
-        // Rails' `params`: the query wins over the form.
+        // 2.x's `params`: the query wins over the form.
         let get = |name: &str| ctx.params.query(name).or_else(|| ctx.params.form(name)).map(str::to_string);
         Self { client_id: get("client_id"), redirect_uri: get("redirect_uri"), response_type: get("response_type"), response_mode: get("response_mode"),
                scope: get("scope"), state: get("state"), code_challenge: get("code_challenge"), code_challenge_method: get("code_challenge_method") }
@@ -147,7 +147,7 @@ fn pre_authorize(c: &Connection, asked: &Asked) -> Result<Result<PreAuth, Refusa
     };
     if !scopes_valid(&scope, &client.allowed_scopes()) { return refused("invalid_scope", text::INVALID_SCOPE); }
     if present(asked.code_challenge.as_deref()).is_none() { return refused("invalid_request", text::CODE_CHALLENGE_REQUIRED); }
-    // Rails also takes `plain`. A challenge that is its own verifier protects nothing, the metadata
+    // 2.x also takes `plain`. A challenge that is its own verifier protects nothing, the metadata
     // names S256 only, and a client that is already connected never comes back here to refresh.
     if asked.code_challenge_method.as_deref() != Some("S256") { return refused("invalid_code_challenge_method", text::CODE_CHALLENGE_METHOD); }
     Ok(Ok(PreAuth { client, redirect_uri, scope }))
@@ -155,7 +155,7 @@ fn pre_authorize(c: &Connection, asked: &Asked) -> Result<Result<PreAuth, Refusa
 
 /// Rack's `Cache-Control` for the status. Oauth::BaseController has no `set_no_cache`, so these
 /// pages are not `no-store` even for a signed-in owner.
-fn cached_as_rails(mut response: Response) -> Response {
+fn cached_as_v2(mut response: Response) -> Response {
     let status = response.status();
     headers::cache_control(response.headers_mut(), status, false);
     response
@@ -169,7 +169,7 @@ struct ErrorPage<'a> {
 
 /// Doorkeeper's stock error page, without a layout.
 fn error_page(status: StatusCode, description: &str) -> Result<Response, WebError> {
-    Ok(cached_as_rails(layout::html(status, ErrorPage { description }.render()?)))
+    Ok(cached_as_v2(layout::html(status, ErrorPage { description }.render()?)))
 }
 
 fn refusal_status(refused: &Refusal) -> StatusCode {
@@ -185,7 +185,7 @@ fn to_client(asked: &Asked, redirect_uri: &str, parameters: &[(&str, &str)]) -> 
     if let Ok(value) = axum::http::HeaderValue::from_str(&location) {
         response.headers_mut().insert(header::LOCATION, value);
     }
-    cached_as_rails(response)
+    cached_as_v2(response)
 }
 
 #[derive(Template)]
@@ -231,7 +231,7 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>, headers
         cancel: t("button.cancel"), connect: t("button.connect"),
         asked: &asked, pre_auth: &pre_auth,
     };
-    Ok(cached_as_rails(layout::html(StatusCode::OK, page.render()?)))
+    Ok(cached_as_v2(layout::html(StatusCode::OK, page.render()?)))
 }
 
 /// ConnectedClients::RecordConsent: a new connection gets a row with no tool lists (NULL), so the
@@ -273,7 +273,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         Err(refused) => {
             let mut body = json!({ "error": refused.error, "error_description": refused.description });
             if !state.trim().is_empty() { body["state"] = json!(state); }
-            cached_as_rails((refusal_status(&refused), [(header::CONTENT_TYPE, "application/json; charset=utf-8")], body.to_string()).into_response())
+            cached_as_v2((refusal_status(&refused), [(header::CONTENT_TYPE, "application/json; charset=utf-8")], body.to_string()).into_response())
         }
     })
 }

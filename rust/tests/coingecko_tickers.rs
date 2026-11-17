@@ -2,7 +2,7 @@
 //! CoinGecko nothing; a new pair crawls once a day, the claim surviving a reopen and racing claimers getting one),
 //! D-CG-429-NO-MORE-CRAWLS, D-CG-RETIRED-NOT-ASKED, setup sync's order and its stop on a closed quota, the takeover wake,
 //! a Binance-scale venue in bounded units, an interrupted import's recovery, and the scheduler's deadline keeping the
-//! finished venues. Rails' half is script/rust/reference_data.rb's CoinGecko ticker scenarios.
+//! finished venues. 2.x's half is the recorded CoinGecko ticker scenarios.
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use common::seed;
@@ -224,12 +224,12 @@ async fn setup_sync_runs_tickers_first_and_stops_on_a_closed_quota() {
     assert!(deltabadger::app_config::get_plain(&reopen(&d), setup_sync::REQUEST).unwrap().is_some(), "the request stays");
 }
 
-/// The takeover: a queued per-venue Rails job wakes one whole TICKERS run; the fan-out stays dropped.
+/// The takeover: a queued per-venue 2.x job wakes one whole TICKERS run; the fan-out stays dropped.
 #[test]
 fn the_takeover_wakes_the_tickers_run() {
-    use deltabadger::engine::handover::{rails_work, RailsWork};
-    assert_eq!(rails_work("Exchange::SyncTickersAndAssetsJob"), RailsWork::WakeUnscoped(reference::TICKERS));
-    assert_eq!(rails_work("Exchange::SyncAllTickersAndAssetsJob"), RailsWork::Dropped);
+    use deltabadger::engine::handover::{v2_work, V2Work};
+    assert_eq!(v2_work("Exchange::SyncTickersAndAssetsJob"), V2Work::WakeUnscoped(reference::TICKERS));
+    assert_eq!(v2_work("Exchange::SyncAllTickersAndAssetsJob"), V2Work::Dropped);
 }
 
 /// A Binance-scale venue: ~2,000 new pairs from one crawl publish in bounded units (assets, rows, sweep), every pair landed.
@@ -261,7 +261,7 @@ async fn a_binance_scale_venue_publishes_in_bounded_units() {
 /// An import interrupted after its assets were published: a fresh, non-forced run the same day re-applies the catalogue
 /// and leaves the lost discovery's new pairs waiting for the claim's expiry; a day on, they resolve.
 #[tokio::test(flavor = "current_thread")]
-async fn an_interrupted_import_recovers_as_rails_does() {
+async fn an_interrupted_import_recovers_as_v2_does() {
     let (d, c, ids) = install(&[KRAKEN]);
     let (a, b) = (asset(&c, "coin-a"), asset(&c, "coin-b"));
     ticker(&c, ids[0], a, b, "AB", "A", "B");
@@ -361,7 +361,7 @@ fn claims_expire_after_a_day() {
 }
 
 /// D-CG-ROW-REFUSED: existing AUSD (A/USD) and BUSD (B/USD); the catalogue names A/USD "BUSD", which the (exchange, ticker)
-/// unique index refuses. Rails raises RecordNotUnique out of the venue's sync there: the row confirms nothing and the sweep
+/// unique index refuses. 2.x raises RecordNotUnique out of the venue's sync there: the row confirms nothing and the sweep
 /// never runs. Rust skips the row, applies the rows after it, and does not sweep the venue that run either.
 #[tokio::test(flavor = "current_thread")]
 async fn a_refused_row_confirms_nothing_and_suppresses_the_sweep() {
@@ -400,9 +400,9 @@ async fn the_catalogue_takes_the_venues_proxy() {
     drop(d);
 }
 
-/// Fiat.currencies, recorded from Rails (script/rust/record_fiat_currencies.rb), as the synchronizer's.
+/// Fiat.currencies, recorded from 2.x, as the synchronizer's.
 #[test]
-fn the_fiat_currencies_are_rails() {
+fn the_fiat_currencies_are_v2() {
     let v: Value = serde_json::from_str(include_str!("fixtures/fiat_currencies.json")).unwrap();
     let rust: Vec<Value> = synchronizer::FIAT.iter()
         .map(|(id, sym, name, color)| json!({ "external_id": id, "symbol": sym, "name": name, "category": "Currency", "color": color })).collect();

@@ -13,7 +13,7 @@ def run(name,selection,cases=''):
     with (out/f'{name}.log').open('w') as log:code=subprocess.run(args,cwd=root,env=dict(os.environ,D5_HOLDINGS_CASES=cases),stdout=log,stderr=subprocess.STDOUT).returncode
     return code,(out/f'{name}.log').read_text()
 unit='test(cold_) | test(cache_publish_decimal)'
-page='test(cold_holdings_match_rails)'
+page='test(cold_holdings_match_v2)'
 mutants=[
 ('nullable_symbol','figures','r.get::<_,Option<String>>(1)?.unwrap_or_default()','r.get::<_,String>(1)?','test(cold_nullable)',''),
 ('nullable_name','figures','r.get::<_,Option<String>>(2)?.unwrap_or_default()','r.get::<_,String>(2)?','test(cold_nullable)',''),

@@ -9,7 +9,7 @@
 //! Every terminal state applied to a row with an HF record goes through `admit` (polling, recovery, `reconcile-order`).
 use super::model;
 use super::EngineError;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::{OrderState, OrderStatus};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -512,7 +512,7 @@ pub(crate) fn prove(c: &Connection, bot_id: i64, tx_id: i64, origin: &crate::ven
 /// D-KUCOIN-HF-RETENTION (r2.6): in the claim's transaction, before the claim moves `rust_taken_over_at`, every open KuCoin
 /// row with no HF record and no mark is marked by who placed it: `classic` when it was created in this engine's ownership
 /// window (after the last takeover and before a handback since; Rust places HF orders only with a record), `unproven`
-/// otherwise (a Rails window, or older than any recorded takeover). A mark is never rewritten. Returns the rows marked.
+/// otherwise (a 2.x window, or older than any recorded takeover). A mark is never rewritten. Returns the rows marked.
 pub(crate) fn mark_adopted(c: &Connection, cipher: &crate::crypto::Cipher, now: DateTime<Utc>) -> Result<usize, EngineError> {
     use crate::lease;
     let after_crash = lease::read(c, cipher)?.is_some_and(|v| v["engine"] == "rust");
@@ -538,9 +538,9 @@ pub(crate) fn mark_adopted(c: &Connection, cipher: &crate::crypto::Cipher, now: 
     Ok(rows.len())
 }
 
-/// D-KUCOIN-HF-RETENTION (R08): what Rails could not manage after a handback: a bot with an HF or UTA order (any row with
-/// a record, or an unresolved intent sent on an HF or UTA account). Rails trades only classic, so that account is Rust's. An adopted
-/// row whose route is unproven is not refused: Rails placed it, on its own route, and reads it as it always did.
+/// D-KUCOIN-HF-RETENTION (R08): what 2.x could not manage after a handback: a bot with an HF or UTA order (any row with
+/// a record, or an unresolved intent sent on an HF or UTA account). 2.x trades only classic, so that account is Rust's. An adopted
+/// row whose route is unproven is not refused: 2.x placed it, on its own route, and reads it as it always did.
 pub(crate) fn handback_refusals(c: &Connection) -> Result<Vec<String>, EngineError> {
     let prefix = crate::venue::kucoin::ORDER_RECORD;
     let upper = format!("{};", &prefix[..prefix.len() - 1]);

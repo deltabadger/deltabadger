@@ -1,8 +1,8 @@
-//! The engine reuses the figures port of Rails' split matching. Trust is an additional trading gate.
+//! The engine reuses the figures port of 2.x's split matching. Trust is an additional trading gate.
 use crate::venue::Attributed;
 use super::{model::{self, Bot}, basket, EngineError};
-use crate::figures::{self, at::At, db, splits as rails};
-use crate::ruby::BigDec;
+use crate::figures::{self, at::At, db, splits as v2};
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
@@ -46,14 +46,14 @@ pub fn asset_splits(c: &Connection, user_id: i64, bot_id: i64, pairs: &[(i64, i6
                 let mut s = c.prepare("SELECT base FROM tickers WHERE exchange_id = ?1 AND base_asset_id = ?2 \
                                        UNION SELECT base FROM transactions WHERE bot_id = ?3 AND exchange_id = ?1 AND base_asset_id = ?2 AND base IS NOT NULL ORDER BY 1")?;
                 let strings = s.query_map(params![venue, asset, bot_id], |r| r.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
-                holdings.push(rails::Holding { key: asset.to_string(), asset_id: Some(*asset), strings });
+                holdings.push(v2::Holding { key: asset.to_string(), asset_id: Some(*asset), strings });
             }
             let strings = holdings.iter().flat_map(|h| h.strings.iter().map(|s| (venue, s.as_str()))).collect();
             let eligible = (strings, assets.iter().map(|a| (venue, *a)).collect(), vec![venue]);
-            for e in rails::events_with(c, user_id, &eligible, &holdings, at).map_err(data)? {
+            for e in v2::events_with(c, user_id, &eligible, &holdings, at).map_err(data)? {
                 out.events.push((venue, SplitEvent { at_us: e.at.0 / 1000, asset_id: e.key.parse().map_err(data)?, factor: BigDec::parse(&e.factor.to_s_f()).map_err(data)? }));
             }
-            out.unresolved |= rails::unresolved_with(c, user_id, &eligible, &holdings, at).map_err(data)?;
+            out.unresolved |= v2::unresolved_with(c, user_id, &eligible, &holdings, at).map_err(data)?;
         }
         Ok(out)
     })
@@ -68,7 +68,7 @@ pub fn cap_dependencies(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result
     }
 }
 
-pub const QUARANTINE_SECS: i64 = rails::QUARANTINE_SECONDS;
+pub const QUARANTINE_SECS: i64 = v2::QUARANTINE_SECONDS;
 #[derive(Clone, Debug, PartialEq)]
 pub struct SplitEvent { pub at_us: i64, pub asset_id: i64, pub factor: BigDec }
 #[derive(Default)]
@@ -80,12 +80,12 @@ pub fn splits(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Splits, E
         let orders = db::orders(c, bot.id).map_err(data)?;
         let mut held: BTreeMap<i64, Vec<String>> = BTreeMap::new();
         for o in &orders { if let Some(id) = o.asset_id { held.entry(id).or_default().extend(o.base.clone()); } }
-        let holdings: Vec<rails::Holding> = held.into_iter().map(|(id, strings)| rails::Holding { key: id.to_string(), asset_id: Some(id), strings }).collect();
+        let holdings: Vec<v2::Holding> = held.into_iter().map(|(id, strings)| v2::Holding { key: id.to_string(), asset_id: Some(id), strings }).collect();
         let now = At::from_utc(now).ok_or_else(|| data("split time out of range"))?;
-        let events = rails::events(c, bot.user_id, &orders, &holdings, now).map_err(data)?.into_iter().map(|e| {
+        let events = v2::events(c, bot.user_id, &orders, &holdings, now).map_err(data)?.into_iter().map(|e| {
             Ok(SplitEvent { at_us: e.at.0 / 1000, asset_id: e.key.parse().map_err(data)?, factor: BigDec::parse(&e.factor.to_s_f()).map_err(data)? })
         }).collect::<Result<Vec<_>, EngineError>>()?;
-        Ok(Splits { events, unresolved: rails::unresolved(c, bot.user_id, &orders, &holdings, now).map_err(data)? })
+        Ok(Splits { events, unresolved: v2::unresolved(c, bot.user_id, &orders, &holdings, now).map_err(data)? })
     })
 }
 
@@ -123,13 +123,13 @@ fn row_refusal(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<S
     let orders = db::orders(c,bot.id).map_err(data)?;
     let mut held: BTreeMap<i64,Vec<String>> = BTreeMap::new();
     for order in &orders { if let Some(id)=order.asset_id { held.entry(id).or_default().extend(order.base.clone()); } }
-    let holdings: Vec<_> = held.into_iter().map(|(id,strings)| rails::Holding {key:id.to_string(),asset_id:Some(id),strings}).collect();
+    let holdings: Vec<_> = held.into_iter().map(|(id,strings)| v2::Holding {key:id.to_string(),asset_id:Some(id),strings}).collect();
     type ReportKey = (String, String, Option<(String, String)>);
     let mut groups: BTreeMap<ReportKey,Vec<Value>> = BTreeMap::new();
-    for group in rails::groups(c,bot.user_id,&orders,&holdings).map_err(data)? {
+    for group in v2::groups(c,bot.user_id,&orders,&holdings).map_err(data)? {
         for row in group.rows {
             if row.at.utc()>now {continue;}
-            let amount=c.query_row("SELECT base_amount FROM account_transactions WHERE id=?1",[row.id],|r| Ok(crate::ruby::from_sql(r.get_ref(0)?)))?.map_err(data)?.ok_or_else(|| data("missing split amount"))?;
+            let amount=c.query_row("SELECT base_amount FROM account_transactions WHERE id=?1",[row.id],|r| Ok(crate::v2::from_sql(r.get_ref(0)?)))?.map_err(data)?.ok_or_else(|| data("missing split amount"))?;
             // D-ALPACA-SPLIT-GROUPING: each action must prove its own ratio. Distinct actions may compose;
             // several reports of one action still fail the row-evidence gate.
             let event = crate::sync::activities::split_event(&row.raw_data).map(|(key, id)| (key.to_string(), id.to_string()));

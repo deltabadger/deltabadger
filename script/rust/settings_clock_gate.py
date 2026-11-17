@@ -12,7 +12,7 @@ ROOT=Path(__file__).resolve().parents[2]
 WALL=re.compile(r'\b(?:(?:chrono::)?Utc|(?:std::time::)?SystemTime)::now\s*\(|\bTime\.(?:current|now)\b|\bDate\.today\b')
 DATE=re.compile(r'\b\d{4}-\d{2}-\d{2}(?:[T ][0-9:]+)?\b|include_str!\s*\(\s*"[^"]*(?:wait|deadline)[^"]*"')
 def scopes(text):
-    # All Rust functions (tests and helper scopes), and Ruby methods/test blocks.
+    # All Rust functions (tests and helper scopes), and 2.x methods/test blocks.
     starts=list(re.finditer(r'(?m)^\s*(?:(?:pub(?:\([^\n]*\))? )?(?:async )?fn \w+\(|def [^\n]+|test\s+[\'"].*? do\b)',text))
     for i,m in enumerate(starts):
         body=text[m.start():starts[i+1].start() if i+1<len(starts) else len(text)]

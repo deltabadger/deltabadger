@@ -126,17 +126,17 @@ pub async fn check(url: &str, key: &crate::crypto::Credentials, kind: i64) -> Re
             Ok(serde_json::Value::Array(positions))=>positions,
             _=>return Ok(pending(Some(status),&metadata,"positions validation is unreadable")),
         };
-        // Rails checks these after both calls, even for get_balances(asset_ids: []).
+        // 2.x checks these after both calls, even for get_balances(asset_ids: []).
         if value.get("cash").is_none_or(serde_json::Value::is_null){
             return Ok(pending(Some(status),&metadata,"the account has no cash figure"));
         }
         if positions.iter().any(|position|matches!(position.get("asset_class").and_then(serde_json::Value::as_str),Some("us_equity"|"crypto"))
-            && position.get("symbol").and_then(serde_json::Value::as_str).is_none_or(crate::ruby::blank)){
+            && position.get("symbol").and_then(serde_json::Value::as_str).is_none_or(crate::v2::blank)){
             return Ok(pending(Some(status),&metadata,"a position without a symbol"));
         }
         return Ok(Validity::Correct);
     }
-    // Rails: a 200 that parses to anything but a Hash is a Failure, never a verdict.
+    // 2.x: a 200 that parses to anything but a Hash is a Failure, never a verdict.
     if !value.is_object() {return Ok(pending(Some(status),&metadata,"the key check answer is unreadable"));}
     Ok(
         if value.get("status").and_then(|v| v.as_str()) == Some("ACTIVE") {

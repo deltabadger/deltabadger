@@ -1,5 +1,5 @@
-//! The crypto tax report against Rails (script/rust/tax_vectors.rb records fixtures/tax_vectors.json): each scenario's
-//! install is rebuilt from the Rails schema and the rows Rails read, and the report must be Rails' own bytes or refusal,
+//! The crypto tax report against 2.x (recorded in fixtures/tax_vectors.json): each scenario's
+//! install is rebuilt from the 2.x schema and the rows 2.x read, and the report must be 2.x's own bytes or refusal,
 //! or, for a scenario that says "diverges: D-TAX-…", the Rust file checked by hand and committed in
 //! fixtures/tax_divergences/<name>.csv (TAX_DIVERGENCES_WRITE=1 writes them afresh, for review).
 use deltabadger::figures::FiguresError;
@@ -70,13 +70,13 @@ fn nbp(c: &Connection, s: &Value) {
     }
 }
 
-fn rails(s: &Value) -> Outcome {
-    let rails = &s["rails"];
-    match rails.get("csv") {
+fn v2(s: &Value) -> Outcome {
+    let v2 = &s["expected"];
+    match v2.get("csv") {
         Some(csv) => Outcome::Csv(csv.as_str().unwrap().to_string()),
         None => Outcome::Refused {
-            reason: rails["refused"]["reason"].as_str().unwrap().to_string(),
-            symbols: rails["refused"]["symbols"].as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_string()).collect(),
+            reason: v2["refused"]["reason"].as_str().unwrap().to_string(),
+            symbols: v2["refused"]["symbols"].as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_string()).collect(),
         },
     }
 }
@@ -84,7 +84,7 @@ fn rails(s: &Value) -> Outcome {
 fn divergence(name: &str) -> PathBuf { PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tax_divergences").join(format!("{name}.csv")) }
 
 #[test]
-fn the_crypto_report_is_rails_own_or_the_named_divergence() {
+fn the_crypto_report_is_v2_own_or_the_named_divergence() {
     let v = vectors();
     let scenarios = v["scenarios"].as_array().unwrap();
     assert!(scenarios.len() >= 147);
@@ -107,7 +107,7 @@ fn the_crypto_report_is_rails_own_or_the_named_divergence() {
         }
         let got = match got { Ok(g) => g, Err(e) => { failures.push(format!("{name}: {e:?}")); continue } };
         let expect = s["expect"].as_str().unwrap();
-        // "refuses: D-TAX-… <reason> <symbols…>": Rust refuses where Rails writes a file.
+        // "refuses: D-TAX-… <reason> <symbols…>": Rust refuses where 2.x writes a file.
         if let Some(rest) = expect.strip_prefix("refuses: ") {
             let mut words = rest.split(' ');
             let (id, reason) = (words.next().unwrap(), words.next().unwrap().to_string());
@@ -117,11 +117,11 @@ fn the_crypto_report_is_rails_own_or_the_named_divergence() {
             continue;
         }
         match expect.strip_prefix("diverges: ") {
-            None => if got != rails(s) { failures.push(format!("{name}: not Rails' file\n--- rails\n{:?}\n--- rust\n{got:?}", rails(s))) },
+            None => if got != v2(s) { failures.push(format!("{name}: not 2.x's file\n--- 2.x\n{:?}\n--- rust\n{got:?}", v2(s))) },
             Some(id) => {
                 assert!(id.starts_with("D-TAX-"), "{name}: {id}");
                 let Outcome::Csv(csv) = &got else { failures.push(format!("{name}: refused, {got:?}")); continue };
-                if *csv == match rails(s) { Outcome::Csv(r) => r, _ => String::new() } { failures.push(format!("{name}: {id} names a divergence, but Rust wrote Rails' file")); }
+                if *csv == match v2(s) { Outcome::Csv(r) => r, _ => String::new() } { failures.push(format!("{name}: {id} names a divergence, but Rust wrote 2.x's file")); }
                 let path = divergence(name);
                 if write { std::fs::create_dir_all(path.parent().unwrap()).unwrap(); std::fs::write(&path, csv).unwrap(); }
                 match std::fs::read_to_string(&path) {
@@ -178,7 +178,7 @@ fn before_disclosures(csv: &str) -> &str {
     csv.find(&format!("\n{header}\n")).map_or(csv, |at| &csv[..at])
 }
 
-/// The legal notes every broker file ends with, exactly (Ruby's CSV quotes a cell holding a comma or a quote).
+/// The legal notes every broker file ends with, exactly (2.x's CSV quotes a cell holding a comma or a quote).
 fn notes() -> String {
     let t = |key: &str| deltabadger::web::i18n::text("de", key, &[]);
     let cell = |v: String| if v.contains([',', '"']) { format!("\"{}\"", v.replace('"', "\"\"")) } else { v };
@@ -187,11 +187,11 @@ fn notes() -> String {
     out
 }
 
-/// PLAN-A12 A12-7: the German broker report against Rails (`scope: broker` scenarios). "parity": Rails' bytes up to the legal
+/// PLAN-A12 A12-7: the German broker report against 2.x (`scope: broker` scenarios). "parity": 2.x's bytes up to the legal
 /// notes, then this build's notes (D-TAX-BROKER-DISCLOSURES); "diverges: D-TAX-BROKER-…": the reviewed file; "failed": the
-/// run fails as Rails' ArgumentError does. "fetch": Rails' side of a fetch, whose Rust side is tax_job.rs's.
+/// run fails as 2.x's ArgumentError does. "fetch": 2.x's side of a fetch, whose Rust side is tax_job.rs's.
 #[test]
-fn the_broker_report_is_rails_own_or_the_named_divergence() {
+fn the_broker_report_is_v2_own_or_the_named_divergence() {
     let v = vectors();
     let scenarios: Vec<&Value> = v["scenarios"].as_array().unwrap().iter().filter(|s| s["scope"] == "broker").collect();
     assert!(scenarios.len() >= 30, "{}", scenarios.len());
@@ -205,22 +205,22 @@ fn the_broker_report_is_rails_own_or_the_named_divergence() {
         let (user, year) = (s["user_id"].as_i64().unwrap(), s["year"].as_i64().unwrap());
         let checked = deltabadger::tax::broker::check(&c, user, s["country"].as_str().unwrap(), year);
         if expect == "failed" {
-            if s["rails"].get("failed").is_none() { failures.push(format!("{name}: Rails did not fail")); }
+            if s["expected"].get("failed").is_none() { failures.push(format!("{name}: 2.x did not fail")); }
             if checked.is_ok() { failures.push(format!("{name}: the run must fail")); }
             continue;
         }
         if let Err(e) = checked { failures.push(format!("{name}: {e}")); continue; }
         let csv = match deltabadger::tax::broker::report(&c, user, year as i32, &Default::default()) { Ok(csv) => csv, Err(e) => { failures.push(format!("{name}: {e:?}")); continue } };
-        let rails = s["rails"]["csv"].as_str().unwrap_or("");
-        // D-TAX-BROKER-DISCLOSURES: this build's legal notes, every one, and none of the three Rails states that no longer hold.
+        let v2 = s["expected"]["csv"].as_str().unwrap_or("");
+        // D-TAX-BROKER-DISCLOSURES: this build's legal notes, every one, and none of the three 2.x states that no longer hold.
         if csv[before_disclosures(&csv).len()..] != notes() { failures.push(format!("{name}: not this build's legal notes")); }
         match expect.strip_prefix("diverges: ") {
-            None => if before_disclosures(&csv) != before_disclosures(rails) {
-                failures.push(format!("{name}: not Rails' file\n--- rails\n{rails}\n--- rust\n{csv}"));
+            None => if before_disclosures(&csv) != before_disclosures(v2) {
+                failures.push(format!("{name}: not 2.x's file\n--- 2.x\n{v2}\n--- rust\n{csv}"));
             },
             Some(id) => {
                 assert!(id.starts_with("D-TAX-BROKER-"), "{name}: {id}");
-                if before_disclosures(&csv) == before_disclosures(rails) { failures.push(format!("{name}: {id} names a divergence, but Rust wrote Rails' figures")); }
+                if before_disclosures(&csv) == before_disclosures(v2) { failures.push(format!("{name}: {id} names a divergence, but Rust wrote 2.x's figures")); }
                 let path = divergence(name);
                 if write { std::fs::create_dir_all(path.parent().unwrap()).unwrap(); std::fs::write(&path, &csv).unwrap(); }
                 match std::fs::read_to_string(&path) {
@@ -235,12 +235,12 @@ fn the_broker_report_is_rails_own_or_the_named_divergence() {
 }
 
 /// One CoinGecko scenario replayed as the tax job runs it (`tracker::jobs::fetching` over a CoinGecko feed of the answers
-/// Rails' Clients::Coingecko was given, demo plan seeded as Rails' was): the report, the prices stored
+/// 2.x's Clients::Coingecko was given, demo plan seeded as 2.x's was): the report, the prices stored
 /// (asset, currency, date, price) and the requests, and the feed after the run.
 async fn coingecko_replay(s: &Value) -> (Outcome, Vec<(String, String, String, f64)>, Value, bool) {
     use deltabadger::jobs::{coingecko::{CoinGecko, Plan, Throttle}, market::Feed, Db};
     let mut tables = s["tables"].clone();
-    tables["historical_prices"] = serde_json::json!([]); // the scenarios store none before the run: what is there is Rails' writes
+    tables["historical_prices"] = serde_json::json!([]); // the scenarios store none before the run: what is there is 2.x's writes
     let c = install(&tables);
     nbp(&c, s);
     let today = chrono::NaiveDate::parse_from_str(&s["now"].as_str().unwrap()[..10], "%Y-%m-%d").unwrap();
@@ -262,53 +262,53 @@ async fn coingecko_replay(s: &Value) -> (Outcome, Vec<(String, String, String, f
     (got, prices, Value::Array(deltabadger::tracker::parity::logged(&t)), feed.rate_limited())
 }
 
-fn rails_prices(s: &Value) -> Vec<(String, String, String, f64)> {
+fn v2_prices(s: &Value) -> Vec<(String, String, String, f64)> {
     s["tables"]["historical_prices"].as_array().unwrap().iter().map(|r| {
         let price = r["price"].as_f64().or_else(|| r["price"].as_str().and_then(|p| p.parse().ok())).unwrap();
         (r["asset"].as_str().unwrap().into(), r["currency"].as_str().unwrap().into(), r["date"].as_str().unwrap().into(), price)
     }).collect()
 }
 
-/// PLAN-A17 A17-3: a CoinGecko install's report against Rails' own (tax_vectors.rb's CoinGecko mode, the real
-/// Tax::PriceService beneath scripted api.coingecko.com): the file, the prices stored and the requests are Rails', except
+/// PLAN-A17 A17-3: a CoinGecko install's report against 2.x's own (the recording's CoinGecko mode, the real
+/// Tax::PriceService beneath scripted api.coingecko.com): the file, the prices stored and the requests are 2.x's, except
 /// D-CG-429-STOPS-PRICES, whose differences are asserted.
 #[tokio::test(flavor = "current_thread")]
-async fn coingecko_reports_are_rails_own_or_the_429_stop() {
+async fn coingecko_reports_are_v2_own_or_the_429_stop() {
     let v = vectors();
     let cg: Vec<&Value> = v["scenarios"].as_array().unwrap().iter().filter(|s| !s["coingecko"].is_null()).collect();
     assert_eq!(cg.len(), 4, "the CoinGecko scenarios");
     for s in cg {
         let name = s["name"].as_str().unwrap();
         let (got, prices, requests, limited) = coingecko_replay(s).await;
-        let rails_requests: Value = s["coingecko"]["requests"].clone();
+        let v2_requests: Value = s["coingecko"]["requests"].clone();
         if s["expect"] == "parity" {
-            assert_eq!(got, rails(s), "{name}: the report");
-            assert_eq!(prices, rails_prices(s), "{name}: the prices stored");
-            assert_eq!(requests, rails_requests, "{name}: the requests");
+            assert_eq!(got, v2(s), "{name}: the report");
+            assert_eq!(prices, v2_prices(s), "{name}: the prices stored");
+            assert_eq!(requests, v2_requests, "{name}: the requests");
             assert!(!limited, "{name}");
             continue;
         }
         assert_eq!((name, s["expect"].as_str().unwrap()), ("cg_429_then_later_coin", "diverges: D-CG-429-STOPS-PRICES"));
-        // Rails: BTC's 429, then ETH asked and stored, then BTC's single window asked again.
+        // 2.x: BTC's 429, then ETH asked and stored, then BTC's single window asked again.
         let path = |r: &Value| r[0].as_str().unwrap().to_string();
-        assert_eq!(rails_requests.as_array().unwrap().iter().map(path).collect::<Vec<_>>(),
+        assert_eq!(v2_requests.as_array().unwrap().iter().map(path).collect::<Vec<_>>(),
                    ["GET /api/v3/coins/bitcoin/market_chart/range", "GET /api/v3/coins/ethereum/market_chart/range", "GET /api/v3/coins/bitcoin/market_chart/range"]);
-        assert_eq!(rails_prices(s).iter().map(|p| (p.0.as_str(), p.2.as_str())).collect::<Vec<_>>(), [("ETH", "2026-04-10")]);
+        assert_eq!(v2_prices(s).iter().map(|p| (p.0.as_str(), p.2.as_str())).collect::<Vec<_>>(), [("ETH", "2026-04-10")]);
         // Rust: the first request's 429 stops the run asking; nothing stored; the report still completes, ETH warned too.
-        assert_eq!(requests, Value::Array(rails_requests.as_array().unwrap()[..1].to_vec()));
+        assert_eq!(requests, Value::Array(v2_requests.as_array().unwrap()[..1].to_vec()));
         assert!(prices.is_empty() && limited);
-        let (Outcome::Csv(rust), Outcome::Csv(rails_csv)) = (&got, rails(s)) else { panic!("{name}: {got:?}") };
-        assert!(rails_csv.contains("WARNING: Missing historical prices for:\nBTC/USD 2026-02-10\nUpgrade"), "{rails_csv}");
+        let (Outcome::Csv(rust), Outcome::Csv(v2_csv)) = (&got, v2(s)) else { panic!("{name}: {got:?}") };
+        assert!(v2_csv.contains("WARNING: Missing historical prices for:\nBTC/USD 2026-02-10\nUpgrade"), "{v2_csv}");
         assert!(rust.contains("WARNING: Missing historical prices for:\nBTC/USD 2026-02-10\nETH/USD 2026-04-10\nUpgrade"), "{rust}");
-        assert!(rust.contains("2 values missing") && rails_csv.contains("1 values missing"), "{rust}");
-        assert!(rails_csv.contains(",ETH,1.0,2600.0,2599.0,1.0,USD,") && rust.contains(",ETH,1.0,2600.0,0.0,2600.0,USD,"), "{rust}");
+        assert!(rust.contains("2 values missing") && v2_csv.contains("1 values missing"), "{rust}");
+        assert!(v2_csv.contains(",ETH,1.0,2600.0,2599.0,1.0,USD,") && rust.contains(",ETH,1.0,2600.0,0.0,2600.0,USD,"), "{rust}");
     }
 }
 
-/// D-TAX-CFEE-PREVIOUS-DAY: Rails folded a CFEE into the fills of its own day. Moved one day later, the same fee is
-/// read as charged on those same fills, and the report is the file Rails (or the reviewed divergence) wrote for them.
+/// D-TAX-CFEE-PREVIOUS-DAY: 2.x folded a CFEE into the fills of its own day. Moved one day later, the same fee is
+/// read as charged on those same fills, and the report is the file 2.x (or the reviewed divergence) wrote for them.
 #[test]
-fn a_cfee_dated_the_day_after_folds_as_rails_folded_it_on_the_day() {
+fn a_cfee_dated_the_day_after_folds_as_v2_folded_it_on_the_day() {
     let v = vectors();
     // The scenarios whose fee folded on its day (or, GB, whose file prints no fee date); the others print the fee's date.
     let names = ["cfee_into_buys", "cfee_into_a_sale", "it_pre2023_cfee", "gb_cfee_lookahead_end"];
@@ -330,8 +330,8 @@ fn a_cfee_dated_the_day_after_folds_as_rails_folded_it_on_the_day() {
         let today = chrono::NaiveDate::parse_from_str(&s["now"].as_str().unwrap()[..10], "%Y-%m-%d").unwrap();
         let got = crypto_report(&c, s["user_id"].as_i64().unwrap(), s["country"].as_str().unwrap(), s["year"].as_i64().unwrap() as i32,
                                 s["stablecoin_as_fiat"].as_bool().unwrap(), today).unwrap();
-        // What was written for the fee on its own day: Rails' file, or the file reviewed before D-TAX-CFEE-PREVIOUS-DAY.
-        let want = match name { "cfee_into_buys" | "cfee_into_a_sale" => rails(s), _ => Outcome::Csv(std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tax_cfee_day_of").join(format!("{name}.csv"))).unwrap()) };
+        // What was written for the fee on its own day: 2.x's file, or the file reviewed before D-TAX-CFEE-PREVIOUS-DAY.
+        let want = match name { "cfee_into_buys" | "cfee_into_a_sale" => v2(s), _ => Outcome::Csv(std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tax_cfee_day_of").join(format!("{name}.csv"))).unwrap()) };
         if got != want { failures.push(format!("{name}\n--- want\n{want:?}\n--- got\n{got:?}")); }
     }
     assert_eq!(seen, names.len());

@@ -1,4 +1,4 @@
-//! PLAN-split S2, this build's own (Rails has neither): Split from the bot page's menu (D-SPLIT-BOT-MENU), and the split
+//! PLAN-split S2, this build's own (2.x has neither): Split from the bot page's menu (D-SPLIT-BOT-MENU), and the split
 //! through REST's POST /api/v1/bots/split and MCP's split_bots (D-SPLIT-API). Every entry point is the web's one writer
 //! (bot::split::perform, then split::complete in the same App::db job).
 mod common;

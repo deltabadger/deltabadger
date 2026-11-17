@@ -1,4 +1,4 @@
-//! Schema exported from the pinned Rails page grid; runtime tests use only SQLite and native fixtures.
+//! Schema exported from the pinned 2.x page grid; runtime tests use only SQLite and native fixtures.
 use deltabadger::store::{self, Paths};
 pub fn install() -> (
     tempfile::TempDir,

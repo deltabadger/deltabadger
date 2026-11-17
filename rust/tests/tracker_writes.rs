@@ -39,7 +39,7 @@ async fn settings_model_validation_keeps_invalid_users_unchanged_and_answers_422
         }).unwrap();
         let before = snapshot();
         let response = b.send(&app,"PATCH",SETTINGS,Some(&[("country","US")]),Csrf::Header,HEADERS).await;
-        assert_eq!(response.status,422,"{column}: D-TRACKER-SETTINGS-422 (Rails ignores update's false return and answers 200)");
+        assert_eq!(response.status,422,"{column}: D-TRACKER-SETTINGS-422 (2.x ignores update's false return and answers 200)");
         assert_eq!(response.body,"");
         assert_eq!(response.header("content-type"),Some("text/vnd.turbo-stream.html"));
         assert_eq!(snapshot(),before,"{column}: validation must preserve the entire user row");
@@ -185,7 +185,7 @@ async fn unauthenticated_writes_and_foreign_classification_ids_change_nothing_fo
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn tracker_json_uses_rails_query_precedence_and_scalar_casting() {
+async fn tracker_json_uses_v2_query_precedence_and_scalar_casting() {
     let (_dir,c,owner,app,mut b) = install();
     let headers = [("origin","http://localhost:3000"),("accept","text/vnd.turbo-stream.html"),("content-type","application/json")];
     let a = b.send_body(&app,"PATCH","/tracker/save_export_settings?country=DE",Some(json!({"country":"US","year":2024}).to_string()),Csrf::Header,&headers).await;

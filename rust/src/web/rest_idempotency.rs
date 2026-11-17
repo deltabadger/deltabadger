@@ -1,15 +1,15 @@
-//! Rails Idempotency: a durable claim, then the action, then its byte-for-byte replayable response.
+//! 2.x's idempotency: a durable claim, then the action, then its byte-for-byte replayable response.
 //! A crash after claiming leaves in_progress; it never silently runs a sale twice.
 //! The claim and the completion are separate steps (`claim`, `complete`), so an action may run between them in
 //! another job; `run` is the two around one closure. A key a dead process left in progress is settled at the next start
-//! (`sweep_dead_claims`, A20d, D-IDEMPOTENCY-DEAD-CLAIM); Rails answers it 409 for good.
+//! (`sweep_dead_claims`, A20d, D-IDEMPOTENCY-DEAD-CLAIM); 2.x answers it 409 for good.
 use super::{rest::{Answer,Input},App,WebError};
 use axum::http::StatusCode;
 use rusqlite::{Connection,OptionalExtension};
 use serde_json::{json,Map,Value};
 use sha2::{Digest,Sha256};
 
-/// JSON.generate on the recursively sorted payload. Ruby Float#to_s supplies its exponent spelling.
+/// JSON.generate on the recursively sorted payload. 2.x's Float#to_s supplies its exponent spelling.
 fn canonical(value:&Value)->String {
     match value {
         Value::Object(map)=>{
@@ -17,7 +17,7 @@ fn canonical(value:&Value)->String {
             format!("{{{}}}",keys.into_iter().map(|k|format!("{}:{}",json!(k),canonical(&map[k]))).collect::<Vec<_>>().join(","))
         }
         Value::Array(a)=>format!("[{}]",a.iter().map(canonical).collect::<Vec<_>>().join(",")),
-        Value::Number(n) if n.is_f64()=>crate::ruby::float_to_s(n.as_f64().unwrap_or_default()),
+        Value::Number(n) if n.is_f64()=>crate::v2::float_to_s(n.as_f64().unwrap_or_default()),
         v=>v.to_string(),
     }
 }
@@ -97,7 +97,7 @@ const PLACED_NOTHING:&[&str]=&["busy","skipped","unresolved","locked","refused",
 /// order was written, or its order was withdrawn or answered with nothing at the venue) is freed, as `release` frees a
 /// 501's: its client never had an answer, so the same request resent is a new one. Every other key (an order that may
 /// be or is at the venue, an order row already read and deleted, a liquidation or redeploy whose write may have
-/// committed, a key Rails or an older build left) answers `502 placement_ambiguous` from now on, its fingerprint kept.
+/// committed, a key 2.x or an older build left) answers `502 placement_ambiguous` from now on, its fingerprint kept.
 pub(crate) fn sweep_dead_claims(tx:&Connection,built:chrono::DateTime<chrono::Utc>)->Result<(),WebError> {
     type Row=(i64,bool,Option<i64>,Option<String>,Option<String>,Option<String>);
     let rows:Vec<Row>=tx.prepare("SELECT k.id, l.key_id IS NOT NULL, l.order_id, o.state, json_extract(o.outcome, '$.kind'), e.name FROM idempotency_keys k \

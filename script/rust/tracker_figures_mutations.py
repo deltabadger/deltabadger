@@ -1,6 +1,6 @@
 """One behavioural mutation per family of the tracker's page figures (walk summary, cache schema 3, Figures result).
-Each must turn a test red. Run from a clean export with CARGO_TARGET_DIR set and RAILS_ENV=test (tracker_parity
-runs Rails' recorder): python3 script/rust/tracker_figures_mutations.py [name ...]"""
+Each must turn a test red. Run from a clean export with CARGO_TARGET_DIR set (tracker_parity
+replays the recorded answers): python3 script/rust/tracker_figures_mutations.py [name ...]"""
 import os
 import subprocess
 import sys

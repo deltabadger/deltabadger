@@ -1,21 +1,21 @@
 //! Tax reports (roadmap stage F): Tax::GenerateReportJob#crypto_csv and Tax::Report#to_csv over every venue the user
-//! has, for the jurisdictions `jurisdictions::PORTED` names (US DE ES PT SK PL). Byte for byte Rails' file where Rails is
+//! has, for the jurisdictions `jurisdictions::PORTED` names (US DE ES PT SK PL). Byte for byte 2.x's file where 2.x is
 //! right; where it is not, a named divergence (the engine's own are listed in fifo.rs):
 //! - D-TAX-UNCOVERED: a sale of more than the history holds is incomplete, counted in the incomplete banner, and listed
 //!   (`tax_report.warnings.uncovered_sales`).
-//! - D-TAX-UNLINKED-DISCLOSED: coin withdrawals not linked to a deposit keep their lots (as Rails) and are listed.
+//! - D-TAX-UNLINKED-DISCLOSED: coin withdrawals not linked to a deposit keep their lots (as 2.x) and are listed.
 //! - D-TAX-LOST: lost coins leave the lots with no disposal, and are listed (`tax_report.warnings.lost`).
 //! - D-TAX-FEES-DISCLOSED: every coin fee of a row of its own is named in one NOTE block (`tax_report.warnings.coin_fees`),
-//!   which replaces Rails' block of the Alpaca fees whose calendar day is ambiguous.
-//! - D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE dated D is the fee on the trades of the UTC day before (`fold_cfees`); Rails
+//!   which replaces 2.x's block of the Alpaca fees whose calendar day is ambiguous.
+//! - D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE dated D is the fee on the trades of the UTC day before (`fold_cfees`); 2.x
 //!   read day D, and only where the New York day agreed. It is worth what those trades were traded at (`rows::Cfee`).
 //! - D-TAX-STABLE-CASH: where swaps are not taxable and the user treats stablecoins as fiat, a stablecoin row is cash
-//!   and reaches no engine (Rails sold the stablecoins again, at a zero basis, after the coin that bought them was sold).
+//!   and reaches no engine (2.x sold the stablecoins again, at a zero basis, after the coin that bought them was sold).
 //! - D-TAX-COIN-QUOTE: a coin-for-coin trade booked as one row quoted in a coin is read as its two swap legs
 //!   (`rows::split_coin_quoted_trades`, the tracker's own reading, D-TRACKER-COIN-QUOTE), so the quote coin moves too.
 //! - D-TAX-STABLE-VALUE: a stablecoin bought or sold for fiat in a two-row group (Kraken) is valued at the fiat that
 //!   changed hands, not the dollar peg (`quote_stablecoin_legs`); Portugal's immediate fiat exit follows.
-//! - D-TAX-LOCAL-YEAR: income and the excess-ROC refusal by the taxpayer's year, as disposals (Rails: the UTC year).
+//! - D-TAX-LOCAL-YEAR: income and the excess-ROC refusal by the taxpayer's year, as disposals (2.x: the UTC year).
 //! - D-TAX-ORPHAN-SWAP: where swaps are not taxable, swap legs with nothing going the other way are listed.
 //! - D-TAX-SK-SWAPS: Slovakia taxes a coin exchanged for a coin as a sale (`jurisdictions::REGISTRY`).
 //! - D-TAX-DE-WALLET: Germany keeps lots per wallet (one per venue) from the first row, as the US does from 2025.
@@ -32,11 +32,11 @@
 //!   (mining at cost 0, no income), D-TAX-CZ-SWAP-FEE (a swap's in-leg fee is an expense of the disposal). Both:
 //!   D-TAX-SWAP-RECEIVED (`value_groups`): a swap's proceeds are the value received.
 //! - Denmark (SL § 5 a, PSL § 3, DJV C.C.2.1.3.3.5): D-TAX-DK-PER-PART, a row per FIFO part (`fifo::Options::row_per_lot`);
-//!   D-TAX-DK-NO-WASH-SALE, no loss denied and no `loss_denied` column; D-TAX-DK-RUBRIK, rubrik 20 and 58 in place of Rails'
+//!   D-TAX-DK-NO-WASH-SALE, no loss denied and no `loss_denied` column; D-TAX-DK-RUBRIK, rubrik 20 and 58 in place of 2.x's
 //!   per-asset lines; D-TAX-DK-SWAP-VALUE, one value for both sides of an exchange (`value_groups`); D-TAX-DK-DEPOSIT-ZERO,
 //!   an unlinked deposit at cost 0; D-TAX-DK-STABLECOIN, USDT, USDC and USDP out of the rubrik totals, listed.
 //! - Greece: D-TAX-GR-NO-TAX, no tax on an individual's crypto gains is in force up to 2026 (no tax line, a NOTE).
-//! - Italy (it.rs; LIFO as Rails, the engine's D-TAX-IT-FEES and D-TAX-IT-PRE2023-BASIS): D-TAX-IT-SWAPS, D-TAX-IT-DEPOSIT-ZERO,
+//! - Italy (it.rs; LIFO as 2.x, the engine's D-TAX-IT-FEES and D-TAX-IT-PRE2023-BASIS): D-TAX-IT-SWAPS, D-TAX-IT-DEPOSIT-ZERO,
 //!   D-TAX-IT-THRESHOLD, D-TAX-IT-EMT-RATE, D-TAX-IT-RT, D-TAX-IT-INCOME.
 //! - Ireland (ie.rs; the engine's s. 581 in fifo.rs): D-TAX-IE-4WEEK (`matching_rule`), D-TAX-IE-RING-FENCE (with the 28
 //!   days after the year walked only to fill fences), D-TAX-IE-RATE, D-TAX-IE-PERIODS, D-TAX-IE-SUMMARY, D-TAX-IE-YEARS;
@@ -85,7 +85,7 @@ use jurisdictions::Jurisdiction;
 use rusqlite::{Connection, OptionalExtension};
 use std::collections::{HashMap, HashSet};
 
-/// What the job leaves for the user: the report, or Rails' refusal (`<path>.refused.json`).
+/// What the job leaves for the user: the report, or 2.x's refusal (`<path>.refused.json`).
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome { Csv(String), Refused { reason: String, symbols: Vec<String> } }
 
@@ -94,7 +94,7 @@ const INCOME: [(Kind, &str); 5] = [(Kind::StakingReward, "staking_reward"), (Kin
                                    (Kind::Airdrop, "airdrop"), (Kind::Mining, "mining"), (Kind::OtherIncome, "other_income")];
 
 /// Tax::GenerateReportJob#perform(user, country, year, stablecoin_as_fiat) for the crypto scope, in one budget, with a
-/// provider that has no price (`Unfetched`): what the parity vectors record, where Rails' market data answers every
+/// provider that has no price (`Unfetched`): what the parity vectors record, where 2.x's market data answers every
 /// range with a failure.
 pub fn crypto_report(c: &Connection, user_id: i64, country: &str, year: i32, stablecoin_as_fiat: bool, today: NaiveDate) -> Result<Outcome, FiguresError> {
     budget::within(|| match prepare(c, user_id, country, year, stablecoin_as_fiat)? {
@@ -130,7 +130,7 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let j = jurisdictions::find(country).filter(|_| jurisdictions::ported(country, i64::from(year)))
         .ok_or_else(|| FiguresError::NotComputed(format!("the tax report is not ported for the jurisdiction {country}")))?;
     // D-TAX-STABLECOIN-QUESTION: the flag is read only where the export form asks it (`stablecoin_ambiguous`), and no
-    // served country asks it (D-TAX-AT-STABLECOIN, D-TAX-SK-SWAPS). Rails' form sends a hidden box's value with every
+    // served country asks it (D-TAX-AT-STABLECOIN, D-TAX-SK-SWAPS). 2.x's form sends a hidden box's value with every
     // request, and REST and MCP take it for any country; this one gate makes every surface compute what the web shows.
     let stablecoin_as_fiat = stablecoin_as_fiat && j.stablecoin_ambiguous;
     let all = rows::load_all(c, user_id)?;
@@ -297,7 +297,7 @@ impl Report {
         Ok(())
     }
 
-    /// Tax::Report#to_csv from the enrichment on: prices the table lacks are fetched through `fetcher` (Rails'
+    /// Tax::Report#to_csv from the enrichment on: prices the table lacks are fetched through `fetcher` (2.x's
     /// `prefetch` and single-day fetches), and `on_progress(percent)` is told as PriceService#enrich tells it.
     pub fn compute(&self, fetcher: &mut dyn Fetcher, today: NaiveDate, on_progress: &mut dyn FnMut(u32)) -> Result<Outcome, FiguresError> {
         if self.j.code == "PL" { return self.pl_compute(fetcher, today); }
@@ -365,7 +365,7 @@ impl Report {
                 // D-TAX-AT-REWARDS: not income; held at zero, listed (the whole history, as the deposit block).
                 if e.row.at.0 >= a.regime_from.0 { notes.zero_cost.push(format!("{} {} {}", e.row.base, e.row.amount.to_s_f(), date(e.row.at))); continue; }
             }
-            // D-TAX-LOCAL-YEAR: income by the year the taxpayer was in, as disposals are (Rails: the UTC year).
+            // D-TAX-LOCAL-YEAR: income by the year the taxpayer was in, as disposals are (2.x: the UTC year).
             if !self.in_year(e.row.at) { continue; }
             let value = if fiat(&e.row.base) { ps.convert_fiat(&e.row.amount, &e.row.base, currency, e.row.at)? } else { e.row.fiat_value.clone() };
             // D-TAX-GB-AIRDROP: not income here (income only if given for a service, CRYPTO21250): listed with its value.
@@ -441,7 +441,7 @@ impl Report {
         let pooled = matches!(j.code, "SE" | "GB");
         // D-TAX-US-WALLET: per venue, a withdrawal to another venue is walked within its instant as soon as its funds allow
         // (`transfers_first`, the tracker's own order), so a same-instant sale on the far venue takes the lots it brought.
-        // The pooled years keep Rails' order.
+        // The pooled years keep 2.x's order.
         if let Some(from) = per_venue_from {
             let order = walk::transfers_first(&txs.iter().map(|t| t.row.clone()).collect::<Vec<_>>(), from)?;
             let mut by_uid: HashMap<usize, fifo::Tx> = txs.drain(..).map(|t| (t.row.uid, t)).collect();
@@ -464,7 +464,7 @@ impl Report {
             average_all: matches!(j.code, "BG" | "SE" | "GB"), row_per_lot: dk, deposit_cost_zero: j.code == "BG" || dk || it || fr, tag_mining: dk,
             // D-TAX-IT-DEPOSIT-ZERO (art. 68 c. 9-bis); the year-start units for Italy's stablecoin NOTE too.
             snapshot_at: if dk || it { local_midnight(&self.zone, year) } else { None },
-            // D-TAX-IT-FEES, D-TAX-IT-PRE2023-BASIS; LIFO as Rails.
+            // D-TAX-IT-FEES, D-TAX-IT-PRE2023-BASIS; LIFO as 2.x.
             // D-TAX-FR-2019: swaps taxable before 1 January 2019 (their value given, above).
             lifo: it, fees_ignored_from: it_from, swaps_taxable_before: it_from.or(fr_from),
             ireland: ie.then_some(fifo::Ireland { from: &ie_from, until: &ie_until }),
@@ -650,13 +650,13 @@ impl Report {
 
     fn t(&self, key: &str) -> Cell { Cell::Text(text(self.j.locale, key, &[])) }
 
-    /// The file, in Rails' order, with Rust's warning blocks where they belong.
+    /// The file, in 2.x's order, with Rust's warning blocks where they belong.
     #[allow(clippy::too_many_arguments)]
     fn csv(&self, currency: &str, results: &[fifo::Disposal], enriched: &[Entry], income: &[(usize, &str, Dec)], warnings: &[String],
            standing_fees: &[&walk::Row], unmatched: &[&walk::Row], allocation: &[fifo::Placed], at: &AtNotes) -> Result<String, FiguresError> {
         let (j, l) = (self.j, self.j.locale);
         let mut out = String::new();
-        // Rails' weighted-average columns (SE): an average has no acquisition date or holding days.
+        // 2.x's weighted-average columns (SE): an average has no acquisition date or holding days.
         let average = j.method == "weighted_average";
         let pvct = j.method == "pvct";
         let mut keys = if pvct { vec!["date", "asset", "amount", "proceeds", "total_acquisition_cost", "portfolio_value", "gain_loss", "currency", "fee", "exchange",
@@ -684,7 +684,7 @@ impl Report {
         if results.is_empty() { line(&mut out, &[self.t("tax_report.no_taxable_transactions")]); }
         for (i, d) in results.iter().enumerate() {
             let held = d.long_held == Some(true);
-            // D-TAX-FR-2086: Rails' PVCT columns with l. 213, l. 223, V, the gain and l. 214.
+            // D-TAX-FR-2086: 2.x's PVCT columns with l. 213, l. 223, V, the gain and l. 214.
             if pvct {
                 let c = &at.fr[i];
                 line(&mut out, &[s(iso(d.at)), s(d.asset.clone()), n(&d.amount), cents(&c.proceeds)?, cents(&c.pta()?)?, cents(&c.value)?, cents(&c.gain)?, s(currency),
@@ -699,13 +699,13 @@ impl Report {
             }
             let mut row = vec![s(iso(d.at)), d.acquired.map_or(Cell::Nil, |a| s(iso(a))), s(d.asset.clone()), n(&d.amount), cents(&d.proceeds)?,
                                cents(&d.cost_basis)?, cents(&d.gain_loss)?, s(currency),
-                               // Rails' pool rows have no holding days.
+                               // 2.x's pool rows have no holding days.
                                if d.rule == Some("section104") { Cell::Nil } else { Cell::Raw(d.holding_days.to_string()) }, cents(&d.fee)?,
                                s(d.exchange.clone()), d.tx_id.clone().map_or(Cell::Nil, s), Cell::Raw(d.complete.to_string()), Cell::Raw(d.incomplete.to_string())];
             if j.holding_exemption.is_some() { row.push(Cell::Raw(held.to_string())); }
             if j.old_stock_cutoff.is_some() { row.push(Cell::Raw(held.to_string())); }
             if j.short_long_term { row.push(self.t(&format!("tax_report.values.term_{}", if held { "long" } else { "short" }))); }
-            // D-TAX-IE-4WEEK: `4_week_rule` where a part was an acquisition of the 4 weeks before (Rails' values).
+            // D-TAX-IE-4WEEK: `4_week_rule` where a part was an acquisition of the 4 weeks before (2.x's values).
             if j.method == "fifo_4week" { row.push(s(if d.recent { "4_week_rule" } else { "fifo" })); }
             if j.method == "share_pooling" { row.push(s(d.rule.unwrap_or("section104"))); }
             // December's disposals are the later period (s. 959AQ), on the taxpayer's calendar.
@@ -718,7 +718,7 @@ impl Report {
             line(&mut out, &row);
         }
         out.push_str(&at.summary);
-        // D-TAX-GR-NO-TAX: Σ gains and Σ losses (Rails' two lines), no taxable income and no tax line.
+        // D-TAX-GR-NO-TAX: Σ gains and Σ losses (2.x's two lines), no taxable income and no tax line.
         if j.code == "GR" && !results.is_empty() {
             let (mut gains, mut losses) = (Dec::zero(), Dec::zero());
             for d in results {
@@ -886,7 +886,7 @@ impl Report {
         Ok(())
     }
 
-    /// A warning block as Rails lays out the deposit-basis one: a blank line, "<LABEL>: <heading>:", the lines, the hint.
+    /// A warning block as 2.x lays out the deposit-basis one: a blank line, "<LABEL>: <heading>:", the lines, the hint.
     fn block(&self, out: &mut String, label: &str, heading: &str, hint: &str, lines: impl Iterator<Item = String>) -> Result<(), FiguresError> {
         let lines: Vec<String> = lines.collect();
         if lines.is_empty() { return Ok(()); }
@@ -906,7 +906,7 @@ fn assume_airdrops(rows: &mut [Entry]) {
 /// D-TAX-COIN-QUOTE, grouped legs: where swaps are not taxable and a stablecoin is a coin, a group of coin legs only (no
 /// fiat) booked as buy and sell, both ways present (Kraken's ledger, which the enrichment reads with a stablecoin as
 /// cash), is the swap it is: its legs walk as swap legs. A coin for a stablecoin and a stablecoin for another are both
-/// crypto for crypto. Rails taxed the leg given as sold.
+/// crypto for crypto. 2.x taxed the leg given as sold.
 /// D-TAX-IT-SWAPS (`italy`): a group with an e-money token leg is left as booked (a sale and a purchase).
 fn swap_coin_for_stablecoin_groups(rows: &mut [Entry], italy: bool) {
     let mut groups: HashMap<(String, String), Vec<usize>> = HashMap::new();
@@ -1000,7 +1000,7 @@ fn value_groups(rows: &mut [Entry], side: fn(&[&walk::Row], &[&walk::Row]) -> Op
 /// D-TAX-STABLE-VALUE: a venue's ledger that books a stablecoin bought or sold for fiat as two grouped rows and no quote
 /// (Kraken) gets the quote it left out, on this report's copy of the rows: the stablecoin legs (one coin, one direction)
 /// take the fiat legs (one currency, the other direction, nothing else in the group) as their quote, shared by quantity,
-/// the last taking what is left. Rails values them at the dollar peg instead of the cash that changed hands, and so never
+/// the last taking what is left. 2.x values them at the dollar peg instead of the cash that changed hands, and so never
 /// sees the Portuguese immediate fiat exit there. The tracker's enrichment is untouched.
 fn quote_stablecoin_legs(rows: &mut [Stored]) -> Result<(), FiguresError> {
     let mut groups: HashMap<(i64, String), Vec<usize>> = HashMap::new();
@@ -1118,7 +1118,7 @@ fn sync_issues(c: &Connection, user_id: i64, locale: &str) -> Result<Vec<String>
 /// report's year is cut from it. An Alpaca CFEE (a coin fee of its own row, dated 00:00 UTC the day after the trades it
 /// was charged on: `rows::cfee_fills`) goes to those fills, buys first (fewer coins, same cost), else sales (more coins
 /// out, same proceeds), pro rata by amount, the last fill taking what is left; the fee's row leaves. The amounts the
-/// rows are valued on stay (`Cfee::folded` is what the walk moves). Rails took the fee's own UTC day, and only when the
+/// rows are valued on stay (`Cfee::folded` is what the walk moves). 2.x took the fee's own UTC day, and only when the
 /// New York day gave the same fills: a fee then went to the trades of the day after the right one, or to none.
 /// `expense` (SE, GB): the fee stays a row of its own (a coin paid as a fee is a disposal), and each fill carries its
 /// share of the fee's value as its expense instead. `folds(fee)`: whether this fee is attributed at all (IT: before 2023).
@@ -1152,8 +1152,8 @@ fn fold_cfees(rows: &mut Vec<Stored>, expense: bool, folds: &dyn Fn(&Stored) -> 
     Ok(())
 }
 
-/// A cell as Ruby's CSV writes it through CsvSafe: a String (escaped when it reads as a formula after Ruby's lstrip, which
-/// takes a NUL too; `ruby::strip` answers the same, as what lstrip leaves never starts with what strip removes), anything
+/// A cell as 2.x's CSV writes it through CsvSafe: a String (escaped when it reads as a formula after 2.x's lstrip, which
+/// takes a NUL too; `v2::strip` answers the same, as what lstrip leaves never starts with what strip removes), anything
 /// else as its `to_s`, or nil.
 pub(crate) enum Cell { Text(String), Raw(String), Nil }
 
@@ -1169,7 +1169,7 @@ pub(crate) fn line(out: &mut String, cells: &[Cell]) {
         Cell::Nil => String::new(),
         Cell::Raw(v) => quote(v),
         Cell::Text(v) if v.is_empty() => "\"\"".into(),
-        Cell::Text(v) if v.starts_with(LEADERS) || crate::ruby::strip(v).starts_with(LEADERS) => quote(&format!("'{v}")),
+        Cell::Text(v) if v.starts_with(LEADERS) || crate::v2::strip(v).starts_with(LEADERS) => quote(&format!("'{v}")),
         Cell::Text(v) => quote(v),
     }).collect();
     out.push_str(&fields.join(","));

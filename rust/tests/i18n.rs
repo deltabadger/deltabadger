@@ -18,8 +18,8 @@ fn every_recorded_translation_call_is_reproduced() {
             None => (name.as_str(), Arg::Text(value.as_str().unwrap())),
         }).collect();
         let (view, text) = (i18n::t(locale, key, &given), i18n::text(locale, key, &given));
-        if view != call["view"].as_str().unwrap() { failures.push(format!("t({locale}, {key}) = {view:?}, Rails {}", call["view"])); }
-        if text != call["text"].as_str().unwrap() { failures.push(format!("text({locale}, {key}) = {text:?}, Rails {}", call["text"])); }
+        if view != call["view"].as_str().unwrap() { failures.push(format!("t({locale}, {key}) = {view:?}, 2.x {}", call["view"])); }
+        if text != call["text"].as_str().unwrap() { failures.push(format!("text({locale}, {key}) = {text:?}, 2.x {}", call["text"])); }
     }
     assert!(failures.is_empty(), "{} differ:\n{}", failures.len(), failures.join("\n"));
 }
@@ -37,11 +37,11 @@ fn already_safe_markup_is_not_escaped_in_an_html_key() {
     assert!(out.contains("<b>4</b>&nbsp;years") && out.contains("&lt;1&gt;%") && out.contains("3%</b> more"), "{out}");
 }
 
-// PLAN-B11 T7 (L-I18N): the whole table is no longer compared with Rails' I18n: a locale edit is read by build.rs only
+// PLAN-B11 T7 (L-I18N): the whole table is no longer compared with 2.x's I18n: a locale edit is read by build.rs only
 // (its Psych-boolean/null refusal stays), never frozen, since every translation edit would need a re-recording.
 
-/// Listed divergence: Rails commits a write the engine cannot run; Rust answers 422 with this copy.
-/// One key, English only; every other locale falls back to it, as Rails' fallbacks do.
+/// Listed divergence: 2.x commits a write the engine cannot run; Rust answers 422 with this copy.
+/// One key, English only; every other locale falls back to it, as 2.x's fallbacks do.
 #[test]
 fn the_write_refused_copy_carries_the_reason_in_english_in_every_locale() {
     let reason = "bot 7 (scheduled): quote_amount_limited";
@@ -52,8 +52,8 @@ fn the_write_refused_copy_carries_the_reason_in_english_in_every_locale() {
     }
 }
 
-/// A web start on a bot that is already working is refused, as Rails' API refuses it (409
-/// `bot_already_running`); the page re-renders with this flash, as Rails' web controller does (422).
+/// A web start on a bot that is already working is refused, as 2.x's API refuses it (409
+/// `bot_already_running`); the page re-renders with this flash, as 2.x's web controller does (422).
 #[test]
 fn the_already_running_refusal_is_one_english_key_every_locale_falls_back_to() {
     let en = i18n::text("en", "engine.already_running", &[]);
@@ -64,7 +64,7 @@ fn the_already_running_refusal_is_one_english_key_every_locale_falls_back_to() {
 }
 
 /// The dotiw gem's unit names are in the gem, not in rust/locales, so the crate pins a copy
-/// (web::i18n FROM_GEMS). The recorder reads them from Rails; a gem update that rewords one fails here.
+/// (web::i18n FROM_GEMS). The recorder reads them from 2.x; a gem update that rewords one fails here.
 #[test]
 fn the_pinned_unit_names_are_the_dotiw_gems() {
     let recorded = common::vectors()["bot_pages"]["dotiw"].as_object().unwrap().clone();
@@ -75,11 +75,11 @@ fn the_pinned_unit_names_are_the_dotiw_gems() {
     }
 }
 
-/// PLAN-B11 §5: no text a user reads says "Rails". Every translation, every template with its `{# #}` comments taken out,
+/// PLAN-B11 §5: no text a user reads says "2.x". Every translation, every template with its `{# #}` comments taken out,
 /// and every string literal of the web layer and of the eligibility refusals (which pages and API answers show) outside
 /// their unit tests. The literals still saying it are named below, each with why it is not page text or who rewords it.
 #[test]
-fn no_page_text_says_rails() {
+fn no_page_text_says_v2() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let word = regex::Regex::new(r"(?i)\brails\b").unwrap();
     let mut found: Vec<String> = i18n::all().iter().filter(|(_, text)| word.is_match(text)).map(|(key, _)| format!("translation {key}")).collect();
@@ -105,17 +105,9 @@ fn no_page_text_says_rails() {
     assert!(templates > 100 && sources.len() > 50, "{templates} templates, {} sources", sources.len());
     // Exactly these literals, to the B11-8 rename (PLAN-B11 §10 Q6), where "2.x" replaces the word.
     const NAMED: &[(&str, &str)] = &[
-        // Refusal reasons a page or API answer shows. index_histories.rs also finds the first in stored details.
+        // A refusal reason pages and API answers show; index_histories.rs also finds it in stored details, so it waits for
+        // B11-9 (PLAN-B11-9 r1.1).
         ("src/engine/eligibility.rs", "\"row(s) with a status Rails never writes\""),
-        ("src/engine/eligibility.rs", "\"{imported} legacy imported row(s) left open (Rails never polls or settles them)\""),
-        ("src/engine/eligibility.rs", "\"{sides} special row(s) with a side Rails never writes (LIQUIDATION buy, REDEPLOY sell or none)\""),
-        ("src/engine/eligibility.rs", "\"tokenized {} on {} (no recorded Rails vector for tokenized pairs on this venue)\""),
-        // WebError::Config: logged, the page is the generic error page.
-        ("src/web/bot/signal_write.rs", "\"bot_signals {}: {key} is not one Rails knows\""),
-        ("src/web/rest.rs", "\"a transactions parameter Rails cannot convert\""),
-        ("src/web/wizard/signals.rs", "\"a wizard rule's {key} is not one Rails knows\""),
-        // The create callbacks table tests/fixtures/bot_create_callbacks.json pins; never rendered.
-        ("src/web/wizard/create.rs", "\"no-op: Rails.cache only\""),
     ];
     let literal = regex::Regex::new(r#""(?:[^"\\]|\\.)*""#).unwrap();
     let capital = regex::Regex::new(r"\bRails\b").unwrap();
@@ -129,5 +121,5 @@ fn no_page_text_says_rails() {
             }
         }
     }
-    assert!(found.is_empty(), "says Rails: {found:#?}");
+    assert!(found.is_empty(), "says 2.x: {found:#?}");
 }

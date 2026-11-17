@@ -2,7 +2,7 @@ mod common;
 use deltabadger::engine::venue_rules::{for_exchange, AmountLogic, MinimumLogic, WireFormat, ALPACA, KRAKEN, NETWORK_TRANSIENT_PATTERNS};
 
 #[test]
-fn every_recorded_rails_classification_is_reproduced() {
+fn every_recorded_v2_classification_is_reproduced() {
     let cases = common::vectors()["failure_kinds"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 44);
     for c in cases {
@@ -10,7 +10,7 @@ fn every_recorded_rails_classification_is_reproduced() {
         let m = vec![c[1].as_str().unwrap().to_string()];
         assert_eq!(rules.failure_kind(&m), c[2].as_str(), "failure_kind {c}");
         assert_eq!(rules.is_throttle(&m), c[4].as_bool().unwrap(), "throttled_error? {c}");
-        // Known gap, kept as merged: Kraken's poll rule omits Client::NETWORK_TRANSIENT_PATTERNS, which Rails'
+        // Known gap, kept as merged: Kraken's poll rule omits Client::NETWORK_TRANSIENT_PATTERNS, which 2.x's
         // transient_error? adds for every venue. Not decided until the real Kraken client exists.
         if std::ptr::eq(rules, &KRAKEN) && NETWORK_TRANSIENT_PATTERNS.iter().any(|p| m[0].contains(p)) { continue; }
         assert_eq!(rules.is_transient(&m), c[3].as_bool().unwrap(), "transient_error? {c}");
@@ -18,8 +18,8 @@ fn every_recorded_rails_classification_is_reproduced() {
 }
 
 #[test]
-fn each_venue_carries_rails_minimum_logic_wire_and_absence_window() {
-    // D-KRAKEN-LIMIT-COSTMIN: Rails' Kraken limit buy is :base (ordermin only); Rust checks costmin too, :base_and_quote_in_base
+fn each_venue_carries_v2_minimum_logic_wire_and_absence_window() {
+    // D-KRAKEN-LIMIT-COSTMIN: 2.x's Kraken limit buy is :base (ordermin only); Rust checks costmin too, :base_and_quote_in_base
     // as every venue with a notional floor, so a limit buy under costmin is skipped instead of sent and rejected.
     assert_eq!((KRAKEN.minimum_logic, KRAKEN.wire, KRAKEN.deadline_sent, KRAKEN.transport_raises), (MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase }, WireFormat::Kraken, true, false));
     assert_eq!((ALPACA.minimum_logic, ALPACA.wire, ALPACA.deadline_sent, ALPACA.transport_raises), (MinimumLogic { market: AmountLogic::Quote, limit: AmountLogic::Quote }, WireFormat::Alpaca, false, true));
@@ -35,7 +35,7 @@ fn each_venue_carries_rails_minimum_logic_wire_and_absence_window() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn every_recorded_venue_order_number_is_accepted_or_refused_as_in_rails() {
+async fn every_recorded_venue_order_number_is_accepted_or_refused_as_in_v2() {
     use deltabadger::venue::{alpaca, fake::FakeVenue, Venue};
     use serde_json::json;
     let vectors = common::vectors();
@@ -54,7 +54,7 @@ async fn every_recorded_venue_order_number_is_accepted_or_refused_as_in_rails() 
     }
 }
 
-// ---- plan VB slice P: Exchange#adjusted_price and #market_price_for, recorded from Rails (record_venue_vectors.rb prices)
+// ---- plan VB slice P: Exchange#adjusted_price and #market_price_for, recorded from 2.x (the venue price vectors)
 
 fn prices_fixture() -> serde_json::Value { serde_json::from_str(include_str!("fixtures/prices_vectors.json")).unwrap() }
 
@@ -62,9 +62,9 @@ fn prices_fixture() -> serde_json::Value { serde_json::from_str(include_str!("fi
 fn every_recorded_adjusted_and_market_price_is_reproduced() {
     use deltabadger::engine::model::Ticker;
     use deltabadger::engine::venue_rules::{PriceRule, Rounding, VenueRules, BINANCE, HYPERLIQUID, KUCOIN, MARKET_CROSS};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::venue::Side;
-    // Exercise the production Hyperliquid rule against the recorded Rails prices.
+    // Exercise the production Hyperliquid rule against the recorded 2.x prices.
     let gemini = VenueRules { cross: Some(MARKET_CROSS), ..KRAKEN };
     for existing in [&KRAKEN, &ALPACA, &BINANCE, &deltabadger::engine::venue_rules::BINANCE_US, &KUCOIN, &deltabadger::engine::venue_rules::BITVAVO, &deltabadger::engine::venue_rules::MEXC] {
         assert_eq!((existing.price_rule, existing.cross), (PriceRule::Decimals, None), "{}: the default rule, never crossed", existing.name);
@@ -101,10 +101,10 @@ fn every_recorded_adjusted_and_market_price_is_reproduced() {
 }
 
 #[test]
-fn a_crossed_price_is_adjusted_twice_as_rails_does() {
+fn a_crossed_price_is_adjusted_twice_as_v2_does() {
     use deltabadger::engine::model::Ticker;
     use deltabadger::engine::venue_rules::{Rounding, VenueRules, HYPERLIQUID_PRICE_RULE, MARKET_CROSS};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::venue::Side;
     let d = |s: &str| BigDec::parse(s).unwrap();
     let t = |price_decimals: i64, base_decimals: i64| Ticker { id: 1, ticker: "X".into(), base_code: "B".into(), quote_code: "Q".into(), base_symbol: "B".into(),
@@ -120,5 +120,5 @@ fn a_crossed_price_is_adjusted_twice_as_rails_does() {
     assert_eq!(hl.adjusted_price(&d("123456.789"), &t(8, 2), Rounding::Floor).unwrap(), d("123456"), "an integer ≥ 10k keeps every digit");
     assert_eq!(hl.adjusted_price(&d("12345.6"), &t(8, 2), Rounding::Ceil).unwrap(), d("12346"));
     assert_eq!(hl.adjusted_price(&d("0.000012345678"), &t(8, 2), Rounding::Floor).unwrap(), d("0.000012"), "capped at 8 - base_decimals places");
-    assert!(hl.adjusted_price(&d("1.5"), &t(8, 9), Rounding::Floor).is_err(), "Rails' clamp(0, -1) raises");
+    assert!(hl.adjusted_price(&d("1.5"), &t(8, 9), Rounding::Floor).is_err(), "2.x's clamp(0, -1) raises");
 }

@@ -10,17 +10,17 @@ const ONLY:&str="this build reads Alpaca only";
 /// The balances this build reads: Alpaca's and Interactive Brokers' (the 501 for any other venue).
 const BALANCES_ONLY:&str="this build reads balances from Alpaca and Interactive Brokers only";
 /// D-OPEN-ORDERS-UNREAD-NAMED: an exchange whose open orders this build does not read live is named in `unavailable`
-/// with this reason. Rails drops it silently (`list_open.rb:64-65`, only Alpaca has `list_open_orders`).
+/// with this reason. 2.x drops it silently (only Alpaca has `list_open_orders`).
 const UNREAD:&str="not read live on this build";
 fn error()->WebError{WebError::Config("MCP read unavailable".into())}
 /// A read's success: the service's data and the tool's text.
 fn ok(data:Value,text:impl Into<String>)->Read{Read{res:Res::success(data),text:text.into(),is_error:false}}
-/// A BotApi failure, which the Rails tool reports with report_error (isError).
+/// A BotApi failure, which the 2.x tool reports with report_error (isError).
 fn failed(status:Domain,code:&'static str,text:impl Into<String>)->Read{let text=text.into();Read{res:Res::failure(status,code,text.clone()),text,is_error:true}}
 /// What this build does not read (a venue other than Alpaca) or bounds (a read past read_limits): the 501 `not_ported`
 /// envelope on REST; on MCP the text it has always said, an error or not.
 fn unported(text:&str,is_error:bool)->Read{Read{res:Res::failure(Domain::NotPorted,"not_ported",text.into()),text:text.into(),is_error}}
-/// What Rails raises past the service (Client::TransientNetworkError): the MCP tool's rescue, REST's 500.
+/// What 2.x raises past the service (Client::TransientNetworkError): the MCP tool's rescue, REST's 500.
 fn raised()->Read{Read{res:Res::failure(Domain::Raised,"internal_error","An unexpected error occurred.".into()),text:"An unexpected error occurred.".into(),is_error:true}}
 /// The MCP tool's answer for a read.
 pub fn tool_result(read:&Read)->Value{tool_text(read_limits::text(&read.text),read.is_error)}
@@ -55,11 +55,11 @@ impl Fetch {
     }
 }
 type RawOrders = Vec<Box<serde_json::value::RawValue>>;
-pub enum Fetched { Bound(Box<Fetched>,Vec<crate::engine::model::CredentialVersion>), Done(Read), Balances(i64,i64,String,crate::ruby::BigDec,Vec<sync::balances::Position>), IbkrBalances(i64,i64,String,String), Orders(i64,Vec<String>,Vec<Value>,HashSet<String>,Vec<(i64,String,Result<RawOrders,String>)>,Vec<String>), Summary(i64,Cache,At,bool) }
+pub enum Fetched { Bound(Box<Fetched>,Vec<crate::engine::model::CredentialVersion>), Done(Read), Balances(i64,i64,String,crate::v2::BigDec,Vec<sync::balances::Position>), IbkrBalances(i64,i64,String,String), Orders(i64,Vec<String>,Vec<Value>,HashSet<String>,Vec<(i64,String,Result<RawOrders,String>)>,Vec<String>), Summary(i64,Cache,At,bool) }
 /// What a read asks for, as each surface names it: MCP by the tool's arguments, REST by its route's parameters.
 pub enum Ask { Details(i64), Balances{name:String,id:Option<String>}, Orders(Option<String>), Summary }
 impl Ask {
-    /// The tool's arguments, as the Rails tool hands them to its service.
+    /// The tool's arguments, as the 2.x tool hands them to its service.
     fn tool(name:&str,args:&Value)->Option<Self>{
         Some(match name {
             "get_bot_details"=>Self::Details(args["bot_id"].as_f64().unwrap_or(0.0) as i64),
@@ -118,7 +118,7 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
                 let Some(account)=bound else {return Ok(Planned::Done(failed(Domain::UpstreamFailed,"balances_fetch_failed",format!("Failed to fetch balances from {name}: the IBKR connection has not named its account yet"))))};
                 return Ok(Planned::Fetch(Fetch::IbkrBalances{user,exchange,name,credentials,account}));
             }
-            if kind!="Exchanges::Alpaca" {return Ok(Planned::Done(unported(BALANCES_ONLY,true)))} // Rails reads the venue; a failed read is a tool error.
+            if kind!="Exchanges::Alpaca" {return Ok(Planned::Done(unported(BALANCES_ONLY,true)))} // 2.x reads the venue; a failed read is a tool error.
             Ok(Planned::Fetch(Fetch::Balances{user,exchange,name,credentials}))
         },
         Ask::Orders(filter)=>{
@@ -130,7 +130,7 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
                 c.prepare("SELECT DISTINCT e.id,e.name,e.type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND k.status=1 ORDER BY k.id")?.query_map([user],|r|Ok((r.get(0)?,r.get(1)?,r.get::<_,String>(2)?)))?.collect::<Result<Vec<_>,_>>()?
             };
             // Only Exchanges::Alpaca's open orders are read live; every other exchange asked about is named as unread
-            // (D-OPEN-ORDERS-UNREAD-NAMED), where Rails skips it (`respond_to?(:list_open_orders)`).
+            // (D-OPEN-ORDERS-UNREAD-NAMED), where 2.x skips it (`respond_to?(:list_open_orders)`).
             let (mut venues,mut unread)=(vec![],vec![]);
             for (id,name,kind) in exchanges {if kind=="Exchanges::Alpaca" {venues.push((id,name,credentials(c,app,user,id)?));}else{unread.push(name);}}
             Ok(Planned::Fetch(Fetch::Orders{user,local,rows,ids,venues,unread}))
@@ -162,7 +162,7 @@ fn account_venue(app:&App,credentials:&Material)->AlpacaVenue<Wire>{
     };
     AlpacaVenue::new(Wire::new(credentials,source).with_origin(credentials.origin.clone()),Urls::pick(credentials.passphrase.as_deref(),&hosts))
 }
-async fn balance_read(venue:&AlpacaVenue<Wire>)->Result<(crate::ruby::BigDec,Vec<sync::balances::Position>),(String,bool)>{
+async fn balance_read(venue:&AlpacaVenue<Wire>)->Result<(crate::v2::BigDec,Vec<sync::balances::Position>),(String,bool)>{
     let cash=sync::parsed(venue.read(false,"/v2/account",vec![],sync::balances::MAX_ACCOUNT_BYTES).await.map_err(sync::venue_failure)?,sync::balances::account).await?;
     let held=sync::parsed(venue.read(false,"/v2/positions",vec![],sync::balances::MAX_LIST_BYTES).await.map_err(sync::venue_failure)?,sync::balances::positions).await?;
     match (cash,held){(Ok(c),Ok(h))=>Ok((c,h)),(Err(e),_)|(_,Err(e))=>Err((e,false))}
@@ -220,7 +220,7 @@ async fn fetch_inner(app:&App,fetch:Fetch)->Fetched{
     }
 }
 /// BotApi::Exchanges::Balances#build_balances over the venue's (asset, free, locked) rows, or the read's failure.
-fn balance_rows(c:&Connection,name:&str,held:Result<Vec<(i64,crate::ruby::BigDec,crate::ruby::BigDec)>,String>)->Result<Read,WebError>{
+fn balance_rows(c:&Connection,name:&str,held:Result<Vec<(i64,crate::v2::BigDec,crate::v2::BigDec)>,String>)->Result<Read,WebError>{
     let mut lines=vec![];let mut rows=vec![];
     for (id,free,locked) in match held{Ok(rows)=>rows,Err(why)=>return Ok(failed(Domain::UpstreamFailed,"balances_fetch_failed",format!("Failed to fetch balances from {name}: {why}")))}{
         let (n,l)=(free.to_f(),locked.to_f()); if n==0.0&&l==0.0{continue}
@@ -284,7 +284,7 @@ fn finish_in(c:&Connection,fetch:Fetched)->Result<Read,WebError>{
                         let parsed=crate::venue::alpaca::parse_read_order(id,&raw).map_err(|_|error())?;
                         let pair=format!("{}/{}",ticker.base_code,ticker.quote_code);
                         let amount=parsed.amount.as_ref().map(|a|a.to_s_f());
-                        let price=parsed.price.as_ref().map(|p|format!("@ {}",p.to_s_f())).unwrap_or_default(); // Rails omits the price only when nil.
+                        let price=parsed.price.as_ref().map(|p|format!("@ {}",p.to_s_f())).unwrap_or_default(); // 2.x omits the price only when nil.
                         let side=raw["side"].as_str().map(str::to_uppercase).unwrap_or_else(||"?".into());
                         local.push(format!("- {side} {} {pair} {price} ({}) | {name} | ext: {id}",amount.clone().unwrap_or_else(||"N/A".into()),if parsed.limit{"Limit order"}else{"Market order"}));
                         // parse_order_data's price: the fill price when positive, else the limit price, else the Integer 0.
@@ -323,11 +323,11 @@ fn local_orders(c:&Connection,user:i64,exchange:Option<i64>)->Result<Option<(Vec
         let order_type=match kind{Some(0)=>Some("market_order"),Some(1)=>Some("limit_order"),_=>None};
         let pair=format!("{}/{}",base.unwrap_or_default(),quote.unwrap_or_default());
         out.push(json!({"source":"db","id":id,"external_id":ext,"exchange":name,"side":side,"order_type":order_type,"pair":pair,
-                        "amount":amount.as_ref().map(|n|n.to_s_f()),"price":price.as_ref().map(|n|n.to_s_f()),"created_at":crate::ruby::iso8601_ms(at)}));
+                        "amount":amount.as_ref().map(|n|n.to_s_f()),"price":price.as_ref().map(|n|n.to_s_f()),"created_at":crate::v2::iso8601_ms(at)}));
         let amount=amount.map(|n|n.to_s_f());
         let price=price.filter(|n|!n.is_zero()).map(|n|n.to_s_f());
         let date=crate::web::timezone::local(at,&zone).format("%Y-%m-%d %H:%M");
-        let ext=ext.unwrap_or_default(); // nil interpolates to the empty string in Rails.
+        let ext=ext.unwrap_or_default(); // nil interpolates to the empty string in 2.x.
         if !ext.trim().is_empty(){ids.insert(ext.clone());}
         // Optional DB columns interpolate as empty; an absent amount alone prints N/A.
         lines.push(format!("- [{date}] #{id} {} {} {pair} {} ({}) | {name} | ext: {ext}",side.to_uppercase(),amount.unwrap_or_else(||"N/A".into()),price.map(|v|format!("@ {v}")).unwrap_or_default(),match order_type{Some("market_order")=>"Market order",Some(_)=>"Limit order",None=>"Unknown"}));
@@ -337,7 +337,7 @@ fn num(n:&Num)->Result<String,WebError>{
     Ok(match n{Num::Int(i)=>i.to_string(),Num::Float(f)=>float_to_s(sync::balances::float_round(*f,2)),Num::Dec(d)=>d.round(2).map_err(|_|error())?.to_s_f()})
 }
 fn pct(n:&Num)->Result<String,WebError>{Ok(format!("{}{}%",if n.is_negative(){""}else{"+"},num(&n.mul(&Num::Int(100)).map_err(|_|error())?)?))}
-/// What Rails raised computing a figure (`"<class>: <message>"`), carried to the reads that show its message.
+/// What 2.x raised computing a figure (`"<class>: <message>"`), carried to the reads that show its message.
 const RAISED:&str="figure raised: ";
 fn fail_fig(e:figures::FiguresError)->WebError{match e{figures::FiguresError::Data(ref why)|figures::FiguresError::NotComputed(ref why) if why=="executed fill value unavailable"||why=="quote currency unavailable"=>WebError::Config(why.clone()),
     figures::FiguresError::Raised(error)=>WebError::Config(format!("{RAISED}{error}")),_=>error()}}
@@ -372,7 +372,7 @@ pub(crate) fn generated_label(c:&Connection,user:i64,id:i64,kind:&str,s:&Value,l
     }else{
         let ids=if pair_kind(kind){s["base_asset_id"].as_i64().into_iter().collect::<Vec<_>>()}else if let Some(a)=s["allocations"].as_object().filter(|a|!a.is_empty()){a.keys().filter_map(|k|crate::web::bot::id_from_path(k)).collect()}else{s["base_asset_ids"].as_array().into_iter().flatten().map(|v|v.as_i64().unwrap_or(0)).collect()};
         let assets=figures::db::asset_names(c,&ids).map_err(fail_fig)?;
-        if ids.len()==1{assets.first().and_then(|(_,_,name)|name.clone()).unwrap_or_default()}else{ // allow-swallow: absent asset/name is an Option; Rails generates bot.new below.
+        if ids.len()==1{assets.first().and_then(|(_,_,name)|name.clone()).unwrap_or_default()}else{ // allow-swallow: absent asset/name is an Option; 2.x generates bot.new below.
             let symbols=ids.iter().filter_map(|id|assets.iter().find(|(asset,_,_)|asset==id).and_then(|(_,symbol,_)|symbol.as_deref())).collect::<Vec<_>>();
             let label=symbols.iter().take(3).copied().collect::<Vec<_>>().join(", ");
             if symbols.len()>3{format!("{label} + {}",symbols.len()-3)}else{label}
@@ -408,10 +408,10 @@ fn effective_started(b:&Bot)->Result<Option<chrono::DateTime<chrono::Utc>>,WebEr
     let decorated=crate::engine::accounting::condition_started_at(crate::web::bot::Kind::of(&b.kind),&settings,&transient,Some(start.timestamp_micros()),b.settings["direction"]=="selling").map_err(|_|error())?;
     decorated.map(|us|chrono::DateTime::from_timestamp_micros(us).ok_or_else(error)).transpose()
 }
-/// A figure as Rails renders it: an Integer, a Float, a BigDecimal as its text.
+/// A figure as 2.x renders it: an Integer, a Float, a BigDecimal as its text.
 fn number(n:&Num)->Value{match n{Num::Int(i)=>json!(i),Num::Float(f)=>json!(f),Num::Dec(d)=>json!(d.to_s_f())}}
 /// A metrics failure's message as the service carries it.
-/// `safe_metrics`' `e.message`: what Rails raised, without its class; this build's own refusals by name.
+/// `safe_metrics`' `e.message`: what 2.x raised, without its class; this build's own refusals by name.
 fn metrics_error(e:&WebError)->String{match e{
     WebError::Config(why) if why=="executed fill value unavailable"=>why.clone(),
     WebError::Config(why) if why.starts_with(RAISED)=>why[RAISED.len()..].split_once(": ").map_or(&why[RAISED.len()..],|(_,message)|message).to_string(),
@@ -482,7 +482,7 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
                 let until=crate::codec::parse_time(&until).map_err(|_|error())?;
                 if until>now.utc(){
                     let days=(crate::web::timezone::local(until,&zone).date_naive()-crate::web::timezone::local(now.utc(),&zone).date_naive()).num_days();
-                    locks.push(format!("{} {days}d",symbol.clone().unwrap_or_default())); // nil symbol interpolates empty, as Rails.
+                    locks.push(format!("{} {days}d",symbol.clone().unwrap_or_default())); // nil symbol interpolates empty, as 2.x.
                     // The service's days are counted in REST's zone, UTC.
                     locked.push(json!({"symbol":symbol,"days_left":(until.date_naive()-now.utc().date_naive()).num_days()}));
                 }
@@ -491,8 +491,8 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
         if !locks.is_empty(){lines.push(format!("Locked out of buying (wash sale): {}",locks.join(", ")));}
     }
     if let Some(line)=redeploy_line{lines.push(line);}
-    // A28-2b (D-RAILS-UNRECORDED-API): the orders from before the update the owner answers with answer_unrecorded_order.
-    let (unrecorded,unrecorded_lines)=crate::web::bot::rails_orders::listing(c,b.id,&b.quote,now.utc())?;
+    // A28-2b (D-V2-UNRECORDED-API): the orders from before the update the owner answers with answer_unrecorded_order.
+    let (unrecorded,unrecorded_lines)=crate::web::bot::v2_orders::listing(c,b.id,&b.quote,now.utc())?;
     lines.extend(unrecorded_lines);
     lines.push(format!("Interval: {}",b.settings["interval"].as_str().unwrap_or("N/A")));
     lines.push(format!("Amount per order: {} {}",tools::str_value(&b.settings["quote_amount"]),b.quote));
@@ -538,8 +538,8 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
     let data=json!({"id":b.id,"label":b.label,"type":b.kind,"status":status,"exchange":b.exchange,"pair":b.pair,"allocations":allocations,"allocation_assets":assets,
                     "holdings":holdings,"exited_holdings":exited_holdings,"locked_members":locked,"redeploy_offer":redeploy,"base_asset":b.base,"quote_asset":b.quote_asset,
                     "interval":b.settings.get("interval").cloned().unwrap_or(Value::Null),"quote_amount":b.settings.get("quote_amount").cloned().unwrap_or(Value::Null),
-                    "orders_executed":count,"started_at":started.map(crate::ruby::iso8601_ms),"metrics":shown_metrics,"metrics_error":shown_error});
-    // Only on a bot that has them: every other bot's answer stays Rails' (D-RAILS-UNRECORDED-API).
+                    "orders_executed":count,"started_at":started.map(crate::v2::iso8601_ms),"metrics":shown_metrics,"metrics_error":shown_error});
+    // Only on a bot that has them: every other bot's answer stays 2.x's (D-V2-UNRECORDED-API).
     let mut data=data;
     if !unrecorded.is_null(){data["unrecorded_orders"]=unrecorded;}
     Ok(ok(data,lines.join("\n")))

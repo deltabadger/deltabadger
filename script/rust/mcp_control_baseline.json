@@ -61,13 +61,13 @@
   },
   "rust/src/web/mcp/control.rs": {},
   "rust/src/web/mcp/reads.rs": {
-    "let price=parsed.price.map(|p|format!(\"@ {}\",p.to_s_f())).unwrap_or_default(); // Rails omits the price only when nil.": 1,
-    "let ext=ext.unwrap_or_default(); // nil interpolates to the empty string in Rails.": 1,
+    "let price=parsed.price.map(|p|format!(\"@ {}\",p.to_s_f())).unwrap_or_default(); // 2.x omits the price only when nil.": 1,
+    "let ext=ext.unwrap_or_default(); // nil interpolates to the empty string in 2.x.": 1,
     "lines.push(format!(\"- [{date}] #{id} {} {} {}/{} {} ({}) | {name} | ext: {ext}\",match side{Some(0)=>\"BUY\",Some(1)=>\"SELL\",_=>\"\"},amount.unwrap_or_else(||\"N/A\".into()),base.unwrap_or_default(),quote.unwrap_or_default(),price.map(|v|format!(\"@ {v}\")).unwrap_or_default(),match kind{Some(0)=>\"Market order\",Some(1)=>\"Limit order\",_=>\"Unknown\"}));": 1,
     "let quote=tools::asset(c,&settings[\"quote_asset_id\"])?.unwrap_or_default(); // nil quote interpolates as empty.": 1,
-    "if ids.len()==1{assets.first().and_then(|(_,_,name)|name.clone()).unwrap_or_default()}else{ // allow-swallow: absent asset/name is an Option; Rails generates bot.new below.": 1,
+    "if ids.len()==1{assets.first().and_then(|(_,_,name)|name.clone()).unwrap_or_default()}else{ // allow-swallow: absent asset/name is an Option; 2.x generates bot.new below.": 1,
     "let symbol=symbol.clone().unwrap_or_default(); // nil symbol joins as empty in a pair.": 1,
-    "if until>now.utc(){let days=(crate::web::timezone::local(until,&zone).date_naive()-crate::web::timezone::local(now.utc(),&zone).date_naive()).num_days();locks.push(format!(\"{} {days}d\",symbol.unwrap_or_default()));} // nil symbol interpolates empty, as Rails.": 1
+    "if until>now.utc(){let days=(crate::web::timezone::local(until,&zone).date_naive()-crate::web::timezone::local(now.utc(),&zone).date_naive()).num_days();locks.push(format!(\"{} {days}d\",symbol.unwrap_or_default()));} // nil symbol interpolates empty, as 2.x.": 1
   },
   "rust/src/web/mcp/read_limits.rs": {},
   "rust/src/figures/fill.rs": {

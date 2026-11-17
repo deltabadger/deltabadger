@@ -1,11 +1,11 @@
-//! BingX spot trading: Rails B1–B8 and S7, with D9 and conservative placement classification.
+//! BingX spot trading: 2.x B1–B8 and S7, with D9 and conservative placement classification.
 use super::binance::{error_message, Pairs, Shape};
 use super::http::{self, HttpRequest, HttpResponse, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError};
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BINGX as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -351,7 +351,7 @@ impl<T: Transport> super::Venue for BingxVenue<T> {
     /// Exchanges::Bingx#get_candles: the newest 1000 at timeZone=0 (`data`, or the answer itself when it is an array; none
     /// when null), each time `to_i / 1000`, those before the start's whole second dropped, sorted; nothing built. A failed
     /// read is its `msg` (else the answer). Rows are [time, open, high, low, close, volume, …]. DIVERGES
-    /// (D-COND-CANDLE-ERROR-ENVELOPE): an object whose code is not 0 is the venue's refusal (its `msg`), where Rails reads
+    /// (D-COND-CANDLE-ERROR-ENVELOPE): an object whose code is not 0 is the venue's refusal (its `msg`), where 2.x reads
     /// its missing `data` as no candles.
     async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
         let r = self.request("GET", KLINE, vec![("symbol", ticker.ticker.clone()), ("interval", kline_interval(timeframe).into()), ("limit", "1000".into()),

@@ -51,11 +51,11 @@ impl Shell {
             let (symbol, color): (Option<String>, Option<String>) = (row.get(0)?, row.get(1)?);
             if !show_cash && symbol.as_deref().is_some_and(|symbol| bots::CASH.contains(&symbol)) { continue; }
             // The column is decimal(20, 8): ActiveRecord casts the sum and rounds it to the column's scale.
-            // A sum that is no number (an infinity: SQLite adds the column's REALs) fails as `format::Unreadable`; Rails raises drawing it.
+            // A sum that is no number (an infinity: SQLite adds the column's REALs) fails as `format::Unreadable`; 2.x raises drawing it.
             let value = row.get::<_, super::format::Stored>(2)?.0;
             if let Some(value) = value { values.push((value.round(8), color)); }
         }
-        // Preserve Rails' unreadable-colour error even for an unknown legacy producer.
+        // Preserve 2.x's unreadable-colour error even for an unknown legacy producer.
         // Only the checked arcs may reach the navbar; stale holdings remain unavailable.
         let mut arcs = ring::icon_arcs(values).ok_or_else(|| WebError::Config("an asset's colour is not a colour".into()))?;
         if crate::sync::cache::stale(c, user.id, None)? { arcs.clear(); }
@@ -83,14 +83,14 @@ pub fn bot_count_font_size(count: i64) -> i64 {
     ((22.0 / (digits * 0.549)).floor() as i64).min(19)
 }
 
-/// BotHelper#bot_count_baseline, printed as Ruby prints a Float rounded to two places.
+/// BotHelper#bot_count_baseline, printed as 2.x prints a Float rounded to two places.
 pub fn bot_count_baseline(size: i64) -> String {
     let rounded = ((12.0 + size as f64 * 0.3655) * 100.0).round() / 100.0;
     if rounded.fract() == 0.0 { format!("{rounded:.1}") } else { rounded.to_string() }
 }
 
 /// BotsController#show: the route `/bots/{id}` (bot::page::show) takes any one segment but `new`, with any format,
-/// and Rails casts it as `find` does (`1abc` and `+1` are bot 1). An id that finds nothing redirects, so a page rendered
+/// and 2.x casts it as `find` does (`1abc` and `+1` are bot 1). An id that finds nothing redirects, so a page rendered
 /// here is the bot's.
 fn on_bot_page(ctx: &Ctx) -> bool {
     matches!(ctx.method, axum::http::Method::GET | axum::http::Method::HEAD)
@@ -134,7 +134,7 @@ pub fn application(ctx: &Ctx, csrf: &str, user: &User, shell: &Shell, page: Page
     application_with_flash_extra(ctx,csrf,user,shell,page,"")
 }
 
-/// The tracker supplies Rails' content_for(:flash_extra), outside the permanent flash target.
+/// The tracker supplies 2.x's content_for(:flash_extra), outside the permanent flash target.
 pub fn application_with_flash_extra(ctx: &Ctx, csrf: &str, user: &User, shell: &Shell, page: Page, flash_extra: &str) -> Result<Response, WebError> {
     layout(ctx, csrf, user, shell, page, flash_extra, None)
 }

@@ -1,6 +1,6 @@
 //! Honeymaker::Clients::Mexc and Exchanges::Mexc for the engine's spot orders (plan VB slice A5): prices, balances,
-//! placement, per-order polls, cancel and the recovery by client order id. Rails is the oracle (post-audit, AUDIT-mexc
-//! X1-X12); each method names the Ruby it ports. `venue::live` builds it for every MEXC bot.
+//! placement, per-order polls, cancel and the recovery by client order id. 2.x is the oracle (post-audit, AUDIT-mexc
+//! X1-X12); each method names the 2.x method it ports. `venue::live` builds it for every MEXC bot.
 //!
 //! MEXC is a Binance API clone: the same signing (`sign::QueryHmacHex`, the key in X-MEXC-APIKEY), every param in the
 //! query on every method, Binance-shaped orders (`binance::parse_binance_shaped`, MEXC's status map and price rule) and
@@ -8,17 +8,17 @@
 //! no longer knows (-2013/-2011) listed missing; no fill rebuild from trades; the gem's default recvWindow everywhere.
 //!
 //! Where it differs on purpose (plan VB §5, named in tests/parity.rs): the order carries `newClientOrderId` = the intent UUID's 32-hex form
-//! (D9; Rails sends none) and recovery asks for it (`order_by_client_id`), which can only FIND an order (absence is never
+//! (D9; 2.x sends none) and recovery asks for it (`order_by_client_id`), which can only FIND an order (absence is never
 //! concluded, ABSENCE_UNPROVEN); a placement that may have reached MEXC (a lost reply, a 5xx, an unreadable answer, one
-//! without an orderId, "service not available") keeps the intent where Rails writes a failed (or a "BTCUSDT-") row; a
-//! number that is no decimal is refused where Rails reads it as 0.
+//! without an orderId, "service not available") keeps the intent where 2.x writes a failed (or a "BTCUSDT-") row; a
+//! number that is no decimal is refused where 2.x reads it as 0.
 use super::binance::{error_message, Pairs, Shape};
 use super::http::{self, HttpRequest, HttpResponse, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError};
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, MEXC as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -37,11 +37,11 @@ pub const ALL_ORDERS_PATH: &str = "/api/v3/allOrders";
 pub const HISTORY_DAYS: i64 = 7;
 const HISTORY_REFUSED: [&str; 4] = ["10072", "700001", "700002", "700007"];
 /// Plan VB §1.5: on MEXC absence is never concluded. The lookup answers -2013 for an order it does not hold, which proves
-/// nothing about one sent moments ago; the intent waits for `deltabadger resolve-placement`. A divergence: Rails sends no
+/// nothing about one sent moments ago; the intent waits for `deltabadger resolve-placement`. A divergence: 2.x sends no
 /// newClientOrderId and has no lookup at all.
 pub const ABSENCE_UNPROVEN: &str = "MEXC: the client order lookup did not find this order, and MEXC cannot prove it absent; settle it with `deltabadger resolve-placement`";
 
-/// Exchanges::Mexc::ORDER_STATUS_MAP (X1: PARTIALLY_CANCELED is terminal); any other status raises, as Rails'
+/// Exchanges::Mexc::ORDER_STATUS_MAP (X1: PARTIALLY_CANCELED is terminal); any other status raises, as 2.x's
 /// #parse_order_status does. The fills' average whenever something filled (X2); origQuoteOrderQty may be absent.
 pub const SHAPE: Shape = Shape {
     statuses: &[("NEW", OrderStatus::Open), ("PARTIALLY_FILLED", OrderStatus::Open), ("FILLED", OrderStatus::Closed), ("CANCELED", OrderStatus::Cancelled),
@@ -62,7 +62,7 @@ fn required(v: &Value) -> Result<BigDec, VenueError> { super::json::required(v, 
 /// The intent UUID without hyphens fits MEXC's 32-character limit and is reversible. Reject longer non-UUIDs before sending.
 fn client_order_id(id: &str) -> Result<String, VenueError> { super::client_order_id_32(id, "MEXC") }
 
-/// Exchange#response_field(result, 'code') of a failure's text, as a number (Ruby's `include?` compares 2013.0 with 2013 as
+/// Exchange#response_field(result, 'code') of a failure's text, as a number (2.x's `include?` compares 2013.0 with 2013 as
 /// equal; a String never equals an Integer).
 pub fn error_code(text: &str) -> Option<f64> { serde_json::from_str::<Value>(text).ok()?.get("code")?.as_f64() }
 
@@ -267,8 +267,8 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
 
     /// #set_market_order / #set_limit_order through Clients::Mexc#new_order: POST /api/v3/order, every field in the query. A
     /// market order is `quoteOrderQty` or `quantity`; a limit order GTC `price` and `quantity`. Plus Rust's
-    /// `newClientOrderId` (the intent UUID's 32-hex form; Rails sends none) and the gem's recvWindow. Sent at most once. The stored id is
-    /// "SYMBOL-<orderId>"; an answer without an orderId (Rails would store "SYMBOL-") may have placed the order: Ambiguous.
+    /// `newClientOrderId` (the intent UUID's 32-hex form; 2.x sends none) and the gem's recvWindow. Sent at most once. The stored id is
+    /// "SYMBOL-<orderId>"; an answer without an orderId (2.x would store "SYMBOL-") may have placed the order: Ambiguous.
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
         let mut params = vec![("symbol", o.pair.clone()), ("side", o.side.as_str().to_ascii_uppercase())];
         let kind = match &o.kind {
@@ -351,7 +351,7 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
         }).await
     }
 
-    /// Rails reads no trades for an order; a missing one is never looked up in trades.
+    /// 2.x reads no trades for an order; a missing one is never looked up in trades.
     async fn fills_from_trades(&self, _txids: &[String], _since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> { Ok(vec![]) }
 
     /// #get_balances' `free` for the quote asset: each row's venue code mapped to its asset (#asset_from_symbol).
@@ -369,7 +369,7 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
 
     /// Exchanges::Mexc#get_tickers_prices: /api/v3/ticker/price for every symbol, each `dig_or_raise`d `symbol` and `price`
     /// (a zero kept, a later row for a symbol replacing an earlier one). A 2xx body that is not JSON is honeymaker's Failure
-    /// (its text). DIVERGES on purpose as Binance's does: a price that is no decimal is left out. Rails caches the answer for
+    /// (its text). DIVERGES on purpose as Binance's does: a price that is no decimal is left out. 2.x caches the answer for
     /// a minute; this reads fresh.
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
         let r = self.request("GET", TICKER_PRICE, vec![]);
@@ -383,7 +383,7 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
     }
 
     /// #cancel_order through Clients::Mexc#cancel_order: DELETE /api/v3/order by the stored "SYMBOL-<orderId>"; a JSON 2xx is
-    /// a cancel, as Rails reads it.
+    /// a cancel, as 2.x reads it.
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
         let (symbol, ext) = split(txid);
         let mut params = vec![("symbol", symbol)];
@@ -416,7 +416,7 @@ impl<T: Transport> MexcVenue<T> {
         if coin != &r.coin
             || [coin, address, network, net_work, &r.client_id]
                 .iter()
-                .any(|s| crate::ruby::blank(s))
+                .any(|s| crate::v2::blank(s))
             || !BigDec::parse(&r.amount).is_ok_and(|a| a.is_positive())
         {
             return w::capital_not_sent();
@@ -458,7 +458,7 @@ impl<T: Transport> MexcVenue<T> {
         if coin != &r.coin
             || [coin, address, network, net_work, &r.client_id]
                 .iter()
-                .any(|s| crate::ruby::blank(s))
+                .any(|s| crate::v2::blank(s))
         {
             return w::capital_unknown();
         }
@@ -536,7 +536,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn an_order_id_splits_as_ruby_splits_it() {
+    fn an_order_id_splits_as_v2_splits_it() {
         assert_eq!(split("BTCUSDT-C02__443776347957968896"), ("BTCUSDT".to_string(), Some("C02__443776347957968896".to_string())));
         assert_eq!(split("BTCUSDT-"), ("BTCUSDT".to_string(), None));
         assert_eq!(split("A-B-C"), ("A".to_string(), Some("B".to_string())));

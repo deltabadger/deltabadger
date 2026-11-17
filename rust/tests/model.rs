@@ -8,7 +8,7 @@ use serde_json::json;
 fn now() -> chrono::DateTime<chrono::Utc> { "2026-09-30T12:00:00.123456Z".parse().unwrap() }
 
 #[test]
-fn a_bot_reads_back_as_rails_stored_it() {
+fn a_bot_reads_back_as_v2_stored_it() {
     let (_d, o, s) = install();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00.5")
         .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.0025))
@@ -23,7 +23,7 @@ fn a_bot_reads_back_as_rails_stored_it() {
 }
 
 #[test]
-fn settings_are_read_with_rails_readers_and_defaults() {
+fn settings_are_read_with_v2_readers_and_defaults() {
     let (_d, o, s) = install();
     let read = |spec: BotSpec| model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &spec)).unwrap();
     let base = || BotSpec::weekly(60.0, "2026-09-01 10:00:00");
@@ -33,14 +33,14 @@ fn settings_are_read_with_rails_readers_and_defaults() {
     assert!(read(base().with("smart_intervaled", json!(1)).with("smart_interval_quote_amount", json!(20.0))).smart_quote_amount().is_none());
     assert_eq!(read(base().with("smart_intervaled", json!(true)).with("smart_interval_quote_amount", json!(20.0))).smart_quote_amount(), Some(20.0));
     assert!(read(base().with("smart_intervaled", json!(true)).with("smart_interval_quote_amount", json!("20"))).smart_quote_amount().is_none(),
-            "a string amount raises TypeError in Rails: never a number here");
+            "a string amount raises TypeError in 2.x: never a number here");
 }
 
 #[test]
-fn credentials_follow_rails_api_key_lookup() {
+fn credentials_follow_v2_api_key_lookup() {
     let (_d, o, s) = install();
     let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
-    o.primary.execute("UPDATE api_keys SET status = 2", []).unwrap(); // incorrect: Rails still uses it
+    o.primary.execute("UPDATE api_keys SET status = 2", []).unwrap(); // incorrect: 2.x still uses it
     let c = model::credentials_for(&o.primary, &seed::cipher(), &bot).unwrap().unwrap();
     assert_eq!(c.key, "test-key");
     o.primary.execute("DELETE FROM api_keys", []).unwrap();
@@ -114,7 +114,7 @@ fn an_unparseable_last_action_job_at_is_a_data_error() {
 }
 
 #[test]
-fn a_blank_limit_distance_is_rails_default_and_garbage_is_unreadable() {
+fn a_blank_limit_distance_is_v2_default_and_garbage_is_unreadable() {
     let (_d, o, s) = install();
     let read = |v: serde_json::Value| model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
         .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", v))).unwrap().limit_distance().map(|d| d.to_s_f());
@@ -206,11 +206,11 @@ fn a_safety_write_retries_busy_until_the_short_competing_transaction_commits() {
     assert_eq!(bot.run_generation(), 1);
 }
 
-/// Bot::PriceLimitable's readers (price_limitable.rb:131-169, after_initialize): on only at `== true`, the buy side's `||=`
+/// Bot::PriceLimitable's readers (after_initialize): on only at `== true`, the buy side's `||=`
 /// defaults, the sell side's read-time fallbacks, the stored action, ticker id and met_at.
 #[test]
-fn a_price_rule_reads_as_rails_reads_it() {
-    use deltabadger::ruby::Num;
+fn a_price_rule_reads_as_v2_reads_it() {
+    use deltabadger::v2::Num;
     let (_d, o, s) = install();
     let read = |spec: BotSpec, selling: bool| model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &spec)).unwrap().price_rule(selling);
     let base = || BotSpec::weekly(60.0, "2026-09-01 10:00:00");
@@ -227,10 +227,10 @@ fn a_price_rule_reads_as_rails_reads_it() {
     // Basket flip rules retain their action for the shared condition gate.
     assert_eq!(read(base().with("sell_price_limited", json!(true)).with("sell_price_limit_action", json!("start_buying")), true).unwrap().unwrap().action, "start_buying");
     assert_eq!(sell.met_at_us, Some("2026-09-02T10:00:00.123Z".parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_micros()));
-    // `||=` on the buy side: false takes the default; the sell side keeps a stored false, which Rails cannot compare.
+    // `||=` on the buy side: false takes the default; the sell side keeps a stored false, which 2.x cannot compare.
     assert_eq!(read(base().with("price_limited", json!(true)).with("price_limit", json!(false)), false).unwrap().unwrap().limit, Num::Int(1_000_000));
     assert!(read(base().with("sell_price_limited", json!(true)).with("sell_price_limit", json!(false)), true).is_err());
-    assert!(read(base().with("price_limited", json!(true)).with("price_limit", json!("100")), false).is_err(), "a string limit raises in Rails");
+    assert!(read(base().with("price_limited", json!(true)).with("price_limit", json!("100")), false).is_err(), "a string limit raises in 2.x");
 }
 
 /// `waiting` on a price rule is the pause itself, not a cut-short tick: unstick leaves it, and a waiting bot that is not
@@ -262,7 +262,7 @@ fn a_signal_bot_its_rules_and_its_waiting_calls_read_as_stored() {
     let b = model::load_bot(c, id).unwrap();
     assert_eq!(b.asset_ids(), vec![s.btc], "Bots::Signal#ticker: the one pair");
     assert_eq!(model::ticker_for(c, &b).unwrap().unwrap().ticker, "XBTEUR");
-    // Rails stores the amount in a NUMERIC column: 100 comes back an INTEGER, 0.5 a REAL.
+    // 2.x stores the amount in a NUMERIC column: 100 comes back an INTEGER, 0.5 a REAL.
     for (direction, kind, amount, enabled) in [(0, 0, "100", 1), (1, 1, "0.5", 0)] {
         c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, '2026-09-01 10:00:00', '2026-09-01 10:00:00')",
                   rusqlite::params![id, direction, kind, amount, enabled, format!("t{direction}")]).unwrap();

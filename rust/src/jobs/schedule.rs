@@ -1,4 +1,4 @@
-//! Rails' recurring schedules (config/recurring.yml, Fugit cron, UTC), derived the way the bots' checkpoints are
+//! 2.x's recurring schedules (config/recurring.yml, Fugit cron, UTC), derived the way the bots' checkpoints are
 //! (engine/schedule.rs): nothing is stored but each job's last success (state.rs), and the due time follows from it.
 //! Only the two cron shapes this app's jobs use.
 use chrono::{DateTime, Duration, NaiveTime, Timelike, Utc};
@@ -36,8 +36,8 @@ impl Schedule {
 }
 
 /// Seconds added to each fire, drawn afresh for every fire: `rand(min..=max)`. The fleet's jobs share one data-api, so
-/// Rails spreads its bulk pulls (sync_stocks_from_deltabadger_job.rb:20-36, fetch_all_assets_data_from_coingecko_job.rb:14-17,
-/// sync_all_tickers_and_assets_job.rb:5-9).
+/// 2.x spreads its bulk pulls (SyncStocksFromDeltabadgerJob, FetchAllAssetsDataFromCoingeckoJob,
+/// SyncAllTickersAndAssetsJob).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Jitter { pub min_secs: i64, pub max_secs: i64 }
 
@@ -50,9 +50,9 @@ impl Jitter {
 }
 
 /// When a scheduled job is first due in this process. If it has had no success since its latest fire, that fire was missed
-/// (Rails ran it, or nobody did, while this process did not own the install), and the job is due at that fire plus the
-/// draw. A draw already past means at once: Rails anchors the jitter to the cron tick, so a late start spends the window
-/// instead of extending it (sync_stocks_from_deltabadger_job.rb:89-102). Otherwise: the next fire plus the draw.
+/// (2.x ran it, or nobody did, while this process did not own the install), and the job is due at that fire plus the
+/// draw. A draw already past means at once: 2.x anchors the jitter to the cron tick, so a late start spends the window
+/// instead of extending it. Otherwise: the next fire plus the draw.
 pub fn first_due(s: Schedule, draw: Duration, last_success: Option<DateTime<Utc>>, now: DateTime<Utc>) -> DateTime<Utc> {
     let last = s.last_fire(now);
     if last_success.is_none_or(|t| t < last) { last + draw } else { s.next_fire(now) + draw }

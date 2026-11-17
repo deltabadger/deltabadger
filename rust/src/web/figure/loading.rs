@@ -16,7 +16,7 @@ pub enum Source { #[default] Live, Disabled, Script(Value),
 /// Ready: the cache, its stamp, the revision it was prepared against, where the database stood when that revision was
 /// read (`unchanged_since`), if on the connection that renders it, and until when (Unix seconds) its figures may be shown.
 /// Stale: the last ready figures, filled for an earlier revision (the cache, its stamp, that revision, until when), shown
-/// while the fill for the current one runs or waits, as Rails shows a bot's cached figures until its recompute
+/// while the fill for the current one runs or waits, as 2.x shows a bot's cached figures until its recompute
 /// overwrites them. Only the bots whose own rows are as they were then are shown (`stale_shown`).
 pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64,Option<Mark>,i64), Stale(Cache,At,u64,i64) }
 /// `credentials`: the Alpaca key market data is read with, if the account has one that can be read. `producer`: what its
@@ -27,7 +27,7 @@ pub(crate) struct Info { identity:String,revision:u64,mark:Mark,pub(crate) crede
 /// it wrote itself (total changes). Equal on that connection, nothing was written in between.
 pub type Mark=(i64,u64);
 fn mark(c:&Connection)->Result<Mark,rusqlite::Error> { Ok((c.query_row("PRAGMA data_version",[],|r|r.get(0))?,c.total_changes())) }
-/// What this account's figures were filled for, as values: the rows Rails' metrics cache is recomputed for (a bot's
+/// What this account's figures were filled for, as values: the rows 2.x's metrics cache is recomputed for (a bot's
 /// transactions, and the bot: its settings, status, venue, restatement, and the operation flags that hide its Sell and
 /// Redeploy controls), the account's own rows the figures read, and the reference data they read: the account's
 /// tickers (the composition's, wherever listed, and its venues' listings of the assets the bots' settings, compositions
@@ -61,8 +61,8 @@ fn hash_value(value:rusqlite::types::ValueRef<'_>,hash:&mut impl std::hash::Hash
 }
 /// What kept figures show besides their numbers, as values: the account's row and its wash-sale locks (`user`), and per
 /// bot its row with the operation flags, its index membership, and the listings of what it holds on its venue, whose
-/// minimum sizes decide its Sell links (holdings::render, Rails' sellable_holdings) (`bots`: id → [hash, has a
-/// submitted order, deleted]). Rails renders these on
+/// minimum sizes decide its Sell links (holdings::render, 2.x's sellable_holdings) (`bots`: id → [hash, has a
+/// submitted order, deleted]). 2.x renders these on
 /// every request around a bot's cached numbers; kept figures carry them rendered, so stale figures are shown only for
 /// the bots whose own values are as they were (`stale_shown`).
 // ponytail: a whole bot's row, not the columns its panels read; a write to any column shows that bot loading until refilled.
@@ -107,7 +107,7 @@ fn shape(c:&Connection,user:i64)->Result<Value,rusqlite::Error> {
 }
 fn shape_key(revision:u64)->String { serde_json::json!(["shape",revision]).to_string() }
 /// Stale figures as a page may show them: none if the account's own values moved; otherwise every bot whose own values
-/// are as they were when they were filled, the others left out (their panels show the loading state, as a bot Rails has
+/// are as they were when they were filled, the others left out (their panels show the loading state, as a bot 2.x has
 /// no cache for); and the headline only if no bot it would sum was left out, and every bot with an accepted order now
 /// has cached figures (User#global_pnl_snapshot: loading while a bot with a submitted order has no cache).
 fn stale_shown(mut shown:Value,then:&Value,now:&Value)->Option<Value> {
@@ -120,8 +120,8 @@ fn stale_shown(mut shown:Value,then:&Value,now:&Value)->Option<Value> {
         let at=after.get(id);
         if at.is_none_or(|v|v[2]==true || v[1]==true) { headline=false; }
     }
-    // Whatever its row: a live bot with an accepted order now and no cached figures then (none kept, or kept as Rails
-    // would not cache them) holds the headline back, as Rails' snapshot is loading.
+    // Whatever its row: a live bot with an accepted order now and no cached figures then (none kept, or kept as 2.x
+    // would not cache them) holds the headline back, as 2.x's snapshot is loading.
     if after.iter().any(|(id,v)|v[1]==true && v[2]!=true && shown["bots"][id.as_str()]["cached"]!=true) { headline=false; }
     if let Some(bots)=shown.get_mut("bots").and_then(Value::as_object_mut) { bots.retain(|id,_|!moved(id)); }
     if !headline { if let Some(figures)=shown.as_object_mut() { figures.remove("account"); figures.remove("account_page"); figures.remove("history_loading"); } }
@@ -234,7 +234,7 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     }
     Ok((hash.finish(),read))
 }
-/// What the account's figures are made under, read in one transaction. Every account has figures (Rails prices every
+/// What the account's figures are made under, read in one transaction. Every account has figures (2.x prices every
 /// venue's bots with no Alpaca key); one without a usable key reads every other venue, and its Alpaca reads are settled
 /// failures (its Alpaca bots stale). A failure to read the key is the read's failure: the caller's retry keeps the demand.
 /// An undecryptable key (this install's configuration, not a passing fault) is no usable key.
@@ -553,7 +553,7 @@ const PANEL_ATTEMPTS:usize=3;
 /// DcaMultiAsset#broadcast_metrics_panel after a settings commit, through the page figures' fill (`fill_result`): computed
 /// on the builder's connection under the compute permit, never on the writer's, with the account's kept prices (warm
 /// prices read no market). A write committed while it computes (the revision moved) recomputes it against the latest
-/// rows, and the last attempt publishes whatever it read: as Rails' after_update_commit always broadcasts, the page never
+/// rows, and the last attempt publishes whatever it read: as 2.x's after_update_commit always broadcasts, the page never
 /// keeps the panel of rows that are gone. No chart or other bot is published.
 /// `metrics`: false when the save moved only the rebalance rule, which owes the page its drift readout alone.
 pub(crate) fn broadcast_metrics_panel(ctx:&crate::web::layout::Ctx,id:i64,stream:String,metrics:bool)->Result<(),WebError> {
@@ -612,9 +612,9 @@ pub(crate) fn broadcast_metrics_panel(ctx:&crate::web::layout::Ctx,id:i64,stream
     Ok(())
 }
 
-/// The rebalance drift the account's last kept figures read for `bot`, as Rails' settings answer reads its cached
+/// The rebalance drift the account's last kept figures read for `bot`, as 2.x's settings answer reads its cached
 /// metrics_with_current_prices (`Some(None)`: they read none), or None while none are kept in this locale and paths.
-pub(crate) fn kept_drift(c:&Connection,app:&App,user:i64,bot:i64,locale:&str,prefix:&str)->Option<Option<crate::ruby::BigDec>> {
+pub(crate) fn kept_drift(c:&Connection,app:&App,user:i64,bot:i64,locale:&str,prefix:&str)->Option<Option<crate::v2::BigDec>> {
     if matches!(app.figure_source,Source::Disabled) { return None; }
     let info=read_info(c,app,user).ok()?;
     let (cache,_,revision)=app.figure_service.stale(user,&info.identity,app.now().timestamp())?;
@@ -623,7 +623,7 @@ pub(crate) fn kept_drift(c:&Connection,app:&App,user:i64,bot:i64,locale:&str,pre
     let kept=kept["figures"]["bots"][bot.to_string()].get("rebalance_drift")?;
     if kept[1].as_str()!=Some(super::rebalance_inputs(c,bot).ok()?.as_str()) { return None; }
     match &kept[0] {
-        Value::String(drift)=>crate::ruby::BigDec::parse(drift).ok().map(Some),
+        Value::String(drift)=>crate::v2::BigDec::parse(drift).ok().map(Some),
         _=>Some(None),
     }
 }
@@ -671,7 +671,7 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         let unchanged=credentials && matches!(current,Ok(ref current) if current.revision==info.revision);
         cache.set_stamp(now);
         // A bot left without figures after a transient price read (`figure::computed`'s `raised`): these figures last only
-        // the price's minute, so the next read fills again and asks the quote afresh, as Rails retries its metrics job.
+        // the price's minute, so the next read fills again and asks the quote afresh, as 2.x retries its metrics job.
         let retry=matches!(&result,Ok(rendered) if rendered.iter().any(|(_,(figures,_),_)|figures["raised"].is_array() || figures["retry"]==true));
         let retry_at=now.utc().timestamp().saturating_add(crate::figures::page_market::PRICE_TTL);
         let (ready,reason,deadline)=match result {
@@ -778,7 +778,7 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
     }
     Ok(Some(serde_json::json!({"bots":bots,"account":absent("global-pnl")})))
 }
-/// What a page shows: the kept figures, or None (Rails' loading state) while they are not kept, and then the queue makes
+/// What a page shows: the kept figures, or None (2.x's loading state) while they are not kept, and then the queue makes
 /// and publishes them in the page's locale and paths.
 pub fn render_page(app:&App,c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,prefix:&str)->Result<Option<Value>,WebError>{
     let shown=render(c,user,snapshot,locale,csrf,prefix,&*app.clock)?;
@@ -786,9 +786,9 @@ pub fn render_page(app:&App,c:&Connection,user:i64,snapshot:&Snapshot,locale:&st
     Ok(shown)
 }
 /// Puts the user's figures on their streams (`figure::streams`): every tile, each bot page's metrics and chart, and the
-/// account headline. Each is rendered as Rails renders a broadcast: in the user's locale and under its paths
+/// account headline. Each is rendered as 2.x renders a broadcast: in the user's locale and under its paths
 /// (Bot#with_user_locale, ApplicationController#default_url_options), with no token in a form (the renderer has no
-/// session). Rails broadcasts what was asked for; one publication carries every target, each payload Rails' own.
+/// session). 2.x broadcasts what was asked for; one publication carries every target, each payload 2.x's own.
 /// While a fill is in flight nothing is published: the user is noted as waiting, and the fill's end publishes.
 pub async fn publish(app:&App,user:i64)->Result<(),WebError>{
     publish_with(app.clone(),user).await.map(|_|())
@@ -938,7 +938,7 @@ const QUEUE_POLL:Duration=Duration::from_secs(1);
 const BACKOFF:Duration=Duration::from_millis(250);
 const RETRIES:u32=5;
 /// The `figures` service of `deltabadger serve`: an order the engine recorded or wrote changes its bot's figures, and
-/// Rails then broadcasts them (Bot::UpdateMetricsJob). Two parts in one future. One reads the engine's queue as fast as
+/// 2.x then broadcasts them (Bot::UpdateMetricsJob). Two parts in one future. One reads the engine's queue as fast as
 /// it fills and only marks the bot (`Service::mark`: O(1), one mark per bot, never waiting), so nothing accumulates
 /// there while a publication runs. The other wakes on a mark, gathers the burst for `COALESCE`, and publishes each
 /// owner once. A write moved the revision, so a publication starts a fill and its end publishes. Returns once a stop is
@@ -988,7 +988,7 @@ pub async fn follow(app:App,mut events:tokio::sync::mpsc::UnboundedReceiver<crat
             for user in owners { if publish(&app,user).await.is_err() { failed_owners.push(user); } }
             if failed_bots.is_empty() && failed_owners.is_empty() { failures=0; continue; }
             failures+=1;
-            // ponytail: RETRIES attempts, then the demand waits for the next order or page request, as Rails' job would.
+            // ponytail: RETRIES attempts, then the demand waits for the next order or page request, as 2.x's job would.
             if failures>RETRIES { failures=0; continue; }
             tokio::time::sleep(BACKOFF*2u32.pow(failures-1)).await;
             for bot in failed_bots { service.mark(bot); }

@@ -1,9 +1,9 @@
-//! Venue::candles against Exchange#get_indicator_candles as Rails answers the same bodies (script/rust/record_candles.rb):
+//! Venue::candles against Exchange#get_indicator_candles as 2.x answers the same bodies:
 //! the candles it returns (CandleBuilder's built ones included), its Failure, or its raise, and every request in order.
 //! Kraken first (slice 7b-1), then Binance, Binance.US and Alpaca (stocks and crypto), then every other venue that trades.
 use deltabadger::engine::candles::{Candle, Timeframe};
 use deltabadger::engine::model::Ticker;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls};
 use deltabadger::venue::binance::BinanceVenue;
 use deltabadger::venue::http::{self, HttpRequest, HttpResponse, ScriptedTransport, Transport, TransportError};
@@ -29,9 +29,9 @@ fn fixture(venue: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
-/// D-COND-CANDLE-UNREADABLE: a price Rails' `to_d` reads as 0.0 (null, a word, blank) is unreadable here, and so is a
+/// D-COND-CANDLE-UNREADABLE: a price 2.x's `to_d` reads as 0.0 (null, a word, blank) is unreadable here, and so is a
 /// time that is no whole number (a fraction `Time.at` or `to_i` takes, a null or word `to_i` reads as 1970), a row that
-/// is no row (Integer#[] reads bits of a number; Array() makes pairs of an object) and Bybit's null `retMsg`; Rails
+/// is no row (Integer#[] reads bits of a number; Array() makes pairs of an object) and Bybit's null `retMsg`; 2.x
 /// returns a candle (or its Failure, or none once its start filter drops a 1970 candle), Rust refuses the answer. Every
 /// other case agrees exactly.
 const UNREADABLE: &[(&str, &str)] = &[("kraken", "row_open_null"), ("kraken", "row_open_word"), ("kraken", "row_close_blank"), ("kraken", "row_time_float"),
@@ -48,12 +48,12 @@ const UNREADABLE: &[(&str, &str)] = &[("kraken", "row_open_null"), ("kraken", "r
     ("hyperliquid", "row_open_null"), ("hyperliquid", "row_open_word"), ("hyperliquid", "row_close_blank"), ("hyperliquid", "row_time_float"), ("hyperliquid", "row_time_null"), ("hyperliquid", "row_time_word"),
     ("coinbase", "row_open_null"), ("coinbase", "row_open_word"), ("coinbase", "row_close_blank"), ("coinbase", "row_time_float"), ("coinbase", "row_time_null"), ("coinbase", "row_time_word"),
     ("bingx", "row_open_null"), ("bingx", "row_open_word"), ("bingx", "row_close_blank"), ("bingx", "row_time_float"), ("bingx", "row_time_null"), ("bingx", "row_time_word"), ("bingx", "json_array"),];
-/// D-COND-CANDLE-ERROR-ENVELOPE: an answer whose code is not the venue's success is its refusal here; Rails reads the
+/// D-COND-CANDLE-ERROR-ENVELOPE: an answer whose code is not the venue's success is its refusal here; 2.x reads the
 /// missing rows as no candles.
 const ENVELOPE: &[(&str, &str)] = &[("kucoin", "error_envelope"), ("kucoin", "json_object"), ("bitget", "error_envelope"), ("bitget", "json_object"),
     ("bingx", "error_envelope"), ("bingx", "json_object")];
 /// Spec E §2.10 (each adapter's `answer`): HTTP 429 (and Binance's 418) on a read is a throttle that names the venue's
-/// rate-limit text; Rails fails it with the body.
+/// rate-limit text; 2.x fails it with the body.
 const THROTTLED: &[(&str, &str, &str)] = &[("kraken", "http_429", "EAPI:Rate limit exceeded"), ("binance", "http_418", "rate limit exceeded"),
     ("binance", "http_429", "rate limit exceeded"), ("binance_us", "http_429", "rate limit exceeded"), ("bitrue", "http_429", "Too Many Requests"),
     ("bingx", "http_429", "Too Many Requests")];
@@ -80,7 +80,7 @@ fn row(c: &Candle) -> Value {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn every_recorded_candle_read_is_answered_as_rails_answers_it() {
+async fn every_recorded_candle_read_is_answered_as_v2_answers_it() {
     let (mut failures, mut unreadable, mut envelope, mut throttled, mut total) = (vec![], 0, 0, 0, 0);
     for &(venue, count) in VENUES {
         let fixture = fixture(venue);
@@ -118,14 +118,14 @@ async fn every_recorded_candle_read_is_answered_as_rails_answers_it() {
             // A POST is recorded with its body (Hyperliquid).
             let requests: Vec<String> = transport.requests().iter()
                 .map(|r| match &r.body { Some(b) => format!("{} {b}", http::request_key(r)), None => http::request_key(r) }).collect();
-            if Value::from(requests.clone()) != case["requests"] { failures.push(format!("{venue} {name}: requested {requests:?}, Rails {}", case["requests"])); }
+            if Value::from(requests.clone()) != case["requests"] { failures.push(format!("{venue} {name}: requested {requests:?}, 2.x {}", case["requests"])); }
             let network = case["http"].as_object().unwrap().values().flat_map(|r| r.as_array().unwrap()).any(|r| r.get("network").is_some());
             let listed = |list: &[(&str, &str)]| list.contains(&(venue, name));
             let ok = match (&got, case.get("candles"), case.get("failure"), case.get("raised")) {
-                // Rails answers candles (or, where it reads such a row as none, its Failure); Rust refuses.
+                // 2.x answers candles (or, where it reads such a row as none, its Failure); Rust refuses.
                 (Err(VenueError::Ambiguous(_)), _, _, _) if listed(UNREADABLE) => { unreadable += 1; true }
-                (Err(VenueError::Rejected(_)), Some(rails), _, _) if listed(ENVELOPE) => { envelope += 1; rails == &Value::Array(vec![]) }
-                (Ok(candles), Some(rails), _, _) => Value::from(candles.iter().map(row).collect::<Vec<_>>()) == *rails,
+                (Err(VenueError::Rejected(_)), Some(v2), _, _) if listed(ENVELOPE) => { envelope += 1; v2 == &Value::Array(vec![]) }
+                (Ok(candles), Some(v2), _, _) => Value::from(candles.iter().map(row).collect::<Vec<_>>()) == *v2,
                 // honeymaker returns a transport failure as a Failure; the engine reads it as a transient read failure.
                 // honeymaker returns it; Clients::Alpaca raises Client::TransientNetworkError.
                 (Err(VenueError::Transient(_)), _, Some(_), _) => network,
@@ -134,12 +134,12 @@ async fn every_recorded_candle_read_is_answered_as_rails_answers_it() {
                     throttled += 1;
                     THROTTLED.iter().any(|(v, n, text)| (*v, *n) == (venue, name) && e[0].contains(text))
                 }
-                (Err(e @ (VenueError::Rejected(_) | VenueError::Unauthorized(_) | VenueError::Coded { .. })), _, Some(rails), _) => !network && Value::from(e.rejection().unwrap().to_vec()) == *rails,
-                // Rails' KeyError keeps its text ("Key path error not found"); any other raise is the adapter's unreadable answer.
+                (Err(e @ (VenueError::Rejected(_) | VenueError::Unauthorized(_) | VenueError::Coded { .. })), _, Some(v2), _) => !network && Value::from(e.rejection().unwrap().to_vec()) == *v2,
+                // 2.x's KeyError keeps its text ("Key path error not found"); any other raise is the adapter's unreadable answer.
                 (Err(VenueError::Ambiguous(m)), _, _, Some(raised)) => raised != "KeyError" || case["message"] == *m,
                 _ => false,
             };
-            if !ok { failures.push(format!("{venue} {name}: rust {got:?}\n  rails {}", Value::Object(case.as_object().unwrap().clone()))); }
+            if !ok { failures.push(format!("{venue} {name}: rust {got:?}\n  2.x {}", Value::Object(case.as_object().unwrap().clone()))); }
         }
     }
     assert!(failures.is_empty(), "{} of {total} cases differ:\n{}", failures.len(), failures.join("\n"));
@@ -161,8 +161,8 @@ async fn a_venue_without_candles_refuses() {
     assert!(matches!(got, Err(VenueError::Rejected(_))), "{got:?}");
 }
 
-/// D-COND-CANDLE-CAP: Rails walks Binance's, Bitget's, Bybit's, MEXC's and Coinbase's pages, and follows Alpaca's tokens,
-/// without end; past MAX_CANDLE_PAGES pages the read is a settled failure. (Rails cannot record it: the same answer every
+/// D-COND-CANDLE-CAP: 2.x walks Binance's, Bitget's, Bybit's, MEXC's and Coinbase's pages, and follows Alpaca's tokens,
+/// without end; past MAX_CANDLE_PAGES pages the read is a settled failure. (2.x cannot record it: the same answer every
 /// time never ends its walk.) Bitrue's and Bitvavo's backward walks end on a page no older than the last, so a repeated
 /// answer ends them; their cap holds only against a venue that keeps answering older pages.
 #[tokio::test(flavor = "current_thread")]
@@ -207,7 +207,7 @@ async fn an_endless_walk_is_a_settled_failure() {
     assert_eq!(coinbase_wire.requests().len(), 1000);
 }
 
-/// KuCoin's walk is capped in Rails (Exchange::MAX_CANDLE_PAGES): past it Rails returns what it read, and so does Rust.
+/// KuCoin's walk is capped in 2.x (Exchange::MAX_CANDLE_PAGES): past it 2.x returns what it read, and so does Rust.
 #[tokio::test(flavor = "current_thread")]
 async fn kucoins_capped_walk_returns_what_it_read() {
     let now = chrono::DateTime::parse_from_rfc3339("2026-09-02T10:00:01Z").unwrap().to_utc();
@@ -218,7 +218,7 @@ async fn kucoins_capped_walk_returns_what_it_read() {
     assert_eq!((got.len(), wire.requests().len()), (1, 1000));
 }
 
-/// D-COND-CANDLE-COINBASE-EMPTY-WINDOW: after a window with candles, an empty one moves on from its end; Rails asks the
+/// D-COND-CANDLE-COINBASE-EMPTY-WINDOW: after a window with candles, an empty one moves on from its end; 2.x asks the
 /// same window again without end (unrecordable).
 #[tokio::test(flavor = "current_thread")]
 async fn coinbase_moves_past_an_empty_window() {

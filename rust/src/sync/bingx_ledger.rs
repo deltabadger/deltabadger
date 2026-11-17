@@ -1,8 +1,8 @@
 //! BingX B6–B8 on the shared continuation kit. Transfers precede pair discovery; S2's seven-day
-//! trade reach is preserved. D-BINGX-PAGE names the failed endpoint instead of Rails' undefined `path`.
+//! trade reach is preserved. D-BINGX-PAGE names the failed endpoint instead of 2.x's undefined `path`.
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
-use super::binance_ledger::{amount, entry, page_of, ruby_time_at_ms, text, Fail};
-use super::bitrue_ledger::listing_field as index; // Ruby's `value['key']`
+use super::binance_ledger::{amount, entry, page_of, v2_time_at_ms, text, Fail};
+use super::bitrue_ledger::listing_field as index; // 2.x's `value['key']`
 use super::ledger::Outcome;
 use super::wire::Node;
 use super::{capture_bound_version, continuation, load_key_of, phase, Failure, Key, SyncError};
@@ -10,7 +10,7 @@ use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::jobs::Db;
 use crate::venue::bingx::{BingxVenue, ACCOUNT_PATH, BINGX, URL};
-use crate::venue::bitvavo::ruby_ms;
+use crate::venue::bitvavo::v2_ms;
 use crate::venue::http::Transport;
 use chrono::{Duration, Utc};
 use serde_json::{json, Value};
@@ -26,7 +26,7 @@ const WINDOW: i64 = 90 * 86_400_000;
 const REACH: i64 = 7 * 86_400_000 - 300_000;
 fn to_i(v: &Value) -> i64 {
     match v {
-        Value::String(s) => crate::ruby::to_i(s),
+        Value::String(s) => crate::v2::to_i(s),
         Value::Number(n) => n
             .as_i64()
             .unwrap_or_else(|| n.as_f64().unwrap_or_default() as i64),
@@ -56,7 +56,7 @@ fn rows(n: Option<&Node>) -> Result<Vec<String>, Fail> {
         _ => Err(("BingX ledger read failed: unreadable rows".into(), false)),
     }
 }
-/// Ruby's `hash.dig('data', key)` on an answer whose `['code']` already read: a nested non-Hash raises as Ruby does.
+/// 2.x's `hash.dig('data', key)` on an answer whose `['code']` already read: a nested non-Hash raises as 2.x does.
 fn dig(v: &Value, key: &str) -> Result<Value, Fail> {
     let data = match v {
         Value::Object(m) => m.get("data").cloned().unwrap_or(Value::Null),
@@ -74,7 +74,7 @@ fn dig(v: &Value, key: &str) -> Result<Value, Fail> {
     };
     Err((format!("TypeError: {class} does not have #dig method"), true))
 }
-/// Ruby's `Array(v)`.
+/// 2.x's `Array(v)`.
 fn array(v: Value) -> Vec<Value> {
     match v {
         Value::Null => vec![],
@@ -83,11 +83,11 @@ fn array(v: Value) -> Vec<Value> {
         scalar => vec![scalar],
     }
 }
-/// Ruby's `v.to_d.positive?`.
+/// 2.x's `v.to_d.positive?`.
 fn positive(v: &Value) -> Result<bool, Fail> {
     match v {
         Value::Bool(_) | Value::Array(_) | Value::Object(_) => Err((format!("NoMethodError: undefined method 'to_d' for {}", crate::web::launchpad::receiver(v)), true)),
-        v => Ok(crate::ruby::json_to_d(v).ok().flatten().is_some_and(|n| n.is_positive())),
+        v => Ok(crate::v2::json_to_d(v).ok().flatten().is_some_and(|n| n.is_positive())),
     }
 }
 fn value(n: &Node) -> Result<Value, Fail> {
@@ -116,11 +116,11 @@ fn transfer(r: Raw, deposit: bool) -> Result<Entry, Fail> {
         coin
     };
     let at = if deposit {
-        ruby_time_at_ms(to_i(&r.value["insertTime"]))
+        v2_time_at_ms(to_i(&r.value["insertTime"]))
     } else {
         let time = field(&r.value, "applyTime");
         if time.bytes().all(|b| b.is_ascii_digit()) {
-            ruby_time_at_ms(crate::ruby::to_i(&time))
+            v2_time_at_ms(crate::v2::to_i(&time))
         } else {
             chrono::DateTime::parse_from_rfc3339(&time)
                 .map(|t| t.with_timezone(&Utc))
@@ -150,7 +150,7 @@ fn transfer(r: Raw, deposit: bool) -> Result<Entry, Fail> {
 }
 fn trade(symbol: &str, r: Raw) -> Result<Entry, Fail> {
     let (base, quote) = symbol.split_once('-').unwrap_or((symbol, ""));
-    let at = ruby_time_at_ms(to_i(&r.value["time"]))
+    let at = v2_time_at_ms(to_i(&r.value["time"]))
         .ok_or_else(|| ("unreadable trade time".into(), true))?;
     let buy = !matches!(
         r.value.get("isBuyer"),
@@ -167,8 +167,8 @@ fn trade(symbol: &str, r: Raw) -> Result<Entry, Fail> {
     e.quote_amount = Some(amount(&r, "quoteQty", "trade")?);
     e.fee_currency = text(r.value.get("commissionAsset"));
     let fee = amount(&r, "commission", "trade")?;
-    e.fee_amount = Some(if fee < crate::ruby::BigDec::zero() {
-        &crate::ruby::BigDec::zero() - &fee
+    e.fee_amount = Some(if fee < crate::v2::BigDec::zero() {
+        &crate::v2::BigDec::zero() - &fee
     } else {
         fee
     });
@@ -255,7 +255,7 @@ impl<'a, T: Transport> Walk<'a, T> {
         clock: &'a dyn Clock,
         begin: continuation::Begin<'_>,
     ) -> Self {
-        let start = ruby_ms(
+        let start = v2_ms(
             begin
                 .start
                 .unwrap_or_else(|| "2018-01-01T00:00:00Z".parse().expect("BingX opening")),
@@ -278,7 +278,7 @@ impl<'a, T: Transport> Walk<'a, T> {
             key,
             clock,
             start,
-            end: ruby_ms(begin.end),
+            end: v2_ms(begin.end),
             c,
         }
     }
@@ -383,7 +383,7 @@ impl<'a, T: Transport> Walk<'a, T> {
                 false,
             ));
         }
-        // As Rails reads it: an answer of another shape raises before any pair is skipped.
+        // As 2.x reads it: an answer of another shape raises before any pair is skipped.
         for bal in array(dig(&v, "balances")?) {
             if positive(&index(&bal, "free")?)? || positive(&index(&bal, "locked")?)? {
                 if let Value::String(asset) = index(&bal, "asset")? {
@@ -433,7 +433,7 @@ impl<'a, T: Transport> Walk<'a, T> {
         let symbol = self.c.pairs[self.c.pair].clone();
         // myTrades serves seven days back from the moment it is asked: the reach is taken now, not when the
         // import began, and a range kept by an earlier run is clamped to it before it is sent.
-        let reach = self.start.max(ruby_ms(self.clock.now()) - REACH);
+        let reach = self.start.max(v2_ms(self.clock.now()) - REACH);
         if self.c.ranges.is_empty() {
             self.c.ranges.push((reach, self.end));
         }

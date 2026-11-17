@@ -5,7 +5,7 @@ use common::seed::{self, BotSpec, TxSpec};
 use deltabadger::engine::tick::{self, Attempts, TickOutcome};
 use deltabadger::engine::{amount, model, placement, polling, FixedClock};
 use deltabadger::enums::BotStatus;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store;
 use serde_json::{json, Value};
 
@@ -34,7 +34,7 @@ fn filled(id: &str, quote_exec_qty: &str) -> Value {
 }
 
 #[test]
-fn the_tally_counts_each_bucket_as_rails_does() {
+fn the_tally_counts_each_bucket_as_v2_does() {
     let (_d, o, s) = common::install_alpaca();
     let id = seed::insert_bot(&o.primary, &s, &limited(json!(500.0)));
     for t in [
@@ -51,7 +51,7 @@ fn the_tally_counts_each_bucket_as_rails_does() {
 }
 
 /// B2-1: a closed NULL quote with known quantity/price normalizes to its exact cost.
-/// Rails #503 returns nil; normalized engine accounting must still credit both $60 fills.
+/// 2.x #503 returns nil; normalized engine accounting must still credit both $60 fills.
 #[test]
 fn a_closed_buy_with_reconstructable_cost_counts_toward_the_cap() {
     let (_d, o, s) = common::install_alpaca();
@@ -83,7 +83,7 @@ async fn an_unresolved_intent_counts_as_spent_and_no_tick_sizes_past_it() {
     let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }], "GET /v2/orders:by_client_order_id": [not_found()] }));
     let v = venue(&t);
     assert!(matches!(tick::tick(&o.primary, &v, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap(), TickOutcome::AwaitingReconciliation));
-    // The order may have landed, so its whole quote counts until it is settled. Rails, with no row, would say 100.
+    // The order may have landed, so its whole quote counts until it is settled. 2.x, with no row, would say 100.
     assert_eq!(available(&o, id), Some(bd("40")));
     // No tick sizes while the intent is unresolved, so the term never binds a sizing; pinned anyway.
     let out = tick::tick(&o.primary, &v, id, &FixedClock(at(T0) + Duration::minutes(5)), &mut Attempts::default()).await.unwrap();
@@ -112,7 +112,7 @@ async fn the_cap_cuts_the_order_to_what_is_left_and_nothing_left_is_no_order() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_remainder_under_the_venue_minimum_is_skipped_once_and_stops_the_bot() {
-    // D-CAP-REMAINDER-STOP: 0.40 left is over Rails' 0.01 precision floor, so Rails skips it at every checkpoint and never
+    // D-CAP-REMAINDER-STOP: 0.40 left is over 2.x's 0.01 precision floor, so 2.x skips it at every checkpoint and never
     // stops. Its whole remainder has no leg the venue takes, so the engine reports the skipped leg and stops the bot with the
     // amount-limit stop and its mail; the next checkpoint sends nothing.
     let (_d, o, s) = common::install_alpaca();
@@ -223,7 +223,7 @@ async fn a_swept_fill_that_spends_the_cap_stops_the_bot_after_the_tick_as_bot_st
     // A week on: 120 owed − 60 = 60, cut to the 0.005 the cap leaves.
     let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at("2026-09-08T10:00:00.5Z")), &mut Attempts::default()).await.unwrap();
     assert!(matches!(out, TickOutcome::Done { placed: false }), "{out:?}");
-    // Rails' Bot::StopJob runs after the run whose sweep committed the fill: that run still sizes the 0.005 left (under the
+    // 2.x's Bot::StopJob runs after the run whose sweep committed the fill: that run still sizes the 0.005 left (under the
     // venue minimum: a skipped row and an order_skipped warning), and only then is the bot stopped.
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions WHERE status = 2"), 1);
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'order_skipped'"), 1);
@@ -295,7 +295,7 @@ async fn a_basket_whose_swept_fill_spends_the_cap_places_no_leg_and_stops_once_a
 }
 
 /// Accepted divergence: an unresolved leg's intent counts as spent. A fill that brings the tally to the cap with that intent
-/// stops the bot, and when the leg later proves never placed the bot stays stopped below its cap. Rails has no row for the
+/// stops the bot, and when the leg later proves never placed the bot stays stopped below its cap. 2.x has no row for the
 /// leg, so its fill leaves the cap unreached and it keeps buying.
 #[tokio::test(flavor = "current_thread")]
 async fn a_stop_that_counted_an_intent_later_proved_never_placed_stays_a_stop() {
@@ -327,7 +327,7 @@ async fn a_stop_that_counted_an_intent_later_proved_never_placed_stays_a_stop() 
 }
 
 /// A tick that fails with a plain database error after its sweep spent the cap still runs the stop the sweep counted, as
-/// Rails' Bot::StopJob runs whatever the run's own outcome.
+/// 2.x's Bot::StopJob runs whatever the run's own outcome.
 #[tokio::test(flavor = "current_thread")]
 async fn a_swept_stop_lands_when_the_tick_then_fails_on_the_database() {
     let (_d, o, s) = common::install_alpaca();
@@ -348,7 +348,7 @@ async fn a_swept_stop_lands_when_the_tick_then_fails_on_the_database() {
 }
 
 /// A stop an earlier tick counted but could not run (its database error outlasted the tick) lands before the next tick sizes
-/// anything: Rails' Bot::StopJob ran long before that checkpoint, which therefore writes no skipped row.
+/// anything: 2.x's Bot::StopJob ran long before that checkpoint, which therefore writes no skipped row.
 #[tokio::test(flavor = "current_thread")]
 async fn a_stop_left_pending_by_an_earlier_tick_lands_before_the_next_tick_sizes() {
     let (_d, o, s) = common::install_alpaca();
@@ -379,7 +379,7 @@ async fn counted_stop() -> (tempfile::TempDir, store::Opened, i64) {
 fn stops(o: &store::Opened) -> i64 { one(o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'") }
 fn pending(o: &store::Opened) -> Option<String> { one(o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending') FROM bots") }
 
-/// Rails' Bot::StopJob ran right after the fill, long before the user started the bot afresh; a stop counted before that
+/// 2.x's Bot::StopJob ran right after the fill, long before the user started the bot afresh; a stop counted before that
 /// start is not run on the restarted bot.
 #[tokio::test(flavor = "current_thread")]
 async fn a_counted_stop_is_discarded_after_a_fresh_start() {
@@ -442,7 +442,7 @@ async fn a_recovered_fill_that_spends_the_cap_owes_the_limit_mail_with_its_stop(
     assert!(b.transient.get(deltabadger::engine::notice::LIMIT).is_some(), "the limit mail is owed: {}", b.transient);
 }
 
-// ---- 6a: the buy cap is direction-aware (quote_amount_limitable.rb:106; placement and intents count buys only)
+// ---- 6a: the buy cap is direction-aware (placement and intents count buys only)
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_late_buy_fill_after_a_flip_into_selling_does_not_stop_the_seller() {
@@ -483,7 +483,7 @@ fn an_exhausted_buy_cap_never_trims_a_sell_at_placement() {
     assert_eq!((intent.plan.volume.clone(), intent.plan.quote_amount.clone()), (plan.volume.clone(), plan.quote_amount.clone()), "untrimmed");
 }
 
-// ---- 6b T1: a REBALANCE order is not a contribution (Bot::OrderCreator#order_identity_values; Rails scopes the carry, the
+// ---- 6b T1: a REBALANCE order is not a contribution (Bot::OrderCreator#order_identity_values; 2.x scopes the carry, the
 // spend cap and the pending-buy spending to 'REGULAR').
 
 fn buy_plan(o: &store::Opened, bot: &model::Bot, kind: amount::TxKind) -> amount::OrderPlan {
@@ -592,7 +592,7 @@ fn sized(o: &store::Opened, bot: &model::Bot, venue: &str, x: &str, form: Form) 
     let ticker = model::ticker_for(&o.primary, bot).unwrap().unwrap();
     let rules = deltabadger::engine::venue_rules::for_exchange(venue).unwrap();
     let amount::Sizing::Place(plan) = amount::size(bot, &ticker, &bd(x), &bd(form_price(form)), rules).unwrap() else { panic!("{venue} {form:?} {x}: sized to place") };
-    assert_eq!(plan.quote_type, form == Form::Quote, "{venue} {form:?}: Rails sizes this form");
+    assert_eq!(plan.quote_type, form == Form::Quote, "{venue} {form:?}: 2.x sizes this form");
     plan
 }
 
@@ -601,7 +601,7 @@ fn sized(o: &store::Opened, bot: &model::Bot, venue: &str, x: &str, form: Form) 
 #[test]
 fn the_exact_cap_guard_trims_every_crypto_order_form_and_checks_the_venues_whole_minimum() {
     for (venue, pair) in CRYPTO {
-        // Every limit buy is :base_and_quote_in_base (Kraken's since D-KRAKEN-LIMIT-COSTMIN; Rails' Kraken checks ordermin only).
+        // Every limit buy is :base_and_quote_in_base (Kraken's since D-KRAKEN-LIMIT-COSTMIN; 2.x's Kraken checks ordermin only).
         for form in [Form::Quote, Form::Base, Form::Limit] {
             let cells: Vec<Cell> = match form {
                 Form::Quote => vec![("trim", "80", "20.03", Some(("20", "20"))), ("minimum", "95", "5.02", Some(("5", "5"))), ("below", "95.01", "5.02", None)],
@@ -776,14 +776,14 @@ fn sell_row(id: &str, external_status: i64, amount: &str, exec: Option<&str>) ->
 fn base_left(o: &store::Opened, id: i64) -> (String, bool) {
     use deltabadger::engine::accounting;
     let bot = model::load_bot(&o.primary, id).unwrap();
-    // Compared by value: Rails' remainder is a BigDecimal (0 prints as "0.0"), or the Integer 0 when it went negative.
+    // Compared by value: 2.x's remainder is a BigDecimal (0 prints as "0.0"), or the Integer 0 when it went negative.
     let left = accounting::base_amount_available_num(&o.primary, &bot).unwrap().expect("the cap is on").to_dec().unwrap();
     let left = if left.is_zero() { "0".to_string() } else { left.to_s_f() };
     (left, accounting::base_amount_limit_reached(&o.primary, &bot).unwrap())
 }
 
 /// D-6D-3: a sell that reported nothing, or part, of its 0.01 and was then abandoned still holds the whole 0.01 of a 0.01
-/// cap, so the next tick sells nothing and asks the venue nothing (Rails counts the reported exec only and reopens the rest).
+/// cap, so the next tick sells nothing and asks the venue nothing (2.x counts the reported exec only and reopens the rest).
 /// Once polling settles it as cancelled, its exec is what it sold, and the tick after that sells again.
 #[tokio::test(flavor = "current_thread")]
 async fn zero_and_partial_reported_exec_then_abandoned_then_another_tick_sells_nothing_past_the_cap() {
@@ -1012,7 +1012,7 @@ async fn a_recovered_sell_fill_that_uses_the_cap_stops_the_bot() {
     assert!(base_mail(&o).is_some());
 }
 
-/// D-6D-1: the mail states the cap at the base's precision with its zeros trimmed (Rails prints the Float: "1.0e-05", "2.0").
+/// D-6D-1: the mail states the cap at the base's precision with its zeros trimmed (2.x prints the Float: "1.0e-05", "2.0").
 #[test]
 fn the_base_mail_states_the_cap_at_base_precision() {
     use deltabadger::mail::render::base_cap_amount;

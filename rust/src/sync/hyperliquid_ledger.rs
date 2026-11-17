@@ -1,9 +1,9 @@
 //! AccountTransaction::SyncJob for a Hyperliquid key (plan VB slice B1): Exchanges::Hyperliquid#get_ledger (post-audit
 //! H5-H7) on the venue continuation (sync::continuation), then AccountTransactionSync#store! and TransferMatcher.run! as
 //! ledger.rs ports them. Read only: POSTs to /info naming the account's address (the API key). Rows, tx_ids (a fill's `tid`,
-//! an update's `hash`), fees and raw_data are Rails' (rust/tests/sync_parity.rs, the `hyperliquid-ledger-` scenarios).
+//! an update's `hash`), fees and raw_data are 2.x's (rust/tests/sync_parity.rs, the `hyperliquid-ledger-` scenarios).
 //!
-//! As Rails reads it (#read_by_time): every fill from userFillsByTime, then every update from userNonFundingLedgerUpdates,
+//! As 2.x reads it (#read_by_time): every fill from userFillsByTime, then every update from userNonFundingLedgerUpdates,
 //! each from `startTime` = the watermark less 25 hours in ms (0 on a first sync). The next page starts at the newest `time`
 //! of the one before, so the rows of that millisecond are read again; identical rows (by content, Hash#eql?) are counted,
 //! a row kept as often as the page that holds it most; a page shorter than the read's limit (2000 fills, 500 updates) ends
@@ -15,19 +15,19 @@
 //! Across runs (plan VB §1.6): the cursor holds the read, the next page's `startTime` and the counts of the rows at that
 //! millisecond (the only rows a later page can serve again), so a resumed walk neither doubles a boundary row nor loses a
 //! duplicate. Rows are handed to the store as each page first proves them (a later page holding more copies hands the
-//! difference); the store dedupes as one store over Rails' whole fetch does.
+//! difference); the store dedupes as one store over 2.x's whole fetch does.
 //!
-//! Where it reads more strictly than Rails (as binance_ledger does): an unreadable amount fails the sync (Rails stores a
-//! garbage amount as 0), and an answer that is not a list fails it (Rails' `Array(...)` walks a Hash's pairs and raises).
+//! Where it reads more strictly than 2.x (as binance_ledger does): an unreadable amount fails the sync (2.x stores a
+//! garbage amount as 0), and an answer that is not a list fails it (2.x's `Array(...)` walks a Hash's pairs and raises).
 use super::activities::{Entry, Raw, AIRDROP, BUY, DEPOSIT, SELL, WITHDRAWAL};
-use super::binance_ledger::{amount, entry, objects, page_of, ruby_time_at_ms, Fail};
+use super::binance_ledger::{amount, entry, objects, page_of, v2_time_at_ms, Fail};
 use super::continuation;
 use super::ledger::Outcome;
 use super::{capture_bound_version, load_key_of, phase, Failure, SyncError};
 use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::jobs::Db;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::http::Transport;
 use crate::venue::hyperliquid::{HyperliquidVenue, FILLS_PAGE, HYPERLIQUID, TIME_PAGE, URL};
 use chrono::Duration;
@@ -36,21 +36,21 @@ use serde_json::{json, Value};
 pub const OVERLAP_HOURS: i64 = 25;
 pub const MAX_PAGE_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_PAGE_NODES: usize = 800_000;
-/// ponytail: Rails' read_by_time has no page cap; the venue serves at most the 10000 most recent fills, so this many pages
+/// ponytail: 2.x's read_by_time has no page cap; the venue serves at most the 10000 most recent fills, so this many pages
 /// only stops a cursor that never ends.
 const MAX_PAGES: usize = 100_000;
 
 /// `#to_i` of a JSON value (nil.to_i is 0).
-fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::ruby::to_i(s), _ => 0 } }
-/// `#to_s` of a scalar, as Ruby interpolates it (nil is "").
+fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::v2::to_i(s), _ => 0 } }
+/// `#to_s` of a scalar, as 2.x interpolates it (nil is "").
 fn to_s(v: &Value) -> String { match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() } }
-/// Ruby truthiness of a decoded value.
+/// 2.x truthiness of a decoded value.
 fn truthy(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) }
 /// `x.presence`: a string that is not blank.
-fn present(v: &Value) -> Option<String> { Some(to_s(v)).filter(|s| !v.is_null() && !crate::ruby::blank(s)) }
+fn present(v: &Value) -> Option<String> { Some(to_s(v)).filter(|s| !v.is_null() && !crate::v2::blank(s)) }
 /// `Time.at(row['time'].to_i / 1000.0).utc`.
 fn at(raw: &Raw, what: &str) -> Result<chrono::DateTime<chrono::Utc>, Fail> {
-    ruby_time_at_ms(to_i(&raw.value["time"])).ok_or_else(|| (format!("unreadable {what} time"), true))
+    v2_time_at_ms(to_i(&raw.value["time"])).ok_or_else(|| (format!("unreadable {what} time"), true))
 }
 
 /// `tickers.pluck(:ticker, :base, :quote).to_h`: a pair name to its base and quote, a later ticker winning.
@@ -162,7 +162,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
     fn done(&self) -> bool { self.source == Source::Done }
     fn cursor(&self) -> Value { json!({ "source": self.source.name(), "from": self.from, "counts": self.counts.iter().map(|(k, n)| json!([k, n])).collect::<Vec<_>>() }) }
     fn page_rows(&self) -> usize { self.source.limit() }
-    /// One try at the transport's whole budget: Rails paces none of these reads.
+    /// One try at the transport's whole budget: 2.x paces none of these reads.
     fn request_reserve(&self) -> std::time::Duration { crate::venue::http::TOTAL_TIMEOUT }
     async fn step(&mut self) -> Result<Vec<Entry>, Fail> {
         if self.source == Source::Done { return Ok(vec![]); }
@@ -173,7 +173,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
         let node = page_of(&text, "Hyperliquid ledger", MAX_PAGE_NODES)?;
         // `Array(result.data)`: null is an empty page.
         let page = if matches!(&node, super::wire::Node::Scalar(t) if t == "null") { vec![] } else { objects(&node, "Hyperliquid ledger row")? };
-        // `page.tally`, in the page's order (Ruby's Hash#eql?: key order is no difference).
+        // `page.tally`, in the page's order (2.x's Hash#eql?: key order is no difference).
         let mut tally: Vec<(String, usize, &Raw)> = vec![];
         // A row older than `startTime` was read on an earlier page (the venue serves from startTime on): #read_by_time's `rows`
         // already holds it, so it is never new again.
@@ -260,7 +260,7 @@ mod tests {
         let c = u(json!({"type": "accountClassTransfer", "usdc": "10", "toPerp": false}), "0x000").unwrap();
         assert_eq!((c.entry_type, c.base_currency.as_deref(), c.base_amount.to_s_f(), c.tx_id), (DEPOSIT, Some("USDC"), "10.0".into(), None));
         assert!(u(json!({"type": "send", "token": "X", "amount": "1", "user": "0xabc", "destination": "0xabc", "sourceDex": "spot", "destinationDex": "spot"}), "0x1").is_none());
-        assert_eq!(u(json!({"type": "spotGenesis", "token": "X", "amount": "1"}), "").unwrap().tx_id.as_deref(), Some(""), "no hash is an empty id, as Rails keys it");
+        assert_eq!(u(json!({"type": "spotGenesis", "token": "X", "amount": "1"}), "").unwrap().tx_id.as_deref(), Some(""), "no hash is an empty id, as 2.x keys it");
         assert!(u(json!({"type": "deposit", "usdc": "1"}), "0x1").is_none());
     }
 }

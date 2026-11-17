@@ -1,7 +1,7 @@
-//! Tax::EcbFxRates (app/models/tax/ecb_fx_rates.rb): the ECB's daily euro reference rates in `fx_rates`, read with a
+//! Tax::EcbFxRates: the ECB's daily euro reference rates in `fx_rates`, read with a
 //! week's lookback and crossed through the euro, and `ensure_loaded!`, which tops the table up from the ECB (the
 //! Bundesbank's copy of the same series as the fallback) whenever its newest dollar rate is older than the last weekday
-//! before today. Every place Rails builds a Tax::PriceService, or calls `ensure_loaded!` itself, loads here too.
+//! before today. Every place 2.x builds a Tax::PriceService, or calls `ensure_loaded!` itself, loads here too.
 use crate::figures::{dec::Dec, FiguresError};
 use crate::jobs::Db;
 use crate::venue::http::{HttpRequest, HttpResponse, Transport, TransportError};
@@ -46,7 +46,7 @@ impl FxTable {
         self.rates.get(currency)?.range(from..=date).next_back().map(|(_, r)| r)
     }
 
-    /// `rate(from:, to:, date:)`: units of `to` per unit of `from`. None is Rails' MissingRate.
+    /// `rate(from:, to:, date:)`: units of `to` per unit of `from`. None is 2.x's MissingRate.
     pub fn rate(&self, from: &str, to: &str, date: NaiveDate) -> Result<Option<Dec>, FiguresError> {
         if from == to { return Ok(Some(Dec::one())); }
         let one = Dec::one();
@@ -69,7 +69,7 @@ pub fn last_expected(today: NaiveDate) -> NaiveDate {
     d
 }
 
-/// A plain GET over the network, as Rails' bare `Faraday.new` sends it (15 s timeouts, no headers of ours).
+/// A plain GET over the network, as 2.x's bare `Faraday.new` sends it (15 s timeouts, no headers of ours).
 #[derive(Clone)]
 pub struct Plain { client: reqwest::Client }
 
@@ -100,8 +100,8 @@ impl Source {
     }
 }
 
-/// Ruby's CSV.parse, for the bodies these sources send: fields split on commas, a quoted field may hold commas, newlines
-/// and doubled quotes. A quote anywhere else is malformed, as Ruby raises MalformedCSVError.
+/// 2.x's CSV.parse, for the bodies these sources send: fields split on commas, a quoted field may hold commas, newlines
+/// and doubled quotes. A quote anywhere else is malformed, as 2.x raises MalformedCSVError.
 pub fn csv(text: &str) -> Result<Vec<Vec<String>>, String> {
     let mut rows = vec![];
     let (mut row, mut field, mut quoted, mut was_quoted) = (vec![], String::new(), false, false);
@@ -147,13 +147,13 @@ fn sdmx_rows(body: &str) -> Result<Vec<(String, String, String)>, String> {
     let (Some(cur), Some(day), Some(val)) = (col("CURRENCY"), col("TIME_PERIOD"), col("OBS_VALUE")) else { return Ok(vec![]) };
     Ok(rows.filter_map(|r| {
         let v = r.get(val).cloned().unwrap_or_default();
-        if crate::ruby::blank(&v) { return None; }
+        if crate::v2::blank(&v) { return None; }
         Some((r.get(cur).cloned().unwrap_or_default(), r.get(day).cloned().unwrap_or_default(), v))
     }).collect())
 }
 
 /// `fetch_history_csv`: the ECB's answer when it succeeded and holds observations, else the Bundesbank's, one request a
-/// currency (a transport failure there fails the load, as Rails raises it into `ensure_loaded!`'s rescue).
+/// currency (a transport failure there fails the load, as 2.x raises it into `ensure_loaded!`'s rescue).
 async fn fetch_rows(source: &Source) -> Result<Vec<(String, String, String)>, String> {
     let ecb = source.get(ECB_BASE, ecb_path(), vec![("format", "csvdata".into()), ("startPeriod", "1999-01-01".into())]).await;
     if let Ok(r) = &ecb { if (200..300).contains(&r.status) && r.body.contains("OBS_VALUE") { return sdmx_rows(&r.body); } }
@@ -166,14 +166,14 @@ async fn fetch_rows(source: &Source) -> Result<Vec<(String, String, String)>, St
     Ok(rows)
 }
 
-/// `value.to_d` on a CSV field, as Ruby's String#to_d reads it: the leading number, else zero.
+/// `value.to_d` on a CSV field, as 2.x's String#to_d reads it: the leading number, else zero.
 fn to_d(v: &str) -> Dec {
     let n: String = v.trim_start().chars().enumerate().take_while(|(i, c)| c.is_ascii_digit() || *c == '.' || (*i == 0 && (*c == '-' || *c == '+'))).map(|(_, c)| c).collect();
     Dec::strict(n.trim_end_matches('.')).unwrap_or_else(|_| Dec::zero())
 }
 
 /// `ensure_loaded!`: nothing when the newest dollar rate is current; else the history fetched and upserted by (currency,
-/// day), 5,000 rows a unit. Any failure is logged and the caller goes on, as Rails rescues it.
+/// day), 5,000 rows a unit. Any failure is logged and the caller goes on, as 2.x rescues it.
 pub async fn ensure_loaded(db: &Db, source: Option<&Source>, today: NaiveDate) {
     let Some(source) = source else { return };
     let newest = db.run(|c, _| c.query_row("SELECT max(date) FROM fx_rates WHERE currency = 'USD'", [], |r| r.get::<_, Option<String>>(0)).map_err(|e| e.to_string())).await;

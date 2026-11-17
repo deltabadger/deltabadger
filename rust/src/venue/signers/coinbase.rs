@@ -1,5 +1,5 @@
 //! Honeymaker::Clients::Coinbase#auth_headers: a fresh JWT per request, `Authorization: Bearer <jwt>`.
-//! - header `{"kid": key name, "nonce": 16 random bytes in hex, "alg": "ES256" | "EdDSA"}` (ruby-jwt merges `alg` last);
+//! - header `{"kid": key name, "nonce": 16 random bytes in hex, "alg": "ES256" | "EdDSA"}` (the jwt gem merges `alg` last);
 //! - claims `{"sub": key name, "iss": "coinbase-cloud", "nbf": now, "exp": now + 120, "uri": "METHOD api.coinbase.com<path>"}`,
 //!   the path without its query (honeymaker signs before it sets the params);
 //! - ES256 when the secret starts with `-----BEGIN EC PRIVATE KEY-----` (a SEC1 P-256 PEM; r‖s, 64 bytes), else EdDSA over

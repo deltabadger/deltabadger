@@ -4,7 +4,7 @@
 use super::Bot;
 use crate::enums::BotStatus;
 use crate::figures::num::Num;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::web::i18n::{self, escape, Arg};
 use crate::web::layout::Ctx;
 use crate::web::{colors, format, WebError};
@@ -26,10 +26,10 @@ pub struct Rule {
     pub last_triggered_at: Option<DateTime<Utc>>,
 }
 
-/// Why a rule row is not read: its enums, amount and time are what Rails validates and every page prints.
+/// Why a rule row is not read: its enums, amount and time are what 2.x validates and every page prints.
 const UNREAD_RULE: &str = "a signal rule stored in a shape this build does not read";
 
-/// `bot.bot_signals`, in id order. A row that does not read (an enum Rails does not know, an amount that is no decimal, a
+/// `bot.bot_signals`, in id order. A row that does not read (an enum 2.x does not know, an amount that is no decimal, a
 /// time that is no time) fails as data: `refusal` names it before any page reads the rules.
 pub fn rules(c: &Connection, bot_id: i64) -> Result<Vec<Rule>, WebError> {
     read_rules(c, bot_id)?.map_err(super::data)

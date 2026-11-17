@@ -1,6 +1,6 @@
 //! 3.0 plan A4 (PLAN-A4-cancel r4.2): cancel an open order from the bot page, inside the request, as
 //! Bots::CancelOrdersController#destroy does. The request makes one cancel call and writes no order state; the engine's
-//! re-read settles the row. Rails' answers to the same venue replies are pinned by the page grid (cancel_order_*).
+//! re-read settles the row. 2.x's answers to the same venue replies are pinned by the page grid (cancel_order_*).
 mod common;
 use common::scripted::ok;
 use common::seed::{self, BotSpec};
@@ -98,7 +98,7 @@ fn cancelled_order() -> Value {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_cancel_answers_rails_notice_writes_no_order_state_and_the_engine_settles_the_row() {
+async fn a_cancel_answers_v2_notice_writes_no_order_state_and_the_engine_settles_the_row() {
     let i = install();
     let t = ScriptedTransport::from_script(&json!({ "GET /v2/orders/OPEN-1": [open_order(), cancelled_order()] }));
     let mut engine = running_engine(&i, &t).await;
@@ -124,7 +124,7 @@ async fn a_cancel_answers_rails_notice_writes_no_order_state_and_the_engine_sett
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_refusal_and_an_invalid_key_answer_rails_failures_and_are_still_re_read() {
+async fn a_refusal_and_an_invalid_key_answer_v2_failures_and_are_still_re_read() {
     let i = install();
     let name: String = i.o.primary.query_row("SELECT name FROM exchanges WHERE id = ?1", [i.s.exchange_id], |r| r.get(0)).unwrap();
     for (status, body, text) in [(422, json!({"code": 42210000, "message": "order is not cancelable"}), "Failed to cancel order".to_string()),
@@ -141,8 +141,8 @@ async fn a_refusal_and_an_invalid_key_answer_rails_failures_and_are_still_re_rea
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn an_unreachable_venue_is_rails_failure_flash_not_a_500() {
-    // D-CANCEL-TRANSPORT-FAILURE: nothing listens on this port; Rails' controller would raise.
+async fn an_unreachable_venue_is_v2_failure_flash_not_a_500() {
+    // D-CANCEL-TRANSPORT-FAILURE: nothing listens on this port; 2.x's controller would raise.
     let i = install();
     let (app, mut browser) = signed_in(&i, "http://127.0.0.1:9").await;
     let answer = cancel(&app, &mut browser, &format!("/de/bots/{}/transactions/{}", i.bot, i.open)).await;
@@ -211,7 +211,7 @@ async fn a_pending_re_read_is_drained_by_the_next_pass() {
 }
 
 /// r4.2: a reversal whose own cancel of the same buy comes second is refused by the venue, and its reserve is dropped,
-/// as Rails' failed flip cancel registers none.
+/// as 2.x's failed flip cancel registers none.
 #[tokio::test(flavor = "current_thread")]
 async fn a_reversal_cancelling_after_the_user_is_refused_and_registers_no_reserve() {
     let i = install();
@@ -290,7 +290,7 @@ async fn an_api_cancel_by_db_id_sends_one_cancel_leaves_the_re_read_and_the_engi
     deltabadger::engine::run::step(&mut engine, &FixedClock(at(T0))).await.unwrap();
     assert_eq!(row_state(&i.o, i.open).0, Some(deltabadger::enums::TxExternalStatus::Cancelled as i64));
     assert!(reread_keys(&i.o).is_empty());
-    // MCP: the same path, Rails' tool text.
+    // MCP: the same path, 2.x's tool text.
     i.o.primary.execute("UPDATE transactions SET external_status = 1 WHERE id = ?1", [i.open]).unwrap();
     assert_eq!(mcp_cancel(&app, json!({"order_id": i.open.to_string()})).await,
                json!({"content": [{"type": "text", "text": format!("Order #{} (BUY BTC/USD on Alpaca) cancellation submitted.", i.open)}]}));
@@ -304,7 +304,7 @@ async fn an_api_cancel_by_exchange_id_uses_a_bot_rows_stored_order_and_sends_a_f
     let server = venue(204, None).await;
     Mock::given(matchers::method("DELETE")).and(matchers::path("/v2/orders/VENUE-9")).respond_with(ResponseTemplate::new(204)).mount(&server).await;
     let (app, _) = signed_in(&i, &server.uri()).await;
-    // r3: a bot row's order id finds the row; it is cancelled and re-read (D-CANCEL-REREAD-ALWAYS), in Rails' exchange shape.
+    // r3: a bot row's order id finds the row; it is cancelled and re-read (D-CANCEL-REREAD-ALWAYS), in 2.x's exchange shape.
     assert_eq!(rest_cancel(&app, "OPEN-1?exchange_name=alpaca").await,
                (200, json!({"data": {"dry_run": false, "external_id": "OPEN-1", "exchange": "Alpaca", "cancelled": true}, "error": null})));
     assert_eq!(reread_keys(&i.o), vec![format!("rust_cancel_reread:{}", i.open)]);
@@ -313,7 +313,7 @@ async fn an_api_cancel_by_exchange_id_uses_a_bot_rows_stored_order_and_sends_a_f
     assert_eq!(mcp_cancel(&app, json!({"order_id": "VENUE-9", "exchange_name": "Alpaca"})).await,
                json!({"content": [{"type": "text", "text": "Order VENUE-9 cancellation submitted on Alpaca."}]}));
     assert!(reread_keys(&i.o).is_empty());
-    // A numeric id that is a DB id keeps Rails' precedence, even with an exchange named and another row holding it as an order id.
+    // A numeric id that is a DB id keeps 2.x's precedence, even with an exchange named and another row holding it as an order id.
     i.o.primary.execute("UPDATE transactions SET external_id = ?1 WHERE id = ?2", (i.open.to_string(), i.imported)).unwrap();
     let (status, body) = rest_cancel(&app, &format!("{}?exchange_name=alpaca", i.open)).await;
     assert_eq!((status, &body["data"]["id"]), (200, &json!(i.open)), "{body}");
@@ -342,7 +342,7 @@ async fn an_api_cancel_the_venue_refuses_or_never_answers_is_cancel_failed() {
     assert_eq!((status, &body["error"]["code"]), (502, &json!("cancel_failed")), "{body}");
     assert!(body["error"]["message"].as_str().unwrap().starts_with("Cancel failed: ") && body["error"]["message"].as_str().unwrap().contains("not cancelable"), "{body}");
     assert_eq!(reread_keys(&i.o).len(), 1, "D-CANCEL-REREAD-ALWAYS");
-    // D-ORDER-CANCEL-TRANSPORT: nothing listens here; Rails raises (a 500).
+    // D-ORDER-CANCEL-TRANSPORT: nothing listens here; 2.x raises (a 500).
     let (app, _) = signed_in(&i, "http://127.0.0.1:9").await;
     for id in [i.open.to_string(), "VENUE-9?exchange_name=alpaca".to_string()] {
         let (status, body) = rest_cancel(&app, &id).await;
@@ -459,11 +459,11 @@ async fn kucoin_standalone_orders_by_exchange_id_go_on_their_logged_route_whatev
     let c = &o.primary;
     let (user, exchange, ticker): (i64, i64, i64) = c.query_row("SELECT k.user_id, t.exchange_id, t.id FROM api_keys k JOIN tickers t ON t.exchange_id=k.exchange_id", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
     let fingerprint = hex::encode(<sha2::Sha256 as sha2::Digest>::digest(b"test-key"));
-    let amount = deltabadger::ruby::BigDec::parse("0.001").unwrap();
+    let amount = deltabadger::v2::BigDec::parse("0.001").unwrap();
     let pair = serde_json::Map::new();
     for (ext, mode) in [("SHF-1", "ClassicHf"), ("SUTA-1", "Uta"), ("SCL-1", "ClassicLf")] {
         let id = api_orders::insert(c, &api_orders::New::Standalone { user_id: user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: true, supplied: &pair,
-            standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: true, price: Some(deltabadger::ruby::BigDec::parse("60000").unwrap()), mcp: false } }, at(T0)).unwrap();
+            standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: true, price: Some(deltabadger::v2::BigDec::parse("60000").unwrap()), mcp: false } }, at(T0)).unwrap();
         api_orders::take(c, id, at(T0)).unwrap().unwrap();
         let identity = json!({"host": server.uri(), "key_fingerprint": fingerprint, "kucoin_account_mode": mode});
         assert!(api_orders::claim(c, id, "cl", Some(&identity), &json!({"symbol": "BTC-EUR", "side": "buy", "limit": true})).unwrap());

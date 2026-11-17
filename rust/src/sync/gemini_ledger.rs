@@ -1,10 +1,10 @@
 //! AccountTransaction::SyncJob for a Gemini key (plan VB slice B3): Exchanges::Gemini#get_ledger (every trade from
 //! /v1/mytrades, then every Deposit and Withdrawal from /v2/transfers, each walked forward by time), then
 //! AccountTransactionSync#store! and TransferMatcher.run! as ledger.rs ports them. Signed POSTs that only read. Rows,
-//! tx_ids (a trade's `tid`, a transfer's `eid`), fees and raw_data are Rails' (rust/tests/sync_parity.rs, the
+//! tx_ids (a trade's `tid`, a transfer's `eid`), fees and raw_data are 2.x's (rust/tests/sync_parity.rs, the
 //! `gemini-ledger-` scenarios).
 //!
-//! As Rails reads it (#each_ledger_row): a page of at most 500 trades (50 transfers) from `timestamp` = the watermark less
+//! As 2.x reads it (#each_ledger_row): a page of at most 500 trades (50 transfers) from `timestamp` = the watermark less
 //! 25 hours, or 0 on a first sync; the next page from the newest `timestampms` on that page, not one past it, so the rows
 //! of that millisecond are read again and their ids drop the repeats; a short page ends the source; a full page with
 //! nothing new fails ("Gemini ledger paging stuck at <ms>"); an answer that is not a list fails ("Gemini answered a ledger
@@ -14,14 +14,14 @@
 //!
 //! Where it differs on purpose (plan VB §1.6): an import longer than the job's deadline goes on over several runs
 //! (sync::continuation), each storing what it read and resuming from where the last stopped (the source, the next page's
-//! `timestamp`, and the ids already read at that millisecond, which is what Rails' per-source `seen` set decides there).
-//! Where it reads more strictly than Rails (as binance_ledger does): an unreadable amount fails the sync (Rails stores a
+//! `timestamp`, and the ids already read at that millisecond, which is what 2.x's per-source `seen` set decides there).
+//! Where it reads more strictly than 2.x (as binance_ledger does): an unreadable amount fails the sync (2.x stores a
 //! garbage amount as 0).
 //!
 //! Scheduled as every ledger job is (sync::jobs::LedgerSync, Gemini's registry row has a `ledger`), through
 //! ExchangeProxy.for('gemini').
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
-use super::binance_ledger::{amount, entry, objects, page_of, ruby_time_at_ms, text, Fail};
+use super::binance_ledger::{amount, entry, objects, page_of, v2_time_at_ms, text, Fail};
 use super::continuation;
 use super::ledger::Outcome;
 use super::{capture_bound_version, load_key_of, phase, Failure, SyncError};
@@ -45,9 +45,9 @@ pub const MAX_PAGE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_PAGE_NODES: usize = 400_000;
 
 /// `row['timestampms'].to_i`: a number, or a numeric string; anything else is 0.
-fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::ruby::to_i(s), _ => 0 } }
+fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::v2::to_i(s), _ => 0 } }
 
-/// Ruby's class name of a parsed JSON value, as #each_ledger_row names an answer that is not an Array.
+/// 2.x's class name of a parsed JSON value, as #each_ledger_row names an answer that is not an Array.
 fn class_of(v: &Value) -> &'static str {
     match v { Value::Object(_) => "Hash", Value::String(_) => "String", Value::Null => "NilClass", Value::Bool(true) => "TrueClass", Value::Bool(false) => "FalseClass",
               Value::Number(n) if n.is_f64() => "Float", Value::Number(_) => "Integer", Value::Array(_) => "Array" }
@@ -84,7 +84,7 @@ impl Pairs {
 fn trade(raw: Raw, pairs: &Pairs) -> Result<Entry, Fail> {
     let symbol = raw.value["symbol"].as_str().ok_or_else(|| ("unreadable trade symbol".to_string(), true))?;
     let (base, quote) = pairs.of(symbol);
-    let at = ruby_time_at_ms(to_i(&raw.value["timestampms"])).ok_or_else(|| ("unreadable trade timestampms".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["timestampms"])).ok_or_else(|| ("unreadable trade timestampms".to_string(), true))?;
     let (size, price) = (amount(&raw, "amount", "trade")?, raw.decimal("price").map_err(|why| (format!("trade: {why}"), true))?);
     let fee = raw.decimal("fee_amount").map_err(|why| (format!("trade: {why}"), true))?;
     let mut e = entry(if raw.value["type"] == "Buy" { BUY } else { SELL }, &base, size.clone(), &raw, at);
@@ -101,7 +101,7 @@ fn trade(raw: Raw, pairs: &Pairs) -> Result<Entry, Fail> {
 fn transfer(raw: Raw) -> Result<Option<Entry>, Fail> {
     let kind = match raw.value["type"].as_str() { Some("Deposit") => DEPOSIT, Some("Withdrawal") => WITHDRAWAL, _ => return Ok(None) };
     let currency = raw.value["currency"].as_str().map(str::to_uppercase);
-    let at = ruby_time_at_ms(to_i(&raw.value["timestampms"])).ok_or_else(|| ("unreadable transfer timestampms".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["timestampms"])).ok_or_else(|| ("unreadable transfer timestampms".to_string(), true))?;
     let fee = raw.decimal("feeAmount").map_err(|why| (format!("transfer: {why}"), true))?;
     let mut e = entry(kind, "", amount(&raw, "amount", "transfer")?, &raw, at);
     e.base_currency = currency.clone();
@@ -205,7 +205,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
 }
 
 /// One ledger sync of one Gemini key, as AccountTransaction::SyncJob#perform runs it, held to the job's deadline
-/// (sync::continuation). `pause` is the transfers' pacing (TRANSFERS_PAUSE; the parity harness passes zero, as Rails'
+/// (sync::continuation). `pause` is the transfers' pacing (TRANSFERS_PAUSE; the parity harness passes zero, as 2.x's
 /// harness stubs its sleep). `Ok(Err(failure))`: a fresh import stores nothing it fetched and its watermark is untouched.
 pub async fn sync<T: Transport>(db: &Db, transport: T, key_id: i64, credentials: &Credentials, clock: &dyn Clock, pause: std::time::Duration) -> Result<Result<Outcome, Failure>, SyncError> {
     let stopwatch = continuation::Wall::start();

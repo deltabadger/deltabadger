@@ -48,7 +48,7 @@ fn distinct_unfilled_symbols_share_the_walk_budget() {
 }
 
 #[test]
-fn settings_ids_follow_ruby_integer_conversion() {
+fn settings_ids_follow_v2_integer_conversion() {
     use deltabadger::figures::db;
     let c = rusqlite::Connection::open_in_memory().unwrap();
     c.execute_batch("CREATE TABLE bots (id INTEGER, user_id INTEGER, exchange_id INTEGER, type TEXT, settings TEXT);

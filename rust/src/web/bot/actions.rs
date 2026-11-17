@@ -27,7 +27,7 @@ async fn mutate(app: App, ctx: Ctx, segment: String, action: Option<Action>, hea
         if let Some(action) = action {
             write::lifecycle(c,&view,user.id,id,action,&params,|c,ctx,state| {
                 let (label,class,settings): (Option<String>,Option<String>,String) = c.query_row("SELECT label,type,settings FROM bots WHERE id=?1 AND user_id=?2",(id,user.id),|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
-                // Rails flashes the deleted bot's loaded label: one stored without a name is named for it.
+                // 2.x flashes the deleted bot's loaded label: one stored without a name is named for it.
                 let label = match label.filter(|label| !label.trim().is_empty()) {
                     Some(label) => Some(label),
                     None if action != Action::Delete => None,
@@ -74,7 +74,7 @@ mutation!(archive,Some(Action::Archive));
 mutation!(unarchive,Some(Action::Unarchive));
 
 /// POST /bots/:id/reverse (BotsController#reverse). The rotation commits in one transaction (write::reverse) and the engine
-/// is woken to cancel what it captured. The page then refreshes, where Rails replaces its panels: the metrics panel it
+/// is woken to cancel what it captured. The page then refreshes, where 2.x replaces its panels: the metrics panel it
 /// re-renders is drawn from figures a request here does not compute (a divergence listed in tests/pages.rs).
 pub async fn reverse(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>) -> Result<Response,WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
@@ -137,7 +137,7 @@ modal!(archive_edit,"archive");
 modal!(start_edit,"start");
 
 /// POST /bots/:id/custom_allocation (Bots::CustomAllocationsController#create): one write transaction (index_switch::customize),
-/// then Turbo visits the bot as a portfolio. A refusal is the flash Rails prepends, with 422.
+/// then Turbo visits the bot as a portfolio. A refusal is the flash 2.x prepends, with 422.
 pub async fn custom_allocation(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>, headers: HeaderMap) -> Result<Response,WebError> {
     use super::index_switch::{customize, Switched};
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
@@ -160,7 +160,7 @@ fn head_not_found(headers: &HeaderMap) -> Response {
     (StatusCode::NOT_FOUND, [(axum::http::header::CONTENT_TYPE, if crate::web::turbo::accepts_stream(headers) { "text/vnd.turbo-stream.html" } else { "text/html" })]).into_response()
 }
 
-/// Bot::IndexSwitch's answers: Turbo visits the switched bot; a refusal is the flash Rails prepends, with 422.
+/// Bot::IndexSwitch's answers: Turbo visits the switched bot; a refusal is the flash 2.x prepends, with 422.
 fn switched_response(ctx: &Ctx, headers: &HeaderMap, id: i64, switched: super::index_switch::Switched) -> Result<Response,WebError> {
     use super::index_switch::Switched;
     match switched {
@@ -226,7 +226,7 @@ pub async fn index_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
 /// its pill re-requests it into the merge_modal frame.
 pub async fn merge_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response,WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
-    let Ok(params) = ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let Ok(params) = ActionParams::parse_v2(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
     let (ids, exchange) = super::merge::params(params.value());
     let (inner,mut view,owner) = (app.clone(),ctx.clone(),user.clone());
     let result = app.db(move |c| {
@@ -250,11 +250,11 @@ pub async fn merge_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -
 }
 
 /// POST /bots/merge (Bots::MergesController#create): one write transaction (merge::perform), then Turbo visits the merged bot;
-/// a refusal is the flash Rails prepends, with 422.
+/// a refusal is the flash 2.x prepends, with 422.
 pub async fn merge_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response,WebError> {
     use super::merge::{perform, Merged};
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
-    let Ok(params) = ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let Ok(params) = ActionParams::parse_v2(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
     let (ids, exchange) = super::merge::params(params.value());
     let (inner, view) = (app.clone(), ctx.clone());
     let result = app.db(move |c| {
@@ -278,7 +278,7 @@ pub async fn merge_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
 pub async fn split_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response,WebError> {
     use super::split::{modal, Loaded, Split};
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
-    let Ok(params) = ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let Ok(params) = ActionParams::parse_v2(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
     let (ids, keep) = super::split::params(params.value());
     let (inner,mut view,owner) = (app.clone(),ctx.clone(),user.clone());
     let result = app.db(move |c| {
@@ -299,12 +299,12 @@ pub async fn split_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -
 }
 
 /// POST /bots/split (Bots::SplitsController#create): one write transaction (split::perform), split::complete after it, then
-/// Turbo visits the dashboard; a refusal is the flash Rails prepends, with 422, and so is a split this build does not serve
+/// Turbo visits the dashboard; a refusal is the flash 2.x prepends, with 422, and so is a split this build does not serve
 /// (`engine.write_refused`, naming why), so the modal that posted it says so in place.
 pub async fn split_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response,WebError> {
     use super::split::{complete, perform, Performed};
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
-    let Ok(params) = ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let Ok(params) = ActionParams::parse_v2(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
     let (ids, keep) = super::split::params(params.value());
     let (inner, view) = (app.clone(), ctx.clone());
     let result = app.db(move |c| {

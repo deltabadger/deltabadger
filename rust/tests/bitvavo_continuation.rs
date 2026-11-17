@@ -1,8 +1,8 @@
 //! A Bitvavo ledger import over several runs (plan VB §1.6 on slice A3's walk): the transfer pages counted by content across
 //! runs (a boundary row read again by the next run is not stored twice, an equal pair stays two), a currency seen only on a
 //! transfer page in one run whose market's trades are read in a later one, the frozen market list, and a run cut mid-page
-//! replayed. Every multi-run import stores exactly the rows, and ends on exactly the watermark, of one run. Rails-free: the
-//! one-run walk against Rails is sync_parity.rs's `bitvavo-ledger-` scenarios.
+//! replayed. Every multi-run import stores exactly the rows, and ends on exactly the watermark, of one run. 2.x-free: the
+//! one-run walk against 2.x is sync_parity.rs's `bitvavo-ledger-` scenarios.
 mod common;
 use deltabadger::crypto::Credentials;
 use deltabadger::engine::FixedClock;
@@ -159,7 +159,7 @@ async fn an_import_over_many_runs_stores_what_one_run_stores() {
     assert_eq!(stored(&cut_db, cut_key).await, (rows, watermark), "a cut run replays and stores every row once");
 }
 
-/// Rails' `page.tally` counts rows by Hash#eql?, which no key order changes: the boundary pair re-read on the next page with
+/// 2.x's `page.tally` counts rows by Hash#eql?, which no key order changes: the boundary pair re-read on the next page with
 /// its fields reversed is the same pair, stored twice, never four times.
 #[tokio::test(flavor = "current_thread")]
 async fn a_boundary_row_read_again_with_its_fields_reordered_is_not_stored_again() {
@@ -178,7 +178,7 @@ async fn a_boundary_row_read_again_with_its_fields_reordered_is_not_stored_again
 /// A venue that answers every trades page with the first fails as #read_trades fails ("a full page with nothing new"),
 /// in one run and when it is read a page a run, never an import that checkpoints the same cursor forever.
 #[tokio::test(flavor = "current_thread")]
-async fn a_full_trades_page_repeated_fails_as_rails_does_across_runs() {
+async fn a_full_trades_page_repeated_fails_as_v2_does_across_runs() {
     let account = Rc::new(account());
     for latency in [Duration::from_millis(1), Duration::from_secs(60)] {
         let (_d, db, key) = install();

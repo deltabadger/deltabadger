@@ -55,7 +55,7 @@ fn base_marker(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<Value,
 }
 
 /// D-6D-2, in the rotation's own transaction (web::bot::write::reverse), after the direction is set: a bot that now sells its
-/// one asset with the base cap on and used up is stopped (`amount_sold`) and owed the base cap's mail. Rails rotates it into
+/// one asset with the base cap on and used up is stopped (`amount_sold`) and owed the base cap's mail. 2.x rotates it into
 /// selling and leaves it idle, every tick skipping (`sell_skipped reason=cap_reached`), with no word to its owner.
 /// A working bot is stopped as tick::stop_owing_mail stops it (its `stopped` line); a stopped one keeps its stop and takes
 /// the reason. Once per cap: nothing is written when STOP_MAILED already holds the cap's key. Returns whether it wrote.

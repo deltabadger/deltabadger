@@ -1,4 +1,4 @@
-//! D-BINANCE-ORDER-LINK (AUDIT #15): a Binance or Binance.US myTrades fill names its bot order. Rails' matcher looks
+//! D-BINANCE-ORDER-LINK (AUDIT #15): a Binance or Binance.US myTrades fill names its bot order. 2.x's matcher looks
 //! the order up by the fill's whole id ("SYMBOL-orderId-id") or a snake-case `order_id` the fill never has, so no
 //! Binance fill ever linked. The link is display-only: the tracker row's bot cell is its one reader.
 //!

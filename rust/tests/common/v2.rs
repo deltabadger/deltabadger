@@ -28,13 +28,13 @@ pub fn run(mounts: &[(&Path, &str)], env: &[(&str, &str)], script: &str) -> Outp
     command.args([IMAGE, "-c", &script]).output().expect("docker runs")
 }
 
-/// 2.70.21's Rails (production env, as it ships) on the install in `dir` (its primary and queue), with cache and cable
+/// 2.70.21 (production env, as it ships) on the install in `dir` (its primary and queue), with cache and cable
 /// in `scratch` and the encryption keys derived from `secret`: `rails <args>`, each arg quoted. `dir` is at /s and
 /// `scratch` at /x inside, so a script file in `scratch` is `/x/<name>`.
-pub fn rails(dir: &Path, scratch: &Path, secret: &str, args: &[&str]) -> Output { rails_in("production", dir, scratch, secret, args) }
+pub fn v2(dir: &Path, scratch: &Path, secret: &str, args: &[&str]) -> Output { v2_in("production", dir, scratch, secret, args) }
 
-/// `rails`, in the Rails environment `env` (the recorders' `test`, as they ran on repo Rails).
-pub fn rails_in(env: &str, dir: &Path, scratch: &Path, secret: &str, args: &[&str]) -> Output {
+/// `rails`, in the 2.x environment `env` (the recording harness's `test`, as it ran on the 2.x repo).
+pub fn v2_in(env: &str, dir: &Path, scratch: &Path, secret: &str, args: &[&str]) -> Output {
     let keys = deltabadger::crypto::EncryptionKeys::resolve(&|_| None, secret).unwrap();
     let quoted: Vec<String> = args.iter().map(|a| format!("'{}'", a.replace('\'', r"'\''"))).collect();
     run(&[(dir, "/s"), (scratch, "/x")],
@@ -48,13 +48,13 @@ pub fn rails_in(env: &str, dir: &Path, scratch: &Path, secret: &str, args: &[&st
         &format!("bundle exec rails {}", quoted.join(" ")))
 }
 
-/// What 2.70.21 decides for each Continue case of its own record_vectors.rb, run on a Rust-built install
-/// (`baseline_install`) by fixtures/v2/continue_start.rb: the action_race::continue_* tests' Rails side.
+/// What 2.70.21 decides for each recorded Continue case, run on a Rust-built install
+/// (`baseline_install`) by fixtures/v2/continue_start.rb: the action_race::continue_* tests' 2.x side.
 pub fn continue_start() -> Result<serde_json::Value, String> {
     let dir = super::baseline_install();
     let scratch = tempfile::tempdir().unwrap();
     std::fs::write(scratch.path().join("continue.rb"), include_str!("../fixtures/v2/continue_start.rb")).unwrap();
-    let out = rails(dir.path(), scratch.path(), "engine-test-secret", &["runner", "/x/continue.rb"]);
+    let out = v2(dir.path(), scratch.path(), "engine-test-secret", &["runner", "/x/continue.rb"]);
     if !out.status.success() { return Err(format!("2.70.21's Continue recorder: {}", String::from_utf8_lossy(&out.stderr))); }
     serde_json::from_str(&std::fs::read_to_string(scratch.path().join("continue.json")).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
 }

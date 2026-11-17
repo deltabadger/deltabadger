@@ -1,4 +1,4 @@
-//! Rails' flash as these pages use it. A message set during one request is shown by the next
+//! 2.x's flash as these pages use it. A message set during one request is shown by the next
 //! response that renders the flash, and stays in the session across redirects until then.
 //! `layouts/_flash.html.erb` is templates/layouts/_flash.html.
 use super::session::Session;
@@ -7,7 +7,7 @@ use askama::Template;
 pub const ALERT: &str = "alert";
 pub const NOTICE: &str = "notice";
 
-/// `flash[kind] = message`: replaces whatever was waiting, as Rails' sweep does once a request
+/// `flash[kind] = message`: replaces whatever was waiting, as 2.x's sweep does once a request
 /// touches the flash.
 pub fn set(session: &Session, kind: &str, message: String) {
     session.lock().flash = vec![(kind.to_string(), message)];

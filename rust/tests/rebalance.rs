@@ -6,7 +6,7 @@ use common::seed::{self, BotSpec};
 use deltabadger::engine::rebalance::{self, Outcome};
 use deltabadger::engine::tick::{PriceCache, TickContext};
 use deltabadger::engine::{eligibility, model, placement, FixedClock};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store;
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls};
 use deltabadger::venue::http::ScriptedTransport;
@@ -174,7 +174,7 @@ async fn a_closed_sell_without_proceeds_waits_for_them() {
     let (_d, o, id, _, _) = swap_bot(stopped());
     let t = script(json!({ "GET /v2/orders/OTX-1": [sold_btc("0.00421875", None, "filled")] }));
     evaluate(&o, &t, id, at(T0)).await;
-    // Closed, executed, with neither a quote figure nor a price (Rails' #realized_proceeds is nil); the venue's answer stays unreadable.
+    // Closed, executed, with neither a quote figure nor a price (2.x's #realized_proceeds is nil); the venue's answer stays unreadable.
     o.primary.execute("UPDATE transactions SET external_status = 2, amount_exec = 0.00421875, price = NULL, quote_amount_exec = NULL WHERE external_id = 'OTX-1'", []).unwrap();
     assert_eq!(evaluate(&o, &t, id, at(T0) + Duration::hours(4)).await, Outcome::Skipped("proceeds_unknown"));
     assert_eq!(pending(&o, id)["phase"], "selling");
@@ -189,7 +189,7 @@ async fn a_closed_sell_without_proceeds_waits_for_them() {
 }
 
 /// The buy's twin: closed, executed, its price and quote figure unknown. Before the fix the walk refused it and the bot was
-/// unreadable at the install, so no fire ever re-read the row (Rails' #resume_buying! refreshes it first).
+/// unreadable at the install, so no fire ever re-read the row (2.x's #resume_buying! refreshes it first).
 #[tokio::test(flavor = "current_thread")]
 async fn a_closed_buy_without_its_fill_figures_waits_for_them() {
     let (_d, o, id, _, _) = swap_bot(stopped());
@@ -360,7 +360,7 @@ async fn a_stop_or_a_reverse_while_the_swaps_sell_is_in_flight_still_records_it(
         assert_eq!(rebalance_rows(&o), vec![(0, Some(0), 1, Some("OTX-1".into()))], "{name}: the sold order is a fact");
         assert_eq!(pending(&o, id), json!({ "phase": "selling", "sell_transaction_id": sell, "buy_transaction_id": null, "remaining_quote_amount": null, "buy_attempted": false }), "{name}");
         assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none(), "{name}");
-        // The next fire: a stopped bot resumes its swap (Rails rebalances stopped bots); a reversal's barrier holds it.
+        // The next fire: a stopped bot resumes its swap (2.x rebalances stopped bots); a reversal's barrier holds it.
         let next = evaluate(&o, &t, id, at(T0) + Duration::hours(4)).await;
         assert_eq!(next, Outcome::Skipped(if name == "stop" { "waiting_for_sell" } else { "reversal_pending" }), "{name}");
         assert_eq!(t.posted_orders().len(), 1, "{name}");
@@ -416,7 +416,7 @@ fn an_alpaca_rebalancing_bot_is_eligible_in_every_phase_this_engine_resumes() {
     // A waiting REBALANCE row (the swap's resting sell) is read, not refused.
     o.primary.execute("UPDATE transactions SET external_status = 1, transaction_type = 'REBALANCE', side = 1 WHERE external_id = 'OHELD-1'", []).unwrap();
     assert!(check().problems.is_empty(), "{:?}", check().problems);
-    // Both Rails' and Rust's ambiguous halts are admitted idle, now that Resume is ported.
+    // Both 2.x's and Rust's ambiguous halts are admitted idle, now that Resume is ported.
     o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rebalance_pending.phase', 'ambiguous')", []).unwrap();
     assert!(check().problems.is_empty(), "{:?}", check().problems);
     o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_rebalance_halted', json('true'))", []).unwrap();
@@ -433,7 +433,7 @@ fn a_stopped_rebalancing_bot_outside_the_slice_is_refused() {
     // Rebalancing runs on stopped bots, so a stopped one is this engine's work: whatever else it carries must be supported.
     let (_d, o, _, _, _) = swap_bot(stopped().with("direction", json!("sideways")));
     assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains("direction \"sideways\"")));
-    // Sliders off 100% are not such a thing: Rails' rebalance_targets reads them as no targets (the grid's `unbalanced`).
+    // Sliders off 100% are not such a thing: 2.x's rebalance_targets reads them as no targets (the grid's `unbalanced`).
     let (_d, o, _, _, _) = swap_bot(stopped());
     o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json((SELECT json_group_object(key, 0.6) FROM json_each(bots.settings, '$.allocations'))))", []).unwrap();
     assert_eq!(eligibility::check_install(&o.primary).unwrap().problems, Vec::<String>::new());
@@ -483,7 +483,7 @@ async fn the_engine_rebalances_a_stopped_bot_at_each_fire_and_only_then() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn sliders_saved_off_100_mid_swap_still_let_the_owed_buy_land_and_settle() {
-    // Rails' rebalance_targets: `rebalance_pending? || allocations_balanced?`. The owed buy is placed, polled and settled
+    // 2.x's rebalance_targets: `rebalance_pending? || allocations_balanced?`. The owed buy is placed, polled and settled
     // with the sliders at 120%; its outstanding row must not turn the stopped basket into an install-wide refusal.
     let (d, o, id, _, _) = swap_bot(stopped());
     drop(o);
@@ -522,7 +522,7 @@ async fn a_reversal_awaiting_its_cancels_bars_the_swap() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_handback_settles_a_lost_swap_reply_into_rails_own_pending_state() {
+async fn a_handback_settles_a_lost_swap_reply_into_v2_own_pending_state() {
     let (d, o, id, _, _) = swap_bot(stopped());
     drop(o);
     let paths = store::Paths::from_env(&|_| None, d.path());
@@ -533,7 +533,7 @@ async fn a_handback_settles_a_lost_swap_reply_into_rails_own_pending_state() {
     let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }] }));
     assert_eq!(evaluate(&o, &t, id, at(T0)).await, Outcome::Skipped("awaiting_reconciliation"));
     landed(&o, id, &t, &found);
-    // The handback finds the order and settles it with its phase, in one transaction: Rails reads a swap it can resume.
+    // The handback finds the order and settles it with its phase, in one transaction: 2.x reads a swap it can resume.
     deltabadger::engine::handover::hand_back(&lock, &o, &Factory(t.clone()), &seed::cipher(), &FixedClock(at(T0) + Duration::minutes(1))).await.unwrap();
     let sell: i64 = one(&o, "SELECT id FROM transactions WHERE external_id = 'OTX-9'");
     assert_eq!(pending(&o, id), json!({ "phase": "selling", "sell_transaction_id": sell, "buy_transaction_id": null, "remaining_quote_amount": null, "buy_attempted": false }));
@@ -700,9 +700,9 @@ fn crypto_posts(venue: &str, t: &ScriptedTransport) -> Vec<(String, String, Stri
 /// 2.70.21's halt resolution (Bots::RebalanceResolutionsController, R0's Bot::Rebalanceable#resolve_rebalance_halt!) on
 /// the handed-back install, in the published image (common::v2), once the controller's refresh has found no rebalance
 /// order still waiting.
-fn rails_resolves_the_halt(dir: &std::path::Path, bot_id: i64) {
+fn v2_resolves_the_halt(dir: &std::path::Path, bot_id: i64) {
     let boot = tempfile::tempdir().unwrap();
-    let run = common::v2::rails(dir, boot.path(), "engine-test-secret", &["runner", &format!("Bot.find({bot_id}).resolve_rebalance_halt!")]);
+    let run = common::v2::v2(dir, boot.path(), "engine-test-secret", &["runner", &format!("Bot.find({bot_id}).resolve_rebalance_halt!")]);
     assert!(run.status.success(), "the 2.70.21 resolution failed:\n{}", String::from_utf8_lossy(&run.stderr));
 }
 
@@ -713,7 +713,7 @@ async fn a_stopped_kraken_basket_sells_the_overweight_member_then_buys_with_its_
     let t = crypto_script("kraken", json!({}));
     assert!(matches!(crypto_fire("kraken", &o, exchange, &t, id, at(T0)).await, Outcome::Placed(_)));
     assert_eq!(crypto_posts("kraken", &t), vec![("XBTEUR".into(), "sell".into(), "0.004".into())]);
-    // Kraken's `cost` is gross: the 0.5 fee is not taken off what the buy is owed (Q1, as Rails has it).
+    // Kraken's `cost` is gross: the 0.5 fee is not taken off what the buy is owed (Q1, as 2.x has it).
     let sold = ok(json!({ "error": [], "result": { "OTX-1": { "status": "closed", "vol": "0.004", "vol_exec": "0.004", "cost": "200", "fee": "0.5", "price": "50000",
                           "oflags": "", "descr": { "pair": "XBTEUR", "type": "sell", "ordertype": "market", "price": "0" } } } }));
     let t = crypto_script("kraken", json!({ "POST /0/private/QueryOrders": [sold], "POST /0/private/AddOrder": [ok(json!({ "error": [], "result": { "txid": ["OTX-2"] } }))] }));
@@ -741,7 +741,7 @@ fn recovered_read(venue: &str, pair: &str, ext: &str, leg: &str) -> Value {
 
 /// Binance and KuCoin cannot prove an unfound order absent. A swap whose placement reply was lost halts once the absence
 /// window has passed; the operator settles the intent (`deltabadger resolve-placement`), the engine hands back, the user
-/// resolves the halt in Rails (R0), and the next fire after a re-takeover follows Rails' resolution: a recovered sell's
+/// resolves the halt in 2.x (R0), and the next fire after a re-takeover follows 2.x's resolution: a recovered sell's
 /// proceeds are bought once, a recovered buy's fill comes off what is owed, and the lost order is never sent again.
 #[tokio::test(flavor = "current_thread")]
 async fn an_unfound_crypto_swap_order_halts_and_its_resolution_never_submits_it_twice() {
@@ -794,7 +794,7 @@ async fn an_unfound_crypto_swap_order_halts_and_its_resolution_never_submits_it_
             deltabadger::engine::handover::hand_back(&lock, &o, &Factory(script(json!({}))), &seed::cipher(), &FixedClock(at(T0) + Duration::days(1))).await.unwrap();
             drop(o);
             drop(lock);
-            rails_resolves_the_halt(d.path(), id);
+            v2_resolves_the_halt(d.path(), id);
             let lock = deltabadger::lease::lock(&paths, at(T0) + Duration::days(2)).unwrap();
             let o = store::open(&paths).unwrap();
             deltabadger::engine::handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", at(T0) + Duration::days(2)).unwrap();
@@ -819,7 +819,7 @@ async fn an_unfound_crypto_swap_order_halts_and_its_resolution_never_submits_it_
                     assert_eq!(posts.len(), 1, "{label}: {posts:?}");
                     assert_eq!((posts[0].1.as_str(), spent(&posts[0])), ("buy", 200.0), "{label}: {posts:?}");
                 }
-                // Attested never placed: Rails cleared the swap; the fire decides afresh (a new sell, not the lost one).
+                // Attested never placed: 2.x cleared the swap; the fire decides afresh (a new sell, not the lost one).
                 ("sell", false) => {
                     assert_eq!(after, Value::Null, "{label}");
                     assert!(posts.len() <= 1 && posts.iter().all(|p| p.1 == "sell"), "{label}: {posts:?}");
@@ -857,16 +857,16 @@ async fn a_resting_buy_of_another_bot_on_the_kraken_key_blocks_the_sale() {
 }
 
 /// Plan CB T4 and AUDIT #6: active swaps can resume and inherited ambiguous halts remain idle
-/// with an owner-accessible Resume; handback retains Rails' own swap shape.
+/// with an owner-accessible Resume; handback retains 2.x's own swap shape.
 #[tokio::test(flavor = "current_thread")]
-async fn a_crypto_rebalancer_is_admitted_mid_swap_and_handed_back_as_rails_left_it() {
+async fn a_crypto_rebalancer_is_admitted_mid_swap_and_handed_back_as_v2_left_it() {
     for venue in ["kraken", "binance", "kucoin"] {
         let (d, id, _) = crypto_swap_bot(venue, json!({}));
         let paths = store::Paths::from_env(&|_| None, d.path());
         let o = store::open(&paths).unwrap();
         let check = || eligibility::check_install(&o.primary).unwrap();
         assert!(check().problems.is_empty(), "{venue}: {:?}", check().problems);
-        // A resting REBALANCE sell, and the swap Rails left selling on it.
+        // A resting REBALANCE sell, and the swap 2.x left selling on it.
         o.primary.execute("UPDATE transactions SET external_status = 1, transaction_type = 'REBALANCE', side = 1 WHERE external_id = 'OHELD-1'", []).unwrap();
         let sell: i64 = one(&o, "SELECT id FROM transactions WHERE external_id = 'OHELD-1'");
         let swap = json!({ "phase": "selling", "sell_transaction_id": sell, "buy_transaction_id": null, "remaining_quote_amount": null, "buy_attempted": false });
@@ -877,7 +877,7 @@ async fn a_crypto_rebalancer_is_admitted_mid_swap_and_handed_back_as_rails_left_
         let o = store::open(&paths).unwrap();
         deltabadger::engine::handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", at(T0)).unwrap();
         deltabadger::engine::handover::hand_back(&lock, &o, &Factory(script(json!({}))), &seed::cipher(), &FixedClock(at(T0))).await.unwrap();
-        assert_eq!(pending(&o, id), swap, "{venue}: Rails reads back the swap it left");
+        assert_eq!(pending(&o, id), swap, "{venue}: 2.x reads back the swap it left");
         // An inherited halt is admitted idle now that its owner can resolve it here.
         o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rebalance_pending.phase', 'ambiguous')", []).unwrap();
         assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(), "{venue}");
@@ -899,7 +899,7 @@ async fn a_locked_member_sits_out_of_the_rebalance_targets() {
     assert!(matches!(evaluate(&o, &t, id, at(T0)).await, Outcome::Placed(_)));
 }
 
-// ---- PLAN-wash-sale WS-2: the rebalance sell's claim, in Rails' transient keys ----
+// ---- PLAN-wash-sale WS-2: the rebalance sell's claim, in 2.x's transient keys ----
 
 /// The swap bot with the rule on and its BTC bought for 700: selling at 64000 loses.
 fn loss_swap() -> (tempfile::TempDir, store::Opened, i64, seed::Seeded) {
@@ -941,9 +941,9 @@ async fn a_loss_rebalance_sell_claims_in_its_keys_and_an_acceptance_logs_and_cle
     let (until, _, token) = lock_row(&o, s.btc).unwrap();
     assert_eq!(until.as_deref(), Some(SWAP_DEADLINE));
     assert_eq!(claim_keys(&o, id), (Value::Null, json!(token.clone().unwrap()), json!(s.btc)), "§7: while held, the key's token is the row's");
-    assert!(intent.wash_claim.is_none() && model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap().get("wash_claim").is_none(), "Rails' keys, not the intent");
+    assert!(intent.wash_claim.is_none() && model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap().get("wash_claim").is_none(), "2.x's keys, not the intent");
     assert!(matches!(send(&o, &script(json!({})), id, &intent).await, placement::Sent::Accepted(_)));
-    assert_eq!(events(&o), vec!["wash_sale_locked"], "logged after the placement, as Rails");
+    assert_eq!(events(&o), vec!["wash_sale_locked"], "logged after the placement, as 2.x");
     assert_eq!(claim_keys(&o, id), (Value::Null, Value::Null, Value::Null), "cleared on acceptance");
     assert_eq!(lock_row(&o, s.btc).unwrap().2, token, "the lock itself stands");
     // The rule off, through the whole pass: no verdict, no keys, no row.
@@ -954,7 +954,7 @@ async fn a_loss_rebalance_sell_claims_in_its_keys_and_an_acceptance_logs_and_cle
 }
 
 /// §6 restart vectors: an unknown outcome keeps the claim and its keys; recovery, which reads the keys back from the row (as
-/// after a restart, or as Rails left them), settles them: found → logged once and cleared; proven absent or resolved not
+/// after a restart, or as 2.x left them), settles them: found → logged once and cleared; proven absent or resolved not
 /// placed by the operator → both kept.
 #[tokio::test(flavor = "current_thread")]
 async fn an_unknown_rebalance_sell_keeps_its_claim_until_recovery_settles_it() {
@@ -984,7 +984,7 @@ async fn an_unknown_rebalance_sell_keeps_its_claim_until_recovery_settles_it() {
             let bot = model::load_bot(&o.primary, id).unwrap();
             assert!(matches!(placement::recover(&o.primary, &venue(&t), &bot, &FixedClock(at(T0) + Duration::hours(4))).await.unwrap(), placement::Recovery::NotPlaced));
         }
-        assert_eq!((lock_row(&o, s.btc), claim_keys(&o, id)), held, "operator {operator}: kept, as a Rails worker crash keeps both");
+        assert_eq!((lock_row(&o, s.btc), claim_keys(&o, id)), held, "operator {operator}: kept, as a 2.x worker crash keeps both");
         assert!(!events(&o).contains(&"wash_sale_locked".to_string()));
     }
 }
@@ -1014,7 +1014,7 @@ async fn a_rebalance_sell_that_provably_never_traded_gives_its_claim_back_and_an
     assert_eq!(deltabadger::engine::wash::locked(&o.primary, bot.user_id, &FixedClock(at(T0) + Duration::days(1))).unwrap(), vec![s.btc], "a buy is still refused");
 }
 
-/// #abandon_below_minimum!(selling) with a loss: Rails claims before it measures and restores on the abandonment. An expired
+/// #abandon_below_minimum!(selling) with a loss: 2.x claims before it measures and restores on the abandonment. An expired
 /// lock carrying an old token: the token is replaced, then cleared, and the deadline is the expired one again.
 #[tokio::test(flavor = "current_thread")]
 async fn a_loss_rebalance_sell_under_the_floor_claims_and_gives_back_in_one_transaction() {
@@ -1100,7 +1100,7 @@ async fn resolution_rejects_a_stale_halt_and_another_owner() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolution_matches_all_recorded_rails_ledger_branches() {
+async fn resolution_matches_all_recorded_v2_ledger_branches() {
     let fixture:Value=serde_json::from_str(include_str!("fixtures/rebalance_resolutions.json")).unwrap();
     assert_eq!(fixture["cases"].as_array().unwrap().len(),16+16+16,"owed absent/zero/positive × sell and buy absent/closed/cancelled/abandoned");
     for case in fixture["cases"].as_array().unwrap() {
@@ -1206,13 +1206,13 @@ async fn resolution_rolls_back_when_another_admission_blocker_remains() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolution_with_unbalanced_stopped_allocations_matches_rails_and_completes_the_buy() {
+async fn resolution_with_unbalanced_stopped_allocations_matches_v2_and_completes_the_buy() {
     if !common::v2::enabled() { return; }
     let (d, o, id, s, _) = swap_bot(stopped().transient("rebalance_pending", json!({"phase":"ambiguous","remaining_quote_amount":"40","buy_attempted":true})));
     o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json((SELECT json_group_object(key, 0.6) FROM json_each(bots.settings, '$.allocations'))))", []).unwrap();
     let before = model::load_bot(&o.primary, id).unwrap().transient;
     drop(o); // 2.70.21 writes from another kernel's view of the files (Docker Desktop): no connection spans its run
-    rails_resolves_the_halt(d.path(), id);
+    v2_resolves_the_halt(d.path(), id);
     let o = store::open(&store::Paths::from_env(&|_| None, d.path())).unwrap();
     let expected = model::load_bot(&o.primary, id).unwrap().transient;
     o.primary.execute("UPDATE bots SET transient_data=?1 WHERE id=?2", (before.to_string(), id)).unwrap();

@@ -1,6 +1,6 @@
 //! app/services/bot_api: what a tool or a REST route answers, before either surface formats it. Each service returns
-//! `Res` (BotApi::Result): a domain status, and the data or an error code and message. `data` is the Hash Rails builds,
-//! in its key order, with its values already as Rails renders them: a BigDecimal as its `to_s` text, a time as
+//! `Res` (BotApi::Result): a domain status, and the data or an error code and message. `data` is the Hash 2.x builds,
+//! in its key order, with its values already as 2.x renders them: a BigDecimal as its `to_s` text, a time as
 //! ISO 8601 in UTC with milliseconds, a settings value as stored. REST encodes it (web::rest); MCP writes text from it.
 //! Ported here: the services of the REST routes this build serves (slices A and B); the four reads (slice C) are built
 //! in web::mcp::reads, beside their venue fetches, as `Read`; the others stay where their MCP tool is.
@@ -17,7 +17,7 @@ use serde_json::{json, Value};
 pub enum Domain { Success,
     /// A success REST answers 201 (`status: :created`): a bot made.
     Created, ValidationFailed, PermissionDenied, NotFound, Conflict, UpstreamFailed, NotPorted,
-    /// What Rails raises past the service (a venue's transient network error): its 500, never an envelope.
+    /// What 2.x raises past the service (a venue's transient network error): its 500, never an envelope.
     Raised }
 
 pub struct Res {
@@ -196,7 +196,7 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
                 }
             } else {
                 let errors = mcp_input::full_messages(&view.errors);
-                // Service conflict messages are failures in Rails too, reported as they are.
+                // Service conflict messages are failures in 2.x too, reported as they are.
                 if errors.starts_with("Bot '") || errors.starts_with("This app can't run that yet:") { errors } else { match action {
                     Action::Start => format!("Failed to start bot '{stored}': {errors}"),
                     Action::Stop => format!("Failed to stop bot '{stored}'."),
@@ -233,7 +233,7 @@ pub fn write_result(out: Outcome<Shown>) -> Res {
     }
 }
 
-/// Ruby's `present?` for a parameter: nil, false, a blank string and an empty list or hash are not.
+/// 2.x's `present?` for a parameter: nil, false, a blank string and an empty list or hash are not.
 pub(crate) fn present(v: &Value) -> bool {
     match v {
         Value::Null | Value::Bool(false) => false,
@@ -244,7 +244,7 @@ pub(crate) fn present(v: &Value) -> bool {
     }
 }
 
-/// `value.to_i` for a parameter: a string's leading integer, a number truncated. `None` where Ruby raises
+/// `value.to_i` for a parameter: a string's leading integer, a number truncated. `None` where 2.x raises
 /// (true, a list, a hash). A number past 64 bits saturates, which every caller here reads the same way.
 pub fn to_i(v: &Value) -> Option<i64> {
     match v {
@@ -252,7 +252,7 @@ pub fn to_i(v: &Value) -> Option<i64> {
         Value::Number(n) if n.is_f64() => n.as_f64().map(|f| f.trunc() as i64),
         _ => Some(match numeric(v, true) {
             Ok(n) => n.as_i64().unwrap_or(0),
-            // Past i64: Ruby keeps the Bignum; its sign is all that matters to a clamp or an id lookup.
+            // Past i64: 2.x keeps the Bignum; its sign is all that matters to a clamp or an id lookup.
             Err(_) => if v.as_str().is_some_and(|s| s.trim_start().starts_with('-')) { i64::MIN } else { i64::MAX },
         }),
     }
@@ -297,7 +297,7 @@ pub fn bots(c: &Connection, user: i64, status: Option<&Value>) -> Result<Res, We
             let base = if kind == "Bots::DcaIndex" { None } else { asset(c, &s["base_asset_id"])? };
             (base.as_ref().zip(quote.as_ref()).map(|(b, q)| format!("{b}/{q}")), base)
         };
-        // A bot stored without a name is listed under its generated one, as Rails loads it.
+        // A bot stored without a name is listed under its generated one, as 2.x loads it.
         let label = match label.filter(|l| !l.trim().is_empty()) { Some(l) => l, None => super::mcp::reads::generated_label(c, user, id, &kind, &s, "en")? };
         bots.push(json!({"id": id, "label": label, "type": kind, "pair": pair, "base_asset": base, "quote_asset": quote, "exchange": exchange,
                          "status": name, "interval": s.get("interval").cloned().unwrap_or(Value::Null),
@@ -318,7 +318,7 @@ pub fn exchanges(c: &Connection, user: i64) -> Result<Res, WebError> {
 }
 
 /// BotApi::Transactions::List: the user's trades, newest first; `bot_id` narrows to one bot, `limit` is 20 unless
-/// it is 1 to 100. `None` where Rails raises on a parameter (`true.to_i`).
+/// it is 1 to 100. `None` where 2.x raises on a parameter (`true.to_i`).
 pub fn transactions(c: &Connection, user: i64, bot_id: &Value, limit: &Value) -> Result<Option<Res>, WebError> {
     let bot = if present(bot_id) {
         let Some(id) = to_i(bot_id) else { return Ok(None) };
@@ -334,9 +334,9 @@ pub fn transactions(c: &Connection, user: i64, bot_id: &Value, limit: &Value) ->
     let mut out = vec![];
     for (id, bot_id, time, side, status, base, quote) in rows {
         let [price, _, _, amount, cost] = crate::figures::fill::display_amounts(c, id)?;
-        let text = |n: Option<crate::ruby::BigDec>| n.map_or(Value::Null, |n| json!(n.to_s_f()));
+        let text = |n: Option<crate::v2::BigDec>| n.map_or(Value::Null, |n| json!(n.to_s_f()));
         let at = crate::codec::parse_time(&time).map_err(|e| WebError::Config(format!("transaction timestamp: {e:?}")))?;
-        out.push(json!({"id": id, "bot_id": bot_id, "created_at": crate::ruby::iso8601_ms(at),
+        out.push(json!({"id": id, "bot_id": bot_id, "created_at": crate::v2::iso8601_ms(at),
                         "side": side.and_then(|s| usize::try_from(s).ok()).and_then(|s| ["buy","sell"].get(s).copied()).unwrap_or(""),
                         "status": status.and_then(|s| ["submitted","failed","skipped"].get(s).copied()).unwrap_or(""),
                         "amount_exec": text(amount), "base": base, "price": text(price), "quote": quote, "quote_amount_exec": text(cost)}));

@@ -111,15 +111,15 @@ pub(super) fn advanced(ctx: &Ctx, csrf: &str, advanced: bool) -> Result<String, 
 pub(super) fn email(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, show_form: bool) -> Result<String, WebError> {
     let read = |key: &str| crate::web::auth::app_config(c, &app.cipher, key);
     let provider = read("smtp_provider")?;
-    let env_available = app.settings_smtp.address.as_deref().is_some_and(|s| !crate::ruby::blank(s));
+    let env_available = app.settings_smtp.address.as_deref().is_some_and(|s| !crate::v2::blank(s));
     let host = read("smtp_host")?;
     let port = read("smtp_port")?;
-    let has_credentials = read("smtp_username")?.is_some_and(|s| !crate::ruby::blank(&s))
-        && read("smtp_password")?.is_some_and(|s| !crate::ruby::blank(&s));
+    let has_credentials = read("smtp_username")?.is_some_and(|s| !crate::v2::blank(&s))
+        && read("smtp_password")?.is_some_and(|s| !crate::v2::blank(&s));
     let configured_hint = i18n::t(
         ctx.locale,
         "settings.email_notifications.smtp_configured_html",
-        &[("host", Arg::Text(host.as_deref().filter(|s| !crate::ruby::blank(s)).unwrap_or("smtp.gmail.com")))],
+        &[("host", Arg::Text(host.as_deref().filter(|s| !crate::v2::blank(s)).unwrap_or("smtp.gmail.com")))],
     );
     Ok(sections::email_notifications(
         ctx,
@@ -138,7 +138,7 @@ pub(super) fn email(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, show_form:
 /// `enabled` is the tri-state answer: none picked while undecided.
 pub fn question(ctx: &Ctx, enabled: Option<bool>, jurisdiction: Option<&str>) -> String {
     let code = jurisdiction
-        .filter(|s| !crate::ruby::blank(s))
+        .filter(|s| !crate::v2::blank(s))
         .unwrap_or("US");
     let choices = [("US", "US", 30), ("GB", "UK", 30), ("IE", "IE", 28)];
     let label = |name: &str, days: i64| {
@@ -214,7 +214,7 @@ pub fn wash(c: &Connection, ctx: &Ctx, csrf: &str, user_id: i64) -> Result<Strin
         |r| Ok((r.get(0)?, r.get(1)?)),
     )?;
     let question = question(ctx, enabled, jurisdiction.as_deref());
-    // The locked list is read even with protection off, as Rails does; rendering is conditional.
+    // The locked list is read even with protection off, as 2.x does; rendering is conditional.
     let mut statement=c.prepare("SELECT assets.symbol,wash_sale_locks.buy_locked_until FROM wash_sale_locks JOIN assets ON assets.id=wash_sale_locks.asset_id WHERE user_id=?1 AND buy_locked_until>?2 ORDER BY buy_locked_until,wash_sale_locks.id")?;
     let locks = statement
         .query_map((user_id, crate::codec::format_time(ctx.now)), |r| {
@@ -300,7 +300,7 @@ pub async fn account(
     } else {
         i18n::text(ctx.locale, "devise.registrations.edit.awaiting_confirmation", &[("email", Arg::Text(&pending_email))])
     };
-    // Rails re-renders the whole section on a failed save, and current_user.errors reaches every row: the
+    // 2.x re-renders the whole section on a failed save, and current_user.errors reaches every row: the
     // email and password rows open, and each field shows its own attribute's message.
     let errors = sections::Errors(&draft.messages);
     let registration = registration(ctx, &csrf, registration_open.0, registration_open.1)?;

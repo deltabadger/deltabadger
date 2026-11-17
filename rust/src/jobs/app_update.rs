@@ -1,9 +1,8 @@
-//! AppUpdate and AppUpdate::CheckJob (app/models/app_update.rb, app/jobs/app_update/check_job.rb, clients/github.rb,
-//! installation.rb): twice a day, ask GitHub for the latest release and keep the answer for the Settings row
+//! AppUpdate and AppUpdate::CheckJob (with 2.x's GitHub client and Installation): twice a day, ask GitHub for the latest release and keep the answer for the Settings row
 //! (web::settings::sections, settings/widgets/_app_update). Desktop installs update themselves and opted-out installs
 //! (DELTABADGER_UPDATE_CHECK=false, which launchpad sets on every hosted container) never ask.
 //!
-//! Rails keeps the answer in Rails.cache, a database in production (solid_cache), for 25 hours. Here it is one plain
+//! 2.x keeps the answer in its cache, a database in production (solid_cache), for 25 hours. Here it is one plain
 //! `app_configs` row (KEY) with the time it was fetched; a read past TTL is no answer. A failed run never touches it.
 use super::schedule::{Jitter, Schedule};
 use super::{Cx, Job, JobFuture, Outcome, Retry, Spec, Wake, DEADLINE};
@@ -28,7 +27,7 @@ pub const MANUAL_URL: &str = "https://github.com/deltabadger/deltabadger/blob/ma
 const MAX_BODY: usize = 1 << 20;
 
 /// Installation.platform: DELTABADGER_PLATFORM, declared by each launcher and never inferred. Anything else is Unknown
-/// (Rails logs a warning), which the Settings row answers with the manual.
+/// (2.x logs a warning), which the Settings row answers with the manual.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Platform { Desktop, Umbrel, Docker, Unknown }
 
@@ -92,7 +91,7 @@ pub fn available(current: &str, latest: &str) -> bool {
     match (gem::Version::parse(latest), gem::Version::parse(current)) { (Some(l), Some(c)) => l.cmp(&c) == Ordering::Greater, _ => false }
 }
 
-/// Gem::Version (rubygems/version.rb), as far as comparing needs.
+/// Gem::Version, as far as comparing needs.
 mod gem {
     use std::cmp::Ordering;
 
@@ -139,7 +138,7 @@ mod gem {
 pub type FetchFuture<'a> = Pin<Box<dyn Future<Output = Result<(u16, String, Vec<u8>), String>> + 'a>>;
 pub trait Fetch { fn latest<'a>(&'a self) -> FetchFuture<'a>; }
 
-/// Clients::Github's connection: open 5 s, read 10 s; no proxy, no redirect followed, no retry; Rails' two headers.
+/// Clients::Github's connection: open 5 s, read 10 s; no proxy, no redirect followed, no retry; 2.x's two headers.
 pub struct LiveFetch { client: reqwest::Client, url: String }
 
 impl LiveFetch {
@@ -185,7 +184,7 @@ impl<F: Fetch> Job for Check<F> {
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> {
         Box::pin(async move {
             if !self.enabled { return Outcome::NothingNew; }
-            // Every failure is the same nil to Rails, logged and never raised: the last good answer stays.
+            // Every failure is the same nil to 2.x, logged and never raised: the last good answer stays.
             let release = match self.fetch.latest().await {
                 Ok((status, content_type, body)) => release_from(status, &content_type, &body).ok_or_else(|| format!("no release in the answer (HTTP {status})")),
                 Err(why) => Err(why),

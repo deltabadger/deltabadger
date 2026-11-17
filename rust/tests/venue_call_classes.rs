@@ -1,7 +1,7 @@
 //! Characterization of BinanceVenue::call and KucoinVenue::call (plan VB §1.4): every answer class a read, a placement and
 //! the bulk price read can meet, pinned on what the two adapters answered before the transport-error split moved to
 //! `http::transport_failure`. The two calls stay separate policies (401, 429/418, non-JSON on the bulk read, KuCoin's
-//! envelope code); this table proves none of them moved. Rails-free.
+//! envelope code); this table proves none of them moved. 2.x-free.
 //!
 //! The pin is tests/fixtures/venue_call_classes.txt; WRITE_VENUE_CALL_CLASSES=1 rewrites it from the current code.
 use chrono::{Duration, Utc};

@@ -1,6 +1,6 @@
 //! Mail the engine owes the owner, kept as markers on the bot's own row.
 //!
-//! Where Rails calls a `Bot::Notifyable` method, the engine writes a key into `bots.transient_data` in the same
+//! Where 2.x calls a `Bot::Notifyable` method, the engine writes a key into `bots.transient_data` in the same
 //! statement or transaction that spends the mail budget or stops the bot. That key is the whole queue: nothing is
 //! held in memory, so a crash or a restart loses no mail. Whoever sends mail (`mail::sender`) reads `pending`, and
 //! `clear`s a marker only after the mail server accepted the message, so a mail is sent at least once.
@@ -14,14 +14,14 @@
 //! | `rust_base_limit_mail_pending` | `{"stamped_at": "…"}` | `stopped_by_base_amount_limit` |
 //!
 //! `error` is at most 500 characters (longer text is cut, with an ellipsis): a marker never grows with what a venue sends.
-//! `stamped_at` is when the engine raised it, the instant of the stamp or stop it was written with (ISO 8601, milliseconds, UTC). `error` is the raw message (Rails' `e.message`);
+//! `stamped_at` is when the engine raised it, the instant of the stamp or stop it was written with (ISO 8601, milliseconds, UTC). `error` is the raw message (2.x's `e.message`);
 //! the mail humanises it in the user's language.
 //!
-//! Rails leaves these keys alone: every write of `transient_data` there merges into the stored value (store_accessor,
+//! 2.x leaves these keys alone: every write of `transient_data` there merges into the stored value (store_accessor,
 //! Bot#merge_transient_data!), so after a handback they stay on the row, unsent, until this engine runs again.
 use super::{eligibility, model, EngineError};
 use crate::crypto::Cipher;
-use crate::ruby::iso8601_ms;
+use crate::v2::iso8601_ms;
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde_json::{json, Map, Value};
@@ -59,12 +59,12 @@ pub enum Notice {
     /// #notify_stopped_by_base_amount_limit: a sell fill took the bot to its base cap (or, D-6D-2, a rotation into selling
     /// found it used) and stopped it.
     StoppedByBaseAmountLimit,
-    /// D-UPGRADE-SET-ASIDE: a takeover stopped the bot; `reasons` are the owner's sentences (Rust-only, no Rails mail).
+    /// D-UPGRADE-SET-ASIDE: a takeover stopped the bot; `reasons` are the owner's sentences (Rust-only, no 2.x mail).
     SetAside { reasons: String },
 }
 
 impl Notice {
-    /// The mailer action Rails enqueues for it.
+    /// The mailer action 2.x enqueues for it.
     pub fn mail(&self) -> &'static str {
         match self {
             Notice::EndOfFunds { .. } => "end_of_funds",

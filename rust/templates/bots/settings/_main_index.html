@@ -1,8 +1,8 @@
 {#- bots/dca_indexes/settings/_main.html.erb for a stored bot: the sentence, the two sliders, and the
     index's members the page's script weights and draws.
-    Rails writes the `style` that should hide a member beyond the count (and the note) through ERB's
+    2.x writes the `style` that should hide a member beyond the count (and the note) through ERB's
     escaping, so the browser reads `style=&quot;display: none;&quot;` as two meaningless attributes
-    and hides nothing; the script hides them. Reproduced as Rails sends it. -#}
+    and hides nothing; the script hides them. Reproduced as 2.x sends it. -#}
 
 <div data-controller="index-allocation" data-index-allocation-bot-id-value="{{ bot_id }}" data-index-allocation-other-label-value="{{ v.t("bot.dca_index.other")|safe }}">
   <form class="widget main-rule main-rule--index" data-turbo-stream="true" data-controller="form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations" action="{{ path }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />

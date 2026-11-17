@@ -1,8 +1,8 @@
 //! A Bitget ledger import over several runs (plan VB §1.6 on slice A4's walk): fills paged by idLessThan, the deposit and
 //! withdrawal records window by window from 2018-04-01 with a record on the edge two windows share, and two equal fills
 //! without a tradeId on different pages (#get_ledger's `uniq`: one row, across runs too). Every multi-run import stores
-//! exactly the rows, and ends on exactly the watermark, of one run; a run cut mid-walk replays. Rails-free: the one-run walk
-//! against Rails is sync_parity.rs's `bitget-ledger-` scenarios.
+//! exactly the rows, and ends on exactly the watermark, of one run; a run cut mid-walk replays. 2.x-free: the one-run walk
+//! against 2.x is sync_parity.rs's `bitget-ledger-` scenarios.
 mod common;
 use deltabadger::crypto::Credentials;
 use deltabadger::engine::FixedClock;
@@ -157,7 +157,7 @@ async fn an_import_over_many_runs_stores_what_one_run_stores() {
     assert_eq!(stored(&cut_db, cut_key).await, (rows, watermark), "a cut run replays and stores every row once");
 }
 
-/// D-BITGET-STUCK: a full page that answers whatever idLessThan asks with the first page again. Rails asks for it forever;
+/// D-BITGET-STUCK: a full page that answers whatever idLessThan asks with the first page again. 2.x asks for it forever;
 /// the walk fails, in one run and when it is read a page a run, never an import that checkpoints the same cursor forever.
 #[tokio::test(flavor = "current_thread")]
 async fn a_full_page_repeated_fails_instead_of_looping() {

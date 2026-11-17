@@ -1,5 +1,5 @@
-//! The Rust half of the figures-parity harness (script/rust/figures.rb is the Rails half): every figure of one
-//! scenario, computed from its database copy and its scripted market, in the shape Rails reports them.
+//! The Rust half of the figures-parity harness (the recording harness was the 2.x half): every figure of one
+//! scenario, computed from its database copy and its scripted market, in the shape 2.x reports them.
 use super::at::At;
 use super::chart;
 use super::db::{self, Subject};
@@ -13,7 +13,7 @@ use rusqlite::{Connection, OpenFlags};
 use serde_json::{json, Map, Value};
 use std::path::Path;
 
-/// A figure, what Rails raises in its place (`"<class>: <message>"`), or why this library does not compute it.
+/// A figure, what 2.x raises in its place (`"<class>: <message>"`), or why this library does not compute it.
 type Answer<T> = Result<T, Absent>;
 
 /// Any other error is this build's own and ends the run.
@@ -26,8 +26,8 @@ fn answer<T>(result: Result<T, FiguresError>) -> Result<Answer<T>, FiguresError>
     }
 }
 
-/// The answer as JSON text, as the Rails harness writes it. A figure that is not computed is an object and no
-/// text, so it can never be taken for one of Rails'.
+/// The answer as JSON text, as the recording harness writes it. A figure that is not computed is an object and no
+/// text, so it can never be taken for one of 2.x's.
 fn text<T>(answer: &Answer<T>, write: impl Fn(&T) -> String) -> Value {
     match answer {
         Ok(value) => json!(write(value)),
@@ -40,14 +40,14 @@ fn after<T, U>(earlier: &Answer<T>, next: impl FnOnce(&T) -> Result<U, FiguresEr
     match earlier { Ok(value) => answer(next(value)), Err(error) => Ok(Err(error.clone())) }
 }
 
-/// `cached`: whether Rails holds the live figures cached, for a pair bot, which says so itself (`pair::live`).
+/// `cached`: whether 2.x holds the live figures cached, for a pair bot, which says so itself (`pair::live`).
 struct Computed { subject: Subject, live: Answer<Metrics>, marked: Answer<Metrics>, cached: Option<bool> }
 
 fn snapshot<T>(s: &totals::Snapshot<T>, write: impl Fn(&T) -> J) -> String {
     J::Obj(vec![("result".to_string(), J::opt(&s.result, write)), ("loading".to_string(), J::Bool(s.loading))]).write()
 }
 
-/// The scenario in `dir` (scenario.json beside production.sqlite3): Rails' rails.json, computed here.
+/// The scenario in `dir` (scenario.json beside production.sqlite3): the figures 2.x recorded for it, computed here.
 pub fn figures(dir: &Path) -> Result<Value, FiguresError> {
     let unreadable = |e: &dyn std::fmt::Display| FiguresError::Data(e.to_string());
     let scenario = std::fs::read_to_string(dir.join("scenario.json")).map_err(|e| unreadable(&e))?;
@@ -109,7 +109,7 @@ fn stepped(c: &Connection, scenario: &Value, steps: &[Value]) -> Result<Value, F
 }
 
 /// The reply `script` holds for a request `line`: under the whole line, else under the line of only the parameters that
-/// pick a series, as the Rails harness keys them (script/rust/figures.rb `ScriptedMarket.lines`).
+/// pick a series, as the recording harness keys them.
 fn scripted<'a>(script: &'a Value, line: &str) -> Option<&'a Value> {
     script.get(line).or_else(|| {
         let (head, query) = line.split_once('?').unwrap_or((line, ""));
@@ -123,7 +123,7 @@ fn scripted<'a>(script: &'a Value, line: &str) -> Option<&'a Value> {
     })
 }
 
-/// A step's market at the wire: every request answered from the step's script (`scripted`), and logged as the Rails
+/// A step's market at the wire: every request answered from the step's script (`scripted`), and logged as the 2.x
 /// harness logs it (method, host, path and the whole sorted query).
 struct StepWire<'a> { script: &'a Value, producer: crate::engine::model::CredentialVersion, asked: std::cell::RefCell<Vec<String>> }
 impl crate::venue::http::Transport for StepWire<'_> {
@@ -133,7 +133,7 @@ impl crate::venue::http::Transport for StepWire<'_> {
         let mut query: Vec<String> = r.query.iter().map(|(k, v)| format!("{k}={v}")).collect();
         query.sort();
         let line = if query.is_empty() { format!("{} {host}{}", r.method, r.path) } else { format!("{} {host}{}?{}", r.method, r.path, query.join("&")) };
-        // A POST's body is part of its line, as the Rails harness logs it (Hyperliquid's reads are all POST /info).
+        // A POST's body is part of its line, as the recording harness logs it (Hyperliquid's reads are all POST /info).
         let line = match &r.body { Some(body) => format!("{line} {body}"), None => line };
         self.asked.borrow_mut().push(line.clone());
         let reply = scripted(self.script, &line).ok_or_else(|| crate::venue::http::TransportError::Permanent("Unscripted market request".into()))?;
@@ -143,7 +143,7 @@ impl crate::venue::http::Transport for StepWire<'_> {
     }
 }
 
-/// A pair bot's figures, its three layers in Rails' own hash, and whether Rails caches the live and the marked ones.
+/// A pair bot's figures, its three layers in 2.x's own hash, and whether 2.x caches the live and the marked ones.
 fn pair(c: &Connection, id: i64, now: At, market: &dyn super::market::MarketData, user: &db::User, zone: &chrono_tz::Tz) -> Result<(Map<String, Value>, Computed), FiguresError> {
     use super::pair;
     let written = |p: &pair::Pair| p.to_json(9).write();
@@ -200,7 +200,7 @@ fn compute(c: &Connection, scenario: &Value, now: At, market: &dyn super::market
         let metrics = answer(walk::metrics(c, &subject, now))?;
         let live = after(&metrics, |metrics| live::live(c, &subject, metrics, market, now))?;
         let marked = after(&live, |live| chart::marked(c, &subject, live, market, now))?;
-        // The page's chart: nothing where Rails has nothing (no point to plot, or a raise), and a reason where this
+        // The page's chart: nothing where 2.x has nothing (no point to plot, or a raise), and a reason where this
         // library has none to give.
         let page = match &marked {
             Ok(marked) => answer(chart::page(c, &subject, marked, user.hide_balances))?,
@@ -218,7 +218,7 @@ fn compute(c: &Connection, scenario: &Value, now: At, market: &dyn super::market
             Err(Absent::NotComputed(reason)) => json!({ "not_computed": reason }),
         });
         out.insert("profit_in_usd".into(), text(&profit, |profit| J::opt(profit, J::num).write()));
-        // Beside the figures, and no part of what is compared with Rails: the held assets the live pass left out.
+        // Beside the figures, and no part of what is compared with 2.x: the held assets the live pass left out.
         out.insert("unpriced".into(), json!(live.iter().flat_map(|live| &live.unpriced).map(|u| json!([u.key, u.reason.as_str()])).collect::<Vec<_>>()));
         // And the holdings the marked chart leaves out of its points.
         out.insert("chart_omitted".into(), json!(marked.iter().flat_map(|marked| &marked.chart_omitted).map(|u| json!([u.key, u.reason.as_str()])).collect::<Vec<_>>()));
@@ -239,7 +239,7 @@ fn compute(c: &Connection, scenario: &Value, now: At, market: &dyn super::market
             let (_, bot) = computed.iter().find(|(bot, _)| bot == id)?;
             let figures = match which {
                 Which::Live => bot.live.as_ref().map(Some),
-                // What Rails would hold cached: figures that are stale, or have no chart point yet, are never written.
+                // What 2.x would hold cached: figures that are stale, or have no chart point yet, are never written.
                 Which::Cached => bot.live.as_ref().map(|m| Some(m).filter(|m| bot.cached.unwrap_or(!m.prices_stale && !m.chart.labels.is_empty()))),
                 Which::Marked => bot.marked.as_ref().map(Some),
             };

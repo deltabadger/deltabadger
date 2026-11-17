@@ -22,13 +22,13 @@ pub fn pair_price(order:&Order,fill:&Fill)->Result<Dec,FiguresError>{
 pub const VALUE_UNAVAILABLE: &str = "executed fill value unavailable";
 /// A pair bot's executed quantity and value, sharing the normalized reader with regular composition fills.
 /// A closed row alone may fall back to requested quantity; explicit zero execution never does.
-/// Named divergences from Rails, each a defect there:
-/// - D1: a closed row's missing value is its price times the units EXECUTED (Rails: times the units requested);
-/// - D2: a fill whose price is zero or NULL counts, priced at value over quantity (`pair_price`; Rails values it at
+/// Named divergences from 2.x, each a defect there:
+/// - D1: a closed row's missing value is its price times the units EXECUTED (2.x: times the units requested);
+/// - D2: a fill whose price is zero or NULL counts, priced at value over quantity (`pair_price`; 2.x values it at
 ///   zero, or skips it);
 /// - D-PAIR-FILL-VALUE: an execution with missing/zero quote is valued at its positive price, including open/unknown
 ///   partial fills. Without either a positive quote or price, return VALUE_UNAVAILABLE instead of omitting the fill
-///   or propagating Rails' nil-price arithmetic exception. Pair sells retain pair accounting, not special-sell gates.
+///   or propagating 2.x's nil-price arithmetic exception. Pair sells retain pair accounting, not special-sell gates.
 pub fn pair_row(order:&Order)->Result<Option<Fill>,FiguresError>{
     parse_raw(&order.raw, order.closed)
 }
@@ -42,7 +42,7 @@ pub fn parse(order:&Order)->Result<Option<Fill>,FiguresError>{
 /// The chart's price marks keep B2a's normalized reading for every row: a mark is a price shown, not money moved.
 pub fn mark(order:&Order)->Result<Option<Fill>,FiguresError>{ parse_raw(&order.raw, order.closed) }
 
-/// RULING-B2B-1 MQ6: a non-REGULAR sell is read exactly as Rails' walk reads it (measurable.rb:62-154), on the RAW
+/// RULING-B2B-1 MQ6: a non-REGULAR sell is read exactly as 2.x's walk reads it, on the RAW
 /// proceeds column and never through the buy normalizer. `executed` is confirmed_exec_amounts' quantity (zero when blank).
 pub struct SpecialSell { pub executed: Dec, pub reported: Option<Dec>, priced: bool }
 impl SpecialSell {
@@ -68,7 +68,7 @@ pub fn special_sell(order:&Order)->Result<Option<SpecialSell>,FiguresError>{
     let raw=&order.raw;
     let executed=raw.amount_exec.as_ref().or(if order.closed{raw.amount.as_ref()}else{None}).cloned().unwrap_or_else(Dec::zero);
     bound(&executed)?;
-    // An unpriced REBALANCE sell keeps R4/R3: valued at price × executed, refused without a positive price. Rails parks
+    // An unpriced REBALANCE sell keeps R4/R3: valued at price × executed, refused without a positive price. 2.x parks
     // the released basis as its flight cash instead, and the next buy's basis/cash division then compounds digits on
     // every pair (the growth R4 removed). The units leave either way, so only the flight-cash figure differs.
     if order.kind!="LIQUIDATION" && executed.is_positive() && reported.is_none() {
@@ -87,7 +87,7 @@ pub fn special_sell_for_engine(order:&Order)->Result<Option<SpecialSell>,Figures
     Ok(Some(sell))
 }
 
-/// RULING-B2B-R1 item 2: a rejected special row (failed or skipped) moves nothing, as Rails' `submitted` scope ignores it;
+/// RULING-B2B-R1 item 2: a rejected special row (failed or skipped) moves nothing, as 2.x's `submitted` scope ignores it;
 /// one that reports an execution anyway is an unknown fill. Counts those. Any other status is eligibility's refusal.
 pub fn rejected_special_executions(c:&Connection,bot_id:i64)->Result<i64,FiguresError>{
     let mut s=c.prepare("SELECT price,amount,amount_exec,quote_amount_exec FROM transactions WHERE bot_id=?1 AND status IN (1,2) AND transaction_type<>'REGULAR'")?;
@@ -166,7 +166,7 @@ pub(super) fn orders(c: &Connection, bot_id: i64) -> Result<Vec<Order>, FiguresE
 }
 
 /// An engine commitment: normalized settled value or the quote reserved by a waiting buy.
-/// SQL numeric kind survives only for Rails' existing amount-limit compatibility calculation.
+/// SQL numeric kind survives only for 2.x's existing amount-limit compatibility calculation.
 pub use crate::engine::accounting::Commitment;
 use crate::engine::accounting::CapKind;
 
@@ -178,8 +178,8 @@ pub fn action_commitments(c: &Connection, bot_id: i64, since: &str) -> Result<Ve
     budget::within(|| commitments_bounded(c, bot_id, since, Some(100_000)))
 }
 fn commitments_bounded(c: &Connection, bot_id: i64, since: &str, limit: Option<usize>) -> Result<Vec<Commitment>, FiguresError> {
-    use crate::ruby::BigDec;
-    // Window membership is Rails' own: SQLite compares the stored text with the quoted boundary
+    use crate::v2::BigDec;
+    // Window membership is 2.x's own: SQLite compares the stored text with the quoted boundary
     // (`created_at >= ?`). Parsed times only validate; they never decide membership.
     let mut s = c.prepare("SELECT external_status, quote_amount, price, amount, amount_exec, quote_amount_exec, created_at, created_at >= ?2 FROM transactions WHERE bot_id=?1 AND status=0 AND side=0 AND transaction_type='REGULAR' AND external_status IN (0,1,2,3,4) ORDER BY id")?;
     crate::codec::parse_time(since).map_err(|e|FiguresError::Data(format!("{e:?}")))?;
@@ -201,7 +201,7 @@ fn commitments_bounded(c: &Connection, bot_id: i64, since: &str, limit: Option<u
         let value = if status==0 || status==1 {
             // D-WAITING-RESERVE-ZERO-QUOTE: a waiting row reserves its quote only when it is > 0. A venue that sizes a limit
             // order by `size` answers a quote of 0 (KuCoin's `funds "0"`), and polling writes it over the placement's quote;
-            // Rails reserves that 0 (exchanges/kucoin.rb:685 `order_data['funds']&.to_d`, bot/accountable.rb:111
+            // 2.x reserves that 0 (`order_data['funds']&.to_d`, then
             // `quote_amount || (amount * price)`, 0 being truthy), so the next tick buys the same amount again.
             match (super::db::decimal(r,1)?.filter(Dec::is_positive),&raw.amount,&raw.price) {
                 (Some(q),_,_)=>q,
@@ -230,10 +230,10 @@ fn commitments_bounded(c: &Connection, bot_id: i64, since: &str, limit: Option<u
 }
 
 /// Waiting buys claim only requested units still unfilled. Fill validation is shared with the walk.
-pub fn reserved(c: &Connection,bot_id:i64)->Result<std::collections::HashMap<i64,crate::ruby::BigDec>,FiguresError>{ reserved_side(c,bot_id,0) }
+pub fn reserved(c: &Connection,bot_id:i64)->Result<std::collections::HashMap<i64,crate::v2::BigDec>,FiguresError>{ reserved_side(c,bot_id,0) }
 /// `reserved` for the waiting orders on `side` (0 buy, 1 sell): reserved_waiting_amounts(:buy) or (:sell).
-pub fn reserved_side(c: &Connection,bot_id:i64,side:i64)->Result<std::collections::HashMap<i64,crate::ruby::BigDec>,FiguresError>{
-    use crate::ruby::BigDec;
+pub fn reserved_side(c: &Connection,bot_id:i64,side:i64)->Result<std::collections::HashMap<i64,crate::v2::BigDec>,FiguresError>{
+    use crate::v2::BigDec;
     let mut s=c.prepare("SELECT base_asset_id,price,amount,amount_exec,quote_amount_exec FROM transactions WHERE bot_id=?1 AND status=0 AND external_status IN (0,1) AND side=?2")?;
     let mut rows=s.query(rusqlite::params![bot_id,side])?;
     let mut out=std::collections::HashMap::new();
@@ -255,7 +255,7 @@ pub fn reserved_side(c: &Connection,bot_id:i64,side:i64)->Result<std::collection
 }
 
 use crate::engine::EngineError;
-use crate::ruby::{BigDec, from_sql};
+use crate::v2::{BigDec, from_sql};
 pub(crate) struct StoredOrder {
     pub id: i64, pub side: Option<i64>, pub external_status: Option<i64>,
     pub price: Option<BigDec>, pub amount: Option<BigDec>, pub quote_amount: Option<BigDec>, pub amount_exec: Option<BigDec>, pub quote_amount_exec: Option<BigDec>,
@@ -326,16 +326,16 @@ fn quantity(raw: &Raw, closed: bool) -> Result<Dec, FiguresError> {
     Ok(quantity)
 }
 /// The base cap's commitments (Bot::BaseAmountLimitable#base_amount_available_before_limit_reached): this bot's submitted
-/// REGULAR sells in the window, in id order, each with the Ruby class Rails' bucket gives it. Closed:
+/// REGULAR sells in the window, in id order, each with the 2.x class 2.x's bucket gives it. Closed:
 /// `pluck(Arel.sql('COALESCE(amount_exec, amount)')).compact`, SQLite's own INTEGER or REAL. Open or unknown:
 /// `pluck(:amount).compact`, BigDecimal. Cancelled: `COALESCE(amount_exec, 0)`, raw. Abandoned (D-6D-3): what it asked
 /// for while that is more than it reported, `max(amount_exec, amount)`, until polling moves it to closed or cancelled
-/// (Rails counts the reported exec only, which reopens the unreported part of the cap).
+/// (2.x counts the reported exec only, which reopens the unreported part of the cap).
 /// A14b: each with its row's `created_at` (µs), venue and asset, which its split restatement reads.
 pub struct Sold { pub commitment: Commitment, pub at_us: i64, pub exchange_id: Option<i64>, pub asset_id: Option<i64> }
 pub fn sold_commitments(c: &Connection, bot_id: i64, since: Option<&str>) -> Result<Vec<Sold>, FiguresError> {
     use rusqlite::types::ValueRef;
-    // An INTEGER is an Integer, a REAL a Float; a NULL in COALESCE(…, 0) the Integer 0. TEXT (never written by Rails,
+    // An INTEGER is an Integer, a REAL a Float; a NULL in COALESCE(…, 0) the Integer 0. TEXT (never written by 2.x,
     // which binds a Float) is read as its decimal.
     fn raw_kind(v: ValueRef, value: &BigDec) -> CapKind {
         match v {
@@ -347,7 +347,7 @@ pub fn sold_commitments(c: &Connection, bot_id: i64, since: Option<&str>) -> Res
     }
     let big = |d: &Dec| BigDec::parse(&d.to_s_f()).map_err(|_| FiguresError::Data("sell commitment exceeds numeric bounds".into()));
     budget::within(|| {
-        // As in commitments: Rails' text comparison decides the window; an unset stamp matches nothing.
+        // As in commitments: 2.x's text comparison decides the window; an unset stamp matches nothing.
         let mut s = c.prepare("SELECT external_status, price, amount, amount_exec, quote_amount_exec, created_at, coalesce(created_at >= ?2, 0), exchange_id, base_asset_id FROM transactions WHERE bot_id=?1 AND side=1 AND status=0 AND transaction_type='REGULAR' AND external_status IN (0,1,2,3,4) ORDER BY id LIMIT 100001")?;
         since.map(crate::codec::parse_time).transpose().map_err(|e|FiguresError::Data(format!("{e:?}")))?;
         let mut rows = s.query(params![bot_id, since])?;

@@ -1,4 +1,4 @@
-//! A12 classification and live guarded identity writes against recorded Rails inputs.
+//! A12 classification and live guarded identity writes against recorded 2.x inputs.
 use deltabadger::sync::binance_identity::{classify, Candidate, Context, Decision, Event, Source};
 use serde_json::{json, Value};
 mod common;
@@ -199,7 +199,7 @@ fn tuple_encoding_is_unambiguous_versioned_and_full_sha256() {
 }
 
 #[test]
-fn recorded_rails_collisions_and_negative_controls_remain_the_oracle() {
+fn recorded_v2_collisions_and_negative_controls_remain_the_oracle() {
     let v:Value=serde_json::from_str(include_str!("fixtures/binance_identity.json")).unwrap();
     let cases=v["collisions"].as_array().unwrap();
     assert_eq!(cases.len(),8+8+4+1+2+1,"8 capital/reward/dust + 8 Earn + 4 excluded + flexible mapper + 2 US transfers + negative controls");
@@ -213,7 +213,7 @@ fn recorded_rails_collisions_and_negative_controls_remain_the_oracle() {
         assert_eq!(c["entries"].as_array().unwrap().len(),mapped,"{name}");
         assert_eq!(c["imported"],stored,"{name}"); assert_eq!(c["repeated"],0,"{name}");
         assert_eq!(c["stored"].as_array().unwrap().len(),stored as usize,"{name}");
-        // No A12 writer yet: Rails' loss is evidence, not an enabled Rust divergence.
+        // No A12 writer yet: 2.x's loss is evidence, not an enabled Rust divergence.
         assert!(c["stored"].as_array().unwrap().iter().all(|r|!r["tx_id"].as_str().unwrap().contains("a12")));
         if name=="withdrawals" {assert_eq!(c["stored"][0]["fee_amount"],"0.01");}
     }

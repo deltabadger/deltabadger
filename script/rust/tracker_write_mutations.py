@@ -65,7 +65,7 @@ mutants += [
     ('settings_owner', source, 'updated_at=?2 WHERE id=?3', 'updated_at=?2 WHERE (id=?3 OR id<>?3)',
      'settings_allowlist_blank_preservation_and_owned_update'),
     ('settings_model_validation', source, 'if !super::user::validate_save(c, owner)? { return Ok(StatusCode::OK); }',
-     '', 'settings_model_validation_keeps_invalid_users_unchanged_with_rails_success'),
+     '', 'settings_model_validation_keeps_invalid_users_unchanged_with_v2_success'),
     ('funds_category', source, 'if !classifications::validate_save(c, owner, old.map(|r| r.0), &symbol, kind, category)? { invalid = true; continue; }',
      'if false { invalid = true; continue; }',
      'classifications_keep_valid_rows_after_an_invalid_row_and_preserve_spelling'),

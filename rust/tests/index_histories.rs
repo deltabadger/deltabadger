@@ -1,5 +1,5 @@
-//! B2b: Alpaca index bots whose history holds REBALANCE, LIQUIDATION and REDEPLOY rows, against the Rails oracle
-//! (script/rust/index_histories.rb -> fixtures/index_histories.json). Each scenario is built as Rails built it; the clock is
+//! B2b: Alpaca index bots whose history holds REBALANCE, LIQUIDATION and REDEPLOY rows, against the 2.x oracle
+//! (fixtures/index_histories.json). Each scenario is built as 2.x built it; the clock is
 //! the oracle's own instant.
 mod common;
 use chrono::{DateTime, Utc};
@@ -7,7 +7,7 @@ use common::scripted::{ok, script, venue};
 use common::seed;
 use deltabadger::engine::{accounting, amount, basket, eligibility, model, tick, FixedClock};
 use deltabadger::figures::{at::At, db, walk};
-use deltabadger::ruby::{from_sql, BigDec};
+use deltabadger::v2::{from_sql, BigDec};
 use rusqlite::params;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -30,12 +30,12 @@ fn scenario(name: &str) -> &'static Value {
     fixture()["scenarios"].as_array().unwrap().iter().find(|s| s["name"] == name).unwrap_or_else(|| panic!("{name}"))
 }
 
-/// What the engine keeps refusing, and the reason `check` names. Rails trades on it (RULING-B2B-R1 item 1): its fill is
+/// What the engine keeps refusing, and the reason `check` names. 2.x trades on it (RULING-B2B-R1 item 1): its fill is
 /// unknown, so the next split could spend the same money twice. A swap pending in its selling or buying phase is admitted
-/// since 6b T8, liquidations since 6c-2 and redeploys since 6c-4: the tick stands down as Rails' does (STOOD_DOWN). An
-/// abandoned redeploy counts what it asked for and halts only when this engine's own sweep abandons it, as Rails' does.
+/// since 6b T8, liquidations since 6c-2 and redeploys since 6c-4: the tick stands down as 2.x's does (STOOD_DOWN). An
+/// abandoned redeploy counts what it asked for and halts only when this engine's own sweep abandons it, as 2.x's does.
 const REFUSED: [(&str, &str); 1] = [("rebalance_abandoned", "abandoned REBALANCE")];
-/// Rails' tick skipped these (dca_skipped_*_pending): no split is computed, nothing is placed.
+/// 2.x's tick skipped these (dca_skipped_*_pending): no split is computed, nothing is placed.
 const STOOD_DOWN: [&str; 10] = ["rebalance_selling", "rebalance_buying", "liquidation_waiting", "liquidation_partly_filled_open",
     "liquidation_unknown", "liquidation_placing_intent", "liquidation_ambiguous", "liquidation_abandoned_unresolved", "redeploy_waiting", "redeploy_ambiguous"];
 fn refusal(name: &str) -> Option<&'static str> { REFUSED.iter().find(|(n, _)| *n == name).map(|(_, r)| *r) }
@@ -120,19 +120,19 @@ fn transport() -> deltabadger::venue::http::ScriptedTransport {
 }
 
 /// Units per held asset (engine walk and figures walk), and every figure-page book, against `metrics(force: true)`; the
-/// redeploy banked/spent against Redeployable. Every scenario, in flight or not: the walk itself is what Rails walks.
+/// redeploy banked/spent against Redeployable. Every scenario, in flight or not: the walk itself is what 2.x walks.
 #[test]
-fn walks_and_books_match_rails_for_every_index_history() {
+fn walks_and_books_match_v2_for_every_index_history() {
     let scenarios = fixture()["scenarios"].as_array().unwrap();
     assert_eq!(scenarios.len(), 42);
     for sc in scenarios {
         let name = sc["name"].as_str().unwrap();
         let b = build(sc);
         let c = &b.o.primary;
-        let rails = &sc["rails"]["walk"];
+        let v2 = &sc["expected"]["walk"];
         let bot = model::load_bot(c, b.id).unwrap();
         let w = basket::walk(c, &bot, at()).unwrap_or_else(|e| panic!("{name}: engine walk {e:?}"));
-        for (sym, want) in rails["holdings"].as_object().unwrap() {
+        for (sym, want) in v2["holdings"].as_object().unwrap() {
             assert_eq!(BigDec::parse(&d(w.amounts.get(&b.assets[sym]).cloned())).unwrap(), BigDec::parse(want["amount"].as_str().unwrap()).unwrap(),
                        "{name}: engine units of {sym}");
         }
@@ -145,33 +145,33 @@ fn walks_and_books_match_rails_for_every_index_history() {
         };
         let holdings: BTreeMap<String, Value> = m.asset_breakdown.iter()
             .map(|(k, h)| (symbol_of(k), json!({ "amount": num(&h.amount), "invested": num(&h.quote_invested) }))).collect();
-        assert_eq!(json!(holdings), rails["holdings"], "{name}: holdings");
+        assert_eq!(json!(holdings), v2["holdings"], "{name}: holdings");
         let walked = m.walked.as_ref().unwrap();
         let got = json!({
             "contributed": num(&m.total_quote_amount_invested), "uninvested_cash": num(&m.rebalance_cash), "realised_cash": num(&walked.realised_cash),
             "estimated_proceeds": num(&m.estimated_proceeds), "realised_pnl": num(&m.realised_pnl), "external_sales": walked.external_sales,
         });
-        let mut want = rails.clone();
+        let mut want = v2.clone();
         want.as_object_mut().unwrap().remove("holdings");
         assert_eq!(got, want, "{name}: books");
         let (banked, spent) = accounting::index_redeploy_totals(&db::orders(c, b.id).unwrap()).unwrap();
         // Redeployable#redeploy_spent sums the proceeds the venue reported, so a closed redeploy reporting 0 spends nothing
-        // in Rails; Rust values it at price × units (0.03 × 400) like every buy. The offer is capped at the walk's realised
-        // cash, 14.4 on both sides, so it is Rails' offer; a decline writes 12.0 less (it can only under-offer later).
-        let spent_want = if name == "redeploy_zero_quote" { "12.0" } else { sc["rails"]["redeploy"]["spent"].as_str().unwrap() };
-        assert_eq!((banked.to_s_f(), spent.to_s_f()), (sc["rails"]["redeploy"]["banked"].as_str().unwrap().into(), spent_want.into()),
+        // in 2.x; Rust values it at price × units (0.03 × 400) like every buy. The offer is capped at the walk's realised
+        // cash, 14.4 on both sides, so it is 2.x's offer; a decline writes 12.0 less (it can only under-offer later).
+        let spent_want = if name == "redeploy_zero_quote" { "12.0" } else { sc["expected"]["redeploy"]["spent"].as_str().unwrap() };
+        assert_eq!((banked.to_s_f(), spent.to_s_f()), (sc["expected"]["redeploy"]["banked"].as_str().unwrap().into(), spent_want.into()),
                    "{name}: redeploy banked/spent");
-        assert_eq!(amount::pending_quote_amount(c, &bot, at().timestamp_micros()).unwrap().to_s_f(), sc["rails"]["pending_quote_amount"], "{name}: carry");
-        // D-6C-9: the one offer the engine, the panel and MCP read; Rails' clamp to zero and its smallest-minimum floor.
+        assert_eq!(amount::pending_quote_amount(c, &bot, at().timestamp_micros()).unwrap().to_s_f(), sc["expected"]["pending_quote_amount"], "{name}: carry");
+        // D-6C-9: the one offer the engine, the panel and MCP read; 2.x's clamp to zero and its smallest-minimum floor.
         let offer = deltabadger::engine::redeploy::offer(c, &subject, &m).unwrap();
-        assert_eq!(BigDec::parse(&offer.to_s_f()).unwrap(), BigDec::parse(sc["rails"]["redeploy"]["offer"].as_str().unwrap()).unwrap(), "{name}: offer");
+        assert_eq!(BigDec::parse(&offer.to_s_f()).unwrap(), BigDec::parse(sc["expected"]["redeploy"]["offer"].as_str().unwrap()).unwrap(), "{name}: offer");
         // Bot::DeclineRedeployJob: refused while in flight, else the offset that reads the offer as zero now. B2-1/MQ7 above:
         // the zero-quote redeploy is spent at its executed value here, so the offset it writes is 12.0 lower.
         let declined = deltabadger::engine::redeploy::decline(c, b.id, bot.user_id, at()).unwrap();
-        let rails_decline = &sc["rails"]["decline"];
-        assert_eq!(declined == deltabadger::engine::redeploy::Declined::Declined, rails_decline["result"] == "success", "{name}: decline");
+        let v2_decline = &sc["expected"]["decline"];
+        assert_eq!(declined == deltabadger::engine::redeploy::Declined::Declined, v2_decline["result"] == "success", "{name}: decline");
         let offset: String = c.query_row("SELECT CAST(redeploy_declined_offset AS TEXT) FROM bots WHERE id = ?1", [b.id], |r| r.get(0)).unwrap();
-        let want = if name == "redeploy_zero_quote" { "14.4" } else { rails_decline["offset"].as_str().unwrap() };
+        let want = if name == "redeploy_zero_quote" { "14.4" } else { v2_decline["offset"].as_str().unwrap() };
         assert_eq!(BigDec::parse(&offset).unwrap(), BigDec::parse(want).unwrap(), "{name}: declined offset");
     }
 }
@@ -200,18 +200,18 @@ fn settled_histories_are_eligible_and_in_flight_ones_refused_by_name() {
     }
 }
 
-/// The next tick of every eligible scenario: Rails' legs exactly (member, BigDecimal quote with its division digits), the
+/// The next tick of every eligible scenario: 2.x's legs exactly (member, BigDecimal quote with its division digits), the
 /// orders on the wire, and the rows written. A refused scenario places nothing.
 #[tokio::test(flavor = "current_thread")]
-async fn next_ticks_match_rails_and_refused_states_place_nothing() {
+async fn next_ticks_match_v2_and_refused_states_place_nothing() {
     for sc in fixture()["scenarios"].as_array().unwrap() {
         let name = sc["name"].as_str().unwrap();
         let b = build(sc);
         let c = &b.o.primary;
-        let rails = &sc["rails"]["tick"];
+        let v2 = &sc["expected"]["tick"];
         let bot = model::load_bot(c, b.id).unwrap();
         let stood_down = STOOD_DOWN.contains(&name);
-        assert_eq!(stood_down, rails["activity"].as_array().unwrap().iter().any(|a| matches!(a["event"].as_str(), Some("dca_skipped_rebalance_pending" | "dca_skipped_liquidation_pending" | "dca_skipped_redeploy_pending"))), "{name}");
+        assert_eq!(stood_down, v2["activity"].as_array().unwrap().iter().any(|a| matches!(a["event"].as_str(), Some("dca_skipped_rebalance_pending" | "dca_skipped_liquidation_pending" | "dca_skipped_redeploy_pending"))), "{name}");
         if refusal(name).is_none() && !stood_down {
             // The split as get_orders_data computes it, before any rounding.
             let holdings = basket::walk(c, &bot, at()).unwrap().amounts;
@@ -223,7 +223,7 @@ async fn next_ticks_match_rails_and_refused_states_place_nothing() {
             let x = amount::pending_quote_amount(c, &bot, at().timestamp_micros()).unwrap();
             let legs: Vec<Value> = basket::split(&priced, &holdings, &basket::reserved(c, &bot).unwrap(), &x).unwrap().into_iter()
                 .map(|l| json!({ "base": l.ticker.base_symbol, "quote_amount": l.quote.to_s_f() })).collect();
-            let want: Vec<Value> = rails["orders"].as_array().unwrap().iter().map(|o| json!({ "base": o["base"], "quote_amount": o["quote_amount"] })).collect();
+            let want: Vec<Value> = v2["orders"].as_array().unwrap().iter().map(|o| json!({ "base": o["base"], "quote_amount": o["quote_amount"] })).collect();
             assert_eq!(json!(legs), json!(want), "{name}: legs");
         }
         // The engine never ticks a refused bot (run.rs ticks check's eligible list); a waiting row would only be polled.
@@ -240,7 +240,7 @@ async fn next_ticks_match_rails_and_refused_states_place_nothing() {
             assert!(posted.is_empty(), "{name}: refused, yet posted {posted:?}");
             continue;
         }
-        let wire: Vec<Value> = rails["orders"].as_array().unwrap().iter().map(|o| {
+        let wire: Vec<Value> = v2["orders"].as_array().unwrap().iter().map(|o| {
             let q = BigDec::parse(o["submitted_amount"].as_str().unwrap()).unwrap();
             // What is sent: floored to the pair's quote decimals (2), as amount::size sizes it.
             json!({ "symbol": o["base"], "side": o["side"], "notional": format!("{:.2}", q.floor(2).to_f()) })
@@ -254,7 +254,7 @@ async fn next_ticks_match_rails_and_refused_states_place_nothing() {
             "external_status": EXTERNAL[r.get::<_, usize>(3)?], "transaction_type": r.get::<_, String>(4)?,
             "price": d(from_sql(r.get_ref(5)?).unwrap()), "amount": d(from_sql(r.get_ref(6)?).unwrap()), "quote_amount": d(from_sql(r.get_ref(7)?).unwrap()),
         }))).unwrap().map(Result::unwrap).collect();
-        let want: Vec<Value> = rails["rows"].as_array().unwrap().iter().map(|r| {
+        let want: Vec<Value> = v2["rows"].as_array().unwrap().iter().map(|r| {
             let mut r = r.clone();
             for k in ["price", "amount", "quote_amount"] { r[k] = json!(BigDec::parse(r[k].as_str().unwrap()).unwrap().to_s_f()); }
             r
@@ -263,7 +263,7 @@ async fn next_ticks_match_rails_and_refused_states_place_nothing() {
     }
 }
 
-/// RULING-B2B-R1 item 2: a special row the venue rejected (status failed, nothing executed) is ignored exactly as Rails'
+/// RULING-B2B-R1 item 2: a special row the venue rejected (status failed, nothing executed) is ignored exactly as 2.x's
 /// `submitted` scope ignores it. One that reports an execution anyway is unknown, and refused.
 #[test]
 fn rejected_special_rows_are_ignored_unless_they_report_an_execution() {
@@ -325,10 +325,10 @@ fn a_basket_reads_settled_composition_rows() {
 }
 
 /// RULING-B2B-1 MQ7 under B2-1, the one recorded divergence from the oracle's walk: a closed REDEPLOY buy that executed
-/// 0.03 of the 0.06 it asked and reported no proceeds is read at what executed (0.03 × 400 = 12.0). Rails'
+/// 0.03 of the 0.06 it asked and reported no proceeds is read at what executed (0.03 × 400 = 12.0). 2.x's
 /// confirmed_exec_amounts books it at price × REQUESTED: DDD invested 24.0, spent 24.0, realised_cash 2.4. The units are
-/// the same either way, so the tick's split is unchanged; the figures page shows 12.0 more realised cash than Rails, and
-/// Rails' offer would be 12.0 lower: the engine offers the cash the fills really left (the free-quote cap bounds it too).
+/// the same either way, so the tick's split is unchanged; the figures page shows 12.0 more realised cash than 2.x, and
+/// 2.x's offer would be 12.0 lower: the engine offers the cash the fills really left (the free-quote cap bounds it too).
 #[test]
 fn a_partly_executed_unpriced_redeploy_is_read_at_what_executed() {
     let b = build(scenario("redeploy_closed_unpriced"));
@@ -344,11 +344,11 @@ fn a_partly_executed_unpriced_redeploy_is_read_at_what_executed() {
     assert_eq!((banked.to_s_f(), spent.to_s_f()), ("26.4".into(), "12.0".into()));
 }
 
-/// A status outside Rails' enum (submitted, failed, skipped) proves nothing about the order: here a still-working $24 DDD
+/// A status outside 2.x's enum (submitted, failed, skipped) proves nothing about the order: here a still-working $24 DDD
 /// redeploy. It refuses the takeover whatever the bot's own status (a stopped, archived or deleted bot's order still sits at
 /// the venue), and the tick's sweep refuses rather than skipping the row.
 #[tokio::test(flavor = "current_thread")]
-async fn a_status_rails_never_writes_refuses_the_install_and_the_sweep() {
+async fn a_status_v2_never_writes_refuses_the_install_and_the_sweep() {
     for status in ["NULL", "99"] {
         for bot_status in [2, 7, 3, 1] {
             let b = build(scenario("redeploy_waiting"));

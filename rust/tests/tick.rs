@@ -32,7 +32,7 @@ async fn a_market_tick_places_one_order_and_goes_back_to_scheduled() {
     let b = bot(&o, id);
     assert_eq!(b.status, BotStatus::Scheduled);
     assert_eq!(b.transient["last_action_job_at"], "2026-09-01T10:00:00.500Z");
-    assert!(!b.transient.as_object().unwrap().contains_key("waiting_for_market_open"), "Rails writes nil over nothing as no change");
+    assert!(!b.transient.as_object().unwrap().contains_key("waiting_for_market_open"), "2.x writes nil over nothing as no change");
     assert_eq!(one::<String>(&o, "SELECT external_id FROM transactions"), "OTX-1");
     assert_eq!(v.calls("/0/private/BalanceEx"), 1, "Fundable reads the balance after the orders");
 }
@@ -95,7 +95,7 @@ async fn a_rejection_is_a_failed_row_and_a_second_invalid_key_stops_the_bot() {
     let v = priced().next_add(AddOutcome::Reject(vec!["EAPI:Invalid key".into()])).next_add(AddOutcome::Reject(vec!["EAPI:Invalid key".into()]));
     assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:01Z").await, TickOutcome::Rescheduled));
     assert_eq!(bot(&o, id).last_failure_kind().as_deref(), Some("invalid_key"));
-    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 0, "a failed row this tick: Rails logs nothing");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 0, "a failed row this tick: 2.x logs nothing");
     assert!(matches!(run(&o, &v, id, "2026-09-08T10:00:01Z").await, TickOutcome::Stopped));
     assert_eq!(bot(&o, id).status, BotStatus::Stopped);
     assert_eq!(one::<String>(&o, &format!("SELECT stop_message_key FROM bots WHERE id = {id}")), "bot.status.stopped_by_error.invalid_key");
@@ -134,7 +134,7 @@ async fn transient_and_rate_limit_retries_count_separately_as_activejob_does() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_transport_failure_of_the_funds_check_is_not_low_and_the_tick_succeeds() {
     let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
-    let v = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0"); // BalanceEx unscripted → Transient → Failure result in Rails
+    let v = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0"); // BalanceEx unscripted → Transient → Failure result in 2.x
     let out = run(&o, &v, id, "2026-09-01T10:00:01Z").await;
     assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
     assert_eq!((v.sent().len(), one::<i64>(&o, "SELECT count(*) FROM transactions")), (1, 1));
@@ -155,7 +155,7 @@ async fn an_unreadable_balance_body_fails_the_tick_without_a_retry() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_price_read_failure_carries_rails_no_price_message() {
+async fn a_price_read_failure_carries_v2_no_price_message() {
     let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     let mut attempts = Attempts::default();
     for _ in 0..4 { tick::tick(&o.primary, &FakeVenue::new(), id, &clock("2026-09-01T10:00:01Z"), &mut attempts).await.unwrap(); }
@@ -181,8 +181,8 @@ async fn low_funds_record_the_notification_time_like_fundable() {
     assert_eq!(one::<Option<String>>(&o, &format!("SELECT last_end_of_funds_notification FROM bots WHERE id = {id}")).as_deref(), Some("2026-09-01 10:00:01"));
 }
 
-/// D-FUNDS-BUFFER-CAP: with the spending cap on, the buffer is no more than what the cap still allows (Rails'
-/// Bot::Fundable#required_balance_buffer, fundable.rb:46, asks for 3 days of spend whatever the cap).
+/// D-FUNDS-BUFFER-CAP: with the spending cap on, the buffer is no more than what the cap still allows (2.x's
+/// Bot::Fundable#required_balance_buffer asks for 3 days of spend whatever the cap).
 #[tokio::test(flavor = "current_thread")]
 async fn a_capped_bot_is_low_only_under_what_its_cap_still_allows() {
     let stamped = |balance: &str, limit: Option<f64>| {
@@ -210,7 +210,7 @@ async fn a_capped_bot_is_low_only_under_what_its_cap_still_allows() {
     assert!(!stamped("0", Some(60.0)).await, "cap reached: never low");
 }
 
-// ---- The mail budget, as Rails stamps it, and the mail it owes (engine::notice) ----
+// ---- The mail budget, as 2.x stamps it, and the mail it owes (engine::notice) ----
 
 fn transient(o: &store::Opened, id: i64) -> serde_json::Value { bot(o, id).transient }
 fn rejecting(error: &str) -> FakeVenue { priced().next_add(AddOutcome::Reject(vec![error.into()])) }
@@ -251,7 +251,7 @@ async fn a_failure_owes_one_error_mail_a_day_for_its_kind() {
     let error = "EGeneral:Invalid arguments:volume minimum not met";
     run(&o, &rejecting(error), id, "2026-09-01T10:00:01Z").await;
     let t = transient(&o, id);
-    assert_eq!(t["failure_notifications"], json!({ "unknown": "2026-09-01T10:00:01Z" }), "Time.current.iso8601, under the key Rails uses for no kind");
+    assert_eq!(t["failure_notifications"], json!({ "unknown": "2026-09-01T10:00:01Z" }), "Time.current.iso8601, under the key 2.x uses for no kind");
     assert_eq!(t[notice::ERROR], json!({ "unknown": { "error": error, "stamped_at": "2026-09-01T10:00:01.000Z" } }));
     assert_eq!(one::<Option<String>>(&o, &format!("SELECT last_end_of_funds_notification FROM bots WHERE id = {id}")), None);
     // Inside the day: no second mail, whatever happened to the first. A success in between changes nothing (the budget is never cleared).
@@ -347,7 +347,7 @@ fn a_stop_called_on_its_own_stops_marks_and_logs_together_or_not_at_all() {
 
 /// The budget, the stop, the marker and the log line of one failing exit are one transaction: when any of them cannot
 /// be written, none is, and the bot is as the tick found it. (A budget spent without its marker would be a mail the
-/// owner never gets and Rails never sends.) Each case makes a later statement of the exit fail, with a trigger.
+/// owner never gets and 2.x never sends.) Each case makes a later statement of the exit fail, with a trigger.
 #[tokio::test(flavor = "current_thread")]
 async fn a_failing_exit_writes_its_budget_its_marker_and_its_log_line_together_or_not_at_all() {
     let refuse_log = |o: &store::Opened, event: &str| o.primary.execute_batch(&format!(
@@ -585,7 +585,7 @@ async fn a_market_seller_sells_its_base_amount_at_the_bid_and_skips_the_funds_ch
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_sell_row_records_the_sell_cadence_and_the_sell_amount() {
-    // D-SELL-ROW-CADENCE: Rails writes the buy interval and buy quote_amount (week, 60) on a sell row.
+    // D-SELL-ROW-CADENCE: 2.x writes the buy interval and buy quote_amount (week, 60) on a sell row.
     let schedule = |o: &store::Opened| one::<String>(o, "SELECT bot_interval || ' ' || CAST(bot_quote_amount AS TEXT) FROM transactions");
     let (_d, o, id) = setup(base_seller(0.01).with("sell_interval", json!("day")));
     run(&o, &holding("0.5").next_add(AddOutcome::Accept("OTX-S".into())), id, "2026-09-01T10:00:00.5Z").await;

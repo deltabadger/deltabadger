@@ -3,7 +3,7 @@
 use super::{start, Bot, Kind};
 use crate::engine::schedule::Unrounded;
 use crate::enums::BotStatus;
-use crate::ruby::to_sentence;
+use crate::v2::to_sentence;
 use crate::web::format::{float_to_s, iso8601};
 use crate::web::layout::Ctx;
 use crate::web::{i18n, WebError};
@@ -25,9 +25,9 @@ pub fn humanized_error(bot: &Bot, messages: &[String], locale: &str) -> Option<S
     (!list.is_empty()).then(|| to_sentence(&list))
 }
 
-/// An instant as Ruby's Time holds it: exact. A time out of a row is on the microsecond grid, but
+/// An instant as 2.x's Time holds it: exact. A time out of a row is on the microsecond grid, but
 /// a checkpoint is such a time plus Floats (`Time + Float` adds the Float's exact binary value), and
-/// Rails prints, compares and stores it from that exact value. Nanoseconds, as a whole number over
+/// 2.x prints, compares and stores it from that exact value. Nanoseconds, as a whole number over
 /// a power of two.
 #[derive(Clone, Debug)]
 pub struct Instant {
@@ -48,7 +48,7 @@ fn mantissa(f: f64) -> Option<(i64, i32)> {
 /// Rational becomes a Float there. It is not the nearest Float to the quotient: an Integer of 62
 /// bits or fewer is converted on its own and the two Floats divided, and past that the divisor
 /// keeps its top 64 bits and the quotient is cut off before it is converted. Ported step by step
-/// and held to Ruby by vectors; the nearest Float differs in more than a quarter of them.
+/// and held to 2.x by vectors; the nearest Float differs in more than a quarter of them.
 fn fdiv(x: &BigInt, y: &BigInt) -> f64 {
     let float = |v: &BigInt| v.to_f64().unwrap_or(f64::INFINITY);
     if y.bits() <= 62 { return float(x) / float(y); }
@@ -136,12 +136,12 @@ impl Instant {
         nanoseconds_to_f(&((&self.num << (bits - self.bits)) - (&earlier.num << (bits - earlier.bits))), bits)
     }
 
-    /// The time Rails holds the job of this checkpoint at, in microseconds. ActiveJob hands its
+    /// The time 2.x holds the job of this checkpoint at, in microseconds. ActiveJob hands its
     /// adapter `wait_until.to_f`, Solid Queue reads the Float back with `Time.at`, and the column
     /// keeps six decimals, cut off. So the Float is taken of the checkpoint as it is, with whatever
     /// lies below the microsecond, and a checkpoint whose seconds are not a Float's comes out up to
     /// a microsecond early. The countdown prints whole seconds and is the same either way; the
-    /// progress bar's width is a quotient of such times printed to sixteen digits, and is Rails'
+    /// progress bar's width is a quotient of such times printed to sixteen digits, and is 2.x's
     /// only with this.
     pub fn held_micros(&self) -> i64 {
         let seconds = self.to_f();
@@ -246,14 +246,14 @@ pub fn job_time_us(checkpoint_us: i64) -> i64 {
     Instant::from_micros(checkpoint_us).held_micros()
 }
 
-/// When the bot acts next: Rails' `next_action_job_at`, the time its scheduled job waits for. After
+/// When the bot acts next: 2.x's `next_action_job_at`, the time its scheduled job waits for. After
 /// every tick that is the next interval checkpoint, and the engine's schedule gives the same
 /// instant. A bot parked on a closed market waits for the venue clock's next_open: the engine holds
-/// it until then (engine::clock::gate, tick::park), as Rails enqueues its job then, and the park
+/// it until then (engine::clock::gate, tick::park), as 2.x enqueues its job then, and the park
 /// records that instant in its market_closed activity, which is read here. One time is in no row and
 /// so is not known here: a retry the engine has in hand (a listed divergence in rust/tests/pages.rs).
 ///
-/// Rails has no time either while a tick is due or in hand: its job is then ready, claimed or
+/// 2.x has no time either while a tick is due or in hand: its job is then ready, claimed or
 /// blocked, no longer scheduled (Automation::Schedulable#next_action_job_at). There is no job table
 /// here, so a current persisted engine wait takes precedence; otherwise "due" is read from the row:
 /// the checkpoint has come and the bot has not acted on it.
@@ -283,7 +283,7 @@ pub fn next_action_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<O
         let Some(details) = details else { return Ok(None) };
         let details: serde_json::Value = serde_json::from_str(&details).map_err(|e| super::data(format!("market_closed details: {e}")))?;
         let open = crate::codec::optional_time(details.get("next_market_open_at")).map_err(|e| super::data(format!("{e:?}")))?;
-        // Once it has come, Rails' job is due (ready or claimed): no longer scheduled.
+        // Once it has come, 2.x's job is due (ready or claimed): no longer scheduled.
         return Ok(open.filter(|open| *open > now));
     }
     let Some(checkpoints) = bot.checkpoints(now)? else {return Ok(None)};
@@ -317,8 +317,8 @@ pub fn low_funds(c: &Connection, bot: &Bot) -> Result<bool, WebError> {
     if crate::sync::cache::stale(c, user, Some(bot.exchange.id))? { return Ok(false); }
     if crate::jobs::state::read(c, crate::sync::jobs::BALANCE_SYNC, Some(&key.to_string())).map_err(super::data)?.incomplete_since.is_some() { return Ok(false); }
     let free = c.query_row("SELECT free FROM account_balances WHERE user_id = ?1 AND exchange_id = ?2 AND asset_id = ?3", [user, bot.exchange.id, quote.id],
-                           |r| Ok(crate::ruby::from_sql(r.get_ref(0)?))).optional()?
-        .map(|free| free.map_err(|e| super::data(format!("{e:?}")))).transpose()?.flatten().unwrap_or_else(crate::ruby::BigDec::zero);
+                           |r| Ok(crate::v2::from_sql(r.get_ref(0)?))).optional()?
+        .map(|free| free.map_err(|e| super::data(format!("{e:?}")))).transpose()?.flatten().unwrap_or_else(crate::v2::BigDec::zero);
     let buffer = crate::engine::accounting::funds_buffer(bot.number("quote_amount").map_or(0.0, |n| n.to_f()), bot.text("interval"),
                                                          crate::engine::accounting::web_funds_cap_left(c, bot)?)?;
     Ok(free < buffer)
@@ -341,9 +341,9 @@ pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_conf
 /// `render` of a bot an update refused (`stored` is the row it left unchanged): its Start asks the unsaved record.
 pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: Option<&Bot>, market_data_configured: bool) -> Result<Status, WebError> {
     let t = |key: &str| i18n::text(ctx.locale, key, &[]);
-    // When the bot acts next and since when it has waited: Rails' `next_action_job_at` and `progress_start_time`.
+    // When the bot acts next and since when it has waited: 2.x's `next_action_job_at` and `progress_start_time`.
     let timing = || -> Result<(Option<Instant>, Option<DateTime<Utc>>), WebError> {
-        // `last_action_job_at || last_interval_checkpoint_at`: the second is not on the microsecond grid, and Rails measures from where it is.
+        // `last_action_job_at || last_interval_checkpoint_at`: the second is not on the microsecond grid, and 2.x measures from where it is.
         let start = bot.last_action_job_at()?.map(|at| Instant::from_micros(at.timestamp_micros())).or(bot.unrounded(ctx.now)?.map(|(_, last)| Instant::of(&last)));
         Ok((start, next_action_at(c, bot, ctx.now)?))
     };
@@ -380,7 +380,7 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
             });
         }
         BotStatus::Waiting => (text, dots) = (Some(t("bot.status.waiting")), true),
-        // D-PENDING-MARKET-SETTING: Rails' market order is final within its run, under "Setting orders…"; one still settling
+        // D-PENDING-MARKET-SETTING: 2.x's market order is final within its run, under "Setting orders…"; one still settling
         // after the run (ZERO_FILL_SETTLE) keeps that text until it is final (orders::PENDING_MARKET), not the schedule's.
         BotStatus::Scheduled | BotStatus::Retrying if bot.has_pending_market_orders => (text, setting) = (Some(t("bot.status.setting_orders")), true),
         BotStatus::Scheduled if signal => listening = true,

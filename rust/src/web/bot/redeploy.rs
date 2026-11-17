@@ -25,7 +25,7 @@ pub fn answer(c:&Connection,ctx:&Ctx,user:i64,id:i64,accept:Option<bool>,dry:boo
     let tx=model::immediate(c)?;
     let (bot,label)=match composition_bot(&tx,ctx,user,id,"Only index and basket bots have a redeploy offer.")? {Ok(found)=>found,Err(res)=>return Ok(res)};
     if let Some(res)=page_refused(&tx,ctx,id)? {return Ok(res)}
-    // Read before the answer is written, as Rails reads it before its job runs.
+    // Read before the answer is written, as 2.x reads it before its job runs.
     let data=json!({"id":id,"label":label,"accepted":accept,"offer":safe_offer(&tx,id,ctx.now),"dry_run":dry});
     if dry {return Ok(Res::success(data))}
     // D-6C-8: a Yes the engine has not finished, or a No while a redeploy works, is refused rather than queued again.
@@ -86,7 +86,7 @@ pub async fn destroy(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(se
 pub async fn clear(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segment):Path<String>,headers:HeaderMap)->Result<Response,WebError> {
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let Some(id)=super::id_from_path(&segment) else {return Ok(missing(&ctx))};
-    let Ok(params)=ActionParams::parse_rails(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
+    let Ok(params)=ActionParams::parse_v2(&ctx.params) else {return Ok(StatusCode::BAD_REQUEST.into_response())};
     let view=ctx.clone();
     let result=app.db(move |c| {
         let found:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM bots WHERE id=?1 AND user_id=?2 AND status<>3 AND type IN ('Bots::DcaIndex','Bots::DcaMultiAsset'))",(id,user.id),|r|r.get(0))?;

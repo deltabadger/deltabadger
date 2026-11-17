@@ -1,6 +1,6 @@
-//! The first-run setup against Rails' own answers (script/rust/setup.rb -> fixtures/setup_vectors.json): the setup
+//! The first-run setup against 2.x's own answers (fixtures/setup_vectors.json): the setup
 //! page, the SETUP_TOKEN gate, admin creation and the redirect to /setup in front of every page while no admin
-//! exists. Rails-free: each scenario runs on an install made from the exported schema, seeded with the rows Rails
+//! exists. 2.x-free: each scenario runs on an install made from the exported schema, seeded with the rows 2.x
 //! seeded, and every response, user row and app_configs row is compared.
 mod common;
 use common::html;
@@ -101,15 +101,15 @@ fn comparable(status: u64, headers: &BTreeMap<String, String>, body: &str) -> Va
     json!({ "status": status, "headers": out, "body": if markup { json!(html::normalize(body)) } else { json!(body) } })
 }
 
-/// Rails writes its cookie on every response; this crate only when the session's content changed (web::session).
-fn rails_answer(name: &str, recorded: &Value, launchpad: Option<&str>) -> Value {
+/// 2.x writes its cookie on every response; this crate only when the session's content changed (web::session).
+fn v2_answer(name: &str, recorded: &Value, launchpad: Option<&str>) -> Value {
     let changed = recorded["session_changed"].as_bool().unwrap();
     let headers = recorded["headers"].as_object().unwrap().iter()
         .filter(|(name, _)| changed || name.as_str() != "set-cookie")
         .map(|(name, value)| (name.clone(), value.as_str().unwrap().to_string())).collect();
     let mut body = masked_launchpad(recorded["body"].as_str().unwrap(), launchpad);
     if recorded["status"] == 422 {
-        // Named security divergence: retain Rails' recorded answers, but require a fixed message
+        // Named security divergence: retain 2.x's recorded answers, but require a fixed message
         // in place of the upstream error text/URL. All surrounding markup and effects still match.
         let diagnostic = match name {
             "claim_server_json" => Some("{&quot;error&quot;:&quot;boom&quot;}"),
@@ -135,7 +135,7 @@ fn masked_launchpad(body: &str, url: Option<&str>) -> String {
     url.map_or_else(|| body.to_string(), |url| body.replace(url, "[launchpad]"))
 }
 
-/// The launchpad as script/rust/setup.rb fakes it: the recorded answer to every claim, a hang-up after the request
+/// The launchpad as the recording harness fakes it: the recorded answer to every claim, a hang-up after the request
 /// ('close'), or a port nothing listens on ('refused'). Returns the base URL and what it was sent.
 async fn fake_launchpad(answer: &str) -> (String, Arc<std::sync::Mutex<Vec<Value>>>) {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -226,7 +226,7 @@ async fn play(name: &str, scenario: &Value) -> Played {
         let mut form: Option<Vec<(String, String)>> = step["form"].as_object().map(|f| f.iter().map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string())).collect());
         let csrf = match step["csrf"].as_str() {
             Some("form") => {
-                // Rails' last page had this form (setup.rb stops otherwise); a page of ours without it already differs.
+                // 2.x's last page had this form (the recording harness stops otherwise); a page of ours without it already differs.
                 if let (Some(form), Some(token)) = (form.as_mut(), form_token(&page, path)) { form.push(("authenticity_token".into(), token)); }
                 Csrf::None
             }
@@ -249,13 +249,13 @@ async fn play(name: &str, scenario: &Value) -> Played {
 fn clock_now(at: &str) -> chrono::DateTime<chrono::Utc> { at.parse().unwrap() }
 
 /// The user rows, compared column by column. What differs by design is checked on its own terms: the bcrypt
-/// hash must verify the submitted password (Rails' test environment hashes at cost 1, this crate at 11), and the
+/// hash must verify the submitted password (2.x's test environment hashes at cost 1, this crate at 11), and the
 /// OTP seed must decrypt, under the same keys, to a 32-character base32 seed in active_model_otp's envelope.
-fn users_difference(app: &App, scenario: &Value, rails: &[Value], rust: &[serde_json::Map<String, Value>]) -> Option<String> {
-    if rails.len() != rust.len() { return Some(format!("{} user rows in Rails, {} here", rails.len(), rust.len())); }
+fn users_difference(app: &App, scenario: &Value, v2: &[Value], rust: &[serde_json::Map<String, Value>]) -> Option<String> {
+    if v2.len() != rust.len() { return Some(format!("{} user rows in 2.x, {} here", v2.len(), rust.len())); }
     let seeded = scenario["seed"]["users"].as_array().unwrap().len();
     let password = scenario["steps"].as_array().unwrap().iter().rev().find_map(|s| s["form"]["user[password]"].as_str().or_else(|| s["json"]["user"]["password"].as_str()));
-    for (index, (theirs, ours)) in rails.iter().zip(rust).enumerate() {
+    for (index, (theirs, ours)) in v2.iter().zip(rust).enumerate() {
         for (column, value) in theirs.as_object().unwrap() {
             let mine = ours.get(column).unwrap_or(&Value::Null);
             let created = index >= seeded;
@@ -268,35 +268,35 @@ fn users_difference(app: &App, scenario: &Value, rails: &[Value], rust: &[serde_
                     let (Some(envelope), Some(theirs)) = (mine.as_str(), value.as_str()) else { return Some("no OTP seed".into()) };
                     let shape = |text: &str| { let v: Value = serde_json::from_str(text).unwrap(); v["h"].as_object().unwrap().keys().cloned().collect::<Vec<_>>() };
                     let seed = app.cipher.decrypt(envelope).unwrap_or_default();
-                    let rails_seed = app.cipher.decrypt(theirs).unwrap_or_default();
-                    shape(envelope) == shape(theirs) && seed.len() == 32 && rails_seed.len() == 32
-                        && seed.bytes().all(|b| b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".contains(&b)) && seed != rails_seed
+                    let v2_seed = app.cipher.decrypt(theirs).unwrap_or_default();
+                    shape(envelope) == shape(theirs) && seed.len() == 32 && v2_seed.len() == 32
+                        && seed.bytes().all(|b| b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".contains(&b)) && seed != v2_seed
                 }
                 _ => value == mine,
             };
-            if !same { return Some(format!("users[{index}].{column}: Rails {value}, Rust {mine}")); }
+            if !same { return Some(format!("users[{index}].{column}: 2.x {value}, Rust {mine}")); }
         }
     }
     None
 }
 
-fn app_configs_difference(app: &App, rails: &[Value], rust: &[serde_json::Map<String, Value>]) -> Option<String> {
+fn app_configs_difference(app: &App, v2: &[Value], rust: &[serde_json::Map<String, Value>]) -> Option<String> {
     let plain = |row: &serde_json::Map<String, Value>| {
         let mut row = row.clone();
         if let Some(value) = row.get("value").and_then(Value::as_str) { row.insert("value".into(), json!(app.cipher.decrypt(value).unwrap())); }
         Value::Object(row)
     };
-    let theirs: Vec<Value> = rails.iter().map(|r| plain(r.as_object().unwrap())).collect();
+    let theirs: Vec<Value> = v2.iter().map(|r| plain(r.as_object().unwrap())).collect();
     let ours: Vec<Value> = rust.iter().map(plain).collect();
-    (theirs != ours).then(|| format!("app_configs differ:\n  rails: {theirs:?}\n  rust:  {ours:?}"))
+    (theirs != ours).then(|| format!("app_configs differ:\n  2.x: {theirs:?}\n  rust:  {ours:?}"))
 }
 
-fn first_difference(name: &str, rails: &[Value], rust: &[Value]) -> Option<String> {
-    if rails.len() != rust.len() { return Some(format!("{name}: {} responses in Rails, {} here", rails.len(), rust.len())); }
-    for (index, (a, b)) in rails.iter().zip(rust).enumerate() {
+fn first_difference(name: &str, v2: &[Value], rust: &[Value]) -> Option<String> {
+    if v2.len() != rust.len() { return Some(format!("{name}: {} responses in 2.x, {} here", v2.len(), rust.len())); }
+    for (index, (a, b)) in v2.iter().zip(rust).enumerate() {
         if a == b { continue; }
         if a["status"] != b["status"] || a["headers"] != b["headers"] {
-            return Some(format!("{name} step {index}:\n  rails: {} {}\n  rust:  {} {}", a["status"], a["headers"], b["status"], b["headers"]));
+            return Some(format!("{name} step {index}:\n  2.x: {} {}\n  rust:  {} {}", a["status"], a["headers"], b["status"], b["headers"]));
         }
         let lines = |body: &Value| match body {
             Value::Array(lines) => lines.iter().map(|l| l.as_str().unwrap_or_default().to_string()).collect::<Vec<_>>(),
@@ -308,7 +308,7 @@ fn first_difference(name: &str, rails: &[Value], rust: &[Value]) -> Option<Strin
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_answer_the_setup_grid_alike() {
+async fn v2_and_rust_answer_the_setup_grid_alike() {
     let only = std::env::var("SETUP").ok();
     let mut failures = vec![];
     let scenarios = vectors()["scenarios"].as_object().unwrap();
@@ -316,27 +316,27 @@ async fn rails_and_rust_answer_the_setup_grid_alike() {
     for (name, scenario) in scenarios {
         if only.as_deref().is_some_and(|prefixes| !prefixes.split(',').any(|p| name.starts_with(p))) { continue; }
         let mut played = play(name, scenario).await;
-        let mut rails: Vec<Value> = scenario["responses"].as_array().unwrap().iter().map(|r| rails_answer(name, r, scenario["launchpad_url"].as_str())).collect();
+        let mut v2: Vec<Value> = scenario["responses"].as_array().unwrap().iter().map(|r| v2_answer(name, r, scenario["launchpad_url"].as_str())).collect();
         if name == "invalid_missing_user" || name == "followup_json_empty_user" {
-            // ActionController::ParameterMissing. Rails' test environment shows its exception page for it; in
+            // ActionController::ParameterMissing. 2.x's test environment shows its exception page for it; in
             // production it is a bare 400. Here: 400 with public/400.html, made below the controllers.
-            let (Some(theirs), Some(ours)) = (rails.pop(), played.responses.pop()) else { panic!("{name}: no responses") };
+            let (Some(theirs), Some(ours)) = (v2.pop(), played.responses.pop()) else { panic!("{name}: no responses") };
             let page = html::normalize(&String::from_utf8_lossy(web::assets::find("/400.html").unwrap().body));
             if theirs["status"] != 400 || ours["status"] != 400 || ours["body"] != json!(page) { failures.push(format!("{name}: expected 400 with public/400.html, got {ours}")); }
         }
         if name == "create_name_newline" {
-            // D-SIGNUP-NAME-ONE-LINE (PLAN-A16): Rails' `^…$` accepts "Evil\nOwner" and creates the admin; this build refuses
-            // the name with Rails' own name_invalid message and creates nothing.
-            let (Some(theirs), Some(ours)) = (rails.last(), played.responses.last()) else { panic!("{name}: no responses") };
+            // D-SIGNUP-NAME-ONE-LINE (PLAN-A16): 2.x's `^…$` accepts "Evil\nOwner" and creates the admin; this build refuses
+            // the name with 2.x's own name_invalid message and creates nothing.
+            let (Some(theirs), Some(ours)) = (v2.last(), played.responses.last()) else { panic!("{name}: no responses") };
             let refused = ours["status"] == 422 && ours["body"].to_string().contains(&web::i18n::text("en", "devise.registrations.new.name_invalid", &[]));
-            if theirs["status"] != 302 || !refused || !table(played.dir.path(), "users").is_empty() { failures.push(format!("{name}: expected Rails 302 and this build's 422 name refusal with no user, got {ours}")); }
+            if theirs["status"] != 302 || !refused || !table(played.dir.path(), "users").is_empty() { failures.push(format!("{name}: expected 2.x 302 and this build's 422 name refusal with no user, got {ours}")); }
             continue;
         }
-        if let Some(message) = first_difference(name, &rails, &played.responses) { failures.push(message); continue; }
-        // The claim requests the launchpad received, and Setup::SeedAndSyncJob: enqueued in Rails, woken here.
-        if scenario["launchpad_requests"] != json!(played.requests) { failures.push(format!("{name}: launchpad requests: Rails {}, Rust {:?}", scenario["launchpad_requests"], played.requests)); }
+        if let Some(message) = first_difference(name, &v2, &played.responses) { failures.push(message); continue; }
+        // The claim requests the launchpad received, and Setup::SeedAndSyncJob: enqueued in 2.x, woken here.
+        if scenario["launchpad_requests"] != json!(played.requests) { failures.push(format!("{name}: launchpad requests: 2.x {}, Rust {:?}", scenario["launchpad_requests"], played.requests)); }
         let enqueued = scenario["enqueued"].as_array().unwrap().iter().filter(|job| *job == "Setup::SeedAndSyncJob").count();
-        if enqueued != played.woken { failures.push(format!("{name}: Rails enqueued the setup sync {enqueued} times, Rust woke it {}", played.woken)); }
+        if enqueued != played.woken { failures.push(format!("{name}: 2.x enqueued the setup sync {enqueued} times, Rust woke it {}", played.woken)); }
         let users = table(played.dir.path(), "users");
         if let Some(message) = users_difference(&played.app, scenario, scenario["users"].as_array().unwrap(), &users) { failures.push(format!("{name}: {message}")); }
         if let Some(message) = app_configs_difference(&played.app, scenario["app_configs"].as_array().unwrap(), &table(played.dir.path(), "app_configs")) { failures.push(format!("{name}: {message}")); }
@@ -366,9 +366,9 @@ async fn submit(browser: &mut Browser, app: &App, path: &str, mut form: Vec<(&st
     browser.send(app, "POST", path, Some(&form), Csrf::None, &[]).await
 }
 
-/// Two owners submit the form at the same moment, both having loaded it while no admin existed. Rails checks in
+/// Two owners submit the form at the same moment, both having loaded it while no admin existed. 2.x checks in
 /// a before_action and saves later, so both can pass the check; here the check and the insert are one IMMEDIATE
-/// transaction, and the request that loses gets Rails' "admin exists" answer. Both requests are held after the
+/// transaction, and the request that loses gets 2.x's "admin exists" answer. Both requests are held after the
 /// password is hashed (the hook) until both have arrived, so each has passed any check made before that point.
 #[tokio::test(flavor = "current_thread")]
 async fn two_concurrent_creates_leave_one_admin() {
@@ -459,7 +459,7 @@ async fn setup_closes_once_an_admin_exists() {
     assert_eq!(admins(dir.path()), 1);
 }
 
-/// While no admin exists every page answers 302 to /setup, error routes and unknown paths included; what Rails
+/// While no admin exists every page answers 302 to /setup, error routes and unknown paths included; what 2.x
 /// keeps outside ApplicationController is untouched. With an admin, the gate is gone.
 #[tokio::test(flavor = "current_thread")]
 async fn the_gate_covers_the_app_zone_and_nothing_else() {
@@ -487,10 +487,10 @@ async fn serve_binds_an_install_without_an_admin() {
     drop(listener);
 }
 
-/// User#valid? on the setup form's fields, in all 15 locales: the full messages, in Rails' order, for names,
+/// User#valid? on the setup form's fields, in all 15 locales: the full messages, in 2.x's order, for names,
 /// emails and passwords around every rule, beside an existing member and a Gmail account.
 #[test]
-fn validation_messages_match_rails_in_every_locale() {
+fn validation_messages_match_v2_in_every_locale() {
     let dir = install();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     c.execute_batch("INSERT INTO users (name, email, created_at, updated_at) VALUES ('Member', 'member@example.com', '2026-01-01', '2026-01-01'), ('Gmail', 'jan.doe@gmail.com', '2026-01-01', '2026-01-01')").unwrap();
@@ -506,7 +506,7 @@ fn validation_messages_match_rails_in_every_locale() {
         let password: Vec<&str> = errors.iter().filter(|e| e.attribute == "password").map(|e| e.message.as_str()).collect();
         let strings = |key: &str| case[key].as_array().unwrap().iter().map(|m| m.as_str().unwrap()).collect::<Vec<_>>();
         if text("name").contains(['\n', '\r']) {
-            // D-SIGNUP-NAME-ONE-LINE (PLAN-A16): Rails takes a name with a line break; this build adds name_invalid to its errors.
+            // D-SIGNUP-NAME-ONE-LINE (PLAN-A16): 2.x takes a name with a line break; this build adds name_invalid to its errors.
             let invalid = web::i18n::text(text("locale"), "devise.registrations.new.name_invalid", &[]);
             if !errors.iter().any(|e| e.attribute == "name" && e.message == invalid) { failures.push(format!("{case}\n  rust: {full:?}: expected the name refused")); }
             continue;
@@ -534,7 +534,7 @@ fn the_setup_token_is_compared_in_constant_time() {
 
 /// Setup::SeedAndSyncJob after a claim: pending -> in_progress, the deltabadger branch's syncs against the data-api the
 /// claim configured (each recorded under its own name), then completed and the banner removed. A sync that fails is
-/// logged and the job still completes, as Rails' does.
+/// logged and the job still completes, as 2.x's does.
 #[tokio::test(flavor = "current_thread")]
 async fn the_setup_sync_runs_the_reference_syncs_and_completes() {
     use deltabadger::jobs::{setup_sync::SeedAndSync, data_api::DataApi, notifications::Notifications, Cx, Db, Job, Wakers};

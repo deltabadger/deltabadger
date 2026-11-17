@@ -1,6 +1,6 @@
 //! AccountTransaction::SyncJob for an Alpaca key: Exchanges::Alpaca#get_ledger (every page of
 //! GET /v2/account/activities), AccountTransactionSync#sync! (dedup, rows, the bot's own order, split side effects,
-//! asset identity, the watermark) and TransferMatcher.run!. Rails is the oracle (rust/tests/sync_parity.rs).
+//! asset identity, the watermark) and TransferMatcher.run!. 2.x is the oracle (rust/tests/sync_parity.rs).
 use super::activities::{self, cash_activity, CryptoPair, CryptoPairs, Entry, Raw, ADJUSTMENT, AIRDROP, BUY, DEPOSIT, OTHER_INCOME, SELL, SWAP_IN, SWAP_OUT, WITHDRAWAL};
 use crate::jobs::Db;
 use super::wire::{self, Budget, Node};
@@ -8,7 +8,7 @@ use super::{commit, commit_bots, load_key, number, parsed, phase, record_sync_er
 use crate::codec::parse_time;
 use crate::crypto::Credentials;
 use crate::engine::Clock;
-use crate::ruby::{json_to_d, BigDec};
+use crate::v2::{json_to_d, BigDec};
 use crate::venue::alpaca::AlpacaVenue;
 use crate::venue::http::Transport;
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
@@ -18,7 +18,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 pub const ACTIVITIES_PATH: &str = "/v2/account/activities";
-/// Alpaca's maximum, and what Rails asks for. A page shorter than this is the last.
+/// Alpaca's maximum, and what 2.x asks for. A page shorter than this is the last.
 pub const PAGE_SIZE: usize = 100;
 /// The overlap re-read on every incremental sync, so entries posted late (a dividend after its pay date) still land.
 pub const OVERLAP_HOURS: i64 = 25;
@@ -80,7 +80,7 @@ pub struct Split {
     pub at: DateTime<Utc>,
     /// Bots whose `restatement_generation` moved (every bot of the user that traded the symbol on this venue).
     pub restated_bots: Vec<i64>,
-    /// The split is dated ahead of now. Rails books Bot::ExpireRestatedMetricsJob for `at`; here the bump owed at `at`
+    /// The split is dated ahead of now. 2.x books Bot::ExpireRestatedMetricsJob for `at`; here the bump owed at `at`
     /// is recorded with the row (`Owed`) and made by the first ledger sync of the key at or after it.
     pub effective_later: bool,
 }
@@ -101,8 +101,8 @@ pub struct Outcome {
     pub complete: bool,
 }
 
-/// An import that one run did not finish: `app_configs` row `rust_sync.ledger:<api_key_id>`, plain JSON. Rails never
-/// reads it (after a handback it is inert: Rails syncs from `api_keys.last_synced_at`, which an unfinished import has
+/// An import that one run did not finish: `app_configs` row `rust_sync.ledger:<api_key_id>`, plain JSON. 2.x never
+/// reads it (after a handback it is inert: 2.x syncs from `api_keys.last_synced_at`, which an unfinished import has
 /// not moved, and reads the rows already stored as duplicates). A row whose `watermark` is not the key's
 /// `last_synced_at` any more was left behind such a handback, and is ignored.
 #[derive(Clone, Debug, PartialEq)]
@@ -132,7 +132,7 @@ fn import_key(key_id: i64) -> String { format!("rust_sync.ledger:{key_id}") }
 fn micros(t: Option<DateTime<Utc>>) -> Option<i64> { t.map(|t| t.timestamp_micros()) }
 
 /// Whether the key has an import record at all, and the import it describes when it is still about this state of the
-/// key. A record that is not (Rails moved the watermark since, or the row is not this port's JSON) is ignored, and
+/// key. A record that is not (2.x moved the watermark since, or the row is not this port's JSON) is ignored, and
 /// removed by the run that completes.
 fn load_import(c: &Connection, key: &Key, version: &crate::engine::model::CredentialVersion) -> Result<(bool, Option<Import>), SyncError> {
     let raw: Option<Option<String>> = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [import_key(key.id)], |r| r.get(0)).optional()?;
@@ -160,14 +160,14 @@ fn put_config(c: &Connection, key: &str, value: &Value, now: DateTime<Utc>) -> R
     Ok(())
 }
 
-/// A bump owed at the date of a split imported ahead of it: Rails' Bot::ExpireRestatedMetricsJob, which `log_split`
+/// A bump owed at the date of a split imported ahead of it: 2.x's Bot::ExpireRestatedMetricsJob, which `log_split`
 /// books in Solid Queue for the split's `transacted_at` and which then runs `expire_restated_bots(user, exchange,
 /// symbol)` once. Kept in the sync's own `app_configs` row `rust_sync.ledger_splits:<api_key_id>`, plain JSON
 /// (`{"pending":[{"symbol","exchange_id","at":<microseconds>},…]}`), written in the split row's own transaction, and
 /// made by the first ledger sync of the key at or after `at` (`expire_owed`), which removes it in the same unit. A
-/// separate row from the import record, which a completed run deletes; one entry per split row stored, as Rails books
-/// one job per row. After a handback the row is inert: Rails never reads it, and since Rust stored the split Rails'
-/// own sync reads it as a duplicate and books nothing, so a date that passes while Rails runs gets no second bump
+/// separate row from the import record, which a completed run deletes; one entry per split row stored, as 2.x books
+/// one job per row. After a handback the row is inert: 2.x never reads it, and since Rust stored the split 2.x's
+/// own sync reads it as a duplicate and books nothing, so a date that passes while 2.x runs gets no second bump
 /// there; the first Rust ledger sync after the next takeover makes it.
 #[derive(Clone, Debug, PartialEq)]
 struct Owed { symbol: String, exchange_id: i64, at: i64 }
@@ -187,7 +187,7 @@ fn save_owed(c: &Connection, key_id: i64, owed: &[Owed], now: DateTime<Utc>) -> 
     put_config(c, &splits_key(key_id), &json!({ "pending": pending }), now)
 }
 
-/// Every bump owed at or before `now`, each a read unit (which bots the symbol names now, as the Rails job reads them
+/// Every bump owed at or before `now`, each a read unit (which bots the symbol names now, as the 2.x job reads them
 /// when it runs) and one guarded write unit that bumps them and removes the entry. A refusal fails the sync and leaves
 /// the entry owed.
 async fn expire_owed(db: &Db, key_id: i64, user_id: i64, now: DateTime<Utc>) -> Result<(), SyncError> {
@@ -214,9 +214,9 @@ pub async fn sync<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: i64, cr
 /// One ledger sync of one Alpaca key. Idempotent: a second run over the same activities stores nothing and writes
 /// nothing.
 ///
-/// `Ok(Err(failure))` is a run that failed: nothing of what it fetched is stored (Rails fetches every page before
+/// `Ok(Err(failure))` is a run that failed: nothing of what it fetched is stored (2.x fetches every page before
 /// it stores one row), the watermark is untouched, and the key's `last_sync_error` holds `failure.error`.
-/// `Err` is this process failing (SQLite, a row Rails did not write, the engine's guard): rows of units already
+/// `Err` is this process failing (SQLite, a row 2.x did not write, the engine's guard): rows of units already
 /// committed stay, the watermark does not move, and the next run reads them as duplicates.
 ///
 /// A run reads at most `limits.pages` pages. When the ledger goes on past them, the run stores what it read, records
@@ -228,8 +228,8 @@ pub async fn sync<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: i64, cr
 /// transaction of at most `BATCH` rows (a split row alone, with what it does to the bots computed by the read before
 /// it), `WRITE_GAP` apart. A stop or a deadline drops the run between two units.
 ///
-/// The watermark never passes the moment the sync began (as Rails'). Deliberately not Rails' (a listed divergence, with
-/// Rails' result beside it in the grid): a page token that comes back raises (Rails returns the same failure). Split rows are Rails' own, to the
+/// The watermark never passes the moment the sync began (as 2.x's). Deliberately not 2.x's (a listed divergence, with
+/// 2.x's result beside it in the grid): a page token that comes back raises (2.x returns the same failure). Split rows are 2.x's own, to the
 /// row: its grouping of consecutive legs, its dedup by the group's first id.
 pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: i64, credentials: &Credentials, clock: &dyn Clock, limits: Limits)
                                        -> Result<Result<Outcome, Failure>, SyncError> {
@@ -265,7 +265,7 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>,
     };
 
     // Where this run starts: where an unfinished import stopped, or the watermark less the overlap. A stored
-    // watermark ahead of now (Rails left one behind a split dated ahead, before it capped the watermark too) is read as now.
+    // watermark ahead of now (2.x left one behind a split dated ahead, before it capped the watermark too) is read as now.
     let import = resumed.unwrap_or_else(|| Import { credential_origin: version.cache_stamp(), cursor: String::new(), cursors: vec![], runs: 0, pages: 0, after: key.last_synced_at.and_then(|w| after(w.min(now))),
                                                     started: now, max_seen: None, min_skipped: None, stored: 0, watermark: raw_watermark });
     // An import that does not end is stopped: its record goes, the watermark stays, and the key and the job say why.
@@ -294,7 +294,7 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>,
     let prepared = { let (key, activities) = (key.clone(), activities.clone()); phase(db, move |c| prepare(c, &key, &activities)).await? };
     let (entries, mut progress) = match prepared {
         Ok(prepared) => prepared,
-        // Ruby raises on a time it cannot read (Time.parse, nil.utc) and on a split ratio that is not finite
+        // 2.x raises on a time it cannot read (Time.parse, nil.utc) and on a split ratio that is not finite
         // (FloatDomainError), and the job re-raises.
         Err(text) => return fail(text, true).await,
     };
@@ -328,7 +328,7 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>,
         return Ok(Ok(outcome));
     }
     // The watermark comes from the data, never the clock, and never passes a row that failed to save. Nor does it
-    // pass the moment this sync (or the import it finishes) began (as Rails'): a row dated ahead (a pending split) would
+    // pass the moment this sync (or the import it finishes) began (as 2.x's): a row dated ahead (a pending split) would
     // carry it into the future, and every activity before that date would then be outside every later window.
     let watermark = [max_seen, min_skipped].into_iter().flatten().min().or(key.last_synced_at).map(|w| w.min(started));
     // `update!`: nothing is written, and updated_at does not move, when neither column changes.
@@ -357,7 +357,7 @@ pub fn after(last_synced_at: DateTime<Utc>) -> Option<String> {
 }
 
 /// One page as #get_ledger reads it (`Array(result.data)`: an empty object or null is no activities), each activity
-/// as Rails would hold it. At most `PAGE_SIZE` items and `nodes` values and keys are read; the second number is what
+/// as 2.x would hold it. At most `PAGE_SIZE` items and `nodes` values and keys are read; the second number is what
 /// the page spent of them.
 fn page(text: &str, nodes: usize) -> Result<(Vec<Raw>, usize), Unread> {
     let mut budget = Budget(nodes);
@@ -384,10 +384,10 @@ const SPLIT_TOO_LONG: &str = "a split longer than a run of the ledger import may
 /// `after` when incremental. Ends on an empty page or a short page; stops, with more to read, after `limits.pages`
 /// full pages. Fails, with nothing read, on a page over `MAX_PAGE_BYTES`, `PAGE_SIZE` items or its budget of values,
 /// on a page token met before in any position, in this run or as the stop of an earlier run of the same import
-/// (`passed`; Rails fails on one met before within its single read), or on a full page
+/// (`passed`; 2.x fails on one met before within its single read), or on a full page
 /// whose last activity has no id. Each page is parsed on the blocking pool.
 ///
-/// A run that stops at its cap does not cut a split in two. Rails merges split legs that are neighbours in one read,
+/// A run that stops at its cap does not cut a split in two. 2.x merges split legs that are neighbours in one read,
 /// after it has dropped the cancelled activities, and it reads the whole ledger at once; so the stop is decided on
 /// that same sequence (`activities::open_split`):
 /// - a read that does not end in a split leg stops where it is;
@@ -467,7 +467,7 @@ pub(super) fn amount_sql(exchange_type: &str, d: &BigDec) -> rusqlite::types::Va
     }
 }
 
-/// [coins, securities], each { SPELLING => [asset ids] }: #ledger_listings over every listing of the venue (Rails
+/// [coins, securities], each { SPELLING => [asset ids] }: #ledger_listings over every listing of the venue (2.x
 /// narrows the query to the names in hand; the lookups below only ever ask for those).
 pub(super) struct Listings { coins: HashMap<String, Vec<i64>>, securities: HashMap<String, Vec<i64>> }
 
@@ -698,7 +698,7 @@ fn reconcile_split(c: &Connection, key: &Key, incoming: &Entry) -> Result<(Entry
 
 /// AccountTransactionSync#store! for one unit, inside the caller's write transaction: the entries `range` names of
 /// `p.batch`, at most `BATCH` of them, or one split with the `effects` the read before it computed. A split row is
-/// reconciled by retained leg identity for Alpaca; other entries use Rails duplicate rules. (#refuse_unreadable_amounts! has nothing to refuse here: a BigDec is never NaN or
+/// reconciled by retained leg identity for Alpaca; other entries use 2.x duplicate rules. (#refuse_unreadable_amounts! has nothing to refuse here: a BigDec is never NaN or
 /// infinite, and its bounds keep the double it binds as finite.)
 pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, range: std::ops::Range<usize>, effects: Option<&Effects>, mut p: Progress, now: DateTime<Utc>) -> Result<Progress, SyncError> {
     let no_effects = || SyncError("a split row outside a unit of its own".into());
@@ -809,7 +809,7 @@ fn merged_ids(raw: &Value) -> Vec<String> {
     raw.get("merged_activity_ids").and_then(Value::as_array).map(|ids| ids.iter().filter_map(|i| i.as_str().map(str::to_string)).collect()).unwrap_or_default()
 }
 
-/// The index on `transacted_at` (db/schema.rb). The two lookups by time name it, because SQLite's planner otherwise
+/// The index on `transacted_at`. The two lookups by time name it, because SQLite's planner otherwise
 /// takes the index on `user_id` and walks the user's whole history for each row, inside the write transaction.
 pub(crate) const BY_TIME: &str = "INDEXED BY index_account_transactions_on_transacted_at";
 
@@ -1187,7 +1187,7 @@ fn legacy_token_swap(c: &Connection, key: &Key, p: &Progress, index: usize, repe
 }
 
 /// #match_bot_transaction!: the bot order this row is, by the row's own id, then by the order the fill names.
-/// D-LEDGER-ORDER-OWNER: only the row owner's bots' orders (Rails scopes by exchange alone, so on a shared install
+/// D-LEDGER-ORDER-OWNER: only the row owner's bots' orders (2.x scopes by exchange alone, so on a shared install
 /// another user's order with the same id linked). D-BINANCE-ORDER-LINK: a Binance fill links only through its own
 /// resolver (`binance_order_links`), never by these lookups.
 fn bot_order(c: &Connection, key: &Key, tx_id: Option<&str>, raw: &Value) -> Result<Option<i64>, SyncError> {
@@ -1234,7 +1234,7 @@ fn bots_naming(c: &Connection, user_id: i64, exchange_id: i64, symbol: &str) -> 
 }
 
 /// AccountTransactionSync.expire_restated_bots: every bot of the user that traded the symbol on this venue gets its
-/// `restatement_generation` moved by one (Rails' cache generation for that bot's metrics). One statement, one column.
+/// `restatement_generation` moved by one (2.x's cache generation for that bot's metrics). One statement, one column.
 /// Also what runs at the effective time of a split that was imported ahead of its date (Bot::ExpireRestatedMetricsJob).
 /// The scan is a read unit; the bump is one write unit past the engine's guard (`commit_bots`), so a refusal rolls back
 /// every counter of it. The bare bump is private: no caller writes `bots` outside a guarded transaction.

@@ -11,7 +11,7 @@ pub(super) fn response(body: String, invalid: bool) -> Response {
     (if invalid { StatusCode::UNPROCESSABLE_ENTITY } else { StatusCode::OK }, [(axum::http::header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response()
 }
 pub(super) fn alert(errors: &[FieldError]) -> Result<String, WebError> {
-    let messages = if errors.is_empty() { vec![] } else { vec![flash::Message { style: "danger", text: crate::ruby::to_sentence(&errors.iter().map(|e|e.message.clone()).collect::<Vec<_>>()) }] };
+    let messages = if errors.is_empty() { vec![] } else { vec![flash::Message { style: "danger", text: crate::v2::to_sentence(&errors.iter().map(|e|e.message.clone()).collect::<Vec<_>>()) }] };
     Ok(turbo::prepend_flash(flash::render(&messages)?.trim_end()))
 }
 /// The status bar and the progress bar, each replaced on its own target.
@@ -201,7 +201,7 @@ fn awaits_scheduling(c: &Connection, ctx: &Ctx, view: &LifecycleView) -> Result<
     if draft.original.status == bot.status || !bot.transient.contains_key("rust_continue_start") || !within(c,&draft.original,ctx)? { return Ok(None) }
     Ok(Some(bot.id))
 }
-/// Bot::BroadcastAfterScheduledActionJob for a Continue: waits up to five seconds (Rails' 50 × 0.1 s) for the engine to take
+/// Bot::BroadcastAfterScheduledActionJob for a Continue: waits up to five seconds (2.x's 50 × 0.1 s) for the engine to take
 /// the request, then broadcasts the bot's status and progress bars as they are then, whatever it found. Rendered as the
 /// owner sees them (Bot#with_user_locale), whatever the language of the request that asked: every tab of theirs hears it.
 pub fn broadcast_after_scheduling(ctx: Ctx, id: i64) {
@@ -217,7 +217,7 @@ pub fn broadcast_after_scheduling(ctx: Ctx, id: i64) {
             let user = ctx.user().ok_or_else(||WebError::Config("broadcast has no owner".into()))?;
             let Some(user) = crate::web::auth::User::find(c,user.id)? else { return Ok(None) };
             let ctx = super::live::owner_ctx(&ctx.app,user.clone());
-            // A bot deleted meanwhile: Rails' job cannot load it, and broadcasts nothing.
+            // A bot deleted meanwhile: 2.x's job cannot load it, and broadcasts nothing.
             let Some(bot) = Bot::find(c,user.id,id,super::For::Page,ctx.locale)? else { return Ok(None) };
             let (_,configured) = bots::market_data(c,&ctx.app)?;
             let state = status::broadcast(c,&ctx,&bot,configured)?;

@@ -2,13 +2,13 @@
 //! amounts to and cost; beside it sit the sums no holding owns: cost basis and cash in flight between the two legs
 //! of a swap, what came in from outside, liquidation proceeds waiting for a redeploy, proceeds of scheduled sales,
 //! estimates for sales the venue did not price, and realised profit.
-//! Every sum starts as Ruby's Integer zero and becomes a BigDecimal with the first fill that touches it.
+//! Every sum starts as 2.x's Integer zero and becomes a BigDecimal with the first fill that touches it.
 use super::num::{Num, NumError};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Entry { pub amount: Num, pub invested: Num }
 
-/// `{ key => { amount:, invested: } }`, in the order the keys were first touched, as a Ruby Hash keeps them.
+/// `{ key => { amount:, invested: } }`, in the order the keys were first touched, as a 2.x Hash keeps them.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Ledger(pub Vec<(String, Entry)>);
 
@@ -54,7 +54,7 @@ impl Default for Books {
 }
 
 /// transactions.side and transactions.transaction_type, as #apply_fill routes them. A row with no side is a buy,
-/// and a type this code does not know is a REGULAR buy or a REBALANCE sell, as Ruby's `else` branches read them.
+/// and a type this code does not know is a REGULAR buy or a REBALANCE sell, as 2.x's `else` branches read them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Fill { RebalanceSell, LiquidationSell, RegularSell, RebalanceBuy, RedeployBuy, RegularBuy }
 
@@ -174,7 +174,7 @@ impl Books {
         Ok(())
     }
 
-    /// The walk's unpriced-sell branch for a LIQUIDATION (measurable.rb:136-148): the units leave and the basis they carried
+    /// The walk's unpriced-sell branch for a LIQUIDATION: the units leave and the basis they carried
     /// is parked as an estimate, never realised_cash. Returns it, for estimated_proceeds. (An unpriced REBALANCE sell is
     /// valued by fill::special_sell, R4.)
     pub fn unpriced_liquidation(&mut self, ledger: &mut Ledger, key: &str, amount: &super::dec::Dec) -> Result<Num, NumError> {

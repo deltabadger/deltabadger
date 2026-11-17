@@ -106,11 +106,11 @@ fn target(html: &str) -> String {
     document.select(&selector).next().and_then(|stream| stream.value().attr("target")).unwrap_or_default().to_string()
 }
 
-/// Each payload `/cable` delivered is the one Rails broadcast to that stream and target.
-fn delivered(name: &str, when: &str, got: &BTreeMap<(String, String), String>, rails: &BTreeMap<(String, String), String>) {
-    let missing: Vec<_> = rails.keys().filter(|key| !got.contains_key(*key)).collect();
+/// Each payload `/cable` delivered is the one 2.x broadcast to that stream and target.
+fn delivered(name: &str, when: &str, got: &BTreeMap<(String, String), String>, v2: &BTreeMap<(String, String), String>) {
+    let missing: Vec<_> = v2.keys().filter(|key| !got.contains_key(*key)).collect();
     assert!(missing.is_empty(), "{name}: {when}: these broadcasts never arrived: {missing:?}");
-    for (key, payload) in rails {
+    for (key, payload) in v2 {
         assert_eq!(common::html::normalize(&got[key]), common::html::normalize(payload), "{name}: {when}: {key:?}");
     }
 }
@@ -129,28 +129,28 @@ fn raw_bot_chart(body: &str) -> &str {
     &body[start..end]
 }
 
-/// A browser on the bot page, then on its chart frame at the `src` the page gave it, against what Rails answered in the
-/// same `state` (pages.rb figures: page_figures.rb#pages). A page whose chart is ready draws it inline, byte for byte
-/// as Rails wrote it, and has no frame to load. Returns the body that holds the chart.
-async fn chart_frames(name: &str, state: &str, id: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, rails: &Value) -> String {
-    let (page, rails_page) = (browser.get(app, &format!("/bots/{id}")).await, bot_chart(rails["page"].as_str().unwrap()));
+/// A browser on the bot page, then on its chart frame at the `src` the page gave it, against what 2.x answered in the
+/// same `state` (the recorded figures' `pages`). A page whose chart is ready draws it inline, byte for byte
+/// as 2.x wrote it, and has no frame to load. Returns the body that holds the chart.
+async fn chart_frames(name: &str, state: &str, id: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, v2: &Value) -> String {
+    let (page, v2_page) = (browser.get(app, &format!("/bots/{id}")).await, bot_chart(v2["page"].as_str().unwrap()));
     assert_eq!(page.status, 200, "{name} {state}: {}", page.body);
     let ours = bot_chart(&page.body);
-    assert_eq!(ours, rails_page, "{name} {state}: the page's chart frame");
+    assert_eq!(ours, v2_page, "{name} {state}: the page's chart frame");
     let Some(src) = ours.0 else {
-        assert_eq!(raw_bot_chart(&page.body), raw_bot_chart(rails["page"].as_str().unwrap()), "{name} {state}: the inline chart, byte for byte");
-        assert!(rails["chart"].is_null(), "{name} {state}: Rails loaded a frame for an inline chart");
+        assert_eq!(raw_bot_chart(&page.body), raw_bot_chart(v2["page"].as_str().unwrap()), "{name} {state}: the inline chart, byte for byte");
+        assert!(v2["chart"].is_null(), "{name} {state}: 2.x loaded a frame for an inline chart");
         return page.body;
     };
     let chart = browser.get(app, &src).await;
     assert_eq!(chart.status, 200, "{name} {state}");
-    assert_eq!(bot_chart(&chart.body).1, bot_chart(rails["chart"].as_str().unwrap()).1, "{name} {state}: the chart frame");
+    assert_eq!(bot_chart(&chart.body).1, bot_chart(v2["chart"].as_str().unwrap()).1, "{name} {state}: the chart frame");
     chart.body
 }
 
 /// What the dashboard asks for once its streams are connected: the attributes of its headline and of its tiles.
-async fn dashboard(name: &str, state: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, rails: &Value) {
-    let Some(rails) = rails.as_str() else { return }; // one bot: Rails sends its dashboard to the bot's page
+async fn dashboard(name: &str, state: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, v2: &Value) {
+    let Some(v2) = v2.as_str() else { return }; // one bot: 2.x sends its dashboard to the bot's page
     let asks = |body: &str| -> Vec<Vec<(String, String)>> {
         let doc = scraper::Html::parse_document(body);
         ["section.dash-intro", "div.itiles"].iter().map(|css| {
@@ -162,14 +162,14 @@ async fn dashboard(name: &str, state: &str, browser: &mut common::web::Browser, 
     };
     let page = browser.get(app, "/bots").await;
     assert_eq!(page.status, 200, "{name} {state}: {}", page.body);
-    assert_eq!(asks(&page.body), asks(rails), "{name} {state}: the dashboard's asks");
+    assert_eq!(asks(&page.body), asks(v2), "{name} {state}: the dashboard's asks");
 }
 
 /// A connection that subscribes again is sent the account's last publication only while nothing the figures read has
 /// changed (`loading::resubscribed`): a ticker disabled, a split's ratio corrected, a ledger row resolved to another
 /// asset, a listing on a venue the bot left corrected, an asset only an order or a bot's settings name changed, a
 /// composition ticker on another venue resized, or an operation flag set or cleared refuse the replay; a sync that
-/// rewrites a row's timestamps (and the reference data the figures never read) and other transient bookkeeping keep it. On a copy of the scenario's install, so that the rest of the scenario reads the one Rails recorded.
+/// rewrites a row's timestamps (and the reference data the figures never read) and other transient bookkeeping keep it. On a copy of the scenario's install, so that the rest of the scenario reads the one 2.x recorded.
 async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<String>, dir: &Path, sc: &Value, user: i64, stream: &str) {
     use deltabadger::web::{App,Config,figure::loading::{self,Source}};
     let at = sc["at"].as_str().unwrap();
@@ -292,12 +292,12 @@ impl Transport for Wire {
         Ok(HttpResponse { status: reply["status"].as_u64().unwrap_or(200) as u16, body: reply["body"].as_str().map(str::to_string).unwrap_or_else(|| reply["body"].to_string()) })
     }
 }
-/// `script/rust/pages.rb <command> <scratch>`'s answer, frozen (common::freeze::step).
+/// The recording harness's answer to `<command> <scratch>`, frozen (common::freeze::step).
 fn record(scratch: &tempfile::TempDir, command: &str) {
     common::freeze::step(&[command, scratch.path().to_str().unwrap()]);
 }
 #[tokio::test]
-async fn figures_fragments_match_the_rails_page_partials() {
+async fn figures_fragments_match_the_v2_page_partials() {
     let scratch = tempfile::tempdir().unwrap();
     record(&scratch, "figures");
     let (mut currencies, mut pairs) = (0, 0);
@@ -306,23 +306,23 @@ async fn figures_fragments_match_the_rails_page_partials() {
         let name = dir.file_name().unwrap().to_str().unwrap();
         if name == "boundaries" { boundaries(&dir); currencies += 100; continue; }
         let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
-        let mut expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+        let mut expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
         if name == "crypto_security_split_nameonly" {
-            // D-SPLIT-NEVER-A-COIN: Rails' name fallback restates the coin by the security's split; this page is Rails' own
+            // D-SPLIT-NEVER-A-COIN: 2.x's name fallback restates the coin by the security's split; this page is 2.x's own
             // rendering of the twin whose report recorded the security.
-            let twin: Value = serde_json::from_str(&std::fs::read_to_string(dir.with_file_name("crypto_security_split").join("rails.json")).unwrap()).unwrap();
-            assert_ne!(expected["bots"], twin["bots"], "{name}: Rails no longer restates the coin: drop the divergence");
+            let twin: Value = serde_json::from_str(&std::fs::read_to_string(dir.with_file_name("crypto_security_split").join("expected.json")).unwrap()).unwrap();
+            assert_ne!(expected["bots"], twin["bots"], "{name}: 2.x no longer restates the coin: drop the divergence");
             expected = twin;
         }
         if ["pair_row_zero_proceeds", "pair_row_open_partial"].contains(&name) {
-            // D-PAIR-FILL-VALUE: keep Rails' omitted holding as evidence, then compare every rendered fragment and
-            // broadcast against Rails' own rendering with the executed value supplied by the counterfactual reader.
+            // D-PAIR-FILL-VALUE: keep 2.x's omitted holding as evidence, then compare every rendered fragment and
+            // broadcast against 2.x's own rendering with the executed value supplied by the counterfactual reader.
             let quantity = |v: &Value| {
                 let doc = scraper::Html::parse_fragment(v["bots"]["1"]["metrics"].as_str().unwrap());
                 doc.select(&scraper::Selector::parse("tr[data-symbol] td:nth-child(3)").unwrap())
                     .map(|e| deltabadger::figures::dec::Dec::parse(e.text().collect::<String>().trim()).unwrap().to_s_f()).collect::<Vec<_>>()
             };
-            assert_eq!(quantity(&expected), vec!["1.0"], "{name}: Rails no longer omits the partial fill");
+            assert_eq!(quantity(&expected), vec!["1.0"], "{name}: 2.x no longer omits the partial fill");
             let normalized: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("normalized.json")).unwrap()).unwrap();
             assert_eq!(quantity(&normalized), vec![if name == "pair_row_open_partial" { "1.4" } else { "1.3" }]);
             expected = normalized;
@@ -340,11 +340,11 @@ async fn figures_fragments_match_the_rails_page_partials() {
             cache.fill(&wire, demands, now.utc().timestamp()).await;
         }
         if ["row_readings","tax_lots"].contains(&name) {
-            // RULING-R2: Rails publishes a number after skipping an executed, unpriced fill.
+            // RULING-R2: 2.x publishes a number after skipping an executed, unpriced fill.
             let reader=Reader::new(&cache,now.utc().timestamp());
             let err=deltabadger::web::figure::account(&c,sc["user_id"].as_i64().unwrap(),&reader,now,"en","token","").unwrap_err();
             assert!(matches!(err,deltabadger::figures::FiguresError::NotComputed(ref why) if why=="executed fill value unavailable"));
-            assert!(!expected["bots"]["1"]["tile"].as_str().unwrap().contains("no-value"),"Rails recorded its skipped-row figure");
+            assert!(!expected["bots"]["1"]["tile"].as_str().unwrap().contains("no-value"),"2.x recorded its skipped-row figure");
             use deltabadger::web::{App,Config,figure::loading::{self,Snapshot,Source}};
             // The fill fails, and keeps why with the failure: the page reads no order to say it.
             let env=common::web::env(common::web::SECRET);
@@ -361,13 +361,13 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let streams=deltabadger::web::figure::streams(&c,sc["user_id"].as_i64().unwrap(),&rendered).unwrap();
             assert_eq!(streams.len(),4);
             for (_,payload) in streams {no_widget(&payload,None);assert!(!payload.contains("Figures unavailable"));}
-            continue; // Exact unavailable output above replaces the named Rails money defect.
+            continue; // Exact unavailable output above replaces the named 2.x money defect.
         }
         if std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") && name == "no_orders" {
-            // A bot with no orders has no chart point, and Rails writes no figures to its cache for it
+            // A bot with no orders has no chart point, and 2.x writes no figures to its cache for it
             // (Measurable#metrics_with_current_prices returns first): its page, cold or after a fill, keeps the frame that
             // asks, and draws nothing inline. After the fill only the page's frame is compared, not what the frame then
-            // loads: the fill of an account with no market demand leaves its figures unavailable, where Rails shows the
+            // loads: the fill of an account with no market demand leaves its figures unavailable, where 2.x shows the
             // empty chart.
             use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
             let env=common::web::env(common::web::SECRET);
@@ -378,7 +378,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let mut browser=common::web::Browser { cookie:Some(session::seal(&app.keys.session,&signed,now.utc())),page:None };
             let ids:Vec<String>=sc["bot_ids"].as_array().unwrap().iter().map(|id|id.to_string()).collect();
             // The page's read starts a fill, and with no market to ask it needs nothing but the figures' compute permit
-            // to finish: held here, the frame the page sends is read while the figures are still cold, as Rails' was.
+            // to finish: held here, the frame the page sends is read while the figures are still cold, as 2.x's was.
             let held=app.figure_service.compute().acquire_owned().await.unwrap();
             for id in &ids { chart_frames(name,"cold",id,&mut browser,&app,&expected["cold"]["bots"][id]).await; }
             drop(held);
@@ -410,10 +410,10 @@ async fn figures_fragments_match_the_rails_page_partials() {
             for id in sc["bot_ids"].as_array().unwrap().iter().map(|id|id.to_string()) { chart_frames(name,"cold",&id,&mut browser,&cold,&expected["cold"]["bots"][&id]).await; }
             dashboard(name,"cold",&mut browser,&cold,&expected["cold"]["dashboard"]).await;
             drop(cold);
-            // What Rails broadcast for every figure of the account, by (stream, target), and the streams a page subscribes.
-            let rails:BTreeMap<(String,String),String>=expected["broadcasts"].as_array().unwrap().iter()
+            // What 2.x broadcast for every figure of the account, by (stream, target), and the streams a page subscribes.
+            let v2:BTreeMap<(String,String),String>=expected["broadcasts"].as_array().unwrap().iter()
                 .map(|entry|((entry[0].as_str().unwrap().to_string(),target(entry[1].as_str().unwrap())),entry[1].as_str().unwrap().to_string())).collect();
-            let wanted:BTreeSet<(String,String)>=rails.keys().cloned().collect();
+            let wanted:BTreeSet<(String,String)>=v2.keys().cloned().collect();
             let streams:BTreeSet<String>=wanted.iter().map(|(stream,_)|stream.clone()).collect();
             let user_stream=format!("user_{user}:bot_updates");
             if name == "owner_account" { replays_follow_what_the_figures_read(&env,&dir,&sc,user,&user_stream).await; }
@@ -422,7 +422,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let mut cable=Cable::open(&app,&cookie,&streams).await;
             assert!(matches!(loading::prepare(&app,user).await.unwrap(),loading::Snapshot::Cold));
             loading::publish(&app,user).await.unwrap();
-            delivered(name,"the end of the fill",&cable.until(&wanted).await,&rails);
+            delivered(name,"the end of the fill",&cable.until(&wanted).await,&v2);
             tokio::time::timeout(std::time::Duration::from_secs(5),async {
                 loop {
                     match loading::prepare(&app,user).await.unwrap() {
@@ -441,7 +441,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let want=scraper::Html::parse_fragment(expected["bots"][&id]["metrics"].as_str().unwrap());
             let want=want.select(&selector).next().unwrap().html();
             assert_eq!(common::html::normalize(&got),common::html::normalize(&want),"warm route {name}");
-            // Warm: the chart is drawn with the page, and asks for nothing. Where a market read failed, Rails' own frame is
+            // Warm: the chart is drawn with the page, and asks for nothing. Where a market read failed, 2.x's own frame is
             // what `chart_frames` compared: a bot without candles or prices has no cached chart to draw.
             let chart=chart_frames(name,"warm",&id,&mut browser,&app,&expected["warm"]["bots"][&id]).await;
             if !name.ends_with("_failed") { assert!(chart.contains("data-controller=\"bot--chart\"")); }
@@ -462,7 +462,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 cable.drain(&app,&user_stream).await;
                 let answer=browser.send_body(&app,"POST",path,Some(body.to_string()),common::web::Csrf::Header,&[("content-type","application/json")]).await;
                 assert_eq!(answer.status,200,"{name} {path}");
-                delivered(name,path,&cable.until(&wanted).await,&rails);
+                delivered(name,path,&cable.until(&wanted).await,&v2);
             }
             if name == "owner_account" {
             let index=browser.get(&app,"/bots").await;
@@ -610,11 +610,11 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 let kept=mounted_app.figure_service.settled(user);
                 let mut again=Cable::open(&mounted_app,&cookie,&streams).await;
                 let replayed=again.until(&wanted).await;
-                delivered(name,"a reconnect after a dropped publication",&replayed,&rails);
+                delivered(name,"a reconnect after a dropped publication",&replayed,&v2);
                 assert_eq!(mounted_app.figure_service.settled(user),kept,"{name}: fresh figures were refilled, not sent again");
                 drop(again);
                 // Idle past the cache's five minutes: nothing stale is sent; a refresh is filled and published, every target
-                // of it, and the charts now end five minutes later than the replayed ones (Rails recorded neither).
+                // of it, and the charts now end five minutes later than the replayed ones (2.x recorded neither).
                 clock.set(now.utc()+chrono::Duration::seconds(301));
                 let mut later=Cable::open(&mounted_app,&cookie,&streams).await;
                 let refreshed=later.until(&wanted).await;
@@ -646,10 +646,10 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 // A restart (an eviction leaves the service the same way): nothing is kept, and the subscription asks.
                 let restarted=open_app(common::web::TestClock::at(sc["at"].as_str().unwrap()));
                 let mut after=Cable::open(&restarted,&cookie,&streams).await;
-                delivered(name,"a reconnect after a restart",&after.until(&wanted).await,&rails);
+                delivered(name,"a reconnect after a restart",&after.until(&wanted).await,&v2);
             }
             // An order the engine wrote publishes its owner's figures again, from a fill of their own: the write moved the
-            // revision (here it is written and put back, so the figures are Rails' again), and the event alone is the trigger.
+            // revision (here it is written and put back, so the figures are 2.x's again), and the event alone is the trigger.
             if name == "owner_account" {
                 let (events, heard) = tokio::sync::mpsc::unbounded_channel();
                 let (stopper, stop) = tokio::sync::watch::channel(false);
@@ -658,14 +658,14 @@ async fn figures_fragments_match_the_rails_page_partials() {
                              c.execute("UPDATE transactions SET quote_amount_exec=quote_amount_exec-1 WHERE id=(SELECT min(id) FROM transactions)",[])?; Ok(()) }).await.unwrap();
                 cable.drain(&app,&user_stream).await;
                 events.send(EngineEvent::OrderUpdated { bot_id: sc["bot_ids"][0].as_i64().unwrap() }).unwrap();
-                delivered(name,"an order the engine wrote",&cable.until(&wanted).await,&rails);
+                delivered(name,"an order the engine wrote",&cable.until(&wanted).await,&v2);
                 // A burst of orders is one publication per account, not one per order.
                 cable.drain(&app,&user_stream).await;
                 let before=cable.frames;
                 for bot in sc["bot_ids"].as_array().unwrap().iter().cycle().take(60) {
                     events.send(EngineEvent::OrderRecorded { bot_id: bot.as_i64().unwrap(), transaction_id: 1 }).unwrap();
                 }
-                delivered(name,"a burst of orders",&cable.until(&wanted).await,&rails);
+                delivered(name,"a burst of orders",&cable.until(&wanted).await,&v2);
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 cable.drain(&app,&user_stream).await;
                 assert_eq!(cable.frames-before,wanted.len(),"{name}: sixty orders published more than once");
@@ -683,7 +683,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 assert_eq!(app.figure_service.marked(),bots.len(),"{name}: orders waited behind a publication instead of being marked");
                 hold.await.unwrap().unwrap();
-                delivered(name,"orders during a publication",&cable.until(&wanted).await,&rails);
+                delivered(name,"orders during a publication",&cable.until(&wanted).await,&v2);
                 tokio::time::sleep(Duration::from_millis(1500)).await;
                 cable.drain(&app,&user_stream).await;
                 assert_eq!(cable.frames-before,2*wanted.len(),"{name}: the held publication and one more for the orders behind it");
@@ -695,7 +695,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 events.send(EngineEvent::OrderUpdated { bot_id: sc["bot_ids"][0].as_i64().unwrap() }).unwrap();
                 tokio::time::sleep(Duration::from_millis(1200)).await; // its first publication has failed
                 app.db(|c| { c.execute_batch("ALTER TABLE bots_away RENAME TO bots")?; Ok(()) }).await.unwrap();
-                delivered(name,"a publication retried after a database error",&cable.until(&wanted).await,&rails);
+                delivered(name,"a publication retried after a database error",&cable.until(&wanted).await,&v2);
                 // A publication that fails at the end of the fill it waited for (the user's locale column is away for a
                 // moment: the fill never reads it, the publication does) is handed back to this service and retried: the
                 // page receives the figures with no other trigger.
@@ -706,7 +706,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 events.send(EngineEvent::OrderUpdated { bot_id: sc["bot_ids"][0].as_i64().unwrap() }).unwrap();
                 tokio::time::sleep(Duration::from_millis(1500)).await; // the write's fill has ended, and its publication failed
                 app.db(|c| { c.execute_batch("ALTER TABLE users RENAME COLUMN locale_away TO locale")?; Ok(()) }).await.unwrap();
-                delivered(name,"a publication retried after the end of its fill",&cable.until(&wanted).await,&rails);
+                delivered(name,"a publication retried after the end of its fill",&cable.until(&wanted).await,&v2);
                 // A publication whose reads of the bots fail once (the table is away while a page asks; the render's fallback
                 // fails first, and stream construction would): nothing is recorded or delivered, the demand is kept and
                 // retried, and once the table is back the mounted page and a page that connects afresh both end with every
@@ -717,9 +717,9 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 assert_eq!(asked.status,200,"{name}: the request is answered whatever its publication does");
                 tokio::time::sleep(Duration::from_millis(1200)).await; // its publication has failed, and a retry with it
                 app.db(|c| { c.execute_batch("ALTER TABLE bots_away RENAME TO bots")?; Ok(()) }).await.unwrap();
-                delivered(name,"a publication retried after its streams failed",&cable.until(&wanted).await,&rails);
+                delivered(name,"a publication retried after its streams failed",&cable.until(&wanted).await,&v2);
                 let mut afresh=Cable::open(&app,&cookie,&streams).await;
-                delivered(name,"a reconnect after a publication whose streams failed",&afresh.until(&wanted).await,&rails);
+                delivered(name,"a reconnect after a publication whose streams failed",&afresh.until(&wanted).await,&v2);
                 drop(afresh);
                 // A subscription after a missed fill, while the key's credentials cannot be read (their column is away): the
                 // read fails rather than meaning "no figures", the demand is kept and retried, and once the column is back the
@@ -730,7 +730,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 let mut missed=Cable::open(&app,&cookie,&streams).await;
                 tokio::time::sleep(Duration::from_millis(1200)).await; // its subscription's read has failed, and a retry with it
                 app.db(|c| { c.execute_batch("ALTER TABLE api_keys RENAME COLUMN passphrase_away TO passphrase")?; Ok(()) }).await.unwrap();
-                delivered(name,"a subscription retried after its credentials could not be read",&missed.until(&wanted).await,&rails);
+                delivered(name,"a subscription retried after its credentials could not be read",&missed.until(&wanted).await,&v2);
                 drop(missed);
                 // A fallback render (its fill failed) whose read of the account's bots fails once: no publication of the
                 // headline alone is accepted, the demand is kept and retried, and once the bots are back the page ends with
@@ -866,7 +866,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
             if name == "owner_account" {
                 let original=app.db(|c| Ok(c.query_row("SELECT quote_amount_exec FROM transactions ORDER BY id LIMIT 1",[],|r|r.get::<_,rusqlite::types::Value>(0))?)).await.unwrap();
                 app.db(|c| { c.execute("UPDATE transactions SET quote_amount_exec=quote_amount_exec+1 WHERE id=(SELECT min(id) FROM transactions)",[])?; Ok(()) }).await.unwrap();
-                // Never served as current: a refill runs, and what was kept shows meanwhile, as Rails' cache does until its recompute.
+                // Never served as current: a refill runs, and what was kept shows meanwhile, as 2.x's cache does until its recompute.
                 assert!(matches!(loading::prepare(&app,user).await.unwrap(),loading::Snapshot::Stale(..)));
                 tokio::time::timeout(std::time::Duration::from_secs(5),async {
                     loop {
@@ -894,7 +894,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
         if name.starts_with("framed_rebalance_") && !name.starts_with("framed_rebalance_halt") && std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") { rebalance_pages(name, &dir, &sc, &expected, now).await; }
         if ["framed_rebalance_drift_under", "owner_account"].contains(&name) && std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") { rule_saves(name, &dir, &sc, now).await; }
         if name.starts_with("pair_") || name.starts_with("signal_") || name.starts_with("framed_signal_") || name == "account_pair_bot" { pairs += 1; }
-        // Which caches Rails writes for a pair (Measurable's three layers), as the page reads them.
+        // Which caches 2.x writes for a pair (Measurable's three layers), as the page reads them.
         let flags = |id: &str| (actual["bots"][id]["cached"].as_bool().unwrap(), actual["bots"][id]["chart_cached"].as_bool().unwrap());
         match name {
             "pair_buys" | "pair_crypto" | "signal_first_sell" | "pair_restating" | "pair_display_raised" => assert_eq!(flags("1"), (true, true), "{name}"),
@@ -907,25 +907,25 @@ async fn figures_fragments_match_the_rails_page_partials() {
         }
         if STALE_PAIRS.contains(&name) {
             // D3 (3.0, Rust only): a pair whose prices are stale states nothing priced, as a stale basket does: no tile figure,
-            // no portfolio value, no row value or P/L, no chart and no headline. Rails draws each from the last fill's price
+            // no portfolio value, no row value or P/L, no chart and no headline. 2.x draws each from the last fill's price
             // (its broadcast and chart frame draw the stale chart). The note says the venue did not answer.
             for (id, parts) in expected["bots"].as_object().unwrap() {
-                assert!(parts["chart"].as_str().unwrap().contains("data-bot--chart-series"), "{name}: Rails draws the stale chart");
+                assert!(parts["chart"].as_str().unwrap().contains("data-bot--chart-series"), "{name}: 2.x draws the stale chart");
                 let ours = &actual["bots"][id];
-                assert_eq!(ours["cached"], false, "{name}: Rails never caches stale figures");
+                assert_eq!(ours["cached"], false, "{name}: 2.x never caches stale figures");
                 no_widget(ours["tile"].as_str().unwrap(), Some("pnl_bots_"));
                 assert_eq!(ours["chart"].as_str().unwrap(), deltabadger::web::figure::NOT_CHARTED, "{name}: chart");
                 let metrics = ours["metrics"].as_str().unwrap();
                 assert!(metrics.contains("The exchange API does not respond"), "{name}: {metrics}");
                 assert_eq!(metrics.matches("no-value").count(), 3, "{name}: the portfolio value, the row's value and its P/L: {metrics}");
-                let rails = parts["metrics"].as_str().unwrap();
+                let v2 = parts["metrics"].as_str().unwrap();
                 let table = |html: &str| { let doc = scraper::Html::parse_fragment(html); doc.select(&scraper::Selector::parse("tr[data-symbol] td:nth-child(3)").unwrap()).map(|e| e.text().collect::<String>()).collect::<Vec<_>>() };
-                assert_eq!(table(metrics), table(rails), "{name}: the amount held is known without a price");
+                assert_eq!(table(metrics), table(v2), "{name}: the amount held is known without a price");
             }
             assert_eq!(actual["account"].as_str().unwrap(), "<div id=\"global-pnl\"></div>", "{name}: account");
             continue;
         }
-        // What Rails would hold cached, which decides whether its bot page draws the chart inline: never for a bot with no
+        // What 2.x would hold cached, which decides whether its bot page draws the chart inline: never for a bot with no
         // chart point (no_orders), always for a priced one (basket_buys).
         if ["no_orders", "basket_buys"].contains(&name) {
             for parts in actual["bots"].as_object().unwrap().values() { assert_eq!(parts["cached"].as_bool(), Some(name == "basket_buys"), "{name}: cached"); }
@@ -953,14 +953,14 @@ async fn figures_fragments_match_the_rails_page_partials() {
             }
             assert_eq!(actual["account"].as_str().unwrap(), "<div id=\"global-pnl\"></div>", "{name}: stale account published");
             assert!(!actual["account"].as_str().unwrap().contains("<svg"), "{name}: stale sparkline published");
-            continue; // Deliberate unavailable state; Rails retains stale ledger figures here.
+            continue; // Deliberate unavailable state; 2.x retains stale ledger figures here.
         }
         if name.starts_with("locked_") {
-            assert!(expected["bots"]["1"]["metrics"].as_str().unwrap().contains("wash_sale_table"), "{name}: Rails did not record a lock");
+            assert!(expected["bots"]["1"]["metrics"].as_str().unwrap().contains("wash_sale_table"), "{name}: 2.x did not record a lock");
         }
         if name == "index_specials" {
             // The bot page of an index bot with liquidation, redeploy and rebalance legs, once its figures are filled: served,
-            // with the metrics Rails rendered (less the redeploy refusal this build adds, as for the fragments below).
+            // with the metrics 2.x rendered (less the redeploy refusal this build adds, as for the fragments below).
             use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
             let env=common::web::env(common::web::SECRET);
             let app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap(),common::web::TestClock::at(sc["at"].as_str().unwrap()))
@@ -1001,16 +1001,16 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 let document=scraper::Html::parse_fragment(&payload);
                 let selector=scraper::Selector::parse("turbo-stream").unwrap();
                 let target=document.select(&selector).next().unwrap().value().attr("target").unwrap();
-                // D-REB-DRIFT-LATE: Rails never broadcasts the drift readout; it renders it with the page, cold or warm.
+                // D-REB-DRIFT-LATE: 2.x never broadcasts the drift readout; it renders it with the page, cold or warm.
                 if target == "settings-rebalance-info" {
                     rebalance_broadcast(name, &payload, &expected, scratch.path());
                     continue;
                 }
                 let wanted=expected["broadcasts"].as_array().unwrap().iter().find(|entry| {
                     entry[0]==stream && entry[1].as_str().is_some_and(|s| s.contains(&format!("target=\"{target}\"")))
-                }).unwrap_or_else(||panic!("{name}: no Rails broadcast to {stream} {target}"));
+                }).unwrap_or_else(||panic!("{name}: no 2.x broadcast to {stream} {target}"));
                 if ["price_untraded", "index_rotation", "old_rows"].contains(&name) { continue; }
-                // This grid renders `actual` with a page's token ("token"); a real broadcast has none, as Rails' has none.
+                // This grid renders `actual` with a page's token ("token"); a real broadcast has none, as 2.x's has none.
                 let payload = if name == "redeploy_halt" || name.starts_with("framed_rebalance_halt") { payload.replace(GRID_TOKEN_FIELD, "") } else { payload };
                 let payload=common::html::without_rebalance_attestation(&payload,&c);
                 if SELL_ONLY_PAIRS.contains(&name) && target == "metrics" { assert_eq!(sell_only_table(&payload), sell_only_table(wanted[1].as_str().unwrap()), "{name} broadcast metrics"); continue; }
@@ -1033,20 +1033,20 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     continue;
                 }
                 let got = got.as_str().unwrap().to_string();
-                // Rails records these fragments without a request, so its Clear has no token field; this grid's has "token".
+                // 2.x records these fragments without a request, so its Clear has no token field; this grid's has "token".
                 let got = if name == "redeploy_halt" || name.starts_with("framed_rebalance_halt") { got.replace(GRID_TOKEN_FIELD, "") } else { got };
                 let got=common::html::without_rebalance_attestation(&got,&c);
                 if SELL_ONLY_PAIRS.contains(&name) && part == "metrics" {
-                    // D4 (3.0, Rust only): a pair that only sells states what it sold and what that brought in, where Rails states an
-                    // investment; its row, chart, tile and totals are Rails'.
+                    // D4 (3.0, Rust only): a pair that only sells states what it sold and what that brought in, where 2.x states an
+                    // investment; its row, chart, tile and totals are 2.x's.
                     assert!(got.contains("Sold") && got.contains("Received") && !got.contains("Invested"), "{name}: {got}");
-                    assert!(parts[part].as_str().unwrap().contains("Invested"), "{name}: Rails states an investment");
+                    assert!(parts[part].as_str().unwrap().contains("Invested"), "{name}: 2.x states an investment");
                     assert_eq!(sell_only_table(&got), sell_only_table(parts[part].as_str().unwrap()), "{name} bot {id} metrics");
                     continue;
                 }
                 if name == "stranded_offset" && part == "metrics" {
-                    // D-6C-9: Rails' clamp to zero, and a read never rewrites the saved decline.
-                    assert_eq!(expected["offset"][0], expected["offset"][1], "{name}: a Rails read keeps the saved decline");
+                    // D-6C-9: 2.x's clamp to zero, and a read never rewrites the saved decline.
+                    assert_eq!(expected["offset"][0], expected["offset"][1], "{name}: a 2.x read keeps the saved decline");
                 }
                 assert_eq!(common::html::normalize(&got), common::html::normalize(parts[part].as_str().unwrap()), "{name} bot {id} {part}");
             }
@@ -1059,10 +1059,10 @@ async fn figures_fragments_match_the_rails_page_partials() {
 /// Pair scenarios whose prices are stale (D3), and those whose every order is a sell (D4).
 const STALE_PAIRS: [&str; 4] = ["pair_price_refused", "pair_split_quarantine", "pair_unresolved_split", "framed_signal_price_refused"];
 const SELL_ONLY_PAIRS: [&str; 1] = ["signal_sell_only"];
-/// The pair scenarios recorded as signal bots, whose pages this build serves (page_figures.rb FRAMED).
+/// The pair scenarios recorded as signal bots, whose pages this build serves (the recorded FRAMED).
 const FRAMED_SIGNALS: [&str; 4] = ["signal_sell_only", "framed_signal_buys", "framed_signal_candles_failed", "framed_signal_price_refused"];
 
-/// A pair panel's holdings table, which D4 leaves as Rails renders it.
+/// A pair panel's holdings table, which D4 leaves as 2.x renders it.
 const GRID_TOKEN_FIELD: &str = "<input type=\"hidden\" name=\"authenticity_token\" value=\"token\" autocomplete=\"off\" />";
 
 fn sell_only_table(html: &str) -> Vec<String> {
@@ -1070,8 +1070,8 @@ fn sell_only_table(html: &str) -> Vec<String> {
     common::html::normalize(&doc.select(&scraper::Selector::parse("#assets_metrics_table").unwrap()).next().expect("no holdings table").html())
 }
 
-/// A signal bot's page and its chart frame, cold and then warm, against Rails' (page_figures.rb#pages): cold, the loading
-/// panel Rails sends and the frame that asks; warm, the panel and the chart as Rails caches them, apart from D3 (a stale pair's
+/// A signal bot's page and its chart frame, cold and then warm, against 2.x's (the recorded `pages`): cold, the loading
+/// panel 2.x sends and the frame that asks; warm, the panel and the chart as 2.x caches them, apart from D3 (a stale pair's
 /// panel is this build's, and its frame answers no chart) and D4 (a sell-only pair's grid).
 async fn signal_pages(name: &str, dir: &Path, sc: &Value, expected: &Value, actual: &Value, now: At) {
     use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
@@ -1097,27 +1097,27 @@ async fn signal_pages(name: &str, dir: &Path, sc: &Value, expected: &Value, actu
         match loading::prepare(&app,user).await.unwrap() { loading::Snapshot::Ready(..)=>break, loading::Snapshot::Failed(why)=>panic!("{name}: fill failed: {why:?}"), _=>tokio::time::sleep(Duration::from_millis(20)).await }
     } }).await.unwrap();
     for id in &ids {
-        let rails=&expected["warm"]["bots"][id];
+        let v2=&expected["warm"]["bots"][id];
         if STALE_PAIRS.contains(&name) {
-            // Rails caches nothing stale: its page still loads, and its frame draws the stale chart (D3: this build's draws none).
+            // 2.x caches nothing stale: its page still loads, and its frame draws the stale chart (D3: this build's draws none).
             let page=browser.get(&app,&format!("/bots/{id}")).await;
             assert_eq!(page.status,200,"{name}: {}",page.body);
-            assert_eq!(bot_chart(&page.body),bot_chart(rails["page"].as_str().unwrap()),"{name} warm: the page's chart frame");
+            assert_eq!(bot_chart(&page.body),bot_chart(v2["page"].as_str().unwrap()),"{name} warm: the page's chart frame");
             assert_eq!(metrics(&page.body),metrics(actual["bots"][id]["metrics"].as_str().unwrap()),"{name} warm: the stale panel");
             let src=bot_chart(&page.body).0.expect("a frame that asks");
             let frame=browser.get(&app,&src).await;
             assert!(frame.body.contains("<div id=\"chart\" hidden=\"hidden\">"),"{name}: D3, no stale chart: {}",frame.body);
-            assert!(rails["chart"].as_str().unwrap().contains("data-bot--chart-series"),"{name}: Rails' frame draws the stale chart");
+            assert!(v2["chart"].as_str().unwrap().contains("data-bot--chart-series"),"{name}: 2.x's frame draws the stale chart");
             continue;
         }
-        chart_frames(name,"warm",id,&mut browser,&app,rails).await;
+        chart_frames(name,"warm",id,&mut browser,&app,v2).await;
         let page=browser.get(&app,&format!("/bots/{id}")).await.body;
-        if SELL_ONLY_PAIRS.contains(&name) { assert_eq!(sell_only_table(&page),sell_only_table(rails["page"].as_str().unwrap()),"{name} warm: the holdings"); }
-        else { assert_eq!(metrics(&page),metrics(rails["page"].as_str().unwrap()),"{name} warm: the panel"); }
+        if SELL_ONLY_PAIRS.contains(&name) { assert_eq!(sell_only_table(&page),sell_only_table(v2["page"].as_str().unwrap()),"{name} warm: the holdings"); }
+        else { assert_eq!(metrics(&page),metrics(v2["page"].as_str().unwrap()),"{name} warm: the panel"); }
     }
 }
 
-/// Normalized, without the form token field: Rails' recorded pages run without forgery protection (the test environment).
+/// Normalized, without the form token field: 2.x's recorded pages run without forgery protection (the test environment).
 fn tokenless(html: &str) -> Vec<String> {
     let mut out = vec![];
     let mut skip = false;
@@ -1136,40 +1136,40 @@ fn rebalance_rule(body: &str) -> (String, String) {
     let form = toggle.ancestors().filter_map(scraper::ElementRef::wrap).find(|e| e.value().name() == "form").expect("the rule's form");
     (info, form.html())
 }
-/// D-REB-DRIFT-LATE, the one place it shows: the note alone where Rails' page also has the drift readout under it (the
+/// D-REB-DRIFT-LATE, the one place it shows: the note alone where 2.x's page also has the drift readout under it (the
 /// fragment with its readout, the second <div>, left out).
-fn note_only(rails: &str) -> String {
-    let doc = scraper::Html::parse_fragment(rails);
-    let note = doc.select(&scraper::Selector::parse("#settings-rebalance-info > div").unwrap()).next().expect("Rails' note").html();
+fn note_only(v2: &str) -> String {
+    let doc = scraper::Html::parse_fragment(v2);
+    let note = doc.select(&scraper::Selector::parse("#settings-rebalance-info > div").unwrap()).next().expect("2.x's note").html();
     format!("<small id=\"settings-rebalance-info\" class=\"small-info\">\n    {note}\n    \n  </small>")
 }
-/// D-REB-DRIFT-LATE on the figures' stream: what follows the page is the readout Rails rendered with its cold page.
+/// D-REB-DRIFT-LATE on the figures' stream: what follows the page is the readout 2.x rendered with its cold page.
 fn drift_late(name: &str, payload: &str, expected: &Value) {
-    let rails = expected["cold"]["bots"]["1"]["page"].as_str().unwrap_or_else(|| panic!("{name}: a drift readout on a page the grid does not frame"));
-    let document = scraper::Html::parse_document(rails);
+    let v2 = expected["cold"]["bots"]["1"]["page"].as_str().unwrap_or_else(|| panic!("{name}: a drift readout on a page the grid does not frame"));
+    let document = scraper::Html::parse_document(v2);
     let info = document.select(&scraper::Selector::parse("#settings-rebalance-info").unwrap()).next()
-        .unwrap_or_else(|| panic!("{name}: no Rails rebalance note")).html();
+        .unwrap_or_else(|| panic!("{name}: no 2.x rebalance note")).html();
     assert_eq!(info.contains("off its target split"), !name.starts_with("framed_rebalance_halt"),
-        "{name}: Rails reads drift only when the swap is not halted");
+        "{name}: 2.x reads drift only when the swap is not halted");
     let streamed = scraper::Html::parse_fragment(payload);
     let template = streamed.select(&scraper::Selector::parse("template").unwrap()).next().unwrap().inner_html();
     assert_eq!(common::html::normalize(template.trim_end()), common::html::normalize(&info), "{name}: the streamed drift readout");
 }
 
 /// A selling basket hides the rule. Its streamed note targets no element; compare the fragment
-/// with Rails' halted buying twin, which renders that same note, instead of requiring a form.
+/// with 2.x's halted buying twin, which renders that same note, instead of requiring a form.
 fn rebalance_broadcast(name: &str, payload: &str, expected: &Value, root: &Path) {
     if name == "framed_rebalance_halt_selling" {
         let page = expected["cold"]["bots"]["1"]["page"].as_str().unwrap();
         assert!(!page.contains("id=\"settings-rebalance-info\""));
-        let twin: Value = serde_json::from_slice(&std::fs::read(root.join("framed_rebalance_halt/rails.json")).unwrap()).unwrap();
+        let twin: Value = serde_json::from_slice(&std::fs::read(root.join("framed_rebalance_halt/expected.json")).unwrap()).unwrap();
         drift_late("framed_rebalance_halt", payload, &twin);
     } else { drift_late(name, payload, expected); }
 }
 
-/// The rebalance rule on a held basket's page (page_figures.rb's framed_rebalance_*): cold, the note alone (D-REB-DRIFT-LATE)
-/// and the rest of the rule as Rails renders it; the end of the fill streams Rails' readout to the page; warm, the rule and
-/// the panel exactly as Rails' warm page.
+/// The rebalance rule on a held basket's page (the recorded framed_rebalance_*): cold, the note alone (D-REB-DRIFT-LATE)
+/// and the rest of the rule as 2.x renders it; the end of the fill streams 2.x's readout to the page; warm, the rule and
+/// the panel exactly as 2.x's warm page.
 async fn rebalance_pages(name: &str, dir: &Path, sc: &Value, expected: &Value, now: At) {
     use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
     let env=common::web::env(common::web::SECRET);
@@ -1185,10 +1185,10 @@ async fn rebalance_pages(name: &str, dir: &Path, sc: &Value, expected: &Value, n
     let held=app.figure_service.compute().acquire_owned().await.unwrap();
     let cold=browser.get(&app,"/bots/1").await;
     assert_eq!(cold.status,200,"{name} cold: {}",cold.body);
-    let rails_cold=expected["cold"]["bots"]["1"]["page"].as_str().unwrap();
-    let ((ours_info,ours_form),(rails_info,rails_form))=(rebalance_rule(&cold.body),rebalance_rule(rails_cold));
-    assert_eq!(common::html::normalize(&ours_info),common::html::normalize(&note_only(&rails_info)),"{name} cold: D-REB-DRIFT-LATE, the note alone");
-    assert_eq!(tokenless(&ours_form.replace(&ours_info,"")),tokenless(&rails_form.replace(&rails_info,"")),"{name} cold: the rule");
+    let v2_cold=expected["cold"]["bots"]["1"]["page"].as_str().unwrap();
+    let ((ours_info,ours_form),(v2_info,v2_form))=(rebalance_rule(&cold.body),rebalance_rule(v2_cold));
+    assert_eq!(common::html::normalize(&ours_info),common::html::normalize(&note_only(&v2_info)),"{name} cold: D-REB-DRIFT-LATE, the note alone");
+    assert_eq!(tokenless(&ours_form.replace(&ours_info,"")),tokenless(&v2_form.replace(&v2_info,"")),"{name} cold: the rule");
     drop(held);
     let wanted:BTreeSet<(String,String)>=[(page_stream.clone(),"settings-rebalance-info".to_string())].into();
     let got=cable.until(&wanted).await;
@@ -1199,10 +1199,10 @@ async fn rebalance_pages(name: &str, dir: &Path, sc: &Value, expected: &Value, n
     } }).await.unwrap();
     let warm=browser.get(&app,"/bots/1").await;
     assert_eq!(warm.status,200,"{name} warm: {}",warm.body);
-    let rails_warm=expected["warm"]["bots"]["1"]["page"].as_str().unwrap();
-    assert_eq!(tokenless(&rebalance_rule(&warm.body).1),tokenless(&rebalance_rule(rails_warm).1),"{name} warm: the rule and its readout");
+    let v2_warm=expected["warm"]["bots"]["1"]["page"].as_str().unwrap();
+    assert_eq!(tokenless(&rebalance_rule(&warm.body).1),tokenless(&rebalance_rule(v2_warm).1),"{name} warm: the rule and its readout");
     let panel=|body:&str| { let doc=scraper::Html::parse_document(body); tokenless(&doc.select(&scraper::Selector::parse("#metrics").unwrap()).next().expect("no panel").html()) };
-    assert_eq!(panel(&warm.body),panel(rails_warm),"{name} warm: the panel");
+    assert_eq!(panel(&warm.body),panel(v2_warm),"{name} warm: the panel");
     if name != "framed_rebalance_drift_over" { return; }
     // A green readout, then figures that raise (a transient price read) or fail: each replaces it with the note alone, and
     // recovered figures bring it back. What a page applies is the streamed replacement of its target.
@@ -1324,20 +1324,20 @@ async fn save_fields(name: &str, browser: &mut common::web::Browser, app: &delta
     answer.body
 }
 
-/// Denomination#format at the edges of its sign, as Rails wrote each (page_figures.rb#boundaries).
+/// Denomination#format at the edges of its sign, as 2.x wrote each (the recorded `boundaries`).
 fn boundaries(dir: &Path) {
-    let cases: Vec<(String, String, String, usize, String)> = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+    let cases: Vec<(String, String, String, usize, String)> = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
     assert!(cases.len() > 100);
-    let wrong: Vec<String> = cases.iter().filter_map(|(currency, rate, usd, digits, rails)| {
+    let wrong: Vec<String> = cases.iter().filter_map(|(currency, rate, usd, digits, v2)| {
         let ours = deltabadger::web::figure::denominated(currency, rate, usd, *digits).unwrap();
-        (&ours != rails).then(|| format!("{currency} {usd} at {digits}: Rails {rails}, ours {ours}"))
+        (&ours != v2).then(|| format!("{currency} {usd} at {digits}: 2.x {v2}, ours {ours}"))
     }).collect();
     assert!(wrong.is_empty(), "{wrong:#?}");
 }
 
 /// The account's figures in the currency it is shown in, as the server keeps and publishes them: filled through the
 /// figures service, with every conversion fetched from the scripted provider by the fill (none by the page), against
-/// what Rails rendered and broadcast for the same install. Rails converts the tiles and the headline; the bot pages'
+/// what 2.x rendered and broadcast for the same install. 2.x converts the tiles and the headline; the bot pages'
 /// panels stay in each bot's quote currency, so they are compared as they are.
 async fn display_currency(name: &str, dir: &Path, sc: &Value, expected: &Value) {
     use deltabadger::web::{App, Config, figure::loading::{self, Snapshot, Source}};
@@ -1352,24 +1352,24 @@ async fn display_currency(name: &str, dir: &Path, sc: &Value, expected: &Value) 
     let (locale, prefix) = if name == "fx_de" { ("de", "/de") } else { ("en", "") };
     let clock = app.clock.clone();
     let actual = app.db(move |c| loading::render(c, user, &snapshot, locale, "token", prefix, &*clock)).await.unwrap().unwrap_or_else(|| panic!("{name}: nothing kept for the account's own key"));
-    // The panels Rails renders in the user's locale only where a broadcast does; the fragments are in English.
+    // The panels 2.x renders in the user's locale only where a broadcast does; the fragments are in English.
     let parts: &[&str] = if name == "fx_de" { &["tile"] } else { &["tile", "metrics", "chart"] };
     let ours = actual["bots"].as_object().unwrap();
     assert!(!ours.is_empty(), "{name}: no bots");
     for (id, figures) in ours {
         for part in parts {
-            let rails = expected["bots"][id][*part].as_str().unwrap_or_else(|| panic!("{name}: Rails has no {part} for bot {id}"));
-            assert_eq!(common::html::normalize(figures[*part].as_str().unwrap()), common::html::normalize(rails), "{name} bot {id} {part}");
+            let v2 = expected["bots"][id][*part].as_str().unwrap_or_else(|| panic!("{name}: 2.x has no {part} for bot {id}"));
+            assert_eq!(common::html::normalize(figures[*part].as_str().unwrap()), common::html::normalize(v2), "{name} bot {id} {part}");
         }
     }
     assert_eq!(common::html::normalize(actual["account"].as_str().unwrap()), common::html::normalize(expected["account"].as_str().unwrap()), "{name} account");
     let c = rusqlite::Connection::open_with_flags(dir.join("production.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
-    // The cable bytes of every tile and of the headline: what Rails' broadcast_pnl_update and broadcast_global_pnl_update sent.
+    // The cable bytes of every tile and of the headline: what 2.x's broadcast_pnl_update and broadcast_global_pnl_update sent.
     for (stream, payload) in deltabadger::web::figure::streams(&c, user, &actual).unwrap() {
         let target = target(&payload);
         if !(target == "global-pnl" || target.starts_with("pnl_bots_")) { continue; }
         let wanted = expected["broadcasts"].as_array().unwrap().iter().find(|entry| entry[0] == stream && entry[1].as_str().is_some_and(|s| s.contains(&format!("target=\"{target}\""))))
-            .unwrap_or_else(|| panic!("{name}: no Rails broadcast to {stream} {target}"));
+            .unwrap_or_else(|| panic!("{name}: no 2.x broadcast to {stream} {target}"));
         assert_eq!(common::html::normalize(&payload), common::html::normalize(wanted[1].as_str().unwrap()), "{name} broadcast {stream} {target}");
     }
     let headline = actual["account"].as_str().unwrap();
@@ -1387,7 +1387,7 @@ async fn display_currency(name: &str, dir: &Path, sc: &Value, expected: &Value) 
 }
 
 /// The review's conflicting reports: SQLite accepts both, serde_json cannot decode the second's metadata.
-/// Exercise both clocks through the core, pages, and the actual socket, using an isolated copy of the Rails fixture.
+/// Exercise both clocks through the core, pages, and the actual socket, using an isolated copy of the 2.x fixture.
 async fn unreadable_split_report(dir: &Path, sc: &Value, expected: &Value, now: At, name: &str) {
     use deltabadger::{figures::{db, walk, FiguresError}, web::{App, Config, figure::loading::{self, Source}, session::{self, SessionData}}};
     let copy = tempfile::tempdir().unwrap();
@@ -1468,14 +1468,14 @@ fn db_time(text: &str) -> chrono::DateTime<chrono::Utc> {
     At::from_sql(text).unwrap().utc()
 }
 
-/// Rails over time (script/rust/page_figures.rb `chronology`), on the owner's account: warm, a reread with no write, an
+/// 2.x over time (the recorded `chronology`), on the owner's account: warm, a reread with no write, an
 /// order filled, a reread, the cut, and the provider failing at the next cut. At each step what this build shows (its
-/// kept figures, or the ones its fill published) equals Rails' figures computed fresh at the moment the shown figures
-/// were computed (`t_c`, the chart's last label), never relabelled to the moment of the read (`t_r`). Rails' own
+/// kept figures, or the ones its fill published) equals 2.x's figures computed fresh at the moment the shown figures
+/// were computed (`t_c`, the chart's last label), never relabelled to the moment of the read (`t_r`). 2.x's own
 /// cached read (`actual`) differs from fresh only inside W1 (`Bot::UpdateMetricsJob` refreshes the prices and keeps the
 /// chart it cached until the cut) and agrees again at the cut.
 #[tokio::test]
-async fn chronology_matches_rails_fresh_bytes() {
+async fn chronology_matches_v2_fresh_bytes() {
     use deltabadger::web::{App, Config, figure::loading::{self, Source, Snapshot}};
     let scratch = tempfile::tempdir().unwrap();
     record(&scratch, "chronology");
@@ -1494,7 +1494,7 @@ async fn chronology_matches_rails_fresh_bytes() {
     let open = |script: &Value| App::new(Config::from_env(&env).unwrap(), &env, rusqlite::Connection::open(&file).unwrap(), clock.clone()).unwrap().with_figure_source(Source::Script(script.clone())).unwrap();
     let mut app = open(&sc["script"]);
     let w1: Vec<&str> = chronology["w1"].as_array().unwrap().iter().map(|n| n.as_str().unwrap()).collect();
-    // The scenario's bots: the one started later has no figures in Rails' read, and is left out of the comparison.
+    // The scenario's bots: the one started later has no figures in 2.x's read, and is left out of the comparison.
     let ids: Vec<String> = sc["bot_ids"].as_array().unwrap().iter().map(|id| id.to_string()).collect();
     let parts = |figures: &Value| -> BTreeMap<String, Vec<String>> {
         let mut out = BTreeMap::new();
@@ -1531,7 +1531,7 @@ async fn chronology_matches_rails_fresh_bytes() {
         let reread = name.starts_with("reread");
         let mut snapshot = loading::prepare(&app, user).await.unwrap();
         if reread { assert!(matches!(snapshot, Snapshot::Ready(..)), "{name}: a reread with no write is served what was kept, with no fill"); }
-        // Another bot's start: what was kept is shown while the account refills, as Rails reads each bot's own cache.
+        // Another bot's start: what was kept is shown while the account refills, as 2.x reads each bot's own cache.
         let stale = name == "started";
         if stale { assert!(matches!(snapshot, Snapshot::Stale(..)), "{name}: the kept figures are shown while the refill runs"); }
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
@@ -1548,7 +1548,7 @@ async fn chronology_matches_rails_fresh_bytes() {
         let (ours, fresh, actual) = (parts(&rendered), parts(&step["fresh"]), parts(&step["actual"]));
         if matches!(snapshot, Snapshot::Failed(_)) {
             // Nothing was kept: the market refused this fill. What was kept before it is never shown past its cut; the
-            // page shows no figures at all, only their targets (Rails shows its stale figures there, a difference older than kept
+            // page shows no figures at all, only their targets (2.x shows its stale figures there, a difference older than kept
             // figures, held by the grid's refused-price case).
             assert_eq!(name, "provider_failure", "{name}: the fill failed");
             for (key, html) in rendered["bots"].as_object().unwrap().iter().flat_map(|(id, parts)| parts.as_object().unwrap().iter().map(move |(part, html)| (format!("{id} {part}"), html))) {
@@ -1557,7 +1557,7 @@ async fn chronology_matches_rails_fresh_bytes() {
             no_widget(rendered["account"].as_str().unwrap(), Some("global-pnl"));
         } else if name == "provider_failure" {
             // The market's prices fail; its candles answer. The failure stays with each bot (its prices stale), and the
-            // fill is kept. Rails shows its stale figures here. This build withholds every price-dependent value while a
+            // fill is kept. 2.x shows its stale figures here. This build withholds every price-dependent value while a
             // bot's prices are stale (`figure::missing`), a difference older than kept figures: no chart is drawn, and
             // each bot with orders says the exchange did not answer.
             assert_eq!(ours.keys().collect::<Vec<_>>(), fresh.keys().collect::<Vec<_>>(), "{name}");
@@ -1567,20 +1567,20 @@ async fn chronology_matches_rails_fresh_bytes() {
                 if key.ends_with(" metrics") && unpriced { assert!(html.contains("The exchange API does not respond"), "{name}: {key}: {html}"); }
             }
         } else {
-            for (key, want) in &fresh { assert_eq!(ours.get(key), Some(want), "{name}: {key}: this build against Rails computed fresh at t_c"); }
+            for (key, want) in &fresh { assert_eq!(ours.get(key), Some(want), "{name}: {key}: this build against 2.x computed fresh at t_c"); }
             assert_eq!(ours.len(), fresh.len(), "{name}");
         }
         let differing: Vec<&String> = fresh.keys().filter(|key| actual[*key] != fresh[*key]).collect();
-        if w1.contains(&name) { assert!(!differing.is_empty() && differing.iter().all(|key| key.ends_with(" chart") || *key == "account"), "{name}: W1 is the chart Rails kept: {differing:?}"); }
-        else { assert!(differing.is_empty(), "{name}: Rails' cached read and its fresh computation differ outside W1: {differing:?}"); }
+        if w1.contains(&name) { assert!(!differing.is_empty() && differing.iter().all(|key| key.ends_with(" chart") || *key == "account"), "{name}: W1 is the chart 2.x kept: {differing:?}"); }
+        else { assert!(differing.is_empty(), "{name}: 2.x's cached read and its fresh computation differ outside W1: {differing:?}"); }
     }
     }
 }
 
 /// A page whose figures are not kept (here: ready figures kept in the account's own locale, the page read in another)
-/// shows Rails' loading state at every figure target, exactly as Rails' cold page shows it, and computes nothing.
+/// shows 2.x's loading state at every figure target, exactly as 2.x's cold page shows it, and computes nothing.
 #[tokio::test]
-async fn cold_pages_match_rails_loading_state() {
+async fn cold_pages_match_v2_loading_state() {
     use deltabadger::web::{App, Config, session::{self, SessionData}, figure::loading::{self, Source}};
     let scratch = tempfile::tempdir().unwrap();
     record(&scratch, "figures");
@@ -1591,7 +1591,7 @@ async fn cold_pages_match_rails_loading_state() {
     for name in ["basket_buys", "hidden", "owner_account"] {
         let dir = scratch.path().join(name);
         let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
-        let expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+        let expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
         let user = sc["user_id"].as_i64().unwrap();
         let work = tempfile::tempdir().unwrap();
         let file = work.path().join("production.sqlite3");
@@ -1610,19 +1610,19 @@ async fn cold_pages_match_rails_loading_state() {
         for id in sc["bot_ids"].as_array().unwrap().iter().map(|id| id.to_string()) {
             let page = browser.get(&app, &format!("/en/bots/{id}")).await;
             assert_eq!(page.status, 200, "{name}: {}", page.body);
-            let rails = expected["cold"]["bots"][&id]["page"].as_str().unwrap();
+            let v2 = expected["cold"]["bots"][&id]["page"].as_str().unwrap();
             for css in ["#metrics", "turbo-frame#bot_chart"] {
-                assert_eq!(element(&page.body, css).map(|lines| lines.into_iter().map(|l| l.replace("/en/bots", "/bots")).collect::<Vec<_>>()), element(rails, css), "{name} bot {id}: {css}");
+                assert_eq!(element(&page.body, css).map(|lines| lines.into_iter().map(|l| l.replace("/en/bots", "/bots")).collect::<Vec<_>>()), element(v2, css), "{name} bot {id}: {css}");
             }
         }
-        if let Some(rails) = expected["cold"]["dashboard"].as_str() {
+        if let Some(v2) = expected["cold"]["dashboard"].as_str() {
             let page = browser.get(&app, "/en/bots").await;
             assert_eq!(page.status, 200, "{name}");
-            assert_eq!(element(&page.body, "#global-pnl"), element(rails, "#global-pnl"), "{name}: the headline");
+            assert_eq!(element(&page.body, "#global-pnl"), element(v2, "#global-pnl"), "{name}: the headline");
             for id in sc["bot_ids"].as_array().unwrap() {
                 for kind in ["dca_multi_asset", "dca_index"] {
                     let css = format!("#pnl_bots_{kind}_{id}");
-                    assert_eq!(element(&page.body, &css), element(rails, &css), "{name}: {css}");
+                    assert_eq!(element(&page.body, &css), element(v2, &css), "{name}: {css}");
                 }
             }
         }
@@ -1632,7 +1632,7 @@ async fn cold_pages_match_rails_loading_state() {
 /// AUDIT #6: the halt control is reachable cold and warm, with the rule on/off and while selling.
 /// No cable listener is needed to compare the actual HTTP pages and the figure cache's panels.
 #[tokio::test]
-async fn rebalance_halted_pages_match_rails_cold_and_warm() {
+async fn rebalance_halted_pages_match_v2_cold_and_warm() {
     use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
     let scratch=tempfile::tempdir().unwrap();
     record(&scratch,"figures");
@@ -1640,7 +1640,7 @@ async fn rebalance_halted_pages_match_rails_cold_and_warm() {
     for name in ["framed_rebalance_halt","framed_rebalance_halt_off","framed_rebalance_halt_selling"] {
         let dir=scratch.path().join(name);
         let sc:Value=serde_json::from_slice(&std::fs::read(dir.join("scenario.json")).unwrap()).unwrap();
-        let expected:Value=serde_json::from_slice(&std::fs::read(dir.join("rails.json")).unwrap()).unwrap();
+        let expected:Value=serde_json::from_slice(&std::fs::read(dir.join("expected.json")).unwrap()).unwrap();
         let env=common::web::env(common::web::SECRET);
         let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
         let user=sc["user_id"].as_i64().unwrap();

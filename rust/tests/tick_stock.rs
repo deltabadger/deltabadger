@@ -104,7 +104,7 @@ fn events(o: &store::Opened) -> Vec<String> {
     let mut s = o.primary.prepare("SELECT event FROM bot_activity_logs ORDER BY id").unwrap();
     s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
 }
-/// Ticks with Rails' retries replayed (retry_on's waits), until an outcome other than RetryAfter.
+/// Ticks with 2.x's retries replayed (retry_on's waits), until an outcome other than RetryAfter.
 async fn tick_until_settled(o: &store::Opened, t: &ScriptedTransport, id: i64, start: DateTime<Utc>) -> TickOutcome {
     seed::fresh_stock_jobs(&o.primary, start);
     let (mut now, mut attempts) = (start, Attempts::default());
@@ -171,7 +171,7 @@ async fn a_clock_that_cannot_be_trusted_places_nothing_and_retries() {
         let t = script(json!({ "GET /v2/clock": reply }));
         let out = tick_until_settled(&o, &t, id, at(T0)).await;
         assert!(matches!(out, TickOutcome::Rescheduled), "{name}: {out:?}");
-        assert!(t.posted_orders().is_empty(), "{name}: nothing placed (Rails would have read the market as open)");
+        assert!(t.posted_orders().is_empty(), "{name}: nothing placed (2.x would have read the market as open)");
         assert_eq!(clock_reads(&t), 4, "{name}: retry_on's four attempts");
         assert!(t.requests().iter().all(|r| r.path == "/v2/clock"), "{name}: nothing else was asked");
         assert_eq!(events(&o), vec!["execution_retrying"], "{name}");
@@ -183,7 +183,7 @@ async fn a_clock_that_cannot_be_trusted_places_nothing_and_retries() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_clock_timeout_retries_as_rails_does() {
+async fn a_clock_timeout_retries_as_v2_does() {
     let (_d, o, id, _, _) = setup(weekly());
     let t = script(json!({ "GET /v2/clock": [{ "network": "post_send", "message": "Faraday::TimeoutError: Net::ReadTimeout" }] }));
     assert!(matches!(tick_until_settled(&o, &t, id, at(T0)).await, TickOutcome::Rescheduled));
@@ -232,7 +232,7 @@ async fn a_parked_bot_is_not_ticked_before_next_open_and_buys_at_it() {
 use deltabadger::enums::BotStatus;
 
 #[tokio::test(flavor = "current_thread")]
-async fn clock_reschedule_survives_restart_until_the_rails_checkpoint() {
+async fn clock_reschedule_survives_restart_until_the_v2_checkpoint() {
     let (dir, o, id, _, _) = setup(weekly());
     let failed = script(json!({ "GET /v2/clock": [{ "network": "post_send", "message": "Faraday::TimeoutError: Net::ReadTimeout" }] }));
     assert!(matches!(tick_until_settled(&o, &failed, id, at(T0)).await, TickOutcome::Rescheduled));
@@ -244,7 +244,7 @@ async fn clock_reschedule_survives_restart_until_the_rails_checkpoint() {
     let t = script(json!({}));
     let mut e = Engine::new(o.primary, Scripted(t.clone()), seed::cipher(), lock);
     run::step(&mut e, &FixedClock(at("2026-09-01T15:00:00Z"))).await.unwrap();
-    assert!(t.posted_orders().is_empty(), "a recovered clock must still wait for Rails' next checkpoint");
+    assert!(t.posted_orders().is_empty(), "a recovered clock must still wait for 2.x's next checkpoint");
     seed::fresh_stock_jobs(&e.primary, at("2026-09-08T14:00:00Z"));
     run::step(&mut e, &FixedClock(at("2026-09-08T14:00:00Z"))).await.unwrap();
     assert!(t.posted_orders().is_empty(), "checkpoints are strictly after their instant");
@@ -271,7 +271,7 @@ async fn a_weekend_stock_wait_is_discarded_when_restarted_as_crypto() {
     e.primary.execute("UPDATE bots SET settings=json_set(settings,'$.allocations',json(?1)), status=1, started_at='2026-09-05 14:02:00' WHERE id=?2",
         rusqlite::params![json!({s.btc.to_string():1.0}).to_string(),id]).unwrap();
     run::step(&mut e, &FixedClock(now + Duration::minutes(2) + Duration::milliseconds(500))).await.unwrap();
-    assert_eq!(t.posted_orders().len(), 1, "Rails buys crypto over the weekend");
+    assert_eq!(t.posted_orders().len(), 1, "2.x buys crypto over the weekend");
     assert_eq!(t.posted_orders()[0]["symbol"], "BTC/USD");
     assert_eq!(clock_reads(&t), 1);
 }
@@ -373,7 +373,7 @@ async fn a_bot_refused_for_a_ledger_refresh_another_bots_order_started_places_af
     let mut b_orders: Vec<_> = posted[1..].iter().map(|o| (o["symbol"].as_str().unwrap().to_string(), o["notional"].as_str().unwrap().to_string())).collect();
     b_orders.sort();
     assert_eq!(b_orders, vec![("AAPL".into(), "30.00".into()), ("MSFT".into(), "30.00".into())], "B buys its whole amount once");
-    assert_eq!(last_action(&o, b).as_deref(), Some(deltabadger::ruby::iso8601_ms(t1).as_str()));
+    assert_eq!(last_action(&o, b).as_deref(), Some(deltabadger::v2::iso8601_ms(t1).as_str()));
     assert_eq!(orders_of(&o, a).len(), 1, "A is not bought again");
 }
 

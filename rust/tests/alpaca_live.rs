@@ -4,7 +4,7 @@
 //!     cargo test --test alpaca_live -- --ignored --nocapture --test-threads=1
 use chrono::Utc;
 use deltabadger::engine::model::Ticker;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls, PAPER_TRADING_URL};
 use deltabadger::venue::http::{client, HttpRequest, HttpResponse, ReqwestTransport, Transport, TransportError};
 use deltabadger::venue::{NewOrder, OrderKind, OrderStatus, PriceSide, Venue};
@@ -132,7 +132,7 @@ fn json_type(v: Option<&Value>) -> &'static str {
 #[ignore = "reads bodies recorded from the owner's paper account; run by hand with --ignored"]
 fn recorded_bodies_carry_every_field_the_grid_scripts() {
     let Ok(dir) = std::env::var("ALPACA_RECORD_DIR") else { eprintln!("skipped: ALPACA_RECORD_DIR is not set"); return };
-    // Every field the Rails parse and the Rust port read, per endpoint and status, as JSON pointers ("/" in BTC/USD is
+    // Every field the 2.x parse and the Rust port read, per endpoint and status, as JSON pointers ("/" in BTC/USD is
     // "~1") with the JSON types allowed. An array body (positions) is checked element by element.
     const S: &str = "string";
     const SN: &str = "string|null";

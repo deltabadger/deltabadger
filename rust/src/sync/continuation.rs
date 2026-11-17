@@ -34,7 +34,7 @@
 //!   first checkpoint has not: each run of a recorded import is counted before it reads, and one that starts after `STALLS`
 //!   runs in a row checkpointed nothing (a first page that alone outlasts the deadline: a venue defect to look at) fails
 //!   with a sync error instead of reading, and the count starts over. A cut run never wakes another. (A fresh import cut
-//!   before its first checkpoint has no record: the next sync starts it again, as Rails' single read would.)
+//!   before its first checkpoint has no record: the next sync starts it again, as 2.x's single read would.)
 //! - **Chains.** A run that leaves more to read wakes the next one, at most `CHAIN_RUNS` in a row. Past that the key's
 //!   `last_sync_error` says the import is still running and the next scheduled sync (or order event) resumes from the
 //!   cursor. Nothing ever restarts an import from scratch, except a new credential (the record is discarded, #511) or a
@@ -104,7 +104,7 @@ pub(super) type Checkpoint = fn(&crate::engine::model::FencedTransaction<'_>, &K
 /// Where a walk begins: a fresh import from `start` (None: the venue's whole history) to `end`, or a recorded cursor.
 pub(super) struct Begin<'a> { pub start: Option<DateTime<Utc>>, pub end: DateTime<Utc>, pub cursor: Option<&'a Value>, pub transfers: super::pending_transfers::Watch }
 
-/// The import's record: `app_configs` row `rust_sync.venue_ledger:<api_key_id>`, plain JSON. Rails never reads it.
+/// The import's record: `app_configs` row `rust_sync.venue_ledger:<api_key_id>`, plain JSON. 2.x never reads it.
 #[derive(Clone, Debug, PartialEq)]
 struct Record {
     credential_origin: Value,
@@ -133,7 +133,7 @@ fn time(v: &Value) -> Option<DateTime<Utc>> { v.as_i64().and_then(DateTime::<Utc
 
 fn event_json(k: &ledger::EventKey) -> Value { json!([k.0, k.1, k.2.to_s_f(), micros(k.3)]) }
 fn event_of(v: &Value) -> Option<ledger::EventKey> {
-    Some((v[0].as_i64()?, v[1].as_str().map(str::to_string), crate::ruby::BigDec::parse(v[2].as_str()?).ok()?, time(&v[3])))
+    Some((v[0].as_i64()?, v[1].as_str().map(str::to_string), crate::v2::BigDec::parse(v[2].as_str()?).ok()?, time(&v[3])))
 }
 
 impl Record {
@@ -258,7 +258,7 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
         first = false;
         match walk.step().await {
             Ok(rows) => read.push(rows, transfers.cursor(walk.cursor())),
-            // A fresh import fails as Rails' single read does: nothing it read is stored. A resumed one keeps its record.
+            // A fresh import fails as 2.x's single read does: nothing it read is stored. A resumed one keeps its record.
             Err((text, raised)) => return fail(text, raised, (!fresh).then_some(record)).await,
         }
     }

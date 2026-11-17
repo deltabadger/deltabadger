@@ -1,5 +1,5 @@
 //! Bitrue spot orders (A6), ported from Exchanges::Bitrue and honeymaker 0.12.5.
-//! Reuses QueryHmacHex, parse_binance_shaped and poll_each. T1/T2/T3/T4/T5/T6/T8 are Rails parity.
+//! Reuses QueryHmacHex, parse_binance_shaped and poll_each. T1/T2/T3/T4/T5/T6/T8 are 2.x parity.
 //! D9 sends a client id; D-BITRUE-AMBIG retains unproven placements; D-BITRUE-NUM refuses unreadable numbers.
 //! Official spot docs name no client-id length limit (checked 2026-10-21); the reversible 32-hex UUID is used
 //! consistently for send and lookup. Missing lookup results never prove absence.
@@ -9,7 +9,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError}
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BITRUE as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -44,7 +44,7 @@ pub fn ticker_prices(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> 
     for row in body.as_array().ok_or_else(unreadable)? {
         let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
         let price = match &row["lastPrice"] {
-            v @ (Value::String(_) | Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
+            v @ (Value::String(_) | Value::Number(_)) => crate::v2::json_to_d(v).ok().flatten(),
             Value::Null => None,
             _ => return Err(unreadable()),
         };
@@ -62,7 +62,7 @@ pub fn error_code(text: &str) -> Option<f64> { serde_json::from_str::<Value>(tex
 
 fn gone(body: &str) -> bool {
     serde_json::from_str::<Value>(body).ok().is_some_and(|v| match &v["code"] {
-        Value::String(s) => crate::ruby::to_i(s) == ORDER_GONE_CODE,
+        Value::String(s) => crate::v2::to_i(s) == ORDER_GONE_CODE,
         Value::Number(n) => n.as_f64().is_some_and(|n| n as i64 == ORDER_GONE_CODE),
         _ => false,
     })
@@ -176,7 +176,7 @@ impl<T: Transport> super::Venue for BitrueVenue<T> {
     /// (`fromIdx`), until a short page or one reaching the start; a page whose oldest is newer than asked, or an empty one,
     /// is dropped and ends the walk. A failed page is its `msg` (else the answer); an answer that is no object has no rows.
     /// Deduped by `is` (the first kept), each time `is.to_i / 1000`, sorted; 3 days and 1 month built from daily (none to
-    /// build from is Rails' failure); then only the candles from the start on. D-COND-CANDLE-CAP: past MAX_CANDLE_PAGES
+    /// build from is 2.x's failure); then only the candles from the start on. D-COND-CANDLE-CAP: past MAX_CANDLE_PAGES
     /// pages it is a settled failure.
     async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
         let (scale, source) = kline_scale(timeframe);

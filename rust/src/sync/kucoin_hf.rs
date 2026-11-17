@@ -14,7 +14,7 @@ use super::activities::{Entry, Raw, ADJUSTMENT, BUY, FEE, SELL};
 use super::{sql_time, Key, SyncError};
 use crate::codec::parse_time;
 use crate::engine::model::FencedTransaction;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::kucoin_account::AccountMode;
 use crate::tracker::import::kucoin::{self as file, Catalogue, Derived, SourceRow, Stored, API_ROW, DERIVED};
 use chrono::{DateTime, Duration, Timelike, Utc};
@@ -130,7 +130,7 @@ fn hold_switched(c: &Connection, key: &Key, now: DateTime<Utc>) -> Result<(), Sy
     for (id, symbol, sell, limit) in rows {
         // The row's executed totals: the floor no answer may go below (`advance_totals`).
         let row = crate::figures::fill::stored_order(c, id)?;
-        let exact = |v: Option<crate::ruby::BigDec>| v.unwrap_or_else(crate::ruby::BigDec::zero).to_s_f();
+        let exact = |v: Option<crate::v2::BigDec>| v.unwrap_or_else(crate::v2::BigDec::zero).to_s_f();
         let value = serde_json::json!({ "family": "Classic", "symbol": symbol, "sell": sell, "limit": limit, "deal_size": exact(row.amount_exec), "deal_funds": exact(row.quote_amount_exec) });
         crate::app_config::set_plain(c, &format!("{record}{id}"), &value.to_string(), now).map_err(SyncError)?;
     }
@@ -510,7 +510,7 @@ impl Allocation {
         let mut out = HashMap::new();
         let mut seen: HashMap<String, usize> = HashMap::new();
         let mut restores: BTreeMap<DateTime<Utc>, Vec<usize>> = BTreeMap::new();
-        let present = |e: &Entry| e.tx_id.as_deref().filter(|t| !crate::ruby::blank(t)).map(str::to_string);
+        let present = |e: &Entry| e.tx_id.as_deref().filter(|t| !crate::v2::blank(t)).map(str::to_string);
         for i in range {
             let e = &batch[i];
             if !FILL_TYPES.contains(&e.entry_type) { continue; }
@@ -543,7 +543,7 @@ impl Allocation {
 fn allocate_second(c: &Connection, key: &Key, batch: &[Entry], t: DateTime<Utc>, entries: &[usize], out: &mut HashMap<usize, bool>, now: DateTime<Utc>) -> Result<(), SyncError> {
     let stored = restored_rows(c, key, t)?;
     let mut reserved = vec![false; stored.len()];
-    let present = |e: &Entry| e.tx_id.as_deref().filter(|t| !crate::ruby::blank(t)).map(str::to_string);
+    let present = |e: &Entry| e.tx_id.as_deref().filter(|t| !crate::v2::blank(t)).map(str::to_string);
     let known = |id: &str| -> Result<bool, SyncError> {
         Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3) \
                         OR EXISTS(SELECT 1 FROM kucoin_withheld_fills WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3)", params![key.user_id, key.exchange_id, id], |r| r.get(0))?)

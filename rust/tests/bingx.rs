@@ -1,14 +1,14 @@
 //! The BINGX trading adapter (venue::bingx, plan VB slice A7) over recorded bodies: its signer against honeymaker's own requests
 //! (the `QueryHmacHex` scheme Binance shares, tests/binance_trade.rs pinning Binance's), its rules against
-//! Exchanges::Bingx::ERRORS, #parse_order_data (`parse_binance_shaped`) and the sizing wire recorded from Rails, and its
-//! reads, placement, per-order polls, the recovery by client order id (it can only FIND an order) and cancel. Rails-free.
+//! Exchanges::Bingx::ERRORS, #parse_order_data (`parse_binance_shaped`) and the sizing wire recorded from 2.x, and its
+//! reads, placement, per-order polls, the recovery by client order id (it can only FIND an order) and cancel. 2.x-free.
 mod common;
 use chrono::{DateTime, Utc};
 use deltabadger::engine::amount::{self, Sizing};
 use deltabadger::engine::model::{self, Ticker};
 
 use deltabadger::engine::venue_rules::BINGX;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::binance::{Pair, Pairs};
 use deltabadger::venue::bingx::{self, BingxVenue, URL};
 use deltabadger::venue::http::{HttpRequest, ScriptedTransport};
@@ -137,7 +137,7 @@ fn every_recorded_honeymaker_request_is_reproduced() {
             URL,
             c["api_secret"].as_str().unwrap(),
         );
-        // A moment half a millisecond in: Ruby's Float milliseconds of it are the recorded ones.
+        // A moment half a millisecond in: 2.x's Float milliseconds of it are the recorded ones.
         let public = c["call"].as_str().unwrap().ends_with("public");
         let r = if public {
             v.request(method, c["path"].as_str().unwrap(), params)
@@ -187,7 +187,7 @@ fn every_recorded_honeymaker_request_is_reproduced() {
 
 /// engine::venue_rules::BINGX is Exchanges::Bingx::ERRORS, and Exchange#ambiguous_placement_error? as it reads them.
 #[test]
-fn the_rules_are_rails_errors() {
+fn the_rules_are_v2_errors() {
     let f = fixture();
     let list = |v: &Value| {
         v.as_array()
@@ -226,7 +226,7 @@ fn the_rules_are_rails_errors() {
 
 /// #parse_order_data (B1), recorded over 10,000 generated GET /openApi/spot/v1/trade/query answers.
 #[test]
-fn every_recorded_rails_order_parse_is_reproduced() {
+fn every_recorded_v2_order_parse_is_reproduced() {
     let v = vectors();
     let cases = v["bingx_orders"].as_array().unwrap();
     assert_eq!(cases.len(), 10_000);
@@ -276,7 +276,7 @@ fn every_recorded_rails_order_parse_is_reproduced() {
         }
     }
     assert!(averaged > 1000 && rounded > 1000, "B1's average over a non-zero price, and the tick rounding, are exercised: {averaged} {rounded}");
-    // An unlisted status raises in Rails (#parse_order_status): refused, never read as some status.
+    // An unlisted status raises in 2.x (#parse_order_status): refused, never read as some status.
     let raw = raw_order("C02__1", "PENDING_CANCEL", "MARKET", "0", "0");
     assert_eq!(
         bingx::parse_order("BTC-USDT-C02__1", &raw, &pairs()),
@@ -290,7 +290,7 @@ fn every_recorded_rails_order_parse_is_reproduced() {
 /// zero base minimum among the pairs: the quote minimum alone), through amount::size, limit_refusal, to_order and the
 /// adapter's own POST query.
 #[tokio::test(flavor = "current_thread")]
-async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
+async fn every_recorded_v2_sizing_and_wire_is_reproduced() {
     let (_d, o, s) = common::install();
     use common::seed::{self, BotSpec};
     let market = model::load_bot(
@@ -382,8 +382,8 @@ async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
             .collect();
         assert_eq!(ours.remove("newClientOrderId"), Some(json!(WIRE_CL)), "{c}");
         let mut want = serde_json::Map::new();
-        for (rails, field) in c["wire"].as_object().unwrap() {
-            let camel = match rails.as_str() {
+        for (v2, field) in c["wire"].as_object().unwrap() {
+            let camel = match v2.as_str() {
                 "quote_order_qty" => "quoteOrderQty",
                 "time_in_force" => "timeInForce",
                 other => other,
@@ -493,7 +493,7 @@ async fn public_prices_and_account_balances_follow_the_bingx_envelope() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn market_sizing_preserves_rails_s7_for_both_sides() {
+async fn market_sizing_preserves_v2_s7_for_both_sides() {
     for side in [Side::Buy, Side::Sell] {
         for quote in [true, false] {
             let (t, v) = venue(

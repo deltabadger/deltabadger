@@ -1,5 +1,5 @@
-//! PLAN-B4b: `deltabadger export`, the download of a stopped copy. Its files against Rails' own export of the same input
-//! (tests/fixtures/portable_export.json, script/rust/record_portable_export.rb), the scrub's guards, the canonical
+//! PLAN-B4b: `deltabadger export`, the download of a stopped copy. Its files against 2.x's own export of the same input
+//! (tests/fixtures/portable_export.json), the scrub's guards, the canonical
 //! projection, the refusals, and the restores it promises (§5).
 #![cfg(unix)]
 mod common;
@@ -34,7 +34,7 @@ impl Box {
         Box { s: Scratch { storage: root.join("storage"), output: root.join("export"), marker: root.join(".dockerenv") }, _dir: dir }
     }
     fn primary(&self) -> PathBuf { self.s.storage.join("production.sqlite3") }
-    /// The source, for the test's own writes (this SQLite enforces foreign keys by default; Rails' seed order doesn't).
+    /// The source, for the test's own writes (this SQLite enforces foreign keys by default; 2.x's seed order doesn't).
     fn db(&self) -> Connection { let c = Connection::open(self.primary()).unwrap(); c.pragma_update(None, "foreign_keys", "OFF").unwrap(); c }
     fn out(&self, rel: &str) -> PathBuf { self.s.output.join(rel) }
     fn export(&self) -> Result<Vec<String>, ExportError> { export::run(&self.s, &scratch_env, now()) }
@@ -59,9 +59,9 @@ fn to_sql(v: &Value) -> Sql {
     }
 }
 
-/// The recorder's seed (the Rails tables' rows), written into a Rails-built install with this build's migrations.
-fn rails_input(b: &Box) {
-    let template = common::rails_install();
+/// The recorder's seed (the 2.x tables' rows), written into a 2.x-built install with this build's migrations.
+fn v2_input(b: &Box) {
+    let template = common::v2_install();
     install_into(b, template.path());
     let c = b.db();
     for (table, t) in fixture()["source"].as_object().unwrap() {
@@ -119,17 +119,17 @@ fn contains(hay: &[u8], needle: &str) -> bool { hay.windows(needle.len()).any(|w
 
 const CACHE_CABLE: [&str; 2] = ["portable/production_cable.sqlite3", "portable/production_cache.sqlite3"];
 
-// ---- 1, 7, 8: the files against Rails' ------------------------------------------------------------------------------
+// ---- 1, 7, 8: the files against 2.x's ------------------------------------------------------------------------------
 
 #[test]
-fn the_files_are_rails_files_of_the_same_install() {
+fn the_files_are_v2_files_of_the_same_install() {
     let b = Box::new();
-    rails_input(&b);
+    v2_input(&b);
     let printed = b.exported();
     let f = fixture();
     assert_eq!(printed.last().unwrap(), f["printed"].as_str().unwrap().trim_end());
-    let rails: Vec<&str> = f["files"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).filter(|p| !CACHE_CABLE.contains(p)).collect();
-    assert_eq!(output_files(&b), rails, "D-EXPORT-NO-CACHE-CABLE: Rails' files less cache and cable");
+    let v2: Vec<&str> = f["files"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).filter(|p| !CACHE_CABLE.contains(p)).collect();
+    assert_eq!(output_files(&b), v2, "D-EXPORT-NO-CACHE-CABLE: 2.x's files less cache and cable");
     assert_eq!(std::fs::read_to_string(b.out("csv/tracker.csv")).unwrap(), f["tracker_csv"].as_str().unwrap());
     for (name, body) in f["bots"].as_object().unwrap() {
         assert_eq!(std::fs::read_to_string(b.out(&format!("csv/bots/{name}"))).unwrap_or_else(|_| panic!("no {name}")), body.as_str().unwrap(), "{name}");
@@ -142,11 +142,11 @@ fn the_files_are_rails_files_of_the_same_install() {
 }
 
 #[test]
-fn the_transliteration_table_and_labels_are_rubys() {
+fn the_transliteration_table_and_labels_are_v2s() {
     let f = fixture();
-    let ruby: BTreeMap<String, String> = serde_json::from_value(f["transliteration"].clone()).unwrap();
+    let v2: BTreeMap<String, String> = serde_json::from_value(f["transliteration"].clone()).unwrap();
     let ours: BTreeMap<String, String> = export::TRANSLITERATION.iter().map(|(c, s)| (c.to_string(), s.to_string())).collect();
-    assert_eq!(ours, ruby);
+    assert_eq!(ours, v2);
     for (label, expected) in f["labels"].as_object().unwrap() {
         if label.trim().is_empty() { continue; } // a blank label is the bot's generated name (the files test)
         assert_eq!(export::file_label(label), expected.as_str().unwrap(), "{label:?}");
@@ -158,7 +158,7 @@ fn the_transliteration_table_and_labels_are_rubys() {
 #[test]
 fn the_manifest_names_this_build_and_every_file_written() {
     let b = Box::new();
-    rails_input(&b);
+    v2_input(&b);
     b.exported();
     let m: Value = serde_json::from_str(&std::fs::read_to_string(b.out("manifest.json")).unwrap()).unwrap();
     assert_eq!(m["app_version"], deltabadger::VERSION);
@@ -170,27 +170,27 @@ fn the_manifest_names_this_build_and_every_file_written() {
 }
 
 #[test]
-fn csv_names_fit_launchpads_rule_and_rails_sizes() {
+fn csv_names_fit_launchpads_rule_and_v2_sizes() {
     let b = Box::new();
-    rails_input(&b);
+    v2_input(&b);
     b.exported();
     let rule = regex::Regex::new(r"\Acsv/bots/\d+-[a-zA-Z0-9_-]+\.csv\z").unwrap();
     for f in output_files(&b).iter().filter(|f| f.starts_with("csv/bots/")) {
         assert!(rule.is_match(f), "{f}");
         assert!(f.len() <= 100, "{f}");
-        let rails = &fixture()["bots"][f.trim_start_matches("csv/bots/")];
-        assert_eq!(std::fs::metadata(b.out(f)).unwrap().len() as usize, rails.as_str().unwrap().len(), "{f}");
+        let v2 = &fixture()["bots"][f.trim_start_matches("csv/bots/")];
+        assert_eq!(std::fs::metadata(b.out(f)).unwrap().len() as usize, v2.as_str().unwrap().len(), "{f}");
     }
     let longest = format!("csv/bots/{}-{}.csv", i64::MAX, export::file_label(&"Ab".repeat(100)));
     assert!(longest.len() <= 100, "{longest}");
 }
 
-// ---- 2: the scrub on Rails' tables ----------------------------------------------------------------------------------
+// ---- 2: the scrub on 2.x's tables ----------------------------------------------------------------------------------
 
 #[test]
-fn the_scrubbed_rails_tables_are_rails_scrubbed_rows() {
+fn the_scrubbed_v2_tables_are_v2_scrubbed_rows() {
     let b = Box::new();
-    rails_input(&b);
+    v2_input(&b);
     b.exported();
     let out = Connection::open(b.out("portable/production.sqlite3")).unwrap();
     let f = fixture();
@@ -224,8 +224,8 @@ fn policy_covers_coverage() {
     let policy: Vec<(&str, &str)> = export::POLICY.iter().map(|(k, _)| *k).collect();
     assert_eq!(policy, deltabadger::rotation::COVERAGE.to_vec());
     let deleted: Vec<String> = export::APP_CONFIGS_DELETED.iter().filter_map(|k| match k { export::Key::Exact(k) => Some(k.to_string()), _ => None }).collect();
-    let rails: Vec<String> = serde_json::from_value(fixture()["app_config_keys"].clone()).unwrap();
-    assert_eq!(&deleted[..rails.len()], &rails[..], "Rails' 13 keys");
+    let v2: Vec<String> = serde_json::from_value(fixture()["app_config_keys"].clone()).unwrap();
+    assert_eq!(&deleted[..v2.len()], &v2[..], "2.x's 13 keys");
     let prefixes: Vec<String> = export::APP_CONFIGS_DELETED.iter().filter_map(|k| match k { export::Key::Prefix(p) => Some(p.to_string()), _ => None }).collect();
     assert_eq!(prefixes, serde_json::from_value::<Vec<String>>(fixture()["app_config_prefixes"].clone()).unwrap());
     assert_eq!(export::SESSION_TABLES.to_vec(), serde_json::from_value::<Vec<String>>(fixture()["session_tables"].clone()).unwrap());
@@ -322,7 +322,7 @@ fn credentials(c: &Connection, cipher: &Cipher, s: &seed::Seeded) -> (Vec<String
 const IDENTITY_KEY: &str = "abababababababababababababababababababababababababababababababab";
 
 fn credential_install(b: &Box, cipher: &Cipher) -> (seed::Seeded, Vec<String>, Vec<String>) {
-    let template = common::rails_install();
+    let template = common::v2_install();
     install_into(b, template.path());
     let c = b.db();
     let s = seed::seed_kraken(&c, cipher);
@@ -395,7 +395,7 @@ fn schema(c: &Connection) -> Vec<(String, String, String, Option<String>)> {
 #[test]
 fn input_ddl_never_reaches_the_download() {
     let b = Box::new();
-    rails_input(&b);
+    v2_input(&b);
     let c = b.db();
     // The stray-conditions migration (it updates bots) and the import-cutoff one (it deletes app_configs rows) still pending.
     c.execute_batch("DELETE FROM rust_schema_migrations WHERE version IN ('20261025000001', '20261023000001'); DROP TABLE import_cutoffs").unwrap();
@@ -439,7 +439,7 @@ fn input_ddl_never_reaches_the_download() {
 #[test]
 fn a_generated_column_refuses_before_anything_is_written() {
     let b = Box::new();
-    rails_input(&b);
+    v2_input(&b);
     b.db().execute_batch("ALTER TABLE api_keys ADD COLUMN leak TEXT GENERATED ALWAYS AS (hex(secret)) VIRTUAL").unwrap();
     let e = b.export().unwrap_err();
     assert_eq!(e.exit_code(), 65, "{}", e.message());
@@ -450,7 +450,7 @@ fn a_generated_column_refuses_before_anything_is_written() {
 #[test]
 fn a_missing_canonical_column_refuses() {
     let b = Box::new();
-    rails_input(&b);
+    v2_input(&b);
     b.db().execute_batch("ALTER TABLE action_mcp_sessions DROP COLUMN consents").unwrap();
     let e = b.export().unwrap_err();
     assert_eq!(e.exit_code(), 65, "{}", e.message());
@@ -495,8 +495,8 @@ fn resolve(expr: &str, file: &str, consts: &BTreeMap<String, Vec<(String, String
 
 /// (file, key or `prefix*`, or `?expr` when unresolved) for every app_configs writer in `sources`.
 fn written_keys(sources: &[(String, String)]) -> Vec<(String, String)> {
-    let konst = regex::Regex::new(r#"const ([A-Z_]+): &(?:'static )?str = "([^"]*)""#).unwrap();
-    let func = regex::Regex::new(r#"fn ([a-z_]+)\([^)]*\)\s*->\s*String\s*\{\s*(?:match [^{]+\{\s*Some\(\w+\) => )?format!\("([^"{]*)(?:\{(\w*)\})?"#).unwrap();
+    let konst = regex::Regex::new(r#"const ([A-Z0-9_]+): &(?:'static )?str = "([^"]*)""#).unwrap();
+    let func = regex::Regex::new(r#"fn ([a-z0-9_]+)\([^)]*\)\s*->\s*String\s*\{\s*(?:match [^{]+\{\s*Some\(\w+\) => )?format!\("([^"{]*)(?:\{(\w*)\})?"#).unwrap();
     let mut consts: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
     let mut fns: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
     for (file, text) in sources {
@@ -548,7 +548,7 @@ fn written_keys(sources: &[(String, String)]) -> Vec<(String, String)> {
 
 /// Writers whose key is relayed from a caller the scan already resolves (or from a test's fixture), by file and expression.
 const RELAYED: &[(&str, &str, &str)] = &[
-    ("src/web/settings/platform.rs", "key", "a platform setting relayed from its caller's list, each a Rails setting"),
+    ("src/web/settings/platform.rs", "key", "a platform setting relayed from its caller's list, each a 2.x setting"),
     ("src/web/settings/mail.rs", "key", "the SMTP settings: smtp_ keys, deleted"),
     ("src/web/settings/market_data.rs", "key", "the market-data settings: deleted"),
     ("src/web/tracker/first_sync.rs", "key", "tests: a fixture row"),
@@ -618,7 +618,7 @@ fn every_app_config_key_in_source_is_reviewed() {
 #[test]
 fn an_unknown_app_config_key_is_not_in_the_download() {
     let b = Box::new();
-    rails_input(&b);
+    v2_input(&b);
     b.db().execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('brand_new_setting', 'PLANTED-unknown', '2026-01-01', '2026-01-01')", []).unwrap();
     b.exported();
     assert!(!contains(&all_bytes(&b, &[]), "PLANTED-unknown"));
@@ -630,7 +630,7 @@ fn an_unknown_app_config_key_is_not_in_the_download() {
 fn the_source_queue_absent_empty_or_garbage_is_no_obstacle() {
     for queue in [None, Some(&b""[..]), Some(&b"not a database at all"[..])] {
         let b = Box::new();
-        rails_input(&b);
+        v2_input(&b);
         let q = b.s.storage.join("production_queue.sqlite3");
         match queue { None => std::fs::remove_file(&q).unwrap(), Some(bytes) => std::fs::write(&q, bytes).unwrap() }
         let before = listing(&b.s.storage);
@@ -646,7 +646,7 @@ fn a_wal_source_is_read_with_its_wal_and_left_byte_for_byte() {
     for stale_shm in [false, true] {
         let b = Box::new();
         let built = Box::new();
-        rails_input(&built);
+        v2_input(&built);
         // A writer with checkpoints off: the newest rows live only in its -wal; copy the files while it is open.
         let w = built.db();
         w.execute_batch("PRAGMA journal_mode = WAL; PRAGMA wal_autocheckpoint = 0").unwrap();
@@ -674,7 +674,7 @@ fn refused(b: &Box, env: &dyn Fn(&str) -> Option<String>, why: &str) {
 #[test]
 fn an_unsafe_environment_is_refused_and_nothing_changes() {
     let b = Box::new();
-    rails_input(&b);
+    v2_input(&b);
     refused(&b, &|_| None, "no EXPORT_SCRATCH");
     refused(&b, &|k| (k == "EXPORT_SCRATCH").then(|| "true".into()), "EXPORT_SCRATCH not 1");
     for var in ["DATABASE_PATH", "QUEUE_DATABASE_PATH", "DATABASE_URL", "PRIMARY_DATABASE_URL"] {
@@ -716,7 +716,7 @@ fn an_unsafe_environment_is_refused_and_nothing_changes() {
 #[test]
 fn an_absent_lock_file_is_never_created() {
     let b = Box::new();
-    rails_input(&b);
+    v2_input(&b);
     assert!(!b.s.storage.join(".engine.lock").exists());
     let before = listing(&b.s.storage);
     b.exported();
@@ -726,7 +726,7 @@ fn an_absent_lock_file_is_never_created() {
 #[test]
 fn a_copy_from_a_newer_build_is_incompatible() {
     let b = Box::new();
-    rails_input(&b);
+    v2_input(&b);
     b.db().execute("INSERT INTO rust_schema_migrations (version, applied_at) VALUES ('20990101000001', '2099-01-01')", []).unwrap();
     let before = listing(&b.s.storage);
     let e = b.export().unwrap_err();
@@ -806,7 +806,7 @@ fn a_3_0_export_restores_on_3_0_signed_in_with_the_same_password_and_2fa() {
     assert_eq!(restored.decrypt(&address).unwrap(), "bc1qkeptaddress");
     let statuses: Vec<i64> = r.prepare("SELECT status FROM bots UNION SELECT status FROM rules").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
     assert!(statuses.iter().all(|s| [2, 3, 7].contains(s)), "{statuses:?}");
-    // No key material: the api_keys rows are kept, their columns empty (Rails), no fee key, no setting to re-enter;
+    // No key material: the api_keys rows are kept, their columns empty (2.x), no fee key, no setting to re-enter;
     // the one setting a reset would clear is the kept identity key (D-EXPORT-ACCOUNT-ANCHORS-KEPT), no credential.
     let report = ok(&cli(to.path(), &env, &["encryption-report"]));
     assert!(report.contains("Every stored value still decrypts under the current secret"), "{report}");
@@ -877,8 +877,8 @@ fn a_2x_export_is_taken_over_by_3_0_and_exports_again() {
     flate2::read::GzDecoder::new(&include_bytes!("fixtures/portable_export_2x.sqlite3.gz")[..]).read_to_end(&mut primary).unwrap();
     std::fs::write(b.primary(), primary).unwrap();
     deltabadger::store::create_queue_schema(&Connection::open(b.s.storage.join("production_queue.sqlite3")).unwrap()).unwrap();
-    // Restore 5.2: Rails' download, as Rails' recorder left it, passes `check` and is taken over (no lease: from Rails).
-    // Rails' seed holds an open order with no key to look after it, which the takeover rightly refuses: it is settled first.
+    // Restore 5.2: 2.x's download, as the recording harness left it, passes `check` and is taken over (no lease: from 2.x).
+    // 2.x's seed holds an open order with no key to look after it, which the takeover rightly refuses: it is settled first.
     b.db().execute("UPDATE transactions SET external_status = 3 WHERE external_status = 1", []).unwrap();
     let paths = deltabadger::store::Paths::from_env(&|_| None, &b.s.storage);
     deltabadger::store::check(&paths).unwrap();
@@ -980,7 +980,7 @@ async fn a_restored_install_places_no_order_before_the_owner_acts() {
 #[test]
 fn a_bot_without_a_venue_gets_its_file() {
     let b = Box::new();
-    rails_input(&b);
+    v2_input(&b);
     b.db().execute("INSERT INTO bots (id, user_id, type, label, status, settings, transient_data, created_at, updated_at) \
                     VALUES (99, 1, 'Bots::DcaSingleAsset', 'No venue', 2, '{}', '{}', '2026-01-01', '2026-01-01')", []).unwrap();
     b.exported();

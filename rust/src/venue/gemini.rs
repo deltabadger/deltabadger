@@ -1,29 +1,29 @@
 //! Honeymaker::Clients::Gemini and Exchanges::Gemini for the engine's spot orders (plan VB slice B3): prices, balances,
-//! placement, polls, cancel and recovery by client order id. Rails is the oracle; each method names the Ruby it ports.
+//! placement, polls, cancel and recovery by client order id. 2.x is the oracle; each method names the 2.x method it ports.
 //!
 //! Signing (Honeymaker::Clients::Gemini#post_signed, `signers::gemini`): every private call is an empty-body POST whose
 //! parameters travel base64'd in X-GEMINI-PAYLOAD with `request` and a millisecond `nonce`, HMAC-SHA384'd. The transport
 //! (`sign::Wire::Gemini`) signs at send time, with SPEC-E §2.9's process-wide nonce `max(now_ms, last + 1)` (honeymaker
-//! sends the plain clock: every nonce Rust sends is one Rails could have sent, and two calls in one ms never collide). The
+//! sends the plain clock: every nonce Rust sends is one 2.x could have sent, and two calls in one ms never collide). The
 //! request's params are its JSON `body`, in the caller's order; nothing is sent as a body.
 //!
 //! Gemini has no market order. A market plan reaches the adapter crossed (`OrderKind::Crossed`, D-679, plan VB §1.5): an
 //! `exchange limit` with `immediate-or-cancel` at the price the engine persisted in the intent, its volume as sized. There
-//! is no second price read here, and nothing is resized (Rails' #set_market_order re-reads #market_price_for).
+//! is no second price read here, and nothing is resized (2.x's #set_market_order re-reads #market_price_for).
 use super::binance::Pairs;
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError};
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, GEMINI as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::{Map, Value};
 
 pub const URL: &str = "https://api.gemini.com";
 pub const GEMINI: &str = "Exchanges::Gemini";
 pub const UNREADABLE: &str = "Gemini: unreadable response";
-/// Rails stores `raw["order_id"].to_s` (an empty id when the answer names none); here an answer without one may have
+/// 2.x stores `raw["order_id"].to_s` (an empty id when the answer names none); here an answer without one may have
 /// placed the order: Ambiguous, as on Binance and KuCoin.
 pub const NO_ORDER_ID: &str = "Gemini answered the order with no order id";
 /// The reason Gemini gives an order it does not know (HTTP 404), Exchanges::Gemini#get_order's not-found test.
@@ -56,7 +56,7 @@ pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous(UNREADABLE.into
 fn required(v: &Value) -> Result<BigDec, VenueError> { super::json::required(v, unreadable) }
 /// `x.to_d` of a field that may be absent (`nil.to_d` is 0); present and unreadable refuses the whole answer.
 fn or_zero(v: &Value) -> Result<BigDec, VenueError> { if v.is_null() { Ok(BigDec::zero()) } else { required(v) } }
-/// Ruby's truthiness of a JSON value: only null (or absent) and false are false.
+/// 2.x's truthiness of a JSON value: only null (or absent) and false are false.
 fn truthy(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) }
 fn text(v: &Value) -> Result<&str, VenueError> { v.as_str().ok_or_else(unreadable) }
 
@@ -97,13 +97,13 @@ fn ms(o: &Value) -> Option<i64> {
 /// fields: its own `symbol` the asked one (lowercase, as stored); `order_id` a JSON integer or a non-empty string of digits,
 /// kept as written (the bare id `add_order` stores); `timestampms` ms; `side` buy/sell; `type` "exchange limit" at a positive
 /// `price`, or "exchange market" / "market"; `original_amount` positive, in base (Gemini has no quote size);
-/// `executed_amount` and `avg_execution_price` present and not negative, the filled quote their product as Rails' parse
+/// `executed_amount` and `avg_execution_price` present and not negative, the filled quote their product as 2.x's parse
 /// computes it (Gemini states no total). Something executed at a zero average is None, never a cost guessed from `price`.
 /// `is_cancelled` ends it; `is_live` with something remaining is open; neither, executed = original, filled; else None.
 pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
     let zero = BigDec::zero();
-    let amount = |k: &str| o.get(k).and_then(|v| crate::ruby::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
+    let amount = |k: &str| o.get(k).and_then(|v| crate::v2::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
     if o.get("symbol")?.as_str()? != symbol { return None; }
     let id = match o.get("order_id")? {
         Value::Number(n) if n.is_u64() => n.to_string(),
@@ -130,14 +130,14 @@ pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
 }
 
 /// Exchanges::Gemini#get_tickers_prices over /v1/pricefeed: every entry's `dig_or_raise`d `pair`, downcased, and its
-/// `price`, a later entry for a pair replacing an earlier one. DIVERGES on purpose as Binance and KuCoin do (ruby::json_to_d):
-/// a price that is no decimal is left out, where Rails reads it as 0.
+/// `price`, a later entry for a pair replacing an earlier one. DIVERGES on purpose as Binance and KuCoin do (v2::json_to_d):
+/// a price that is no decimal is left out, where 2.x reads it as 0.
 pub fn price_feed(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
     let mut out: Vec<(String, BigDec)> = vec![];
     for entry in body.as_array().ok_or_else(unreadable)? {
         let pair = text(super::dig_or_raise(entry, "pair")?)?.to_lowercase();
         let price = super::dig_or_raise(entry, "price")?;
-        let Some(price) = crate::ruby::json_to_d(price).ok().flatten() else { continue };
+        let Some(price) = crate::v2::json_to_d(price).ok().flatten() else { continue };
         out.retain(|(p, _)| *p != pair);
         out.push((pair, price));
     }
@@ -254,7 +254,7 @@ impl<T: Transport> super::Venue for GeminiVenue<T> {
 
     /// Exchanges::Gemini#get_candles: the one recent window /v2/candles serves at the native resolution, newest first and
     /// read oldest first (an answer that is no array has none), each time `to_i / 1000`; a built timeframe with nothing
-    /// to build from is Rails' failure; then only the candles from the start on. Rows are [time, open, high, low, close,
+    /// to build from is 2.x's failure; then only the candles from the start on. Rows are [time, open, high, low, close,
     /// volume].
     async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
         let (resolution, source) = candle_resolution(timeframe);
@@ -309,7 +309,7 @@ impl<T: Transport> super::Venue for GeminiVenue<T> {
     /// #set_market_order / #set_limit_order through Clients::Gemini#new_order: an `exchange limit` order with the gem's fields
     /// in its order (symbol, amount, price, side, type, client_order_id, options). A crossed (market) order is
     /// `immediate-or-cancel` at its persisted price; a limit order rests (`options: []`). `client_order_id` is the intent id
-    /// (spec E §2.6; Rails sends none). Sent at most once; the stored id is the raw order_id.
+    /// (spec E §2.6; 2.x sends none). Sent at most once; the stored id is the raw order_id.
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
         let (price, options) = match &o.kind {
             OrderKind::Crossed { price } => (price, vec![Value::from("immediate-or-cancel")]),
@@ -341,7 +341,7 @@ impl<T: Transport> super::Venue for GeminiVenue<T> {
         Ok(out)
     }
 
-    /// #get_order (Bot::FetchAndUpdateOrderJob): a gone order fails with Rails' "Gemini no longer knows order <id>".
+    /// #get_order (Bot::FetchAndUpdateOrderJob): a gone order fails with 2.x's "Gemini no longer knows order <id>".
     async fn order_identified<F>(&self, txid: &str, _identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
         match self.get_order(txid).await? {
@@ -352,7 +352,7 @@ impl<T: Transport> super::Venue for GeminiVenue<T> {
 
     /// Recovery may only FIND the order (plan VB §1.5: `absence_provable` false): /v1/order/status by `client_order_id`, an
     /// order (or a list of them) naming this client order id and symbol. Anything else proves nothing: the intent waits,
-    /// for a later lookup or `deltabadger resolve-placement`. Rails has no lookup (it sends no client order id).
+    /// for a later lookup or `deltabadger resolve-placement`. 2.x has no lookup (it sends no client order id).
     async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         let body = match self.post(ORDER_STATUS, vec![("client_order_id", Value::String(cl_ord_id.into()))]).await {
             Err(VenueError::Rejected(m) | VenueError::Unauthorized(m) | VenueError::Coded { errors: m, .. }) if reason(&m).as_deref() == Some(ORDER_NOT_FOUND) => return Ok(None),
@@ -422,7 +422,7 @@ impl<T: Transport> super::Venue for GeminiVenue<T> {
     async fn settled_quote_balance<F>(&self, ticker: &Ticker, _catalog: F) -> Result<BigDec, VenueError>
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> { self.available(|code| code == ticker.quote_code).await }
 
-    /// Exchanges::Gemini#get_tickers_prices (`price_feed`). Rails caches the answer for a minute; this reads fresh. A 2xx body
+    /// Exchanges::Gemini#get_tickers_prices (`price_feed`). 2.x caches the answer for a minute; this reads fresh. A 2xx body
     /// that is not JSON is honeymaker's Failure (its text). Each price is its decimal's `to_s('F')`.
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
         let text = self.answer(&self.public(PRICE_FEED.into()), false, PRICE_FEED_LIMIT).await?;
@@ -433,7 +433,7 @@ impl<T: Transport> super::Venue for GeminiVenue<T> {
         Ok(price_feed(&body)?.into_iter().map(|(pair, price)| (pair, Value::String(price.to_s_f()))).collect())
     }
 
-    /// #cancel_order through Clients::Gemini#cancel_order: any 2xx answer is the cancel, as Rails takes it.
+    /// #cancel_order through Clients::Gemini#cancel_order: any 2xx answer is the cancel, as 2.x takes it.
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
         self.post(ORDER_CANCEL, vec![("order_id", Value::String(txid.into()))]).await.map(|_| ())
     }
@@ -483,7 +483,7 @@ impl<T: Transport> GeminiVenue<T> {
             || (!body["result"].is_null() && body["result"] != "success") {
             return unknown();
         }
-        match body["withdrawalId"].as_str().filter(|id| !crate::ruby::blank(id)) {
+        match body["withdrawalId"].as_str().filter(|id| !crate::v2::blank(id)) {
             Some(id) => SendResult::Accepted { id: id.into() },
             None => unknown(),
         }
@@ -525,7 +525,7 @@ impl<T: Transport> GeminiVenue<T> {
                     return unknown("Gemini transfer time is unreadable", candidates);
                 };
                 let event = match &row["eid"] {
-                    Value::String(id) if !crate::ruby::blank(id) => id.clone(),
+                    Value::String(id) if !crate::v2::blank(id) => id.clone(),
                     Value::Number(id) if id.as_u64().is_some() => id.to_string(),
                     _ => return unknown("Gemini transfer id is unreadable", candidates),
                 };
@@ -537,16 +537,16 @@ impl<T: Transport> GeminiVenue<T> {
                     || row["network"].as_str().is_some_and(|n| n != network) {
                     continue;
                 }
-                let Some(row_amount) = crate::ruby::json_to_d(&row["amount"]).ok().flatten() else {
+                let Some(row_amount) = crate::v2::json_to_d(&row["amount"]).ok().flatten() else {
                     return unknown("Gemini withdrawal candidate amount is unreadable", candidates);
                 };
                 if row_amount != amount { continue; }
-                let Some(status) = row["status"].as_str().filter(|s| !crate::ruby::blank(s)) else {
+                let Some(status) = row["status"].as_str().filter(|s| !crate::v2::blank(s)) else {
                     return unknown("Gemini withdrawal candidate status is unreadable", candidates);
                 };
                 let id = match row.get("withdrawalId") {
                     None | Some(Value::Null) => event.as_str(),
-                    Some(Value::String(id)) if !crate::ruby::blank(id) => id,
+                    Some(Value::String(id)) if !crate::v2::blank(id) => id,
                     _ => return unknown("Gemini withdrawal candidate id is unreadable", candidates),
                 };
                 let Some(time) = DateTime::<Utc>::from_timestamp_millis(time) else {

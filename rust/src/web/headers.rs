@@ -1,7 +1,6 @@
-//! Response headers Rails adds around every page: the default security headers (load_defaults 8.1),
+//! Response headers 2.x adds around every page: the default security headers (load_defaults 8.1),
 //! the report-only Content-Security-Policy with its per-request nonce
-//! (config/initializers/content_security_policy.rb, pinned by
-//! test/integration/content_security_policy_test.rb), HSTS when SSL is forced, and Cache-Control.
+//! (2.x's), HSTS when SSL is forced, and Cache-Control.
 use axum::http::{header, HeaderMap, HeaderName, HeaderValue, StatusCode};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 
@@ -18,7 +17,7 @@ pub fn content_security_policy(nonce: &str) -> String {
     )
 }
 
-/// Marks a response that Rails produces below its controllers (rack-attack's 429, Devise's failure
+/// Marks a response that 2.x produces below its controllers (rack-attack's 429, Devise's failure
 /// app): it gets the policy header and Rack's Cache-Control, but not the five default headers.
 #[derive(Clone)]
 pub struct BelowControllers;
@@ -31,7 +30,7 @@ const DEFAULTS: [(&str, &str); 5] = [
     ("referrer-policy", "strict-origin-when-cross-origin"),
 ];
 
-/// What Rails' middleware adds to any response: the policy, and HSTS when SSL is forced
+/// What 2.x's middleware adds to any response: the policy, and HSTS when SSL is forced
 /// (ActionDispatch::SSL's default: two years, with subdomains).
 pub fn policy(headers: &mut HeaderMap, nonce: &str, force_ssl: bool) {
     if let Ok(value) = HeaderValue::from_str(&content_security_policy(nonce)) {
@@ -42,7 +41,7 @@ pub fn policy(headers: &mut HeaderMap, nonce: &str, force_ssl: bool) {
     }
 }
 
-/// What a Rails controller response carries on top: the five default headers, and a Cache-Control
+/// What a 2.x controller response carries on top: the five default headers, and a Cache-Control
 /// when the handler set none: `no-store` for a signed-in request (ApplicationController#set_no_cache),
 /// else Rack's defaults, which are `max-age=0, private, must-revalidate` for a 200 and `no-cache` otherwise.
 pub fn controller_defaults(headers: &mut HeaderMap, status: StatusCode, signed_in: bool) {

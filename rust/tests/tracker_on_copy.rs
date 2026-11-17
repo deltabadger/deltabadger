@@ -1,7 +1,7 @@
-//! The Rust half of the tracker check on a copy of an instance (script/rust/tracker_on_copy.rb is the Rails half):
-//! `tracker_ledger`'s run on a scratch copy at a frozen time, with data-api and the ECB scripted exactly as the Rails half
+//! The Rust half of the tracker check on a copy of an instance (the recorded copy is the 2.x half):
+//! `tracker_ledger`'s run on a scratch copy at a frozen time, with data-api and the ECB scripted exactly as the 2.x half
 //! scripts them (every price answer empty, the ECB and the Bundesbank unavailable), then the scopes, today's snapshot
-//! rows and the requests, as JSON. With `TRACKER_COPY_MODE=backfill`, the backfill's run follows, as the Rails half's
+//! rows and the requests, as JSON. With `TRACKER_COPY_MODE=backfill`, the backfill's run follows, as the 2.x half's
 //! does, and every day of both tables is reported beside the days the copy held before.
 //!
 //! Ignored unless asked for: `TRACKER_COPY=<dir> TRACKER_COPY_USER=<id> TRACKER_COPY_AT=<ISO time> cargo test --test

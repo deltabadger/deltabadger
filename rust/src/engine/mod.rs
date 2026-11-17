@@ -1,4 +1,4 @@
-//! The bot engine: DCA baskets of one or more assets (Kraken, Binance, Alpaca), decided exactly as Rails decides them.
+//! The bot engine: DCA baskets of one or more assets (Kraken, Binance, Alpaca), decided exactly as 2.x decides them.
 use chrono::{DateTime, Utc};
 
 pub trait Clock {
@@ -35,7 +35,7 @@ pub enum EngineError {
     CredentialsChanged,
     Arithmetic(crate::codec::CodecError),
     Sqlite(rusqlite::Error),
-    /// A stored value this build cannot read the way Rails wrote it.
+    /// A stored value this build cannot read the way 2.x wrote it.
     Data(String),
     Ineligible(Vec<String>),
     /// What a start could not set aside (set_aside::apply), in C6's words: nothing was written.
@@ -109,4 +109,4 @@ pub mod rules;
 pub mod set_aside;
 pub mod single_asset;
 pub mod withdrawal;
-pub mod rails_unrecorded;
+pub mod v2_unrecorded;

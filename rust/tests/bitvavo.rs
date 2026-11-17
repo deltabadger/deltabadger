@@ -1,14 +1,14 @@
 //! The Bitvavo trading adapter (venue::bitvavo, plan VB slice A3) over recorded bodies: its signer against honeymaker's own
 //! requests (the `Prehash` scheme KuCoin shares, tests/kucoin.rs pinning KuCoin's), its rules against Exchanges::Bitvavo::ERRORS,
-//! #parse_order_data and the sizing wire recorded from Rails, and its reads, placement, polls, the gone-order recovery from
-//! the trades, the recovery by client order id (it can only FIND an order) and cancel. Rails-free.
+//! #parse_order_data and the sizing wire recorded from 2.x, and its reads, placement, polls, the gone-order recovery from
+//! the trades, the recovery by client order id (it can only FIND an order) and cancel. 2.x-free.
 mod common;
 use chrono::{DateTime, Utc};
 use deltabadger::engine::amount::{self, Sizing};
 use deltabadger::engine::model::{self, Ticker};
 use deltabadger::engine::placement;
 use deltabadger::engine::venue_rules::BITVAVO;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::binance::Pairs;
 use deltabadger::venue::bitvavo::{self, BitvavoVenue, ABSENCE_UNPROVEN, URL};
 use deltabadger::venue::http::{HttpRequest, ScriptedTransport};
@@ -66,7 +66,7 @@ fn every_recorded_honeymaker_request_is_reproduced() {
 
 /// engine::venue_rules::BITVAVO is Exchanges::Bitvavo::ERRORS, and Exchange#ambiguous_placement_error? as it reads them.
 #[test]
-fn the_rules_are_rails_errors() {
+fn the_rules_are_v2_errors() {
     let f = fixture();
     let list = |v: &Value| v.as_array().map(|a| a.iter().map(|s| s.as_str().unwrap().to_string()).collect::<Vec<_>>()).unwrap_or_default();
     for (kind, patterns) in BITVAVO.kinds {
@@ -86,7 +86,7 @@ fn the_rules_are_rails_errors() {
 
 /// #parse_order_data (V3), recorded over 10,000 generated GET /v2/order answers.
 #[test]
-fn every_recorded_rails_order_parse_is_reproduced() {
+fn every_recorded_v2_order_parse_is_reproduced() {
     let v = vectors();
     let cases = v["bitvavo_orders"].as_array().unwrap();
     assert_eq!(cases.len(), 10_000);
@@ -106,7 +106,7 @@ fn every_recorded_rails_order_parse_is_reproduced() {
 /// Bot::OrderSetter's sizing under Exchanges::Bitvavo#minimum_amount_logic and #set_market_order / #set_limit_order's wire,
 /// through amount::size, limit_refusal, to_order and the adapter's own POST body.
 #[tokio::test(flavor = "current_thread")]
-async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
+async fn every_recorded_v2_sizing_and_wire_is_reproduced() {
     let (_d, o, s) = common::install();
     use common::seed::{self, BotSpec};
     let market = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
@@ -137,8 +137,8 @@ async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
         assert_eq!((sent["clientOrderId"].take(), sent["operatorId"].take()), (json!(CL), json!(1)), "{c}");
         let w = &c["wire"];
         let mut want = json!({ "market": "BTC-EUR", "side": "buy", "orderType": w["order_type"] });
-        for (rails, ours) in [("amount", "amount"), ("amount_quote", "amountQuote"), ("price", "price")] {
-            if let Some(x) = w.get(rails) { want[ours] = x.clone(); }
+        for (v2, ours) in [("amount", "amount"), ("amount_quote", "amountQuote"), ("price", "price")] {
+            if let Some(x) = w.get(v2) { want[ours] = x.clone(); }
         }
         if w.get("amount_quote").is_some() { quote += 1; }
         let sent: serde_json::Map<String, Value> = sent.as_object().unwrap().iter().filter(|(_, v)| !v.is_null()).map(|(k, v)| (k.clone(), v.clone())).collect();
@@ -150,7 +150,7 @@ async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
 // ---- reads
 
 #[tokio::test(flavor = "current_thread")]
-async fn prices_and_balances_read_as_rails_reads_them() {
+async fn prices_and_balances_read_as_v2_reads_them() {
     let book = json!({ "market": "BTC-EUR", "bid": "64000", "bidSize": "1.5", "ask": "64001", "askSize": "0.2" });
     let (t, v) = venue(json!({ "GET /v2/ticker/book": ok(book), "GET /v2/ticker/price": ok(json!({ "market": "BTC-EUR", "price": "64000.5" })),
                                "GET /v2/balance": ok(json!([{ "symbol": "BTC", "available": "0.5", "inOrder": "0.1" }, { "symbol": "EUR", "available": "100.25", "inOrder": "0" }])) }));
@@ -161,7 +161,7 @@ async fn prices_and_balances_read_as_rails_reads_them() {
     assert_eq!(v.free_base_balance(&btc_eur()).await, Ok(bd("0.5")));
     let keys: Vec<String> = t.requests().iter().map(deltabadger::venue::http::request_key).collect();
     assert_eq!(keys[..3], ["GET /v2/ticker/book?market=BTC-EUR", "GET /v2/ticker/book?market=BTC-EUR", "GET /v2/ticker/price?market=BTC-EUR"]);
-    // A zero price raises "Wrong … price", a missing field is Rails' KeyError, an error body is the venue's.
+    // A zero price raises "Wrong … price", a missing field is 2.x's KeyError, an error body is the venue's.
     let (_, v) = venue(json!({ "GET /v2/ticker/book": ok(json!({ "bid": "0", "bidSize": "1", "ask": "0", "askSize": "1" })), "GET /v2/ticker/price": ok(json!({ "market": "BTC-EUR" })) }));
     assert_eq!(v.price(&btc_eur(), PriceSide::Bid).await, Err(VenueError::Rejected(vec!["Wrong bid price for BTC-EUR: 0.0".into()])));
     assert_eq!(v.price(&btc_eur(), PriceSide::Last).await, Err(VenueError::Ambiguous("Key path price not found".into())));
@@ -176,7 +176,7 @@ async fn prices_and_balances_read_as_rails_reads_them() {
 // ---- placement
 
 #[tokio::test(flavor = "current_thread")]
-async fn placement_answers_map_as_rails_maps_them() {
+async fn placement_answers_map_as_v2_maps_them() {
     let err = |status: u16, code: i64, error: &str| fail(status, json!({ "errorCode": code, "error": error }));
     let place = |reply: Value| async move { venue(json!({ "POST /v2/order": reply })).1.add_order(&order(OrderKind::Market, true, "60")).await };
     assert_eq!(place(ok(json!({ "orderId": "abc-1", "market": "BTC-EUR" }))).await, Ok("BTC-EUR-abc-1".into()));
@@ -206,7 +206,7 @@ fn trade(id: &str, order: &str, amount: &str, price: &str, at_ms: i64, side: &st
 #[tokio::test(flavor = "current_thread")]
 async fn a_gone_order_is_missing_and_its_fills_come_from_every_trade_page() {
     let since: DateTime<Utc> = "2026-09-01T09:00:00Z".parse().unwrap();
-    let start = bitvavo::ruby_ms(since);
+    let start = bitvavo::v2_ms(since);
     // A full page (1000) of other orders' trades, then the page before its oldest id holding the order's two fills.
     let full: Vec<Value> = (0..1000).map(|i| trade(&format!("p{i}"), "other", "1", "1", start + 10_000_000 - i, "buy")).collect();
     let second = json!([trade("f2", "abc", "0.0003", "64010", start + 2000, "buy"), trade("f1", "abc", "0.0006", "64000", start + 1000, "buy"), trade("old", "abc", "9", "1", start - 1, "buy")]);

@@ -1,16 +1,16 @@
-//! The settings column of the bot page: the main form of each bot type and every rule form Rails
+//! The settings column of the bot page: the main form of each bot type and every rule form 2.x
 //! renders under it, switched on or not (bots/dca_multi_assets/_settings, bots/dca_indexes/_settings
 //! and bots/settings/*). The forms render; submitting them is not served yet.
 //!
 //! Each rule is a sentence from the locale file with form controls in its placeholders, so the
-//! controls are built here as markup, the way Rails' form helpers build them, and handed to the
+//! controls are built here as markup, the way 2.x's form helpers build them, and handed to the
 //! translation as already-safe arguments.
 use super::{start, Asset, Bot, Kind, Ticker, MIN_COINS};
 use crate::web::format::{self, input_value, Num};
 use crate::web::i18n::{self, escape, Arg};
 use crate::web::layout::Ctx;
 use crate::web::{colors, WebError};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use askama::Template;
 use rusqlite::Connection;
 use serde_json::Value;
@@ -73,7 +73,7 @@ pub fn rebalance_info(locale: &str, ambiguous: bool, drift: Option<&BigDec>, thr
     format!("<small id=\"settings-rebalance-info\" class=\"small-info\">\n    <div>{}</div>\n    {readout}\n  </small>\n", i18n::t(locale, "bot.settings.rebalance.note", &[]))
 }
 
-/// config/initializers/inline_form_errors.rb: a field whose attribute has an error is followed by the message, its first letter raised.
+/// 2.x's inline form errors: a field whose attribute has an error is followed by the message, its first letter raised.
 fn error_line(message: &str) -> String {
     let mut characters = message.chars();
     let raised: String = characters.next().map(|first| first.to_uppercase().chain(characters).collect()).unwrap_or_default();
@@ -84,7 +84,7 @@ fn disabled(on: bool) -> &'static str {
     if on { " disabled=\"disabled\"" } else { "" }
 }
 
-/// `disabled` on a field with an error: config/initializers/inline_form_errors.rb has Nokogiri write the tag again, and it
+/// `disabled` on a field with an error: 2.x's inline form errors have Nokogiri write the tag again, and it
 /// writes a boolean attribute bare. A working bot's fields are disabled, and the start validation runs for it too.
 fn disabled_field(on: bool, invalid: bool) -> &'static str {
     match (on, invalid) { (true, true) => " disabled", (on, _) => disabled(on) }
@@ -142,7 +142,7 @@ impl Forms<'_> {
         format!("<select {SUBMIT_ON_CHANGE}{} name=\"{key}[{name}]\" id=\"{key}_{name}\">{}</select>", disabled(self.locked()), options.join("\n"))
     }
 
-    /// A select whose attribute has an error, as config/initializers/inline_form_errors.rb leaves it:
+    /// A select whose attribute has an error, as 2.x's inline form errors leave it:
     /// Nokogiri writes the tag again, with the class it was given last and its boolean attribute bare,
     /// and the message follows.
     fn invalid_select(&self, name: &str, options: &[(String, String)], selected: &str, message: &str) -> String {
@@ -371,7 +371,7 @@ impl Forms<'_> {
                         let text = if limit.reached {
                             format!("<span class=\"text-success\">\n          {}\n        </span>", self.t("bot.settings.extra_amount_limit.info.spent", &[]))
                         } else {
-                            // Rails rounds to `decimals[:quote]`; without a ticker it has none and raises.
+                            // 2.x rounds to `decimals[:quote]`; without a ticker it has none and raises.
                             let decimals = bot.quote_decimals().ok_or_else(|| WebError::Config(format!("bot {}: a spending cap and no ticker to round it by", bot.id)))?;
                             self.t("bot.settings.extra_amount_limit.info.left", &[("amount", Arg::Text(&left.round(decimals).to_s())), ("quote", Arg::Text(bot.quote_symbol().unwrap_or("")))])
                         };
@@ -582,7 +582,7 @@ impl Forms<'_> {
 }
 
 /// D-INFO-SIDE: the element a rule's status line on `side` replaces, None when the page has none for it. The active side's
-/// is Rails' `settings-<rule>-info`; a signal bot's sell group (both sides on one page) is `settings-sell-<rule>-info`.
+/// is 2.x's `settings-<rule>-info`; a signal bot's sell group (both sides on one page) is `settings-sell-<rule>-info`.
 pub fn info_target(bot: &super::Bot, rule: &str, side: &str) -> Option<String> {
     let rule = rule.replace('_', "-");
     if side == crate::engine::conditions::side_of(bot.selling()) { return Some(format!("settings-{rule}-info")); }
@@ -627,7 +627,7 @@ pub fn condition_info(locale: &str, bot: &Bot, rule: &str, selling: bool, info: 
 /// The subject of a condition that has no choice of one, as markup: the label of the only option,
 /// escaped, and `None` when there are several. The sentence takes its subject as markup (it is a
 /// select when there is a choice), and a label is an asset's symbol out of the database, escaped here
-/// as Rails escapes it (`h(...)`, bots/settings/_price_limit.html.erb and its three siblings). No
+/// as 2.x escapes it (`h(...)`, bots/settings/_price_limit.html.erb and its three siblings). No
 /// sentence prints it today, because the form of the sentence for one member names no subject in
 /// any locale, but one edited translation would.
 pub fn lone_subject(options: &[(String, String)]) -> Option<String> {
@@ -747,7 +747,7 @@ pub(super) fn index_preview(c: &Connection, bot: &Bot) -> Result<Vec<Coin>, WebE
         let Some(asset) = Asset::find_by_external_id(c, external_id)? else { continue };
         if crate::engine::index::stablecoin(asset.category.as_deref(), external_id) { continue; }
         let cap = if own_caps {
-            // The ranking's own cap, Ruby's to_f (missing or null: 0.0), never the asset's, never skipped for zero.
+            // The ranking's own cap, 2.x's to_f (missing or null: 0.0), never the asset's, never skipped for zero.
             let cap = crate::engine::index::to_f(weights.get(external_id));
             if !cap.is_finite() || cap < 0.0 { return Ok(vec![]); } // the composition refuses it too
             cap
@@ -1005,7 +1005,7 @@ pub fn draft_column(c: &Connection, ctx: &Ctx, csrf: &str, draft: &super::draft:
     Ok(html)
 }
 
-/// The drift readout a save redraws: the drift the account's kept figures read (Rails' cached metrics_with_current_prices),
+/// The drift readout a save redraws: the drift the account's kept figures read (2.x's cached metrics_with_current_prices),
 /// against the bot's rule as it now stands. None while none is kept, or when the save moved what the drift is measured on
 /// (the composition, the venue): the note alone, and the post-commit panel publishes the readout (D-REB-DRIFT-LATE).
 pub(super) fn saved_rebalance_info(c: &Connection, ctx: &Ctx, draft: &super::draft::Draft) -> Option<String> {

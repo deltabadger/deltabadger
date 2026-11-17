@@ -1,12 +1,12 @@
 //! Threshold rebalancing's valuation and ranking core, pure: Bot::Composition::Rebalancer#composition_targets (over the
 //! figures `figures::live` marks), Bot::Rebalancer's ranking (rebalance_deviation, extreme_rebalance_entry,
 //! tradeable_rebalance_entries, get_sell_orders_data's ranking) and Bot::Rebalanceable's drift and due check.
-//! Arithmetic is Ruby's BigDecimal (`ruby::BigDec`); tests/rebalance_math.rs replays Rails' own answers.
+//! Arithmetic is 2.x's BigDecimal (`v2::BigDec`); tests/rebalance_math.rs replays 2.x's own answers.
 use super::model::Ticker;
 use super::EngineError;
 use crate::figures::num::Num;
 use crate::figures::walk::Metrics;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use serde_json::Value;
 use std::cmp::Ordering;
 
@@ -151,7 +151,7 @@ pub fn drift(entries: Option<&[Entry]>) -> Option<BigDec> {
     }).max()
 }
 
-/// #rebalance_threshold: `presence&.to_d || DEFAULT_THRESHOLD`. A value Ruby could not `to_d` (a boolean true, an array)
+/// #rebalance_threshold: `presence&.to_d || DEFAULT_THRESHOLD`. A value 2.x could not `to_d` (a boolean true, an array)
 /// is refused rather than guessed.
 pub fn threshold(settings: &Value) -> Result<BigDec, EngineError> {
     match settings.get("rebalance_threshold") {
@@ -213,7 +213,7 @@ pub const BELOW_MINIMUM_KEY: &str = "rebalance_below_minimum_at";
 pub struct Pending { pub phase: String, pub sell_transaction_id: Option<i64>, pub buy_transaction_id: Option<i64>, pub remaining_quote_amount: Option<BigDec>, pub buy_attempted: bool }
 
 impl Pending {
-    /// The payload, in Rails' shape: the remaining quote as `to_d.to_s('F')` (a String, never a number), buy_attempted a bool.
+    /// The payload, in 2.x's shape: the remaining quote as `to_d.to_s('F')` (a String, never a number), buy_attempted a bool.
     pub fn to_json(&self) -> Value {
         serde_json::json!({ "phase": self.phase, "sell_transaction_id": self.sell_transaction_id, "buy_transaction_id": self.buy_transaction_id,
                             "remaining_quote_amount": self.remaining_quote_amount.as_ref().map(BigDec::to_s_f), "buy_attempted": self.buy_attempted })
@@ -223,8 +223,8 @@ impl Pending {
 /// Bot::Rebalanceable#rebalance_pending?: a Hash with anything in it.
 pub fn is_pending(transient: &Value) -> bool { transient.get(PENDING_KEY).and_then(Value::as_object).is_some_and(|p| !p.is_empty()) }
 
-/// Bot::Rebalanceable#rebalance_pending, read as Rails reads it: an id as the integer (or its digits) `find_by(id:)` takes,
-/// the remaining quote by `to_d`, buy_attempted by Ruby truthiness. None when nothing is pending; a value Rails could not
+/// Bot::Rebalanceable#rebalance_pending, read as 2.x reads it: an id as the integer (or its digits) `find_by(id:)` takes,
+/// the remaining quote by `to_d`, buy_attempted by 2.x truthiness. None when nothing is pending; a value 2.x could not
 /// use is refused, never guessed.
 pub fn pending(transient: &Value) -> Result<Option<Pending>, EngineError> {
     if !is_pending(transient) { return Ok(None); }
@@ -272,7 +272,7 @@ pub fn clear_below_minimum(c: &rusqlite::Connection, bot_id: i64, transient: &Va
 
 // ---- valuation for a trade (6b T4/T6) --------------------------------------------------------------------------------
 
-/// A valuation that did not happen: the bulk price read failed in transport (Rails raises it), or the figures raised.
+/// A valuation that did not happen: the bulk price read failed in transport (2.x raises it), or the figures raised.
 pub enum ValueFail { Transient(String), Raised(String) }
 
 /// metrics(force: true), metrics_with_current_prices(force: true) and composition_targets(locked:) over them: the walk,
@@ -311,15 +311,15 @@ pub(crate) async fn holdings<V: crate::venue::Venue>(c: &rusqlite::Connection, v
             // leaves the figures stale (index::priced and the tick's price reads apply the same rule).
             Err(VenueError::Transient(m)) if venue.rules().transport_raises => return Ok(Err(ValueFail::Transient(m))),
             Err(VenueError::Transient(m)) => Err(Failure::Failed(m)),
-            Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => Err(Failure::Failed(crate::ruby::to_sentence(&e))),
-            // An answer the venue's reader cannot read: Rails' dig_or_raise KeyError, which nothing on the way rescues.
+            Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => Err(Failure::Failed(crate::v2::to_sentence(&e))),
+            // An answer the venue's reader cannot read: 2.x's dig_or_raise KeyError, which nothing on the way rescues.
             Err(VenueError::Ambiguous(m)) => return Ok(Err(ValueFail::Raised(m))),
         }
     };
     let data = match live::live(c, &subject, &walked, &Prefetched(prices), at) {
         Ok(data) => Some(data),
         Err(FiguresError::Raised(m)) => return Ok(Err(ValueFail::Raised(m))),
-        // A figure Rails computes and this build cannot (a price beyond dec's limits): no valuation, never a guessed one.
+        // A figure 2.x computes and this build cannot (a price beyond dec's limits): no valuation, never a guessed one.
         Err(FiguresError::NotComputed(_)) => None,
         Err(e) => return Err(fig(e)),
     };
@@ -400,7 +400,7 @@ pub async fn resolve<V: Venue>(c: &Connection, venue: &V, cipher: &crate::crypto
     let abandoned: Vec<i64> = tx.prepare("SELECT id FROM transactions WHERE bot_id=?1 AND transaction_type='REBALANCE' AND external_status=4 ORDER BY id")?
         .query_map([id],|r|r.get(0))?.collect::<Result<Vec<_>,_>>()?;
     if !abandoned.is_empty() { super::model::merge_transient_compact(&tx,id,&[("rust_rebalance_resolved_orders",json!(abandoned))])?; }
-    // Rails' merge_transient_data! compacts every top-level nil, including pre-existing ones.
+    // 2.x's merge_transient_data! compacts every top-level nil, including pre-existing ones.
     let mut updates:Vec<(&str,Value)>=current.transient.as_object().into_iter().flatten()
         .filter(|(_,value)|value.is_null()).map(|(key,_)|(key.as_str(),Value::Null)).collect();
     updates.extend([(PENDING_KEY,next.map_or(Value::Null,|p|p.to_json())),
@@ -416,7 +416,7 @@ pub async fn resolve<V: Venue>(c: &Connection, venue: &V, cipher: &crate::crypto
     Ok(None)
 }
 
-/// What one evaluation did: Rails' Result::Success(skipped:), Success(transaction_id:), or Failure (a raise included).
+/// What one evaluation did: 2.x's Result::Success(skipped:), Success(transaction_id:), or Failure (a raise included).
 #[derive(Debug, PartialEq)]
 pub enum Outcome { Skipped(&'static str), Placed(i64), Failed(String) }
 
@@ -427,13 +427,13 @@ pub enum Outcome { Skipped(&'static str), Placed(i64), Failed(String) }
 pub enum Settlement { Accepted(i64), NotPlaced(super::wash::Reason), Halt(String) }
 
 /// Bot::Rebalancer#place_rebalance_order's outcomes after the venue answered (or provably was never reached):
-/// - Accepted: clear_rebalance_below_minimum!, carry_pending_forward (Rails also logs `rebalance_<side>_placed`; D-LIQUIDATION-ONE-LINE).
+/// - Accepted: clear_rebalance_below_minimum!, carry_pending_forward (2.x also logs `rebalance_<side>_placed`; D-LIQUIDATION-ONE-LINE).
 /// - NotPlaced (the TransientNetworkError rescue, and a pre-trade rejection whose failed row the caller wrote): a sell owes
 ///   nothing (the state goes); a buy keeps what it owes, its attempt mark dropped.
 /// - Halt: halt_ambiguous!.
 ///
 /// A swap halted meanwhile stays halted; an accepted order's id is still recorded in it, for the user's resolution.
-/// A sell's wash-sale claim is settled last (wash::settle_claim), as Rails logs it.
+/// A sell's wash-sale claim is settled last (wash::settle_claim), as 2.x logs it.
 pub(crate) fn settle(c: &Connection, bot_id: i64, plan: &OrderPlan, settlement: Settlement, now: chrono::DateTime<chrono::Utc>) -> Result<(), EngineError> {
     let bot = super::model::load_bot(c, bot_id)?;
     let current = pending(&bot.transient)?;
@@ -489,8 +489,8 @@ pub fn candidate(bot: &Bot) -> bool {
 
 /// Bot::RebalanceJob#perform for one bot: #resumable?, then the market, then Bot::Rebalancer#rebalance!. First, an order
 /// this bot left unresolved is looked up by its client order id (placement::recover_since); while it stays unknown nothing
-/// new is decided, and a REBALANCE one still unknown a full absence window after it was sent halts the swap as Rails
-/// halts an unknown placement outright (the sanctioned divergence: Rails halts at once, the engine asks the venue first).
+/// new is decided, and a REBALANCE one still unknown a full absence window after it was sent halts the swap as 2.x
+/// halts an unknown placement outright (the sanctioned divergence: 2.x halts at once, the engine asks the venue first).
 pub async fn run<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
     let handle = crate::venue::Handle::new(venue, cx.credential_version.clone());
     let venue = &handle;
@@ -520,7 +520,7 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
         super::log(&format!("[engine] bot {bot_id}: rebalance skipped: {}", stale.message));
         return Ok(Outcome::Skipped("stale"));
     }
-    // #market_open?: all crypto is open; Exchanges::Alpaca reads the clock. A clock it cannot read is skipped here (Rails
+    // #market_open?: all crypto is open; Exchanges::Alpaca reads the clock. A clock it cannot read is skipped here (2.x
     // reads nil as open): the next evaluation asks again, and an owed buy waits at most one cadence.
     if venue.rules().market_hours && !super::model::all_crypto(c, bot)? {
         let answer = venue.clock_result().await.value;
@@ -537,7 +537,7 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
 /// settings, member rows). Every write the pass makes compares the stored rows against it under its own write lock: the
 /// composition refresh, the split gate and the intent's fence (begin_rebalance). Nothing is re-read to be compared
 /// against, so an edit landing while the venue is asked (the clock, positions, prices) refuses the pass; the next
-/// evaluation runs it again from the edit, as Rails would. The pass's own composition refresh moves the claim forward
+/// evaluation runs it again from the edit, as 2.x would. The pass's own composition refresh moves the claim forward
 /// with what it wrote, read under that write's lock.
 pub(crate) struct Claim { pub(crate) bot: Bot, pub(crate) composition: Value }
 
@@ -562,7 +562,7 @@ async fn rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, mut claim: 
     // still has its targets).
     if !super::eligibility::allocations_balanced(bot) { return Ok(Outcome::Skipped("not_due")); }
     let Some(reconciled) = split_gate(c, venue, claim, clock).await? else { return Ok(Outcome::Skipped("split_hold")) };
-    // #rebalance_due? reads the drift from rebalance_targets (cached in Rails; always fresh here).
+    // #rebalance_due? reads the drift from rebalance_targets (cached in 2.x; always fresh here).
     let entries = match value(c, venue, bot, clock.now(), &super::wash::locked(c, bot.user_id, clock)?).await? {
         Ok((_, entries)) => entries,
         Err(ValueFail::Transient(m) | ValueFail::Raised(m)) => return Ok(Outcome::Failed(m)),
@@ -658,9 +658,9 @@ async fn start<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, 
     // Path 2 (plan VB §1.5): the price is Exchange#market_price_for's, crossed already where the venue crosses; sent as it is.
     let plan = plan.with_wire_price(venue.rules(), &price, true)?;
     if below {
-        // #abandon_below_minimum!(selling): silent, but the widget's flag says why a breached band does not trade. Rails
+        // #abandon_below_minimum!(selling): silent, but the widget's flag says why a breached band does not trade. 2.x
         // claims before it measures the minimum and restores on the abandonment: both here, in one transaction, so a lock
-        // row is created where Rails creates one and an expired claim's token is replaced, then cleared.
+        // row is created where 2.x creates one and an expired claim's token is replaced, then cleared.
         let now = clock.now();
         super::model::locked(c, |tx| {
             flag_below_minimum(tx, bot.id, &bot.transient, now)?;
@@ -699,7 +699,7 @@ struct Row { external_status: Option<i64>, price: Option<BigDec>, amount_exec: O
 
 fn pending_row(c: &Connection, bot_id: i64, id: Option<i64>) -> Result<Option<Row>, EngineError> {
     let Some(id) = id else { return Ok(None) };
-    let dec = |v: rusqlite::types::ValueRef<'_>| crate::ruby::from_sql(v).map_err(|e| EngineError::Data(format!("{e:?}")));
+    let dec = |v: rusqlite::types::ValueRef<'_>| crate::v2::from_sql(v).map_err(|e| EngineError::Data(format!("{e:?}")));
     let mut s = c.prepare("SELECT external_status, price, amount_exec, quote_amount_exec FROM transactions WHERE bot_id = ?1 AND id = ?2")?;
     let mut rows = s.query(params![bot_id, id])?;
     let Some(r) = rows.next()? else { return Ok(None) };
@@ -719,7 +719,7 @@ impl Row {
 }
 
 /// A swap whose pending leg is closed with its figures still unknown (#realized_proceeds is nil): a sell's proceeds or a buy's
-/// fill. The holdings walk cannot value it yet; Rails re-reads that row first on each fire (#resume_selling!, #resume_buying!
+/// fill. The holdings walk cannot value it yet; 2.x re-reads that row first on each fire (#resume_selling!, #resume_buying!
 /// refresh before anything else), and so does the engine.
 pub(crate) fn awaiting_figures(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
     let Some(p) = pending(&bot.transient)? else { return Ok(false) };
@@ -836,7 +836,7 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, 
     // The venue's own check, read under its lock until the intent commits (an IBKR order's account and position).
     let hold = match venue.placement_hold(&plan.ticker, plan.side).await {
         Ok(hold) => hold,
-        Err(e) => return Ok(Outcome::Failed(e.rejection().map_or_else(|| format!("{e:?}"), crate::ruby::to_sentence))),
+        Err(e) => return Ok(Outcome::Failed(e.rejection().map_or_else(|| format!("{e:?}"), crate::v2::to_sentence))),
     };
     let begun = super::placement::begin_rebalance(c, bot, plan, &[&plan.ticker], &claim.composition, reconciled, &cx.credential_version, venue.placement_identity(), intent_state, loss, hold.as_ref(), clock);
     drop(hold);
@@ -855,7 +855,7 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, 
     };
     Ok(match super::placement::send_recorded(c, venue, bot, &intent, clock).await? {
         Sent::Accepted(txid) => Outcome::Placed(c.query_row("SELECT id FROM transactions WHERE exchange_id = ?1 AND external_id = ?2", params![bot.exchange_id, txid], |r| r.get(0))?),
-        Sent::Rejected(errors) if super::placement::safe_rejection(&errors) => Outcome::Failed(crate::ruby::to_sentence(&errors)),
+        Sent::Rejected(errors) if super::placement::safe_rejection(&errors) => Outcome::Failed(crate::v2::to_sentence(&errors)),
         // A REBALANCE leg is outside D-BELOW-MIN-REJECTION (placement::skips_below_minimum): never BelowMinimum.
         Sent::Rejected(_) | Sent::BelowMinimum(_) => Outcome::Skipped("ambiguous"),
         Sent::NotSent(m) => Outcome::Failed(m),

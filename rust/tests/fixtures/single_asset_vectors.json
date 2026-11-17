@@ -69,10 +69,10 @@
     {
       "name": "stopped bot",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -837,10 +837,10 @@
     {
       "name": "working bot with a future ActionJob",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -1527,10 +1527,10 @@
     {
       "name": "pending starting time",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -1946,10 +1946,10 @@
     {
       "name": "selling, sell_denomination absent",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -2628,10 +2628,10 @@
     {
       "name": "selling, sell_denomination empty string",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -3310,10 +3310,10 @@
     {
       "name": "selling, sell_denomination null",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -3992,10 +3992,10 @@
     {
       "name": "selling, sell_denomination empty array",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -4674,10 +4674,10 @@
     {
       "name": "selling, sell_denomination empty object",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -5356,10 +5356,10 @@
     {
       "name": "selling, sell_denomination quote",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -6038,10 +6038,10 @@
     {
       "name": "price_limit on its own ticker, buying",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -6449,10 +6449,10 @@
     {
       "name": "sell_price_limit on its own ticker, selling",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -6864,8 +6864,8 @@
     {
       "name": "price_limit on another ticker, buying",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "condition watches another ticker"
@@ -7549,8 +7549,8 @@
     {
       "name": "sell_price_limit on another ticker, selling",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "condition watches another ticker"
@@ -7967,10 +7967,10 @@
     {
       "name": "price_drop_limit on its own ticker, buying",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -8378,10 +8378,10 @@
     {
       "name": "sell_price_drop_limit on its own ticker, selling",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -8793,8 +8793,8 @@
     {
       "name": "price_drop_limit on another ticker, buying",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "condition watches another ticker"
@@ -9478,8 +9478,8 @@
     {
       "name": "sell_price_drop_limit on another ticker, selling",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "condition watches another ticker"
@@ -9896,10 +9896,10 @@
     {
       "name": "moving_average_limit on its own ticker, buying",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -10307,10 +10307,10 @@
     {
       "name": "sell_moving_average_limit on its own ticker, selling",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -10722,8 +10722,8 @@
     {
       "name": "moving_average_limit on another ticker, buying",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "condition watches another ticker"
@@ -11407,8 +11407,8 @@
     {
       "name": "sell_moving_average_limit on another ticker, selling",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "condition watches another ticker"
@@ -11825,10 +11825,10 @@
     {
       "name": "indicator_limit on its own ticker, buying",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -12236,10 +12236,10 @@
     {
       "name": "sell_indicator_limit on its own ticker, selling",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -12651,8 +12651,8 @@
     {
       "name": "indicator_limit on another ticker, buying",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "condition watches another ticker"
@@ -13336,8 +13336,8 @@
     {
       "name": "sell_indicator_limit on another ticker, selling",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "condition watches another ticker"
@@ -13754,10 +13754,10 @@
     {
       "name": "disabled condition on another ticker",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -14161,8 +14161,8 @@
     {
       "name": "latched after condition on another ticker",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "condition watches another ticker"
@@ -14575,8 +14575,8 @@
     {
       "name": "start_selling flip on another ticker",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "condition watches another ticker"
@@ -14989,8 +14989,8 @@
     {
       "name": "latched start_selling flip on another ticker",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "condition watches another ticker"
@@ -15674,8 +15674,8 @@
     {
       "name": "due ActionJob",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "job in flight"
@@ -16367,8 +16367,8 @@
     {
       "name": "claimed ActionJob",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "job in flight"
@@ -16789,8 +16789,8 @@
     {
       "name": "executing",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "executing"
@@ -17482,8 +17482,8 @@
     {
       "name": "working on an unavailable ticker",
       "mode": "forced",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "ticker not tradeable"
@@ -18087,10 +18087,10 @@
     {
       "name": "stopped on an unavailable ticker",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -18494,10 +18494,10 @@
     {
       "name": "retrying with an exhausted ActionJob rescheduled",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -18913,8 +18913,8 @@
     {
       "name": "orders of another asset",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "orders of another asset"
@@ -19502,8 +19502,8 @@
     {
       "name": "a row with no base asset",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "orders of another asset"
@@ -20091,8 +20091,8 @@
     {
       "name": "a rebalance row",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "non-regular orders"
@@ -20680,8 +20680,8 @@
     {
       "name": "an unpriced sell",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "unpriced sell"
@@ -21269,8 +21269,8 @@
     {
       "name": "a closed sell with neither executed amount",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "unpriced sell"
@@ -21858,8 +21858,8 @@
     {
       "name": "a foreign membership row",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "unexpected composition rows"
@@ -22279,8 +22279,8 @@
     {
       "name": "missing ticker",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "missing ticker"
@@ -22672,8 +22672,8 @@
     {
       "name": "missing base asset row",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "missing asset rows"
@@ -23065,8 +23065,8 @@
     {
       "name": "missing exchange",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "missing exchange"
@@ -23458,8 +23458,8 @@
     {
       "name": "settings a JSON array",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "missing assets"
@@ -23809,10 +23809,10 @@
     {
       "name": "base_asset_id a numeric string",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -24216,8 +24216,8 @@
     {
       "name": "base_asset_id a non-numeric string",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "missing assets"
@@ -24609,8 +24609,8 @@
     {
       "name": "clobbered basket repairs",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [],
+      "v2_converted": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -25031,8 +25031,8 @@
     {
       "name": "clobbered basket, repair skipped: missing ticker",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "not repaired: missing ticker"
@@ -25458,8 +25458,8 @@
     {
       "name": "clobbered basket, repair skipped: unpriced sell",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [
+      "v2_converted": [],
+      "v2_skips": [
         [
           1,
           "not repaired: unpriced sell"
@@ -26031,8 +26031,8 @@
     {
       "name": "clobbered basket with allocations null",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [],
+      "v2_converted": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -26453,8 +26453,8 @@
     {
       "name": "clobbered basket with allocations []",
       "mode": "run",
-      "rails_converted": [],
-      "rails_skips": [],
+      "v2_converted": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -26875,10 +26875,10 @@
     {
       "name": "odd settings values",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -27282,10 +27282,10 @@
     {
       "name": "a buy whose price differs from its executed value",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -27960,10 +27960,10 @@
     {
       "name": "smart interval bot",
       "mode": "run",
-      "rails_converted": [
+      "v2_converted": [
         1
       ],
-      "rails_skips": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {
@@ -28650,8 +28650,8 @@
     {
       "name": "run twice",
       "mode": "run_twice",
-      "rails_converted": [],
-      "rails_skips": [],
+      "v2_converted": [],
+      "v2_skips": [],
       "before": {
         "users": [
           {

@@ -1,6 +1,6 @@
 //! A14b (PLAN-A14b-split-base-cap.md, D-SPLIT-BASE-CAP): a one-asset seller's base cap ("don't sell more than N shares")
-//! and the sales it counts are restated into today's shares across stock splits. Rails counts both as traded; with no
-//! split Rust is Rails' number bit for bit (the stock grid's `cap_sold_nosplit`, the limit-sell grid, amount_limit.rs).
+//! and the sales it counts are restated into today's shares across stock splits. 2.x counts both as traded; with no
+//! split Rust is 2.x's number bit for bit (the stock grid's `cap_sold_nosplit`, the limit-sell grid, amount_limit.rs).
 mod common;
 use axum::{body::{to_bytes, Body}, http::Request};
 use chrono::{DateTime, Utc};
@@ -8,7 +8,7 @@ use common::seed::{self, BotSpec};
 use deltabadger::engine::{accounting, amount_limit, model, polling, splits, tick, Clock, FixedClock};
 use deltabadger::engine::tick::Attempts;
 use deltabadger::enums::BotStatus;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store;
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls};
 use deltabadger::venue::http::{HttpRequest, HttpResponse, ScriptedTransport, Transport, TransportError};
@@ -120,12 +120,12 @@ fn events(f: &Fixture) -> Vec<String> {
 
 #[test]
 fn a_forward_split_doubles_the_cap_and_the_sales_and_a_reverse_one_divides_them() {
-    assert_eq!(recorded(None).left(), dec("6"), "no split: Rails' 10 − 4");
-    assert_eq!(recorded(Some("2:1")).left(), dec("12"), "20 − 8, not Rails' 6");
+    assert_eq!(recorded(None).left(), dec("6"), "no split: 2.x's 10 − 4");
+    assert_eq!(recorded(Some("2:1")).left(), dec("12"), "20 − 8, not 2.x's 6");
     let f = seller(json!(10));
     f.sell(f.aapl, 2, "5", Some("5"), SOLD_AT);
     f.split("AAPL", SPLIT_AT, Some("1:10"));
-    assert_eq!(f.left(), dec("0.5"), "10/10 − 5/10, not Rails' 5");
+    assert_eq!(f.left(), dec("0.5"), "10/10 − 5/10, not 2.x's 5");
     // At the floor: 1e-9 at AAPL's 9 decimals. Restated, 1 − 0.9999999995 is under it; as traded 10 − 9.999999995 is not.
     let f = seller(json!(10));
     f.sell(f.aapl, 2, "9.999999995", Some("9.999999995"), SOLD_AT);
@@ -180,7 +180,7 @@ async fn the_recorded_case_sells_twelve_and_holds_nothing() {
     let f = recorded(None);
     let t = script(holding("AAPL", "32"));
     tick_with(&f, t.clone(), &FixedClock(at(NOW))).await;
-    assert_eq!(sold(&t), ["6.000000000"], "Rails' 6 with no split");
+    assert_eq!(sold(&t), ["6.000000000"], "2.x's 6 with no split");
 }
 
 #[test]
@@ -305,7 +305,7 @@ async fn the_basis_moves_only_with_the_number_or_the_switch_on_every_surface() {
         (key(now, 20.0, STAMP), dec("12")), // the same number, re-spelled: kept
         (key(now, 10.0, STAMP), dec("2")), // 10 − 8: earlier sales stay counted, restated
         (None, dec("-1")), // off: removed
-        (key(now, 10.0, on), dec("10")), // on: a new window, as in Rails
+        (key(now, 10.0, on), dec("10")), // on: a new window, as in 2.x
     ]);
     assert_eq!(edits_on(Surface::Mcp).await, web, "MCP writes the same basis");
     assert_eq!(edits_on(Surface::Rest).await, web, "REST writes the same basis");
@@ -373,7 +373,7 @@ fn a_stale_basis_is_read_as_unknown() {
     assert_eq!(f.left(), dec("2"), "valid: typed after the split");
     key(&f, json!(10.0), STAMP);
     assert_eq!(f.left(), dec("2"), "10.0 is 10");
-    // Rails toggled the switch off and on during a handback: a new cycle, the key rejected; unknown, exact here.
+    // 2.x toggled the switch off and on during a handback: a new cycle, the key rejected; unknown, exact here.
     key(&f, json!(10), "2026-08-19T14:00:00.000Z");
     assert_eq!(f.left(), dec("12"));
     key(&f, json!(11), STAMP);
@@ -383,8 +383,8 @@ fn a_stale_basis_is_read_as_unknown() {
 }
 
 #[test]
-fn a_reclaimed_bot_whose_number_rails_changed_and_changed_back_reads_unknown() {
-    // Rails edited 10 → 20 → 10 after the split: settings_changed_at moved, no stamp did; the handback removed the key.
+fn a_reclaimed_bot_whose_number_v2_changed_and_changed_back_reads_unknown() {
+    // 2.x edited 10 → 20 → 10 after the split: settings_changed_at moved, no stamp did; the handback removed the key.
     let f = recorded(Some("2:1"));
     f.c().execute("UPDATE bots SET settings_changed_at = '2026-09-02 10:00:00' WHERE id = ?1", [f.id]).unwrap();
     assert_eq!(f.left(), dec("2"), "10×1 − 8, not 12");
@@ -397,7 +397,7 @@ fn with_no_stamp_every_event_up_to_the_last_save_is_a_candidate() {
     let f = seller(json!(10));
     f.c().execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.base_amount_limit_enabled_at') WHERE id = ?1", [f.id]).unwrap();
     f.sell(f.aapl, 2, "4", Some("4"), SOLD_AT);
-    assert_eq!(f.left(), dec("10"), "no window: Rails' figure");
+    assert_eq!(f.left(), dec("10"), "no window: 2.x's figure");
     f.split("AAPL", SPLIT_AT, Some("2:1"));
     assert_eq!(f.left(), dec("10"), "least reading 10×1");
     let f = seller(json!(10));

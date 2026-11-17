@@ -7,10 +7,10 @@ use std::collections::VecDeque;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Lot { pub amount: Dec, pub cost: Option<Dec> }
 
-/// A holding's lots, oldest first. A deque: a sale takes lots off the front, one at a time, as Ruby's `shift` does.
+/// A holding's lots, oldest first. A deque: a sale takes lots off the front, one at a time, as 2.x's `shift` does.
 pub type Lots = VecDeque<Lot>;
 
-/// `lots.sum { |lot| lot[:cost] || 0.to_d }`: Ruby's Integer zero for no lots, else a BigDecimal.
+/// `lots.sum { |lot| lot[:cost] || 0.to_d }`: 2.x's Integer zero for no lots, else a BigDecimal.
 pub fn basis(lots: &Lots) -> Result<Num, NumError> {
     if lots.is_empty() { return Ok(Num::Int(0)); }
     let zero = Dec::zero();

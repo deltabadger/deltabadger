@@ -1,4 +1,4 @@
-//! The B2b index-history oracle (script/rust/index_histories.rb) holds every scenario the port is checked on.
+//! The B2b index-history oracle holds every scenario the port is checked on.
 
 #[test]
 fn the_index_history_oracle_holds_every_scenario() {

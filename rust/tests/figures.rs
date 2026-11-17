@@ -1,23 +1,23 @@
-#![cfg(unix)] // Unix only: it ran Rails until B11 froze its answers into tests/recorded
-//! Figures parity: Rails' metrics, live figures, chart and account totals against this library's, on identical
-//! databases built through the Rails models, with the market scripted on both sides and the clock frozen
-//! (script/rust/figures.rb is the Rails half, deltabadger::figures::parity the Rust half).
+#![cfg(unix)] // Unix only: it ran 2.x until B11 froze its answers into tests/recorded
+//! Figures parity: 2.x's metrics, live figures, chart and account totals against this library's, on identical
+//! databases built through the 2.x models, with the market scripted on both sides and the clock frozen
+//! (the recorded figures are the 2.x half, deltabadger::figures::parity the Rust half).
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 mod common;
 
-/// The scenarios of script/rust/figures.rb: 149 written by hand, one per branch of the code they name, 24 seeded
+/// The recorded figures scenarios: 149 written by hand, one per branch of the code they name, 24 seeded
 /// histories that mix every kind of order with splits, and 8 of a pair bot's.
 const SCENARIOS: usize = 183;
 
-/// The named divergences from Rails, each a defect there, asserted on their own (`the_named_divergences_hold`) and
-/// left out of the comparisons: D1, a closed row with no value reported is valued at the units it executed (Rails: at
-/// the units it asked for); D2, a fill with a zero or NULL price counts, priced at its value over its quantity (Rails
+/// The named divergences from 2.x, each a defect there, asserted on their own (`the_named_divergences_hold`) and
+/// left out of the comparisons: D1, a closed row with no value reported is valued at the units it executed (2.x: at
+/// the units it asked for); D2, a fill with a zero or NULL price counts, priced at its value over its quantity (2.x
 /// values it at zero, or skips it). D-PAIR-FILL-VALUE additionally counts executions without a positive reported
-/// quote: its exact Rails/Rust cells are asserted separately, and its computed figures join the normalized comparison.
-/// D-SPLIT-NEVER-A-COIN (`crypto_security_split_nameonly`): Rails restates the coin by a security's split; asserted in
+/// quote: its exact 2.x/Rust cells are asserted separately, and its computed figures join the normalized comparison.
+/// D-SPLIT-NEVER-A-COIN (`crypto_security_split_nameonly`): 2.x restates the coin by a security's split; asserted in
 /// `a_security_split_never_restates_the_coin`.
 const DIVERGENT: [&str; 4] = ["pair_row_requested_fallback", "pair_row_zero_price", "pair_row_null_price_reported", "crypto_security_split_nameonly"];
 
@@ -43,7 +43,7 @@ fn rows(path: &Path) -> String {
 
 struct Scenario {
     name: String,
-    rails: Value,
+    v2: Value,
     normalized: Value,
     rust: Result<Value, String>,
     /// The database copy's bytes and its rows, before and after this library read it.
@@ -57,18 +57,18 @@ struct Scenario {
 
 struct Grid { scenarios: Vec<Scenario> }
 
-/// Frozen (common::frozen; Rails runs only in a freeze run): Rails builds every scenario's install, the installs are copied
-/// before Rails reads them, and Rails records its figures. Each test process then computes this library's figures
+/// Frozen (common::frozen; 2.x runs only in a freeze run): 2.x builds every scenario's install, the installs are copied
+/// before 2.x reads them, and 2.x records its figures. Each test process then computes this library's figures
 /// from its own copy of those copies. Only the results are kept: a static is never dropped, so installs held in it
 /// would stay on disk after the process ends (gigabytes per run).
 fn grid() -> &'static Grid {
     static GRID: OnceLock<Grid> = OnceLock::new();
     GRID.get_or_init(|| {
-        let recorded = common::frozen("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir());
-        let rails_root = recorded.join("rails");
+        let recorded = common::frozen("figures-grid", |dir| dir.join("expected").is_dir() && dir.join("input").is_dir());
+        let v2_root = recorded.join("expected");
         let rust_root = tempfile::tempdir().unwrap();
-        common::copy_tree(&recorded.join("rust"), rust_root.path());
-        let mut dirs: Vec<PathBuf> = std::fs::read_dir(&rails_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("scenario.json").exists()).collect();
+        common::copy_tree(&recorded.join("input"), rust_root.path());
+        let mut dirs: Vec<PathBuf> = std::fs::read_dir(&v2_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("scenario.json").exists()).collect();
         dirs.sort();
         let scenarios = dirs.iter().map(|dir| {
             let name = dir.file_name().unwrap().to_string_lossy().to_string();
@@ -81,17 +81,17 @@ fn grid() -> &'static Grid {
             let took = started.elapsed();
             // Reading a database in WAL mode creates its -wal and -shm files; a write would put bytes in the first.
             let logged = std::fs::metadata(copy.join("production.sqlite3-wal")).map_or(0, |log| log.len());
-            Scenario { normalized: serde_json::from_str(&std::fs::read_to_string(dir.join("normalized.json")).unwrap()).unwrap(), rails: serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap(), rust, before, after: state(), logged, took, name }
+            Scenario { normalized: serde_json::from_str(&std::fs::read_to_string(dir.join("normalized.json")).unwrap()).unwrap(), v2: serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap(), rust, before, after: state(), logged, took, name }
         }).collect();
         Grid { scenarios } // rust_root is dropped here, and its directory removed
     })
 }
 
 /// Where two figures part: both sides around the first character that differs.
-/// A figure this library does not compute is an object (`{"not_computed": reason}`) where Rails has a text. It is
+/// A figure this library does not compute is an object (`{"not_computed": reason}`) where 2.x has a text. It is
 /// not a difference: `what_is_not_computed_is_named` holds the list of them, one by one.
-fn difference(name: &str, path: &str, rails: &Value, rust: &Value, out: &mut Vec<String>) {
-    match (rails, rust) {
+fn difference(name: &str, path: &str, v2: &Value, rust: &Value, out: &mut Vec<String>) {
+    match (v2, rust) {
         (_, Value::Object(b)) if b.contains_key("not_computed") => {}
         (Value::Object(a), Value::Object(b)) => {
             let mut keys: Vec<&String> = a.keys().chain(b.keys()).collect();
@@ -102,9 +102,9 @@ fn difference(name: &str, path: &str, rails: &Value, rust: &Value, out: &mut Vec
         (Value::String(a), Value::String(b)) if a != b => {
             let at = a.bytes().zip(b.bytes()).position(|(x, y)| x != y).unwrap_or(a.len().min(b.len()));
             let cut = |s: &str| s.get(at.saturating_sub(120)..(at + 80).min(s.len())).unwrap_or("<not on a character boundary>").to_string();
-            out.push(format!("{name} {path}, character {at}\n  rails: {}\n  rust:  {}", cut(a), cut(b)));
+            out.push(format!("{name} {path}, character {at}\n  2.x: {}\n  rust:  {}", cut(a), cut(b)));
         }
-        (a, b) if a != b => out.push(format!("{name} {path}\n  rails: {a}\n  rust:  {b}")),
+        (a, b) if a != b => out.push(format!("{name} {path}\n  2.x: {a}\n  rust:  {b}")),
         _ => {}
     }
 }
@@ -123,7 +123,7 @@ fn compare(what: &str, pick: impl Fn(&Value) -> Value) {
                     let control=grid.scenarios.iter().find(|s|s.name=="account_deltabadger").unwrap();
                     for field in ["global_pnl","global_pnl_snapshot"] {
                         let recorded = &expected[field];
-                        assert!(recorded.as_str().is_some_and(|text| text.contains("TypeError")), "{}: Rails' {field} was {recorded}, not its TypeError", scenario.name);
+                        assert!(recorded.as_str().is_some_and(|text| text.contains("TypeError")), "{}: 2.x's {field} was {recorded}, not its TypeError", scenario.name);
                         expected[field]=control.normalized[field].clone();
                     }
                 }
@@ -145,12 +145,12 @@ fn of_bots(names: &'static [&'static str]) -> impl Fn(&Value) -> Value {
 }
 
 #[test]
-fn the_walk_over_the_orders_matches_rails_in_every_scenario() {
+fn the_walk_over_the_orders_matches_v2_in_every_scenario() {
     compare("metrics", of_bots(&["metrics"]));
     // The grid means what it says only if the figures in it are figures: no scenario's walk ends in a raise.
-    let walked = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).filter_map(|bot| bot["metrics"].as_str())
+    let walked = grid().scenarios.iter().flat_map(|s| s.v2["bots"].as_object().unwrap().values()).filter_map(|bot| bot["metrics"].as_str())
         .filter(|metrics| !metrics.contains("\"raised\"")).count();
-    assert_eq!(walked, 214, "bots walked on the Rails side");
+    assert_eq!(walked, 214, "bots walked on the 2.x side");
 }
 
 #[test]
@@ -171,31 +171,31 @@ fn figures_are_computed_only_from_a_marked_scratch_copy() {
     assert!(matches!(&error, deltabadger::figures::FiguresError::Data(m) if m.contains("parity_scratch")), "{error:?}");
 }
 
-/// 20,000 orders of one asset, a sale of all of them, a holding with no price and no candles: Rails' figures for a
+/// 20,000 orders of one asset, a sale of all of them, a holding with no price and no candles: 2.x's figures for a
 /// long history, equal like any other, and within a bound no build should come near. What a quadratic pass
-/// cannot meet is in rust/examples/figures_limits.rs: 100,000 orders against 6,250, with no Rails to wait for.
+/// cannot meet is in rust/examples/figures_limits.rs: 100,000 orders against 6,250, with no 2.x to wait for.
 #[test]
 fn a_long_history_is_computed_in_linear_time() {
     let scenario = grid().scenarios.iter().find(|s| s.name == "long_history").unwrap();
     assert!(scenario.took < std::time::Duration::from_secs(60), "long_history took {:?}", scenario.took);
     let slowest = grid().scenarios.iter().filter(|s| s.name != "long_history").map(|s| s.took).max().unwrap();
     println!("long_history took {:?}; the slowest other scenario {slowest:?}", scenario.took);
-    // Beside them, for the record: what Rails took over the same figures (with its cache cold, as here).
+    // Beside them, for the record: what 2.x took over the same figures (with its cache cold, as here).
     for scenario in grid().scenarios.iter().filter(|s| ["long_history", "priced_pairs", "unpriced_rebalances"].contains(&s.name.as_str())) {
-        println!("{}: Rails {} s, this library {:?}", scenario.name, scenario.rails["seconds"], scenario.took);
+        println!("{}: 2.x {} s, this library {:?}", scenario.name, scenario.v2["seconds"], scenario.took);
     }
 }
 
 #[test]
-fn the_live_figures_match_rails_in_every_scenario() {
+fn the_live_figures_match_v2_in_every_scenario() {
     compare("live", of_bots(&["live"]));
-    let lives: Vec<&str> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).filter_map(|bot| bot["live"].as_str()).collect();
+    let lives: Vec<&str> = grid().scenarios.iter().flat_map(|s| s.v2["bots"].as_object().unwrap().values()).filter_map(|bot| bot["live"].as_str()).collect();
     let count = |needle: &str| lives.iter().filter(|live| live.contains(needle)).count();
     // Every way the pass can end is met: marked at the market, fallen back to the last fills, or raised to a retry.
     assert_eq!((count("\"live_prices\""), count("\"prices_stale\":true"), count("\"raised\"")), (176, 21, 4), "of {} bots", lives.len());
 }
 
-/// Rails leaves a held asset it cannot price out of the value without a word. The figures stay Rails'; beside them
+/// 2.x leaves a held asset it cannot price out of the value without a word. The figures stay 2.x's; beside them
 /// the library names what was left out and why. Everywhere else the list is empty.
 #[test]
 fn holdings_left_out_of_the_value_are_named_beside_the_figures() {
@@ -219,7 +219,7 @@ fn holdings_left_out_of_the_value_are_named_beside_the_figures() {
         ("candles_end_early 1", r#"[["BBB","no_price"]]"#),
         ("split_fill_past_the_candles 1", r#"[["AAA","no_price"]]"#),
         ("long_history 1", r#"[["BBB","no_price"]]"#),
-        // A Kraken code the venue no longer knows (`Unknown asset pair`), skipped as Rails skips it.
+        // A Kraken code the venue no longer knows (`Unknown asset pair`), skipped as 2.x skips it.
         ("kraken_unknown_pair 1", r#"[["BTC","no_price"]]"#),
         // Rows recorded under a string that no listing of the venue is spelled as.
         ("old_rows 1", r#"[["ZZZ","no_ticker"],["aaa","no_ticker"]]"#),
@@ -228,10 +228,10 @@ fn holdings_left_out_of_the_value_are_named_beside_the_figures() {
 }
 
 #[test]
-fn the_chart_marked_at_market_matches_rails_in_every_scenario() {
+fn the_chart_marked_at_market_matches_v2_in_every_scenario() {
     compare("marked", of_bots(&["marked"]));
     compare("chart", of_bots(&["chart"]));
-    let charts: Vec<&Value> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).map(|bot| &bot["chart"]).filter(|chart| chart.is_object()).collect();
+    let charts: Vec<&Value> = grid().scenarios.iter().flat_map(|s| s.v2["bots"].as_object().unwrap().values()).map(|bot| &bot["chart"]).filter(|chart| chart.is_object()).collect();
     let with = |name: &str, needle: &str| charts.iter().filter(|chart| chart[name].as_str().is_some_and(|text| text.contains(needle))).count();
     // Points that kept their fill mark (a null in a holding's series) and prices outside a grid's reach are both met.
     assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (198, 24, 55, 1));
@@ -274,12 +274,12 @@ fn totals(out: &Value) -> Value {
 }
 
 #[test]
-fn the_accounts_totals_match_rails_in_every_scenario() {
+fn the_accounts_totals_match_v2_in_every_scenario() {
     compare("totals", |out| if out["bots"].as_object().is_some_and(|bots| bots.values().all(|bot| bot.get("metrics").is_some())) { totals(out) } else { Value::Null });
 }
 
 #[test]
-fn the_market_is_asked_for_exactly_what_rails_asks_it() {
+fn the_market_is_asked_for_exactly_what_v2_asks_it() {
     // Where a figure is not computed the library stops asking, so those scenarios are left out here.
     let whole = |s: &&Scenario| !s.rust.as_ref().is_ok_and(|out| out.to_string().contains("not_computed"));
     // R3 refuses negative_fill; D-PAIR-FILL-VALUE names the unpriceable pair fill before asking the market.
@@ -287,8 +287,8 @@ fn the_market_is_asked_for_exactly_what_rails_asks_it() {
     for scenario in grid().scenarios.iter().filter(whole) {
         assert_eq!(scenario.normalized["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
     }
-    let asked: usize = grid().scenarios.iter().map(|s| s.rails["requests"].as_array().map_or(0, Vec::len)).sum();
-    assert_eq!(asked, 972, "requests on the Rails side");
+    let asked: usize = grid().scenarios.iter().map(|s| s.v2["requests"].as_array().map_or(0, Vec::len)).sum();
+    assert_eq!(asked, 972, "requests on the 2.x side");
 }
 
 /// The one scenario with a bot this library does not compute: a bot of a type no build knows, beside a basket.
@@ -298,47 +298,47 @@ const NOT_COMPUTED: &str = "account_unknown_type";
 fn a_bot_of_another_type_is_not_computed_and_neither_is_a_total_that_needs_it() {
     let scenario = grid().scenarios.iter().find(|s| s.name == NOT_COMPUTED).unwrap();
     let rust = scenario.rust.as_ref().unwrap();
-    assert_eq!(scenario.rails["bots"]["2"], serde_json::json!({ "type": "Bots::Withdrawal" }));
+    assert_eq!(scenario.v2["bots"]["2"], serde_json::json!({ "type": "Bots::Withdrawal" }));
     let reason = "bot 2 is a Bots::Withdrawal: only baskets and index bots are computed";
     assert_eq!(rust["bots"]["2"], serde_json::json!({ "not_computed": reason }));
     for total in ["global_pnl", "global_pnl_snapshot", "pnl_history"] {
         assert_eq!(rust[total], serde_json::json!({ "not_computed": reason }), "{total}");
-        // Rails cannot load the bot either, and raises.
-        assert!(scenario.rails[total].as_str().is_some_and(|text| text.contains("SubclassNotFound")), "Rails' {total}: {}", scenario.rails[total]);
+        // 2.x cannot load the bot either, and raises.
+        assert!(scenario.v2[total].as_str().is_some_and(|text| text.contains("SubclassNotFound")), "2.x's {total}: {}", scenario.v2[total]);
     }
     // The basket beside it is computed as in any other scenario (the three tests above compare it).
     assert!(rust["bots"]["1"]["metrics"].is_string());
 }
 
-/// A pair bot's three layers are compared above with every other bot's. Beside them, what Rails leaves in its cache
+/// A pair bot's three layers are compared above with every other bot's. Beside them, what 2.x leaves in its cache
 /// after a cold pass (the headline's snapshot and the page's inline chart read only that): every way each can end.
 #[test]
-fn a_pair_bots_caches_are_written_as_rails_writes_them() {
+fn a_pair_bots_caches_are_written_as_v2_writes_them() {
     compare("cache flags", of_bots(&["cached", "chart_cache"]));
     let mut ways = std::collections::BTreeMap::new();
     for scenario in &grid().scenarios {
-        for bot in scenario.rails["bots"].as_object().unwrap().values().filter(|bot| bot.get("cached").is_some()) {
+        for bot in scenario.v2["bots"].as_object().unwrap().values().filter(|bot| bot.get("cached").is_some()) {
             *ways.entry((bot["cached"].as_bool().unwrap(), bot["chart_cache"].as_bool().unwrap())).or_insert(0) += 1;
         }
     }
     assert_eq!(ways.into_iter().collect::<Vec<_>>(), vec![((false, false), 8), ((false, true), 5), ((true, false), 3), ((true, true), 29)]);
 }
 
-/// D-SPLIT-NEVER-A-COIN: a 4:1 split of the BTC security that recorded no asset. Rails' name fallback restates the coin
+/// D-SPLIT-NEVER-A-COIN: a 4:1 split of the BTC security that recorded no asset. 2.x's name fallback restates the coin
 /// (its BTC amount is four times its twin's, where the report recorded the security); this library's figures are the twin's.
 #[test]
 fn a_security_split_never_restates_the_coin() {
     let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
     let (nameonly, recorded) = (of("crypto_security_split_nameonly"), of("crypto_security_split"));
-    // Rails restated the coin: its walk marks the restatement that moved a position; the twin's has none.
+    // 2.x restated the coin: its walk marks the restatement that moved a position; the twin's has none.
     let marked = |sc: &Scenario| sc.normalized["bots"].as_object().unwrap().values().any(|b| b["metrics"].as_str().is_some_and(|m| m.contains("\"restated_at\"")));
-    assert!(marked(nameonly) && !marked(recorded), "Rails no longer restates the coin: drop the divergence");
+    assert!(marked(nameonly) && !marked(recorded), "2.x no longer restates the coin: drop the divergence");
     // The account's figures (totals, snapshot, history) are the twin's too.
     let whole = nameonly.rust.as_ref().unwrap();
     for (figure, value) in recorded.normalized.as_object().unwrap().iter().filter(|(k, _)| *k != "bots") {
         assert_eq!(&whole[figure], value, "{figure}: the account reads the coin as if the report had named the security");
     }
-    // Every figure Rails records, as the comparisons read them (the Rust side names more: what it leaves out).
+    // Every figure 2.x records, as the comparisons read them (the Rust side names more: what it leaves out).
     let rust = &whole["bots"];
     for (id, bot) in recorded.normalized["bots"].as_object().unwrap() {
         for (figure, value) in bot.as_object().unwrap() {
@@ -347,52 +347,52 @@ fn a_security_split_never_restates_the_coin() {
     }
 }
 
-/// D1 and D2 (`DIVERGENT`): Rails' recorded number, and this library's.
+/// D1 and D2 (`DIVERGENT`): 2.x's recorded number, and this library's.
 #[test]
 fn the_named_divergences_hold() {
     let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
     let metrics = |scenario: &Scenario| -> (Value, Value) {
         let parse = |v: &Value| serde_json::from_str::<Value>(v["bots"]["1"]["metrics"].as_str().unwrap()).unwrap();
-        (parse(&scenario.rails), parse(scenario.rust.as_ref().unwrap()))
+        (parse(&scenario.v2), parse(scenario.rust.as_ref().unwrap()))
     };
-    // D1: 0.4 executed of 1 asked at 101, with no value reported. Rails books what was asked (101), this library what
+    // D1: 0.4 executed of 1 asked at 101, with no value reported. 2.x books what was asked (101), this library what
     // executed (40.4); both hold the 0.4.
-    let (rails, rust) = metrics(of("pair_row_requested_fallback"));
-    assert_eq!((&rails["total_quote_amount_invested"], &rails["total_base_amount"]), (&serde_json::json!("201.0"), &serde_json::json!("1.4")));
+    let (v2, rust) = metrics(of("pair_row_requested_fallback"));
+    assert_eq!((&v2["total_quote_amount_invested"], &v2["total_base_amount"]), (&serde_json::json!("201.0"), &serde_json::json!("1.4")));
     assert_eq!((&rust["total_quote_amount_invested"], &rust["total_base_amount"]), (&serde_json::json!("140.4"), &serde_json::json!("1.4")));
-    // D2, a zero price: 0.5 bought for 50. Rails values the holding at that price, zero, and averages it in at zero.
-    let (rails, rust) = metrics(of("pair_row_zero_price"));
-    assert_eq!((&rails["chart"]["series"][0][1], &rails["average_buy_price"]), (&serde_json::json!("0.0"), &serde_json::json!("66.666666666666666666666666666667")));
+    // D2, a zero price: 0.5 bought for 50. 2.x values the holding at that price, zero, and averages it in at zero.
+    let (v2, rust) = metrics(of("pair_row_zero_price"));
+    assert_eq!((&v2["chart"]["series"][0][1], &v2["average_buy_price"]), (&serde_json::json!("0.0"), &serde_json::json!("66.666666666666666666666666666667")));
     assert_eq!((&rust["chart"]["series"][0][1], &rust["average_buy_price"]), (&serde_json::json!("150.0"), &serde_json::json!("100.0")));
-    // D2, a NULL price: 0.5 bought for 51. Rails skips the fill; this library counts it, at 102.
-    let (rails, rust) = metrics(of("pair_row_null_price_reported"));
-    assert_eq!((rails["chart"]["labels"].as_array().unwrap().len(), &rails["total_quote_amount_invested"]), (1, &serde_json::json!("100.0")));
+    // D2, a NULL price: 0.5 bought for 51. 2.x skips the fill; this library counts it, at 102.
+    let (v2, rust) = metrics(of("pair_row_null_price_reported"));
+    assert_eq!((v2["chart"]["labels"].as_array().unwrap().len(), &v2["total_quote_amount_invested"]), (1, &serde_json::json!("100.0")));
     assert_eq!((rust["chart"]["labels"].as_array().unwrap().len(), &rust["total_quote_amount_invested"]), (2, &serde_json::json!("151.0")));
     assert_eq!(rust["average_buy_price"], serde_json::json!("100.66666666666666666666666666667"));
 }
 
-/// D-PAIR-FILL-VALUE: each affected Rails cell and the corrected or unavailable Rust metric.
+/// D-PAIR-FILL-VALUE: each affected 2.x cell and the corrected or unavailable Rust metric.
 #[test]
-fn pair_fill_value_divergence_is_validated_against_rails() {
+fn pair_fill_value_divergence_is_validated_against_v2() {
     let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
     let metrics = |v: &Value| serde_json::from_str::<Value>(v["bots"]["1"]["metrics"].as_str().unwrap()).unwrap();
-    // D-PAIR-FILL-VALUE: Rails omits these executions; Rust values the executed units at the stored price.
+    // D-PAIR-FILL-VALUE: 2.x omits these executions; Rust values the executed units at the stored price.
     for (name, quantity, value) in [("pair_row_open_partial", "1.4", "140.4"), ("pair_row_zero_proceeds", "1.3", "130.6")] {
         let s = of(name);
-        let (rails, rust) = (metrics(&s.rails), metrics(s.rust.as_ref().unwrap()));
-        assert_eq!(rails["total_base_amount"], "1.0", "{name}: Rails no longer omits the fill");
-        assert_eq!(rails["total_quote_amount_invested"], "100.0");
+        let (v2, rust) = (metrics(&s.v2), metrics(s.rust.as_ref().unwrap()));
+        assert_eq!(v2["total_base_amount"], "1.0", "{name}: 2.x no longer omits the fill");
+        assert_eq!(v2["total_quote_amount_invested"], "100.0");
         assert_eq!(rust["total_base_amount"], quantity);
         assert_eq!(rust["total_quote_amount_invested"], value);
         assert_eq!(rust["chart"]["labels"].as_array().unwrap().len(), 2);
     }
     let s = of("pair_row_nil_amounts");
-    assert!(metrics(&s.rails)["raised"].as_str().unwrap().contains("nil can't be coerced"));
+    assert!(metrics(&s.v2)["raised"].as_str().unwrap().contains("nil can't be coerced"));
     let rust = metrics(s.rust.as_ref().unwrap());
     assert_eq!(rust["total_base_amount"], "1.5");
     assert_eq!(rust["total_quote_amount_invested"], "150.0");
     let s = of("pair_row_nil_price_nil_quote");
-    assert!(metrics(&s.rails)["raised"].as_str().unwrap().contains("undefined method"));
+    assert!(metrics(&s.v2)["raised"].as_str().unwrap().contains("undefined method"));
     assert_eq!(s.rust.as_ref().unwrap()["bots"]["1"]["metrics"], serde_json::json!({"not_computed": "executed fill value unavailable"}));
 }
 
@@ -411,18 +411,18 @@ fn the_accounts_totals_name_what_they_leave_out() {
     assert_eq!(of("basket_buys"), "[]");
 }
 
-/// Everything this library returns as "not computed", figure by figure, with what Rails has in its place.
+/// Everything this library returns as "not computed", figure by figure, with what 2.x has in its place.
 #[test]
 fn what_is_not_computed_is_named() {
-    fn collect(name: &str, path: &str, rails: &Value, rust: &Value, out: &mut Vec<(String, String, String)>) {
+    fn collect(name: &str, path: &str, v2: &Value, rust: &Value, out: &mut Vec<(String, String, String)>) {
         match rust {
-            Value::Object(b) if b.contains_key("not_computed") => out.push((format!("{name}{path}"), b["not_computed"].as_str().unwrap().to_string(), rails.to_string())),
-            Value::Object(b) => for (key, value) in b { collect(name, &format!("{path}.{key}"), &rails[key], value, out); },
+            Value::Object(b) if b.contains_key("not_computed") => out.push((format!("{name}{path}"), b["not_computed"].as_str().unwrap().to_string(), v2.to_string())),
+            Value::Object(b) => for (key, value) in b { collect(name, &format!("{path}.{key}"), &v2[key], value, out); },
             _ => {}
         }
     }
     let mut found = vec![];
-    for scenario in &grid().scenarios { collect(&scenario.name, "", &scenario.rails, scenario.rust.as_ref().unwrap(), &mut found); }
+    for scenario in &grid().scenarios { collect(&scenario.name, "", &scenario.v2, scenario.rust.as_ref().unwrap(), &mut found); }
     let listed: Vec<String> = found.iter().map(|(place, reason, _)| format!("{place}: {reason}")).collect();
     let unknown = "bot 2 is a Bots::Withdrawal: only baskets and index bots are computed";
     let number = deltabadger::figures::NOT_A_NUMBER;
@@ -443,10 +443,10 @@ fn what_is_not_computed_is_named() {
     }
     let mut listed=listed;listed.sort();expected.sort();
     assert_eq!(listed, expected);
-    // Unreadable batch prices are omitted by Rails and named as no_price above; an unreadable candle
+    // Unreadable batch prices are omitted by 2.x and named as no_price above; an unreadable candle
     // still prevents the chart from being computed.
-    for (place, reason, rails) in &found {
-        if reason == number { assert!(rails.contains("null"), "{place}: Rails has {rails}"); }
+    for (place, reason, v2) in &found {
+        if reason == number { assert!(v2.contains("null"), "{place}: 2.x has {v2}"); }
     }
 }
 
@@ -454,12 +454,12 @@ fn what_is_not_computed_is_named() {
 fn normalized_oracle_changes_only_the_named_fill_histories() {
     let mut changed=vec![];
     for scenario in &grid().scenarios {
-        let mut original=scenario.rails.clone(); original.as_object_mut().unwrap().remove("seconds");
+        let mut original=scenario.v2.clone(); original.as_object_mut().unwrap().remove("seconds");
         if original!=scenario.normalized{changed.push(scenario.name.as_str());}
     }
-    // Rails reads buys through Transaction.normalized_fill itself; what is left is a sale with no reported proceeds,
-    // which Rails books P/L-neutral and judges "unknown" on purpose. B2b: random_6 and unpriced_sales differed from
-    // Rails only in unpriced LIQUIDATION sells, which the counterfactual now reads raw, as Rails does (RULING-B2B-1 MQ6).
+    // 2.x reads buys through Transaction.normalized_fill itself; what is left is a sale with no reported proceeds,
+    // which 2.x books P/L-neutral and judges "unknown" on purpose. B2b: random_6 and unpriced_sales differed from
+    // 2.x only in unpriced LIQUIDATION sells, which the counterfactual now reads raw, as 2.x does (RULING-B2B-1 MQ6).
     // D-PAIR-FILL-VALUE and D1 additionally normalize these four row cases and six seeded pair histories.
     assert_eq!(changed, vec!["pair_row_nil_amounts", "pair_row_open_partial", "pair_row_requested_fallback", "pair_row_zero_proceeds",
         "random_10", "random_12", "random_14", "random_15", "random_17", "random_18", "random_19", "random_2", "random_20", "random_22", "random_24", "random_3", "random_4", "random_7", "random_9",
@@ -469,41 +469,41 @@ fn normalized_oracle_changes_only_the_named_fill_histories() {
 /// KuCoin's candles (Exchanges::Kucoin#get_candles under CandleSeriesCache), one market cache across a scenario's steps:
 /// a cold walk over two windows (and an empty one before a listing), a tail from the last stored candle, a tail whose
 /// overlapping candle moved and the whole series read again; and a failed later window, which leaves that holding
-/// without a grid. Every step asks the venue for exactly what Rails asked.
+/// without a grid. Every step asks the venue for exactly what 2.x asked.
 #[test]
-fn a_kucoin_series_is_kept_across_steps_and_asked_for_as_rails_asks() {
+fn a_kucoin_series_is_kept_across_steps_and_asked_for_as_v2_asks() {
     let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
     for name in ["kucoin_series", "kucoin_failed_window"] {
         let scenario = of(name);
-        assert_eq!(scenario.rails["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
+        assert_eq!(scenario.v2["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
     }
-    let steps = of("kucoin_series").rails["steps"].as_array().unwrap().clone();
+    let steps = of("kucoin_series").v2["steps"].as_array().unwrap().clone();
     let asked = |step: usize| steps[step]["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains("/candles?")).count();
     assert_eq!((asked(0), asked(1), asked(2)), (4, 2, 4), "a cold walk, two tails, a tail and a rebuild");
     assert!(steps[1]["requests"].to_string().contains("startAt=1773187200"), "the tail starts AT the last stored candle");
     // The failed window: that holding has no grid in the chart, the other has.
-    let chart = &of("kucoin_failed_window").rails["bots"].as_object().unwrap().values().next().unwrap()["chart"]["prices"];
+    let chart = &of("kucoin_failed_window").v2["bots"].as_object().unwrap().values().next().unwrap()["chart"]["prices"];
     assert!(chart.as_str().unwrap().contains("\"BTC\":[50000.0"), "{chart}");
 }
 
 /// Binance's candles (Exchanges::Binance#get_candles under CandleSeriesCache), as KuCoin's: a cold walk over pages of 1000
 /// (ETH's ending at an empty page after its last candle), a tail from the last stored candle, a moved overlap and the whole
 /// series read again; a failed later page, which leaves that holding without a grid; and Binance.US, the same code at its
-/// own host. Every step asks the venue for exactly what Rails asked.
+/// own host. Every step asks the venue for exactly what 2.x asked.
 #[test]
-fn a_binance_series_is_kept_across_steps_and_asked_for_as_rails_asks() {
+fn a_binance_series_is_kept_across_steps_and_asked_for_as_v2_asks() {
     let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
     for name in ["binance_series", "binance_failed_page", "binance_us_pair"] {
         let scenario = of(name);
-        assert_eq!(scenario.rails["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
+        assert_eq!(scenario.v2["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
     }
-    let steps = of("binance_series").rails["steps"].as_array().unwrap().clone();
+    let steps = of("binance_series").v2["steps"].as_array().unwrap().clone();
     let asked = |step: usize| steps[step]["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains("/klines?")).count();
     assert_eq!((asked(0), asked(1), asked(2)), (5, 3, 5), "a cold walk, two tails, a tail and a rebuild");
     assert!(steps[1]["requests"].to_string().contains("startTime=1773187200000"), "the tail starts AT the last stored candle");
-    let chart = &of("binance_failed_page").rails["bots"].as_object().unwrap().values().next().unwrap()["chart"]["prices"];
+    let chart = &of("binance_failed_page").v2["bots"].as_object().unwrap().values().next().unwrap()["chart"]["prices"];
     assert!(chart.as_str().unwrap().contains("\"BTC\":[50000.0"), "{chart}");
-    assert!(of("binance_us_pair").rails["requests"].to_string().contains("GET api.binance.us/api/v3/klines?"));
+    assert!(of("binance_us_pair").v2["requests"].to_string().contains("GET api.binance.us/api/v3/klines?"));
 }
 
 /// Kraken (Exchanges::Kraken#get_tickers_prices and #get_candles under CandleSeriesCache): the bulk Ticker, then XBTUSD on
@@ -511,18 +511,18 @@ fn a_binance_series_is_kept_across_steps_and_asked_for_as_rails_asks() {
 /// before the last stored candle, a moved overlap and the whole series read again; the `error` array failing a series (that
 /// holding ungridded) and the bulk read (the bot's prices stale); and `Unknown asset pair` skipping one code.
 #[test]
-fn a_kraken_series_is_kept_across_steps_and_asked_for_as_rails_asks() {
+fn a_kraken_series_is_kept_across_steps_and_asked_for_as_v2_asks() {
     let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
     for name in ["kraken_series", "kraken_errors", "kraken_unknown_pair"] {
         let scenario = of(name);
-        assert_eq!(scenario.rails["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
+        assert_eq!(scenario.v2["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
     }
-    let steps = of("kraken_series").rails["steps"].as_array().unwrap().clone();
+    let steps = of("kraken_series").v2["steps"].as_array().unwrap().clone();
     let asked = |step: usize| steps[step]["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains("/OHLC?")).count();
     assert_eq!((asked(0), asked(1), asked(2)), (2, 2, 3), "a cold read, two tails, a tail and a rebuild");
     assert!(steps[1]["requests"].to_string().contains("pair=XBTUSD&since=1773187199"), "the tail starts a second before the last stored candle");
     assert!(steps[0]["requests"].to_string().contains("Ticker?pair=XBTUSD"), "the code the bulk read did not return is asked for alone");
-    let bot = |name: &str| of(name).rails["bots"].as_object().unwrap().values().next().unwrap().clone();
+    let bot = |name: &str| of(name).v2["bots"].as_object().unwrap().values().next().unwrap().clone();
     assert!(bot("kraken_errors")["live"].as_str().unwrap().contains("\"prices_stale\":true"));
     assert!(bot("kraken_errors")["chart"]["prices"].as_str().unwrap().contains("40000.0,null]"), "BTC has no grid");
 }
@@ -533,24 +533,24 @@ fn a_kraken_series_is_kept_across_steps_and_asked_for_as_rails_asks() {
 /// from the last stored candle, a moved overlap and the whole series read again; a failed page leaves that holding without
 /// a grid, and BingX's refusing ticker leaves the bot's prices stale.
 #[test]
-fn mexc_bitrue_and_bingx_series_are_kept_across_steps_and_asked_for_as_rails_asks() {
+fn mexc_bitrue_and_bingx_series_are_kept_across_steps_and_asked_for_as_v2_asks() {
     let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
     for venue in ["mexc", "bitrue", "bingx"] {
         for name in [format!("{venue}_series"), format!("{venue}_failed_page")] {
             let scenario = of(&name);
-            assert_eq!(scenario.rails["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
+            assert_eq!(scenario.v2["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
         }
-        let chart = &of(&format!("{venue}_failed_page")).rails["bots"].as_object().unwrap().values().next().unwrap()["chart"]["prices"];
+        let chart = &of(&format!("{venue}_failed_page")).v2["bots"].as_object().unwrap().values().next().unwrap()["chart"]["prices"];
         assert!(chart.as_str().unwrap().contains("\"BTC\":[50000.0"), "{venue}: {chart}");
     }
     // Each step's requests are the distinct ones: a rebuild's first page is the tail's own request.
     let asked = |name: &str, needle: &str| -> Vec<usize> {
-        of(name).rails["steps"].as_array().unwrap().iter().map(|step| step["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains(needle)).count()).collect()
+        of(name).v2["steps"].as_array().unwrap().iter().map(|step| step["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains(needle)).count()).collect()
     };
     assert_eq!(asked("mexc_series", "/api/v3/klines?"), [8, 2, 6], "four windows a series cold, one a tail, a tail and a rebuild");
     assert_eq!(asked("bitrue_series", "/market/kline?"), [3, 2, 3], "BTC's two pages and ETH's one, one each a tail, a tail and a rebuild (its first page the tail's)");
     assert_eq!(asked("bingx_series", "/market/kline?"), [2, 2, 2], "one read a series, the rebuild the tail's own");
-    let bingx = of("bingx_failed_page").rails["bots"].as_object().unwrap().values().next().unwrap().clone();
+    let bingx = of("bingx_failed_page").v2["bots"].as_object().unwrap().values().next().unwrap().clone();
     assert!(bingx["live"].as_str().unwrap().contains("\"prices_stale\":true"));
 }
 
@@ -560,23 +560,23 @@ fn mexc_bitrue_and_bingx_series_are_kept_across_steps_and_asked_for_as_rails_ask
 /// a moved overlap and the whole series read again; a failed later page leaves that holding without a grid, and Bybit's
 /// refusing ticker leaves the bot's prices stale.
 #[test]
-fn bitvavo_bitget_and_bybit_series_are_kept_across_steps_and_asked_for_as_rails_asks() {
+fn bitvavo_bitget_and_bybit_series_are_kept_across_steps_and_asked_for_as_v2_asks() {
     let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
     for venue in ["bitvavo", "bitget", "bybit"] {
         for name in [format!("{venue}_series"), format!("{venue}_failed_page")] {
             let scenario = of(&name);
-            assert_eq!(scenario.rails["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
+            assert_eq!(scenario.v2["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
         }
-        let chart = &of(&format!("{venue}_failed_page")).rails["bots"].as_object().unwrap().values().next().unwrap()["chart"]["prices"];
+        let chart = &of(&format!("{venue}_failed_page")).v2["bots"].as_object().unwrap().values().next().unwrap()["chart"]["prices"];
         assert!(chart.as_str().unwrap().contains("\"BTC\":[50000.0"), "{venue}: {chart}");
     }
     let asked = |name: &str, needle: &str| -> Vec<usize> {
-        of(name).rails["steps"].as_array().unwrap().iter().map(|step| step["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains(needle)).count()).collect()
+        of(name).v2["steps"].as_array().unwrap().iter().map(|step| step["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains(needle)).count()).collect()
     };
     for (name, needle) in [("bitvavo_series", "/candles?"), ("bitget_series", "/market/candles?"), ("bybit_series", "/market/kline?")] {
         assert_eq!(asked(name, needle), [3, 2, 4], "{name}: BTC's two pages and ETH's one, one each a tail, then BTC's tail and its two-page rebuild beside ETH's tail");
     }
-    let bybit = of("bybit_failed_page").rails["bots"].as_object().unwrap().values().next().unwrap().clone();
+    let bybit = of("bybit_failed_page").v2["bots"].as_object().unwrap().values().next().unwrap().clone();
     assert!(bybit["live"].as_str().unwrap().contains("\"prices_stale\":true"));
 }
 
@@ -587,13 +587,13 @@ fn bitvavo_bitget_and_bybit_series_are_kept_across_steps_and_asked_for_as_rails_
 /// answering an error, or refused (honeymaker returns it a Failure), leaves the bot's prices stale; a tokenized stock priced and charted by its pair;
 /// and a pair bot whose listing is not available, unpriced.
 #[test]
-fn gemini_hyperliquid_and_coinbase_series_are_kept_across_steps_and_asked_for_as_rails_asks() {
+fn gemini_hyperliquid_and_coinbase_series_are_kept_across_steps_and_asked_for_as_v2_asks() {
     let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
-    let bot = |name: &str| of(name).rails["bots"].as_object().unwrap().values().next().unwrap().clone();
+    let bot = |name: &str| of(name).v2["bots"].as_object().unwrap().values().next().unwrap().clone();
     for venue in ["gemini", "hyperliquid", "coinbase"] {
         for name in ["series", "failed_page", "stale", "refused"].map(|kind| format!("{venue}_{kind}")) {
             let scenario = of(&name);
-            assert_eq!(scenario.rails["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
+            assert_eq!(scenario.v2["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
         }
         for name in ["series", "failed_page"].map(|kind| format!("{venue}_{kind}")) {
             assert!(bot(&name)["live"].as_str().unwrap().contains("\"live_prices\""), "{name}");
@@ -606,7 +606,7 @@ fn gemini_hyperliquid_and_coinbase_series_are_kept_across_steps_and_asked_for_as
         assert!(chart["BTC"].as_array().unwrap().last().unwrap().is_null() && chart["ETH"].as_array().unwrap().last().unwrap().is_number(), "{venue}: {chart}");
     }
     let asked = |name: &str, needle: &str| -> Vec<usize> {
-        of(name).rails["steps"].as_array().unwrap().iter().map(|step| step["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains(needle)).count()).collect()
+        of(name).v2["steps"].as_array().unwrap().iter().map(|step| step["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains(needle)).count()).collect()
     };
     // Gemini's tail and rebuild are one GET (the steps list it once); Hyperliquid's are two bodies; Coinbase's BTC walk is
     // six windows cold, ETH's six (empty before its listing).
@@ -615,31 +615,31 @@ fn gemini_hyperliquid_and_coinbase_series_are_kept_across_steps_and_asked_for_as
     assert_eq!(asked("coinbase_series", "/candles?"), [12, 2, 8]);
     for name in ["hyperliquid_stock", "hyperliquid_unavailable"] {
         let scenario = of(name);
-        assert_eq!(scenario.rails["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
+        assert_eq!(scenario.v2["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
     }
     assert!(bot("hyperliquid_stock")["live"].as_str().unwrap().contains("\"live_prices\""));
     assert!(bot("hyperliquid_stock")["chart"]["prices"].as_str().unwrap().contains("\"AAA\":["));
     assert!(bot("hyperliquid_unavailable")["live"].as_str().unwrap().contains("\"prices_stale\":true"));
 }
 
-/// PLAN-A17 A17-3: figures.rb's CoinGecko accounts (`account_coingecko`, `account_string_price_coingecko`) through the web's
+/// PLAN-A17 A17-3: the recorded CoinGecko accounts (`account_coingecko`, `account_string_price_coingecko`) through the web's
 /// conversions (web::tracker::fx over jobs::market::Feed, as the bots page and the tracker get them), not only this
-/// library's scripted market: the display rate equals Rails' Denomination, from one `exchange_rates` answer, and every
-/// CoinGecko request is one Rails made (the pro plan ping aside: Rails' harness pre-seeds the plan).
+/// library's scripted market: the display rate equals 2.x's Denomination, from one `exchange_rates` answer, and every
+/// CoinGecko request is one 2.x made (the pro plan ping aside: the recording harness pre-seeds the plan).
 #[test]
-fn coingecko_accounts_convert_through_the_web_as_rails_does() {
+fn coingecko_accounts_convert_through_the_web_as_v2_does() {
     let _ = grid(); // computed on its own runtime, before this test's
     tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(coingecko_accounts_convert());
 }
 async fn coingecko_accounts_convert() {
-    let recorded = common::frozen("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir());
+    let recorded = common::frozen("figures-grid", |dir| dir.join("expected").is_dir() && dir.join("input").is_dir());
     for name in ["account_coingecko", "account_string_price_coingecko"] {
-        let rails = &grid().scenarios.iter().find(|s| s.name == name).unwrap().rails;
+        let v2 = &grid().scenarios.iter().find(|s| s.name == name).unwrap().v2;
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("production.sqlite3");
-        std::fs::copy(recorded.join("rust").join(name).join("production.sqlite3"), &file).unwrap();
-        let sc: Value = serde_json::from_str(&std::fs::read_to_string(recorded.join("rust").join(name).join("scenario.json")).unwrap()).unwrap();
-        // figures.rb keys a price by its ids and currency; the wire keys a request by its whole sorted query.
+        std::fs::copy(recorded.join("input").join(name).join("production.sqlite3"), &file).unwrap();
+        let sc: Value = serde_json::from_str(&std::fs::read_to_string(recorded.join("input").join(name).join("scenario.json")).unwrap()).unwrap();
+        // The recording harness keys a price by its ids and currency; the wire keys a request by its whole sorted query.
         let mut script = serde_json::Map::new();
         for (key, reply) in sc["script"].as_object().unwrap() {
             let key = match key.strip_prefix("GET api.coingecko.com/api/v3/simple/price?") {
@@ -653,7 +653,7 @@ async fn coingecko_accounts_convert() {
             script.insert(key, reply.clone());
         }
         script.insert("GET pro-api.coingecko.com/api/v3/ping".into(), serde_json::json!({"status": 401, "body": {}}));
-        // Rails stored the rows under its own secret: the copy holds them as plaintext, which both read.
+        // 2.x stored the rows under its own secret: the copy holds them as plaintext, which both read.
         rusqlite::Connection::open(&file).unwrap().execute_batch("UPDATE app_configs SET value='coingecko' WHERE key='market_data_provider';
             UPDATE app_configs SET value='CG-demo-key' WHERE key='coingecko_api_key';").unwrap();
         let log = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
@@ -664,11 +664,11 @@ async fn coingecko_accounts_convert() {
         let prepared = deltabadger::web::tracker::fx::prepare(&app, user).await.unwrap();
         let now = app.now().timestamp();
         let denomination = app.db(move |c| prepared.denomination(c, user, now)).await.unwrap().unwrap_or_else(|| panic!("{name}: no rate"));
-        let expected: Value = serde_json::from_str(rails["denomination"].as_str().unwrap()).unwrap();
+        let expected: Value = serde_json::from_str(v2["denomination"].as_str().unwrap()).unwrap();
         assert_eq!((denomination.currency.as_str(), denomination.rate.to_s_f()), (expected["currency"].as_str().unwrap(), expected["rate"].as_str().unwrap().to_string()), "{name}");
         let asked = log.lock().unwrap().clone();
         assert_eq!(asked.iter().filter(|k| k.ends_with("/exchange_rates")).count(), 1, "{name}: {asked:?}");
-        let theirs: Vec<&str> = rails["requests"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
-        for request in asked.iter().filter(|k| !k.contains("/ping")) { assert!(theirs.contains(&request.as_str()), "{name}: Rails never asked {request}: {theirs:?}"); }
+        let theirs: Vec<&str> = v2["requests"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
+        for request in asked.iter().filter(|k| !k.contains("/ping")) { assert!(theirs.contains(&request.as_str()), "{name}: 2.x never asked {request}: {theirs:?}"); }
     }
 }

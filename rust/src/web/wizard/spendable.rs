@@ -77,13 +77,13 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Resu
 enum Saved { Created(i64), Invalid(String) }
 
 /// POST .../pick_spendable_asset: the quote joins the session's settings with the wizard's defaults (quote_amount 100, interval
-/// week, where none is set), and the bot is saved: created, not started. A blank quote re-renders the step (422); a bot Rails
+/// week, where none is set), and the bot is saved: created, not started. A blank quote re-renders the step (422); a bot 2.x
 /// would not save re-renders it with the reason, the session keeping what was merged into it.
 pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     if let Some(answer) = expired(&ctx) { return Ok(answer) }
     let Some(quote) = ctx.params.form(FIELD).or_else(|| ctx.params.query(FIELD)).map(str::to_string) else { return Ok(layout::bad_request()) };
-    if crate::ruby::blank(&quote) { return render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, false, vec![]).await }
+    if crate::v2::blank(&quote) { return render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, false, vec![]).await }
     let config = {
         let mut data = ctx.session.lock();
         let config = data.bot_config.get_or_insert_with(|| json!({}));

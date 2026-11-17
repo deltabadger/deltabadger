@@ -1,15 +1,15 @@
-//! Asset::InferColorFromImageJob (app/jobs/asset/infer_color_from_image_job.rb, Asset#infer_color_from_image,
+//! Asset::InferColorFromImageJob (Asset#infer_color_from_image,
 //! Utilities::Image): an asset's colour from its logo, after a CoinGecko refresh changed its image_url
 //! (reference::refresh wakes it per asset).
 //!
-//! The image URL is upstream text. It is checked against Rails' host allow-list before anything is sent, fetched with a
+//! The image URL is upstream text. It is checked against 2.x's host allow-list before anything is sent, fetched with a
 //! 5 s timeout and a 5 MB cap counted while it arrives, never following a redirect, and its format is sniffed from the
 //! bytes (PNG, JPEG, GIF, WebP; never SVG or anything else). Decoding runs one image at a time, off the runtime, under
 //! pixel limits (D-COLOR-IMAGE-LIMITS).
 //!
-//! Rails asks ImageMagick for five colours (`convert -colors 5 -depth 8 -alpha on histogram:info:`). There is no
+//! 2.x asks ImageMagick for five colours (`convert -colors 5 -depth 8 -alpha on histogram:info:`). There is no
 //! ImageMagick in the one binary, so the five come from a small quantizer that approximates it (D-COLOR-QUANTIZER;
-//! tests/asset_colors.rs measures and pins the agreement). Everything after the histogram is Rails' own.
+//! tests/asset_colors.rs measures and pins the agreement). Everything after the histogram is 2.x's own.
 use super::{Cx, Job, JobFuture, Outcome, Retry, Spec, Wake};
 use super::schedule::Jitter;
 use image::{AnimationDecoder, ImageDecoder, ImageFormat, Limits, RgbaImage};
@@ -32,7 +32,7 @@ const MAX_FRAMES: usize = 64;
 /// The quantizer looks at most this many pixels of a frame (an even stride); a 250 px logo is under it.
 const SAMPLE: usize = 65_536;
 
-/// Asset::COLOR_OVERRIDES (asset.rb), pinned by the recorded fixture (tests/asset_colors.rs).
+/// Asset::COLOR_OVERRIDES, pinned by the recorded fixture (tests/asset_colors.rs).
 pub const OVERRIDES: &[(&str, &str)] = &[
     ("ripple", "#6366F1"), ("altlayer", "#6f51b1"), ("nervos-network", "#3cc68a"), ("lisk", "#3e6ded"), ("bittensor", "#00C48C"), ("algorand", "#00bea5"),
     ("arweave", "#ff6700"), ("stellar", "#04b5e5"), ("fetch-ai", "#4B0082"), ("quant", "#bd2426"), ("worldcoin-wld", "#1A1A1A"), ("forefront", "#6366F1"),
@@ -81,7 +81,7 @@ pub fn sniff(bytes: &[u8]) -> Option<ImageFormat> {
     None
 }
 
-/// The image fetch: Rails' timeouts, no proxy, no redirect followed, no retry.
+/// The image fetch: 2.x's timeouts, no proxy, no redirect followed, no retry.
 #[derive(Clone)]
 pub struct Fetcher { client: reqwest::Client, reroute: Option<(String, String)> }
 
@@ -293,7 +293,7 @@ impl Job for InferColor {
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(infer(self, cx)) }
 }
 
-/// Asset#infer_color_from_image, its guards in Rails' order.
+/// Asset#infer_color_from_image, its guards in 2.x's order.
 async fn infer(job: &InferColor, cx: Cx<'_>) -> Outcome {
     let (asset, env_url) = (job.asset, job.env_market_url.clone());
     let read = cx.db.run(move |c, cipher| {

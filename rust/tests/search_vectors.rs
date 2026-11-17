@@ -1,4 +1,4 @@
-//! The asset search's string arithmetic against what Ruby computed (script/rust/record_search_vectors.rb):
+//! The asset search's string arithmetic against what 2.x computed:
 //! the jaro_winkler gem's similarity, String#downcase, and the lazy frame's next-page query.
 use deltabadger::web::bot::search;
 use serde_json::Value;
@@ -19,14 +19,14 @@ fn jaro_winkler_scores_as_the_gem() {
 }
 
 #[test]
-fn downcase_maps_as_ruby() {
+fn downcase_maps_as_v2() {
     for row in vectors()["downcase"].as_array().unwrap() {
         assert_eq!(search::downcase(row[0].as_str().unwrap()), row[1].as_str().unwrap(), "{row}");
     }
 }
 
 #[test]
-fn next_page_query_is_rails_to_query() {
+fn next_page_query_is_v2_to_query() {
     for row in vectors()["next_page_query"].as_array().unwrap() {
         assert_eq!(search::next_page_query(row[0].as_str().unwrap(), 20), row[1].as_str().unwrap(), "{row}");
     }

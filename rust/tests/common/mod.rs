@@ -41,36 +41,36 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 pub fn vectors() -> serde_json::Value {
-    serde_json::from_str(include_str!("../fixtures/ruby_vectors.json")).expect("ruby_vectors.json parses")
+    serde_json::from_str(include_str!("../fixtures/v2_vectors.json")).expect("v2_vectors.json parses")
 }
 
 pub const INSTALL_FILES: [&str; 2] = ["production.sqlite3", "production_queue.sqlite3"];
 
 /// A fresh install for the general tests: the primary from `store::create_schema` (rust/schema/baseline.sql) with this
 /// build's Rust migrations applied as `run` and `serve` apply them at startup; no marker, no seeds. The queue is the
-/// Rails-built one (`rails_install_template`), so takeover paths still read a Rails queue.
+/// 2.x-built one (`v2_install_template`), so takeover paths still read a 2.x queue.
 pub fn baseline_install() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
-    std::fs::copy(rails_install_template().join(INSTALL_FILES[1]), dir.path().join(INSTALL_FILES[1])).unwrap();
+    std::fs::copy(v2_install_template().join(INSTALL_FILES[1]), dir.path().join(INSTALL_FILES[1])).unwrap();
     let c = rusqlite::Connection::open(dir.path().join(INSTALL_FILES[0])).unwrap();
     deltabadger::store::create_schema(&c).expect("baseline.sql builds the primary");
     deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
     dir
 }
 
-/// A fresh copy of an install as Rails prepares one (`rails_install_unmigrated`), with this build's Rust migrations
-/// applied as `run` and `serve` apply them at startup. For the tests whose point is a Rails-built (2.x) install.
-pub fn rails_install() -> tempfile::TempDir {
-    let dir = rails_install_unmigrated();
+/// A fresh copy of an install as 2.x prepares one (`v2_install_unmigrated`), with this build's Rust migrations
+/// applied as `run` and `serve` apply them at startup. For the tests whose point is a 2.x-built (2.x) install.
+pub fn v2_install() -> tempfile::TempDir {
+    let dir = v2_install_unmigrated();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
     dir
 }
 
-/// A fresh copy of an install exactly as Rails prepared one (db/schema.rb and db/queue_schema.rb loaded by Rails itself,
-/// frozen at the oracle commit: recorded/rails-install), from the template of this test run. No Rust migration applied.
-pub fn rails_install_unmigrated() -> tempfile::TempDir {
-    let template = rails_install_template();
+/// A fresh copy of an install exactly as 2.x prepared one (2.x's schema and queue schema loaded by 2.x itself,
+/// frozen at the oracle commit: recorded/v2-install), from the template of this test run. No Rust migration applied.
+pub fn v2_install_unmigrated() -> tempfile::TempDir {
+    let template = v2_install_template();
     let dir = tempfile::tempdir().unwrap();
     for file in INSTALL_FILES {
         std::fs::copy(template.join(file), dir.path().join(file)).unwrap();
@@ -91,19 +91,19 @@ pub fn as_migrations(list: &[(String, String, String)]) -> Vec<deltabadger::stor
     list.iter().map(|(version, name, sql)| deltabadger::store::Migration { version, name, sql }).collect()
 }
 
-/// The template rails_install copies, built once per test run (see `run_template`).
-pub fn rails_install_template() -> &'static Path {
+/// The template v2_install copies, built once per test run (see `run_template`).
+pub fn v2_install_template() -> &'static Path {
     static TEMPLATE: OnceLock<PathBuf> = OnceLock::new();
-    TEMPLATE.get_or_init(|| frozen("rails-install", install_template_is_whole))
+    TEMPLATE.get_or_init(|| frozen("v2-install", install_template_is_whole))
 }
 
-/// The rails_install template's build, in an explicit base and run, for the tests of the template itself.
+/// The v2_install template's build, in an explicit base and run, for the tests of the template itself.
 pub fn install_template_for(base: &Path, run: &str) -> PathBuf {
-    shared_template(base, &format!("rails-install-{run}"), install_template_is_whole, |out| copy_tree(rails_install_template(), out))
+    shared_template(base, &format!("v2-install-{run}"), install_template_is_whole, |out| copy_tree(v2_install_template(), out))
 }
 
 /// A directory `build` fills once per test RUN and every process of that run then reads (and copies before it
-/// writes). nextest runs every test in its own process, so a per-process OnceLock rebuilt the same Rails output
+/// writes). nextest runs every test in its own process, so a per-process OnceLock rebuilt the same 2.x output
 /// once per test. Keyed by NEXTEST_RUN_ID, it is never reused by a later run, so it is never stale; without a run
 /// id (cargo test) it is per process, as before.
 pub fn run_template(name: &str, is_whole: fn(&Path) -> bool, build: impl FnOnce(&Path)) -> PathBuf {
@@ -162,10 +162,10 @@ fn sweep_old_templates(base: &Path) {
     }
 }
 
-/// A Rails recording (`recording`): the restored frozen directory, shared by the run.
+/// A 2.x recording (`recording`): the restored frozen directory, shared by the run.
 pub struct Recording { pub path: PathBuf }
 
-/// Rails' side of a grid, frozen under `name` (`frozen`); the Rust side is always run live. The directory is shared, so
+/// 2.x's side of a grid, frozen under `name` (`frozen`); the Rust side is always run live. The directory is shared, so
 /// a caller copies what it writes to.
 pub fn recording(name: &str, is_whole: fn(&Path) -> bool) -> Recording {
     Recording { path: frozen(name, is_whole) }
@@ -199,7 +199,7 @@ pub fn install_alpaca() -> (tempfile::TempDir, deltabadger::store::Opened, seed:
     (dir, o, s)
 }
 
-/// Named run-ownership divergence witnesses recorded from Rails at the oracle commit.
+/// Named run-ownership divergence witnesses recorded from 2.x at the oracle commit.
 pub fn ownership_case(name: &str) -> serde_json::Value {
     let fixture: serde_json::Value = serde_json::from_str(include_str!("../fixtures/run_ownership.json")).unwrap();
     fixture["cases"].get(name).unwrap().clone()
@@ -216,7 +216,7 @@ pub fn ownership_business_rows(mut tables: serde_json::Value) -> serde_json::Val
                     assert!(value.as_i64().is_some_and(|n| n >= 0), "invalid ownership counter: {value}");
                 }
             }
-            // The engine's composition resync marker (engine::index::RESYNC_KEY), where Rails enqueues its job.
+            // The engine's composition resync marker (engine::index::RESYNC_KEY), where 2.x enqueues its job.
             if let Some(marker) = bot["transient_data"].as_object_mut().unwrap().remove("rust_index_resync") {
                 assert!(marker["n"].as_i64().is_some_and(|n| n > 0) && marker["at"].is_string(), "invalid resync marker: {marker}");
             }
@@ -238,16 +238,16 @@ pub fn conditions_fixture() -> serde_json::Value {
     serde_json::from_str(include_str!("../fixtures/conditions_every_bot_expected.json")).expect("conditions_every_bot_expected.json parses")
 }
 
-/// D-MCP-COND-KINDS: `body` with update_bot_settings' field descriptions as Rails records them (protocol::recorded), where
+/// D-MCP-COND-KINDS: `body` with update_bot_settings' field descriptions as 2.x records them (protocol::recorded), where
 /// this build's schema says which rule fields an index bot takes (protocol::metadata). Each description is JSON-escaped text.
 #[allow(dead_code)]
 pub fn recorded_rule_kinds(body: &str) -> String {
     use deltabadger::web::mcp::protocol;
     let fields = |v: &serde_json::Value| v["tools"].as_array().unwrap().iter().find(|t| t["name"] == "update_bot_settings").unwrap()["inputSchema"]["properties"].clone();
-    let (ours, rails) = (fields(protocol::metadata()), fields(&protocol::recorded()));
+    let (ours, v2) = (fields(protocol::metadata()), fields(&protocol::recorded()));
     let mut body = body.to_string();
     for (name, schema) in ours.as_object().unwrap() {
-        let (a, b) = (schema["description"].to_string(), rails[name]["description"].to_string());
+        let (a, b) = (schema["description"].to_string(), v2[name]["description"].to_string());
         if a != b { body = body.replace(a.trim_matches('"'), b.trim_matches('"')); }
     }
     body

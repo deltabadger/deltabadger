@@ -1,7 +1,7 @@
 //! Settings and lifecycle writes own their observation, response construction and post-commit delivery.
 //! Call from App::db: cancelling its await must not cancel the committed write's wake.
 use super::{action_params::ActionParams, composition, draft::{Draft, FieldError, ParseError, ValidationContext}, Bot, For, Kind};
-use crate::{codec, engine::{eligibility, model}, ruby::BigDec};
+use crate::{codec, engine::{eligibility, model}, v2::BigDec};
 use crate::web::format::Num;
 use crate::web::{bot_api::Domain, bots, i18n, layout::Ctx, WebError};
 use rusqlite::{Connection, OptionalExtension};
@@ -17,7 +17,7 @@ pub enum Outcome<T> {
     Committed(T),
 }
 
-/// BotApi::Result's failure: the domain status, Rails' error code and its message.
+/// BotApi::Result's failure: the domain status, 2.x's error code and its message.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Failure { pub status: Domain, pub code: &'static str, pub message: String }
 
@@ -43,7 +43,7 @@ pub struct Prepared<T> {
     pub response: T,
     pub broadcasts: Vec<(String, String)>,
     /// A Continue left for the engine to schedule (`rust_continue_start`): this bot's status and progress bars are
-    /// broadcast once it has, as Bot::BroadcastAfterScheduledActionJob does after Rails enqueues the bot's job.
+    /// broadcast once it has, as Bot::BroadcastAfterScheduledActionJob does after 2.x enqueues the bot's job.
     pub after_scheduling: Option<i64>,
 }
 
@@ -61,7 +61,7 @@ pub fn orders_may_execute(c: &Connection, id: i64) -> rusqlite::Result<bool> {
 
 /// The per-bot fence of the writes that rewrite a bot (plan §2.0, the Bot::VenueLease analogue): a bot the engine holds,
 /// mid-tick (`executing`, or `waiting` off its price rule) or with a placement intent, is left as it is. A write that goes
-/// ahead bumps the bot's run generation, so an engine write already in flight is fenced. Narrower than Rails, which also
+/// ahead bumps the bot's run generation, so an engine write already in flight is fenced. Narrower than 2.x, which also
 /// waits for any job holding the venue (D-FENCE-PER-BOT).
 pub fn engine_holds(c: &Connection, bot: &model::Bot) -> Result<bool, WebError> {
     use crate::enums::BotStatus;
@@ -223,7 +223,7 @@ fn settings_inner<T>(
     if label_changed { one(tx.execute("UPDATE bots SET label = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&draft.candidate.label, id, owner, class))?)?; }
     if exchange_changed { one(tx.execute("UPDATE bots SET exchange_id = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (draft.candidate.exchange.id, id, owner, class))?)?; }
     // Bot::PriceLimitable#reset_price_limit_info_cache (before_save, when the settings are written): a price-rule field changed
-    // on either side drops the status line's info of the side the bot is saved on, as Rails does; D-INFO-SIDE: and the info of
+    // on either side drops the status line's info of the side the bot is saved on, as 2.x does; D-INFO-SIDE: and the info of
     // the side whose rule changed (each side has its own line).
     if !effects.settings.set.is_empty() {
         use crate::engine::conditions::{forget_info, side_of};
@@ -251,7 +251,7 @@ fn settings_inner<T>(
     if metrics_changed {
         composition::reconcile(&tx, &draft.candidate, ctx.now)?;
     }
-    // Bots::DcaIndex#resync_index_composition: an index-definition key or the exchange changed (dca_index.rb:53-54, :393-396).
+    // Bots::DcaIndex#resync_index_composition: an index-definition key or the exchange changed.
     let redefined = INDEX_DEFINITION_KEYS.iter().any(|key| !super::draft::equal(draft.raw_settings.get(*key).unwrap_or(&Value::Null), final_settings.get(*key).unwrap_or(&Value::Null)));
     if draft.candidate.kind == Kind::Index && (redefined || exchange_changed) { crate::engine::index::mark_resync(&tx, id, ctx.now)?; }
     if let Err(refusal) = eligibility::guard(&tx, &ctx.app.cipher, Some(id)) {
@@ -263,11 +263,11 @@ fn settings_inner<T>(
         return Ok(Outcome::GuardRefused(response.response));
     }
     if !submitted.mcp() { if let Some(reason) = super::refusal(&tx, id, provider, For::Settings)? { return Ok(Outcome::Unported(reason)); } }
-    // Rails keeps the name it showed in memory: a label the save did not write is not regenerated from the new settings.
+    // 2.x keeps the name it showed in memory: a label the save did not write is not regenerated from the new settings.
     let shown = std::mem::take(&mut draft.candidate.label);
     draft.candidate = Bot::find(&tx, owner, id, For::Page, ctx.locale)?.ok_or_else(|| error("saved bot disappeared"))?;
     if draft.candidate.label_unsaved { draft.candidate.label = shown; }
-    // Ruby considers 50 == 50.0 for dirty tracking, but the saved instance retains the assigned Float.
+    // 2.x considers 50 == 50.0 for dirty tracking, but the saved instance retains the assigned Float.
     // Keep that type for the response (Num::round/to_s in the smart-interval hint), without writing an unchanged JSON column.
     if effects.settings.set.is_empty() { draft.candidate.settings = final_settings; }
     if !submitted.mcp() { if let Some(reason) = draft.candidate.unrendered() { return Ok(Outcome::Unported(reason)); } }
@@ -292,9 +292,9 @@ fn settings_inner<T>(
 
 pub use crate::engine::accounting::web_pending as pending;
 use crate::engine::accounting::{web_effective_amount as effective_amount, web_serialized as serialized, web_minimum as minimum};
-/// A stored transient value against the one assigned, by Ruby's `==`: `assigned` is nil, a BigDecimal (written as its
+/// A stored transient value against the one assigned, by 2.x's `==`: `assigned` is nil, a BigDecimal (written as its
 /// text) or a settings number. A stored text is a String, never equal to a BigDecimal.
-fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
+fn v2_equal(stored: &Value, assigned: &Value) -> bool {
     let Some(old) = Num::from_json(stored).and_then(|n| n.to_d()) else { return stored.is_null() && assigned.is_null() };
     match assigned {
         // A text that is no number equals no stored number.
@@ -304,10 +304,10 @@ fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
     }
 }
 
-/// ActiveRecord::Store writes an assignment only when it differs, by Ruby's ==, from what the store holds: a captured
+/// ActiveRecord::Store writes an assignment only when it differs, by 2.x's ==, from what the store holds: a captured
 /// carry equal to the stored one (a frozen seller's `0.to_d` over a stored `0`) keeps the stored spelling.
 pub(super) fn stored_carry(raw: &serde_json::Map<String, Value>, value: Value) -> Value {
-    match raw.get("missed_quote_amount") { Some(old) if ruby_equal(old, &value) => old.clone(), _ => value }
+    match raw.get("missed_quote_amount") { Some(old) if v2_equal(old, &value) => old.clone(), _ => value }
 }
 
 /// A start also ends a takeover's set-aside (engine::set_aside::KEY): the owner has started the bot again.
@@ -318,7 +318,7 @@ const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, \
       ELSE transient_data END, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'), 0) + 1), '$.rust_set_aside'), updated_at = ?5 \
     WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status IN (0, 2)";
 
-/// Bots::DcaIndex::INDEX_DEFINITION_KEYS (dca_index.rb:388-389).
+/// Bots::DcaIndex::INDEX_DEFINITION_KEYS.
 const INDEX_DEFINITION_KEYS: [&str; 7] = ["num_coins", "hold_all", "index_type", "index_category_id", "quote_asset_id", "limit_ordered", "allocation_flattening"];
 
 // Provisional spelling: MUST match the merged engine PR before execution.
@@ -567,7 +567,7 @@ pub fn lifecycle_in<T>(
             // Lifecycle#start assigns last_action_job_at and the carry nil, then captures after assigning the future
             // anchor. Accountable lands the capture (`[missed_quote_amount.to_d, effective_quote_amount].min`) only when
             // the settings changed (a new start_at) and restores the nil otherwise; ActiveRecord then writes
-            // transient_data only when the hash differs, by Ruby's ==, from the stored one.
+            // transient_data only when the hash differs, by 2.x's ==, from the stored one.
             let missed=if effects.settings_changed {
                 let carry=pending(tx,&draft.candidate,ctx.now)?.to_d().ok_or_else(||error("carry is not finite"))?;
                 serialized(minimum(Num::Dec(carry),effective_amount(&draft.candidate)?)?)?
@@ -577,7 +577,7 @@ pub fn lifecycle_in<T>(
             if draft.raw_transient.contains_key("last_action_job_at") { start.push(("last_action_job_at",Value::Null)); }
             let own=|key:&String| key=="last_action_job_at" || start.iter().any(|(k,_)| k==key);
             let same=effects.transient.set.keys().all(own) && effects.transient.remove.is_empty()
-                && start.iter().all(|(k,v)| draft.raw_transient.get(*k).is_some_and(|old| ruby_equal(old,v)));
+                && start.iter().all(|(k,v)| draft.raw_transient.get(*k).is_some_and(|old| v2_equal(old,v)));
             if same { effects.transient.set.retain(|k,_| !own(k)); } else { for (k,v) in start { effects.transient.set.insert(k.into(),v); } }
         }
         for (key,value) in &effects.settings.set { one(tx.execute(SET_SETTING,(path(key,false)?,if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
@@ -674,7 +674,7 @@ pub enum Reversal {
 /// selling for N quote → buying; a wider basket toggles), saved as Accountable saves a settings change. A working bot is
 /// `scheduled` again from now, its run generation is bumped (an in-flight tick's writes are fenced), and it waits for its
 /// next checkpoint. Every trigger's `*_condition_met_at` goes. The captured orders are left for the engine to cancel and,
-/// leaving the buy side, the captured buys are registered for their reserve in Rails' own `flip_reserve_pending`
+/// leaving the buy side, the captured buys are registered for their reserve in 2.x's own `flip_reserve_pending`
 /// (engine::reversal).
 pub fn reverse(c: &Connection, cipher: &crate::crypto::Cipher, owner: i64, id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<Reversal, WebError> {
     let tx = model::immediate(c)?;
@@ -740,8 +740,8 @@ pub(crate) fn flip_in(tx: &Connection, bot: &model::Bot, now: chrono::DateTime<c
     // D-FLIP-START-FINISHED: consume the first start with the trigger's re-anchor. A later Fundable exception must not
     // leave start_at enabled on the old anchor and make the committed new run ineligible.
     if target == Target::Toggle { disable_flipped_start_in(tx, &model::load_bot(tx, id)?, now)?; }
-    // Rails enqueues the next Bot::ActionJob at next_interval_checkpoint_at: re-anchored at now, the bot would otherwise be due at
-    // once. Rails reads that a moment after the anchor (its own Time.current), so the checkpoint is one whole interval on.
+    // 2.x enqueues the next Bot::ActionJob at next_interval_checkpoint_at: re-anchored at now, the bot would otherwise be due at
+    // once. 2.x reads that a moment after the anchor (its own Time.current), so the checkpoint is one whole interval on.
     if working { crate::engine::placement::defer_to_next_checkpoint(tx, &model::load_bot(tx, id)?, now + chrono::Duration::microseconds(1))?; }
     // D-6D-2: rotated into selling its one asset with the base cap used up, the bot is stopped and its owner mailed.
     crate::engine::amount_limit::stop_at_rotation(tx, id, now)?;
@@ -764,7 +764,7 @@ fn save_flip_settings(tx: &Connection, owner: i64, draft: &Draft, carry: Num, no
 }
 
 /// Startable#disable_starting_time! after a trigger changed the raw anchor, inside its transaction.
-/// With a stored start_at, Rails takes its save/carry branch instead of update_columns.
+/// With a stored start_at, 2.x takes its save/carry branch instead of update_columns.
 fn disable_flipped_start_in(tx: &Connection, bot: &model::Bot, now: chrono::DateTime<chrono::Utc>) -> Result<(), WebError> {
     if !super::cast_boolean(bot.settings.get("start_time_enabled")) { return Ok(()); }
     let anchor = crate::codec::optional_time(bot.settings.get("start_at").filter(|v| v.as_str().is_none_or(|s| !s.trim().is_empty()))).map_err(|e| error(&format!("{e:?}")))?;

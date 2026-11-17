@@ -35,7 +35,7 @@ impl ActionParams {
         Ok(Self(value, true))
     }
 
-    /// What a REST action hands its BotApi service: Rails bounds a JSON body by its size alone (FORM_LIMIT here), so a
+    /// What a REST action hands its BotApi service: 2.x bounds a JSON body by its size alone (FORM_LIMIT here), so a
     /// long list is the service's to judge, never a parameter limit.
     pub fn from_service(value: Map<String, Value>) -> Self { Self(Value::Object(value), true) }
 
@@ -43,9 +43,9 @@ impl ActionParams {
 
     pub fn value(&self) -> &Param { &self.0 }
 
-    /// Rails' controller parameter merge: query keys replace body keys shallowly.
+    /// 2.x's controller parameter merge: query keys replace body keys shallowly.
     /// Existing bot actions retain their separately approved body-winning merge.
-    pub fn parse_rails(params: &Params) -> Result<Self, ParamError> {
+    pub fn parse_v2(params: &Params) -> Result<Self, ParamError> {
         let mut parsed = Self::parse(params)?;
         let query = form(&params.query)?;
         let object = parsed.0.as_object_mut().ok_or(ParamError::Shape)?;
@@ -76,10 +76,10 @@ impl ActionParams {
         Ok(Value::Object(out))
     }
 
-    /// Only Start uses Ruby's scalar to_s conversion; typed settings remain typed.
+    /// Only Start uses 2.x's scalar to_s conversion; typed settings remain typed.
     pub fn start_fresh(&self) -> Result<bool, StartFlagError> {
         match self.0.get("start_fresh") {
-            // A JSON null is Rails' params[:start_fresh].nil?: start fresh, as with no flag.
+            // A JSON null is 2.x's params[:start_fresh].nil?: start fresh, as with no flag.
             None | Some(Value::Null) => start_fresh(None),
             Some(Value::String(s)) => start_fresh(Some(s)),
             Some(Value::Bool(true)) => start_fresh(Some("true")),
@@ -90,7 +90,7 @@ impl ActionParams {
     }
 }
 
-// The plan explicitly requires a deep, body-winning merge. Rails 8.1's request merger
+// The plan explicitly requires a deep, body-winning merge. 2.x's request merger
 // is shallow and query-winning; action_transport pins that named divergence to real requests.
 fn merge(query: &mut Param, body: Param) {
     match (query, body) {
@@ -204,7 +204,7 @@ pub fn action(path: &str, method: &Method) -> Option<Action> {
 }
 
 /// Resolve explicit HTML-only requests before any future mutation handler writes.
-/// Delete/unarchive have Rails' explicit stream responses even for HTML Accept.
+/// Delete/unarchive have 2.x's explicit stream responses even for HTML Accept.
 pub fn format_allowed(action: Action, path: &str, headers: &HeaderMap) -> bool {
     if matches!(action, Action::Delete | Action::Unarchive) || path.ends_with(".turbo_stream") { return true; }
     let accepted: Vec<&str> = headers.get_all("accept").iter().filter_map(|h| h.to_str().ok())
@@ -217,7 +217,7 @@ pub fn format_allowed(action: Action, path: &str, headers: &HeaderMap) -> bool {
         || accepted.iter().any(|m| m.eq_ignore_ascii_case("text/vnd.turbo-stream.html") || *m == "*/*" || *m == "text/*")
 }
 
-/// BotsController scalar allowlist, pinned to the generated Rails vector.
+/// BotsController scalar allowlist, pinned to the generated 2.x vector.
 pub const BASKET_SCALARS: &[&str] = &[
     "quote_asset_id",
     "quote_amount",
@@ -316,17 +316,17 @@ pub const BASKET_SCALARS: &[&str] = &[
     "sell_indicator_limit_mode",
 ];
 
-/// BotsController scalar allowlist, pinned to the generated Rails vector.
+/// BotsController scalar allowlist, pinned to the generated 2.x vector.
 /// BotsController#signal_bot_params: the name, the venue and Bots::Signal's two settings.
 /// D-SIG-CONDITIONS / D-SIG-CAP: and the fields of the rules this build runs on a signal bot (both sides of the price, drop, moving-average and RSI rules,
-/// the spending cap), beyond Rails' allowlist.
+/// the spending cap), beyond 2.x's allowlist.
 pub const SIGNAL_SCALARS: &[&str] = &["label", "exchange_id", "base_asset_id", "quote_asset_id", "quote_amount_limited", "quote_amount_limit",
     "price_limited", "price_limit_mode", "price_limit", "price_limit_range_lower_bound", "price_limit_range_upper_bound", "price_limit_value_condition",
     "sell_price_limited", "sell_price_limit_mode", "sell_price_limit", "sell_price_limit_range_lower_bound", "sell_price_limit_range_upper_bound", "sell_price_limit_value_condition",
     "price_drop_limited", "price_drop_limit_mode", "price_drop_limit", "price_drop_limit_time_window_condition", "moving_average_limited", "moving_average_limit_mode", "moving_average_limit_value_condition", "moving_average_limit_in_ma_type", "moving_average_limit_in_timeframe", "moving_average_limit_in_period", "indicator_limited", "indicator_limit_mode", "indicator_limit", "indicator_limit_value_condition", "indicator_limit_in_indicator", "indicator_limit_in_timeframe", "sell_price_drop_limited", "sell_price_drop_limit_mode", "sell_price_drop_limit", "sell_price_drop_limit_time_window_condition", "sell_moving_average_limited", "sell_moving_average_limit_mode", "sell_moving_average_limit_value_condition", "sell_moving_average_limit_in_ma_type", "sell_moving_average_limit_in_timeframe", "sell_moving_average_limit_in_period", "sell_indicator_limited", "sell_indicator_limit_mode", "sell_indicator_limit", "sell_indicator_limit_value_condition", "sell_indicator_limit_in_indicator", "sell_indicator_limit_in_timeframe"];
 
 /// D-IDX-CONDITIONS / D-IDX-CAP: what an index bot's page posts for the rules this build runs on it (conditions::support),
-/// beyond Rails' allowlist.
+/// beyond 2.x's allowlist.
 pub const INDEX_RULE_SCALARS: &[&str] = &["quote_amount_limited", "quote_amount_limit", "price_limited", "price_limit_mode", "price_limit",
     "price_limit_range_lower_bound", "price_limit_range_upper_bound", "price_limit_value_condition", "price_limit_in_ticker_id",
     "price_drop_limited", "price_drop_limit_mode", "price_drop_limit", "price_drop_limit_time_window_condition", "moving_average_limited", "moving_average_limit_mode", "moving_average_limit_value_condition", "moving_average_limit_in_ma_type", "moving_average_limit_in_timeframe", "moving_average_limit_in_period", "indicator_limited", "indicator_limit_mode", "indicator_limit", "indicator_limit_value_condition", "indicator_limit_in_indicator", "indicator_limit_in_timeframe", "price_drop_limit_in_ticker_id", "moving_average_limit_in_ticker_id", "indicator_limit_in_ticker_id"];
@@ -399,14 +399,14 @@ impl NumericError {
 pub fn numeric(value: &Value, integer: bool) -> Result<Value, NumericError> {
     numeric_with_bound(value, integer, false)
 }
-/// R8 checks the exact submitted prefix before Rails' deliberate String#to_f conversion.
+/// R8 checks the exact submitted prefix before 2.x's deliberate String#to_f conversion.
 pub fn accounting_numeric(value: &Value) -> Result<Value, NumericError> {
     numeric_with_bound(value, false, true)
 }
 fn numeric_with_bound(value: &Value, integer: bool, accounting: bool) -> Result<Value, NumericError> {
     if value.is_boolean() || value.is_array() || value.is_object() { return Err(NumericError::Shape); }
     let input = value.as_str().map(str::to_owned).unwrap_or_else(|| value.to_string());
-    if input.len() > crate::ruby::MAX_INPUT_LEN { return Err(NumericError::Bound); }
+    if input.len() > crate::v2::MAX_INPUT_LEN { return Err(NumericError::Bound); }
     let s = input.trim_start_matches([' ', '\t', '\n', '\r', '\u{000b}', '\u{000c}']);
     let mut chars = s.chars().peekable();
     let mut prefix = String::new();
@@ -437,7 +437,7 @@ fn numeric_with_bound(value: &Value, integer: bool, accounting: bool) -> Result<
         if count > 0 { prefix.push_str(&exponent); }
     }
     if accounting {
-        let exact = crate::ruby::BigDec::parse(&prefix).map_err(|_| NumericError::Bound)?;
+        let exact = crate::v2::BigDec::parse(&prefix).map_err(|_| NumericError::Bound)?;
         crate::engine::accounting::bounded_decimal(&exact).map_err(|_| NumericError::Bound)?;
     }
     if integer {

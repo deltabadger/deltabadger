@@ -1,9 +1,9 @@
 //! PLAN-B2 R3, R4, r1.4, r1.12 (B2-5): a working bot this build refuses is **set aside** at every start: stopped the way
-//! Rails stops a bot for a blocking failure (tick::stop_owing_mail), with the reasons in the owner's words, and the app
+//! 2.x stops a bot for a blocking failure (tick::stop_owing_mail), with the reasons in the owner's words, and the app
 //! starts. A working withdrawal rule on an exchange without withdrawals is stopped the same way. Then the same check that
 //! refused it runs again on the same transaction: what is still refused (work in flight, a row or key this build can't
 //! read) is a hard stop, and the caller rolls the transaction back, so nothing is written.
-//! D-UPGRADE-SET-ASIDE: Rails would have kept trading such a bot; 3.0 stops it and says why.
+//! D-UPGRADE-SET-ASIDE: 2.x would have kept trading such a bot; 3.0 stops it and says why.
 use super::eligibility::{self, Allocations, Feature, History, Kind, Reason, Report, Work};
 use super::single_asset::Skip;
 use super::EngineError;
@@ -61,7 +61,7 @@ pub fn apply(tx: &Connection, cipher: Option<&Cipher>, report: &dyn Fn(&Connecti
         if !BOT_WORKING.iter().any(|s| *s as i64 == status) { continue; }
         let reason = reasons.join(" ");
         let aside = json!({ "reasons": reasons, "at": crate::codec::format_time(now) });
-        // Its own mail (notice::SET_ASIDE), not Rails' stopped-by-error one: nothing was rejected by the exchange.
+        // Its own mail (notice::SET_ASIDE), not 2.x's stopped-by-error one: nothing was rejected by the exchange.
         super::tick::stop_setting_aside(tx, id, STOP_KEY, (super::notice::SET_ASIDE, super::notice::stopped_marker(&reason, now)), (KEY, aside), &reason, now)?;
         bots.push(Aside { id, name: name(tx, id)?, reasons });
     }
@@ -69,7 +69,7 @@ pub fn apply(tx: &Connection, cipher: Option<&Cipher>, report: &dyn Fn(&Connecti
         let n = tx.execute("UPDATE rules SET status = ?1, updated_at = ?2 WHERE id = ?3 AND status IN (?4, ?5, ?6, ?7)",
             params![RuleStatus::Stopped as i64, crate::codec::format_time(now), id, RuleStatus::Scheduled as i64, RuleStatus::Executing as i64,
                     RuleStatus::Retrying as i64, RuleStatus::Waiting as i64])?;
-        // RuleLog status failed (rule_log.rb: pending success failed transient), as Rails' log_failed.
+        // RuleLog status failed (RuleLog's statuses: pending success failed transient), as 2.x's log_failed.
         if n > 0 { super::rules::log(tx, *id, None, 2, &rule_stopped(tx, *id)?, &json!({}), now)?; }
     }
     let rules = first.rules.clone();

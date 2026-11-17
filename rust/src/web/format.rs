@@ -1,14 +1,14 @@
-//! Numbers and times as Ruby and Rails print them into a page. Every function here is pinned by
-//! vectors recorded from Ruby (script/rust/record_vectors.rb: "bot_pages").
+//! Numbers and times as 2.x prints them into a page. Every function here is pinned by
+//! vectors recorded from 2.x (the recording harness's "bot_pages").
 use super::{i18n, timezone};
 use super::WebError;
 use crate::engine::EngineError;
-use crate::ruby::{from_sql, to_sentence, BigDec};
+use crate::v2::{from_sql, to_sentence, BigDec};
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ValueRef};
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use serde_json::Value;
 
-/// A number as Ruby holds one read from a JSON column or computed from one: the three classes
+/// A number as 2.x holds one read from a JSON column or computed from one: the three classes
 /// print, round and subtract differently, and the pages show the difference ("50", "50.0", "25.5").
 #[derive(Clone, Debug, PartialEq)]
 pub enum Num {
@@ -23,7 +23,7 @@ pub fn float_to_s(f: f64) -> String {
     if f.is_nan() { return "NaN".into(); }
     if f.is_infinite() { return if f > 0.0 { "Infinity".into() } else { "-Infinity".into() }; }
     if f == 0.0 { return if f.is_sign_negative() { "-0.0".into() } else { "0.0".into() }; }
-    let sci = crate::ruby::float_e(f.abs());
+    let sci = crate::v2::float_e(f.abs());
     let (mantissa, exponent) = sci.split_once('e').unwrap_or((&sci, "0"));
     let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
     let point = exponent.parse::<i64>().unwrap_or(0) + 1; // digits before the decimal point
@@ -109,7 +109,7 @@ impl Num {
         match self {
             Num::Int(i) => Num::Int(*i),
             Num::Float(f) if digits > 0 => Num::Float(float_round(*f, i64::from(digits))),
-            // Float#round(0) is an Integer in Ruby.
+            // Float#round(0) is an Integer in 2.x.
             Num::Float(f) => Num::Int(f.round() as i64),
             Num::Dec(d) => Num::Dec(d.round(digits)),
         }
@@ -133,7 +133,7 @@ impl Num {
         if negative { Num::Int(0) } else { self }
     }
 
-    /// `self - other` with Ruby's coercion: Integer and Integer stay Integer, a Float on either side
+    /// `self - other` with 2.x's coercion: Integer and Integer stay Integer, a Float on either side
     /// of an Integer makes a Float, and a BigDecimal on either side makes a BigDecimal (a Float is
     /// read through its shortest digits, as BigDecimal's coercion reads it).
     pub fn sub(&self, other: &Num) -> Option<Num> {
@@ -152,8 +152,8 @@ impl Num {
 
 /// String#to_i: leading ASCII whitespace, one sign, then digits, with an underscore allowed between
 /// two digits; whatever follows is ignored, and a text with no number at its start is 0. It is how
-/// Rails reads a bot's id out of a path (ActiveModel's integer type) and an id out of the feed's
-/// cursor. Ruby has no largest Integer; this one stops at i128's, far past any id.
+/// 2.x reads a bot's id out of a path (ActiveModel's integer type) and an id out of the feed's
+/// cursor. 2.x has no largest Integer; this one stops at i128's, far past any id.
 pub fn to_i(text: &str) -> i128 {
     let mut bytes = text.bytes().skip_while(|byte| matches!(byte, b' ' | b'\t' | b'\n' | 0x0b | 0x0c | b'\r')).peekable();
     let negative = match bytes.peek() {
@@ -316,9 +316,9 @@ pub fn default_start_time_selection(now: DateTime<Utc>, zone: &str) -> Option<(&
 /// What a refusal for a stored number says. The number itself is not repeated: it may be long.
 pub const UNREADABLE: &str = "a stored number outside what this build reads";
 
-/// The mark on a failure to read a stored number: a decimal outside `ruby::BigDec`'s bounds (256
+/// The mark on a failure to read a stored number: a decimal outside `v2::BigDec`'s bounds (256
 /// characters, an exponent within ±400, 512 digits written out), or a precision outside
-/// `ruby::scale`'s. Rails reads such a row and prints it; this build refuses the pages that
+/// `v2::scale`'s. 2.x reads such a row and prints it; this build refuses the pages that
 /// read it instead of sizing work by it (`layout::or_refused`, which answers the 501 page).
 #[derive(Debug)]
 pub struct Unreadable(String);
@@ -336,7 +336,7 @@ pub(crate) fn unread<T>(error: crate::codec::CodecError) -> FromSqlResult<T> {
 }
 
 /// A decimal column (NUMERIC affinity: INTEGER, REAL or TEXT) as ActiveRecord reads it, within
-/// `ruby::BigDec`'s bounds. Every amount, price, size and value the pages of bots and the navbar take
+/// `v2::BigDec`'s bounds. Every amount, price, size and value the pages of bots and the navbar take
 /// from a row is read as this.
 pub struct Stored(pub Option<BigDec>);
 

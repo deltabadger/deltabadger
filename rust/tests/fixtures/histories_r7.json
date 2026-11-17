@@ -1,6 +1,6 @@
 {
   "synthetic_only": true,
-  "rails_unchanged": {
+  "v2_unchanged": {
     "sql_kinds": [
       "integer",
       "integer"
@@ -23,7 +23,7 @@
     "orders": []
   },
   "closed_reconstructed": {
-    "rails_unchanged": {
+    "v2_unchanged": {
       "cap": null,
       "pending": "ArgumentError: unknown closed spend"
     },

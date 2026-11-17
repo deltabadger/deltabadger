@@ -1,6 +1,6 @@
 {
   "synthetic_only": true,
-  "rails_unchanged": {
+  "v2_unchanged": {
     "cap": "9.999999999999998",
     "cap_bits": "4023ffffffffffff",
     "before_pending": "9.999999999999998",

@@ -12,7 +12,7 @@ pub const COUNTRIES:[&str;18]=["DE","AT","FR","IT","ES","BG","GR","NL","PT","CH"
 #[template(path="tracker/export_modal.html")]
 struct Modal<'a>{ctx:&'a Ctx,pl:String,countries:String,years:String,type_switch:String,export_type:&'static str,checked_stable:&'static str,hide_tax:&'static str,hide_transactions:&'static str,from:String,to:String,label:String,scope:String,panel:String}
 /// D-TAX-PL-DECLARED-CARRY: the PL form for one report year: column d as declared (for 2019 the costs before 2019 never
-/// deducted, later the previous return's column f), submitted with the request itself (Rails' Generate is hidden for PL),
+/// deducted, later the previous return's column f), submitted with the request itself (2.x's Generate is hidden for PL),
 /// so the amount is in the request that queues the report. `error`: the amount was refused (shown as typed).
 pub fn pl_block(ctx:&Ctx,year:i64,value:&str,error:bool)->String{
     let label=if year==i64::from(crate::tax::pl::FIRST_YEAR){ctx.t("tracker.export_modal.pl_costs_before_2019")}
@@ -28,8 +28,8 @@ pub fn pl_block(ctx:&Ctx,year:i64,value:&str,error:bool)->String{
 </form>\n",escape(&ctx.path("/tracker/tax_report")),escape(&ctx.csrf_token()),escape(value),ctx.t("tracker.export_modal.pl_carried_hint"),ctx.t("tracker.export_modal.generate"))
 }
 
-/// Every offered crypto year from 2019 gets its PL form; CSS (`:has`, no script: Rails' controller is unchanged) shows the
-/// selected year's while the tax report and Poland are selected, and hides Rails' Generate then.
+/// Every offered crypto year from 2019 gets its PL form; CSS (`:has`, no script: 2.x's controller is unchanged) shows the
+/// selected year's while the tax report and Poland are selected, and hides 2.x's Generate then.
 fn pl_blocks(c:&Connection,ctx:&Ctx,owner:i64,years:&[i32])->Result<String,WebError>{
     let mut s=c.prepare("SELECT year, costs FROM rust_tax_pl_carry WHERE user_id=?1")?;
     let stored:std::collections::HashMap<i64,String>=s.query_map([owner],|r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<_,_>>()?;
@@ -55,7 +55,7 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<String,WebError>{
         countries.push_str(&format!("              <option value=\"{code}\" {} data-stablecoin-ambiguous=\"{}\">{}</option>\n",if settings["country"]==code{"selected"}else{""},crate::tax::jurisdictions::find(code).is_some_and(|j|j.stablecoin_ambiguous),ctx.t(&format!("tracker.export_modal.countries.{code}"))));
     }
     let year=ctx.now.year();
-    let selected=if settings["year"].is_null(){i64::from(year-1)}else{crate::ruby::to_i(&text(&settings["year"]))};
+    let selected=if settings["year"].is_null(){i64::from(year-1)}else{crate::v2::to_i(&text(&settings["year"]))};
     let mut offered:Vec<i32>=(year-5..=year).chain(2023..=2025).collect();offered.sort_unstable();offered.dedup();
     let pl=pl_blocks(c,ctx,owner,&(year-5..=year).collect::<Vec<_>>())?;
     let mut years=String::new();
@@ -108,7 +108,7 @@ pub async fn setup_coingecko(State(app):State<App>,Extension(ctx):Extension<Ctx>
     let Some(user)=ctx.user()else{return Ok(auth::unauthenticated(&ctx))};
     if !user.admin{return Ok(md::head(axum::http::StatusCode::FORBIDDEN))}
     let key=ctx.params.form("api_key").unwrap_or_default().to_string();
-    if crate::ruby::blank(&key)||!md::key_valid(&app,&key).await{return md::invalid_key(&ctx)}
+    if crate::v2::blank(&key)||!md::key_valid(&app,&key).await{return md::invalid_key(&ctx)}
     md::save_key(&app,key).await?;
     Ok(([(header::CONTENT_TYPE,crate::web::turbo::CONTENT_TYPE)],crate::web::turbo::redirect(&ctx.path("/tracker"))).into_response())
 }

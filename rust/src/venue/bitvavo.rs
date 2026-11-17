@@ -1,6 +1,6 @@
 //! Honeymaker::Clients::Bitvavo and Exchanges::Bitvavo for the engine's spot orders (plan VB slice A3): prices, balances,
-//! placement, polls, cancel, the gone-order recovery from the trades and the recovery by client order id. Rails is the
-//! oracle (post-audit, AUDIT-bitvavo V1-V7); each method names the Ruby it ports. `venue::live` builds it for every
+//! placement, polls, cancel, the gone-order recovery from the trades and the recovery by client order id. 2.x is the
+//! oracle (post-audit, AUDIT-bitvavo V1-V7); each method names the 2.x method it ports. `venue::live` builds it for every
 //! Bitvavo bot.
 //!
 //! Signing (Honeymaker::Clients::Bitvavo#signed_headers): BITVAVO-ACCESS-SIGNATURE = hex(HMAC-SHA256(secret, timestamp +
@@ -8,17 +8,17 @@
 //! (`http::ReqwestTransport::bitvavo`) signs at send time over exactly the query and body bytes it sends.
 //!
 //! Where it differs on purpose (plan VB §5, named in tests/parity.rs): the order carries `clientOrderId` = the intent id
-//! (D9; Rails sends none) and recovery asks for it (`order_by_client_id`), which can only FIND an order (absence is never
+//! (D9; 2.x sends none) and recovery asks for it (`order_by_client_id`), which can only FIND an order (absence is never
 //! concluded, ABSENCE_UNPROVEN); a placement that may have reached Bitvavo (a lost reply, a 5xx, an answer without an
-//! orderId) keeps the intent where Rails writes a failed (or a "BTC-EUR-") row; a number that is no decimal is refused
-//! where Rails reads it as 0.
+//! orderId) keeps the intent where 2.x writes a failed (or a "BTC-EUR-") row; a number that is no decimal is refused
+//! where 2.x reads it as 0.
 use super::binance::{build_query, Pairs};
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError};
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BITVAVO as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -37,11 +37,11 @@ pub const BALANCE_PATH: &str = "/v2/balance";
 pub const MARKETS_PATH: &str = "/v2/markets";
 /// Exchanges::Bitvavo#get_tickers_prices' path (Clients::Bitvavo#get_ticker_price, no market: every market).
 pub const TICKER_PRICE: &str = "/v2/ticker/price";
-/// A 200 to the order without an orderId: Rails stores the order as "<market>-"; Bitvavo took the order, or may have.
+/// A 200 to the order without an orderId: 2.x stores the order as "<market>-"; Bitvavo took the order, or may have.
 pub const NO_ORDER_ID: &str = "Bitvavo answered the order with no order id";
 /// Plan VB §1.5: on Bitvavo absence is never concluded. The client-order lookup answers 240 for an order it does not hold,
 /// which proves nothing about one sent moments ago; the intent waits for `deltabadger resolve-placement`. A divergence:
-/// Rails sends no clientOrderId and has no lookup at all.
+/// 2.x sends no clientOrderId and has no lookup at all.
 pub const ABSENCE_UNPROVEN: &str = "Bitvavo: the client order lookup did not find this order, and Bitvavo cannot prove it absent; settle it with `deltabadger resolve-placement`";
 /// A28-3d-2: the order-history lists, the list's page, and the `errorCode`s that refuse the key, as docs.bitvavo.com/docs/errors
 /// names them: 301 Your API key has an invalid length, 305 Your API key is not active, 306 You have not confirmed your API
@@ -52,7 +52,7 @@ pub const ORDERS_PATH: &str = "/v2/orders";
 pub const OPEN_ORDERS_PATH: &str = "/v2/ordersOpen";
 pub const HISTORY_PAGE: usize = 1000;
 const HISTORY_REFUSED: [&str; 8] = ["301", "305", "306", "307", "308", "309", "310", "311"];
-/// The trades walk's ceiling: 100,000 pages of 1000 (ponytail: Rails has none; a misbehaving cursor fails, never loops).
+/// The trades walk's ceiling: 100,000 pages of 1000 (ponytail: 2.x has none; a misbehaving cursor fails, never loops).
 const MAX_TRADE_PAGES: usize = 100_000;
 
 /// Honeymaker's #get_public paths: sent with its unauthenticated headers.
@@ -67,9 +67,9 @@ pub fn headers(r: &HttpRequest, key: &str, secret: &str, timestamp_ms: i64) -> V
     super::sign::prehash(&super::sign::BITVAVO, r, &build_query(&r.query), key, secret, "", timestamp_ms)
 }
 
-/// Ruby's `(time.to_f * 1000).to_i`, as Exchanges::Bitvavo turns a time into its milliseconds: Time#to_f of whole
+/// 2.x's `(time.to_f * 1000).to_i`, as Exchanges::Bitvavo turns a time into its milliseconds: Time#to_f of whole
 /// nanoseconds is their Float over a billion (time.c `rb_time_unmagnify_to_float`), so 02:00:00.250 is ...249.
-pub fn ruby_ms(t: DateTime<Utc>) -> i64 {
+pub fn v2_ms(t: DateTime<Utc>) -> i64 {
     let nanos = i128::from(t.timestamp()) * 1_000_000_000 + i128::from(t.timestamp_subsec_nanos());
     let seconds = if nanos % 1_000_000_000 == 0 { (nanos / 1_000_000_000) as f64 } else { nanos as f64 / 1e9 };
     (seconds * 1000.0) as i64
@@ -94,13 +94,13 @@ fn field<'a>(v: &'a Value, key: &str) -> Result<&'a Value, VenueError> { super::
 fn required(v: &Value) -> Result<BigDec, VenueError> { super::json::required(v, unreadable) }
 /// `x.to_d` of a present value; null or absent is 0 (nil.to_d).
 fn decimal(v: &Value) -> Result<BigDec, VenueError> { if v.is_null() { Ok(BigDec::zero()) } else { required(v) } }
-/// `#to_s` of a scalar, as Ruby interpolates it (nil is "").
+/// `#to_s` of a scalar, as 2.x interpolates it (nil is "").
 fn to_s(v: &Value) -> String { match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() } }
 fn nonzero(d: BigDec) -> Option<BigDec> { (!d.is_zero()).then_some(d) }
 
 /// Exchanges::Bitvavo#parse_order_data (V3): the price is filledAmountQuote / filledAmount, unrounded, whenever something
 /// filled, else the order's own price; a zero price, amount or amountQuote is none. ORDER_STATUS_MAP; an order type or a
-/// status it does not list is refused, as Rails raises.
+/// status it does not list is refused, as 2.x raises.
 pub fn parse_order(order_id: &str, o: &Value) -> Result<OrderState, VenueError> {
     let market = field(o, "market")?.as_str().ok_or_else(unreadable)?;
     let limit = match field(o, "orderType")?.as_str() {
@@ -131,7 +131,7 @@ pub fn parse_order(order_id: &str, o: &Value) -> Result<OrderState, VenueError> 
 pub fn created_order(market: &str, o: &Value) -> Option<super::CreatedOrder> {
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
     let zero = BigDec::zero();
-    let amount = |k: &str| o.get(k).and_then(|v| crate::ruby::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
+    let amount = |k: &str| o.get(k).and_then(|v| crate::v2::json_to_d(v).ok().flatten()).filter(|d| *d >= zero);
     // Absent or null is none; present, a decimal not below zero, positive or none.
     let size = |k: &str| match o.get(k) { None | Some(Value::Null) => Some(None), Some(_) => amount(k).map(|d| d.is_positive().then_some(d)) };
     if o.get("market")?.as_str()? != market { return None; }
@@ -168,7 +168,7 @@ pub fn ticker_prices(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> 
         let market = super::dig_or_raise(row, "market")?.as_str().ok_or_else(unreadable)?.to_string();
         let price = match &row["price"] {
             Value::Null => None,
-            v @ (Value::String(_) | Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
+            v @ (Value::String(_) | Value::Number(_)) => crate::v2::json_to_d(v).ok().flatten(),
             _ => return Err(unreadable()),
         };
         if let Some(p) = price.filter(BigDec::is_positive) {
@@ -290,9 +290,9 @@ impl<T: Transport> BitvavoVenue<T> {
             let page = page.as_array().ok_or_else(unreadable)?;
             let mut fresh = 0;
             for t in page { if seen.insert(to_s(&t["id"])) { trades.push(t.clone()); fresh += 1; } }
-            let oldest = page.iter().map(|t| crate::ruby::to_i(&to_s(&t["timestamp"]))).min();
+            let oldest = page.iter().map(|t| crate::v2::to_i(&to_s(&t["timestamp"]))).min();
             if page.len() < TRADES_PAGE || start_ms.is_some_and(|s| oldest.is_some_and(|o| o < s)) {
-                return Ok(trades.into_iter().filter(|t| start_ms.is_none_or(|s| crate::ruby::to_i(&to_s(&t["timestamp"])) >= s)).collect());
+                return Ok(trades.into_iter().filter(|t| start_ms.is_none_or(|s| crate::v2::to_i(&to_s(&t["timestamp"])) >= s)).collect());
             }
             if fresh == 0 { return Err(VenueError::Rejected(vec![format!("Bitvavo trades on {market} returned a full page with nothing new")])); }
             cursor = Some(to_s(&page[page.len() - 1]["id"]));
@@ -387,7 +387,7 @@ impl<T: Transport> super::Venue for BitvavoVenue<T> {
 
     /// #set_market_order / #set_limit_order through Clients::Bitvavo#place_order: POST /v2/order with market, side, orderType,
     /// then a market order's `amount` or `amountQuote`, or a limit order's `amount` and `price`, then `clientOrderId` (the
-    /// intent id; Rails sends none) and operatorId 1. Sent at most once. The stored id is "<market>-<orderId>". A refusal is
+    /// intent id; 2.x sends none) and operatorId 1. Sent at most once. The stored id is "<market>-<orderId>". A refusal is
     /// Bitvavo's body; an answer without an orderId may have placed the order: Ambiguous.
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
         let mut body = serde_json::Map::new();
@@ -446,7 +446,7 @@ impl<T: Transport> super::Venue for BitvavoVenue<T> {
         let mut out = vec![];
         for id in txids {
             let (market, ext) = split_order_id(id);
-            let trades: Vec<Value> = self.read_trades(&market, Some(ruby_ms(since)), std::time::Duration::ZERO).await?
+            let trades: Vec<Value> = self.read_trades(&market, Some(v2_ms(since)), std::time::Duration::ZERO).await?
                 .into_iter().filter(|t| to_s(&t["orderId"]) == ext).collect();
             if !trades.is_empty() { out.push(order_from_trades(id, &market, &trades)?); }
         }
@@ -502,7 +502,7 @@ impl<T: Transport> super::Venue for BitvavoVenue<T> {
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> { self.available(|code| code == ticker.quote_code).await }
 
     /// Exchanges::Bitvavo#get_tickers_prices: GET /v2/ticker/price for every market (`ticker_prices`). A 2xx body that is not
-    /// JSON is honeymaker's Failure (its text). Rails caches the answer for a minute; this reads fresh.
+    /// JSON is honeymaker's Failure (its text). 2.x caches the answer for a minute; this reads fresh.
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
         let text = self.answer(&self.request("GET", TICKER_PRICE, vec![], None), false).await?;
         let body = match http::decode_json(&text) {
@@ -513,7 +513,7 @@ impl<T: Transport> super::Venue for BitvavoVenue<T> {
     }
 
     /// #cancel_order through Clients::Bitvavo#cancel_order: DELETE /v2/order with the market, orderId and operatorId 1; any
-    /// 2xx is a cancel, as Rails reads it.
+    /// 2xx is a cancel, as 2.x reads it.
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
         let (market, ext) = split_order_id(txid);
         self.answer(&self.request("DELETE", ORDER_PATH, vec![("market", market), ("orderId", ext), ("operatorId", OPERATOR_ID.to_string())], None), false).await.map(|_| ())
@@ -529,9 +529,9 @@ mod tests {
         assert_eq!(split_order_id("BTC-EUR-abc-123"), ("BTC-EUR".to_string(), "abc-123".to_string()));
         assert_eq!(split_order_id("BTC-EUR-"), ("BTC-EUR".to_string(), String::new()));
         assert_eq!(error_code(r#"{"errorCode":240,"error":"No order found."}"#), Some(240));
-        assert_eq!(error_code(r#"{"errorCode":"240"}"#), None, "a String never equals Rails' Integer");
+        assert_eq!(error_code(r#"{"errorCode":"240"}"#), None, "a String never equals 2.x's Integer");
         assert_eq!(error_code("<html>404</html>"), None);
-        assert_eq!(ruby_ms("2026-09-20T02:00:00.250000Z".parse().unwrap()), 1_789_869_600_249, "as Ruby's Float");
-        assert_eq!(ruby_ms("2026-09-15T00:00:00Z".parse().unwrap()), 1_789_430_400_000);
+        assert_eq!(v2_ms("2026-09-20T02:00:00.250000Z".parse().unwrap()), 1_789_869_600_249, "as 2.x's Float");
+        assert_eq!(v2_ms("2026-09-15T00:00:00Z".parse().unwrap()), 1_789_430_400_000);
     }
 }

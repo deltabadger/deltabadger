@@ -1,4 +1,4 @@
-//! `deltabadger export` (PLAN-B4b): Rails' `export:portable` (app/services/export/portable.rb, lib/export_scratch.rb) for
+//! `deltabadger export` (PLAN-B4b): 2.x's `export:portable` for
 //! a 3.0 install. Launchpad runs it in a throwaway container (network none) on a private copy of the instance's storage;
 //! it writes `/export/portable/{production,production_queue}.sqlite3`, `csv/tracker.csv`, `csv/bots/<id>-<label>.csv`,
 //! `csv/README_CSV.txt` and `manifest.json`, scrubbed of everything that grants access to a venue, the platform or the
@@ -10,10 +10,10 @@
 //! second temp database with this build's own schema, the scrub in one transaction, `VACUUM INTO` the output, the CSVs,
 //! the manifest. Any error empties the output and drops the temp dir.
 //!
-//! Named divergences from Rails (PLAN-B4b §8, and what the recorder and the build found):
+//! Named divergences from 2.x (PLAN-B4b §8, and what the recorder and the build found):
 //! - D-EXPORT-NO-KEYS: the export needs no secret at all; every scrub step is a raw write or a delete.
-//! - D-EXPORT-READ-ONLY-SOURCE: the source is only read, and never opened by SQLite (Rails migrates and scrubs in place).
-//! - D-EXPORT-LEASE-KEPT: the engine lease stays (Rails deletes it), so 2.x Rails never adopts a Rust install.
+//! - D-EXPORT-READ-ONLY-SOURCE: the source is only read, and never opened by SQLite (2.x migrates and scrubs in place).
+//! - D-EXPORT-LEASE-KEPT: the engine lease stays (2.x deletes it), so 2.x 2.x never adopts a Rust install.
 //! - D-EXPORT-REBALANCE-OFF: rebalancing off on every bot (A29's D-RESET-REBALANCE-OFF).
 //! - D-EXPORT-ACCOUNT-ANCHORS-KEPT: which account each key, import and IBKR bot belongs to stays, with the identity key
 //!   that fingerprints it, readable under the shipped pair (the encryption reset clears them: its keys are gone), so a
@@ -26,15 +26,15 @@
 //! - D-EXPORT-CANONICAL-SCHEMA: the download has this build's schema with the rows projected into it.
 //! - D-EXPORT-SWAPS-HALTED: a swap part-way through is halted (rebalance::halt), its evidence kept.
 //! - D-EXPORT-REQUESTS-DROPPED: a sale or redeploy the owner asked for and the engine has not taken yet is dropped by its
-//!   operation's own compare-clear (liquidation::clear, redeploy::clear) with its own refusal line; Rails' stopped bots
+//!   operation's own compare-clear (liquidation::clear, redeploy::clear) with its own refusal line; 2.x's stopped bots
 //!   run no such request, and a restore must place no order before the owner acts.
 //! - D-EXPORT-JOB-ERRORS: `last_error` is removed from JSON job-state rows (an upstream reply's first 200 characters).
-//! - D-EXPORT-APP-CONFIG-ALLOWLIST: app_configs rows are kept by an allowlist (Rails deletes by a denylist).
+//! - D-EXPORT-APP-CONFIG-ALLOWLIST: app_configs rows are kept by an allowlist (2.x deletes by a denylist).
 //! - D-EXPORT-OWED-BY-HAND: owed withdrawals are settled with `resolve-withdrawal` after a restore.
-//! - D-EXPORT-ORPHAN-BOT: a bot whose owner is gone is written in UTC and named as Rails names a new bot (Rails raises on
+//! - D-EXPORT-ORPHAN-BOT: a bot whose owner is gone is written in UTC and named as 2.x names a new bot (2.x raises on
 //!   `user.time_zone`, failing the whole export).
 //! - D-EXPORT-LABEL-NFC: a file label is transliterated without Unicode NFC normalisation (no normaliser in this build): a
-//!   decomposed accent becomes `-` where Rails folds it into its letter. Only a file name; it still matches launchpad's.
+//!   decomposed accent becomes `-` where 2.x folds it into its letter. Only a file name; it still matches launchpad's.
 #![cfg(unix)]
 use crate::lease::{self, LeaseError};
 use crate::store::{self, Paths, StoreError};
@@ -90,7 +90,7 @@ fn store_error(step: &str, e: StoreError) -> ExportError {
 const PRIMARY: &str = "production.sqlite3";
 const QUEUE: &str = "production_queue.sqlite3";
 const SIDECARS: [&str; 4] = ["", "-wal", "-shm", "-journal"];
-/// The variables that would point Rails or Rust at other files (main.rs refuse_url_overrides, and the two paths).
+/// The variables that would point 2.x or Rust at other files (main.rs refuse_url_overrides, and the two paths).
 const OVERRIDES: [&str; 7] = ["DATABASE_PATH", "QUEUE_DATABASE_PATH", "DATABASE_URL", "PRIMARY_DATABASE_URL", "QUEUE_DATABASE_URL",
                               "CACHE_DATABASE_URL", "CABLE_DATABASE_URL"];
 
@@ -170,7 +170,7 @@ pub fn run(s: &Scratch, env: &dyn Fn(&str) -> Option<String>, now: DateTime<Utc>
         Ok(lines)
     })();
     if result.is_err() {
-        // Rails rm_rf's /export; the directory is the container's, so it is emptied (and removed if this run made it).
+        // 2.x rm_rf's /export; the directory is the container's, so it is emptied (and removed if this run made it).
         if let Ok(entries) = std::fs::read_dir(&s.output) {
             for e in entries.flatten() {
                 let p = e.path();
@@ -309,8 +309,8 @@ pub const POLICY: &[((&str, &str), Policy)] = &[
     (("api_keys", "rsa_encryption_key"), Policy::Clear), (("api_keys", "dh_param"), Policy::Clear),
     (("fee_api_keys", "key"), Policy::DeleteRows), (("fee_api_keys", "secret"), Policy::DeleteRows), (("fee_api_keys", "passphrase"), Policy::DeleteRows),
     (("app_configs", "value"), Policy::FilterAppConfigs),
-    (("users", "otp_secret_key"), Policy::Keep("sign in with two-factor after a restore (Rails keeps it; the keys ship)")),
-    (("rules", "address"), Policy::Keep("the owner's own withdrawal addresses (Rails keeps them; the keys ship)")),
+    (("users", "otp_secret_key"), Policy::Keep("sign in with two-factor after a restore (2.x keeps it; the keys ship)")),
+    (("rules", "address"), Policy::Keep("the owner's own withdrawal addresses (2.x keeps them; the keys ship)")),
     (("exchange_accounts", "account_id_enc"), Policy::Keep("the account a venue key belongs to: a key on another account shows as a conflict (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
     (("exchange_account_credentials", "account_id_enc"), Policy::DeleteRows),
     (("exchange_account_imports", "account_id_enc"), Policy::Keep("the account an imported history belongs to (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
@@ -319,7 +319,7 @@ pub const POLICY: &[((&str, &str), Policy)] = &[
     (("rust_withdrawal_intents", "params_enc"), Policy::Keep("owed withdrawals (dispatched or unresolved), settled by hand after a restore; prepared ones are credential-bound")),
 ];
 
-/// Rails' Export::Portable::SESSION_TABLES: every row goes (REST/MCP tokens, client secrets, sessions).
+/// 2.x's Export::Portable::SESSION_TABLES: every row goes (REST/MCP tokens, client secrets, sessions).
 pub const SESSION_TABLES: [&str; 8] = ["oauth_access_grants", "oauth_access_tokens", "connected_clients", "oauth_applications",
     "action_mcp_session_messages", "action_mcp_session_subscriptions", "action_mcp_session_tasks", "action_mcp_sessions"];
 /// Columns the scrub's own statements clear, besides POLICY and SESSION_TABLES.
@@ -328,7 +328,7 @@ pub const CLEARED: &[(&str, &str)] = &[("users", "reset_password_token"), ("user
 
 /// A secret-shaped column name the export keeps as it is, each with the reason it is no credential.
 pub const REVIEWED_PLAIN: &[((&str, &str), &str)] = &[
-    (("users", "encrypted_password"), "the bcrypt hash: sign in with the same password after a restore (Rails and launchpad's README promise it)"),
+    (("users", "encrypted_password"), "the bcrypt hash: sign in with the same password after a restore (2.x and launchpad's README promise it)"),
     (("users", "otp_module"), "whether two-factor is on, not its seed"),
     (("rust_withdrawal_intents", "credential_digest"), "SHA-256 of the old key's ciphertext, which is gone: it recovers nothing"),
     (("rust_withdrawal_intents", "key_identity"), "a public fingerprint of the old key"),
@@ -336,9 +336,9 @@ pub const REVIEWED_PLAIN: &[((&str, &str), &str)] = &[
     (("users", "last_otp_at"), "when a two-factor code was last used, not the code"),
     (("users", "reset_password_sent_at"), "when a reset mail was sent; its token is cleared"),
     (("app_configs", "key"), "the setting's name; its value is filtered"),
-    (("ar_internal_metadata", "key"), "Rails' schema metadata name"),
+    (("ar_internal_metadata", "key"), "2.x's schema metadata name"),
     (("ibkr_locks", "key"), "the name of an IBKR session lock, no credential"),
-    (("idempotency_keys", "key"), "a REST client's own request id (Rails keeps it); no access to anything"),
+    (("idempotency_keys", "key"), "a REST client's own request id (2.x keeps it); no access to anything"),
     (("wash_sale_locks", "claim_token"), "an internal claim id between two of the engine's own steps"),
     (("rust_recorder_runs", "destination_digest"), "a digest of a withdrawal destination the owner chose, kept with the addresses"),
 ];
@@ -349,7 +349,7 @@ impl Key {
     pub fn matches(&self, key: &str) -> bool { match self { Key::Exact(k) => key == *k, Key::Prefix(p) => key.starts_with(p) } }
 }
 
-/// Rails' deletions (Export::Portable::APP_CONFIG_KEYS and its `proxy_`/`smtp_` prefixes).
+/// 2.x's deletions (Export::Portable::APP_CONFIG_KEYS and its `proxy_`/`smtp_` prefixes).
 pub const APP_CONFIGS_DELETED: &[Key] = &[
     Key::Exact("coingecko_api_key"), Key::Exact("market_data_token"), Key::Exact("market_data_url"), Key::Exact("market_data_provider"),
     Key::Exact("platform_connected_at"), Key::Exact("alpaca_api_key"), Key::Exact("alpaca_api_secret"), Key::Exact("alpaca_mode"),
@@ -362,9 +362,9 @@ pub const APP_CONFIGS_DELETED: &[Key] = &[
 pub const APP_CONFIGS: &[(Key, &str)] = &[
     (Key::Exact(crate::identity::KEY_CONFIG), "the HMAC key of the kept account fingerprints; unread, startup clears them (D-EXPORT-ACCOUNT-ANCHORS-KEPT)"),
     (Key::Exact(crate::lease::KEY), "the engine lease: a restore is this engine starting again (D-EXPORT-LEASE-KEPT)"),
-    (Key::Exact("registration_open"), "Rails' sign-up setting"),
-    (Key::Exact("setup_sync_status"), "Rails' first-sync state"),
-    (Key::Exact("stock_sync_enabled"), "Rails' stock-sync setting"),
+    (Key::Exact("registration_open"), "2.x's sign-up setting"),
+    (Key::Exact("setup_sync_status"), "2.x's first-sync state"),
+    (Key::Exact("stock_sync_enabled"), "2.x's stock-sync setting"),
     (Key::Exact("stock_canonical_backfill_completed_at"), "a reference-data migration's time"),
     (Key::Exact("alpaca_listings_last_good_count"), "a count of Alpaca's listings"),
     (Key::Exact("alpaca_crypto_listings_last_good_count"), "a count of Alpaca's crypto listings"),
@@ -390,13 +390,13 @@ pub const APP_CONFIGS: &[(Key, &str)] = &[
     (Key::Prefix("rust_binance_a12_v1:"), "the Binance history repair's journal and marker"),
     (Key::Prefix("rust_binance_repair_gaps."), "Binance history gaps"),
     (Key::Exact("rust_rules_fired_at"), "when rules last ran"),
-    (Key::Exact("rust_rule_import"), "the Rails rule logs the takeover imported"),
-    (Key::Exact("rust_rule_job_cleanup"), "the Rails rule jobs still to clean up"),
+    (Key::Exact("rust_rule_import"), "the 2.x rule logs the takeover imported"),
+    (Key::Exact("rust_rule_job_cleanup"), "the 2.x rule jobs still to clean up"),
     (Key::Exact("rust_coinbase_size_in_quote_repaired_at"), "a Coinbase repair's time"),
     (Key::Exact("rust_rails_unrecorded.live_cursor"), "the unrecorded-orders check's cursor"),
-    (Key::Exact("rust_rails_queue_done"), "the Rails jobs the takeover already ran"),
-    (Key::Exact("rust_rails_wakes"), "the Rails wakes the takeover carried over"),
-    (Key::Exact("rust_signal_import"), "the Rails signal calls the takeover imported"),
+    (Key::Exact("rust_rails_queue_done"), "the 2.x jobs the takeover already ran"),
+    (Key::Exact("rust_rails_wakes"), "the 2.x wakes the takeover carried over"),
+    (Key::Exact("rust_signal_import"), "the 2.x signal calls the takeover imported"),
     (Key::Exact("rust_app_update"), "the update check's state"),
     (Key::Exact("rust_set_aside"), "the bots the takeover set aside"),
 ];
@@ -412,7 +412,7 @@ pub const HALT_REASON: &str = "This copy of the bot was exported for download; c
 /// The scrub, on the canonical database, in the caller's transaction. Raw writes and deletes only: nothing is decrypted.
 pub fn scrub(tx: &Connection, now: DateTime<Utc>) -> Result<(), ExportError> {
     let f = failed("scrub");
-    // Rails' policy on its own tables, statement for statement (update_all and update_columns touch no stamp).
+    // 2.x's policy on its own tables, statement for statement (update_all and update_columns touch no stamp).
     let cleared = POLICY.iter().filter(|(_, p)| *p == Policy::Clear).map(|((_, c), _)| format!("{c} = NULL")).collect::<Vec<_>>().join(", ");
     tx.execute_batch(&format!("UPDATE api_keys SET {cleared}, status = 2")).map_err(&f)?;
     tx.execute_batch("DELETE FROM fee_api_keys").map_err(&f)?;
@@ -455,7 +455,7 @@ pub fn scrub(tx: &Connection, now: DateTime<Utc>) -> Result<(), ExportError> {
 
 // ---- the files (PLAN-B4b §2.1, §4) ----------------------------------------------------------------------------------
 
-/// I18n::Backend::Transliterator::HashTransliterator::DEFAULT_APPROXIMATIONS, recorded from Ruby (tests compare).
+/// I18n::Backend::Transliterator::HashTransliterator::DEFAULT_APPROXIMATIONS, recorded from 2.x (tests compare).
 pub const TRANSLITERATION: &[(char, &str)] = &[
     ('À', "A"), ('Á', "A"), ('Â', "A"), ('Ã', "A"), ('Ä', "A"), ('Å', "A"), ('Æ', "AE"), ('Ç', "C"), ('È', "E"),
     ('É', "E"), ('Ê', "E"), ('Ë', "E"), ('Ì', "I"), ('Í', "I"), ('Î', "I"), ('Ï', "I"), ('Ð', "D"), ('Ñ', "N"),
@@ -481,7 +481,7 @@ pub const TRANSLITERATION: &[(char, &str)] = &[
     ('ž', "z"), ('Ǫ', "O"), ('ǫ', "o"), ('Ǭ', "O"), ('ǭ', "o"), ('ẞ', "SS"),
 ];
 
-/// The file label Rails writes: `label.parameterize.gsub(/[^a-z0-9-]/, '').first(50).presence || 'bot'`.
+/// The file label 2.x writes: `label.parameterize.gsub(/[^a-z0-9-]/, '').first(50).presence || 'bot'`.
 /// parameterize = I18n.transliterate (an unmapped non-ASCII character is `?`), runs of anything but `[a-z0-9_-]` (any
 /// case) → `-`, repeated `-` squeezed, a leading and trailing `-` removed, lowercased (D-EXPORT-LABEL-NFC).
 pub fn file_label(label: &str) -> String {
@@ -501,7 +501,7 @@ pub fn file_label(label: &str) -> String {
     if out.is_empty() { "bot".into() } else { out }
 }
 
-/// Rails' csv/README_CSV.txt.
+/// 2.x's csv/README_CSV.txt.
 pub fn readme_csv() -> String {
     format!("Exported by Deltabadger {}.\nRestore with this version or newer.\n\n\
              tracker.csv is transaction interchange: it excludes manual prices, transfer links\n\

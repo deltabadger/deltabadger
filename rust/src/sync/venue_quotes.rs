@@ -8,7 +8,7 @@ use super::venue_routes::{self, End, Pair};
 use crate::crypto::Credentials;
 use crate::figures::{market::{MarketData, Venue}, page_market::{Cache, Reader}};
 use crate::jobs::Db;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::http::{HttpRequest, Transport};
 use chrono::{DateTime, Utc};
 use std::collections::{HashMap, HashSet};

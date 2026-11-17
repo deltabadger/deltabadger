@@ -1,4 +1,4 @@
-//! Clients::Coingecko (app/models/clients/coingecko.rb) over a Transport: the plan ping that picks the host and the key
+//! Clients::Coingecko over a Transport: the plan ping that picks the host and the key
 //! header (:26-44), the per-plan rate limit (:318-329), and Client#with_rescue's outcomes as data_api::ApiError, so a 429
 //! is `rate_limited()` as it is on data-api. One client per key; every job and request of the process shares the key's
 //! throttle.
@@ -97,7 +97,7 @@ impl CoinGecko<LiveTransport> {
 impl<T: Transport> CoinGecko<T> {
     pub fn new(key: &str, transport: T) -> Self { Self { key: key.into(), transport, plan: Default::default(), throttle: None, limited: Default::default() } }
     pub fn with_throttle(mut self, t: Arc<Throttle>) -> Self { self.throttle = Some(t); self }
-    /// The plan already known (parity harnesses: Rails' pre-seeded `@detect_plan`), so no ping is asked.
+    /// The plan already known (parity harnesses: 2.x's pre-seeded `@detect_plan`), so no ping is asked.
     pub fn with_plan(self, plan: Plan) -> Self { let _ = self.plan.set(plan); self }
     pub fn transport(&self) -> &T { &self.transport }
     /// Whether a key is set (Coingecko's `@api_key.blank?` guard is the caller's).
@@ -115,7 +115,7 @@ impl<T: Transport> CoinGecko<T> {
     }
 
     /// Clients::Coingecko.detect_plan (D-CG-PLAN-PING): the pro ping answers 200 → pro; 429 → the call is rate limited
-    /// (never "demo"); any other answer → demo, as Rails; no answer → transient (Rails memoises "demo" for the process).
+    /// (never "demo"); any other answer → demo, as 2.x; no answer → transient (2.x memoises "demo" for the process).
     /// Once per client.
     pub async fn plan(&self) -> Result<Plan, ApiError> {
         self.plan.get_or_try_init(|| async {
@@ -228,8 +228,8 @@ pub enum CrawlError {
     Failed(String),
 }
 
-/// Coingecko#get_exchange_tickers_by_id (coingecko.rb:38-54): pages of 100 by base asset until a short page, at most 50;
-/// any page's failure, or a 50th full page (Rails raises "Too many attempts"), discards every page read. Paced by the key's
+/// Coingecko#get_exchange_tickers_by_id: pages of 100 by base asset until a short page, at most 50;
+/// any page's failure, or a 50th full page (2.x raises "Too many attempts"), discards every page read. Paced by the key's
 /// throttle (D-CG-THROTTLE), not `sleep 3`. A blank key fails before any request.
 pub async fn crawl(api: &dyn Api, key: &str, id: &str) -> Result<Vec<Value>, CrawlError> {
     if key.trim().is_empty() { return Err(CrawlError::Failed("CoinGecko API key not configured".into())); }

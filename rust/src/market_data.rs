@@ -1,4 +1,4 @@
-//! MarketDataSettings (app/models/market_data_settings.rb) and AppConfig's market-data readers (app_config.rb:134-150,
+//! MarketDataSettings and AppConfig's market-data readers (AppConfig,
 //! :257-289), as one pure rule. Every reader of the install's market-data configuration (web::bots::market_data,
 //! jobs::data_api::config, engine::provider) reads its four rows its own way and asks this function what they mean.
 use crate::jobs::data_api::Config;
@@ -34,7 +34,7 @@ pub struct Settings {
     /// MarketDataSettings.configured?
     pub configured: bool,
     /// AppConfig.coingecko_api_key whatever the provider (the row, even blank, else COINGECKO_API_KEY); None when blank.
-    /// Kept apart from `provider`: MarketData.get_prices falls back to CoinGecko on it (market_data.rb:166-190).
+    /// Kept apart from `provider`: MarketData.get_prices falls back to CoinGecko on it.
     pub fallback_key: Option<String>,
 }
 

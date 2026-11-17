@@ -98,7 +98,7 @@ pub struct Browser {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Csrf { Form, Header, Both, None }
 
-/// What script/rust/pages.rb's `multipart` posts, as a browser's FormData: the text fields, then each
+/// What the recording harness's `multipart` posts, as a browser's FormData: the text fields, then each
 /// file part (`name`, `filename`, bytes). Returns the content type and the body.
 pub const MULTIPART_BOUNDARY: &str = "----RustPagesBoundary7MA4YWxkTrZu0gW";
 pub fn multipart(fields: &[(&str, &str)], files: &[(&str, &str, &[u8])]) -> (String, Vec<u8>) {

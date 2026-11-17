@@ -1,15 +1,15 @@
 //! Tax::GenerateReportJob: where a report and its refusal live, the request rows (`rust_tax_reports`), and the run.
 //!
-//! D-TAX-QUEUE: Rails' Solid Queue job is a `rust_tax_reports` row. The slot is Rails' concurrency key
+//! D-TAX-QUEUE: 2.x's Solid Queue job is a `rust_tax_reports` row. The slot is 2.x's concurrency key
 //! `tax_report_<user>_<scope>`: at most one `queued` or `running` row per (user, scope), so an INSERT that meets the
-//! partial unique index is Rails' discard on conflict (`Generating.accepted?` false), and `Generating.for?(user)` is a
+//! partial unique index is 2.x's discard on conflict (`Generating.accepted?` false), and `Generating.for?(user)` is a
 //! crypto-scope row in either state. A request runs once: a run ends `ready`, `refused` or `failed`, and that row stays as
 //! the request's outcome until the next request for its (user, scope) is accepted (which deletes it in the same
-//! transaction). Rails' 10-minute lease is the row's lifetime: a run past the job's deadline, or one whose process died,
-//! ends `failed` (Rails' killed worker leaves no answer either).
-//! A Rails defect fixed here, not copied: `Generating.accepted?` answers true for a job Solid Queue discarded on the
+//! transaction). 2.x's 10-minute lease is the row's lifetime: a run past the job's deadline, or one whose process died,
+//! ends `failed` (2.x's killed worker leaves no answer either).
+//! A 2.x defect fixed here, not copied: `Generating.accepted?` answers true for a job Solid Queue discarded on the
 //! conflict (ActiveJob sets `successfully_enqueued` after the adapter returns and the discarded job has no
-//! `provider_job_id`), so Rails' web request made while a report runs deletes a true refusal and shows progress for a run
+//! `provider_job_id`), so 2.x's web request made while a report runs deletes a true refusal and shows progress for a run
 //! that never happens. The INSERT's outcome is the verdict here: not accepted, the refusal comes back.
 //!
 //! Every touch of a (user, scope)'s report files (a create from the web, REST or MCP, the run's publish, both downloads,
@@ -19,7 +19,7 @@
 //! the file into place, both under the lock, so no reader sees the step between them.
 //!
 //! D-TAX-BUDGET: the run is held to the tracker's walk budget (`tracker::jobs::WALK`); past it the run ends as
-//! `report_failed`, where Rails would run on.
+//! `report_failed`, where 2.x would run on.
 use crate::jobs::market::Feed;
 use crate::jobs::{Cx, Db, Job, JobFuture, Outcome, Retry, Spec, Wake};
 use crate::sync::jobs::Connect;
@@ -37,10 +37,10 @@ use std::sync::{Condvar, Mutex, PoisonError};
 pub const JOB: &str = "tax_report";
 /// Tax::GenerateReportJob::SCOPES.
 pub const SCOPES: [&str; 2] = ["crypto", "broker"];
-/// Rails' `duration: 10.minutes`, the slot's lease: a run past it ends `failed`.
+/// 2.x's `duration: 10.minutes`, the slot's lease: a run past it ends `failed`.
 pub const DEADLINE: std::time::Duration = std::time::Duration::from_secs(600);
 
-/// `AppPaths.tmp`: APP_TMP_DIR, else the install's `tmp` (Rails.root/tmp; the process runs from Rails.root).
+/// `AppPaths.tmp`: APP_TMP_DIR, else the install's `tmp` (2.x's `tmp` under its app root, which the process runs from).
 pub fn tmp_dir(env: &dyn Fn(&str) -> Option<String>) -> PathBuf {
     env("APP_TMP_DIR").filter(|v| !v.trim().is_empty()).map_or_else(|| PathBuf::from("tmp"), PathBuf::from)
 }
@@ -48,7 +48,7 @@ pub fn tmp_dir(env: &dyn Fn(&str) -> Option<String>) -> PathBuf {
 /// Tax::GenerateReportJob.report_country.
 pub fn report_country(country: &str) -> String { country.chars().filter(char::is_ascii_alphabetic).collect::<String>().to_uppercase() }
 
-/// A scope Rails knows, else crypto (`SCOPES.include?(report_scope.to_s)`).
+/// A scope 2.x knows, else crypto (`SCOPES.include?(report_scope.to_s)`).
 pub fn scope_of(scope: &str) -> &'static str { if scope == "broker" { "broker" } else { "crypto" } }
 
 /// Tax::GenerateReportJob.report_path: the one place a report's file name is built, sanitised here.
@@ -145,7 +145,7 @@ pub fn by_request(c: &Connection, request: &str) -> rusqlite::Result<Option<Requ
     c.query_row(&format!("SELECT {COLUMNS} FROM rust_tax_reports WHERE request = ?1"), [request], read).optional()
 }
 
-/// What a create asks for, as Rails hands it to `perform_later`.
+/// What a create asks for, as 2.x hands it to `perform_later`.
 pub struct Ask<'a> { pub user: i64, pub scope: &'a str, pub country: &'a str, pub year: i64, pub stablecoin_as_fiat: bool, pub locale: &'a str }
 
 /// `perform_later` and the queue's verdict, inside the caller's write transaction: the slot's earlier outcome is
@@ -221,7 +221,7 @@ impl<C: Connect, T: Transport> Job for TaxReport<C, T> {
                 Ok(outcome) => outcome,
                 Err(_) => Err(format!("dropped past its {DEADLINE:?} deadline")),
             };
-            // A publish that could not write its file fails the request as a raised run does (Rails' rescue broadcasts
+            // A publish that could not write its file fails the request as a raised run does (2.x's rescue broadcasts
             // report_failed); one that failed after its commit is finished by the next run's recovery.
             let outcome = match outcome { Ok(done) => publish(&cx.db, &self.tmp, &r, done).await, Err(e) => Err(e) };
             let ended = match outcome {
@@ -281,7 +281,7 @@ async fn perform<C: Connect, T: Transport>(cx: &Cx<'_>, api: Option<&Feed<T>>, e
             report = metered(&cx.db, &mut allowance, move |c, _| { let mut report = report; report.reload_estv(c)?; Ok(report) }).await?;
         }
     }
-    // r3 item 3: a wealth report runs without market data, as Rails' does: stored prices are read, missing ones are warnings.
+    // r3 item 3: a wealth report runs without market data, as 2.x's does: stored prices are read, missing ones are warnings.
     let unfetched = api.is_none() && report.is_wealth();
     let (db, request) = (cx.db.clone(), r.clone());
     fetching(&cx.db, api, now, &mut allowance, move |fetcher| {
@@ -294,7 +294,7 @@ async fn perform<C: Connect, T: Transport>(cx: &Cx<'_>, api: Option<&Feed<T>>, e
     }).await?.map_err(message)
 }
 
-/// GenerateReportJob#broker_csv: Rails' checks (each fails the run, as its ArgumentError does), the ECB rates, the year
+/// GenerateReportJob#broker_csv: 2.x's checks (each fails the run, as its ArgumentError does), the ECB rates, the year
 /// boundary closes the report will ask for fetched from the broker (`stock_price_range`; a window it answers with nothing
 /// is refused as missing), then the report.
 async fn broker<C: Connect>(cx: &Cx<'_>, ecb: Option<&fx::Source>, venues: &C, r: &Request) -> Result<crate::tax::Outcome, String> {
@@ -482,7 +482,7 @@ mod tests {
     }
 
     #[test]
-    fn paths_are_sanitised_as_rails_does() {
+    fn paths_are_sanitised_as_v2_does() {
         let tmp = Path::new("/t");
         assert_eq!(report_path(tmp, 3, "u.s/../", 2025, "nope"), PathBuf::from("/t/tax_reports/3_US_2025_crypto.csv"));
         assert_eq!(refusal_path(tmp, 3, "DE", 2024, "broker"), PathBuf::from("/t/tax_reports/3_DE_2024_broker.csv.refused.json"));

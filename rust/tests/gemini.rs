@@ -1,7 +1,7 @@
 //! The Gemini trading adapter (venue::gemini) over recorded bodies, and the D-679 placement contract it is the first
 //! consumer of (plan VB §1.5): a market buy sized from a quote budget at the crossed price it is sent at, a market sell's
 //! base sent at the crossed bid, both prepared once and persisted in the intent, never re-read or resized at the send.
-//! Rails-free.
+//! 2.x-free.
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use common::seed::{self, BotSpec};
@@ -11,7 +11,7 @@ use deltabadger::engine::placement::{self, OperatorResolution, Recovery, Sent};
 use deltabadger::engine::tick::{self, Attempts, TickOutcome};
 use deltabadger::engine::venue_rules::{GEMINI, KRAKEN};
 use deltabadger::engine::FixedClock;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store::{self, Paths};
 use deltabadger::venue::binance::Pairs;
 use deltabadger::venue::gemini::{self, GeminiVenue, URL};
@@ -160,7 +160,7 @@ async fn a_crossed_order_is_an_ioc_limit_at_its_price_and_a_limit_order_rests() 
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn placement_answers_map_to_rails_ambiguity_rules() {
+async fn placement_answers_map_to_v2_ambiguity_rules() {
     let crossed = new_order(OrderKind::Crossed { price: "1.21".into() });
     for (reply, want) in [
         (err(400, "InsufficientFunds", "insufficient funds"), "rejected"),
@@ -236,7 +236,7 @@ async fn a_market_buy_is_sized_at_the_crossed_ask_it_is_sent_at_and_spends_withi
     let t = ScriptedTransport::from_script(&gemini_script("64000.01", "64000.11"));
     assert!(matches!(tick::tick(&o.primary, &venue(&o, &t), id, &FixedClock(t0()), &mut Attempts::default()).await.unwrap(), TickOutcome::Done { placed: true }));
     let sent = placed(&t);
-    // adjust(adjust(64000.11) × 1.01) = 64640.11; floor(60 / 64640.11, 8) = 0.00092821 (Rails sends 0.00093749, sized at the raw ask).
+    // adjust(adjust(64000.11) × 1.01) = 64640.11; floor(60 / 64640.11, 8) = 0.00092821 (2.x sends 0.00093749, sized at the raw ask).
     assert_eq!((sent[0]["price"].as_str(), sent[0]["amount"].as_str(), &sent[0]["options"]), (Some("64640.11"), Some("0.00092821"), &json!(["immediate-or-cancel"])));
     assert!(&bd("0.00092821") * &bd("64640.11") <= bd("60"), "a fill at the cross spends at most the budget");
     assert_eq!(reads(&t), 1, "one price read: the crossed price is the sizing read's, never read again at placement");
@@ -352,8 +352,8 @@ async fn a_market_sell_keeps_its_base_and_goes_out_at_the_crossed_bid() {
                                                     "POST /v1/balances": [balances("100000", "0.004")] }));
     assert!(matches!(tick::tick(&o.primary, &venue(&o, &t), id, &FixedClock(t0()), &mut Attempts::default()).await.unwrap(), TickOutcome::Done { placed: true }));
     let sent = placed(&t);
-    // Rails' base clamped to the free 0.004; sent at adjust(adjust(1.231) × 0.99) = adjust(1.2177) = 1.21, the price Rails'
-    // #set_crossing_order re-reads. The row keeps Rails' raw-bid price and valuation.
+    // 2.x's base clamped to the free 0.004; sent at adjust(adjust(1.231) × 0.99) = adjust(1.2177) = 1.21, the price 2.x's
+    // #set_crossing_order re-reads. The row keeps 2.x's raw-bid price and valuation.
     assert_eq!((sent[0]["side"].as_str(), sent[0]["amount"].as_str(), sent[0]["price"].as_str()), (Some("sell"), Some("0.004"), Some("1.21")));
     assert_eq!(reads(&t), 1, "one price read");
     let (price, amount, quote): (f64, f64, f64) = o.primary.query_row("SELECT price, amount, quote_amount FROM transactions", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();

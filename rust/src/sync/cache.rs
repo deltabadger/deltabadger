@@ -64,7 +64,7 @@ pub struct ReadValue<T> { pub value:T, pub origin:ReadOrigin }
 impl ReadOrigin {
     pub fn producer_stamps(&self)->Value {Value::Array(self.versions.iter().map(CredentialVersion::cache_stamp).collect())}
     /// A venue whose key was deleted keeps its rows as final history (ApiKey `dependent: :nullify`): current, as
-    /// Rails shows it. A venue with a key but no healthy reading slot is current only while it has no rows.
+    /// 2.x shows it. A venue with a key but no healthy reading slot is current only while it has no rows.
     pub fn ledger_is_current(&self,c:&Connection)->Result<bool,EngineError>{
         let mut stmt=c.prepare("SELECT DISTINCT exchange_id FROM api_keys WHERE user_id=?1 AND key_type!=1 AND (?2 IS NULL OR exchange_id=?2) ORDER BY exchange_id")?;
         let scopes=stmt.query_map(rusqlite::params![self.user,self.exchange],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;

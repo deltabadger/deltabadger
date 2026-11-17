@@ -1,10 +1,10 @@
-//! Rails-free cache lifecycle contract against a recorded Rails answer.
+//! 2.x-free cache lifecycle contract against a recorded 2.x answer.
 use deltabadger::tracker::{cache::{self,State},walk::{Summary,Walked}};
 use chrono::{DateTime,Duration,Utc};
 use serde_json::{json,Value};
 fn fixture()->Value{serde_json::from_str(include_str!("fixtures/tracker_cache.json")).unwrap()}
 #[test]
-fn cache_lifecycle_matches_rails_with_documented_eviction_miss(){
+fn cache_lifecycle_matches_v2_with_documented_eviction_miss(){
     let c=rusqlite::Connection::open_in_memory().unwrap();
     c.execute_batch("CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT);CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT);CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT);CREATE TABLE historical_prices(id INTEGER);").unwrap();
     let now:DateTime<Utc>="2026-10-08T12:00:00Z".parse().unwrap();

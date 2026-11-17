@@ -1,6 +1,6 @@
-//! Tracker::Figures (app/models/tracker/figures.rb): the ledger reconciled with the balances, as far as the snapshots
+//! Tracker::Figures: the ledger reconciled with the balances, as far as the snapshots
 //! read it. The venue's balance is the truth about what is held; where the history disagrees, the extra left at cost
-//! or arrived at the balance's price, and money in moves with it. The notes Rails writes beside each assumption are
+//! or arrived at the balance's price, and money in moves with it. The notes 2.x writes beside each assumption are
 //! the page's (Plan D5); the figures they shape are here.
 use super::fx::FxTable;
 use super::rows::{borrowed, Kind};
@@ -105,7 +105,7 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
         if at < since || borrowed(tx_id.as_deref()) { continue; }
         let Some(&taken) = marks.get(&exchange) else { continue };
         if at < taken { continue; }
-        let kind = Kind::from_stored(r.get(1)?).ok_or_else(|| FiguresError::Data("an entry type Rails does not have".into()))?;
+        let kind = Kind::from_stored(r.get(1)?).ok_or_else(|| FiguresError::Data("an entry type 2.x does not have".into()))?;
         let amount = Dec::from_sql(r.get_ref(3)?)?.ok_or_else(|| FiguresError::Data("a row with no base amount".into()))?;
         rows.push(super::rows::Stored {
             id: r.get(8)?, exchange_id: exchange, venue: String::new(), kind, base: r.get(2)?, amount, quote: r.get(4)?, quote_amount: Dec::from_sql(r.get_ref(5)?)?,
@@ -133,7 +133,7 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
 pub struct Holding { pub asset: Option<i64>, pub symbol: String, pub quantity: Dec, pub value: Dec, pub cost: Option<Dec>, pub cash: bool, pub unrealised: Option<Dec>, pub note: Option<Note>,
     /// Whether `value` is a market value (Rust only, PLAN-venue-prices S1): false when it stands in for one (a coin the
     /// venue reports at cost for want of a price, other cash at par for want of an ECB rate). A coin arrived since the
-    /// sync, at cost under its `since_sync` note, counts as priced. The arithmetic is Rails'; the page shows
+    /// sync, at cost under its `since_sync` note, counts as priced. The arithmetic is 2.x's; the page shows
     /// no number for an unpriced holding.
     pub priced: bool }
 
@@ -158,7 +158,7 @@ struct Notes(Vec<Note>);
 
 impl Notes {
     /// `note`: below a dollar an assumption is applied in silence (`NOTE_FLOOR`), unless it is always stated.
-    #[allow(clippy::too_many_arguments)] // Rails' `note(kind, symbol, exchange, history, held, amount_usd, always:)`
+    #[allow(clippy::too_many_arguments)] // 2.x's `note(kind, symbol, exchange, history, held, amount_usd, always:)`
     fn note(&mut self, kind: &'static str, symbol: &str, exchange: Option<&str>, history: Option<&Dec>, held: Option<&Dec>, amount: Dec, always: bool) -> Option<Note> {
         if !(always || stated(&amount)) { return None; }
         let note = Note { kind, symbol: symbol.into(), exchange: exchange.map(Into::into), history: history.cloned(), held: held.cloned(), amount };
@@ -261,7 +261,7 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
     }
     let zero = Dec::zero();
     let mut moved = Dec::zero();
-    // The symbols in the order Rails meets them (balances, then what arrived since), each with its balance rows.
+    // The symbols in the order 2.x meets them (balances, then what arrived since), each with its balance rows.
     let mut symbols: Vec<String> = vec![];
     let mut rows_of: HashMap<&str, Vec<&Balance>> = HashMap::new();
     for b in balances {
@@ -348,7 +348,7 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
         // A coin the venue has not reported yet is held at cost until it does, and says so whatever else was assumed.
         let note = match note { None if since_sync => notes.note("since_sync", &symbol, exchange, Some(&history), Some(&held), cost.clone(), true), note => note };
         let value = match &price { Some(p) => (&held * p)?, None => cost.clone() };
-        // A coin arrived since the sync is held at cost under its own note until the venue reports it (Rails' reading,
+        // A coin arrived since the sync is held at cost under its own note until the venue reports it (2.x's reading,
         // kept: a bot's buy between two syncs is not a missing price).
         let priced = (price.is_some() || since_sync) && every_row_valued;
         holdings.push(Holding { asset, symbol, quantity: held, unrealised: Some((&value - &cost)?), value, cost: Some(cost), cash: false, note, priced });
@@ -440,7 +440,7 @@ mod tests {
 
     /// PLAN-venue-prices S1: a holding is priced only when its value is a market value: a coin with a value on every one
     /// of its balance rows, cash at a balance price or an ECB rate; other cash at par for want of a rate is not. A coin
-    /// arrived since the sync keeps Rails' labelled cost reading.
+    /// arrived since the sync keeps 2.x's labelled cost reading.
     #[test]
     fn a_holding_valued_without_a_market_price_is_not_priced() {
         assert_eq!(priced(&[balance("BTC", "Cryptocurrency", "Kraken", Some("60000"))], &[]), [("BTC".to_string(), true)]);

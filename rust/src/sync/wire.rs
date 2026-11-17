@@ -1,18 +1,18 @@
-//! A venue's answer, read the way Rails reads it and within stated bounds, before anything is built from it.
+//! A venue's answer, read the way 2.x reads it and within stated bounds, before anything is built from it.
 //!
-//! Rails parses an answer with `JSON.parse` (Faraday's `:json` middleware), which inside the app is Oj's, and stores
-//! what it parsed, re-serialised by Oj's Rails encoder (ActiveRecord's JSON type). So what Rails holds, and what
+//! 2.x parses an answer with `JSON.parse` (Faraday's `:json` middleware), which inside the app is Oj's, and stores
+//! what it parsed, re-serialised by Oj's 2.x encoder (ActiveRecord's JSON type). So what 2.x holds, and what
 //! `raw_data` gets, never has a key twice in one object (the last value wins, in the first one's place, at every
 //! level) and is never nested more than 100 deep (`JSON::NestingError`: the fetch fails). This reader does the same
 //! to the text itself. It keeps every scalar as the venue wrote it (`Node::text`: what a number is read from), and
-//! prints the value as Rails stores it (`Node::stored`: a Float in Oj's sixteen digits, a string in its escapes).
+//! prints the value as 2.x stores it (`Node::stored`: a Float in Oj's sixteen digits, a string in its escapes).
 //!
 //! It also bounds what an answer may cost before any of it is allocated as a tree: a body inside its byte limit can
 //! still hold millions of values (`[[],[],…]`) or keys. Every value and every key is counted against a budget while
 //! the text is scanned, and a list is refused at its first item over the limit.
 use std::collections::HashMap;
 
-/// Ruby's `JSON.parse` default `max_nesting`: an array or object opened inside 100 others is refused.
+/// 2.x's `JSON.parse` default `max_nesting`: an array or object opened inside 100 others is refused.
 pub const MAX_NESTING: usize = 100;
 
 /// Why an answer was not read.
@@ -20,7 +20,7 @@ pub const MAX_NESTING: usize = 100;
 pub enum Refused {
     /// Not JSON at all: what Clients::Alpaca#with_rescue reports as a failed request.
     NotJson,
-    /// Nested deeper than Ruby's parser reads: Rails' fetch fails too ("Too deeply nested").
+    /// Nested deeper than 2.x's parser reads: 2.x's fetch fails too ("Too deeply nested").
     TooDeep,
     /// More values and keys than the answer, or the run, may hold.
     OverBudget,
@@ -50,7 +50,7 @@ impl Budget {
     }
 }
 
-/// One JSON value in Rails' canonical form. A scalar is its own text.
+/// One JSON value in 2.x's canonical form. A scalar is its own text.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Scalar(String),
@@ -69,8 +69,8 @@ impl Node {
         }
     }
 
-    /// The value as Rails stores it in a JSON column: `ActiveSupport::JSON.encode` of what `JSON.parse` held, which in
-    /// the app is Oj's Rails encoder (config/initializers/oj.rb). Byte for byte what Rails writes to `raw_data`.
+    /// The value as 2.x stores it in a JSON column: `ActiveSupport::JSON.encode` of what `JSON.parse` held, which in
+    /// the app is Oj's 2.x encoder. Byte for byte what 2.x writes to `raw_data`.
     pub fn stored(&self) -> String {
         let mut out = String::new();
         self.write_stored(&mut out);
@@ -129,7 +129,7 @@ fn write_stored_members(members: &[(String, Node)], out: &mut String) {
     out.push('}');
 }
 
-/// An object's members as a key two objects share exactly when Ruby's `eql?` holds for what `JSON.parse` made of them (what
+/// An object's members as a key two objects share exactly when 2.x's `eql?` holds for what `JSON.parse` made of them (what
 /// `Hash#tally` and a Hash key compare by): the members in any order, a string by its decoded text, digits alone an
 /// Integer by value (`-0` is 0), any other number a Float by its double (`-0.0` is `0.0`), and an Integer never a Float.
 pub fn eql_key_members(members: &[(String, Node)]) -> String {
@@ -170,14 +170,14 @@ fn write_eql(node: &Node, out: &mut String) {
     }
 }
 
-/// An object's members as Rails stores them (`Node::stored` for an object held as its members).
+/// An object's members as 2.x stores them (`Node::stored` for an object held as its members).
 pub fn stored_members(members: &[(String, Node)]) -> String {
     let mut out = String::new();
     write_stored_members(members, &mut out);
     out
 }
 
-/// A string as Oj's Rails encoder writes it with `escape_html_entities_in_json` on (Rails' default): the short
+/// A string as Oj's 2.x encoder writes it with `escape_html_entities_in_json` on (2.x's default): the short
 /// escapes for backspace, tab, newline, form feed and return, `\u00XX` for every other control character, `&`, `<`
 /// and `>` as `\u0026`, `\u003c` and `\u003e`, U+2028 and U+2029 escaped, everything else as it is (DEL and all
 /// non-ASCII raw, `/` unescaped).
@@ -199,10 +199,10 @@ pub(crate) fn stored_string(s: &str, out: &mut String) {
     out.push('"');
 }
 
-/// A JSON number as Rails stores it. Digits alone are an Integer, kept exactly whatever their length (`-0` is 0);
+/// A JSON number as 2.x stores it. Digits alone are an Integer, kept exactly whatever their length (`-0` is 0);
 /// anything else is a Float, printed by `stored_float`.
 ///
-/// Printed twice, as Rails prints it: assigning a value to a JSON attribute casts it through its own text
+/// Printed twice, as 2.x prints it: assigning a value to a JSON attribute casts it through its own text
 /// (`ActiveModel::Type::Helpers::Mutable#cast` is `deserialize(serialize(value))`), and saving serialises what that
 /// read back. The second printing changes one thing: a double whose sixteen digits round up past the largest double
 /// reads back as Infinity and is stored as `null`. (Sixteen digits otherwise read back as a double that prints the
@@ -218,15 +218,15 @@ fn stored_number(token: &str) -> String {
     printed(&printed(token))
 }
 
-/// A Float as Oj's Rails encoder writes it (oj 3.17.6, rails.c `dump_float`, with `Oj.optimize_rails`):
+/// A Float as Oj's 2.x encoder writes it (oj 3.17.6, `dump_float` of the mode 2.x's initializer selects):
 /// - zero, of either sign, is `0.0`; a value that is not finite is `null`;
 /// - a whole number inside 64 bits is C's `%.1f` (`100.0`, `1000000000000000.0`);
 /// - anything else is C's `%0.16g`: sixteen significant digits, trailing zeros dropped, an exponent (`1e-05`,
 ///   `1e+20`) below 10^-4 and from 10^16 on. So `0.30000000000000004` is stored as `0.3`;
 /// - but when that text is seventeen characters or more and ends in `0001` or `9999` (Oj takes it for a rounding
-///   artefact), it is Ruby's `Float#to_s` instead: the shortest digits that read back as the same double.
+///   artefact), it is 2.x's `Float#to_s` instead: the shortest digits that read back as the same double.
 ///
-/// Not Ruby's own `Float#to_s`, which this crate has only as the digits behind `Float#to_d` (`ruby::BigDec`): that is
+/// Not 2.x's own `Float#to_s`, which this crate has only as the digits behind `Float#to_d` (`v2::BigDec`): that is
 /// the shortest round-trip form (`0.30000000000000004`, `1.0e-05`), up to seventeen digits; Oj's is a fixed sixteen
 /// with C's exponent, and loses the seventeenth.
 pub fn stored_float(d: f64) -> String {
@@ -245,8 +245,8 @@ pub fn stored_float(d: f64) -> String {
         format!("{sign}{}", if fixed.contains('.') { fixed.trim_end_matches('0').trim_end_matches('.') } else { &fixed })
     };
     if g.len() >= 17 && (g.ends_with("0001") || g.ends_with("9999")) {
-        // Float#to_s, for a value Ruby prints without an exponent (10^-4 up to 10^16: the only ones that get here).
-        let (digits, exponent, sign) = decimal(&crate::ruby::float_e(d));
+        // Float#to_s, for a value 2.x prints without an exponent (10^-4 up to 10^16: the only ones that get here).
+        let (digits, exponent, sign) = decimal(&crate::v2::float_e(d));
         let fixed = fixed(&digits, exponent);
         return format!("{sign}{fixed}{}", if fixed.contains('.') { "" } else { ".0" });
     }
@@ -324,7 +324,7 @@ impl<'a> Reader<'a> {
                     if self.bytes.get(self.at) != Some(&b':') { return Err(Refused::NotJson); }
                     self.at += 1;
                     let value = self.value(depth + 1, budget, None)?;
-                    // A key met again: its last value, in its first place (a Ruby Hash).
+                    // A key met again: its last value, in its first place (a 2.x Hash).
                     match place.get(&key) {
                         Some(i) => members[*i].1 = value,
                         None => { place.insert(key.clone(), members.len()); members.push((key, value)); }
@@ -338,7 +338,7 @@ impl<'a> Reader<'a> {
                 }
             }
             // A scalar is checked where it stands, before anything can replace it: a value a later one of the same
-            // key overwrites must still be JSON (Rails' parser refuses the whole body otherwise).
+            // key overwrites must still be JSON (2.x's parser refuses the whole body otherwise).
             Some(b'"') => {
                 let token = self.string()?;
                 serde_json::from_str::<String>(token).map_err(|_| Refused::NotJson)?;
@@ -384,8 +384,8 @@ pub(crate) fn read_identity(text: &str, budget: &mut Budget, max_items: Option<u
 
 /// JSON read without losing an integer: one too large for 64 bits (which serde_json would round to a double) becomes
 /// the string "<integer DIGITS>", so two texts that differ in such a number differ once parsed. Both halves of the
-/// parity harness go through here: Rails' recorded output, and what Rust stored. Other numbers are compared as doubles, as
-/// Ruby holds them. The text is scanned once; only what stands outside a string can be a number.
+/// parity harness go through here: 2.x's recorded output, and what Rust stored. Other numbers are compared as doubles, as
+/// 2.x holds them. The text is scanned once; only what stands outside a string can be a number.
 pub fn exact(text: &str) -> Result<serde_json::Value, serde_json::Error> {
     let bytes = text.as_bytes();
     let mut out = String::with_capacity(text.len());
@@ -422,7 +422,7 @@ mod eql_tests {
         eql_key_members(&m)
     }
     #[test]
-    fn eql_key_is_rubys_eql_on_what_json_parse_made() {
+    fn eql_key_is_v2s_eql_on_what_json_parse_made() {
         assert_eq!(key(r#"{"a":1,"b":"x"}"#), key(r#"{"b":"x","a":1}"#), "key order is no difference");
         assert_eq!(key(r#"{"a":"A"}"#), key(r#"{"a":"A"}"#), "a string by its text");
         assert_eq!(key(r#"{"a":1.50}"#), key(r#"{"a":1.5}"#), "a Float by its double");

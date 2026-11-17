@@ -1,11 +1,11 @@
-//! The listed 3.0 differences (Rust only, plan 2026-10-23 tracker tabs and scope frames), applied to a page Rails
+//! The listed 3.0 differences (Rust only, plan 2026-10-23 tracker tabs and scope frames), applied to a page 2.x
 //! rendered so the grids compare it byte for byte with this crate's:
 //! - the tracker's holdings card moves into the record as its first pane, Holdings / Positions / Transactions, unfolded
 //!   (no "Show more"), each row carrying its class for the pane's All / Crypto / Stocks / Cash filter;
 //! - the venue switch loads into the `tracker_scope` frame, which wraps the chart, the tiles and the record;
 //! - the bot list's status filter loads into the `bots_scope` frame around the tiles, and the merge bar is always there.
 //!
-//! Every step finds its anchor or fails, so a change to Rails' markup is a failure here, never a silent pass.
+//! Every step finds its anchor or fails, so a change to 2.x's markup is a failure here, never a silent pass.
 use deltabadger::web::{i18n, tracker::record};
 
 fn find(page: &str, anchor: &str, from: usize) -> Result<usize, String> {
@@ -28,9 +28,9 @@ fn class_of(row: &str) -> &'static str {
     match kind { "Crypto" => "crypto", "Stock" | "ETF" | "Fund" => "stocks", "Cash" | "Stable" => "cash", _ => "" }
 }
 
-/// Rails' holdings card, unfolded and its rows marked: the card this crate renders, and the classes its rows hold.
-fn card(rails: &str) -> Result<(String, Vec<&'static str>), String> {
-    let mut card = rails.to_string();
+/// 2.x's holdings card, unfolded and its rows marked: the card this crate renders, and the classes its rows hold.
+fn card(v2: &str) -> Result<(String, Vec<&'static str>), String> {
+    let mut card = v2.to_string();
     if let Some(open) = card.find("          <details class=\"tracker-holdings__more\">\n") {
         let close = find(&card, "          </details>\n", open)?;
         let block = card[open..close].to_string();

@@ -26,7 +26,7 @@ LICENSE
 .DS_Store
 
 # Test files
-# Rails' frozen answers (PLAN-B11 B11-1): the Rust tests' expected values, never part of an image.
+# The recorded 2.x answers (PLAN-B11 B11-1): the Rust tests' expected values, never part of an image.
 rust/tests/recorded/
 coverage/
 

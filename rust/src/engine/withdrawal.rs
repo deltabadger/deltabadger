@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     crypto::Cipher,
-    ruby::BigDec,
+    v2::BigDec,
     venue::{withdrawal as v, VenueError},
 };
 use chrono::{DateTime, Utc};
@@ -463,10 +463,10 @@ fn decimal(s: &str) -> Result<BigDec, EngineError> {
 }
 fn setting_number(settings: &Value, key: &str, default: &str) -> Result<BigDec, EngineError> {
     let value = &settings[key];
-    if value.is_null() || value.as_str().is_some_and(crate::ruby::blank) {
+    if value.is_null() || value.as_str().is_some_and(crate::v2::blank) {
         return decimal(default);
     }
-    crate::ruby::json_to_d(value)
+    crate::v2::json_to_d(value)
         .map_err(|_| data("invalid withdrawal number"))?
         .ok_or_else(|| data("invalid withdrawal number"))
 }
@@ -532,7 +532,7 @@ fn rule(c: &Connection, cipher: &Cipher, id: i64) -> Result<Rule, EngineError> {
         .map_err(|_| data("unreadable withdrawal settings"))?;
     Ok(r)
 }
-// Called under the evaluation's immediate transaction. Rails ExecuteJob checks scheduled?
+// Called under the evaluation's immediate transaction. 2.x ExecuteJob checks scheduled?
 // before reading encrypted attributes and records unexpected rule-data failures per job.
 fn evaluation_rule(
     c: &Connection,
@@ -624,7 +624,7 @@ fn consume(
 ) -> Result<bool, EngineError> {
     Ok(c.execute("UPDATE rust_rule_evaluations SET consumed_at=?1,outcome=?2 WHERE id=?3 AND consumed_at IS NULL",params![crate::codec::format_time(now),outcome,evaluation])?==1)
 }
-#[allow(clippy::too_many_arguments)] // The captured evaluation and Rails outcome are committed together.
+#[allow(clippy::too_many_arguments)] // The captured evaluation and 2.x outcome are committed together.
 fn outcome(
     c: &Connection,
     cipher: &Cipher,
@@ -1288,7 +1288,7 @@ fn settle_result(
     };
     match result {
         SendResult::Accepted { id } if !id.trim().is_empty() => {
-            rules::seed_rails_ids(&tx)?;
+            rules::seed_v2_ids(&tx)?;
             let inserted=tx.execute("INSERT OR IGNORE INTO rust_withdrawal_ids(exchange_id,venue_id,owner,settled_at,source) VALUES(?1,?2,?3,?4,'rust')",params![request.exchange_id,id,current.owner,crate::codec::format_time(now)])?;
             if inserted == 0 {
                 uncertain(&tx, &current, state, "duplicate venue id")?;
@@ -1452,9 +1452,9 @@ fn clean_candidates(candidates: Vec<Value>) -> Vec<Value> {
 pub enum Target {
     Rule(i64),
     Recorder(String),
-    Rails(i64),
-    RailsJob(String),
-    RailsList(i64),
+    V2(i64),
+    V2Job(String),
+    V2List(i64),
 }
 #[derive(Clone, Debug)]
 pub enum Resolution {
@@ -1466,7 +1466,7 @@ pub enum Resolution {
 }
 pub fn parse_cli(args: &[String]) -> Result<(Target, Resolution), EngineError> {
     let usage = || {
-        data("usage: resolve-withdrawal <rule_id> | --recorder <scenario> | --rails <rule_log_id> | --rails-job <job> (--sent <id> [--amount <amount>] | --not-sent | --recorded <rule_log_id> | --skip); --rails-list <rule_id>")
+        data("usage: resolve-withdrawal <rule_id> | --recorder <scenario> | --v2 <rule_log_id> | --v2-job <job> (--sent <id> [--amount <amount>] | --not-sent | --recorded <rule_log_id> | --skip); --v2-list <rule_id>")
     };
     let id = |s: Option<&String>| {
         s.and_then(|v| v.parse::<i64>().ok())
@@ -1474,8 +1474,8 @@ pub fn parse_cli(args: &[String]) -> Result<(Target, Resolution), EngineError> {
             .ok_or_else(usage)
     };
     let (target, rest) = match args.first().map(String::as_str) {
-        Some("--rails-list") if args.len() == 2 => {
-            return Ok((Target::RailsList(id(args.get(1))?), Resolution::List))
+        Some("--v2-list") if args.len() == 2 => {
+            return Ok((Target::V2List(id(args.get(1))?), Resolution::List))
         }
         Some("--recorder") => (
             Target::Recorder(
@@ -1486,9 +1486,9 @@ pub fn parse_cli(args: &[String]) -> Result<(Target, Resolution), EngineError> {
             ),
             &args[2..],
         ),
-        Some("--rails") => (Target::Rails(id(args.get(1))?), &args[2..]),
-        Some("--rails-job") => (
-            Target::RailsJob(
+        Some("--v2") => (Target::V2(id(args.get(1))?), &args[2..]),
+        Some("--v2-job") => (
+            Target::V2Job(
                 args.get(1)
                     .filter(|s| !s.is_empty())
                     .ok_or_else(usage)?
@@ -1506,8 +1506,8 @@ pub fn parse_cli(args: &[String]) -> Result<(Target, Resolution), EngineError> {
         .as_slice()
     {
         ["--not-sent"] => Resolution::NotSent,
-        ["--skip"] if matches!(target, Target::RailsJob(_)) => Resolution::Skip,
-        ["--recorded", log] if matches!(target, Target::RailsJob(_)) => {
+        ["--skip"] if matches!(target, Target::V2Job(_)) => Resolution::Skip,
+        ["--recorded", log] if matches!(target, Target::V2Job(_)) => {
             Resolution::Recorded(log.parse().map_err(|_| usage())?)
         }
         ["--sent", id] if !id.trim().is_empty() => Resolution::Sent {
@@ -1537,14 +1537,14 @@ pub fn resolve(
     now: DateTime<Utc>,
 ) -> Result<(), EngineError> {
     let tx = model::immediate(c)?;
-    rules::seed_rails_ids(&tx)?;
+    rules::seed_v2_ids(&tx)?;
     if let Resolution::Sent { id, .. } = &resolution {
         let exchange=match &target{
    Target::Recorder(scenario)=>load(&tx,cipher,&format!("recorder:{scenario}"))?.ok_or_else(||data("no recorder intent"))?.request.exchange_id,
    Target::Rule(id)=>load(&tx,cipher,&format!("rule:{id}"))?.ok_or_else(||data("no withdrawal intent"))?.request.exchange_id,
-   Target::Rails(id)=>tx.query_row("SELECT r.exchange_id FROM rules r JOIN rule_logs l ON l.rule_id=r.id WHERE l.id=?1",[id],|r|r.get(0))?,
-   Target::RailsJob(id)=>{let j=rules::jobs(&tx,q)?.into_iter().find(|j|j.id==*id).ok_or_else(||data("no such Rails job"))?;let rule=j.rule.ok_or_else(||data("EvaluateAllJob accepts --skip only"))?;tx.query_row("SELECT exchange_id FROM rules WHERE id=?1",[rule],|r|r.get(0))?},
-   Target::RailsList(_)=>return Err(data("list accepts no resolution")),};
+   Target::V2(id)=>tx.query_row("SELECT r.exchange_id FROM rules r JOIN rule_logs l ON l.rule_id=r.id WHERE l.id=?1",[id],|r|r.get(0))?,
+   Target::V2Job(id)=>{let j=rules::jobs(&tx,q)?.into_iter().find(|j|j.id==*id).ok_or_else(||data("no such 2.x job"))?;let rule=j.rule.ok_or_else(||data("EvaluateAllJob accepts --skip only"))?;tx.query_row("SELECT exchange_id FROM rules WHERE id=?1",[rule],|r|r.get(0))?},
+   Target::V2List(_)=>return Err(data("list accepts no resolution")),};
         let exists: bool = tx.query_row(
             "SELECT EXISTS(SELECT 1 FROM rust_withdrawal_ids WHERE exchange_id=?1 AND venue_id=?2)",
             params![exchange, id],
@@ -1569,7 +1569,7 @@ fn resolve_in(
 ) -> Result<(), EngineError> {
     let at = crate::codec::format_time(now);
     match target {
-        Target::RailsList(_) => Err(data("use open_attempts to list Rails evidence")),
+        Target::V2List(_) => Err(data("use open_attempts to list 2.x evidence")),
         Target::Rule(_) | Target::Recorder(_) => {
             let owner = match target {
                 Target::Rule(id) => format!("rule:{id}"),
@@ -1609,29 +1609,29 @@ fn resolve_in(
             remove(c, &i, &i.state)?;
             Ok(())
         }
-        Target::Rails(log) => {
+        Target::V2(log) => {
             let rule = rules::open_attempts(c, None)?
                 .into_iter()
                 .find(|(id, _)| *id == log)
                 .map(|(_, rule)| rule)
-                .ok_or_else(|| data("not an open ambiguous Rails attempt"))?;
+                .ok_or_else(|| data("not an open ambiguous 2.x attempt"))?;
             let raw: String =
                 c.query_row("SELECT details FROM rule_logs WHERE id=?1", [log], |r| {
                     r.get(0)
                 })?;
             let details: Value =
-                serde_json::from_str(&raw).map_err(|_| data("unreadable Rails attempt details"))?;
+                serde_json::from_str(&raw).map_err(|_| data("unreadable 2.x attempt details"))?;
             let (name, venue) = resolve_log(c, rule, &resolution, details, now)?;
             c.execute("INSERT INTO rust_rails_attempt_acks(rule_log_id,rule_id,resolution,venue_id,at) VALUES(?1,?2,?3,?4,?5)",params![log,rule,name,venue,at])?;
             Ok(())
         }
-        Target::RailsJob(job) => {
+        Target::V2Job(job) => {
             let j = rules::jobs(c, q)?
                 .into_iter()
                 .find(|j| j.id == job)
-                .ok_or_else(|| data("no such Rails withdrawal job"))?;
+                .ok_or_else(|| data("no such 2.x withdrawal job"))?;
             if j.acknowledged {
-                return Err(data("Rails job already acknowledged"));
+                return Err(data("2.x job already acknowledged"));
             }
             if j.all {
                 if !j.claimed || !matches!(resolution, Resolution::Skip) {
@@ -1691,7 +1691,7 @@ fn insert_operator_id(
     if id.trim().is_empty() {
         return Err(data("withdrawal id must not be empty"));
     }
-    rules::seed_rails_ids(c)?;
+    rules::seed_v2_ids(c)?;
     c.execute("INSERT INTO rust_withdrawal_ids(exchange_id,venue_id,owner,settled_at,source) VALUES(?1,?2,?3,?4,'operator')",params![exchange,id,owner,crate::codec::format_time(now)])?;
     Ok(())
 }
@@ -1707,7 +1707,7 @@ fn resolve_log(
             let amount = amount
                 .clone()
                 .or_else(|| details["amount"].as_str().map(str::to_owned))
-                .ok_or_else(|| data("--amount is required when the Rails attempt has no amount"))?;
+                .ok_or_else(|| data("--amount is required when the 2.x attempt has no amount"))?;
             if !decimal(&amount)?.is_positive() {
                 return Err(data("amount must be positive"));
             }
@@ -1738,7 +1738,7 @@ fn resolve_log(
             )?;
             Ok(("not-sent".into(), None))
         }
-        _ => Err(data("invalid Rails attempt resolution")),
+        _ => Err(data("invalid 2.x attempt resolution")),
     }
 }
 

@@ -65,7 +65,7 @@ fn api_selection_is_all_or_nothing_and_dry_run_does_not_write() {
     assert_eq!(api(&c,&app,s.user_id,id,json!({"symbol":"BTC"})).code,Some("write_refused"));
 }
 #[test]
-fn api_asks_no_wash_question_and_uses_rails_domain_codes() {
+fn api_asks_no_wash_question_and_uses_v2_domain_codes() {
     let (_d,c,s,id,app,_)=install();
     // BotApi::Bots::LiquidateExited never asks the wash-sale question (only the web confirmation does): an account that has
     // not answered is not refused for it (WS-4b), as one with the rule on is not (WS-4a).
@@ -143,7 +143,7 @@ async fn mcp(app:&App,id:i64)->Value {
 async fn rest_and_mcp_real_entry_points_queue_the_webs_rows_with_the_wash_sale_rule_on() {
     for rest in [true,false] {
         let (_d,c,s,id,app,_)=install();credentials(&c,s.user_id);
-        // PLAN-wash-sale WS-4a: the rule is no refusal (Rails asks nothing); the engine claims the lock if the sale is at a loss.
+        // PLAN-wash-sale WS-4a: the rule is no refusal (2.x asks nothing); the engine claims the lock if the sale is at a loss.
         c.execute("UPDATE users SET wash_sale_enabled=1",[]).unwrap();
         if rest {
             let (status,_,body)=wire(&app,&format!("/api/v1/bots/{id}/liquidations"),"liquidation-api",json!({"symbol":"BTC"}),None).await;
@@ -182,7 +182,7 @@ async fn clear_http_accounts_for_shown_rows_and_status_lasts_through_taken_reque
         model::merge_transient_compact(&c,id,&[("liquidation_selling_since",request)]).unwrap();
         let page=b.get(&app,&format!("/bots/{id}")).await;
         assert_eq!(page.status,200,"{}",page.body);
-        assert_eq!(status_text(&page.body,id),"Selling…","request remains visible after the Rails TTL, including taken requests");
+        assert_eq!(status_text(&page.body,id),"Selling…","request remains visible after the 2.x TTL, including taken requests");
     }
     model::merge_transient_compact(&c,id,&[("liquidation_selling_since",Value::Null),("liquidation_pending",json!({"id":"halt","state":"ambiguous","symbol":"BTC"}))]).unwrap();
     let page=b.get(&app,&format!("/bots/{id}")).await;
@@ -439,7 +439,7 @@ async fn the_feed_names_each_reason_and_keeps_legacy_lines() {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn an_orders_event_announces_only_the_lines_below_it_and_never_the_rails_order_answers() {
+async fn an_orders_event_announces_only_the_lines_below_it_and_never_the_v2_order_answers() {
     let (_d,c,s,id,app,_)=install();
     let mut lines=deltabadger::web::bot::live::Lines::starting(&c).unwrap();
     // A batch: order A, then a skip, then order B a minute later; both orders' events are read after all three writes.

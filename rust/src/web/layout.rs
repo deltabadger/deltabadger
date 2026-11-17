@@ -1,6 +1,6 @@
 //! Rendering: the per-request context handlers and templates read (`Ctx`), the devise layout and
 //! turbo-rails' frame layout, redirects, and the answer for pages this build does not serve.
-//! Templates live in rust/templates and were written from Rails' rendered output.
+//! Templates live in rust/templates and were written from 2.x's rendered output.
 use super::auth::{Current, User};
 use super::session::Session;
 use super::{assets, csrf, flash, header_text, i18n, locale, normalize_path, turbo, App, Params, WebError};
@@ -123,7 +123,7 @@ impl Ctx {
         matches!(self.method, Method::GET | Method::HEAD) && self.path(path) == self.params.full_path
     }
 
-    /// The masked CSRF token for this response; the session gets its token on first use, as in Rails.
+    /// The masked CSRF token for this response; the session gets its token on first use, as in 2.x.
     pub fn csrf_token(&self) -> String {
         let mut session = self.session.lock();
         csrf::masked(session.csrf.get_or_insert_with(csrf::new_token))
@@ -156,7 +156,7 @@ impl Ctx {
     }
 }
 
-/// A redirect with an empty body. Rails sends an absolute URL; a path is the same resource and does
+/// A redirect with an empty body. 2.x sends an absolute URL; a path is the same resource and does
 /// not depend on knowing the public host.
 pub fn redirect(status: StatusCode, location: &str) -> Response {
     let safe=locale::without_secret_query(location);
@@ -184,7 +184,7 @@ pub fn unverified_request(ctx: &Ctx, headers: &HeaderMap) -> Response {
 }
 
 /// `redirect_back`: the referer's path and query, when the referer is a page of this deployment's
-/// own origin (scheme, host and port; Rails compares the host alone). The path is squeezed first, so
+/// own origin (scheme, host and port; 2.x compares the host alone). The path is squeezed first, so
 /// the result begins with exactly one slash: a `Location` of `//evil.test/path` would name another host.
 pub fn back(config: &super::Config, headers: &HeaderMap) -> Option<String> {
     let referer = header_text(headers, "referer")?;
@@ -261,7 +261,7 @@ pub fn devise(ctx: &Ctx, csrf: &str, page: Page) -> Result<Response, WebError> {
     Ok(html(page.status, DeviseLayout { v: ctx, csrf, flash: &flash, body: &page.body }.render()?))
 }
 
-/// The answer for everything Rails serves and this build does not yet: 501, naming the request.
+/// The answer for everything 2.x serves and this build does not yet: 501, naming the request.
 /// Never a redirect, so a missing page cannot pass for a working one. The message sits in a
 /// `<turbo-frame>` with the id the request asked for, so Turbo shows it where the content would have gone. A frame
 /// request that also accepts a Turbo Stream (the redirect a nested frame's form submission follows: Turbo renders a stream
@@ -295,8 +295,8 @@ pub fn bad_request() -> Response {
     response
 }
 
-/// A record that is not there for this user, where Rails lets ActiveRecord::RecordNotFound through:
-/// 404 with public/404.html. (Rails in production then redirects to the root; a page that is not
+/// A record that is not there for this user, where 2.x lets ActiveRecord::RecordNotFound through:
+/// 404 with public/404.html. (2.x in production then redirects to the root; a page that is not
 /// there is not made to look like one that is.)
 pub fn missing() -> Response {
     let body = assets::find("/404.html").map_or(&b"Not Found"[..], |file| file.body);
@@ -305,7 +305,7 @@ pub fn missing() -> Response {
     response
 }
 
-/// The same answer from a handler that knows why it does not serve a page Rails serves. The reason
+/// The same answer from a handler that knows why it does not serve a page 2.x serves. The reason
 /// goes to the log: the page names the request, which is what its reader can act on.
 pub fn refused(ctx: &Ctx, reason: &str) -> Response {
     crate::eline!("deltabadger: {} {} is not served: {reason}", ctx.method, super::hook::mask_hook_path(&locale::without_secret_query(&ctx.params.fullpath)));
@@ -327,7 +327,7 @@ pub fn or_refused(ctx: &Ctx, error: WebError) -> Result<Response, WebError> {
 pub async fn not_ported(request: Request) -> Response {
     // The path as it was requested: `entry` has taken the locale prefix off the URI by now. Under /oauth/ and
     // /.well-known/ without its query, where an OAuth client's secret or token may stand under a name the page's
-    // redaction (locale::SENSITIVE, Rails' list) does not know (`client_secret`, `bearer_token`).
+    // redaction (locale::SENSITIVE, 2.x's list) does not know (`client_secret`, `bearer_token`).
     let path = request.extensions().get::<Arc<Params>>().map_or_else(|| request.uri().path().to_string(), |params| {
         // `/de/oauth/…` too: those paths keep their locale segment (locale::UNSCOPED).
         let oauth = params.route_path.split('/').skip(1).take(2).any(|segment| segment == "oauth" || segment == ".well-known");

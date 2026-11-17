@@ -3,9 +3,9 @@
 use std::path::Path;
 
 /// (version, name, path) of every migration in `dir`, sorted by version, after checking that each file is named
-/// `<version>_<name>.sql`, that no version repeats or equals one of `rails_versions`, and that no file controls the
+/// `<version>_<name>.sql`, that no version repeats or equals one of `v2_versions`, and that no file controls the
 /// transaction it runs in (the migrator runs each file in its own). A missing directory has none; dotfiles are skipped.
-pub fn load(dir: &Path, rails_versions: &[String]) -> Result<Vec<(String, String, std::path::PathBuf)>, String> {
+pub fn load(dir: &Path, v2_versions: &[String]) -> Result<Vec<(String, String, std::path::PathBuf)>, String> {
     let mut found = Vec::new();
     let entries = match std::fs::read_dir(dir) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(found),
@@ -18,7 +18,7 @@ pub fn load(dir: &Path, rails_versions: &[String]) -> Result<Vec<(String, String
         let parsed = file.strip_suffix(".sql").and_then(|stem| stem.split_once('_'))
             .filter(|(version, name)| version.len() == 14 && version.bytes().all(|b| b.is_ascii_digit()) && !name.is_empty());
         let Some((version, name)) = parsed else { return Err(format!("{file}: a Rust migration is named <14-digit version>_<name>.sql")) };
-        if rails_versions.iter().any(|v| v == version) { return Err(format!("{file}: version {version} is a Rails migration's")); }
+        if v2_versions.iter().any(|v| v == version) { return Err(format!("{file}: version {version} is a 2.x migration's")); }
         found.push((version.to_string(), name.to_string(), path));
     }
     found.sort();
@@ -39,7 +39,7 @@ pub fn load(dir: &Path, rails_versions: &[String]) -> Result<Vec<(String, String
 /// D-B11-9-DROP-OWN-TABLE. Every `ALTER TABLE` is refused, and `DROP TABLE` of anything but a bare name (unquoted,
 /// unqualified, no IF EXISTS) that an earlier file (`created`, which this extends) or an earlier statement of this one
 /// created with a plain `CREATE TABLE <name>`: so a migration replaces only Rust's own tables (create the new one, copy,
-/// drop the old), never a Rails-born one, and a missing table fails the migration loudly. Returns each dropped table
+/// drop the old), never a 2.x-born one, and a missing table fails the migration loudly. Returns each dropped table
 /// (lower-cased) and whether this file created it (a hop table). A plain CREATE fails on an existing table, so only a
 /// table the migration really made is authorised; CREATE TEMP, IF NOT EXISTS and quoted names authorise nothing.
 // ponytail: a token scan, not a parser; a trigger body's statements are scanned as statements, which only refuses more.

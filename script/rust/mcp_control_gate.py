@@ -26,7 +26,7 @@ source = (root / 'rust/src/web/mcp/control.rs').read_text()
 assert 'write::settings(' in source and 'write::lifecycle(' in source
 assert not re.search(r'\b(?:INSERT|UPDATE|DELETE)\s+(?:INTO|bots|transactions)', source), 'MCP adapter contains a second write path'
 parser = (root / 'rust/src/web/bot/mcp_input.rs').read_text()
-assert not re.search(r'\.trim\s*\(', parser), 'MCP input parsing must use Ruby strip, never .trim()'
+assert not re.search(r'\.trim\s*\(', parser), 'MCP input parsing must use 2.x strip, never .trim()'
 # The settings page's parser reads what MCP sends; the adapter only turns the dialect into the page's post.
 assert 'draft.parse(' in parser, 'MCP settings must go through the settings form parser'
 assert not re.search(r'candidate\.settings\.insert|candidate\.label\s*=', parser), 'MCP input must not write settings itself'

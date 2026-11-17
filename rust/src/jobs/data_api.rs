@@ -1,5 +1,5 @@
-//! Clients::MarketData (app/models/clients/market_data.rb) over a Transport, with Client#with_rescue's outcomes
-//! (app/models/client.rb:175-182, :244-264): the market-data service ("data-api") hosted instances read their catalogue from.
+//! Clients::MarketData over a Transport, with Client#with_rescue's outcomes
+//!: the market-data service ("data-api") hosted instances read their catalogue from.
 use crate::crypto::Cipher;
 use crate::venue::http::{self, HttpRequest, HttpResponse, Transport, TransportError};
 use rusqlite::Connection;
@@ -21,8 +21,7 @@ pub const MAX_REFERENCE_BODY: usize = 32 * 1024 * 1024;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Config { pub url: String, pub token: String }
 
-/// MarketDataSettings.deltabadger? and AppConfig.market_data_url / _token (app/models/market_data_settings.rb:7-11, :38-48;
-/// app/models/app_config.rb:269-289):
+/// MarketDataSettings.deltabadger? and AppConfig.market_data_url / _token:
 /// - the provider is deltabadger when MARKET_DATA_URL is present in the environment, or when app_configs names it;
 /// - the URL and token come from app_configs when a row exists, even a blank one, else from the environment.
 ///
@@ -49,7 +48,7 @@ impl ApiError {
     pub fn message(&self) -> String {
         match self { Self::Transient(m) | Self::Failed { message: m, .. } | Self::Refused(m) => m.clone() }
     }
-    /// MarketData.rate_limited_failure? (market_data.rb:423-426): a 429, which the stock and Alpaca listing syncs raise as
+    /// MarketData.rate_limited_failure?: a 429, which the stock and Alpaca listing syncs raise as
     /// Client::RateLimitedError.
     pub fn rate_limited(&self) -> bool { matches!(self, Self::Failed { status: Some(429), .. }) }
 }
@@ -100,7 +99,7 @@ impl<T: Transport> DataApi<T> {
     /// The same client over transports `wrap` makes of its own (jobs::market::Live).
     pub fn map<U: Transport>(self, wrap: impl Fn(T) -> U) -> DataApi<U> { DataApi { config: self.config, normal: wrap(self.normal), bulk: wrap(self.bulk), rates: self.rates } }
 
-    /// MarketDataSettings.deltabadger_public_url (market_data_settings.rb:60-70): logo paths are served to browsers, so the
+    /// MarketDataSettings.deltabadger_public_url: logo paths are served to browsers, so the
     /// docker alias `data-api` becomes the public host.
     pub fn configuration(&self) -> &Config { &self.config }
 
@@ -157,11 +156,11 @@ impl<T: Transport> DataApi<T> {
     pub async fn ibkr_listings(&self) -> Result<Value, ApiError> { self.get("/api/v2/listings", &[("venue_scheme", "ibkr_conid")], true).await }
     pub async fn alpaca_crypto_listings(&self) -> Result<Value, ApiError> { self.get("/api/v2/listings", &[("venue", "alpaca_crypto")], true).await }
 
-    /// MarketData.get_prices on the deltabadger provider (market_data.rb:170-182) through Clients::MarketData#get_prices
-    /// (clients/market_data.rb:81-88): `GET api/v1/prices?coin_ids=<ids, comma-joined>&vs_currencies=<currency>`, the
+    /// MarketData.get_prices on the deltabadger provider through Clients::MarketData#get_prices
+    ///: `GET api/v1/prices?coin_ids=<ids, comma-joined>&vs_currencies=<currency>`, the
     /// normal 30 s read. The ids are uniq'd in order first, and no id is no request (`Result::Success.new({})`). A price is
     /// `dig('data', id, currency)` read with `to_f`; an id data-api does not price (absent, or nil) is absent from the map.
-    /// A failed request is with_rescue's outcome: Rails then falls back to CoinGecko (sync::balances::MarketPrices).
+    /// A failed request is with_rescue's outcome: 2.x then falls back to CoinGecko (sync::balances::MarketPrices).
     pub async fn prices(&self, external_ids: &[String], currency: &str) -> Result<BTreeMap<String, f64>, ApiError> {
         let mut ids: Vec<&str> = vec![];
         for id in external_ids { if !ids.contains(&id.as_str()) { ids.push(id); } }
@@ -183,7 +182,7 @@ pub fn read_prices(body: &Value, ids: &[&str], currency: &str) -> Result<BTreeMa
 }
 
 /// `price.to_f if price`: nil and false are no price; a JSON number is itself. A string is read only when it is a plain
-/// decimal (an optional sign, digits, an optional fraction; at most 32 characters), else Err with the reason. Ruby's
+/// decimal (an optional sign, digits, an optional fraction; at most 32 characters), else Err with the reason. 2.x's
 /// String#to_f reads any string ("1_e2" as 1, "12abc" as 12); the engine refuses there rather than guess (a listed
 /// divergence).
 pub(crate) fn to_f(v: &Value) -> Result<Option<f64>, &'static str> {
@@ -221,14 +220,14 @@ pub trait PriceSource {
     fn venue_quotes(&self) -> Option<&dyn crate::sync::venue_quotes::VenueQuotes> { None }
 }
 
-/// Utilities::Currency.exchange_rate's Rails.cache entries for fiat into USD: a successful rate is held
+/// Utilities::Currency.exchange_rate's cache entries for fiat into USD: a successful rate is held
 /// STABLE_CACHE_DURATION (12 hours, both currencies fiat) and read instead of asking again; a failure is never held.
-/// Beside them, Coingecko#get_exchange_rates' own entry (`coingecko_exchange_rates`, coingecko.rb:126-135): one successful
-/// CoinGecko answer serves every rate for 60 s. In-process: it starts empty when the engine starts (Rails' cache store
+/// Beside them, Coingecko#get_exchange_rates' own entry (`coingecko_exchange_rates`): one successful
+/// CoinGecko answer serves every rate for 60 s. In-process: it starts empty when the engine starts (2.x's cache store
 /// outlives a restart).
 #[derive(Default)]
 pub struct RateCache {
-    rates: std::sync::Mutex<std::collections::HashMap<String, (crate::ruby::BigDec, chrono::DateTime<chrono::Utc>)>>,
+    rates: std::sync::Mutex<std::collections::HashMap<String, (crate::v2::BigDec, chrono::DateTime<chrono::Utc>)>>,
     coingecko: std::sync::Mutex<Option<(Value, chrono::DateTime<chrono::Utc>)>>,
 }
 
@@ -237,11 +236,11 @@ impl RateCache {
     /// Coingecko's `expires_in: 60.seconds` (get_exchange_rates and get_price).
     pub const COINGECKO: chrono::TimeDelta = chrono::TimeDelta::seconds(60);
     /// The rate for `from` written less than DURATION before `now` (ActiveSupport::Cache::Entry#expired? at `now`).
-    pub fn get(&self, from: &str, now: chrono::DateTime<chrono::Utc>) -> Option<crate::ruby::BigDec> {
+    pub fn get(&self, from: &str, now: chrono::DateTime<chrono::Utc>) -> Option<crate::v2::BigDec> {
         let held = self.rates.lock().unwrap_or_else(|e| e.into_inner());
         held.get(from).filter(|(_, at)| now < *at + Self::DURATION).map(|(rate, _)| rate.clone())
     }
-    pub fn put(&self, from: &str, rate: crate::ruby::BigDec, now: chrono::DateTime<chrono::Utc>) {
+    pub fn put(&self, from: &str, rate: crate::v2::BigDec, now: chrono::DateTime<chrono::Utc>) {
         self.rates.lock().unwrap_or_else(|e| e.into_inner()).insert(from.to_string(), (rate, now));
     }
     /// CoinGecko's exchange rates answered less than 60 s before `now`.

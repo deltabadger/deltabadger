@@ -2,7 +2,7 @@
 //! that ApplicationController puts in front of every page while no admin user exists. Rust serves it on an install
 //! `db:prepare` made; creating that install (schema, seeds, secrets) stays with the entrypoint.
 //!
-//! Stricter than Rails: both admin creation and claim writes recheck for an admin in an IMMEDIATE transaction.
+//! Stricter than 2.x: both admin creation and claim writes recheck for an admin in an IMMEDIATE transaction.
 //! Two forms submitted at once cannot make two admins, and a claim in flight cannot change configuration after
 //! setup closes. A losing admin creation redirects to the root; a losing claim renders a failure.
 use super::layout::{self, Ctx, Page};
@@ -46,10 +46,10 @@ fn setup_path(ctx: &Ctx) -> String {
 /// SETUP_TOKEN compared as ActiveSupport::SecurityUtils.secure_compare does: SHA-256 digests in constant time, so
 /// neither the length nor any prefix of the value leaks through timing. A blank expected value matches nothing.
 pub fn token_matches(given: &str, expected: &str) -> bool {
-    !crate::ruby::blank(expected) && bool::from(Sha256::digest(given.as_bytes()).ct_eq(&Sha256::digest(expected.as_bytes())))
+    !crate::v2::blank(expected) && bool::from(Sha256::digest(given.as_bytes()).ct_eq(&Sha256::digest(expected.as_bytes())))
 }
 
-/// Entry has already applied Rails' shallow, query-winning merge for every setup route.
+/// Entry has already applied 2.x's shallow, query-winning merge for every setup route.
 fn parameter(params: &Params, name: &str) -> serde_json::Value {
     params.json.as_ref().and_then(|parameters| parameters.get(name)).cloned().unwrap_or(serde_json::Value::Null)
 }
@@ -62,7 +62,7 @@ fn require_setup_token(ctx: &Ctx) -> Result<Option<Response>, WebError> {
     let token = parameter(&ctx.params, "token");
     let param = match token {
         serde_json::Value::Null | serde_json::Value::Bool(false) => None,
-        serde_json::Value::String(s) => (!crate::ruby::blank(&s)).then_some(s),
+        serde_json::Value::String(s) => (!crate::v2::blank(&s)).then_some(s),
         serde_json::Value::Number(n) => Some(n.to_string()),
         serde_json::Value::Bool(true) => Some("true".into()),
         serde_json::Value::Array(a) if a.is_empty() => None,
@@ -128,7 +128,7 @@ struct Platform {
 }
 
 fn platform(c: &Connection, app: &App) -> Result<Platform, WebError> {
-    let connected = auth::app_config(c, &app.cipher, "platform_connected_at")?.is_some_and(|at| !crate::ruby::blank(&at));
+    let connected = auth::app_config(c, &app.cipher, "platform_connected_at")?.is_some_and(|at| !crate::v2::blank(&at));
     let proxies = c.query_row("SELECT EXISTS(SELECT 1 FROM app_configs WHERE substr(key, 1, 6) = 'proxy_')", [], |r| r.get(0))?;
     Ok(Platform { connected, proxies })
 }
@@ -140,7 +140,7 @@ struct NewView<'a> {
     csrf: &'a str,
     languages: Vec<layout::Language>,
     errors: &'a [FieldError],
-    /// config/initializers/inline_form_errors.rb on the password field: its messages, joined, first letter up.
+    /// 2.x's inline form errors on the password field: its messages, joined, first letter up.
     password_error: Option<String>,
     claim_action: String,
     claim_error: Option<String>,
@@ -228,7 +228,7 @@ pub(crate) async fn redeem(app: &App, code: serde_json::Value, now: chrono::Date
     Ok(Ok(identity))
 }
 
-/// The setup action for `/setup.<format>`: Rails routes the format to the same action, and its filters answer as
+/// The setup action for `/setup.<format>`: 2.x routes the format to the same action, and its filters answer as
 /// for `/setup` (the locked page is HTML whatever the format). HTML dispatches to new/create. Any
 /// other single-segment path is this build's refusal, as without this route.
 pub async fn formatted(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
@@ -346,10 +346,10 @@ pub(crate) fn user_full_message(locale: &str, attribute: &str, kind: &'static st
 
 /// Devise's email normalisation before validation: String#strip, then downcase.
 pub fn normalized_email(email: &str) -> String {
-    crate::ruby::strip(email).to_lowercase()
+    crate::v2::strip(email).to_lowercase()
 }
 
-/// One validation error of the new admin, in the order Rails adds them.
+/// One validation error of the new admin, in the order 2.x adds them.
 pub struct FieldError {
     pub attribute: &'static str,
     /// The message alone, as `errors[attribute]` holds it.
@@ -360,14 +360,14 @@ pub struct FieldError {
     pub kind: Option<&'static str>,
 }
 
-/// User#valid? for a new admin from the setup form, in Rails' order: Devise's validatable
+/// User#valid? for a new admin from the setup form, in 2.x's order: Devise's validatable
 /// (email presence, uniqueness, format; password presence, length), then the model's own (name presence and
 /// pattern, email pattern and Google alias, password complexity). The preference inclusions always hold here.
 /// `email` is already normalised.
 pub fn validate(c: &Connection, locale: &str, name: Option<&str>, email: &str, password: Option<&str>) -> Result<Vec<FieldError>, WebError> {
     let mut errors: Vec<(&str, Message)> = Vec::new();
-    let blank = crate::ruby::blank;
-    let pattern = |pattern: &str, value: &str| crate::ruby::validation_regex(pattern).map(|re| re.is_match(value)).map_err(|_| WebError::Config("invalid user validation pattern".into()));
+    let blank = crate::v2::blank;
+    let pattern = |pattern: &str, value: &str| crate::v2::validation_regex(pattern).map(|re| re.is_match(value)).map_err(|_| WebError::Config("invalid user validation pattern".into()));
     if blank(email) {
         errors.push(("email", Message::Kind("blank", None)));
     } else {
@@ -390,7 +390,7 @@ pub fn validate(c: &Connection, locale: &str, name: Option<&str>, email: &str, p
     if name.is_none_or(blank) {
         errors.push(("name", Message::Kind("blank", None)));
     }
-    // Ruby's `=~` with `^…$`: a match on any line passes, so Rails accepts "Ann\nanything". D-SIGNUP-NAME-ONE-LINE: a
+    // 2.x's `=~` with `^…$`: a match on any line passes, so 2.x accepts "Ann\nanything". D-SIGNUP-NAME-ONE-LINE: a
     // name with a line break is refused here, with the same message.
     if !name.is_some_and(|name| !name.contains(['\n', '\r']) && pattern(r"(?m)^\p{L}+(\s+\p{L}+)*$", name).unwrap_or(false)) {
         errors.push(("name", Message::Text(i18n::text(locale, "devise.registrations.new.name_invalid", &[]))));
@@ -439,7 +439,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     };
     let email = fields.email.as_deref().map(normalized_email).unwrap_or_default();
     // Devise hashes on assignment, before validation, and only a present password.
-    let hash = match fields.password.as_deref().filter(|p| !crate::ruby::blank(p)) {
+    let hash = match fields.password.as_deref().filter(|p| !crate::v2::blank(p)) {
         Some(password) => match app.password_hash(password.to_string()).await? {
             None => return Ok(auth::busy()),
             Some(None) => return Err(WebError::Config("no random salt for the admin's password".into())),

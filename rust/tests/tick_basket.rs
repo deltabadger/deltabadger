@@ -52,7 +52,7 @@ async fn a_rejected_middle_leg_stops_the_tick_and_never_sends_the_rest() {
     assert_eq!(rows, vec![(0, Some("OTX-1".into())), (1, None)], "leg 1 submitted, leg 2 failed, nothing for leg 3");
     let b = model::load_bot(&o.primary, id).unwrap();
     assert_eq!((b.status, b.last_failure_kind().as_deref()), (BotStatus::Retrying, Some("insufficient_funds")));
-    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 0, "a failed row this tick: Rails logs nothing");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 0, "a failed row this tick: 2.x logs nothing");
     assert!(one::<bool>(&o, "SELECT last_end_of_funds_notification IS NOT NULL FROM bots"), "Bot::Failable stamps the shared budget");
 }
 
@@ -107,8 +107,8 @@ async fn after_a_settled_recovery_the_tick_ends_until_the_next_checkpoint() {
     assert_eq!(notionals(&t).len(), 2, "no leg until the next checkpoint");
     assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none());
     // The next checkpoint: 2 × 60 owed − 30 invested = 90. BTC holds 30 of a 120 portfolio, so the unbought ETH and SOL take
-    // their shares plus what legs 2 and 3 did not buy: offsets 30, 36, 24 (Rails carries it the same way, accountable.rb:18-73).
-    // BTC's order is 90 × (30 / 90): the 32-digit BigDecimal quotient makes it 29.99…97, floored to 29.99 on the wire, as in Rails.
+    // their shares plus what legs 2 and 3 did not buy: offsets 30, 36, 24 (2.x carries it the same way).
+    // BTC's order is 90 × (30 / 90): the 32-digit BigDecimal quotient makes it 29.99…97, floored to 29.99 on the wire, as in 2.x.
     assert!(matches!(run(&o, &v, id, at("2026-09-08T10:00:00.5Z")).await, TickOutcome::Done { placed: true }));
     assert_eq!(notionals(&t)[2..].to_vec(), vec![("BTC/USD".into(), "29.99".into()), ("ETH/USD".into(), "36.00".into()), ("SOL/USD".into(), "24.00".into())]);
 }
@@ -142,7 +142,7 @@ async fn a_skipped_leg_is_reported_even_when_a_later_leg_fails() {
     let t = script(json!({ "POST /v2/orders": [accepted("OTX-1"), { "status": 403, "body": { "code": 40310000, "message": "insufficient buying power" } }] }));
     assert!(matches!(run(&o, &venue(&t), id, at(T0)).await, TickOutcome::Rescheduled));
     let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'orders_below_minimum'");
-    assert_eq!(serde_json::from_str::<Value>(&details).unwrap(), json!({ "count": 1, "bases": "ETH" }), "Rails' ensure reports it on the failure path");
+    assert_eq!(serde_json::from_str::<Value>(&details).unwrap(), json!({ "count": 1, "bases": "ETH" }), "2.x's ensure reports it on the failure path");
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions WHERE status = 1"), 1, "SOL's failed row");
 }
 
@@ -164,7 +164,7 @@ async fn a_member_that_stopped_trading_is_exited_and_the_rest_reweighted() {
 async fn stale_reference_data_refuses_the_tick_naming_the_source_and_its_age() {
     let (_d, o, id, _, _) = basket_bot(60.0, &[0.7, 0.3]);
     o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-30 08:00:00'", []).unwrap(); // 50 h before T0
-    // An all-time-high write moves tickers.updated_at (technically_analyzable.rb:125) without a sync: still stale.
+    // An all-time-high write moves tickers.updated_at without a sync: still stale.
     o.primary.execute("UPDATE tickers SET ath = 70000, ath_updated_at = '2026-09-01 09:59:00', updated_at = '2026-09-01 09:59:00'", []).unwrap();
     let t = script(json!({}));
     match run(&o, &venue(&t), id, at(T0)).await {
@@ -178,7 +178,7 @@ async fn stale_reference_data_refuses_the_tick_naming_the_source_and_its_age() {
     assert!(model::load_bot(&o.primary, id).unwrap().last_action_job_at_us().unwrap().is_none(), "a refused tick writes nothing");
 }
 
-// The engine's own handling: a stale bot is refused on every pass without ending the loop, and ticks once Rails refreshed.
+// The engine's own handling: a stale bot is refused on every pass without ending the loop, and ticks once 2.x refreshed.
 struct ScriptedFactory(ScriptedTransport);
 impl deltabadger::venue::VenueFactory for ScriptedFactory {
     type V = AlpacaVenue<ScriptedTransport>;
@@ -199,12 +199,12 @@ async fn a_stale_bot_is_refused_without_ending_the_engine_and_ticks_once_refresh
     deltabadger::engine::run::step(&mut e, &FixedClock(at(T0))).await.unwrap();
     deltabadger::engine::run::step(&mut e, &FixedClock(at("2026-09-01T10:01:00Z"))).await.unwrap();
     assert!(t.posted_orders().is_empty());
-    e.primary.execute("UPDATE exchange_assets SET updated_at = '2026-09-01 10:15:00'", []).unwrap(); // Rails' sync ran
+    e.primary.execute("UPDATE exchange_assets SET updated_at = '2026-09-01 10:15:00'", []).unwrap(); // 2.x's sync ran
     deltabadger::engine::run::step(&mut e, &FixedClock(at("2026-09-01T10:16:00Z"))).await.unwrap();
     assert_eq!(t.posted_orders().len(), 1);
 }
 
-/// D-UPGRADE-FRESHNESS-AT-TICK (PLAN-B2 R2): an install Rails left stale is taken over, and the tick, not the takeover,
+/// D-UPGRADE-FRESHNESS-AT-TICK (PLAN-B2 R2): an install 2.x left stale is taken over, and the tick, not the takeover,
 /// refuses the bot. After the takeover only the job's own completed run makes the source fresh again (staleness.rs), so the
 /// bot is refused until the engine's crypto catalog job records one, and ticks on the next pass after it.
 #[tokio::test(flavor = "current_thread")]
@@ -215,7 +215,7 @@ async fn a_bot_taken_over_stale_is_refused_at_its_tick_until_its_sources_job_com
     let o = store::open(&paths).unwrap();
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
-    o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-01 10:15:00'", []).unwrap(); // Rails stopped a month ago
+    o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-01 10:15:00'", []).unwrap(); // 2.x stopped a month ago
     let taken = deltabadger::engine::handover::take_over(&lock, &o, &seed::cipher(), "test", at(T0)).expect("the takeover admits a stale install");
     assert_eq!(taken.eligible, vec![id]);
     let t = script(json!({}));
@@ -226,7 +226,7 @@ async fn a_bot_taken_over_stale_is_refused_at_its_tick_until_its_sources_job_com
     assert_eq!(stale.source, "Alpaca crypto tickers");
     assert!(t.requests().is_empty(), "nothing is asked of Alpaca: {:?}", t.requests());
     assert!(bot.last_action_job_at_us().unwrap().is_none(), "a refused tick writes nothing");
-    // A Rails-style column stamp no longer counts after the takeover: still refused at the 5-minute recheck.
+    // A 2.x-style column stamp no longer counts after the takeover: still refused at the 5-minute recheck.
     e.primary.execute("UPDATE exchange_assets SET updated_at = '2026-09-01 10:04:00'", []).unwrap();
     deltabadger::engine::run::step(&mut e, &FixedClock(at("2026-09-01T10:05:01Z"))).await.unwrap();
     assert!(t.requests().is_empty(), "the column alone does not make it fresh");
@@ -312,7 +312,7 @@ impl Install {
 async fn step(e: &mut deltabadger::engine::run::Engine<ScriptedFactory>, now: &str) { deltabadger::engine::run::step(e, &FixedClock(at(now))).await.unwrap(); }
 
 /// A settled bot that the user stops and starts fresh (Bot::Lifecycle#start: started_at = now, last_action_job_at = nil)
-/// buys at once, as Rails does: the wait was computed under the old start.
+/// buys at once, as 2.x does: the wait was computed under the old start.
 #[tokio::test(flavor = "current_thread")]
 async fn a_settled_bot_stopped_and_started_fresh_buys_at_once() {
     let i = Install::new(&[], script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }, accepted("OTX-2")] })));
@@ -415,7 +415,7 @@ async fn run_on<V: deltabadger::venue::Venue>(o: &store::Opened, v: &V, id: i64,
 
 /// A retrying bot whose retry time has passed meets stale reference data: the engine rechecks it after a bounded wait instead
 /// of folding the expired retry time into its wake (which made every pass come back at once), and ticks it at the recheck
-/// once Rails refreshed the catalog.
+/// once 2.x refreshed the catalog.
 #[tokio::test(flavor = "current_thread")]
 async fn a_stale_retrying_bot_is_rechecked_after_a_bounded_wait_not_in_a_tight_loop() {
     let dir = common::baseline_install();
@@ -435,7 +435,7 @@ async fn a_stale_retrying_bot_is_rechecked_after_a_bounded_wait_not_in_a_tight_l
         assert!(wake >= us(now) + 60_000_000.min(recheck), "pass at {now}: wake {} µs after now, not a tight loop", wake - us(now));
     }
     assert!(t.posted_orders().is_empty());
-    e.primary.execute("UPDATE exchange_assets SET updated_at = '2026-09-01 10:01:00'", []).unwrap(); // Rails' sync ran
+    e.primary.execute("UPDATE exchange_assets SET updated_at = '2026-09-01 10:01:00'", []).unwrap(); // 2.x's sync ran
     deltabadger::engine::run::step(&mut e, &FixedClock(at("2026-09-01T10:02:00Z"))).await.unwrap();
     assert!(t.posted_orders().is_empty(), "not before the recheck");
     deltabadger::engine::run::step(&mut e, &FixedClock(DateTime::from_timestamp_micros(us("2026-09-01T10:00:00.5Z") + recheck).unwrap())).await.unwrap();
@@ -704,7 +704,7 @@ async fn a_basket_with_nothing_held_skips_without_reading_balances() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_price_this_build_cannot_hold_is_no_valuation_and_retries() {
     let (_d, o, id, _, _) = basket_seller(100.0);
-    // Finite to Ruby's BigDecimal (Rails values it), beyond `dec`'s limits here: never a guessed ranking.
+    // Finite to 2.x's BigDecimal (2.x values it), beyond `dec`'s limits here: never a guessed ranking.
     let t = selling(both_free(), json!({ "GET /v1beta3/crypto/us/latest/trades": [ok(json!({ "trades": { "BTC/USD": { "p": 64000 }, "ETH/USD": { "p": "1e1000000" } } }))] }));
     assert!(matches!(run(&o, &venue(&t), id, at(SELL_AT)).await, TickOutcome::RetryAfter(_)));
     assert!(sells(&t).is_empty());
@@ -799,7 +799,7 @@ async fn a_wider_basket_sells_its_quote_sentence_whatever_denomination_is_stored
     assert_eq!(sells(&t), vec![("BTC/USD".into(), "sell".into(), "0.001562500".into())]);
 }
 
-// Slice 7a: the price rule's gate, between the restatement stand-down and the sweep (dca_multi_asset.rb:34-44).
+// Slice 7a: the price rule's gate, between the restatement stand-down and the sweep.
 
 /// A one-asset BTC basket of 60 USD a week, with a buy-side price rule `below <limit>`; BTC trades at 64000.
 fn ruled(limit: f64, transient: Value) -> (tempfile::TempDir, store::Opened, i64, seed::Seeded) {
@@ -830,7 +830,7 @@ async fn an_unmet_price_rule_pauses_the_bot_without_sweeping_its_orders() {
     assert_eq!(ev, vec![r#"limit_paused {"limit_type":"price"}"#.to_string(), "reschedule_disabled {}".into()]);
 }
 
-/// A read that could not be made is not "unmet": the pause keeps met_at and the carry (price_limitable.rb:202-206); only a
+/// A read that could not be made is not "unmet": the pause keeps met_at and the carry; only a
 /// read price that misses the rule captures the carry and clears met_at, in one write.
 #[tokio::test(flavor = "current_thread")]
 async fn a_failed_read_pauses_without_touching_met_at_or_the_carry() {
@@ -844,12 +844,12 @@ async fn a_failed_read_pauses_without_touching_met_at_or_the_carry() {
     let (_d, o, id, _) = ruled(60_000.0, met);
     assert!(matches!(run(&o, &venue(&script(json!({}))), id, at(T0)).await, TickOutcome::Paused));
     let td = transient(&o, id);
-    // One interval owed since the start (met before it): 60.0, captured as Rails stores it, and met_at cleared.
+    // One interval owed since the start (met before it): 60.0, captured as 2.x stores it, and met_at cleared.
     assert_eq!((td.get("price_limit_condition_met_at"), td.get("missed_quote_amount"), td.get("missed_quote_amount_was_set")),
                (Some(&Value::Null), Some(&json!(60.0)), Some(&json!(true))), "{td}");
 }
 
-/// A rejected key escapes the gate (limit_checkable.rb:29-33): the tick fails as invalid_key instead of parking the bot.
+/// A rejected key escapes the gate: the tick fails as invalid_key instead of parking the bot.
 #[tokio::test(flavor = "current_thread")]
 async fn a_rejected_key_fails_the_tick_instead_of_pausing() {
     let (_d, o, id, _) = ruled(60_000.0, json!({}));
@@ -875,7 +875,7 @@ async fn a_first_satisfaction_sizes_from_the_stamped_row() {
     assert!(t.posted_orders().is_empty(), "nothing owed since the condition was met");
 }
 
-/// Bot::Fundable wraps the condition (fundable.rb:5-17): a pause still checks the quote balance, and a failed balance read
+/// Bot::Fundable wraps the condition: a pause still checks the quote balance, and a failed balance read
 /// leaves the pause a pause.
 #[tokio::test(flavor = "current_thread")]
 async fn a_pause_still_runs_the_funds_check() {
@@ -892,23 +892,23 @@ async fn a_pause_still_runs_the_funds_check() {
     assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Waiting);
 }
 
-/// P1-T0: buying baskets of two and three members on Kraken (EUR) and Binance (USDT), replayed against Rails' own decisions
-/// (script/rust/decisions.rb grid-venue-basket): each member priced and placed on its own pair (Kraken's XBTEUR), sized with
+/// P1-T0: buying baskets of two and three members on Kraken (EUR) and Binance (USDT), replayed against 2.x's own decisions
+/// (the recorded grid-venue-basket): each member priced and placed on its own pair (Kraken's XBTEUR), sized with
 /// its own decimals, a leg under its own minimum skipped and carried to the next checkpoint, a member that stops trading
 /// exited, one unpriced member failing the whole tick. Every scenario's bot is one the engine admits.
 #[cfg(unix)]
 #[tokio::test(flavor = "current_thread")]
-async fn kraken_binance_and_kucoin_baskets_decide_as_rails() {
-    use common::decisions::{built_grid, copy_dir, r5_cleanup_expected, rails};
+async fn kraken_binance_and_kucoin_baskets_decide_as_v2() {
+    use common::decisions::{built_grid, copy_dir, r5_cleanup_expected, v2};
     use deltabadger::engine::eligibility;
-    let rails_root = tempfile::tempdir().unwrap();
+    let v2_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
-    built_grid("grid-venue-basket", rails_root.path());
-    let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    built_grid("grid-venue-basket", v2_root.path());
+    let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(v2_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), 44 + 12, "the venue basket grid has {} scenarios", dirs.len());
-    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
-    rails(&["record", rails_root.path().to_str().unwrap()]);
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before 2.x writes to its copies
+    v2(&["record", v2_root.path().to_str().unwrap()]);
     let mut failures = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -918,7 +918,7 @@ async fn kraken_binance_and_kucoin_baskets_decide_as_rails() {
             eligibility::check_install(&c).unwrap()
         };
         if !admitted.problems.is_empty() || admitted.eligible.len() != 1 { failures.push(format!("{name}: refused {:?}", admitted.problems)); continue; }
-        // The Smart Intervals floor of a basket of several members is its members' largest venue minimum, as Rails computes it.
+        // The Smart Intervals floor of a basket of several members is its members' largest venue minimum, as 2.x computes it.
         {
             use deltabadger::web::bot::{start, Bot as WebBot, For};
             let c = rusqlite::Connection::open(rust_dir.join("production.sqlite3")).unwrap();
@@ -926,17 +926,17 @@ async fn kraken_binance_and_kucoin_baskets_decide_as_rails() {
             let (user, id): (i64, i64) = c.query_row("SELECT user_id, id FROM bots", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
             let floor = start::smart_interval_minimum(&WebBot::find(&c, user, id, For::Settings, "en").unwrap().unwrap());
             let mine = json!({ "value": floor.value.to_f(), "reason": format!("{:?}", floor.reason).to_lowercase() });
-            if mine != scenario["rails_floor"] { failures.push(format!("{name}: Smart Intervals floor {mine}, Rails {}", scenario["rails_floor"])); }
+            if mine != scenario["rails_floor"] { failures.push(format!("{name}: Smart Intervals floor {mine}, 2.x {}", scenario["rails_floor"])); }
         }
-        let rails_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let v2_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("expected.json")).unwrap()).unwrap();
         let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
-        // Rails drops a NULL missed_quote_amount_was_set on a failed run; the engine keeps it (R5, as every grid compares).
-        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
-        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
-        // Rails' side must show what each cell exists for, or an equal comparison proves nothing.
-        let sent = rails_out["sent"].as_array().unwrap();
-        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
-        let events = rails_out["changes"]["bot_activity_logs"].to_string();
+        // 2.x drops a NULL missed_quote_amount_was_set on a failed run; the engine keeps it (R5, as every grid compares).
+        let v2_out = r5_cleanup_expected(&v2_out, &rust_out);
+        if v2_out != rust_out { failures.push(format!("{name}\n  2.x: {v2_out}\n  rust:  {rust_out}")); }
+        // 2.x's side must show what each cell exists for, or an equal comparison proves nothing.
+        let sent = v2_out["sent"].as_array().unwrap();
+        let rows = v2_out["changes"]["transactions"].as_array().unwrap();
+        let events = v2_out["changes"]["bot_activity_logs"].to_string();
         let pairs: Vec<&str> = sent.iter().filter_map(|o| o["pair"].as_str().or_else(|| o["symbol"].as_str())).collect();
         let case = name.split_once('-').unwrap().1.split_once('-').unwrap().1;
         let pinned = match case {
@@ -954,13 +954,13 @@ async fn kraken_binance_and_kucoin_baskets_decide_as_rails() {
             "market_cap-missing_cap" | "market_cap-zero_cap" => pairs.len() == 2,
             // Slice L: past the merge's cutoff the first own tick warns when every leg is skipped; the same rows unmerged are
             // no first tick; one leg placed is no warning; a row resting on the other venue is never asked for nor touched.
-            "merged-w70-all_below" => sent.is_empty() && rails_out["warned"] == json!([2]),
-            "unmerged-w70-all_below" => rails_out["warned"] == json!([]),
-            "merged-tiers-one_below" => pairs.len() == 2 && events.contains("orders_below_minimum") && rails_out["warned"] == json!([]),
+            "merged-w70-all_below" => sent.is_empty() && v2_out["warned"] == json!([2]),
+            "unmerged-w70-all_below" => v2_out["warned"] == json!([]),
+            "merged-tiers-one_below" => pairs.len() == 2 && events.contains("orders_below_minimum") && v2_out["warned"] == json!([]),
             "merged-w70-foreign_waiting" => pairs.len() == 2 && rows.iter().all(|r| r["before"]["external_id"] != "OFOREIGN-2"),
             _ => true,
         };
-        if !pinned { failures.push(format!("{name}: Rails no longer shows what this cell is for: {rails_out}")); }
+        if !pinned { failures.push(format!("{name}: 2.x no longer shows what this cell is for: {v2_out}")); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
@@ -1009,7 +1009,7 @@ async fn every_member_locked_buys_nothing_and_is_no_failure() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_buy_whose_asset_was_locked_after_it_was_sized_is_not_placed() {
     use deltabadger::engine::{amount::{self, TxKind}, placement, rebalance, splits, venue_rules::ALPACA};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::venue::Side;
     let (_d, o, id, _, assets) = basket_bot(60.0, &[0.7, 0.3]);
     basket::refresh_composition(&o.primary, &model::load_bot(&o.primary, id).unwrap(), at("2026-09-01T09:00:00Z")).unwrap().unwrap();
@@ -1095,7 +1095,7 @@ async fn a_ranked_loss_member_is_skipped_while_a_buy_of_it_rests_and_the_next_me
 /// The bot is `executing` on its run.
 fn begin_loss_sale(o: &store::Opened, id: i64, s: &seed::Seeded) -> deltabadger::engine::placement::Intent {
     use deltabadger::engine::{amount, placement, venue_rules::ALPACA};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     let c = &o.primary;
     c.execute("UPDATE bots SET status = 4 WHERE id = ?1", [id]).unwrap();
     let bot = model::load_bot(c, id).unwrap();
@@ -1109,11 +1109,11 @@ async fn send_sale(o: &store::Opened, t: &ScriptedTransport, id: i64, intent: &d
 }
 
 /// §6 for a composition sale: claimed with its intent (`wash_claim`), then accepted → logged once; a definitive rejection →
-/// given back; a pre-transmission raise → kept (Rails re-raises it); a dispatch fenced → kept; an unknown outcome → kept, and
+/// given back; a pre-transmission raise → kept (2.x re-raises it); a dispatch fenced → kept; an unknown outcome → kept, and
 /// the claim decoded from the stored intent (as after a restart) settles as recovery finds it: accepted → logged once;
 /// absent, or resolved not placed by the operator → kept.
 #[tokio::test(flavor = "current_thread")]
-async fn a_loss_sale_claims_with_its_intent_and_each_outcome_settles_it_as_rails() {
+async fn a_loss_sale_claims_with_its_intent_and_each_outcome_settles_it_as_v2() {
     use deltabadger::engine::placement::{self, OperatorResolution, Recovery, Sent};
     let begun = || { let (d, o, id, s) = loss_seller(); let intent = begin_loss_sale(&o, id, &s); (d, o, id, s, intent) };
     let (_d, o, id, s, intent) = begun();
@@ -1135,7 +1135,7 @@ async fn a_loss_sale_claims_with_its_intent_and_each_outcome_settles_it_as_rails
     let (_d, o, id, s, intent) = begun();
     assert!(matches!(send_sale(&o, &btc_free(json!({ "POST /v2/orders": [{ "network": "pre_send", "message": PRE_SEND }] })), id, &intent).await, Sent::NotSent(_)));
     let (until, _, token) = lock_of(&o, s.btc).unwrap();
-    assert_eq!((until.as_deref(), token.is_some(), wash_lines(&o).len()), (Some(DEADLINE), true, 0), "kept: Rails re-raises it and keeps the claim");
+    assert_eq!((until.as_deref(), token.is_some(), wash_lines(&o).len()), (Some(DEADLINE), true, 0), "kept: 2.x re-raises it and keeps the claim");
 
     let (_d, o, id, s, intent) = begun();
     o.primary.execute("UPDATE bots SET status = 2", []).unwrap();
@@ -1169,7 +1169,7 @@ async fn a_loss_sale_claims_with_its_intent_and_each_outcome_settles_it_as_rails
             let bot = model::load_bot(&o.primary, id).unwrap();
             assert!(matches!(placement::recover(&o.primary, &venue(&t), &bot, &FixedClock(at(SELL_AT) + Duration::hours(1))).await.unwrap(), Recovery::NotPlaced));
         }
-        assert_eq!((lock_of(&o, s.btc), wash_lines(&o).len()), (held, 0), "operator {operator}: kept, as a Rails worker crash keeps it");
+        assert_eq!((lock_of(&o, s.btc), wash_lines(&o).len()), (held, 0), "operator {operator}: kept, as a 2.x worker crash keeps it");
     }
 
     // The rule off, through a whole tick: no verdict, no claim, no row.
@@ -1181,11 +1181,11 @@ async fn a_loss_sale_claims_with_its_intent_and_each_outcome_settles_it_as_rails
 }
 
 /// Transaction's after_save :reconcile_wash_sale over polling::apply_in's writes: the condition matrix, and the ledger's wake
-/// (EngineEvent::SaleSettled, transaction.rb:50-56) noted once per committed fill.
+/// (EngineEvent::SaleSettled) noted once per committed fill.
 #[tokio::test(flavor = "current_thread")]
 async fn a_terminal_sell_written_by_a_poll_confirms_the_lock_from_its_fill() {
     use deltabadger::engine::polling;
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::venue::{OrderState, OrderStatus};
     let now = at("2026-09-03T12:00:00Z");
     let d = |x: &str| BigDec::parse(x).unwrap();
@@ -1214,7 +1214,7 @@ async fn a_terminal_sell_written_by_a_poll_confirms_the_lock_from_its_fill() {
     assert!(lock_of(&o, s.btc).is_some_and(|l| l.1.is_some()));
     assert_eq!(polling::settled_sales(&o.primary).unwrap(), vec![id]);
     // Cancelled partial with no proceeds reported at an order price ABOVE the lot's cost: judged on the raw proceeds (none), so
-    // unknown against an owned lot, which locks; never on price × quantity, which would read a gain (measurable.rb).
+    // unknown against an owned lot, which locks; never on price × quantity, which would read a gain.
     let (_d, o, id, s) = loss_seller();
     let tx = sell(&o, &s, id, true);
     apply(&o, id, tx, &OrderState { price: Some(d("80000")), ..state(OrderStatus::Cancelled, "0.0005", None) });

@@ -1,12 +1,12 @@
-//! Tax::PriceService (app/models/tax/price_service.rb) and Tax::AssetIdentity (app/models/tax/asset_identity.rb) for
-//! the walk: a symbol's price on a day, read from `historical_prices` and fetched from data-api where Rails fetches it
-//! (`prefetch`, `fetch_single_price`), fiat converted at the ECB's rates (`convert_fiat`) with Rails' BTC cross when a
+//! Tax::PriceService and Tax::AssetIdentity for
+//! the walk: a symbol's price on a day, read from `historical_prices` and fetched from data-api where 2.x fetches it
+//! (`prefetch`, `fetch_single_price`), fiat converted at the ECB's rates (`convert_fiat`) with 2.x's BTC cross when a
 //! rate is missing, and the warnings every lookup that found nothing leaves (a price nobody has is a zero and a
 //! warning: the figure is incomplete, never refused).
 //!
-//! A pass reads the database once (`Reference`, `FxTable`); a fetch is made inline, at the lookup Rails makes it at,
+//! A pass reads the database once (`Reference`, `FxTable`); a fetch is made inline, at the lookup 2.x makes it at,
 //! through a `Fetcher` (the job hands the request to its runtime thread and blocks for the answer), and what it brings
-//! serves the rest of the pass, as Rails' `@price_cache` does.
+//! serves the rest of the pass, as 2.x's `@price_cache` does.
 use super::fx::FxTable;
 use super::rows::Stored;
 use super::{fiat, stable};
@@ -21,7 +21,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 /// Tax::PriceService::SINGLE_PRICE_WINDOW: half the window asked for around one day.
 pub const SINGLE_PRICE_WINDOW: u64 = 60;
 
-/// One range of daily prices Rails fetches (Tax::PriceService#fetch_price_range).
+/// One range of daily prices 2.x fetches (Tax::PriceService#fetch_price_range).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Fetch { pub coin: String, pub symbol: String, pub currency: String, pub from: NaiveDate, pub to: NaiveDate }
 
@@ -30,7 +30,7 @@ impl Fetch {
 }
 
 /// Where a pass's fetches go: `range` makes the request for the days `have` lacks, stores what came back, and returns
-/// the new days' prices (an empty answer when data-api had none). An `Err` ends the walk (a transport failure Rails
+/// the new days' prices (an empty answer when data-api had none). An `Err` ends the walk (a transport failure 2.x
 /// raises out of the job, or a provider this build does not fetch from).
 pub trait Fetcher { fn range(&mut self, f: &Fetch, have: &HashSet<NaiveDate>) -> Result<Vec<(NaiveDate, Dec)>, String>; }
 
@@ -110,7 +110,7 @@ pub struct Reference {
     listed: HashMap<(i64, String), Vec<Asset>>,
     /// symbol → every asset of the catalogue under it, by market rank.
     assets: HashMap<String, Vec<Asset>>,
-    /// (price key: the symbol, or `stock:SYM`; currency) → day → the stored price, as Rails reads the column.
+    /// (price key: the symbol, or `stock:SYM`; currency) → day → the stored price, as 2.x reads the column.
     prices: HashMap<(String, String), BTreeMap<NaiveDate, Dec>>,
     /// The names a coin was recorded under in the user's whole history (`record_coins`).
     recorded_coins: HashSet<String>,
@@ -373,7 +373,7 @@ impl<'a> PriceService<'a> {
         key
     }
 
-    /// `price_at(asset:, currency:, timestamp:, exchange:)`: the price this pass has, else Rails' single-day fetch;
+    /// `price_at(asset:, currency:, timestamp:, exchange:)`: the price this pass has, else 2.x's single-day fetch;
     /// still nothing is a zero and a warning.
     pub fn price_at(&mut self, asset: &str, currency: &str, at: At, exchange: Option<&str>) -> Result<Dec, FiguresError> {
         self.price_at_recorded(asset, currency, at, exchange, None)
@@ -539,7 +539,7 @@ impl<'a> PriceService<'a> {
     }
 }
 
-/// What `fetch_range` stores: (asset, date, price as Rails writes it).
+/// What `fetch_range` stores: (asset, date, price as 2.x writes it).
 pub type PriceRow = (String, NaiveDate, String);
 
 /// The days of `from..=to` that already have a stored price of `asset` in `currency`.
@@ -558,10 +558,10 @@ pub fn covered(fetch: &Fetch, have: &HashSet<NaiveDate>) -> bool {
 /// Tax::PriceService#fetch_price_range's request: nothing when the table covers every day; else the provider's daily
 /// range (MarketData.get_historical_price_range) from the first day's midnight to the midnight after the last (UTC), and
 /// the days in range it priced that the table lacks, a zero or null left out. A failed answer stores nothing; a transport
-/// failure a retry could fix is an error (Rails raises it out of the job).
+/// failure a retry could fix is an error (2.x raises it out of the job).
 ///
 /// D-CG-HISTORY-WINDOW: on a demo CoinGecko key the span is asked from the window's first day at the run's clock `now`
-/// (`Feed::history_starts`); a span wholly before it, or whose days inside it are all stored, asks nothing. Rails asks the
+/// (`Feed::history_starts`); a span wholly before it, or whose days inside it are all stored, asks nothing. 2.x asks the
 /// whole span, which CoinGecko refuses, storing nothing.
 pub async fn fetch_range<T: Transport>(feed: &Feed<T>, fetch: &Fetch, have: &HashSet<NaiveDate>, now: chrono::DateTime<chrono::Utc>) -> Result<Vec<PriceRow>, String> {
     if covered(fetch, have) { return Ok(vec![]); }
@@ -608,7 +608,7 @@ pub fn store_in(c: &Connection, currency: &str, rows: &[PriceRow]) -> Result<usi
 pub fn store_bars(c:&crate::engine::model::FencedTransaction<'_>,rows:&[PriceRow])->Result<(),FiguresError>{store(c,rows).map(|_|())}
 
 /// The closes a bar answer gives for `from..=to`, as `stock_price_range` stores them: the days not yet stored. None
-/// when a bar cannot be read, which Rails rescues into storing nothing.
+/// when a bar cannot be read, which 2.x rescues into storing nothing.
 pub fn bar_rows(body: &serde_json::Value, symbol: &str, from: NaiveDate, to: NaiveDate, have: &HashSet<NaiveDate>) -> Option<Vec<PriceRow>> {
     let mut candles = vec![];
     for bar in body["bars"].as_array().into_iter().flatten() {
@@ -664,10 +664,10 @@ pub fn last_weekday(from: NaiveDate, to: NaiveDate) -> NaiveDate {
 }
 
 /// Tax::PriceService#stock_price_range (USD; the caller converts): the stored closes of `stock:SYM` over `from..=to`,
-/// fetched first from the broker when none is stored from the window's last weekday on. Rails' contract: no ticker of
+/// fetched first from the broker when none is stored from the window's last weekday on. 2.x's contract: no ticker of
 /// the symbol on the venue, no key, or any failure of the request → an empty map, even with partial stored rows. The key is
 /// the user's `correct` one on the venue, else any (BrokerReport#initialize).
-/// `fresh`: the days a stored close spares the fetch (Rails: the window's last weekday on, `(last_weekday(from, to), to)`).
+/// `fresh`: the days a stored close spares the fetch (2.x: the window's last weekday on, `(last_weekday(from, to), to)`).
 pub async fn stock_price_range<C: crate::sync::jobs::Connect>(db: &crate::jobs::Db, venues: &C, user_id: i64, venue: i64, symbol: &str, (from, to): (NaiveDate, NaiveDate),
     fresh: (NaiveDate, NaiveDate)) -> Result<BTreeMap<NaiveDate, Dec>, String> {
     let asset = format!("stock:{symbol}");
@@ -878,7 +878,7 @@ mod tests {
         }
     }
 
-    /// Rails caches no failure: each lookup of a day nobody prices fetches again, and is a zero and a warning; a fetch
+    /// 2.x caches no failure: each lookup of a day nobody prices fetches again, and is a zero and a warning; a fetch
     /// that brings the day serves every later lookup without a request. A symbol no coin can be named for is a zero and a
     /// warning with no request.
     #[test]

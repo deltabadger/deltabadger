@@ -47,7 +47,7 @@ fn app_config_set_is_a_no_op_for_an_unchanged_value_and_encrypts_a_changed_one()
     app_config::set(&c, &cipher, "k", "32", at("2026-10-03T10:15:00Z")).unwrap();
     assert_eq!(updated(&c), "2026-10-03 10:15:00");
     let raw: String = c.query_row("SELECT value FROM app_configs WHERE key = 'k'", [], |r| r.get(0)).unwrap();
-    assert!(raw.contains("\"p\":"), "stored as Rails' encryption envelope: {raw}");
+    assert!(raw.contains("\"p\":"), "stored as 2.x's encryption envelope: {raw}");
     assert_eq!(app_config::get(&c, &cipher, "k").unwrap().as_deref(), Some("32"));
     assert!(app_config::exists(&c, "k").unwrap());
     assert!(!app_config::exists(&c, "missing").unwrap());
@@ -56,7 +56,7 @@ fn app_config_set_is_a_no_op_for_an_unchanged_value_and_encrypts_a_changed_one()
 use deltabadger::jobs::schedule::{first_due, Jitter, Schedule};
 
 #[test]
-fn schedules_fire_as_rails_cron_does_in_utc() {
+fn schedules_fire_as_v2_cron_does_in_utc() {
     let daily = Schedule::Daily { hour: 10, minute: 15 }; // "15 10 * * *"
     assert_eq!(daily.last_fire(at("2026-10-02T10:14:59Z")), at("2026-10-01T10:15:00Z"));
     assert_eq!(daily.last_fire(at("2026-10-02T10:15:00Z")), at("2026-10-02T10:15:00Z"));
@@ -75,7 +75,7 @@ fn a_job_is_due_at_start_when_its_latest_fire_has_no_success_since() {
     let draw = Duration::seconds(300);
     let now = at("2026-10-02T12:00:00Z");
     assert_eq!(first_due(s, draw, None, now), at("2026-10-02T10:05:00Z"), "never ran here: the draw is past, so at once");
-    assert_eq!(first_due(s, draw, Some(at("2026-10-02T09:59:59Z")), now), at("2026-10-02T10:05:00Z"), "Rails' last run was yesterday's");
+    assert_eq!(first_due(s, draw, Some(at("2026-10-02T09:59:59Z")), now), at("2026-10-02T10:05:00Z"), "2.x's last run was yesterday's");
     assert_eq!(first_due(s, draw, Some(at("2026-10-02T10:04:00Z")), now), at("2026-10-03T10:05:00Z"), "ran after the fire: tomorrow");
     assert_eq!(first_due(s, draw, None, at("2026-10-02T10:01:00Z")), at("2026-10-02T10:05:00Z"), "inside the window the draw still applies");
 }

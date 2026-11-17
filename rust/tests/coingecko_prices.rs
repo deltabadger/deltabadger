@@ -1,6 +1,6 @@
 //! PLAN-A17 A17-3, Rust only: what the tracker's jobs ask a CoinGecko feed per run (request counts, D-CG-429-STOPS-PRICES
 //! as the job's outcome), and a provider switch between two runs taking effect with no restart (jobs::resolve's per-run
-//! feed). The values are held to Rails by tracker_parity's and tax_parity's CoinGecko scenarios.
+//! feed). The values are held to 2.x by tracker_parity's and tax_parity's CoinGecko scenarios.
 mod common;
 mod support { pub mod tracker_fx; }
 use deltabadger::engine::FixedClock;

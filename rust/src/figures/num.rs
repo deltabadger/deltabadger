@@ -1,8 +1,8 @@
-//! The three kinds of number Rails' figures are made of, with Ruby's own coercion: an Integer stays an Integer
+//! The three kinds of number 2.x's figures are made of, with 2.x's own coercion: an Integer stays an Integer
 //! until it meets a BigDecimal or a Float, a Float that meets a BigDecimal becomes one (Float#to_d), and
-//! `[a, b].min` hands back one of its operands, type and all. The kind is part of the figure: Rails prints an
+//! `[a, b].min` hands back one of its operands, type and all. The kind is part of the figure: 2.x prints an
 //! Integer zero as `0`, a BigDecimal zero as `"0.0"` and a Float zero as `0.0`.
-//! Every rule here is pinned by vectors recorded from Ruby (script/rust/record_figures_vectors.rb).
+//! Every rule here is pinned by vectors recorded from 2.x.
 use super::dec::Dec;
 use std::cmp::Ordering;
 
@@ -12,14 +12,14 @@ pub enum Num { Int(i64), Dec(Dec), Float(f64) }
 /// Why a number could not be made.
 #[derive(Clone, Debug, PartialEq)]
 pub enum NumError {
-    /// Ruby raises here too (`ZeroDivisionError: divided by 0`), as `"<class>: <message>"`.
+    /// 2.x raises here too (`ZeroDivisionError: divided by 0`), as `"<class>: <message>"`.
     Raised(String),
     /// A number this library does not hold: an Integer beyond 64 bits, or a decimal beyond the limits of `dec`.
-    /// Ruby carries such a number on; here the figure is not computed.
+    /// 2.x carries such a number on; here the figure is not computed.
     OutOfRange,
-    /// The figure's arithmetic passed its budget (`budget`). Ruby computes on, for as long as it takes.
+    /// The figure's arithmetic passed its budget (`budget`). 2.x computes on, for as long as it takes.
     OverBudget,
-    /// Infinity or NaN, or a text that is no clean decimal. Ruby carries the first two on (and prints them as
+    /// Infinity or NaN, or a text that is no clean decimal. 2.x carries the first two on (and prints them as
     /// `null`) and reads a number off the front of the third; here the figure is not computed.
     NotANumber,
 }
@@ -30,8 +30,8 @@ fn finite(f: f64) -> Result<Num, NumError> { if f.is_finite() { Ok(Num::Float(f)
 impl Num {
     pub fn zero() -> Num { Num::Int(0) }
 
-    /// A JSON number as Ruby's parser reads it: an Integer or a Float. None for a value that is not a number.
-    /// An integer token within 64 signed bits is an Integer. One beyond them is refused (Ruby carries it on exactly):
+    /// A JSON number as 2.x's parser reads it: an Integer or a Float. None for a value that is not a number.
+    /// An integer token within 64 signed bits is an Integer. One beyond them is refused (2.x carries it on exactly):
     /// serde_json holds it as a u64 or, beyond 64 unsigned bits, has already made a Float of it, so any number of 2^63
     /// or more with no fraction is refused: the token and such a Float cannot be told apart here, and neither is a
     /// rate or a price. A Float is a provider's number, and is held to
@@ -46,7 +46,7 @@ impl Num {
         }
     }
 
-    /// Provider fiat operands use Ruby Float, accepting only whole trimmed decimal strings.
+    /// Provider fiat operands use 2.x Float, accepting only whole trimmed decimal strings.
     /// Unlike String#to_f, a numeric prefix followed by garbage is never accepted.
     pub fn from_fx_json(value: &serde_json::Value) -> Result<Option<Num>, NumError> {
         let number = match value {
@@ -90,7 +90,7 @@ impl Num {
     pub fn add(&self, o: &Num) -> Result<Num, NumError> { self.arith(o, i64::checked_add, |a, b| a + b, |a, b| a + b) }
     pub fn sub(&self, o: &Num) -> Result<Num, NumError> { self.arith(o, i64::checked_sub, |a, b| a - b, |a, b| a - b) }
     pub fn mul(&self, o: &Num) -> Result<Num, NumError> { self.arith(o, i64::checked_mul, |a, b| a * b, |a, b| a * b) }
-    /// Integer / Integer floors, as Ruby's does, and a BigDecimal or an Integer divided by zero raises.
+    /// Integer / Integer floors, as 2.x's does, and a BigDecimal or an Integer divided by zero raises.
     pub fn div(&self, o: &Num) -> Result<Num, NumError> {
         match (self, o) {
             (Num::Int(_), Num::Int(0)) => Err(zero_division()),
@@ -139,7 +139,7 @@ impl Num {
 
 /// The shortest digits that read back as `f`, and the position of the decimal point after the first of them.
 pub(super) fn shortest(f: f64) -> (bool, String, i32) {
-    let sci = crate::ruby::float_e(f.abs()); // "1.2345e-5", "1e16"
+    let sci = crate::v2::float_e(f.abs()); // "1.2345e-5", "1e16"
     let (mantissa, exp) = sci.split_once('e').unwrap_or((&sci, "0"));
     (f.is_sign_negative(), mantissa.chars().filter(char::is_ascii_digit).collect(), exp.parse().unwrap_or(0))
 }
@@ -178,10 +178,10 @@ fn g16(f: f64) -> String {
     }
 }
 
-/// A Float as Rails writes it into JSON. Rails' encoder is Oj's (config/initializers/oj.rb), not the json gem:
+/// A Float as 2.x writes it into JSON. 2.x's encoder is Oj's, not the json gem:
 /// a whole number prints with one decimal, anything else with sixteen significant digits (`%0.16g`), except
 /// where that ends in 0001 or 9999, which falls back to Float#to_s. Sixteen digits do not always read back
-/// as the same double: the page receives the number Rails printed, not the one it computed.
+/// as the same double: the page receives the number 2.x printed, not the one it computed.
 pub fn oj_float(f: f64) -> String {
     if f == 0.0 { return "0.0".into(); }
     if !f.is_finite() { return "null".into(); }

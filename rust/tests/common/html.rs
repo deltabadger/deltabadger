@@ -1,4 +1,4 @@
-//! The page-parity normaliser: turns a response into lines that are equal exactly when Rails and Rust
+//! The page-parity normaliser: turns a response into lines that are equal exactly when 2.x and Rust
 //! sent the same page. Both sides go through this same code.
 //!
 //! The body is parsed as a browser parses it (html5ever), then written one node per line:
@@ -21,7 +21,7 @@
 //! `masked_values` hands them out so the harness can check that first, on each side, with that
 //! side's own verifier.
 //!
-//! `location` does the same for a `Location` header: Rails sends an absolute URL and this crate a
+//! `location` does the same for a `Location` header: 2.x sends an absolute URL and this crate a
 //! path, and they are equal only when they name the same page of this deployment.
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use scraper::{Html, Node};
@@ -86,7 +86,7 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, lines: &mut Vec<String>
         }
         Node::Element(element) => {
             // D-LIQUIDATION-ONE-LINE: the bot--selling controller on the columns wrapper, each Sell link's target and its asset
-            // id; Rails has none of them.
+            // id; 2.x has none of them.
             let sell = element.attr("data-bot--selling-target") == Some("sell");
             let mut attributes: Vec<(&str, String)> = element.attrs()
                 .filter(|(name, value)| {
@@ -105,16 +105,16 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, lines: &mut Vec<String>
 }
 
 pub fn normalize(body: &str) -> Vec<String> {
-    let body = login_icon_as_rails(body);
+    let body = login_icon_as_v2(body);
     let mut lines = Vec::new();
     walk(Html::parse_document(&body).tree.root(), 0, &mut lines);
     lines
 }
 
-/// Named divergence D-LOGIN-APP-ICON: the login page shows the app's icon (the desktop intro's image) where Rails draws the
-/// signet; it is put back as the signet Rails writes there, so the rest of the page is still compared. Rails never writes
+/// Named divergence D-LOGIN-APP-ICON: the login page shows the app's icon (the desktop intro's image) where 2.x draws the
+/// signet; it is put back as the signet 2.x writes there, so the rest of the page is still compared. 2.x never writes
 /// the icon, so its bodies pass through unchanged.
-fn login_icon_as_rails(body: &str) -> std::borrow::Cow<'_, str> {
+fn login_icon_as_v2(body: &str) -> std::borrow::Cow<'_, str> {
     const ICON: &str = "<img class=\"devise__icon\" src=\"";
     let Some(start) = body.find(ICON) else { return body.into() };
     let Some(end) = body[start..].find('>').map(|at| start + at + 1) else { return body.into() };
@@ -154,11 +154,11 @@ pub fn masked_values(body: &str) -> Masked {
     Masked { tokens, streams: values("turbo-cable-stream-source", "signed-stream-name"), assets }
 }
 
-/// A `Location` as the comparison sees it. Rails sends an absolute URL on its own origin and this
+/// A `Location` as the comparison sees it. 2.x sends an absolute URL on its own origin and this
 /// crate a path: the same page, written as its path. Anything else is marked and kept whole, so it
 /// equals nothing local: another origin, and above all a value beginning with `//`, which a browser
 /// reads as another host (`//bots` is the host `bots`, not the page `/bots`).
-/// Only after that check are repeated slashes inside the path squeezed, as Rails' router reads them.
+/// Only after that check are repeated slashes inside the path squeezed, as 2.x's router reads them.
 pub fn location(value: &str) -> String {
     let path = match value.strip_prefix("http://localhost:3000") {
         Some(rest) if rest.is_empty() || rest.starts_with(['/', '?']) => rest, // an absolute URL on this origin
@@ -171,13 +171,13 @@ pub fn location(value: &str) -> String {
 }
 
 /// Where two normalised pages first differ, with a few lines of context from each.
-pub fn first_difference(rails: &[String], rust: &[String]) -> Option<String> {
-    let at = rails.iter().zip(rust.iter()).position(|(a, b)| a != b).or((rails.len() != rust.len()).then_some(rails.len().min(rust.len())))?;
+pub fn first_difference(v2: &[String], rust: &[String]) -> Option<String> {
+    let at = v2.iter().zip(rust.iter()).position(|(a, b)| a != b).or((v2.len() != rust.len()).then_some(v2.len().min(rust.len())))?;
     let context = |lines: &[String]| lines[at.saturating_sub(3)..(at + 3).min(lines.len())].join("\n    ");
-    Some(format!("line {at}\n  rails:\n    {}\n  rust:\n    {}", context(rails), context(rust)))
+    Some(format!("line {at}\n  2.x:\n    {}\n  rust:\n    {}", context(v2), context(rust)))
 }
 
-/// D-A6-STALE: Rails has no halt token. Validate the one extra hidden field against the actual
+/// D-A6-STALE: 2.x has no halt token. Validate the one extra hidden field against the actual
 /// halt/intent/generation before removing it for whole-page parity; nothing else is normalized away.
 pub fn without_rebalance_attestation(body:&str,c:&rusqlite::Connection)->String {
     let forms=regex::Regex::new(r#"(?s)<form[^>]*action="[^"]*/bots/(\d+)/rebalance_resolutions"[^>]*>.*?</form>"#).unwrap();

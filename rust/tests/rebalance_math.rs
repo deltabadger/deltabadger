@@ -1,4 +1,4 @@
-//! Replays script/rust/record_rebalance_math.rb: Rails' composition_targets, drift, due check, extreme entries and sell
+//! Replays the recorded rebalance math: 2.x's composition_targets, drift, due check, extreme entries and sell
 //! ranking over live valuations with Float and String Alpaca prices, decimal(10,6) weights, ties and exact thresholds.
 use deltabadger::engine::basket::target_from_sql;
 use deltabadger::engine::model::Ticker;
@@ -6,7 +6,7 @@ use deltabadger::engine::rebalance::{self, Direction, Entry, Member};
 use deltabadger::figures::dec::Dec;
 use deltabadger::figures::num::Num;
 use deltabadger::figures::walk::{AssetValue, Breakdown, Metrics};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use rusqlite::types::ValueRef;
 use serde_json::{json, Value};
 
@@ -44,7 +44,7 @@ fn inputs(c: &Value) -> (Metrics, Vec<Member>, Vec<i64>) {
         let zero = Num::Int(0);
         data.asset_breakdown.push((sym.clone(), Breakdown { amount: amount.clone(), quote_invested: zero.clone(), tax_basis: zero.clone(), tax_units: zero.clone(), tax_cost_unknown: false }));
         data.key_assets.push((sym.clone(), Some(id(sym))));
-        // A Float price is recorded as its Float#to_s (Rails' JSON encoder would drop its 17th digit): sent here as the JSON
+        // A Float price is recorded as its Float#to_s (2.x's JSON encoder would drop its 17th digit): sent here as the JSON
         // number Alpaca sent.
         let price = match &c["prices"][sym] { Value::Object(f) => json!(f["float"].as_str().unwrap().parse::<f64>().unwrap()), p => p.clone() };
         let price = &price;
@@ -62,7 +62,7 @@ fn row(e: &Entry) -> Value {
 }
 
 #[test]
-fn every_recorded_rails_rebalance_valuation_and_ranking_is_reproduced() {
+fn every_recorded_v2_rebalance_valuation_and_ranking_is_reproduced() {
     let fixture: Value = serde_json::from_str(include_str!("fixtures/rebalance_math.json")).unwrap();
     let cases = fixture["cases"].as_array().unwrap();
     let (mut targeted, mut due, mut ties, mut sold, mut bought) = (0, 0, 0, 0, 0);
@@ -116,10 +116,10 @@ fn every_recorded_rails_rebalance_valuation_and_ranking_is_reproduced() {
             "{} cases, {targeted} targeted, {due} due, {ties} with tied deviations, {sold} sells, {bought} buys", cases.len());
 }
 
-// ---- 6b T5: the pending state in Rails' exact shape ----
+// ---- 6b T5: the pending state in 2.x's exact shape ----
 
 #[test]
-fn the_pending_state_round_trips_in_rails_shape() {
+fn the_pending_state_round_trips_in_v2_shape() {
     use deltabadger::engine::rebalance::{pending, Pending};
     let p = Pending { phase: "buying".into(), sell_transaction_id: Some(12), buy_transaction_id: None, remaining_quote_amount: Some(BigDec::parse("99").unwrap()), buy_attempted: true };
     // set_rebalance_pending!: `remaining_quote_amount&.to_d&.to_s('F')`, `buy_attempted.present?`.
@@ -127,8 +127,8 @@ fn the_pending_state_round_trips_in_rails_shape() {
     assert_eq!(pending(&json!({ "rebalance_pending": p.to_json() })).unwrap(), Some(p));
     assert_eq!(pending(&json!({ "rebalance_pending": {} })).unwrap(), None, "an empty Hash is not present?");
     assert_eq!(pending(&json!({ "rebalance_pending": "selling" })).unwrap(), None, "only a Hash is a pending state");
-    let rails = json!({ "rebalance_pending": { "phase": "selling", "sell_transaction_id": "5", "remaining_quote_amount": null } });
-    let read = pending(&rails).unwrap().unwrap();
+    let v2 = json!({ "rebalance_pending": { "phase": "selling", "sell_transaction_id": "5", "remaining_quote_amount": null } });
+    let read = pending(&v2).unwrap().unwrap();
     assert_eq!((read.sell_transaction_id, read.remaining_quote_amount, read.buy_attempted), (Some(5), None, false));
     assert!(pending(&json!({ "rebalance_pending": { "phase": "selling", "sell_transaction_id": [1] } })).is_err(), "never guessed");
 }

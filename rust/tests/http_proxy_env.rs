@@ -10,8 +10,8 @@ fn req(base: &str, method: &'static str, path: &str, query: Vec<(&'static str, S
 fn transport() -> ReqwestTransport { ReqwestTransport::new(client(), "PKTEST".into(), "s3cret".into()) }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_read_carries_rails_headers_and_encodes_the_pair_as_faraday_does() {
-    // Rails reaches Alpaca directly: a proxy in the environment must not be picked up (every test here uses no_proxy).
+async fn a_read_carries_v2_headers_and_encodes_the_pair_as_faraday_does() {
+    // 2.x reaches Alpaca directly: a proxy in the environment must not be picked up (every test here uses no_proxy).
     std::env::set_var("HTTPS_PROXY", "http://127.0.0.1:9");
     std::env::set_var("HTTP_PROXY", "http://127.0.0.1:9");
     let server = MockServer::start().await;

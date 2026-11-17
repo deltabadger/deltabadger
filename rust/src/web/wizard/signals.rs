@@ -1,17 +1,17 @@
 //! The signal wizard (Bots::Signals::*, plan 8e): the asset to trade (PickBuyableAssetsController), the venue
 //! (PickExchangesController), the key (keys.rs, `Namespace::Signal`), the quote (PickSpendableAssetsController), the rules
 //! (ConfirmSettingsController, kept in `session[:bot_config]['signals']` until the bot exists) and the save (SignalsController:
-//! the bot and its rules, then started). Each step builds the bot from the session as Rails does; the asset and quote lists are
+//! the bot and its rules, then started). Each step builds the bot from the session as 2.x does; the asset and quote lists are
 //! the shared search (bot::search) with a one-pair scope.
 //!
-//! Venues: the exchange step offers only the venues this engine runs signal bots on (eligibility::signal_admission). Rails'
+//! Venues: the exchange step offers only the venues this engine runs signal bots on (eligibility::signal_admission). 2.x's
 //! own way of showing a venue it cannot trade on (bots/pick_exchanges/_table's disabled button) names Hyperliquid's missing
 //! adapter, so it does not fit; a refused venue is left out instead, and one sent anyway is refused by name at its key step.
 use super::exchanges::{ordered, Table, Venue as Tile};
 use super::keys::{self, FullPage};
 use super::{chips, dig, exchange_id, expired, progress_bar, step_complete, Chip, Step};
 use crate::engine::{eligibility, model};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::web::bot::search::{self, AssetPage, Basket, Item, Side};
 use crate::web::bot::signal_write::{self, Started};
 use crate::web::layout::{self, Ctx, Page};
@@ -45,7 +45,7 @@ fn progress(ctx: &Ctx, step: &str) -> Result<String, WebError> {
 
 /// `bot.base_asset_id` / `quote_asset_id` of the bot built from the session: the stored id, nil when blank.
 fn setting_id(config: Option<&Value>, key: &str) -> Option<i64> {
-    config?.get("settings")?.get(key).filter(|v| match v { Value::Null => false, Value::String(t) => !crate::ruby::blank(t), _ => true }).map(super::to_i)
+    config?.get("settings")?.get(key).filter(|v| match v { Value::Null => false, Value::String(t) => !crate::v2::blank(t), _ => true }).map(super::to_i)
 }
 
 fn base_id(config: Option<&Value>) -> Option<i64> { setting_id(config, "base_asset_id") }
@@ -183,7 +183,7 @@ pub async fn assets_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) 
 pub async fn assets_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
     let Some(id) = field(&ctx, BASE_FIELD) else { return Ok(layout::bad_request()) };
-    if crate::ruby::blank(&id) { return assets_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, &BASE_STEP, false).await }
+    if crate::v2::blank(&id) { return assets_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, &BASE_STEP, false).await }
     merge_setting(&ctx, "base_asset_id", search::to_i(&id));
     Ok(redirect(&ctx, EXCHANGE_NEW))
 }
@@ -223,7 +223,7 @@ pub async fn exchange_create(State(app): State<App>, Extension(ctx): Extension<C
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
     if let Some(answer) = expired(&ctx) { return Ok(answer) }
     let Some(exchange) = field(&ctx, EXCHANGE_FIELD) else { return Ok(layout::bad_request()) };
-    if crate::ruby::blank(&exchange) { return exchange_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY).await }
+    if crate::v2::blank(&exchange) { return exchange_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY).await }
     config_mut(&mut ctx.session.lock().bot_config).insert("exchange_id".into(), json!(exchange));
     Ok(redirect(&ctx, KEY_NEW))
 }
@@ -242,7 +242,7 @@ pub async fn quote_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
     if let Some(answer) = expired(&ctx) { return Ok(answer) }
     let Some(id) = field(&ctx, QUOTE_FIELD) else { return Ok(layout::bad_request()) };
-    if crate::ruby::blank(&id) { return assets_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, &QUOTE_STEP, false).await }
+    if crate::v2::blank(&id) { return assets_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, &QUOTE_STEP, false).await }
     merge_setting(&ctx, "quote_asset_id", search::to_i(&id));
     Ok(redirect(&ctx, CONFIRM_NEW))
 }
@@ -261,14 +261,14 @@ impl Rule {
 /// The default rule: buy for 100 of the quote.
 fn default_rule() -> Value { json!({"direction": "buy", "amount": 100, "enabled": true}) }
 
-/// The session's rules, built. An enum value Rails does not know raises (ArgumentError) as it does there.
+/// The session's rules, built. An enum value 2.x does not know raises (ArgumentError) as it does there.
 fn rules(signals: &[Value]) -> Result<Vec<Rule>, WebError> {
     signals.iter().map(|rule| {
         let name = |key: &str, default: &str, names: [&str; 2]| -> Result<bool, WebError> {
             match rule.get(key).map_or(Some(default), Value::as_str) {
                 Some(text) if text == names[0] => Ok(false),
                 Some(text) if text == names[1] => Ok(true),
-                _ => Err(WebError::Config(format!("a wizard rule's {key} is not one Rails knows"))),
+                _ => Err(WebError::Config(format!("a wizard rule's {key} is not one 2.x knows"))),
             }
         };
         let sell = name("direction", "", ["buy", "sell"])?;
@@ -306,7 +306,7 @@ fn settings(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>, rules
     let pill = |asset: &Option<crate::web::bot::Asset>| -> Result<Pill, WebError> {
         let color = asset.as_ref().and_then(|a| a.color.as_deref());
         Ok(Pill { class: crate::web::colors::ticker_class(asset.as_ref().and_then(|a| a.category.as_deref()), color),
-                  pill: crate::web::colors::pill_color(color).ok_or_else(|| WebError::Config("an asset colour Ruby cannot read".into()))?,
+                  pill: crate::web::colors::pill_color(color).ok_or_else(|| WebError::Config("an asset colour 2.x cannot read".into()))?,
                   symbol: asset.as_ref().and_then(|a| a.symbol.clone()), id: asset.as_ref().map(|a| a.id) })
     };
     // `bot.quote_asset.symbol`: each rule reads it.
@@ -333,7 +333,7 @@ fn button(ctx: &Ctx, csrf: &str, rules: &[Rule]) -> Result<String, WebError> {
 #[template(path = "wizard/signals/confirm_settings.html")]
 struct Confirm { progress: String, name_id: String, mark: &'static str, name: String, exchange_url: String, button: String, settings: String }
 
-/// The session's rules (`session[:bot_config]['signals']`): a wizard not begun, or not yet at this step, is Rails' NoMethodError.
+/// The session's rules (`session[:bot_config]['signals']`): a wizard not begun, or not yet at this step, is 2.x's NoMethodError.
 fn session_rules(config: Option<&Value>) -> Result<Vec<Value>, WebError> {
     dig(config, &["signals"]).and_then(Value::as_array).cloned().ok_or_else(|| missing("rules"))
 }
@@ -386,7 +386,7 @@ pub async fn confirm_create(State(app): State<App>, Extension(ctx): Extension<Ct
 /// `signal_index.to_i`, read from the query or the form.
 fn index(ctx: &Ctx) -> i64 { field(ctx, "signal_index").map_or(0, |text| search::to_i(&text)) }
 
-/// Ruby's Array index: a negative one counts from the end.
+/// 2.x's Array index: a negative one counts from the end.
 fn at(len: usize, index: i64) -> Option<usize> {
     let at = if index < 0 { index + len as i64 } else { index };
     (0..len as i64).contains(&at).then_some(at as usize)
@@ -422,9 +422,9 @@ fn head(status: StatusCode) -> Response { (status, [(header::CONTENT_TYPE, "text
 pub async fn update_signal(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
     let index = index(&ctx);
-    let present = |name: &str| field(&ctx, name).filter(|text| !crate::ruby::blank(text));
+    let present = |name: &str| field(&ctx, name).filter(|text| !crate::v2::blank(text));
     let (direction, amount, amount_type, enabled) = (present("direction"), present("amount"), present("amount_type"), field(&ctx, "enabled"));
-    let amount = amount.map(|text| crate::web::bot::action_params::numeric(&json!(text), false).map_err(|_| WebError::Config("an amount past what Ruby reads".into()))).transpose()?;
+    let amount = amount.map(|text| crate::web::bot::action_params::numeric(&json!(text), false).map_err(|_| WebError::Config("an amount past what 2.x reads".into()))).transpose()?;
     let found = with_rules(&ctx, |rules| {
         let Some(rule) = at(rules.len(), index).and_then(|at| rules[at].as_object_mut()) else { return false };
         if let Some(direction) = direction { rule.insert("direction".into(), json!(direction)); }
@@ -445,8 +445,8 @@ pub async fn update_signal(State(app): State<App>, Extension(ctx): Extension<Ctx
 enum Saved { Started(i64, Vec<(String, String)>), Refused(String, bool), Unported, Unservable(&'static str) }
 
 /// POST /bots/signals: the bot built from the session with its rules (the default one when the session has none) is saved, each
-/// rule with a token of its own, and started. A rule Rails would not save refuses the whole save (422, nothing written); a start
-/// the model refuses leaves the saved bot as it is (422, the reasons), as Rails does; a write the engine's guard refuses leaves
+/// rule with a token of its own, and started. A rule 2.x would not save refuses the whole save (422, nothing written); a start
+/// the model refuses leaves the saved bot as it is (422, the reasons), as 2.x does; a write the engine's guard refuses leaves
 /// nothing. A session without a venue or a pair, or one whose bot no page here could serve, is refused by name, nothing written.
 pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
@@ -474,7 +474,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         let id = signal_write::insert_created(&tx, user.id, exchange, &settings, None, &saved, view.locale, view.now)?;
         let started = signal_write::start_created(&tx, &view, user.id, id)?;
         // A bot whose pages this build cannot serve (`bot::refusal`, as a rule write checks it: an enabled sell rule while the
-        // wash-sale question is unanswered, say) is not made at all. Rails saves it and asks the question on its page; here it
+        // wash-sale question is unanswered, say) is not made at all. 2.x saves it and asks the question on its page; here it
         // would be a bot no page, list or action could reach, so nothing is written and the reason is named.
         if !matches!(started, Started::Refused(_)) {
             if let Some(reason) = signal_write::refused_after(&tx, &view.app, id)? { return Ok(Saved::Unservable(reason)) }
@@ -486,7 +486,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
             }
             Started::Invalid(errors) => {
                 let message = signal_write::sentence(&errors);
-                // The saved bot stays (Rails saved it before the start), as long as the engine would hold it.
+                // The saved bot stays (2.x saved it before the start), as long as the engine would hold it.
                 if let Err(refusal) = eligibility::guard(&tx, &view.app.cipher, Some(id)) {
                     return Ok(Saved::Refused(i18n::text(view.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&refusal.reason()))]), false));
                 }
@@ -518,7 +518,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ruby_indexes_and_amount_text() {
+    fn v2_indexes_and_amount_text() {
         assert_eq!((at(3, 0), at(3, 2), at(3, 3), at(3, -1), at(3, -4)), (Some(0), Some(2), None, Some(2), None));
         assert_eq!(amount_text(&BigDec::from_f64(40.0).unwrap()), "40");
         assert_eq!(amount_text(&BigDec::from_f64(12.5).unwrap()), "12.5");
@@ -526,11 +526,11 @@ mod tests {
     }
 
     #[test]
-    fn rules_read_the_session_as_rails_builds_them() {
+    fn rules_read_the_session_as_v2_builds_them() {
         let built = rules(&[json!({"direction": "sell", "amount": 150.0, "amount_type": "percentage"}), json!({"direction": "buy", "amount": 0, "enabled": false})]).unwrap();
         assert!(built[0].sell && built[0].percentage && built[0].enabled && !built[0].valid(), "over 100 %");
         assert!(!built[1].sell && !built[1].enabled && !built[1].valid(), "not above 0");
-        assert!(rules(&[json!({"direction": "hold", "amount": 1})]).is_err(), "an enum Rails does not know raises");
+        assert!(rules(&[json!({"direction": "hold", "amount": 1})]).is_err(), "an enum 2.x does not know raises");
         assert!(rules(&[default_rule()]).unwrap()[0].valid());
     }
 

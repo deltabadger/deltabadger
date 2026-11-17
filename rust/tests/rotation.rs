@@ -1,4 +1,4 @@
-//! PLAN-A29: `deltabadger encryption-report | encryption-reset | encryption-derived-keys`, Rails' deltabadger:encryption
+//! PLAN-A29: `deltabadger encryption-report | encryption-reset | encryption-derived-keys`, 2.x's deltabadger:encryption
 //! tasks, run as the operator runs them, on an install holding every kind of stored credential.
 mod common;
 use common::seed::{self, BotSpec};
@@ -52,10 +52,10 @@ fn tables(c: &Connection) -> BTreeMap<String, Vec<String>> {
 
 struct Fixture { dir: tempfile::TempDir, bot: i64, rule: i64, seeded: seed::Seeded }
 
-/// An install under `secret` holding every kind of credential Rails' report lists, Rust's own encrypted rows, a plain
+/// An install under `secret` holding every kind of credential 2.x's report lists, Rust's own encrypted rows, a plain
 /// Rust row, a working bot with rebalancing on and a working withdrawal rule. Taken over by Rust (its lease encrypted).
 fn install(secret: &str) -> Fixture {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let c = db(dir.path());
     let cipher = cipher_for(secret);
     let s = seed::seed_kraken(&c, &cipher);
@@ -108,7 +108,7 @@ Withdrawal addresses — COPY THESE NOW, they cannot be recovered afterwards:
 ";
 
 #[test]
-fn the_report_lists_every_credential_in_rails_words() {
+fn the_report_lists_every_credential_in_v2_words() {
     let f = install(SECRET);
     let o = run(f.dir.path(), SECRET, &["encryption-report"]);
     assert!(o.status.success(), "{}", err(&o));
@@ -365,9 +365,9 @@ fn a_published_or_short_secret_is_said_at_start() {
     assert!(!err(&o).contains("SECURITY"), "{}", err(&o));
 }
 
-// ---- Rails cross-check (PLAN-A29 r2.7) ------------------------------------------------------------------------------
+// ---- 2.x cross-check (PLAN-A29 r2.7) ------------------------------------------------------------------------------
 
-/// The listed text rewrites (PLAN-A29 §5): Rails' words → 3.0's. Nothing else may differ.
+/// The listed text rewrites (PLAN-A29 §5): 2.x's words → 3.0's. Nothing else may differ.
 const REWRITES: &[(&str, &str)] = &[
     ("re-run with PUBLISHED=yes.", "re-run with --published."), // R1
     ("  1. Stop the app. A job a worker has already picked up cannot be cancelled and\n     would keep trading while this runs.",
@@ -380,13 +380,13 @@ const REWRITES: &[(&str, &str)] = &[
 const VECTOR_TABLES: &[&str] = &["users", "exchanges", "assets", "api_keys", "fee_api_keys", "app_configs", "rules", "oauth_applications",
                                  "oauth_access_tokens", "oauth_access_grants", "connected_clients", "bots", "account_transactions"];
 
-fn rewritten(rails: &str) -> String { REWRITES.iter().fold(rails.to_string(), |t, (from, to)| t.replace(from, to)) }
+fn rewritten(v2: &str) -> String { REWRITES.iter().fold(v2.to_string(), |t, (from, to)| t.replace(from, to)) }
 
 fn cell(v: &serde_json::Value) -> String {
     match v { serde_json::Value::Null => "NULL".into(), serde_json::Value::String(s) => s.clone(), serde_json::Value::Bool(b) => (*b as i64).to_string(), other => other.to_string() }
 }
 
-/// Each row of `table` as column → text, the columns D-RESET-STOP-LOGGED's stop writes masked (Rails' update_all writes
+/// Each row of `table` as column → text, the columns D-RESET-STOP-LOGGED's stop writes masked (2.x's update_all writes
 /// no updated_at; both write a stopped_at of their own `now`).
 fn rows(c: &Connection, table: &str) -> Vec<BTreeMap<String, String>> {
     let mut s = c.prepare(&format!("SELECT * FROM {table} ORDER BY id")).unwrap();
@@ -401,11 +401,11 @@ fn mask(mut row: BTreeMap<String, String>) -> BTreeMap<String, String> {
 }
 
 #[test]
-fn rails_and_rust_clear_the_same_rows_and_differ_only_by_the_listed_rewrites() {
+fn v2_and_rust_clear_the_same_rows_and_differ_only_by_the_listed_rewrites() {
     let v: serde_json::Value = serde_json::from_str(include_str!("fixtures/encryption_vectors.json")).unwrap();
     let secret = v["secret_key_base"].as_str().unwrap();
     assert_eq!(v["independent"], false, "the vectors are of an install deriving its keys");
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let c = db(dir.path());
     for table in VECTOR_TABLES {
         for row in v["before"][table].as_array().unwrap() {
@@ -433,16 +433,16 @@ fn rails_and_rust_clear_the_same_rows_and_differ_only_by_the_listed_rewrites() {
     assert_eq!(out(&reset), rewritten(v["reset"]["stdout"].as_str().unwrap()), "{}", err(&reset));
     let c = db(dir.path());
     for table in VECTOR_TABLES {
-        let rails: Vec<BTreeMap<String, String>> = v["after"][table].as_array().unwrap().iter()
+        let v2: Vec<BTreeMap<String, String>> = v["after"][table].as_array().unwrap().iter()
             .map(|r| mask(r.as_object().unwrap().iter().map(|(k, v)| (k.clone(), cell(v))).collect())).collect();
-        assert_eq!(rows(&c, table), rails, "{table} after the reset");
+        assert_eq!(rows(&c, table), v2, "{table} after the reset");
     }
 }
 
-/// An order Rails placed and never recorded (its Bot::FetchAndCreateOrderJob still queued): the takeover's own hard
+/// An order 2.x placed and never recorded (its Bot::FetchAndCreateOrderJob still queued): the takeover's own hard
 /// stop, reached through the reset's judgement of the next start.
 #[test]
-fn an_order_rails_never_recorded_refuses_the_reset() {
+fn an_order_v2_never_recorded_refuses_the_reset() {
     let f = install(SECRET);
     let q = Connection::open(f.dir.path().join("production_queue.sqlite3")).unwrap();
     let args = serde_json::json!({ "job_class": "Bot::FetchAndCreateOrderJob",

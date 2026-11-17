@@ -1,6 +1,6 @@
 //! What wakes the figures' warming, all of it through the queue (`Service::enqueue`, consumed by `loading::follow`):
 //! the boot, a scheduler job that rewrote what the figures read, and the five-minute tick for the accounts signed in
-//! within Rails' activity window (Bot::WarmMetricsCachesJob).
+//! within 2.x's activity window (Bot::WarmMetricsCachesJob).
 use super::{loading, service::Work};
 use crate::web::App;
 

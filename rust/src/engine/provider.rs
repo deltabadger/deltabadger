@@ -1,4 +1,4 @@
-//! Index source attestation. Read Rails' encrypted configuration on the SAME connection and
+//! Index source attestation. Read 2.x's encrypted configuration on the SAME connection and
 //! inside the caller's write transaction. Configuration values and fingerprints never enter logs.
 use super::{model::Bot, EngineError, staleness::Stale};
 use crate::{app_config, crypto::Cipher, jobs::data_api::Config};
@@ -35,7 +35,7 @@ fn value(c:&Connection,key:&str)->Result<Option<Option<String>>,EngineError> {
     let row:Option<Option<String>>=c.query_row("SELECT value FROM app_configs WHERE key=?1",[key],|r|r.get(0)).optional()?;
     row.map(|raw| {
         let decrypted=c.query_row("SELECT rust_index_decrypt(?1)",[raw.as_deref()],|r|r.get::<_,Option<String>>(0));
-        // Plaintext is supported by Rails. An encrypted setting without an installed cipher
+        // Plaintext is supported by 2.x. An encrypted setting without an installed cipher
         // fails closed (read-only `check` can supply SECRET_KEY_BASE to decrypt it).
         Ok(decrypted.unwrap_or_else(|_|raw.filter(|v|!v.trim_start().starts_with('{'))))
     }).transpose()

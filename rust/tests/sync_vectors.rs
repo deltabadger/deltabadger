@@ -1,7 +1,7 @@
-//! The sync's pure mappings against vectors recorded from Rails (script/rust/record_sync_vectors.rb). Rails-free.
+//! The sync's pure mappings against vectors recorded from 2.x. 2.x-free.
 use deltabadger::codec::format_time;
 use deltabadger::crypto::Credentials;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::sync::activities::{self, CryptoPair, CryptoPairs, Raw};
 use deltabadger::sync::wire::{self, Budget, Node, Refused};
 use deltabadger::sync::{number, scrub, SYNC_ERROR_LIMIT};
@@ -27,7 +27,7 @@ fn every_recorded_scrub_and_its_stored_cut_is_reproduced() {
         let scrubbed = scrub(input, &credentials);
         let stored: String = scrubbed.chars().take(SYNC_ERROR_LIMIT).collect();
         // These recorded inputs are raw. Independently identify only credential-bearing cases;
-        // R2 replaces their entire text, whereas Rails' recorded scrub replaces substrings.
+        // R2 replaces their entire text, whereas 2.x's recorded scrub replaces substrings.
         let reflected = c["key"].as_object().unwrap().values().filter_map(Value::as_str)
             .any(|value| !value.is_empty() && input.contains(value));
         if reflected {
@@ -35,10 +35,10 @@ fn every_recorded_scrub_and_its_stored_cut_is_reproduced() {
             assert_eq!(scrubbed, deltabadger::crypto::VENUE_TEXT_REDACTED, "R2 whole-text security divergence: {input}");
             assert_eq!(stored, deltabadger::crypto::VENUE_TEXT_REDACTED, "R2 stored security divergence: {input}");
         } else if scrubbed != c["scrubbed"] || stored != c["stored"] {
-            failures.push(format!("{}\n  rust: {scrubbed}\n  ruby: {}", c["text"], c["scrubbed"]));
+            failures.push(format!("{}\n  rust: {scrubbed}\n  2.x:  {}", c["text"], c["scrubbed"]));
         }
     }
-    assert_eq!(protected, 23, "only the 23 credential-bearing vectors diverge; the other 29 retain exact Rails output");
+    assert_eq!(protected, 23, "only the 23 credential-bearing vectors diverge; the other 29 retain exact 2.x output");
     report("scrubs", failures, cases.len());
 }
 
@@ -47,14 +47,14 @@ fn every_recorded_split_ratio_and_rationalisation_is_reproduced() {
     let cases = list(&vectors()["split_ratio_label"]);
     assert!(cases.len() > 300);
     let failures: Vec<String> = cases.iter().filter_map(|c| {
-        let got = activities::split_ratio_label(&bd(c[0].as_str().unwrap()), &bd(c[1].as_str().unwrap())).expect("a ratio Ruby computed");
-        (json!(got) != c[2]).then(|| format!("{} -> {} = {got:?}, Ruby {}", c[0], c[1], c[2]))
+        let got = activities::split_ratio_label(&bd(c[0].as_str().unwrap()), &bd(c[1].as_str().unwrap())).expect("a ratio 2.x computed");
+        (json!(got) != c[2]).then(|| format!("{} -> {} = {got:?}, 2.x {}", c[0], c[1], c[2]))
     }).collect();
     report("split ratios", failures, cases.len());
     let cases = list(&vectors()["rationalize"]);
     assert_eq!(cases.len(), 300);
     let failures: Vec<String> = cases.iter().filter_map(|c| {
-        let (p, q) = activities::rationalize(float(&c[0]), float(&c[1])).expect("a fraction Ruby computed");
+        let (p, q) = activities::rationalize(float(&c[0]), float(&c[1])).expect("a fraction 2.x computed");
         ((p.to_string(), q.to_string()) != (c[2].as_str().unwrap().to_string(), c[3].as_str().unwrap().to_string())).then(|| format!("{c} = {p}/{q}"))
     }).collect();
     report("rationalisations", failures, cases.len());
@@ -67,7 +67,7 @@ fn pairs() -> CryptoPairs {
 }
 
 #[test]
-fn every_recorded_activity_becomes_the_entry_rails_makes_of_it() {
+fn every_recorded_activity_becomes_the_entry_v2_makes_of_it() {
     let streams = list(&vectors()["ledger_entries"]);
     let (mut failures, mut total) = (vec![], 0);
     for stream in &streams {
@@ -82,7 +82,7 @@ fn every_recorded_activity_becomes_the_entry_rails_makes_of_it() {
                 "quote_amount": e.quote_amount.as_ref().map(BigDec::to_s_f), "fee_currency": e.fee_currency, "fee_amount": e.fee_amount.as_ref().map(BigDec::to_s_f),
                 "tx_id": e.tx_id, "group_id": e.group_id, "description": e.description, "transacted_at": e.transacted_at.map(format_time), "raw": e.raw.value, "raw_text": e.raw.text(),
             });
-            if &got != w { failures.push(format!("rust: {got}\n  ruby: {w}")); }
+            if &got != w { failures.push(format!("rust: {got}\n  2.x:  {w}")); }
         }
     }
     assert_eq!(total, 70, "entries compared");
@@ -90,7 +90,7 @@ fn every_recorded_activity_becomes_the_entry_rails_makes_of_it() {
 }
 
 #[test]
-fn activity_times_are_read_as_rails_reads_them() {
+fn activity_times_are_read_as_v2_reads_them() {
     let times = &vectors()["times"];
     for c in list(&times["trade"]) {
         let fill = json!({ "id": "f", "activity_type": "FILL", "symbol": "AAPL", "side": "buy", "qty": "1", "price": "1", "transaction_time": c[0] });
@@ -101,13 +101,13 @@ fn activity_times_are_read_as_rails_reads_them() {
         let interest = json!({ "id": "i", "activity_type": "INT", "net_amount": "1", key: c[0] });
         assert_eq!(json!(activities::normalize(&Raw::from_value(interest), &pairs()).unwrap().unwrap().transacted_at.map(format_time)), c[1], "{c}");
     }
-    // What Ruby reads and this port refuses (the sync fails, as Ruby's raise fails the job): a time in no known shape.
+    // What 2.x reads and this port refuses (the sync fails, as 2.x's raise fails the job): a time in no known shape.
     let odd = json!({ "id": "i", "activity_type": "INT", "net_amount": "1", "date": "19 Mar 2026" });
     assert_eq!(activities::normalize(&Raw::from_value(odd), &pairs()), Err("unreadable activity time".to_string()), "and the error does not repeat the value");
 }
 
 /// Every number of an answer is bounded before any arithmetic (`sync::number`): one value per way of being hostile.
-/// None of these may reach `ruby::BigDec`, which expands a number digit by digit, on a thread a dropped job cannot stop.
+/// None of these may reach `v2::BigDec`, which expands a number digit by digit, on a thread a dropped job cannot stop.
 #[test]
 fn every_hostile_number_is_refused_before_any_arithmetic_and_every_plain_one_is_read() {
     let started = std::time::Instant::now();
@@ -150,7 +150,7 @@ fn every_hostile_number_is_refused_before_any_arithmetic_and_every_plain_one_is_
 }
 
 /// A split ratio is a fraction of two integers this port can hold, reached in a bounded number of steps, or an error:
-/// no double makes `rationalize` loop (Ruby raises FloatDomainError on a ratio that is not finite, NaN included; this
+/// no double makes `rationalize` loop (2.x raises FloatDomainError on a ratio that is not finite, NaN included; this
 /// port's walk, written without that check, would not end on NaN).
 #[test]
 fn no_split_quantity_makes_the_ratio_loop_overflow_or_lie() {
@@ -178,10 +178,10 @@ fn no_split_quantity_makes_the_ratio_loop_overflow_or_lie() {
 
 /// An answer is held as the app's parser holds it (`wire`): the vectors are `JSON.parse` inside the app (Oj),
 /// re-generated. A key met twice keeps its last value in its first place, at every level; more than 100 levels are
-/// refused; what Ruby's parser refuses is refused.
+/// refused; what 2.x's parser refuses is refused.
 #[test]
-fn an_answer_is_held_as_rubys_parser_holds_it() {
-    // The value, with every number as a number (Ruby prints a Float its own way, and -0.0 as 0.0), and the keys in order.
+fn an_answer_is_held_as_v2s_parser_holds_it() {
+    // The value, with every number as a number (2.x prints a Float its own way, and -0.0 as 0.0), and the keys in order.
     fn keys(v: &Value, out: &mut Vec<String>) {
         match v {
             Value::Object(m) => for (k, v) in m { out.push(k.clone()); keys(v, out); },
@@ -192,8 +192,8 @@ fn an_answer_is_held_as_rubys_parser_holds_it() {
     let exact = |text: &str| wire::exact(text).map(|v| { let mut order = vec![]; keys(&v, &mut order); (v, order) });
     let cases = list(&vectors()["json_canonical"]);
     assert_eq!(cases.len(), 34);
-    // One text Ruby's parser lets through and serde_json does not: an escape that is none. (So is half a surrogate
-    // pair, which Ruby turns into bytes that are not UTF-8.)
+    // One text 2.x's parser lets through and serde_json does not: an escape that is none. (So is half a surrogate
+    // pair, which 2.x turns into bytes that are not UTF-8.)
     let stricter = [r#"{"a":"\x"}"#];
     assert_eq!(wire::read(r#"["\ud800"]"#, &mut Budget(usize::MAX), None), Err(Refused::NotJson));
     let (mut nesting, mut refused, mut held) = (0, 0, 0);
@@ -204,7 +204,7 @@ fn an_answer_is_held_as_rubys_parser_holds_it() {
             (None, Some("nesting")) => { nesting += 1; assert_eq!(read, Err(Refused::TooDeep), "{text}"); }
             (None, Some(_)) => { refused += 1; assert_eq!(read, Err(Refused::NotJson), "{text}"); }
             (Some(_), _) if stricter.contains(&text) => assert_eq!(read, Err(Refused::NotJson), "{text}"),
-            (Some(ruby), _) => { held += 1; assert_eq!(exact(&read.unwrap_or_else(|e| panic!("{text}: {e:?}")).text()).unwrap(), exact(ruby).unwrap(), "{text}"); }
+            (Some(v2), _) => { held += 1; assert_eq!(exact(&read.unwrap_or_else(|e| panic!("{text}: {e:?}")).text()).unwrap(), exact(v2).unwrap(), "{text}"); }
             other => panic!("{text}: {other:?}"),
         }
     }
@@ -237,9 +237,9 @@ fn an_answer_is_refused_at_its_first_value_over_the_budget() {
     assert!(started.elapsed() < std::time::Duration::from_secs(5), "{:?}", started.elapsed());
 }
 
-/// What is stored as raw_data is what Rails stores, byte for byte: the app's JSON column over what the app's parser
+/// What is stored as raw_data is what 2.x stores, byte for byte: the app's JSON column over what the app's parser
 /// held, both Oj's. A Float is re-printed in Oj's sixteen digits (`0.30000000000000004` is stored as `0.3`), an Integer
-/// is kept exactly, a string is written with Rails' escapes. The vectors are `ActiveRecord::Type::Json#serialize` of
+/// is kept exactly, a string is written with 2.x's escapes. The vectors are `ActiveRecord::Type::Json#serialize` of
 /// `JSON.parse(text)`, recorded inside the app.
 #[test]
 fn raw_data_is_written_as_the_apps_json_column_writes_it() {
@@ -248,11 +248,11 @@ fn raw_data_is_written_as_the_apps_json_column_writes_it() {
     for c in &cases {
         let text = c[0].as_str().unwrap();
         let stored = wire::read(text, &mut Budget(usize::MAX), None).unwrap_or_else(|e| panic!("{text}: {e:?}")).stored();
-        if json!(stored) != c[1] && !(c[1].is_null() && stored == "null") { failures.push(format!("{text}: rust {stored}, rails {}", c[1])); }
+        if json!(stored) != c[1] && !(c[1].is_null() && stored == "null") { failures.push(format!("{text}: rust {stored}, 2.x {}", c[1])); }
     }
     assert_eq!(cases.len(), 802);
     report("stored JSON texts", failures, cases.len());
-    // Rails prints a value twice (the assignment casts it through its own text, the save serialises that). One vector
+    // 2.x prints a value twice (the assignment casts it through its own text, the save serialises that). One vector
     // shows it: the largest double, whose sixteen digits read back as Infinity.
     let twice: Vec<&Value> = cases.iter().filter(|c| !c[2].is_null()).collect();
     assert_eq!(twice, [&json!(["[1.7976931348623157e308]", "[null]", "[1.797693134862316e+308]"])]);
@@ -266,7 +266,7 @@ fn raw_data_is_written_as_the_apps_json_column_writes_it() {
     // 2^63 as a Float is the one value Oj prints differently by processor (a C cast that is undefined): x86-64's here.
     assert_eq!(wire::stored_float(9_223_372_036_854_775_808.0), "9.223372036854776e+18");
 
-    // An activity: a number is read from the venue's own text, and stored as Rails stores it.
+    // An activity: a number is read from the venue's own text, and stored as 2.x stores it.
     let text = r#"{"id":"a","reference":18446744073709551617,"long_fraction":1.0000000000000000001,"nested":{"ids":[-9223372036854775809, 1e2],"x":1,"x":{"y":1,"y":2}},"qty":"5","tiny":1e-999,"f":0.30000000000000004,"id":"b"}"#;
     let mut raw = Raw::parse(text).unwrap().unwrap();
     assert_eq!(raw.value["id"], "b", "a repeated key keeps its last value");
@@ -307,7 +307,7 @@ fn a_value_that_is_not_json_is_refused_even_where_a_later_one_overwrites_it() {
 }
 
 #[test]
-fn the_copied_constants_are_rails_constants() {
+fn the_copied_constants_are_v2_constants() {
     let c = &vectors()["constants"];
     assert_eq!(json!(activities::SPLIT_TYPES), c["split_types"]);
     for t in list(&c["cash_activity_types"]) { assert!(activities::cash_activity(t.as_str().unwrap()), "{t}"); }
@@ -320,7 +320,7 @@ fn the_copied_constants_are_rails_constants() {
     assert_eq!(c["sync_error_limit"], json!(SYNC_ERROR_LIMIT));
     // Alpaca's one condemning text, and no permission error (so ApiKey#missing_permission? never holds for it).
     assert_eq!((&c["invalid_key_errors"], &c["permission_errors"]), (&json!(["unauthorized"]), &json!([])));
-    // The schedule the jobs declare (src/sync/jobs.rs) is Rails' recurring.yml.
+    // The schedule the jobs declare (src/sync/jobs.rs) is 2.x's recurring.yml.
     assert_eq!(c["recurring"], json!({ "sync_all_account_transactions_job": { "class": "AccountTransaction::SyncAllJob", "schedule": "0 2 * * *" },
                                        "sync_all_account_balances_job": { "class": "AccountBalance::SyncAllJob", "schedule": "30 2 * * *" } }));
 }
@@ -344,7 +344,7 @@ async fn a_response_body_over_the_limit_is_refused_while_it_is_read() {
 // ---- the ledger's pure parts (Task 4) ----
 
 #[test]
-fn the_after_parameter_and_the_ledgers_constants_are_rails() {
+fn the_after_parameter_and_the_ledgers_constants_are_v2() {
     use deltabadger::sync::ledger;
     for c in list(&vectors()["times"]["after"]) {
         assert_eq!(json!(ledger::after(deltabadger::codec::parse_time(c[0].as_str().unwrap()).unwrap())), c[1], "{c}");
@@ -399,11 +399,11 @@ fn decimal_columns_are_cast_as_active_model_casts_them() {
 }
 
 #[test]
-fn a_market_price_is_read_as_rails_reads_it() {
+fn a_market_price_is_read_as_v2_reads_it() {
     use deltabadger::sync::balances;
     for c in list(&vectors()["price_to_f"]) {
         let found = balances::parse_prices(&json!({ "data": { "coin": { "usd": c[0] } } }), &["coin".to_string(), "absent".to_string()]);
-        // A string that is no plain decimal (" 2 ", "1e3"): Ruby's String#to_f guesses; the engine refuses (a listed divergence).
+        // A string that is no plain decimal (" 2 ", "1e3"): 2.x's String#to_f guesses; the engine refuses (a listed divergence).
         if c[0].as_str().is_some_and(|s| s.trim() != s || s.contains(['e', 'E'])) {
             assert_eq!(found.unwrap_err().message(), "unreadable price for coin: not a plain decimal number", "{c}");
             continue;

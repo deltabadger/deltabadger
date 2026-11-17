@@ -1,8 +1,8 @@
 //! The index wizard's save of a new Bots::DcaIndex (Bots::DcaIndexes::PickSpendableAssetsController, by way of
 //! Bots::Wizard::PickSpendableAssetsController#finalise_and_redirect): `bot_relation.new(session config)`,
-//! `set_missed_quote_amount`, `save`. Every callback Rails runs on that save is listed in `CALLBACKS` with how this port
-//! handles it; tests/fixtures/index_create_callbacks.json pins Rails' list (script/rust/record_bot_create_callbacks.rb), so a
-//! callback added or changed there fails `index_create_callbacks_are_all_handled` until this file follows. Rails derives no
+//! `set_missed_quote_amount`, `save`. Every callback 2.x runs on that save is listed in `CALLBACKS` with how this port
+//! handles it; tests/fixtures/index_create_callbacks.json pins 2.x's list, so a
+//! callback added or changed there fails `index_create_callbacks_are_all_handled` until this file follows. 2.x derives no
 //! composition on create (no bot_index_assets row): the first buy does.
 use crate::codec::format_time;
 use crate::web::{i18n, WebError};
@@ -92,7 +92,7 @@ pub const MAX_COINS: i64 = 100;
 fn text<'a>(settings: &'a Map<String, Value>, key: &str) -> Option<&'a str> { settings.get(key).and_then(Value::as_str) }
 
 fn present(value: Option<&Value>) -> bool {
-    match value { None | Some(Value::Null | Value::Bool(false)) => false, Some(Value::String(text)) => !crate::ruby::blank(text), _ => true }
+    match value { None | Some(Value::Null | Value::Bool(false)) => false, Some(Value::String(text)) => !crate::v2::blank(text), _ => true }
 }
 
 /// Bots::DcaIndex#current_index: (source, top_coins, top_coins_by_exchange) of the category's row (any source), else the
@@ -105,7 +105,7 @@ impl IndexRow {
         match self.by_exchange.get(exchange_type) {
             Some(Value::Array(ids)) => ids.iter().filter_map(|id| id.as_str().map(str::to_string)).collect(),
             Some(Value::Null) | None => self.top_coins.clone(),
-            // A value that is not a list is what Rails would `||` past only when nil.
+            // A value that is not a list is what 2.x would `||` past only when nil.
             Some(_) => vec![],
         }
     }
@@ -114,7 +114,7 @@ impl IndexRow {
 fn json_column(text: Option<String>) -> Value { text.and_then(|text| serde_json::from_str(&text).ok()).unwrap_or(Value::Null) }
 
 pub fn index_row(c: &Connection, settings: &Map<String, Value>) -> Result<Option<IndexRow>, WebError> {
-    let category = text(settings, "index_category_id").filter(|id| !crate::ruby::blank(id));
+    let category = text(settings, "index_category_id").filter(|id| !crate::v2::blank(id));
     let read = |r: &rusqlite::Row<'_>| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, Option<String>>(2)?, r.get::<_, Option<String>>(3)?));
     let columns = "SELECT source, top_coins, top_coins_by_exchange, available_exchanges FROM indices";
     let row = match (text(settings, "index_type"), category) {
@@ -143,7 +143,7 @@ fn num_coins(settings: &Map<String, Value>) -> Option<i64> {
 }
 
 /// "Layer-1" as ActiveSupport's `titleize` writes "layer-1": words split on `-`, `_` and spaces, each capitalised.
-// ponytail: the words a category id holds; Rails' inflector also knows acronyms and keeps apostrophes, which no id uses.
+// ponytail: the words a category id holds; 2.x's inflector also knows acronyms and keeps apostrophes, which no id uses.
 fn titleize(id: &str) -> String {
     id.split(['-', '_', ' ']).filter(|word| !word.is_empty()).map(|word| {
         let mut chars = word.chars();
@@ -159,10 +159,10 @@ pub fn display_index_name(settings: &Map<String, Value>, bounded: Option<i64>, l
     if let (Some((prefix, name)), Some(count)) = (count_named(category), effective) {
         return if holds { name.to_string() } else { format!("{prefix}{count}") };
     }
-    if let Some(name) = text(settings, "index_name").filter(|name| !crate::ruby::blank(name)) { return name.to_string() }
+    if let Some(name) = text(settings, "index_name").filter(|name| !crate::v2::blank(name)) { return name.to_string() }
     match text(settings, "index_type") {
         Some("top") | None => num_coins(settings).map_or_else(|| i18n::text(locale, "bot.dca_index.setup.pick_index.top_coins", &[]), |count| format!("Top {count}")),
-        Some(kind) if crate::ruby::blank(kind) => num_coins(settings).map_or_else(|| i18n::text(locale, "bot.dca_index.setup.pick_index.top_coins", &[]), |count| format!("Top {count}")),
+        Some(kind) if crate::v2::blank(kind) => num_coins(settings).map_or_else(|| i18n::text(locale, "bot.dca_index.setup.pick_index.top_coins", &[]), |count| format!("Top {count}")),
         _ => category.map_or_else(|| "Index".to_string(), titleize),
     }
 }
@@ -189,11 +189,11 @@ fn smart_quote(settings: &Map<String, Value>, decimals: Option<i64>, exchange: f
     let floor = minimum * 10.0;
     // Array#max keeps the first of two equal values; Integer#round(n > 0) is the integer itself.
     let tenth = if amount.is_i64() { (value as i64).div_euclid(10) as f64 } else { value / 10.0 };
-    let round = |x: f64| if decimals == 0 { x.round() } else { crate::ruby::float_round(x, decimals as i32) };
+    let round = |x: f64| if decimals == 0 { x.round() } else { crate::v2::float_round(x, decimals as i32) };
     json!(if floor > tenth { round(floor) } else if amount.is_i64() { tenth } else { round(tenth) })
 }
 
-/// after_initialize (in the order Rails runs it: Smart Intervals, limit orders, the index's own), set_missed_quote_amount
+/// after_initialize (in the order 2.x runs it: Smart Intervals, limit orders, the index's own), set_missed_quote_amount
 /// and the before_validation callbacks (set_default_label, then clamp_num_coins_to_bounded_index, which default_label runs
 /// first itself).
 pub fn build(c: &Connection, config: &Value, locale: &str) -> Result<Built, WebError> {
@@ -224,7 +224,7 @@ pub fn build(c: &Connection, config: &Value, locale: &str) -> Result<Built, WebE
     let label = if count_named(category).is_some() || text(&settings, "index_type") != Some("category") { name } else {
         [Some(name), settings.get("num_coins").filter(|v| !v.is_null()).map(|v| v.as_str().map_or_else(|| v.to_string(), str::to_string))].into_iter().flatten().collect::<Vec<_>>().join(" · ")
     };
-    let label = if crate::ruby::blank(&label) { i18n::text(locale, "bot.new", &[]) } else { label };
+    let label = if crate::v2::blank(&label) { i18n::text(locale, "bot.new", &[]) } else { label };
     Ok(Built { exchange_id, settings, label, bounded })
 }
 

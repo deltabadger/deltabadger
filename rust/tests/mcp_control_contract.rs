@@ -1,8 +1,8 @@
-//! Rails-free input/encoding contracts, backed by measured BotApi number vectors.
+//! 2.x-free input/encoding contracts, backed by measured BotApi number vectors.
 use deltabadger::web::bot::mcp_input;
 use serde_json::{json,Value};
 #[test]
-fn strict_numbers_match_rails_vectors() {
+fn strict_numbers_match_v2_vectors() {
     let vectors:Vec<Value>=serde_json::from_str(include_str!("fixtures/m4_numbers.json")).unwrap();
     assert!(vectors.len()>20);
     for row in vectors {
@@ -12,11 +12,11 @@ fn strict_numbers_match_rails_vectors() {
     }
 }
 #[test]
-fn rails_json_keeps_order_escapes_and_integer_digits() {
+fn v2_json_keeps_order_escapes_and_integer_digits() {
     assert_eq!(mcp_input::encode(&json!({"x":"<>&\u{2028}\u{2029}","a":0.00005,"b":18446744073709551615u64})),
         "{\"x\":\"\\u003c\\u003e\\u0026\\u2028\\u2029\",\"a\":5e-05,\"b\":18446744073709551615}");
 }
-/// A10: the create tools are served, with the schemas Rails records for them.
+/// A10: the create tools are served, with the schemas 2.x records for them.
 #[test]
 fn create_tools_are_served() {
     for name in ["create_bot","create_index_bot","create_signal_bot"] {
@@ -26,7 +26,7 @@ fn create_tools_are_served() {
 }
 
 #[test]
-fn ruby_strip_keeps_unicode_and_removes_only_ascii_and_nul() {
+fn v2_strip_keeps_unicode_and_removes_only_ascii_and_nul() {
     assert_eq!(mcp_input::strip("\0\t\n\u{000b}\u{000c}\r BTC \0\t"),"BTC");
     for space in ["\u{00a0}","\u{2003}","\u{202f}"] {
         let text=format!("{space}70{space}");

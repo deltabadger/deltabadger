@@ -101,7 +101,7 @@ async fn a_redirect_is_an_answer_and_never_reaches_a_second_endpoint() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_tls_protocol_failure_is_permanent_as_rails_ssl_errors_are() {
+async fn a_tls_protocol_failure_is_permanent_as_v2_ssl_errors_are() {
     // TLS to a plain-HTTP server: the handshake fails on a protocol error, as a certificate failure does, before any request.
     let server = MockServer::start().await;
     Mock::given(method("GET")).respond_with(ResponseTemplate::new(200)).expect(0).mount(&server).await;
@@ -182,7 +182,7 @@ fn a_misspelt_network_kind_fails_loudly() {
 
 #[test]
 fn a_per_host_pre_send_never_reached_the_venue() {
-    // decisions.rb's NETWORK kinds `pre_send:<host>`, one spelling for every venue (plan VB §1.8).
+    // The recorded grids' NETWORK kinds `pre_send:<host>`, one spelling for every venue (plan VB §1.8).
     let t = ScriptedTransport::default();
     t.network("GET /x", "pre_send:api.mexc.com", "refused");
     let r = req("http://x", "GET", "/x", vec![], None);

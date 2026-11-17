@@ -1,5 +1,5 @@
-//! PLAN-A9 slice O1: what the order routes and tools answer where Rails has no answer to record. The refusals before the
-//! venue are compared with Rails on the page grid (api_orders_*) and the MCP control grid
+//! PLAN-A9 slice O1: what the order routes and tools answer where 2.x has no answer to record. The refusals before the
+//! venue are compared with 2.x on the page grid (api_orders_*) and the MCP control grid
 //! (order_*); this file holds the named divergences: D-ORDER-AMOUNT-VALIDATION and D-ORDER-IBKR (its `not_ported` answer
 //! gives the Idempotency-Key back). Cancels past the checks are sent (slice O2): tests/cancel_order.rs.
 //!
@@ -70,11 +70,11 @@ fn keys(d: &tempfile::TempDir) -> Vec<(String, String)> {
 const UNPORTED_POST: &str = "POST /api/v1/orders is not served by this build yet.";
 
 #[tokio::test(flavor = "current_thread")]
-async fn rest_refuses_what_rails_hands_the_venue_and_queues_standalone_past_every_check() {
+async fn rest_refuses_what_v2_hands_the_venue_and_queues_standalone_past_every_check() {
     let (d, app, bot) = install();
     let pair = json!({"type": "market_buy", "exchange_name": "Alpaca", "base_asset": "BTC", "quote_asset": "USD"});
     let with = |extra: Value| { let mut b = pair.clone(); b.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone()); b };
-    // D-ORDER-AMOUNT-VALIDATION: BotOrder's refusals, after Rails' own checks.
+    // D-ORDER-AMOUNT-VALIDATION: BotOrder's refusals, after 2.x's own checks.
     for (body, code, message) in [
         (with(json!({"amount": "abc"})), "invalid_number", "amount must be a number greater than 0."),
         (with(json!({"amount": -5})), "invalid_number", "amount must be a number greater than 0."),
@@ -86,7 +86,7 @@ async fn rest_refuses_what_rails_hands_the_venue_and_queues_standalone_past_ever
         assert_eq!((status, answer), (422, json!({"data": null, "error": {"code": code, "message": message}})), "{body}");
     }
     let stored = keys(&d).len();
-    // D-ORDER-IBKR: Rails' checks pass on a venue this build does not trade: 501, and the key is given back.
+    // D-ORDER-IBKR: 2.x's checks pass on a venue this build does not trade: 501, and the key is given back.
     let ibkr = json!({"type": "limit_buy", "exchange_name": "Interactive Brokers", "base_asset": "BTC", "quote_asset": "USD", "amount": 10, "price": 400});
     for _ in 0..2 {
         let (status, answer) = order(&app, ibkr.clone(), "same-key").await;
@@ -95,7 +95,7 @@ async fn rest_refuses_what_rails_hands_the_venue_and_queues_standalone_past_ever
     assert_eq!(keys(&d).len(), stored, "a not_ported answer claims no key");
     // PLAN-A9 O4: past every check a standalone order is queued for the engine; with none attached it is withdrawn at
     // once (venue_busy, nothing placed) and the answer is stored with the key. D-ORDER-MARKET-PRICE: a market order's
-    // `price` is ignored (Rails' market services raise on it).
+    // `price` is ignored (2.x's market services raise on it).
     for (body, key) in [(with(json!({"amount": 10})), "standalone"), (with(json!({"amount": 10, "price": 100})), "standalone-priced")] {
         for _ in 0..2 {
             let (status, answer) = order(&app, body.clone(), key).await;
@@ -108,7 +108,7 @@ async fn rest_refuses_what_rails_hands_the_venue_and_queues_standalone_past_ever
     assert_eq!((status, answer), (409, json!({"data": null, "error": {"code": "venue_busy", "message": "Alpaca is busy with another order from your bots. Nothing was placed; try again."}})));
     assert_eq!(keys(&d).last().unwrap(), &("through-bot".to_string(), "completed".to_string()));
     assert_eq!(Connection::open(d.path().join("production.sqlite3")).unwrap().query_row("SELECT count(*) FROM rust_api_orders", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
-    // D-ORDER-IBKR: a cancel past Rails' checks on a venue this build does not trade (a cancel elsewhere is sent: tests/cancel_order.rs).
+    // D-ORDER-IBKR: a cancel past 2.x's checks on a venue this build does not trade (a cancel elsewhere is sent: tests/cancel_order.rs).
     let (status, _, answer) = send(&app, "DELETE", "/api/v1/orders/venue-1?exchange_name=interactive%20brokers", "orders-api", None, &[]).await;
     assert_eq!((status, answer["error"]["code"].clone()), (501, json!("not_ported")));
 }
@@ -210,7 +210,7 @@ fn buy(k: &Kraken, amount: Value) -> Value { json!({"type": "market_buy", "bot_i
 fn refusal(status: u16, code: &str, message: &str) -> (u16, Value) { (status, json!({"data": null, "error": {"code": code, "message": message}})) }
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]
-async fn a_bot_order_waits_for_one_engine_pass_and_answers_rails_bytes_then_replays() {
+async fn a_bot_order_waits_for_one_engine_pass_and_answers_v2_bytes_then_replays() {
     let mut k = kraken(priced());
     let request = post(&k.app, buy(&k, json!("100")), "one");
     queued(&k, 1).await;
@@ -290,7 +290,7 @@ async fn a_request_no_pass_takes_within_ten_seconds_is_withdrawn_and_never_sent(
     use deltabadger::engine::api_orders;
     let bot = deltabadger::engine::model::load_bot(k.c(), k.bot).unwrap();
     let side = deltabadger::venue::Side::Buy;
-    let amount = deltabadger::ruby::BigDec::parse("1").unwrap();
+    let amount = deltabadger::v2::BigDec::parse("1").unwrap();
     let empty = serde_json::Map::new();
     let new = || api_orders::New::Bot { user_id: k.user, bot: &bot, side, amount: &amount, in_base: false, supplied: &empty };
     let first = api_orders::insert(k.c(), &new(), kt(0).0).unwrap();
@@ -337,7 +337,7 @@ async fn a_restart_withdraws_queued_requests_answers_taken_ones_busy_and_leaves_
     let mut k = kraken(priced());
     use deltabadger::engine::api_orders;
     let bot = deltabadger::engine::model::load_bot(k.c(), k.bot).unwrap();
-    let amount = deltabadger::ruby::BigDec::parse("100").unwrap();
+    let amount = deltabadger::v2::BigDec::parse("100").unwrap();
     let empty = serde_json::Map::new();
     let new = || api_orders::New::Bot { user_id: k.user, bot: &bot, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty };
     let (q, t, s) = (api_orders::insert(k.c(), &new(), kt(0).0).unwrap(), api_orders::insert(k.c(), &new(), kt(0).0).unwrap(), api_orders::insert(k.c(), &new(), kt(0).0).unwrap());
@@ -461,8 +461,8 @@ async fn the_send_fence_enforces_send_by() {
     let k = kraken(priced());
     let bot = model::load_bot(k.c(), k.bot).unwrap();
     let ticker = model::ticker_for(k.c(), &bot).unwrap().unwrap();
-    let price = deltabadger::ruby::BigDec::parse("50000.2").unwrap();
-    let quote = deltabadger::ruby::BigDec::parse("100").unwrap();
+    let price = deltabadger::v2::BigDec::parse("50000.2").unwrap();
+    let quote = deltabadger::v2::BigDec::parse("100").unwrap();
     let (plan, _) = amount::size_order(&ticker, deltabadger::venue::Side::Buy, &price, &quote.div(&price).unwrap(), &quote,
                                        deltabadger::engine::venue_rules::for_exchange("Exchanges::Kraken").unwrap().minimum_logic, amount::TxKind::Regular).unwrap();
     let version = model::credential_version(k.c(), &bot).unwrap();
@@ -522,7 +522,7 @@ fn retained(k: &Kraken) -> Vec<(String, Option<String>)> {
 }
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]
-async fn a_standalone_order_is_placed_in_one_pass_answers_rails_bytes_replays_and_is_kept_for_cancel() {
+async fn a_standalone_order_is_placed_in_one_pass_answers_v2_bytes_replays_and_is_kept_for_cancel() {
     let mut k = kraken(priced());
     let request = post(&k.app, standalone("market_buy", json!({"amount": "100"})), "one");
     queued(&k, 1).await;
@@ -548,7 +548,7 @@ async fn a_standalone_order_is_placed_in_one_pass_answers_rails_bytes_replays_an
     // Kept through the start-up sweep of answered rows (a day later) as well.
     deltabadger::engine::api_orders::sweep_at_start(k.c(), kt(86_400).0).unwrap();
     assert_eq!(retained(&k).len(), 2);
-    // r3 §1, D-ORDER-KRAKEN-QUOTE-SELL: Rails' adapter raises before sending; here Rails' message as order_failed, nothing sent.
+    // r3 §1, D-ORDER-KRAKEN-QUOTE-SELL: 2.x's adapter raises before sending; here 2.x's message as order_failed, nothing sent.
     let request = post(&k.app, standalone("market_sell", json!({"amount": "100", "amount_type": "quote"})), "quote-sell");
     queued(&k, 1).await;
     run::step(&mut k.e, &kt(2)).await.unwrap();
@@ -593,7 +593,7 @@ async fn a_standalone_order_asks_again_at_its_claim_what_changed_after_validatio
     assert_eq!(once(&mut k, &replaced, "key").await, refusal(403, "api_key_missing", "No valid API key found for Kraken. Please add an API key in Settings."));
     let mut k = kraken(priced());
     assert_eq!(once(&mut k, "UPDATE tickers SET trading_enabled=0", "pair").await, refusal(409, "ticker_not_tradable", "Trading pair BTC/EUR is not tradable on Kraken."));
-    // The lock's last day in the surface's zone: REST in UTC (the 25th), MCP in the user's (the Azores: the 24th). Rails
+    // The lock's last day in the surface's zone: REST in UTC (the 25th), MCP in the user's (the Azores: the 24th). 2.x
     // names the ticker's base (Kraken's XBT).
     let mut k = kraken(priced());
     k.c().execute("UPDATE users SET wash_sale_enabled=1, wash_sale_jurisdiction='US', time_zone='Azores'", []).unwrap();
@@ -604,7 +604,7 @@ async fn a_standalone_order_asks_again_at_its_claim_what_changed_after_validatio
     k.c().execute("DELETE FROM wash_sale_locks", []).unwrap();
     let ticker: i64 = k.c().query_row("SELECT id FROM tickers", [], |r| r.get(0)).unwrap();
     let exchange: i64 = k.c().query_row("SELECT exchange_id FROM tickers", [], |r| r.get(0)).unwrap();
-    let amount = deltabadger::ruby::BigDec::parse("100").unwrap();
+    let amount = deltabadger::v2::BigDec::parse("100").unwrap();
     let pair: serde_json::Map<String, Value> = [("base_asset".to_string(), json!("BTC")), ("quote_asset".to_string(), json!("EUR"))].into_iter().collect();
     let id = api_orders::insert(k.c(), &api_orders::New::Standalone { user_id: k.user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &pair,
         standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: true } }, kt(0).0).unwrap();
@@ -647,7 +647,7 @@ async fn a_restart_answers_a_standalone_sending_order_unknown_and_never_sends_it
     use deltabadger::engine::api_orders;
     let ticker: i64 = k.c().query_row("SELECT id FROM tickers", [], |r| r.get(0)).unwrap();
     let exchange: i64 = k.c().query_row("SELECT exchange_id FROM tickers", [], |r| r.get(0)).unwrap();
-    let amount = deltabadger::ruby::BigDec::parse("100").unwrap();
+    let amount = deltabadger::v2::BigDec::parse("100").unwrap();
     let pair = serde_json::Map::new();
     let new = || api_orders::New::Standalone { user_id: k.user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &pair,
         standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: false } };
@@ -686,7 +686,7 @@ async fn limit_order_sizes_as_place_limit_order() {
     let ticker = deltabadger::engine::model::ticker_by_id(k.c(), k.c().query_row("SELECT exchange_id FROM tickers", [], |r| r.get(0)).unwrap(),
                                                           k.c().query_row("SELECT id FROM tickers", [], |r| r.get(0)).unwrap()).unwrap().unwrap();
     let rules = for_exchange("Exchanges::Kraken").unwrap();
-    let d = |s: &str| deltabadger::ruby::BigDec::parse(s).unwrap();
+    let d = |s: &str| deltabadger::v2::BigDec::parse(s).unwrap();
     let buy = deltabadger::venue::Side::Buy;
     let sized = |amount: &str, quote: bool, price: &str| limit_order(&ticker, rules, buy, &d(amount), quote, &d(price)).map(|p| (p.volume.to_s_f(), p.price.to_s_f()));
     let (min, base, code) = (ticker.minimum_base_size.to_s_f(), ticker.base_code.clone(), ticker.ticker.clone());
@@ -853,7 +853,7 @@ fn an_answer_read_and_forgotten_before_the_key_completed_is_ambiguous_even_when_
     let id: i64 = k.count("SELECT id FROM rust_api_orders");
     api_orders::forget(k.c(), id).unwrap(); // the web read the answer; the process died before completing the key
     let bot = deltabadger::engine::model::load_bot(k.c(), k.bot).unwrap();
-    let (amount, empty) = (deltabadger::ruby::BigDec::parse("100").unwrap(), serde_json::Map::new());
+    let (amount, empty) = (deltabadger::v2::BigDec::parse("100").unwrap(), serde_json::Map::new());
     let other = api_orders::insert(k.c(), &api_orders::New::Bot { user_id: k.user, bot: &bot, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty }, kt(1).0).unwrap();
     assert_eq!(other, id, "the id is reused");
     drop(web);
@@ -933,7 +933,7 @@ async fn the_retried_sweep_settles_every_dead_order_row_and_never_touches_a_key(
     queued(&k, 1).await;
     // Dead rows the failed first sweep left, dated after `built` (a clock stepped back).
     let bot = deltabadger::engine::model::load_bot(k.c(), k.bot).unwrap();
-    let (amount, empty) = (deltabadger::ruby::BigDec::parse("100").unwrap(), serde_json::Map::new());
+    let (amount, empty) = (deltabadger::v2::BigDec::parse("100").unwrap(), serde_json::Map::new());
     let late = "2099-01-01T00:00:00Z".parse::<chrono::DateTime<chrono::Utc>>().unwrap();
     let new = api_orders::New::Bot { user_id: k.user, bot: &bot, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty };
     let (queued_dead, taken_dead) = (api_orders::insert(k.c(), &new, late).unwrap(), api_orders::insert(k.c(), &new, late).unwrap());
@@ -966,7 +966,7 @@ fn a_key_and_its_link_are_settled_together_or_not_at_all() {
 }
 
 /// 3.0 A20c, D-OPEN-ORDERS-UNREAD-NAMED: an exchange whose open orders this build does not read live is named in
-/// `unavailable`, never dropped (Rails' ListOpen skips it: `list_open.rb:64-65`). The balances 501 names the venues
+/// `unavailable`, never dropped (2.x's ListOpen skips it). The balances 501 names the venues
 /// whose balances are read; the portfolio's 501 keeps its own text (tests/mcp_reads.rs m3_other_venue_figures).
 #[tokio::test(flavor = "current_thread")]
 async fn open_orders_name_every_exchange_not_read_live_on_both_surfaces() {

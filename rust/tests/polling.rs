@@ -34,7 +34,7 @@ async fn a_closed_fill_updates_the_row_and_leaves_the_carry_alone() {
     polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.unwrap();
     let (ext, price, qexec): (i64, f64, f64) = o.primary.query_row("SELECT external_status, price, quote_amount_exec FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
     assert_eq!((ext, price, qexec), (2, 50010.5, 60.0));
-    assert_eq!(bot(&o, b).transient["missed_quote_amount"], json!("100.0"), "Rails (#448): a fill is credited by its own row, never by the carry");
+    assert_eq!(bot(&o, b).transient["missed_quote_amount"], json!("100.0"), "2.x (#448): a fill is credited by its own row, never by the carry");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -47,11 +47,11 @@ async fn an_unchanged_order_is_not_rewritten() {
     let before: String = o.primary.query_row("SELECT updated_at FROM transactions WHERE id = ?1", [tx], |r| r.get(0)).unwrap();
     polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.unwrap();
     let after: String = o.primary.query_row("SELECT updated_at FROM transactions WHERE id = ?1", [tx], |r| r.get(0)).unwrap();
-    assert_eq!(before, after, "Rails' update with no changes writes nothing");
+    assert_eq!(before, after, "2.x's update with no changes writes nothing");
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn an_unknown_status_fails_the_sweep_with_rails_message() {
+async fn an_unknown_status_fails_the_sweep_with_v2_message() {
     let (_d, o, s, b) = setup(json!({}));
     seed::insert_tx(&o.primary, &s, b, &open_market("2026-09-29 10:00:00", "OTX-4"));
     let v = FakeVenue::new().order("OTX-4", json!({ "status": "pending", "price": "0", "vol": "60", "vol_exec": "0", "cost": "0", "oflags": "viqc", "descr": { "ordertype": "market" } }));
@@ -82,7 +82,7 @@ async fn a_missing_order_is_abandoned_only_after_fourteen_days() {
 }
 
 /// 387d9df90: an order QueryOrders dropped and a capped TradesHistory walk did not see, in a window of more than 1,000 trades,
-/// may have filled further back. The sweep keeps it waiting however old; the follow-up fails as Rails' get_order does.
+/// may have filled further back. The sweep keeps it waiting however old; the follow-up fails as 2.x's get_order does.
 #[tokio::test(flavor = "current_thread")]
 async fn an_order_beyond_the_trades_walk_reach_is_never_abandoned() {
     let (_d, o, s, b) = setup(json!({}));
@@ -162,7 +162,7 @@ async fn a_poll_writes_nothing_to_the_bot() {
     let before: String = o.primary.query_row("SELECT json_array(updated_at, transient_data) FROM bots WHERE id = ?1", [b], |r| r.get(0)).unwrap();
     polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.unwrap();
     let after: String = o.primary.query_row("SELECT json_array(updated_at, transient_data) FROM bots WHERE id = ?1", [b], |r| r.get(0)).unwrap();
-    assert_eq!(after, before, "Rails' polls (#448) no longer rewrite the carry, so the bot row is untouched");
+    assert_eq!(after, before, "2.x's polls (#448) no longer rewrite the carry, so the bot row is untouched");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -177,7 +177,7 @@ async fn an_unreadable_created_at_fails_the_sweep_and_abandons_nothing() {
 
 #[test]
 fn a_blank_row_is_filled_from_the_orders_own_pair_never_the_bots_first_member() {
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::venue::{OrderState, OrderStatus};
     let (_d, o, s) = common::install_alpaca();
     let (eth, _) = seed::add_eth_sol(&o.primary, &s);
@@ -229,12 +229,12 @@ async fn stored_trade_lookup_time_out_of_range_is_refused() {
 struct NoMissing(FakeVenue);
 impl deltabadger::venue::Venue for NoMissing {
     fn rules(&self) -> &'static deltabadger::engine::venue_rules::VenueRules { &deltabadger::engine::venue_rules::BINANCE }
-    async fn price(&self, t: &model::Ticker, s: deltabadger::venue::PriceSide) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.price(t, s).await }
+    async fn price(&self, t: &model::Ticker, s: deltabadger::venue::PriceSide) -> Result<deltabadger::v2::BigDec, deltabadger::venue::VenueError> { self.0.price(t, s).await }
     async fn add_order(&self, o: &deltabadger::venue::NewOrder) -> Result<String, deltabadger::venue::VenueError> { self.0.add_order(o).await }
     async fn orders(&self, ids: &[String]) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.orders(ids).await }
     async fn order_by_client_id(&self, id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.order_by_client_id(id, symbol, since).await }
     async fn fills_from_trades(&self, ids: &[String], since: DateTime<Utc>) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.fills_from_trades(ids, since).await }
-    async fn balance(&self, s: &str, c: bool) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.balance(s, c).await }
+    async fn balance(&self, s: &str, c: bool) -> Result<deltabadger::v2::BigDec, deltabadger::venue::VenueError> { self.0.balance(s, c).await }
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -244,7 +244,7 @@ async fn a_venue_that_names_no_missing_ids_leaves_an_unreported_row_waiting_even
     let v = NoMissing(FakeVenue::new());
     polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.unwrap();
     let ext: i64 = o.primary.query_row("SELECT external_status FROM transactions WHERE id = ?1", [old], |r| r.get(0)).unwrap();
-    assert_eq!(ext, 0, "Rails never abandons a Binance row get_orders did not return");
+    assert_eq!(ext, 0, "2.x never abandons a Binance row get_orders did not return");
     assert_eq!(v.0.calls("/0/private/TradesHistory"), 0, "no trade recovery for an id the venue did not name missing");
     // Under Kraken's rules the same row is abandoned (the contrast that makes the flag matter).
     polling::sweep(&o.primary, &FakeVenue::new(), &bot(&o, b), now()).await.unwrap();
@@ -254,7 +254,7 @@ async fn a_venue_that_names_no_missing_ids_leaves_an_unreported_row_waiting_even
 
 #[test]
 fn a_fill_with_no_stated_quote_amount_leaves_the_column_as_it_is() {
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::venue::{OrderState, OrderStatus};
     let (_d, o, s, b) = setup(json!({}));
     let tx = seed::insert_tx(&o.primary, &s, b, &TxSpec { quote_amount_exec: Some("12.5"), amount_exec: Some("0"), ..open_market("2026-09-29 10:00:00", "OHIST-1") });

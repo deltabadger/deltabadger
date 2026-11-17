@@ -1,6 +1,6 @@
 //! A basket's after-save composition callback (manual or market-cap weights), inside the settings writer's transaction.
 use super::Bot;
-use crate::{codec, ruby::BigDec, web::{format::Num, WebError}};
+use crate::{codec, v2::BigDec, web::{format::Num, WebError}};
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};
 
@@ -18,7 +18,7 @@ pub fn reconcile(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), We
         }
     }
     let total = super::float_sum(matched.iter().map(|(_,_,weight)| *weight));
-    // Rails returns a failed derivation; the after-save callback does not abort the save.
+    // 2.x returns a failed derivation; the after-save callback does not abort the save.
     if total <= 0.0 { return Ok(()); }
     if !total.is_finite() { return Err(super::start::history_error()); }
     let at = codec::format_time(now);

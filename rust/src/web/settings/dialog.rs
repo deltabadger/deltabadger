@@ -1,5 +1,5 @@
 //! The settings dialog: settings/_shell (the sidebar and the pane), SettingsHelper#settings_row,
-//! settings/_switch and settings/_confirm. Each writes what its Rails partial writes, whitespace included,
+//! settings/_switch and settings/_confirm. Each writes what its 2.x partial writes, whitespace included,
 //! because the page comparison keeps whitespace between tags.
 use crate::web::{i18n::escape, layout::Ctx};
 
@@ -23,7 +23,7 @@ const NAV: [(&str, &str, &str); 5] = [
     ("api", "settings.rest.title", DOC),
 ];
 
-/// settings/_shell around `pane`. `connect`: Connect holds only the admin's market data (D-BROKERS-AS-VENUES; Rails also
+/// settings/_shell around `pane`. `connect`: Connect holds only the admin's market data (D-BROKERS-AS-VENUES; 2.x also
 /// shows it for IBKR), so it is the admin's section only.
 pub fn shell(ctx: &Ctx, section: &str, connect: bool, pane: &str) -> String {
     let items: String = NAV
@@ -86,7 +86,7 @@ pub fn parameterize(text: &str) -> String {
 }
 
 /// One switch of settings/_switch: posts `name`=`enabled` (with `fields`) to `url`, shows `state`
-/// ("on", "partial" or "off"). Its checkbox id is the url and the fields, as Rails makes it.
+/// ("on", "partial" or "off"). Its checkbox id is the url and the fields, as 2.x makes it.
 #[allow(clippy::too_many_arguments)]
 pub fn switch(csrf: &str, url: &str, frame: &str, name: &str, enabled: &str, state: &str, title: Option<&str>, fields: &[(&str, Option<&str>)]) -> String {
     let mut parts = vec!["switch".to_string(), url.to_string()];

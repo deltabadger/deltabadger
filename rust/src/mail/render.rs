@@ -1,17 +1,17 @@
 //! The mailers' views: app/views/layouts/mailers/transactional.html.erb around app/views/bot_alerts_mailer/*,
-//! test_mailer/* and devise/mailer/*, written out from what Rails renders (rust/tests/mail_parity.rs compares every byte).
+//! test_mailer/* and devise/mailer/*, written out from what 2.x renders (rust/tests/mail_parity.rs compares every byte).
 //! Bot mails and the test mail are in the user's language (ApplicationMailer#set_locale); account mails are in the
 //! language of the request that asked for them (Active Job carries I18n.locale), so those take the locale as an argument.
 use super::Message;
 use crate::engine::notice::{bounded, Notice, ERROR_LIMIT};
 use crate::engine::{venue_rules, EngineError};
-use crate::ruby::float_to_s;
+use crate::v2::float_to_s;
 use crate::web::i18n::{self, escape, Arg};
 use crate::web::locale;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
 
-/// `root_url`: where links and the logo point. config/environments/production.rb builds it from APP_ROOT_URL and FORCE_SSL.
+/// `root_url`: where links and the logo point. 2.x's production config builds it from APP_ROOT_URL and FORCE_SSL.
 pub struct Urls { pub root: String }
 
 impl Urls {
@@ -33,7 +33,7 @@ impl Urls {
 /// Whom a mail greets and where it goes.
 pub struct Recipient { pub email: String, pub name: String, pub locale: &'static str }
 
-/// `users.locale` as ApplicationMailer#set_locale reads it: NULL, or a value Rails does not know, is the default.
+/// `users.locale` as ApplicationMailer#set_locale reads it: NULL, or a value 2.x does not know, is the default.
 pub fn user_locale(stored: Option<&str>) -> &'static str { stored.and_then(locale::known).unwrap_or(locale::DEFAULT) }
 
 fn layout(urls: &Urls, body: &str) -> String {
@@ -126,15 +126,15 @@ pub fn stopped_by_base_amount_limit(from: &str, urls: &Urls, to: &Recipient, lab
     message(from, false, &to.email, subject, urls, &body)
 }
 
-/// D-6D-1: the base cap in the mail at the base's precision (`decimals[:base]`, 8 without one), zeros trimmed. Rails hands
+/// D-6D-1: the base cap in the mail at the base's precision (`decimals[:base]`, 8 without one), zeros trimmed. 2.x hands
 /// the mailer `base_amount_limit`, a Float printed by Float#to_s ("1.0e-05", "2.0").
 pub fn base_cap_amount(limit: Option<&Value>, decimals: Option<u8>) -> String {
-    let Some(limit) = limit.and_then(|v| crate::ruby::json_to_d(v).ok().flatten()) else { return ruby_to_s(limit) };
+    let Some(limit) = limit.and_then(|v| crate::v2::json_to_d(v).ok().flatten()) else { return v2_to_s(limit) };
     let text = limit.round(decimals.unwrap_or(8)).to_s_f();
     text.strip_suffix(".0").map(str::to_string).unwrap_or(text)
 }
 
-/// The one asset of a one-asset basket, as the base mail names it: its symbol (None without one: Rails' `base_asset` is
+/// The one asset of a one-asset basket, as the base mail names it: its symbol (None without one: 2.x's `base_asset` is
 /// nil and the mail raises), and `decimals[:base]` (the first current member's ticker).
 pub(crate) fn base_of(c: &Connection, bot_id: i64, settings: &Value) -> Result<Option<(String, Option<u8>)>, EngineError> {
     let ids: Vec<i64> = settings.get("allocations").and_then(Value::as_object).map(|m| m.keys().filter_map(|k| k.parse().ok()).collect()).unwrap_or_default();
@@ -222,7 +222,7 @@ pub fn humanize_error(exchange_type: &str, exchange_name: &str, locale: &str, me
 
 /// Exchange#humanize_error in `locale`: the venue's own classifier (only Kraken has patterns), then the generic sentence
 /// for the failure kind (Exchange::KIND_ERROR_KEYS), then D-ORDER-TOO-LARGE-COPY's sentence, then the raw message. The
-/// parity harness compares mails through this (Rails' reading plus #1029's, absent from every recording); the shown
+/// parity harness compares mails through this (2.x's reading plus #1029's, absent from every recording); the shown
 /// text is `humanize_error`.
 pub fn humanize_error_before_raw_refusals(exchange_type: &str, exchange_name: &str, locale: &str, message: &str) -> String {
     let translate = |code: &str, named: &[(&'static str, String)]| {
@@ -269,14 +269,14 @@ fn raw_refusal(exchange_type: &str, exchange_name: &str, locale: &str, message: 
         _ => return None,
     };
     match serde_json::from_str::<Value>(message).ok()?.get(field)? {
-        Value::String(s) if !crate::ruby::blank(s) => Some(s.clone()),
+        Value::String(s) if !crate::v2::blank(s) => Some(s.clone()),
         _ => None,
     }
 }
 
 /// Binance spot API docs, Errors → Filter failures (-1013): NOTIONAL "price * quantity is outside the allowed range",
 /// LOT_SIZE "quantity is too high or too low" (or off the step size, which the engine floors every amount to first). The
-/// same answer for too small and too big, so the sentence names neither. Bitrue answers Binance's filters (the Rails
+/// same answer for too small and too big, so the sentence names neither. Bitrue answers Binance's filters (the 2.x
 /// parity recordings, scripted: `signal-bitrue-*-min_rejected`) under Binance's API, which it mirrors.
 const SIZE_FILTER_VENUES: &[&str] = &["Exchanges::Binance", "Exchanges::BinanceUs", "Exchanges::Bitrue"];
 const SIZE_FILTERS: &[&str] = &["Filter failure: NOTIONAL", "Filter failure: LOT_SIZE"];
@@ -322,14 +322,14 @@ fn too_large(exchange_type: &str, message: &str) -> Option<Option<String>> {
     Some(message.rsplit_once(ALPACA_LIMIT_PREFIX).map(|(_, limit)| limit).filter(|l| exchange_type == "Exchanges::Alpaca" && plain(l)).map(str::to_string))
 }
 
-/// The most a label or a name may be in a mail; longer ones are cut, with an ellipsis (a listed divergence: Rails has
+/// The most a label or a name may be in a mail; longer ones are cut, with an ellipsis (a listed divergence: 2.x has
 /// no bound). Errors are bounded when their marker is written (`notice::ERROR_LIMIT`) and again here.
 pub const NAME_LIMIT: usize = 200;
 
-/// A settings value as Ruby prints it in a translation: `quote_amount_limit.to_s`, except D-MAIL-PLAIN-DECIMAL: a Float
-/// Ruby prints in exponent form ("1.0e-05") is written as the settings page writes it ("0.00001").
-fn ruby_to_s(v: Option<&Value>) -> String {
-    let float = |f: f64| { let ruby = float_to_s(f); if ruby.contains('e') { crate::web::format::input_value(&crate::web::format::Num::Float(f)).unwrap_or(ruby) } else { ruby } };
+/// A settings value as 2.x prints it in a translation: `quote_amount_limit.to_s`, except D-MAIL-PLAIN-DECIMAL: a Float
+/// 2.x prints in exponent form ("1.0e-05") is written as the settings page writes it ("0.00001").
+fn v2_to_s(v: Option<&Value>) -> String {
+    let float = |f: f64| { let v2 = float_to_s(f); if v2.contains('e') { crate::web::format::input_value(&crate::web::format::Num::Float(f)).unwrap_or(v2) } else { v2 } };
     match v {
         Some(Value::Number(n)) => n.as_i64().map(|i| i.to_string()).or_else(|| n.as_f64().map(float)).unwrap_or_default(),
         Some(Value::String(s)) => s.clone(),
@@ -350,10 +350,10 @@ pub enum What {
     BaseLimit { amount: String, base: String },
 }
 
-/// The facts a marker on bot `bot_id` stands for. None when Rails would send nothing: the bot's user, its venue or
+/// The facts a marker on bot `bot_id` stands for. None when 2.x would send nothing: the bot's user, its venue or
 /// (where the notice names it) its quote asset is gone.
-/// A bot whose label is blank is named by Rails the first time it loads the row; here the label is used as stored
-/// (a listed divergence that needs a bot Rails never loaded).
+/// A bot whose label is blank is named by 2.x the first time it loads the row; here the label is used as stored
+/// (a listed divergence that needs a bot 2.x never loaded).
 pub fn facts(c: &Connection, bot_id: i64, notice: &Notice) -> Result<Option<Facts>, EngineError> {
     type Row = (Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
     let row: Option<Row> = c.query_row(
@@ -369,7 +369,7 @@ pub fn facts(c: &Connection, bot_id: i64, notice: &Notice) -> Result<Option<Fact
         Ok(c.query_row("SELECT symbol FROM assets WHERE id = ?1", [id], |r| r.get::<_, Option<String>>(0)).optional()?.flatten())
     };
     let what = match notice {
-        // The quote asset the budget was stamped for, as Rails captures it when it enqueues the mail.
+        // The quote asset the budget was stamped for, as 2.x captures it when it enqueues the mail.
         Notice::EndOfFunds { quote_asset_id } => match (exchange_name, symbol(*quote_asset_id)?) {
             (Some(exchange_name), Some(quote)) => Some(What::EndOfFunds { exchange_name, quote }),
             _ => None,
@@ -380,7 +380,7 @@ pub fn facts(c: &Connection, bot_id: i64, notice: &Notice) -> Result<Option<Fact
         }),
         Notice::SetAside { reasons } => Some(What::SetAside { reasons: reasons.clone() }),
         Notice::StoppedByAmountLimit => symbol(settings.get("quote_asset_id").and_then(Value::as_i64))?
-            .map(|quote| What::AmountLimit { amount: ruby_to_s(settings.get("quote_amount_limit")), quote }),
+            .map(|quote| What::AmountLimit { amount: v2_to_s(settings.get("quote_amount_limit")), quote }),
         Notice::StoppedByBaseAmountLimit => base_mail_values(c, bot_id, &settings, base_marker.as_deref())?
             .map(|(amount, base)| What::BaseLimit { amount, base }),
     };

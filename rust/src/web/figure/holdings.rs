@@ -68,7 +68,7 @@ fn table(c: &Connection, s: &Subject, rows: &[&Holding], body: &str, actions: bo
 }
 
 #[allow(clippy::too_many_arguments)]
-/// A form's authenticity token: this one, or none (`Value("")`: a broadcast, where Rails' renderer has no session and
+/// A form's authenticity token: this one, or none (`Value("")`: a broadcast, where 2.x's renderer has no session and
 /// writes no field), or, for kept figures, nothing but the byte offset where each form's field goes (`Slots`): a page
 /// writes its own token's field there and nowhere else (`with_token`), and a broadcast takes the fragment as it is.
 pub(crate) enum Token<'a> { Value(&'a str), Slots(&'a mut Vec<usize>) }
@@ -360,7 +360,7 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
         }
         out.push_str("</form>\n</div>\n");
     } else if !hidden && !matches!(status,3|7) && settings["direction"] != "selling" && !in_flight {
-        // D-6C-9: Rails' clamp and minimum fallback; a stored decline is never rewritten from a GET.
+        // D-6C-9: 2.x's clamp and minimum fallback; a stored decline is never rewritten from a GET.
         match crate::engine::redeploy::offer(c,s,m)? {
             offer if offer.is_positive() => {
                 let amount = precision(&Num::Dec(offer),2,true)?;
@@ -484,7 +484,7 @@ mod token_tests {
         let mut slots = vec![];
         let kept = rendered(&mut Token::Slots(&mut slots));
         assert_eq!(slots.len(), 2, "one slot per redeploy form: {kept}");
-        assert!(broadcast.contains("redeploy-prompt__actions") && !broadcast.contains("value=\"\" autocomplete=\"off\""), "a broadcast has no session: Rails writes no token field: {broadcast}");
+        assert!(broadcast.contains("redeploy-prompt__actions") && !broadcast.contains("value=\"\" autocomplete=\"off\""), "a broadcast has no session: 2.x writes no token field: {broadcast}");
         assert!(page.contains("value=\"a&quot;&amp;&lt;&gt;&#39;b\" autocomplete=\"off\" />"), "the token is escaped: {page}");
         assert_eq!(with_token(&kept, &slots, token), page, "the page: each request's token where the renderer put a form, and nowhere else");
         assert_eq!(kept, broadcast, "the broadcast: the kept fragment as it is");

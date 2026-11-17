@@ -6,7 +6,7 @@ use deltabadger::engine::amount::{self, Sizing};
 use deltabadger::engine::placement;
 use deltabadger::engine::venue_rules::KRAKEN;
 use deltabadger::engine::{model, EngineError, FixedClock};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::lease;
 use deltabadger::store::{self, Paths};
 use deltabadger::venue::fake::{AddOutcome, FakeFactory, FakeVenue};
@@ -63,7 +63,7 @@ async fn a_restart_polls_every_outstanding_order_and_ticks_a_retrying_bot_at_onc
         amount: None, quote_amount: Some("60"), price: Some("50000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-01 10:00:02".into() });
     run::step(&mut e, &at("2026-09-02T09:00:00Z")).await.unwrap();
     let ext: i64 = e.primary.query_row("SELECT external_status FROM transactions WHERE external_id = 'OSTOPPED'", [], |r| r.get(0)).unwrap();
-    assert_eq!(ext, 2, "an order of a stopped bot is polled at start, as Rails' adoption does");
+    assert_eq!(ext, 2, "an order of a stopped bot is polled at start, as 2.x's adoption does");
     assert_eq!(v.sent().len(), 1, "the retrying bot ran at once instead of waiting a whole interval");
 }
 
@@ -284,7 +284,7 @@ fn transient_has(e: &Engine<FakeFactory>, id: i64, key: &str) -> bool { model::l
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_continued_bot_that_still_owes_its_contribution_runs_at_once() {
-    // Stamped at the second checkpoint and stopped before it placed: 2 × 60 − 60 = 60 owed, not under 60 (Rails: now).
+    // Stamped at the second checkpoint and stopped before it placed: 2 × 60 − 60 = 60 owed, not under 60 (2.x: now).
     let (_d, mut e, id, v) = continued(&["2026-09-01 10:00:01"], requested());
     run::step(&mut e, &at("2026-09-08T12:00:00Z")).await.unwrap();
     assert_eq!(v.sent().len(), 1, "the owed contribution is bought now, not at the next checkpoint");
@@ -296,7 +296,7 @@ async fn a_continued_bot_that_still_owes_its_contribution_runs_at_once() {
 async fn a_continued_bot_with_nothing_owed_waits_for_its_next_checkpoint() {
     let (_d, mut e, id, v) = continued(&["2026-09-01 10:00:01", "2026-09-08 10:00:01"], requested());
     let wake = run::step(&mut e, &at("2026-09-08T12:00:00Z")).await.unwrap();
-    assert!(v.sent().is_empty(), "nothing owed: Rails waits for the checkpoint");
+    assert!(v.sent().is_empty(), "nothing owed: 2.x waits for the checkpoint");
     assert!(!transient_has(&e, id, "rust_continue_start"));
     assert_eq!(model::load_bot(&e.primary, id).unwrap().rust_defer_until_us().unwrap(), Some(us("2026-09-15T10:00:00Z")), "the wait is persisted");
     assert!(wake <= us("2026-09-15T10:00:00.001Z"));
@@ -316,7 +316,7 @@ async fn a_continue_discards_a_pending_amount_limit_stop_and_an_old_wait() {
     let b = model::load_bot(&e.primary, id).unwrap();
     assert_eq!(b.status, deltabadger::enums::BotStatus::Scheduled, "the resume wins over the stop counted before it");
     assert_eq!(e.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
-    assert_eq!(v.sent().len(), 1, "Rails' decision replaces the old wait");
+    assert_eq!(v.sent().len(), 1, "2.x's decision replaces the old wait");
     for k in ["rust_continue_start", "rust_amount_limit_stops_pending", "rust_defer_until"] { assert!(!transient_has(&e, id, k), "{k} removed"); }
 }
 
@@ -386,7 +386,7 @@ async fn action_lifecycle_created_continue_does_not_use_stopped_only_wait() -> R
     let bot=model::load_bot(&engine.primary,id).map_err(|e|format!("{e:?}"))?;
     assert!(bot.transient.get("rust_continue_start").is_none());
     assert_ne!(bot.rust_defer_until_us().map_err(|e|format!("{e:?}"))?,Some(us("2026-09-15T10:00:00Z")),
-        "Rails' restarting? is false for a created bot, even with a paid interval and a last-action stamp");
+        "2.x's restarting? is false for a created bot, even with a paid interval and a last-action stamp");
     Ok(())
 }
 
@@ -444,7 +444,7 @@ async fn legacy_intent_absence_preserves_the_checkpoint_wait_across_upgrade_and_
     let recovered = model::load_bot(&e.primary, id).unwrap();
     assert!(recovered.rust_placement().is_none(), "complete lookup proved absence");
     assert_eq!(recovered.rust_defer_until_us().unwrap(), Some(us("2026-09-08T10:00:00Z")),
-               "legacy ambiguity must persist Rails' checkpoint wait");
+               "legacy ambiguity must persist 2.x's checkpoint wait");
     run::step(&mut e, &at("2026-09-01T10:05:01Z")).await.unwrap();
     assert!(v.sent().is_empty(), "no immediately due retry after recovery");
     // Lose every in-memory retry entry; the persisted wait must still prevent an early purchase.
@@ -490,7 +490,7 @@ async fn a_paused_bot_is_checked_each_minute_and_trades_off_grid_once_met() {
     assert_eq!(wake, us("2026-09-01T10:00:59.999999Z"), "checked at the end of the minute");
     run::step(&mut e, &at("2026-09-01T10:00:40Z")).await.unwrap();
     assert_eq!(v.calls("/0/public/Ticker"), 1, "no check before its time");
-    // Checked at 10:00:59.999999 the next check is at once (end_of_minute is that same instant in Rails); half a second into
+    // Checked at 10:00:59.999999 the next check is at once (end_of_minute is that same instant in 2.x); half a second into
     // the next minute it is that minute's end.
     let wake = run::step(&mut e, &at("2026-09-01T10:01:00.5Z")).await.unwrap();
     assert_eq!((v.calls("/0/public/Ticker"), wake), (2, us("2026-09-01T10:01:59.999999Z")), "unmet: the next minute's end");

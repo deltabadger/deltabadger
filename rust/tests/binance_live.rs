@@ -7,7 +7,7 @@
 //! Ok(None)), the exact -1021 wording, MARKET quoteOrderQty and LIMIT NEW/CANCELED bodies, and allOrders/myTrades shapes.
 //! The testnet host lives only here (`with_base`); the shipped binary never names it.
 use deltabadger::engine::model::Ticker;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::binance::BinanceVenue;
 use deltabadger::venue::http::{client, HttpRequest, HttpResponse, ReqwestTransport, Transport, TransportError};
 use deltabadger::venue::{NewOrder, OrderKind, PriceSide, Venue};

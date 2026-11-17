@@ -1,5 +1,5 @@
-//! `app_configs` as AppConfig reads and writes it (app/models/app_config.rb:4, :106-119). `value` is an encrypted attribute,
-//! read with support_unencrypted_data (config/initializers/active_record_encryption.rb:131): a plain value reads as itself.
+//! `app_configs` as AppConfig reads and writes it. `value` is an encrypted attribute,
+//! read with support_unencrypted_data: a plain value reads as itself.
 use crate::codec::format_time;
 use crate::crypto::Cipher;
 use chrono::{DateTime, Utc};
@@ -46,13 +46,13 @@ pub fn delete(c: &Connection, key: &str) -> Result<(), String> {
 }
 
 /// A key only Rust reads and writes, stored plain: there is no secret in it, so `deltabadger check` reads it without the
-/// instance's keys. Rails never reads these keys, and would read a plain value as itself.
+/// instance's keys. 2.x never reads these keys, and would read a plain value as itself.
 pub fn get_plain(c: &Connection, key: &str) -> Result<Option<String>, String> { Ok(stored(c, key)?.flatten()) }
 
 pub fn set_plain(c: &Connection, key: &str, value: &str, now: DateTime<Utc>) -> Result<(), String> { write(c, key, value, now) }
 
 /// An update of the existing row, else an insert, as find_or_initialize_by + save! does. (An upsert would spend an
-/// AUTOINCREMENT id on every update, and the next new row would get a different id than Rails gives it.)
+/// AUTOINCREMENT id on every update, and the next new row would get a different id than 2.x gives it.)
 fn write(c: &Connection, key: &str, value: &str, now: DateTime<Utc>) -> Result<(), String> {
     let at = format_time(now);
     let updated = c.execute("UPDATE app_configs SET value = ?2, updated_at = ?3 WHERE key = ?1", (key, value, &at)).map_err(|e| format!("app_configs[{key}]: {e}"))?;

@@ -5,7 +5,7 @@
 //! - the phantom agent `{source: "a", connectionId: hash}` hashed as EIP-712 (`Agent(string source,bytes32 connectionId)`,
 //!   domain Exchange / 1 / chainId 1337 / the zero address) and signed by `Eth::Key#sign` (secp256k1, RFC 6979, low s);
 //! - `{r, s, v}` as `sign_typed_data` splits it: r and s as `0x` + hex without leading zeros, v = 27 + recovery id.
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use k256::ecdsa::SigningKey;
 use serde_json::{json, Value};
 use sha3::{Digest, Keccak256};
@@ -21,7 +21,7 @@ pub enum Action { Order(OrderWire), Cancel { asset: u64, oid: u64 } }
 #[derive(Debug, PartialEq, Eq)]
 pub struct Signature { pub r: String, pub s: String, pub v: u8 }
 
-/// `Utils.float_to_wire` over the BigDecimal Rails passes: `format("%.8f", x)` (through the double), refused when that
+/// `Utils.float_to_wire` over the BigDecimal 2.x passes: `format("%.8f", x)` (through the double), refused when that
 /// double, coerced back to a BigDecimal (Float#to_d: 16 significant digits), is 1e-12 or more away from x; then trailing
 /// zeros (and a bare `.`) dropped. A refusal is a refused order, never re-rounded (PLAN-VB §1.5).
 pub fn float_to_wire(x: &BigDec) -> Result<String, String> {

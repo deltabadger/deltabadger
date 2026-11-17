@@ -43,7 +43,7 @@ async fn each_recorded_row_and_each_spent_funds_budget_is_announced_once_after_i
         EngineEvent::OrderRecorded { bot_id: bots[0], transaction_id: r[0].1 },
         EngineEvent::FundsLow { bot_id: bots[0], user_id: s.user_id, quote_asset_id: Some(s.quote) },
         EngineEvent::OrderRecorded { bot_id: bots[1], transaction_id: r[1].1 },
-    ], "the second bot finds the budget of the same user and quote spent, as Rails does");
+    ], "the second bot finds the budget of the same user and quote spent, as 2.x does");
     run::step(&mut e, &at("2026-09-01T10:00:05.5Z")).await.unwrap(); // follow-up polls only: no row, no stamp
     assert_eq!(drained(&mut rx), vec![]);
 }
@@ -56,7 +56,7 @@ async fn a_tick_failing_for_funds_announces_its_failed_row_and_the_spent_budget(
     let mut rx = e.subscribe();
     run::step(&mut e, &at("2026-09-01T10:00:00.5Z")).await.unwrap();
     let r = rows(&e.primary);
-    assert_eq!(r[0].2, 1, "a failed row, as Rails writes for a definitive rejection");
+    assert_eq!(r[0].2, 1, "a failed row, as 2.x writes for a definitive rejection");
     assert_eq!(drained(&mut rx), vec![
         EngineEvent::OrderRecorded { bot_id: bots[0], transaction_id: r[0].1 },
         EngineEvent::FundsLow { bot_id: bots[0], user_id: s.user_id, quote_asset_id: Some(s.quote) },

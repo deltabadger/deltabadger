@@ -2,7 +2,7 @@ use deltabadger::crypto::{verify_password, Cipher};
 use rusqlite::{types::ValueRef, Connection};
 use serde_json::{json, Value};
 use std::path::Path;
-/// A credential column as the model reads it (pages.rb `decrypted!`): snapshots compare what a key is, never its ciphertext.
+/// A credential column as the model reads it (the recording harness's `decrypted!`): snapshots compare what a key is, never its ciphertext.
 pub fn decrypted(table: &str, name: &str, value: Value, cipher: &Cipher) -> Value {
     const CREDENTIALS: [&str; 7] = ["key", "secret", "passphrase", "access_token", "rsa_signature_key", "rsa_encryption_key", "dh_param"];
     let secret = table == "users" && name == "otp_secret_key" || table == "api_keys" && CREDENTIALS.contains(&name);
@@ -84,9 +84,9 @@ pub fn rows(dir: &Path, cipher: &Cipher) -> Value {
                 row.insert(name.clone(), value);
             }
             // The install's account-identity key (identity::KEY_CONFIG) is Rust's own random secret, kept in app_configs: like
-            // Rust's own tables (store::REGISTRY), it has no Rails counterpart to compare. An IBKR binding creates it.
+            // Rust's own tables (store::REGISTRY), it has no 2.x counterpart to compare. An IBKR binding creates it.
             if table == "app_configs" && row.get("key").and_then(Value::as_str) == Some(deltabadger::identity::KEY_CONFIG) { continue; }
-            // D-CG-SETUP-DURABLE: the setup run a save asks for, Rust's own row (Rails enqueues Setup::SeedAndSyncJob).
+            // D-CG-SETUP-DURABLE: the setup run a save asks for, Rust's own row (2.x enqueues Setup::SeedAndSyncJob).
             if table == "app_configs" && row.get("key").and_then(Value::as_str) == Some(deltabadger::jobs::setup_sync::REQUEST) { continue; }
             rows.push(Value::Object(row));
         }

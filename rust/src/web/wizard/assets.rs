@@ -46,7 +46,7 @@ fn chosen(c: &Connection, config: Option<&Value>) -> Result<Chosen, WebError> {
 
 impl Chosen {
     /// `search_scope`: before the first pick the blank one-asset bot, then the basket. Neither sees the session's quote.
-    /// ponytail: the blank bot's scope is read as an empty basket's, which leaves out a retired venue Rails' one-pair scope still
+    /// ponytail: the blank bot's scope is read as an empty basket's, which leaves out a retired venue 2.x's one-pair scope still
     /// lists (Exchange.available, not .tradeable) and a chosen venue no longer available; no install of this build has either.
     fn scope(&self) -> Basket { Basket { exchange_id: self.venue, quote_asset_id: None, base_asset_ids: self.ids.clone() } }
 }
@@ -104,7 +104,7 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool
     }
     let csrf = ctx.csrf_token();
     let no_common_exchange = (!chosen.chips.is_empty() && eligible(c, &scope)?.is_empty()).then(|| ctx.t("bot.dca_multi_asset.no_common_exchange"));
-    let syncing = (items.is_empty() && chosen.chips.is_empty() && chosen.venue.is_some() && params.query("query").is_none_or(crate::ruby::blank))
+    let syncing = (items.is_empty() && chosen.chips.is_empty() && chosen.venue.is_some() && params.query("query").is_none_or(crate::v2::blank))
         .then(|| ctx.t("bot.setup.assets_syncing"));
     let order = StepOrder::new(BotType::Single, chosen.variant);
     let exchange = super::exchange_name(c, chosen.venue)?;

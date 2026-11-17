@@ -1,6 +1,6 @@
 //! `users.time_zone` holds an ActiveSupport zone name ("Warsaw", "Eastern Time (US & Canada)"), not
 //! an IANA id. time_zones.json is ActiveSupport::TimeZone::MAPPING, written by
-//! script/rust/record_vectors.rb and pinned by test/contracts/rust_time_zones_test.rb.
+//! the recording harness.
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use std::collections::HashMap;
@@ -14,13 +14,13 @@ fn table() -> &'static HashMap<String, Tz> {
     })
 }
 
-/// The zone for a stored name. Rails validates the column against this same table, so `None` means
-/// a row Rails would refuse to save.
+/// The zone for a stored name. 2.x validates the column against this same table, so `None` means
+/// a row 2.x would refuse to save.
 pub fn zone(name: &str) -> Option<Tz> {
     table().get(name).copied()
 }
 
-/// ActiveSupport::TimeZone[]: a Rails zone name or an IANA identifier. `None` for any other name, never UTC.
+/// ActiveSupport::TimeZone[]: a 2.x zone name or an IANA identifier. `None` for any other name, never UTC.
 pub fn strict(name: &str) -> Option<Tz> {
     zone(name).or_else(|| name.parse::<Tz>().ok())
 }
@@ -51,7 +51,7 @@ pub fn advance_days(t: DateTime<Utc>, zone: Tz, days: i64) -> Option<DateTime<Ut
     None
 }
 
-/// `time.in_time_zone(user.time_zone)`, resolved as everything else reads the owner's zone (`strict`: a Rails name or an
+/// `time.in_time_zone(user.time_zone)`, resolved as everything else reads the owner's zone (`strict`: a 2.x name or an
 /// IANA id). An unknown name reads as UTC, the column's default, for display only: parsing and starts refuse it.
 pub fn local(time: DateTime<Utc>, name: &str) -> DateTime<Tz> {
     time.with_timezone(&strict(name).unwrap_or(Tz::UTC))

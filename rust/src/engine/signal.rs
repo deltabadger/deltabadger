@@ -12,7 +12,7 @@ use super::placement::{self, Claim, Sent, SignalClaim};
 use super::tick::TickContext;
 use super::{Clock, EngineError};
 use crate::enums::BOT_WORKING;
-use crate::ruby::{to_sentence, BigDec};
+use crate::v2::{to_sentence, BigDec};
 use crate::venue::{Attributed, Side, Venue, VenueError};
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -22,17 +22,17 @@ use serde_json::{json, Value};
 pub const MAX_AGE_SECONDS: i64 = 300;
 /// Bots::Signal::UNRESOLVED_PLACEMENT_KEY (R8a): an order whose fate is unknown holds the bot until it is resolved.
 pub const MARKER_KEY: &str = "signal_placement_unresolved";
-/// The notice kind of a signal's failure mail (notice::ERROR): Rails sends it directly, outside any daily budget.
+/// The notice kind of a signal's failure mail (notice::ERROR): 2.x sends it directly, outside any daily budget.
 pub const MAIL_KIND: &str = "signal";
 
-/// `triggered_at < MAX_AGE.ago`, strictly (signal_job.rb): the one expiry rule, for the executor, the handback and the
+/// `triggered_at < MAX_AGE.ago`, strictly: the one expiry rule, for the executor, the handback and the
 /// takeover import alike. A call exactly MAX_AGE old still runs.
 pub fn expired(triggered_at: DateTime<Utc>, now: DateTime<Utc>) -> bool { triggered_at < now - Duration::seconds(MAX_AGE_SECONDS) }
 
 /// When `call` expires: the first instant `expired` holds.
 pub fn expires_at(call: &SignalCall) -> DateTime<Utc> { call.triggered_at + Duration::seconds(MAX_AGE_SECONDS) + Duration::microseconds(1) }
 
-/// The one barrier for both producers (§R10): Rails' marker (Bots::Signal#placement_unresolved?: a Hash under the key), or
+/// The one barrier for both producers (§R10): 2.x's marker (Bots::Signal#placement_unresolved?: a Hash under the key), or
 /// this engine's unresolved intent. While it stands nothing is sized or placed.
 pub fn blocked(bot: &Bot) -> bool { bot.transient.get(MARKER_KEY).is_some_and(Value::is_object) || bot.rust_placement().is_some() }
 
@@ -51,7 +51,7 @@ fn mark_unresolved(c: &Connection, bot_id: i64, cl_ord_id: &str, side: Side, err
 }
 
 /// Recovery settled the intent `cl_ord_id` (recorded or proven absent): the marker it raised goes in that transaction. A
-/// marker with another id (Rails', or a newer one) stays: only its own resolution lifts it.
+/// marker with another id (2.x's, or a newer one) stays: only its own resolution lifts it.
 pub fn clear_marker(c: &Connection, bot_id: i64, cl_ord_id: &str) -> Result<(), EngineError> {
     c.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{MARKER_KEY}') WHERE id = ?1 AND json_extract(transient_data, '$.{MARKER_KEY}.id') = ?2"),
               params![bot_id, cl_ord_id])?;
@@ -112,7 +112,7 @@ pub enum Step {
     Again,
 }
 
-/// The bot's first waiting call, through Bot::SignalJob#perform's checks in Rails' order and then #execute_signal.
+/// The bot's first waiting call, through Bot::SignalJob#perform's checks in 2.x's order and then #execute_signal.
 pub async fn run_next<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Step, EngineError> {
     let handle = crate::venue::Handle::new(venue, cx.credential_version.clone());
     let venue = &handle;
@@ -145,7 +145,7 @@ pub async fn run_next<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &
         return Ok(Step::Ran);
     }
     // Exchange#market_open?: all crypto is open; Exchanges::Alpaca asks its clock. A clock that cannot be read places
-    // nothing (clock.rs fails closed); Rails reads most of those as open.
+    // nothing (clock.rs fails closed); 2.x reads most of those as open.
     if venue.rules().market_hours && !model::all_crypto(c, &bot)? {
         match super::clock::gate(venue.clock_result().await.value, &model::exchange_name(c, &bot)?, now) {
             super::clock::Gate::Open => {}
@@ -309,7 +309,7 @@ where F: Fn() -> Fut, Fut: std::future::Future<Output = Result<Result<T, VenueEr
     }
 }
 
-/// A read's failure as Rails raises it into the row: `result.errors.to_sentence`, or the transport's own message.
+/// A read's failure as 2.x raises it into the row: `result.errors.to_sentence`, or the transport's own message.
 pub(crate) fn message(e: VenueError) -> String {
     match e { VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. } => to_sentence(&e), VenueError::Transient(m) | VenueError::Ambiguous(m) => m }
 }
@@ -421,7 +421,7 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan
 }
 
 /// Bots::Signal::OrderSetter#execute_api_order, after BotOrder's checks (the engine's, engine::run): the caller sized the
-/// order. No trigger condition is asked (an explicit order, as in Rails); the spending cap is (D-ORDER-API-CAP: refused,
+/// order. No trigger condition is asked (an explicit order, as in 2.x); the spending cap is (D-ORDER-API-CAP: refused,
 /// never clamped, in the claim). The bot's KuCoin account context first, then the market gate, the barrier, the lock, the
 /// price, #api_order_data, the minimum, #venue_takes? and placement.
 pub async fn run_api_order<V: Venue>(c: &Connection, venue: &V, request: &api_orders::Request, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Step, EngineError> {

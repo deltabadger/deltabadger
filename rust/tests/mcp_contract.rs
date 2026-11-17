@@ -31,7 +31,7 @@ fn m3_reads_remain_registered_at_every_m4_task_boundary(){
 #[test]
 fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
     let (mut recorded,mut ours)=(protocol::recorded(),protocol::metadata().clone());
-    // D-SPLIT-API: split_bots and D-RAILS-UNRECORDED-API: answer_unrecorded_order, this build's own, are listed after the
+    // D-SPLIT-API: split_bots and D-V2-UNRECORDED-API: answer_unrecorded_order, this build's own, are listed after the
     // recorded tools (pinned below).
     let unrecorded=ours["tools"].as_array_mut().unwrap().pop().unwrap();
     assert_eq!(unrecorded["name"],"answer_unrecorded_order");
@@ -94,7 +94,7 @@ fn split_bots_schema_is_pinned(){
     assert!(split["description"].as_str().unwrap().contains("proceeds_unanswered"));
 }
 
-/// A1 listed additions: Rails property types and required fields, plus the W2 matrix fields.
+/// A1 listed additions: 2.x property types and required fields, plus the W2 matrix fields.
 #[test]
 fn withdrawal_rule_schemas_and_permissions_are_pinned() {
     use deltabadger::web::{mcp::tools::NAMES, oauth::{TOOL_DEFAULTS,TOOL_GROUPS}};
@@ -135,7 +135,7 @@ fn withdrawal_rule_schemas_and_permissions_are_pinned() {
     }
 }
 
-/// D-RAILS-UNRECORDED-API: answer_unrecorded_order's schema, last: integer ids, an offer or none, nothing else.
+/// D-V2-UNRECORDED-API: answer_unrecorded_order's schema, last: integer ids, an offer or none, nothing else.
 #[test]
 fn answer_unrecorded_order_schema_is_pinned(){
     let tools=protocol::metadata()["tools"].as_array().unwrap();

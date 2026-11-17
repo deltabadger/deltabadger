@@ -169,7 +169,7 @@ fn bar_price(bar: &Value) -> Fetch<Dec> {
     Ok(Dec::to_d(price)?)
 }
 /// A response's body; decoding it is CPU work (`decode`). A transport failure (not sent, or maybe sent) is raised, for a
-/// retry, where Rails raises it: Alpaca's market data (Client.network_failure) and IBKR's. Every other venue reads through
+/// retry, where 2.x raises it: Alpaca's market data (Client.network_failure) and IBKR's. Every other venue reads through
 /// a honeymaker client, whose `with_rescue` returns any Faraday error as a Failure: settled, as an error answer is.
 async fn send(wire: &impl Transport, request: &HttpRequest) -> Fetch<String> {
     match wire.send_limited(request, MAX_BYTES).await {
@@ -269,7 +269,7 @@ async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[B
     };
     cpu(compute, move || {
         let mut bars = unsorted;
-        // Stable sort preserves the first occurrence, as Ruby's uniq-before-sort does.
+        // Stable sort preserves the first occurrence, as 2.x's uniq-before-sort does.
         bars.sort_by_key(|bar| bar.at);
         bars.dedup_by_key(|bar| bar.at);
         let size = bars.iter().map(Bar::size).sum::<usize>();
@@ -336,7 +336,7 @@ async fn pages(wire: &impl Transport, request: &HttpRequest, tail: Option<&Bar>,
 /// with candles moves the start to its last candle + 1 s, an empty one to `endAt` + 1 s (windows before the listing are
 /// skipped, not the end); the walk ends at the window that reaches now, or after MAX_CANDLE_PAGES windows, with what it
 /// read. Any failed window fails the series.
-// ponytail: Rails compares `end_at >= now` with the clock's fraction; here both are whole seconds, so a window ending within
+// ponytail: 2.x compares `end_at >= now` with the clock's fraction; here both are whole seconds, so a window ending within
 // the same second as a fractional `now` ends the walk one window early. Carry nanoseconds if a recording ever shows it.
 async fn kucoin_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
     let timeframe = seconds(series);
@@ -356,7 +356,7 @@ async fn kucoin_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<
     Ok(out)
 }
 /// One KuCoin window: `data` rows of `[time, open, close, high, low, volume]` strings, read in time order. The closed ones,
-/// and the last row's time (closed or not), which is where the next window starts. No `data` is an empty window, as Rails'
+/// and the last row's time (closed or not), which is where the next window starts. No `data` is an empty window, as 2.x's
 /// `data.present?` reads it.
 fn kucoin_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Option<i64>)> {
     let unreadable = || Failure::Failed(UNAVAILABLE.into());
@@ -386,7 +386,7 @@ fn kucoin_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Op
 }
 /// Exchanges::Binance#get_candles: pages of up to 1000 klines from `startTime`, in milliseconds. A page moves the start to
 /// its last candle + 1 s; the walk ends at an empty page, or at a page whose last candle opened after now less one
-/// timeframe (`timeframe.ago`). Any failed page fails the series. Rails walks without a cap; here a walk past
+/// timeframe (`timeframe.ago`). Any failed page fails the series. 2.x walks without a cap; here a walk past
 /// MAX_CANDLE_PAGES pages (a million candles, far past SERIES_BYTES) is a settled failure.
 async fn binance_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
     let timeframe = seconds(series);
@@ -439,7 +439,7 @@ fn series_start(series: &HttpRequest, tail: Option<i64>) -> Fetch<i64> {
 /// Exchanges::Mexc#get_candles: windows of `startTime` .. `startTime` + 500 timeframes - 1 ms, limit 500, from the start,
 /// each the next span on, for as long as the window starts at or before now: every window is asked for, an empty one too
 /// (MEXC answers a start alone with its newest candles, so each window has its end). Any failed window fails the series.
-/// Rails walks without a cap; past MAX_CANDLE_PAGES windows the series is a settled failure.
+/// 2.x walks without a cap; past MAX_CANDLE_PAGES windows the series is a settled failure.
 async fn mexc_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
     let timeframe = seconds(series);
     let span = timeframe.saturating_mul(500 * 1000);
@@ -463,7 +463,7 @@ const BITRUE_PAGE: usize = 1440;
 /// Exchanges::Bitrue#get_candles: pages of up to 1440 read back from now, the first without `fromIdx` (the newest), each
 /// next with `fromIdx` = the oldest candle read - 1 ms. A page with no candles, or whose oldest is newer than `fromIdx`
 /// (the venue ignored it), ends the walk and is left out; a page shorter than 1440, or one that reaches the start, ends it
-/// kept. The candles from the start on, the first of each time. Any failed page fails the series. Rails walks without a
+/// kept. The candles from the start on, the first of each time. Any failed page fails the series. 2.x walks without a
 /// cap; past MAX_CANDLE_PAGES pages the series is a settled failure.
 async fn bitrue_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
     let timeframe = seconds(series);
@@ -486,12 +486,12 @@ async fn bitrue_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<
     }
     Err(Failure::Failed(UNAVAILABLE.into()))
 }
-/// A candle's time as Ruby's `to_i` reads a number or a numeric string.
+/// A candle's time as 2.x's `to_i` reads a number or a numeric string.
 fn integer(value: &Value) -> Option<i64> {
     match value { Value::Number(n) => n.as_i64(), Value::String(t) => t.parse().ok(), _ => None }
 }
 /// One Bitrue page: `data`'s object candles `{is, o, h, l, c, v}`, `is` in ms, the newest first. An answer that is no
-/// object, or has no `data`, is an empty page (`Array(nil)`), as Rails reads it. The closed candles from `start` on, the
+/// object, or has no `data`, is an empty page (`Array(nil)`), as 2.x reads it. The closed candles from `start` on, the
 /// page's oldest `is`, and its length.
 fn bitrue_rows(mut body: Value, start: i64, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Option<i64>, usize)> {
     let unreadable = || Failure::Failed(UNAVAILABLE.into());
@@ -529,7 +529,7 @@ async fn bingx_page(wire: &impl Transport, series: &HttpRequest, tail: Option<i6
     Ok(bars)
 }
 /// One BingX answer: the rows under `data` (or the answer itself when it is no object), `[open time in ms, open, high, low,
-/// close, volume, ...]`; no rows is an empty series, as Rails reads `data || []`. The closed ones from `start` on, sorted
+/// close, volume, ...]`; no rows is an empty series, as 2.x reads `data || []`. The closed ones from `start` on, sorted
 /// (BingX can send the newest first).
 fn bingx_rows(mut body: Value, start: i64, timeframe: i64, now: i64) -> Fetch<Vec<Bar>> {
     let unreadable = || Failure::Failed(UNAVAILABLE.into());
@@ -553,8 +553,8 @@ const BITVAVO_PAGE: usize = 1440;
 /// Exchanges::Bitvavo#get_candles (V4): Bitvavo answers newest first with the latest 1440 candles of a range, so the series
 /// is read back from now: pages from `start` (the start, in ms), the first without `end`, each next ending (exclusive) at
 /// the oldest candle read. A page shorter than 1440, or whose oldest is not older than its `end` (the venue ignored it),
-/// ends the walk, kept. A later candle at a time replaces an earlier one, as Rails' hash by time. Any failed page fails the
-/// series. Rails walks without a cap; past MAX_CANDLE_PAGES pages the series is a settled failure.
+/// ends the walk, kept. A later candle at a time replaces an earlier one, as 2.x's hash by time. Any failed page fails the
+/// series. 2.x walks without a cap; past MAX_CANDLE_PAGES pages the series is a settled failure.
 async fn bitvavo_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
     let timeframe = seconds(series);
     let start = series_start(series, tail)?.saturating_mul(1000);
@@ -599,7 +599,7 @@ fn bitvavo_rows(body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Optio
 }
 /// Exchanges::Bitget#get_candles: pages of up to 1000 from `startTime` to `endTime` = now, in ms. A page moves the start to
 /// its last candle + 1 s; the walk ends at a page with no candles (`data.blank?`) or fewer than 1000. Any failed page fails
-/// the series. Rails walks without a cap; past MAX_CANDLE_PAGES pages the series is a settled failure.
+/// the series. 2.x walks without a cap; past MAX_CANDLE_PAGES pages the series is a settled failure.
 async fn bitget_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
     let timeframe = seconds(series);
     let mut start = series_start(series, tail)?;
@@ -620,7 +620,7 @@ async fn bitget_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<
     Err(Failure::Failed(UNAVAILABLE.into()))
 }
 /// One Bitget page: `data`'s rows of `[time in ms, open, high, low, close, ...]`, strings, oldest first. A blank `data` (none,
-/// "", [] or {}) is an empty page, as Rails' `data.blank?`. The closed ones, the last row's time in ms (closed or not),
+/// "", [] or {}) is an empty page, as 2.x's `data.blank?`. The closed ones, the last row's time in ms (closed or not),
 /// which is where the next page starts, and the page's length.
 fn bitget_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Option<i64>, usize)> {
     let unreadable = || Failure::Failed(UNAVAILABLE.into());
@@ -628,7 +628,7 @@ fn bitget_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Op
     let rows = match body.get_mut("data").map_or(Value::Null, Value::take) {
         Value::Array(rows) => rows,
         Value::Null => vec![],
-        Value::String(text) if crate::ruby::blank(&text) => vec![],
+        Value::String(text) if crate::v2::blank(&text) => vec![],
         Value::Object(map) if map.is_empty() => vec![],
         _ => return Err(unreadable()),
     };
@@ -650,7 +650,7 @@ fn bitget_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Op
 }
 /// Exchanges::Bybit#get_candles: pages of up to 1000 from `start`, in ms, which Bybit answers with the oldest candles from it
 /// (start-first), newest first within the page. A page moves the start to its newest candle + 1 s; the walk ends at an
-/// empty page or one of fewer than 1000. Any failed page, or one whose retCode is not 0, fails the series. Rails walks
+/// empty page or one of fewer than 1000. Any failed page, or one whose retCode is not 0, fails the series. 2.x walks
 /// without a cap; past MAX_CANDLE_PAGES pages the series is a settled failure.
 async fn bybit_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
     let timeframe = seconds(series);
@@ -671,7 +671,7 @@ async fn bybit_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<i
     }
     Err(Failure::Failed(UNAVAILABLE.into()))
 }
-/// One Bybit page: a retCode other than 0 (an Integer, as Rails compares it) is the venue's failure; otherwise
+/// One Bybit page: a retCode other than 0 (an Integer, as 2.x compares it) is the venue's failure; otherwise
 /// `result.list`'s rows of `[time in ms, open, high, low, close, ...]`, strings, newest first, read in time order. The closed
 /// ones, the page's first row's time in ms (its newest, where the next page starts), and the page's length.
 fn bybit_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Option<i64>, usize)> {
@@ -708,7 +708,7 @@ async fn gemini_page(wire: &impl Transport, series: &HttpRequest, tail: Option<i
     Ok(bars)
 }
 /// One Gemini answer: rows of `[time in ms, open, high, low, close, volume]`, numbers; an answer that is no array has none,
-/// as Rails reads it. The closed ones from `start` on, sorted.
+/// as 2.x reads it. The closed ones from `start` on, sorted.
 fn gemini_rows(body: Value, start: i64, timeframe: i64, now: i64) -> Fetch<Vec<Bar>> {
     let unreadable = || Failure::Failed(UNAVAILABLE.into());
     let Value::Array(rows) = body else { return Ok(vec![]) };
@@ -739,7 +739,7 @@ async fn hyperliquid_page(wire: &impl Transport, series: &HttpRequest, tail: Opt
     Ok(bars)
 }
 /// One candleSnapshot answer: object candles `{t, o, h, l, c, v, ...}`, `t` in ms. An answer that is no array is a settled
-/// failure (D-A13-SHAPE: Rails' `map` over it raises). The closed ones.
+/// failure (D-A13-SHAPE: 2.x's `map` over it raises). The closed ones.
 fn hyperliquid_rows(body: Value, timeframe: i64, now: i64) -> Fetch<Vec<Bar>> {
     let unreadable = || Failure::Failed(UNAVAILABLE.into());
     let Value::Array(rows) = body else { return Err(unreadable()) };
@@ -757,8 +757,8 @@ fn hyperliquid_rows(body: Value, timeframe: i64, now: i64) -> Fetch<Vec<Bar>> {
 }
 /// Exchanges::Coinbase#get_candles: windows of `start` .. `end` = min(start + 350 periods, now), in seconds, from the start;
 /// the walk ends at the window that reaches now. The next window starts a second after the page's latest candle, or at the
-/// window's end when the page has none: before any candle, as Rails; after one (D-A13-CB-EMPTY-WINDOW), where Rails asks
-/// the same window again for ever. Any failed window fails the series. Rails walks without a cap; past MAX_CANDLE_PAGES
+/// window's end when the page has none: before any candle, as 2.x; after one (D-A13-CB-EMPTY-WINDOW), where 2.x asks
+/// the same window again for ever. Any failed window fails the series. 2.x walks without a cap; past MAX_CANDLE_PAGES
 /// windows the series is a settled failure.
 async fn coinbase_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
     let timeframe = seconds(series);
@@ -780,7 +780,7 @@ async fn coinbase_pages(wire: &impl Transport, series: &HttpRequest, tail: Optio
 /// One Coinbase window: `candles`' objects `{start, low, high, open, close, volume}`, `start` in seconds as text; no
 /// `candles` array is a settled failure (D-A13-SHAPE). The closed ones in time order, and the latest candle's time (closed
 /// or not), where the next window starts.
-// ponytail: sorted by time; Rails sorts by the raw `start` text, which differs only for times of different lengths.
+// ponytail: sorted by time; 2.x sorts by the raw `start` text, which differs only for times of different lengths.
 fn coinbase_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Option<i64>)> {
     let unreadable = || Failure::Failed(UNAVAILABLE.into());
     let Some(Value::Array(rows)) = body.get_mut("candles").map(Value::take) else { return Err(unreadable()) };
@@ -809,7 +809,7 @@ async fn ibkr_snapshot(wire: &impl Transport, request: &HttpRequest, compute: &A
 }
 /// IBKR's most bars one history read answers.
 const IBKR_MAX_BARS: i64 = 1000;
-/// IBKR's daily history (Ibkr plan F1, D-IBKR-FIGURES: Rails' get_candles answers `[]`): one read of `period` days back
+/// IBKR's daily history (Ibkr plan F1, D-IBKR-FIGURES: 2.x's get_candles answers `[]`): one read of `period` days back
 /// from now, the start's own day included, at most IBKR_MAX_BARS; the closed bars from the start on. No paging.
 async fn ibkr_page(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
     let timeframe = seconds(series);
@@ -1005,7 +1005,7 @@ impl<'a> Reader<'a> {
     pub fn fx_deps(&self) -> FxDeps { FxDeps { identity: self.fx.as_ref().map(|fx| fx.identity.clone()).unwrap_or_default(), pairs: self.fx_used.borrow().clone() } }
     pub fn with_current(mut self,c:&'a rusqlite::Connection)->Self { self.current=Some(c);self }
     /// Whether this pass still waits on reads: market data or a conversion it asked for and does not hold. A settled failure
-    /// (an error answer, a venue this reader cannot read) is not pending: it stays with its holding or bot, as Rails rescues
+    /// (an error answer, a venue this reader cannot read) is not pending: it stays with its holding or bot, as 2.x rescues
     /// it there, and never fails the rest of the account's figures.
     pub fn pending(&self) -> bool { !self.demands.borrow().is_empty() || !self.fx_demands.borrow().is_empty() }
     pub fn with_symbols(mut self, symbols: Vec<String>) -> Self { self.symbols = Some(symbols); self }
@@ -1083,7 +1083,7 @@ pub fn notes(venue: &Venue, user: i64, tickers: &[Ticker]) -> bool {
 fn ibkr_bar(timeframe: i64) -> Option<&'static str> { (timeframe == 86_400).then_some("1d") }
 /// Whether the figures read this venue's candles.
 fn reads_candles(venue: &Venue) -> bool { crate::venue::registry::row(&venue.exchange_type).and_then(|r| r.figures).is_some_and(|f| f.candles()) }
-/// Exchanges::Kucoin#get_candles' interval names, for the timeframes the chart asks for (`chart::timeframe`). Rails' 3 days
+/// Exchanges::Kucoin#get_candles' interval names, for the timeframes the chart asks for (`chart::timeframe`). 2.x's 3 days
 /// and 1 month are rebuilt from 1day/1week candles; the chart never asks for them, so they have no series here.
 fn kucoin_type(timeframe: i64) -> Option<&'static str> {
     Some(match timeframe { 60 => "1min", 300 => "5min", 900 => "15min", 1800 => "30min", 3600 => "1hour", 14400 => "4hour", 86_400 => "1day", 604_800 => "1week", _ => return None })
@@ -1098,11 +1098,11 @@ fn mexc_interval(timeframe: i64) -> Option<&'static str> {
 }
 /// Exchanges::Bingx#get_tickers_prices over the whole answer: a `code` other than 0 (none reads as 0, as `nil.to_i`) is
 /// the venue's failure; otherwise the rows of `data` (`bingx::ticker_prices`).
-fn bingx_prices(body: &Value) -> Result<Vec<(String, crate::ruby::BigDec)>, crate::venue::VenueError> {
+fn bingx_prices(body: &Value) -> Result<Vec<(String, crate::v2::BigDec)>, crate::venue::VenueError> {
     if bingx::code(body).unwrap_or(0) != 0 { return Err(crate::venue::VenueError::Rejected(vec![])); }
     bingx::ticker_prices(crate::venue::dig_or_raise(body, "data")?)
 }
-/// Exchanges::Bitvavo#get_candles' intervals: Binance's names; Rails reads the week as daily candles rebuilt (the chart asks
+/// Exchanges::Bitvavo#get_candles' intervals: Binance's names; 2.x reads the week as daily candles rebuilt (the chart asks
 /// for a day at most).
 fn bitvavo_interval(timeframe: i64) -> Option<&'static str> { if timeframe == 604_800 { None } else { binance_interval(timeframe) } }
 /// Exchanges::Bitget#get_candles' granularities, for the timeframes the chart asks for (a day at most).
@@ -1115,7 +1115,7 @@ fn bybit_interval(timeframe: i64) -> Option<&'static str> {
 }
 /// Exchanges::Bybit#get_tickers_prices over the whole answer: a retCode other than the Integer 0 is the venue's failure;
 /// otherwise the rows of `result.list` (`bybit::ticker_prices`).
-fn bybit_prices(body: &Value) -> Result<Vec<(String, crate::ruby::BigDec)>, crate::venue::VenueError> {
+fn bybit_prices(body: &Value) -> Result<Vec<(String, crate::v2::BigDec)>, crate::venue::VenueError> {
     if body.get("retCode").and_then(Value::as_i64) != Some(0) { return Err(crate::venue::VenueError::Rejected(vec![])); }
     bybit::ticker_prices(body)
 }
@@ -1124,7 +1124,7 @@ fn chart_timeframe(seconds: i64) -> Option<crate::engine::candles::Timeframe> {
     use crate::engine::candles::Timeframe::*;
     [Minute, FiveMinutes, FifteenMinutes, ThirtyMinutes, Hour, FourHours, Day].into_iter().find(|t| t.seconds() == seconds)
 }
-/// Exchanges::Gemini#get_candles' native resolution (`gemini::candle_resolution`); a timeframe Rails builds (4 hours) has no
+/// Exchanges::Gemini#get_candles' native resolution (`gemini::candle_resolution`); a timeframe 2.x builds (4 hours) has no
 /// series here, as the chart never asks for one.
 fn gemini_resolution(timeframe: i64) -> Option<&'static str> {
     let (resolution, built) = gemini::candle_resolution(chart_timeframe(timeframe)?);
@@ -1132,13 +1132,13 @@ fn gemini_resolution(timeframe: i64) -> Option<&'static str> {
 }
 /// Exchanges::Hyperliquid#get_candles' interval (`hyperliquid::candle_interval`), all native up to a day.
 fn hyperliquid_interval(timeframe: i64) -> Option<&'static str> { chart_timeframe(timeframe).map(hyperliquid::candle_interval) }
-/// Exchanges::Coinbase#get_candles' granularity (`coinbase::candle_granularity`); 4 hours, which Rails builds from two-hourly,
+/// Exchanges::Coinbase#get_candles' granularity (`coinbase::candle_granularity`); 4 hours, which 2.x builds from two-hourly,
 /// has no series here.
 fn coinbase_granularity(timeframe: i64) -> Option<&'static str> {
     let (granularity, length) = coinbase::candle_granularity(chart_timeframe(timeframe)?);
     (length == timeframe).then_some(granularity)
 }
-/// Exchanges::Kraken#get_candles' OHLC intervals in minutes, for the same timeframes (Rails reads 3 days, 1 week and 1
+/// Exchanges::Kraken#get_candles' OHLC intervals in minutes, for the same timeframes (2.x reads 3 days, 1 week and 1
 /// month as daily candles rebuilt; the chart never asks for them).
 fn kraken_interval(timeframe: i64) -> Option<&'static str> {
     use crate::venue::kraken::{builds, OHLC_INTERVALS};
@@ -1161,7 +1161,7 @@ impl MarketData for Reader<'_> {
         // Binance's ticker/price (Binance.US's too, at its host), MEXC's (Binance's shape), Bitrue's ticker/24hr, BingX's
         // market/ticker, Bitvavo's ticker/price, Bitget's market/tickers, Bybit's spot market/tickers, Gemini's pricefeed and
         // Coinbase's market/products.
-        type Parse = fn(&Value) -> Result<Vec<(String, crate::ruby::BigDec)>, crate::venue::VenueError>;
+        type Parse = fn(&Value) -> Result<Vec<(String, crate::v2::BigDec)>, crate::venue::VenueError>;
         let whole_market = crate::venue::registry::row(&venue.exchange_type).and_then(|row| Some((row.base, match row.figures? {
             Figures::Binance => (crate::venue::binance::TICKER_PRICE, crate::venue::binance::ticker_prices as Parse, None),
             Figures::Mexc => (mexc::TICKER_PRICE, mexc::ticker_prices as Parse, None),
@@ -1194,7 +1194,7 @@ impl MarketData for Reader<'_> {
                 .map(|(coin, price)| (coin, Dec::venue_number(&Value::String(price.to_s_f())))).collect());
         }
         if let Some(row) = crate::venue::registry::row(&venue.exchange_type).filter(|row| row.figures == Some(Figures::Ibkr)) {
-            // IBKR (F1, D-IBKR-FIGURES: Rails' get_tickers_prices answers `{}`): one snapshot per conid, every one asked for
+            // IBKR (F1, D-IBKR-FIGURES: 2.x's get_tickers_prices answers `{}`): one snapshot per conid, every one asked for
             // in the same pass. A code with no conid, no last price, a zero one, or none for want of a subscription is absent;
             // a failed read fails the bot's prices.
             let mut out = vec![];
@@ -1221,12 +1221,12 @@ impl MarketData for Reader<'_> {
             // Exchanges::Kraken#get_tickers_prices(symbols:): the bulk Ticker, kept to the bot's codes, then one Ticker per
             // code it did not return. Each read is held for every bot of the fill; a failed one fails this bot's prices.
             let ticker = |query: Vec<(&'static str, String)>| HttpRequest { method: "GET", base: row.base.into(), path: KRAKEN_TICKER.into(), query, body: None, not_after: None };
-            let price = |p: crate::ruby::BigDec| Dec::venue_number(&Value::String(p.to_s_f()));
+            let price = |p: crate::v2::BigDec| Dec::venue_number(&Value::String(p.to_s_f()));
             let Answer::Json(body) = self.get(ticker(vec![]))? else { return Err(Failure::Failed(UNAVAILABLE.into())) };
             let (prices, missing) = crate::venue::kraken::ticker_prices(&body, symbols).map_err(|_| Failure::Failed(UNAVAILABLE.into()))?;
             let mut out: Vec<(String, Member<Dec>)> = prices.into_iter().map(|(code, p)| (code, price(p))).collect();
             // Every missing code is asked for in the same pass, so a bot's fallbacks take one round of the fill, not one each.
-            // Rails asks them one by one and stops at the first failure; the first failure in its order is the one returned.
+            // 2.x asks them one by one and stops at the first failure; the first failure in its order is the one returned.
             let mut failed = None;
             for code in missing {
                 // An xStock is asked for with its class (D-KRAKEN-TOKENIZED): the bulk read is the currency class only.
@@ -1243,7 +1243,7 @@ impl MarketData for Reader<'_> {
             return match failed { Some(error) => Err(error), None => Ok(out) };
         }
         // The account's names make one shared request per kind (`with_symbols`). A failed one fails only a caller that
-        // asks for a symbol of its kind, as Rails asks per bot (Exchanges::Alpaca#get_tickers_prices with the bot's own
+        // asks for a symbol of its kind, as 2.x asks per bot (Exchanges::Alpaca#get_tickers_prices with the bot's own
         // symbols): a stock basket never sees the crypto quote fail.
         let asks = |crypto: bool| symbols.iter().any(|s| s.contains('/') == crypto);
         let symbols = self.symbols.as_deref().unwrap_or(symbols);
@@ -1383,7 +1383,7 @@ impl HeldRate {
 #[derive(Clone, Debug)]
 pub struct Held { pub value: Fetch<HeldRate>, pub until: i64, pub generation: u64 }
 fn pair_name(from: &str, to: &str) -> String { format!("{from}->{to}") }
-/// Utilities::Currency's Rails.cache entries (`exchange_rate_FROM_to_TO`), per market-data provider (`identity`: its
+/// Utilities::Currency's cache entries (`exchange_rate_FROM_to_TO`), per market-data provider (`identity`: its
 /// fingerprint, or "none"): every conversion the pages and the tracker made, success or failure, until it expires.
 /// In-process: it starts empty when the server starts.
 #[derive(Default)]
@@ -1587,7 +1587,7 @@ mod r4_cache_tests {
     fn hourly(start: i64, end: i64) -> impl Iterator<Item = i64> { (0..).map(move |i| start - start.rem_euclid(H) + i * H).skip_while(move |t| *t < start).take_while(move |t| *t <= end) }
 
     #[tokio::test]
-    async fn a_kucoin_series_walks_its_windows_as_rails_does(){
+    async fn a_kucoin_series_walks_its_windows_as_v2_does(){
         // Windows of 1500 hours: candles, an empty one (a gap in the listing), candles, then the window that reaches now.
         let now = SINCE + 3500 * H + 1800;
         let listed = SINCE + 1700 * H;
@@ -1714,7 +1714,7 @@ mod r4_cache_tests {
     }
 
     #[tokio::test]
-    async fn a_binance_series_walks_its_pages_as_rails_does(){
+    async fn a_binance_series_walks_its_pages_as_v2_does(){
         let producer = model::credential_version_by_id(&db(),1).unwrap().unwrap();
         let req = HttpRequest { method: "GET", base: crate::venue::binance::US_URL.into(), path: BINANCE_KLINES.into(), body: None, not_after: None,
                                 query: vec![("interval", "1h".into()), ("since", SINCE.to_string()), ("symbol", "BTCUSD".into())] };
@@ -1757,7 +1757,7 @@ mod r4_cache_tests {
     }
 
     #[tokio::test]
-    async fn mexc_bitrue_and_bingx_series_are_read_as_rails_reads_them(){
+    async fn mexc_bitrue_and_bingx_series_are_read_as_v2_reads_them(){
         let producer = model::credential_version_by_id(&db(),1).unwrap().unwrap();
         let now = SINCE + 1200 * H + 1800;
         let ok = |body: Value| HttpResponse { status: 200, body: body.to_string() };
@@ -1799,7 +1799,7 @@ mod r4_cache_tests {
     }
 
     #[tokio::test]
-    async fn bitvavo_bitget_and_bybit_series_are_read_as_rails_reads_them(){
+    async fn bitvavo_bitget_and_bybit_series_are_read_as_v2_reads_them(){
         let producer = model::credential_version_by_id(&db(),1).unwrap().unwrap();
         let now = SINCE + 2000 * H + 1800;
         let ok = |body: Value| HttpResponse { status: 200, body: body.to_string() };
@@ -1834,7 +1834,7 @@ mod r4_cache_tests {
             let bars = opens(&cache, &key(&req));
             assert_eq!((bars.len(), bars[0].0, bars.last().unwrap().0), (2000, SINCE, SINCE + 1999 * H), "{path}");
         }
-        // A retCode other than the Integer 0 fails Bybit's page, as Rails compares it.
+        // A retCode other than the Integer 0 fails Bybit's page, as 2.x compares it.
         for body in [serde_json::json!({ "retCode": 10006, "result": { "list": [] } }), serde_json::json!({ "retCode": "0", "result": { "list": [] } })] {
             assert!(bybit_rows(body, H, now).is_err());
         }
@@ -1944,7 +1944,7 @@ mod r4_cache_tests {
         assert_eq!(cache.bytes(),recount(&cache));
     }
 
-    // ---- IBKR (Ibkr plan F1). D-IBKR-FIGURES: Rails' get_tickers_prices and get_candles answer `{}` and `[]`, so every
+    // ---- IBKR (Ibkr plan F1). D-IBKR-FIGURES: 2.x's get_tickers_prices and get_candles answer `{}` and `[]`, so every
     // expected value below is Rust-only; the answers are provisional shapes (`source: "provisional"`) until G1.
 
     const D: i64 = 86_400;
@@ -2003,7 +2003,7 @@ mod r4_cache_tests {
     fn ibkr_venue() -> Venue { Venue { exchange_id: 7, exchange_type: ibkr::IBKR.into() } }
 
     #[tokio::test]
-    async fn gemini_hyperliquid_and_coinbase_series_are_read_as_rails_reads_them(){
+    async fn gemini_hyperliquid_and_coinbase_series_are_read_as_v2_reads_them(){
         let producer = model::credential_version_by_id(&db(),1).unwrap().unwrap();
         let now = SINCE + 2000 * H + 1800; // the hour from SINCE + 2000 h is open
         let ok = |body: Value| HttpResponse { status: 200, body: body.to_string() };
@@ -2040,7 +2040,7 @@ mod r4_cache_tests {
         assert!(hyperliquid_rows(serde_json::json!({ "@1": [] }), H, now).is_err(), "D-A13-SHAPE: no array is a settled failure");
 
         // Coinbase: windows of 350 hours from the start to now. No candles in [400 h, 800 h): the window that finds none after
-        // candles moves on from its end (D-A13-CB-EMPTY-WINDOW; Rails asks it again for ever).
+        // candles moves on from its end (D-A13-CB-EMPTY-WINDOW; 2.x asks it again for ever).
         let req = venue_series(coinbase::URL, "/api/v3/brokerage/market/products/BTCUSDT/candles", "ONE_HOUR");
         let wire = Pages { answer: |r: &HttpRequest| { let (from, to): (i64, i64) = (param(r, "start").parse().unwrap(), param(r, "end").parse().unwrap());
             let rows: Vec<Value> = hourly(from, to).filter(|t| !(SINCE + 400 * H..SINCE + 800 * H).contains(t)).collect::<Vec<_>>().into_iter().rev()
@@ -2068,7 +2068,7 @@ mod r4_cache_tests {
     /// Gemini's series is only filtered by its start (`c[0] >= start_at`), so a fractional start leaves out the candle a
     /// fraction before it; Coinbase's start is a parameter, its whole seconds (`to_i`).
     #[test]
-    fn a_fractional_start_is_rounded_up_only_where_rails_filters_by_it(){
+    fn a_fractional_start_is_rounded_up_only_where_v2_filters_by_it(){
         let since = At(SINCE * 1_000_000_000 + 500_000_000);
         let asked = |exchange_type: &str| {
             let empty = Cache::default();
@@ -2082,12 +2082,12 @@ mod r4_cache_tests {
     }
 
     #[test]
-    fn the_three_venues_name_the_chart_timeframes_as_rails_does(){
+    fn the_three_venues_name_the_chart_timeframes_as_v2_does(){
         let chart = [60, 300, 900, 1800, 3600, 86_400];
         assert_eq!(chart.map(gemini_resolution), [Some("1m"), Some("5m"), Some("15m"), Some("30m"), Some("1hr"), Some("1day")]);
         assert_eq!(chart.map(hyperliquid_interval), [Some("1m"), Some("5m"), Some("15m"), Some("30m"), Some("1h"), Some("1d")]);
         assert_eq!(chart.map(coinbase_granularity), [Some("ONE_MINUTE"), Some("FIVE_MINUTE"), Some("FIFTEEN_MINUTE"), Some("THIRTY_MINUTE"), Some("ONE_HOUR"), Some("ONE_DAY")]);
-        // What Rails builds (4 hours on Gemini and Coinbase; a week everywhere) has no series here.
+        // What 2.x builds (4 hours on Gemini and Coinbase; a week everywhere) has no series here.
         assert_eq!((gemini_resolution(14_400), coinbase_granularity(14_400), hyperliquid_interval(604_800)), (None, None, None));
         for (base, path, name) in [(gemini::URL, "/v2/candles/btcusd/1hr", "1hr"), (coinbase::URL, "/api/v3/brokerage/market/products/BTC-USD/candles", "ONE_HOUR"), (hyperliquid::URL, hyperliquid::INFO, "1h")] {
             assert_eq!(seconds(&venue_series(base, path, name)), H, "{name}");
@@ -2100,7 +2100,7 @@ mod r4_cache_tests {
         assert!(is_series(&HttpRequest { body: None, ..mids.clone() }) && !is_series(&mids));
     }
 
-    /// A transport failure is a retry (raised) only where Rails raises it, Alpaca's market data; a honeymaker venue's is its
+    /// A transport failure is a retry (raised) only where 2.x raises it, Alpaca's market data; a honeymaker venue's is its
     /// Failure (settled).
     #[tokio::test]
     async fn a_honeymaker_venue_s_transport_failure_is_settled(){

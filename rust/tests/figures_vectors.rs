@@ -1,4 +1,4 @@
-//! Every pure rule of rust/src/figures against what Ruby recorded (script/rust/record_figures_vectors.rb).
+//! Every pure rule of rust/src/figures against what 2.x recorded.
 use deltabadger::figures::at::At;
 use deltabadger::figures::dec::Dec;
 use deltabadger::figures::json::{self, J};
@@ -22,7 +22,7 @@ fn tagged(n: &Num) -> Value {
 }
 
 #[test]
-fn a_float_prints_as_ruby_prints_it_and_as_rails_json_does() {
+fn a_float_prints_as_v2_prints_it_and_as_v2_json_does() {
     let v = vectors();
     let (to_s, oj) = (v["float_to_s"].as_array().unwrap(), v["oj_float"].as_array().unwrap());
     assert!(to_s.len() > 1_200 && oj.len() > 1_200);
@@ -30,13 +30,13 @@ fn a_float_prints_as_ruby_prints_it_and_as_rails_json_does() {
         .chain(oj.iter().filter(|c| oj_float(float(&c[0])) != c[1].as_str().unwrap()).map(|c| format!("json {c} gave {}", oj_float(float(&c[0])))))
         .collect();
     assert!(wrong.is_empty(), "{} differ:\n{}", wrong.len(), wrong[..wrong.len().min(10)].join("\n"));
-    // The fallback is exercised, and so is the loss: sixteen digits are not always the double Rails computed.
+    // The fallback is exercised, and so is the loss: sixteen digits are not always the double 2.x computed.
     assert!(oj.iter().any(|c| c[1].as_str().unwrap().len() > 17 && float_to_s(float(&c[0])) == c[1].as_str().unwrap()));
     assert!(oj.iter().any(|c| c[1].as_str().unwrap().parse::<f64>().unwrap() != float(&c[0])), "no vector shows the sixteen-digit loss");
 }
 
 #[test]
-fn every_recorded_operation_keeps_rubys_value_and_kind() {
+fn every_recorded_operation_keeps_v2s_value_and_kind() {
     let v = vectors();
     let cases = v["num"].as_array().unwrap();
     assert_eq!(cases.len(), 11_200);
@@ -50,7 +50,7 @@ fn every_recorded_operation_keeps_rubys_value_and_kind() {
             other => panic!("unknown op {other}"),
         };
         let got = match &got { Ok(n) => tagged(n), Err(_) => serde_json::json!({ "raise": "not a number" }) };
-        // Ruby's BigDecimal has a negative zero (0 x -1 is -0.0) and Rails prints it: the sign is part of the answer.
+        // 2.x's BigDecimal has a negative zero (0 x -1 is -0.0) and 2.x prints it: the sign is part of the answer.
         if c[3]["d"] == "-0.0" { negative_zeros += 1; }
         if got != c[3] { wrong.push(format!("{c} gave {got}")); }
     }
@@ -59,7 +59,7 @@ fn every_recorded_operation_keeps_rubys_value_and_kind() {
 }
 
 #[test]
-fn predicates_conversions_and_rounding_match_ruby() {
+fn predicates_conversions_and_rounding_match_v2() {
     let v = vectors();
     for c in v["predicates"].as_array().unwrap() {
         let n = num(&c[0]);
@@ -84,7 +84,7 @@ fn j(v: &Value) -> J {
 }
 
 #[test]
-fn json_text_and_times_are_written_as_rails_writes_them() {
+fn json_text_and_times_are_written_as_v2_writes_them() {
     let v = vectors();
     for c in v["json"].as_array().unwrap() { assert_eq!(j(&c[0]).write(), c[1].as_str().unwrap()); }
     let times = v["times"].as_array().unwrap();
@@ -98,7 +98,7 @@ fn json_text_and_times_are_written_as_rails_writes_them() {
         let text = json::time(&at.with_timezone(&zone), c[2].as_u64().unwrap() as usize);
         assert_eq!(J::Str(text).write(), c[3].as_str().unwrap(), "{c}");
     }
-    // A text is read as a number only where it is a clean decimal, and then as String#to_d reads it. What Ruby
+    // A text is read as a number only where it is a clean decimal, and then as String#to_d reads it. What 2.x
     // reads off the front of anything else ("12abc" is 12), and its Infinity and NaN, are no figure here.
     let strings = v["to_d"].as_array().unwrap();
     assert_eq!(strings.len(), 49);
@@ -126,7 +126,7 @@ fn dec(v: &Value) -> Dec { Dec::parse(v.as_str().unwrap()).unwrap() }
 fn opt_dec(v: &Value) -> Option<Dec> { v.as_str().map(|s| Dec::parse(s).unwrap()) }
 
 #[test]
-fn holdings_that_share_a_symbol_get_the_keys_rails_gives_them() {
+fn holdings_that_share_a_symbol_get_the_keys_v2_gives_them() {
     let v = vectors();
     let cases = v["holding_keys"].as_array().unwrap();
     assert_eq!(cases.len(), 200);
@@ -146,7 +146,7 @@ fn holdings_that_share_a_symbol_get_the_keys_rails_gives_them() {
 fn lot_list(v: &Value) -> Lots { v.as_array().unwrap().iter().map(|l| Lot { amount: dec(&l[0]), cost: opt_dec(&l[1]) }).collect() }
 
 #[test]
-fn tax_lots_cost_lose_shrink_and_split_as_rails_computes_them() {
+fn tax_lots_cost_lose_shrink_and_split_as_v2_computes_them() {
     let v = vectors();
     let cases = v["tax_lots"].as_array().unwrap();
     assert_eq!(cases.len(), 300);
@@ -172,7 +172,7 @@ fn tax_lots_cost_lose_shrink_and_split_as_rails_computes_them() {
 }
 
 #[test]
-fn every_kind_of_fill_moves_the_books_as_rails_moves_them() {
+fn every_kind_of_fill_moves_the_books_as_v2_moves_them() {
     let v = vectors();
     let histories = v["books"].as_array().unwrap();
     assert_eq!(histories.len(), 250);
@@ -208,7 +208,7 @@ fn every_kind_of_fill_moves_the_books_as_rails_moves_them() {
     assert_eq!(branches.len(), 7, "every branch is met: {branches:?}");
 }
 
-// ---- the walk: how a row is read, a split ratio, the profit ratio, and the pin of the Ruby being mirrored ----
+// ---- the walk: how a row is read, a split ratio, the profit ratio, and the pin of the 2.x being mirrored ----
 
 use deltabadger::figures::db::Order;
 use deltabadger::figures::{splits, walk};
@@ -262,7 +262,7 @@ fn an_order_row_is_read_as_filled_only_when_it_is_closed() {
 }
 
 #[test]
-fn a_split_ratio_is_read_as_rails_reads_it_or_not_at_all() {
+fn a_split_ratio_is_read_as_v2_reads_it_or_not_at_all() {
     let v = vectors();
     let cases = v["split_factor"].as_array().unwrap();
     assert_eq!(cases.len(), 36);
@@ -274,7 +274,7 @@ fn a_split_ratio_is_read_as_rails_reads_it_or_not_at_all() {
 }
 
 #[test]
-fn the_profit_ratio_is_rubys_float_or_bigdecimal_as_rails_computes_it() {
+fn the_profit_ratio_is_v2s_float_or_bigdecimal_as_v2_computes_it() {
     let v = vectors();
     let cases = v["pnl"].as_array().unwrap();
     assert_eq!(cases.len(), 8);
@@ -292,7 +292,7 @@ use deltabadger::figures::chart::{self, BuyMark};
 use deltabadger::figures::walk::Chart;
 
 #[test]
-fn the_candle_timeframe_follows_the_bots_age_as_rails_picks_it() {
+fn the_candle_timeframe_follows_the_bots_age_as_v2_picks_it() {
     let v = vectors();
     let frames = v["timeframes"].as_array().unwrap();
     assert_eq!(frames.len(), 17);
@@ -302,7 +302,7 @@ fn the_candle_timeframe_follows_the_bots_age_as_rails_picks_it() {
 fn marks(v: &Value) -> Vec<(At, Dec)> { v.as_array().unwrap().iter().map(|m| (At(m[0].as_i64().unwrap()), dec(&m[1]))).collect() }
 
 #[test]
-fn a_price_grid_is_read_between_its_marks_as_rails_reads_it() {
+fn a_price_grid_is_read_between_its_marks_as_v2_reads_it() {
     let v = vectors();
     let cases = v["grid_price"].as_array().unwrap();
     assert_eq!(cases.len(), 120);
@@ -322,7 +322,7 @@ fn a_price_grid_is_read_between_its_marks_as_rails_reads_it() {
 }
 
 #[test]
-fn buy_marks_are_thinned_and_summed_as_rails_thins_them() {
+fn buy_marks_are_thinned_and_summed_as_v2_thins_them() {
     let v = vectors();
     let cases = v["thinned_marks"].as_array().unwrap();
     assert_eq!(cases.len(), 11);
@@ -339,7 +339,7 @@ fn buy_marks_are_thinned_and_summed_as_rails_thins_them() {
 }
 
 #[test]
-fn a_chart_is_marked_at_market_point_for_point_as_rails_marks_it() {
+fn a_chart_is_marked_at_market_point_for_point_as_v2_marks_it() {
     let v = vectors();
     let cases = v["marked_at_market"].as_array().unwrap();
     assert_eq!(cases.len(), 60);
@@ -379,7 +379,7 @@ use deltabadger::figures::totals;
 fn bits(f: f64) -> String { format!("{:016x}", f.to_bits()) }
 
 #[test]
-fn the_accounts_history_is_resampled_column_for_column_as_rails_resamples_it() {
+fn the_accounts_history_is_resampled_column_for_column_as_v2_resamples_it() {
     let v = vectors();
     let cases = v["pnl_history"].as_array().unwrap();
     assert_eq!(cases.len(), 53);
@@ -443,7 +443,7 @@ fn the_totals_are_of_every_bot_of_the_account_or_not_computed() {
     }
 
     // A second bot that has traded and brought no figures: the total is not computed, never the first bot's alone.
-    // The snapshot reads it as Rails reads a bot with nothing cached yet: loading.
+    // The snapshot reads it as 2.x reads a bot with nothing cached yet: loading.
     let (pnl, snapshot, history) = all(&[part(1, Ok(Some(&figures))), part(2, Ok(None))]);
     not_computed(&pnl, "bot 2 has traded and has no figures");
     assert_eq!(snapshot.unwrap(), (None, true));
@@ -456,7 +456,7 @@ fn the_totals_are_of_every_bot_of_the_account_or_not_computed() {
         for result in [&pnl as &dyn std::fmt::Debug, &snapshot, &history] { not_computed(result, "a value that is not a finite decimal number"); }
     }
 
-    // A bot whose figures Rails raised computing: the total raises it, the snapshot is loading, as in Rails.
+    // A bot whose figures 2.x raised computing: the total raises it, the snapshot is loading, as in 2.x.
     let raised = Absent::Raised("Client::TransientNetworkError: refused".into());
     let (pnl, snapshot, history) = all(&[part(1, Ok(Some(&figures))), part(2, Err(&raised))]);
     assert!(matches!(pnl, Err(FiguresError::Raised(_))) && matches!(history, Err(FiguresError::Raised(_))));

@@ -1,9 +1,9 @@
 //! The Kraken adapter (venue::kraken) over recorded bodies, its signer against the legacy gem's own output, and the
-//! per-venue dispatch and proxy (venue::live). Rails-free: no install, no network beyond local wiremock servers.
+//! per-venue dispatch and proxy (venue::live). 2.x-free: no install, no network beyond local wiremock servers.
 use deltabadger::crypto::Credentials;
 use deltabadger::engine::model::Ticker;
 use deltabadger::engine::venue_rules::KRAKEN;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::http::{self, ReqwestTransport, ScriptedTransport};
 use deltabadger::venue::kraken::{self, KrakenVenue};
 use deltabadger::venue::live::LiveVenue;
@@ -79,7 +79,7 @@ async fn a_limit_buy_sends_its_price_and_no_oflags() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn placement_answers_map_to_rails_ambiguity_rules() {
+async fn placement_answers_map_to_v2_ambiguity_rules() {
     let cases: Vec<(Value, Result<String, VenueError>)> = vec![
         // Kraken's own refusal: Rejected with its error array (the engine applies VenueRules::add_outcome_unknown).
         (ok(json!({ "error": ["EOrder:Insufficient funds"] })), Err(VenueError::Rejected(vec!["EOrder:Insufficient funds".into()]))),
@@ -116,7 +116,7 @@ async fn prices_read_the_first_ticker_entry_and_refuse_a_zero_book() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn orders_query_the_ids_joined_and_parse_as_rails() {
+async fn orders_query_the_ids_joined_and_parse_as_v2() {
     let (t, v) = venue(json!({ "POST /0/private/QueryOrders": ok(json!({ "error": [], "result": { "O1": raw_order("closed", "x"), "OTHER": raw_order("open", "y") } })) }));
     let got = v.orders(&["O1".into(), "O2".into()]).await.unwrap();
     assert_eq!(got.len(), 1);

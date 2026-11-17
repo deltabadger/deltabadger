@@ -1,6 +1,6 @@
 //! PLAN-A23: a legacy single-asset bot (Bots::DcaSingleAsset), and a basket a stale single-asset save clobbered, becomes a
-//! one-asset basket at every start, inside the start's own transaction (set_aside::apply), with the writes of Rails'
-//! Bot::SingleToComposition#convert! (D-SINGLE-AT-START). No Rails process or job outlives the claim, so Rails' two
+//! one-asset basket at every start, inside the start's own transaction (set_aside::apply), with the writes of 2.x's
+//! Bot::SingleToComposition#convert! (D-SINGLE-AT-START). No 2.x process or job outlives the claim, so 2.x's two
 //! quiescence skips (executing, a job in flight) have nothing to wait for (D-SINGLE-QUIET-AT-CLAIM); a working bot on a
 //! ticker its venue no longer trades converts (D-SINGLE-UNTRADEABLE-CONVERTS), and so does one whose condition watches
 //! another ticker (D-SINGLE-CONDITION-CONVERTS). What can't be converted stays as it is, and eligibility names it to its
@@ -19,7 +19,7 @@ const CLOBBERED: &str = "type = 'Bots::DcaMultiAsset' \
     AND CASE WHEN json_valid(settings) THEN json_extract(settings, '$.base_asset_id') END IS NOT NULL \
     AND CASE WHEN json_valid(settings) THEN json_type(settings, '$.allocations') END IS NOT 'object'";
 
-/// Why a legacy row is not converted (Rails' preflight reasons that survive a takeover, plan §4).
+/// Why a legacy row is not converted (2.x's preflight reasons that survive a takeover, plan §4).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Skip {
     /// missing assets, missing exchange, missing asset rows; settings that aren't an object or ids that aren't ids.
@@ -91,7 +91,7 @@ fn readable(loaded: Result<Bot, EngineError>) -> Result<Option<Bot>, EngineError
 }
 
 /// Bot::SingleToComposition.preflight, less what no longer holds a row back after the claim (executing, a job in flight, an
-/// untradeable ticker, a condition on another ticker). Data never errors here: what Ruby can't read is `Skip::Settings`.
+/// untradeable ticker, a condition on another ticker). Data never errors here: what 2.x can't read is `Skip::Settings`.
 pub fn preflight(c: &Connection, bot: &Bot, repair: bool) -> Result<Result<Conversion, Skip>, EngineError> {
     let empty = Map::new();
     let settings = bot.settings.as_object().unwrap_or(&empty);
@@ -120,11 +120,11 @@ pub fn preflight(c: &Connection, bot: &Bot, repair: bool) -> Result<Result<Conve
     Ok(Ok(Conversion { base, ticker, entered }))
 }
 
-/// Ruby's `to_i` on a settings value; None where Ruby raises (true, an array, a hash).
+/// 2.x's `to_i` on a settings value; None where 2.x raises (true, an array, a hash).
 fn to_i(v: Option<&Value>) -> Option<i64> {
     match v {
         None | Some(Value::Null) => Some(0),
-        Some(Value::String(s)) => Some(crate::ruby::to_i(s)),
+        Some(Value::String(s)) => Some(crate::v2::to_i(s)),
         Some(Value::Number(n)) => n.as_i64().or_else(|| n.as_f64().filter(|f| f.abs() < 9.2e18).map(|f| f.trunc() as i64)),
         _ => None,
     }
@@ -166,7 +166,7 @@ fn convert(tx: &Connection, bot: &Bot, from: &str, plan: Conversion, now: DateTi
         return Ok(true);
     };
     let mut set: Vec<(&str, Sql)> = vec![];
-    let integer = |v: &Sql| match v { Sql::Integer(i) => Some(*i), Sql::Real(f) => Some(f.trunc() as i64), Sql::Text(s) => Some(crate::ruby::to_i(s)), _ => None };
+    let integer = |v: &Sql| match v { Sql::Integer(i) => Some(*i), Sql::Real(f) => Some(f.trunc() as i64), Sql::Text(s) => Some(crate::v2::to_i(s)), _ => None };
     if integer(&ticker) != Some(plan.ticker) { set.push(("ticker_id", Sql::Integer(plan.ticker))); }
     // decimal(10,6): ActiveRecord casts to six places before it compares (0.9999999 reads 1.0).
     let six = |f: f64| (f * 1e6).round() == 1e6;

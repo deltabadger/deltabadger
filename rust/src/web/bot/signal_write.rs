@@ -5,7 +5,7 @@
 use super::{action_params::ActionParams, action_view, draft::{Draft, FieldError}, page, signal, status, write::{self, Action, Failure, Outcome}, Bot, For, Kind};
 use crate::engine::{eligibility, model::{self, Level, SIGNAL_TYPE}};
 use crate::enums::BotStatus;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::web::bot_api::Shown;
 use crate::web::{auth, bots, flash, i18n::{self, Arg}, layout::{self, Ctx}, turbo, App, WebError};
 use axum::{extract::{Extension, Path, State}, http::{header, HeaderMap, StatusCode}, response::{IntoResponse, Response}};
@@ -40,11 +40,11 @@ fn head_ok() -> Response { (StatusCode::OK, [(header::CONTENT_TYPE, "text/vnd.tu
 pub(crate) fn sentence(errors: &[FieldError]) -> String {
     let mut fields: Vec<&str> = vec![];
     for e in errors { if !fields.contains(&e.field.as_str()) { fields.push(&e.field); } }
-    crate::ruby::to_sentence(&fields.iter().flat_map(|f| errors.iter().filter(move |e| e.field == *f).map(|e| e.message.clone())).collect::<Vec<_>>())
+    crate::v2::to_sentence(&fields.iter().flat_map(|f| errors.iter().filter(move |e| e.field == *f).map(|e| e.message.clone())).collect::<Vec<_>>())
 }
 
 /// An ActiveModel error's message, looked up as `errors.add(field, code)` looks it up for a Bots::Signal (a missing
-/// translation is Rails' own text for it).
+/// translation is 2.x's own text for it).
 pub(crate) fn model_message(locale: &str, field: &str, code: &str) -> String {
     let keys = [format!("activerecord.errors.models.bots/signal.attributes.{field}.{code}"), format!("activerecord.errors.models.bots/signal.{code}"),
                 format!("activerecord.errors.models.bot.attributes.{field}.{code}"), format!("activerecord.errors.models.bot.{code}"),
@@ -61,7 +61,7 @@ pub fn is_signal(c: &Connection, owner: i64, id: i64) -> Result<bool, WebError> 
     Ok(class.flatten().as_deref() == Some(SIGNAL_TYPE))
 }
 
-/// The signal writes whose parameters a JSON body carries, as Rails parses one for any route: a rule's update and a Resolve.
+/// The signal writes whose parameters a JSON body carries, as 2.x parses one for any route: a rule's update and a Resolve.
 pub fn reads_json(path: &str, method: &axum::http::Method) -> bool {
     let Some((bot, rest)) = path.strip_prefix("/bots/").and_then(|rest| rest.split_once('/')) else { return false };
     if super::id_from_path(bot).is_none() { return false; }
@@ -164,7 +164,7 @@ fn rule_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: RuleOp, params
     ctx.now = ctx.app.now();
     let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale)? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
     let csrf = ctx.csrf_token();
-    // refuse_while_running (Rails R8b): a stale tab's rule write on a running bot changes nothing.
+    // refuse_while_running (2.x R8b): a stale tab's rule write on a running bot changes nothing.
     if bot.working() {
         let body = alert(i18n::text(ctx.locale, "errors.bots.signal_locked_while_running", &[]))? + &settings_stream(&tx, &ctx, &csrf, &bot, base_url)?;
         return Ok(Answer::Done(action_view::response(body, true)));
@@ -190,7 +190,7 @@ fn rule_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: RuleOp, params
             let casts = [("direction", ["buy", "sell"]), ("amount_type", ["fixed", "percentage"])].map(|(key, names)| (key, enum_value(&fields, key, names)));
             // Every attribute is assigned before any is validated: an unknown value raises first.
             if let Some((key, _)) = casts.iter().find(|(_, cast)| matches!(cast, Cast::Raises)) {
-                return Err(WebError::Config(format!("bot_signals {}: {key} is not one Rails knows", current.id)));
+                return Err(WebError::Config(format!("bot_signals {}: {key} is not one 2.x knows", current.id)));
             }
             let mut null_amount_type = false;
             for (key, cast) in casts {
@@ -287,7 +287,7 @@ pub async fn destroy_rule(State(app): State<App>, Extension(ctx): Extension<Ctx>
 enum Resolved { Lifted(Vec<(String, String)>), Stale, Refused(String), Other(Answer) }
 
 /// POST /bots/:bot_id/signal_resolution with `marker_id`: the user says they checked the venue. The marker it names is
-/// lifted, with its activity line, and nothing is written to the ledger (plan §R12, the rows Rails has). A marker this
+/// lifted, with its activity line, and nothing is written to the ledger (plan §R12, the rows 2.x has). A marker this
 /// build's engine left beside its own unsettled order is the engine's recovery to settle, so that Resolve changes nothing
 /// either (named divergence: the placed / not-placed choice of §R12's last rows has no form yet).
 pub async fn resolve(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>, headers: HeaderMap) -> Result<Response, WebError> {
@@ -403,7 +403,7 @@ fn settings_core(tx: &Connection, ctx: &Ctx, owner: i64, bot: &Bot, fields: &Map
     let label_changed = label.as_ref().is_some_and(|l| *l != bot.label || bot.label_unsaved);
     let id_of = |key: &str| assets.get(key).or(bot.settings.get(key)).and_then(Value::as_i64);
     let exchange = new_exchange.as_ref().map_or((bot.exchange.id, bot.exchange.name.clone()), |e| e.clone());
-    // The :update validations, in Rails' order.
+    // The :update validations, in 2.x's order.
     let mut errors = vec![];
     if !matches!(bot.status, BotStatus::Stopped | BotStatus::Deleted | BotStatus::Archived) && (new_exchange.is_some() || assets_changed) && !listed(tx, exchange.0, id_of("base_asset_id"), id_of("quote_asset_id"))? {
         errors.push(error("exchange", i18n::text(ctx.locale, "errors.bots.exchange_asset_mismatch", &[("exchange_name", Arg::Text(&exchange.1))])));
@@ -511,7 +511,7 @@ fn settings_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, params: &Actio
 }
 
 /// BotApi::Bots::UpdateSettings on a signal bot (MCP's update_bot_settings, REST's PATCH): its dialect turned into what the
-/// page posts (mcp_input::posted), then the page's own writer (settings_core). Rails' signal bot takes its name and its
+/// page posts (mcp_input::posted), then the page's own writer (settings_core). 2.x's signal bot takes its name and its
 /// venue; here also the rules this build runs on it.
 pub fn settings_service(c: &Connection, ctx: &Ctx, owner: i64, id: i64, submitted: &ActionParams) -> Result<Outcome<Shown>, WebError> {
     let tx = model::immediate(c)?;
@@ -560,7 +560,7 @@ fn listed(c: &Connection, exchange: i64, base: Option<i64>, quote: Option<i64>) 
 // Lifecycle: Bots::Signal#start, #stop, #delete; Bot#archive, #unarchive; Automation::Executable#destroy.
 
 /// `valid?(:start)` with the status assigned `scheduled`: Bot's archived and key checks, Bot::AssetConfigurable's venue
-/// check (always run in the :start context) and Bots::Signal's ticker check, in Rails' order.
+/// check (always run in the :start context) and Bots::Signal's ticker check, in 2.x's order.
 fn start_errors(c: &Connection, locale: &str, bot: &Bot) -> Result<Vec<FieldError>, WebError> {
     let mut errors = vec![];
     if bot.status == BotStatus::Archived { errors.push(error("status", i18n::text(locale, "errors.bots.archived", &[]))); }
@@ -670,11 +670,11 @@ fn lifecycle_write(c: &Connection, locale: &str, heard: &Ctx, bot: &Bot, action:
 pub fn insert_created(c: &Connection, owner: i64, exchange: i64, settings: &Value, label: Option<&str>, rules: &[NewRule], locale: &str, now: chrono::DateTime<chrono::Utc>) -> Result<i64, WebError> {
     let at = crate::codec::format_time(now);
     let base = settings.get("base_asset_id").and_then(Value::as_i64);
-    let label = match label.filter(|l| !crate::ruby::blank(l)) {
+    let label = match label.filter(|l| !crate::v2::blank(l)) {
         Some(label) => label.to_string(),
         None => {
             let name: Option<String> = c.query_row("SELECT name FROM assets WHERE id = ?1", [base], |r| r.get(0)).optional()?.flatten();
-            name.filter(|n| !crate::ruby::blank(n)).unwrap_or_else(|| i18n::text(locale, "bot.new", &[]))
+            name.filter(|n| !crate::v2::blank(n)).unwrap_or_else(|| i18n::text(locale, "bot.new", &[]))
         }
     };
     let position: i64 = c.query_row("SELECT COALESCE(MAX(position), 0) + 1 FROM bots WHERE user_id = ?1", [owner], |r| r.get(0))?;
@@ -690,7 +690,7 @@ pub fn insert_created(c: &Connection, owner: i64, exchange: i64, settings: &Valu
     Ok(id)
 }
 
-/// A rule `insert_created` saves: validated already, its amount as Rails stores it.
+/// A rule `insert_created` saves: validated already, its amount as 2.x stores it.
 pub struct NewRule { pub sell: bool, pub percentage: bool, pub amount: String, pub enabled: bool }
 
 /// What starting a bot the wizard has just saved came to (Bots::Wizard::CreatesController#create: `save && start(start_fresh: true)`).
@@ -850,7 +850,7 @@ mod tests {
         assert_eq!(token.len(), 43);
     }
 
-    /// EnumType#cast and #assert_valid_value: a name or a mapped value (Ruby's `==`: 1 and 1.0) assigns, a blank (nil,
+    /// EnumType#cast and #assert_valid_value: a name or a mapped value (2.x's `==`: 1 and 1.0) assigns, a blank (nil,
     /// false, "  ") is nil, and anything else raises, the text "1" and `true` among them.
     #[test]
     fn a_rule_enum_takes_a_name_or_a_mapped_number() {

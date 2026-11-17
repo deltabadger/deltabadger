@@ -5,7 +5,7 @@
 //!   scrubbed of credentials, and only that one field leaves it (`AccountId`, whose Debug prints nothing).
 //! - It is stored as a fingerprint (an HMAC under the install's `rust_account_identity_key_v1`) and encrypted in the
 //!   credential envelope; never in plain text, never in a log.
-//! - Rails' encryption reset deletes every app_configs row: a missing (or unreadable) identity key while accounts exist
+//! - 2.x's encryption reset deletes every app_configs row: a missing (or unreadable) identity key while accounts exist
 //!   is that reset, and every fingerprint and observation is cleared before a new key is stored (`key`).
 //! - Conflicts are never stored: they are derived when read (`standing`, `credential_standing`).
 use crate::codec::{format_time, parse_time};
@@ -183,7 +183,7 @@ pub fn key(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Identi
     Ok(IdentityKey(bytes))
 }
 
-/// At startup: a reset Rails made while Rust was stopped is handled before anything is recorded. Writes nothing on an
+/// At startup: a reset 2.x made while Rust was stopped is handled before anything is recorded. Writes nothing on an
 /// install with a readable key or with no accounts.
 pub fn initialize(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<(), String> {
     if !ready(c).map_err(|e| e.to_string())? || existing_key(c, cipher).is_some() { return Ok(()); }

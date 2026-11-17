@@ -1,5 +1,5 @@
 //! The comparisons the schema and seed tests share: tests/schema_baseline.rs's T1 snapshot and next ids, and
-//! tests/seeds.rs's dump of every row (record_seeds.rb's `dump`).
+//! tests/seeds.rs's dump of every row (the recording harness's `dump`).
 use rusqlite::{types::Value, Connection};
 use std::collections::BTreeMap;
 
@@ -23,7 +23,7 @@ pub fn tables(c: &Connection) -> Vec<String> { texts(c, "SELECT name FROM sqlite
 /// Everything T1 compares, by section, so a difference names its table.
 pub fn snapshot(c: &Connection) -> BTreeMap<String, Rows> {
     let mut s = BTreeMap::new();
-    // By (type, name), not rowid: Rails rebuilds tables for their foreign keys, so its rowid order differs.
+    // By (type, name), not rowid: 2.x rebuilds tables for their foreign keys, so its rowid order differs.
     s.insert("sqlite_master".into(), rows(c, "SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY type, name"));
     for pragma in ["journal_mode", "page_size", "auto_vacuum", "encoding", "user_version", "application_id"] {
         s.insert(format!("pragma {pragma}"), rows(c, &format!("PRAGMA {pragma}")));
@@ -36,7 +36,7 @@ pub fn snapshot(c: &Connection) -> BTreeMap<String, Rows> {
         for index in texts(c, &format!("SELECT name FROM pragma_index_list({arg})")) {
             s.insert(format!("{t}: index_xinfo {index}"), rows(c, &format!("SELECT * FROM pragma_index_xinfo({})", lit(&index))));
         }
-        // applied_at is Utc::now; ar_internal_metadata's value and timestamps depend on the RAILS_ENV and the clock.
+        // applied_at is Utc::now; ar_internal_metadata's value and timestamps depend on 2.x's environment and the clock.
         let select = match t.as_str() {
             "rust_schema_migrations" => "rowid, version",
             "ar_internal_metadata" => "rowid, key",
@@ -68,7 +68,7 @@ pub fn next_ids(c: &Connection) -> BTreeMap<String, i64> {
 
 pub type Tables = BTreeMap<String, Vec<Vec<Option<String>>>>;
 
-/// record_seeds.rb's `cell`: "<typeof>:<text>", a real as its IEEE-754 bits (SQLite's printf differs between versions).
+/// The recording harness's `cell`: "<typeof>:<text>", a real as its IEEE-754 bits (SQLite's printf differs between versions).
 fn cell(v: rusqlite::types::Value) -> Option<String> {
     use rusqlite::types::Value as V;
     match v {
@@ -80,7 +80,7 @@ fn cell(v: rusqlite::types::Value) -> Option<String> {
     }
 }
 
-/// The recorder's dump (record_seeds.rb `dump`): every table, rowid first, each cell by `cell`, app_configs.value
+/// The recorder's dump (`dump`): every table, rowid first, each cell by `cell`, app_configs.value
 /// decrypted (Rust's plain rust_* rows as stored), ar_internal_metadata without the baseline's stamps.
 pub fn dump(c: &Connection) -> Tables {
     let cipher = super::seed::cipher();
@@ -100,7 +100,7 @@ pub fn dump(c: &Connection) -> Tables {
             for r in &mut rows {
                 // Rust's own rows (rust_*) are plain by design (lease::TAKEN_OVER_AT, jobs::state).
                 if r[key].as_deref().is_some_and(|k| k.starts_with("text:rust_")) { continue; }
-                // Encrypted as Rails writes it (an envelope; decrypt alone would pass a plain value through).
+                // Encrypted as 2.x writes it (an envelope; decrypt alone would pass a plain value through).
                 r[at] = r[at].take().map(|v| {
                     let stored = v.strip_prefix("text:").unwrap();
                     assert!(stored.starts_with("{\"p\":") && stored.contains("\"iv\""), "app_configs.value is not encrypted: {stored}");

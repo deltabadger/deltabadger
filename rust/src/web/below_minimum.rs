@@ -1,4 +1,4 @@
-//! Rails' first-own-tick modal. No request data, new route or session token enters a broadcast.
+//! 2.x's first-own-tick modal. No request data, new route or session token enters a broadcast.
 use super::{App,WebError,i18n::{self,Arg},turbo};
 use askama::Template;
 use rusqlite::{Connection,params,OptionalExtension};
@@ -13,7 +13,7 @@ pub fn render(c:&Connection,bot_id:i64,ids:&[i64])->Result<(String,String),WebEr
     let count=i64::try_from(ids.len()).map_err(|_|WebError::Config("warning row count".into()))?;
     let intro=if let [id]=ids {
         let (base,quote):(String,String)=c.query_row("SELECT coalesce(a.symbol,t.base),coalesce(q.symbol,t.quote) FROM transactions t LEFT JOIN assets a ON a.id=t.base_asset_id LEFT JOIN assets q ON q.id=t.quote_asset_id WHERE t.bot_id=?1 AND t.id=?2",params![bot_id,id],|r|Ok((r.get(0)?,r.get(1)?)))?;
-        let minimums=c.query_row("SELECT k.minimum_base_size,k.minimum_quote_size FROM tickers k JOIN transactions t ON k.exchange_id=t.exchange_id AND k.base_asset_id=t.base_asset_id AND k.quote_asset_id=t.quote_asset_id WHERE t.bot_id=?1 AND t.id=?2 ORDER BY k.id LIMIT 1",params![bot_id,id],|r|Ok((crate::ruby::from_sql(r.get_ref(0)?).map_err(|_|rusqlite::Error::InvalidQuery)?,crate::ruby::from_sql(r.get_ref(1)?).map_err(|_|rusqlite::Error::InvalidQuery)?))).optional()?;
+        let minimums=c.query_row("SELECT k.minimum_base_size,k.minimum_quote_size FROM tickers k JOIN transactions t ON k.exchange_id=t.exchange_id AND k.base_asset_id=t.base_asset_id AND k.quote_asset_id=t.quote_asset_id WHERE t.bot_id=?1 AND t.id=?2 ORDER BY k.id LIMIT 1",params![bot_id,id],|r|Ok((crate::v2::from_sql(r.get_ref(0)?).map_err(|_|rusqlite::Error::InvalidQuery)?,crate::v2::from_sql(r.get_ref(1)?).map_err(|_|rusqlite::Error::InvalidQuery)?))).optional()?;
         let (min_base,min_quote)=minimums.unwrap_or((None,None));
         let min_base=min_base.map(|v|v.to_s_f()).unwrap_or_default();let min_quote=min_quote.map(|v|v.to_s_f()).unwrap_or_default();
         i18n::t(locale,"bot.warning.dca_single_asset.intro",&[("quote_symbol",Arg::Text(&quote)),("missed_symbol",Arg::Text(&base)),("missed_minimum_base_size",Arg::Text(&min_base)),("missed_minimum_quote_size",Arg::Text(&min_quote)),("exchange_name",Arg::Text(&exchange))])

@@ -14,7 +14,7 @@ fn refusal(p: &Paths) -> StoreError {
 }
 
 #[test]
-fn paths_follow_rails_env_names_with_storage_defaults() {
+fn paths_follow_v2_env_names_with_storage_defaults() {
     let p = Paths::from_env(&|k| (k == "QUEUE_DATABASE_PATH").then(|| "/q/queue.sqlite3".to_string()), Path::new("/data"));
     assert_eq!(p.primary, Path::new("/data/production.sqlite3"));
     assert_eq!(p.queue, Path::new("/q/queue.sqlite3"));
@@ -22,8 +22,8 @@ fn paths_follow_rails_env_names_with_storage_defaults() {
 }
 
 #[test]
-fn an_install_rails_prepared_is_accepted_and_opened_read_write() {
-    let dir = common::rails_install();
+fn an_install_v2_prepared_is_accepted_and_opened_read_write() {
+    let dir = common::v2_install();
     let p = paths(dir.path());
     store::check(&p).unwrap();
     let o = store::open(&p).unwrap();
@@ -35,7 +35,7 @@ fn an_install_rails_prepared_is_accepted_and_opened_read_write() {
 #[test]
 fn a_missing_or_empty_database_is_refused_and_never_created() {
     for victim in ["production.sqlite3", "production_queue.sqlite3"] {
-        let dir = common::rails_install();
+        let dir = common::v2_install();
         let path = dir.path().join(victim);
         std::fs::remove_file(&path).unwrap();
         assert!(matches!(refusal(&paths(dir.path())), StoreError::Missing { path: ref m } if *m == path), "{victim}");
@@ -49,7 +49,7 @@ fn a_missing_or_empty_database_is_refused_and_never_created() {
 #[test]
 fn a_foreign_sqlite_file_is_refused_and_preserved() {
     for victim in ["production.sqlite3", "production_queue.sqlite3"] {
-        let dir = common::rails_install();
+        let dir = common::v2_install();
         let path = dir.path().join(victim);
         std::fs::remove_file(&path).unwrap();
         exec(&path, "CREATE TABLE sentinel (v text); INSERT INTO sentinel VALUES ('keep');");
@@ -60,8 +60,8 @@ fn a_foreign_sqlite_file_is_refused_and_preserved() {
 }
 
 #[test]
-fn a_database_rails_has_not_fully_migrated_is_behind() {
-    let dir = common::rails_install();
+fn a_database_v2_has_not_fully_migrated_is_behind() {
+    let dir = common::v2_install();
     let p = paths(dir.path());
     let last = *MIGRATIONS.last().unwrap();
     exec(&p.primary, &format!("DELETE FROM schema_migrations WHERE version = '{last}'"));
@@ -70,7 +70,7 @@ fn a_database_rails_has_not_fully_migrated_is_behind() {
 
 #[test]
 fn a_migration_this_build_does_not_know_is_unsupported_and_nothing_is_written() {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let p = paths(dir.path());
     exec(&p.primary, "INSERT INTO schema_migrations VALUES ('29991231000000')");
     let before = std::fs::read(&p.primary).unwrap();
@@ -80,7 +80,7 @@ fn a_migration_this_build_does_not_know_is_unsupported_and_nothing_is_written() 
 
 #[test]
 fn missing_and_unknown_migrations_together_are_a_diverged_history() {
-    let dir = common::rails_install();
+    let dir = common::v2_install();
     let p = paths(dir.path());
     let first = MIGRATIONS[0];
     exec(&p.primary, &format!("DELETE FROM schema_migrations WHERE version = '{first}'; INSERT INTO schema_migrations VALUES ('29991231000000');"));
@@ -104,7 +104,7 @@ fn a_table_rust_uses_that_differs_in_structure_is_incompatible() {
         ("queue column", true, "ALTER TABLE solid_queue_processes RENAME COLUMN last_heartbeat_at TO heartbeat", "solid_queue_processes.last_heartbeat_at"),
     ];
     for (name, in_queue, sql, named) in cases {
-        let dir = common::rails_install();
+        let dir = common::v2_install();
         let p = paths(dir.path());
         exec(if in_queue { &p.queue } else { &p.primary }, sql);
         match refusal(&p) {
@@ -116,9 +116,9 @@ fn a_table_rust_uses_that_differs_in_structure_is_incompatible() {
 
 // --- B2-4: store::backup (PLAN-B2 r3.4) ---
 
-/// A 2.x install's two files at `p` (each made from the Rails template).
+/// A 2.x install's two files at `p` (each made from the 2.x template).
 fn install_at(p: &Paths) {
-    let template = common::rails_install_unmigrated();
+    let template = common::v2_install_unmigrated();
     for (from, to) in [("production.sqlite3", &p.primary), ("production_queue.sqlite3", &p.queue)] {
         std::fs::create_dir_all(to.parent().unwrap()).unwrap();
         std::fs::copy(template.path().join(from), to).unwrap();

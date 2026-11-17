@@ -1,8 +1,8 @@
-//! The `(:locale)` route scope: config/routes.rb, ApplicationController#switch_locale and
+//! The `(:locale)` route scope: 2.x's routes, ApplicationController#switch_locale and
 //! #default_url_options, and LocaleHelper#locale_switch_path.
 use std::collections::hash_map::{Entry, HashMap};
 
-/// config.i18n.available_locales, in Rails' order (pinned by tests/locale.rs).
+/// config.i18n.available_locales, in 2.x's order (pinned by tests/locale.rs).
 pub const LOCALES: [&str; 15] = ["en", "pl", "es", "de", "nl", "fr", "pt", "ru", "it", "bg", "el", "sv", "da", "cs", "sk"];
 pub const DEFAULT: &str = "en";
 
@@ -32,7 +32,7 @@ pub fn switch(param: Option<&str>, user: Option<&str>) -> &'static str {
     param.filter(|p| !p.is_empty()).or(user).and_then(known).unwrap_or(DEFAULT)
 }
 
-/// A path as Rails' route helpers generate it under default_url_options: prefixed for every locale
+/// A path as 2.x's route helpers generate it under default_url_options: prefixed for every locale
 /// but the default. `path` starts with `/` and may carry a query string.
 pub fn path(locale: &str, path: &str) -> String {
     if locale == DEFAULT {
@@ -63,7 +63,7 @@ pub fn sensitive_query(key: &str) -> bool {
     key.split(['[', ']']).any(|part| SENSITIVE.iter().any(|secret| part.eq_ignore_ascii_case(secret)))
 }
 
-/// Ruby's CGI.escape, which `to_query` uses: letters, digits and `_.-~` stay, a space is `+`.
+/// 2.x's CGI.escape, which `to_query` uses: letters, digits and `_.-~` stay, a space is `+`.
 fn cgi_escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for byte in text.bytes() {

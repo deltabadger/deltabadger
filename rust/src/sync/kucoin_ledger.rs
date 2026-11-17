@@ -1,9 +1,9 @@
 //! AccountTransaction::SyncJob for a KuCoin key (plan K6): Exchanges::Kucoin#get_ledger (fills in weekly windows, SUCCESS
 //! deposits and withdrawals), then AccountTransactionSync#store! and TransferMatcher.run! as ledger.rs ports them. Read
 //! only: signed GETs. Rows, tx_ids (`<symbol>-<tradeId>`, the transfer's `id` else its `walletTxId`), fees and raw_data
-//! are Rails' (rust/tests/sync_parity.rs, the `kucoin-ledger-` scenarios).
+//! are 2.x's (rust/tests/sync_parity.rs, the `kucoin-ledger-` scenarios).
 //!
-//! As Rails reads it: a fills range answering more than 50,000 rows is halved down to an hour, then the sync fails; a
+//! As 2.x reads it: a fills range answering more than 50,000 rows is halved down to an hour, then the sync fails; a
 //! throttled page (429000) is asked again up to 6 times, 10 s apart; any other failed read fails the whole sync, nothing
 //! it read is stored and the watermark stays. Inner (main ↔ trade) transfers are not read: they change no holdings.
 //!
@@ -12,19 +12,19 @@
 //! import's first run began. A short import reads and stores exactly what it did in one run. Every deposits or
 //! withdrawals page after the first asks `endAt` at the first page's newest row (D-KUCOIN-TRANSFER-PIN, see `Walk`).
 //!
-//! Where it reads more strictly than Rails (as binance_ledger does): an unreadable answer or amount fails the sync (Rails
+//! Where it reads more strictly than 2.x (as binance_ledger does): an unreadable answer or amount fails the sync (2.x
 //! stores a garbage amount as 0), and a walk past 10,000 pages fails rather than running on.
 //!
 //! Scheduled as every ledger job is (sync::jobs::LedgerSync, KuCoin's registry row has a `ledger`), through ExchangeProxy.for('kucoin').
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
-use super::binance_ledger::{amount, entry, objects, page_of, ruby_time_at_ms, text, Fail};
+use super::binance_ledger::{amount, entry, objects, page_of, v2_time_at_ms, text, Fail};
 use super::continuation;
 use super::ledger::Outcome;
 use super::{capture_bound_version, load_key_of, phase, Failure, SyncError};
 use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::jobs::Db;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::http::Transport;
 use crate::venue::kucoin::{KucoinVenue, KUCOIN, URL};
 use chrono::Duration;
@@ -46,13 +46,13 @@ pub const THROTTLE_WAIT: std::time::Duration = std::time::Duration::from_secs(10
 pub const OVERLAP_HOURS: i64 = 25;
 const PAGE_SIZE: &str = "500";
 const PAGE_ROWS: usize = 500;
-/// ponytail: Rails has no page cap; one stops a walk a malformed totalPage would never end.
+/// ponytail: 2.x has no page cap; one stops a walk a malformed totalPage would never end.
 const MAX_PAGES: i64 = 10_000;
 pub const MAX_PAGE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_PAGE_NODES: usize = 400_000;
 
 /// `#to_i` of a JSON count (nil.to_i is 0).
-fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_default(), Value::String(s) => crate::ruby::to_i(s), _ => 0 } }
+fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_default(), Value::String(s) => crate::v2::to_i(s), _ => 0 } }
 fn to_s(v: &Value) -> Option<String> { match v { Value::Null => None, Value::String(s) => Some(s.clone()), other => Some(other.to_string()) } }
 /// Exchange#throttled_error? for KuCoin (ERRORS[:throttle]).
 fn throttled(text: &str) -> bool { ["429000", "Too Many Requests"].iter().any(|p| text.contains(p)) }
@@ -110,7 +110,7 @@ pub(crate) fn fill(raw: Raw) -> Result<Entry, Fail> {
     let symbol = raw.value["symbol"].as_str().ok_or_else(|| ("unreadable fill symbol".to_string(), true))?.to_string();
     let mut parts = symbol.split('-');
     let (base, quote) = (parts.next().unwrap_or_default().to_string(), parts.next().map(str::to_string));
-    let at = ruby_time_at_ms(to_i(&raw.value["createdAt"])).ok_or_else(|| ("unreadable fill createdAt".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["createdAt"])).ok_or_else(|| ("unreadable fill createdAt".to_string(), true))?;
     let side = raw.value["side"] == "buy";
     let (size, funds) = (amount(&raw, "size", "fill")?, amount(&raw, "funds", "fill")?);
     let fee = raw.number("fee").map_err(|why| (format!("fill: {why}"), true))?.map(|f| if f < BigDec::zero() { &BigDec::zero() - &f } else { f });
@@ -126,11 +126,11 @@ pub(crate) fn fill(raw: Raw) -> Result<Entry, Fail> {
 /// One deposit or withdrawal: keyed by its record id, else its walletTxId (the on-chain hash a batch shares).
 fn transfer(entry_type: i64, raw: Raw) -> Result<Entry, Fail> {
     let currency = raw.value["currency"].as_str().ok_or_else(|| ("unreadable transfer currency".to_string(), true))?.to_string();
-    let at = ruby_time_at_ms(to_i(&raw.value["createdAt"])).ok_or_else(|| ("unreadable transfer createdAt".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["createdAt"])).ok_or_else(|| ("unreadable transfer createdAt".to_string(), true))?;
     let mut e = entry(entry_type, &currency, amount(&raw, "amount", "transfer")?, &raw, at);
     e.fee_currency = Some(currency);
     e.fee_amount = raw.number("fee").map_err(|why| (format!("transfer: {why}"), true))?;
-    let present = |k: &str| text(raw.value.get(k)).filter(|s| !crate::ruby::blank(s));
+    let present = |k: &str| text(raw.value.get(k)).filter(|s| !crate::v2::blank(s));
     e.tx_id = present("id").or_else(|| present("walletTxId"));
     Ok(e)
 }
@@ -149,13 +149,13 @@ impl Source {
 /// halved down to an hour (`ranges`: the window's ranges still to read, the one being read last), then SUCCESS deposits
 /// and withdrawals since `start`. `page` is the next currentPage of the range or source being read.
 ///
-/// A fills range is bounded at both ends, so its pages hold the same rows in every run. The transfers are not (Rails
+/// A fills range is bounded at both ends, so its pages hold the same rows in every run. The transfers are not (2.x
 /// sends no `endAt`) and come newest first: a transfer arriving between two pages (of one run or of two) pushes rows
-/// already read onto the next page, and Rails stores one without an id or a hash twice, or skips a row once a bound is
-/// applied after the shift. So a transfer source's first page is read as Rails reads it and records `pin`, just past its
+/// already read onto the next page, and 2.x stores one without an id or a hash twice, or skips a row once a bound is
+/// applied after the shift. So a transfer source's first page is read as 2.x reads it and records `pin`, just past its
 /// newest row, and every later page of that source, in this run or a resumed one, asks `endAt` = `pin`: the rows stay
 /// where the first page found them, and what arrives after it is the next import's. Divergence D-KUCOIN-TRANSFER-PIN
-/// (tests/sync_parity.rs): the `endAt` on transfer pages after the first; the rows stored are Rails'.
+/// (tests/sync_parity.rs): the `endAt` on transfer pages after the first; the rows stored are 2.x's.
 struct Walk<'a, T: Transport> {
     transfers: super::pending_transfers::Watch,
     venue: &'a KucoinVenue<T>, wait: std::time::Duration, start: Option<chrono::DateTime<chrono::Utc>>, end: i64,
@@ -292,7 +292,7 @@ impl<T: Transport> Walk<'_, T> {
 
 /// One ledger sync of one KuCoin key, as AccountTransaction::SyncJob#perform runs it, held to the job's deadline
 /// (sync::continuation): a long import goes on over several runs. Idempotent. `wait` is the throttle wait (THROTTLE_WAIT;
-/// the parity harness passes zero, as Rails' harness stubs its sleep).
+/// the parity harness passes zero, as the recording harness stubs 2.x's sleep).
 /// `Ok(Err(failure))`: a fresh import stores nothing it fetched and its watermark is untouched; a resumed one keeps what
 /// earlier runs stored and resumes at the next sync. The key's `last_sync_error` holds why.
 pub async fn sync<T: Transport>(db: &Db, transport: T, key_id: i64, credentials: &Credentials, clock: &dyn Clock, wait: std::time::Duration) -> Result<Result<Outcome, Failure>, SyncError> {
@@ -316,7 +316,7 @@ pub async fn sync_within<T: Transport>(db: &Db, transport: T, key_id: i64, crede
     use crate::venue::kucoin_account::AccountMode;
     let venue = KucoinVenue::new(transport, URL).with_account_context(version.clone(), crate::venue::kucoin_account::Resolver::shared());
     // D-KUCOIN-HF-LEDGER, D-KUCOIN-UTA-LEDGER: the history routes on the detected mode; trading keeps `prepare`'s gate.
-    // HF and UTA accounts, and any history either has marked, are managed; a classic-only one reads as Rails does.
+    // HF and UTA accounts, and any history either has marked, are managed; a classic-only one reads as 2.x does.
     let refused = match venue.account_mode().await {
         Ok(AccountMode::ClassicLf) if !{ let k = key.clone(); phase(db, move |c| super::kucoin_hf::enabled(c, k.user_id, k.exchange_id)).await? } => None,
         Ok(mode) => return sync_managed(db, &version, &venue, key, mode, watermark, credentials, clock, wait, run).await,

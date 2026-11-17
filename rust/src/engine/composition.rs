@@ -106,7 +106,7 @@ pub(crate) fn halt(c: &Connection, bot_id: i64, kind: TxKind, reason: &str, deta
     Ok(true)
 }
 
-/// A Rails-only placing marker survived its worker. Unlike selling_since, it has no timestamp or TTL
+/// A 2.x-only placing marker survived its worker. Unlike selling_since, it has no timestamp or TTL
 /// (LiquidationState#promote_stale_liquidation_placement!); the engine's exclusive ownership permits promotion.
 pub fn promote_orphans(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
     model::locked(c, |c| {
@@ -184,7 +184,7 @@ pub(crate) struct Scan { pub waiting: Vec<(i64,i64)>, pub late: Vec<(i64,i64)> }
 pub(crate) fn scan(c: &Connection, now: DateTime<Utc>) -> Result<Scan,EngineError> {
     let waiting=waiting_rows(c,None,None)?;
     // ponytail: re-read late proceeds for seven days after the terminal update; widen if a venue reports them later.
-    // Rails has no closed_at column: updated_at records the poll that closed/cancelled the row.
+    // 2.x has no closed_at column: updated_at records the poll that closed/cancelled the row.
     let mut s=c.prepare("SELECT bot_id,id FROM transactions WHERE transaction_type IN ('LIQUIDATION','REDEPLOY') AND status=0 AND external_status IN (2,3) AND amount_exec>0 AND COALESCE(quote_amount_exec,0)=0 AND updated_at>=?1 ORDER BY id")?;
     let late=s.query_map([crate::codec::format_time(now-chrono::Duration::days(7))],|r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<_,_>>()?;
     Ok(Scan {waiting,late})
@@ -192,7 +192,7 @@ pub(crate) fn scan(c: &Connection, now: DateTime<Utc>) -> Result<Scan,EngineErro
 
 pub fn selling_request(request: &Value, now: DateTime<Utc>) -> bool {
     // Rust requests remain owned until compare-cleared, including taken requests after a crash.
-    // Rails markers have no holdings; only their page spinner's 15-minute TTL applies.
+    // 2.x markers have no holdings; only their page spinner's 15-minute TTL applies.
     request.is_object() && (request.get("holdings").is_some()
         || request["at"].as_i64().or_else(|| request["at"].as_str()?.parse().ok()).unwrap_or(0) > now.timestamp() - SELLING_TTL_SECONDS)
 }

@@ -1,4 +1,4 @@
-//! The web layer's pure parts, each held to what Rails recorded (tests/fixtures/ruby_vectors.json).
+//! The web layer's pure parts, each held to what 2.x recorded (tests/fixtures/v2_vectors.json).
 mod common;
 #[path = "support/settings_fixture.rs"]
 mod fixture;
@@ -87,7 +87,7 @@ mod locales {
     use deltabadger::web::{locale, normalize_path};
 
     #[test]
-    fn the_locales_are_rails_available_locales() {
+    fn the_locales_are_v2_available_locales() {
         let recorded = &common::vectors()["i18n"];
         assert_eq!(serde_json::json!(locale::LOCALES), recorded["locales"]);
         assert_eq!(locale::DEFAULT, recorded["default"].as_str().unwrap());
@@ -130,7 +130,7 @@ mod locales {
         assert_eq!(locale::switch_path("de", "/login", ""), "/de/login");
         assert_eq!(locale::switch_path("en", "/login", ""), "/en/login", "English is explicit here, unlike a generated path");
         assert_eq!(locale::switch_path("de", "/", ""), "/de");
-        // Recorded from Rails by the login_page_query scenario of tests/pages.rs.
+        // Recorded from 2.x by the login_page_query scenario of tests/pages.rs.
         let given = query(&[("x", "1"), ("host", "evil.example"), ("locale", "de"), ("b", "two words"), ("a[]", "1")]);
         assert_eq!(locale::switch_path("nl", "/login", &locale::switch_query(&given)), "/nl/login?a%5B%5D=1&b=two+words&x=1");
         // Recorded by the login_page_repeated_query_keys scenario: the last value of a repeated key, every value of a list.
@@ -142,7 +142,7 @@ mod locales {
     }
 
     /// LocaleHelper#locale_switch_path drops credentials at any depth and in any letter case
-    /// (test/helpers/locale_helper_test.rb holds the same cases on the Rails side).
+    /// (2.x's own locale helper test holds the same cases).
     #[test]
     fn the_language_switch_drops_credential_parameters() {
         let query = |pairs: &[(&str, &str)]| pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect::<Vec<_>>();
@@ -168,7 +168,7 @@ mod locales {
     }
 
     #[test]
-    fn paths_are_normalised_as_rails_routes_them() {
+    fn paths_are_normalised_as_v2_routes_them() {
         for pair in common::vectors()["rack_attack"]["normalize"].as_array().unwrap() {
             assert_eq!(normalize_path(pair[0].as_str().unwrap()), pair[1].as_str().unwrap());
         }
@@ -183,7 +183,7 @@ mod form_fields {
         pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
     }
 
-    /// Rack keeps the last value of a repeated key. Rails' `check_box` depends on it: a hidden "0",
+    /// Rack keeps the last value of a repeated key. 2.x's `check_box` depends on it: a hidden "0",
     /// then the checkbox's "1" under the same name.
     #[test]
     fn a_repeated_form_field_reads_its_last_value_as_rack_does() {
@@ -194,7 +194,7 @@ mod form_fields {
         assert_eq!(params.form("b"), None);
     }
 
-    /// The query string too: `/login?locale=de&locale=pl` is Polish (Rails' answer is the
+    /// The query string too: `/login?locale=de&locale=pl` is Polish (2.x's answer is the
     /// login_page_repeated_query_keys scenario of tests/pages.rs).
     #[test]
     fn a_repeated_query_key_reads_its_last_value_as_rack_does() {
@@ -234,13 +234,13 @@ mod time_zones {
     use deltabadger::web::timezone;
 
     #[test]
-    fn every_rails_time_zone_name_maps_to_a_zone_chrono_tz_knows() {
+    fn every_v2_time_zone_name_maps_to_a_zone_chrono_tz_knows() {
         let table: serde_json::Map<String, serde_json::Value> = serde_json::from_str(include_str!("../src/web/time_zones.json")).unwrap();
         assert!(table.len() >= 150, "{} names", table.len());
         for (name, iana) in &table {
             assert_eq!(timezone::zone(name).map(|z| z.name()), iana.as_str(), "{name}");
         }
-        assert_eq!(timezone::zone("Europe/Warsaw"), None, "the column holds Rails names, not IANA ids");
+        assert_eq!(timezone::zone("Europe/Warsaw"), None, "the column holds 2.x names, not IANA ids");
         assert_eq!(timezone::local(at("2026-07-01T12:00:00Z"), "Warsaw").to_rfc3339(), "2026-07-01T14:00:00+02:00");
         assert_eq!(timezone::local(at("2026-01-01T12:00:00Z"), "Eastern Time (US & Canada)").to_rfc3339(), "2026-01-01T07:00:00-05:00");
         assert_eq!(timezone::local(at("2026-01-01T12:00:00Z"), "Nowhere").to_rfc3339(), "2026-01-01T12:00:00+00:00");
@@ -320,19 +320,19 @@ mod sessions {
     }
 
     #[test]
-    fn the_cookie_header_is_rails_session_cookie_under_our_name() {
+    fn the_cookie_header_is_v2_session_cookie_under_our_name() {
         let now = at("2026-09-10T12:00:30.123456Z");
         assert_eq!(session::set_cookie("v", now, false), "_deltabadger_rust_session=v; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax");
         assert_eq!(session::set_cookie("v", now, true), "_deltabadger_rust_session=v; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; secure; httponly; samesite=lax");
-        let headers = header_map(&[("cookie", "other=1; _deltabadger_rust_session=abc-_; _deltabadger_session=rails")]);
+        let headers = header_map(&[("cookie", "other=1; _deltabadger_rust_session=abc-_; _deltabadger_session=v2")]);
         assert_eq!(session::cookie_values(&headers).collect::<Vec<_>>(), ["abc-_"]);
-        assert_eq!(session::cookie_values(&header_map(&[("cookie", "_deltabadger_session=rails")])).next(), None, "Rails' cookie is not ours");
+        assert_eq!(session::cookie_values(&header_map(&[("cookie", "_deltabadger_session=v2")])).next(), None, "2.x's cookie is not ours");
         let several = header_map(&[("cookie", "_deltabadger_rust_session=a; _deltabadger_rust_session_x=b; x_deltabadger_rust_session=c; _deltabadger_rust_session=d")]);
         assert_eq!(session::cookie_values(&several).collect::<Vec<_>>(), ["a", "d"], "every cookie of our exact name, in order; a longer name is another cookie");
     }
 
     #[test]
-    fn secure_cookies_and_the_proxy_rule_follow_rails_env_resolution() {
+    fn secure_cookies_and_the_proxy_rule_follow_v2_env_resolution() {
         let config = |pairs: &'static [(&'static str, &'static str)]| {
             Config::from_env(&move |name| pairs.iter().find(|(k, _)| *k == name).map(|(_, v)| v.to_string()).or((name == "SECRET_KEY_BASE").then(|| "s".to_string()))).unwrap()
         };
@@ -358,7 +358,7 @@ mod csrf_tokens {
         let token = csrf::new_token();
         let (first, second) = (csrf::masked(&token), csrf::masked(&token));
         assert_ne!(first, second);
-        assert_eq!(first.len(), 86, "64 bytes, base64url without padding, as Rails' tokens");
+        assert_eq!(first.len(), 86, "64 bytes, base64url without padding, as 2.x's tokens");
         assert!(csrf::valid(&token, &first) && csrf::valid(&token, &second));
         assert!(!csrf::valid(&csrf::new_token(), &first), "another session's token");
         assert!(!csrf::valid(&token, &token), "the raw token is not accepted");
@@ -373,7 +373,7 @@ mod csrf_tokens {
         let with_header = |value: &str| header_map(&[("x-csrf-token", value)]);
         assert!(csrf::verified(Some(&token), &HeaderMap::new(), Some(&masked), ours));
         assert!(csrf::verified(Some(&token), &with_header(&masked), None, ours));
-        assert!(csrf::verified(Some(&token), &with_header(&masked), Some("not-a-token"), ours), "an invalid field beside a valid header, as Rails");
+        assert!(csrf::verified(Some(&token), &with_header(&masked), Some("not-a-token"), ours), "an invalid field beside a valid header, as 2.x");
         assert!(csrf::verified(Some(&token), &with_header("not-a-token"), Some(&masked), ours));
         assert!(!csrf::verified(Some(&token), &with_header("not-a-token"), Some("neither"), ours));
         assert!(!csrf::verified(Some(&token), &HeaderMap::new(), None, ours));
@@ -395,8 +395,8 @@ mod csrf_tokens {
         assert!(!csrf::verified(Some(&token), &not_text, Some(&masked), &[Some("http://localhost:3000")]), "a malformed header is a mismatch, not an absent header");
     }
 
-    /// D-B5-ORIGIN-HOST: with APP_ROOT_URL set, a form is accepted from its origin and from the request's own (Rails'
-    /// `request.base_url`, all Rails compares with), as Umbrel's proxy forwards the Host the browser used.
+    /// D-B5-ORIGIN-HOST: with APP_ROOT_URL set, a form is accepted from its origin and from the request's own (2.x's
+    /// `request.base_url`, all 2.x compares with), as Umbrel's proxy forwards the Host the browser used.
     #[test]
     fn a_form_may_come_from_app_root_urls_origin_or_the_requests_own() {
         let env = |name: &str| match name { "SECRET_KEY_BASE" => Some("s".into()), "APP_ROOT_URL" => Some("http://umbrel.local:3737".into()), _ => None };
@@ -447,12 +447,12 @@ mod csrf_tokens {
         assert!(csrf::same_origin(&from_the_browser, &[configured.origin(&from_the_browser).as_deref()]));
     }
 
-    /// Without APP_ROOT_URL the deployment's origin is the request's own, and that is Rails'
+    /// Without APP_ROOT_URL the deployment's origin is the request's own, and that is 2.x's
     /// `request.base_url` as production computes it: Puma's env, AssumeSSL when SSL is on, then Rack
     /// and Action Dispatch, which follow the headers a proxy in front writes (the scheme it
-    /// terminated, the host it was asked for). Recorded by script/rust/record_vectors.rb.
+    /// terminated, the host it was asked for). Recorded from 2.x.
     #[test]
-    fn without_app_root_url_the_origin_is_rails_base_url_with_what_a_proxy_forwarded() {
+    fn without_app_root_url_the_origin_is_v2_base_url_with_what_a_proxy_forwarded() {
         let config = |pairs: &'static [(&'static str, &'static str)]| {
             Config::from_env(&move |name| pairs.iter().find(|(k, _)| *k == name).map(|(_, v)| v.to_string()).or((name == "SECRET_KEY_BASE").then(|| "s".to_string()))).unwrap()
         };
@@ -500,8 +500,8 @@ mod response_headers {
     use deltabadger::web::headers;
 
     #[test]
-    fn the_policy_is_the_one_rails_test_pins() {
-        // test/integration/content_security_policy_test.rb `expected_policy`.
+    fn the_policy_is_the_one_v2_test_pins() {
+        // 2.x's own content security policy test's `expected_policy`.
         assert_eq!(headers::content_security_policy("N0nce=="),
                    "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; \
                     script-src 'self' 'nonce-N0nce=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report");
@@ -510,7 +510,7 @@ mod response_headers {
     }
 
     #[test]
-    fn cache_control_follows_rails_and_never_overrides_a_handler() {
+    fn cache_control_follows_v2_and_never_overrides_a_handler() {
         let value = |status, signed_in| { let mut h = HeaderMap::new(); headers::controller_defaults(&mut h, status, signed_in); h["cache-control"].to_str().unwrap().to_string() };
         assert_eq!(value(StatusCode::OK, false), "max-age=0, private, must-revalidate");
         assert_eq!(value(StatusCode::FOUND, false), "no-cache");
@@ -536,7 +536,7 @@ mod turbo_streams {
     use deltabadger::web::turbo;
 
     #[test]
-    fn stream_elements_are_turbo_rails_markup() {
+    fn stream_elements_are_turbo_v2_markup() {
         let recorded = &common::vectors()["turbo"];
         let want = |name: &str| recorded[name].as_str().unwrap().to_string();
         assert_eq!(turbo::stream("replace", "bot_1", "<p>a &amp; b</p>"), want("replace"));
@@ -671,11 +671,11 @@ mod rate_limits {
 
     #[test]
     fn headers_name_the_client_only_behind_a_declared_proxy_and_only_when_a_proxy_sent_them() {
-        // Behind a trusted proxy the answer is Rails', except for these X-Forwarded-For values, where
-        // Rails can be told an address and this crate cannot: (the header, this crate's answer).
-        // - an entry nobody can read: Rails skips it and believes the entry before it, which only the
+        // Behind a trusted proxy the answer is 2.x's, except for these X-Forwarded-For values, where
+        // 2.x can be told an address and this crate cannot: (the header, this crate's answer).
+        // - an entry nobody can read: 2.x skips it and believes the entry before it, which only the
         //   caller wrote; here the walk ends at the last trusted hop (10.0.0.9, or the peer 10.0.0.5);
-        // - an IPv4-mapped address: Rails' trusted ranges do not cover it and it prints it as IPv6;
+        // - an IPv4-mapped address: 2.x's trusted ranges do not cover it and it prints it as IPv6;
         //   here it is the IPv4 address it carries.
         const STRICTER: [(&str, &str); 7] = [
             ("198.51.100.7, unknown, , 10.0.0.9", "10.0.0.9"),
@@ -686,23 +686,23 @@ mod rate_limits {
             ("198.51.100.99, ::ffff:203.0.113.7", "203.0.113.7"),
             ("198.51.100.99, [::ffff:203.0.113.7]:443", "203.0.113.7"),
         ];
-        let (mut rails_believed_a_forged_header, mut stricter) = (0, 0);
+        let (mut v2_believed_a_forged_header, mut stricter) = (0, 0);
         for case in common::vectors()["remote_ip"].as_array().unwrap() {
             let peer = case["remote_addr"].as_str().unwrap();
             let got = rate_limit::remote_ip(peer.parse().ok(), case["forwarded_for"].as_str(), case["client_ip"].as_str()).map(|ip| ip.to_string());
             let listed = STRICTER.iter().find(|(header, _)| case["forwarded_for"] == *header);
             if case["peer_trusted"] != true {
                 assert_eq!(got.as_deref(), Some(peer), "a peer that is no trusted proxy is the client, whatever it sends: {case}");
-                rails_believed_a_forged_header += usize::from(case["ip"] != peer);
+                v2_believed_a_forged_header += usize::from(case["ip"] != peer);
             } else if let Some((_, ours)) = listed {
                 assert_eq!(got.as_deref(), Some(*ours), "{case}");
-                assert_ne!(case["ip"], *ours, "Rails answers the same now: take this one off the list. {case}");
+                assert_ne!(case["ip"], *ours, "2.x answers the same now: take this one off the list. {case}");
                 stricter += 1;
             } else {
-                assert_eq!(got.as_deref(), case["ip"].as_str(), "behind a trusted proxy the answer is Rails': {case}");
+                assert_eq!(got.as_deref(), case["ip"].as_str(), "behind a trusted proxy the answer is 2.x's: {case}");
             }
         }
-        assert_eq!(rails_believed_a_forged_header, 4, "the vectors where Rails takes the caller's own header for its address");
+        assert_eq!(v2_believed_a_forged_header, 4, "the vectors where 2.x takes the caller's own header for its address");
         assert_eq!(stricter, STRICTER.len(), "every listed difference has its vector");
         let config = |behind: &'static str| Config::from_env(&move |name| match name { "SECRET_KEY_BASE" => Some("s".into()), "BEHIND_PROXY" => Some(behind.into()), _ => None }).unwrap();
         let forwarded = header_map(&[("x-forwarded-for", "198.51.100.7")]);
@@ -734,7 +734,7 @@ mod navbar_numbers {
     use deltabadger::web::{bots, shell};
 
     #[test]
-    fn the_bot_count_icon_is_sized_as_rails_sizes_it() {
+    fn the_bot_count_icon_is_sized_as_v2_sizes_it() {
         for case in common::vectors()["navbar"]["bot_count"].as_array().unwrap() {
             let size = shell::bot_count_font_size(case["count"].as_i64().unwrap());
             assert_eq!((size.to_string().as_str(), shell::bot_count_baseline(size).as_str()), (case["font_size"].as_str().unwrap(), case["baseline"].as_str().unwrap()), "{case}");
@@ -742,7 +742,7 @@ mod navbar_numbers {
     }
 
     #[test]
-    fn cash_is_what_rails_calls_cash_and_shown_when_the_tracker_says_so() {
+    fn cash_is_what_v2_calls_cash_and_shown_when_the_tracker_says_so() {
         let recorded = &common::vectors()["tracker"];
         assert_eq!(serde_json::json!(bots::CASH), recorded["cash"], "Tracker::UnfundedCash's FIAT and STABLECOINS");
         for case in recorded["show_cash"].as_array().unwrap() {
@@ -757,8 +757,8 @@ mod host_authorization {
     use axum::http::{HeaderMap, HeaderName};
     use deltabadger::web::{self, Config};
 
-    /// ALLOWED_HOSTS becomes `config.hosts` as config/environments/production.rb's own lines make it
-    /// (script/rust/record_vectors.rb runs them).
+    /// ALLOWED_HOSTS becomes `config.hosts` as 2.x's production config's own lines make it
+    /// (the recording harness runs them).
     #[test]
     fn allowed_hosts_is_read_as_production_rb_reads_it() {
         let recorded = common::vectors()["host_authorization"]["hosts"].as_array().unwrap().clone();
@@ -831,7 +831,7 @@ mod oauth_rules {
     use deltabadger::web::{rate_limit, Params};
 
     #[test]
-    fn a_uri_is_read_as_ruby_reads_it() {
+    fn a_uri_is_read_as_v2_reads_it() {
         let uri = Uri::parse("HTTPS://user:pw@Client.Example:8443/a/b?x=[1]&y=%z1#frag").unwrap();
         assert_eq!((uri.scheme.as_deref(), uri.userinfo.as_deref(), uri.host.as_deref(), uri.path.as_str(), uri.query.as_deref(), uri.fragment.as_deref(), uri.opaque),
                    (Some("https"), Some("user:pw"), Some("Client.Example"), "/a/b", Some("x=[1]&y=%z1"), Some("frag"), false));
@@ -867,15 +867,15 @@ mod oauth_rules {
         assert_eq!(with("https://c.example/cb", &[("error", "access_denied"), ("state", "")], true), "https://c.example/cb#error=access_denied");
     }
 
-    /// What Ruby's URI.parse makes of a text, and what URI#to_s writes back (script/rust/record_vectors.rb).
+    /// What 2.x's URI.parse makes of a text, and what URI#to_s writes back.
     #[test]
-    fn a_uri_has_the_parts_and_the_text_ruby_gives_it() {
+    fn a_uri_has_the_parts_and_the_text_v2_gives_it() {
         let recorded = super::common::vectors()["oauth_uri"]["parse"].as_array().unwrap().clone();
         assert!(recorded.len() >= 55 && recorded.iter().filter(|case| case["parts"].is_null()).count() >= 10, "{} vectors", recorded.len());
         for case in &recorded {
             let (parsed, parts) = (Uri::parse(case["uri"].as_str().unwrap()), &case["parts"]);
-            let Some(uri) = parsed else { assert!(parts.is_null(), "{case}: Ruby parses it"); continue };
-            assert!(!parts.is_null(), "{case}: Ruby refuses it, this crate read {uri:?}");
+            let Some(uri) = parsed else { assert!(parts.is_null(), "{case}: 2.x parses it"); continue };
+            assert!(!parts.is_null(), "{case}: 2.x refuses it, this crate read {uri:?}");
             assert_eq!((uri.scheme.as_deref(), uri.opaque, uri.fragment.as_deref()), (parts["scheme"].as_str(), parts["opaque"] == true, parts["fragment"].as_str()), "{case}");
             if uri.opaque { continue; }
             assert_eq!((uri.userinfo.as_deref(), uri.host.as_deref(), Some(uri.path.as_str()), uri.query.as_deref()),
@@ -907,8 +907,8 @@ mod oauth_rules {
     }
 
     /// Doorkeeper's URIBuilder: the redirect with the answer in its query, and in its fragment. A byte
-    /// in the URI's own query that is not text (`%FF`) is written back as it stood, in Rails
-    /// (config/initializers/doorkeeper.rb) and here.
+    /// in the URI's own query that is not text (`%FF`) is written back as it stood, in 2.x
+    /// and here.
     #[test]
     fn an_answer_is_written_as_doorkeepers_builder_writes_it() {
         let recorded = super::common::vectors()["oauth_uri"]["answers"].as_array().unwrap().clone();
@@ -922,9 +922,9 @@ mod oauth_rules {
         }
     }
 
-    /// Ruby's Base64.decode64, and Doorkeeper's reading of an `Authorization: Basic` header with it.
+    /// 2.x's Base64.decode64, and Doorkeeper's reading of an `Authorization: Basic` header with it.
     #[test]
-    fn a_basic_header_is_decoded_as_ruby_decodes_it() {
+    fn a_basic_header_is_decoded_as_v2_decodes_it() {
         let recorded = super::common::vectors()["oauth_basic"].clone();
         let (decoded, credentials) = (recorded["decode64"].as_array().unwrap(), recorded["credentials"].as_array().unwrap());
         assert!(decoded.len() >= 25 && credentials.len() >= 20 && credentials.iter().filter(|case| case["credentials"].is_null()).count() >= 8, "{} and {} vectors", decoded.len(), credentials.len());
@@ -961,7 +961,7 @@ mod oauth_rules {
         assert_eq!(given(&[], &[("client_id", "abc"), ("client_secret", "s")], &[]), "abc/s");
         assert_eq!(given(&[("authorization", "Bearer whatever")], &[("client_id", "abc")], &[]), "abc/-", "a Bearer header is not client authentication");
         assert_eq!(given(&[("authorization", "Basic YWJjOg==")], &[], &[]), "abc/");
-        assert_eq!(given(&[("authorization", "basic YWJjOnM")], &[("client_id", "abc")], &[]), "abc/s", "unpadded, as Ruby's decode64 takes it");
+        assert_eq!(given(&[("authorization", "basic YWJjOnM")], &[("client_id", "abc")], &[]), "abc/s", "unpadded, as 2.x's decode64 takes it");
         assert_eq!(given(&[("authorization", "Basic YWJjOg==")], &[("client_id", "other")], &[]), "none", "the two ids disagree");
         assert_eq!(given(&[("authorization", "Basic YWJjOg==")], &[("client_id", "abc"), ("client_secret", "s")], &[]), "multiple");
         assert_eq!(given(&[("authorization", "Digest x")], &[("client_id", "abc")], &[]), "none", "another scheme is somebody else's authentication");
@@ -1029,7 +1029,7 @@ mod bearer_header {
         }
     }
 
-    /// Rails' pattern, `/\ABearer\s+(.+)\z/i`, is the one CodeQL flags: on a run of spaces it can try
+    /// 2.x's pattern, `/\ABearer\s+(.+)\z/i`, is the one CodeQL flags: on a run of spaces it can try
     /// every split between `\s+` and `.+`. Here a megabyte of spaces is read once: trying every split
     /// would be half a million million steps, not the few seconds allowed.
     #[test]
@@ -1044,7 +1044,7 @@ mod bearer_header {
 
 mod bot_page_formats {
     use super::common;
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::web::format::{self, Num};
     use serde_json::Value;
 
@@ -1064,14 +1064,14 @@ mod bot_page_formats {
     }
 
     #[test]
-    fn a_float_prints_as_ruby_prints_it() {
+    fn a_float_prints_as_v2_prints_it() {
         for case in cases("float_to_s") {
             assert_eq!(format::float_to_s(float(&case["float"]).unwrap()), case["text"].as_str().unwrap(), "{case}");
         }
     }
 
     #[test]
-    fn a_float_rounds_as_ruby_rounds_it() {
+    fn a_float_rounds_as_v2_rounds_it() {
         for case in cases("float_round") {
             let rounded = format::float_round(float(&case["float"]).unwrap(), case["digits"].as_i64().unwrap());
             assert_eq!(rounded.to_bits(), float(&case["rounded"]).unwrap().to_bits(), "{case}: {rounded}");
@@ -1082,7 +1082,7 @@ mod bot_page_formats {
     }
 
     #[test]
-    fn a_stored_number_is_written_into_an_input_as_rails_writes_it() {
+    fn a_stored_number_is_written_into_an_input_as_v2_writes_it() {
         for case in cases("input_value") {
             assert_eq!(format::input_value(&number(&case, "number")).as_deref(), case["text"].as_str(), "{case}");
         }
@@ -1105,7 +1105,7 @@ mod bot_page_formats {
     }
 
     #[test]
-    fn what_is_left_of_a_spending_cap_is_computed_in_rubys_classes() {
+    fn what_is_left_of_a_spending_cap_is_computed_in_v2s_classes() {
         for case in cases("limit_left") {
             let spent = case["spent"].as_str().map_or(Num::Int(0), |text| Num::Dec(BigDec::parse(text).unwrap()));
             let left = number(&case, "limit").sub(&spent).unwrap().at_least_zero();
@@ -1115,7 +1115,7 @@ mod bot_page_formats {
     }
 
     #[test]
-    fn a_duration_reads_as_rails_words_it() {
+    fn a_duration_reads_as_v2_words_it() {
         for case in cases("distance_of_time") {
             let seconds = float(&case["seconds"]).unwrap_or_else(|| case["seconds"].as_f64().unwrap());
             let words = format::distance_of_time_in_words(seconds, case["now"].as_str().unwrap().parse().unwrap(), case["locale"].as_str().unwrap());
@@ -1124,14 +1124,14 @@ mod bot_page_formats {
     }
 
     #[test]
-    fn a_text_is_read_as_an_integer_as_ruby_reads_it() {
+    fn a_text_is_read_as_an_integer_as_v2_reads_it() {
         let cases = cases("string_to_i");
         assert!(cases.len() > 35, "only {} texts were recorded", cases.len());
         for case in cases {
-            let ruby: Option<i128> = case["integer"].as_str().unwrap().parse().ok();
-            assert_eq!(Some(format::to_i(case["text"].as_str().unwrap())), ruby, "{case}");
+            let v2: Option<i128> = case["integer"].as_str().unwrap().parse().ok();
+            assert_eq!(Some(format::to_i(case["text"].as_str().unwrap())), v2, "{case}");
         }
-        // Where Ruby goes on counting, this stops; no id is anywhere near.
+        // Where 2.x goes on counting, this stops; no id is anywhere near.
         assert_eq!(format::to_i(&"9".repeat(60)), i128::MAX);
         assert_eq!(format::to_i(&format!("-{}", "9".repeat(60))), -i128::MAX);
     }
@@ -1142,12 +1142,12 @@ mod bot_page_formats {
         for (at, zones) in common::vectors()["bot_pages"]["zones"].as_object().unwrap() {
             for (zone, abbreviation) in zones.as_object().unwrap() {
                 let ours = format::zone_abbreviation(at.parse().unwrap(), zone);
-                if ours != abbreviation.as_str().unwrap() { different.push(format!("{zone} at {at}: {ours} here, {abbreviation} in Rails")); }
+                if ours != abbreviation.as_str().unwrap() { different.push(format!("{zone} at {at}: {ours} here, {abbreviation} in 2.x")); }
             }
         }
-        // The two sides carry their own copy of the time zone database (tzinfo-data 2026.4 in Rails,
+        // The two sides carry their own copy of the time zone database (tzinfo-data 2026.4 in 2.x,
         // chrono-tz's in this crate), and Morocco's rules for the end of 2026 are not the same in both.
-        assert_eq!(different, ["Casablanca at 2026-11-01T05:59:00Z: +01 here, \"+00\" in Rails"], "the zone databases disagree elsewhere too");
+        assert_eq!(different, ["Casablanca at 2026-11-01T05:59:00Z: +01 here, \"+00\" in 2.x"], "the zone databases disagree elsewhere too");
         for case in cases("table_when") {
             let (at, zone) = (case["at"].as_str().unwrap().parse().unwrap(), case["zone"].as_str().unwrap());
             let ours = (format::table_date(at, zone), format::table_clock(at, zone, case["locale"].as_str().unwrap()), format::iso8601(at), format::datetime_local(at, zone));
@@ -1166,7 +1166,7 @@ mod bot_page_formats {
 
 mod colours_and_ring {
     use super::common;
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     use deltabadger::web::{colors, ring};
     use serde_json::Value;
 
@@ -1175,11 +1175,11 @@ mod colours_and_ring {
     }
 
     #[test]
-    fn colours_and_pills_are_rails_own() {
+    fn colours_and_pills_are_v2_own() {
         for case in cases("ensure_contrast") {
             assert_eq!(colors::ensure_contrast(case["color"].as_str().unwrap()).as_deref(), case["contrast"].as_str(), "{case}");
         }
-        assert_eq!(colors::ensure_contrast("#fff"), None, "Ruby raises on a colour without a blue channel");
+        assert_eq!(colors::ensure_contrast("#fff"), None, "2.x raises on a colour without a blue channel");
         for case in cases("ticker_class") {
             assert_eq!(colors::ticker_class(case["category"].as_str(), case["color"].as_str()), case["class"].as_str().unwrap(), "{case}");
         }
@@ -1304,7 +1304,7 @@ mod status_bar {
     }
 
     #[test]
-    fn the_progress_bar_is_as_wide_as_rails_draws_it() {
+    fn the_progress_bar_is_as_wide_as_v2_draws_it() {
         for case in common::vectors()["bot_pages"]["progress"].as_array().unwrap() {
             let time = |key: &str| case[key].as_str().unwrap().parse::<chrono::DateTime<chrono::Utc>>().unwrap();
             let from = status::Instant::from_micros(time("from").timestamp_micros());
@@ -1314,7 +1314,7 @@ mod status_bar {
     }
 
     #[test]
-    fn a_checkpoint_is_held_where_rails_job_table_holds_it() {
+    fn a_checkpoint_is_held_where_v2_job_table_holds_it() {
         let cases = common::vectors()["bot_pages"]["job_time"].as_array().unwrap().clone();
         let micros = |text: &str| text.parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_micros();
         let mut early = 0;
@@ -1326,11 +1326,11 @@ mod status_bar {
         assert!(cases.len() > 60 && early > 10 && early < cases.len() - 10, "{early} of {} came back early: the vectors hold both kinds", cases.len());
     }
 
-    /// A checkpoint is a time out of a row plus Floats, and Rails takes the Float of that exact sum
+    /// A checkpoint is a time out of a row plus Floats, and 2.x takes the Float of that exact sum
     /// when it enqueues the job: the time the job is held at, the second `iso8601` prints, `to_f`
     /// itself and `Time#-` in both directions, for checkpoints that are not on the microsecond grid.
     #[test]
-    fn a_checkpoint_off_the_microsecond_grid_is_held_and_measured_as_ruby_does() {
+    fn a_checkpoint_off_the_microsecond_grid_is_held_and_measured_as_v2_does() {
         use deltabadger::engine::schedule::Unrounded;
         let cases = common::vectors()["bot_pages"]["exact_times"].as_array().unwrap().clone();
         let time = |text: &str| text.parse::<chrono::DateTime<chrono::Utc>>().unwrap();

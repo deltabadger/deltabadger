@@ -1,8 +1,8 @@
 //! A bot out of funds on KuCoin (plan LF, Rust-only): KuCoin ends a market buy it could not fund `isActive: false,
-//! cancelExist: false` with nothing dealt, which Rails reads `:unknown` forever. Two named divergences:
+//! cancelExist: false` with nothing dealt, which 2.x reads `:unknown` forever. Two named divergences:
 //! D-KUCOIN-ZERO-FILL-FUNDS (such a buy, once older than ZERO_FILL_SETTLE, is KuCoin's insufficient-funds answer: the row and
 //! the bot fail exactly as a placement KuCoin rejected with "Balance insufficient!"; a sell is Closed with nothing filled)
-//! and D-LOW-FUNDS-STATUS ("Low funds" before the countdown, from the synced balances). Rails-free.
+//! and D-LOW-FUNDS-STATUS ("Low funds" before the countdown, from the synced balances). 2.x-free.
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use common::seed::{self, BotSpec, TxSpec};
@@ -98,13 +98,13 @@ fn only_explicit_terminal_evidence_on_a_market_order_is_kept_and_it_settles_stri
     let parse = |raw: &Value| kucoin::parse_order(id, raw, &Pairs::default());
     let s = parse(&base).unwrap();
     let created = at(created);
-    assert_eq!((s.status, s.zero_fill_at, s.settles_at()), (OrderStatus::Unknown, Some(created), Some(created + ZERO_FILL_SETTLE)), "parsed as Rails parses it");
+    assert_eq!((s.status, s.zero_fill_at, s.settles_at()), (OrderStatus::Unknown, Some(created), Some(created + ZERO_FILL_SETTLE)), "parsed as 2.x parses it");
     assert_eq!(s.clone().settled(created + Duration::seconds(30)).status, OrderStatus::Unknown, "young");
     assert_eq!(s.clone().settled(created + ZERO_FILL_SETTLE).status, OrderStatus::Unknown, "exactly one minute is not older");
     let done = s.clone().settled(created + ZERO_FILL_SETTLE + Duration::milliseconds(1));
     assert_eq!((done.status, done.amount_exec.is_zero(), done.closed_empty()), (OrderStatus::Closed, true, true));
     assert_eq!(s.settled(created - Duration::hours(1)).status, OrderStatus::Unknown, "a createdAt in the future of the poll");
-    // Anything short of that evidence keeps Rails' outcome: Unknown with nothing kept to settle.
+    // Anything short of that evidence keeps 2.x's outcome: Unknown with nothing kept to settle.
     let edit = |f: &dyn Fn(&mut Value)| { let mut raw = base.clone(); f(&mut raw); raw };
     let unkept: Vec<(&str, Value)> = vec![
         ("isActive null", edit(&|r| r["isActive"] = Value::Null)), ("isActive absent", edit(&|r| { r.as_object_mut().unwrap().remove("isActive"); })),
@@ -146,7 +146,7 @@ async fn the_recorded_answers_fail_past_the_window_as_kucoins_funds_rejection_an
         let unknown = Err(PollFailure::General(format!("Order {id} status is unknown.")));
         let logs = k.logs();
         for young in [Duration::seconds(30), ZERO_FILL_SETTLE] {
-            assert_eq!(polling::sweep(&k.o.primary, &kv(&t), &k.bot(), at(created) + young).await, unknown, "{id}: inside the window the sweep raises, as Rails");
+            assert_eq!(polling::sweep(&k.o.primary, &kv(&t), &k.bot(), at(created) + young).await, unknown, "{id}: inside the window the sweep raises, as 2.x");
         }
         assert_eq!((k.row(id).0, k.failed(id).0, k.failure().0, k.logs()), (0, 0, 1, logs.clone()), "{id}: nothing written while young");
         let later = at(created) + ZERO_FILL_SETTLE + Duration::seconds(1);
@@ -157,7 +157,7 @@ async fn the_recorded_answers_fail_past_the_window_as_kucoins_funds_rejection_an
         let free = stamp.as_ref().is_none_or(|(at, _)| *at < later - Duration::days(1));
         if free { stamp = Some((later, deltabadger::codec::format_time(later))); }
         let (_, stamped) = stamp.clone().unwrap();
-        let marker = free.then(|| json!({ "quote_asset": k.s.quote, "stamped_at": deltabadger::ruby::iso8601_ms(later) }).to_string());
+        let marker = free.then(|| json!({ "quote_asset": k.s.quote, "stamped_at": deltabadger::v2::iso8601_ms(later) }).to_string());
         assert_eq!(k.failure(), (RETRYING, Some("insufficient_funds".into()), Some(stamped.clone()), marker), "{id}: retrying, the funds mail owed if the day's budget is free");
         mails += usize::from(free);
         assert_eq!(k.logs(), logs, "{id}: a rejected placement writes no line of its own: the failed row is the activity");
@@ -304,7 +304,7 @@ async fn a_recovered_zero_fill_fails_once_when_it_settles() {
         let k = install(1);
         let bot = k.bot();
         let ticker = model::ticker_for(&k.o.primary, &bot).unwrap().unwrap();
-        let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60), &deltabadger::ruby::BigDec::from_i64(64_000),
+        let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &deltabadger::v2::BigDec::from_i64(60), &deltabadger::v2::BigDec::from_i64(64_000),
                                                          &deltabadger::engine::venue_rules::KUCOIN).unwrap() else { panic!() };
         let placed = at(CASE[0].1);
         let sent = ScriptedTransport::from_script(&json!({ "POST /api/v1/orders": [{ "network": "post_send", "message": "read timeout" }] }));

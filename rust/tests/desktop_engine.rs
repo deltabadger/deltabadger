@@ -1,5 +1,5 @@
 //! `serve` as the desktop app runs it (PLAN-B6 B6-0a): BINDING, the stop on stdin's end, the ready token, and the
-//! backup's sync on Windows (D-BACKUP-WINDOWS-SYNC). Rails-free: every install here is one `serve` created on an empty
+//! backup's sync on Windows (D-BACKUP-WINDOWS-SYNC). 2.x-free: every install here is one `serve` created on an empty
 //! STORAGE_DIR, so this file runs on Linux and Windows in CI. B6-0b: the engine's own log (DELTABADGER_LOG_FILE), the
 //! desktop's refusal wording with its phase sentence, the debug hooks for a failing migration and a panic, and the
 //! retiring service worker.
@@ -123,9 +123,9 @@ fn listening(port: u16) -> Vec<String> {
         .filter(|t| t.ends_with(&format!(":{port}"))).collect()
 }
 
-/// An install one `serve` made and stopped, with the lease row deleted: an install Rails owns, as far as `serve` can tell,
+/// An install one `serve` made and stopped, with the lease row deleted: an install 2.x owns, as far as `serve` can tell,
 /// so the next start backs it up before taking it over.
-fn rails_owned_install() -> tempfile::TempDir {
+fn v2_owned_install() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
     let port = free_port();
     let mut e = start(&mut command(dir.path(), port), port);
@@ -140,7 +140,7 @@ fn rails_owned_install() -> tempfile::TempDir {
     dir
 }
 
-/// The migration `rails_owned_install` leaves pending.
+/// The migration `v2_owned_install` leaves pending.
 const PENDING: &str = "20261107000001";
 
 fn migrated(dir: &Path) -> bool {
@@ -224,7 +224,7 @@ fn the_refusal_page_answers_refused_and_stops_when_stdin_closes() {
 /// C7, the wait for a just-stopped 2.x: `ready <token> starting`, and stdin's end stops it with 0, nothing claimed.
 #[test]
 fn the_starting_page_answers_starting_and_stops_when_stdin_closes() {
-    let dir = rails_owned_install();
+    let dir = v2_owned_install();
     let at = deltabadger::codec::format_time(chrono::Utc::now() - chrono::Duration::seconds(30));
     rusqlite::Connection::open(dir.path().join("production_queue.sqlite3")).unwrap().execute(
         "INSERT INTO solid_queue_processes (kind, last_heartbeat_at, pid, hostname, created_at, name) VALUES ('Worker', ?1, 1, 'h', ?1, 'w')", [at]).unwrap();
@@ -261,7 +261,7 @@ fn stdin_closed_from_the_start_stops_before_the_claim_and_the_next_start_serves(
 #[test]
 fn stdin_closed_at_each_start_barrier_stops_before_the_claim() {
     for (barrier, copied) in [("before-backup", false), ("after-backup", true), ("after-migrate", true), ("before-claim", true)] {
-        let dir = rails_owned_install();
+        let dir = v2_owned_install();
         let release = dir.path().join("release");
         let port = free_port();
         let mut c = command(dir.path(), port);
@@ -313,7 +313,7 @@ fn stdin_closed_once_the_engine_runs_stops_it_on_request() {
 /// access. Made, with its digest, and no `.partial` left.
 #[test]
 fn the_backup_before_a_takeover_completes_on_every_os() {
-    let dir = rails_owned_install();
+    let dir = v2_owned_install();
     let paths = deltabadger::store::Paths::from_env(&|_| None, dir.path());
     match deltabadger::store::backup(&paths, chrono::Utc::now()).unwrap() {
         deltabadger::store::Backup::Made(copy) => {
@@ -445,7 +445,7 @@ fn rows(base: &Data) -> Vec<(Data, Row)> {
     row("diverged history", &|d| d.sql("DELETE FROM schema_migrations WHERE version = (SELECT max(version) FROM schema_migrations);
                                         INSERT INTO schema_migrations (version) VALUES ('29991231000001')"), vec![],
         &|_| "this data's migration history differs from this build's; refusing".into(), &foreign);
-    // An install Rails owns, two Rust migrations pending, the second failing: backed up, the first applied.
+    // An install 2.x owns, two Rust migrations pending, the second failing: backed up, the first applied.
     row("failing migration", &|d| d.sql(&format!("DELETE FROM app_configs WHERE key = '{}'; DROP TABLE estv_crypto_values; DROP TABLE rust_idempotency_orders;
             DELETE FROM rust_schema_migrations WHERE version IN ('20261106000001', '{FAILING}')", deltabadger::lease::KEY)),
         vec![("DELTABADGER_TEST_FAIL_MIGRATION", FAILING.into())],
@@ -858,10 +858,10 @@ fn off_the_desktop_an_update_makes_no_copy() {
     assert!(backups(&data.db()).is_empty(), "{:?}", backups(&data.db()));
 }
 
-/// A takeover from Rails takes its own copy, and only that one, though it migrates too.
+/// A takeover from 2.x takes its own copy, and only that one, though it migrates too.
 #[test]
 fn a_takeover_on_the_desktop_takes_only_its_own_copy() {
-    let dir = rails_owned_install();
+    let dir = v2_owned_install();
     let port = free_port();
     let mut c = command(dir.path(), port);
     c.env("DELTABADGER_PLATFORM", "desktop");

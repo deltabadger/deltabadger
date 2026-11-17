@@ -1,6 +1,6 @@
 //! Coinbase safety contracts and D-CB-SIZE-IN-QUOTE / D-CB-PAGING.
 mod common;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::sync::activities::Raw;
 use deltabadger::sync::coinbase_ledger::fill;
 use deltabadger::venue::coinbase::{CoinbaseVenue, ORDERS, URL};
@@ -241,11 +241,11 @@ fn startup_repair_is_scoped_atomic_and_idempotent() {
     tx.commit().unwrap();
     assert_eq!(c.total_changes(), before);
 
-    // A handback to Rails, which imports a quote-sized fill with its old amounts, then the next takeover: the repair
+    // A handback to 2.x, which imports a quote-sized fill with its old amounts, then the next takeover: the repair
     // runs again and fixes the new row, leaving the already repaired ones untouched.
     assert_eq!(c.execute("UPDATE account_transactions SET base_amount=CAST('9.947791211' AS NUMERIC), updated_at='2026-09-21' WHERE id=901", []).unwrap(), 1);
     let tx = c.unchecked_transaction().unwrap();
-    assert_eq!(deltabadger::sync::coinbase_repair::run(&tx, now).unwrap(), 1, "a row Rails imported after a handback is repaired at the next takeover");
+    assert_eq!(deltabadger::sync::coinbase_repair::run(&tx, now).unwrap(), 1, "a row 2.x imported after a handback is repaired at the next takeover");
     tx.commit().unwrap();
     assert_eq!(read(901).0, stored(&base));
     assert_eq!(read(902).2, "2026-09-20", "rows already repaired stay untouched");
@@ -349,7 +349,7 @@ fn startup_repair_distinguishes_amounts_hidden_by_float_rounding() {
     }
 }
 #[test]
-fn recorded_orders_and_rules_match_rails() {
+fn recorded_orders_and_rules_match_v2() {
     use deltabadger::venue::OrderStatus;
     let v: Value = serde_json::from_str(include_str!("fixtures/coinbase_vectors.json")).unwrap();
     let orders = v["coinbase_orders"].as_array().unwrap();
@@ -386,7 +386,7 @@ fn recorded_orders_and_rules_match_rails() {
     );
 }
 #[test]
-fn recorded_sizing_matches_rails() {
+fn recorded_sizing_matches_v2() {
     use common::seed::{self, BotSpec};
     use deltabadger::engine::{
         amount::{self, Sizing},

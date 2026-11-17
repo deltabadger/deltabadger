@@ -3,7 +3,7 @@
 //! derived from the stored rows of one UTC second at a time, so supersets, subsets and re-uploads reconcile row by row
 //! and the result never depends on upload order. `read` is database-free; `store` runs in the import's transaction.
 use super::csv::{self, Malformed, Table};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::sync::activities::{Entry, Raw, ADJUSTMENT, BUY, DEPOSIT, FEE, SELL, SWAP_IN, SWAP_OUT, WITHDRAWAL};
 use crate::sync::{ledger, sql_time, Key, SyncError};
 use chrono::{DateTime, Timelike, Utc};
@@ -67,7 +67,7 @@ pub fn read(table: &Table) -> Result<Vec<SourceRow>, Malformed> {
     let mut seen: HashMap<String, usize> = HashMap::new();
     let mut rows = vec![];
     for row in table.rows.iter().filter(|r| !r.is_empty()) {
-        let cell = |name: &str| crate::ruby::strip(table.get(row, name).unwrap_or("")).to_string();
+        let cell = |name: &str| crate::v2::strip(table.get(row, name).unwrap_or("")).to_string();
         let (currency, kind) = (cell("Currency"), cell("Type"));
         if currency.is_empty() || kind.is_empty() { return Err(Malformed("a row without its currency or type".into())); }
         let inflow = match cell("Side").as_str() { "Deposit" => true, "Withdrawal" => false, _ => return Err(Malformed("a row whose side is neither Deposit nor Withdrawal".into())) };
@@ -314,7 +314,7 @@ pub struct Stored { pub imported: usize, pub duplicates: usize, pub skipped: usi
 /// The file's rows for `key`'s user and exchange, inside the import's transaction: rows not yet held are stored, and
 /// every UTC second that gained one has its `kucoin_csv` entries derived again from all its stored rows: an entry derived
 /// as before is left as it is (with the user's edits), the others are replaced (incoming links to the ones removed are
-/// cleared, as Rails' `dependent: :nullify` clears them).
+/// cleared, as 2.x's `dependent: :nullify` clears them).
 pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, rows: &[SourceRow], now: DateTime<Utc>) -> Result<Stored, SyncError> {
     let mut out = Stored::default();
     let mut touched: BTreeSet<DateTime<Utc>> = BTreeSet::new();
@@ -361,7 +361,7 @@ pub(crate) fn restored_at(c: &rusqlite::Connection, key: &Key, at: DateTime<Utc>
 }
 
 /// One second's `kucoin_csv` entries made `derived`: an entry derived as before is left as it is (with the user's edits),
-/// the others are replaced (incoming links to the ones removed are cleared, as Rails' `dependent: :nullify` clears them).
+/// the others are replaced (incoming links to the ones removed are cleared, as 2.x's `dependent: :nullify` clears them).
 pub(crate) fn rewrite_second(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, at: DateTime<Utc>, derived: Vec<Derived>, writer: &mut ledger::FileWriter,
                              now: DateTime<Utc>) -> Result<Stored, SyncError> {
     let mut out = Stored::default();
@@ -404,7 +404,7 @@ pub(crate) const DERIVED: &str = "COALESCE(json_extract(raw_data, '$.source'), '
     WHERE i.user_id = account_transactions.user_id AND i.exchange_id = account_transactions.exchange_id AND i.row_id = s.value))";
 
 /// The current cutoff of each class the API has taken over for (user, exchange): the UTC second of its earliest stored
-/// API row at the last completion of its source. In Rust's own `import_cutoffs`, which no Rails reset clears.
+/// API row at the last completion of its source. In Rust's own `import_cutoffs`, which no 2.x reset clears.
 pub(crate) fn cutoffs(c: &rusqlite::Connection, key: &Key) -> Result<HashMap<String, DateTime<Utc>>, SyncError> {
     let mut s = c.prepare_cached("SELECT class, cutoff_at FROM import_cutoffs WHERE user_id = ?1 AND exchange_id = ?2")?;
     let rows: Vec<(String, String)> = s.query_map(params![key.user_id, key.exchange_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
@@ -416,7 +416,7 @@ pub(crate) fn cutoffs(c: &rusqlite::Connection, key: &Key) -> Result<HashMap<Str
 
 /// The API's takeover (plan KI §5), in the transaction that commits the completion of `classes`' sources, after their
 /// rows' duplicate checks: each class's cutoff is the UTC second of its earliest API row stored for (user, exchange),
-/// and every `kucoin_csv` entry of that class at or after it is deleted, its incoming links cleared as Rails'
+/// and every `kucoin_csv` entry of that class at or after it is deleted, its incoming links cleared as 2.x's
 /// `dependent: :nullify` clears them. The source rows stay stored; later imports derive nothing of that class from the
 /// cutoff on (`store`). A class with no API row has no cutoff: nothing proves its coverage.
 pub(crate) fn take_over(c: &rusqlite::Connection, key: &Key, classes: &[&str], now: DateTime<Utc>) -> Result<(), SyncError> {

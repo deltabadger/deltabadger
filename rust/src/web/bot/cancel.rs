@@ -1,4 +1,4 @@
-//! Bots::CancelOrdersController#destroy: cancel one open order from the bot page, inside the request, as Rails does
+//! Bots::CancelOrdersController#destroy: cancel one open order from the bot page, inside the request, as 2.x does
 //! (PLAN-A4-cancel r4). The one exception to "no venue call in a request": ONE bounded, idempotent venue call for an
 //! action whose answer the user is waiting for, and the request never writes order state. It sends the cancel, leaves the
 //! engine a re-read (`REREAD`) and wakes it; the engine's follow-up poll settles the row.
@@ -26,13 +26,13 @@ pub(crate) fn send<V: Venue>(runtime: &tokio::runtime::Handle, venue: &V, order:
             let invalid_key = venue.rules().is_invalid_key(&errors);
             Sent::Refused { errors, invalid_key }
         }
-        // D-CANCEL-TRANSPORT-FAILURE: Rails' controller does not rescue a network failure (a 500); here it is a failure.
+        // D-CANCEL-TRANSPORT-FAILURE: 2.x's controller does not rescue a network failure (a 500); here it is a failure.
         Ok(Err(VenueError::Transient(why) | VenueError::Ambiguous(why))) => Sent::Unanswered(why),
         Err(_) => Sent::Unanswered(format!("the exchange did not answer within {} seconds", crate::venue::http::TOTAL_TIMEOUT.as_secs())),
     }
 }
 
-/// D-CANCEL-REREAD-ALWAYS: whatever the answer, the row is re-read (a refusal may hide a cancel that landed); Rails re-reads
+/// D-CANCEL-REREAD-ALWAYS: whatever the answer, the row is re-read (a refusal may hide a cancel that landed); 2.x re-reads
 /// after a success only. The re-read is the engine's; this is the request's only write. One IMMEDIATE transaction: two
 /// overlapping cancels of the row must not both try the insert.
 pub(crate) fn leave_reread(c: &rusqlite::Connection, app: &App, bot: i64, tx: i64) -> Result<(), WebError> {
@@ -85,7 +85,7 @@ pub async fn destroy_with_factory<F: VenueFactory>(State(app): State<App>, Exten
     factory: impl FnOnce(&rusqlite::Connection, &App) -> F + Send + 'static) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let found = on_own_connection(&app, move |c, inner, runtime| -> Result<Found, WebError> {
-        // Rails' before_actions, in order: Botable#set_bot, set_transaction; then Transaction#cancel.
+        // 2.x's before_actions, in order: Botable#set_bot, set_transaction; then Transaction#cancel.
         let Some(id) = super::id_from_path(&bot) else { return Ok(Found::NoBot) };
         let status: Option<i64> = c.query_row("SELECT status FROM bots WHERE id = ?1 AND user_id = ?2", (id, user.id), |r| r.get(0)).optional()?;
         if status.is_none_or(|s| s == crate::enums::BotStatus::Deleted as i64) { return Ok(Found::NoBot) }
@@ -115,7 +115,7 @@ pub async fn destroy_with_factory<F: VenueFactory>(State(app): State<App>, Exten
     }
 }
 
-/// Rails' `render turbo_stream: turbo_stream_prepend_flash` with flash.now: notice on success, else alert (422).
+/// 2.x's `render turbo_stream: turbo_stream_prepend_flash` with flash.now: notice on success, else alert (422).
 fn answer(ctx: &Ctx, cancelled: bool, invalid_key: Option<&str>) -> Result<Response, WebError> {
     let (style, text) = match (cancelled, invalid_key) {
         (true, _) => ("primary", i18n::text(ctx.locale, "bot.messages.order_cancelled", &[])),

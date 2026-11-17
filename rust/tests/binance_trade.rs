@@ -1,7 +1,7 @@
 //! The Binance trading adapter (venue::binance) over recorded bodies, its signer against honeymaker's own output, and its
-//! answers mapped as Exchanges::Binance and Exchange#ambiguous_placement_error? map them. Rails-free: no install, no network.
+//! answers mapped as Exchanges::Binance and Exchange#ambiguous_placement_error? map them. 2.x-free: no install, no network.
 use deltabadger::engine::model::Ticker;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::binance::{BinanceVenue, Pair, Pairs};
 use deltabadger::venue::http::{self, ScriptedTransport};
 use deltabadger::venue::{NewOrder, OrderKind, PriceSide, Venue, VenueError};
@@ -120,7 +120,7 @@ fn order(kind: OrderKind, quote: bool, volume: &str) -> NewOrder {
 fn accepted() -> Value { ok(json!({ "symbol": "BTCUSDT", "orderId": 28457, "orderListId": -1, "clientOrderId": CL, "transactTime": 1789871400750u64 })) }
 
 #[tokio::test(flavor = "current_thread")]
-async fn each_buy_posts_the_fields_rails_sends_plus_the_client_order_id() {
+async fn each_buy_posts_the_fields_v2_sends_plus_the_client_order_id() {
     let cases = [
         (order(OrderKind::Market, true, "60.5"), vec![("newClientOrderId", CL), ("quoteOrderQty", "60.5"), ("recvWindow", "5000"),
             ("selfTradePreventionMode", "EXPIRE_MAKER"), ("side", "BUY"), ("symbol", "BTCUSDT"), ("type", "MARKET")]),
@@ -140,7 +140,7 @@ async fn each_buy_posts_the_fields_rails_sends_plus_the_client_order_id() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn placement_answers_map_to_rails_ambiguity_rules() {
+async fn placement_answers_map_to_v2_ambiguity_rules() {
     let m1021 = "Timestamp for this request is outside of the recvWindow.";
     let ahead = "Timestamp for this request was 1000ms ahead of the server's time.";
     let cases: Vec<(Value, Result<String, VenueError>)> = vec![
@@ -151,11 +151,11 @@ async fn placement_answers_map_to_rails_ambiguity_rules() {
          Err(VenueError::Coded { code: "-2010".into(), errors: vec!["Account has insufficient balance for requested action.".into()] })),
         (fail(401, json!({ "code": -2015, "msg": "Invalid API-key, IP, or permissions for action." })),
          Err(VenueError::Coded { code: "-2015".into(), errors: vec!["Invalid API-key, IP, or permissions for action.".into()] })),
-        // -1021 is placement-safe (definitive, never ambiguous), in both of Rails' wordings, even on a 5xx.
+        // -1021 is placement-safe (definitive, never ambiguous), in both of 2.x's wordings, even on a 5xx.
         (fail(400, json!({ "code": -1021, "msg": m1021 })), Err(VenueError::Coded { code: "-1021".into(), errors: vec![m1021.into()] })),
         (fail(400, json!({ "code": -1021, "msg": ahead })), Err(VenueError::Coded { code: "-1021".into(), errors: vec![ahead.into()] })),
         (fail(503, json!({ "code": -1021, "msg": m1021 })), Err(VenueError::Coded { code: "-1021".into(), errors: vec![m1021.into()] })),
-        // A 429 on placement is a definitive refusal (Rails' 4xx rule), never the read throttle.
+        // A 429 on placement is a definitive refusal (2.x's 4xx rule), never the read throttle.
         (fail(429, json!({ "code": -1015, "msg": "Too many new orders." })), Err(VenueError::Coded { code: "-1015".into(), errors: vec!["Too many new orders.".into()] })),
         // May have been placed: a 5xx, an unreadable 2xx, a 2xx with no orderId, a lost reply.
         (fail(503, json!({ "code": -1001, "msg": "Internal error; unable to process your request. Please try again." })),
@@ -166,7 +166,7 @@ async fn placement_answers_map_to_rails_ambiguity_rules() {
         (ok(json!({ "symbol": "BTCUSDT" })), Err(VenueError::Ambiguous("Failed to set Binance market order (order_id is BTCUSDT-)".into()))),
         (ok(json!({ "symbol": "BTCUSDT", "orderId": null })), Err(VenueError::Ambiguous("Failed to set Binance market order (order_id is BTCUSDT-)".into()))),
         (json!([{ "network": "post_send", "message": "read timeout" }]), Err(VenueError::Ambiguous("read timeout".into()))),
-        // Provably never sent: honeymaker's Failure, a definitive refusal (Rails writes a failed row and does not retry).
+        // Provably never sent: honeymaker's Failure, a definitive refusal (2.x writes a failed row and does not retry).
         (json!([{ "network": "pre_send", "message": "refused" }]), Err(VenueError::Rejected(vec!["refused".into()]))),
         (json!([{ "network": "permanent", "message": "certificate" }]), Err(VenueError::Rejected(vec!["certificate".into()]))),
     ];
@@ -180,7 +180,7 @@ async fn placement_answers_map_to_rails_ambiguity_rules() {
 // ---- polls: Exchanges::Binance#get_orders / #get_order, #parse_order_data, the fill rebuild from myTrades
 
 #[test]
-fn every_recorded_rails_trade_parse_and_aggregate_is_reproduced() {
+fn every_recorded_v2_trade_parse_and_aggregate_is_reproduced() {
     use deltabadger::venue::binance::{aggregate, parse_trade};
     let cases = vectors()["binance_fills"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 10_000);
@@ -231,7 +231,7 @@ async fn statuses_map_as_order_status_map_and_an_unexecuted_order_keeps_its_own_
         assert_eq!(t.requests().len(), 1, "no trades are read for an order that executed nothing");
         assert_eq!(sent(&t.requests()[0]), pairs_of(&[("limit", "1000"), ("orderId", "28457"), ("recvWindow", "60000"), ("symbol", "BTCUSDT")]));
     }
-    // A historical order: nothing executed and a negative cumulative quote, which Rails reads as nil (never written).
+    // A historical order: nothing executed and a negative cumulative quote, which 2.x reads as nil (never written).
     let (_, v) = venue(json!({ "GET /api/v3/allOrders": ok(json!([raw_order(1, "CANCELED", "MARKET", "0.00000000", "-1.00000000")])) }));
     let got = v.orders(&["BTCUSDT-1".into()]).await.unwrap();
     assert_eq!((got[0].quote_amount_exec.clone(), got[0].amount_exec.clone(), got[0].quote_amount.clone(), got[0].price.clone()), (None, BigDec::zero(), Some(bd("60")), None));
@@ -259,7 +259,7 @@ async fn an_executed_order_is_rebuilt_from_all_its_trades_net_of_commission() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_fill_whose_trades_do_not_add_up_yet_is_rails_failure_and_the_order_waits() {
+async fn a_fill_whose_trades_do_not_add_up_yet_is_v2_failure_and_the_order_waits() {
     for page in [json!([]), json!([trade(1, 5, "64000.00", "0.0006", "0", "USDT")])] {
         let (_, v) = venue(json!({ "GET /api/v3/allOrders": ok(json!([raw_order(5, "FILLED", "MARKET", "0.00100000", "64.00000000")])), "GET /api/v3/myTrades": ok(page.clone()) }));
         assert_eq!(v.orders(&["BTCUSDT-5".into()]).await,

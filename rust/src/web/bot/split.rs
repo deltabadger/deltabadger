@@ -7,10 +7,10 @@
 //!
 //! Divergences: D-FENCE-PER-BOT (merge.rs: a source the engine holds is `busy`, naming its venue; every source's run
 //! generation moves). D-SPLIT-REVERSAL-PENDING: a source whose ⇄ reversal still has cancels or reserve credits to settle is
-//! `unavailable` (Rails splits it and the credit stays on the deleted source). D-SPLIT-LEGACY-SHADOW: a row recorded without
-//! its asset goes by figures::walk::listing_names over every asset of the source's history (Rails matches symbols exactly);
+//! `unavailable` (2.x splits it and the credit stays on the deleted source). D-SPLIT-LEGACY-SHADOW: a row recorded without
+//! its asset goes by figures::walk::listing_names over every asset of the source's history (2.x matches symbols exactly);
 //! one that names assets bound for different children refuses the split instead of guessing. A redeploy in progress (a
-//! waiting REDEPLOY row, or a Bot::RedeployJob Rails still holds) is not served: this build runs no redeploy. A job queue it
+//! waiting REDEPLOY row, or a Bot::RedeployJob 2.x still holds) is not served: this build runs no redeploy. A job queue it
 //! can't read is refused the same way, never read as "no job".
 use super::{index_switch, merge, write, Bot, For, Kind};
 use crate::engine::{eligibility, model};
@@ -68,7 +68,7 @@ fn queued_redeploy(app: &App, class: &str, id: i64) -> Option<bool> {
     crate::engine::handover::active_job(&queue, "Bot::RedeployJob", &format!("gid://deltabadger/{class}/{id}")).ok()
 }
 
-/// `bot.redeploy_in_flight?` past the pending flag `refusal` already refuses, or a Yes Rails still holds: why it is not served.
+/// `bot.redeploy_in_flight?` past the pending flag `refusal` already refuses, or a Yes 2.x still holds: why it is not served.
 fn redeploying(c: &Connection, app: &App, source: &model::Bot, class: &str) -> Result<Option<&'static str>, WebError> {
     let waiting: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type = 'REDEPLOY' AND status = 0 AND external_status IN (0, 1))",
                                     [source.id], |r| r.get(0))?;
@@ -91,7 +91,7 @@ fn members(c: &Connection, bot: &Bot) -> Result<Vec<(i64, f64)>, WebError> {
                                           rusqlite::params![bot.exchange.id, quote, asset], |r| r.get(0))?;
         if weight > 0.0 && tradeable { pairs.push((asset, weight)); }
     }
-    let total = crate::ruby::float_sum(&pairs.iter().map(|(_, w)| *w).collect::<Vec<_>>());
+    let total = crate::v2::float_sum(&pairs.iter().map(|(_, w)| *w).collect::<Vec<_>>());
     Ok(pairs.into_iter().map(|(asset, weight)| (asset, weight / total)).collect())
 }
 
@@ -168,7 +168,7 @@ impl Split {
         Ok(None)
     }
 
-    /// Bot::Split#offers: each bot's `redeploy_offer` on its fresh books (D-6C-9: Rails' clamp and minimum fallback).
+    /// Bot::Split#offers: each bot's `redeploy_offer` on its fresh books (D-6C-9: 2.x's clamp and minimum fallback).
     fn offers(&mut self, c: &Connection) -> Result<Result<(), &'static str>, WebError> {
         for source in &mut self.bots {
             let (subject, books) = source.books.as_ref().ok_or_else(|| super::data("offers before the books".into()))?;
@@ -211,7 +211,7 @@ impl Split {
 
 /// A sale Measurable#metrics estimates (`estimated_proceeds`): a submitted sell that executed units (a closed order's asked
 /// units when it reported none) with no positive proceeds. This walk prices a REGULAR or REBALANCE one at price × units
-/// (fill::special_sell, R4/R3) and estimates only a liquidation, so the rows are asked as Rails' walk asks them.
+/// (fill::special_sell, R4/R3) and estimates only a liquidation, so the rows are asked as 2.x's walk asks them.
 fn unpriced_sale(c: &Connection, bot: i64) -> Result<bool, WebError> {
     Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND status = 0 AND side = 1 \
                     AND coalesce(CAST(amount_exec AS REAL), CASE WHEN external_status = 2 THEN CAST(amount AS REAL) END, 0) > 0 \
@@ -326,7 +326,7 @@ fn perform_inner(c: &Connection, ctx: &Ctx, owner: i64, ids: Vec<i64>, keep: Vec
     }
     let mut children = vec![];
     for source in &split.bots {
-        // `rescue ActiveRecord::RecordInvalid`: a child Rails cannot save refuses the split as the first bot's `unavailable`.
+        // `rescue ActiveRecord::RecordInvalid`: a child 2.x cannot save refuses the split as the first bot's `unavailable`.
         let Some(made) = split_one(&tx, ctx, owner, source, now)? else {
             tx.rollback()?;
             return Ok(Performed::Refused(Split::refusal(ctx.locale, &Reason::Bot("unavailable", split.bots[0].bot.label.clone()), vec![])));
@@ -350,7 +350,7 @@ fn perform_inner(c: &Connection, ctx: &Ctx, owner: i64, ids: Vec<i64>, keep: Vec
 
 /// Bot::Split#split!: the children built and saved, every row moved as REGULAR, the memberships moved, the transient data
 /// merged, the `split` activity logged on each child, and the source deleted with its run generation moved. None when a
-/// child is invalid (Rails' `save!` raises).
+/// child is invalid (2.x's `save!` raises).
 fn split_one(tx: &Connection, ctx: &Ctx, owner: i64, source: &Source, now: DateTime<Utc>) -> Result<Option<Vec<Child>>, WebError> {
     let setting = |key: &str| source.bot.settings.get(key).cloned().unwrap_or(Value::Null);
     let amount = match setting("quote_amount") { Value::String(text) => text.trim().parse::<f64>().unwrap_or(0.0), other => other.as_f64().unwrap_or(0.0) };

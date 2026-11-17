@@ -1,9 +1,9 @@
 //! AccountTransaction::SyncJob for a MEXC key (plan VB slice A5): Exchanges::Mexc#get_ledger (post-audit X8-X12) on the
 //! venue continuation (sync::continuation), then AccountTransactionSync#store! and TransferMatcher.run! as ledger.rs ports
-//! them. Read only: signed GETs, and the public exchange information. Rows, tx_ids, fees and raw_data are Rails' (rust/tests/
+//! them. Read only: signed GETs, and the public exchange information. Rows, tx_ids, fees and raw_data are 2.x's (rust/tests/
 //! sync_parity.rs, the `mexc-ledger-` scenarios).
 //!
-//! D-PENDING-TRANSFERS holds the start at pending transfers. D-MEXC-HISTORY-GAP removes Rails' 80-day floor.
+//! D-PENDING-TRANSFERS holds the start at pending transfers. D-MEXC-HISTORY-GAP removes 2.x's 80-day floor.
 //! From `start` (the watermark less 25 hours, bounded only by the venue's retention) to the moment the
 //! import began:
 //! - deposits, then withdrawals (`each_transfer`): 7-day ranges from `start` (or as far back as MEXC keeps them, 90 days),
@@ -16,14 +16,14 @@
 //! - any other failed read fails the whole sync, with the venue's text.
 //!
 //! Across runs (plan VB §1.6): the cursor holds the source, the range being read (the halving's pending ranges included)
-//! and the rows that range (or pair) read so far, which are kept only when it ends as Rails keeps them; the coins the kept
+//! and the rows that range (or pair) read so far, which are kept only when it ends as 2.x keeps them; the coins the kept
 //! transfers named; and, once the walk enters its trade phase, the frozen pair list. A resumed trade phase reads exactly
 //! that list.
 //!
-//! Where it reads more strictly than Rails (as kucoin_ledger does): an unreadable answer or amount fails the sync (Rails
+//! Where it reads more strictly than 2.x (as kucoin_ledger does): an unreadable answer or amount fails the sync (2.x
 //! stores a garbage amount as 0).
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
-use super::binance_ledger::{amount, entry, page_of, ruby_time_at_ms, text, Fail};
+use super::binance_ledger::{amount, entry, page_of, v2_time_at_ms, text, Fail};
 use super::continuation;
 use super::ledger::Outcome;
 use super::wire::Node;
@@ -31,7 +31,7 @@ use super::{capture_bound_version, load_key_of, phase, Failure, Key, SyncError};
 use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::jobs::Db;
-use crate::venue::bitvavo::ruby_ms;
+use crate::venue::bitvavo::v2_ms;
 use crate::venue::http::Transport;
 use crate::venue::mexc::{MexcVenue, ACCOUNT_PATH, MEXC, RECV_WINDOW, URL};
 use chrono::{DateTime, Duration, Months, Utc};
@@ -56,7 +56,7 @@ pub const SYMBOL_GONE_CODES: [i64; 5] = [-1121, 10_007, 30_014, 30_021, 730_001]
 pub const DEPOSIT_CREDITED: [i64; 2] = [5, 12];
 /// A withdrawal's completed status.
 pub const WITHDRAWAL_COMPLETED: i64 = 7;
-/// Exchanges::Mexc#ledger_window: Rails floors an incremental start to 80 days ago.
+/// Exchanges::Mexc#ledger_window: 2.x floors an incremental start to 80 days ago.
 pub const LEDGER_WINDOW_DAYS: i64 = 80;
 pub const OVERLAP_HOURS: i64 = 25;
 pub const MAX_PAGE_BYTES: usize = 8 * 1024 * 1024;
@@ -64,26 +64,26 @@ pub const MAX_PAGE_NODES: usize = 400_000;
 /// The exchange information lists every pair MEXC has (a few thousand).
 pub const MAX_INFO_BYTES: usize = 64 * 1024 * 1024;
 pub const MAX_INFO_NODES: usize = 8_000_000;
-/// ponytail: Rails has no request cap; one stops a halving that never ends.
+/// ponytail: 2.x has no request cap; one stops a halving that never ends.
 const MAX_PAGES: usize = 100_000;
 
 /// `#to_i` of a JSON value (nil.to_i is 0; a Float truncates).
 fn to_i(v: &Value) -> i64 {
-    match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::ruby::to_i(s), _ => 0 }
+    match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::v2::to_i(s), _ => 0 }
 }
 /// `x.to_d.positive?` (a value that is no decimal reads as 0).
-fn positive(v: &Value) -> bool { crate::ruby::json_to_d(v).ok().flatten().is_some_and(|d| d.is_positive()) }
-/// Exchange#response_field(result, 'code') of a failure's text, compared as Ruby's `==` compares a number with an Integer.
+fn positive(v: &Value) -> bool { crate::v2::json_to_d(v).ok().flatten().is_some_and(|d| d.is_positive()) }
+/// Exchange#response_field(result, 'code') of a failure's text, compared as 2.x's `==` compares a number with an Integer.
 fn code_is(text: &str, codes: &[i64]) -> bool {
     serde_json::from_str::<Value>(text).ok().and_then(|v| v.get("code").and_then(Value::as_f64)).is_some_and(|c| codes.iter().any(|n| c == *n as f64))
 }
 
-/// Ruby's `inspect` of what `JSON.parse` made of a value (Hash#inspect as Ruby 3.4 writes it).
+/// 2.x's `inspect` of what `JSON.parse` made of a value (Hash#inspect as 2.x's interpreter (3.4) writes it).
 pub(crate) fn inspect(v: &Value) -> String {
     match v {
         Value::Null => "nil".into(),
         Value::Bool(b) => b.to_string(),
-        Value::Number(n) => if n.is_i64() || n.is_u64() { n.to_string() } else { crate::ruby::float_to_s(n.as_f64().unwrap_or(f64::NAN)) },
+        Value::Number(n) => if n.is_i64() || n.is_u64() { n.to_string() } else { crate::v2::float_to_s(n.as_f64().unwrap_or(f64::NAN)) },
         Value::String(s) => {
             let mut out = String::from("\"");
             for c in s.chars() {
@@ -129,7 +129,7 @@ impl Source {
 /// One deposit as #get_ledger maps it (X9): kept at status 5 or 12; its txId the tx_id.
 fn deposit(raw: Raw) -> Result<Option<Entry>, Fail> {
     if !DEPOSIT_CREDITED.contains(&to_i(&raw.value["status"])) { return Ok(None); }
-    let at = ruby_time_at_ms(to_i(&raw.value["insertTime"])).ok_or_else(|| ("unreadable deposit insertTime".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["insertTime"])).ok_or_else(|| ("unreadable deposit insertTime".to_string(), true))?;
     let mut e = entry(DEPOSIT, "", amount(&raw, "amount", "deposit")?, &raw, at);
     e.base_currency = raw.value["coin"].as_str().map(str::to_string);
     e.tx_id = text(raw.value.get("txId"));
@@ -139,7 +139,7 @@ fn deposit(raw: Raw) -> Result<Option<Entry>, Fail> {
 /// One withdrawal (X8): kept when completed (7); its record id the tx_id, its fee in its coin.
 fn withdrawal(raw: Raw) -> Result<Option<Entry>, Fail> {
     if to_i(&raw.value["status"]) != WITHDRAWAL_COMPLETED { return Ok(None); }
-    let at = ruby_time_at_ms(to_i(&raw.value["applyTime"])).ok_or_else(|| ("unreadable withdrawal applyTime".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["applyTime"])).ok_or_else(|| ("unreadable withdrawal applyTime".to_string(), true))?;
     let mut e = entry(WITHDRAWAL, "", amount(&raw, "amount", "withdrawal")?, &raw, at);
     e.base_currency = raw.value["coin"].as_str().map(str::to_string);
     e.fee_currency = e.base_currency.clone();
@@ -152,13 +152,13 @@ fn withdrawal(raw: Raw) -> Result<Option<Entry>, Fail> {
 /// commission's absolute value in its asset; the tx_id "SYMBOL-<orderId>-<id>".
 fn trade(symbol: &str, base: &str, quote: &str, raw: Raw) -> Result<Entry, Fail> {
     let buy = !matches!(raw.value.get("isBuyer"), None | Some(Value::Null) | Some(Value::Bool(false)));
-    let at = ruby_time_at_ms(to_i(&raw.value["time"])).ok_or_else(|| ("unreadable trade time".to_string(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["time"])).ok_or_else(|| ("unreadable trade time".to_string(), true))?;
     let mut e = entry(if buy { BUY } else { SELL }, base, amount(&raw, "qty", "trade")?, &raw, at);
     e.quote_currency = Some(quote.to_string());
     e.quote_amount = Some(amount(&raw, "quoteQty", "trade")?);
     e.fee_currency = raw.value["commissionAsset"].as_str().map(str::to_string);
     let commission = amount(&raw, "commission", "trade")?;
-    e.fee_amount = Some(if commission < crate::ruby::BigDec::zero() { &crate::ruby::BigDec::zero() - &commission } else { commission });
+    e.fee_amount = Some(if commission < crate::v2::BigDec::zero() { &crate::v2::BigDec::zero() - &commission } else { commission });
     let part = |k: &str| text(raw.value.get(k)).unwrap_or_default();
     e.tx_id = Some(format!("{symbol}-{}-{}", part("orderId"), part("id")));
     Ok(e)
@@ -184,8 +184,8 @@ impl<'a, T: Transport> Walk<'a, T> {
         let month = end.checked_sub_months(Months::new(1)).unwrap_or(end).max(end - Duration::days(30));
         // `(...).to_i * 1000`: whole seconds, unlike the transfers' `(from.to_f * 1000).to_i`.
         let trades_from = start.map_or(month, |s| s.max(month)).timestamp() * 1000;
-        let transfers_from = ruby_ms(reach);
-        let mut walk = Self { transfers: begin.transfers, venue, db, key, clock, now_ms: ruby_ms(end), transfers_from, trades_from, source: Source::Deposits,
+        let transfers_from = v2_ms(reach);
+        let mut walk = Self { transfers: begin.transfers, venue, db, key, clock, now_ms: v2_ms(end), transfers_from, trades_from, source: Source::Deposits,
                               window: transfers_from, ranges: vec![], pending: vec![], coins: BTreeSet::new(), pairs: vec![], pair: 0, requests: 0 };
         if let Some(c) = begin.cursor {
             if let Some(source) = c["source"].as_str().and_then(Source::named) {
@@ -230,7 +230,7 @@ impl<'a, T: Transport> Walk<'a, T> {
             Err(Err(fail)) => return Err(fail),
         };
         let Node::Array(rows) = &node else { return Err(not_a_list(&serde_json::from_str(&node.text()).unwrap_or(Value::Null))) };
-        // ponytail: a full page inside a single millisecond is taken as is; it cannot be split further (as Rails).
+        // ponytail: a full page inside a single millisecond is taken as is; it cannot be split further (as 2.x).
         if rows.len() >= page && to - from >= 1 {
             let mid = (from + to).div_euclid(2);
             self.ranges.extend([(mid + 1, to), (from, mid)]);
@@ -283,7 +283,7 @@ impl<'a, T: Transport> Walk<'a, T> {
         let account: Value = serde_json::from_str(&account.text()).map_err(|_| ("unreadable MEXC account".to_string(), true))?;
         let Some(account) = account.as_object() else { return Err(("unreadable MEXC account".into(), true)) };
         let mut coins = self.coins.clone();
-        // `Array(data['balances'])`; ponytail: a `balances` that is no list is refused (Ruby's Array() of it raises or reads nothing).
+        // `Array(data['balances'])`; ponytail: a `balances` that is no list is refused (2.x's Array() of it raises or reads nothing).
         let balances = list(account.get("balances"), "MEXC balances")?;
         for b in &balances {
             if positive(&b["free"]) || positive(&b["locked"]) { if let Some(s) = b["asset"].as_str() { coins.insert(s.to_string()); } }
@@ -392,7 +392,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_list_refusal_names_the_answer_as_ruby_interpolates_it() {
+    fn a_list_refusal_names_the_answer_as_v2_interpolates_it() {
         assert_eq!(not_a_list(&json!({ "code": 700_003, "msg": "Timestamp \"x\"" })).0, r#"MEXC ledger read failed: {"code" => 700003, "msg" => "Timestamp \"x\""}"#);
         assert_eq!(not_a_list(&Value::Null).0, "MEXC ledger read failed: ");
         assert_eq!(not_a_list(&json!({})).0, "MEXC ledger read failed: {}");

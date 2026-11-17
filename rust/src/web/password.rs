@@ -1,24 +1,24 @@
 //! Password reset: Users::PasswordsController on Devise 5 (recoverable, paranoid, reset_password_within 6 hours,
 //! sign_in_after_reset_password false), on the same `users` columns and the same token digest (crypto::ResetTokens), so
-//! a link Rails mailed before the takeover works here.
+//! a link 2.x mailed before the takeover works here.
 //!
-//! The new password, in Rails' order: the token (found, in its period); on a two-factor account an expired lock is lifted,
+//! The new password, in 2.x's order: the token (found, in its period); on a two-factor account an expired lock is lifted,
 //! a locked account is refused with the lock's message, a blank code is refused; the new password (blank, policy,
 //! confirmation) is checked before the code is spent; a wrong code counts toward the lock /login shares; a right one
 //! resets that counter. A refused attempt never changes the password, the token, its time or the last spent code: the
-//! only writes on a refusal are Rails' own (the lifted lock, the counted wrong code). The bcrypt computation runs
+//! only writes on a refusal are 2.x's own (the lifted lock, the counted wrong code). The bcrypt computation runs
 //! outside the database lock, and the write is decided again on the row as it is then, so one token wins once.
 //!
 //! Named divergences (PLAN-A16):
-//! - D-RESET-NOTICE-COPY: the request's notice is Devise's reset copy, not the confirmation copy Rails shows.
-//! - D-RESET-FORM-KEEPS-FIELDS: a refused password is shown on the whole form (Rails drops the code field, the patterns
+//! - D-RESET-NOTICE-COPY: the request's notice is Devise's reset copy, not the confirmation copy 2.x shows.
+//! - D-RESET-FORM-KEEPS-FIELDS: a refused password is shown on the whole form (2.x drops the code field, the patterns
 //!   and the email when Devise re-renders it).
 //! - D-RESET-UPDATE-STALE-TOKEN: an unknown or expired token on submit goes back to the request page with the expiry
-//!   message, as the link itself does (Rails re-renders the form with an error it never shows).
+//!   message, as the link itself does (2.x re-renders the form with an error it never shows).
 //! - D-ACCOUNT-MAIL-OFF-REQUEST (settings::mail): the answer never waits for or depends on the mail.
 //!
 //! `deltabadger reset-password` (PLAN-A16b) writes through `reset_by_owner`, sharing the reset's write (`set_password`):
-//! - D-RESET-PASSWORD-COMMAND: a local command sets a password for whoever can run commands in the install (Rails has
+//! - D-RESET-PASSWORD-COMMAND: a local command sets a password for whoever can run commands in the install (2.x has
 //!   none). It needs no token and no mail, and has no web route.
 //! - D-RESET-COMMAND-UNLOCKS: it lifts a failed-attempts lock (Devise's reset doesn't, under `unlock_strategy :time`).
 //! - D-RESET-COMMAND-CONFIRMS: it confirms an unconfirmed account (an install with no mail can't send the link).
@@ -135,7 +135,7 @@ async fn form(app: &App, ctx: &Ctx, status: StatusCode, token: &str, user: &User
 /// GET /password/edit.
 pub async fn edit(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let token = ctx.params.query("reset_password_token").unwrap_or("").to_string();
-    if crate::ruby::blank(&token) { // assert_reset_token_passed
+    if crate::v2::blank(&token) { // assert_reset_token_passed
         flash::set(&ctx.session, flash::ALERT, super::i18n::text(ctx.locale, "devise.passwords.no_token", &[]));
         return Ok(layout::redirect(StatusCode::FOUND, &ctx.path("/login")));
     }
@@ -149,7 +149,7 @@ pub async fn edit(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Res
 /// Devise's validatable on the new password, as errors[:password] and errors[:password_confirmation] hold it.
 fn password_refusal(locale: &str, password: &str, confirmation: Option<&str>) -> Option<Refusal> {
     let (mut on_password, mut on_confirmation) = (vec![], vec![]);
-    if crate::ruby::blank(password) {
+    if crate::v2::blank(password) {
         on_password.push(setup::kind_message(locale, "password", "blank", None)); // Recoverable#reset_password
     } else {
         if confirmation.is_some_and(|c| c != password) { on_confirmation.push(setup::kind_message(locale, "password_confirmation", "confirmation", None)) }
@@ -177,7 +177,7 @@ fn second_factor_gate(c: &Connection, ctx_locale: &str, user: &mut User, code: O
     if user.lock_expired(now) { user.unlock(c, now)? }
     let refuse = |key: &str| Some(Refusal { password: None, confirmation: None, code: Some(super::i18n::text(ctx_locale, key, &[])) });
     if user.locked(now) { return Ok(refuse("devise.failure.locked")) }
-    if code.is_none_or(crate::ruby::blank) { return Ok(refuse("errors.messages.empty_two_fa_token")) }
+    if code.is_none_or(crate::v2::blank) { return Ok(refuse("errors.messages.empty_two_fa_token")) }
     Ok(None)
 }
 
@@ -189,7 +189,7 @@ pub async fn update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     let confirmation = field("user[password_confirmation]");
     let code = field("user[otp_code_token]");
     let locale = ctx.locale;
-    // Everything but the bcrypt computation, under the lock. Writes only Rails' lifted lock.
+    // Everything but the bcrypt computation, under the lock. Writes only 2.x's lifted lock.
     let first = {
         let (inner, token, password, confirmation, code) = (app.clone(), token.clone(), password.clone(), confirmation.clone(), code.clone());
         app.db(move |c| super::oauth::transaction(c, &*inner.clock, |c, now| {
@@ -274,7 +274,7 @@ pub fn policy_message(password: &str) -> Option<String> {
 }
 
 /// `deltabadger reset-password`'s write, in one transaction: the reset's write, the lock lifted (D-RESET-COMMAND-UNLOCKS),
-/// the account confirmed if it isn't (D-RESET-COMMAND-CONFIRMS; a pending address change is left as it is) and Rails'
+/// the account confirmed if it isn't (D-RESET-COMMAND-CONFIRMS; a pending address change is left as it is) and 2.x's
 /// remember-me time cleared. Only when the row `user_id` still has `email`. Two-factor is left on. `hash` is computed by the
 /// caller, outside the transaction.
 pub fn reset_by_owner(c: &Connection, user_id: i64, email: &str, hash: &str, now: DateTime<Utc>) -> Result<OwnerReset, WebError> {

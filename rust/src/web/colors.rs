@@ -11,7 +11,7 @@ fn channel(slice: &str) -> f64 {
 }
 
 /// A colour light or dark enough to be read on either theme: darkened by a fifth above a luminance
-/// of 0.7, lightened by a tenth below 0.3 and by two fifths at 0.04 and below. `None` where Ruby
+/// of 0.7, lightened by a tenth below 0.3 and by two fifths at 0.04 and below. `None` where 2.x
 /// raises: a value with fewer than five characters after its `#` has no blue channel.
 pub fn ensure_contrast(color: &str) -> Option<String> {
     if color.trim().is_empty() { return Some(color.to_string()); }

@@ -1,7 +1,7 @@
 //! Bybit history on the continuation kit: 729 days, seven-day spot windows, then 29-day transfer windows.
-//! D-BYBIT-STUCK refuses a repeated cursor; Rails would loop. Cursors and id-less dedup survive checkpoints.
+//! D-BYBIT-STUCK refuses a repeated cursor; 2.x would loop. Cursors and id-less dedup survive checkpoints.
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
-use super::binance_ledger::{amount, entry, objects, page_of, ruby_time_at_ms, text, Fail};
+use super::binance_ledger::{amount, entry, objects, page_of, v2_time_at_ms, text, Fail};
 use super::continuation;
 use super::ledger::Outcome;
 use super::{capture_bound_version, load_key_of, phase, Failure, SyncError};
@@ -28,10 +28,10 @@ pub const MAX_PAGE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_PAGE_NODES: usize = 400_000;
 const MAX_PAGES: usize = 100_000;
 
-fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::ruby::to_i(s), _ => 0 } }
+fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::v2::to_i(s), _ => 0 } }
 fn to_s(v: &Value) -> String { match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() } }
-fn ms(t: DateTime<Utc>) -> i64 { crate::venue::bitvavo::ruby_ms(t) }
-fn abs(d: crate::ruby::BigDec) -> crate::ruby::BigDec { if d < crate::ruby::BigDec::zero() { &crate::ruby::BigDec::zero() - &d } else { d } }
+fn ms(t: DateTime<Utc>) -> i64 { crate::venue::bitvavo::v2_ms(t) }
+fn abs(d: crate::v2::BigDec) -> crate::v2::BigDec { if d < crate::v2::BigDec::zero() { &crate::v2::BigDec::zero() - &d } else { d } }
 
 struct Tickers(Vec<(String, String, String)>);
 impl Tickers {
@@ -50,7 +50,7 @@ impl Tickers {
 
 fn fill(raw: Raw, tickers: &Tickers) -> Result<Entry, Fail> {
     let (base, quote) = tickers.pair(raw.value["symbol"].as_str());
-    let at = ruby_time_at_ms(to_i(&raw.value["execTime"])).ok_or_else(|| ("unreadable fill execTime".into(), true))?;
+    let at = v2_time_at_ms(to_i(&raw.value["execTime"])).ok_or_else(|| ("unreadable fill execTime".into(), true))?;
     let mut e = entry(if raw.value["side"] == "Buy" { BUY } else { SELL }, "", amount(&raw, "execQty", "fill")?, &raw, at);
     e.base_currency = base; e.quote_currency = quote;
     e.quote_amount = Some(amount(&raw, "execValue", "fill")?);
@@ -66,7 +66,7 @@ fn transfer(source: Source, raw: Raw) -> Result<Option<Entry>, Fail> {
     let field = match source { Source::Deposits => "successAt", Source::Internal => "createdTime", _ => "updateTime" };
     let mut at = to_i(&raw.value[field]);
     if source == Source::Internal && at < 1_000_000_000_000 { at = at.checked_mul(1000).ok_or_else(|| ("unreadable internal transfer time".into(), true))?; }
-    let at = ruby_time_at_ms(at).ok_or_else(|| ("unreadable transfer time".into(), true))?;
+    let at = v2_time_at_ms(at).ok_or_else(|| ("unreadable transfer time".into(), true))?;
     let kind = if source == Source::Withdrawals { WITHDRAWAL } else { DEPOSIT };
     let mut e = entry(kind, "", amount(&raw, "amount", "transfer")?, &raw, at);
     e.base_currency = text(raw.value.get("coin"));
@@ -163,7 +163,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
             if self.source != Source::Fills { self.transfers.observe_from(self.source.name(), &raw.value, self.window)?; }
             let entry = if self.source == Source::Fills { Some(fill(raw.clone(), self.tickers)?) } else { transfer(self.source, raw.clone())? };
             if let Some(e) = entry {
-                if e.tx_id.as_deref().is_none_or(crate::ruby::blank) {
+                if e.tx_id.as_deref().is_none_or(crate::v2::blank) {
                     let key = format!("{}:{}", e.entry_type, raw.eql_key());
                     if self.bare.contains(&key) { continue; }
                     self.bare.push(key);
@@ -171,7 +171,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
                 rows.push(e);
             }
         }
-        let next = result.as_ref().and_then(|r| r.value.get("nextPageCursor")).filter(|v| !v.is_null()).map(to_s).filter(|s| !crate::ruby::blank(s));
+        let next = result.as_ref().and_then(|r| r.value.get("nextPageCursor")).filter(|v| !v.is_null()).map(to_s).filter(|s| !crate::v2::blank(s));
         if page.is_empty() || next.is_none() { self.next_read(); return Ok(rows); }
         if next == self.before || next.as_ref().is_some_and(|n| self.seen.contains(n)) { return Err((format!("Bybit {} paging stuck at cursor {}", self.source.name(), self.before.clone().unwrap_or_default()), false)); }
         self.seen.extend(next.clone());

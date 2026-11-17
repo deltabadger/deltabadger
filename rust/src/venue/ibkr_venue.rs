@@ -5,26 +5,26 @@
 //! (`trades: false` until order fixtures recorded on a paper login exist, gate G3).
 //!
 //! Divergences from Exchanges::Ibkr:
-//! - D-IBKR-PRICE: a snapshot price counts only when the answer echoes the conid asked for (Rails falls back to the first
-//!   row), its value is a positive finite decimal (Rails' `to_d` reads "C189.5" or "NaN" as a number), field 6509 says
+//! - D-IBKR-PRICE: a snapshot price counts only when the answer echoes the conid asked for (2.x falls back to the first
+//!   row), its value is a positive finite decimal (2.x's `to_d` reads "C189.5" or "NaN" as a number), field 6509 says
 //!   live (R…) or delayed (D…) data (frozen Z/Y and unsubscribed N are refused), and `_updated` is at most 60 s old for
-//!   live data, 20 min for delayed. One pre-flight retry; never cached (Rails caches 5 s).
+//!   live data, 20 min for delayed. One pre-flight retry; never cached (2.x caches 5 s).
 //! - D-IBKR-RULES: the contract rules (`/iserver/contract/rules`, a read) give the size and price increments; a price
-//!   magnifier other than 1, or none stated, is refused. Kept 24 h per (conid, side). Rails reads no rules.
+//!   magnifier other than 1, or none stated, is refused. Kept 24 h per (conid, side). 2.x reads no rules.
 //! - D-IBKR-STATUS-FIELDS: an order's fill, size and side are also read under the order-status answer's own names
-//!   (`cum_fill`, `total_size`, side `B`/`S`), which Rails' `cumFill`/`totalSize`/`side.downcase` miss; a status naming
+//!   (`cum_fill`, `total_size`, side `B`/`S`), which 2.x's `cumFill`/`totalSize`/`side.downcase` miss; a status naming
 //!   another account is refused.
-//! - D-IBKR-CANCEL: a cancel answered `{"error": …}` is refused (Rails counts any 2xx as done).
+//! - D-IBKR-CANCEL: a cancel answered `{"error": …}` is refused (2.x counts any 2xx as done).
 //! - D-IBKR-PENDING-CANCEL: `PendingCancel` is open, not cancelled (`status`).
 //! - D-IBKR-CONID: the conid is the ticker's own (`tickers.ticker`), checked against `ibkr_conids` in the intent's
-//!   transaction; never searched by symbol (Rails' `search_contract` fallback).
+//!   transaction; never searched by symbol (2.x's `search_contract` fallback).
 //! - D-IBKR-WHOLE: the quantity is floored to the contract's `sizeIncrement`; a quote amount is never sent.
 //! - D-IBKR-NOLIMIT: market orders only (MKT, DAY), until per-contract price increments are recorded; a limit bot is
 //!   refused by eligibility, and a limit order here is never sent.
 //! - D-IBKR-COID: the order carries `cOID` = the intent's id, and recovery finds it by `order_ref` in the live orders
 //!   (asked twice: IBKR's first answer can be incomplete), then in `/trades`. Not found waits: absence is never provable.
 //! - D-IBKR-REPLY: a confirmation prompt is confirmed only when every message id is in REPLY_WHITELIST, which is empty until
-//!   prompts are recorded on a paper login (G3); every prompt is declined (`confirmed: false`) and logged. Rails confirms
+//!   prompts are recorded on a paper login (G3); every prompt is declined (`confirmed: false`) and logged. 2.x confirms
 //!   every prompt, up to 5. The reply is sent once (`Session::submit`); any failure on it is ambiguous.
 //! - D-IBKR-SELLCAP: a sell is capped by the position read under the login's lock (`placement_hold`) and the install's own
 //!   reservations (`ibkr_reservations`).
@@ -37,7 +37,7 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PlacementHold, PriceSi
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::VenueRules;
 use crate::engine::Clock;
-use crate::ruby::{json_to_d, BigDec};
+use crate::v2::{json_to_d, BigDec};
 use chrono::{DateTime, TimeDelta, Utc};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -189,7 +189,7 @@ impl<T: Transport> IbkrVenue<T> {
                 return Err(VenueError::Rejected(vec![e.as_str().map(str::to_string).unwrap_or_else(|| e.to_string())]));
             }
             let Some(prompt) = rows(&answer).find(|r| r.get("id").is_some_and(|i| !i.is_null()) && r.get("message").is_some_and(|m| !m.is_null())) else {
-                // Rails' unacknowledged placement: the venue may hold the order.
+                // 2.x's unacknowledged placement: the venue may hold the order.
                 return Err(VenueError::Ambiguous("IBKR accepted the order but returned no order id".into()));
             };
             let id = prompt["id"].as_str().map(str::to_string).unwrap_or_else(|| prompt["id"].to_string());
@@ -364,7 +364,7 @@ fn as_i64(v: &Value) -> Option<i64> { v.as_i64().or_else(|| v.as_str().and_then(
 /// D-IBKR-PRICE over a snapshot answer for `conid`'s `field`, at `now`.
 fn usable_price(answer: &Value, conid: i64, field: &str, now: DateTime<Utc>) -> Result<BigDec, String> {
     let row = first_row(answer).ok_or("no snapshot row")?;
-    if row.get("conid").and_then(as_i64) != Some(conid) { return Err(format!("the answer is for conid {}", row.get("conid").map(crate::ruby::raw).unwrap_or_default())) }
+    if row.get("conid").and_then(as_i64) != Some(conid) { return Err(format!("the answer is for conid {}", row.get("conid").map(crate::v2::raw).unwrap_or_default())) }
     let value = match row.get(field).map(json_to_d) {
         Some(Ok(Some(v))) if v.is_positive() => v,
         Some(Ok(Some(_))) => return Err(format!("field {field} is not positive")),
@@ -386,7 +386,7 @@ fn parse_rules(answer: &Value) -> Result<ContractRules, String> {
     };
     match rules.get("priceMagnifier").or_else(|| answer.get("priceMagnifier")).map(json_to_d) {
         Some(Ok(Some(m))) if m == BigDec::one() => {}
-        Some(Ok(Some(_))) => return Err(format!("price magnifier {} is not supported", crate::ruby::raw(rules.get("priceMagnifier").or_else(|| answer.get("priceMagnifier")).unwrap_or(&Value::Null)))),
+        Some(Ok(Some(_))) => return Err(format!("price magnifier {} is not supported", crate::v2::raw(rules.get("priceMagnifier").or_else(|| answer.get("priceMagnifier")).unwrap_or(&Value::Null)))),
         _ => return Err("no price magnifier stated".into()),
     }
     let size_increment = positive(rules.get("sizeIncrement"), "sizeIncrement")?;
@@ -400,7 +400,7 @@ fn parse_rules(answer: &Value) -> Result<ContractRules, String> {
 }
 
 /// Exchanges::Ibkr#parse_order_status, except D-IBKR-PENDING-CANCEL: a cancel IBKR has not confirmed (`PendingCancel`) is
-/// still open, since the order can fill until it is cancelled. Rails reads it cancelled and stops polling: a fill after it
+/// still open, since the order can fill until it is cancelled. 2.x reads it cancelled and stops polling: a fill after it
 /// would be lost, and a sell's reservation released while the shares can still go.
 fn status(s: &str) -> OrderStatus {
     match s {
@@ -580,7 +580,7 @@ mod tests {
     }
 
     #[test]
-    fn the_status_map_is_rails_but_a_pending_cancel_is_open() {
+    fn the_status_map_is_v2_but_a_pending_cancel_is_open() {
         for (s, want) in [("Filled", OrderStatus::Closed), ("Cancelled", OrderStatus::Cancelled), ("PendingCancel", OrderStatus::Open), ("Inactive", OrderStatus::Cancelled),
                           ("Submitted", OrderStatus::Open), ("PreSubmitted", OrderStatus::Open), ("PendingSubmit", OrderStatus::Open), ("Rejected", OrderStatus::Failed),
                           ("ApiPending", OrderStatus::Unknown), ("", OrderStatus::Unknown)] { assert_eq!(status(s), want, "{s}"); }

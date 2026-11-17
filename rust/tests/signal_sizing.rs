@@ -1,10 +1,10 @@
-//! Plan 8a T4 / r2 §R6: a signal bot's sizing replayed against Rails' own answers (script/rust/record_signal_vectors.rb):
+//! Plan 8a T4 / r2 §R6: a signal bot's sizing replayed against 2.x's own answers:
 //! #signal_size (a webhook rule), #api_order_data (an API caller's amount), #calculate_best_amount_info on either, and
 //! #venue_takes?, on Kraken, Binance, KuCoin and Alpaca, exact on BigDecimal.
 use deltabadger::engine::amount::{self, TxKind};
 use deltabadger::engine::model::{SignalRule, Ticker};
 use deltabadger::engine::{signal, venue_rules};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::venue::Side;
 
 fn bd(s: &str) -> BigDec { BigDec::parse(s).unwrap() }
@@ -18,7 +18,7 @@ fn ticker(t: &serde_json::Value) -> Ticker {
 }
 
 #[test]
-fn every_recorded_rails_signal_sizing_is_reproduced() {
+fn every_recorded_v2_signal_sizing_is_reproduced() {
     let vectors: serde_json::Value = serde_json::from_str(include_str!("fixtures/signal_sizing.json")).unwrap();
     for (venue, exchange, expected_below) in [("kraken", "Exchanges::Kraken", 110), ("binance", "Exchanges::Binance", 125), ("kucoin", "Exchanges::Kucoin", 107), ("alpaca", "Exchanges::Alpaca", 98)] {
         let logic = venue_rules::for_exchange(exchange).unwrap().minimum_logic;

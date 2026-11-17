@@ -1,4 +1,4 @@
-//! Rails-free permission and schema coverage for all four reads.
+//! 2.x-free permission and schema coverage for all four reads.
 use deltabadger::web::{bearer::Bearer,mcp::{protocol,tools}};
 use rusqlite::Connection;
 use serde_json::json;
@@ -35,7 +35,7 @@ fn required_arguments_and_unknown_fields_match_the_recorded_schemas(){
 }
 
 #[test]
-fn the_platform_job_runs_this_rails_free_binary(){
+fn the_platform_job_runs_this_v2_free_binary(){
     assert!(!platform_excluded("mcp_reads_contract"));
 }
 /// Whether rust/tests/platform_excluded.txt keeps `name` off a platform leg (the platform job runs every other file).

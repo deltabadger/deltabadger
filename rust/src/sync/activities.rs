@@ -1,9 +1,9 @@
 //! Exchanges::Alpaca#get_ledger's pure half: one account activity → one ledger entry (#normalize_activity and its
 //! helpers), split legs merged into one signed adjustment (#merge_split_entries), and the ratio a restatement applied
-//! (.split_ratio_label). No database and no network; pinned by Ruby vectors (rust/tests/sync_vectors.rs).
+//! (.split_ratio_label). No database and no network; pinned by 2.x vectors (rust/tests/sync_vectors.rs).
 use super::number;
 use super::wire::{self, Budget, Node};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, NaiveDate, Utc};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -52,9 +52,9 @@ pub struct Entry {
     pub raw: Raw,
 }
 
-/// One JSON object as Rails would hold it (`wire`): the parsed value the port reads, and each member as the venue
+/// One JSON object as 2.x would hold it (`wire`): the parsed value the port reads, and each member as the venue
 /// wrote it. A number is read from the venue's own text (`number`), so its size is judged before any Float; what is
-/// stored as `raw_data` is the object as Rails stores it (`text`: Oj's serialisation of what Oj parsed, so an integer
+/// stored as `raw_data` is the object as 2.x stores it (`text`: Oj's serialisation of what Oj parsed, so an integer
 /// of any length stays exact and a Float is printed in Oj's sixteen digits). Keys are in the venue's order; a key met
 /// twice keeps its first place and its last value, at every level, as the app's parser leaves it.
 #[derive(Clone, Debug, PartialEq)]
@@ -68,7 +68,7 @@ impl Raw {
         Ok(Self { value, members: members.clone() })
     }
     /// From text of this port's own keeping (a stored row, a test), read without a budget. `None`: not JSON, or
-    /// nested past Rails' limit. `Some(Err)`: not an object.
+    /// nested past 2.x's limit. `Some(Err)`: not an object.
     pub fn parse(text: &str) -> Option<Result<Self, String>> {
         wire::read(text, &mut Budget(usize::MAX), None).ok().map(|node| Self::from_node(&node))
     }
@@ -106,9 +106,9 @@ impl Raw {
     }
     /// `hash[key] = v`, for a value of the port's own (the keys a split row gains).
     pub fn set(&mut self, key: &str, v: Value) { self.set_node(key, Node::from_value(&v)); }
-    /// The object as Rails stores it in `raw_data`, byte for byte (`wire::Node::stored`).
+    /// The object as 2.x stores it in `raw_data`, byte for byte (`wire::Node::stored`).
     pub fn text(&self) -> String { wire::stored_members(&self.members) }
-    /// The object's identity as Ruby's `eql?` compares what `JSON.parse` made of it (wire::eql_key_members).
+    /// The object's identity as 2.x's `eql?` compares what `JSON.parse` made of it (wire::eql_key_members).
     pub fn eql_key(&self) -> String { wire::eql_key_members(&self.members) }
 }
 
@@ -123,7 +123,7 @@ fn text(v: &Value) -> Option<String> { v.as_str().map(str::to_string) }
 /// What an activity whose time this port cannot read fails the sync with. It names no value of the answer.
 const UNREADABLE_TIME: &str = "unreadable activity time";
 
-/// The times a venue activity may carry: 1970-01-01T00:00:00Z ..= 9999-12-31T23:59:59.999999Z. Ruby reads any year;
+/// The times a venue activity may carry: 1970-01-01T00:00:00Z ..= 9999-12-31T23:59:59.999999Z. 2.x reads any year;
 /// outside this range a time is an unreadable activity time (the sync fails, as on any time it cannot read), so no
 /// arithmetic on it (the dedup's second either side, a watermark, a transfer window) can leave chrono's range.
 const EARLIEST: i64 = 0;
@@ -132,7 +132,7 @@ fn sane(t: DateTime<Utc>) -> Result<DateTime<Utc>, String> {
     if (EARLIEST..=LATEST).contains(&t.timestamp_micros()) { Ok(t) } else { Err(UNREADABLE_TIME.to_string()) }
 }
 
-/// `Time.parse(s).utc` for the shapes Alpaca sends: RFC 3339. Anything else is an error here (Ruby reads more).
+/// `Time.parse(s).utc` for the shapes Alpaca sends: RFC 3339. Anything else is an error here (2.x reads more).
 fn trade_time(v: &Value) -> Result<DateTime<Utc>, String> {
     v.as_str().filter(|s| s.len() <= 64).and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| t.with_timezone(&Utc))
         .ok_or_else(|| UNREADABLE_TIME.to_string()).and_then(sane)
@@ -159,7 +159,7 @@ fn non_trade(raw: &Raw, entry_type: i64, description: Option<String>, quote_curr
 }
 
 /// #normalize_activity. `None` is a cancelled non-trade activity (dropped). `Err` is a time this port cannot read, or
-/// a number outside the venue caps (`number::VENUE`): the sync fails, as Rails' does when Ruby raises on a value.
+/// a number outside the venue caps (`number::VENUE`): the sync fails, as 2.x's does when 2.x raises on a value.
 pub fn normalize(raw: &Raw, pairs: &CryptoPairs) -> Result<Option<Entry>, String> {
     let a = &raw.value;
     let kind = a["activity_type"].as_str().unwrap_or_default();
@@ -202,7 +202,7 @@ pub fn normalize(raw: &Raw, pairs: &CryptoPairs) -> Result<Option<Entry>, String
     Ok(Some(entry))
 }
 
-/// A cancelled activity that is not a trade: #normalize_activity returns nil for it (exchanges/alpaca.rb:686), so it
+/// A cancelled activity that is not a trade: #normalize_activity returns nil for it, so it
 /// is in no entry and stands between no two split legs. A `FILL` is never dropped.
 pub fn dropped(activity: &Value) -> bool { activity["activity_type"] != "FILL" && activity["status"] == "canceled" }
 
@@ -215,7 +215,7 @@ pub(super) fn same_split(previous: &Value, current: &Value) -> bool {
 }
 
 /// The group #merge_split_entries would be building at the end of these activities: where its first leg stands, and
-/// how many legs it has so far. `None` when the read does not end in a split leg. Judged on the sequence Rails groups,
+/// how many legs it has so far. `None` when the read does not end in a split leg. Judged on the sequence 2.x groups,
 /// which is the activities without the dropped ones: a cancelled activity between two legs does not part them.
 pub fn open_split(activities: &[Raw]) -> Option<(usize, usize)> {
     let mut kept = activities.iter().enumerate().rev().filter(|(_, a)| !dropped(&a.value));
@@ -297,7 +297,7 @@ fn split_ratio(group: &[Entry]) -> Result<Option<String>, String> {
 /// Exchanges::Alpaca.split_ratio_label: "10:1", from the position before and the position after. nil unless both
 /// are positive and differ, and nil when they are closer than a per-mille (1000 becoming 1001 is not a split).
 ///
-/// `Err`: the factor is not a finite positive double, or its fraction does not fit this port's integers. Ruby raises
+/// `Err`: the factor is not a finite positive double, or its fraction does not fit this port's integers. 2.x raises
 /// FloatDomainError for the first (`Infinity.rationalize`) and prints a bignum for the second; both fail the sync here.
 pub fn split_ratio_label(old: &BigDec, new: &BigDec) -> Result<Option<String>, String> {
     if !old.is_positive() || !new.is_positive() || old == new { return Ok(None); }
@@ -315,7 +315,7 @@ pub const RATIONALIZE_STEPS: usize = 64;
 const TERM_LIMIT: f64 = 1e30;
 
 /// Float#rationalize(eps) for a positive float (rational.c: rb_flt_rationalize_with_prec, nurat_rationalize_internal):
-/// the simplest fraction within [f − |eps|, f + |eps|], walked in the same double arithmetic Ruby uses. `None`: an
+/// the simplest fraction within [f − |eps|, f + |eps|], walked in the same double arithmetic 2.x uses. `None`: an
 /// input that is not finite, a walk that is not over after `RATIONALIZE_STEPS`, or a term that does not fit (checked
 /// arithmetic throughout): nothing here loops or overflows on any double.
 pub fn rationalize(f: f64, eps: f64) -> Option<(i128, i128)> {

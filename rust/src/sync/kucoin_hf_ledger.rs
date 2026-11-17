@@ -31,7 +31,7 @@ use super::{commit_for, phase, sql_time, Key, SyncError};
 use crate::engine::model::CredentialVersion;
 use crate::engine::Clock;
 use crate::jobs::Db;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::http::Transport;
 use crate::venue::kucoin::KucoinVenue;
 use crate::venue::kucoin_account::AccountMode;

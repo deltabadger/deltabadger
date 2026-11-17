@@ -779,7 +779,7 @@ def downloads_dir():
 
 def new_file(folder, before, prefix, seconds=30):
     def probe():
-        got = [p for p in folder.glob(prefix + "*") if p.name not in before and not p.name.endswith((".crdownload", ".tmp", ".partial"))]
+        got = [p for p in folder.glob(prefix + "*") if p.name not in before and not p.name.endswith((".crdownload", ".wkdownload", ".tmp", ".partial"))]
         return got and got[0].stat().st_size > 0 and got
     return until(f"a new {prefix}* in {folder}", seconds, probe)[0]
 

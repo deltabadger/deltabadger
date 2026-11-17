@@ -1,6 +1,6 @@
 //! The KuCoin trading adapter (venue::kucoin) over recorded bodies: its signer and posted bytes against honeymaker's own
 //! requests, its reads, placement answers mapped as Exchange#ambiguous_placement_error? maps them, order polls, cancel and
-//! recovery by client order id (plan K r4: recovery only ever FINDS an order; absence is never concluded). Rails-free.
+//! recovery by client order id (plan K r4: recovery only ever FINDS an order; absence is never concluded). 2.x-free.
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use common::seed::{self, BotSpec};
@@ -9,7 +9,7 @@ use deltabadger::engine::model::{self, Ticker};
 use deltabadger::engine::placement::{self, OperatorResolution, Recovery, Sent};
 use deltabadger::engine::venue_rules::KUCOIN;
 use deltabadger::engine::FixedClock;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store::{self, Paths};
 use deltabadger::venue::binance::{Pair, Pairs};
 use deltabadger::venue::http::{self, HttpRequest, ScriptedTransport};
@@ -49,7 +49,7 @@ fn recorded_headers(v: &Value) -> Vec<(String, String)> {
 fn query_of(r: &HttpRequest) -> Vec<(String, String)> { r.query.iter().map(|(k, v)| (k.to_string(), v.clone())).collect() }
 fn pairs_of(v: &[(&str, &str)]) -> Vec<(String, String)> { v.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect() }
 
-// ---- the pins: the fixture is Rails' and honeymaker's, recorded from the files it names
+// ---- the pins: the fixture is 2.x's and honeymaker's, recorded from the files it names
 
 // ---- K1: signing, byte-identical to Honeymaker::Clients::Kucoin#signed_headers under a frozen #timestamp_ms
 
@@ -178,23 +178,23 @@ async fn only_the_success_code_means_balances() {
     assert!(KUCOIN.is_throttle(&e), "{e:?}");
 }
 
-// ---- K1: the rules table, pinned against Rails' lists
+// ---- K1: the rules table, pinned against 2.x's lists
 
 #[test]
 fn the_rules_are_exchanges_kucoins() {
     let f = fixture();
-    let rails = &f["errors"];
+    let v2 = &f["errors"];
     let list = |v: &Value| v.as_array().unwrap().iter().map(|s| s.as_str().unwrap().to_string()).collect::<Vec<_>>();
     for (kind, patterns) in KUCOIN.kinds {
-        let want = if rails.get(kind).is_some() { list(&rails[kind]) } else { vec![] };
+        let want = if v2.get(kind).is_some() { list(&v2[kind]) } else { vec![] };
         assert_eq!(patterns.iter().map(|s| s.to_string()).collect::<Vec<_>>(), want, "{kind}");
     }
     let mut transient = list(&f["network_transient"]);
-    transient.extend(list(&rails["transient"]));
+    transient.extend(list(&v2["transient"]));
     assert_eq!(KUCOIN.transient_text.iter().map(|s| s.to_string()).collect::<Vec<_>>(), transient, "Exchange#transient_error?");
-    // r5: every transient answer Rails' #ambiguous_placement_error? reads as unknown is unknown here, the placement-safe ones excepted.
-    let safe = list(&rails["placement_safe_transient"]);
-    for m in list(&rails["transient"]) {
+    // r5: every transient answer 2.x's #ambiguous_placement_error? reads as unknown is unknown here, the placement-safe ones excepted.
+    let safe = list(&v2["placement_safe_transient"]);
+    for m in list(&v2["transient"]) {
         assert_eq!(KUCOIN.add_outcome_unknown(std::slice::from_ref(&m)), !safe.contains(&m), "{m}");
     }
     for m in ["KuCoin API error 500000: Internal Server Error", "KuCoin API error 230005: The system is busy, please try again later.",
@@ -217,18 +217,18 @@ fn order(kind: OrderKind, quote: bool, volume: &str, side: Side) -> NewOrder {
 fn accepted() -> Value { env(json!({ "orderId": "6716f0a2c1b6d10007a3b1c5" })) }
 
 #[tokio::test(flavor = "current_thread")]
-async fn each_order_posts_the_bytes_rails_posts_with_the_intent_id_as_client_oid() {
+async fn each_order_posts_the_bytes_v2_posts_with_the_intent_id_as_client_oid() {
     let f = fixture();
     let key = f["api_key"].as_array().unwrap().clone();
     let orders = f["orders"].as_array().unwrap().clone();
     assert_eq!(orders.len(), 8);
     for o in orders {
-        let rails: Value = serde_json::from_str(o["body"].as_str().unwrap()).unwrap();
+        let v2: Value = serde_json::from_str(o["body"].as_str().unwrap()).unwrap();
         let side = if o["side"] == "sell" { Side::Sell } else { Side::Buy };
-        let new = match rails["type"].as_str().unwrap() {
-            "market" if rails.get("funds").is_some() => order(OrderKind::Market, true, rails["funds"].as_str().unwrap(), side),
-            "market" => order(OrderKind::Market, false, rails["size"].as_str().unwrap(), side),
-            _ => order(OrderKind::Limit { price: rails["price"].as_str().unwrap().into() }, false, rails["size"].as_str().unwrap(), side),
+        let new = match v2["type"].as_str().unwrap() {
+            "market" if v2.get("funds").is_some() => order(OrderKind::Market, true, v2["funds"].as_str().unwrap(), side),
+            "market" => order(OrderKind::Market, false, v2["size"].as_str().unwrap(), side),
+            _ => order(OrderKind::Limit { price: v2["price"].as_str().unwrap().into() }, false, v2["size"].as_str().unwrap(), side),
         };
         let (t, v) = venue(json!({ "POST /api/v1/orders": accepted() }));
         assert_eq!(v.add_order(&new).await, Ok("6716f0a2c1b6d10007a3b1c5".into()), "the stored id is the raw orderId");
@@ -241,7 +241,7 @@ async fn each_order_posts_the_bytes_rails_posts_with_the_intent_id_as_client_oid
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn placement_answers_map_to_rails_ambiguity_rules() {
+async fn placement_answers_map_to_v2_ambiguity_rules() {
     let unknown = |e: &VenueError| matches!(e, VenueError::Rejected(m) if KUCOIN.add_outcome_unknown(m));
     let rejected = |m: &str| Err::<String, _>(VenueError::Rejected(vec![m.into()]));
     let no_id = Err::<String, _>(VenueError::Ambiguous(kucoin::NO_ORDER_ID.into()));
@@ -373,7 +373,7 @@ async fn r5_unknown_envelopes_keep_the_intent_across_ticks_and_a_restart_and_nev
 #[tokio::test(flavor = "current_thread")]
 async fn every_documented_status_combination_maps_as_parse_order_status() {
     use OrderStatus::*;
-    // (cancelExist, isActive, dealSize) → status; null and absent read as false, as Ruby's truthiness does.
+    // (cancelExist, isActive, dealSize) → status; null and absent read as false, as 2.x's truthiness does.
     let cases = [
         (json!(true), json!(true), "0", Cancelled), (json!(true), json!(false), "0", Cancelled), (json!(true), json!(false), "0.001", Cancelled),
         (json!(true), json!(true), "0.001", Cancelled), (json!(true), Value::Null, "0", Cancelled),
@@ -473,7 +473,7 @@ async fn a_forgotten_order_is_settled_from_its_fills_never_written_off() {
     assert_eq!(asked[0], pairs_of(&[("currentPage", "1"), ("endAt", &week.to_string()), ("orderId", "GONE"), ("pageSize", "500"), ("startAt", &start.to_string())]));
     assert_eq!(asked[1][0], ("currentPage".into(), "2".into()));
     assert_eq!(asked[2].iter().find(|(k, _)| k == "startAt").unwrap().1, week.to_string());
-    // No fill: nothing recovered, and the stale-order rule decides as in Rails.
+    // No fill: nothing recovered, and the stale-order rule decides as in 2.x.
     let (_, v) = venue(json!({ "GET /api/v1/fills": [fills_page(json!([]), 1, 0, 0)] }));
     assert_eq!(v.fills_from_trades(&["GONE".into()], since).await, Ok(vec![]));
     // A page that failed, an error envelope, or a range over KuCoin's cap: never "no fill".
@@ -582,10 +582,10 @@ async fn an_order_neither_lookup_finds_halts_the_bot_until_the_operator_resolves
     }
 }
 
-// ---- K5: #parse_order_data, recorded (script/rust/record_venue_vectors.rb kucoin)
+// ---- K5: #parse_order_data, recorded (the KuCoin venue vectors)
 
 #[test]
-fn every_recorded_rails_order_parse_is_reproduced() {
+fn every_recorded_v2_order_parse_is_reproduced() {
     let v: Value = serde_json::from_str(include_str!("fixtures/kucoin_vectors.json")).unwrap();
     let mut p = Pairs::default();
     p.by_symbol.insert("BTC-USDT".into(), Pair { base: "BTC".into(), quote: "USDT".into(), price_decimals: 1 });
@@ -664,7 +664,7 @@ fn the_kucoin_log_line_is_labelled_kucoin() {
     assert_eq!(t.failure_line(&http::HttpResponse { status: 400, body: r#"{"code":"400100","msg":"x"}"#.into() }), "[KuCoin] HTTP 400; venue response diagnostic omitted");
 }
 
-/// The engine reads the stored passphrase of a KuCoin key, as Rails' ApiKey#passphrase gives it to the KuCoin client: an
+/// The engine reads the stored passphrase of a KuCoin key, as 2.x's ApiKey#passphrase gives it to the KuCoin client: an
 /// empty one signs every order "400004 Invalid KC-API-PASSPHRASE". (The factory test above hands its credentials in directly.)
 #[test]
 fn the_engine_loads_a_kucoin_keys_stored_passphrase() {

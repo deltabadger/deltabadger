@@ -39,7 +39,7 @@ const STABLE_TYPES: [&str; 4] = ["Exchanges::Binance", "Exchanges::BinanceUs", "
 /// alike (JaroWinkler), beta ones last, the closest first.
 pub fn ordered(venues: Vec<Exchange>, query: Option<&str>) -> Vec<Exchange> {
     let beta = |venue: &Exchange| !STABLE_TYPES.contains(&venue.class.as_str());
-    match query.filter(|query| !crate::ruby::blank(query)) {
+    match query.filter(|query| !crate::v2::blank(query)) {
         None => {
             let mut venues = venues;
             venues.sort_by(|a, b| beta(a).cmp(&beta(b)).then_with(|| a.name.as_bytes().cmp(b.name.as_bytes())));
@@ -48,10 +48,10 @@ pub fn ordered(venues: Vec<Exchange>, query: Option<&str>) -> Vec<Exchange> {
         Some(query) => {
             let query = search::downcase(query);
             let mut scored: Vec<(Exchange, f64)> = venues.into_iter().map(|venue| {
-                let score = if crate::ruby::blank(&venue.name) { 0.0 } else { search::jaro_winkler(&search::downcase(&venue.name), &query) };
+                let score = if crate::v2::blank(&venue.name) { 0.0 } else { search::jaro_winkler(&search::downcase(&venue.name), &query) };
                 (venue, score)
             }).filter(|(_, score)| *score >= 0.7).collect();
-            // ponytail: a stable sort; Ruby's sort_by is not, so two venues tied on beta and score may come out in another order.
+            // ponytail: a stable sort; 2.x's sort_by is not, so two venues tied on beta and score may come out in another order.
             scored.sort_by(|(a, x), (b, y)| beta(a).cmp(&beta(b)).then_with(|| y.total_cmp(x)));
             scored.into_iter().map(|(venue, _)| venue).collect()
         }
@@ -157,7 +157,7 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
     if namespace == Namespace::Multi { if let Some(answer) = super::expired(&ctx) { return Ok(answer) } }
     let Some(exchange) = ctx.params.form(namespace.param()).or_else(|| ctx.params.query(namespace.param())).map(str::to_string) else { return Ok(layout::bad_request()) };
-    if crate::ruby::blank(&exchange) { return render(&app, &ctx, namespace, StatusCode::UNPROCESSABLE_ENTITY).await }
+    if crate::v2::blank(&exchange) { return render(&app, &ctx, namespace, StatusCode::UNPROCESSABLE_ENTITY).await }
     {
         let mut data = ctx.session.lock();
         let config = data.bot_config.get_or_insert_with(|| json!({}));

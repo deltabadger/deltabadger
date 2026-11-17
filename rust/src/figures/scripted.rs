@@ -1,7 +1,7 @@
-//! A `MarketData` that replays a scenario's recorded answers: the same script the Rails harness
-//! (script/rust/figures.rb) serves beneath Clients::Alpaca, Clients::MarketData and Clients::Coingecko at the
+//! A `MarketData` that replays a scenario's recorded answers: the same script the recording harness
+//! serves beneath Clients::Alpaca, Clients::MarketData and Clients::Coingecko at the
 //! Faraday adapter. It builds the request each of those clients would send and parses the answer as each parses it,
-//! so the requests can be compared with Rails' and the parsing runs on the very bodies Rails parsed.
+//! so the requests can be compared with 2.x's and the parsing runs on the very bodies 2.x parsed.
 //! A request the script does not answer is recorded in `gaps` and fails the read.
 use super::at::At;
 use super::db::Ticker;
@@ -74,7 +74,7 @@ impl MarketData for Scripted {
         let sorted = |crypto: bool| { let mut list: Vec<&str> = symbols.iter().filter(|s| s.contains('/') == crypto).map(String::as_str).collect(); list.sort_unstable(); list.join(",") };
         let (stocks, crypto) = (sorted(false), sorted(true));
         let mut put = |code: &str, price: Member<Dec>| {
-            // Rails omits malformed/non-finite prices. A finite number beyond Rust's bounds must
+            // 2.x omits malformed/non-finite prices. A finite number beyond Rust's bounds must
             // still report OutOfRange when used; it must not silently reduce the portfolio value.
             if matches!(price, Err(NumError::NotANumber)) { return; }
             match place.get(code) { Some(&at) => prices[at].1 = price, None => { place.insert(code.to_string(), prices.len()); prices.push((code.to_string(), price)); } }
@@ -128,7 +128,7 @@ impl MarketData for Scripted {
             match Num::from_fx_json(&rate["value"]) {
                 Ok(Some(value)) => out.push((currency.clone(), Ok(value))),
                 Ok(None) if rate["value"].is_null() => {} // no value: the currency has no rate
-                // Malformed strings are refused instead of Ruby String#to_f prefix parsing.
+                // Malformed strings are refused instead of 2.x String#to_f prefix parsing.
                 Ok(None) => out.push((currency.clone(), Err(NumError::NotANumber))),
                 Err(error) => out.push((currency.clone(), Err(error))),
             }

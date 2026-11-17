@@ -1,7 +1,7 @@
 # rust/tests/mcp.rs's Rails leg, run by 2.70.21 in the published image (common::v2): McpParity.play of
 # script/rust/mcp.rb at tag rails-oracle-final, without the recorder harness the production bundle cannot load
 # (pages.rb, webmock; the container has no network). The install in ARGV[0] plays ARGV[0]/leg.json under the MCP
-# grid's clock, starting from the session ARGV[1] (if any), and writes ARGV[0]/rails.json.
+# grid's clock, starting from the session ARGV[1] (if any), and writes ARGV[0]/expected.json.
 require 'json'
 require 'active_support/testing/time_helpers'
 include ActiveSupport::Testing::TimeHelpers
@@ -40,5 +40,5 @@ end
 rows = TABLES.to_h do |t|
   [t, ActiveRecord::Base.connection.select_all("SELECT * FROM #{t} ORDER BY id").to_a.map { |row| row.transform_values { |v| v.is_a?(Float) ? { 'float_bits' => [v].pack('G').unpack1('H*') } : v } }]
 end
-File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(responses:, session: session_id, rows:))
+File.write(File.join(dir, 'expected.json'), JSON.pretty_generate(responses:, session: session_id, rows:))
 ActiveRecord::Base.connection_pool.disconnect!

@@ -1,7 +1,7 @@
 //! The 3.0 image's entrypoint (docker/entrypoint.sh) provisions /app/storage/.secrets exactly as the 2.x image's
 //! (docker-entrypoint.sh) did (PLAN-B3 §2): its secrets block is a copy (D-B3-SECRETS-COMMENT: one comment line names the
-//! Rust command), and the cases of the 2.x Rails test docker_entrypoint_secrets_test.rb run against it here, under bash,
-//! without Docker or Ruby.
+//! Rust command), and the cases of 2.x's own test of those secrets run against it here, under bash,
+//! without Docker or 2.x.
 #![cfg(unix)]
 
 use std::collections::HashMap;

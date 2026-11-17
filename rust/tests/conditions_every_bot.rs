@@ -138,7 +138,7 @@ fn an_index_bots_cap_and_carry_meet_as_f_computes() {
     let now = at("2026-09-01T14:00:00.5Z").timestamp_micros();
     let pending = accounting::pending_quote_amount(&o.primary, &bot, now).unwrap();
     let left = accounting::quote_amount_available(&o.primary, &bot).unwrap().unwrap();
-    let num = |k: &str| deltabadger::ruby::BigDec::parse(case[k].as_str().unwrap()).unwrap();
+    let num = |k: &str| deltabadger::v2::BigDec::parse(case[k].as_str().unwrap()).unwrap();
     assert_eq!((&pending, &left), (&num("pending"), &num("remainder")));
     assert_eq!(pending.min(left), num("total"));
 }
@@ -182,7 +182,7 @@ async fn a_cap_disabled_during_the_price_read_does_not_stop_the_bot() {
     assert_eq!((got.status, got.key, got.mail, got.stopped_lines), (BotStatus::Scheduled, None, false, 0), "{:?}", got.out);
 }
 
-/// Codex P2: an index bot with the cap on and no limit stored reads Rails' default 1000 in the engine, and the web's preview
+/// Codex P2: an index bot with the cap on and no limit stored reads 2.x's default 1000 in the engine, and the web's preview
 /// and carry read the same, not "uncapped".
 #[test]
 fn an_index_bots_cap_with_no_limit_defaults_to_1000_in_the_engine_and_the_web() {

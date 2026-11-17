@@ -227,12 +227,12 @@ pub async fn write(app: App, ctx: Ctx) -> Result<Response, WebError> {
         .into_response())
 }
 
-/// The API manual, built in: a desktop or Docker install ships no `manual/` directory (B11 removes Rails).
+/// The API manual, built in: a desktop or Docker install ships no `manual/` directory (B11 removed the 2.x tree).
 pub const MANUAL: &str = include_str!("../../../../manual/api.md");
 
 /// SettingsController#download_api_docs: `send_file manual/api.md`, for anyone signed in.
-/// D-API-DOCS-FILENAME: Rails' send_file appends its own `filename="api.md"; filename*=UTF-8''api.md` to the disposition it is
-/// given, so a browser (RFC 6266: `filename*` wins) saves `api.md`. Here the one name is the one Rails meant.
+/// D-API-DOCS-FILENAME: 2.x's send_file appends its own `filename="api.md"; filename*=UTF-8''api.md` to the disposition it is
+/// given, so a browser (RFC 6266: `filename*` wins) saves `api.md`. Here the one name is the one 2.x meant.
 pub async fn download(ctx: Ctx) -> Result<Response, WebError> {
     use axum::{http::header, response::IntoResponse};
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }

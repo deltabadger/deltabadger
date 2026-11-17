@@ -4,7 +4,7 @@
 //! - D-TAX-CZ-CAP: when the year's time-test proceeds S exceed 40,000,000 CZK, (S − 40M)/S of each such row's proceeds and
 //!   expenses is taxable (§ 4 odst. 3, § 10 odst. 4); 2025 counts crypto only here and says so (securities are not here).
 //! - D-TAX-CZ-PRILOHA2: příloha č. 2, druh C (ř. 207–209) from the taxable rows only, expenses capped at the income;
-//!   § 38v: each exempt receipt above 5,000,000 CZK is listed. Rails' summary mixed exempt rows into its totals.
+//!   § 38v: each exempt receipt above 5,000,000 CZK is listed. 2.x's summary mixed exempt rows into its totals.
 use super::{cents, fifo::Disposal, line, s, Cell};
 use crate::figures::{dec::Dec, FiguresError};
 use crate::web::i18n::text;
@@ -40,7 +40,7 @@ pub(super) fn year(locale: &str, year: i32, results: &[Disposal], local: &dyn Fn
     let counted = |d: &Disposal| local(d) >= in_force && !EMT.contains(&d.asset.as_str());
     let mut window = Dec::zero();
     for d in results.iter().filter(|d| counted(d)) { window = (&window + &d.proceeds)?; }
-    // zj: a cliff, from 15 February 2025 (KV 625 2.2.1.5); zk-exempt proceeds count too (the literal reading, as Rails).
+    // zj: a cliff, from 15 February 2025 (KV 625 2.2.1.5); zk-exempt proceeds count too (the literal reading, as 2.x).
     let passed = window <= int(VALUE_TEST);
     let reasons: Vec<Option<&str>> = results.iter().map(|d| {
         if passed && counted(d) { Some(VALUE_TEST_REASON) } else if d.long_held == Some(true) { Some(TIME_TEST) } else { None }

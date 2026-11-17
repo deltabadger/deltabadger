@@ -1,12 +1,12 @@
 //! Bots::ExportsController and Bots::ImportsController (Bot::Exportable): the bot's closed orders as a CSV file, and such a
 //! file read back into a bot. PLAN-A8-bot-csv (r0–r4) names every divergence:
-//! - D-EXPORT-NO-REFRESH: no venue call; the file is the database as it stands (Rails polls the waiting rows first).
-//! - D-EXPORT-NIL-CELL: a closed row without an order type or side is an empty cell (Rails raises).
-//! - D-IMPORT-TIME / R-IMPORT-READABLE / D-IMPORT-UNREADABLE: a row Rails would insert is read strictly (its time, type,
+//! - D-EXPORT-NO-REFRESH: no venue call; the file is the database as it stands (2.x polls the waiting rows first).
+//! - D-EXPORT-NIL-CELL: a closed row without an order type or side is an empty cell (2.x raises).
+//! - D-IMPORT-TIME / R-IMPORT-READABLE / D-IMPORT-UNREADABLE: a row 2.x would insert is read strictly (its time, type,
 //!   side and numbers) and as every reader reads it (`fill::for_engine`, 1970 ≤ time < 2200); one that fails refuses the
 //!   whole file as malformed, nothing written, no exception text shown.
 //! - D-IMPORT-REIMPORT / D-IMPORT-DUP: an id the bot already holds is never imported twice; the count is what was written.
-//! - R-IMPORT-INDEX-NO-ASSET: an index bot's row naming no one asset is skipped (Rails stores it without one).
+//! - R-IMPORT-INDEX-NO-ASSET: an index bot's row naming no one asset is skipped (2.x stores it without one).
 //! - D-IMPORT-MISMATCH-QUOTE / D-IMPORT-COUNTS: the mismatch names a mismatched row's quote; skipped rows are counted.
 //! - D-IMPORT-BUSY: refused while the engine holds the bot or an operation is in flight; an import that goes ahead bumps the
 //!   bot's history generation, so a rebalance, liquidation or redeploy leg sized before it is fenced.
@@ -14,7 +14,7 @@
 use super::write;
 use crate::engine::{composition, eligibility, model};
 use crate::figures::{at::At, dec::Dec, fill};
-use crate::ruby::{self, BigDec};
+use crate::v2::{self, BigDec};
 use crate::tax::{line, Cell};
 use crate::tracker::import::{csv::Table, deltabadger::unescape};
 use crate::web::{auth, flash, i18n, layout::{self, Ctx}, App, WebError};
@@ -66,7 +66,7 @@ fn orders_csv(c: &Connection, id: i64, bot_exchange: Option<i64>, zone: &str) ->
                            FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status = 2 ORDER BY created_at, id")?;
     let mut rows = s.query([id])?;
     let dec = |r: &rusqlite::Row, i: usize| -> Result<Option<BigDec>, WebError> {
-        ruby::from_sql(r.get_ref(i)?).map_err(|e| WebError::Config(format!("transaction decimal: {e:?}")))
+        v2::from_sql(r.get_ref(i)?).map_err(|e| WebError::Config(format!("transaction decimal: {e:?}")))
     };
     let raw = |d: Option<BigDec>| d.map_or(Cell::Nil, |d| Cell::Raw(d.to_s_f()));
     let text = |t: Option<String>| t.map_or(Cell::Nil, Cell::Text);
@@ -77,7 +77,7 @@ fn orders_csv(c: &Connection, id: i64, bot_exchange: Option<i64>, zone: &str) ->
         let exchange: i64 = r.get(11)?;
         // venue_order_id: another venue's row names its venue.
         // A row with no id still names its venue (`"#{name}:#{nil}"`), so two such rows of different venues stay two.
-        // A bot with no venue (the association is optional) names every row's venue, as `nil == id` is false in Rails.
+        // A bot with no venue (the association is optional) names every row's venue, as `nil == id` is false in 2.x.
         let order_id = if Some(exchange) == bot_exchange { external } else {
             Some(format!("{}:{}", venues.get(&exchange).cloned().unwrap_or_else(|| exchange.to_string()), external.unwrap_or_default()))
         };
@@ -105,9 +105,9 @@ fn orders_csv(c: &Connection, id: i64, bot_exchange: Option<i64>, zone: &str) ->
     Ok(out)
 }
 
-/// The bot's file in `deltabadger export` (PLAN-B4b §2.1): Rails' `Bot.find_each` takes every bot, deleted and archived
+/// The bot's file in `deltabadger export` (PLAN-B4b §2.1): 2.x's `Bot.find_each` takes every bot, deleted and archived
 /// included, so it is loaded without the web's owner and not-deleted filter. A bot whose owner is gone is written in UTC
-/// (D-EXPORT-ORPHAN-BOT: Rails raises on `user.time_zone`). None when there is no such bot.
+/// (D-EXPORT-ORPHAN-BOT: 2.x raises on `user.time_zone`). None when there is no such bot.
 pub fn export_csv(c: &Connection, id: i64) -> Result<Option<String>, WebError> {
     let bot = c.query_row("SELECT b.exchange_id, coalesce(u.time_zone, 'UTC') FROM bots b LEFT JOIN users u ON u.id = b.user_id WHERE b.id = ?1", [id],
                           |r| Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, String>(1)?))).optional()?;
@@ -133,7 +133,7 @@ static TIME: LazyLock<Regex> = LazyLock::new(|| Regex::new(concat!(
     r" *(Z|UTC|[+-][0-9]{2}:?[0-9]{2})?$")).unwrap());
 
 fn read_time(cell: Option<&str>) -> Option<DateTime<Utc>> {
-    let c = TIME.captures(ruby::strip(cell?))?;
+    let c = TIME.captures(v2::strip(cell?))?;
     let n = |i: usize| c.get(i).map_or(Some(0), |m| m.as_str().parse::<u32>().ok());
     let date = NaiveDate::from_ymd_opt(c[1].parse().ok()?, n(2)?, n(3)?)?;
     let nanos = c.get(7).map_or(Some(0), |f| format!("{:0<9}", f.as_str()).parse::<u32>().ok())?;
@@ -152,9 +152,9 @@ fn read_time(cell: Option<&str>) -> Option<DateTime<Utc>> {
     window.contains(&at).then_some(at)
 }
 
-/// `row[name].to_d` where it holds a plain decimal; blank is 0, as Rails reads nil (D-IMPORT-UNREADABLE).
+/// `row[name].to_d` where it holds a plain decimal; blank is 0, as 2.x reads nil (D-IMPORT-UNREADABLE).
 fn read_number(cell: Option<&str>) -> Option<BigDec> {
-    match cell.filter(|v| !ruby::blank(v)) {
+    match cell.filter(|v| !v2::blank(v)) {
         None => Some(BigDec::zero()),
         Some(v) => crate::tracker::import::csv::amount(Some(v)).ok().map(|d| d.round(18)),
     }
@@ -183,7 +183,7 @@ fn venue_import_names(c: &Connection, exchange: i64, quote: Option<i64>) -> Resu
     let mut s = c.prepare("SELECT t.base, a.symbol, t.base_asset_id FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 AND t.quote_asset_id IS ?2")?;
     for row in s.query_map(params![exchange, quote], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?)))? {
         let (base, symbol, id) = row?;
-        for name in [base.as_deref().map(crate::figures::db::base_spelling), symbol.as_deref()].into_iter().flatten().filter(|n| !ruby::blank(n)) {
+        for name in [base.as_deref().map(crate::figures::db::base_spelling), symbol.as_deref()].into_iter().flatten().filter(|n| !v2::blank(n)) {
             names.entry(name.to_uppercase()).or_default().insert(id);
         }
     }
@@ -201,7 +201,7 @@ pub enum Imported {
     Refused(String),
     /// Nothing written and a row's quote differs from the bot's: that quote and the bot's.
     QuoteMismatch { csv: String, bot: String, skipped: usize },
-    /// Rows written, and rows skipped as not closed, not this bot's or ambiguous (existing ones are Rails' sentence).
+    /// Rows written, and rows skipped as not closed, not this bot's or ambiguous (existing ones are 2.x's sentence).
     Done { imported: usize, skipped: usize },
 }
 
@@ -209,7 +209,7 @@ struct Candidate { order_id: String, at: DateTime<Utc>, order_type: i64, side: i
 
 /// Bot::Exportable#import_orders_csv, under the write lock and the engine's guard. Call inside `App::db`.
 pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &[u8]) -> Result<Imported, WebError> {
-    // The upload as Rails reads it: no byte order mark dropped (it fails the header check), invalid UTF-8 malformed.
+    // The upload as 2.x reads it: no byte order mark dropped (it fails the header check), invalid UTF-8 malformed.
     let Ok(text) = std::str::from_utf8(bytes) else { return Ok(Imported::Malformed) };
     let Ok(table) = Table::parse(text) else { return Ok(Imported::Malformed) };
     if table.headers.len() != HEADERS.len() || table.headers.iter().zip(HEADERS).any(|(h, e)| h.as_deref() != Some(e)) { return Ok(Imported::InvalidFormat) }
@@ -245,7 +245,7 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
     let (mut skipped, mut mismatched_quote, mut seen, mut candidates) = (0usize, None::<String>, HashSet::new(), vec![]);
     for row in &table.rows {
         let get = |name: &str| table.get(row, name);
-        let cell = |name: &str| get(name).map(|v| ruby::strip(unescape(v)).to_uppercase());
+        let cell = |name: &str| get(name).map(|v| v2::strip(unescape(v)).to_uppercase());
         let (csv_base, csv_quote) = (cell("Base Asset"), cell("Quote Asset"));
         let named = csv_base.as_ref().and_then(|b| base_names.get(b));
         if !((members.is_none() || named.is_some()) && csv_quote == bot_quote) {
@@ -268,7 +268,7 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
         if held.contains(&original) && original.starts_with(&own) { continue; }
         let order_id = format!("{own}{original}");
         if held.contains(&order_id) { continue; }
-        let status = get("Status").map(|s| ruby::strip(unescape(s)).to_lowercase());
+        let status = get("Status").map(|s| v2::strip(unescape(s)).to_lowercase());
         if status.as_deref() != Some("closed") { skipped += 1; continue; }
         // D-IMPORT-DUP: the same id twice in the file, or one another bot holds on this venue.
         if !seen.insert(order_id.clone()) { continue; }
@@ -287,7 +287,7 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
     let stamp = crate::codec::format_time(now);
     let mut written = vec![];
     for row in &candidates {
-        let (amount, value, price) = (ruby::to_sql(&row.amount), ruby::to_sql(&row.value), ruby::to_sql(&row.price));
+        let (amount, value, price) = (v2::to_sql(&row.amount), v2::to_sql(&row.value), v2::to_sql(&row.price));
         tx.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, created_at, updated_at, order_type, side, amount, amount_exec, quote_amount, \
                     quote_amount_exec, price, base, quote, base_asset_id, quote_asset_id, status, external_status) \
                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8, ?9, ?9, ?10, ?11, ?12, ?13, ?14, 0, 2)",

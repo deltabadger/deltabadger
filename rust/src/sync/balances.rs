@@ -1,6 +1,6 @@
 //! AccountBalance::SyncJob for an Alpaca key: Exchanges::Alpaca#get_balances (GET /v2/account, GET /v2/positions),
 //! then AccountBalance::Sync#sync! (USD prices, the `account_balances` rows, removal of what is gone, the key's
-//! `balances_synced_at`). Rails is the oracle (rust/tests/sync_parity.rs).
+//! `balances_synced_at`). 2.x is the oracle (rust/tests/sync_parity.rs).
 //!
 //! Where a USD price comes from, as on a hosted instance:
 //! - cash (asset category Fiat or Currency): USD is 1;
@@ -17,7 +17,7 @@ use super::wire::{self, Budget, Node};
 use super::{ load_key, number, parsed, phase, record_sync_error, sql_time, venue_failure, Failure, SyncError, Unread};
 use crate::crypto::Credentials;
 use crate::engine::Clock;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::venue::alpaca::AlpacaVenue;
 use crate::venue::binance;
 use crate::venue::http::Transport;
@@ -46,7 +46,7 @@ pub const BATCH: usize = 100;
 /// Fiat::CATEGORIES: the two asset categories that mean cash.
 const CASH_CATEGORIES: [&str; 2] = ["Fiat", "Currency"];
 
-/// No market-data source connected: every lookup fails as Rails' does with no provider.
+/// No market-data source connected: every lookup fails as 2.x's does with no provider.
 #[derive(Clone, Copy)]
 pub struct NoPrices;
 impl PriceSource for NoPrices {
@@ -55,10 +55,10 @@ impl PriceSource for NoPrices {
     }
 }
 
-/// AccountBalance::Sync's market source on any provider: MarketData.get_prices and get_exchange_rates (market_data.rb:
-/// 166-215) over the run's feed, with Rails' CoinGecko fallback as its own contract, here only (never on the FX path):
+/// AccountBalance::Sync's market source on any provider: MarketData.get_prices and get_exchange_rates
+/// over the run's feed, with 2.x's CoinGecko fallback as its own contract, here only (never on the FX path):
 /// - the deltabadger provider: data-api's `Failure` answer (an HTTP error, an unreadable body, a permanent transport
-///   failure) is asked once of CoinGecko when a key is set (`Settings::fallback_key`); a transient failure (Rails raises)
+///   failure) is asked once of CoinGecko when a key is set (`Settings::fallback_key`); a transient failure (2.x raises)
 ///   and a successful partial answer are not;
 /// - no provider selected: CoinGecko is asked directly when a key is set;
 /// - the coingecko provider: the feed itself (a blank key fails without a request).
@@ -69,7 +69,7 @@ impl PriceSource for NoPrices {
 pub struct MarketPrices<T: Transport> { feed: Option<Feed<T>>, fallback: Option<Feed<T>>, rates: Arc<RateCache>, venue: Option<Box<dyn super::venue_quotes::VenueQuotes>> }
 
 impl<T: Transport> MarketPrices<T> {
-    /// `fallback`: a CoinGecko client for `settings.fallback_key`, made only where Rails would fall back.
+    /// `fallback`: a CoinGecko client for `settings.fallback_key`, made only where 2.x would fall back.
     pub fn new(settings: &Settings, feed: Option<Feed<T>>, coingecko: impl FnOnce(&str) -> CoinGecko<T>, rates: Arc<RateCache>) -> Self {
         let fallback = match (&feed, &settings.fallback_key) {
             (Some(Feed::CoinGecko(_)), _) | (_, None) => None,
@@ -134,7 +134,7 @@ pub fn parse_prices(body: &Value, external_ids: &[String]) -> Result<BTreeMap<St
 }
 
 /// Recorded answers for "GET /api/v1/prices", in the shape of http::ScriptedTransport's script (the parity harness
-/// serves the same replies beneath Rails' Clients::MarketData). The last reply repeats; an unscripted call panics.
+/// serves the same replies beneath 2.x's Clients::MarketData). The last reply repeats; an unscripted call panics.
 #[derive(Default)]
 pub struct ScriptedPrices { replies: RefCell<VecDeque<Value>>, requests: RefCell<Vec<Vec<String>>>, rates: RefCell<VecDeque<Value>>, rate_requests: RefCell<usize>,
                             rate_cache: Arc<crate::jobs::data_api::RateCache> }
@@ -144,7 +144,7 @@ impl ScriptedPrices {
         let replies = |path: &str| RefCell::new(script[format!("GET {path}")].as_array().cloned().unwrap_or_default().into());
         Self { replies: replies(PRICES_PATH), requests: RefCell::default(), rates: replies(EXCHANGE_RATES_PATH), rate_requests: RefCell::default(), rate_cache: Arc::default() }
     }
-    /// The rate cache one run of syncs shares (Rails' cache store across the steps of one scenario).
+    /// The rate cache one run of syncs shares (2.x's cache store across the steps of one scenario).
     pub fn with_rate_cache(mut self, cache: Arc<crate::jobs::data_api::RateCache>) -> Self { self.rate_cache = cache; self }
     /// The id lists asked for, in order.
     pub fn requests(&self) -> Vec<Vec<String>> { self.requests.borrow().clone() }
@@ -156,7 +156,7 @@ impl ScriptedPrices {
 fn scripted(reply: &Value) -> Result<&Value, ApiError> {
     let message = reply["message"].as_str().unwrap_or_default().to_string();
     match (reply["network"].as_str(), reply["status"].as_u64().unwrap_or(200)) {
-        // A certificate failure is returned by Rails' client, not raised.
+        // A certificate failure is returned by 2.x's client, not raised.
         (Some("permanent"), _) => Err(ApiError::Failed { status: None, message }),
         (Some(_), _) => Err(ApiError::Transient(message)),
         (None, status) if !(200..300).contains(&status) => Err(ApiError::Failed { status: Some(status as u16), message: reply["body"].to_string() }),
@@ -210,11 +210,11 @@ pub struct Catalog {
 
 struct Asset { id: i64, external_id: String, symbol: Option<String>, category: Option<String> }
 
-/// A fresh price as Rails holds it: the market's is a Float, the venue's and cash are BigDecimals.
+/// A fresh price as 2.x holds it: the market's is a Float, the venue's and cash are BigDecimals.
 enum Price { Float(f64), Decimal(BigDec) }
 
 /// The account as #get_balances needs it: an object whose `cash` is a number. A missing or null `cash` is a
-/// malformed answer, here and in Rails (`the account has no cash figure`). The outer error
+/// malformed answer, here and in 2.x (`the account has no cash figure`). The outer error
 /// is an answer that could not be read at all; the inner one is the account's shape, judged once both answers are in.
 pub(crate) fn account(text: &str) -> Result<Result<BigDec, String>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
@@ -224,7 +224,7 @@ pub(crate) fn account(text: &str) -> Result<Result<BigDec, String>, Unread> {
 
 /// The positions as #get_balances needs them: an array of at most `MAX_POSITIONS` objects (the reader stops at the
 /// next one). Unsupported classes are logged and individually excluded. A supported position with no symbol fails the
-/// response, here and in Rails (`a position without a symbol`): skipped, its holding would read as 0 and its stored
+/// response, here and in 2.x (`a position without a symbol`): skipped, its holding would read as 0 and its stored
 /// balance be deleted. For a supported identity a missing/unreadable quantity fails it too; it is never manufactured as zero.
 pub(crate) type Position = (String, String, Node);
 
@@ -302,7 +302,7 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
 
     // #get_balances: the account, then the positions. A failed request, or an answer that is not JSON, ends it there
     // (a failure the venue returned is its word on the key, `condemn`; a transport failure is not). Both answers are
-    // then validated whole, the account first, as Ruby raises only once it uses them.
+    // then validated whole, the account first, as 2.x raises only once it uses them.
     let cash = match venue.read(false, "/v2/account", vec![], MAX_ACCOUNT_BYTES).await.value.map_err(venue_failure) {
         Err((text, raised)) => return fail(text, !raised).await,
         Ok(body) => match parsed(body, account).await { Ok(checked) => checked, Err((text, raised)) => return fail(text, !raised).await },
@@ -391,7 +391,7 @@ pub const KUCOIN_ACCOUNTS_PATH: &str = "/api/v1/accounts";
 pub const KUCOIN_UTA_BALANCE_PATH: &str = "/api/ua/v2/unified/account/balance";
 
 /// One balance sync of one KuCoin key, as AccountBalance::SyncJob runs it for that key: Exchanges::Kucoin#get_balances
-/// (the classic `trade` account, as Rails reads it; an HF account's `trade_hf`) then AccountBalance::Sync. Read only: one signed GET. A failure records
+/// (the classic `trade` account, as 2.x reads it; an HF account's `trade_hf`) then AccountBalance::Sync. Read only: one signed GET. A failure records
 /// the venue's text; KuCoin's invalid-key words mark the key incorrect unless they name a missing permission
 /// (ApiKeyFailureHandling#failure_reason).
 pub async fn sync_kucoin<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
@@ -548,11 +548,11 @@ pub(crate) async fn sync_kraken_captured<T: Transport>(db: &Db, transport: T, pr
 }
 
 /// Exchanges::Kraken#get_balances then AccountBalance::Sync's `nonzero`, with the plan's divergences. A missing `error` or
-/// `result` is Rails' KeyError; a non-empty `error` is the venue's failure: its first entry shown, every entry read by the
+/// `result` is 2.x's KeyError; a non-empty `error` is the venue's failure: its first entry shown, every entry read by the
 /// key's failure handling. Each code is named by `KrakenIdentity` (D-KR-2, D-KR-3, D-KR-6: every listing, no availability or
-/// exchange-asset filter). Per asset, over every code naming it (D-KR-1; Rails keeps the last): `free += balance −
+/// exchange-asset filter). Per asset, over every code naming it (D-KR-1; 2.x keeps the last): `free += balance −
 /// hold_trade`, `locked += hold_trade` (`.F` is spendable per Kraken's docs). `credit` is a credit line, never a holding. A
-/// named code missing either number is Rails' KeyError; a quantity that is no number fails the sync. Also returned: the
+/// named code missing either number is 2.x's KeyError; a quantity that is no number fails the sync. Also returned: the
 /// codes with a positive balance that name no asset, in the answer's order. The rows come in `asset_ids` order, then by id.
 /// The held balances and the positive codes no asset is named by.
 type KrakenHeld = (Vec<Held>, Vec<String>);
@@ -693,8 +693,8 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
 }
 
 /// Exchanges::Bitvavo#get_balances then AccountBalance::Sync's `nonzero`: each row's `symbol` (#asset_from_symbol: a row
-/// naming no listed asset, or none, is skipped), its `available` and `inOrder` read for the rest (Rails' KeyError when
-/// absent), a later row for the same asset winning. A quantity that is no number fails the sync (Rails reads it as 0: the
+/// naming no listed asset, or none, is skipped), its `available` and `inOrder` read for the rest (2.x's KeyError when
+/// absent), a later row for the same asset winning. A quantity that is no number fails the sync (2.x reads it as 0: the
 /// Binance sync's listed divergence). An answer that is not a list is unreadable.
 fn bitvavo_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, Failed>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
@@ -721,8 +721,8 @@ fn bitvavo_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> 
 /// Exchanges::Kucoin#get_balances then AccountBalance::Sync's `nonzero`. Only the success code with `data` means balances,
 /// else "Failed to get KuCoin balances: <code> <msg>" (a Failure the key's failure handling reads: `true`). Each row's
 /// `currency` must be there; a row naming no listed asset is skipped; `available` and `locked` (before KuCoin's
-/// 2026-08-27 rename `holds`) are read for the rest, a later row for the same asset winning. A missing field is Rails'
-/// KeyError; a quantity that is no number fails the sync (Rails reads it as 0: the Binance sync's listed divergence).
+/// 2026-08-27 rename `holds`) are read for the rest, a later row for the same asset winning. A missing field is 2.x's
+/// KeyError; a quantity that is no number fails the sync (2.x reads it as 0: the Binance sync's listed divergence).
 fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, Failed>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
     let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), vec![]))) };
@@ -836,10 +836,10 @@ pub(crate) async fn sync_gemini_captured<T: Transport>(db: &Db, transport: T, pr
 }
 
 /// Exchanges::Gemini#get_balances then AccountBalance::Sync's `nonzero`. A null answer is "Failed to get Gemini balances" (a
-/// Failure the key's failure handling reads: `true`); anything but a list Rails cannot walk. Each row's `currency` must be
+/// Failure the key's failure handling reads: `true`); anything but a list 2.x cannot walk. Each row's `currency` must be
 /// there, upcased to name its asset; a row naming no listed asset is skipped; `available` is free and `amount - available`
-/// locked, a later row for the same asset winning. A missing field is Rails' KeyError; a quantity that is no number fails
-/// the sync (Rails reads it as 0: the Binance sync's listed divergence).
+/// locked, a later row for the same asset winning. A missing field is 2.x's KeyError; a quantity that is no number fails
+/// the sync (2.x reads it as 0: the Binance sync's listed divergence).
 fn gemini_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, Failed>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
     let rows = match &node {
@@ -886,9 +886,9 @@ pub(crate) async fn sync_bitget_captured<T: Transport>(db: &Db, transport: T, pr
 
 /// Exchanges::Bitget#get_balances then AccountBalance::Sync's `nonzero`. Only the success code (`code.to_s == "00000"`) with
 /// `data` means balances, else "Failed to get Bitget balances: <code> <msg>" (a Failure the key's failure handling reads:
-/// `true`). Each row's `coin` must be there (as Rails spells it: AUDIT-bitget S4, ported as is); a row naming no listed asset
+/// `true`). Each row's `coin` must be there (as 2.x spells it: AUDIT-bitget S4, ported as is); a row naming no listed asset
 /// is skipped; `available` and `frozen` are read for the rest, a later row for the same asset winning (the fiat merchant's
-/// `locked` is not read, S5). A missing field is Rails' KeyError; a quantity that is no number fails the sync (Rails reads it
+/// `locked` is not read, S5). A missing field is 2.x's KeyError; a quantity that is no number fails the sync (2.x reads it
 /// as 0: the Binance sync's listed divergence).
 fn bitget_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, Failed>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
@@ -953,8 +953,8 @@ pub(crate) async fn sync_hyperliquid_captured<T: Transport>(db: &Db, transport: 
 
 /// Exchanges::Hyperliquid#get_balances then AccountBalance::Sync's `nonzero`: `data['balances'] || []`, each row's `coin`
 /// naming its asset (#asset_from_symbol: a row naming none is skipped), free = total - hold and hold locked (an absent total
-/// or hold is 0), a later row for the same asset winning. A quantity that is no number fails the sync (Rails reads it as 0:
-/// the Binance sync's listed divergence). An answer Rails cannot walk (not an object, balances that are no list of objects)
+/// or hold is 0), a later row for the same asset winning. A quantity that is no number fails the sync (2.x reads it as 0:
+/// the Binance sync's listed divergence). An answer 2.x cannot walk (not an object, balances that are no list of objects)
 /// raises there; here it fails the sync.
 fn hyperliquid_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, Failed>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
@@ -1001,8 +1001,8 @@ type Held = (i64, BigDec, BigDec);
 
 /// Exchanges::Binance#get_balances then AccountBalance::Sync's `nonzero`: per asset the venue lists, its free and locked
 /// quantities (a later entry for the same asset wins), in the order of `asset_ids`, only those holding something. An
-/// entry whose symbol names no listed asset is not a balance. A missing `balances` or a missing quantity is Rails'
-/// KeyError; a quantity that is no number, blank and whitespace included, fails the sync (Rails reads it as 0 and
+/// entry whose symbol names no listed asset is not a balance. A missing `balances` or a missing quantity is 2.x's
+/// KeyError; a quantity that is no number, blank and whitespace included, fails the sync (2.x reads it as 0 and
 /// deletes the stored balance: a listed divergence, D2b ruling Q10).
 fn binance_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, String>, Unread> {
     account_held(text, names, asset_ids, str::to_string)
@@ -1041,7 +1041,7 @@ fn first_asset_is_currency(c: &Connection, symbol: &str) -> Result<bool, SyncErr
 }
 
 /// Utilities::Currency#fiat_to_fiat_rate into USD over MarketData.get_exchange_rates' `data`: both currencies' BTC-based
-/// `value` read as Floats, both positive, USD's over the currency's; then `to_d` (Float#to_d). None where Rails has a
+/// `value` read as Floats, both positive, USD's over the currency's; then `to_d` (Float#to_d). None where 2.x has a
 /// Failure.
 /// Err: a rate `to_f` refuses, named (the sync stops there rather than leave the cash at a stale price).
 fn fiat_rate(rates: &Value, symbol: &str) -> Result<Option<BigDec>, String> {
@@ -1062,7 +1062,7 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
                 record: Option<(String, Option<String>)>, kept: &[i64]) -> Result<Result<Summary, String>, SyncError> {
     // Cash is decided by category, never by symbol, and wins over every feed: a dollar is worth a dollar.
     // Other cash is converted at the market API's exchange rates (cash_prices_for); a currency with no rate is left out
-    // and goes stale or unpriced, never to the coin market (where Rails sends it: `usd` and `eur` are coin ids there too).
+    // and goes stale or unpriced, never to the coin market (where 2.x sends it: `usd` and `eur` are coin ids there too).
     let cash = |a: &Asset| a.category.as_deref().is_some_and(|c| CASH_CATEGORIES.contains(&c));
     let mut rated: HashMap<String, Price> = HashMap::new();
     for a in assets.iter().filter(|a| cash(a) && a.symbol.as_deref() != Some("USD")) {
@@ -1094,11 +1094,11 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
     if !remaining.is_empty() {
         match prices.prices(&remaining, "usd").await {
             Ok(found) => { for (id, p) in found { fresh.entry(id).or_insert(Price::Float(p)); } }
-            // Rails' client raises on a transport failure a retry could fix, and the job records it and stops.
+            // 2.x's client raises on a transport failure a retry could fix, and the job records it and stops.
             Err(ApiError::Transient(text)) => return Ok(Err(format!("Client::TransientNetworkError: {text}"))),
             // A price the engine will not read: the sync stops and says which, rather than go on at the last prices.
             Err(ApiError::Refused(text)) => return Ok(Err(text)),
-            // Any other failure: hosted Rails has no CoinGecko key to fall to, and goes on with its last prices.
+            // Any other failure: hosted 2.x has no CoinGecko key to fall to, and goes on with its last prices.
             Err(ApiError::Failed { .. }) => errors.push(NO_PROVIDER.into()),
         }
     }
@@ -1117,7 +1117,7 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
     for a in assets.iter().filter(|a| cash(a) && a.symbol.as_deref() == Some("USD")) { fresh.insert(a.external_id.clone(), Price::Decimal(BigDec::one())); }
 
     // Every price, and every value a row will hold (from a fresh price or the last stored one), within a venue
-    // number's caps before the first write. Rails has no such check: a price of 1e300 on a billion coins would be
+    // number's caps before the first write. 2.x has no such check: a price of 1e300 on a billion coins would be
     // stored as an infinite value and reported as a success. Here the sync fails and writes no balance.
     if !fresh.values().all(|p| within(price_f(p))) { return Ok(Err(PRICE_OUT_OF_RANGE.into())); }
     let (user_id, exchange_id) = (catalog.user_id, catalog.exchange_id);
@@ -1182,7 +1182,7 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
 
 /// Alpaca's snapshots, reduced to the latest trade price of each asked symbol that has one. A snapshot with no latest
 /// trade (or a price of 0) is no venue price: the stock is asked of the market source, like one with no snapshot.
-/// Rails reads it as 0 (`nil.to_d`) and values the holding at nothing with a fresh `priced_at` (a listed divergence).
+/// 2.x reads it as 0 (`nil.to_d`) and values the holding at nothing with a fresh `priced_at` (a listed divergence).
 fn snapshot_prices(text: &str, symbols: &[String]) -> Result<HashMap<String, BigDec>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_LIST_NODES), None).map_err(|r| Unread::refused(r, "snapshots"))?;
     let snapshots = Raw::from_node(&node).map_err(|_| Unread::Raised("unreadable snapshots".into()))?;
@@ -1191,7 +1191,7 @@ fn snapshot_prices(text: &str, symbols: &[String]) -> Result<HashMap<String, Big
         let unreadable = |_| Unread::Raised(format!("unreadable snapshot for {symbol}"));
         let Some(snapshot) = snapshots.object(symbol).map_err(unreadable)? else { continue };
         let Some(trade) = snapshot.object("latestTrade").map_err(unreadable)? else { continue };
-        // Rails omits just the symbol whose price is unreadable. Keep the healthy prices in this batch;
+        // 2.x omits just the symbol whose price is unreadable. Keep the healthy prices in this batch;
         // the omitted holding can use the market source or its previous price. Numeric caps still apply.
         if let Some(price) = trade.number("p").ok().flatten().filter(BigDec::is_positive) { prices.insert(symbol.clone(), price); }
     }
@@ -1234,7 +1234,7 @@ impl Catalog {
         Catalog { user_id: 0, exchange_id: 0, asset_ids, by_symbol, cash_ids }
     }
 
-    /// The distinct assets a position of this class and symbol could be (Rails' `candidates`, uniq by id).
+    /// The distinct assets a position of this class and symbol could be (2.x's `candidates`, uniq by id).
     pub(crate) fn candidates(&self, category: &str, symbol: &str) -> Option<&HashSet<i64>> {
         self.by_symbol.get(&(category.to_string(), symbol.to_string()))
     }
@@ -1250,7 +1250,7 @@ pub(crate) fn position_spelling(native: &str) -> &str {
 /// Unsupported/unmapped positions are individually excluded; cash and resolvable positions still publish.
 /// Each held asset as (id, free, locked). A position's `qty` counts shares already committed to open sell orders and
 /// `qty_available` what is left to sell: free is the second, locked the rest, so the holding stays whole. Both are
-/// required, as in Rails (`a position without a quantity`).
+/// required, as in 2.x (`a position without a quantity`).
 pub(crate) fn complete_balances(catalog: &Catalog, cash: BigDec, positions: Vec<Position>) -> Result<Vec<(i64, BigDec, BigDec)>, String> {
     let mut free: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
     if let [usd] = catalog.cash_ids.as_slice() { free.insert(*usd, (cash, BigDec::zero())); }
@@ -1308,7 +1308,7 @@ pub fn float_round(number: f64, ndigits: i32) -> f64 {
     };
     if ndigits >= 17 - (if binexp > 0 { binexp / 4 } else { binexp / 3 - 1 }) { return number; } // more digits than a double holds
     if number > 0.0 && ndigits < -(if binexp > 0 { binexp / 3 + 1 } else { binexp / 4 }) { return 0.0; }
-    // Beyond 14 digits Ruby takes the Rational path (float.c rb_flo_round_by_rational): the double's exact value, rounded
+    // Beyond 14 digits 2.x takes the Rational path (float.c rb_flo_round_by_rational): the double's exact value, rounded
     // half up, back to the nearest double. The power-of-ten path below would bump 0.5 at 16 digits to 0.5000000000000001.
     if ndigits > 14 {
         use std::str::FromStr;
@@ -1429,7 +1429,7 @@ fn bybit_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Re
             let Ok(row) = Raw::from_node(coin) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
             let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
             let amounts = || -> Result<(BigDec, BigDec), String> {
-                let present = |key: &str| row.value.get(key).is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::ruby::blank(s)));
+                let present = |key: &str| row.value.get(key).is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::v2::blank(s)));
                 let locked = row.decimal("locked")?;
                 let free = if present("walletBalance") { (&(&row.decimal("walletBalance")? - &locked) - &row.decimal("spotBorrow")?).max(BigDec::zero()) }
                            else { row.decimal(if present("availableToWithdraw") { "availableToWithdraw" } else { "free" })? };
@@ -1481,9 +1481,9 @@ pub const IBKR_MAX_POSITION_PAGES: usize = 50;
 /// the account's ledger, its positions), then AccountBalance::Sync. Read only, through the key's session (`login`).
 /// - The account read is the one the key is bound to (D-IBKR-ACCOUNT); a login that no longer lists exactly it fails the
 ///   sync, nothing written.
-/// - Every position page is read (D-IBKR-POSPAGES: Rails reads page 0 only).
+/// - Every position page is read (D-IBKR-POSPAGES: 2.x reads page 0 only).
 /// - A position is its asset by conid, through `ibkr_conids` only: an unknown conid is counted and logged, never matched by
-///   its symbol (D-IBKR-POSCONID: Rails falls back to the ticker's symbol).
+///   its symbol (D-IBKR-POSCONID: 2.x falls back to the ticker's symbol).
 /// - Cash is the ledger's `cashbalance` per currency, the USD asset (`usd`) or `<CCY>.FOREX`; the `BASE` total is skipped.
 /// - IBKR names no invalid-key words (Exchanges::Ibkr::ERRORS[:invalid_key] is empty): a failure never condemns the key.
 #[allow(clippy::too_many_arguments)]
@@ -1497,7 +1497,7 @@ pub async fn sync_ibkr<T: Transport>(db: &Db, transport: T, login: Arc<crate::ve
 pub(crate) async fn sync_ibkr_captured<T: Transport>(db: &Db, transport: T, login: Arc<crate::venue::ibkr::Login>, prices: &dyn PriceSource, key_id: i64,
                                                      credentials: &Credentials, clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
                                                      -> Result<Result<Summary, Failure>, SyncError> {
-    // A correct key with no binding (one Rails left, D-IBKR-RECONNECT's working kind): the key check that binds runs first,
+    // A correct key with no binding (one 2.x left, D-IBKR-RECONNECT's working kind): the key check that binds runs first,
     // fenced like the validator's. A key it cannot bind is marked as that check marks it, and nothing else is written.
     let unbound = phase(db, move |c| Ok(crate::venue::ibkr_account::binding(c, key_id)?.is_none())).await?;
     if unbound {
@@ -1612,7 +1612,7 @@ pub(crate) fn ibkr_balances(text: &str, names: &HashMap<String, i64>, asset_ids:
 
 #[cfg(test)]
 mod float_round_tests {
-    /// Ruby: 0.5.round(16) => 0.5, (1.0/3).round(16) => 0.3333333333333333, 0.395.round(16) => 0.395, 0.04995.round(16) => 0.04995.
+    /// 2.x: 0.5.round(16) => 0.5, (1.0/3).round(16) => 0.3333333333333333, 0.395.round(16) => 0.395, 0.04995.round(16) => 0.04995.
     #[test]
     fn beyond_fourteen_digits_rounds_the_exact_value() {
         for (x, want) in [(0.5, 0.5), (1.0 / 3.0, 0.3333333333333333), (0.395, 0.395), (0.04995, 0.04995), (2.5, 2.5)] {

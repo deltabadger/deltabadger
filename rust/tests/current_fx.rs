@@ -1,4 +1,4 @@
-//! Ruling 8: shared FX arithmetic, usable rates, and no database effects. Rails-free.
+//! Ruling 8: shared FX arithmetic, usable rates, and no database effects. 2.x-free.
 use deltabadger::figures::{at::At,db::Ticker,dec::Dec,market::{Failure,Fetch,MarketData,Member,Quoted,Venue},num::Num,totals,walk::Metrics,FiguresError};
 struct Feed(Vec<(String,Member<Num>)>,Option<Quoted>);
 impl MarketData for Feed {
@@ -13,9 +13,9 @@ fn db()->rusqlite::Connection {
 }
 fn feed(a:Num,b:Num)->Feed{Feed(vec![("usd".into(),Ok(a)),("eur".into(),Ok(b))],None)}
 #[test]
-fn integer_and_float_provider_rates_follow_rails_float_then_bigdecimal() {
+fn integer_and_float_provider_rates_follow_v2_float_then_bigdecimal() {
  let c=db();
- // Values measured with Ruby Float division followed by Float#to_d on the pinned base.
+ // Values measured with 2.x Float division followed by Float#to_d on the pinned base.
  for (a,b,expected) in [(Num::Int(100),Num::Int(80),"0.8"),(Num::Float(100.0),Num::Float(80.0),"0.8"),
   (Num::Int(3),Num::Int(2),"0.6666666666666666"),(Num::Int(80),Num::Int(100),"1.25"),
   (Num::Float(64123.456),Num::Float(55210.987),"0.8610107820763747"),
@@ -67,7 +67,7 @@ fn numeric_string_fx_uses_the_shared_float_path() {
 }
 
 #[test]
-fn legacy_display_currency_uses_rails_normalizer_without_stripping_nonblank_codes() {
+fn legacy_display_currency_uses_v2_normalizer_without_stripping_nonblank_codes() {
  let c=db();let f=feed(Num::Int(100),Num::Int(80));
  for raw in ["usd","Usd",""," \t\n","\u{3000}"] {
   let d=totals::denomination(&c,&f,raw).unwrap();assert_eq!(d.currency,"USD");assert_eq!(d.rate.to_s_f(),"1.0");

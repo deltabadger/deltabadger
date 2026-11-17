@@ -1,11 +1,11 @@
 mod common;
 use common::seed::{self, BotSpec};
 use deltabadger::engine::{basket, model};
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-/// A recorded case's bot as script/rust/record_vectors.rb's `with_basket` builds it: its V-prefixed members on Alpaca with the
+/// A recorded case's bot as the recording harness's `with_basket` builds it: its V-prefixed members on Alpaca with the
 /// recorded precision, allocations in the recorded order, and the recorded rows.
 fn build(case: &Value) -> (tempfile::TempDir, deltabadger::store::Opened, i64, HashMap<String, i64>) {
     let (d, o, s) = common::install_alpaca();
@@ -27,7 +27,7 @@ fn by_symbol(ids: &HashMap<String, i64>, m: HashMap<i64, BigDec>) -> Value {
 }
 
 #[test]
-fn every_recorded_rails_ledger_is_reproduced() {
+fn every_recorded_v2_ledger_is_reproduced() {
     let cases = common::vectors()["basket_ledgers"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 45);
     for (i, case) in cases.iter().enumerate() {
@@ -55,7 +55,7 @@ fn at(s: &str) -> chrono::DateTime<chrono::Utc> { s.parse().unwrap() }
 fn symbol_of(ids: &HashMap<String, i64>, asset: i64) -> String { ids.iter().find(|(_, id)| **id == asset).unwrap().0.clone() }
 
 #[test]
-fn every_recorded_rails_composition_is_reproduced() {
+fn every_recorded_v2_composition_is_reproduced() {
     let cases = common::vectors()["basket_compositions"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 43);
     for (i, case) in cases.iter().enumerate() {
@@ -140,7 +140,7 @@ fn only_this_bots_buys_are_read_and_a_former_members_fills_stay_held() {
 fn bd(s: &str) -> BigDec { BigDec::parse(s).unwrap() }
 
 #[test]
-fn every_recorded_rails_split_is_reproduced() {
+fn every_recorded_v2_split_is_reproduced() {
     use deltabadger::engine::amount;
     let cases = common::vectors()["basket_splits"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 55);
@@ -165,17 +165,17 @@ fn every_recorded_rails_split_is_reproduced() {
                 assert_eq!(&got, want, "case {i}: {case}");
             }
             (Err(decimals), Value::Null) => assert_eq!(case["failure"], format!("limit price rounds to zero at {decimals} decimals"), "case {i}"),
-            (got, want) => panic!("case {i}: Rust {:?}, Rails {want}", got.map(|legs| legs.len())),
+            (got, want) => panic!("case {i}: Rust {:?}, 2.x {want}", got.map(|legs| legs.len())),
         }
     }
 }
 
-/// The cap's remainder and its decision, with Rails' own numerics. Each case is a one-asset bot with the recorded cap (an
+/// The cap's remainder and its decision, with 2.x's own numerics. Each case is a one-asset bot with the recorded cap (an
 /// Integer or a Float in the settings JSON) switched on before its rows.
 #[test]
-fn every_recorded_rails_amount_cap_is_reproduced() {
+fn every_recorded_v2_amount_cap_is_reproduced() {
     use deltabadger::engine::amount;
-    use deltabadger::ruby::Num;
+    use deltabadger::v2::Num;
     let cases = common::vectors()["amount_caps"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 40);
     for (i, case) in cases.iter().enumerate() {
@@ -192,20 +192,20 @@ fn every_recorded_rails_amount_cap_is_reproduced() {
             (Num::Int(n), "Integer") => n.to_string() == want["i"].as_str().unwrap(),
             _ => false,
         };
-        assert!(same, "case {i}: Rust {got:?}, Rails {want}: {case}");
+        assert!(same, "case {i}: Rust {got:?}, 2.x {want}: {case}");
         assert_eq!(amount::quote_amount_limit_reached(&o.primary, &bot).unwrap(), case["reached"] == true, "case {i}: {case}");
     }
 }
 
-/// Slice 6d-1: the base cap's remainder and its decision on a selling one-asset basket, against Rails' recorded readings
-/// (script/rust/record_vectors.rb base_cap): every bucket (closed with and without exec, open, unknown, cancelled partly,
+/// Slice 6d-1: the base cap's remainder and its decision on a selling one-asset basket, against 2.x's recorded readings
+/// (the recorded base_cap vectors): every bucket (closed with and without exec, open, unknown, cancelled partly,
 /// unfilled or at zero, abandoned, before the stamp), a Float or Integer limit, and the floor at several base precisions.
-/// Rust reads abandoned sells as D-6D-3 counts them, so it matches Rails' own reading of the rows once each abandoned sell
-/// is credited what it asked for (`d6d3`); every other case is Rails' reading as it stands.
+/// Rust reads abandoned sells as D-6D-3 counts them, so it matches 2.x's own reading of the rows once each abandoned sell
+/// is credited what it asked for (`d6d3`); every other case is 2.x's reading as it stands.
 #[test]
-fn every_recorded_rails_base_cap_is_reproduced() {
+fn every_recorded_v2_base_cap_is_reproduced() {
     use deltabadger::engine::accounting;
-    use deltabadger::ruby::Num;
+    use deltabadger::v2::Num;
     let cases = common::vectors()["base_cap"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 500);
     let mut diverged = 0;
@@ -226,18 +226,18 @@ fn every_recorded_rails_base_cap_is_reproduced() {
             (Num::Int(n), "Integer") => n.to_string() == want["i"].as_str().unwrap(),
             _ => false,
         };
-        assert!(same, "case {i}: Rust {got:?}, Rails {want}: {case}");
+        assert!(same, "case {i}: Rust {got:?}, 2.x {want}: {case}");
         assert_eq!(accounting::base_amount_limit_reached(&o.primary, &bot).unwrap(), case["d6d3"]["reached"] == true, "case {i}: {case}");
     }
     assert!(diverged >= 50, "the abandoned sells must exercise D-6D-3: {diverged} cases");
 }
 
-/// Plan CB T5: Bots::DcaMultiAsset#derive_composition with market-cap weights, against Rails' recorded derivations
-/// (script/rust/record_vectors.rb, MARKET_CAP_WEIGHTS_ONLY): caps near 2^53, 1-100 members whose settings order is not their
+/// Plan CB T5: Bots::DcaMultiAsset#derive_composition with market-cap weights, against 2.x's recorded derivations
+/// (the recorded MARKET_CAP_WEIGHTS_ONLY vectors): caps near 2^53, 1-100 members whose settings order is not their
 /// id order (the caps are summed in `pluck` order), a NULL or 0 cap keeping every slider, a member without a tradable ticker
 /// left out before the caps are read, and a parked (0 %) member still weighted by its cap.
 #[test]
-fn every_recorded_rails_market_cap_derivation_is_reproduced() {
+fn every_recorded_v2_market_cap_derivation_is_reproduced() {
     let cases = common::vectors()["market_cap_weights"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 407);
     let pair = json!({ "base_decimals": 8, "quote_decimals": 2, "price_decimals": 2, "minimum_base_size": "0.0001", "minimum_quote_size": "1" });

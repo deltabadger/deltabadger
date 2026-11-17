@@ -1,6 +1,6 @@
 //! Sign-in, the second factor and sign-out, as Users::SessionsController, Devise 5 (paranoid mode,
 //! :lockable, :confirmable) and Users::VerifyOtp behave, on the same `users` columns.
-//! There is no remember-me here: the checkbox is rendered and ignored. Rails' cookie is always
+//! There is no remember-me here: the checkbox is rendered and ignored. 2.x's cookie is always
 //! `Secure`, so it never worked on a plain-http install, and a session lasts 30 days anyway.
 use super::layout::{self, Ctx, Page};
 use super::session::{Pending, SessionData};
@@ -23,7 +23,7 @@ pub const UNLOCK_IN_SECONDS: i64 = 15 * 60;
 pub const PENDING_TTL_SECONDS: i64 = 5 * 60;
 /// The longest path kept as `return_to`. The session is the cookie, and a browser drops a cookie
 /// over 4096 bytes, the CSRF token in it included: the sign-in that follows would then be refused.
-/// A path of this length makes a cookie of about 3 KB. (Rails raises CookieOverflow there.)
+/// A path of this length makes a cookie of about 3 KB. (2.x raises CookieOverflow there.)
 pub const MAX_RETURN_TO_BYTES: usize = 2048;
 
 #[derive(Clone, Debug)]
@@ -76,7 +76,7 @@ impl User {
 
     /// Devise's find_for_authentication: the email stripped and downcased, then matched exactly.
     pub fn find_by_email(c: &Connection, email: &str) -> Result<Option<User>, WebError> {
-        Self::read(c, "email", &crate::ruby::strip(email).to_lowercase())
+        Self::read(c, "email", &crate::v2::strip(email).to_lowercase())
     }
 
     /// Devise's authenticatable_salt: what ties a session to the password it was opened with.
@@ -200,7 +200,7 @@ fn failure(ctx: &Ctx, message: &str) -> Response {
 }
 
 /// `authenticate_user!` for a request with nobody signed in: the failure app's response.
-/// A25: None for the install's admin; for anyone else the answer a page only the admin has gives (Rails'
+/// A25: None for the install's admin; for anyone else the answer a page only the admin has gives (2.x's
 /// `authenticate :user, ->(u) { u.admin? }` route constraint): signed out, the sign-in redirect; signed in, no route (404).
 pub fn unless_admin(ctx: &Ctx) -> Option<Response> {
     match ctx.user() {
@@ -215,7 +215,7 @@ pub fn unauthenticated(ctx: &Ctx) -> Response {
 }
 
 /// `unauthenticated` where the request's format may be JSON: Devise's failure app answers a non-navigational format
-/// with 401 and `{"error": message}` (no flash, no stored location). Rails' format is the Accept's first type unless
+/// with 401 and `{"error": message}` (no flash, no stored location). 2.x's format is the Accept's first type unless
 /// the Accept looks like a browser's (`*/*` beside another type), which reads as HTML.
 /// ponytail: first type only, no q-ordering; only bots_reorder_controller.js sends a JSON Accept.
 pub fn unauthenticated_in_format(ctx: &Ctx, headers: &axum::http::HeaderMap) -> Response {
@@ -311,7 +311,7 @@ enum PasswordStage {
 ///
 /// Exactly one bcrypt computation per request, on every path: a hash for an unknown email, one
 /// verification for a known one. How long the answer takes then says nothing about the account,
-/// including whether it has two-factor on, as Rails now does (#499).
+/// including whether it has two-factor on, as 2.x now does (#499).
 fn password_stage(c: &Connection, user_id: i64, verified_against: &str, correct: bool, password: &str, now: DateTime<Utc>) -> Result<PasswordStage, WebError> {
     let Some(mut user) = User::find(c, user_id)?.filter(|user| user.encrypted_password == verified_against) else {
         return Ok(PasswordStage::Invalid);
@@ -343,13 +343,13 @@ pub(crate) fn busy() -> Response {
 }
 
 /// Devise's sign_in as this app follows it: the session now belongs to the account whose id and
-/// `encrypted_password` are given. D-NO-WIZARD-AUTO-OPEN: the bots page never opens the wizard by itself (Rails opens it on
+/// `encrypted_password` are given. D-NO-WIZARD-AUTO-OPEN: the bots page never opens the wizard by itself (2.x opens it on
 /// the first empty bots page after a sign-in); a wizard begun in this browser before the sign-in is dropped here instead.
 pub(crate) fn sign_in(session: &mut SessionData, id: i64, encrypted_password: &str, new_csrf_token: bool) {
     session.user = Some((id, encrypted_password.get(..29).unwrap_or(encrypted_password).to_string()));
     session.bot_config = None;
     // A second-factor step left open in this browser, for whichever account, ends with any sign-in:
-    // it must not be usable afterwards to turn this session into that account's. (Rails keeps it.)
+    // it must not be usable afterwards to turn this session into that account's. (2.x keeps it.)
     session.pending = None;
     if new_csrf_token {
         session.csrf = None; // Devise's clean_up_csrf_token_on_authentication
@@ -541,7 +541,7 @@ pub async fn two_factor(State(app): State<App>, Extension(ctx): Extension<Ctx>) 
 }
 
 /// DELETE /logout (signed in; the signed-out case is a prepended filter). Devise forgets every
-/// remember-me cookie Rails may have issued, clears the session, and the flash with it.
+/// remember-me cookie 2.x may have issued, clears the session, and the flash with it.
 pub async fn destroy(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     if let Some(user_id) = ctx.user().map(|u| u.id) {
         let now = ctx.now;

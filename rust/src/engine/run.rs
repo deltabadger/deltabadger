@@ -1,5 +1,5 @@
 //! The engine loop. No job table: each pass re-reads the working bots (UI changes are seen within a minute),
-//! ticks the due ones, and sleeps until the earliest next event. What Rails would hold in Solid Queue —
+//! ticks the due ones, and sleeps until the earliest next event. What 2.x would hold in Solid Queue —
 //! follow-up polls, retries — is kept in memory and rebuilt from the database on start.
 use super::events::{EngineEvent, EngineEvents};
 use super::schedule::checkpoints;
@@ -23,7 +23,7 @@ const POLL_AFTER_US: i64 = 5_000_000;
 const RECONCILE_EVERY_US: i64 = 30_000_000;
 /// How often reversal reserves and liquidation orders are scanned, beside every engine start.
 const SETTLE_SCAN_EVERY_US: i64 = 600_000_000;
-/// How long a bot refused for stale reference data waits before it is ticked again. Rails' catalog sync runs once a day and the
+/// How long a bot refused for stale reference data waits before it is ticked again. 2.x's catalog sync runs once a day and the
 /// bound is 49 h, so 5 minutes delays the first tick after a refresh by at most 5 minutes for 12 staleness reads an hour.
 pub const STALE_RECHECK_US: i64 = 300_000_000;
 
@@ -43,7 +43,7 @@ pub struct Engine<F: VenueFactory> {
     /// Follow-up polls owed, one per ORDER (FetchAndUpdateOrderJob): tx id → (bot, due time, that job's own retry counters).
     polls: HashMap<i64, model::Produced<(i64, i64, Attempts)>>,
     reconcile_at: HashMap<i64, model::Produced<i64>>,
-    /// Rails' 5 s price cache (Rails.cache), shared by every tick of this process.
+    /// 2.x's 5 s price cache, shared by every tick of this process.
     prices: PriceCache,
     /// Set by the first `step`: an Alpaca absence is trusted only a full margin (20 min) after it (placement::recover_since).
     process_start: Option<DateTime<Utc>>,
@@ -74,12 +74,12 @@ pub struct Engine<F: VenueFactory> {
     sweep_pending: bool,
 }
 
-/// What `resync_bot` keeps between passes, in memory (a restart grants a fresh retry budget, which Rails' timing allows).
+/// What `resync_bot` keeps between passes, in memory (a restart grants a fresh retry budget, which 2.x's timing allows).
 #[derive(Default)]
 pub struct Resyncs {
     /// A resync's retry (Alpaca transport failures only): failed attempts and when the next one runs, µs.
     retry: HashMap<i64, (u32, i64)>,
-    /// Bots whose pending resync is left to Rails (outside this engine's slice) or keeps failing here: logged once.
+    /// Bots whose pending resync is left to 2.x (outside this engine's slice) or keeps failing here: logged once.
     logged: HashSet<i64>,
     /// The RankingMissing wakes sent in this process (index::ranking_wake), by the tick and the resync alike.
     ranking_sent: HashSet<super::index::WakeKey>,
@@ -197,7 +197,7 @@ impl Shutdown {
     }
 }
 
-/// Every order still unknown/open, whatever its bot's status (Rails' adopt_handback! polls them all): (tx, bot).
+/// Every order still unknown/open, whatever its bot's status (2.x's adopt_handback! polls them all): (tx, bot).
 fn outstanding_orders(c: &Connection) -> Result<Vec<(i64, i64)>, EngineError> {
     let mut s = c.prepare("SELECT id, bot_id FROM transactions WHERE status = 0 AND external_status IN (0, 1) AND bot_id IS NOT NULL ORDER BY id")?;
     let rows = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<(i64, i64)>, _>>()?;
@@ -205,7 +205,7 @@ fn outstanding_orders(c: &Connection) -> Result<Vec<(i64, i64)>, EngineError> {
 }
 
 /// After a tick, whether it ended well or in an error: each order it placed gets one follow-up poll shortly after (a
-/// deliberate small delay; Rails enqueues FetchAndUpdateOrderJob at placement), and each row it inserted or recovered is
+/// deliberate small delay; 2.x enqueues FetchAndUpdateOrderJob at placement), and each row it inserted or recovered is
 /// announced. An order it placed is in no later sweep's waiting set, so this is its only announcement and its only poll.
 fn after_tick<F: VenueFactory>(e: &mut Engine<F>, id: i64, tick_start: &str, last_tx: i64, recovered: Option<i64>, clock: &dyn Clock, producer:&Option<model::CredentialVersion>) -> Result<(), EngineError> {
     let mut s = e.primary.prepare(
@@ -222,7 +222,7 @@ fn after_tick<F: VenueFactory>(e: &mut Engine<F>, id: i64, tick_start: &str, las
     Ok(())
 }
 
-/// The bot's waiting orders, each with what a poll writes on it: a tick's sweep that changed one is announced as Rails'
+/// The bot's waiting orders, each with what a poll writes on it: a tick's sweep that changed one is announced as 2.x's
 /// update! of it is (OrderWritten).
 fn waiting_rows(c: &Connection, bot_id: i64) -> Result<Vec<(i64, String)>, EngineError> {
     let mut s = c.prepare("SELECT id, json_array(status, external_status, amount, quote_amount, amount_exec, quote_amount_exec, price, updated_at) \
@@ -321,7 +321,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     if e.writers_guarded { assert_guarded(&e.primary, &report); }
     if !report.problems.is_empty() { return Err(EngineError::Ineligible(report.problems)); }
     for (id, err) in &report.unreadable { super::log(&format!("[engine] bot {id} is unreadable and skipped: {err}")); }
-    // A bot that left the working set (stopped from the web UI) starts again as a fresh Rails job would: no retry
+    // A bot that left the working set (stopped from the web UI) starts again as a fresh 2.x job would: no retry
     // counters and no retry time carried over. Polls (per order) and reconciliation (per intent) are not per job and stay.
     // Each bot also checks its lifecycle generation: STOP and resume may both occur between passes.
     e.run_keys.retain(|id, _| report.eligible.contains(id));
@@ -331,13 +331,13 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     e.condition_at.retain(|id, _| report.eligible.contains(id));
 
     if !e.started {
-        // Rebuilt obligation: every outstanding order is polled once, as Rails' adopt_handback! does.
+        // Rebuilt obligation: every outstanding order is polled once, as 2.x's adopt_handback! does.
         let now_us = clock.now().timestamp_micros();
         for (tx, bot) in outstanding_orders(&e.primary)? {
             let producer=model::load_bot(&e.primary,bot).and_then(|row|e.venue_for(&row))?.1;
             e.polls.entry(tx).or_insert_with(||model::Produced::new((bot,now_us,Attempts::default()),producer));
         }
-        // Amount-limit stops a swept fill committed before a crash (polling::apply_committed): Rails' StopJobs would have run.
+        // Amount-limit stops a swept fill committed before a crash (polling::apply_committed): 2.x's StopJobs would have run.
         let mut s = e.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_amount_limit_stops_pending') IS NOT NULL ORDER BY id")?;
         let pending = s.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
         drop(s);
@@ -538,7 +538,7 @@ async fn signal_call<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Cl
 /// Bot::ResyncIndexCompositionJob (`retry_on Client::TransientNetworkError, wait: :polynomially_longer, attempts: 3`).
 const RESYNC_RETRY: crate::jobs::Retry = crate::jobs::Retry::Polynomial { attempts: 3 };
 
-/// Every pending composition resync (index::RESYNC_KEY), before any bot ticks, for any status: Rails enqueues the job for a
+/// Every pending composition resync (index::RESYNC_KEY), before any bot ticks, for any status: 2.x enqueues the job for a
 /// created or stopped bot too. A bot's failure is logged; its marker decides whether it runs again.
 async fn run_resyncs<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
     let marked = super::index::resync_marked(&e.primary)?;
@@ -559,8 +559,8 @@ async fn run_resyncs<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake
 }
 
 /// One Bot::ResyncIndexCompositionJob#perform for a marked bot, or why it waits; `venue` builds the bot's venue, asked only
-/// once the bot is known to run here. The marker is cleared where Rails' job ends (done, a returned Failure, a raise,
-/// retries spent) and kept where it would still run: a bot this engine does not run (Rails resyncs it after a handback),
+/// once the bot is known to run here. The marker is cleared where 2.x's job ends (done, a returned Failure, a raise,
+/// retries spent) and kept where it would still run: a bot this engine does not run (2.x resyncs it after a handback),
 /// an unresolved placement (the membership its order was sized against stays until it settles), a retry wait, a trigger
 /// that landed during the run. Ok(true): the job's broadcast_metrics_panel is owed.
 #[allow(clippy::too_many_arguments)]
@@ -571,14 +571,14 @@ pub async fn resync_bot<V: crate::venue::Attributed>(c: &Connection, id: i64, ma
     let now_us = clock.now().timestamp_micros();
     let clear = || model::locked(c, |tx| clear_resync(tx, id, marker).map(|_| ()));
     let no_exchange: bool = c.query_row("SELECT exchange_id IS NULL FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
-    if no_exchange { clear()?; return Ok(false); } // never enqueued for one (sync_from_coingecko_job.rb:151-153)
+    if no_exchange { clear()?; return Ok(false); } // never enqueued for one
     let bot = model::load_bot(c, id)?;
     if matches!(bot.status, Deleted | Archived) { clear()?; return Ok(false); } // `return if bot.deleted? || bot.archived?`
     // A17-4 item 2: the INDICES job is woken for a followed index with no usable ranking before any refusal below returns.
     if let Some(external_id) = super::index::ranking_wake(c, &bot, clock.now(), &mut state.ranking_sent)? { state.ranking_owed.push(external_id); }
     let reasons = eligibility::bot_reasons(c, &bot)?;
     if !reasons.is_empty() {
-        if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to Rails ({})", reasons.join(", "))); }
+        if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to 2.x ({})", reasons.join(", "))); }
         return Ok(false);
     }
     if bot.rust_placement().is_some() { return Ok(false); }
@@ -624,10 +624,10 @@ pub async fn resync_bot<V: crate::venue::Attributed>(c: &Connection, id: i64, ma
             Ok(false)
         }
         Ok(Err(Refusal::Failure(m))) => {
-            // The engine's own refusal of a bot that became ineligible during the run stays Rails' to resync.
+            // The engine's own refusal of a bot that became ineligible during the run stays 2.x's to resync.
             let reasons = eligibility::bot_reasons(c, &model::load_bot(c, id)?)?;
             if !reasons.is_empty() {
-                if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to Rails ({m})")); }
+                if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to 2.x ({m})")); }
                 return Ok(false);
             }
             super::log(&format!("bot {id}: composition resync failed: {m}"));
@@ -642,7 +642,7 @@ pub async fn resync_bot<V: crate::venue::Attributed>(c: &Connection, id: i64, ma
     }
 }
 
-/// Bot::EvaluateRebalancersJob's schedule (config/recurring.yml).
+/// Bot::EvaluateRebalancersJob's schedule.
 pub const REBALANCE_SCHEDULE: crate::jobs::schedule::Schedule = crate::jobs::schedule::Schedule::EveryHours { every: 4, minute: 30 };
 
 /// Bot::EvaluateRebalancersJob#candidates: every rebalanceable bot that is neither deleted nor archived (a stopped one
@@ -666,10 +666,10 @@ fn rebalance_candidates(c: &Connection) -> Result<Vec<i64>, EngineError> {
 }
 
 /// The rebalance leg's clock: at each fire, Bot::RebalanceJob for every candidate, one after another (the loop is serial,
-/// which is what BotJob's per-exchange concurrency key and the shared Bot::ActionJob group buy in Rails). Placed orders get
+/// which is what BotJob's per-exchange concurrency key and the shared Bot::ActionJob group buy in 2.x). Placed orders get
 /// their follow-up poll and are announced, as a tick's are. A bot's failure is logged; the next fire evaluates it again.
 async fn run_rebalances<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(i64, String)], clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
-    // D-REBALANCE-INSTANT-BUY (AUDIT #7): a swap whose sell has filled buys at once, not at the next fire (Rails waits for
+    // D-REBALANCE-INSTANT-BUY (AUDIT #7): a swap whose sell has filled buys at once, not at the next fire (2.x waits for
     // it, up to four hours, while the proceeds sit idle). One try per sell: one that does not get on is the fire's again.
     for (id, sell) in owed_buys(&e.primary)? {
         if e.stopping() { break; }
@@ -825,19 +825,19 @@ async fn refresh_open_orders<F: VenueFactory>(e: &mut Engine<F>, id: i64, versio
 async fn run_bookings<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<(), EngineError> {
     let polled: HashSet<i64> = e.polls.keys().copied().collect();
     let since = last_line(&e.primary);
-    let served = super::rails_unrecorded::serve_bookings(&e.primary, &e.factory, &e.cipher, &|tx| polled.contains(&tx), clock.now()).await;
+    let served = super::v2_unrecorded::serve_bookings(&e.primary, &e.factory, &e.cipher, &|tx| polled.contains(&tx), clock.now()).await;
     // A refusal's `rails_order_not_added` line has no order to announce it; a booking's lines follow its order's event.
     let served = match served {
         Ok(served) => served,
         Err(err) => {
             announce_lines(e, since);
             if matches!(err, EngineError::Lease(_) | EngineError::Store(_)) { return Err(err); }
-            super::log(&format!("[engine] Rails-unrecorded bookings deferred: {}", err.kind()));
+            super::log(&format!("[engine] 2.x-unrecorded bookings deferred: {}", err.kind()));
             return Ok(());
         }
     };
     let now_us = clock.now().timestamp_micros();
-    for ((bot, tx), at) in served.booked.iter().map(|r| (*r, now_us)).chain(served.watch.iter().map(|r| (*r, now_us + super::rails_unrecorded::WATCH_AFTER_US))) {
+    for ((bot, tx), at) in served.booked.iter().map(|r| (*r, now_us)).chain(served.watch.iter().map(|r| (*r, now_us + super::v2_unrecorded::WATCH_AFTER_US))) {
         let producer = model::load_bot(&e.primary, bot).and_then(|row| e.venue_for(&row)).map(|(_, p)| p).unwrap_or(None);
         e.polls.insert(tx, model::Produced::new((bot, at, Attempts::default()), producer));
     }
@@ -846,7 +846,7 @@ async fn run_bookings<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> 
     Ok(())
 }
 
-/// Due follow-up polls, for any bot whatever its status (a job Rails enqueued at placement runs even if the
+/// Due follow-up polls, for any bot whatever its status (a job 2.x enqueued at placement runs even if the
 /// bot is stopped meanwhile). Transient/RateLimited failures and a still-open order retry as FetchAndUpdateOrderJob's retry_on.
 async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: &mut i64) {
     let now_us = clock.now().timestamp_micros();
@@ -917,9 +917,9 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
 }
 
 /// The web continued this bot (Bot::Lifecycle#start(start_fresh: false)) and left `rust_continue_start` for the engine.
-/// Rails' decision (amount::continue_runs_now) becomes a persisted wait: one that has ended (run now) or one for the next
+/// 2.x's decision (amount::continue_runs_now) becomes a persisted wait: one that has ended (run now) or one for the next
 /// checkpoint. In the same transaction the request goes, with any amount-limit stop still counted (the user's resume
-/// overrides a stop Rails would already have run) and the old wait (the decision replaces it). A request whose value is not
+/// overrides a stop 2.x would already have run) and the old wait (the decision replaces it). A request whose value is not
 /// `{"requested_at": a readable timestamp}` refuses without deleting the request (R9). The web also sends
 /// `was_stopped`: only an originally stopped bot may wait. Older requests omit it and
 /// retain the stopped-bot contract that preceded lifecycle writes.
@@ -1029,7 +1029,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
                 return Ok(());
             }
             Err(err) => {
-                // The check raised: Rails' job dies, and Bot::RepairOrphanedBotsJob restarts the chain on its next pass. Marked,
+                // The check raised: 2.x's job dies, and Bot::RepairOrphanedBotsJob restarts the chain on its next pass. Marked,
                 // so a restart waits for that pass too.
                 super::log(&format!("[engine] bot {id}: its condition check failed: {err:?}; checked again at Repair's next pass"));
                 let mark = model::run_write(&e.primary, &bot, |tx| model::merge_transient_compact(tx, id, &[(super::conditions::DEAD, serde_json::json!(true))]));
@@ -1072,13 +1072,13 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         e.reconcile_at.get(&id).is_none_or(|t| t.value <= now_us)
     } else if anchor > now_us {
         // D-START-CONTINUE-WAITS: no new order attempt before a started_at still ahead (a delayed start not yet reached),
-        // whatever the status or wait says: a continue, or a Rails row left retrying, would otherwise run now and again at
+        // whatever the status or wait says: a continue, or a 2.x row left retrying, would otherwise run now and again at
         // the start (for a seller, two sales). Only the placement intent above is reconciled.
         false
     } else if e.closed_until.get(&id).is_some_and(|(t, _)| t.value > now_us) || deferred.is_some() {
         false
     } else if defer.flatten().is_some_and(|t| t < now_us) {
-        true // the wait has ended (strictly after it, as a checkpoint is): a continue start Rails runs at once (placement::run_now)
+        true // the wait has ended (strictly after it, as a checkpoint is): a continue start 2.x runs at once (placement::run_now)
     } else if defer == Some(None) {
         on_schedule()? // a retrying bot too: its in-memory wait was computed under the old schedule
     } else if bot.status == crate::enums::BotStatus::Retrying {
@@ -1114,7 +1114,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let claimed = |bot_id| e.events.send(EngineEvent::StatusChanged { bot_id });
         let cx = TickContext { credential_version, prices: &e.prices, process_start: e.process_start.ok_or_else(||EngineError::Data("engine start time missing".into()))?, stopping: &stopping, below_minimum: &below_minimum, claimed: &claimed };
         // What this tick records is announced after it returns, when its writes have committed: rows by id (every row
-        // the tick inserts, as Rails' after_create_commit hears every create), and a new funds mail marker.
+        // the tick inserts, as 2.x's after_create_commit hears every create), and a new funds mail marker.
         let last_tx: i64 = e.primary.query_row("SELECT coalesce(max(id), 0) FROM transactions", [], |r| r.get(0))?;
         let funds_marker = |c: &Connection| c.query_row(&format!("SELECT json_extract(transient_data, '$.{}') FROM bots WHERE id = ?1", tick::FUNDS_MAIL_PENDING),
                                                          [id], |r| r.get::<_, Option<String>>(0));
@@ -1153,7 +1153,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             TickOutcome::Stale { source, .. } => { e.stale_logged.insert(id, *source); }
             _ => { e.stale_logged.remove(&id); }
         }
-        // tick.rs leaves the funds marker with the stamp where Rails mails BotAlertsMailer#end_of_funds. The stamp alone is
+        // tick.rs leaves the funds marker with the stamp where 2.x mails BotAlertsMailer#end_of_funds. The stamp alone is
         // no signal: a failure that stops the bot stamps it too, and its mail rides the error or stopped marker instead.
         let funds_after = funds_marker(&e.primary)?;
         if funds_after.is_some() && funds_after != funds_before {
@@ -1172,7 +1172,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             TickOutcome::RetryAfter(d) => { e.retry_at.insert(id, model::Produced::new(clock.now().timestamp_micros() + d.as_micros() as i64,retry_producer.clone())); }
             TickOutcome::AwaitingReconciliation => { e.retry_at.remove(&id); e.reconcile_at.insert(id, model::Produced::new(clock.now().timestamp_micros() + RECONCILE_EVERY_US,retry_producer.clone())); }
             TickOutcome::Done { .. } | TickOutcome::Flipped => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.condition_at.remove(&id); }
-            // Rescheduled: `retrying` until the next checkpoint, as Rails' reschedule leaves it.
+            // Rescheduled: `retrying` until the next checkpoint, as 2.x's reschedule leaves it.
             TickOutcome::Rescheduled => {
                 // A flip can change both anchor and cadence before Fundable raises.
                 let next = model::load_bot(&e.primary, id)?.rust_defer_until_us()?.unwrap_or(cps.next_us);

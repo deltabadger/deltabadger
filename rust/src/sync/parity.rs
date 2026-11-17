@@ -1,5 +1,5 @@
-//! The Rust half of the sync row-parity harness (script/rust/sync.rb is the Rails half): the scenario's steps on a
-//! marked scratch copy, each a real sync over the recorded bodies Rails' jobs read, reported in the shape Rails reports.
+//! The Rust half of the sync row-parity harness (the recording harness was the 2.x half): the scenario's steps on a
+//! marked scratch copy, each a real sync over the recorded bodies 2.x's jobs read, reported in the shape 2.x reports.
 use super::balances::{self, ScriptedPrices, EXCHANGE_RATES_PATH, PRICES_PATH};
 use crate::jobs::Db;
 use super::{balance_reading_keys, ledger, SyncError};
@@ -71,7 +71,7 @@ pub fn diff(before: &Value, after: &Value) -> Value {
 }
 
 /// The script, served as Alpaca serves it where a step says so (`server_filters_after`): an activities page holds
-/// only what is later than the request's `after`. The Rails harness filters the same way (script/rust/sync.rb), so a
+/// only what is later than the request's `after`. The recording harness filters the same way, so a
 /// scenario can show what each side's `after` would and would not bring back.
 struct Served { script: ScriptedTransport, filters_after: bool }
 
@@ -90,7 +90,7 @@ impl Transport for Served {
     }
 }
 
-/// A Binance account served from a step's `binance_state`, as script/rust/sync.rb's FakeBinance serves it (see there):
+/// A Binance account served from a step's `binance_state`, as the recording harness's FakeBinance serves it:
 /// the histories by window and page, the trade list by `fromId`, by `startTime`, or the most recent; failures by path
 /// (or path and symbol).
 #[derive(Clone)]
@@ -121,7 +121,7 @@ impl FakeBinance {
                     (None, None) => { let skip = trades.len().saturating_sub(limit); trades.into_iter().skip(skip).collect() }
                 })
             }
-            // Rails' FakeBinance serves these from the state's lists, each row by its own time.
+            // The recording harness's FakeBinance serves these from the state's lists, each row by its own time.
             "/sapi/v1/convert/tradeFlow" => json!({ "list": window(list("converts"), &|c| c["createTime"].as_i64()), "moreData": false }),
             "/sapi/v1/fiat/payments" => {
                 let key = if q("transactionType").as_deref() == Some("1") { "fiat_sells" } else { "fiat_buys" };
@@ -150,7 +150,7 @@ impl FakeBinance {
     }
 }
 
-/// What Binance refuses before reading anything, as script/rust/sync.rb's FakeBinance refuses it: a missing mandatory
+/// What Binance refuses before reading anything, as the recording harness's FakeBinance refuses it: a missing mandatory
 /// parameter (its docs, and `type` on flexible rewards, which Binance requires though its docs say otherwise), a
 /// signed path without its timestamp, and a window longer than the endpoint accepts.
 pub fn binance_refusal(path: &str, query: &[(String, String)]) -> Option<String> {
@@ -206,7 +206,7 @@ fn generations(c: &Connection) -> Result<Vec<(i64, i64)>, SyncError> {
     Ok(rows)
 }
 
-/// A step of kind `import`, as script/rust/sync.rb's `run_import` reports it: the controller's zone step, the key the
+/// A step of kind `import`, as the recording harness's `run_import` reports it: the controller's zone step, the key the
 /// step's `answer` names (the user's first key on that exchange type), then the run.
 fn import_step(c: &Connection, cipher: &Cipher, user_id: i64, step: &Value, at: DateTime<Utc>) -> Result<Value, SyncError> {
     use crate::tracker::import::run::{self, Answer};
@@ -234,8 +234,8 @@ fn import_step(c: &Connection, cipher: &Cipher, user_id: i64, step: &Value, at: 
     Ok(out)
 }
 
-/// Runs the scenario in `dir` (a scratch copy the Rails harness built) and reports what Rails' `record` reports.
-/// The market-data environment sync.rb records under: the hosted one, with the scenario's `market_env` over it (null
+/// Runs the scenario in `dir` (a scratch copy the recording harness built) and reports what 2.x's `record` reports.
+/// The market-data environment the recording harness records under: the hosted one, with the scenario's `market_env` over it (null
 /// removes a variable).
 fn market_env(scenario: &Value) -> crate::market_data::Env {
     let mut env: std::collections::HashMap<String, Option<String>> = [("MARKET_DATA_URL", "http://data-api:3000"), ("MARKET_DATA_TOKEN", "parity-token"), ("COINGECKO_API_KEY", "")]
@@ -266,7 +266,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
     let db = Db::new(opened.primary, (*cipher).clone());
 
     let mut steps = vec![];
-    let rate_cache = Arc::new(crate::jobs::data_api::RateCache::default()); // Rails' cache store, cleared per scenario
+    let rate_cache = Arc::new(crate::jobs::data_api::RateCache::default()); // 2.x's cache store, cleared per scenario
     for step in scenario["steps"].as_array().ok_or_else(|| data("steps"))? {
         let at: DateTime<Utc> = step["at"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| data("step.at"))?;
         let binance = step.get("binance").is_some();
@@ -293,12 +293,12 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         let served = Served { script: transport.clone(), filters_after: step["server_filters_after"] == true };
         let venue = AlpacaVenue::new(served, Urls::for_passphrase(credentials.passphrase.as_deref()));
         let scripted = ScriptedPrices::from_script(&step["market"]).with_rate_cache(rate_cache.clone());
-        // A step scripting CoinGecko (sync.rb `cg_balances`) is priced by the real source over the scripted hosts: the
+        // A step scripting CoinGecko (the recording harness's `cg_balances`) is priced by the real source over the scripted hosts: the
         // install's market-data rows and the scenario's environment pick the feed and the fallback.
         let (market, coingecko) = (ScriptedTransport::from_script(&step["market"]), ScriptedTransport::from_script(&step["coingecko"]));
         let real = match step.get("coingecko") {
             Some(_) => {
-                // Rails' harness pre-seeds the key's plan as demo; here the pro ping answers 401 and is left out of the log.
+                // The recording harness pre-seeds the key's plan as demo; here the pro ping answers 401 and is left out of the log.
                 coingecko.reply("GET /api/v3/ping", 401, json!({}));
                 let env = market_env(&scenario);
                 let settings = db.run(move |c, cipher| crate::market_data::read(c, cipher, &env)).await.map_err(SyncError)?;
@@ -345,10 +345,10 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
             Some("balances") => balances::sync(&db, &venue, prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             other => return Err(SyncError(format!("unknown step kind {other:?}"))),
         } };
-        // As Rails' harness logs them: "METHOD path" and the query pairs, sorted.
+        // As the recording harness logs them: "METHOD path" and the query pairs, sorted.
         let mut sent = match &fake { Some(fake) => fake.requests.borrow().clone(), None => transport.requests() };
         // M05: assert the new prefix independently; compare every subsequent request and DB effect
-        // with the original Rails vectors. No detection request is covered by a parity exemption.
+        // with the original 2.x vectors. No detection request is covered by a parity exemption.
         if kucoin && matches!(step["kind"].as_str(), Some("balances" | "ledger")) {
             use crate::venue::kucoin_account::{MODE, OPENED};
             if sent.len() < 2 || sent[0].path != MODE || sent[1].path != OPENED
@@ -359,7 +359,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         }
         let mut requests: Vec<Value> = sent.iter().map(|r| {
             let mut query: Vec<(String, String)> = r.query.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
-            // Gemini's params travel in its signed payload (the harness logs them as Rails' does: each value's `to_s`).
+            // Gemini's params travel in its signed payload (the harness logs them as the recording harness does: each value's `to_s`).
             // Kraken's private fields travel in its form body (the nonce is the transport's, outside the request).
             if gemini || hyperliquid || kraken { query.extend(r.body.iter().filter_map(serde_json::Value::as_object).flatten().map(|(k, v)| (k.clone(), v.as_str().map_or_else(|| v.to_string(), str::to_string)))); }
             query.sort();
@@ -379,8 +379,8 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         steps.push(out);
     }
     let after = db.run(|c, _| snapshot(c).map_err(|e| e.0)).await.map_err(SyncError)?;
-    // What Rails reads as a split row afterwards (Bot::Restatable#split_row?): its JSON type gives nil for a raw_data
-    // its parser refuses, so a row Rust stored counts only if Rails can read it.
+    // What 2.x reads as a split row afterwards (Bot::Restatable#split_row?): its JSON type gives nil for a raw_data
+    // its parser refuses, so a row Rust stored counts only if 2.x can read it.
     let splits_read = db.run(|c, _| {
         let mut s = c.prepare("SELECT raw_data FROM account_transactions WHERE entry_type = 15 ORDER BY id").map_err(|e| e.to_string())?;
         let rows = s.query_map([], |r| r.get::<_, Option<String>>(0)).and_then(|rows| rows.collect::<Result<Vec<_>, _>>()).map_err(|e| e.to_string())?;

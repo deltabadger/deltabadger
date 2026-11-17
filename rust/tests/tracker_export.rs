@@ -1,6 +1,6 @@
-//! GET /tracker/export against Rails (script/rust/record_tracker_export.rb records fixtures/tracker_export.json): the rows Rails
-//! read are installed, each request is replayed, and the answer must be Rails' bytes and download headers, leaving the
-//! tracker_settings Rails left.
+//! GET /tracker/export against 2.x (recorded in fixtures/tracker_export.json): the rows 2.x
+//! read are installed, each request is replayed, and the answer must be 2.x's bytes and download headers, leaving the
+//! tracker_settings 2.x left.
 mod common;
 use common::web::{self, Browser, Csrf, TestClock};
 use deltabadger::web::{csrf, session};
@@ -9,15 +9,15 @@ use serde_json::Value;
 
 fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/tracker_export.json")).unwrap() }
 
-fn install(c: &Connection, tables: &Value, rails_owner: i64, owner: i64) {
+fn install(c: &Connection, tables: &Value, v2_owner: i64, owner: i64) {
     c.execute_batch("PRAGMA foreign_keys=OFF; DELETE FROM account_transactions; DELETE FROM exchanges;").unwrap();
     for (table, rows) in tables.as_object().unwrap() {
         for row in rows.as_array().unwrap() {
             let row = row.as_object().unwrap();
             let columns: Vec<String> = row.keys().map(|k| format!("\"{k}\"")).collect();
             let values: Vec<Sql> = row.iter().map(|(k, v)| match v {
-                // The recorded owner is this install's user; Rails' other owner is nobody here.
-                Value::Number(n) if k == "user_id" => Sql::Integer(if n.as_i64() == Some(rails_owner) { owner } else { -1 }),
+                // The recorded owner is this install's user; 2.x's other owner is nobody here.
+                Value::Number(n) if k == "user_id" => Sql::Integer(if n.as_i64() == Some(v2_owner) { owner } else { -1 }),
                 Value::Object(real) => Sql::Real(real["real"].as_str().unwrap().parse().unwrap()),
                 Value::Null => Sql::Null,
                 Value::Number(n) if n.is_i64() => Sql::Integer(n.as_i64().unwrap()),
@@ -33,7 +33,7 @@ fn install(c: &Connection, tables: &Value, rails_owner: i64, owner: i64) {
 const OLD: &str = "2026-09-30 21:30:00";
 
 #[tokio::test(flavor = "current_thread")]
-async fn export_is_rails_own_csv_and_saves_the_export_type() {
+async fn export_is_v2_own_csv_and_saves_the_export_type() {
     let v = vectors();
     let (dir, opened, seeded) = common::install_alpaca();
     opened.primary.execute("UPDATE users SET confirmed_at=created_at, setup_completed=1", []).unwrap();
@@ -44,7 +44,7 @@ async fn export_is_rails_own_csv_and_saves_the_export_type() {
     let mut browser = Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: None };
     let cases = v["cases"].as_array().unwrap();
     assert_eq!(cases.len(), 17);
-    // PLAN-A19: what Rails did stays recorded; Rust answers these 400 (D-TRACKER-FILTER-BAD-INPUT for the 500s,
+    // PLAN-A19: what 2.x did stays recorded; Rust answers these 400 (D-TRACKER-FILTER-BAD-INPUT for the 500s,
     // D-TRACKER-FILTER-ISO-ONLY for the day Date.parse reads), after the same export-type write.
     let refused = [("impossible_date", 500), ("structured_from", 500), ("non_iso", 200)];
     for case in cases {
@@ -52,8 +52,8 @@ async fn export_is_rails_own_csv_and_saves_the_export_type() {
         opened.primary.execute("UPDATE users SET tracker_settings=?1, updated_at=?2 WHERE id=?3",
             (case["settings_before"].as_str(), OLD, seeded.user_id)).unwrap();
         let answer = browser.send(&app, "GET", case["path"].as_str().unwrap(), None, Csrf::None, &[]).await;
-        if let Some((_, rails)) = refused.iter().find(|(n, _)| *n == name) {
-            assert_eq!(case["status"].as_i64(), Some(*rails), "{name}: what Rails did");
+        if let Some((_, v2)) = refused.iter().find(|(n, _)| *n == name) {
+            assert_eq!(case["status"].as_i64(), Some(*v2), "{name}: what 2.x did");
             assert_eq!((answer.status, answer.body.as_str()), (400, include_str!("../web/public/400.html")), "{name}");
         } else {
             assert_eq!(i64::from(answer.status), case["status"].as_i64().unwrap(), "{name}: {}", answer.body);

@@ -1,5 +1,5 @@
 //! D-ORDER-TOO-LARGE-COPY: a venue's refusal of an order above its per-order maximum reads as a plain sentence on the bot
-//! page, in the orders list, in the mail and in the desktop notice (Rails shows the venue's text). Display only: the engine
+//! page, in the orders list, in the mail and in the desktop notice (2.x shows the venue's text). Display only: the engine
 //! handles the refusal exactly as any refusal of no known kind.
 mod common;
 use chrono::{DateTime, Duration, Utc};

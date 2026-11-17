@@ -1,7 +1,7 @@
 use super::model::{string, Rule};
 use super::*;
 use crate::{
-    ruby::{self, BigDec},
+    v2::{self, BigDec},
     web::{
         bot::{
             search::{self, AssetPage, Basket, Item, Side},
@@ -137,7 +137,7 @@ async fn exchange(app: &App, ctx: &Ctx) -> Result<Response, WebError> {
         if let Some(id) = ctx
             .params
             .form("bots_dca_single_asset[exchange_id]")
-            .filter(|s| !ruby::blank(s))
+            .filter(|s| !v2::blank(s))
         {
             let n = crate::web::bot::search::to_i(id);
             let allowed = app
@@ -205,7 +205,7 @@ async fn assets(
         if let Some(id) = ctx
             .params
             .form("bots_dca_single_asset[asset_id]")
-            .filter(|s| !ruby::blank(s))
+            .filter(|s| !v2::blank(s))
         {
             let mut conf = config(ctx);
             conf["asset_id"] = json!(id);
@@ -376,8 +376,8 @@ async fn keys(
     }
     let mut correct = key.status == 1;
     if !correct
-        && key.key.as_deref().is_some_and(|s| !ruby::blank(s))
-        && key.secret.as_deref().is_some_and(|s| !ruby::blank(s))
+        && key.key.as_deref().is_some_and(|s| !v2::blank(s))
+        && key.secret.as_deref().is_some_and(|s| !v2::blank(s))
     {
         if let Some(id) = key.id {
             if let Some(reason) = keys::revalidate(app, id).await? {
@@ -421,7 +421,7 @@ async fn addresses(app: &App, ctx: &Ctx, rule: Rule) -> Result<Response, WebErro
         conf["address_tag"] = ctx
             .params
             .form("address_tag")
-            .filter(|s| !ruby::blank(s))
+            .filter(|s| !v2::blank(s))
             .map_or(Value::Null, |s| json!(s));
         let mut candidate = rule;
         candidate.address = string(&conf["address"]);
@@ -567,7 +567,7 @@ fn preview(ctx: &Ctx, r: &Rule, list: Option<&reads::Listing>) -> Result<String,
         .and_then(|l| {
             l.entries.iter().find(|e| {
                 e.address == r.address && r.settings["address_name"].as_str()
-                    .filter(|key| !ruby::blank(key)).is_none_or(|key| e.key.as_deref() == Some(key))
+                    .filter(|key| !v2::blank(key)).is_none_or(|key| e.key.as_deref() == Some(key))
             })
         })
         .and_then(|e| e.key.clone())

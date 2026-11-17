@@ -169,12 +169,12 @@ async fn ambiguous_then_proven_absent_clears_its_own_marker_only() {
     let td = transient(&s.e.primary, s.bot);
     assert!(td.get("rust_placement").is_none() && td.get("signal_placement_unresolved").is_none() && td.get("rust_defer_until").is_none(), "{td}");
     assert_eq!(lines(&s.e.primary).last().unwrap().1["resolution"], json!("not_placed"));
-    // A marker this engine did not raise (Rails', or a newer one) is never lifted by another order's recovery.
+    // A marker this engine did not raise (2.x's, or a newer one) is never lifted by another order's recovery.
     let tx = model::immediate(&s.e.primary).unwrap();
-    model::merge_transient_compact(&tx, s.bot, &[(signal::MARKER_KEY, json!({ "id": "rails-uuid", "at": "2026-09-01T13:00:00Z", "side": "buy", "error": "x" }))]).unwrap();
+    model::merge_transient_compact(&tx, s.bot, &[(signal::MARKER_KEY, json!({ "id": "v2-uuid", "at": "2026-09-01T13:00:00Z", "side": "buy", "error": "x" }))]).unwrap();
     signal::clear_marker(&tx, s.bot, "another-cl-ord-id").unwrap();
     tx.commit().unwrap();
-    assert_eq!(transient(&s.e.primary, s.bot)["signal_placement_unresolved"]["id"], json!("rails-uuid"));
+    assert_eq!(transient(&s.e.primary, s.bot)["signal_placement_unresolved"]["id"], json!("v2-uuid"));
 }
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]
@@ -247,7 +247,7 @@ async fn a_crash_after_the_intent_commit_never_reruns_the_call_and_recovery_sett
     // begin_signal committed (the call consumed with it), then the process died before the send.
     let bot = model::load_bot(&s.e.primary, s.bot).unwrap();
     let ticker = model::ticker_for(&s.e.primary, &bot).unwrap().unwrap();
-    let price = deltabadger::ruby::BigDec::parse("50000.2").unwrap();
+    let price = deltabadger::v2::BigDec::parse("50000.2").unwrap();
     let (plan, _) = deltabadger::engine::amount::size_order(&ticker, deltabadger::venue::Side::Buy, &price, &price.div(&price).unwrap(), &price,
         deltabadger::engine::venue_rules::KRAKEN.minimum_logic, deltabadger::engine::amount::TxKind::Regular).unwrap();
     let the_call = bot.signal_calls().unwrap().remove(0);
@@ -521,7 +521,7 @@ fn a_webhook_call_the_guard_refuses_writes_nothing() {
     assert_eq!(hook::receive(&s.e.primary, "nope", || t(T0), |_, _| Ok(())).unwrap(), Outcome::NotFound);
 }
 
-/// A call that waits for the write lock is claimed at the time it gets it, as Rails reads the clock inside claim_trigger!:
+/// A call that waits for the write lock is claimed at the time it gets it, as 2.x reads the clock inside claim_trigger!:
 /// one that arrived 29 s after the last claim and waited past the 30 s boundary claims, stamped with the later time.
 #[test]
 fn a_webhook_call_waiting_for_the_write_lock_is_judged_when_it_gets_it() {
@@ -601,7 +601,7 @@ async fn a_signal_buy_of_a_locked_asset_consumes_the_call_and_places_nothing() {
     // Locked after it was sized: the intent's transaction consumes the call and writes no intent.
     call(c, s.bot, s.rule, 2, T0);
     let ticker = model::ticker_for(c, &bot).unwrap().unwrap();
-    let price = deltabadger::ruby::BigDec::parse("50000.2").unwrap();
+    let price = deltabadger::v2::BigDec::parse("50000.2").unwrap();
     let size = |side| deltabadger::engine::amount::size_order(&ticker, side, &price, &price.div(&price).unwrap(), &price,
         deltabadger::engine::venue_rules::KRAKEN.minimum_logic, deltabadger::engine::amount::TxKind::Regular).unwrap().0;
     let the_call = model::load_bot(c, s.bot).unwrap().signal_calls().unwrap().remove(0);
@@ -626,7 +626,7 @@ impl deltabadger::venue::VenueFactory for AlpacaScripted {
     fn for_bot(&self, _t: &str, _c: Option<deltabadger::crypto::Credentials>) -> Self::V { common::scripted::venue(&self.0) }
 }
 
-/// D-UPGRADE-FRESHNESS-AT-TICK: the takeover admits an Alpaca signal bot whose crypto catalog Rails left stale, so its two
+/// D-UPGRADE-FRESHNESS-AT-TICK: the takeover admits an Alpaca signal bot whose crypto catalog 2.x left stale, so its two
 /// order paths refuse it as the tick does, before anything is asked of Alpaca: a webhook call is consumed with an
 /// `execution_failed` line naming the stale source, and a bot-linked API order is answered `order_failed` with the same text.
 /// Once the catalog job completes a run, the next call places.
@@ -645,7 +645,7 @@ async fn a_signal_bot_taken_over_stale_refuses_its_calls_and_api_orders_until_it
     o.primary.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) \
                        VALUES (?1, 0, 0, '60', 1, 'tok-1', '2026-08-25 09:00:00', '2026-08-25 09:00:00')", [bot]).unwrap();
     let rule = o.primary.last_insert_rowid();
-    o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-01 10:15:00'", []).unwrap(); // Rails stopped a month ago
+    o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-01 10:15:00'", []).unwrap(); // 2.x stopped a month ago
     let taken = deltabadger::engine::handover::take_over(&lock, &o, &seed::cipher(), "test", t(T0)).expect("the takeover admits a stale install");
     assert_eq!(taken.eligible, vec![bot]);
     let tr = common::scripted::script(json!({}));
@@ -659,7 +659,7 @@ async fn a_signal_bot_taken_over_stale_refuses_its_calls_and_api_orders_until_it
     assert!(failed.len() == 1 && failed[0].1["error"].as_str().is_some_and(|m| m.contains("reference data stale: Alpaca crypto tickers")), "{failed:?}");
 
     let loaded = model::load_bot(&e.primary, bot).unwrap();
-    let amount = deltabadger::ruby::BigDec::parse("60").unwrap();
+    let amount = deltabadger::v2::BigDec::parse("60").unwrap();
     let empty = serde_json::Map::new();
     let id = api_orders::insert(&e.primary, &api_orders::New::Bot { user_id: s.user_id, bot: &loaded, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &empty }, t(T0) + chrono::Duration::seconds(2)).unwrap();
     run::step(&mut e, &plus(T0, 3.0)).await.unwrap();

@@ -1,24 +1,24 @@
-//! Exchange::Synchronizer (app/models/exchange/synchronizer.rb) on the coingecko provider (PLAN-A17 A17-2): per venue, its
+//! Exchange::Synchronizer on the coingecko provider (PLAN-A17 A17-2): per venue, its
 //! own public catalogue (get_tickers_info) applied unconditionally; when the catalogue holds a pair no ticker of the venue
 //! has, and the venue's once-a-day crawl claim is taken (or the run is forced), CoinGecko's `exchanges/{id}/tickers` crawl
 //! builds the symbol → coin map that resolves new pairs and mints the assets it names. Nothing is ever deleted.
 //!
-//! Each venue is planned in one read (`plan`), Rails' row-by-row loop simulated over the rows it reads, then published in
+//! Each venue is planned in one read (`plan`), 2.x's row-by-row loop simulated over the rows it reads, then published in
 //! bounded units (`import::publish`): new assets first, then each catalogue row's writes (its exchange assets with its
 //! ticker, never split), then the sweep. A venue's units commit on their own, so a run the deadline cancels keeps every
 //! finished venue and the next run redoes the rest.
 //!
 //! Named divergences:
 //! - D-CG-SYMBOL-AMBIGUOUS: a symbol CoinGecko gives two ids, or an id two symbols claim, leaves every new pair using it
-//!   unresolved (logged), instead of Rails' "first wins" (synchronizer.rb:87-90, :120-128), which can bind a new pair to
-//!   the wrong coin. Kraken's DOGE → XDG and the blacklists apply first, as Rails applies them.
-//! - D-CG-429-NO-MORE-CRAWLS: a crawl's 429 ends the run's further crawls (every catalogue still applies); Rails goes on
+//!   unresolved (logged), instead of 2.x's "first wins", which can bind a new pair to
+//!   the wrong coin. Kraken's DOGE → XDG and the blacklists apply first, as 2.x applies them.
+//! - D-CG-429-NO-MORE-CRAWLS: a crawl's 429 ends the run's further crawls (every catalogue still applies); 2.x goes on
 //!   asking the next venue into the same closed quota.
-//! - D-CG-RETIRED-NOT-ASKED: a retired venue (Exchange::RETIRED_TYPES) is not synced; Rails queues it and logs its
+//! - D-CG-RETIRED-NOT-ASKED: a retired venue (Exchange::RETIRED_TYPES) is not synced; 2.x queues it and logs its
 //!   retired_failure every 4 hours.
 //! - D-CG-ROW-REFUSED: a catalogue row the database refuses (a ticker name another of the venue's tickers holds, a
-//!   required column missing) is skipped and logged, and the rows after it still apply; Rails raises RecordNotUnique or
-//!   NotNullViolation out of the venue's sync there. Like Rails, the refused row confirms nothing and the venue is not
+//!   required column missing) is skipped and logged, and the rows after it still apply; 2.x raises RecordNotUnique or
+//!   NotNullViolation out of the venue's sync there. Like 2.x, the refused row confirms nothing and the venue is not
 //!   swept that run.
 use super::coingecko::{self, Clients, CrawlError};
 use super::import::{self, decimal, integer, string, Touched};
@@ -37,7 +37,7 @@ use std::rc::Rc;
 type R<T> = Result<T, String>;
 fn sql(e: rusqlite::Error) -> String { e.to_string() }
 
-/// Fiat.currencies (app/models/fiat.rb): (eodhd external id, symbol, name, color), category 'Currency'.
+/// Fiat.currencies: (eodhd external id, symbol, name, color), category 'Currency'.
 pub const FIAT: [(&str, &str, &str, &str); 17] = [
     ("USD.FOREX", "USD", "US Dollar", "#355E3B"), ("EUR.FOREX", "EUR", "Euro", "#003087"), ("GBP.FOREX", "GBP", "British Pound", "#4B0082"),
     ("JPY.FOREX", "JPY", "Japanese Yen", "#C1A36F"), ("CHF.FOREX", "CHF", "Swiss Franc", "#D52B1E"), ("CAD.FOREX", "CAD", "Canadian Dollar", "#D80621"),
@@ -47,7 +47,7 @@ pub const FIAT: [(&str, &str, &str, &str); 17] = [
     ("CZK.FOREX", "CZK", "Czech Koruna", "#D36C6C"), ("RUB.FOREX", "RUB", "Russian Ruble", "#9C9CDE"), ("IDR.FOREX", "IDR", "Indonesian Rupiah", "#E74C3C"),
 ];
 
-/// Each crypto venue's COINGECKO_ID (app/models/exchanges/*.rb).
+/// Each crypto venue's COINGECKO_ID (2.x's exchange models).
 pub fn coingecko_id(venue_type: &str) -> Option<&'static str> {
     Some(match venue_type {
         "Exchanges::Binance" => "binance", "Exchanges::BinanceUs" => "binance_us", "Exchanges::Bingx" => "bingx", "Exchanges::Bitget" => "bitget",
@@ -58,7 +58,7 @@ pub fn coingecko_id(venue_type: &str) -> Option<&'static str> {
     })
 }
 
-/// Exchange::RETIRED_TYPES (exchange.rb:18).
+/// Exchange::RETIRED_TYPES.
 pub const RETIRED: [&str; 1] = ["Exchanges::Bitmart"];
 /// Exchanges::Coinbase::ASSET_BLACKLIST and Exchanges::Kraken::ASSET_BLACKLIST.
 const COINBASE_BLACKLIST: [&str; 3] = ["RNDR", "ZETACHAIN", "WAXL"];
@@ -67,7 +67,7 @@ const KRAKEN_BLACKLIST: [&str; 1] = ["COPM"];
 pub const CRAWL_CLAIM: &str = "rust_job.crawl_claim.";
 pub const BACKFILL_CLAIM: &str = "rust_job.asset_backfill_claim";
 
-/// Rails' `Rails.cache.write(key, true, expires_in: 1.day, unless_exist: true)`, persisted: taken iff no claim of the last
+/// 2.x's one-day `unless_exist` cache write, persisted: taken iff no claim of the last
 /// day holds, in one statement (two racing claimers get one claim).
 pub fn claim(c: &Connection, key: &str, now: DateTime<Utc>) -> R<bool> {
     let stamp = |t: DateTime<Utc>| t.to_rfc3339_opts(SecondsFormat::Micros, true);
@@ -78,7 +78,7 @@ pub fn claim(c: &Connection, key: &str, now: DateTime<Utc>) -> R<bool> {
     Ok(n > 0)
 }
 
-/// The symbol → coin id map of set_symbol_to_external_id_hash (synchronizer.rb:78-133), in Rails' hash order (the order
+/// The symbol → coin id map of set_symbol_to_external_id_hash, in 2.x's hash order (the order
 /// new assets are minted in), with D-CG-SYMBOL-AMBIGUOUS in place of first-wins. Also the ambiguous symbols, for the log.
 pub fn symbol_map(coingecko_id: &str, crawl: &[Value]) -> (Vec<(String, String)>, Vec<String>) {
     // Every id each symbol was given, symbols in order of first appearance.
@@ -206,7 +206,7 @@ fn null_violation(cols: &[(&'static str, Sql)], creating: bool) -> Option<&'stat
     NOT_NULL.iter().copied().find(|k| match col(cols, k) { Some(Sql::Null) => true, None => creating && *k != "trading_enabled", _ => false })
 }
 
-/// `new_pairs?` (synchronizer.rb:34-37): a catalogue (base, quote) no ticker of the venue has.
+/// `new_pairs?`: a catalogue (base, quote) no ticker of the venue has.
 pub fn new_pairs(c: &Connection, exchange_id: i64, rows: &[Value]) -> R<bool> {
     let mut s = c.prepare("SELECT base, quote FROM tickers WHERE exchange_id = ?1").map_err(sql)?;
     let known: HashSet<(String, String)> = s.query_map([exchange_id], |r| Ok((r.get(0)?, r.get(1)?))).map_err(sql)?.collect::<Result<_, _>>().map_err(sql)?;
@@ -218,8 +218,8 @@ fn next_id(c: &Connection, table: &str) -> R<i64> {
                 [], |r| r.get(0)).map_err(sql)
 }
 
-/// create_missing_assets! then sync_existing_exchange_assets_and_tickers! (synchronizer.rb:135-232), simulated over one read:
-/// every write in Rails' order, with the rows the loop's later steps see as Rails' loop sees them.
+/// create_missing_assets! then sync_existing_exchange_assets_and_tickers!, simulated over one read:
+/// every write in 2.x's order, with the rows the loop's later steps see as 2.x's loop sees them.
 pub fn plan(c: &Connection, exchange_id: i64, venue: &str, rows: &[Value], map: Option<&[(String, String)]>) -> R<Plan> {
     let mut plan = Plan::default();
     let e = sql;
@@ -260,7 +260,7 @@ pub fn plan(c: &Connection, exchange_id: i64, venue: &str, rows: &[Value], map: 
     let reported: HashSet<(String, String)> = rows.iter().map(|r| (string(&r["base"]).unwrap_or_default(), string(&r["quote"]).unwrap_or_default())).collect();
     let mut confirmed: Vec<String> = vec![];
     let (mut unresolved, mut refused) = (vec![], vec![]);
-    // A row the database refuses: Rails' sync raises out of the venue there and never reaches the sweep (D-CG-ROW-REFUSED).
+    // A row the database refuses: 2.x's sync raises out of the venue there and never reaches the sweep (D-CG-ROW-REFUSED).
     let mut aborted = false;
     for row in rows {
         let (base, quote) = (string(&row["base"]).unwrap_or_default(), string(&row["quote"]).unwrap_or_default());
@@ -421,7 +421,7 @@ pub async fn publish_rows(db: &super::Db, exchange_id: i64, plan: Plan, now: Dat
     }).await
 }
 
-/// A venue's catalogue (Exchange#get_tickers_info(force: true)): Rails' rows, or why it failed.
+/// A venue's catalogue (Exchange#get_tickers_info(force: true)): 2.x's rows, or why it failed.
 pub type CatalogueFuture = Pin<Box<dyn Future<Output = R<Vec<Value>>>>>;
 /// The catalogues a run reads, by venue type and the venue's exchange proxy: live in production; a test hands scripted ones.
 pub type Catalogues = Rc<dyn Fn(&str, Option<String>) -> CatalogueFuture>;
@@ -533,7 +533,7 @@ pub async fn run(cg: &Clients, catalogues: &Catalogues, cx: &Cx<'_>, setup: bool
             marked = true;
         }
         let plan = match publish_assets(&cx.db, plan, now).await { Ok(p) => p, Err(m) => { failed.push(format!("{name}: {m}")); continue } };
-        // The bulk asset backfill, at most once a day however many venues minted coins (synchronizer.rb:156-162): claimed
+        // The bulk asset backfill, at most once a day however many venues minted coins: claimed
         // and woken as soon as the coins are committed, so a ticker unit failing after them never strands them unfilled.
         if crypto && !setup {
             match cx.db.run(move |c, _| claim(c, BACKFILL_CLAIM, now)).await {
@@ -563,7 +563,7 @@ mod tests {
     }
 
     #[test]
-    fn the_map_keeps_rails_order_maps_fiat_and_refuses_ambiguity() {
+    fn the_map_keeps_v2_order_maps_fiat_and_refuses_ambiguity() {
         let crawl = [t("btc", Some("bitcoin"), "USD", None), t("ETH", Some("ethereum"), "EUR", None), t("doge", Some("dogecoin"), "usd", None),
                      t("XDG", Some("other-xdg"), "USD", None), t("COPM", Some("ecomi"), "USD", None),
                      t("SAME", Some("a"), "USD", None), t("SAME", Some("b"), "USD", None),
@@ -576,7 +576,7 @@ mod tests {
         let (map, ambiguous) = symbol_map("gdax", &[t("RNDR", Some("render-token"), "USD", None), t("RENDER", Some("render-token"), "USD", None)]);
         assert!(ambiguous.is_empty());
         assert!(map.contains(&("RENDER".to_string(), "render-token".to_string())) && !map.iter().any(|(s, _)| s == "RNDR"));
-        // No DOGE on Kraken: XDG is unresolvable, as Rails' nil.
+        // No DOGE on Kraken: XDG is unresolvable, as 2.x's nil.
         assert!(symbol_map("kraken", &[t("XDG", Some("x"), "USD", None)]).0.iter().all(|(s, _)| s != "XDG"));
     }
 

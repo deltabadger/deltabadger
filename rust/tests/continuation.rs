@@ -1,7 +1,7 @@
 //! A KuCoin ledger import over several runs (plan VB §1.6, slice A1): admission against the deadline, checkpoints,
 //! replay after a cut, the stall and chain rules, and a new credential. Every multi-run import must store exactly the
-//! rows, and end on exactly the watermark, of the same account imported in one run. Rails-free: one-run KuCoin imports
-//! against Rails are sync_parity.rs's `kucoin-ledger-` scenarios.
+//! rows, and end on exactly the watermark, of the same account imported in one run. 2.x-free: one-run KuCoin imports
+//! against 2.x are sync_parity.rs's `kucoin-ledger-` scenarios.
 mod common;
 use deltabadger::crypto::Credentials;
 use deltabadger::engine::{Clock, FixedClock};
@@ -232,7 +232,7 @@ async fn an_import_stopped_at_every_page_boundary_stores_what_one_run_stores() {
         }
         assert_eq!(v.log.borrow().len(), requests, "{pages} pages a run: every page read once, none twice");
         assert_eq!(runs as usize, requests.div_ceil(pages as usize), "{pages} pages a run");
-        assert_eq!(result(&db).await, (rows.clone(), watermark.clone(), None, false), "{pages} pages a run: Rails' single-run rows and watermark");
+        assert_eq!(result(&db).await, (rows.clone(), watermark.clone(), None, false), "{pages} pages a run: 2.x's single-run rows and watermark");
     }
 }
 

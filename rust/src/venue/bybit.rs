@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BYBIT as RULES};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use super::binance::{build_query, Pairs};
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, Side, VenueError};
@@ -31,7 +31,7 @@ pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous("Bybit: unreada
 pub(crate) fn to_s(v: &Value) -> String { match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() } }
 fn order_id(v: &Value) -> Option<String> {
     match v {
-        Value::String(s) if !crate::ruby::blank(s) => Some(s.clone()),
+        Value::String(s) if !crate::v2::blank(s) => Some(s.clone()),
         Value::Number(n) if n.is_i64() || n.is_u64() => Some(n.to_string()),
         _ => None,
     }
@@ -58,10 +58,10 @@ pub fn ticker_prices(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> 
     Ok(out)
 }
 pub fn free_balance(coin: &Value) -> Result<BigDec, VenueError> {
-    if coin.get("walletBalance").is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::ruby::blank(s))) {
+    if coin.get("walletBalance").is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::v2::blank(s))) {
         return Ok((&(&decimal(&coin["walletBalance"])? - &decimal(&coin["locked"])?) - &decimal(&coin["spotBorrow"])?).max(BigDec::zero()));
     }
-    let old = coin.get("availableToWithdraw").filter(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::ruby::blank(s))).unwrap_or(&coin["free"]);
+    let old = coin.get("availableToWithdraw").filter(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::v2::blank(s))).unwrap_or(&coin["free"]);
     decimal(old)
 }
 pub fn parse_order(id: &str, raw: &Value) -> Result<OrderState, VenueError> {
@@ -138,7 +138,7 @@ impl<T: Transport> BybitVenue<T> {
         if code.is_empty() { return Err(if placement { VenueError::Ambiguous(NO_CODE.into()) } else { unreadable() }); }
         if code != "0" {
             let message = to_s(&body["retMsg"]);
-            // Rails find_order retries history for Honeymaker's exact missing-order error, too.
+            // 2.x find_order retries history for Honeymaker's exact missing-order error, too.
             // HTTP failures returned above remain failed reads, even when their JSON contains this text.
             if r.path == REALTIME_PATH && message == "Order not found" { return Ok(Value::Null); }
             return Err(refusal(placement, code, message));
@@ -158,7 +158,7 @@ impl<T: Transport> BybitVenue<T> {
         while start < until {
             let end = (start + Duration::days(7)).min(until);
             let mut q = query.clone();
-            q.extend([("startTime", super::bitvavo::ruby_ms(start).to_string()), ("endTime", super::bitvavo::ruby_ms(end).to_string())]);
+            q.extend([("startTime", super::bitvavo::v2_ms(start).to_string()), ("endTime", super::bitvavo::v2_ms(end).to_string())]);
             if let Some(o) = first(self.get(HISTORY_PATH, q).await?)? { return Ok(Some(o)); }
             start = end;
         }
@@ -201,7 +201,7 @@ impl<T: Transport> BybitVenue<T> {
 }
 
 /// A28-3 (r1.2): one realtime or history row read strictly for the report, never by `parse_order` (the booking parse):
-/// `createdTime` (ms, which no Rails client reads) included; side Buy or Sell; a Limit's own `price` (never `avgPrice`) and
+/// `createdTime` (ms, which no 2.x client reads) included; side Buy or Sell; a Limit's own `price` (never `avgPrice`) and
 /// its size in the base; a Market's size in the unit `marketUnit` names (quoteCoin or baseCoin, nothing else); a status
 /// Bybit documents for a placed order (Created, Untriggered or anything else is unreadable). None for anything else.
 pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
@@ -248,7 +248,7 @@ impl<T: Transport> super::Venue for BybitVenue<T> {
     /// Exchanges::Bybit#get_candles: spot pages of up to 1000 from `start` (the start's whole seconds in ms), newest
     /// first and read oldest first, each row's time `to_i / 1000`; a full page asks again from a second after its latest,
     /// an empty or short one ends the walk. A failed page is its `retMsg` (else `msg`, else the answer); a retCode other
-    /// than the number 0 fails with its `retMsg`; no `result.list` is Rails' KeyError. Rows are [time, open, high, low,
+    /// than the number 0 fails with its `retMsg`; no `result.list` is 2.x's KeyError. Rows are [time, open, high, low,
     /// close, volume, …]; 3 days built from daily. D-COND-CANDLE-CAP: past MAX_CANDLE_PAGES pages it is a settled failure.
     async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
         let (mut start, mut out) = (start_at.timestamp(), Vec::<Candle>::new());
@@ -258,7 +258,7 @@ impl<T: Transport> super::Venue for BybitVenue<T> {
             let body = candles::get(&self.transport, &r, failure_text, None, unreadable).await?;
             if !body.is_object() { return Err(unreadable()); }
             if body["retCode"] != 0 {
-                // ponytail: a retMsg that is no string (Rails fails with it as it is) is unreadable.
+                // ponytail: a retMsg that is no string (2.x fails with it as it is) is unreadable.
                 return Err(body["retMsg"].as_str().map_or_else(unreadable, |m| VenueError::Rejected(vec![m.into()])));
             }
             let rows = match &body["result"] {
@@ -283,8 +283,8 @@ impl<T: Transport> super::Venue for BybitVenue<T> {
     }
 
     /// A28-3 (PLAN-A28-3 §1, §5, r1.3, r2.2): per symbol, the open orders (`/v5/order/realtime`, by cursor) and the closed
-    /// ones created in the window (`/v5/order/history`, startTime/endTime in ms as Rails' own history reads send them), 50 a
-    /// page, at most five pages each, category spot (the envelope Rails reads: `result.list`, `nextPageCursor`). Open rows
+    /// ones created in the window (`/v5/order/history`, startTime/endTime in ms as 2.x's own history reads send them), 50 a
+    /// page, at most five pages each, category spot (the envelope 2.x reads: `result.list`, `nextPageCursor`). Open rows
     /// outside the window by `createdTime` are dropped (realtime is not windowed). An order both lists name is kept once,
     /// as history (read last) has it. A page ends a list only without a cursor (or with no row); more pages than five is a
     /// cap (incomplete).
@@ -300,7 +300,7 @@ impl<T: Transport> super::Venue for BybitVenue<T> {
                     if page == HISTORY_PAGES { out.complete = false; break; }
                     let mut q = vec![("category", "spot".to_string()), ("symbol", symbol.clone()), ("limit", HISTORY_LIMIT.to_string())];
                     if path == HISTORY_PATH {
-                        q.extend([("startTime", super::bitvavo::ruby_ms(from).to_string()), ("endTime", super::bitvavo::ruby_ms(to).to_string())]);
+                        q.extend([("startTime", super::bitvavo::v2_ms(from).to_string()), ("endTime", super::bitvavo::v2_ms(to).to_string())]);
                     }
                     if !cursor.is_empty() { q.push(("cursor", cursor.clone())); }
                     let listed = super::by_deadline(deadline, self.history_page(&self.request("GET", path, q, None))).await.and_then(|b| {
@@ -396,7 +396,7 @@ impl<T: Transport> super::Venue for BybitVenue<T> {
     async fn cancel(&self, id: &str) -> Result<(), VenueError> {
         let raw = self.find(id).await?.ok_or_else(|| VenueError::Rejected(vec![format!("Bybit no longer knows order {id}")]))?;
         let symbol = to_s(&raw["symbol"]);
-        if crate::ruby::blank(&symbol) { return Err(VenueError::Rejected(vec!["Failed to find Bybit order for cancellation".into()])); }
+        if crate::v2::blank(&symbol) { return Err(VenueError::Rejected(vec!["Failed to find Bybit order for cancellation".into()])); }
         self.call(&self.request("POST", CANCEL_PATH, vec![], Some(json!({"category":"spot","symbol":symbol,"orderId":id}))), false).await.map(|_| ())
     }
 }

@@ -1,4 +1,4 @@
-# A hung test is ended after an hour (the longest, the pages grid recording Rails live, takes well under that) instead of
+# A hung test is ended after an hour (the longest, the pages grid, takes well under that) instead of
 # holding its CI partition until the job's 2-hour timeout.
 [profile.default]
 slow-timeout = { period = "60s", terminate-after = 60 }
@@ -6,12 +6,12 @@ slow-timeout = { period = "60s", terminate-after = 60 }
 # Scheduling order only; nothing is skipped or changed. The longest tests start first, so the run's tail is short tests
 # on every slot.
 [[profile.default.overrides]]
-filter = 'binary(pages) & test(rails_and_rust_serve_the_same_pages_shard_)'
+filter = 'binary(pages) & test(v2_and_rust_serve_the_same_pages_shard_)'
 priority = 90
 
-# These also record Rails and replay pages; start them before the short parity checks.
+# These also replay the recorded pages; start them before the short parity checks.
 [[profile.default.overrides]]
-filter = 'binary(pages) & (test(=a_signal_bots_rule_forms_are_its_basket_twins) | test(=settings_metrics_panel_matches_recorded_rails_bytes))'
+filter = 'binary(pages) & (test(=a_signal_bots_rule_forms_are_its_basket_twins) | test(=settings_metrics_panel_matches_recorded_v2_bytes))'
 priority = 80
 
 [[profile.default.overrides]]
@@ -38,16 +38,16 @@ fail-fast = false
 # skip.
 [profile.image]
 default-filter = '''binary(image) | binary(entrypoint)
-  | binary(account_identity) & test(=rust_handles_the_reset_rails_actually_makes)
-  | binary(handover) & (test(=a_completed_handback_is_adopted_by_rails) | test(=a_deferral_crash_then_handback_then_rails_tick_buys_nothing_before_the_next_checkpoint)
-      | test(=a_handback_keeps_rust_state_for_a_reclaim_and_2x_shows_rust_texts_untranslated) | test(=a_price_paused_bot_is_handed_over_paused_and_rails_restarts_its_check)
-      | test(=an_unresolved_order_blocks_handback_and_rails_keeps_refusing) | test(=rails_migrates_and_adopts_a_handback_on_an_install_rust_migrated)
-      | test(=rails_pending_resyncs_become_markers_at_takeover_and_rails_adopts_them_once_after_handbacks))
+  | binary(account_identity) & test(=rust_handles_the_reset_v2_actually_makes)
+  | binary(handover) & (test(=a_completed_handback_is_adopted_by_v2) | test(=a_deferral_crash_then_handback_then_v2_tick_buys_nothing_before_the_next_checkpoint)
+      | test(=a_handback_keeps_rust_state_for_a_reclaim_and_2x_shows_rust_texts_untranslated) | test(=a_price_paused_bot_is_handed_over_paused_and_v2_restarts_its_check)
+      | test(=an_unresolved_order_blocks_handback_and_v2_keeps_refusing) | test(=v2_migrates_and_adopts_a_handback_on_an_install_rust_migrated)
+      | test(=v2_pending_resyncs_become_markers_at_takeover_and_v2_adopts_them_once_after_handbacks))
   | binary(mcp) & (test(=a_refresh_and_revocation_cross_the_actual_mcp_endpoint) | test(=sessions_cross_before_and_after_initialized_in_both_directions))
   | binary(mcp_control_races) & (test(=action_race::continue_owes_contribution) | test(=action_race::continue_within_interval))
   | binary(web_actions) & (test(=action_race::continue_owes_contribution) | test(=action_race::continue_within_interval))
   | binary(mcp_reads) & test(=polled_open_market_zero_price_uses_the_nil_branch)
-  | binary(oauth) & test(=rails_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows)
-  | binary(rebalance) & (test(=an_unfound_crypto_swap_order_halts_and_its_resolution_never_submits_it_twice) | test(=resolution_with_unbalanced_stopped_allocations_matches_rails_and_completes_the_buy))
-  | binary(sync_parity) & test(=rails_and_rust_write_identical_rows_across_the_sync_grid_interop)
-  | binary(venue_signing) & test(=ibkr_generated_keys_round_trip_through_ruby_openssl)'''
+  | binary(oauth) & test(=v2_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows)
+  | binary(rebalance) & (test(=an_unfound_crypto_swap_order_halts_and_its_resolution_never_submits_it_twice) | test(=resolution_with_unbalanced_stopped_allocations_matches_v2_and_completes_the_buy))
+  | binary(sync_parity) & test(=v2_and_rust_write_identical_rows_across_the_sync_grid_interop)
+  | binary(venue_signing) & test(=ibkr_generated_keys_round_trip_through_v2_openssl)'''

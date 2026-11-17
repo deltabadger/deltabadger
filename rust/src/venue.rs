@@ -33,11 +33,11 @@ use crate::crypto::Credentials;
 use crate::engine::candles::{Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::VenueRules;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use crate::sync::balances::Catalog;
 use chrono::{DateTime, Utc};
 
-/// Utilities::Hash.dig_or_raise for one key: an absent or null value is Rails' KeyError, "Key path <key> not found", which
+/// Utilities::Hash.dig_or_raise for one key: an absent or null value is 2.x's KeyError, "Key path <key> not found", which
 /// nothing on a price read rescues (`Ambiguous`, as the adapters' unreadable answers).
 pub(crate) fn dig_or_raise<'a>(v: &'a serde_json::Value, key: &str) -> Result<&'a serde_json::Value, VenueError> {
     v.get(key).filter(|x| !x.is_null()).ok_or_else(|| VenueError::Ambiguous(format!("Key path {key} not found")))
@@ -84,7 +84,7 @@ pub enum OrderKind {
     Market,
     Limit { price: String },
     /// A market order a crossing venue has no market type for (Gemini's IOC `exchange limit`, Hyperliquid's IOC limit),
-    /// sent at its persisted crossed price (OrderPlan::wire_price, D-679). Hyperliquid keeps Rails' 1% cross;
+    /// sent at its persisted crossed price (OrderPlan::wire_price, D-679). Hyperliquid keeps 2.x's 1% cross;
     /// D-HYPERLIQUID-MARKET-IOC changes only time-in-force. Only a venue whose rules cross receives one.
     Crossed { price: String },
 }
@@ -104,7 +104,7 @@ pub struct NewOrder {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum OrderStatus {
     Unknown, Open, Closed, Cancelled,
-    /// Alpaca `rejected` → :failed. Neither Rails poll job has a branch for it: the row is left as it is.
+    /// Alpaca `rejected` → :failed. Neither 2.x poll job has a branch for it: the row is left as it is.
     Failed,
 }
 
@@ -118,12 +118,12 @@ pub struct OrderState {
     pub quote_amount_exec: Option<BigDec>, pub limit: bool,
     /// The side as the exchange reports it (a buying bot can still hold an old sell).
     pub sell: bool,
-    /// The pair as the venue names it in this order (Alpaca `symbol`, Kraken `descr.pair`): Rails backfills a row's blank
+    /// The pair as the venue names it in this order (Alpaca `symbol`, Kraken `descr.pair`): 2.x backfills a row's blank
     /// asset fields from this pair's ticker (`order_data[:ticker]`), never from the bot. None where the venue gives none.
     pub pair: Option<String>,
     pub asset_class: Option<String>,
     /// D-KUCOIN-ZERO-FILL-FUNDS: the `createdAt` of a market order KuCoin ended with nothing dealt (`isActive` and
-    /// `cancelExist` false, `dealSize` and `dealFunds` 0). Rails reads it `:unknown` forever; the status stays Unknown here
+    /// `cancelExist` false, `dealSize` and `dealFunds` 0). 2.x reads it `:unknown` forever; the status stays Unknown here
     /// too until `settled` finds it older than ZERO_FILL_SETTLE, then it is Closed with nothing filled: a buy is then KuCoin's
     /// out-of-funds answer and fails as its insufficient-funds rejection does (polling::apply_in); a sell stays Closed.
     pub zero_fill_at: Option<DateTime<Utc>>,
@@ -155,7 +155,7 @@ pub enum VenueError {
     /// The venue answered and refused (its own error text). Nothing was placed.
     Rejected(Vec<String>),
     /// A read the venue answered with HTTP 401, with the text `Rejected` would carry: Exchange#invalid_key_error?'s status
-    /// signal (exchange.rb:304-341). Everything but the index's price probe (index::priced) reads it as `Rejected`
+    /// signal. Everything but the index's price probe (index::priced) reads it as `Rejected`
     /// (`rejection`); a placement's 401 stays `Rejected`.
     Unauthorized(Vec<String>),
     /// `Rejected`, from a placement whose answer also carried the venue's structured error code (MEXC and Binance `code`,
@@ -174,7 +174,7 @@ impl VenueError {
     pub fn message(&self) -> String {
         match self {
             Self::Transient(message) | Self::Ambiguous(message) => message.clone(),
-            Self::Rejected(errors) | Self::Unauthorized(errors) | Self::Coded { errors, .. } => crate::ruby::to_sentence(errors),
+            Self::Rejected(errors) | Self::Unauthorized(errors) | Self::Coded { errors, .. } => crate::v2::to_sentence(errors),
         }
     }
     /// The refusal's text, for `Rejected` and `Unauthorized` alike.
@@ -368,7 +368,7 @@ pub trait Venue {
     /// (refused, timeout, lost reply) is `Err(Transient)`.
     async fn clock(&self) -> Result<ClockAnswer, VenueError> { Err(VenueError::Rejected(vec!["market clock unsupported".into()])) }
 
-    /// This venue's Rails rules (errors, minimums, wire, absence window).
+    /// This venue's 2.x rules (errors, minimums, wire, absence window).
     fn rules(&self) -> &'static VenueRules;
     /// One reference price. A zero or missing price is `Rejected` with the venue's own "Wrong … price" message.
     async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError>;
@@ -412,7 +412,7 @@ pub trait Venue {
     async fn recovery_with(&self, _intent: &serde_json::Value, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         self.order_by_client_id(cl_ord_id, symbol, since).await
     }
-    /// Fills recovered from trade history (Kraken TradesHistory). Alpaca has none: Rails has no trade fallback there. An
+    /// Fills recovered from trade history (Kraken TradesHistory). Alpaca has none: 2.x has no trade fallback there. An
     /// `Unknown` entry is an id the history could not rule a fill out for: it stays waiting, never abandoned.
     async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError>;
     /// What Bot::Fundable compares with its buffer (Kraken: balance − hold_trade; Alpaca: #spendable_balance).
@@ -434,7 +434,7 @@ pub trait Venue {
     where F: FnOnce() -> Result<Catalog, VenueError> { Err(VenueError::Rejected(vec!["the settled quote balance is not connected for this venue".into()])) }
     /// Exchange#get_tickers_prices(symbols:): each priced code's last price as the venue's JSON holds it (null included),
     /// for Bot::Composition::Measurable#metrics_with_current_prices. A failed answer is `Rejected` (the figures go stale), a
-    /// transport failure `Transient` (Rails raises it to the job's retry).
+    /// transport failure `Transient` (2.x raises it to the job's retry).
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, serde_json::Value)>, VenueError> { Err(VenueError::Rejected(vec!["bulk prices are not connected for this venue".into()])) }
     /// Exchange#cancel_order: best effort, as Bot::Reversible#cancel_unfilled_orders uses it. `Ok` only when the venue
     /// accepted the cancel; anything else is the venue's (or the transport's) failure.
@@ -462,12 +462,12 @@ pub trait Venue {
     /// The fee for sending `amount` to `destination` (§6): None when it is unknown.
     async fn withdrawal_fee(&self, _destination: &withdrawal::Destination, _amount: &BigDec) -> Result<Option<BigDec>, VenueError> { Err(withdrawal::not_connected()) }
     /// A28-3 (PLAN-A28-3 r1.2, r2.2): the orders on `symbols` created from `from` to `to`, all states, read strictly for the
-    /// report of orders Rails may have sent unrecorded. Never booked. A request not answered by `deadline` fails as a later
+    /// report of orders 2.x may have sent unrecorded. Never booked. A request not answered by `deadline` fails as a later
     /// page's failure does (r2.2): the rows already validated are kept.
     async fn orders_created(&self, _symbols: &[String], _from: DateTime<Utc>, _to: DateTime<Utc>, _deadline: tokio::time::Instant) -> Result<Created, HistoryError> {
         Err(HistoryError::Refused("order history is not connected for this venue".into()))
     }
-    /// A28-3d-1 r1.1 (D-HISTORY-DOC-BOOK-CONFIRMED): the one order `external_id` on `symbol` by the venue's Rails-called
+    /// A28-3d-1 r1.1 (D-HISTORY-DOC-BOOK-CONFIRMED): the one order `external_id` on `symbol` by the venue's 2.x-called
     /// single-order lookup, read by the history read's strict reader. None: the venue's "order gone" answer, or a body that
     /// isn't that order as asked. Only the doc-built venues answer.
     async fn order_created(&self, _external_id: &str, _symbol: &str, _deadline: tokio::time::Instant) -> Result<Option<CreatedOrder>, HistoryError> {
@@ -509,7 +509,7 @@ pub(crate) async fn by_deadline<T>(deadline: tokio::time::Instant, request: impl
 
 pub trait VenueFactory {
     type V: Venue;
-    /// `exchange_type` is the bot's exchanges.type. `None` credentials is Rails' unsaved fallback key: private calls
+    /// `exchange_type` is the bot's exchanges.type. `None` credentials is 2.x's unsaved fallback key: private calls
     /// fail at the venue, per bot.
     fn for_bot(&self, exchange_type: &str, credentials: Option<Credentials>) -> Self::V;
     /// Full stored material is used only to redact diagnostics, never venue financial data.

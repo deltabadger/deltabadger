@@ -169,7 +169,7 @@ async fn m02_single_flight_and_validation_invalidates_inflight_evidence() {
 fn engine_setup() -> (tempfile::TempDir, deltabadger::store::Opened, model::Bot, deltabadger::engine::amount::OrderPlan) {
     use common::seed::{self, BotSpec};
     use deltabadger::engine::amount::{self, Sizing};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     let dir = common::baseline_install();
     let o = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
@@ -731,8 +731,8 @@ fn o04_o06_hf_status_answers_read_strictly() {
                 let s = read.unwrap_or_else(|e| panic!("{id}: {e:?}"));
                 let expected = match status { "Open" => OrderStatus::Open, "Closed" => OrderStatus::Closed, "Cancelled" => OrderStatus::Cancelled, "Unknown" => OrderStatus::Unknown, o => panic!("{o}") };
                 assert_eq!(s.status, expected, "{id}");
-                assert_eq!(s.amount_exec.to_s_f(), deltabadger::ruby::BigDec::parse(want["gross_base"].as_str().unwrap()).unwrap().to_s_f(), "{id}: base");
-                assert_eq!(s.quote_amount_exec.unwrap().to_s_f(), deltabadger::ruby::BigDec::parse(want["gross_quote"].as_str().unwrap()).unwrap().to_s_f(), "{id}: quote");
+                assert_eq!(s.amount_exec.to_s_f(), deltabadger::v2::BigDec::parse(want["gross_base"].as_str().unwrap()).unwrap().to_s_f(), "{id}: base");
+                assert_eq!(s.quote_amount_exec.unwrap().to_s_f(), deltabadger::v2::BigDec::parse(want["gross_quote"].as_str().unwrap()).unwrap().to_s_f(), "{id}: quote");
                 if let Some(p) = want["price"].as_str() { assert_eq!(s.price.unwrap().to_s_f(), p, "{id}: price"); }
             }
         }
@@ -1657,28 +1657,28 @@ fn open_row(c: &rusqlite::Connection, bot: &model::Bot, ext: &str, created: &str
 
 /// R07, r2.6: each claim marks the open KuCoin rows it finds without a record or a mark: classic when Rust placed them
 /// (created in a Rust ownership window), unproven otherwise. A mark is never written twice, so a known-classic row stays
-/// known through restarts and a Rails window.
+/// known through restarts and a 2.x window.
 #[tokio::test(flavor = "current_thread")]
 async fn r07_takeover_marks_rows_by_who_placed_them() {
     use deltabadger::{engine::handover, lease};
     let (dir, o, bot, _plan) = engine_setup();
     let l = lease::lock(&deltabadger::store::Paths::from_env(&|_| None, dir.path()), at("2026-10-30T10:00:00Z")).unwrap();
-    let rails = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
+    let v2 = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
     let closed = open_row(&o.primary, &bot, "A2", "2026-10-01 10:00:00", json!({"external_status": 2}));
     handover::take_over(&l, &o, &common::seed::cipher(), "test", at("2026-10-30T10:00:00Z")).unwrap();
-    assert_eq!((origin(&o.primary, rails).as_deref(), origin(&o.primary, closed)), (Some("unproven"), None));
+    assert_eq!((origin(&o.primary, v2).as_deref(), origin(&o.primary, closed)), (Some("unproven"), None));
     let rust = open_row(&o.primary, &bot, "B1", "2026-10-30 11:00:00", json!({}));
     handover::take_over(&l, &o, &common::seed::cipher(), "test", at("2026-10-30T11:30:00Z")).unwrap();
     assert_eq!(origin(&o.primary, rust).as_deref(), Some("classic"), "placed while Rust owned the install");
-    assert_eq!(origin(&o.primary, rails).as_deref(), Some("unproven"));
-    // Handed back at 12:00; Rails places C1; Rust takes over again.
+    assert_eq!(origin(&o.primary, v2).as_deref(), Some("unproven"));
+    // Handed back at 12:00; 2.x places C1; Rust takes over again.
     let tx = model::immediate(&o.primary).unwrap();
     lease::hand_back(&l, &tx, &common::seed::cipher(), at("2026-10-30T12:00:00Z")).unwrap();
     deltabadger::app_config::set_plain(&tx, lease::HANDED_BACK_AT, "2026-10-30T12:00:00.000Z", at("2026-10-30T12:00:00Z")).unwrap();
     tx.commit().unwrap();
-    let by_rails = open_row(&o.primary, &bot, "C1", "2026-10-30 12:30:00", json!({}));
+    let by_v2 = open_row(&o.primary, &bot, "C1", "2026-10-30 12:30:00", json!({}));
     handover::take_over(&l, &o, &common::seed::cipher(), "test", at("2026-10-30T13:00:00Z")).unwrap();
-    assert_eq!(origin(&o.primary, by_rails).as_deref(), Some("unproven"), "placed in the Rails window");
+    assert_eq!(origin(&o.primary, by_v2).as_deref(), Some("unproven"), "placed in the 2.x window");
     assert_eq!(origin(&o.primary, rust).as_deref(), Some("classic"), "never re-marked");
 }
 
@@ -1774,8 +1774,8 @@ async fn refused(dir: &tempfile::TempDir, o: &deltabadger::store::Opened, want: 
     assert_eq!(lease::read(&o.primary, &common::seed::cipher()).unwrap().unwrap()["engine"], "rust", "{want}: the lease never moved");
 }
 
-/// R08: Rails trades no HF account: an HF order row and an HF intent each refuse the handback, naming the bot; the lease
-/// stays Rust's. An adopted row whose route is unproven hands back: Rails placed it on its own route.
+/// R08: 2.x trades no HF account: an HF order row and an HF intent each refuse the handback, naming the bot; the lease
+/// stays Rust's. An adopted row whose route is unproven hands back: 2.x placed it on its own route.
 #[tokio::test(flavor = "current_thread")]
 async fn r08_hf_orders_intents_and_unproven_rows_refuse_the_handback() {
     let (dir, o, bot, _t, _v, _id, _ext) = placed("KEY-A", false).await;
@@ -1792,7 +1792,7 @@ async fn r08_hf_orders_intents_and_unproven_rows_refuse_the_handback() {
 }
 
 /// §7: on an install whose Rust tables were never created, every HF-4 read stands (known fills read the visible ledger
-/// alone; the barrier, the handback refusals and the takeover marks read Rails' tables).
+/// alone; the barrier, the handback refusals and the takeover marks read 2.x's tables).
 #[tokio::test(flavor = "current_thread")]
 async fn unmigrated_install_reads_stand() {
     use deltabadger::engine::reconcile;
@@ -2107,7 +2107,7 @@ async fn f01_an_adopted_row_is_proven_on_hf() {
     assert_eq!(c.query_row("SELECT count(*) FROM app_configs WHERE key=?1", [format!("rust_kucoin_origin:{tx}")], |r| r.get::<_, i64>(0)).unwrap(), 0, "the marker is gone");
 }
 
-/// F01/R08: once the engine has placed on an HF account, handing the install back to Rails is refused, naming the bot.
+/// F01/R08: once the engine has placed on an HF account, handing the install back to 2.x is refused, naming the bot.
 #[tokio::test(flavor = "current_thread")]
 async fn f01_an_hf_bot_refuses_the_handback() {
     let server = wiremock::MockServer::start().await;
@@ -2306,7 +2306,7 @@ async fn u2_uta_status_answers_read_strictly() {
         let s = &found[0];
         let status = match s.status { OrderStatus::Open => "Open", OrderStatus::Closed => "Closed", OrderStatus::Cancelled => "Cancelled", _ => "Unknown" };
         assert_eq!(status, want["state"], "{id}");
-        if let Some(size) = want["filled_size"].as_str() { assert_eq!(s.amount_exec.to_s_f(), deltabadger::ruby::BigDec::parse(size).unwrap().to_s_f(), "{id}"); }
+        if let Some(size) = want["filled_size"].as_str() { assert_eq!(s.amount_exec.to_s_f(), deltabadger::v2::BigDec::parse(size).unwrap().to_s_f(), "{id}"); }
         assert!(s.zero_fill_at.is_none(), "{id}: status 5 is explicit, no zero-fill delay");
     }
 }
@@ -2337,7 +2337,7 @@ async fn u2_uta_totals_come_from_unique_validated_executions() {
         let (found, excluded) = v.order_with(&OrderRef::load(&o.primary, tx, &ext).unwrap(), |_, _, _| Ok(true)).await.unwrap();
         if want["state"].is_string() { assert!(found.is_empty() && excluded == vec![ext.clone()], "{id}: {found:?}"); continue; }
         let s = &found[0];
-        let d = |k: &str| deltabadger::ruby::BigDec::parse(want[k].as_str().unwrap()).unwrap().to_s_f();
+        let d = |k: &str| deltabadger::v2::BigDec::parse(want[k].as_str().unwrap()).unwrap().to_s_f();
         assert_eq!((s.amount_exec.to_s_f(), s.quote_amount_exec.as_ref().unwrap().to_s_f(), s.price.as_ref().unwrap().to_s_f()), (d("base"), d("quote"), d("price")), "{id}");
     }
 }
@@ -2433,7 +2433,7 @@ async fn u2_uta_engine_balance_never_spends_unpnl_or_debt() {
         want.extend(c["expect"]["kept"].as_array().into_iter().flatten().map(|k| (k.as_str().unwrap().into(), "0".into())));
         for (currency, amount) in want {
             ticker.base_code = currency.clone();
-            assert_eq!(v.free_base_balance(&ticker).await.unwrap().to_s_f(), deltabadger::ruby::BigDec::parse(&amount).unwrap().to_s_f(), "{} {currency}", c["id"]);
+            assert_eq!(v.free_base_balance(&ticker).await.unwrap().to_s_f(), deltabadger::v2::BigDec::parse(&amount).unwrap().to_s_f(), "{} {currency}", c["id"]);
         }
     }
 }
@@ -2547,7 +2547,7 @@ async fn u3a_known_fills_of_a_uta_row_are_the_uta_familys() {
     assert!(receipt(&o.primary, id).is_none() && obligation(&o.primary, id).is_some());
 }
 
-/// U3a, R08: a UTA order row and a UTA intent each refuse the handback (Rails trades no UTA).
+/// U3a, R08: a UTA order row and a UTA intent each refuse the handback (2.x trades no UTA).
 #[tokio::test(flavor = "current_thread")]
 async fn u3a_uta_orders_and_intents_refuse_the_handback() {
     use deltabadger::engine::{placement, FixedClock};
@@ -2768,7 +2768,7 @@ async fn u3b_a_row_appearing_after_the_switch_is_held_on_the_next_observation() 
     assert!(!t.requests().iter().any(|r| r.path.contains("/fills")), "no fills fallback");
 }
 
-/// U4 (UTA.md A13, A14): the UTA refusal and its copy are gone from the Rust tree and from Rails' locales and views.
+/// U4 (UTA.md A13, A14): the UTA refusal and its copy are gone from the Rust tree and from 2.x's locales and views.
 #[test]
 fn u4_no_uta_refusal_copy_is_left() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

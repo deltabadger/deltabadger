@@ -1,11 +1,11 @@
-//! Clients::Ibkr::Oauth (app/models/clients/ibkr/oauth.rb): IBKR's first-party OAuth 1.0a. An RSA-SHA256-signed request
+//! Clients::Ibkr::Oauth: IBKR's first-party OAuth 1.0a. An RSA-SHA256-signed request
 //! mints a Diffie-Hellman "live session token" (LST), and every later request carries an HMAC-SHA256 signature keyed by
-//! it. Pure functions of their inputs (keys, nonce, timestamp, DH random), pinned byte for byte against Rails by
-//! `script/rust/record_venue_signing.rb ibkr` and against the Python-computed vectors of oauth_test.rb. The session
+//! it. Pure functions of their inputs (keys, nonce, timestamp, DH random), pinned byte for byte against 2.x by
+//! the recording harness and against the Python-computed vectors of 2.x's OAuth test. The session
 //! (LST cache, brokerage init, self-heal) is slice I1's.
 //!
 //! Also here, for the connect wizard (I3): RSA-2048 key generation, the PEM writer, and the RFC 7919 ffdhe2048 group new
-//! registrations upload instead of a generated one (D-IBKR-DHGROUP; Rails generates a 2048-bit safe prime in a job).
+//! registrations upload instead of a generated one (D-IBKR-DHGROUP; 2.x generates a 2048-bit safe prime in a job).
 use aws_lc_rs::encoding::AsDer;
 use aws_lc_rs::rand::{SecureRandom, SystemRandom};
 use aws_lc_rs::rsa::{KeyPair, KeySize, Pkcs1PrivateDecryptingKey, PrivateDecryptingKey};
@@ -50,7 +50,7 @@ pub fn to_byte_array(n: &BigUint) -> Vec<u8> {
 }
 
 /// Oauth.base_string: `prepend` + METHOD & escape(url) & escape(params sorted by key as "k=v" joined by "&"). Values
-/// go in raw, as Rails puts them.
+/// go in raw, as 2.x puts them.
 pub fn base_string(method: &str, url: &str, params: &BTreeMap<String, String>, prepend: Option<&str>) -> String {
     let sorted = params.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join("&");
     format!("{}{method}&{}&{}", prepend.unwrap_or(""), escape(url), escape(&sorted))
@@ -139,7 +139,7 @@ pub struct Signer {
     pub dh_generator: BigUint,
 }
 
-/// An RSA private key from its PEM: PKCS#1 (`RSA PRIVATE KEY`, what Rails' `to_pem` stores) or PKCS#8 (`PRIVATE KEY`).
+/// An RSA private key from its PEM: PKCS#1 (`RSA PRIVATE KEY`, what 2.x's `to_pem` stores) or PKCS#8 (`PRIVATE KEY`).
 pub fn rsa_private_key(pem: &str) -> Option<KeyPair> {
     match read_pem(pem)? {
         (label, der) if label == "RSA PRIVATE KEY" => KeyPair::from_der(&der).ok(),
@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn nonces_and_randoms_have_rails_shapes() {
+    fn nonces_and_randoms_have_v2_shapes() {
         let (a, b) = (nonce(), nonce());
         assert!(a.len() == 16 && a.bytes().all(|c| c.is_ascii_alphanumeric()) && a != b);
         let r = dh_random();

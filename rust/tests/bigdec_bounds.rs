@@ -1,5 +1,5 @@
 //! BigDec refuses what it cannot hold cheaply: every refusal is an error returned at once, never an allocation.
-use deltabadger::ruby::{from_sql, BigDec};
+use deltabadger::v2::{from_sql, BigDec};
 use rusqlite::types::ValueRef;
 
 #[test]
@@ -38,7 +38,7 @@ fn a_decimal_column_holding_a_huge_exponent_is_an_error() {
 
 #[test]
 fn a_huge_rescale_is_an_error_and_a_wide_one_never_pads() {
-    use deltabadger::ruby::scale;
+    use deltabadger::v2::scale;
     for bad in [1_000_000_000, 41, -1, i64::MAX, i64::MIN] { assert!(scale(bad).is_err(), "{bad}"); }
     assert_eq!((scale(0).unwrap(), scale(18).unwrap(), scale(40).unwrap()), (0, 18, 40));
     // places is a u8: the widest is 255, and a value already within it comes back as it is.
@@ -50,7 +50,7 @@ fn a_huge_rescale_is_an_error_and_a_wide_one_never_pads() {
 
 #[test]
 fn a_venue_number_that_is_not_a_finite_decimal_is_an_error_not_zero() {
-    use deltabadger::ruby::json_to_d;
+    use deltabadger::v2::json_to_d;
     use serde_json::json;
     for bad in [json!("NaN"), json!("nan"), json!("Infinity"), json!("-Infinity"), json!("inf"), json!("garbage"), json!("12abc"), json!(""),
                 json!("1e-1000000000"), json!(true), json!([]), json!({})] {
@@ -74,7 +74,7 @@ fn extreme_exponent_strings_are_errors_never_a_wrap() {
 
 #[test]
 fn venue_numbers_have_their_own_tighter_caps() {
-    use deltabadger::ruby::json_to_d;
+    use deltabadger::v2::json_to_d;
     use serde_json::json;
     for ok in ["1e40", "1e-40", "0.000000000000000001", "123456789012345.123456789", &format!("1.{}", "1".repeat(63))] {
         assert!(json_to_d(&json!(ok)).is_ok(), "{ok}");

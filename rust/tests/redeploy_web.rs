@@ -159,7 +159,7 @@ fn accept_is_required_and_strict_on_every_surface() {
         assert_eq!(res.message,"accept must be true or false.");
     }
     assert!(request(c,id).is_null() && offset(c)==0.0);
-    // "true" and "false" are answers, as Rails' Boolean.parse reads a form or a query.
+    // "true" and "false" are answers, as 2.x's Boolean.parse reads a form or a query.
     assert_eq!(api(c,&app,s.user_id,id,json!({"accept":"false","dry_run":true})).data["accepted"],false);
     let dry=api(c,&app,s.user_id,id,json!({"accept":"true","dry_run":true}));
     assert_eq!(dry.code,None);
@@ -191,7 +191,7 @@ fn the_prompt_hides_while_a_liquidation_row_waits_and_the_halt_offers_clear() {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn the_page_is_served_during_a_halt_and_clear_answers_rails_flashes() {
+async fn the_page_is_served_during_a_halt_and_clear_answers_v2_flashes() {
     let (_d,o,s,id,app,mut b)=install(); let c=&o.primary;
     model::merge_transient_compact(c,id,&[(redeploy::PENDING_KEY,json!({"id":"halt-nonce","state":"ambiguous"}))]).unwrap();
     let page=b.get(&app,&format!("/bots/{id}")).await;
@@ -208,7 +208,7 @@ async fn the_page_is_served_during_a_halt_and_clear_answers_rails_flashes() {
     for (nonce,cleared) in [("stale",false),("halt-nonce",true)] {
         let answer=b.send(&app,"POST",&path,Some(&[("intent_id",nonce)]),Csrf::Header,HEADERS).await;
         assert!(matches!(answer.status,302|303),"{}",answer.body);
-        assert!(b.get(&app,&format!("/bots/{id}")).await.body.contains("Cleared. The bot can trade again."),"Rails' flash for both");
+        assert!(b.get(&app,&format!("/bots/{id}")).await.body.contains("Cleared. The bot can trade again."),"2.x's flash for both");
         assert_eq!(model::load_bot(c,id).unwrap().transient[redeploy::PENDING_KEY].is_null(),cleared,"{nonce}");
     }
     assert_eq!(events(c,"redeploy_manually_resolved"),1);

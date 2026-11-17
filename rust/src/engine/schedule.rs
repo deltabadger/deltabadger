@@ -1,5 +1,5 @@
-//! Automation::Schedulable + Bot::SmartIntervalable, as Rails computes them (UTC, jobs pinned to UTC).
-use crate::ruby::{exceeds, checked_round6_micros};
+//! Automation::Schedulable + Bot::SmartIntervalable, as 2.x computes them (UTC, jobs pinned to UTC).
+use crate::v2::{exceeds, checked_round6_micros};
 use super::EngineError;
 use chrono::{DateTime, Months, Utc};
 
@@ -25,13 +25,13 @@ pub enum Effective {
     /// `1.month` itself: the month branch, stepping by calendar months.
     Month,
     Seconds(f64),
-    /// A smart split whose seconds equal 1.month's value: `== 1.month` is true, so Rails takes the month
+    /// A smart split whose seconds equal 1.month's value: `== 1.month` is true, so 2.x takes the month
     /// branch's `loop { checkpoint += duration }`, but the duration is a seconds Duration — it steps by
     /// 2 629 746 s, not by calendar months (Jan 31 10:00 → Mar 2 20:29:06).
     MonthSeconds(f64),
     /// A selling bot's Smart Intervals split (Bot::Reversible): a BigDecimal-valued Duration. Its #to_f steps the grid, but
     /// the interval count is `(Float / BigDecimal).ceil`, a decimal quotient, so the exact value is kept beside the Float.
-    Decimal(f64, crate::ruby::BigDec),
+    Decimal(f64, crate::v2::BigDec),
 }
 
 impl Effective {
@@ -44,8 +44,8 @@ pub use super::accounting::effective_interval as effective;
 
 /// A stored setting's `.to_d`: an Integer exact, a Float by Float#to_d, a String by String#to_d (unreadable is 0); None for
 /// anything else (nil, a boolean).
-pub fn to_d(v: &serde_json::Value) -> Option<crate::ruby::BigDec> {
-    use crate::ruby::BigDec;
+pub fn to_d(v: &serde_json::Value) -> Option<crate::v2::BigDec> {
+    use crate::v2::BigDec;
     match v {
         serde_json::Value::Number(n) if n.is_i64() => n.as_i64().map(BigDec::from_i64),
         serde_json::Value::Number(n) => n.as_f64().and_then(|f| BigDec::from_f64(f).ok()),
@@ -68,14 +68,14 @@ pub fn one_asset(s: &serde_json::Map<String, serde_json::Value>) -> bool {
 /// Bot::Reversible#effective_interval_duration while selling, from the stored settings: the sell interval (the buy interval
 /// until one is picked), subdivided by the base split `sell_amount / smart_interval_base_amount` only for a base-denominated
 /// sell (a one-asset basket with `sell_denomination` "base"; Bots::DcaMultiAsset#sell_denomination defaults to quote) with Smart Intervals on and a positive amount. None when the bot buys, or no interval reads: then the buy cadence
-/// (`|| super`). Rails divides a Duration by `BigDecimal / Float`, so this is a decimal quotient (a float one misses
-/// Rails' checkpoints: 3600 / (0.3 / 0.1) is 1200.0000000000002 in floats); tests/schedule.rs replays sell_vectors.json. The one sell-duration function: engine, schedule key and web read it.
+/// (`|| super`). 2.x divides a Duration by `BigDecimal / Float`, so this is a decimal quotient (a float one misses
+/// 2.x's checkpoints: 3600 / (0.3 / 0.1) is 1200.0000000000002 in floats); tests/schedule.rs replays sell_vectors.json. The one sell-duration function: engine, schedule key and web read it.
 pub fn sell_effective(s: &serde_json::Map<String, serde_json::Value>) -> Option<Effective> {
     use serde_json::Value;
     let present = |k: &str| s.get(k).filter(|v| !matches!(v, Value::Null) && v.as_str().is_none_or(|t| !t.trim().is_empty()));
     if present("direction").and_then(Value::as_str) != Some("selling") { return None; }
     let interval = present("sell_interval").or_else(|| present("interval")).and_then(Value::as_str).and_then(Interval::parse)?;
-    use crate::ruby::BigDec;
+    use crate::v2::BigDec;
     // `smart_interval_base_amount.to_f`, then Float#to_d as BigDecimal#/ coerces it.
     let float = |v: &Value| v.as_f64().or_else(|| v.as_str().map(|t| t.trim().parse::<f64>().unwrap_or(0.0))).unwrap_or(0.0);
     let base = one_asset(s) && present("sell_denomination").and_then(Value::as_str) == Some("base");
@@ -107,7 +107,7 @@ impl Checkpoints {
 pub fn time_range_error() -> EngineError { EngineError::Data("schedule time is outside the representable range; bot refused for this tick".into()) }
 fn at(us: i64) -> Result<DateTime<Utc>, EngineError> { DateTime::from_timestamp_micros(us).ok_or_else(time_range_error) }
 
-/// A checkpoint as Rails holds it before any rounding: a time on the microsecond grid plus Floats added to it, each
+/// A checkpoint as 2.x holds it before any rounding: a time on the microsecond grid plus Floats added to it, each
 /// `k` times. `Time + Float` adds the Float's exact binary value, so the sum is exact and is kept as its parts.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Unrounded { pub base_us: i64, pub terms: Vec<(f64, i64)> }
@@ -123,7 +123,7 @@ pub fn checkpoints(anchor_us: i64, now_us: i64, eff: Effective) -> Result<Checkp
     Ok(Checkpoints { next_us: next.rounded()?, last_us: last.rounded()? })
 }
 
-/// The same two checkpoints before `.round(6)`: what Rails hands on when it enqueues the next job
+/// The same two checkpoints before `.round(6)`: what 2.x hands on when it enqueues the next job
 /// (`wait_until: next_interval_checkpoint_at`) and measures the progress bar from.
 pub fn unrounded(anchor_us: i64, now_us: i64, eff: Effective) -> Result<(Unrounded, Unrounded), EngineError> {
     at(anchor_us)?;
@@ -152,13 +152,13 @@ pub fn unrounded(anchor_us: i64, now_us: i64, eff: Effective) -> Result<(Unround
         }
         Effective::Seconds(d) => {
             let n = (elapsed / d).ceil();
-            let step = n * d; // Ruby: intervals_since_checkpoint * duration.to_f, a float product
+            let step = n * d; // 2.x: intervals_since_checkpoint * duration.to_f, a float product
             (sum(&[(step, 1)]), sum(&[(step, 1), (d, -1)]))
         }
         Effective::Decimal(d, exact) => {
             // `((Time.current - checkpoint) / duration.seconds).ceil`: the Float elapsed coerced to BigDecimal, divided exactly as
-            // Ruby does; then `checkpoint + n * duration.to_f`, an Integer times a Float.
-            let n = crate::ruby::BigDec::from_f64(elapsed).ok().and_then(|e| e.div(&exact)).ok_or_else(time_range_error)?.ceil(0).to_f();
+            // 2.x does; then `checkpoint + n * duration.to_f`, an Integer times a Float.
+            let n = crate::v2::BigDec::from_f64(elapsed).ok().and_then(|e| e.div(&exact)).ok_or_else(time_range_error)?.ceil(0).to_f();
             let step = n * d;
             (sum(&[(step, 1)]), sum(&[(step, 1), (d, -1)]))
         }
@@ -177,7 +177,7 @@ pub fn unrounded(anchor_us: i64, now_us: i64, eff: Effective) -> Result<(Unround
 pub fn within(elapsed_us: i64, eff: &Effective) -> bool {
     let elapsed = time_minus(elapsed_us);
     match eff {
-        Effective::Decimal(_, exact) => crate::ruby::BigDec::from_f64(elapsed).is_ok_and(|e| &e < exact),
+        Effective::Decimal(_, exact) => crate::v2::BigDec::from_f64(elapsed).is_ok_and(|e| &e < exact),
         _ => elapsed < eff.seconds(),
     }
 }

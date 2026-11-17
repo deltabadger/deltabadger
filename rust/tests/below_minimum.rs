@@ -2,7 +2,7 @@
 //! pre-check's skip (tick::record_skipped), never a failed row. Every case runs from a scripted HTTP answer through the real
 //! adapter to the tick's outcome: Alpaca directly; the other venues' AddOrder through `Through`, which reads prices and
 //! balances from the seeded Alpaca account and sends the order through the adapter under test, under that adapter's rules.
-//! Out of scope, unchanged: sells, signal orders and REBALANCE legs (placement::skips_below_minimum). Rails-free: the Rails
+//! Out of scope, unchanged: sells, signal orders and REBALANCE legs (placement::skips_below_minimum). 2.x-free: the 2.x
 //! side of the divergence is tests/parity.rs's `rejected_below_minimum` scenarios.
 mod common;
 use chrono::{DateTime, Duration, Utc};
@@ -13,7 +13,7 @@ use deltabadger::engine::tick::{self, Attempts, TickOutcome};
 use deltabadger::engine::venue_rules::{self, VenueRules};
 use deltabadger::engine::{amount, placement, FixedClock};
 use deltabadger::enums::BotStatus;
-use deltabadger::ruby::BigDec;
+use deltabadger::v2::BigDec;
 use deltabadger::store;
 use deltabadger::venue::alpaca::AlpacaVenue;
 use deltabadger::venue::binance::{self, BinanceVenue, Pair, Pairs};

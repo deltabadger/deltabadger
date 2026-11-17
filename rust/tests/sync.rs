@@ -1,5 +1,5 @@
 //! The tracker's syncs on a baseline install: the write rule beside a trading engine, the jobs' contract with the
-//! scheduler, the live-key refusal, and the hand-run command's lock. (Row-for-row agreement with Rails: sync_parity.rs.)
+//! scheduler, the live-key refusal, and the hand-run command's lock. (Row-for-row agreement with 2.x: sync_parity.rs.)
 //! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
 //! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).
 mod common;
@@ -44,7 +44,7 @@ impl Ids {
 fn install() -> (tempfile::TempDir, Db, Ids) {
     let (dir, o, s) = common::install_alpaca();
     let c = &o.primary;
-    // This fixture names one known account, including its simulated Rails handbacks.
+    // This fixture names one known account, including its simulated 2.x handbacks.
     let producer=deltabadger::engine::model::credential_version_by_id(c,s.api_key_id).unwrap().unwrap();
     { let tx=c.unchecked_transaction().unwrap(); sync::cache::record_ledger(&deltabadger::engine::model::check_credential_result(&tx,&Some(producer.clone())).unwrap(),s.api_key_id,&producer,clock().now()).unwrap(); tx.commit().unwrap(); }
     c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('AAPL.US', 'AAPL', 'Apple', 'Stock', '2026-01-01', '2026-01-01')", []).unwrap();
@@ -298,7 +298,7 @@ async fn a_price_or_a_value_outside_a_venue_numbers_range_fails_the_balance_sync
 }
 
 /// A held position with no symbol cannot be matched to the holding it is. Skipped, the holding would read as 0 and its
-/// stored balance would be deleted; the sync fails instead, removes nothing and leaves the key's clock (as Rails does).
+/// stored balance would be deleted; the sync fails instead, removes nothing and leaves the key's clock (as 2.x does).
 /// A position of a class this build does not map is still skipped, symbol or not.
 #[tokio::test(flavor = "current_thread")]
 async fn a_held_position_without_a_symbol_fails_the_balance_sync_and_keeps_the_stored_balances() {
@@ -324,7 +324,7 @@ async fn a_held_position_without_a_symbol_fails_the_balance_sync_and_keeps_the_s
 
 /// A venue date is read only within 1970-01-01 ..= 9999-12-31 (UTC); one outside it is an unreadable activity time,
 /// which fails the run and stores nothing, as any unreadable time does. Times read back from the database (the
-/// watermark, a withdrawal Rails stored) go through checked arithmetic: none of them panics a sync.
+/// watermark, a withdrawal 2.x stored) go through checked arithmetic: none of them panics a sync.
 #[tokio::test(flavor = "current_thread")]
 async fn a_date_at_the_ends_of_the_calendar_is_unreadable_and_nothing_panics() {
     let (_dir, db, s) = install();
@@ -336,7 +336,7 @@ async fn a_date_at_the_ends_of_the_calendar_is_unreadable_and_nothing_panics() {
     }
     let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([interest("first", "1970-01-01"), interest("last", "9999-12-31")]))] }));
     assert_eq!(ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap().imported, 2, "the ends of the range are read");
-    // What Rails may have left: a watermark and a withdrawal at the ends of what the database can hold.
+    // What 2.x may have left: a watermark and a withdrawal at the ends of what the database can hold.
     db.run(move |c, _| {
         c.execute("UPDATE api_keys SET last_synced_at = '-262143-01-01 00:00:00'", []).map_err(|e| e.to_string())?;
         c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, raw_data, manual_values, \
@@ -348,8 +348,8 @@ async fn a_date_at_the_ends_of_the_calendar_is_unreadable_and_nothing_panics() {
     assert!(t.requests()[0].query.iter().all(|(k, _)| *k != "after"), "a watermark with no time 25 h before it reads from the beginning");
 }
 
-/// A split imported ahead of its date bumps its bots once at import (as Rails' log_split does) and once more at its
-/// date (Rails' Bot::ExpireRestatedMetricsJob): the second bump is kept in the sync's own `app_configs` row, applied by
+/// A split imported ahead of its date bumps its bots once at import (as 2.x's log_split does) and once more at its
+/// date (2.x's Bot::ExpireRestatedMetricsJob): the second bump is kept in the sync's own `app_configs` row, applied by
 /// the first ledger sync at or after the date, also after a restart, and then removed.
 #[tokio::test(flavor = "current_thread")]
 async fn a_split_dated_ahead_bumps_again_at_the_first_sync_on_or_after_its_date_across_a_restart() {
@@ -375,7 +375,7 @@ async fn a_split_dated_ahead_bumps_again_at_the_first_sync_on_or_after_its_date_
     assert_eq!(one::<i64>(&db, generation).await, 2, "once");
 }
 
-/// The deferred bump (Rails' Bot::ExpireRestatedMetricsJob) is one guarded write unit through `Db`: a refusal rolls
+/// The deferred bump (2.x's Bot::ExpireRestatedMetricsJob) is one guarded write unit through `Db`: a refusal rolls
 /// every counter of the unit back, not only the bot the guard named.
 #[tokio::test(flavor = "current_thread")]
 async fn expire_restated_is_one_guarded_unit_and_a_refusal_rolls_all_of_it_back() {
@@ -399,7 +399,7 @@ async fn expire_restated_is_one_guarded_unit_and_a_refusal_rolls_all_of_it_back(
     assert_eq!(one::<String>(&db, generations).await, format!("{working}:1 {stopped}:1"));
 }
 
-/// A key's syncs read its own account's host, as Rails' set_client does: a live key the live server only, a paper key the
+/// A key's syncs read its own account's host, as 2.x's set_client does: a live key the live server only, a paper key the
 /// paper server only. Two local servers stand for the two hosts; `Urls::pick` makes the choice inside the real factory.
 #[tokio::test(flavor = "current_thread")]
 async fn each_key_syncs_from_its_own_modes_host() {
@@ -427,7 +427,7 @@ async fn each_key_syncs_from_its_own_modes_host() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn keys_are_chosen_and_read_as_rails_chooses_and_reads_them() {
+async fn keys_are_chosen_and_read_as_v2_chooses_and_reads_them() {
     let (_dir, db, s) = install();
     let (reading, credentials) = db.run(move |c, cipher| Ok((sync::reading_keys(c).map_err(|e| e.0)?, sync::credentials(c, cipher, s.api_key_id).map_err(|e| e.0)?))).await.unwrap();
     assert_eq!((reading, credentials), (vec![s.api_key_id], paper()));
@@ -452,7 +452,7 @@ async fn keys_are_chosen_and_read_as_rails_chooses_and_reads_them() {
 #[tokio::test(flavor = "current_thread")]
 async fn the_watermark_never_passes_the_start_of_the_sync_and_one_left_in_the_future_is_brought_back() {
     let (_dir, db, s) = install();
-    // What Rails leaves behind a split dated ahead: a watermark in the future.
+    // What 2.x leaves behind a split dated ahead: a watermark in the future.
     db.run(|c, _| c.execute("UPDATE api_keys SET last_synced_at = '2026-10-05 00:00:00'", []).map_err(|e| e.to_string())).await.unwrap();
     let (t, v) = venue(json!({ ACTIVITIES: [ok(json!([]))] }));
     let out = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
@@ -488,7 +488,7 @@ fn each_reading_key_gets_a_ledger_job_and_a_balance_job_scoped_by_its_id() {
     let funds = EngineEvent::FundsLow { bot_id: 1, user_id: 1, quote_asset_id: None };
     assert!(LedgerSync::new(venues.clone(), 7).wants(&order) && !LedgerSync::new(venues.clone(), 7).wants(&funds));
     assert!(!BalanceSync::new(venues.clone(), Rc::new(NoPrices), 7).wants(&order));
-    // And on every terminal sell fill (transaction.rb:50-56), which arms the ledger's wash-sale locks before the nightly run.
+    // And on every terminal sell fill, which arms the ledger's wash-sale locks before the nightly run.
     let sale = EngineEvent::SaleSettled { bot_id: 1 };
     assert!(LedgerSync::new(venues.clone(), 7).wants(&sale) && !BalanceSync::new(venues.clone(), Rc::new(NoPrices), 7).wants(&sale));
 
@@ -594,8 +594,8 @@ async fn a_run_reports_done_even_with_nothing_to_import_and_failed_with_the_keys
     assert_eq!(one::<String>(&db, "SELECT count(*) || ' ' || sum(usd_value IS NULL) FROM account_balances").await, "3 1", "the coin has no price without a market source");
     let t = ScriptedTransport::from_script(&json!({ "GET /v2/account": [{ "status": 401, "body": { "message": "unauthorized." } }] }));
     assert_eq!(BalanceSync::new(Scripted(t.clone()), Rc::new(NoPrices), s.api_key_id).run(cx(&db, &clock), vec![Wake::Manual(None)]).await, Outcome::Failed("unauthorized.".into()));
-    assert_eq!(one::<i64>(&db, "SELECT status FROM api_keys").await, 2, "a balance read Alpaca calls unauthorized marks the key incorrect, as Rails does");
-    // The job of a key that stopped being a reading key fails without a request (Rails' job skips it; a job has no "skipped").
+    assert_eq!(one::<i64>(&db, "SELECT status FROM api_keys").await, 2, "a balance read Alpaca calls unauthorized marks the key incorrect, as 2.x does");
+    // The job of a key that stopped being a reading key fails without a request (2.x's job skips it; a job has no "skipped").
     let before = t.requests().len();
     let outcome = BalanceSync::new(Scripted(t.clone()), Rc::new(NoPrices), s.api_key_id).run(cx(&db, &clock), vec![Wake::Schedule]).await;
     assert_eq!((outcome, t.requests().len()), (Outcome::Failed(format!("api key {} is not a reading key", s.api_key_id)), before));
@@ -673,7 +673,7 @@ async fn a_read_of_the_ledger_past_any_limit_fails_the_run_and_moves_nothing() {
          json!({ ACTIVITIES: [text(format!("[{{\"id\":\"long\",\"list\":[{}]}}]", vec!["0"; 100_000].join(",")))] }),
          "an activities page with more values than one answer may hold".into()),
         ("page tokens that come round again", json!({ ACTIVITIES: [page(0..99, "token-a"), page(100..199, "token-b"), page(200..299, "token-a")] }), repeat.clone()),
-        ("a page token that does not move (Rails fails this one too)", json!({ ACTIVITIES: [page(0..99, "token-a"), page(100..199, "token-a")] }), repeat.clone()),
+        ("a page token that does not move (2.x fails this one too)", json!({ ACTIVITIES: [page(0..99, "token-a"), page(100..199, "token-a")] }), repeat.clone()),
         ("a short last page that ends on a token already used", json!({ ACTIVITIES: [page(0..99, "token-a"), ok(json!([item("token-a".into())]))] }), repeat.clone()),
         ("a full page whose last activity has no id", json!({ ACTIVITIES: [ok(Value::Array((0..100).map(|i| if i == 99 { json!({ "activity_type": "INT", "net_amount": "1", "date": "2026-09-01" }) } else { item(format!("i{i}")) }).collect()))] }),
          "a full page of the ledger ends with an activity that has no id: nothing was read".into()),
@@ -726,7 +726,7 @@ impl Connect for PagedVenues {
 /// page cap, stores what it read and records where it stopped; the watermark and the job's success wait for the end.
 #[tokio::test(flavor = "current_thread")]
 async fn an_import_longer_than_one_run_continues_where_it_stopped_and_ends_as_one_read_would() {
-    // 1,050 activities a minute apart; a three-leg split lies across the end of the first run's third page. Rails merges
+    // 1,050 activities a minute apart; a three-leg split lies across the end of the first run's third page. 2.x merges
     // split legs that are consecutive in one read, so a run does not cut such a group: its last legs wait for the next run.
     let start: chrono::DateTime<chrono::Utc> = "2026-03-01T00:00:00Z".parse().unwrap();
     let leg = |id: &str, qty: &str| json!({ "id": id, "activity_type": "SPLIT", "symbol": "AAPL", "asset_class": "us_equity", "qty": qty, "date": "2026-03-01" });
@@ -813,7 +813,7 @@ async fn an_import_longer_than_one_run_continues_where_it_stopped_and_ends_as_on
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn an_import_that_ends_exactly_at_the_cap_and_one_rails_overtook_both_end_well() {
+async fn an_import_that_ends_exactly_at_the_cap_and_one_v2_overtook_both_end_well() {
     let item = |i: usize| interest(&format!("e-{i:03}"), "2026-09-01");
     let three_pages = ledger::Limits { pages: 3, runs: 100 };
     // Exactly three full pages: the run cannot know the ledger ends there, so it stops at its cap; the next run asks
@@ -830,7 +830,7 @@ async fn an_import_that_ends_exactly_at_the_cap_and_one_rails_overtook_both_end_
     assert_eq!(one::<String>(&db, "SELECT last_synced_at || ' ' || (SELECT count(*) FROM app_configs WHERE key LIKE 'rust_sync.%') FROM api_keys").await, "2026-09-01 00:00:00 0");
     assert_eq!((ledger::MAX_PAGES, ledger::MAX_ACTIVITIES), (500, 50_000), "the jobs' own cap: a ledger of exactly 50,000 activities takes two runs");
 
-    // After a handback: Rails syncs from the public watermark (an unfinished import has not moved it), reads what Rust
+    // After a handback: 2.x syncs from the public watermark (an unfinished import has not moved it), reads what Rust
     // stored as duplicates, and writes its own watermark. The record Rust left is then about another state of the
     // key: the next Rust run ignores it, starts from the watermark as any sync does, and removes it.
     let (_dir, db, s) = install();
@@ -838,12 +838,12 @@ async fn an_import_that_ends_exactly_at_the_cap_and_one_rails_overtook_both_end_
     let venue = server.venue();
     assert!(!ledger::sync_within(&db, &venue, s.api_key_id, &paper(), &clock(), three_pages).await.unwrap().unwrap().complete);
     assert_eq!(one::<String>(&db, "SELECT coalesce(last_synced_at, 'none') || ' ' || (SELECT count(*) FROM app_configs WHERE key = 'rust_sync.ledger:1') FROM api_keys").await, "none 1",
-               "what Rails finds: no watermark, so it reads the whole ledger");
-    db.run(|c, _| c.execute("UPDATE api_keys SET last_synced_at = '2026-09-01 00:00:00'", []).map_err(|e| e.to_string())).await.unwrap(); // Rails' own sync
+               "what 2.x finds: no watermark, so it reads the whole ledger");
+    db.run(|c, _| c.execute("UPDATE api_keys SET last_synced_at = '2026-09-01 00:00:00'", []).map_err(|e| e.to_string())).await.unwrap(); // 2.x's own sync
     let before = server.asked().len();
-    let after_rails = ledger::sync_within(&db, &venue, s.api_key_id, &paper(), &clock(), three_pages).await.unwrap().unwrap();
-    assert_eq!(server.asked()[before], (None, Some("2026-08-30T23:00:00Z".to_string())), "no page token; from Rails' watermark less 25 h");
-    assert_eq!((after_rails.complete, one::<i64>(&db, "SELECT count(*) FROM app_configs WHERE key LIKE 'rust_sync.%'").await), (false, 1), "450 activities are again more than three pages: a new import, recorded anew");
+    let after_v2 = ledger::sync_within(&db, &venue, s.api_key_id, &paper(), &clock(), three_pages).await.unwrap().unwrap();
+    assert_eq!(server.asked()[before], (None, Some("2026-08-30T23:00:00Z".to_string())), "no page token; from 2.x's watermark less 25 h");
+    assert_eq!((after_v2.complete, one::<i64>(&db, "SELECT count(*) FROM app_configs WHERE key LIKE 'rust_sync.%'").await), (false, 1), "450 activities are again more than three pages: a new import, recorded anew");
     let done = ledger::sync_within(&db, &venue, s.api_key_id, &paper(), &clock(), three_pages).await.unwrap().unwrap();
     assert_eq!((done.complete, one::<i64>(&db, "SELECT count(*) FROM account_transactions").await, one::<i64>(&db, "SELECT count(*) FROM app_configs WHERE key LIKE 'rust_sync.%'").await), (true, 450, 0));
 
@@ -852,7 +852,7 @@ async fn an_import_that_ends_exactly_at_the_cap_and_one_rails_overtook_both_end_
     let records = "SELECT count(*) FROM app_configs WHERE key LIKE 'rust_sync.%'";
     let (_dir, db, s) = install();
     assert!(!ledger::sync_within(&db, &Paged::new((0..450).map(item).collect()).venue(), s.api_key_id, &paper(), &clock(), three_pages).await.unwrap().unwrap().complete);
-    db.run(|c, _| c.execute("UPDATE api_keys SET last_synced_at = '2026-09-01 00:00:00'", []).map_err(|e| e.to_string())).await.unwrap(); // Rails' own sync
+    db.run(|c, _| c.execute("UPDATE api_keys SET last_synced_at = '2026-09-01 00:00:00'", []).map_err(|e| e.to_string())).await.unwrap(); // 2.x's own sync
     let before = one::<String>(&db, "SELECT last_synced_at || ' ' || updated_at || ' ' || coalesce(last_sync_error, 'none') FROM api_keys").await;
     let (_, empty) = crate::venue(json!({ ACTIVITIES: [ok(json!([]))] }));
     let idle = ledger::sync(&db, &empty, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
@@ -901,7 +901,7 @@ async fn one_read_and_capped(history: &[Value], pages: usize) -> (String, String
     (whole, ledger_state(&db).await, first_run_rows.unwrap_or_default(), asked)
 }
 
-/// Codex round 4, findings 1 and 2: a run that stops at its cap stops where Rails' grouping allows. Rails merges split
+/// Codex round 4, findings 1 and 2: a run that stops at its cap stops where 2.x's grouping allows. 2.x merges split
 /// legs that are neighbours after it has dropped the cancelled activities, so the stop is decided on that sequence;
 /// only the group the run ends in waits for the next run; and a run that holds nothing but one group reads on to its end.
 #[tokio::test(flavor = "current_thread")]
@@ -986,7 +986,7 @@ async fn a_split_too_long_for_a_run_fails_it_and_the_import_is_ended_after_its_r
     let cases: Vec<(&str, Vec<Value>, usize)> = vec![
         ("550 legs of one split, and nothing after them (a short last page)", legs(550).collect(), 6),
         ("550 legs, then 50 other activities on the same page", legs(550).chain((0..50).map(|i| interest(&format!("z-{i:03}"), "2026-09-16"))).collect(), 6),
-        ("one leg, then 100,000 cancelled activities (Rails drops them, so the split never ends)", legs(1).chain((0..100_000).map(cancelled)).collect(), 6),
+        ("one leg, then 100,000 cancelled activities (2.x drops them, so the split never ends)", legs(1).chain((0..100_000).map(cancelled)).collect(), 6),
         ("700 legs", legs(700).collect(), 6),
     ];
     for (what, ledger, requests) in cases {
@@ -1317,7 +1317,7 @@ fn cli(dir: &Path, args: &[&str]) -> Command {
 fn stderr(out: &std::process::Output) -> String { String::from_utf8_lossy(&out.stderr).to_string() }
 
 #[test]
-fn sync_by_hand_takes_the_engine_lock_and_refuses_while_rails_or_an_engine_holds_it() {
+fn sync_by_hand_takes_the_engine_lock_and_refuses_while_v2_or_an_engine_holds_it() {
     let (dir, o, _) = common::install_alpaca();
     // The secret opens only under another instance's SECRET_KEY_BASE: every sync this test runs fails while reading the key,
     // before any request. The real binary's factory reaches Alpaca's real hosts, so no run here may get that far.
@@ -1332,16 +1332,16 @@ fn sync_by_hand_takes_the_engine_lock_and_refuses_while_rails_or_an_engine_holds
     let out = cli(dir.path(), &["sync", "ledger"]).env_remove("SECRET_KEY_BASE").output().unwrap();
     assert!(out.status.code() == Some(1) && stderr(&out).contains("SECRET_KEY_BASE"), "{}", stderr(&out));
 
-    // What every Rails process holds for its lifetime (config/initializers/00_engine_lock.rb): shared. A `run` or `serve`
+    // What every 2.x process holds for its lifetime: shared. A `run` or `serve`
     // holds it exclusive. Either way the sync refuses before it opens a database.
-    let rails = std::fs::OpenOptions::new().write(true).create(true).truncate(false).open(dir.path().join(".engine.lock")).unwrap();
-    rails.try_lock_shared().unwrap();
+    let v2 = std::fs::OpenOptions::new().write(true).create(true).truncate(false).open(dir.path().join(".engine.lock")).unwrap();
+    v2.try_lock_shared().unwrap();
     for kind in ["ledger", "balances"] {
         let out = cli(dir.path(), &["sync", kind]).output().unwrap();
         assert_eq!(out.status.code(), Some(1), "{kind}");
         assert!(stderr(&out).contains("another Deltabadger engine is running on this data"), "{kind}: {}", stderr(&out));
     }
-    drop(rails);
+    drop(v2);
 
     // With the lock free it runs: the job fails reading the key (exit 2), says only that, and sends nothing.
     for kind in ["ledger", "balances"] {
@@ -1464,14 +1464,14 @@ fn night_script() -> Value {
 }
 const ACTIVITIES_PATH: &str = "/v2/account/activities";
 
-/// Rails' cadence under the real scheduler, as `serve` registers the jobs: each reading key's ledger sync at 02:00 UTC
+/// 2.x's cadence under the real scheduler, as `serve` registers the jobs: each reading key's ledger sync at 02:00 UTC
 /// (sync_all_account_transactions_job, "0 2 * * *"), its balance sync at 02:30 (sync_all_account_balances_job,
 /// "30 2 * * *"), and the ledger again whenever the engine records an order (Transaction's after_create_commit). Each
 /// run is recorded in the key's own `rust_job.<name>:<api_key_id>` row.
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn under_the_scheduler_the_ledger_runs_at_two_the_balances_at_half_past_and_an_order_wakes_the_ledger() {
     let (dir, _db, s) = install();
-    ran_at(dir.path(), s.api_key_id, "2026-09-19T02:00:05Z", "2026-09-19T02:30:05Z"); // last night, by Rails: nothing is due at the start
+    ran_at(dir.path(), s.api_key_id, "2026-09-19T02:00:05Z", "2026-09-19T02:30:05Z"); // last night, by 2.x: nothing is due at the start
     let clock = tokio_clock("2026-09-19T12:00:00Z");
     let venue = Timed::new(&night_script(), clock);
     let registered = jobs::register(&Connection::open(dir.path().join("production.sqlite3")).unwrap(), &venue, Rc::new(NoPrices)).unwrap();
@@ -1491,7 +1491,7 @@ fn long_history() -> Vec<Value> {
 }
 
 /// Plan 2f S-7.7: a ledger import longer than one run (three pages a run here; 500 for the jobs) wakes itself and goes on
-/// as soon as the runner is free, as Rails' one job reads the whole history at once, instead of waiting for the next
+/// as soon as the runner is free, as 2.x's one job reads the whole history at once, instead of waiting for the next
 /// order or the next night.
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn under_the_scheduler_an_import_longer_than_one_run_goes_on_at_once_until_it_is_whole() {
@@ -2045,8 +2045,8 @@ async fn split_grouping_does_not_repair_legacy_aggregates() {
     assert_eq!(one::<i64>(&db,"SELECT count(*) FROM account_transactions WHERE entry_type=15").await,1);
 }
 
-// ---- PLAN-A17 A17-3: the balance sync's market source on CoinGecko, and Rails' fallback (Rust-only halves; the Rails
-// half is sync.rb's `cg-*` scenarios in sync_parity.rs) ----
+// ---- PLAN-A17 A17-3: the balance sync's market source on CoinGecko, and 2.x's fallback (Rust-only halves; the 2.x
+// half is the recorded `cg-*` scenarios in sync_parity.rs) ----
 
 mod coingecko_prices {
     use super::*;
@@ -2208,7 +2208,7 @@ async fn a_venue_quoted_in_a_stablecoin_prices_through_a_fiat_pair_and_the_ecb()
     let wire = ScriptedTransport::from_script(&json!({ "GET /api/v3/ticker/price": [ok(json!([
         { "symbol": "BTCUSDT", "price": "55000" }, { "symbol": "EURUSDT", "price": "1.1" }, { "symbol": "TOKBTC", "price": "0.0001" }]))] }));
     let quotes = deltabadger::sync::venue_quotes::Quotes::new(Box::new({ let wire = wire.clone(); move |_, _| wire.clone() }), None);
-    let wanted = |external: &str, asset: i64, cash: bool| deltabadger::sync::venue_quotes::Wanted { external_id: external.into(), asset, cash, total: deltabadger::ruby::BigDec::one() };
+    let wanted = |external: &str, asset: i64, cash: bool| deltabadger::sync::venue_quotes::Wanted { external_id: external.into(), asset, cash, total: deltabadger::v2::BigDec::one() };
     let found = deltabadger::sync::venue_quotes::VenueQuotes::prices(&quotes, &db, s.api_key_id, binance,
         vec![wanted("bitcoin", ids.0, false), wanted("eur", ids.1, true), wanted("tok", ids.2, false)], clock().now()).await;
     let mut found: Vec<(String, String)> = found.into_iter().map(|(k, v)| (k, v.round(8).to_s_f())).collect();
@@ -2243,7 +2243,7 @@ async fn kraken_pairs_missing_from_its_bulk_ticker_never_cost_the_ones_it_priced
     }).await.unwrap();
     let wire = ScriptedTransport::from_script(&json!({ "GET /0/public/Ticker": [ok(json!({ "error": [], "result": { "XBTUSD": { "c": ["64000", "1"] } } })), { "status": 500, "body": "down" }] }));
     let quotes = deltabadger::sync::venue_quotes::Quotes::new(Box::new({ let wire = wire.clone(); move |_, _| wire.clone() }), None);
-    let wanted = |external: String, asset: i64| deltabadger::sync::venue_quotes::Wanted { external_id: external, asset, cash: false, total: deltabadger::ruby::BigDec::one() };
+    let wanted = |external: String, asset: i64| deltabadger::sync::venue_quotes::Wanted { external_id: external, asset, cash: false, total: deltabadger::v2::BigDec::one() };
     let mut asked = vec![wanted("bitcoin".into(), btc)];
     asked.extend(others.iter().enumerate().map(|(i, id)| wanted(format!("s{i}"), *id)));
     let found = deltabadger::sync::venue_quotes::VenueQuotes::prices(&quotes, &db, s.api_key_id, kraken, asked, clock().now()).await;

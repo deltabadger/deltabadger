@@ -12,8 +12,8 @@ fn input(source: Source, id: &str, parent: &str, coin: &str) -> writer::Input {
     let kind=match source {Source::Deposit=>4,Source::Withdrawal=>5,Source::DustOut=>3,Source::DustIn=>2,_=>unreachable!()};
     let dust=matches!(source,Source::DustIn|Source::DustOut);
     writer::Input { event:Event::read(source,&raw,Context{parent:Some(parent),occurred_ms:Some(1786960800000),..Context::default()}).unwrap(), entry:Entry {
-        entry_type:kind,base_currency:Some(if kind==2 {"BNB"}else{coin}.into()),base_amount:deltabadger::ruby::BigDec::parse(if kind==2 {"0.1"}else{"1"}).unwrap(),
-        quote_currency:None,quote_amount:None,fee_currency:(kind==2).then(||"BNB".into()),fee_amount:(kind==2).then(||deltabadger::ruby::BigDec::parse("0.01").unwrap()),
+        entry_type:kind,base_currency:Some(if kind==2 {"BNB"}else{coin}.into()),base_amount:deltabadger::v2::BigDec::parse(if kind==2 {"0.1"}else{"1"}).unwrap(),
+        quote_currency:None,quote_amount:None,fee_currency:(kind==2).then(||"BNB".into()),fee_amount:(kind==2).then(||deltabadger::v2::BigDec::parse("0.01").unwrap()),
         tx_id:Some(if dust {format!("dust-detail-{}",if kind==2 {"in"}else{"out"})}else{"hash".into()}),group_id:dust.then(||"dust_detail".into()),description:None,
         transacted_at:Some("2026-08-17T10:00:00Z".parse().unwrap()),raw:Raw::from_value(raw) } }
 }
@@ -38,7 +38,7 @@ fn state(c: &Connection) -> Value {
 }
 fn count(c: &Connection) -> i64 { c.query_row("SELECT count(*) FROM account_transactions",[],|r|r.get(0)).unwrap() }
 fn csv(rows: &[writer::Input]) -> Vec<Entry> { rows.iter().map(|r| {let mut e=r.entry.clone();e.tx_id=None;e.group_id=Some(format!("dustcsv_{}",e.raw.value["fromAsset"].as_str().unwrap()));
-    if e.entry_type==2 { e.base_amount=deltabadger::ruby::BigDec::parse("0.09").unwrap();e.fee_amount=None;e.fee_currency=None; } e.raw=Raw::from_value(json!({"operation":"Small Assets Exchange BNB"}));e }).collect() }
+    if e.entry_type==2 { e.base_amount=deltabadger::v2::BigDec::parse("0.09").unwrap();e.fee_amount=None;e.fee_currency=None; } e.raw=Raw::from_value(json!({"operation":"Small Assets Exchange BNB"}));e }).collect() }
 fn file(c: &Connection, key: &sync::Key, rows: &[Entry]) -> Result<sync::ledger::Outcome,sync::SyncError> {
     let tx=model::immediate(c)?;
     let out=writer::store_csv(&model::fence_versions(&tx,&[])?,&common::seed::cipher(),key,rows,now())?;
@@ -196,7 +196,7 @@ fn suppressed_non_dust_csv_and_correction_conflicts_never_fall_through() {
     let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());let row=input(Source::Deposit,"d1","","BTC");
     write(c,&key,std::slice::from_ref(&row)).unwrap();
     let mut changed=row.clone();changed.entry.raw=Raw::from_value({let mut raw=row.entry.raw.value.clone();raw["amount"]=json!("2");raw});
-    changed.entry.base_amount=deltabadger::ruby::BigDec::from_i64(2);changed.event=Event::read(Source::Deposit,&changed.entry.raw.value,Context::default()).unwrap();
+    changed.entry.base_amount=deltabadger::v2::BigDec::from_i64(2);changed.event=Event::read(Source::Deposit,&changed.entry.raw.value,Context::default()).unwrap();
     let before=state(c);assert!(write(c,&key,&[changed.clone()]).is_err());assert_eq!(state(c),before);
     suppress(c,"BTC");let before=state(c);let mut entry=row.entry;entry.tx_id=None;
     assert_eq!(file(c,&key,&[entry]).unwrap().skipped,1);assert_eq!(state(c),before);
@@ -278,7 +278,7 @@ fn production_csv_keeps_whole_equal_bnb_pairs_and_suppressions_after_restart() {
         let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
         let mut sibling=pair("p2","ETH");
         if net=="0.19" {for i in &mut sibling {let mut raw=i.entry.raw.value.clone();raw["transferedAmount"]=json!("0.2");i.entry.raw=Raw::from_value(raw);
-            if i.entry.entry_type==2 {i.entry.base_amount=deltabadger::ruby::BigDec::parse("0.2").unwrap();}
+            if i.entry.entry_type==2 {i.entry.base_amount=deltabadger::v2::BigDec::parse("0.2").unwrap();}
             i.event=Event::read(if i.entry.entry_type==2 {Source::DustIn}else{Source::DustOut},&i.entry.raw.value,Context{parent:Some("p2"),occurred_ms:Some(1786960800000),..Context::default()}).unwrap();}}
         if existing {write(c,&key,&pair("p1","BTC")).unwrap();write(c,&key,&sibling).unwrap();
             c.execute("UPDATE account_transactions SET raw_data=json_set(raw_data,'$.file_twin_at','2026-08-17T10:00:00Z') WHERE json_extract(raw_data,'$.fromAsset')='BTC'",[]).unwrap();}
@@ -323,7 +323,7 @@ async fn production_export_import_matches_gross_dust_and_rejects_suppressed_ids(
     assert!(matches!(import(c,&key,"deltabadger",&changed).unwrap(),Answer::Refused(_)));assert_eq!(state(c),before);
 }
 
-// Prices and tax settings are fixed by the unchanged Rails accounting recorder. The
+// Prices and tax settings are fixed by the unchanged accounting recording. The
 // quantities, fees, ordering and groups below are read back from the actual database.
 fn accounting(c:&Connection,owner:i64,expected:&Value) {
     use deltabadger::{figures::dec::Dec,tracker::{rows,walk::{self,Engine,Row}}};
@@ -765,7 +765,7 @@ async fn repair_matches_recorded_accounting_for_collision_free_and_lost_dust_sib
         // not pretend its affected-source-only scan completed a full sync for a rotated key.
         let version=model::credential_version_by_id(c,key.id).unwrap().unwrap();let tx=model::immediate(c).unwrap();
         sync::cache::record_ledger(&model::fence_versions(&tx,std::slice::from_ref(&version)).unwrap(),key.id,&version,now()).unwrap();tx.commit().unwrap();
-        // Reproduce Rails' retained rows: the unique legacy IDs discard the sibling pair.
+        // Reproduce 2.x's retained rows: the unique legacy IDs discard the sibling pair.
         c.execute("DELETE FROM account_transactions WHERE tx_id LIKE 'dust-a12-v1-%'",[]).unwrap();
         c.execute("DELETE FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:%'",[]).unwrap();
         c.execute("UPDATE account_transactions SET group_id='dust_detail' WHERE tx_id LIKE 'dust-detail-%'",[]).unwrap();

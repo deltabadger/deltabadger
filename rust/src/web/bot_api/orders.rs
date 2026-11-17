@@ -1,19 +1,19 @@
 //! app/services/bot_api/orders: MarketBuy, MarketSell, LimitBuy, LimitSell (with BotOrder for an order through a signal
 //! bot) and Cancel, up to their first venue call (PLAN-A9 slice O1). MCP and REST both call these and format the `Res`.
-//! Every refusal Rails makes before a venue call is made here in Rails' order, on the database alone; a dry run (MCP's
+//! Every refusal 2.x makes before a venue call is made here in 2.x's order, on the database alone; a dry run (MCP's
 //! paper trading) answers here too. An order through a signal bot that passes every check is queued for the engine
 //! (engine::api_orders, D-ORDER-QUEUED) and waited for (`wait`); so is a standalone one (slice O4: api_orders::
 //! place_standalone, D-ORDER-AMBIGUOUS, D-ORDER-KRAKEN-QUOTE-SELL, D-ORDER-STANDALONE-LOG); a cancel that passes them is
 //! sent by `send_cancel` (slice O2), the bot page's one bounded call (web::bot::cancel), on a logged standalone order's
 //! stored route where there is one.
 //!
-//! Named divergences: D-ORDER-AMOUNT-VALIDATION (a standalone amount, price or amount_type Rails hands to the venue is
-//! refused with BotOrder's texts), D-ORDER-IBKR (a venue this build does not trade passes Rails' checks, then answers
+//! Named divergences: D-ORDER-AMOUNT-VALIDATION (a standalone amount, price or amount_type 2.x hands to the venue is
+//! refused with BotOrder's texts), D-ORDER-IBKR (a venue this build does not trade passes 2.x's checks, then answers
 //! `not_ported`), D-ORDER-DRY-NO-READ (a standalone dry run reads no price) and D-ORDER-DRY-CANCEL (a dry-run cancel
-//! answers its success text; Rails' Exchange::Dryable raises). D-ORDER-MARKET-PRICE (REST): a market order's `price`,
-//! which OrdersController permits and the market services do not take (Rails raises and leaves the key in progress), is
+//! answers its success text; 2.x's Exchange::Dryable raises). D-ORDER-MARKET-PRICE (REST): a market order's `price`,
+//! which OrdersController permits and the market services do not take (2.x raises and leaves the key in progress), is
 //! ignored. D-ORDER-CANCEL-TRANSPORT (a cancel the venue never answers is `cancel_failed` with the transport's message;
-//! Rails raises), D-ORDER-KUCOIN-FOREIGN (a bare order id on a KuCoin HF or UTA account is refused unsent) and A4's
+//! 2.x raises), D-ORDER-KUCOIN-FOREIGN (a bare order id on a KuCoin HF or UTA account is refused unsent) and A4's
 //! D-CANCEL-REREAD-ALWAYS (a cancelled bot row is re-read by the engine whatever the venue answered, on either path) and
 //! D-ORDER-ID-SAFE (a bare order id that is not a plain path segment is refused unsent).
 use super::{present, refused, Domain, Res};
@@ -45,9 +45,9 @@ fn not_ported(what: &str) -> Res { failure(Domain::NotPorted, "not_ported", refu
 /// D-ORDER-IBKR.
 const IBKR: &str = "orders through MCP or the REST API on this exchange";
 
-/// `value.to_s` as Ruby writes a parameter: text as it is, a Float as Float#to_s.
+/// `value.to_s` as 2.x writes a parameter: text as it is, a Float as Float#to_s.
 pub(crate) fn to_s(v: &Value) -> String {
-    match v { Value::Number(n) if n.is_f64() => crate::ruby::float_to_s(n.as_f64().unwrap_or_default()), _ => crate::web::mcp::tools::str_value(v) }
+    match v { Value::Number(n) if n.is_f64() => crate::v2::float_to_s(n.as_f64().unwrap_or_default()), _ => crate::web::mcp::tools::str_value(v) }
 }
 fn arg<'a>(args: &'a Map<String, Value>, key: &str) -> &'a Value { args.get(key).unwrap_or(&Value::Null) }
 
@@ -79,7 +79,7 @@ fn untradable(exchange: &str, ticker: &Ticker) -> Option<Res> {
         format!("Trading pair {}/{} is not tradable on {exchange}.", ticker.base_symbol, ticker.quote_symbol)))
 }
 /// Lookup.wash_sale_refusal: a live lock on the ticker's base asset while the rule is on. The date is the last locked day,
-/// in the zone Rails reads the deadline in.
+/// in the zone 2.x reads the deadline in.
 fn wash_refusal(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller, ticker: &Ticker) -> Result<Option<Res>, WebError> {
     if crate::engine::wash::days(c, who.user).map_err(|e| WebError::Config(format!("{e:?}")))? == 0 { return Ok(None) }
     let until: Option<String> = c.query_row("SELECT buy_locked_until FROM wash_sale_locks WHERE user_id=?1 AND asset_id=?2 AND buy_locked_until > ?3 LIMIT 1",
@@ -145,7 +145,7 @@ fn standalone_checked(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: C
     };
     if let Some(refusal) = untradable(&name, &ticker) { return done(refusal) }
     if kind.buy() { if let Some(refusal) = wash_refusal(c, now, who, &ticker)? { return done(refusal) } }
-    // D-ORDER-AMOUNT-VALIDATION: where Rails hands these to the venue (or raises), BotOrder's refusals.
+    // D-ORDER-AMOUNT-VALIDATION: where 2.x hands these to the venue (or raises), BotOrder's refusals.
     if !number(arg(args, "amount")).is_some_and(|n| n.is_positive()) { return done(invalid_number("amount")) }
     let Some(amount_type) = amount_type(kind, args) else { return done(invalid_amount_type()) };
     if kind.limit() && !number(arg(args, "price")).is_some_and(|n| n.is_positive()) { return done(invalid_number("price")) }
@@ -182,7 +182,7 @@ fn placed(q: &Queued, dry_run: bool, order_id: &str) -> Res {
 
 /// The standalone request's checks again, in the engine's claim (PLAN-A9 O4 §2.3 step 6): the key (Lookup.find_api_key),
 /// the pair by its id (gone: `pair_not_found` with the pair the caller named), its tradability, and for a buy the wash-sale
-/// lock dated in the request's surface's zone (r1 §5). Rails' codes and texts.
+/// lock dated in the request's surface's zone (r1 §5). 2.x's codes and texts.
 pub fn standalone_late_refusal(c: &Connection, now: chrono::DateTime<chrono::Utc>, request: &crate::engine::api_orders::Request) -> Result<Option<Res>, WebError> {
     let Some(s) = &request.standalone else { return Err(WebError::Config("a bot request has no standalone refusal".into())) };
     let name: String = c.query_row("SELECT coalesce(name, '') FROM exchanges WHERE id=?1", [s.exchange_id], |r| r.get(0)).optional()?.unwrap_or_default();
@@ -269,7 +269,7 @@ pub fn late_refusal(c: &Connection, bot: &model::Bot, request: &crate::engine::a
     bot_refusal(c, &Through { bot: bot.clone(), exchange, venue, ticker }, &request.supplied)
 }
 
-/// Rails' status for each refusal code the engine answers with (`Outcome::Refused`).
+/// 2.x's status for each refusal code the engine answers with (`Outcome::Refused`).
 const REFUSALS: &[(&str, Domain)] = &[
     ("bot_not_found", Domain::NotFound), ("bot_not_orderable", Domain::ValidationFailed), ("bot_not_running", Domain::Conflict),
     ("placement_unresolved", Domain::Conflict), ("pair_not_found", Domain::NotFound), ("bot_pair_mismatch", Domain::ValidationFailed),
@@ -286,7 +286,7 @@ pub(crate) fn ambiguous(errors: &str, exchange: &str) -> Res {
 /// BotOrder#answer: what the engine's outcome tells the caller (PLAN-A9 §2.4).
 pub fn answer(q: &Queued, outcome: crate::engine::api_orders::Outcome) -> Res {
     use crate::engine::api_orders::Outcome;
-    let sentence = |errors: &[String]| crate::ruby::to_sentence(errors);
+    let sentence = |errors: &[String]| crate::v2::to_sentence(errors);
     match outcome {
         Outcome::Submitted { transaction_id, order_id, pair } => {
             let mut res = submitted(q, false, transaction_id, Some(&order_id));
@@ -399,7 +399,7 @@ fn venue_refusal(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller
     })
 }
 
-/// A cancel's outcome before the venue: Rails' answer, or the one cancel to send (`send_cancel`).
+/// A cancel's outcome before the venue: 2.x's answer, or the one cancel to send (`send_cancel`).
 pub enum Cancel { Done(Res), Send(CancelJob) }
 /// What a cancel past every check sends, and its success answer.
 pub struct CancelJob { target: Target, answer: Value }
@@ -468,7 +468,7 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
     }
     // D-ORDER-ID-SAFE: a bare id becomes a path segment on the venue (`DELETE /v2/orders/<id>`), so one that could leave it
     // (`../positions/X` would be Alpaca's position liquidation) is refused and nothing is sent. Every venue's order ids are
-    // letters, digits, '-' and '_'. Rails interpolates it.
+    // letters, digits, '-' and '_'. 2.x interpolates it.
     if row.is_none() && !(text.len() <= 128 && text.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')) {
         return Ok(Cancel::Done(failure(Domain::ValidationFailed, "invalid_order_id", "order_id must be an exchange order id: letters, digits, '-' and '_'.")));
     }
@@ -476,8 +476,8 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
 }
 
 /// The one bounded cancel a `CancelJob` names, on a connection of its own (no lock held while the venue answers), and its
-/// answer. A refusal is Rails' `cancel_failed` with the venue's errors; no answer at all (a transport failure, the timeout)
-/// is the same failure with the transport's message (D-ORDER-CANCEL-TRANSPORT: Rails raises).
+/// answer. A refusal is 2.x's `cancel_failed` with the venue's errors; no answer at all (a transport failure, the timeout)
+/// is the same failure with the transport's message (D-ORDER-CANCEL-TRANSPORT: 2.x raises).
 pub async fn send_cancel(app: &App, job: CancelJob) -> Result<Res, WebError> {
     use crate::web::bot::cancel::{self as page, Sent};
     page::on_own_connection(app, move |c, app, runtime| {
@@ -512,7 +512,7 @@ pub async fn send_cancel(app: &App, job: CancelJob) -> Result<Res, WebError> {
     }).await
 }
 
-/// D-ORDER-KUCOIN-FOREIGN: an order id with no stored route is sent on KuCoin's classic route, the only one Rails has. On
+/// D-ORDER-KUCOIN-FOREIGN: an order id with no stored route is sent on KuCoin's classic route, the only one 2.x has. On
 /// an HF or UTA account (the key's resolved mode) that route cannot reach the order, so nothing is sent; nor when the mode
 /// cannot be read. None on a classic account and on every other venue.
 fn foreign_refusal<V: crate::venue::Venue>(runtime: &tokio::runtime::Handle, venue: &V, external: &str) -> Option<String> {
@@ -538,13 +538,13 @@ pub fn mcp_text(name: &str, args: &Value, dry_run: bool, res: &Res) -> (String, 
     let d = &res.data;
     let s = |key: &str| crate::web::mcp::tools::str_value(&d[key]);
     // MCP casts a `number` property to a Float, so a whole amount prints as `10.0`.
-    let shown = |key: &str| match &args[key] { Value::Number(n) => crate::ruby::float_to_s(n.as_f64().unwrap_or_default()), v => to_s(v) };
+    let shown = |key: &str| match &args[key] { Value::Number(n) => crate::v2::float_to_s(n.as_f64().unwrap_or_default()), v => to_s(v) };
     if name == "cancel_order" {
         return (if d["id"].is_null() { format!("{prefix}Order {} cancellation submitted on {}.", s("external_id"), s("exchange")) }
             else { format!("{prefix}Order #{} ({} {} on {}) cancellation submitted.", d["id"], s("side").to_uppercase(), s("pair"), s("exchange")) }, false);
     }
     let Some(kind) = Kind::tool(name) else { return ("An unexpected error occurred.".into(), true) };
-    // The upstream answer as Ruby's Hash#inspect writes it (only a dry run's `{order_id: "…"}` reaches here).
+    // The upstream answer as 2.x's Hash#inspect writes it (only a dry run's `{order_id: "…"}` reaches here).
     let upstream = d["upstream"].as_object().map(|m| format!("{{{}}}", m.iter().map(|(k, v)| format!("{k}: {v}")).collect::<Vec<_>>().join(", "))).unwrap_or_default();
     if kind.limit() {
         return (format!("{prefix}Limit {} order placed on {}: {} @ {}. {upstream}", kind.side(), s("exchange"), s("pair"), shown("price")), false);

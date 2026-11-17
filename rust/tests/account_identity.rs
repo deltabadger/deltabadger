@@ -64,7 +64,7 @@ impl Fx {
         identity::record_import(&tx, &self.cipher, self.user, self.exchange(venue), account.map(id).as_ref(), now()).unwrap();
         tx.commit().unwrap();
     }
-    /// The same key material in a fresh envelope: Rails' or Rust's re-save of an unchanged key.
+    /// The same key material in a fresh envelope: 2.x's or Rust's re-save of an unchanged key.
     fn reencrypt(&self, id: i64) {
         let creds = self.credentials(id);
         self.c.execute("UPDATE api_keys SET key = ?1, secret = ?2, passphrase = ?3 WHERE id = ?4",
@@ -119,7 +119,7 @@ fn an_id_less_import_creates_an_unknown_account_and_the_first_identity_fills_it_
 
 #[test]
 fn an_unmigrated_install_records_nothing_and_fails_nothing() {
-    let dir = common::rails_install_unmigrated();
+    let dir = common::v2_install_unmigrated();
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
     identity::record_import(&c, &common::seed::cipher(), 1, 1, Some(&id(A)), now()).unwrap();
     identity::initialize(&c, &common::seed::cipher(), now()).unwrap();
@@ -216,15 +216,15 @@ fn no_raw_account_id_reaches_the_database() {
 /// The actual 2.70.21 recovery (EncryptedCredentials::Reset, as `deltabadger:encryption:reset` runs it, in the published
 /// image: common::v2) on the install Rust made, then Rust's start.
 #[test]
-fn rust_handles_the_reset_rails_actually_makes() {
+fn rust_handles_the_reset_v2_actually_makes() {
     if !common::v2::enabled() { return; }
     let (fx, _) = established();
     drop(fx.c);
     let scratch = tempfile::tempdir().unwrap();
-    let out = common::v2::rails(fx.dir.path(), scratch.path(), "engine-test-secret", &["runner", "EncryptedCredentials::Reset.new.call"]);
+    let out = common::v2::v2(fx.dir.path(), scratch.path(), "engine-test-secret", &["runner", "EncryptedCredentials::Reset.new.call"]);
     assert!(out.status.success(), "2.70.21's reset: {}", String::from_utf8_lossy(&out.stderr));
     let c = Connection::open(fx.dir.path().join("production.sqlite3")).unwrap();
-    assert!(!deltabadger::app_config::exists(&c, identity::KEY_CONFIG).unwrap(), "Rails deleted every app_configs row");
+    assert!(!deltabadger::app_config::exists(&c, identity::KEY_CONFIG).unwrap(), "2.x deleted every app_configs row");
     identity::initialize(&c, &fx.cipher, now()).unwrap();
     let fx = Fx { dir: fx.dir, c, cipher: fx.cipher, user: fx.user };
     assert_eq!(fx.account(KUCOIN), Some(None));

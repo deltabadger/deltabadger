@@ -1,9 +1,9 @@
-//! IBKR's Web API session (slice I1): Clients::Ibkr::Session, ported as Rails runs it. A login (one api key) mints the
+//! IBKR's Web API session (slice I1): Clients::Ibkr::Session, ported as 2.x runs it. A login (one api key) mints the
 //! live session token (LST) by Diffie-Hellman and keeps it 23 h, opens the brokerage session (`ssodh/init`) when its
 //! 4-minute flag has lapsed, and signs every call with the LST (`Wire::Ibkr`, at send time). A 401 or a failed mint
 //! (Session::AuthError) invalidates both and retries once; the second failure stands.
 //!
-//! Rails caches the LST encrypted in Solid Cache, shared by its web and job processes, and serialises a login across them
+//! 2.x caches the LST encrypted in Solid Cache, shared by its web and job processes, and serialises a login across them
 //! with IbkrLock (a SQLite row, 15 s wait). Rust is one process: both live in `LOGINS`, in memory, keyed by api key and
 //! replaced when the key's CredentialVersion changes (a restart costs one re-mint). The `ibkr_locks` table is not used.
 use super::http::{decode_json, HttpRequest, HttpResponse, Transport, TransportError};
@@ -35,9 +35,9 @@ pub const LOCK_WAIT: std::time::Duration = std::time::Duration::from_secs(15);
 
 #[derive(Default)]
 struct State {
-    /// The LST and the moment it expires (Rails' cache entry, `expires_in: LST_TTL`).
+    /// The LST and the moment it expires (2.x's cache entry, `expires_in: LST_TTL`).
     lst: Option<(String, DateTime<Utc>)>,
-    /// Until when the brokerage session counts as open (Rails' `ibkr:bsession` flag).
+    /// Until when the brokerage session counts as open (2.x's `ibkr:bsession` flag).
     brokerage_until: Option<DateTime<Utc>>,
     /// The mint in flight: its DH challenge and prepend, which the LST request's header signs at send time.
     minting: Option<(String, String)>,
@@ -118,7 +118,7 @@ static LOGINS: LazyLock<Mutex<HashMap<i64, Arc<Login>>>> = LazyLock::new(Mutex::
 fn logins() -> MutexGuard<'static, HashMap<i64, Arc<Login>>> { LOGINS.lock().unwrap_or_else(|p| p.into_inner()) }
 
 /// The process-wide login of api key `version.id`: the one in hand while its credentials and realm are unchanged, else a
-/// fresh one (no LST, no brokerage session) replacing it. Rails builds a Session, so reads ibkr_realm, on every call.
+/// fresh one (no LST, no brokerage session) replacing it. 2.x builds a Session, so reads ibkr_realm, on every call.
 pub fn login(version: &CredentialVersion, material: &Material) -> Result<Arc<Login>, oauth::Error> {
     let mut logins = logins();
     if let Some(l) = logins.get(&version.id).filter(|l| l.version == *version && l.material.realm == material.realm) { return Ok(l.clone()) }
@@ -130,7 +130,7 @@ pub fn login(version: &CredentialVersion, material: &Material) -> Result<Arc<Log
 /// The deleted api key's login dropped, its LST with it.
 pub fn forget(api_key_id: i64) { logins().remove(&api_key_id); }
 
-/// The figures' market-data reads (Ibkr plan F1, D-IBKR-FIGURES: Rails' get_tickers_prices and get_candles answer `{}` and
+/// The figures' market-data reads (Ibkr plan F1, D-IBKR-FIGURES: 2.x's get_tickers_prices and get_candles answer `{}` and
 /// `[]`). Their answers' shapes are provisional until a recorded session (G1).
 pub const SNAPSHOT_PATH: &str = "/v1/api/iserver/marketdata/snapshot";
 pub const HISTORY_PATH: &str = "/v1/api/iserver/marketdata/history";
@@ -155,7 +155,7 @@ pub async fn read<T: Transport, C: Clock + ?Sized>(session: &Session<'_, T, C>, 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Last { Price(String), Unsubscribed, Absent }
 
-/// Exchanges::Ibkr#snapshot_field for the figures: `conid`'s own row only (Rails falls back to the first row, which could
+/// Exchanges::Ibkr#snapshot_field for the figures: `conid`'s own row only (2.x falls back to the first row, which could
 /// be another contract's), its field 31 without the `C` (previous close) or `H` (halted) prefix. No row, no field 31 (the
 /// pre-flight answer IBKR gives a first read) or an empty one is Absent; availability `N…` is Unsubscribed.
 pub fn snapshot_last(body: &Value, conid: &str) -> Last {
@@ -176,7 +176,7 @@ pub enum Error {
     Http { status: u16, body: String },
     /// Session::AuthError: the LST answer had no DH response, or the LST failed validation.
     Auth(&'static str),
-    /// The access token secret does not decrypt with the encryption key (Rails raises OpenSSL's error, never retried).
+    /// The access token secret does not decrypt with the encryption key (2.x raises OpenSSL's error, never retried).
     Key(&'static str),
     /// Faraday::ParsingError: a JSON answer that does not parse (never retried).
     Unreadable,
@@ -311,7 +311,7 @@ impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
         let answer = self.request(self.http("POST", LST_PATH, vec![], None)).await;
         self.login.state().minting = None;
         let answer = answer?;
-        let dh_response = answer.get("diffie_hellman_response").and_then(Value::as_str).filter(|s| !crate::ruby::blank(s))
+        let dh_response = answer.get("diffie_hellman_response").and_then(Value::as_str).filter(|s| !crate::v2::blank(s))
             .ok_or(Error::Auth("live_session_token: missing diffie_hellman_response"))?;
         let invalid = Error::Auth("live_session_token failed validation");
         let lst = signer.live_session_token(&dh_random, dh_response, &prepend).ok_or(invalid.clone())?;
@@ -360,7 +360,7 @@ pub(crate) mod tests {
     use crate::engine::FixedClock;
     use crate::venue::http::{HttpResponse, ScriptedTransport};
 
-    /// I0's recorded ffdhe2048 session: the fixed keys, Rails' frozen DH random and the scripted server's answer.
+    /// I0's recorded ffdhe2048 session: the fixed keys, 2.x's frozen DH random and the scripted server's answer.
     fn fixture() -> (Material, Value) {
         let f: Value = serde_json::from_str(include_str!("../../tests/fixtures/ibkr_signing.json")).unwrap();
         let k = &f["keys"];
@@ -413,7 +413,7 @@ pub(crate) mod tests {
         assert_eq!(call(&s).await.unwrap(), json!({ "accounts": ["U1"] }));
         assert_eq!(paths(&t), [MINT, INIT, ACCOUNTS]);
         assert_eq!(t.requests()[1].body, Some(json!({ "publish": true, "compete": true })));
-        assert_eq!(login.state().lst.as_ref().unwrap().0, session["server"]["lst"].as_str().unwrap(), "the LST Rails computes");
+        assert_eq!(login.state().lst.as_ref().unwrap().0, session["server"]["lst"].as_str().unwrap(), "the LST 2.x computes");
 
         // Within 4 minutes: the cached LST and brokerage session, one call.
         let later = at("2026-10-23T10:03:59Z");
@@ -675,7 +675,7 @@ pub(crate) mod tests {
         let sb = Session::new(&t, b, &clock).with_dh_random(|| dh_random.clone());
         let (x, y) = tokio::join!(call(&sa), call(&sb));
         assert!(x.is_ok() && y.is_ok());
-        // Each row keeps its own LST (Rails' `ibkr:lst:<id>`), and the two operations never interleave.
+        // Each row keeps its own LST (2.x's `ibkr:lst:<id>`), and the two operations never interleave.
         assert_eq!(paths(&t.0), [MINT, INIT, ACCOUNTS, MINT, INIT, ACCOUNTS]);
     }
 
@@ -746,7 +746,7 @@ pub(crate) mod tests {
         assert_eq!(sent.url().as_str(), "https://api.ibkr.com/v1/api/portfolio/U1/positions/0?model=x+y");
     }
 
-    // ---- The figures' market-data reads (F1). D-IBKR-FIGURES: Rails reads none, so every expected value here is Rust-only,
+    // ---- The figures' market-data reads (F1). D-IBKR-FIGURES: 2.x reads none, so every expected value here is Rust-only,
     // and the answers are provisional shapes (`source: "provisional"`) until G1 records a session.
 
     fn snapshot_request() -> HttpRequest {
@@ -783,7 +783,7 @@ pub(crate) mod tests {
 
     #[test]
     fn a_snapshot_names_its_conids_last_price_or_why_it_has_none() {
-        // Rust-only (D-IBKR-FIGURES): Rails' snapshot_field reads field 31 of the conid's row; the rest is this reading.
+        // Rust-only (D-IBKR-FIGURES): 2.x's snapshot_field reads field 31 of the conid's row; the rest is this reading.
         let last = |rows: Value| snapshot_last(&rows, "265598");
         assert_eq!(last(json!([{ "conid": 265598, "31": "190.50", "6509": "RpB" }])), Last::Price("190.50".into()));
         assert_eq!(last(json!([{ "conid": "265598", "31": "C189.10" }])), Last::Price("189.10".into()), "previous close");

@@ -1,10 +1,10 @@
 //! Candles as the conditions read them (Exchange#get_indicator_candles, `Venue::candles`), and Exchange::CandleBuilder,
 //! which builds the timeframes a venue has no interval for (Kraken's 3 days, 1 week and 1 month) from smaller ones.
 //! Keyed by ticker and venue only: nothing here knows the bot.
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
 
-/// The timeframes Rails asks candles for (TechnicallyAnalyzable): its ActiveSupport durations.
+/// The timeframes 2.x asks candles for (TechnicallyAnalyzable): its ActiveSupport durations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Timeframe { Minute, FiveMinutes, FifteenMinutes, ThirtyMinutes, Hour, FourHours, Day, ThreeDays, Week, Month }
 
@@ -27,16 +27,16 @@ impl Timeframe {
 }
 
 /// The most pages one candle read walks (Exchange::MAX_CANDLE_PAGES). DIVERGES (D-COND-CANDLE-CAP): Binance's and
-/// Alpaca's Rails walks have no cap; past it the read is a settled failure, never an endless walk.
+/// Alpaca's 2.x walks have no cap; past it the read is a settled failure, never an endless walk.
 pub const MAX_CANDLE_PAGES: usize = 1000;
 
 /// One candle from the venue's open, high, low, close and volume, each `to_d`. DIVERGES (D-COND-CANDLE-UNREADABLE): a
-/// price that is absent, null or no finite decimal is unreadable (`None`), where Rails' `to_d` reads it as 0.0; a zero
-/// high or low would move an all-time high or a low. An absent or null volume is Rails' 0.0 (conditions never read it).
+/// price that is absent, null or no finite decimal is unreadable (`None`), where 2.x's `to_d` reads it as 0.0; a zero
+/// high or low would move an all-time high or a low. An absent or null volume is 2.x's 0.0 (conditions never read it).
 pub fn read(at: DateTime<Utc>, prices: [&serde_json::Value; 4], volume: &serde_json::Value) -> Option<Candle> {
-    let price = |v: &serde_json::Value| crate::ruby::json_to_d(v).ok().flatten();
+    let price = |v: &serde_json::Value| crate::v2::json_to_d(v).ok().flatten();
     let [open, high, low, close] = prices.map(price);
-    Some(Candle { at, open: open?, high: high?, low: low?, close: close?, volume: crate::ruby::json_to_d(volume).ok()?.unwrap_or_else(BigDec::zero) })
+    Some(Candle { at, open: open?, high: high?, low: low?, close: close?, volume: crate::v2::json_to_d(volume).ok()?.unwrap_or_else(BigDec::zero) })
 }
 
 /// `candles::read` over a row's open, high, low, close and volume, by index (an array row) or by key (an object row).

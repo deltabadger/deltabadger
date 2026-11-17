@@ -50,7 +50,7 @@ fn emt_groups(rows: &[Entry]) -> Vec<(Vec<usize>, Vec<usize>)> {
 }
 
 /// D-TAX-IT-SWAPS: in an exchange with an e-money token every coin received is valued at its own price (the enrichment,
-/// Rails' reading, values a coin received beside a stablecoin given at the stablecoin, and leaves a coin received beside
+/// 2.x's reading, values a coin received beside a stablecoin given at the stablecoin, and leaves a coin received beside
 /// a stablecoin received unvalued), so `value_groups` can give the coins given the value received.
 pub(super) fn value_received(rows: &mut [Entry], stored: &[Stored], ps: &mut PriceService, currency: &str) -> Result<(), FiguresError> {
     for (ins, _) in emt_groups(rows) {
@@ -77,7 +77,7 @@ pub(super) fn emt_groups_as_trades(rows: &mut [Entry]) {
 /// D-TAX-IT-EMT-RATE: whether a disposal (or staking) of `asset` on `day` is in the 26% bucket of 2026 on.
 fn euro_emt(day: NaiveDate, asset: &str) -> bool { day.year() >= RATE_33_FROM && asset == EURO_EMT }
 
-/// The `tax_rate` column: Rails' rate by the local date, and 26% for EURC from 2026.
+/// The `tax_rate` column: 2.x's rate by the local date, and 26% for EURC from 2026.
 pub(super) fn rate((before, after, (y, m, d)): (&'static str, &'static str, (i32, u32, u32)), day: NaiveDate, asset: &str) -> &'static str {
     if day < super::jurisdictions::ymd((y, m, d)) || euro_emt(day, asset) { before } else { after }
 }

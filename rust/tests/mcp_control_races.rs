@@ -267,7 +267,7 @@ mod action_race {
     async fn delete_during_price()->Result {price_race(false,false,false,"/delete").await}
 
     /// 2.70.21's own Continue decisions on a Rust-built install (common::v2::continue_start).
-    async fn rails_continue() -> Result<Value> {
+    async fn v2_continue() -> Result<Value> {
         tokio::task::spawn_blocking(common::v2::continue_start).await?.map_err(Into::into)
     }
 
@@ -276,7 +276,7 @@ mod action_race {
         let f=Fixture::new().await?;
         f.c.execute("UPDATE bots SET settings=json_set(settings,'$.allocations',json(?1)) WHERE id=?2",(json!({f.seed.btc.to_string():1.0}).to_string(),f.id))?;
         f.c.execute("DELETE FROM bot_index_assets WHERE bot_id=?1",[f.id])?;
-        let vectors=rails_continue().await?;
+        let vectors=v2_continue().await?;
         let row=vectors.as_array().ok_or("continue vectors")?.iter().find(|v|v["name"]==name).ok_or("continue case")?;
         assert_eq!(row["decision"],if waits {"checkpoint"} else {"now"});
         assert_eq!(row["within"],json!(waits));
@@ -307,7 +307,7 @@ mod action_race {
             f.clock.set(harness::at("2026-09-04T10:00:00.000001Z"));
             run::step(&mut engine,&*f.clock).await.map_err(|e|format!("{e:?}"))?;
         }
-        assert_eq!(script.submissions.borrow().len(),1,"Rails recorded {name}: {}; real scheduler at {}: transient={}",row["decision"],f.clock.now(),f.transient()?);
+        assert_eq!(script.submissions.borrow().len(),1,"2.x recorded {name}: {}; real scheduler at {}: transient={}",row["decision"],f.clock.now(),f.transient()?);
         assert_eq!(script.submissions.borrow().first().ok_or("submission")?.0,f.clock.now());
         assert_eq!(f.one::<String>("SELECT started_at FROM bots WHERE id=?1")?,ANCHOR);
         Ok(())
@@ -333,7 +333,7 @@ mod action_race {
         f.woke(false).await
     }
 
-    /// MCP paper trading off: a bot on a live Alpaca key starts, as in Rails (the key's mode only picks Alpaca's host).
+    /// MCP paper trading off: a bot on a live Alpaca key starts, as in 2.x (the key's mode only picks Alpaca's host).
     #[tokio::test(flavor="current_thread")]
     async fn start_accepts_a_live_key()->Result {
         let f=Fixture::new().await?;

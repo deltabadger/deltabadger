@@ -1,6 +1,6 @@
 //! The scope frames and the tracker's Holdings tab (3.0, Rust only; plan 2026-10-23 tracker tabs and scope frames):
 //! what a frame load answers, what a full page carries, and the record's three panes. The grids compare the rest with
-//! Rails through the listed transform (support/tabs_3_0.rs).
+//! 2.x through the listed transform (support/tabs_3_0.rs).
 mod common;
 #[path = "support/tracker_fx.rs"]
 mod fx;

@@ -204,7 +204,7 @@ pub fn unavailable(id:i64)->String {
 #[cfg(test)]
 mod rounding_tests {
     use super::*;
-    /// As Rails' Denomination#format writes them (probed with the unchanged app): an amount that rounds to nothing
+    /// As 2.x's Denomination#format writes them (probed with the unchanged app): an amount that rounds to nothing
     /// carries no minus.
     #[test]
     fn an_amount_rounding_to_nothing_has_no_minus() {

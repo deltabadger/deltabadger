@@ -1,12 +1,12 @@
-//! MarketData's import half (app/models/market_data.rb:233-338, :815-930) for the reference-data jobs: what a payload row
+//! MarketData's import half for the reference-data jobs: what a payload row
 //! becomes in `assets`, `tickers`, `exchange_assets` and `indices`. Values are cast as ActiveRecord casts them before
-//! upsert_all serializes them (activerecord 8.1 insert_all.rb:247). Decimals are bound as decimal text, which SQLite's
-//! NUMERIC affinity stores exactly as it stores Rails' quoted BigDecimal.
+//! upsert_all serializes them (activerecord 8.1's InsertAll). Decimals are bound as decimal text, which SQLite's
+//! NUMERIC affinity stores exactly as it stores 2.x's quoted BigDecimal.
 //!
-//! upsert_all on SQLite (sqlite3_adapter.rb:481-498) is `INSERT … ON CONFLICT (<unique_by>) DO UPDATE SET c = excluded.c` for
+//! upsert_all on SQLite is `INSERT … ON CONFLICT (<unique_by>) DO UPDATE SET c = excluded.c` for
 //! every given column but the conflict target. The timestamps are given, so they are plain columns: an update overwrites
-//! created_at too, and no CASE keeps updated_at (insert_all.rb:57-58, :280-305). A payload with a conflict key twice is
-//! applied in order, the last row winning, as Rails 8.1.4 on SQLite does: rows are upserted one by one, in order.
+//! created_at too, and no CASE keeps updated_at. A payload with a conflict key twice is
+//! applied in order, the last row winning, as 2.x 8.1.4 on SQLite does: rows are upserted one by one, in order.
 //!
 //! Every import is computed first, off the write lock: the casts, the ticker reconcile and the final value of every row it
 //! touches (a failure there writes nothing). Then it is published in phases, each a sequence of units (`publish`): one
@@ -21,7 +21,7 @@
 use super::{Db, CHUNK};
 use crate::codec::format_time;
 use crate::crypto::Cipher;
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 use chrono::{DateTime, Utc};
 use rusqlite::types::Value as Sql;
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension, Transaction, TransactionBehavior};
@@ -52,7 +52,7 @@ pub fn holds(path: &str) -> BTreeMap<&'static str, Duration> {
     HOLDS.lock().unwrap_or_else(PoisonError::into_inner).iter().filter(|((p, _), _)| p == path).map(|((_, phase), d)| (*phase, *d)).collect()
 }
 
-/// Ruby truthiness: only nil and false are falsy (`||`, `&&`, `if`).
+/// 2.x truthiness: only nil and false are falsy (`||`, `&&`, `if`).
 pub fn truthy(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) }
 
 /// `present?`.
@@ -109,7 +109,7 @@ pub fn in_transaction<X>(c: &Connection, cipher: &Cipher, phase: &'static str, f
         let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate).map_err(sql)?;
         let (x, touched) = f(&tx)?;
         if touched.relevant(&tx)? {
-            // `before`: a second connection reads the committed state (WAL: Rails' journal mode), which this write transaction
+            // `before`: a second connection reads the committed state (WAL: 2.x's journal mode), which this write transaction
             // started from. ponytail: it binds the cipher only, so an index bot's provider reasons there read the process
             // environment, where a mismatch errs toward refusing a harmless write.
             let before = || {
@@ -207,7 +207,7 @@ pub(crate) fn integer(v: &Value) -> Option<i64> {
 
 /// String#to_d's reading: after leading whitespace, the longest prefix of sign, digits, `.` digits and an exponent
 /// (e, E, d or D), an underscore counting only between two digits; "0" when no digit leads. ponytail: "Infinity" and
-/// "NaN", which Ruby reads as such, read as 0 here; data-api sends neither.
+/// "NaN", which 2.x reads as such, read as 0 here; data-api sends neither.
 fn numeric_prefix(s: &str) -> String {
     let b = s.trim_start_matches([' ', '\t', '\n', '\x0b', '\x0c', '\r']).as_bytes();
     let mut i = 0;
@@ -256,7 +256,7 @@ pub(crate) fn decimal(v: &Value) -> R<Option<String>> {
 fn supply(v: &Value) -> R<Option<String>> {
     if let Value::Number(n) = v {
         if !(n.is_i64() || n.is_u64()) {
-            let d = BigDec::parse(&crate::ruby::float_e(n.as_f64().unwrap_or(0.0))).map_err(|e| format!("{e:?}"))?;
+            let d = BigDec::parse(&crate::v2::float_e(n.as_f64().unwrap_or(0.0))).map_err(|e| format!("{e:?}"))?;
             return Ok(Some(d.round(8).round_sig(16).round(8).to_s_f()));
         }
     }
@@ -299,7 +299,7 @@ pub fn plan_assets(rows: &[Value], public_url: &str) -> R<AssetsPlan> {
 }
 
 /// Publishes an assets plan: the upserts, then the payload's instrument types, then the local tokenized registry
-/// (Asset.mark_tokenized!, app/models/asset.rb:25-39), each phase in units of CHUNK. Callers return early on a blank
+/// (Asset.mark_tokenized!), each phase in units of CHUNK. Callers return early on a blank
 /// payload, as `return if assets_data.blank?` does.
 pub async fn import_assets(db: &Db, plan: AssetsPlan, now: DateTime<Utc>) -> R<()> {
     let t = format_time(now);
@@ -332,10 +332,10 @@ fn upsert_assets(c: &Connection, rows: Vec<Vec<Sql>>, t: &str) -> R<Touched> {
     Ok(Touched::Assets(ids))
 }
 
-/// Asset#sync_data_with_coingecko's `update!` columns (asset.rb:157-165) from one CoinGecko coin (a `coins/markets` row
+/// Asset#sync_data_with_coingecko's `update!` columns from one CoinGecko coin (a `coins/markets` row
 /// or a `coins/{id}` answer), cast as the attributes cast them: symbol (upcased), name, url, image_url, market_cap_rank,
 /// market_cap, circulating_supply. None when `dig_or_raise` would raise (symbol or name nil, or a symbol that is not a
-/// String, whose `upcase` raises): D-CG-ASSET-ROW-SKIPS skips that coin; Rails aborts the job there.
+/// String, whose `upcase` raises): D-CG-ASSET-ROW-SKIPS skips that coin; 2.x aborts the job there.
 pub fn coingecko_columns(external_id: &str, d: &Value) -> R<Option<Vec<Sql>>> {
     let (Value::String(symbol), name) = (&d["symbol"], &d["name"]) else { return Ok(None) };
     if name.is_null() { return Ok(None); }
@@ -357,7 +357,7 @@ pub fn coingecko_columns(external_id: &str, d: &Value) -> R<Option<Vec<Sql>>> {
 /// Publishes CoinGecko asset refreshes `(asset id, coingecko_columns)` in units of CHUNK. `update!` writes, and moves
 /// updated_at, only on a row whose cast values changed: the UPDATE's guard compares each column with `IS` (the decimal
 /// columns compare numerically under their NUMERIC affinity). Once each unit commits, `images_changed` is told the
-/// assets whose image_url that unit changed (market_data.rb:86 enqueues Asset::InferColorFromImageJob for each), on the
+/// assets whose image_url that unit changed (2.x enqueues Asset::InferColorFromImageJob for each), on the
 /// blocking pool right after the commit: neither a later unit's failure nor a run dropped at its deadline (its committed
 /// unit outlives it) loses them.
 pub async fn refresh_assets<W: Fn(Vec<i64>) + Clone + Send + 'static>(db: &Db, rows: Vec<(i64, Vec<Sql>)>, now: DateTime<Utc>, images_changed: W) -> R<()> {
@@ -420,7 +420,7 @@ fn returning_assets(c: &Connection, statement: &str, params: impl rusqlite::Para
     Ok(Touched::Assets(ids))
 }
 
-/// Asset.mark_tokenized! (app/models/asset.rb:25-39), the wrapper registry, update_all (updated_at stays): the rows to
+/// Asset.mark_tokenized!, the wrapper registry, update_all (updated_at stays): the rows to
 /// mark are read first, then marked in units of CHUNK.
 pub async fn mark_tokenized(db: &Db) -> R<()> {
     let ids = db.run(|c, _| untokenized(c)).await?;
@@ -434,7 +434,7 @@ pub fn write_tokenized(c: &Connection) -> R<()> {
 }
 
 /// The registry's rows not yet marked. D-TOK-XSTOCKS (plan A15): also `%-xstocks`, the catalogue's SpaceX xStock
-/// (`spacex-xstocks`, listed on Kraken, Bybit and MEXC), which Rails' `%-xstock` misses, so its tax refusal never fired.
+/// (`spacex-xstocks`, listed on Kraken, Bybit and MEXC), which 2.x's `%-xstock` misses, so its tax refusal never fired.
 fn untokenized(c: &Connection) -> R<Vec<i64>> {
     let mut s = c.prepare("SELECT id FROM assets WHERE (external_id IN ('pax-gold', 'tether-gold') OR external_id LIKE '%-xstock' OR external_id LIKE '%-xstocks' \
                            OR external_id LIKE '%-ondo-tokenized%' OR external_id LIKE '%-bstocks') \
@@ -475,7 +475,7 @@ pub async fn import_stock_assets(db: &Db, rows: Vec<Vec<Sql>>, now: DateTime<Utc
     }).await
 }
 
-/// Fiat.currencies' USD colour (app/models/fiat.rb:28-34).
+/// Fiat.currencies' USD colour.
 const USD_COLOR: &str = "#355E3B";
 
 /// The local `usd` row both Alpaca syncs anchor every quote to. `reassign`: the stock sync assigns symbol,
@@ -544,7 +544,7 @@ pub struct TickerRecord {
 
 /// `BigDecimal(x)` for a present value (:917-920), which raises on garbage (the sync then fails); else the default.
 /// An Integer and a String are exact. A Float goes through `BigDec::from_f64`, Float#to_d's 16 significant digits, as
-/// Ruby's `BigDecimal(float)` does: `BigDecimal(1.0000000000000002)` is `1.0`.
+/// 2.x's `BigDecimal(float)` does: `BigDecimal(1.0000000000000002)` is `1.0`.
 fn size(v: &Value, default: Option<&str>) -> R<Option<String>> {
     if !present(v) { return Ok(default.map(String::from)); }
     match v {
@@ -608,7 +608,7 @@ struct Held { asset_class: String, id: i64, pair: (i64, i64), ticker: String, ba
 pub enum TickerWrite {
     /// upsert_ticker_attributes (:909-930) on the pair, every column at once: names, every trading parameter, available,
     /// trading_enabled and the stamps. `existing`: the pair's row (updated in place); else a new row under `id`, the id
-    /// Rails' upsert_all gives it (one sequence value per payload row, conflicting or not).
+    /// 2.x's upsert_all gives it (one sequence value per payload row, conflicting or not).
     Upsert { existing: Option<i64>, id: i64, record: Box<TickerRecord> },
     /// reconcile_ticker_conflicts!' first pass (:823-869) for a row whose pair the payload does not carry: it gives up the
     /// names another pair needs, tombstoned in both namespaces, and becomes unavailable. Tickers are never deleted.
@@ -617,7 +617,7 @@ pub enum TickerWrite {
 
 /// One unit: `moving` are the rows of this unit whose names change; they first take a placeholder name, so that the
 /// unit's rows may take each other's names in any order. All inside one transaction: no reader sees a placeholder.
-/// `sequence`: in the last unit, the tickers sequence as Rails' upsert_all leaves it.
+/// `sequence`: in the last unit, the tickers sequence as 2.x's upsert_all leaves it.
 pub struct TickerUnit { pub moving: Vec<i64>, pub writes: Vec<TickerWrite>, pub sequence: Option<i64> }
 
 /// MarketData.import_tickers! (:316-338), computed against the venue's current rows.
@@ -626,7 +626,7 @@ pub struct TickerPlan {
     pub exchange_assets: Vec<i64>,
     pub units: Vec<TickerUnit>,
     /// The availability sweep (:563-567, :661-664): the venue's tickers of the category that this import does not write.
-    /// Empty when nothing is written, as Rails sweeps only `if written_base_asset_ids.any?`.
+    /// Empty when nothing is written, as 2.x sweeps only `if written_base_asset_ids.any?`.
     pub sweep: Vec<i64>,
     /// The written base_asset_ids, first-seen order (import_tickers!' return value).
     pub written: Vec<i64>,
@@ -640,8 +640,8 @@ fn find(parent: &mut [usize], i: usize) -> usize {
     r
 }
 
-/// Computes an import of `rows` on `exchange_id` (reads only). The final value of every row is Rails' end state:
-/// - pass 1 of reconcile_ticker_conflicts! on in-memory copies, as Rails edits its in-memory objects (a row met twice is
+/// Computes an import of `rows` on `exchange_id` (reads only). The final value of every row is 2.x's end state:
+/// - pass 1 of reconcile_ticker_conflicts! on in-memory copies, as 2.x edits its in-memory objects (a row met twice is
 ///   tombstoned once): a row of another pair that holds the [exchange, ticker] or [exchange, base, quote] slot a record
 ///   needs is tombstoned;
 /// - pass 2 (aligning a kept row of the same pair onto the record's names) and the upsert both end in the record's values,
@@ -650,7 +650,7 @@ fn find(parent: &mut [usize], i: usize) -> usize {
 /// Units: a record and the rows whose current names it takes form a rename group (union-find over those
 /// dependencies only: a chain or a cycle of colliding names, wherever its rows sit in the payload). A group is never split
 /// across units; groups are packed in payload order into units of at most CHUNK rows. A group larger than CHUNK fails the
-/// import here, before anything is written. New rows get the ids Rails gives them whatever unit carries them: Rails'
+/// import here, before anything is written. New rows get the ids 2.x gives them whatever unit carries them: 2.x's
 /// upsert_all takes one sequence value per payload row, in order (a conflicting row too), so record `k`'s new row is
 /// `base + k + 1`, and the last unit leaves the sequence at `base + records`.
 pub fn plan_tickers(c: &Connection, exchange_id: i64, rows: &[Value], sweep_category: Option<&str>) -> R<TickerPlan> {
@@ -843,7 +843,7 @@ fn ticker_unit(c: &Connection, exchange_id: i64, unit: TickerUnit, t: &str) -> R
         }
     }
     if let Some(seq) = unit.sequence {
-        // As Rails' upsert_all leaves it: one value per payload row (an explicit id moves it only to that id).
+        // As 2.x's upsert_all leaves it: one value per payload row (an explicit id moves it only to that id).
         if c.execute("UPDATE sqlite_sequence SET seq = max(seq, ?1) WHERE name = 'tickers'", [seq]).map_err(sql)? == 0 {
             c.execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('tickers', ?1)", [seq]).map_err(sql)?;
         }
@@ -858,7 +858,7 @@ fn sweep(c: &Connection, ids: Vec<i64>) -> R<Touched> {
     Ok(Touched::Tickers(ids))
 }
 
-/// Index::WEIGHTED_CATEGORIES (app/models/index.rb:20-33).
+/// Index::WEIGHTED_CATEGORIES.
 pub(crate) const WEIGHTED_CATEGORIES: [(&str, i64); 12] = [
     ("layer-1", 12), ("layer-2", 11), ("meme-token", 10), ("privacy-coins", 9), ("yield-farming", 8), ("runes", 7),
     ("decentralized-finance-defi", 6), ("artificial-intelligence", 5), ("gaming", 4), ("real-world-assets-rwa", 3), ("ai-agents", 2),

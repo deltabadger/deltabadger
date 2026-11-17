@@ -2,7 +2,7 @@
 //! holding. Pinned by the "bot_pages" vectors.
 use super::colors;
 use super::format::{float_round, float_to_s};
-use crate::ruby::BigDec;
+use crate::v2::BigDec;
 
 const CIRCUMFERENCE: f64 = 2.0 * std::f64::consts::PI * 9.0; // ICON_RADIUS
 const MIN_SPAN: f64 = 2.0 + 2.0; // ICON_GAP + ICON_STROKE
@@ -15,7 +15,7 @@ pub struct Arc {
 
 /// TrackerHelper#ring_slices: positive values, largest first; everything under 2 % is gathered
 /// into one neutral slice, last, unless it is a single holding.
-/// ponytail: Ruby's sort_by is not stable, so two holdings worth exactly the same may swap places
+/// ponytail: 2.x's sort_by is not stable, so two holdings worth exactly the same may swap places
 /// there; here they keep the order the query gave them.
 fn slices(mut values: Vec<(BigDec, Option<String>)>) -> Vec<(BigDec, Option<String>)> {
     values.retain(|(value, _)| value.is_positive());
@@ -33,7 +33,7 @@ fn slices(mut values: Vec<(BigDec, Option<String>)>) -> Vec<(BigDec, Option<Stri
 
 /// `icon_arcs`: the slices placed largest first, each at least a dot wide, until the ring is full
 /// (TrackerHelper#ring_places), then walked clockwise from twelve o'clock (#dashed_ring). `None`
-/// where Rails raises on a colour it cannot read.
+/// where 2.x raises on a colour it cannot read.
 pub fn icon_arcs(values: Vec<(BigDec, Option<String>)>) -> Option<Vec<Arc>> {
     let slices = slices(values);
     let total = slices.iter().fold(BigDec::zero(), |sum, (value, _)| &sum + value);

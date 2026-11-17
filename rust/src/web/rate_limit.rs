@@ -1,4 +1,4 @@
-//! config/initializers/rack_attack.rb for the pages this crate serves: per-address limits in fixed
+//! 2.x's rack-attack rules for the pages this crate serves: per-address limits in fixed
 //! 60-second windows aligned to the clock, kept in memory, and rack-attack's plain-text 429.
 use super::Config;
 use axum::body::Body;
@@ -10,10 +10,10 @@ use std::sync::{Mutex, PoisonError};
 
 const PERIOD: i64 = 60;
 
-/// (rule name, route path, requests allowed per window). POST only, as in rack_attack.rb.
+/// (rule name, route path, requests allowed per window). POST only, as in 2.x.
 pub const RULES: [(&str, &str, u32); 2] = [("users/login", "/login", 10), ("users/verify_two_factor", "/verify_two_factor", 5)];
 
-/// rack_attack.rb's three OAuth rules: (rule name, method, route path, requests allowed per window).
+/// 2.x's three rack-attack OAuth rules: (rule name, method, route path, requests allowed per window).
 /// Each is pinned by a `throttle_` scenario of tests/oauth.rs.
 pub const OAUTH_RULES: [(&str, &str, &str, u32); 3] =
     [("oauth/register", "POST", "/oauth/register", 5), ("oauth/token", "POST", "/oauth/token", 20), ("oauth/authorize", "GET", "/oauth/authorize", 10)];
@@ -114,7 +114,7 @@ fn entries(header: Option<&str>) -> impl DoubleEndedIterator<Item = &str> {
 
 /// The address in one entry. In X-Forwarded-For (`authority`) Rack accepts what a proxy may write
 /// for its peer: `ip`, `ip:port`, `[v6]`, `[v6]:port`, and a bare IPv6 address
-/// (Rack::Request::Helpers#forwarded_for: wrap_ipv6, then split_authority). In Client-Ip Rails
+/// (Rack::Request::Helpers#forwarded_for: wrap_ipv6, then split_authority). In Client-Ip 2.x
 /// accepts an address only. An IPv4-mapped IPv6 address is the IPv4 address it carries.
 fn address(entry: &str, authority: bool) -> Option<IpAddr> {
     let port = |text: &str| !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit());
@@ -133,9 +133,9 @@ fn address(entry: &str, authority: bool) -> Option<IpAddr> {
 /// X-Forwarded-For right to left, then Client-Ip right to left, for as long as each hop is a trusted
 /// proxy; the first address that is not one is the client. When every hop is a trusted proxy the
 /// furthest one is taken. This is ActionDispatch::RemoteIp#calculate_ip (spoofing check off, as
-/// config/application.rb sets it) with two changes, both where Rails can be told an address:
-/// - Rails' rack-attack now also ignores headers from an untrusted peer (#499); such a peer is the client;
-/// - Rails drops an entry it cannot read and goes on to the one before it, which only the caller
+/// 2.x sets it) with two changes, both where 2.x can be told an address:
+/// - 2.x's rack-attack now also ignores headers from an untrusted peer (#499); such a peer is the client;
+/// - 2.x drops an entry it cannot read and goes on to the one before it, which only the caller
 ///   wrote. Here the walk ends at an entry it cannot read, and the answer is the last trusted hop.
 ///
 /// Rack's `Forwarded` header is not read.

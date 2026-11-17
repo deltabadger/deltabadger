@@ -1,6 +1,6 @@
-//! The web UI: server-rendered pages that match the Rails app's, for the compiled
-//! JavaScript and CSS the Rails app ships. Rails is the oracle: tests/pages.rs renders every page in
-//! both and compares.
+//! The web UI: server-rendered pages that match the 2.x app's, for the compiled
+//! JavaScript and CSS the 2.x app ships. 2.x is the oracle: tests/pages.rs holds every page to
+//! 2.x's.
 //!
 //! A request passes through `entry` (static files, form parsing, method override, locale prefix),
 //! then the routes, wrapped by `pipeline` (session, rate limits, who is signed in, CSRF, response headers).
@@ -87,7 +87,7 @@ impl From<EngineError> for WebError { fn from(e: EngineError) -> Self { Self::En
 impl From<rusqlite::Error> for WebError { fn from(e: rusqlite::Error) -> Self { Self::Engine(EngineError::Sqlite(e)) } }
 impl From<askama::Error> for WebError { fn from(e: askama::Error) -> Self { Self::Template(e) } }
 
-/// The body of a 500 response: public/500.html, as Rails answers an exception in production.
+/// The body of a 500 response: public/500.html, as 2.x answers an exception in production.
 fn error_page() -> &'static [u8] {
     assets::find("/500.html").map_or(&b"Internal Server Error"[..], |file| file.body)
 }
@@ -106,7 +106,7 @@ impl IntoResponse for WebError {
     }
 }
 
-/// config/application.rb `env_boolean`: the spellings an operator may have written; anything else is no answer.
+/// 2.x's `env_boolean`: the spellings an operator may have written; anything else is no answer.
 pub(crate) fn env_boolean(value: Option<String>) -> Option<bool> {
     match value?.trim().to_ascii_lowercase().as_str() {
         "1" | "t" | "true" | "y" | "yes" | "on" => Some(true),
@@ -192,8 +192,8 @@ pub struct Config {
     pub market_data_url: bool,
     /// MARKET_DATA_URL, MARKET_DATA_TOKEN and COINGECKO_API_KEY as the process started with them (market_data::decide).
     pub market_data_env: crate::market_data::Env,
-    /// production.rb's `config.hosts`: the hosts a request may name, from ALLOWED_HOSTS. Empty when
-    /// that is not set, and then every host is served, as in Rails (`config.hosts.clear`).
+    /// 2.x's `config.hosts`: the hosts a request may name, from ALLOWED_HOSTS. Empty when
+    /// that is not set, and then every host is served, as in 2.x (`config.hosts.clear`).
     pub allowed_hosts: Vec<String>,
     /// SETUP_TOKEN as the environment has it: `None` when the variable is absent (setup is open), the value,
     /// blank included, when it is present (setup opens only for that value, and never for a blank one).
@@ -202,11 +202,11 @@ pub struct Config {
     pub claim_token: Option<String>,
     /// LAUNCHPAD_URL, else https://deltabadger.com: where claims are redeemed.
     pub launchpad_url: String,
-    /// `AppPaths.tmp`: APP_TMP_DIR, else the install's `tmp` (Rails.root/tmp; this process runs from Rails.root).
+    /// `AppPaths.tmp`: APP_TMP_DIR, else the install's `tmp` (2.x's app root's `tmp`; this process runs from that root).
     pub tmp_dir: std::path::PathBuf,
 }
 
-/// `config.hosts` as config/environments/production.rb builds it: nothing when ALLOWED_HOSTS is
+/// `config.hosts` as 2.x builds it: nothing when ALLOWED_HOSTS is
 /// blank; else its comma-separated entries, each stripped (String#split drops empty entries at the
 /// end, and keeps one in the middle), and then `localhost` and `127.0.0.1`.
 pub fn allowed_hosts(value: Option<&str>) -> Vec<String> {
@@ -222,7 +222,7 @@ pub fn allowed_hosts(value: Option<&str>) -> Vec<String> {
 /// ActionDispatch::HostAuthorization::Permissions#allows? for one entry that is a string, which is
 /// all ALLOWED_HOSTS can give: the host is the entry, in any case, and may add a port unless the
 /// entry names its own; an entry that starts with a dot also takes one label in front of it.
-/// (Rails builds `/\A<entry>(?::\d+)?\z/i`. The same is decided here without a pattern.)
+/// (2.x builds `/\A<entry>(?::\d+)?\z/i`. The same is decided here without a pattern.)
 pub fn host_allowed(entry: &str, host: &str) -> bool {
     let port = |text: &str| text.rsplit_once(':').filter(|(_, digits)| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())).map(|(before, _)| before.len());
     let host = if port(entry).is_some() { host } else { port(host).map_or(host, |length| &host[..length]) };
@@ -237,7 +237,7 @@ pub fn host_allowed(entry: &str, host: &str) -> bool {
         && host[..length].bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-'))
 }
 
-/// The last entry of `X-Forwarded-Host`, as Rails takes it (`split(/,\s?/).last`: one space after a
+/// The last entry of `X-Forwarded-Host`, as 2.x takes it (`split(/,\s?/).last`: one space after a
 /// comma belongs to the comma, and empty entries at the end are dropped). `None` without the header
 /// or with a blank one; `Some(None)` when it names nothing.
 fn last_forwarded_host(headers: &HeaderMap) -> Option<Option<String>> {
@@ -271,15 +271,15 @@ impl Config {
         })
     }
 
-    /// The scheme of a request as the Rails app sees it in production (pinned by the `base_url`
+    /// The scheme of a request as the 2.x app sees it in production (pinned by the `base_url`
     /// vectors of tests/web.rs), from first to last:
-    /// - https when SSL is forced: ActionDispatch::AssumeSSL, which production.rb turns on with force_ssl;
+    /// - https when SSL is forced: ActionDispatch::AssumeSSL, which 2.x turns on with force_ssl;
     /// - Rack::Request#scheme: `X-Forwarded-Ssl: on`, then the last `proto` of `Forwarded`, then the
     ///   last entry of `X-Forwarded-Proto`, then of `X-Forwarded-Scheme`, that names an allowed scheme;
     /// - Puma's `rack.url_scheme`: https when `X-Forwarded-Proto` begins with it or
     ///   `X-Forwarded-Scheme` is it, else http.
     ///
-    /// Rails believes these headers from any peer, and so does this: they decide which `Origin` a
+    /// 2.x believes these headers from any peer, and so does this: they decide which `Origin` a
     /// form may come from, and a page on another site can set neither them nor its own `Origin`.
     pub fn request_scheme(&self, headers: &HeaderMap) -> &'static str {
         if self.force_ssl || joined(headers, "x-forwarded-ssl").as_deref() == Some("on") {
@@ -293,7 +293,7 @@ impl Config {
             .unwrap_or(if proto.is_some_and(|value| value.starts_with("https")) || scheme.as_deref() == Some("https") { "https" } else { "http" })
     }
 
-    /// The origin a request was made to: Rails' `request.base_url`. The scheme is `request_scheme`;
+    /// The origin a request was made to: 2.x's `request.base_url`. The scheme is `request_scheme`;
     /// the host is the last entry of `X-Forwarded-Host` when a proxy sent one, else the `Host` header
     /// (ActionDispatch::Http::URL#raw_host_with_port).
     pub fn request_origin(&self, headers: &HeaderMap) -> Option<String> {
@@ -305,9 +305,9 @@ impl Config {
         Some(canonical_origin(self.request_scheme(headers), host))
     }
 
-    /// ActionDispatch::HostAuthorization, the first middleware of the Rails app when ALLOWED_HOSTS is
+    /// ActionDispatch::HostAuthorization, the first middleware of the 2.x app when ALLOWED_HOSTS is
     /// set: the hosts of this request that are not allowed, which are its `Host` and the last entry
-    /// of its `X-Forwarded-Host`. Both are checked because Rails builds URLs from the second when it
+    /// of its `X-Forwarded-Host`. Both are checked because 2.x builds URLs from the second when it
     /// is there. A request with any is answered by `blocked_host` and reaches nothing else.
     pub fn blocked_hosts(&self, headers: &HeaderMap) -> Vec<String> {
         if self.allowed_hosts.is_empty() {
@@ -322,7 +322,7 @@ impl Config {
         }
         match last_forwarded_host(headers) {
             Some(Some(forwarded)) if !forwarded.trim().is_empty() && !allowed(&forwarded) => blocked.push(forwarded),
-            // A header that names no host at all (`,`): refused, as Rails' EmptyForwardedHost refuses it.
+            // A header that names no host at all (`,`): refused, as 2.x's EmptyForwardedHost refuses it.
             Some(None) => blocked.push(String::new()),
             _ => {}
         }
@@ -334,8 +334,8 @@ impl Config {
         self.own_origin.clone().or_else(|| self.request_origin(headers))
     }
 
-    /// The origins a form may be posted from: APP_ROOT_URL's, and the request's own (Rails' `request.base_url`, all
-    /// Rails compares with). D-B5-ORIGIN-HOST: APP_ROOT_URL's alone refused a browser that reached the app by another
+    /// The origins a form may be posted from: APP_ROOT_URL's, and the request's own (2.x's `request.base_url`, all
+    /// 2.x compares with). D-B5-ORIGIN-HOST: APP_ROOT_URL's alone refused a browser that reached the app by another
     /// name than the configured one (Umbrel's proxy keeps the browser's Host, and users open the app at the device's
     /// address as well as at umbrel.local), where 2.x accepted it. A page on another site can set neither its Origin
     /// nor the Host it is sent to, so the request's own origin is no weaker than the configured one.
@@ -345,7 +345,7 @@ impl Config {
 }
 
 /// Keys for this crate's own cookie and signatures: HMAC-SHA256(secret_key_base, label). The labels
-/// are Rust-specific, so nothing Rails signed or encrypted is accepted here, and the reverse.
+/// are Rust-specific, so nothing 2.x signed or encrypted is accepted here, and the reverse.
 pub struct Keys {
     pub session: [u8; 32],
     pub streams: [u8; 32],
@@ -407,7 +407,7 @@ pub struct Inner {
     /// The web side's own connection (the engine owns another).
     /// ponytail: one connection behind a mutex; a small pool if one user's requests ever queue.
     db: Mutex<Connection>,
-    /// The Solid Queue database Rails' jobs wait in, as startup resolved it (`with_queue_path`), read only to see a job Rails
+    /// The Solid Queue database 2.x's jobs wait in, as startup resolved it (`with_queue_path`), read only to see a job 2.x
     /// still holds for a bot. None: not given, so a question about it is refused.
     pub queue_path: Option<std::path::PathBuf>,
     /// The wake handle of the engine in this process, once `supervisor::serve` attaches it. Empty when the app runs
@@ -581,7 +581,7 @@ impl App {
         Ok(Self(Arc::new(inner)))
     }
 
-    /// Tests only, before sharing the App: mail can (or cannot) be sent, whatever SMTP says. The page grid replays Rails
+    /// Tests only, before sharing the App: mail can (or cannot) be sent, whatever SMTP says. The page grid replays 2.x
     /// recorded with mail delivered by the test adapter.
     pub fn with_mail_set_up(self, set_up: bool) -> Result<Self, WebError> {
         let mut inner = Arc::try_unwrap(self.0).map_err(|_| WebError::Config("the app is already shared".into()))?;
@@ -662,7 +662,7 @@ pub fn header_text<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
     headers.get(name).and_then(|v| v.to_str().ok())
 }
 
-/// Rails' `rails/health#show`, with the headers the middleware around it adds.
+/// 2.x's health check, with the headers the middleware around it adds.
 async fn up(State(app): State<App>) -> Response {
     let mut response = (StatusCode::OK, [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
                         "<!DOCTYPE html><html><body style=\"background-color: green\"></body></html>").into_response();
@@ -678,7 +678,7 @@ async fn health_check() -> Response {
 
 /// CspReportsController: a browser posts policy violations here on its own, with no CSRF token.
 /// Accepted and dropped.
-/// ponytail: Rails logs nine sanitised fields of each report; port that when the policy is enforced.
+/// ponytail: 2.x logs nine sanitised fields of each report; port that when the policy is enforced.
 async fn csp_report(State(app): State<App>, request: Request) -> Response {
     let peer = request.extensions().get::<ConnectInfo<SocketAddr>>().map(|info| info.0.ip());
     let address = rate_limit::client_key(&app.config, request.headers(), peer);
@@ -724,9 +724,9 @@ fn routes(app: App) -> Router {
         .route("/password", only(post(password::create).patch(password::update).put(password::update)))
         .route("/setup", only(get(setup::new).post(setup::create)))
         .route("/setup/platform_connection", only(post(setup::connect_platform)))
-        // `/setup.<format>` reaches the setup action in Rails; any other single segment is this build's refusal.
+        // `/setup.<format>` reaches the setup action in 2.x; any other single segment is this build's refusal.
         .route("/{page}", any(setup::formatted))
-        // A26: the legacy routes Rails still draws (web::legacy, wizard::stale).
+        // A26: the legacy routes 2.x still draws (web::legacy, wizard::stale).
         .route("/dashboard", only(get(legacy::dashboard)))
         .route("/cryptocurrency-dollar-cost-averaging", only(get(legacy::dca_page)))
         .route("/404", any(legacy::not_found))
@@ -738,7 +738,7 @@ fn routes(app: App) -> Router {
         .route("/bots/dca_indexes", only(post(wizard::stale)))
         .route("/bots/dca_indexes/confirm_settings", only(post(wizard::stale)))
         .route("/bots/dca_indexes/confirm_settings/new", only(get(wizard::stale)))
-        // A26: `resources :bots` draws a create Rails' controller never had (D-LEGACY-BOTS-CREATE-DESTROY-ABSENT).
+        // A26: `resources :bots` draws a create 2.x's controller never had (D-LEGACY-BOTS-CREATE-DESTROY-ABSENT).
         .route("/bots", only(get(bots::index).post(legacy::absent)))
         .route("/rules", only(get(rules::index)))
         .route("/rules/withdrawals", only(post(rules::missing)))
@@ -831,7 +831,7 @@ fn routes(app: App) -> Router {
         .route("/bots/merge", only(post(bot::actions::merge_create)))
         .route("/bots/split/new", only(get(bot::actions::split_new)))
         .route("/bots/split", only(post(bot::actions::split_create)))
-        // PUT is Rails' update as much as PATCH; DELETE draws a destroy Rails' controller never had (A26).
+        // PUT is 2.x's update as much as PATCH; DELETE draws a destroy 2.x's controller never had (A26).
         .route("/bots/{id}", only(get(bot::page::show).patch(bot::actions::update).put(bot::actions::update).delete(legacy::absent)))
         .route("/bots/{id}/start", only(patch(bot::actions::start)))
         .route("/bots/{id}/start/edit", only(get(bot::actions::start_edit)))
@@ -841,8 +841,8 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/liquidation_resolutions", only(post(bot::liquidation::clear)))
         .route("/bots/{id}/redeploy", only(post(bot::redeploy::create).delete(bot::redeploy::destroy)))
         .route("/bots/{id}/rebalance_resolutions", only(post(bot::rebalance::resolve)))
-        // A28-2a: the owner's answer to an order Rails sent but never recorded.
-        .route("/bots/{id}/rails_orders", only(post(bot::rails_orders::create)))
+        // A28-2a: the owner's answer to an order 2.x sent but never recorded.
+        .route("/bots/{id}/v2_orders", only(post(bot::v2_orders::create)))
         .route("/bots/{id}/transactions/{tx}", only(delete(bot::cancel::destroy)))
         .route("/bots/{id}/export", only(post(bot::csv::export)))
         .route("/bots/{id}/import", only(post(bot::csv::import)))
@@ -885,11 +885,11 @@ fn routes(app: App) -> Router {
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
         .merge(oauth_api(app.clone()))
-        // ActionController::API: outside the session/CSRF pipeline, as in Rails.
+        // ActionController::API: outside the session/CSRF pipeline, as in 2.x.
         .merge(rest::router())
-        // HooksController (ActionController::API): outside the pipeline, as in Rails.
+        // HooksController (ActionController::API): outside the pipeline, as in 2.x.
         .merge(hook::router())
-        // Outside the session/CSRF pipeline, as in Rails.
+        // Outside the session/CSRF pipeline, as in 2.x.
         .route("/up", only(get(up)))
         .route("/health-check", only(get(health_check)))
         .route("/ui-ready", only(get(|| refused::ui_ready("app"))))
@@ -900,9 +900,9 @@ fn routes(app: App) -> Router {
 
 /// What `entry` learned about the request before routing.
 pub struct Params {
-    /// The path as requested, slashes squeezed, locale prefix included: Rails' `request.path`.
+    /// The path as requested, slashes squeezed, locale prefix included: 2.x's `request.path`.
     pub full_path: String,
-    /// `full_path` with the query string: Rails' `request.fullpath`.
+    /// `full_path` with the query string: 2.x's `request.fullpath`.
     pub fullpath: String,
     /// The path the routes match: `full_path` without its locale prefix.
     pub route_path: String,
@@ -910,7 +910,7 @@ pub struct Params {
     pub query: Vec<(String, String)>,
     /// The fields of an `application/x-www-form-urlencoded` write body, by their literal names (`user[email]`).
     pub form: Vec<(String, String)>,
-    /// A parsed JSON body; on setup routes, the Rails-merged query/body parameter object.
+    /// A parsed JSON body; on setup routes, the 2.x-merged query/body parameter object.
     pub json: Option<serde_json::Value>,
     /// POST /tracker/import's `file` part: its raw bytes and its filename (web::multipart).
     pub upload: Option<(Vec<u8>, String)>,
@@ -942,7 +942,7 @@ impl Params {
     }
 }
 
-/// RackAttackPaths.normalize, which is also how Rails' router reads a path: repeated slashes are one,
+/// RackAttackPaths.normalize, which is also how 2.x's router reads a path: repeated slashes are one,
 /// and a trailing slash is dropped.
 pub fn normalize_path(path: &str) -> String {
     let mut out = String::with_capacity(path.len());
@@ -1005,7 +1005,7 @@ pub const QUERY_FIELDS: usize = FORM_FIELDS;
 pub const JSON_PATHS: [&str; 4] = ["/oauth/register", "/oauth/token", "/oauth/revoke", "/oauth/introspect"];
 /// How long the whole of a form's body may take to arrive.
 pub const BODY_READ_TIMEOUT: Duration = Duration::from_secs(10);
-/// The multipart body read (POST /tracker/import, web::multipart; and POST /bots/:id/import): a file of transactions. Rails
+/// The multipart body read (POST /tracker/import, web::multipart; and POST /bots/:id/import): a file of transactions. 2.x
 /// sets no bound; these follow FORM_LIMIT's. A five-year exchange export is a few MB.
 pub const IMPORT_PATH: &str = "/tracker/import";
 /// POST /bots/:id/import (web::bot::csv) reads its file under the same bounds (D-IMPORT-SIZE).
@@ -1017,7 +1017,7 @@ pub const IMPORT_READ_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Everything that has to happen before a route is chosen:
 /// - a request for a host this deployment does not allow is refused, before anything reads it;
-/// - a static file is answered at once, as Rails' static file server sits in front of the app;
+/// - a static file is answered at once, as 2.x's static file server sits in front of the app;
 /// - form bodies on POST/PATCH/PUT/DELETE are parsed under one byte/field/deadline bound;
 /// - POST /tracker/import's multipart body is parsed under IMPORT_LIMIT and IMPORT_READ_TIMEOUT;
 /// - only an original POST applies `_method` or X-HTTP-Method-Override, as Rack::MethodOverride does;
@@ -1089,7 +1089,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         || (original_method == Method::POST && route_path == "/desktop/notices/ack" && entry.app.desktop.is_some()))
         && json_type;
     let mut json = None;
-    // A JSON body of whitespace alone: no parameters here, a parse error to Rails.
+    // A JSON body of whitespace alone: no parameters here, a parse error to 2.x.
     let mut blank_json = false;
     let mut upload = None;
     // What Rack read as the form, for the override: None when it read none, or could not parse it.
@@ -1123,7 +1123,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
                 if !ok { unparseable = true; rack_form = false; }
                 (fields, Body::empty())
             }
-            // A JSON body that is not JSON is Rails' 400, answered before any controller. One that is not
+            // A JSON body that is not JSON is 2.x's 400, answered before any controller. One that is not
             // an object names no parameter, and neither does an empty one.
             Ok(bytes) if json_post && bot_json => match bot::action_params::json(&bytes) {
                 Ok(value) => { json = Some(value); (Vec::new(), Body::empty()) }
@@ -1148,7 +1148,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     if original_method == Method::POST {
         if let Some(method) = method_override(rack_form.then_some(form.as_slice()), override_header.as_deref()) { parts.method = method; }
     }
-    // On the routes that count how a token was sent, a body is read only where Rails and this crate read it alike:
+    // On the routes that count how a token was sent, a body is read only where 2.x and this crate read it alike:
     // a POST's form, or a POST's JSON object. Any other body (a GET's, a multipart one, one with no content type,
     // which Rack reads as a form; JSON of whitespace alone) could hold a token nothing here counted: refused whole.
     let sent_body = header_text(&parts.headers, "content-length").is_some_and(|length| length.trim() != "0") || parts.headers.contains_key(header::TRANSFER_ENCODING);
@@ -1163,9 +1163,9 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let mut params = Params { full_path, fullpath, route_path, path_locale, query, form, json, upload };
     if params.path_locale.is_none() && (matches!(params.route_path.as_str(), "/setup" | "/setup/platform_connection")
         || params.route_path.strip_prefix("/setup.").is_some_and(|format| !format.contains('/'))) {
-        // Rails 8.1.4 shallow-merges query keys over body keys. Normalize once before the
+        // 2.x shallow-merges query keys over body keys. Normalize once before the
         // pipeline so locale, CSRF, the setup-token gate and permitted user fields agree.
-        match bot::action_params::ActionParams::parse_rails(&params) {
+        match bot::action_params::ActionParams::parse_v2(&params) {
             Ok(parsed) => {
                 params.json = Some(parsed.value().clone());
                 params.form.clear(); // Do not fall back to a body field replaced by a structured query value.
@@ -1271,7 +1271,7 @@ fn desktop_download(headers: &mut axum::http::HeaderMap, platform: crate::jobs::
 /// What goes onto every response of the app: the session cookie when it has to be written, the
 /// policy headers, and the controller's default headers unless the response was produced below the
 /// controllers. The cookie is written when the request changed the session (`before` is what the
-/// request arrived with), and at no other time. Rails writes it on every response; see web::session
+/// request arrived with), and at no other time. 2.x writes it on every response; see web::session
 /// for why this crate does not.
 fn finish(app: &App, session: &session::Session, before: &session::SessionData, nonce: &str, now: DateTime<Utc>, signed_in: bool, mut response: Response) -> Response {
     let data = session.snapshot();
@@ -1298,7 +1298,7 @@ fn finish(app: &App, session: &session::Session, before: &session::SessionData, 
     response
 }
 
-/// What ApplicationController and the middleware below it do around every action, in Rails' order.
+/// What ApplicationController and the middleware below it do around every action, in 2.x's order.
 async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> Response {
     let now = app.now();
     let nonce = headers::new_nonce();

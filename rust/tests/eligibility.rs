@@ -186,11 +186,11 @@ fn an_active_rule_refuses_the_install() {
 fn a_stopped_bot_outside_the_slice_refuses_only_when_it_has_pending_work() {
     let (_d, o, s) = install();
     let quiet = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain().with("future_limited", json!(true)) });
-    assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(), "a quiet stopped bot is Rails' business later, not now");
+    assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(), "a quiet stopped bot is 2.x's business later, not now");
     seed::insert_tx(&o.primary, &s, quiet, &TxSpec { status: 0, external_status: Some(1), external_id: Some("OOPEN".into()), order_type: 1,
         amount: Some("0.001"), quote_amount: None, price: Some("50000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-20 10:00:00".into() });
     assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains(&format!("bot {quiet}")) && p.contains("outstanding order")));
-    // A stopped Kraken rebalancer is this engine's (plan CB T4): no Rails work in it.
+    // A stopped Kraken rebalancer is this engine's (plan CB T4): no 2.x work in it.
     let rebalancer = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain().with("rebalance_enabled", json!(true)) });
     assert!(!eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains(&format!("bot {rebalancer}"))));
     for status in [3, 7] { // deleted, archived: their orders are still at the venue
@@ -266,7 +266,7 @@ fn a_limit_bot_whose_distance_is_not_a_number_is_refused() {
     }
     let (_d, o, s) = install();
     let blank = seed::insert_bot(&o.primary, &s, &plain().with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!("")));
-    assert_eq!(eligibility::check_install(&o.primary).unwrap().eligible, vec![blank], "blank is Rails' 0.001 default");
+    assert_eq!(eligibility::check_install(&o.primary).unwrap().eligible, vec![blank], "blank is 2.x's 0.001 default");
 }
 
 #[test]
@@ -340,7 +340,7 @@ fn malformed_asset_categories_incomplete_indices_and_other_quotes_are_refused() 
     let cases: Vec<(&str, Make)> = vec![
         ("category stock", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'stock' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("category etf", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'etf' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
-        ("tokenized BTC on Alpaca (no recorded Rails vector for tokenized pairs on this venue)",
+        ("tokenized BTC on Alpaca (no recorded 2.x vector for tokenized pairs on this venue)",
          Box::new(|c, s| { c.execute("UPDATE assets SET category = 'Tokenized Stock', instrument_type = NULL WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("no ticker for the asset", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
         ("index_type None", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
@@ -416,7 +416,7 @@ fn the_guard_refuses_a_start_this_build_cannot_trade_and_the_start_rolls_back() 
     let status = |c: &rusqlite::Connection, id: i64| -> i64 { c.query_row("SELECT status FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap() };
     let untradable = |r: &eligibility::Refusal, line: &str| matches!(r, eligibility::Refusal::Untradable(p) if p == &vec![line.to_string()]);
 
-    // A Kraken bot with its key starts like in Rails (no live gate); without a key the start is refused and rolls back.
+    // A Kraken bot with its key starts like in 2.x (no live gate); without a key the start is refused and rolls back.
     let (_d, o, s) = install();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain() });
     assert!(start(&o.primary, id).is_ok(), "a Kraken bot with a key starts");
@@ -428,7 +428,7 @@ fn the_guard_refuses_a_start_this_build_cannot_trade_and_the_start_rolls_back() 
     assert!(untradable(&refused, &format!("bot {id}: no Kraken API key")), "{refused:?}");
     assert_eq!(status(&o.primary, id), 2, "rolled back");
 
-    // Alpaca with a live key starts as in Rails; with no key it is refused.
+    // Alpaca with a live key starts as in 2.x; with no key it is refused.
     let (_d, o, s) = common::install_alpaca();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain() });
     o.primary.execute("UPDATE api_keys SET passphrase = ?1", [seed::cipher().encrypt("live")]).unwrap();
@@ -588,7 +588,7 @@ fn a_crypto_index_bot_on_kraken_or_binance_is_admitted() {
     assert_eq!(r.eligible, vec![id]);
 }
 
-/// D-IDX-CAP (reverses #752): an index bot runs its spending cap as a basket does, so a cap that is on must be a number Rails
+/// D-IDX-CAP (reverses #752): an index bot runs its spending cap as a basket does, so a cap that is on must be a number 2.x
 /// reads; one that is off is never read.
 #[test]
 fn an_index_bots_spending_cap_is_admitted_as_a_baskets_is() {
@@ -621,7 +621,7 @@ fn an_index_bots_rules_are_admitted_by_what_the_engine_runs_on_it() {
     assert_eq!(reasons(", '$.sell_price_limited', json('true'), '$.sell_price_drop_limited', json('true'), '$.sell_indicator_limited', 'yes'"), Vec::<String>::new(), "the sell side is inert");
     assert_eq!(reasons(", '$.price_limited', json('true'), '$.price_limit_action', 'start_selling'"), Vec::<String>::new(), "a flip is inert");
     assert_eq!(reasons(", '$.price_drop_limited', json('true')"), Vec::<String>::new(), "implemented candle rule");
-    assert_eq!(reasons(", '$.price_limited', '1'"), vec!["price_limited"], "a switch Rails reads as off is refused");
+    assert_eq!(reasons(", '$.price_limited', '1'"), vec!["price_limited"], "a switch 2.x reads as off is refused");
 }
 
 /// Baskets admit both pause rules and direction flips.
@@ -671,7 +671,7 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
             let many: serde_json::Map<String, serde_json::Value> = (0..101).map(|i| ((5000 + i).to_string(), json!(1.0 / 101.0))).collect();
             seed::insert_bot(c, s, &plain().with("allocations", serde_json::Value::Object(many)))
         })),
-        ("1 legacy imported row(s) left open (Rails never polls or settles them)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth));
+        ("1 legacy imported row(s) left open (2.x never polls or settles them)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth));
             history_row(c, s, id, 0, "REGULAR", Some(s.btc), "imported_1"); c.execute("UPDATE transactions SET external_status = 1 WHERE bot_id = ?1", [id]).unwrap(); id })),
         ("1 order(s) recorded without base_asset_id", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", None, "ONOASSET"); id })),
         ("asset {btc} listed more than once", Box::new(|c, s, _| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, format!("0{}", s.btc): 0.5 }))))),
@@ -777,7 +777,7 @@ fn check_and_the_takeover_note_stale_alpaca_tickers_and_admit_the_bot() {
     assert!(deltabadger::engine::staleness::stale(&o.primary, &bot, now).unwrap().is_some(), "the tick refuses it");
 }
 
-/// Ticker::TechnicallyAnalyzable writes an all-time high with `update!` (technically_analyzable.rb:125),
+/// Ticker::TechnicallyAnalyzable writes an all-time high with `update!`,
 /// moving tickers.updated_at with no catalog sync. That write must not make a stale catalog read fresh.
 #[test]
 fn an_all_time_high_write_cannot_make_a_stale_catalog_read_fresh() {
@@ -860,7 +860,7 @@ fn refusals_and_notes_name_no_internal_plan() {
 #[test]
 fn a_legacy_intent_gets_its_snapshot_at_takeover_and_a_stopped_bot_stays_frozen() {
     use deltabadger::engine::{amount, handover, model, placement, FixedClock};
-    use deltabadger::ruby::BigDec;
+    use deltabadger::v2::BigDec;
     let now: chrono::DateTime<chrono::Utc> = "2026-09-30T12:00:00Z".parse().unwrap();
     let (d, o, s) = common::install_alpaca();
     let id = seed::insert_bot(&o.primary, &s, &plain());
@@ -927,7 +927,7 @@ fn a_legacy_or_untyped_stock_is_refused_and_a_tokenized_crypto_admitted() {
         let reasons = eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
         assert!(reasons.iter().any(|r| r.starts_with("asset category")), "{why}: {reasons:?}");
     }
-    // B1: Rails' bot code reads the category alone, never instrument_type.
+    // B1: 2.x's bot code reads the category alone, never instrument_type.
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(tokenized, 1.0)]));
     assert_eq!(eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap(), Vec::<String>::new());
 }
@@ -943,7 +943,7 @@ fn a_stock_on_kraken_is_refused() {
 
 use deltabadger::engine::model;
 
-/// Slice 7a: a price rule with the `pause` action runs, on either side; its flip actions (7c), a value Rails cannot compare,
+/// Slice 7a: a price rule with the `pause` action runs, on either side; its flip actions (7c), a value 2.x cannot compare,
 /// and the three other rules (7b) stay refused.
 #[test]
 fn a_price_rule_with_the_pause_action_is_eligible() {
@@ -957,14 +957,14 @@ fn a_price_rule_with_the_pause_action_is_eligible() {
     assert!(reasons(rule().with("price_limit_action", json!("start_selling"))).is_empty());
     assert!(reasons(plain().with("sell_price_limited", json!(true)).with("sell_price_limit_action", json!("start_buying"))).is_empty());
     assert_eq!(reasons(rule().with("price_limit", json!("50000"))), vec![r#"price_limit "50000" is not a number"#]);
-    assert_eq!(reasons(rule().with("price_limited", json!("1"))), vec!["price_limited"], "a flag Rails reads as off, but set: refused");
+    assert_eq!(reasons(rule().with("price_limited", json!("1"))), vec!["price_limited"], "a flag 2.x reads as off, but set: refused");
     for other in ["price_drop_limited", "moving_average_limited", "indicator_limited"] {
         assert!(reasons(plain().with(other, json!(true))).is_empty(), "{other}");
     }
 }
 
 /// P1-T1: the one admission rule the engine and the bot pages share. Every venue takes buying baskets of any size and index
-/// bots; a basket of any size sells on every venue (6a, 6b, plan CB T3); an index bot never sells (Rails has none).
+/// bots; a basket of any size sells on every venue (6a, 6b, plan CB T3); an index bot never sells (2.x has none).
 #[test]
 fn one_admission_rule_for_engine_and_pages() {
     use eligibility::admission;
@@ -995,7 +995,7 @@ const SIGNAL_VENUES: [&str; 14] = ["Exchanges::Kraken", "Exchanges::Binance", "E
     "Exchanges::Mexc", "Exchanges::Hyperliquid", "Exchanges::Bybit", "Exchanges::Bitrue", "Exchanges::Coinbase", "Exchanges::Bingx", "Exchanges::Alpaca"];
 
 /// Plan 8d T1, A5: a signal bot runs on every venue the engine trades on (grid-signal records each), and `check` on a
-/// Rails-prepared copy holding a working one reports it ready, with no basket's interval or amount asked of it.
+/// 2.x-prepared copy holding a working one reports it ready, with no basket's interval or amount asked of it.
 #[test]
 fn a_working_signal_bot_is_admitted_on_its_venues() {
     for venue in SIGNAL_VENUES {
@@ -1067,7 +1067,7 @@ fn no_signal_venue_is_refused_as_not_recorded() {
         for e in std::fs::read_dir(dir).unwrap().flatten() {
             let p = e.path();
             if p.is_dir() { walk(&p, hits); }
-            else if p.extension().is_some_and(|x| x == "rs") && std::fs::read_to_string(&p).unwrap().contains(concat!("not recorded ", "against Rails yet")) {
+            else if p.extension().is_some_and(|x| x == "rs") && std::fs::read_to_string(&p).unwrap().contains(concat!("not recorded ", "against 2.x yet")) {
                 hits.push(p.display().to_string());
             }
         }
@@ -1161,7 +1161,7 @@ fn redeploy_states_are_admitted() {
 }
 
 /// B1: a Cryptocurrency asset with an instrument_type (PAXG, XAUT: Asset.mark_tokenized!) is admitted on every venue, as no
-/// Rails bot path reads instrument_type. A Tokenized Stock stays refused (B2), as is a tokenized instrument of another category.
+/// 2.x bot path reads instrument_type. A Tokenized Stock stays refused (B2), as is a tokenized instrument of another category.
 #[test]
 fn tokenized_crypto_is_admitted_and_tokenized_stocks_refused() {
     for alpaca in [false, true] {
@@ -1174,7 +1174,7 @@ fn tokenized_crypto_is_admitted_and_tokenized_stocks_refused() {
         assert_eq!(r.eligible, vec![id], "{venue}");
         o.primary.execute("UPDATE assets SET category = 'Stock' WHERE id = ?1", [s.btc]).unwrap();
         let reasons = eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
-        let want = if alpaca { "tokenized BTC on Alpaca (no recorded Rails vector for tokenized pairs on this venue)".to_string() }
+        let want = if alpaca { "tokenized BTC on Alpaca (no recorded 2.x vector for tokenized pairs on this venue)".to_string() }
                    else { "Kraken tokenized pair: xStock balances rebase (dividends, splits) and EEA accounts cannot trade them by API; not traded here".to_string() };
         assert_eq!(reasons, vec![want], "{venue}");
     }
@@ -1183,11 +1183,11 @@ fn tokenized_crypto_is_admitted_and_tokenized_stocks_refused() {
     o.primary.execute("UPDATE assets SET category = 'Tokenized Stock' WHERE id = ?1", [s.btc]).unwrap();
     let id = seed::insert_bot(&o.primary, &s, &plain());
     let reasons = eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
-    assert!(reasons.contains(&"tokenized BTC on Bybit (no recorded Rails vector for tokenized pairs on this venue)".to_string()), "{reasons:?}");
+    assert!(reasons.contains(&"tokenized BTC on Bybit (no recorded 2.x vector for tokenized pairs on this venue)".to_string()), "{reasons:?}");
 }
 
-/// A: an imported row Rails' importer wrote (closed) is read as any other REGULAR row and admitted; a stopped bot whose only
-/// waiting rows are imported has no outstanding work, as neither engine polls them (fetch_and_update_open_orders_job.rb:11).
+/// A: an imported row 2.x's importer wrote (closed) is read as any other REGULAR row and admitted; a stopped bot whose only
+/// waiting rows are imported has no outstanding work, as neither engine polls them.
 #[test]
 fn closed_imported_rows_are_admitted_and_imported_waiting_rows_are_no_work() {
     let (_d, o, s) = install();
@@ -1202,7 +1202,7 @@ fn closed_imported_rows_are_admitted_and_imported_waiting_rows_are_no_work() {
     assert!(r.problems.is_empty(), "{:?}", r.problems);
 }
 
-/// Plan B2: a `Tokenized Stock` (Hyperliquid's RWA spot listings, e.g. MU on @333) runs only where Rails' trading of a tokenized
+/// Plan B2: a `Tokenized Stock` (Hyperliquid's RWA spot listings, e.g. MU on @333) runs only where 2.x's trading of a tokenized
 /// pair is recorded (tests/hyperliquid_tokenized.rs); every other venue keeps refusing it (D-TOK-UNPROVEN), Kraken by its own
 /// reason (D-TOK-KRAKEN).
 #[test]
@@ -1216,7 +1216,7 @@ fn a_tokenized_stock_runs_on_hyperliquid_only() {
     };
     assert_eq!(reasons("Exchanges::Hyperliquid"), Vec::<String>::new());
     let refused = reasons("Exchanges::Binance");
-    assert!(refused.iter().any(|r| r.starts_with("tokenized BTC on ") && r.ends_with(" (no recorded Rails vector for tokenized pairs on this venue)")), "{refused:?}");
+    assert!(refused.iter().any(|r| r.starts_with("tokenized BTC on ") && r.ends_with(" (no recorded 2.x vector for tokenized pairs on this venue)")), "{refused:?}");
     let refused = reasons("Exchanges::Kraken");
     assert!(refused.contains(&"Kraken tokenized pair: xStock balances rebase (dividends, splits) and EEA accounts cannot trade them by API; not traded here".to_string()), "{refused:?}");
     // instrument_type 'tokenized' outside the crypto category reads the same way.

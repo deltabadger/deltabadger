@@ -1,13 +1,13 @@
 //! TrackerController#tax_report and #download_tax_report, and the four panels (tracker/_report_{progress,ready,refused,
 //! failed}.html.erb).
 //!
-//! D-TAX-RECONCILE: every panel this build renders is its request's (`tax-report-<request>`, Rails' shared
+//! D-TAX-RECONCILE: every panel this build renders is its request's (`tax-report-<request>`, 2.x's shared
 //! `tax-report-progress`), so a late or queued broadcast for one request can only touch that request's panel, and crypto
 //! and broker panels are independent. The progress panel asks for its request's state once the page's streams are
 //! connected and again every 15 s for a day while its bar is shown (the existing `broadcast--on-connect` controller,
 //! `POST /broadcasts/tax_report_state`): a terminal state is broadcast again, so an answer that went out before the panel
 //! was there still arrives. Known limit: a tab suspended past that day keeps its bar until the page is reloaded, and the
-//! reload shows the outcome (`pending_report`). Rails reconciles only a refusal, at request time.
+//! reload shows the outcome (`pending_report`). 2.x reconciles only a refusal, at request time.
 use super::{auth, Ctx, WebError};
 use crate::tax::job::{self, Panel, Request};
 use crate::web::i18n::{self, escape};
@@ -25,7 +25,7 @@ fn download_path(locale: &str, country: &str, year: i64, scope: &str) -> String 
     locale::path(locale, &format!("/tracker/download_tax_report?{query}"))
 }
 
-/// A request's panel: the partial Rails renders, under the request's own id.
+/// A request's panel: the partial 2.x renders, under the request's own id.
 pub fn panel(locale: &str, r: &Request, p: &Panel) -> String {
     let (id, req) = (format!("tax-report-{}", r.request), &r.request);
     match p {
@@ -88,12 +88,12 @@ pub async fn tax_report(State(app): State<crate::web::App>, Extension(ctx): Exte
     generate(app, ctx, headers, asked, None).await
 }
 
-/// D-TAX-PL-DECLARED-CARRY: the PL form of the export modal (its own submit, Rails' GET untouched): the same request,
+/// D-TAX-PL-DECLARED-CARRY: the PL form of the export modal (its own submit, 2.x's GET untouched): the same request,
 /// with column d as declared, saved only if the report is queued. An amount `pl::carried` does not read answers 422 with
 /// the form again and nothing saved.
 pub async fn tax_report_pl(State(app): State<crate::web::App>, Extension(ctx): Extension<Ctx>, headers: HeaderMap) -> Result<Response, WebError> {
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
-    let year = ctx.params.form("year").map_or(0, crate::ruby::to_i);
+    let year = ctx.params.form("year").map_or(0, crate::v2::to_i);
     // Absent keeps what is saved and "" clears it, as on REST and MCP; the text is read as typed (no trimming).
     let raw = ctx.params.form("pl_carried_costs").map(str::to_string);
     let Ok(carry) = crate::tax::pl::carried(raw.clone().map(Value::String).as_ref()) else {
@@ -110,14 +110,14 @@ type Asked = (Option<String>, Option<String>, Option<String>, Option<String>);
 async fn generate(app: crate::web::App, ctx: Ctx, headers: HeaderMap, asked: Asked, carry: Option<Option<crate::figures::dec::Dec>>) -> Result<Response, WebError> {
     let Some(owner) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)) };
     let (country, year, scope, stablecoin) = asked;
-    let year = year.as_deref().map_or(0, crate::ruby::to_i);
+    let year = year.as_deref().map_or(0, crate::v2::to_i);
     let scope = match scope.as_deref() { Some(s) if job::SCOPES.contains(&s) => job::scope_of(s), _ => "crypto" };
     // `Tax::Jurisdictions.for(country)`: the registry's exact key.
     let Some(country) = country.filter(|c| super::modal::COUNTRIES.contains(&c.as_str())) else {
         flash::set(&ctx.session, flash::ALERT, ctx.t("tracker.tax_report.invalid_country"));
         return Ok(layout::redirect(StatusCode::FOUND, &ctx.path("/tracker")));
     };
-    // The broker report (A12-7) is queued as Rails queues it; its run refuses what Rails' refuses (another country or year).
+    // The broker report (A12-7) is queued as 2.x queues it; its run refuses what 2.x's refuses (another country or year).
     if scope == "crypto" && !crate::tax::jurisdictions::ported(&country, year) { return refused(&ctx, &headers, "tracker tax reports for this jurisdiction").await; }
     let stablecoin = stablecoin.as_deref() == Some("true");
     let (app2, ctx2) = (app.clone(), ctx.clone());
@@ -150,7 +150,7 @@ async fn generate(app: crate::web::App, ctx: Ctx, headers: HeaderMap, asked: Ask
             let shown = job::terminal(tmp, &r).unwrap_or(Panel::Progress(0));
             panel(ctx2.locale, &r, &shown)
         } else if let Some(refusal) = job::refusal(tmp, owner, &country, year, scope) {
-            // Rails: the restored refusal of the report asked for, though another request holds the slot.
+            // 2.x: the restored refusal of the report asked for, though another request holds the slot.
             alert(&format!("tax-report-{}", job::token()), None, "warning", &escape(&job::refusal_message(ctx2.locale, &refusal)))
         } else {
             let r = job::active(c, owner, scope)?.ok_or_else(|| WebError::Config("a refused tax report request has no slot holder".into()))?;
@@ -165,7 +165,7 @@ async fn generate(app: crate::web::App, ctx: Ctx, headers: HeaderMap, asked: Ask
 pub async fn download_tax_report(State(app): State<crate::web::App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(owner) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)) };
     let country = ctx.params.query("country").unwrap_or("").to_string();
-    let year = ctx.params.query("year").map_or(0, crate::ruby::to_i);
+    let year = ctx.params.query("year").map_or(0, crate::v2::to_i);
     let raw_scope = ctx.params.query("report_scope").map(str::to_string);
     let scope = job::scope_of(raw_scope.as_deref().unwrap_or(""));
     let tmp = app.config.tmp_dir.clone();
