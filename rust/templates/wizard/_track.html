@@ -1,0 +1,5 @@
+<ol class="sheet__track">
+{%- for step in steps %}
+  <li class="sheet__step{% if step.state == "done" %} sheet__step--done{% elif step.state == "current" %} sheet__step--current{% endif %}"{% if step.state == "current" %} aria-current="step"{% endif %}><span>{{ step.label }}</span></li>
+{%- endfor %}
+</ol>

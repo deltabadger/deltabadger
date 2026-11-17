@@ -2,8 +2,8 @@
 //! that more than one stock venue lists comes here instead of the crypto exchange picker. A broker is committed with the USD
 //! quote default (Bots::StockBrokerRoutable#finalize_stock_broker!). Interactive Brokers is offered as Rails offers it; its key
 //! step is a venue this build does not trade (wizard::keys), the refusal the plan names.
-use super::keys::{stock_bot, FullPage};
-use super::{basket_ids, current_variant, dig, progress, BotType, Step, StepOrder, QUOTE_KEY};
+use super::keys::stock_bot;
+use super::{basket_ids, current_variant, dig, track, BotType, Step, StepOrder, QUOTE_KEY};
 use crate::web::bot::exchange_wordmark;
 use crate::web::bot::search::Basket;
 use crate::web::layout::{self, Ctx, Page};
@@ -31,15 +31,14 @@ fn brokers(c: &Connection, config: Option<&Value>) -> Result<Vec<(i64, String)>,
 
 #[derive(Template)]
 #[template(path = "wizard/pick_stock_broker.html")]
-struct New { progress: String, table: Table }
+struct New { table: Table }
 
 fn page(ctx: &Ctx, config: Option<&Value>, brokers: Vec<(i64, String)>) -> Result<String, WebError> {
     let order = StepOrder::new(BotType::Multi, current_variant(config));
     let venues = brokers.into_iter().map(|(id, class)| Venue { id, mark: exchange_wordmark(&crate::tracker::rows::name_id(&class)), unavailable: false }).collect();
     let table = Table { action: ctx.path("/bots/dca_multi_assets/pick_stock_broker"), csrf: ctx.csrf_token(), param_name: FIELD.into(), venues,
                         unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
-    let content = New { progress: progress(ctx, &order, Step::Exchange)?, table }.render()?;
-    Ok(FullPage { close_url: ctx.path("/bots"), content: &content }.render()?)
+    super::sheet(ctx, &track(ctx, &order, Step::Exchange)?, &New { table }.render()?)
 }
 
 /// What the step answers, decided with the session as it stands.

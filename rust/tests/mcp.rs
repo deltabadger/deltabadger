@@ -235,13 +235,33 @@ async fn slow_body_keeps_the_existing_deadline_and_no_token_is_checked_first(){
 /// two places it is shown, and nowhere else, so a release bump never fails the comparisons.
 #[test]
 fn recordings_show_this_release() {
-    use common::freeze::{current_version, FROZEN_VERSION};
+    use common::freeze::{current, current_version, FROZEN_VERSION};
     let (f, v) = (FROZEN_VERSION, deltabadger::VERSION);
-    assert_eq!(current_version(&format!(r#"<div class="settings__version">{f}</div>"#)), format!(r#"<div class="settings__version">{v}</div>"#));
+    assert_eq!(current(&format!(r#"<div class="settings__version">{f}</div>"#)), format!(r#"<div class="sheet__version">{v}</div>"#));
     assert_eq!(current_version(&format!(r#"{{"serverInfo":{{"name":"Deltabadger","version":"{f}"}}}}"#)), format!(r#"{{"serverInfo":{{"name":"Deltabadger","version":"{v}"}}}}"#));
     assert_eq!(current_version(&format!(r#""serverInfo\":{{\"name\":\"Deltabadger\",\"version\":\"{f}\"}}"#)), format!(r#""serverInfo\":{{\"name\":\"Deltabadger\",\"version\":\"{v}\"}}"#));
     assert_eq!(current_version(&format!(r#"{{"version":"{f}"}} {f}"#)), format!(r#"{{"version":"{f}"}} {f}"#));
     let restored = common::frozen("mcp-transcripts", common::has_subdirs);
     let text: String = std::fs::read_dir(restored.join("protocol")).unwrap().flatten().filter_map(|e| std::fs::read_to_string(e.path()).ok()).collect();
     assert!(text.contains(&format!(r#""Deltabadger\",\"version\":\"{v}\""#)), "the recording no longer shows serverInfo's version as FROZEN_VERSION's swap expects");
+}
+
+/// The 2.x pages carry the settings dialog's old class names; restoring a recording swaps them for the sheet's
+/// (D-SHEET-NAME), raw or JSON-escaped, with or without the release in the same file, and leaves every other
+/// `settings` alone.
+#[test]
+fn recordings_show_the_sheet_names() {
+    use common::freeze::{restore_tree, FROZEN_VERSION};
+    let (f, v) = (FROZEN_VERSION, deltabadger::VERSION);
+    let (from, to) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let fragment = r#"<h3 class="settings__heading settings__heading--first">Keys</h3><p class="settings__intro">x</p>"#;
+    let shell = format!(r#"{{"body":"<dialog class=\"dialog sdialog\"><div class=\"settings\"><button class=\"settings__close\"></button><turbo-frame class=\"settings__frame\" id=\"settings_pane\"><nav class=\"settings__nav\"><div class=\"settings__items\" data-controller=\"settings-nav\"><a class=\"settings__item settings__item--active\" aria-current=\"page\" href=\"/settings/api\"></a></div><div class=\"settings__version\">{f}</div></nav><div class=\"settings__pane\"></div></turbo-frame></div></dialog>"}}"#);
+    let untouched = r#"<ul class="settings-locked"></ul><turbo-frame id="mcp_settings"><a href="/settings/api">api</a></turbo-frame><turbo-frame id="settings_pane"></turbo-frame>"#;
+    for (name, text) in [("fragment.html", fragment), ("shell.json", shell.as_str()), ("untouched.html", untouched)] { std::fs::write(from.path().join(name), text).unwrap(); }
+    restore_tree(from.path(), to.path());
+    let read = |name: &str| std::fs::read_to_string(to.path().join(name)).unwrap();
+    assert_eq!(read("fragment.html"), r#"<h3 class="sheet__heading sheet__heading--first">Keys</h3><p class="sheet__intro">x</p>"#);
+    assert_eq!(read("shell.json"), format!(r#"{{"body":"<dialog class=\"dialog sheet-dialog\"><div class=\"sheet\"><button class=\"sheet__close\"></button><turbo-frame class=\"sheet__frame\" id=\"settings_pane\"><nav class=\"sheet__side\"><div class=\"sheet__menu\" data-controller=\"sheet\"><a class=\"sheet__item sheet__item--active\" aria-current=\"page\" href=\"/settings/api\"></a></div><div class=\"sheet__version\">{v}</div></nav><div class=\"sheet__pane\"></div></turbo-frame></div></dialog>"}}"#));
+    assert_eq!(read("untouched.html"), untouched);
+    assert_eq!(common::freeze::current(r#"<dialog class="dialog sdialog"><div class="settings"><nav class="settings__nav"><div class="settings__items" data-controller="settings-nav">"#), r#"<dialog class="dialog sheet-dialog"><div class="sheet"><nav class="sheet__side"><div class="sheet__menu" data-controller="sheet">"#);
 }

@@ -6,6 +6,8 @@ mod common;
 #[path = "support/tabs_3_0.rs"]
 mod tabs;
 #[path="support/settings_snapshot.rs"] mod settings_snapshot;
+#[path = "support/wizard_sheet.rs"]
+mod wizard_sheet;
 use common::html;
 use common::web::{self, Answer, Browser, Csrf, TestClock};
 use deltabadger::web::{cable, csrf, session, App};
@@ -1057,7 +1059,7 @@ fn every_full_page_dialog_template_opens_its_frame_complete() {
         }
     }
     found.sort();
-    assert_eq!(found, ["bots/new.html", "settings/alpaca_full.html", "settings/pick_exchange.html", "wizard/full_page.html", "wizard/pick_buyable_asset.html", "wizard/pick_exchange.html"]);
+    assert_eq!(found, ["bots/new.html", "settings/alpaca_full.html", "settings/pick_exchange.html", "wizard/full_page.html"]);
 }
 
 /// This build's own tools: D-SPLIT-API's split_bots (under Control) and D-RAILS-UNRECORDED-API's answer_unrecorded_order
@@ -1165,7 +1167,7 @@ fn without_broker_gate(rails: &mut Value) -> usize {
         let next = if lines.get(end).is_some_and(is_space) { end + 1 } else { end };
         let gone = broker_row(lines, i)
             // The heading goes with the rows under it, and only then.
-            || open(&lines[i], "h3").is_some_and(|l| l == "<h3 class=\"settings__heading settings__heading--first\">") && next < lines.len() && broker_row(lines, next)
+            || open(&lines[i], "h3").is_some_and(|l| l == "<h3 class=\"sheet__heading sheet__heading--first\">") && next < lines.len() && broker_row(lines, next)
             || open(&lines[i], "div").is_some_and(|l| l == "<div class=\"assets-syncing\">") && match lines[i + 1..end - 1].iter().filter(|l| !is_space(l)).collect::<Vec<_>>()[..] {
                 [text] => says(text),
                 [link, text, _] => open(link, "a").is_some_and(|a| a.contains("/settings/connect\"")) && says(text),
@@ -2901,6 +2903,21 @@ async fn replay_page_shard(shard: usize) {
         for answer in rails["responses"].as_array_mut().unwrap() {
             if without_broker_gate(&mut answer["body"]) > 0 { broker_gate_pages += 1; }
         }
+        let (mut sheet_answers, mut chooser_tiles) = (0, 0);
+        for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
+            let (Some(theirs), Some(ours)) = (rails["responses"].get_mut(index), rust["responses"].get_mut(index)) else { continue };
+            let path = step["path"].as_str().unwrap_or_default();
+            // The wizard's order as the session holds it, when the step reads the session.
+            let flow = ours.get("session").and_then(|s| s.get("bot_config")).filter(|c| c.is_object()).map(|c| c["flow"].as_str().unwrap_or("exchange_first").to_string());
+            let sheet = wizard_sheet::wizard_sheet(path, flow.as_deref(), &mut theirs["body"], &mut ours["body"]);
+            match (sheet, wizard_sheet::chooser_tile(path, &mut ours["body"])) {
+                (Ok(sheets), Ok(tiles)) => { sheet_answers += sheets; chooser_tiles += tiles; }
+                (Err(e), _) | (_, Err(e)) => failures.push(format!("{name}/{scope} step {index}: D-WIZARD-SHEET: {e}")),
+            }
+        }
+        for (witness, count) in [("wizard_exchange_first_binance", sheet_answers), ("wizard_kucoin_key_stream", sheet_answers), ("wizard_chooser", chooser_tiles)] {
+            if name == witness && count == 0 { failures.push(format!("{name}/{scope}: D-WIZARD-SHEET: no rendered witness")); }
+        }
         let expected_brokers = expected_broker_pages(&name, &scenario);
         if broker_gate_pages != expected_brokers { failures.push(format!("{name}/{scope}: expected {expected_brokers} broker pages, got {broker_gate_pages}")); }
         if name.starts_with("settings_ibkr_") {
@@ -3526,6 +3543,8 @@ async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
         without_low_funds(&mut actual["body"]);
         without_split_item(&mut actual["body"]);
         full_page_dialogs(&mut actual["body"]).unwrap_or_else(|e| panic!("{name}: D-FULL-PAGE-DIALOG-COMPLETE: {e}"));
+        let path = step["path"].as_str().unwrap_or_default();
+        wizard_sheet::wizard_sheet(path, None, &mut expected["body"], &mut actual["body"]).and_then(|_| wizard_sheet::chooser_tile(path, &mut actual["body"])).unwrap_or_else(|e| panic!("{name}: D-WIZARD-SHEET: {e}"));
         let _ = index_rules(&mut actual["body"]);
         let _ = signal_rules(&mut actual["body"]);
         theirs.push(expected);

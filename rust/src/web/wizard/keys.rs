@@ -6,7 +6,7 @@
 //! key step (Bots::DcaIndexes::AddApiKeysController) is the third namespace, for an index this engine runs (index::refusal); the
 //! signal wizard's (Bots::Signals::AddApiKeysController) the fourth, for a venue the engine runs signal bots on
 //! (eligibility::signal_admission).
-use super::{basket_ids, chips, current_variant, exchange_id, exchange_name, first_incomplete, prerequisite, progress, sentence, step_complete, BotType,
+use super::{basket_ids, chips, current_variant, exchange_id, exchange_name, first_incomplete, prerequisite, sentence, track, step_complete, BotType,
             SentenceOf, Step, StepOrder};
 use crate::web::layout::{self, Ctx, Page};
 use crate::web::settings::{key_check, keys};
@@ -95,9 +95,9 @@ pub struct FullPage<'a> { pub close_url: String, pub content: &'a str }
 
 #[derive(Template)]
 #[template(path = "wizard/_api_key_form.html")]
-struct Form { progress: String, sentence: String, card: String }
+struct Form { sentence: String, card: String }
 
-/// The step's `_form`: progress, sentence and the venue's connect card. `live`: the Paper/Live switch on Live (Alpaca).
+/// The step's `_form`: the sentence and the venue's connect card (the index and signal steps' own, with their progress bar). `live`: the Paper/Live switch on Live (Alpaca).
 #[allow(clippy::too_many_arguments)]
 fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>, namespace: Namespace, venue: &Venue, live: bool) -> Result<String, WebError> {
     let instructions = keys::key_instructions(c, app, ctx, &venue.class, &venue.name, 0)?;
@@ -109,8 +109,11 @@ fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>
     let multi = namespace == Namespace::Multi;
     let ids = if multi { basket_ids(config) } else { vec![] };
     let sentence = sentence(ctx, csrf, SentenceOf { order: &order, step: Step::Api, multi, chips: chips(c, &ids)?, exchange: exchange_name(c, Some(venue.id))? })?;
-    Ok(Form { progress: progress(ctx, &order, Step::Api)?, sentence, card }.render()?)
+    Ok(Form { sentence, card }.render()?)
 }
+
+/// D-WIZARD-SHEET: a DCA bot's step is the sheet, with its track; the index and signal wizards keep the full-page dialog.
+fn dca(namespace: Namespace) -> bool { matches!(namespace, Namespace::Single | Namespace::Multi) }
 
 /// What the step decided before any venue is asked.
 enum Route { To(&'static str), Retired(&'static str), Refused, Ready(Venue, Box<keys::Key>) }
@@ -162,7 +165,9 @@ async fn new(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, WebEr
         if correct { return Ok(Err(after_api_key_path(c, owner.id, config.as_ref(), namespace)?)) }
         let csrf = view.csrf_token();
         let content = form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live)?;
-        Ok(Ok((FullPage { close_url: view.path("/bots"), content: &content }.render()?, Shell::load(c, &inner, &owner)?)))
+        let body = if dca(namespace) { super::sheet(&view, &track(&view, &order(config.as_ref(), namespace), Step::Api)?, &content)? }
+            else { FullPage { close_url: view.path("/bots"), content: &content }.render()? };
+        Ok(Ok((body, Shell::load(c, &inner, &owner)?)))
     }).await?;
     match page {
         Err(path) => Ok(layout::redirect(StatusCode::FOUND, &ctx.path(path))),
@@ -199,7 +204,12 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
         keys::Submitted::Refused(reason) => i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&reason))]),
     };
     let (inner, view) = (app.clone(), ctx.clone());
-    let content = app.db(move |c| { let csrf = view.csrf_token(); form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live) }).await?;
+    let content = app.db(move |c| {
+        let csrf = view.csrf_token();
+        let content = form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live)?;
+        if !dca(namespace) { return Ok(content) }
+        super::sheet_frame(&track(&view, &order(config.as_ref(), namespace), Step::Api)?, &content)
+    }).await?;
     // create.turbo_stream: the form in place of the step's frame, then the reason (flash.now).
     let flash = flash::render(&flash::take(&ctx.session, &[(flash::ALERT, message)]))?;
     let body = format!("{}\n{}\n", turbo::stream("update", "modal_content", &format!("{content}\n")), turbo::prepend_flash(flash.trim_end()));

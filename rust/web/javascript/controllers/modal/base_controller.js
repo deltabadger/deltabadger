@@ -37,9 +37,9 @@ export default class extends Controller {
     const frame = document.getElementById('modal')
     if (!frame) return
 
-    // Support the small modal (.modal), the settings card (.settings, which zooms like it) and the
+    // Support the small modal (.modal), the sheet card (.sheet, which zooms like it) and the
     // full-page wizard (.dialogview).
-    const smallCard = frame.querySelector('.modal, .settings')
+    const smallCard = frame.querySelector('.modal, .sheet')
     const fullCard  = frame.querySelector('.dialogview__vertical-center')
     const card = smallCard || fullCard
     if (card) {

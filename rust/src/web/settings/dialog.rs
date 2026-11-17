@@ -32,8 +32,8 @@ pub fn shell(ctx: &Ctx, section: &str, connect: bool, pane: &str) -> String {
         .map(|(name, label, icon)| {
             let active = *name == section;
             format!(
-                "              <a class=\"settings__item{}\"{} href=\"{}\">\n                {icon}<span>{}</span>\n</a>",
-                if active { " settings__item--active" } else { "" },
+                "              <a class=\"sheet__item{}\"{} href=\"{}\">\n                {icon}<span>{}</span>\n</a>",
+                if active { " sheet__item--active" } else { "" },
                 if active { " aria-current=\"page\"" } else { "" },
                 escape(&ctx.path(&format!("/settings/{name}"))),
                 ctx.t(label)
@@ -47,7 +47,7 @@ pub fn shell(ctx: &Ctx, section: &str, connect: bool, pane: &str) -> String {
         String::new()
     };
     format!(
-        "<turbo-frame id=\"modal\">\n  <dialog class=\"dialog sdialog\" data-controller=\"modal--base\" data-action=\"click-&gt;modal--base#clickOutside\"{close}>\n    <div class=\"settings\">\n      <button name=\"button\" type=\"button\" class=\"settings__close\" aria-label=\"{}\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        {CLOSE}\n</button>      <turbo-frame class=\"settings__frame\" id=\"settings_pane\">\n        <nav class=\"settings__nav\">\n          <div class=\"settings__items\" data-controller=\"settings-nav\">\n{items}          </div>\n          <div class=\"settings__version\">{}</div>\n        </nav>\n        <div class=\"settings__pane\" tabindex=\"-1\" autofocus>\n          \n{pane}\n\n        </div>\n</turbo-frame>    </div>\n</dialog></turbo-frame>",
+        "<turbo-frame id=\"modal\">\n  <dialog class=\"dialog sheet-dialog\" data-controller=\"modal--base\" data-action=\"click-&gt;modal--base#clickOutside\"{close}>\n    <div class=\"sheet\">\n      <button name=\"button\" type=\"button\" class=\"sheet__close\" aria-label=\"{}\" data-action=\"modal--base#animateOutCloseAndCleanUp\">\n        {CLOSE}\n</button>      <turbo-frame class=\"sheet__frame\" id=\"settings_pane\">\n        <nav class=\"sheet__side\">\n          <div class=\"sheet__menu\" data-controller=\"sheet\">\n{items}          </div>\n          <div class=\"sheet__version\">{}</div>\n        </nav>\n        <div class=\"sheet__pane\" tabindex=\"-1\" autofocus>\n          \n{pane}\n\n        </div>\n</turbo-frame>    </div>\n</dialog></turbo-frame>",
         escape(&ctx.t("button.close")),
         crate::VERSION
     )

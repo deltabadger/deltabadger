@@ -1,8 +1,8 @@
 //! The DCA wizard's last step (Bots::DcaMultiAssets::PickSpendableAssetsController): the quote the basket is bought with, then
 //! the bot is saved in its created state (wizard::create) and the browser leaves the modal for the bot's page. Every GET here
 //! leaves the session alone; the POST writes the quote and WizardDefaults into it, and clears it once the bot exists.
-use super::keys::{step_path, FullPage, Namespace};
-use super::{basket_ids, chips, current_variant, exchange_id, exchange_name, expired, prerequisite, progress, sentence, step_complete, BotType, SentenceOf, Step,
+use super::keys::{step_path, Namespace};
+use super::{basket_ids, chips, current_variant, exchange_id, exchange_name, expired, prerequisite, sentence, track, step_complete, BotType, SentenceOf, Step,
             StepOrder};
 use crate::engine::{eligibility, model};
 use crate::web::bot::search::{self, AssetPage, Basket, Item, Side};
@@ -20,7 +20,7 @@ const FIELD: &str = "bots_dca_multi_asset[quote_asset_id]";
 
 #[derive(Template)]
 #[template(path = "wizard/pick_spendable_asset.html")]
-struct New { progress: String, sentence: String, create_url: String, csrf: String, field_name: &'static str, items: Vec<Item>, next: Option<(String, String)> }
+struct New { sentence: String, create_url: String, csrf: String, field_name: &'static str, items: Vec<Item>, next: Option<(String, String)> }
 
 /// `prepare_step` and the page: the quotes the venue lists every chosen asset in (the bot built with its quote cleared), or
 /// (a lazy frame asking for `offset`) one page of them.
@@ -44,9 +44,9 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool
     let csrf = ctx.csrf_token();
     let order = StepOrder::new(BotType::Multi, current_variant(config));
     let sentence = sentence(ctx, &csrf, SentenceOf { order: &order, step: Step::Spendable, multi: true, chips: chips(c, &ids)?, exchange: exchange_name(c, exchange_id(config))? })?;
-    let content = New { progress: progress(ctx, &order, Step::Spendable)?, sentence, create_url: ctx.path("/bots/dca_multi_assets/pick_spendable_asset"), csrf,
+    let content = New { sentence, create_url: ctx.path("/bots/dca_multi_assets/pick_spendable_asset"), csrf,
                         field_name: FIELD, items, next }.render()?;
-    Ok((FullPage { close_url: ctx.path("/bots"), content: &content }.render()?, false))
+    Ok((super::sheet(ctx, &track(ctx, &order, Step::Spendable)?, &content)?, false))
 }
 
 async fn render(app: &App, ctx: &Ctx, status: StatusCode, partial_allowed: bool, flash_now: Vec<(&'static str, String)>) -> Result<Response, WebError> {

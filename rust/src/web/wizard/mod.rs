@@ -2,7 +2,7 @@
 //! (Bots::DcaSingleAssets::OrdersController), with the step order they share (Bots::Wizard::StepOrder and
 //! Bots::Wizard::Navigable), and its steps: assets (`assets`), exchange (`exchanges`, single and multi namespaces), stock broker
 //! (`brokers`), API key (`keys`, both namespaces) and quote (`spendable`), whose POST saves the bot (`create`). The
-//! conversational sentence, the progress bar and the stock activation notice the steps share are here. The index wizard
+//! conversational sentence, the sheet with its track (D-WIZARD-SHEET) and the stock activation notice the steps share are here. The index wizard
 //! (Bots::DcaIndexes::*) is `index`, its save `index_create`; it shares the exchange table, the key step and the quote search.
 //! The signal wizard (Bots::Signals::*) is `signals`, with the key step's fourth namespace.
 //!
@@ -65,11 +65,6 @@ impl StepOrder {
     }
 
     pub fn first(&self) -> Step { self.steps[0] }
-
-    /// StepOrder#progress: index-based even spacing, 25/50/75/100 for four steps.
-    pub fn progress(&self, step: Step) -> i64 {
-        self.steps.iter().position(|s| *s == step).map_or(0, |index| ((index as f64 + 1.0) * 100.0 / self.steps.len() as f64).round() as i64)
-    }
 
     pub fn next_after(&self, step: Step) -> Option<Step> {
         let index = self.steps.iter().position(|s| *s == step)?;
@@ -273,16 +268,48 @@ pub fn exchange_name(c: &Connection, id: Option<i64>) -> Result<Option<String>, 
 #[template(path = "wizard/_progress.html")]
 struct Progress { title: String, progress: i64 }
 
-/// bots/{dca_single_assets,dca_multi_assets}/_new_step_progress_bar: the step's share of the order; the exchange step reads
-/// "Pick exchange".
-pub fn progress(ctx: &Ctx, order: &StepOrder, step: Step) -> Result<String, WebError> {
-    let key = if step == Step::Exchange { "pick_exchange".to_string() } else { step.key().to_string() };
-    progress_bar(ctx.t(&format!("bot.setup.progress_steps.{key}")), order.progress(step))
-}
-
 /// bots/_new_step_progress_bar: a step's title and its share of the wizard.
 pub fn progress_bar(title: String, progress: i64) -> Result<String, WebError> {
     Ok(Progress { title, progress }.render()?)
+}
+
+/// One step on the track: its label and whether it is done, the current one or still to come.
+struct TrackStep { label: String, state: &'static str }
+
+#[derive(Template)]
+#[template(path = "wizard/_track.html")]
+struct Track { steps: Vec<TrackStep> }
+
+/// D-WIZARD-TRACK: the sheet's side column on a DCA step, every step of `order` in the order in force, labelled by its place
+/// in the flow (the asset picker runs as the single bot's Currencies and the later steps as the basket's Assets: both read
+/// "Assets"). The steps before `current` are done; none is a link.
+pub fn track(ctx: &Ctx, order: &StepOrder, current: Step) -> Result<String, WebError> {
+    let at = order.steps.iter().position(|s| *s == current);
+    let steps = order.steps.iter().enumerate().map(|(index, step)| {
+        let key = match step { Step::Exchange => "pick_exchange", Step::Api => "api", Step::Currencies | Step::Assets => "assets", Step::Spendable => "spendable" };
+        let state = match at { Some(at) if index < at => "done", Some(at) if index == at => "current", _ => "upcoming" };
+        TrackStep { label: ctx.t(&format!("bot.setup.progress_steps.{key}")), state }
+    }).collect();
+    Ok(Track { steps }.render()?)
+}
+
+#[derive(Template)]
+#[template(path = "wizard/_sheet_frame.html")]
+struct SheetFrame<'a> { track: &'a str, content: &'a str }
+
+#[derive(Template)]
+#[template(path = "wizard/sheet.html")]
+struct Sheet<'a> { close_url: String, close_label: String, track: &'a str, content: &'a str }
+
+/// D-WIZARD-SHEET: a DCA step as the sheet Settings uses, the track beside the pane holding `content`. The frame around both is
+/// `modal_content`, so every form, stream and transition that targets it is unchanged.
+pub fn sheet(ctx: &Ctx, track: &str, content: &str) -> Result<String, WebError> {
+    Ok(Sheet { close_url: ctx.path("/bots"), close_label: ctx.t("button.close"), track, content }.render()?)
+}
+
+/// What `sheet` puts in its `modal_content` frame, for a stream that updates the frame.
+pub fn sheet_frame(track: &str, content: &str) -> Result<String, WebError> {
+    Ok(SheetFrame { track, content }.render()?)
 }
 
 /// What bots/wizard/_sentence reads.
@@ -447,13 +474,11 @@ mod tests {
     }
 
     #[test]
-    fn chosen_ids_read_either_shape_and_progress_spaces_evenly() {
+    fn chosen_ids_read_either_shape() {
         assert_eq!(chosen_ids(Some(&json!({"settings": {"base_asset_ids": ["3", 3, 0, null, 5]}}))), vec![3, 5]);
         assert_eq!(chosen_ids(Some(&json!({"settings": {"base_asset_ids": [], "base_asset_id": "7"}}))), vec![7], "an empty list falls back to the one asset");
         assert_eq!(exchange_id(Some(&json!({"exchange_id": " "}))), None);
         assert_eq!(exchange_id(Some(&json!({"exchange_id": "4"}))), Some(4));
-        let order = StepOrder::new(BotType::Single, Variant::ExchangeFirst);
-        assert_eq!((order.progress(Step::Exchange), order.progress(Step::Currencies), order.progress(Step::Assets)), (25, 75, 0));
     }
 
     #[test]

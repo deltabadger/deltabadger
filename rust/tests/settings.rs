@@ -2209,7 +2209,7 @@ async fn configured_connections_show_provider_state_without_stock_rows_or_echoed
     let answer=h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await;
     assert_eq!(answer.status,200);
     // D-BROKERS-AS-VENUES: Connect holds the admin's market data and nothing broker-only.
-    for gone in ["stocks_settings","/settings/update_stocks","/settings/disconnect_stocks","ibkr_settings","settings__heading--first"]{assert!(!answer.body.contains(gone),"no stock row on Connect: {gone}");}
+    for gone in ["stocks_settings","/settings/update_stocks","/settings/disconnect_stocks","ibkr_settings","sheet__heading--first"]{assert!(!answer.body.contains(gone),"no stock row on Connect: {gone}");}
     let market=answer.body.split("id=\"market_data_settings\"").nth(1).unwrap().split("</turbo-frame>").next().unwrap();
     // D-MARKET-DATA-NO-SWITCH: no switch; the configured provider is the one picked.
     assert!(!market.contains("switch-settings-update_market_data"),"no market data switch");assert!(market.contains("aria-checked=\"true\" tabindex=\"0\" data-value=\"coingecko\""),"CoinGecko is picked");assert!(market.contains("/settings/disconnect_market_data"));
@@ -2301,11 +2301,77 @@ async fn brokers_are_venues_without_a_stock_gate_or_a_member_connect_section(){
         assert_eq!(account.body.contains("/settings/connect\""),admin,"admin {admin}: Connect is the admin's section only");
         let connect=h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await;
         assert_eq!(connect.status,200);
-        for gone in ["ibkr_settings","/settings/ibkr_connect","stocks_settings","settings__heading--first"]{assert!(!connect.body.contains(gone),"admin {admin}: no broker widget on Connect: {gone}");}
+        for gone in ["ibkr_settings","/settings/ibkr_connect","stocks_settings","sheet__heading--first"]{assert!(!connect.body.contains(gone),"admin {admin}: no broker widget on Connect: {gone}");}
         assert_eq!(connect.body.contains("market_data_settings"),admin,"admin {admin}: Connect holds the admin's market data");
         let root=h.browser.send(&h.app,"GET","/settings",None,Csrf::None,&[]).await;
         assert_eq!(root.header("location"),Some(if admin{"/settings/connect"}else{"/settings/account"}),"admin {admin}: /settings opens a section the reader has");
     }
+}
+
+/// D-WIZARD-SHEET and D-WIZARD-TRACK, which the 2.x recordings cannot hold: each DCA step, walked in both orders (so the
+/// single bot's asset picker hands over to the basket's steps), is the sheet, its track every step of the order with the
+/// earlier ones done and the step itself current, labelled the same all the way; a frame answer's `modal_content` is the
+/// track beside the pane, and no step draws the progress bar.
+#[tokio::test(flavor="current_thread")]
+async fn each_dca_step_is_the_sheet_with_its_track(){
+    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    let (exchange,btc)=(h.seed.exchange_id.to_string(),h.seed.btc.to_string());
+    let (modal,frame)=([("Turbo-Frame","modal")],[("Turbo-Frame","modal_content")]);
+    let track=|body:&str|{
+        let page=scraper::Html::parse_document(body);
+        let tracks:Vec<_>=page.select(&scraper::Selector::parse("ol.sheet__track").unwrap()).collect();
+        assert_eq!(tracks.len(),1,"one track: {body}");
+        tracks[0].select(&scraper::Selector::parse("li").unwrap()).map(|step|{
+            let class=step.value().attr("class").unwrap();
+            let state=if class.contains("sheet__step--done"){"done"}else if class.contains("sheet__step--current"){"current"}else{"upcoming"};
+            assert_eq!(step.value().attr("aria-current").is_some(),state=="current","{class}");
+            format!("{}:{state}",step.text().collect::<String>())
+        }).collect::<Vec<_>>()
+    };
+    // The page and the frame Turbo takes out of it: the sheet, its frame holding the track's column and the pane, nothing else.
+    let sheet=|body:&str|{
+        assert!(body.contains("<dialog class=\"dialog sheet-dialog\""),"the sheet: {body}");
+        assert!(!body.contains("process-progress")&&!body.contains("dialogview"),"no progress bar, no full-page dialog");
+        let page=scraper::Html::parse_document(body);
+        let frame=page.select(&scraper::Selector::parse("div.sheet > turbo-frame.sheet__frame#modal_content").unwrap()).next().expect("the step's frame in the sheet");
+        let children:Vec<String>=frame.children().filter_map(scraper::ElementRef::wrap).map(|e|format!("{}.{}",e.value().name(),e.value().attr("class").unwrap_or(""))).collect();
+        assert_eq!(children,["nav.sheet__side","div.sheet__pane"]);
+        assert!(frame.select(&scraper::Selector::parse("div.sheet__pane > .bot-creation-layout").unwrap()).next().is_some(),"the step in the pane");
+    };
+    // A redirect followed to the page it names, as a frame visit.
+    async fn follow(h:&mut Harness,mut answer:common::web::Answer,headers:&[(&str,&str)])->common::web::Answer{
+        while (300..400).contains(&answer.status){let to=answer.header("location").unwrap().to_string();answer=h.browser.send(&h.app,"GET",&to,None,Csrf::None,headers).await;}
+        answer
+    }
+    let labels=|order:[&str;4],current:usize|order.iter().enumerate().map(|(i,label)|format!("{label}:{}",match i.cmp(&current){std::cmp::Ordering::Less=>"done",std::cmp::Ordering::Equal=>"current",_=>"upcoming"})).collect::<Vec<_>>();
+    let exchange_first=["Pick exchange","Connect exchange","Assets","Currency"];
+    let asset_first=["Assets","Pick exchange","Connect exchange","Currency"];
+
+    // Exchange first, the chooser's default: exchange, (the key is correct, so on) assets, quote.
+    assert_eq!(h.browser.send(&h.app,"GET","/bots/new",None,Csrf::None,&modal).await.status,200);
+    let step=h.browser.send(&h.app,"GET","/bots/dca_single_assets/pick_exchange/new",None,Csrf::None,&modal).await;
+    assert_eq!(step.status,200);sheet(&step.body);assert_eq!(track(&step.body),labels(exchange_first,0));
+    let picked=h.browser.send(&h.app,"POST","/bots/dca_single_assets/pick_exchange",Some(&[("bots_dca_single_asset[exchange_id]",exchange.as_str())]),Csrf::Header,&frame).await;
+    let step=follow(&mut h,picked,&frame).await;
+    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);assert_eq!(track(&step.body),labels(exchange_first,2),"the key was correct: on to the assets");
+    let added=h.browser.send(&h.app,"POST","/bots/dca_single_assets/pick_buyable_asset",Some(&[("bots_dca_single_asset[base_asset_id]",btc.as_str())]),Csrf::Header,&frame).await;
+    let step=follow(&mut h,added,&frame).await;sheet(&step.body);assert_eq!(track(&step.body),labels(exchange_first,2),"a basket member added: the same step");
+    let advanced=h.browser.send(&h.app,"POST","/bots/dca_single_assets/pick_buyable_asset/advance",None,Csrf::Header,&frame).await;
+    let step=follow(&mut h,advanced,&frame).await;
+    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);assert_eq!(track(&step.body),labels(exchange_first,3),"the basket's quote step");
+
+    // Asset first: assets, exchange, (key correct) quote.
+    let switched=h.browser.send(&h.app,"POST","/bots/dca_single_assets/order",Some(&[("flow","asset_first")]),Csrf::Header,&frame).await;
+    let step=follow(&mut h,switched,&frame).await;
+    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);assert_eq!(track(&step.body),labels(asset_first,0));
+    let added=h.browser.send(&h.app,"POST","/bots/dca_single_assets/pick_buyable_asset",Some(&[("bots_dca_single_asset[base_asset_id]",btc.as_str())]),Csrf::Header,&frame).await;
+    follow(&mut h,added,&frame).await;
+    let advanced=h.browser.send(&h.app,"POST","/bots/dca_single_assets/pick_buyable_asset/advance",None,Csrf::Header,&frame).await;
+    let step=follow(&mut h,advanced,&frame).await;
+    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);assert_eq!(track(&step.body),labels(asset_first,1),"the basket's exchange step");
+    let picked=h.browser.send(&h.app,"POST","/bots/dca_multi_assets/pick_exchange",Some(&[("bots_dca_multi_asset[exchange_id]",exchange.as_str())]),Csrf::Header,&frame).await;
+    let step=follow(&mut h,picked,&frame).await;
+    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);assert_eq!(track(&step.body),labels(asset_first,3),"the key was correct: on to the quote");
 }
 
 #[tokio::test(flavor="current_thread")]

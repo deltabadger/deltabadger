@@ -494,7 +494,7 @@ pub async fn modal(app: App, ctx: Ctx) -> Result<Response, WebError> {
     }
     let csrf = ctx.csrf_token();
     let pane = format!(
-        "  <a class=\"settings__back\" href=\"{}\">\n    {}{}\n</a>  <h3 class=\"settings__heading\">{}</h3>\n  <div class=\"settings__prose\">{}</div>\n",
+        "  <a class=\"sheet__back\" href=\"{}\">\n    {}{}\n</a>  <h3 class=\"sheet__heading\">{}</h3>\n  <div class=\"sheet__prose\">{}</div>\n",
         i18n::escape(&ctx.path("/settings/api_keys")),
         super::dialog::BACK,
         ctx.t("settings.index.api_keys_section"),

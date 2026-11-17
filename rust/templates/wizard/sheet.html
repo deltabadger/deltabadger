@@ -1,0 +1,12 @@
+<turbo-frame id="modal">
+  <dialog class="dialog sheet-dialog" data-controller="modal--base" data-action="click->modal--base#clickOutside" data-modal--base-close-url-value="{{ close_url }}">
+    <div class="sheet">
+      <button name="button" type="button" class="sheet__close" aria-label="{{ close_label }}" data-action="modal--base#animateOutCloseAndCleanUp">
+        {% include "svg/_24x24_close.html" %}
+      </button>
+      <turbo-frame class="sheet__frame" id="modal_content">
+{% include "wizard/_sheet_frame.html" %}
+      </turbo-frame>
+    </div>
+  </dialog>
+</turbo-frame>
