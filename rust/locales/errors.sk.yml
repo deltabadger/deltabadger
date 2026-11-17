@@ -2,7 +2,6 @@ sk:
     activerecord:
         attributes:
             user:
-                name: "Meno"
                 email: "E-mail"
                 password: "Heslo"
         errors:

@@ -1269,8 +1269,8 @@ fn two_accounts(owner_two_factor: bool) -> (tempfile::TempDir, rusqlite::Connect
     if owner_two_factor {
         opened.primary.execute("UPDATE users SET otp_module = 1, otp_secret_key = ?1 WHERE id = ?2", (OTP_SEED, seeded.user_id)).unwrap();
     }
-    opened.primary.execute("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, created_at, updated_at) \
-                            VALUES ('second@example.com', ?1, 'Second', 0, ?2, ?2, ?2)", (&hash, "2026-01-01 00:00:00")).unwrap();
+    opened.primary.execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, created_at, updated_at) \
+                            VALUES ('second@example.com', ?1, 0, ?2, ?2, ?2)", (&hash, "2026-01-01 00:00:00")).unwrap();
     let second = opened.primary.last_insert_rowid();
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     (dir, opened.primary, app, seeded.user_id, second)

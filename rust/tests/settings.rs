@@ -840,7 +840,7 @@ async fn connected_client_grants_intersect_owner_permissions_and_revoke_preserve
     let mut h = Harness::new(server.uri()).await;
     h.c.execute("INSERT INTO oauth_applications(name,uid,secret,redirect_uri,scopes,confidential,created_at,updated_at)VALUES('Shared','settings-client','','http://localhost/callback','mcp api',0,'2026-01-01 00:00:00','2026-01-01 00:00:00')",[]).unwrap();
     let id = h.c.last_insert_rowid();
-    h.c.execute("INSERT INTO users(email,encrypted_password,name,created_at,updated_at)VALUES('other@example.com','x','Other','2026-01-01 00:00:00','2026-01-01 00:00:00')",[]).unwrap();
+    h.c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('other@example.com','x','2026-01-01 00:00:00','2026-01-01 00:00:00')",[]).unwrap();
     let other = h.c.last_insert_rowid();
     for user in [h.seed.user_id, other] {
         h.c.execute("INSERT INTO oauth_access_tokens(application_id,resource_owner_id,token,refresh_token,scopes,expires_in,created_at)VALUES(?1,?2,?3,?4,'mcp',1,'2026-01-01 00:00:00')",(id,user,format!("token-{user}"),format!("refresh-{user}"))).unwrap();
@@ -1325,7 +1325,7 @@ async fn unchanged_credentials_before_intent_place_exactly_as_before() { tick_wi
 async fn taken_email_request_must_not_rebind_a_token_sent_to_the_previous_address() {
     let server=MockServer::start().await;
     let mut h=Harness::new(server.uri()).await;
-    h.c.execute("INSERT INTO users(email,encrypted_password,name,confirmed_at,setup_completed,wash_sale_enabled,created_at,updated_at) SELECT 'taken@example.com',encrypted_password,'Other',confirmed_at,1,0,created_at,updated_at FROM users WHERE id=?1",[h.seed.user_id]).unwrap();
+    h.c.execute("INSERT INTO users(email,encrypted_password,confirmed_at,setup_completed,wash_sale_enabled,created_at,updated_at) SELECT 'taken@example.com',encrypted_password,confirmed_at,1,0,created_at,updated_at FROM users WHERE id=?1",[h.seed.user_id]).unwrap();
     let other=h.c.last_insert_rowid();
     assert_eq!(h.submit("PATCH","/settings/update_email",&[("user[email]","next@example.com"),("user[current_password]","Correct-horse-9")],Csrf::Header).await.status,200);
     let first:String=h.c.query_row("SELECT confirmation_token FROM users WHERE id=?1",[h.seed.user_id],|r|r.get(0)).unwrap();
@@ -2283,7 +2283,7 @@ async fn brokers_are_venues_without_a_stock_gate_or_a_member_connect_section(){
     let phrases:Vec<String>=["bot.setup.stocks_ask_admin","bot.setup.stocks_activate_cta"].iter().map(|key|deltabadger::web::i18n::text("en",key,&[])).collect();
     let modal=[("Turbo-Frame","modal")];
     // Another admin, so a member's install is not one without an admin (which sends everyone to setup).
-    h.c.execute("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, setup_completed, created_at, updated_at) VALUES ('admin@example.com', 'x', 'Admin', 1, '2026-01-01', 1, '2026-01-01', '2026-01-01')",[]).unwrap();
+    h.c.execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, setup_completed, created_at, updated_at) VALUES ('admin@example.com', 'x', 1, '2026-01-01', 1, '2026-01-01', '2026-01-01')",[]).unwrap();
     for admin in [false,true]{
         h.c.execute("UPDATE users SET admin=?1 WHERE id=?2",(admin,h.seed.user_id)).unwrap();
         let bots=h.browser.send(&h.app,"GET","/bots",None,Csrf::None,&[]).await;
@@ -3174,7 +3174,7 @@ async fn r2_confirmation_normalizes_and_validates_pending_email(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     let other=h.app.cipher.encrypt("not-used");drop(other);
     let hash=deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
-    h.c.execute("INSERT INTO users(name,email,encrypted_password,confirmed_at,created_at,updated_at,time_zone,display_currency)VALUES('Other','taken@example.com',?1,'2026-01-01','2026-01-01','2026-01-01','UTC','USD')",[hash]).unwrap();
+    h.c.execute("INSERT INTO users(email,encrypted_password,confirmed_at,created_at,updated_at,time_zone,display_currency)VALUES('taken@example.com',?1,'2026-01-01','2026-01-01','2026-01-01','UTC','USD')",[hash]).unwrap();
     assert_eq!(h.submit("PATCH","/settings/update_email",&[("user[email]"," TAKEN@example.com "),("user[current_password]","Correct-horse-9")],Csrf::Header).await.status,200);
     let pending:String=h.c.query_row("SELECT unconfirmed_email FROM users WHERE id=?1",[h.seed.user_id],|r|r.get(0)).unwrap();assert_eq!(pending," TAKEN@example.com ");
     h.browser.get(&h.app,"/settings/account").await;
@@ -3906,7 +3906,7 @@ async fn d5b_the_session_exchange_never_reaches_another_users_key(){
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
-    h.c.execute("INSERT INTO users(name,email,encrypted_password,created_at,updated_at)VALUES('Other','other@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
+    h.c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('other@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
     let other=h.c.last_insert_rowid();
     for kind in [0,2]{h.c.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,1,?2,?3,?4,?5,1,'2026-01-01','2026-01-01')",(other,kind,h.app.cipher.encrypt("other-key"),h.app.cipher.encrypt("other-secret"),h.app.cipher.encrypt("paper"))).unwrap();}
     let theirs=|c:&rusqlite::Connection|c.prepare("SELECT * FROM api_keys WHERE user_id=?1 ORDER BY id").unwrap().query_map([other],|r|Ok((0..r.as_ref().column_count()).map(|i|format!("{:?}",r.get_ref(i).unwrap())).collect::<Vec<_>>())).unwrap().collect::<Result<Vec<_>,_>>().unwrap();

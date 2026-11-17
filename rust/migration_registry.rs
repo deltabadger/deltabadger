@@ -31,9 +31,28 @@ pub fn load(dir: &Path, v2_versions: &[String]) -> Result<Vec<(String, String, s
         let file = format!("{version}_{name}.sql");
         let sql = std::fs::read_to_string(path).map_err(|e| format!("{file}: {e}"))?;
         if let Some(statement) = transaction_control(&sql) { return Err(format!("{file}: `{statement}` controls the transaction; the migrator runs each file in its own")); }
-        check_tables(&sql, &mut created).map_err(|e| format!("{file}: {e}"))?;
+        match column_drop(version, &sql) {
+            Some(listed) => { listed.map_err(|e| format!("{file}: {e}"))?; }
+            None => { check_tables(&sql, &mut created).map_err(|e| format!("{file}: {e}"))?; }
+        }
     }
     Ok(found)
+}
+
+/// D-DROP-USERS-NAME. The only 2.x-born columns a Rust migration drops: (version, table, column). Each listed file is
+/// exactly `ALTER TABLE <table> DROP COLUMN <column>;` (comments aside); store::apply checks at run time that the table's
+/// SQL changed exactly as that statement changes it and nothing else did.
+pub const DROPPED_COLUMNS: &[(&str, &str, &str)] = &[("20261117000001", "users", "name")];
+
+/// For a version `DROPPED_COLUMNS` lists: `Ok((table, column))` when `sql` is exactly its one statement, else the
+/// refusal. `None` for every other version (check_tables reads it).
+pub fn column_drop(version: &str, sql: &str) -> Option<Result<(&'static str, &'static str), String>> {
+    let &(_, table, column) = DROPPED_COLUMNS.iter().find(|(v, _, _)| *v == version)?;
+    let statements: Vec<Vec<Token>> = statements(sql).into_iter().filter(|s| !s.is_empty()).collect();
+    let expected = ["ALTER", "TABLE", table, "DROP", "COLUMN", column];
+    let exact = statements.len() == 1 && statements[0].len() == expected.len()
+        && statements[0].iter().zip(expected).all(|(t, e)| matches!(t, Token::Word(w) if w.eq_ignore_ascii_case(e)));
+    Some(if exact { Ok((table, column)) } else { Err(format!("a listed column drop is exactly `ALTER TABLE {table} DROP COLUMN {column};` and nothing else")) })
 }
 
 /// D-B11-9-DROP-OWN-TABLE. Every `ALTER TABLE` is refused, and `DROP TABLE` of anything but a bare name (unquoted,

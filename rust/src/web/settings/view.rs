@@ -263,13 +263,9 @@ pub async fn account(
     let (v, inner, owner) = (ctx.clone(), app.clone(), user.clone());
     let csrf = ctx.csrf_token();
     let token = csrf.clone();
-    let (name, pending_email, wash_widget, shell_data, registration_open, advanced, email_widget, update) = app
+    let (pending_email, wash_widget, shell_data, registration_open, advanced, email_widget, update) = app
         .db(move |c| {
-            let (name, email): (Option<String>, Option<String>) = c.query_row(
-                "SELECT name,unconfirmed_email FROM users WHERE id=?1",
-                [owner.id],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )?;
+            let email: Option<String> = c.query_row("SELECT unconfirmed_email FROM users WHERE id=?1", [owner.id], |r| r.get(0))?;
             let read = |key: &str| crate::web::auth::app_config(c, &inner.cipher, key);
             let registration_open = (read("registration_open")?.as_deref() == Some("true"), super::mail::set_up(&inner, c)?);
             let advanced: bool = c.query_row(
@@ -281,7 +277,6 @@ pub async fn account(
             // AppUpdate.latest: what the last successful check stored, while it is fresh.
             let update = crate::jobs::app_update::latest(c, v.now).map_err(|e| WebError::Engine(crate::engine::EngineError::Data(e)))?;
             Ok((
-                name.unwrap_or_default(),
                 email.unwrap_or_default(),
                 wash(c, &v, &token, owner.id)?,
                 Shell::load(c, &inner, &owner)?,
@@ -314,7 +309,6 @@ pub async fn account(
     let pane = sections::account(
         ctx,
         &sections::Account {
-            name: if desktop { String::new() } else { sections::name(ctx, &csrf, &draft.name.clone().unwrap_or(name), &errors) },
             email: if desktop { String::new() } else { sections::email(ctx, &csrf, &hint, &errors) },
             password: if desktop { String::new() } else { sections::password(ctx, &csrf, draft.email.as_deref().unwrap_or(&user.email), &errors) },
             locale: sections::locale(ctx, &csrf, &locale_options),

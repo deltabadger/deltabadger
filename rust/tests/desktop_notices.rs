@@ -26,7 +26,7 @@ fn install() -> tempfile::TempDir {
 fn db(dir: &tempfile::TempDir) -> rusqlite::Connection { rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap() }
 
 fn user(c: &rusqlite::Connection, email: &str, admin: bool) -> i64 {
-    c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES (?1, 'x', 'Someone', ?2, '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (email, admin)).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES (?1, 'x', ?2, '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (email, admin)).unwrap();
     c.last_insert_rowid()
 }
 

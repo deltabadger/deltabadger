@@ -17,7 +17,7 @@ fn config(c: &Connection, key: &str, value: &str) {
     c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3)", (key, value, T)).unwrap();
 }
 fn user(c: &Connection, otp: Option<&str>) {
-    c.execute("INSERT INTO users (email, encrypted_password, name, admin, otp_secret_key, created_at, updated_at) VALUES ('o@example.com', 'x', 'Owner', 1, ?1, ?2, ?2)", (otp, T)).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, otp_secret_key, created_at, updated_at) VALUES ('o@example.com', 'x', 1, ?1, ?2, ?2)", (otp, T)).unwrap();
 }
 fn api_key(c: &Connection, key: &str, secret: &str) {
     c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '0.25', '0.4', ?1, ?1)", [T]).unwrap();

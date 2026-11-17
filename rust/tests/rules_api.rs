@@ -579,7 +579,7 @@ async fn mcp_paper_trading_refuses_start_and_other_users_rows_are_not_found() {
         [],
     )
     .unwrap();
-    i.c.execute("INSERT INTO users(email,encrypted_password,name,created_at,updated_at) VALUES ('other@example.com','x','Other',?1,?1)",[AT]).unwrap();
+    i.c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at) VALUES ('other@example.com','x',?1,?1)",[AT]).unwrap();
     i.c.execute("UPDATE rules SET user_id=?1", [i.c.last_insert_rowid()])
         .unwrap();
     let before = i.rows();

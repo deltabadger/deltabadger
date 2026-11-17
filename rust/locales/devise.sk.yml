@@ -33,7 +33,6 @@ sk:
             new:
                 email_invalid: 'Neplatny e-mail!'
                 email_suggestion_html: 'Neplatny e-mail! Nemysleli ste: <b>%{suggestion}</b>'
-                name_invalid: 'Nemusi byt skutocne 👻'
                 submit: 'Registrovat sa'
                 title: 'Novy ucet'
             signed_up: 'Vitajte! Registracia prebehla uspesne.'

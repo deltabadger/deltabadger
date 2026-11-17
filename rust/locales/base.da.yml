@@ -74,10 +74,8 @@ da:
                 enter_two_fa_code: 'Indtast 2FA-kode'
                 scan_code_info: 'Scan QR-koden eller kopiér koden nedenfor:'
             user:
-                name: Navn
                 current_password: 'Nuværende adgangskode'
                 email: E-mail
-                new_name: 'Nyt navn'
                 new_email: 'Ny e-mail'
                 new_password: 'Ny adgangskode'
                 new_password_confirmation: 'Bekræft ny adgangskode'
@@ -158,8 +156,6 @@ da:
             current_time_is: "Denne tidszone bruges i bot-loggen. Ifølge den er klokken nu"
             currency_updated: "Din visningsvaluta er blevet opdateret."
             currency_is_used_for: "Gevinster og porteføljetotaler vises i denne valuta. Bots handler fortsat i deres eget noteringsaktiv."
-        name:
-            updated: "Dit navn er blevet opdateret."
         two_fa:
             disabled: 'Tofaktorgodkendelse er blevet deaktiveret.'
             enabled: 'Tofaktorgodkendelse er blevet aktiveret.'
@@ -171,7 +167,6 @@ da:
             trading_keys_section: 'Handelsnøgler'
             withdrawal_keys_section: 'Udbetalingsnøgler'
             email_section: E-mail
-            name_section: Navn
             password_section: Adgangskode
             free_plan_reset_date_html: 'Din grænse nulstilles den <b>%{end_time}</b>.'
             title: Indstillinger

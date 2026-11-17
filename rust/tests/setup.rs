@@ -107,7 +107,7 @@ fn v2_answer(name: &str, recorded: &Value, launchpad: Option<&str>) -> Value {
     let headers = recorded["headers"].as_object().unwrap().iter()
         .filter(|(name, _)| changed || name.as_str() != "set-cookie")
         .map(|(name, value)| (name.clone(), value.as_str().unwrap().to_string())).collect();
-    let mut body = masked_launchpad(recorded["body"].as_str().unwrap(), launchpad);
+    let mut body = without_name(&masked_launchpad(recorded["body"].as_str().unwrap(), launchpad));
     if recorded["status"] == 422 {
         // Named security divergence: retain 2.x's recorded answers, but require a fixed message
         // in place of the upstream error text/URL. All surrounding markup and effects still match.
@@ -123,6 +123,34 @@ fn v2_answer(name: &str, recorded: &Value, launchpad: Option<&str>) -> Value {
         }
     }
     comparable(recorded["status"].as_u64().unwrap(), &headers, &body)
+}
+
+/// 2.x's name errors in every locale, from the validation vectors: a blank name's presence error and the pattern error.
+fn name_messages() -> &'static std::collections::BTreeSet<String> {
+    static M: std::sync::OnceLock<std::collections::BTreeSet<String>> = std::sync::OnceLock::new();
+    M.get_or_init(|| {
+        let cases = vectors()["validations"].as_array().unwrap();
+        let mut out = std::collections::BTreeSet::new();
+        for case in cases.iter().filter(|c| c["name"] == "" && c["email"] == "" && c["password"] == "") {
+            let messages: Vec<&str> = case["messages"].as_array().unwrap().iter().map(|m| m.as_str().unwrap()).collect();
+            let invalid = cases.iter().find(|c| c["locale"] == case["locale"] && c["name"] == "Owner1").unwrap()["messages"][0].as_str().unwrap();
+            let at = messages.iter().position(|m| *m == invalid).unwrap();
+            out.extend([messages[at - 1].to_string(), invalid.to_string()]);
+        }
+        assert_eq!(out.len(), 30, "two name errors in each of 15 locales");
+        out
+    })
+}
+
+/// D-NO-USER-NAME: 2.x's page without its name row and its name errors (an error list left empty goes too).
+fn without_name(body: &str) -> String {
+    let row = regex::Regex::new(r#"(?s)\n *<div class="form__row form__row--input">\s*<input [^>]*id="user_name"[^>]*/>.*?for="user_name">.*?</label>\s*</div>\n\n?"#).unwrap();
+    let mut body = row.replace_all(body, "\n").into_owned();
+    for message in name_messages() {
+        let escaped = message.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;").replace('\'', "&#39;");
+        for text in [message.as_str(), escaped.as_str()] { body = body.replace(&format!("          <li>{text}</li>\n"), ""); }
+    }
+    regex::Regex::new(r#"\n    <div class="form__errors">\n      <ul>\n      </ul>\n    </div>\n"#).unwrap().replace_all(&body, "\n").into_owned()
 }
 
 fn rust_answer(answer: &Answer, launchpad: Option<&str>) -> Value {
@@ -272,6 +300,8 @@ fn users_difference(app: &App, scenario: &Value, v2: &[Value], rust: &[serde_jso
                     shape(envelope) == shape(theirs) && seed.len() == 32 && v2_seed.len() == 32
                         && seed.bytes().all(|b| b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".contains(&b)) && seed != v2_seed
                 }
+                // D-NO-USER-NAME: this build writes no name.
+                "name" => mine.is_null() || !created,
                 _ => value == mine,
             };
             if !same { return Some(format!("users[{index}].{column}: 2.x {value}, Rust {mine}")); }
@@ -323,14 +353,6 @@ async fn v2_and_rust_answer_the_setup_grid_alike() {
             let (Some(theirs), Some(ours)) = (v2.pop(), played.responses.pop()) else { panic!("{name}: no responses") };
             let page = html::normalize(&String::from_utf8_lossy(web::assets::find("/400.html").unwrap().body));
             if theirs["status"] != 400 || ours["status"] != 400 || ours["body"] != json!(page) { failures.push(format!("{name}: expected 400 with public/400.html, got {ours}")); }
-        }
-        if name == "create_name_newline" {
-            // D-SIGNUP-NAME-ONE-LINE (PLAN-A16): 2.x's `^…$` accepts "Evil\nOwner" and creates the admin; this build refuses
-            // the name with 2.x's own name_invalid message and creates nothing.
-            let (Some(theirs), Some(ours)) = (v2.last(), played.responses.last()) else { panic!("{name}: no responses") };
-            let refused = ours["status"] == 422 && ours["body"].to_string().contains(&web::i18n::text("en", "devise.registrations.new.name_invalid", &[]));
-            if theirs["status"] != 302 || !refused || !table(played.dir.path(), "users").is_empty() { failures.push(format!("{name}: expected 2.x 302 and this build's 422 name refusal with no user, got {ours}")); }
-            continue;
         }
         if let Some(message) = first_difference(name, &v2, &played.responses) { failures.push(message); continue; }
         // The claim requests the launchpad received, and Setup::SeedAndSyncJob: enqueued in 2.x, woken here.
@@ -475,7 +497,7 @@ async fn the_gate_covers_the_app_zone_and_nothing_else() {
         assert_ne!(answer.header("location"), Some("/setup"), "{path}");
     }
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    c.execute("INSERT INTO users (name, email, encrypted_password, admin, confirmed_at, created_at, updated_at) VALUES ('O', 'o@example.com', 'x', 1, '2026-01-01', '2026-01-01', '2026-01-01')", []).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, created_at, updated_at) VALUES ('o@example.com', 'x', 1, '2026-01-01', '2026-01-01', '2026-01-01')", []).unwrap();
     assert_eq!(browser.get(&app, "/bots").await.header("location"), Some("/login"));
 }
 
@@ -487,31 +509,36 @@ async fn serve_binds_an_install_without_an_admin() {
     drop(listener);
 }
 
-/// User#valid? on the setup form's fields, in all 15 locales: the full messages, in 2.x's order, for names,
-/// emails and passwords around every rule, beside an existing member and a Gmail account.
+/// User#valid? on the setup form's fields, in all 15 locales: the full messages, in 2.x's order, for emails and
+/// passwords around every rule (D-NO-USER-NAME: 2.x's name errors set aside), beside an existing member and a Gmail account.
 #[test]
 fn validation_messages_match_v2_in_every_locale() {
     let dir = install();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    c.execute_batch("INSERT INTO users (name, email, created_at, updated_at) VALUES ('Member', 'member@example.com', '2026-01-01', '2026-01-01'), ('Gmail', 'jan.doe@gmail.com', '2026-01-01', '2026-01-01')").unwrap();
+    c.execute_batch("INSERT INTO users (email, created_at, updated_at) VALUES ('member@example.com', '2026-01-01', '2026-01-01'), ('jan.doe@gmail.com', '2026-01-01', '2026-01-01')").unwrap();
     let cases = vectors()["validations"].as_array().unwrap();
     assert_eq!(cases.len(), 15 * 47);
+    let name_invalid: HashMap<&str, &str> = cases.iter().filter(|c| c["name"] == "Owner1" && c["email"] == "owner@example.com" && c["password"] == "Correct-horse-9")
+        .map(|c| (c["locale"].as_str().unwrap(), c["messages"][0].as_str().unwrap())).collect();
+    assert_eq!(name_invalid.len(), 15);
     let mut failures = vec![];
     for case in cases {
         let text = |key: &str| case[key].as_str().unwrap();
         let email = web::setup::normalized_email(text("email"));
         assert_eq!(email, text("normalized_email"), "{case}");
-        let errors = web::setup::validate(&c, text("locale"), Some(text("name")), &email, Some(text("password"))).unwrap();
+        let errors = web::setup::validate(&c, text("locale"), &email, Some(text("password"))).unwrap();
         let full: Vec<&str> = errors.iter().map(|e| e.full.as_str()).collect();
         let password: Vec<&str> = errors.iter().filter(|e| e.attribute == "password").map(|e| e.message.as_str()).collect();
         let strings = |key: &str| case[key].as_array().unwrap().iter().map(|m| m.as_str().unwrap()).collect::<Vec<_>>();
-        if text("name").contains(['\n', '\r']) {
-            // D-SIGNUP-NAME-ONE-LINE (PLAN-A16): 2.x takes a name with a line break; this build adds name_invalid to its errors.
-            let invalid = web::i18n::text(text("locale"), "devise.registrations.new.name_invalid", &[]);
-            if !errors.iter().any(|e| e.attribute == "name" && e.message == invalid) { failures.push(format!("{case}\n  rust: {full:?}: expected the name refused")); }
-            continue;
+        // D-NO-USER-NAME: 2.x's name errors are not this build's. Its name pattern error is the "Owner1" case's only
+        // message; a blank name's presence error comes right before it (2.x's order: email, password, name, …).
+        let invalid = name_invalid[text("locale")];
+        let mut expected = strings("messages");
+        if let Some(at) = expected.iter().position(|m| *m == invalid) {
+            expected.remove(at);
+            if text("name").is_empty() { expected.remove(at - 1); }
         }
-        if full != strings("messages") || password != strings("password_messages") || full.is_empty() != case["valid"].as_bool().unwrap() {
+        if full != expected || password != strings("password_messages") {
             failures.push(format!("{case}\n  rust: {full:?} / {password:?}"));
         }
     }
@@ -635,12 +662,12 @@ async fn regression_setup_query_user_replaces_body_shallowly() {
     let (dir, app) = fresh(&[]).await;
     let mut browser = Browser::default();
     browser.get(&app, "/setup").await;
-    let answer = browser.send_body(&app, "POST", "/setup?user%5Bname%5D=Query&locale=de", Some(json!({
-        "locale": "en", "user": {"name": "Body", "email": "body@example.com", "password": "Correct-horse-9"}
+    let answer = browser.send_body(&app, "POST", "/setup?user%5Bemail%5D=query%40example.com&locale=de", Some(json!({
+        "locale": "en", "user": {"email": "body@example.com", "password": "Correct-horse-9"}
     }).to_string()), Csrf::Header, JSON_HEADERS).await;
     assert_eq!(answer.status, 422, "query user replaces the entire body user, including email and password");
     assert_eq!(admins(dir.path()), 0);
-    assert!(answer.body.contains("value=\"Query\""));
+    assert!(answer.body.contains("value=\"query@example.com\""));
     assert!(!answer.body.contains("body@example.com"));
     assert!(answer.body.contains("lang=\"de\""));
 }

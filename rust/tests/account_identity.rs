@@ -28,7 +28,7 @@ impl Fx {
         let dir = common::baseline_install();
         let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
         deltabadger::store::configure(&c).unwrap();
-        c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('o@example.com', 'x', 'Owner', 1, '2026-01-01', '2026-01-01')", []).unwrap();
+        c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('o@example.com', 'x', 1, '2026-01-01', '2026-01-01')", []).unwrap();
         let user = c.last_insert_rowid();
         Self { dir, c, cipher: common::seed::cipher(), user }
     }

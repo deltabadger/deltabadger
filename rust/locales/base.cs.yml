@@ -75,10 +75,8 @@ cs:
                 enter_two_fa_code: 'Zadejte 2FA kód'
                 scan_code_info: 'Naskenujte QR kód nebo zkopírujte kód níže:'
             user:
-                name: Jméno
                 current_password: 'Aktuální heslo'
                 email: E-mail
-                new_name: 'Nové jméno'
                 new_email: 'Nový e-mail'
                 new_password: 'Nové heslo'
                 new_password_confirmation: 'Potvrzení nového hesla'
@@ -159,8 +157,6 @@ cs:
             current_time_is: "Toto časové pásmo se použije v logech bota. Podle něj je aktuální čas"
             currency_updated: "Zobrazovaná měna byla aktualizována."
             currency_is_used_for: "Zisky a součty portfolia se zobrazují v této měně. Boti nadále obchodují ve svém vlastním kotovacím aktivu."
-        name:
-            updated: "Jméno bylo aktualizováno."
         two_fa:
             disabled: 'Dvoufázové ověření bylo vypnuto.'
             enabled: 'Dvoufázové ověření bylo zapnuto.'
@@ -172,7 +168,6 @@ cs:
             trading_keys_section: 'Obchodní klíče'
             withdrawal_keys_section: 'Klíče pro výběr'
             email_section: E-mail
-            name_section: Jméno
             password_section: Heslo
             free_plan_reset_date_html: 'Váš limit se obnoví <b>%{end_time}</b>.'
             title: Nastavení

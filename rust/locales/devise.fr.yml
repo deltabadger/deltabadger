@@ -34,7 +34,6 @@ fr:
             new:
                 email_invalid: 'E-mail invalide !'
                 email_suggestion_html: 'E-mail invalide ! Vouliez-vous dire : <b>%{suggestion}</b>'
-                name_invalid: 'Pas besoin d''être réel 👻'
                 submit: 'S''inscrire'
                 title: 'Créer un compte'
             signed_up: 'Bienvenue ! Vous vous êtes inscrit avec succès.'

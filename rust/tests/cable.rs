@@ -47,8 +47,8 @@ async fn served_under(recheck: Duration, limits: server::Limits, root_url: Optio
     let (dir, opened, seeded) = common::install();
     assert_eq!(seeded.user_id, OWNER);
     opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00'", [HASH]).unwrap();
-    opened.primary.execute("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, created_at, updated_at) \
-                            VALUES ('second@example.com', ?1, 'Second', 0, ?2, ?2, ?2)", (HASH, "2026-01-01 00:00:00")).unwrap();
+    opened.primary.execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, created_at, updated_at) \
+                            VALUES ('second@example.com', ?1, 0, ?2, ?2, ?2)", (HASH, "2026-01-01 00:00:00")).unwrap();
     assert_eq!(opened.primary.last_insert_rowid(), SECOND);
     // With `root_url`, a deployment that names its own origin; the listener itself is 127.0.0.1:<port>.
     let env = |name: &str| match name {

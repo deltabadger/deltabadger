@@ -61,8 +61,8 @@ pub struct SessionData {
     pub tracker_connect: Option<i64>,
     /// The SETUP_TOKEN this browser presented to /setup (SetupController#require_setup_token).
     pub setup_token: Option<String>,
-    /// The subscriber's name and email from a redeemed platform claim, prefilled on /setup until the admin is made.
-    pub platform_identity: Option<(Option<String>, Option<String>)>,
+    /// The subscriber's email from a redeemed platform claim, prefilled on /setup until the admin is made.
+    pub platform_identity: Option<String>,
     /// Tracker::ImportsController's `session[:import_offsets]`: the zone of each upload parked for the Binance/Binance.US
     /// question, by its token.
     pub import_offsets: std::collections::BTreeMap<String, String>,
@@ -82,7 +82,7 @@ impl SessionData {
             "return_to": self.return_to,
             "tracker_connect": self.tracker_connect,
             "setup_token": self.setup_token,
-            "platform_identity": self.platform_identity.as_ref().map(|(name, email)| json!([name, email])),
+            "platform_identity": self.platform_identity,
             "bot_config": self.bot_config,
             "withdrawal_rule_config": self.withdrawal_rule_config,
             "import_offsets": self.import_offsets,
@@ -99,7 +99,8 @@ impl SessionData {
             return_to: text(&v["return_to"]),
             tracker_connect: v["tracker_connect"].as_i64(),
             setup_token: text(&v["setup_token"]),
-            platform_identity: v["platform_identity"].as_array().map(|a| (a.first().and_then(text), a.get(1).and_then(text))),
+            // An earlier build stored [name, email]: its email.
+            platform_identity: text(&v["platform_identity"]).or_else(|| v["platform_identity"].as_array().and_then(|a| a.get(1)).and_then(text)),
             bot_config: v.get("bot_config").filter(|config| !config.is_null()).cloned(),
             withdrawal_rule_config: v.get("withdrawal_rule_config").filter(|config| !config.is_null()).cloned(),
             import_offsets: v["import_offsets"].as_object().map(|o| o.iter().filter_map(|(k, v)| Some((k.clone(), text(v)?))).collect()).unwrap_or_default(),

@@ -3159,7 +3159,7 @@ mod split {
     #[test]
     fn a_foreign_or_deleted_bot_is_missing() -> Result {
         let f = Fixture::baskets(&[&[0.5, 0.5], &[0.5, 0.5]])?;
-        f.c.execute("INSERT INTO users (email, encrypted_password, name, created_at, updated_at) VALUES ('x@example.com', 'x', 'X', ?1, ?1)", [NOW])?;
+        f.c.execute("INSERT INTO users (email, encrypted_password, created_at, updated_at) VALUES ('x@example.com', 'x', ?1, ?1)", [NOW])?;
         f.c.execute("UPDATE bots SET user_id=?1 WHERE id=?2", (f.c.last_insert_rowid(), f.bots[1]))?;
         f.refused_unchanged(&[], "missing", "One of these bots is gone.")?;
         f.c.execute("UPDATE bots SET status=3 WHERE id=?1", [f.bots[1]])?;

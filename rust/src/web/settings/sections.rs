@@ -35,22 +35,6 @@ impl Errors<'_> {
     fn any(&self) -> bool { !self.0.is_empty() }
 }
 
-/// settings/widgets/_name.
-pub fn name(ctx: &Ctx, csrf: &str, value: &str, errors: &Errors) -> String {
-    let input = format!(
-        "<input class=\"rinput rinput--outline rinput--text\" required=\"required\" pattern=\"^\\p{{L}}+(\\s+\\p{{L}}+)*$\" autocomplete=\"name\" aria-label=\"{}\" type=\"text\" value=\"{}\" name=\"user[name]\" id=\"user_name\" />",
-        ctx.t("settings.index.name_section"),
-        escape(value)
-    );
-    let form = format!(
-        "\n    {}\n      {}\n      {}\n</form>",
-        form_open(" class=\"sform\" data-turbo-frame=\"update_name_form\"", &ctx.path("/settings/update_name"), "patch", csrf),
-        field(&input, errors.get("name")),
-        submit(&ctx.t("button.save"), "")
-    );
-    format!("<turbo-frame class=\"sitem\" id=\"update_name_form\">\n  {}</turbo-frame>", row(&ctx.t("settings.index.name_section"), None, "", "", None, Some(&form)))
-}
-
 fn submit(label: &str, extra: &str) -> String {
     format!("<input type=\"submit\" name=\"commit\" value=\"{label}\" class=\"rbutton rbutton--secondary\"{extra} data-disable-with=\"{label}\" />")
 }
@@ -245,7 +229,6 @@ pub fn wash(ctx: &Ctx, csrf: &str, question: &str, decided: bool, enabled: bool,
 
 /// The Account section's pane (settings/sections/_account), from its rows.
 pub struct Account<'a> {
-    pub name: String,
     pub email: String,
     pub password: String,
     pub locale: String,
@@ -264,7 +247,7 @@ pub fn account(ctx: &Ctx, a: &Account) -> String {
         .unwrap_or_default();
     // D-DESKTOP-NO-ACCOUNT-PAGES: a section with no rows (the desktop's Profile and Security) has no heading either.
     let sections = [
-        ("settings.sections.profile", format!("{}\n{}\n{}", a.name, a.email, a.password)),
+        ("settings.sections.profile", format!("{}\n{}", a.email, a.password)),
         ("settings.sections.preferences", format!("{}\n{}", a.locale, a.time_zone)),
         ("settings.sections.security", a.two_fa.clone()),
         ("links.bots", format!("{}\n{}", a.advanced, a.wash)),

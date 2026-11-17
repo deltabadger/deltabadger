@@ -33,7 +33,6 @@ da:
             new:
                 email_invalid: 'Ugyldig e-mail!'
                 email_suggestion_html: 'Ugyldig e-mail! Mente du: <b>%{suggestion}</b>'
-                name_invalid: 'Det behøver ikke at være dit rigtige navn 👻'
                 submit: 'Opret konto'
                 title: 'Ny konto'
             signed_up: 'Velkommen! Du har oprettet en konto.'

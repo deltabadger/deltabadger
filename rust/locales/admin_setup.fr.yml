@@ -12,7 +12,6 @@ fr:
       title: "La configuration est verrouillée"
       text: "Pour créer le compte administrateur, ouvrez ce serveur depuis le tableau de bord du service qui l'héberge."
     validations:
-      name_required: "Le nom est requis"
       email_required: "L'e-mail est requis"
       password_required: "Le mot de passe est requis"
     api_configuration: "Le bot utilise les données de marché fournies par CoinGecko. L'accès à l'API de CoinGecko est gratuit, mais vous devez vous inscrire et créer une clé API. Trouvez les instructions ci-dessous."

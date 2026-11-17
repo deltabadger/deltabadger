@@ -12,7 +12,6 @@ da:
       title: "Opsætningen er låst"
       text: "Åbn denne server fra kontrolpanelet hos den tjeneste, der hoster den, for at oprette administratorkontoen."
     validations:
-      name_required: "Navn er påkrævet"
       email_required: "E-mail er påkrævet"
       password_required: "Adgangskode er påkrævet"
     api_configuration: "Botten bruger markedsdata fra CoinGecko. Adgang til CoinGecko API er gratis, men du skal oprette en konto og generere en API-nøgle. Se vejledningen nedenfor."

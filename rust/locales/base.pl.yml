@@ -76,10 +76,8 @@ pl:
                 enter_two_fa_code: 'Wprowadź kod 2FA'
                 scan_code_info: 'Zeskanuj kod QR lub skopiuj poniższy kod:'
             user:
-                name: Imię
                 current_password: 'Aktualne hasło'
                 email: E-mail
-                new_name: 'Nowe imię'
                 new_email: 'Nowy e-mail'
                 new_password: 'Nowe hasło'
                 new_password_confirmation: 'Potwierdź nowe hasło'
@@ -160,8 +158,6 @@ pl:
             current_time_is: 'Ta strefa czasowa będzie używana w logach bota. Zgodnie z nią, aktualna godzina to'
             currency_updated: "Twoja waluta wyświetlania została zaktualizowana."
             currency_is_used_for: "Zyski i sumy portfela są pokazywane w tej walucie. Boty nadal handlują w swoim własnym aktywie rozliczeniowym."
-        name:
-            updated: 'Twoje imię zostało zaktualizowane.'
         two_fa:
             disabled: 'Uwierzytelnianie dwuskładnikowe zostało wyłączone.'
             enabled: 'Uwierzytelnianie dwuskładnikowe zostało włączone.'
@@ -173,7 +169,6 @@ pl:
             trading_keys_section: 'Klucze handlowe'
             withdrawal_keys_section: 'Klucze wypłat'
             email_section: E-mail
-            name_section: Imię
             password_section: Hasło
             free_plan_reset_date_html: 'Twój limit zostanie zresetowany w dniu <b> %{end_time} </b>.'
             title: Ustawienia

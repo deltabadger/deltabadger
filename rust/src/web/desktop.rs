@@ -180,8 +180,8 @@ pub fn ensure_account(c: &Connection, app: &App, desktop: &Desktop, now: DateTim
                 let locale = map_locale(desktop.locale.as_deref().unwrap_or(""));
                 let zone = map_zone(desktop.time_zone.as_deref().unwrap_or(""));
                 tx.execute(
-                    "INSERT INTO users (name, email, encrypted_password, admin, confirmed_at, setup_completed, locale, time_zone, display_currency, \
-                     otp_secret_key, created_at, updated_at) VALUES ('Deltabadger', ?1, ?2, 1, ?3, 1, ?4, ?5, 'USD', ?6, ?3, ?3)",
+                    "INSERT INTO users (email, encrypted_password, admin, confirmed_at, setup_completed, locale, time_zone, display_currency, \
+                     otp_secret_key, created_at, updated_at) VALUES (?1, ?2, 1, ?3, 1, ?4, ?5, 'USD', ?6, ?3, ?3)",
                     (EMAIL, &hash, &at, locale, &zone, app.cipher.encrypt_binary(&super::settings::two_fa::new_seed())),
                 )?;
                 tx.last_insert_rowid()

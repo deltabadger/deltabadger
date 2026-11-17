@@ -1,7 +1,6 @@
 ru:
     mailer:
         greeting: 'Привет, легенда,'
-        greeting_name: 'Привет, %{name},'
         best_html: '<p>С уважением,<br>Jan</p>'
         unsubscribe: 'Отписаться'
     test_mailer:

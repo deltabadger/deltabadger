@@ -2,7 +2,6 @@ da:
     activerecord:
         attributes:
             user:
-                name: "Navn"
                 email: "E-mail"
                 password: "Adgangskode"
         errors:

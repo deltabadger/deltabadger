@@ -33,7 +33,6 @@ ru:
             new:
                 email_invalid: 'Неверный email!'
                 email_suggestion_html: 'Неверный email! Возможно, вы имели в виду: <b>%{suggestion}</b>'
-                name_invalid: 'Не обязательно использовать настоящее имя 👻'
                 submit: 'Зарегистрироваться'
                 title: 'Создать аккаунт'
             signed_up: 'Добро пожаловать! Вы успешно зарегистрировались.'

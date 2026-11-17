@@ -74,10 +74,8 @@ fr:
                 enter_two_fa_code: 'Entrer le code A2F'
                 scan_code_info: 'Scannez le code QR ou copiez le code ci-dessous :'
             user:
-                name: Nom
                 current_password: 'Mot de passe actuel'
                 email: 'E-mail'
-                new_name: 'Nouveau nom'
                 new_email: 'Nouvel e-mail'
                 new_password: 'Nouveau mot de passe'
                 new_password_confirmation: 'Confirmer le nouveau mot de passe'
@@ -158,8 +156,6 @@ fr:
             current_time_is: 'Ce fuseau horaire sera utilisé dans les logs du bot. Selon lui, l''heure actuelle est'
             currency_updated: "Votre devise d'affichage a été mise à jour."
             currency_is_used_for: "Les gains et les totaux du portefeuille sont affichés dans cette devise. Les bots continuent de trader dans leur propre actif de cotation."
-        name:
-            updated: "Votre nom a été mis à jour."
         two_fa:
             disabled: "L'authentification à deux facteurs a été désactivée."
             enabled: "L'authentification à deux facteurs a été activée."
@@ -172,7 +168,6 @@ fr:
             withdrawal_keys_section: 'Clés de retrait'
             current_password: 'Mot de passe actuel (pour confirmation)'
             email_section: 'E-mail'
-            name_section: 'Nom'
             password_section: 'Mot de passe'
             free_plan_reset_date_html: 'Votre limite sera réinitialisée le <b>%{end_time}</b>.'
             title: 'Paramètres'

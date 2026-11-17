@@ -2,7 +2,6 @@ de:
     activerecord:
         attributes:
             user:
-                name: "Name"
                 email: "E-mail"
                 password: "Passwort"
         errors:

@@ -15,7 +15,7 @@ const T: &str = "2026-01-01 00:00:00";
 pub const SYNCED: &str = "2099-01-01 00:00:00";
 
 pub fn seed_kraken(c: &Connection, cipher: &Cipher) -> Seeded {
-    c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('o@example.com', 'x', 'Owner', 1, ?1, ?1)", [T]).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('o@example.com', 'x', 1, ?1, ?1)", [T]).unwrap();
     let user_id = c.last_insert_rowid();
     c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '0.25', '0.4', ?1, ?1)", [T]).unwrap();
     let kraken_id = c.last_insert_rowid();
@@ -88,7 +88,7 @@ pub fn insert_tx(c: &Connection, s: &Seeded, bot_id: i64, t: &TxSpec) -> i64 {
 /// An Alpaca paper install: BTC/USD as data-api's listing sync imports it (base 9 / quote 2 / price 2 decimals,
 /// minimum quote 1 USD), and a trading key whose passphrase is its mode, as the API-key form writes it.
 pub fn seed_alpaca(c: &Connection, cipher: &Cipher) -> Seeded {
-    c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('o@example.com', 'x', 'Owner', 1, ?1, ?1)", [T]).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('o@example.com', 'x', 1, ?1, ?1)", [T]).unwrap();
     let user_id = c.last_insert_rowid();
     c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Alpaca', 'Alpaca', '0.15', '0.25', ?1, ?1)", [T]).unwrap();
     let exchange_id = c.last_insert_rowid();

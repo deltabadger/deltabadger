@@ -76,10 +76,8 @@ ru:
                 enter_two_fa_code: 'Введите код 2FA'
                 scan_code_info: 'Отсканируйте QR-код или скопируйте код ниже:'
             user:
-                name: Имя
                 current_password: 'Текущий пароль'
                 email: 'Email'
-                new_name: 'Новое имя'
                 new_email: 'Новый адрес электронной почты'
                 new_password: 'Новый пароль'
                 new_password_confirmation: 'Подтвердить новый пароль'
@@ -162,8 +160,6 @@ ru:
             current_time_is: 'Этот часовой пояс будет использоваться в журналах бота. Согласно ему, текущее время'
             currency_updated: "Ваша валюта отображения обновлена."
             currency_is_used_for: "Прибыль и итоги портфеля показываются в этой валюте. Боты по-прежнему торгуют в своём собственном котируемом активе."
-        name:
-            updated: 'Ваше имя было обновлено.'
         two_fa:
             disabled: 'Двухфакторная аутентификация была отключена.'
             enabled: 'Двухфакторная аутентификация была включена.'
@@ -175,7 +171,6 @@ ru:
             trading_keys_section: 'Ключи торговли'
             withdrawal_keys_section: 'Ключи вывода'
             email_section: 'Электронная почта'
-            name_section: 'Обновить имя'
             password_section: Пароль
             title: Настройки
             two_factor_section: 'Аутентификация по второму фактору'

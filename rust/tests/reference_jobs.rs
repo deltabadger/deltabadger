@@ -888,7 +888,7 @@ async fn collision_same_class_display_pairs_are_deduped_and_reconciled() {
 async fn an_index_pull_that_did_not_fail_marks_every_live_index_bot_for_a_resync() {
     let bots = |c: &Connection| {
         let ex = exchange(c, "Exchanges::Kraken", true);
-        c.execute("INSERT INTO users (id, email, encrypted_password, name, admin, created_at, updated_at) VALUES (1, 'o@example.com', 'x', 'Owner', 1, '2026-01-01', '2026-01-01')", []).unwrap();
+        c.execute("INSERT INTO users (id, email, encrypted_password, admin, created_at, updated_at) VALUES (1, 'o@example.com', 'x', 1, '2026-01-01', '2026-01-01')", []).unwrap();
         // created, scheduled, stopped, deleted, archived; a created one with no exchange; a basket.
         for (ty, status, exchange) in [("Bots::DcaIndex", 0, Some(ex)), ("Bots::DcaIndex", 1, Some(ex)), ("Bots::DcaIndex", 2, Some(ex)), ("Bots::DcaIndex", 3, Some(ex)),
                                        ("Bots::DcaIndex", 7, Some(ex)), ("Bots::DcaIndex", 0, None), ("Bots::DcaMultiAsset", 1, Some(ex))] {

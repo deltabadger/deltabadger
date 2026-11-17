@@ -2,7 +2,6 @@ el:
     activerecord:
         attributes:
             user:
-                name: "Όνομα"
                 email: "Email"
                 password: "Κωδικός"
         errors:

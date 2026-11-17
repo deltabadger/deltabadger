@@ -74,10 +74,8 @@ en:
                 enter_two_fa_code: 'Enter 2FA code'
                 scan_code_info: 'Scan QR code or copy the code below:'
             user:
-                name: Name
                 current_password: 'Current password'
                 email: Email
-                new_name: 'New name'
                 new_email: 'New email'
                 new_password: 'New password'
                 new_password_confirmation: 'Confirm new password'
@@ -158,8 +156,6 @@ en:
             current_time_is: "This timezone will be used in the bot logs. According to it, the current time is"
             currency_updated: "Your display currency has been updated."
             currency_is_used_for: "Profits and portfolio totals are shown in this currency. Bots keep trading in their own quote asset."
-        name:
-            updated: "Your name has been updated."
         two_fa:
             disabled: 'Two-factor authentication has been disabled.'
             enabled: 'Two-factor authentication has been enabled.'
@@ -171,7 +167,6 @@ en:
             trading_keys_section: 'Trading keys'
             withdrawal_keys_section: 'Withdrawal keys'
             email_section: Email
-            name_section: Name
             password_section: Password
             free_plan_reset_date_html: 'Your limit resets on <b>%{end_time}</b>.'
             title: Settings

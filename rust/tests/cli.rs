@@ -1285,8 +1285,8 @@ mod reset_password {
         let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
         let hash = deltabadger::crypto::hash_password(OLD).unwrap();
         for (email, hash) in [("owner@example.com", hash.as_str()), ("someone-else@example.com", "x")] {
-            c.execute("INSERT INTO users (name, email, encrypted_password, admin, setup_completed, confirmed_at, created_at, updated_at) \
-                       VALUES ('Owner', ?1, ?2, 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (email, hash)).unwrap();
+            c.execute("INSERT INTO users (email, encrypted_password, admin, setup_completed, confirmed_at, created_at, updated_at) \
+                       VALUES (?1, ?2, 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (email, hash)).unwrap();
         }
         (dir, hash)
     }

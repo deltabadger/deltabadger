@@ -74,10 +74,8 @@ el:
                 enter_two_fa_code: 'Εισάγετε κωδικό 2FA'
                 scan_code_info: 'Σκανάρετε τον κωδικό QR ή αντιγράψτε τον κωδικό παρακάτω:'
             user:
-                name: Όνομα
                 current_password: 'Τρέχων κωδικός'
                 email: Email
-                new_name: 'Νέο όνομα'
                 new_email: 'Νέο email'
                 new_password: 'Νέος κωδικός'
                 new_password_confirmation: 'Επιβεβαίωση νέου κωδικού'
@@ -158,8 +156,6 @@ el:
             current_time_is: "Αυτή η ζώνη ώρας θα χρησιμοποιείται στα αρχεία καταγραφής του bot. Σύμφωνα με αυτήν, η τρέχουσα ώρα είναι"
             currency_updated: "Το νόμισμα εμφάνισης ενημερώθηκε."
             currency_is_used_for: "Τα κέρδη και τα σύνολα του χαρτοφυλακίου εμφανίζονται σε αυτό το νόμισμα. Τα bot συνεχίζουν να συναλλάσσονται στο δικό τους νόμισμα αποτίμησης."
-        name:
-            updated: "Το όνομά σου ενημερώθηκε."
         two_fa:
             disabled: 'Η ταυτοποίηση δύο παραγόντων απενεργοποιήθηκε.'
             enabled: 'Η ταυτοποίηση δύο παραγόντων ενεργοποιήθηκε.'
@@ -171,7 +167,6 @@ el:
             trading_keys_section: 'Κλειδιά συναλλαγών'
             withdrawal_keys_section: 'Κλειδιά ανάληψης'
             email_section: Email
-            name_section: Όνομα
             password_section: Κωδικός
             free_plan_reset_date_html: 'Το όριό σου ανανεώνεται στις <b>%{end_time}</b>.'
             title: Ρυθμίσεις

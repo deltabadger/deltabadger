@@ -5,14 +5,6 @@
   <h1>{{ v.t("devise.registrations.new.title")|safe }}</h1>
 
   <div class="form__row form__row--input">
-    <input class="form__input form__input--large{% if name_error.is_some() %} is-invalid{% endif %}" required="required" pattern="^\p{L}+(\s+\p{L}+)*$" type="text"{% if let Some(name) = name %} value="{{ name }}"{% endif %} name="user[name]" id="user_name" />
-{% if let Some(message) = name_error %}
-             <div class="form__info form__info--invalid">{{ message }}</div>
-{% endif %}
-    <label class="form__label" for="user_name">{{ v.t("helpers.label.user.name")|safe }}</label>
-  </div>
-
-  <div class="form__row form__row--input">
     <input autocomplete="username" class="form__input form__input--large{% if email_error.is_some() %} is-invalid{% endif %}" required="required" pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" data-html5-error-message="{{ v.t("devise.registrations.new.email_invalid")|safe }}" type="email" value="{{ email }}" name="user[email]" id="user_email" />
 {% if let Some(message) = email_error %}
              <div class="form__info form__info--invalid">{{ message }}</div>

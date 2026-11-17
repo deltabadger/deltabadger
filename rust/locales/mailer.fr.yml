@@ -1,7 +1,6 @@
 fr:
     mailer:
         greeting: 'Salut champion,'
-        greeting_name: 'Salut %{name},'
         best_html: '<p>Cordialement,<br>Jan</p>'
         unsubscribe: 'Se désabonner'
     test_mailer:

@@ -10,7 +10,7 @@ const T: &str = "2026-01-01 00:00:00";
 
 /// The recorded case's rows, inserted as the recorder inserted them; returns the bot and each base's asset id.
 fn seed_case(c: &Connection, s: &seed::Seeded, case: &Value) -> (i64, BTreeMap<String, i64>) {
-    c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('stranger@example.com', 'x', 'Stranger', 0, ?1, ?1)", [T]).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('stranger@example.com', 'x', 0, ?1, ?1)", [T]).unwrap();
     let stranger = c.last_insert_rowid();
     c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '0.25', '0.4', ?1, ?1)", [T]).unwrap();
     let kraken = c.last_insert_rowid();
