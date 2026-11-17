@@ -1,6 +1,6 @@
 <form data-desktop-sign-in="true" data-turbo="false" action="{{ v.path("/login") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
 
-  {% include "svg/_40x30_logo.html" %}
+  {% include "devise/_icon.html" %}
 
   <h1>{{ v.t("desktop_sign_in.title")|safe }}</h1>
 

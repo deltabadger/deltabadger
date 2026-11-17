@@ -111,7 +111,8 @@ pub fn normalize(body: &str) -> Vec<String> {
     lines
 }
 
-/// Named divergence D-LOGIN-APP-ICON: the login page shows the app's icon (the desktop intro's image) where 2.x draws the
+/// Named divergence D-LOGIN-APP-ICON: the login page (and every other sign-in, sign-up, password, confirmation, two-factor
+/// and setup page) shows the app's icon (the desktop intro's image) where 2.x draws the
 /// signet; it is put back as the signet 2.x writes there, so the rest of the page is still compared. 2.x never writes
 /// the icon, so its bodies pass through unchanged.
 fn login_icon_as_v2(body: &str) -> std::borrow::Cow<'_, str> {

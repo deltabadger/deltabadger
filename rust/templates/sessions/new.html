@@ -1,6 +1,6 @@
 <form data-controller="form--html5-validations form--label-animations" action="{{ v.path("/login") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
 
-  <img class="devise__icon" src="{{ v.asset("desktop-intro.png") }}" alt="Deltabadger">
+  {% include "devise/_icon.html" %}
 
   <h1>{{ v.t("devise.sessions.new.title")|safe }}</h1>
 
