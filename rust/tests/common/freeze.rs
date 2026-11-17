@@ -110,11 +110,24 @@ fn restore_tree(from: &Path, to: &Path) {
         match db {
             Some(db) => {
                 let pragmas = serde_json::from_slice(&std::fs::read(from.join(format!("{db}.pragmas.json"))).unwrap()).unwrap();
-                load(&to.join(db), &std::fs::read_to_string(&path).unwrap(), &pragmas);
+                load(&to.join(db), &current_version(&std::fs::read_to_string(&path).unwrap()), &pragmas);
             }
-            None => { std::fs::copy(&path, to.join(&name)).unwrap(); }
+            None => match std::fs::read_to_string(&path).ok().filter(|t| t.contains(FROZEN_VERSION)) {
+                Some(text) => std::fs::write(to.join(&name), current_version(&text)).unwrap(),
+                None => { std::fs::copy(&path, to.join(&name)).unwrap(); }
+            },
         }
     }
+}
+
+/// The release the freeze ran on (rails-oracle-final). Rust shows the current release (`deltabadger::VERSION`), so each
+/// bump would fail every recording that shows it: `restore_tree` swaps it in the two places 2.x shows the version, the
+/// settings nav and MCP's serverInfo, raw or JSON-escaped, and nowhere else.
+pub const FROZEN_VERSION: &str = "3.0.0-beta.8";
+const VERSION_AT: [&str; 4] = [r#"settings__version">"#, r#"settings__version\">"#, r#""Deltabadger","version":""#, r#""Deltabadger\",\"version\":\""#];
+
+pub fn current_version(text: &str) -> String {
+    VERSION_AT.iter().fold(text.to_string(), |t, at| t.replace(&format!("{at}{FROZEN_VERSION}"), &format!("{at}{}", deltabadger::VERSION)))
 }
 
 fn pragmas(c: &Connection) -> serde_json::Map<String, serde_json::Value> {

@@ -230,3 +230,18 @@ async fn slow_body_keeps_the_existing_deadline_and_no_token_is_checked_first(){
     let timed_out=deltabadger::web::mcp::entry(app,build(true),std::time::Duration::from_millis(1)).await;
     assert_eq!(timed_out.status(),408);assert_eq!(timed_out.headers()["connection"],"close");
 }
+
+/// The frozen recordings show the freeze's release; `common::freeze::current_version` swaps it for this build's in the
+/// two places it is shown, and nowhere else, so a release bump never fails the comparisons.
+#[test]
+fn recordings_show_this_release() {
+    use common::freeze::{current_version, FROZEN_VERSION};
+    let (f, v) = (FROZEN_VERSION, deltabadger::VERSION);
+    assert_eq!(current_version(&format!(r#"<div class="settings__version">{f}</div>"#)), format!(r#"<div class="settings__version">{v}</div>"#));
+    assert_eq!(current_version(&format!(r#"{{"serverInfo":{{"name":"Deltabadger","version":"{f}"}}}}"#)), format!(r#"{{"serverInfo":{{"name":"Deltabadger","version":"{v}"}}}}"#));
+    assert_eq!(current_version(&format!(r#""serverInfo\":{{\"name\":\"Deltabadger\",\"version\":\"{f}\"}}"#)), format!(r#""serverInfo\":{{\"name\":\"Deltabadger\",\"version\":\"{v}\"}}"#));
+    assert_eq!(current_version(&format!(r#"{{"version":"{f}"}} {f}"#)), format!(r#"{{"version":"{f}"}} {f}"#));
+    let restored = common::frozen("mcp-transcripts", common::has_subdirs);
+    let text: String = std::fs::read_dir(restored.join("protocol")).unwrap().flatten().filter_map(|e| std::fs::read_to_string(e.path()).ok()).collect();
+    assert!(text.contains(&format!(r#""Deltabadger\",\"version\":\"{v}\""#)), "the recording no longer shows serverInfo's version as FROZEN_VERSION's swap expects");
+}
