@@ -35,11 +35,41 @@ fn comparable(message: &str) -> String {
 }
 
 fn recipient(c: &Connection, user_id: i64, locale: Option<&str>, to: Option<&str>) -> Recipient {
-    let (email, name, stored): (String, Option<String>, Option<String>) =
-        c.query_row("SELECT email, name, locale FROM users WHERE id = ?1", [user_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    let (email, stored): (String, Option<String>) =
+        c.query_row("SELECT email, locale FROM users WHERE id = ?1", [user_id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     // An account mail is in the request's language; the test mail in the user's.
     let locale = locale.map_or_else(|| render::user_locale(stored.as_deref()), |l| deltabadger::web::locale::known(l).unwrap());
-    Recipient { email: to.map_or(email, str::to_string), name: name.unwrap_or_default(), locale }
+    Recipient { email: to.map_or(email, str::to_string), locale }
+}
+
+/// 2.x's `mailer.greeting_name` in each locale (the key this build deleted with the name, D-NO-USER-NAME).
+const V2_GREETING_NAME: &[(&str, &str)] = &[("bg", "Здравей %{name},"), ("cs", "Ahoj %{name},"), ("da", "Hej %{name},"), ("de", "Hi %{name},"),
+    ("el", "Γεια σου %{name},"), ("en", "Hi %{name},"), ("es", "¡Hola %{name}!"), ("fr", "Salut %{name},"), ("it", "Ciao %{name},"), ("nl", "Hoi %{name},"),
+    ("pl", "Cześć %{name},"), ("pt", "Olá %{name},"), ("ru", "Привет, %{name},"), ("sk", "Ahoj %{name},"), ("sv", "Hej %{name},")];
+
+/// D-NO-USER-NAME: this build greets every mail with `mailer.greeting`; 2.x greeted by `users.name` (the recorded install
+/// still holds it). The one greeting line of `html` (in `locale`) as 2.x wrote it for the account the mail is about: the
+/// bot's owner, the account at the taken address (none: blank), else `user_id`. ERB escapes the whole line.
+fn v2_greeting(c: &Connection, case: &Value, html: &str) -> String {
+    use rusqlite::OptionalExtension;
+    let name: Option<String> = match (case.get("notice"), case["account"].as_str()) {
+        (Some(n), _) => c.query_row("SELECT u.name FROM bots b JOIN users u ON u.id = b.user_id WHERE b.id = ?1", [n["bot_id"].as_i64().unwrap()], |r| r.get(0)).unwrap(),
+        (None, Some("email_already_taken")) => c.query_row("SELECT name FROM users WHERE email = ?1", [case["to"].as_str().unwrap()], |r| r.get(0)).optional().unwrap().flatten(),
+        _ => c.query_row("SELECT name FROM users WHERE id = ?1", [case["user_id"].as_i64().unwrap()], |r| r.get(0)).unwrap(),
+    };
+    // The mail's language, as build() picks it: a bot mail in its owner's, an account mail in the request's (else the user's).
+    let stored = |sql: &str, id: i64| -> Option<String> { c.query_row(sql, [id], |r| r.get(0)).unwrap() };
+    let locale = match case.get("notice") {
+        Some(n) => render::user_locale(stored("SELECT u.locale FROM bots b JOIN users u ON u.id = b.user_id WHERE b.id = ?1", n["bot_id"].as_i64().unwrap()).as_deref()),
+        None => case["locale"].as_str().map_or_else(|| render::user_locale(stored("SELECT locale FROM users WHERE id = ?1", case["user_id"].as_i64().unwrap()).as_deref()),
+                                                   |l| deltabadger::web::locale::known(l).unwrap()),
+    };
+    let template = V2_GREETING_NAME.iter().find(|(l, _)| *l == locale).unwrap().1;
+    let line = template.replace("%{name}", name.as_deref().unwrap_or_default());
+    let escaped = line.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;").replace('\'', "&#39;");
+    let ours = format!("<p>{}</p>", deltabadger::web::i18n::t(locale, "mailer.greeting", &[]));
+    assert_eq!(html.matches(&ours).count(), 1, "one greeting line: {html}");
+    html.replacen(&ours, &format!("<p>{escaped}</p>"), 1)
 }
 
 fn build(c: &Connection, case: &Value) -> Message {
@@ -86,6 +116,7 @@ fn v2_and_rust_build_the_same_mails_across_the_grid() {
     for case in &cases {
         let name = case["name"].as_str().unwrap();
         let mut ours = build(&c, case);
+        ours.html = v2_greeting(&c, case, &ours.html);
         // D-MAIL-PLAIN-DECIMAL: the amount-limit mail writes a tiny limit as "0.00001" where 2.x prints "1.0e-05".
         if case["notice"]["mail"] == "stopped_by_amount_limit" && ours.html.contains("0.00001") {
             assert!(!ours.html.contains("e-05"), "{name}: {}", ours.html);

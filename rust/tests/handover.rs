@@ -16,6 +16,36 @@ fn job(q: &rusqlite::Connection, class: &str, gid: &str) {
     q.execute("INSERT INTO solid_queue_scheduled_executions (job_id, queue_name, priority, scheduled_at, created_at) VALUES (?1, 'kraken', 0, '2026-10-07 10:00:00', '2026-09-30 11:00:00')", [id]).unwrap();
 }
 fn count(c: &rusqlite::Connection, sql: &str) -> i64 { c.query_row(sql, [], |r| r.get(0)).unwrap() }
+const DROP_NAME: &str = "20261117000001";
+/// (users has a name column, the name drop is recorded).
+fn name_state(c: &rusqlite::Connection) -> (bool, bool) {
+    (count(c, "SELECT count(*) FROM pragma_table_xinfo('users') WHERE name = 'name'") == 1,
+     count(c, &format!("SELECT count(*) FROM rust_schema_migrations WHERE version = '{DROP_NAME}'")) == 1)
+}
+
+/// D-HANDBACK-RESTORES-NAME: a handback gives 2.x its `users.name` back (blank) and unrecords the drop; a second
+/// handback finds the column there; the next start drops it again.
+#[tokio::test(flavor = "current_thread")]
+async fn handback_restores_the_name_column_and_the_next_start_drops_it_again() {
+    let dir = common::v2_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    assert_eq!(name_state(&o.primary), (false, true), "this build's migrations dropped it");
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    for round in 0..2 {
+        handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+        handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+        assert_eq!(name_state(&o.primary), (true, false), "round {round}");
+        assert_eq!(count(&o.primary, "SELECT count(*) FROM users WHERE name IS NOT NULL"), 0, "round {round}: blank");
+    }
+    assert_eq!(store::check(&p).unwrap().pending_rust, vec![DROP_NAME.to_string()]);
+    drop((l, o));
+    let l = lease::lock(&p, now()).unwrap();
+    assert_eq!(store::migrate(&p, &l).unwrap(), vec![DROP_NAME.to_string()]);
+    assert_eq!(name_state(&rusqlite::Connection::open(&p.primary).unwrap()), (false, true));
+}
 
 #[test]
 fn takeover_claims_the_install_removes_its_bots_v2_jobs_drops_the_rest_and_unsticks_executing() {
@@ -198,10 +228,13 @@ async fn v2_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
         assert!(!stdout.contains(" down ") && !stdout.contains("NO FILE"), "{task}: {stdout}");
     }
     assert!(v2_boot(dir.path()).0, "2.x starts after a completed handback");
+    // D-HANDBACK-RESTORES-NAME: 2.x reads users.name again (blank) where it reads it most: an account mail's greeting.
+    let (booted, stderr) = v2_boot_running(dir.path(), "u = User.first or raise 'no user'\nraise 'a name' unless u.name.nil?\nDevise.mailer.confirmation_instructions(u, 'token').body.to_s");
+    assert!(booted, "2.x reads the restored name: {stderr}");
     let c = rusqlite::Connection::open(&p.primary).unwrap();
-    assert_eq!(count(&c, "SELECT count(*) FROM rust_schema_migrations"), store::REGISTRY.migrations.len() as i64 + 1, "Rust's record untouched");
+    assert_eq!(count(&c, "SELECT count(*) FROM rust_schema_migrations"), store::REGISTRY.migrations.len() as i64, "Rust's record untouched but the name drop's");
     assert_eq!(count(&c, "SELECT count(*) FROM sqlite_master WHERE name = 'rust_migration_probe'"), 1);
-    assert_eq!(store::check_with(&p, &registry).unwrap().pending_rust, Vec::<String>::new());
+    assert_eq!(store::check_with(&p, &registry).unwrap().pending_rust, vec![DROP_NAME.to_string()], "the next start drops the name again");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -221,6 +254,7 @@ async fn wrong_secret_handback_writes_nothing() {
     assert!(matches!(r, Err(EngineError::Lease(lease::LeaseError::Unreadable))), "{r:?}");
     assert_eq!((row(), bots()), (row_before, bots_before), "no intents, a wrong secret: nothing written");
     assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust");
+    assert_eq!(name_state(&o.primary), (false, true), "a refused handback keeps the name dropped and recorded");
 }
 
 #[derive(Clone)]

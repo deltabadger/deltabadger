@@ -354,6 +354,22 @@ async fn v2_and_rust_answer_the_setup_grid_alike() {
             let page = html::normalize(&String::from_utf8_lossy(web::assets::find("/400.html").unwrap().body));
             if theirs["status"] != 400 || ours["status"] != 400 || ours["body"] != json!(page) { failures.push(format!("{name}: expected 400 with public/400.html, got {ours}")); }
         }
+        if name == "claim_no_identity" {
+            // D-NO-USER-NAME: 2.x keeps a claim's empty identity ([nil, nil]) in the session and writes its cookie; this build
+            // keeps only an identity's email, so a claim without one leaves the session as it was.
+            v2[1]["headers"].as_object_mut().unwrap().remove("set-cookie");
+        }
+        if name == "invalid_name" || name == "followup_json_locale" {
+            // D-NO-USER-NAME: 2.x refused only the name ("Owner1", blank). This build asks none: setup succeeds as it
+            // always does, a confirmed admin signed in and sent to /bots, and no mail.
+            let ours = played.responses.last().unwrap();
+            let users = table(played.dir.path(), "users");
+            let ok = ours["status"] == 302 && ours["headers"]["location"].as_str().is_some_and(|l| l.ends_with("/bots"))
+                && users.len() == 1 && users[0]["admin"] == json!(1) && !users[0]["confirmed_at"].is_null()
+                && ours["headers"]["set-cookie"].is_string() && played.woken == 0;
+            if !ok { failures.push(format!("{name}: expected the admin created and a redirect to /bots, got {ours} with {users:?}")); }
+            continue;
+        }
         if let Some(message) = first_difference(name, &v2, &played.responses) { failures.push(message); continue; }
         // The claim requests the launchpad received, and Setup::SeedAndSyncJob: enqueued in 2.x, woken here.
         if scenario["launchpad_requests"] != json!(played.requests) { failures.push(format!("{name}: launchpad requests: 2.x {}, Rust {:?}", scenario["launchpad_requests"], played.requests)); }
@@ -378,7 +394,7 @@ fn admins(dir: &Path) -> i64 {
 }
 
 fn account(email: &str) -> Vec<(&str, &str)> {
-    vec![("locale", "en"), ("user[name]", "Owner"), ("user[email]", email), ("user[password]", "Correct-horse-9")]
+    vec![("locale", "en"), ("user[email]", email), ("user[password]", "Correct-horse-9")]
 }
 
 async fn submit(browser: &mut Browser, app: &App, path: &str, mut form: Vec<(&str, &str)>) -> Answer {
