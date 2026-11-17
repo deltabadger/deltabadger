@@ -8,7 +8,7 @@
 //! - r2.1: handback refuses a Rust-born install and writes nothing. Every other command creates no database file.
 //!
 //! Install-time stamps differ run to run and are masked, exactly these: the seed `now` (every seed stamp, the
-//! bootstrap's app_configs rows, rust_taken_over_at, rust_created_at, and `rails_at` inside the rust_job.* rows, which
+//! bootstrap's app_configs rows, rust_taken_over_at, rust_created_at, and `v2_at` inside the rust_job.* rows, which
 //! carry it); app_configs.created_at/updated_at (the rows the claim and the start write: engine_lease, rust_job.*);
 //! the lease's `since` (rewritten by the claim); rust_schema_migrations.applied_at; ar_internal_metadata's stamps
 //! (common::schema::dump leaves them out).
