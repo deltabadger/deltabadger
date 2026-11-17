@@ -258,8 +258,25 @@
     color: var(--stone)
 
 // The pane's search box (the exchange and quote steps): the search the sentence held.
-.sheet__search
-    margin-bottom: -1rem
+// The pane's search (the exchange and quote steps' .sheet__search, the asset step's own box): first in the pane and stuck
+// to its top edge; a thin line under it once something has scrolled beneath (sheet_controller's sheet__pane--scrolled).
+.sheet__pane--flush
+    .sheet__search, .wizard-assets > .modal--search
+        position: sticky
+        top: 0
+        z-index: 2
+        order: -1
+        margin: 0
+        background: var(--washed)
+        transition: box-shadow 0.15s ease
+    .modal--search__input
+        box-shadow: none !important
+    &.sheet__pane--scrolled
+        .sheet__search, .wizard-assets > .modal--search
+            box-shadow: 0 1px 0 var(--zinc)
+    // The wizard's steps have no "more below" arrow.
+    > .sheet__more
+        display: none
 // The asset step's way on, under the basket.
 .sheet__next
     display: flex
@@ -632,3 +649,21 @@ turbo-frame.sitem
     // A short label keeps its control beside it; only a control that cannot fit drops under.
     .srow__text
         flex-basis: 12rem
+
+// D-WIZARD-VENUE-GROUPS: the DCA exchange step's "Brokers" and "Exchanges", each heading over its own grid. The heading
+// reads as Settings' group labels (.srow--group).
+.exchange-groups
+    display: flex
+    flex-direction: column
+    gap: 3rem
+.exchange-group__heading
+    // The grid's own side padding (_exchange-picker.sass), so the heading starts over its first tile.
+    margin: 0 0 1.5rem
+    padding: 0 2rem
+    @media (min-width: 768px)
+        padding: 0 3rem
+    font-size: 1.5rem
+    font-weight: 600
+    text-transform: uppercase
+    letter-spacing: 0.02em
+    color: var(--stone)

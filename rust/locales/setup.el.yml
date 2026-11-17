@@ -6,6 +6,9 @@ el:
             assets_syncing: "Συγχρονίζουμε τα assets αυτού του exchange — δοκίμασε ξανά σε λίγο."
             stocks_ask_admin: "Ζήτησε από τον διαχειριστή σου να ενεργοποιήσει τις συναλλαγές μετοχών."
             stocks_activate_cta: "Ενεργοποίησε τις συναλλαγές μετοχών στις ρυθμίσεις"
+            venue_groups:
+                brokers: "Μεσίτες"
+                exchanges: "Ανταλλακτήρια"
             progress_steps:
                 assets: "Περιουσιακά στοιχεία"
                 currencies: "Επιλογή asset"

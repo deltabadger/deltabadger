@@ -308,7 +308,6 @@ html:has(#modal dialog[open])
     max-height: calc(100vh - 2rem)
     position: relative
     background: var(--washed)
-    border-radius: 2rem
     overflow: hidden
     @media screen and (min-width: 576px)
         max-width: calc(100vw - 4rem)
@@ -321,14 +320,12 @@ html:has(#modal dialog[open])
         left: 2rem
         path,circle
             stroke: var(--steel)
-        @media screen and (min-width: 768px)
-            left: 3rem
     &__input
         box-shadow: 0 0.125rem var(--slider-track) !important
         background: rgba(0,0,0,0)
         font-weight: 500
         width: 100%
-        padding: 2rem 2rem 2rem 7rem
+        padding: 2rem 2rem 2rem 6rem
         font-size: 2rem
         border: none
         height: 7rem
@@ -375,9 +372,6 @@ html:has(#modal dialog[open])
         text-wrap: nowrap
         &:first-child
             padding-left: 2rem
-        @media screen and (min-width: 768px)
-            &:first-child
-                padding-left: 3rem
         &--ticker
             font-weight: 600
             color: var(--ink)
@@ -406,9 +400,7 @@ html:has(#modal dialog[open])
             font-weight: 400
             color: var(--stone)
             text-align: end
-            padding-right: 2.5rem
-            @media (min-width: 768px)
-                padding-right: 3rem
+            padding-right: 2rem
             svg
                 width: 2rem
                 height: 2rem

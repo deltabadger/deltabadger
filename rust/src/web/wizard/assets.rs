@@ -263,10 +263,13 @@ fn stock_basket(c: &Connection, ids: &[i64]) -> Result<bool, WebError> {
     Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM assets WHERE category = 'Stock' AND id IN (SELECT value FROM json_each(?1)))", [json!(ids).to_string()], |r| r.get(0))?)
 }
 
+/// A stock broker, as Bots::StockBrokerRoutable names them: the exchange step lists these apart (D-WIZARD-VENUE-GROUPS).
+pub fn broker(class: &str) -> bool { matches!(class, "Exchanges::Alpaca" | "Exchanges::Ibkr") }
+
 /// Bots::StockBrokerRoutable#available_stock_brokers: the stock venues listing every member, quoted in USD (the quote set only
 /// in memory).
 pub fn stock_brokers(c: &Connection, basket: &Basket, usd: Option<i64>) -> Result<Vec<i64>, WebError> {
     let priced = Basket { quote_asset_id: basket.quote_asset_id.or(usd), ..basket.clone() };
-    Ok(search::available_exchanges(c, &priced, None)?.into_iter().filter(|venue| matches!(venue.class.as_str(), "Exchanges::Alpaca" | "Exchanges::Ibkr"))
+    Ok(search::available_exchanges(c, &priced, None)?.into_iter().filter(|venue| broker(&venue.class))
         .map(|venue| venue.id).collect())
 }

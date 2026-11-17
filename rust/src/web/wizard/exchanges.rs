@@ -100,7 +100,12 @@ fn prerequisite_path(c: &Connection, user_id: i64, config: Option<&Value>, names
 struct New {
     search: String,
     table: Table,
+    groups: Vec<Group>,
 }
+
+/// D-WIZARD-VENUE-GROUPS: the DCA exchange step lists the stock brokers under "Brokers" and the rest under "Exchanges", each
+/// in the order the table had them; a group with no venue is not drawn.
+pub struct Group { title: String, venues: Vec<Venue> }
 
 /// `prepare_step` and the page: the venues the bot built from the session could trade on, its own venue set aside.
 fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, namespace: Namespace) -> Result<String, WebError> {
@@ -117,13 +122,15 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, namespace: Namespace)
         }
     };
     let csrf = ctx.csrf_token();
-    let venues = ordered(venues, ctx.params.query("query")).into_iter()
-        .map(|venue| Venue { id: venue.id, mark: exchange_wordmark(&venue.name_id()), unavailable: false }).collect();
+    let (brokers, exchanges): (Vec<_>, Vec<_>) = ordered(venues, ctx.params.query("query")).into_iter().partition(|venue| super::assets::broker(&venue.class));
+    let venue = |venue: Exchange| Venue { id: venue.id, mark: exchange_wordmark(&venue.name_id()), unavailable: false };
+    let groups: Vec<Group> = [("brokers", brokers), ("exchanges", exchanges)].into_iter().filter(|(_, venues)| !venues.is_empty())
+        .map(|(key, venues)| Group { title: ctx.t(&format!("bot.setup.venue_groups.{key}")), venues: venues.into_iter().map(venue).collect() }).collect();
     let order = StepOrder::new(namespace.bot_type(), current_variant(config));
     let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Exchange, multi: namespace == Namespace::Multi, chips, exchange: None }, true)?;
-    let table = Table { action: ctx.path(&format!("{}/pick_exchange", namespace.base())), csrf, param_name: namespace.param().into(), venues,
+    let table = Table { action: ctx.path(&format!("{}/pick_exchange", namespace.base())), csrf, param_name: namespace.param().into(), venues: vec![],
                         unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
-    super::sheet(ctx, &steered.track, &New { search: steered.search, table }.render()?)
+    super::sheet(ctx, &steered.track, &New { search: steered.search, table, groups }.render()?)
 }
 
 async fn render(app: &App, ctx: &Ctx, namespace: Namespace, status: StatusCode) -> Result<Response, WebError> {

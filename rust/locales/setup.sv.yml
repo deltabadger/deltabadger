@@ -6,6 +6,9 @@ sv:
             assets_syncing: "Vi synkroniserar tillgångarna för den här börsen – kom tillbaka om en stund."
             stocks_ask_admin: "Be din administratör att aktivera aktiehandel."
             stocks_activate_cta: "Aktivera aktiehandel i inställningarna"
+            venue_groups:
+                brokers: "Mäklare"
+                exchanges: "Börser"
             progress_steps:
                 assets: "Tillgångar"
                 currencies: "Välj tillgång"

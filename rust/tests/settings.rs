@@ -2357,6 +2357,11 @@ async fn each_dca_step_is_the_sheet_with_its_track(){
     assert_eq!(step.status,200);sheet(&step.body);
     assert_eq!(track(&step.body),["Exchange:current plain".to_string(),format!("Assets:upcoming POST {order} flow=asset_first"),"Currency:upcoming plain".into()]);
     assert!(!step.body.contains("sheet__search"),"no search on the first screen, as Rails had none");
+    // D-WIZARD-VENUE-GROUPS: the stock broker under "Brokers".
+    let groups:Vec<(String,Vec<String>)>={let page=scraper::Html::parse_document(&step.body);page.select(&select("section.exchange-group")).map(|g|(
+        g.select(&select("h3")).next().unwrap().text().collect::<String>(),
+        g.select(&select("button.exchange-grid__item")).map(|b|b.value().attr("value").unwrap().to_string()).collect())).collect()};
+    assert_eq!(groups,[("Brokers".to_string(),vec![exchange.clone()])],"the one venue, a broker: {groups:?}");
     // The key step, not skipped (no key yet): the current venue goes back, Assets still switches the order.
     h.c.execute("UPDATE api_keys SET status=2 WHERE id=?1",[h.seed.api_key_id]).unwrap();
     h.c.execute("UPDATE api_keys SET key=NULL, secret=NULL WHERE id=?1",[h.seed.api_key_id]).unwrap();

@@ -250,6 +250,40 @@ fn check_track(theirs: &[Value], step: usize, slots: Option<&Slots>, drawn: &[Dr
     Err(format!("the track is not the step's:\n  drawn: {drawn:?}\n  expected one of: {}", failures.join("\n    ")))
 }
 
+/// D-WIZARD-VENUE-GROUPS: this crate's exchange step draws its venues in two grids under "Brokers" and "Exchanges" where
+/// Rails draws one. Each group must keep Rails' order and the two must hold exactly Rails' tiles, under the locale's headings
+/// (a group with no venue is not drawn); then this crate's groups are put back as Rails' grid.
+fn ungroup(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usize, locale: &str) -> Result<(), String> {
+    let Some(groups) = positions(ours, ours_step, subtree_end(ours, ours_step), |l| has_class(l, "div", "exchange-groups")).first().copied() else { return Ok(()) };
+    let grid = positions(theirs, step, subtree_end(theirs, step), |l| has_class(l, "div", "exchange-grid")).first().copied().ok_or("venue groups where Rails has no grid")?;
+    let options = |lines: &[Value], at: usize| -> Vec<Vec<Value>> {
+        children(lines, at, subtree_end(lines, at), depth(&lines[at])).into_iter().map(|o| without_space(&reindent(&lines[o..subtree_end(lines, o)], 0))).collect()
+    };
+    let rails = options(theirs, grid);
+    let groups_end = subtree_end(ours, groups);
+    let (mut drawn, mut titles) = (vec![], vec![]);
+    for group in children(ours, groups, groups_end, depth(&ours[groups])) {
+        let end = subtree_end(ours, group);
+        let heading = positions(ours, group, end, |l| has_class(l, "h3", "exchange-group__heading")).first().and_then(|h| words(&ours[h + 1])).unwrap_or_default();
+        let grid = positions(ours, group, end, |l| has_class(l, "div", "exchange-grid")).first().copied().ok_or("a venue group without its grid")?;
+        titles.push(heading);
+        drawn.push(options(ours, grid));
+    }
+    let title = |key: &str| deltabadger::web::i18n::text(locale, &format!("bot.setup.venue_groups.{key}"), &[]);
+    // No venue at all (nothing the basket trades on): no group, where Rails' grid is empty.
+    let want: Vec<String> = match drawn.len() { 2 => vec![title("brokers"), title("exchanges")], 0 | 1 => vec![], n => return Err(format!("{n} venue groups")) };
+    if drawn.len() == 2 && titles != want { return Err(format!("the venue groups' headings: {titles:?}, not {want:?}")) }
+    if drawn.len() == 1 && ![title("brokers"), title("exchanges")].contains(&titles[0]) { return Err(format!("the venue group's heading: {:?}", titles[0])) }
+    // Each group in Rails' order, and the two together exactly Rails' tiles.
+    let in_order = |group: &[Vec<Value>]| group.iter().map(|o| rails.iter().position(|r| r == o)).collect::<Option<Vec<_>>>().is_some_and(|at| at.windows(2).all(|w| w[0] < w[1]));
+    if !drawn.iter().all(|group| in_order(group)) || drawn.iter().map(Vec::len).sum::<usize>() != rails.len() {
+        return Err("the venue groups are not Rails' tiles, each group in Rails' order".into());
+    }
+    let back = reindent(&theirs[grid..subtree_end(theirs, grid)], depth(&ours[groups]));
+    ours.splice(groups..groups_end, back);
+    Ok(())
+}
+
 /// D-WIZARD-SHEET on one answer to `path` (see the module). Ok(1) when it was a sheet put back as Rails' step, Ok(0) when the
 /// answer is not a DCA step's (not a DCA path, or no step in either body), Err when this crate's answer draws a step that is
 /// not the sheet it must be.
@@ -327,6 +361,9 @@ pub fn wizard_sheet(path: &str, flow: Option<&str>, rails: &mut Value, rust: &mu
     for at in nexts.iter().chain(&searches).copied().rev().collect::<std::collections::BTreeSet<_>>().into_iter().rev() { cut(ours, at) }
     let ours_end = subtree_end(ours, ours_shell);
     let ours_step = positions(ours, ours_shell, ours_end, |l| has_class(l, "div", "bot-creation-layout"))[0];
+    // D-WIZARD-VENUE-GROUPS: the brokers and the exchanges under their headings; read back as Rails' one grid.
+    ungroup(theirs, step, ours, ours_step, locale)?;
+    let ours_end = subtree_end(ours, ours_shell);
     // The basket is drawn open; Rails' was closed unless asked for.
     let list = |l: &Value| opens(l, "div") && attr(text(l), "class").is_some_and(|c| c.split(' ').any(|c| c == "wizard-assets__list"));
     if positions(ours, ours_step, subtree_end(ours, ours_step), list).iter().any(|at| attr(text(&ours[*at]), "class").is_some_and(|c| c.split(' ').any(|c| c == "hidden"))) {
@@ -508,6 +545,29 @@ mod tests {
         let (mut theirs, mut drawn) = (rails(), ours("NVDL"));
         assert_eq!(wizard_sheet("/bots/dca_single_assets/pick_buyable_asset/new?query=nv", Some("exchange_first"), &mut theirs, &mut drawn), Ok(1));
         assert!(!same(&theirs, &drawn), "a different result list");
+    }
+
+    #[test]
+    fn the_exchange_step_groups_brokers_and_exchanges_in_rails_order() {
+        let tile = |id: &str| format!("<div class=\"exchange-grid__option\"><button name=\"p\" type=\"submit\" value=\"{id}\" class=\"exchange-grid__item\" data-turbo-frame=\"modal_content\">{id}</button></div>");
+        let rails_grid = format!("<div class=\"exchange-grid\">{}{}{}</div>", tile("1"), tile("14"), tile("3"));
+        let group = |title: &str, ids: &[&str]| format!("<section class=\"exchange-group\"><h3 class=\"exchange-group__heading\">{title}</h3><div class=\"exchange-grid\">{}</div></section>", ids.iter().map(|id| tile(id)).collect::<String>());
+        let groups = |a: String, b: String| format!("<div class=\"exchange-groups\">{a}{b}</div>");
+        let rails = || rails_page(&rails_step("Pick exchange", 25, &invite_sentence(), &rails_grid));
+        let plain_track = track(&[item("current", "Exchange", None), item("upcoming", "Assets", Some(("post", ORDER, &[("flow", "asset_first")], false))), item("upcoming", "Currency", None)]);
+        let ours = |inner: String| page(&sheet("modal_content", &plain_track, &ours_step("", &inner)));
+        let (mut theirs, mut drawn) = (rails(), ours(groups(group("Brokers", &["14"]), group("Exchanges", &["1", "3"]))));
+        assert_eq!(wizard_sheet(EXCHANGES, None, &mut theirs, &mut drawn), Ok(1));
+        assert!(same(&theirs, &drawn), "{theirs:#}\n{drawn:#}");
+        // No venue: no group, Rails' grid empty.
+        let (mut theirs, mut drawn) = (rails_page(&rails_step("Pick exchange", 25, &invite_sentence(), "<div class=\"exchange-grid\"></div>")), ours(groups(String::new(), String::new())));
+        assert_eq!(wizard_sheet(EXCHANGES, None, &mut theirs, &mut drawn), Ok(1));
+        assert!(same(&theirs, &drawn));
+        assert!(wizard_sheet(EXCHANGES, None, &mut rails(), &mut ours(groups(String::new(), String::new()))).is_err(), "Rails' tiles missing");
+        for wrong in [groups(group("Brokers", &["14"]), group("Exchanges", &["3", "1"])), groups(group("Brokers", &["14"]), group("Exchanges", &["1"])),
+                      groups(group("Exchanges", &["14"]), group("Brokers", &["1", "3"])), groups(group("Brokers", &["14"]), group("Exchanges", &["1", "3", "9"]))] {
+            assert!(wizard_sheet(EXCHANGES, None, &mut rails(), &mut ours(wrong.clone())).is_err(), "{wrong}");
+        }
     }
 
     #[test]

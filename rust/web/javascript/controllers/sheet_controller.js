@@ -24,6 +24,8 @@ export default class extends Controller {
           this.pane.querySelector(":scope > .sheet__more")?.remove();
           this.pane.insertAdjacentHTML("beforeend", '<span class="sheet__more" aria-hidden="true"></span>');
         }
+        // Something has scrolled under the pane's top edge (the wizard's sticky search draws its line then).
+        this.pane.classList.toggle("sheet__pane--scrolled", this.pane.scrollTop > 0);
         this.pane.classList.toggle("sheet__pane--more",
           this.pane.scrollTop + this.pane.clientHeight < this.pane.scrollHeight - 1);
         // The headings stick to the pane's top edge; the next one coming up pushes the stuck one out
