@@ -1,24 +1,23 @@
-# Rust run ownership and Rails parity
+# Rust run ownership and 2.x parity
 
-Rails keeps main's #526 lifecycle and placement behavior. Run generations, durable client-ID
+2.x keeps main's #526 lifecycle and placement behavior. Run generations, durable client-ID
 intents, and immutable accepted-order attribution are Rust protocol data. The shared migration
-adds only `transactions.run_identity`; Rails does not write it. Rust keeps intents in the existing
-`bots.transient_data.rust_placement` key. There is no Rails `placement_intents` column or consumer.
+adds only `transactions.run_identity`; 2.x does not write it. Rust keeps intents in the existing
+`bots.transient_data.rust_placement` key. There is no 2.x `placement_intents` column or consumer.
 
 Named stricter divergences:
 
-| Name | Rails witness | Rust assertion |
+| Name | 2.x witness | Rust assertion |
 | --- | --- | --- |
 | `same_timestamp_restart` | A resumed claim with the same timestamps passes the old tick's fence. | `placement::divergence_same_timestamp_restart_fences_the_old_order` sends nothing and removes its undispatched intent. |
 | `stale_tick_completion` | The old tick can transition the restarted run to waiting. | `placement::divergence_stale_tick_completion_cannot_write_over_a_new_run` refuses the write; `tick_basket` tests pre-claim and final-leg races. |
 | `settings_held_until_reconciliation` | A stopped bot accepts an amount edit with an unresolved commitment. | `web_actions::action_write::divergence_settings_held_until_reconciliation` refuses the edit and preserves the carry window and intent. |
-| `accepted_order_recovery` | Ambiguous venue responses can leave Rails without a submitted row. | The existing named decision-parity divergences in `parity.rs` require Rust to retain the client-ID intent, reconcile the accepted order once, and hold further placement. `placement` tests preserve original run attribution across STOP and credential rotation. |
-| `in_flight_stop_notice` | Rails' STOP response has no in-flight notice. | Browser and MCP STOP responses warn when Rust retains an unresolved intent or a submitted transaction has unknown/open external status. This changes no order or lifecycle decision. |
+| `accepted_order_recovery` | Ambiguous venue responses can leave 2.x without a submitted row. | The existing named decision-parity divergences in `parity.rs` require Rust to retain the client-ID intent, reconcile the accepted order once, and hold further placement. `placement` tests preserve original run attribution across STOP and credential rotation. |
+| `in_flight_stop_notice` | 2.x's STOP response has no in-flight notice. | Browser and MCP STOP responses warn when Rust retains an unresolved intent or a submitted transaction has unknown/open external status. This changes no order or lifecycle decision. |
 
-`fixtures/run_ownership.json` records the first three witnesses using unchanged Rails code in a
-clean archive of main. `script/rust/record_run_ownership.rb` runs only synthetic data, with network
-access fenced. Tests pin the Rails sources and assert both the recorded Rails outcome and Rust's
-stricter outcome. Existing recovery comparisons remain in `parity.rs`.
+`fixtures/run_ownership.json` records the first three witnesses from unchanged 2.x code in a
+clean archive of main, on synthetic data only, with network access fenced. Tests assert both the
+recorded 2.x outcome and Rust's stricter outcome. Existing recovery comparisons remain in `parity.rs`.
 
 Business-row parity omits only Rust's `run_generation`, `tick_generation`, and transaction
 `run_identity` metadata, alongside the pre-existing Rust intent/wait/mail keys. Dedicated protocol
@@ -37,7 +36,7 @@ intent or one already marked dispatched remains available for reconciliation. No
 transaction spans venue I/O.
 
 Legacy intents written by main have no `run_identity`. Recovery and operator resolution preserve
-Rails' ambiguous-placement checkpoint wait for these intents, using the current schedule under
+2.x's ambiguous-placement checkpoint wait for these intents, using the current schedule under
 the settlement write lock. Missing attribution never grants dispatch ownership. The `run` upgrade
 test constructs main's persisted intent format, proves absence, restarts the engine, and asserts
 no purchase until strictly after the next checkpoint.

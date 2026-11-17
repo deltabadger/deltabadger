@@ -240,6 +240,8 @@ jobs:
       - run: bash script/release/validate_test.sh
       # script/release.sh (PLAN-B8 B8-3): versions, refusals that write nothing, the signed tag and its trailer, promote, umbrel.
       - run: bash script/release_test.sh
+      # Every relative link and backticked repo path in README.md, manual/ and the AGENTS.md files resolves (PLAN-B11 B11-7).
+      - run: python3 script/rust/doc_links.py
 
   # release.yml's "pushed is smoked" check, on the runners the publish uses (their Docker image stores differ:
   # v3.0.0-beta.1's ubuntu-latest amd64 leg ran the containerd store, where buildx reports no config digest for a
