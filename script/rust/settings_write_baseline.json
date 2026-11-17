@@ -134,7 +134,7 @@
       "upstream": {
         "return settings(address, env.port.clone().unwrap_or_else(|| \"587\".into()), &env.domain.clone().unwrap_or_else(|| \"localhost\".into()),": 1,
         "(env.user_name.clone().unwrap_or_default(), env.password.clone().unwrap_or_default()));": 1,
-        "let port = crate::ruby::to_i(&present(config(\"smtp_port\")).unwrap_or_else(|| \"587\".into()));": 1,
+        "let port = crate::v2::to_i(&present(config(\"smtp_port\")).unwrap_or_else(|| \"587\".into()));": 1,
         "return settings(present(config(\"smtp_host\")).unwrap_or_else(|| \"smtp.gmail.com\".into()), port.to_string(), \"localhost.localdomain\", (user, password));": 1,
         "present(env.notifications_sender.clone()).or_else(|| present(config(\"smtp_username\"))).unwrap_or_else(|| \"noreply@localhost\".into())": 1,
         "let code = line.get(..3).filter(|d| d.bytes().all(|b| b.is_ascii_digit())).and_then(|d| d.parse::<u16>().ok()).filter(|c| (200..600).contains(c));": 1,
@@ -454,7 +454,7 @@
         "let p=view.params.form(\"user[password]\").unwrap_or(\"\");": 1,
         "let mut chars=message.chars();let capitalized=chars.next().map(|ch|ch.to_uppercase().collect::<String>()+chars.as_str()).unwrap_or_default();": 1,
         ".unwrap_or(i18n::DEFAULT);": 1,
-        "let password=view.params.form(\"user[password]\").filter(|p|!crate::ruby::blank(p)).unwrap_or(\"\");": 1
+        "let password=view.params.form(\"user[password]\").filter(|p|!crate::v2::blank(p)).unwrap_or(\"\");": 1
       }
     },
     "rust/src/web/settings/api.rs": {
@@ -485,7 +485,7 @@
         "let error=error.map(|key|{let text=i18n::text(ctx.locale,key,&[]);let mut chars=text.chars();chars.next().map(|ch|ch.to_uppercase().collect::<String>()+chars.as_str()).unwrap_or_default()});": 1,
         "let address=ctx.params.form(\"user[email]\").unwrap_or(\"\").trim().to_lowercase();": 1,
         "tx.commit()?;Ok(Some((id,pending.unwrap_or(email),token)))": 1,
-        "let address=crate::ruby::strip(ctx.params.form(\"user[email]\").unwrap_or_default()).to_lowercase();": 1
+        "let address=crate::v2::strip(ctx.params.form(\"user[email]\").unwrap_or_default()).to_lowercase();": 1
       }
     },
     "rust/src/web/settings/keys.rs": {
