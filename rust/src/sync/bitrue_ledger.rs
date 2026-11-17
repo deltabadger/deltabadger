@@ -131,7 +131,7 @@ struct Walk<'a, T: Transport> {
 }
 impl<'a, T: Transport> Walk<'a, T> {
     fn new(venue: &'a BitrueVenue<T>, db: &'a Db, key: &'a Key, clock: &'a dyn Clock, pause: std::time::Duration, begin: continuation::Begin<'_>) -> Self {
-        let start = v2_ms(begin.start.unwrap_or_else(|| "2018-07-01T00:00:00Z".parse::<chrono::DateTime<Utc>>().expect("Rails LEDGER_FROM")));
+        let start = v2_ms(begin.start.unwrap_or_else(|| "2018-07-01T00:00:00Z".parse::<chrono::DateTime<Utc>>().expect("2.x's LEDGER_FROM")));
         let c = begin.cursor.and_then(Cursor::of).unwrap_or(Cursor {
             source: Source::Account, status_page: 0, window: start, ranges: vec![], pending: vec![], coins: BTreeSet::new(), pairs: vec![], pair: 0,
             transfer_coins: vec![], coin: 0, offset: 0, seen: HashSet::new(),

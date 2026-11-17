@@ -105,7 +105,7 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
         if at < since || borrowed(tx_id.as_deref()) { continue; }
         let Some(&taken) = marks.get(&exchange) else { continue };
         if at < taken { continue; }
-        let kind = Kind::from_stored(r.get(1)?).ok_or_else(|| FiguresError::Data("an entry type Rails does not have".into()))?;
+        let kind = Kind::from_stored(r.get(1)?).ok_or_else(|| FiguresError::Data("an entry type 2.x does not have".into()))?;
         let amount = Dec::from_sql(r.get_ref(3)?)?.ok_or_else(|| FiguresError::Data("a row with no base amount".into()))?;
         rows.push(super::rows::Stored {
             id: r.get(8)?, exchange_id: exchange, venue: String::new(), kind, base: r.get(2)?, amount, quote: r.get(4)?, quote_amount: Dec::from_sql(r.get_ref(5)?)?,

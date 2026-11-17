@@ -413,7 +413,7 @@ pub(crate) mod tests {
         assert_eq!(call(&s).await.unwrap(), json!({ "accounts": ["U1"] }));
         assert_eq!(paths(&t), [MINT, INIT, ACCOUNTS]);
         assert_eq!(t.requests()[1].body, Some(json!({ "publish": true, "compete": true })));
-        assert_eq!(login.state().lst.as_ref().unwrap().0, session["server"]["lst"].as_str().unwrap(), "the LST Rails computes");
+        assert_eq!(login.state().lst.as_ref().unwrap().0, session["server"]["lst"].as_str().unwrap(), "the LST 2.x computes");
 
         // Within 4 minutes: the cached LST and brokerage session, one call.
         let later = at("2026-10-23T10:03:59Z");

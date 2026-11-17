@@ -529,9 +529,9 @@ mod tests {
         assert_eq!(split_order_id("BTC-EUR-abc-123"), ("BTC-EUR".to_string(), "abc-123".to_string()));
         assert_eq!(split_order_id("BTC-EUR-"), ("BTC-EUR".to_string(), String::new()));
         assert_eq!(error_code(r#"{"errorCode":240,"error":"No order found."}"#), Some(240));
-        assert_eq!(error_code(r#"{"errorCode":"240"}"#), None, "a String never equals Rails' Integer");
+        assert_eq!(error_code(r#"{"errorCode":"240"}"#), None, "a String never equals 2.x's Integer");
         assert_eq!(error_code("<html>404</html>"), None);
-        assert_eq!(v2_ms("2026-09-20T02:00:00.250000Z".parse().unwrap()), 1_789_869_600_249, "as Ruby's Float");
+        assert_eq!(v2_ms("2026-09-20T02:00:00.250000Z".parse().unwrap()), 1_789_869_600_249, "as 2.x's Float");
         assert_eq!(v2_ms("2026-09-15T00:00:00Z".parse().unwrap()), 1_789_430_400_000);
     }
 }

@@ -1702,7 +1702,7 @@ mod tests {
             e.positions(Some("a")).unwrap().into_iter().find(|p| p.symbol == "BTC").unwrap().cost.to_s_f()
         };
         assert_eq!(cost(&[("1", "2000")]), "2030.0");
-        assert_eq!(cost(&[("0.5", "1000"), ("0.5", "1000")]), "2030.0", "Rails: 2,015");
+        assert_eq!(cost(&[("0.5", "1000"), ("0.5", "1000")]), "2030.0", "2.x: 2,015");
         assert_eq!(cost(&[("0.25", "500"), ("0.75", "1500")]), "2030.0");
         // A coin nobody held (a tranche of nothing at no cost) and $100 of cash: every unit is the cash lot's, the fee with it.
         let g = Some("swap".to_string());
@@ -1712,6 +1712,6 @@ mod tests {
                           ..row(2, Kind::SwapIn, "BTC", "0.05", T, "a") }];
         let mut e = Engine::new(true);
         e.calculate(&rows).unwrap();
-        assert_eq!(e.positions(Some("a")).unwrap().into_iter().find(|p| p.symbol == "BTC").unwrap().cost.to_s_f(), "130.0", "Rails: 100");
+        assert_eq!(e.positions(Some("a")).unwrap().into_iter().find(|p| p.symbol == "BTC").unwrap().cost.to_s_f(), "130.0", "2.x: 100");
     }
 }

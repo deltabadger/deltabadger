@@ -630,7 +630,7 @@ mod tests {
         let rows = [leg(1, "binance", Kind::Deposit, "BTC", "1", "2026-09-01 10:00:00"),
                     fee(quoted(leg(2, "binance", Kind::Sell, "BTC", "0.5", "2026-09-02 10:00:00"), "USDT", "15000"), "BTC", "0.01")];
         let h = held(&rows).unwrap();
-        assert_eq!((h["binance"]["BTC"].to_s_f(), h["binance"]["USDT"].to_s_f()), ("0.49".to_string(), "15000.0".to_string()), "Rails: 0.5");
+        assert_eq!((h["binance"]["BTC"].to_s_f(), h["binance"]["USDT"].to_s_f()), ("0.49".to_string(), "15000.0".to_string()), "2.x: 0.5");
         let rows = [leg(1, "binance", Kind::Deposit, "USDT", "100", "2026-09-01 10:00:00"),
                     fee(quoted(leg(2, "binance", Kind::Sell, "USDT", "50", "2026-09-02 10:00:00"), "USD", "50"), "USDT", "1")];
         assert_eq!(held(&rows).unwrap()["binance"]["USDT"].to_s_f(), "50.0");

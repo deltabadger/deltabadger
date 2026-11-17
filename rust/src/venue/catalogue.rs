@@ -547,7 +547,7 @@ mod tests {
         for (v, n) in [(json!(1e-6), 6), (json!(1e-8), 8), (json!(1.5e-11), 12), (json!("1e-7"), 7), (json!(1e-5), 5), (json!(1e20), 0)] {
             assert_eq!(decimals(&v), n, "{v}");
         }
-        assert_eq!(decimals(&json!("none")), 0, "an 'e' that is no exponent is Rails' count");
+        assert_eq!(decimals(&json!("none")), 0, "an 'e' that is no exponent is 2.x's count");
         // One value, every spelling: its true places.
         for v in [json!("1e-6"), json!("10e-7"), json!("0.1e-5"), json!("1.0e-06"), json!(1e-06), json!("100e-8"), json!("0.000001")] {
             assert_eq!(decimals(&v), 6, "{v}");

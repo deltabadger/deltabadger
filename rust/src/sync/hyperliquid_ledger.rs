@@ -260,7 +260,7 @@ mod tests {
         let c = u(json!({"type": "accountClassTransfer", "usdc": "10", "toPerp": false}), "0x000").unwrap();
         assert_eq!((c.entry_type, c.base_currency.as_deref(), c.base_amount.to_s_f(), c.tx_id), (DEPOSIT, Some("USDC"), "10.0".into(), None));
         assert!(u(json!({"type": "send", "token": "X", "amount": "1", "user": "0xabc", "destination": "0xabc", "sourceDex": "spot", "destinationDex": "spot"}), "0x1").is_none());
-        assert_eq!(u(json!({"type": "spotGenesis", "token": "X", "amount": "1"}), "").unwrap().tx_id.as_deref(), Some(""), "no hash is an empty id, as Rails keys it");
+        assert_eq!(u(json!({"type": "spotGenesis", "token": "X", "amount": "1"}), "").unwrap().tx_id.as_deref(), Some(""), "no hash is an empty id, as 2.x keys it");
         assert!(u(json!({"type": "deposit", "usdc": "1"}), "0x1").is_none());
     }
 }

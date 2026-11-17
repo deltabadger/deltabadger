@@ -196,7 +196,7 @@ fn json_number(v: Option<&Value>) -> Result<Option<Dec>, FiguresError> {
 fn json_column(text: Option<String>) -> Result<Value, FiguresError> {
     match text {
         None => Ok(Value::Null),
-        Some(t) => serde_json::from_str(&t).map_err(|_| data("a JSON column Rails did not write")),
+        Some(t) => serde_json::from_str(&t).map_err(|_| data("a JSON column 2.x did not write")),
     }
 }
 
@@ -223,7 +223,7 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
     let mut rows = vec![];
     while let Some(r) = q.next()? {
         crate::figures::budget::charge(1, 0)?;
-        let kind = Kind::from_stored(r.get(3)?).ok_or_else(|| data("an entry type Rails does not have"))?;
+        let kind = Kind::from_stored(r.get(3)?).ok_or_else(|| data("an entry type 2.x does not have"))?;
         let at_text: String = r.get(12)?;
         let raw = json_column(r.get(13)?)?;
         let manual = json_column(r.get(14)?)?;

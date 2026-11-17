@@ -554,7 +554,7 @@ mod tests {
         assert!(gone(&[r#"{"code":"40109","msg":"The data of the order cannot be found"}"#.into()]));
         assert!(gone(&["Bitget API error 43001: 订单不存在".into()]));
         assert!(gone(&["Order not found".into()]));
-        assert!(!gone(&[r#"{"code":43001,"msg":"x"}"#.into()]), "an Integer code never equals Rails' String");
+        assert!(!gone(&[r#"{"code":43001,"msg":"x"}"#.into()]), "an Integer code never equals 2.x's String");
         assert!(!gone(&["Bitget API error 43012: Insufficient balance".into()]));
         assert_eq!(api_error(&serde_json::json!({ "code": "43012", "msg": "Insufficient balance" })), "Bitget API error 43012: Insufficient balance");
     }
