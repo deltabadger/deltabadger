@@ -478,6 +478,14 @@ pub fn chooser_tile(path: &str, rust: &mut Value) -> Result<usize, String> {
     let line = text(&ours[at]).to_string();
     if !line.contains(" data-turbo-frame=\"modal\" ") || line.contains("data-wizard-dir") { return Err(format!("the DCA tile does not open the sheet: {line}")) }
     ours[at] = json!(line.replacen(" data-turbo-frame=\"modal\" ", " data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\" ", 1));
+    // D-SHEET-NO-DIALOG: the chooser is the sheet and the index wizard is not yet, so the Index tile replaces the whole modal
+    // frame where 2.x's swapped the dialog's content.
+    let index = |l: &Value| has_class(l, "a", "itile") && attr(text(l), "href").is_some_and(|h| h.ends_with("/bots/dca_indexes/setup_coingecko/new"));
+    if let [at] = positions(ours, 0, ours.len(), index)[..] {
+        let line = text(&ours[at]).to_string();
+        if !line.contains(" data-turbo-frame=\"modal\" ") || line.contains("data-wizard-dir") { return Err(format!("the Index tile does not replace the sheet: {line}")) }
+        ours[at] = json!(line.replacen(" data-turbo-frame=\"modal\" ", " data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\" ", 1));
+    }
     Ok(1)
 }
 
@@ -846,7 +854,8 @@ mod tests {
 
     #[test]
     fn the_choosers_dca_tile_is_put_back_as_v2_writes_it() {
-        let tile = |attrs: &str| json!(html::normalize(&format!("<a class=\"itile itile--bot-type\" {attrs} href=\"/de/bots/dca_single_assets/pick_exchange/new\">DCA</a><a class=\"itile\" data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\" href=\"/bots/dca_indexes/setup_coingecko/new\">Index</a>")));
+        // Both the DCA tile and (D-SHEET-NO-DIALOG) the Index tile open in the modal frame here, in the dialog's in 2.x.
+        let tile = |attrs: &str| json!(html::normalize(&format!("<a class=\"itile itile--bot-type\" {attrs} href=\"/de/bots/dca_single_assets/pick_exchange/new\">DCA</a><a class=\"itile\" {attrs} href=\"/bots/dca_indexes/setup_coingecko/new\">Index</a>")));
         let mut ours = tile("data-turbo-frame=\"modal\"");
         assert_eq!(chooser_tile("/de/bots/new", &mut ours), Ok(1));
         assert_eq!(ours, tile("data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\""));

@@ -353,6 +353,13 @@
     #create-bot-button
         justify-content: flex-start
         padding-left: 2rem
+    // The rule's form holds Create first (its default submitter) and shows it under the preview.
+    > form:has(> #create-bot-button)
+        display: flex
+        flex-direction: column
+        gap: 3rem
+        > #create-bot-button
+            order: 1
     // It was pulled up under the sentence, which is gone.
     .wizard-assets__list
         top: 0
