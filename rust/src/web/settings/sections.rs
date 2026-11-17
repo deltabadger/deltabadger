@@ -431,6 +431,8 @@ pub struct Market<'a> {
     pub platform_note: &'a str,
     pub coingecko_instructions: &'a str,
     pub platform_errors: Option<&'a str>,
+    /// D-INDEX-CONNECT-IN-VIEW: in the index wizard: no section heading and no Disconnect, each form carrying `wizard=1`.
+    pub wizard: bool,
 }
 
 pub fn market_data(ctx: &Ctx, csrf: &str, m: &Market) -> String {
@@ -444,7 +446,7 @@ pub fn market_data(ctx: &Ctx, csrf: &str, m: &Market) -> String {
     let mut body = format!(
         "\n\n    <div data-controller=\"form--market-data\" data-action=\"segmented:change->form--market-data#select\"\n         data-form--market-data-platform-connected-value=\"{}\">\n      {}\n",
         m.platform_connected,
-        row(&label, None, "srow--heading", "", None, None)
+        if m.wizard { String::new() } else { row(&label, None, "srow--heading", "", None, None) }
     );
     {
         let provider = ctx.t("settings.sections.provider");
@@ -505,12 +507,16 @@ pub fn market_data(ctx: &Ctx, csrf: &str, m: &Market) -> String {
             if selected == "deltabadger" { "" } else { "hidden" }
         ));
     }
-    if m.platform_connected {
+    if m.platform_connected && !m.wizard {
         let control = format!(
             "\n          {}\n",
             super::dialog::confirm(csrf, &ctx.t("settings.platform.disconnect"), &ctx.t("settings.index.api_key_confirmation"), &ctx.t("settings.platform.disconnect"), &ctx.path("/settings/platform_connection"), "delete", &[])
         );
         body.push_str(&format!("\n        {}\n", row(&ctx.t("settings.platform.option"), Some(m.platform_note), "", "", None, Some(&control))));
+    }
+    if m.wizard {
+        let token = format!("<input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" />");
+        body = body.replace(&token, &format!("{token}<input type=\"hidden\" name=\"wizard\" value=\"1\" />"));
     }
     format!("<turbo-frame id=\"market_data_settings\">{body}\n    </div>\n</turbo-frame>")
 }

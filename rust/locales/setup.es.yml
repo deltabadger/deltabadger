@@ -10,6 +10,9 @@ es:
             venue_groups:
                 brokers: "Brókers"
                 exchanges: "Exchanges"
+            kind:
+                asset: "Activo"
+                index: "Índice"
             progress_steps:
                 assets: "Activos"
                 currencies: "Elegir activo"

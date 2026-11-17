@@ -10,6 +10,9 @@ sv:
             venue_groups:
                 brokers: "Mäklare"
                 exchanges: "Börser"
+            kind:
+                asset: "Tillgång"
+                index: "Index"
             progress_steps:
                 assets: "Tillgångar"
                 currencies: "Välj tillgång"

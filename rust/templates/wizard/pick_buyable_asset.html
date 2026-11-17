@@ -32,11 +32,13 @@
 {%- endif %}
 
 {%- if let Some(reached) = max_reached %}
+        <div class="modal--search">{{ switch|safe }}</div>
         <p class="text-inactive text-center">{{ reached|safe }}</p>
 {%- else %}
         <div class="modal--search">
           <form data-controller="form--submit-after-delay" data-turbo-frame="asset-picker" style="position:relative" action="{{ search_url }}" accept-charset="UTF-8" method="get">
-            {% include "svg/_24x24_zoom.html" %}
+            {{ switch|safe }}
+            <input type="hidden" name="kind" value="asset" />
             <input autofocus="autofocus" autocomplete="off" placeholder="{{ v.t("utils.search.placeholder.asset")|safe }}" data-action="input-&gt;form--submit-after-delay#submit" class="modal--search__input" type="text" name="query" id="query" />
 </form>        </div>
         <turbo-frame data-action="keydown@window-&gt;arrow-keys-navigation#navigate" data-controller="arrow-keys-navigation" class="modal--search__assets selectable-options" id="asset-picker">

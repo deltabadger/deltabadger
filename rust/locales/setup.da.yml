@@ -10,6 +10,9 @@ da:
             venue_groups:
                 brokers: "Mæglere"
                 exchanges: "Børser"
+            kind:
+                asset: "Aktiv"
+                index: "Indeks"
             progress_steps:
                 assets: "Aktiver"
                 currencies: "Vælg aktiv"

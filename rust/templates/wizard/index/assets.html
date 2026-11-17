@@ -1,0 +1,49 @@
+{#- D-INDEX-IN-ASSETS: the Assets step's Index view. The rows post as _tiles.html's tiles do (the same index-filter targets, the
+    buttons direct children of the form, which the controller reorders through). -#}
+<div class="bot-creation-layout index-view" data-controller="index-filter arrow-keys-navigation" data-action="keydown@window-&gt;arrow-keys-navigation#navigate">
+{%- if let Some(error) = error %}
+  <p class="wizard-assets__warning" role="alert">{{ error }}</p>
+{%- endif %}
+  <div class="modal--search">
+    <div class="modal--search__row">
+      {{ switch|safe }}
+{%- if configured %}
+      <input autofocus="autofocus" autocomplete="off" placeholder="{{ v.t("utils.search.placeholder.index") }}" class="modal--search__input" type="text" data-index-filter-target="input" data-action="input-&gt;index-filter#filter" />
+{%- endif %}
+    </div>
+  </div>
+{%- if configured %}
+  <form class="index-rows selectable-options" data-turbo-frame="modal_content" action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+{%- for tile in tiles %}
+    <button type="submit" name="index_type" value="{{ tile.index_type }}" class="index-row" data-index-filter-target="tile" data-index-order="{{ loop.index0 }}" data-index-name="{{ tile.name }}" data-index-category-id="{{ tile.external_id }}" data-index-description="{{ tile.description }}" data-action="click-&gt;index-filter#select" data-arrow-keys-navigation-target="item button">
+      <span class="index-row__line">
+        <span class="index-row__name">{{ tile.name }}</span>
+{%- if tile.has_coins %}
+        <span class="ticker-group ticker-group--many">
+{%- for pill in tile.pills %}<span class="ticker ticker--small" style="background-color: {{ pill.color }}" data-ticker-symbol="{{ pill.symbol }}" data-ticker-asset-id="{{ pill.id }}">{{ pill.symbol }}</span>{% endfor %}
+{%- if tile.more > 0 %}<span class="ticker ticker--small ticker--more">+{{ tile.more }}</span>{% endif %}
+        </span>
+{%- endif %}
+      </span>
+{%- if !tile.description.is_empty() %}
+      <span class="index-row__description" title="{{ tile.description }}">{{ tile.description }}</span>
+{%- endif %}
+    </button>
+{%- endfor %}
+    <input type="hidden" name="index_category_id" value="" data-index-filter-target="categoryIdField" />
+    <input type="hidden" name="index_name" value="" data-index-filter-target="nameField" />
+  </form>
+{%- if tiles.is_empty() %}
+  <p class="index-rows__empty">{{ v.t("utils.search.no_results")|safe }}</p>
+{%- endif %}
+  <div class="index-rows__empty" data-index-filter-target="empty" style="display: none;">
+    <p>{{ v.t("utils.search.no_results")|safe }}</p>
+  </div>
+{%- else if let Some(widget) = widget %}
+  <div class="index-view__connect">
+    {{ widget|safe }}
+  </div>
+{%- else %}
+  <p class="sheet__empty">{{ v.t("setup.coingecko_admin_only")|safe }}</p>
+{%- endif %}
+</div>

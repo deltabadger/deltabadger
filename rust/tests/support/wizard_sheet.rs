@@ -9,6 +9,10 @@
 //! made: method, URL, fields, frame, direction). Then this crate's shell is put back as 2.x's around this crate's step,
 //! so everything else is compared as before. On the chooser only the DCA tile's frame target and its dropped
 //! `data-wizard-dir` are left out. The index and signal wizards, and a lazy page of results (no shell), are not touched.
+//!
+//! D-INDEX-IN-ASSETS and D-CHOOSER-SKIPPED: the asset step's search row holds the Asset / Index switch where 2.x's zoom icon
+//! is (and at the hundred-asset cap, where 2.x draws no row, the switch alone); the chooser has no Index tile, and a user
+//! without advanced bots is sent straight to the exchange step where 2.x drew the chooser.
 use super::{attr, html, is_space, subtree_end};
 use serde_json::{json, Value};
 
@@ -351,6 +355,64 @@ fn reform(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usize
     Ok(())
 }
 
+/// The locale prefix of a path (`/de`), or none.
+fn prefix(path: &str) -> &str {
+    let path = path.split('?').next().unwrap_or_default();
+    &path[..path.len() - route(path).len()]
+}
+
+const ASSET_STEP: &str = "/bots/dca_single_assets/pick_buyable_asset/new";
+/// A switch option as drawn: href, frame, aria-current, label.
+type Link = (Option<String>, Option<String>, Option<String>, Option<String>);
+
+/// D-INDEX-IN-ASSETS: on the asset step (2.x's `wizard-assets` block) this crate's search row holds the Asset / Index switch
+/// where 2.x's zoom icon is, and its form a hidden `kind=asset`. The switch must be exactly the two links (the step's full
+/// path with `?kind=asset` and `?kind=index`, the locale prefix included, the frame `modal_content`, `aria-current` on Asset,
+/// the locale's labels, no `data-segmented-frame`); then read back as 2.x's icon. At the cap 2.x draws no row and this
+/// crate's row is the switch alone: removed. Any other step must have no switch.
+fn unswitch(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usize, path: &str, locale: &str) -> Result<(), String> {
+    // The search row's switch (`segmented--search`), not a form's own control (the Alpaca key's Paper / Live).
+    let switch = |l: &Value| has_class(l, "div", "segmented--search");
+    let ours_end = subtree_end(ours, ours_step);
+    let switches = positions(ours, ours_step, ours_end, switch);
+    let step_end = subtree_end(theirs, step);
+    if positions(theirs, step, step_end, |l| has_class(l, "div", "wizard-assets")).is_empty() {
+        return if switches.is_empty() { Ok(()) } else { Err("an Asset / Index switch off the asset step".into()) };
+    }
+    let [at] = switches[..] else { return Err(format!("{} Asset / Index switches on the asset step", switches.len())) };
+    if attr(text(&ours[at]), "data-segmented-frame").is_some() { return Err("the switch manages page history (data-segmented-frame)".into()) }
+    let end = subtree_end(ours, at);
+    let label = |key: &str| deltabadger::web::i18n::text(locale, &format!("bot.setup.kind.{key}"), &[]);
+    let links: Vec<Link> = positions(ours, at, end, |l| opens(l, "a")).iter()
+        .map(|a| { let l = text(&ours[*a]); (attr(l, "href"), attr(l, "data-turbo-frame"), attr(l, "aria-current"), words(&ours[a + 1])) }).collect();
+    let href = |kind: &str| Some(format!("{}{ASSET_STEP}?kind={kind}", prefix(path)));
+    let want = vec![(href("asset"), Some("modal_content".into()), Some("page".into()), Some(label("asset"))),
+                    (href("index"), Some("modal_content".into()), None, Some(label("index")))];
+    if links != want { return Err(format!("the switch is not Asset / Index:\n  drawn: {links:?}\n  wanted: {want:?}")) }
+    let row = |lines: &[Value], from: usize, to: usize| positions(lines, from, to, |l| has_class(l, "div", "modal--search") && !has_class(l, "div", "sheet__search")).first().copied();
+    let ours_row = enclosing(ours, at, |l| has_class(l, "div", "modal--search")).ok_or("the switch outside the search row")?;
+    match row(theirs, step, step_end) {
+        // The cap: 2.x has no row; this crate's is the switch alone.
+        None => {
+            if children(ours, ours_row, subtree_end(ours, ours_row), depth(&ours[ours_row])) != [at] { return Err("the capped search row holds more than the switch".into()) }
+            cut(ours, ours_row);
+        }
+        Some(row) => {
+            let icon = positions(theirs, row, subtree_end(theirs, row), |l| opens(l, "svg")).first().copied().ok_or("2.x's search row has no icon")?;
+            let form = enclosing(ours, at, |l| opens(l, "form")).ok_or("the switch outside the search form")?;
+            let hidden: Vec<usize> = positions(ours, form, subtree_end(ours, form), |l| opens(l, "input") && attr(text(l), "name").as_deref() == Some("kind"));
+            let [kind] = hidden[..] else { return Err(format!("{} kind fields in the search form", hidden.len())) };
+            let l = text(&ours[kind]);
+            if attr(l, "type").as_deref() != Some("hidden") || attr(l, "value").as_deref() != Some("asset") { return Err(format!("the search form's kind field: {l}")) }
+            let back = reindent(&theirs[icon..subtree_end(theirs, icon)], depth(&ours[at]));
+            // The field first (it comes after the switch) with the whitespace before it, then the switch.
+            cut(ours, kind);
+            ours.splice(at..end, back);
+        }
+    }
+    Ok(())
+}
+
 /// D-WIZARD-SHEET on one answer to `path` (see the module). Ok(1) when it was a sheet put back as 2.x's step, Ok(0) when the
 /// answer is not a DCA step's (not a DCA path, or no step in either body), Err when this crate's answer draws a step that is
 /// not the sheet it must be.
@@ -441,6 +503,7 @@ pub fn wizard_sheet(path: &str, flow: Option<&str>, v2: &mut Value, rust: &mut V
     let refused = positions(ours, ours_step, subtree_end(ours, ours_step), |l| has_class(l, "p", "sform__error")).first().and_then(|p| words(&ours[p + 1]));
     retitle(theirs, step, ours, ours_step, locale)?;
     reform(theirs, step, ours, ours_step)?;
+    unswitch(theirs, step, ours, ours_step, path, locale)?;
     let ours_end = subtree_end(ours, ours_shell);
     // The basket is drawn open; 2.x's was closed unless asked for.
     let list = |l: &Value| opens(l, "div") && attr(text(l), "class").is_some_and(|c| c.split(' ').any(|c| c == "wizard-assets__list"));
@@ -468,16 +531,39 @@ pub fn wizard_sheet(path: &str, flow: Option<&str>, v2: &mut Value, rust: &mut V
     Ok(1)
 }
 
-/// D-WIZARD-SHEET on the chooser: the DCA tile opens the sheet in the modal frame (`data-turbo-frame="modal"`) with no
-/// `data-wizard-dir`; put back as 2.x's tile. Ok(1) when it was there, Err when the tile is there in another shape.
-pub fn chooser_tile(path: &str, rust: &mut Value) -> Result<usize, String> {
-    if route(path) != "/bots/new" { return Ok(0) }
-    let Value::Array(ours) = rust else { return Ok(0) };
-    let tile = |l: &Value| has_class(l, "a", "itile") && attr(text(l), "href").is_some_and(|h| h.ends_with("/bots/dca_single_assets/pick_exchange/new"));
-    let [at] = positions(ours, 0, ours.len(), tile)[..] else { return Ok(0) };
-    let line = text(&ours[at]).to_string();
+/// D-WIZARD-SHEET, D-INDEX-IN-ASSETS and D-CHOOSER-SKIPPED on `GET /bots/new`, on whole answers (status, headers, body,
+/// session). With advanced bots 2.x's chooser loses its Index tile (required to be the `setup_coingecko/new` link) and this
+/// crate's DCA tile, which opens the sheet in the modal frame (`data-turbo-frame="modal"`, no `data-wizard-dir`), is put
+/// back as 2.x's. Without them this crate answers 302 to the exchange step (where 2.x's DCA tile led) with the wizard begun
+/// as 2.x begins it, and 2.x's chooser must be the two tiles DCA and Index: then this crate's answer reads as 2.x's.
+/// Ok(1) when it was the chooser, Ok(0) for another answer (signed out), Err when this crate's answer is in another shape.
+pub fn chooser(path: &str, theirs: &mut Value, ours: &mut Value) -> Result<usize, String> {
+    if route(path) != "/bots/new" || theirs["status"] != 200 { return Ok(0) }
+    let tile = |l: &Value| has_class(l, "a", "itile");
+    let index_tile = |l: &Value| tile(l) && attr(text(l), "href").is_some_and(|h| h.ends_with("/bots/dca_indexes/setup_coingecko/new"));
+    let Value::Array(v2) = &mut theirs["body"] else { return Err("2.x's chooser is not a page".into()) };
+    let tiles = positions(v2, 0, v2.len(), tile).len();
+    let [index] = positions(v2, 0, v2.len(), index_tile)[..] else { return Err("2.x's chooser has no Index tile".into()) };
+    if ours["status"] == 302 {
+        // The step in the page's locale (the path's, else the user's: the default one has no prefix).
+        let want = "/bots/dca_single_assets/pick_exchange/new";
+        if tiles != 2 { return Err(format!("this crate skipped a chooser of {tiles} tiles")) }
+        if ours["headers"]["location"].as_str().is_none_or(|l| route(l) != want) { return Err(format!("the chooser skipped to {}, not {want}", ours["headers"]["location"])) }
+        if ours.get("session").is_some_and(|s| s["bot_config"] != json!({}) || Some(s) != theirs.get("session")) { return Err(format!("the wizard begun as {}, not {{}}", ours["session"])) }
+        *ours = theirs.clone();
+        return Ok(1);
+    }
+    if tiles != 3 { return Err(format!("this crate drew the chooser where 2.x's has {tiles} tiles")) }
+    cut(v2, index);
+    let Value::Array(lines) = &mut ours["body"] else { return Err("this crate's chooser is not a page".into()) };
+    if !positions(lines, 0, lines.len(), |l| tile(l) && attr(text(l), "href").is_some_and(|h| h.contains("/bots/dca_indexes/"))).is_empty() {
+        return Err("this crate's chooser has an Index tile".into());
+    }
+    let dca = |l: &Value| tile(l) && attr(text(l), "href").is_some_and(|h| h.ends_with("/bots/dca_single_assets/pick_exchange/new"));
+    let [at] = positions(lines, 0, lines.len(), dca)[..] else { return Err("this crate's chooser has no DCA tile".into()) };
+    let line = text(&lines[at]).to_string();
     if !line.contains(" data-turbo-frame=\"modal\" ") || line.contains("data-wizard-dir") { return Err(format!("the DCA tile does not open the sheet: {line}")) }
-    ours[at] = json!(line.replacen(" data-turbo-frame=\"modal\" ", " data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\" ", 1));
+    lines[at] = json!(line.replacen(" data-turbo-frame=\"modal\" ", " data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\" ", 1));
     Ok(1)
 }
 
@@ -734,12 +820,97 @@ mod tests {
         assert_eq!(ours, refusal);
     }
 
+    /// The Asset / Index switch as this crate draws it in the asset step's search row.
+    fn switch(prefix: &str, asset: &str, index: &str, frame: &str, current_on_index: bool) -> String {
+        let link = |kind: &str, label: &str, current: bool| format!("<a class=\"segmented__option{}\"{} data-value=\"{kind}\" data-segmented-target=\"option\" data-action=\"segmented#select\" data-turbo-frame=\"{frame}\" href=\"{prefix}{ASSET_STEP}?kind={kind}\">{label}</a>",
+            if current { " is-on" } else { "" }, if current { " aria-current=\"page\"" } else { "" });
+        format!("<div class=\"segmented segmented--search\" aria-label=\"Kind\" data-controller=\"segmented\" data-action=\"click-&gt;segmented#toggle\"><span class=\"segmented__thumb\" data-segmented-target=\"thumb\"></span><div class=\"segmented__dropdown dropdown\" data-segmented-target=\"dropdown\"><div class=\"segmented__panes\"><div class=\"segmented__pane segmented__menu\">{}{}</div></div></div><span class=\"segmented__caret\" aria-hidden=\"true\"><svg class=\"icon-16\"><path d=\"m\"></path></svg></span></div>",
+                link("asset", asset, !current_on_index), link("index", index, current_on_index))
+    }
+    /// The asset step's block: the basket, then 2.x's search row (its zoom icon) or this crate's (`row`), or the cap's line.
+    fn assets_block(row: &str) -> String { format!("<div class=\"wizard-assets vt-step-body\">{}{row}</div>", basket(false)) }
+    fn v2_row() -> String { "<div class=\"modal--search\"><form data-turbo-frame=\"asset-picker\" action=\"/de/bots/dca_single_assets/pick_buyable_asset/new\" method=\"get\"><svg class=\"icon-24\"><path d=\"zoom\"></path></svg><input name=\"query\" type=\"text\" /></form></div>".into() }
+    fn ours_row(switch: &str, kind: &str) -> String {
+        format!("<div class=\"modal--search\"><form data-turbo-frame=\"asset-picker\" action=\"/de/bots/dca_single_assets/pick_buyable_asset/new\" method=\"get\">{switch}{kind}<input name=\"query\" type=\"text\" /></form></div>")
+    }
+    const KIND: &str = "<input type=\"hidden\" name=\"kind\" value=\"asset\" />";
+    const CAP: &str = "<p class=\"text-inactive text-center\">You can add up to 100 assets.</p>";
+    const DE_ASSETS: &str = "/de/bots/dca_single_assets/pick_buyable_asset/new";
+
     #[test]
-    fn the_choosers_dca_tile_is_put_back_as_v2_writes_it() {
-        let tile = |attrs: &str| json!(html::normalize(&format!("<a class=\"itile itile--bot-type\" {attrs} href=\"/de/bots/dca_single_assets/pick_exchange/new\">DCA</a><a class=\"itile\" data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\" href=\"/bots/dca_indexes/setup_coingecko/new\">Index</a>")));
-        let mut ours = tile("data-turbo-frame=\"modal\"");
-        assert_eq!(chooser_tile("/de/bots/new", &mut ours), Ok(1));
-        assert_eq!(ours, tile("data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\""));
-        assert!(chooser_tile("/bots/new", &mut tile("data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\"")).is_err(), "the old tile");
+    fn the_asset_steps_search_row_holds_the_asset_index_switch_in_place_of_the_icon() {
+        // Exchange first on the asset step with nothing chosen: the venue goes back by the advance, nothing else.
+        let sentence = format!("<div class=\"conversational conversational--bot-setup\"><span class=\"conversational__lead\">Buy</span><div class=\"conversational__assets\"></div><span class=\"conversational__lead\">on</span>{}</div>",
+                               post("conversational__link filled", ADVANCE, &[("to", "exchange")], true, "value=\"Kraken\""));
+        let v2 = |block: &str| v2_page(&v2_step("Pick asset", 75, &sentence, block));
+        let drawn = track(&[item("done", "Kraken", Some(("post", ADVANCE, &[("to", "exchange")], true))), item("current", "Assets", None), item("upcoming", "Currency", None)]);
+        let ours = |block: &str| page(&sheet("modal_content", &drawn, &ours_step("", block)));
+        let good = || switch("/de", "Asset", "Index", "modal_content", false);
+        let (mut theirs, mut mine) = (v2(&assets_block(&v2_row())), ours(&assets_block(&ours_row(&good(), KIND))));
+        assert_eq!(wizard_sheet(DE_ASSETS, Some("exchange_first"), &mut theirs, &mut mine), Ok(1));
+        assert!(same(&theirs, &mine), "{theirs:#}\n{mine:#}");
+        // At the cap 2.x draws no row; this crate's is the switch alone.
+        let (mut theirs, mut mine) = (v2(&assets_block(CAP)), ours(&assets_block(&format!("<div class=\"modal--search\">{}</div>{CAP}", good()))));
+        assert_eq!(wizard_sheet(DE_ASSETS, Some("exchange_first"), &mut theirs, &mut mine), Ok(1));
+        assert!(same(&theirs, &mine), "{theirs:#}\n{mine:#}");
+        let refused = |block: String| wizard_sheet(DE_ASSETS, Some("exchange_first"), &mut v2(&assets_block(&v2_row())), &mut ours(&block));
+        for (wrong, why) in [(switch("", "Asset", "Index", "modal_content", false), "no locale prefix"), (switch("/de", "Asset", "Index", "modal", false), "the modal frame"),
+                             (switch("/de", "Asset", "Index", "modal_content", true), "Index current"), (switch("/de", "Assets", "Index", "modal_content", false), "another label"),
+                             (switch("/de", "Asset", "Index", "modal_content", false).replace("kind=index", "kind=indices"), "a wrong href"),
+                             (switch("/de", "Asset", "Index", "modal_content", false).replace("data-controller=", "data-segmented-frame=\"modal_content\" data-controller="), "page history")] {
+            assert!(refused(assets_block(&ours_row(&wrong, KIND))).is_err(), "{why}");
+        }
+        assert!(refused(assets_block(&ours_row("", KIND))).is_err(), "no switch");
+        assert!(refused(assets_block(&ours_row(&format!("{}{}", good(), good()), KIND))).is_err(), "two switches");
+        assert!(refused(assets_block(&ours_row(&good(), ""))).is_err(), "the search form without kind=asset");
+        assert!(refused(assets_block(&ours_row(&good(), &KIND.replace("asset", "index")))).is_err(), "kind=index on the Asset view");
+        assert!(wizard_sheet(DE_ASSETS, Some("exchange_first"), &mut v2(&assets_block(CAP)), &mut ours(&assets_block(&format!("{}{CAP}", ours_row(&good(), KIND))))).is_err(),
+                "a search box at the cap");
+        // Off the asset step there is no switch.
+        let v2_exchange = || v2_page(&v2_step("Pick exchange", 25, &invite_sentence(), ""));
+        let plain = track(&[item("current", "Exchange", None), item("upcoming", "Assets", Some(("post", ORDER, &[("flow", "asset_first")], false))), item("upcoming", "Currency", None)]);
+        assert!(wizard_sheet(EXCHANGES, None, &mut v2_exchange(), &mut page(&sheet("modal_content", &plain, &ours_step("", &good())))).is_err(), "a switch on the exchange step");
+    }
+
+    fn answer(status: u16, location: Option<&str>, body: &str, session: Option<Value>) -> Value {
+        let mut answer = json!({"status": status, "headers": {}, "body": html::normalize(body)});
+        if let Some(location) = location { answer["headers"]["location"] = json!(location); }
+        if let Some(session) = session { answer["session"] = session; }
+        answer
+    }
+    fn tiles(dca: &str, index: bool, signal: bool) -> String {
+        format!("<div class=\"itiles\"><a class=\"itile itile--bot-type\" {dca} href=\"/de/bots/dca_single_assets/pick_exchange/new\">DCA</a>{}{}</div>",
+                if index { "<a class=\"itile itile--bot-type\" data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\" href=\"/de/bots/dca_indexes/setup_coingecko/new\">Index</a>" } else { "" },
+                if signal { "<a class=\"itile itile--bot-type\" data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\" href=\"/de/bots/signals/pick_exchange/new\">Signal</a>" } else { "" })
+    }
+    const V2_DCA: &str = "data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\"";
+
+    #[test]
+    fn the_chooser_has_no_index_tile_and_without_advanced_bots_is_skipped() {
+        let session = || Some(json!({"bot_config": {}}));
+        // Advanced bots: 2.x's Index tile left out, this crate's DCA tile read back as 2.x's.
+        let (mut theirs, mut ours) = (answer(200, None, &tiles(V2_DCA, true, true), session()), answer(200, None, &tiles("data-turbo-frame=\"modal\"", false, true), session()));
+        assert_eq!(chooser("/de/bots/new", &mut theirs, &mut ours), Ok(1));
+        assert_eq!(theirs["body"], answer(200, None, &tiles(V2_DCA, false, true), None)["body"]);
+        assert_eq!(theirs["body"], ours["body"]);
+        assert!(chooser("/de/bots/new", &mut answer(200, None, &tiles(V2_DCA, true, true), None), &mut answer(200, None, &tiles("data-turbo-frame=\"modal\"", true, true), None)).is_err(), "an Index tile kept");
+        assert!(chooser("/de/bots/new", &mut answer(200, None, &tiles(V2_DCA, true, true), None), &mut answer(200, None, &tiles(V2_DCA, false, true), None)).is_err(), "the old DCA tile");
+        assert!(chooser("/de/bots/new", &mut answer(200, None, &tiles(V2_DCA, true, false), None), &mut answer(200, None, &tiles("data-turbo-frame=\"modal\"", false, false), None)).is_err(),
+                "a chooser drawn for a user without advanced bots");
+        // No advanced bots: the 302 to the exchange step, the wizard begun.
+        let skipped = |location: &str, session: Option<Value>| answer(302, Some(location), "", session);
+        let (mut theirs, mut ours) = (answer(200, None, &tiles(V2_DCA, true, false), session()), skipped("/de/bots/dca_single_assets/pick_exchange/new", session()));
+        assert_eq!(chooser("/de/bots/new", &mut theirs, &mut ours), Ok(1));
+        assert_eq!(theirs, ours);
+        for (location, session, why) in [("/de/bots/dca_single_assets/pick_buyable_asset/new", session(), "another step"),
+                                         ("/de/bots/dca_single_assets/pick_exchange/new", Some(json!({"bot_config": null})), "the wizard not begun")] {
+            assert!(chooser("/de/bots/new", &mut answer(200, None, &tiles(V2_DCA, true, false), Some(json!({"bot_config": {}}))), &mut skipped(location, session)).is_err(), "{why}");
+        }
+        assert!(chooser("/de/bots/new", &mut answer(200, None, &tiles(V2_DCA, true, true), None), &mut skipped("/de/bots/dca_single_assets/pick_exchange/new", None)).is_err(),
+                "skipped where 2.x offered Signal");
+        // Signed out, and other paths: not touched.
+        let (mut theirs, mut ours) = (answer(302, Some("/login"), "", None), answer(302, Some("/login"), "", None));
+        assert_eq!(chooser("/bots/new", &mut theirs, &mut ours), Ok(0));
+        assert_eq!(chooser("/bots", &mut answer(200, None, &tiles(V2_DCA, true, false), None), &mut answer(200, None, "<p>x</p>", None)), Ok(0));
     }
 }

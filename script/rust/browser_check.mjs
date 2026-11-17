@@ -6,13 +6,16 @@
 // It checks what the page-parity harness cannot see: that the compiled JS and CSS leave the page
 // visible after sign-in, and that the real @rails/actioncable client connects once, receives the
 // server's pings, and keeps that one connection. With UNPORTED_VENUE (an exchange id), it also picks that venue in the index
-// wizard's venue step, where the refusal must show in the modal.
+// wizard's venue step, where the refusal must show in the modal. With INDEX_WIZARD ({ venue, key, secret }) and BOT_ID, it
+// walks the index wizard in the sheet opened over that bot's page (D-INDEX-IN-ASSETS): the index picked with the arrow keys
+// from a filtered list, a correct key on to the quote step inside the sheet, and a search after the market data went away
+// showing its connect form in the sheet.
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const { BASE_URL, EMAIL, PASSWORD, BOT_ID, UNPORTED_VENUE, TYPING } = process.env;
+const { BASE_URL, EMAIL, PASSWORD, BOT_ID, UNPORTED_VENUE, TYPING, INDEX_WIZARD } = process.env;
 if (!BASE_URL || !EMAIL || !PASSWORD) {
   console.error("set BASE_URL, EMAIL and PASSWORD");
   process.exit(2);
@@ -231,6 +234,78 @@ try {
     await until("the refusal in the modal", () => evaluate(`(document.querySelector("turbo-frame#modal_content")?.innerText ?? "").includes("Not available yet")`));
     if (await evaluate(`document.body.innerText.includes("Content missing")`)) throw new Error("the page shows Turbo's Content missing");
     console.log("unported venue: the key step's refusal shows in the wizard's modal");
+  }
+  if (INDEX_WIZARD && BOT_ID) {
+    const { venue, key, secret } = JSON.parse(INDEX_WIZARD);
+    const page = `/bots/${BOT_ID}`;
+    const frame = "turbo-frame#modal_content";
+    const shows = (selector) => call(function (sel) { return !!document.querySelector(sel); }, selector);
+    const click = async (selector) => {
+      if (!(await call(function (sel) { const element = document.querySelector(sel); if (!element) return false; element.click(); return true; }, selector))) throw new Error(`missing control: ${selector}`);
+    };
+    const press = async (key, code) => { for (const type of ["keyDown", "keyUp"]) await send("Input.dispatchKeyEvent", { type, key, code: key, windowsVirtualKeyCode: code }); };
+    const type = async (selector, text) => {
+      await call(function (sel) { const input = document.querySelector(sel); input.value = ""; input.focus(); }, selector);
+      await send("Input.insertText", { text });
+    };
+    const inSheet = async (what) => {
+      await until(what, () => call(function (p, f) { return location.pathname === p && !!document.querySelector(`div.sheet ${f} .sheet__track`); }, page, frame));
+      if (await evaluate(`document.body.innerText.includes("Content missing")`)) throw new Error(`${what}: Turbo's Content missing`);
+    };
+    const market = (provider) => call(function (value) {
+      const body = new URLSearchParams({ _method: "patch", market_data_provider: value });
+      return fetch("/settings/update_market_data", { method: "POST", body, headers: { "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content, Accept: "text/vnd.turbo-stream.html" } }).then((r) => r.status);
+    }, provider);
+    await send("Page.navigate", { url: BASE_URL + page });
+    await until("the bot page", () => call(function (p) { return location.pathname === p && !!document.querySelector("turbo-frame#modal"); }, page));
+    // New bot: no chooser, the wizard's first step in the sheet over the bot's page.
+    await evaluate(`document.querySelector("turbo-frame#modal").src = "/bots/new"`);
+    await inSheet("the wizard's first step");
+    await click(`${frame} .sheet__track form[action$="/bots/dca_single_assets/order"] button`);
+    await until("the Asset view", () => shows(`${frame} .modal--search .segmented a[href$="kind=index"]`));
+    await click(`${frame} .modal--search .segmented a[href$="kind=index"]`);
+    await until("the Index view", () => shows(`${frame} button.index-row`));
+    // A filter that matches nothing: Enter picks nothing.
+    await type(`${frame} input[data-index-filter-target=input]`, "zzzz");
+    await sleep(300);
+    await press("Enter", 13);
+    await sleep(1500);
+    if (!(await shows(`${frame} button.index-row`))) throw new Error("Enter with no match left the Index view");
+    // Filtered to one: the arrows and Enter pick the visible row, never a hidden one.
+    await type(`${frame} input[data-index-filter-target=input]`, "layer");
+    await sleep(300);
+    await press("ArrowDown", 40);
+    await press("Enter", 13);
+    await until("the index exchange step", () => shows(`${frame} #exchange-picker button[value="${venue}"]`));
+    await inSheet("the index exchange step");
+    const picked = await evaluate(`document.querySelector("${frame} .sheet__track li").innerText`);
+    if (!/Layer/.test(picked)) throw new Error(`the arrow keys picked ${JSON.stringify(picked)}, not the filtered Layer 1`);
+    await click(`${frame} #exchange-picker button[value="${venue}"]`);
+    await until("the key step", () => shows(`${frame} form[action$="/bots/dca_indexes/add_api_key"] input[name="api_key[key]"]`));
+    await call(function (f, k, s) {
+      const form = document.querySelector(`${f} form[action$="/bots/dca_indexes/add_api_key"]`);
+      form.querySelector('input[name="api_key[key]"]').value = k;
+      form.querySelector('input[name="api_key[secret]"]').value = s;
+      form.requestSubmit();
+    }, frame, key, secret);
+    await until("the quote step", () => shows(`${frame} .sheet__search form[action$="/bots/dca_indexes/pick_spendable_asset/new"]`));
+    await inSheet("the quote step, the bot page still under the sheet");
+    // The market data goes away; a search on the quote step, then on the exchange step, shows the connect form in the sheet.
+    if (await market("") !== 200) throw new Error("switching market data off");
+    await type(`${frame} .sheet__search input[name=query]`, "us");
+    await until("the connect form after a quote search", () => shows(`${frame} turbo-frame#market_data_settings`));
+    await inSheet("the connect form after a quote search");
+    if (await market("deltabadger") !== 200) throw new Error("switching market data back on");
+    await click(`${frame} .sheet__track a[href$="/bots/dca_indexes/pick_exchange/new"]`);
+    await until("the index exchange step again", () => shows(`${frame} #exchange-picker`));
+    if (await market("") !== 200) throw new Error("switching market data off again");
+    await type(`${frame} .sheet__search input[name=query]`, "kra");
+    await until("the connect form after an exchange search", () => shows(`${frame} turbo-frame#market_data_settings`));
+    await inSheet("the connect form after an exchange search");
+    if (await market("deltabadger") !== 200) throw new Error("switching market data back on");
+    await evaluate(`document.querySelector("dialog.sheet-dialog .sheet__close").click()`);
+    await until("the sheet closed", () => call(function () { return !document.querySelector("dialog.sheet-dialog[open]"); }));
+    console.log("index wizard: arrow keys on the filtered list, the key on to the quote in the sheet, the connect form after a search");
   }
   if (BOT_ID) {
     const path = `/bots/${BOT_ID}`;

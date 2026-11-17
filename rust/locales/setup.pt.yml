@@ -10,6 +10,9 @@ pt:
             venue_groups:
                 brokers: "Corretoras"
                 exchanges: "Exchanges"
+            kind:
+                asset: "Ativo"
+                index: "Índice"
             progress_steps:
                 assets: "Ativos"
                 currencies: "Escolher ativo"

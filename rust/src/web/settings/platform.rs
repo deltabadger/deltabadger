@@ -46,9 +46,12 @@ async fn create(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let outcome = setup::redeem(&app, code, ctx.now, false).await?;
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
     let error = outcome.err();
-    let (widget, proxies) = app
-        .db(move |c| Ok((keys::market_data(c, &inner, &v, &csrf, false, error.as_deref())?, error.is_none().then(|| proxies(c)).transpose()?)))
+    let wizard = market_data::in_wizard(&ctx);
+    let (widget, proxies, configured) = app
+        .db(move |c| Ok((keys::market_data(c, &inner, &v, &csrf, false, error.as_deref(), wizard)?, error.is_none().then(|| proxies(c)).transpose()?,
+                         crate::web::bots::market_data(c, &inner)?.1)))
         .await?;
+    if wizard && configured && proxies.is_some() { return Ok(market_data::to_index_view(&ctx)) }
     match proxies {
         Some(proxies) => market_data::widget_and_flash(&ctx, &widget, Some(if proxies { "settings.platform.connected_with_proxies" } else { "settings.platform.connected_without_proxies" })),
         // 2.x prepends the flash only `if flash.any?`: a message the session still carries, none of its own.
@@ -81,7 +84,7 @@ async fn destroy(app: App, ctx: Ctx) -> Result<Response, WebError> {
         .db(move |c| {
             let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
             forget(&tx, &inner.cipher).map_err(WebError::Config)?;
-            let widget = keys::market_data(&tx, &inner, &v, &csrf, false, None)?;
+            let widget = keys::market_data(&tx, &inner, &v, &csrf, false, None, false)?;
             tx.commit()?;
             Ok(widget)
         })

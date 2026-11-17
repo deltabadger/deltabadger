@@ -10,6 +10,9 @@ it:
             venue_groups:
                 brokers: "Broker"
                 exchanges: "Exchange"
+            kind:
+                asset: "Asset"
+                index: "Indice"
             progress_steps:
                 assets: "Attività"
                 currencies: "Scegli asset"

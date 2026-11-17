@@ -10,6 +10,9 @@ pl:
             venue_groups:
                 brokers: "Brokerzy"
                 exchanges: "Giełdy"
+            kind:
+                asset: "Aktywo"
+                index: "Indeks"
             progress_steps:
                 assets: "Aktywa"
                 currencies: "Wybierz aktywo"

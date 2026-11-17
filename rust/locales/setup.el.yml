@@ -10,6 +10,9 @@ el:
             venue_groups:
                 brokers: "Μεσίτες"
                 exchanges: "Ανταλλακτήρια"
+            kind:
+                asset: "Στοιχείο"
+                index: "Δείκτης"
             progress_steps:
                 assets: "Περιουσιακά στοιχεία"
                 currencies: "Επιλογή asset"

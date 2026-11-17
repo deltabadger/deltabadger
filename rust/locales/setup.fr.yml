@@ -10,6 +10,9 @@ fr:
             venue_groups:
                 brokers: "Courtiers"
                 exchanges: "Exchanges"
+            kind:
+                asset: "Actif"
+                index: "Indice"
             progress_steps:
                 assets: "Actifs"
                 currencies: "Choisir l'actif"

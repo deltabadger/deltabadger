@@ -53,13 +53,14 @@ export default class extends Controller {
     // }
   }
 
+  // Only the rows shown: a filter may hide some (the index list), and a hidden row is never highlighted or chosen.
   #updateItems() {
-    const new_items = this.itemTargets
+    const new_items = this.itemTargets.filter((item) => item.offsetParent !== null)
     if (this.items && new_items.length !== this.items.length) {
       this.index = 0
       this.navigationInitialized = false
     }
     this.items = new_items
-    this.buttons = this.buttonTargets
+    this.buttons = this.buttonTargets.filter((button) => button.offsetParent !== null)
   }
 }

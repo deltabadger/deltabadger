@@ -10,6 +10,9 @@ nl:
             venue_groups:
                 brokers: "Brokers"
                 exchanges: "Exchanges"
+            kind:
+                asset: "Asset"
+                index: "Index"
             progress_steps:
                 assets: "Activa"
                 currencies: "Kies asset"

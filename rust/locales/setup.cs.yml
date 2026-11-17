@@ -10,6 +10,9 @@ cs:
             venue_groups:
                 brokers: "Brokeři"
                 exchanges: "Burzy"
+            kind:
+                asset: "Aktivum"
+                index: "Index"
             progress_steps:
                 assets: "Aktiva"
                 currencies: "Vyberte aktivum"
