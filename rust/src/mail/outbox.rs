@@ -114,7 +114,8 @@ mod tests {
 
     fn notice(id: &str) -> Notice { Notice { id: id.into(), bot_id: 1, title: "t".into(), body: "b".into() } }
 
-    #[tokio::test]
+    /// Paused clock: on a loaded runner, wall time between `offer` and the first `take` passed the 50 ms deadline.
+    #[tokio::test(start_paused = true)]
     async fn an_ack_in_time_is_taken_once_and_one_after_the_deadline_is_ignored() {
         let o = Outbox::default();
         let soon = Instant::now() + Duration::from_millis(50);
