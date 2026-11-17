@@ -153,14 +153,14 @@ fn take_lock(paths: &Paths) -> EngineLock {
     match lease::lock(paths, chrono::Utc::now()) {
         Ok(l) => l,
         Err(LeaseError::Locked) => fail("another Deltabadger engine is running on this data"),
-        Err(LeaseError::V2Alive { seconds_ago }) => fail(&format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
+        Err(LeaseError::V2Alive { seconds_ago }) => fail(&format!("2.x looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
         Err(e) => fail(&format!("{e:?}")),
     }
 }
 
 fn explain(e: StoreError) -> String {
     match e {
-        StoreError::Missing { path } => format!("{} does not exist yet: start the Rails app once to set up this install", path.display()),
+        StoreError::Missing { path } => format!("{} does not exist yet: start 2.x once to set up this install", path.display()),
         StoreError::Unrecognised { path } => format!("{} is not a Deltabadger database; refusing to touch it", path.display()),
         StoreError::Behind { missing } => format!("this data is behind this build ({} migration(s) missing): run Deltabadger 2.70.21's `migrate` on it once (or start 2.70.21 until it has finished starting), then start this again", missing.len()),
         StoreError::Unsupported { unknown } => format!("this data has migrations this build does not know ({}); use a newer build", unknown.join(", ")),
@@ -221,7 +221,7 @@ fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Resul
         Err(EngineError::Ineligible(p)) => { eprintln!("deltabadger: this install uses things only the full app runs:\n{}", p.join("\n")); return Err(EXIT_REFUSED); }
         Err(e) => { eprintln!("deltabadger: takeover failed: {e:?}"); return Err(EXIT_ENGINE_ERROR); }
     };
-    log(&format!("took over ({:?}): {} bot(s), {} Rails job(s) removed, {} bot(s) back to scheduled",
+    log(&format!("took over ({:?}): {} bot(s), {} 2.x job(s) removed, {} bot(s) back to scheduled",
                  t.claim, t.eligible.len(), t.deleted_jobs, t.normalised));
     Ok(())
 }
@@ -242,7 +242,7 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
             Err(e) => { eprintln!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
         };
         let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler];
-        log("running: SIGTERM finishes the tick in hand and stops; then run `deltabadger handback` before starting Rails");
+        log("running: SIGTERM finishes the tick in hand and stops; then run `deltabadger handback` before starting 2.x");
         // `serve`'s supervisor without the web: one "ended" rule for both commands.
         match supervisor::serve(engine, None, &SystemClock, services).await {
             Ended::Stopped => { log("stopped on request"); 0 }
@@ -291,7 +291,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         };
         let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler];
         log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
-                      then run `deltabadger handback` before starting Rails"));
+                      then run `deltabadger handback` before starting 2.x"));
         match supervisor::serve(engine, Some((app, listener)), &SystemClock, services).await {
             Ended::Stopped => { log("stopped on request"); 0 }
             Ended::Engine(e) => { log(&format!("engine stopped: {e:?}; the web UI stopped with it")); EXIT_ENGINE_ERROR }

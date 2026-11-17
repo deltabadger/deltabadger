@@ -105,11 +105,9 @@ fn no_page_text_says_v2() {
     assert!(templates > 100 && sources.len() > 50, "{templates} templates, {} sources", sources.len());
     // Exactly these literals, to the B11-8 rename (PLAN-B11 §10 Q6), where "2.x" replaces the word.
     const NAMED: &[(&str, &str)] = &[
-        // Refusal reasons a page or API answer shows. index_histories.rs also finds the first in stored details.
+        // A refusal reason pages and API answers show; index_histories.rs also finds it in stored details, so it waits for
+        // B11-9 (PLAN-B11-9 r1.1).
         ("src/engine/eligibility.rs", "\"row(s) with a status Rails never writes\""),
-        ("src/engine/eligibility.rs", "\"{imported} legacy imported row(s) left open (Rails never polls or settles them)\""),
-        ("src/engine/eligibility.rs", "\"{sides} special row(s) with a side Rails never writes (LIQUIDATION buy, REDEPLOY sell or none)\""),
-        ("src/engine/eligibility.rs", "\"tokenized {} on {} (no recorded Rails vector for tokenized pairs on this venue)\""),
         // WebError::Config: logged, the page is the generic error page.
         ("src/web/bot/signal_write.rs", "\"bot_signals {}: {key} is not one Rails knows\""),
         ("src/web/rest.rs", "\"a transactions parameter Rails cannot convert\""),

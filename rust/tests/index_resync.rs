@@ -289,7 +289,7 @@ async fn a_tokenized_member_fails_only_its_index_bots_tick() {
     assert!(t.requests().iter().all(|r| r.method != "POST"), "nothing placed");
     assert_eq!(members(), 0);
     let failed: String = c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'execution_failed'", [index], |r| r.get(0)).unwrap();
-    assert!(failed.contains("tokenized NVDAX on Binance (no recorded Rails vector for tokenized pairs on this venue)"), "{failed}");
+    assert!(failed.contains("tokenized NVDAX on Binance (no recorded 2.x vector for tokenized pairs on this venue)"), "{failed}");
 
     c.execute("UPDATE indices SET top_coins = '[\"bitcoin\",\"ethereum\",\"nvda-xstock\"]'", []).unwrap(); // the next pull
     seed::fresh_stock_jobs(c, at("2026-09-08T14:00:00Z"));
@@ -454,7 +454,7 @@ async fn an_index_bot_switched_to_a_venue_without_one_of_its_members_resyncs_and
     assert!(resync.is_some());
     run::step(&mut e, &FixedClock(at(now))).await.expect("the pass stays Ok");
     let resync: Option<String> = c.query_row("SELECT json_extract(transient_data, '$.rust_index_resync') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
-    assert_eq!(resync, None, "the resync ran here, not left to Rails");
+    assert_eq!(resync, None, "the resync ran here, not left to 2.x");
     let eth_kc: i64 = c.query_row("SELECT id FROM tickers WHERE exchange_id = ?1 AND ticker = 'ETH-USDT'", [kucoin], |r| r.get(0)).unwrap();
     assert_eq!(rows(), vec![("BTC".into(), true, s.ticker_id), ("ETH".into(), true, eth_kc), ("ZEC".into(), false, old[1])],
                "BTC and ETH seated on KuCoin's tickers; ZEC, untradable there, out of the index (its row a holding only)");

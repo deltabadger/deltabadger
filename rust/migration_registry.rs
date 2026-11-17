@@ -18,7 +18,7 @@ pub fn load(dir: &Path, v2_versions: &[String]) -> Result<Vec<(String, String, s
         let parsed = file.strip_suffix(".sql").and_then(|stem| stem.split_once('_'))
             .filter(|(version, name)| version.len() == 14 && version.bytes().all(|b| b.is_ascii_digit()) && !name.is_empty());
         let Some((version, name)) = parsed else { return Err(format!("{file}: a Rust migration is named <14-digit version>_<name>.sql")) };
-        if v2_versions.iter().any(|v| v == version) { return Err(format!("{file}: version {version} is a Rails migration's")); }
+        if v2_versions.iter().any(|v| v == version) { return Err(format!("{file}: version {version} is a 2.x migration's")); }
         found.push((version.to_string(), name.to_string(), path));
     }
     found.sort();

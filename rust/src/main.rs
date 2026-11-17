@@ -134,7 +134,7 @@ fn main() {
                 let tx=deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e|fail(&format!("{e:?}")));
                 deltabadger::engine::rules::seed_v2_ids(&tx).unwrap_or_else(|e|fail(&format!("{e:?}")));
                 tx.commit().unwrap_or_else(|e|fail(&format!("{e:?}")));
-                for (attempt,rule) in deltabadger::engine::rules::open_attempts(&o.primary,Some(id)).unwrap_or_else(|e|fail(&format!("{e:?}"))) {println!("rule {rule}: Rails attempt {attempt}");}
+                for (attempt,rule) in deltabadger::engine::rules::open_attempts(&o.primary,Some(id)).unwrap_or_else(|e|fail(&format!("{e:?}"))) {println!("rule {rule}: 2.x attempt {attempt}");}
             } else {
                 withdrawal::resolve(&o.primary,&o.queue,&cipher,target,resolution,chrono::Utc::now()).unwrap_or_else(|e|fail(&format!("{e:?}")));
                 deltabadger::engine::rules::finish_cleanup(&o.primary,&o.queue,chrono::Utc::now()).unwrap_or_else(|e|fail(&format!("{e:?}")));
@@ -405,7 +405,7 @@ fn lock_refused(paths: &Paths, e: LeaseError) -> ! {
         // Not on the refusal page: the engine that holds the lock is the one serving this install.
         LeaseError::Locked => { deltabadger::eline!("deltabadger: another Deltabadger engine is running on this data"); std::process::exit(1) }
         // A heartbeat in the future is a clock ahead of this one: the detail's negative age says so.
-        LeaseError::V2Alive { seconds_ago } => fail_with(V2_ALIVE, &format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
+        LeaseError::V2Alive { seconds_ago } => fail_with(V2_ALIVE, &format!("2.x looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
         LeaseError::Io(e) => fail(&format!("{}: {e}", paths.lock_file().display())),
         e => fail(&format!("{e:?}")),
     }
@@ -686,7 +686,7 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
             Err(e) => { deltabadger::eline!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
         };
         let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler];
-        log("running: SIGTERM finishes the tick in hand and stops; then run `deltabadger handback` before starting Rails");
+        log("running: SIGTERM finishes the tick in hand and stops; then run `deltabadger handback` before starting 2.x");
         // `serve`'s supervisor without the web: one "ended" rule for both commands.
         match supervisor::serve(engine, None, &SystemClock, services).await {
             Ended::Stopped => { log("stopped on request"); 0 }
@@ -793,7 +793,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         };
         let services = vec![mail, scheduler, figures, warnings, live];
         log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
-                      then run `deltabadger handback` before starting Rails"));
+                      then run `deltabadger handback` before starting 2.x"));
         match supervisor::serve(engine, Some((app, listener)), &SystemClock, services).await {
             Ended::Stopped => { log("stopped on request"); 0 }
             Ended::Engine(e) => { log(&format!("engine stopped: {e:?}; the web UI stopped with it")); EXIT_ENGINE_ERROR }

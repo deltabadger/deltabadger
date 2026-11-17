@@ -234,7 +234,7 @@ fn the_build_refuses_a_misnamed_or_repeated_version_a_v2_version_a_transaction_s
     let v2 = format!("{}_clash.sql", MIGRATIONS[0]);
     let refused: &[Refused<'_>] = &[
         ("repeated version", &[("20990101000001_a.sql", "SELECT 1;"), ("20990101000001_b.sql", "SELECT 1;")], "used by two"),
-        ("Rails version", &[(&v2, "SELECT 1;")], "Rails migration"),
+        ("2.x version", &[(&v2, "SELECT 1;")], "2.x migration"),
         ("misnamed", &[("2099_short.sql", "SELECT 1;")], "named"),
         ("no name", &[("20990101000001_.sql", "SELECT 1;")], "named"),
         ("BEGIN", &[("20990101000001_t.sql", "BEGIN;\nCREATE TABLE t (id INTEGER);")], "BEGIN"),

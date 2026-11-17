@@ -37,14 +37,14 @@ fn release_version(root: &Path) {
 /// (B1: db/migrate never changes again, and B11 deletes it). tests/store.rs checks the file against db/migrate while
 /// that exists.
 fn migrations(root: &Path, out: &Path) -> Vec<String> {
-    let file = root.join("rust/schema/rails_versions.txt");
+    let file = root.join("rust/schema/v2_versions.txt");
     println!("cargo:rerun-if-changed={}", file.display());
-    let text = fs::read_to_string(&file).expect("read rust/schema/rails_versions.txt");
+    let text = fs::read_to_string(&file).expect("read rust/schema/v2_versions.txt");
     let versions: Vec<String> = text.lines().map(str::to_owned).collect();
     for v in &versions {
-        assert!(v.len() == 14 && v.bytes().all(|b| b.is_ascii_digit()), "rails_versions.txt: invalid version {v:?}");
+        assert!(v.len() == 14 && v.bytes().all(|b| b.is_ascii_digit()), "v2_versions.txt: invalid version {v:?}");
     }
-    assert!(versions.windows(2).all(|w| w[0] < w[1]), "rails_versions.txt must be sorted and without repeats");
+    assert!(versions.windows(2).all(|w| w[0] < w[1]), "v2_versions.txt must be sorted and without repeats");
     let body: String = versions.iter().map(|v| format!("    {v:?},\n")).collect();
     fs::write(out.join("migrations.rs"), format!("pub const MIGRATIONS: &[&str] = &[\n{body}];\n")).unwrap();
     versions
@@ -282,7 +282,7 @@ impl EventReceiver for Flatten {
                 }
                 let null = matches!(text.as_str(), "" | "~" | "null" | "Null" | "NULL");
                 if style == TScalarStyle::Plain && (null || psych_boolean(&text).is_some()) {
-                    self.problems.push(format!("{path} is `{text}`, which Rails reads as a boolean or null, not text; quote it"));
+                    self.problems.push(format!("{path} is `{text}`, which a YAML 1.1 reader takes as a boolean or null, not text; quote it"));
                 }
                 self.flat.insert(path, text);
             }

@@ -68,7 +68,7 @@ fn the_rust_primary_is_the_v2_primary_after_the_rust_migrations() {
     rust_equals_v2("production.sqlite3", "baseline.sql", store::create_schema, true);
     let c = Connection::open_in_memory().unwrap();
     store::create_schema(&c).unwrap();
-    let frozen: Vec<String> = include_str!("../schema/rails_versions.txt").lines().map(String::from).collect();
+    let frozen: Vec<String> = include_str!("../schema/v2_versions.txt").lines().map(String::from).collect();
     assert_eq!(texts(&c, "SELECT version FROM schema_migrations ORDER BY version"), frozen, "the 123 frozen Rails versions");
 }
 

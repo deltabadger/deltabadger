@@ -274,7 +274,7 @@ fn read_jobs(c: &Connection, q: &Connection) -> Result<(Vec<Job>, Vec<i64>), Eng
     Ok((jobs, unreadable))
 }
 /// PLAN-B2 r4.7: a claimed or failed Rule::EvaluateAllJob only fanned out (its children are rule jobs of their own), so the
-/// takeover acknowledges it as `resolve-withdrawal --rails-job <id> --skip` does, in the claim transaction. Returns the jobs
+/// takeover acknowledges it as `resolve-withdrawal --v2-job <id> --skip` does, in the claim transaction. Returns the jobs
 /// as acknowledged.
 pub fn acknowledge_fanouts(c: &Connection, jobs: &mut [Job], now: DateTime<Utc>) -> Result<(), EngineError> {
     for job in jobs.iter_mut().filter(|j| j.all && j.claimed && !j.acknowledged) {
@@ -288,7 +288,7 @@ pub fn takeover_problems(c: &Connection, q: &Connection) -> Result<Vec<String>, 
         .into_iter()
         .map(|(id, rule)| {
             format!(
-                "rule {rule}: Rails attempt {id} is unconfirmed; resolve-withdrawal --rails {id}"
+                "rule {rule}: 2.x attempt {id} is unconfirmed; resolve-withdrawal --v2 {id}"
             )
         })
         .collect::<Vec<_>>();
@@ -296,7 +296,7 @@ pub fn takeover_problems(c: &Connection, q: &Connection) -> Result<Vec<String>, 
     for job in jobs(c, q)? {
         if job.claimed && !job.acknowledged && !job.all {
             problems.push(format!(
-                "{} {}{} was claimed or failed; resolve-withdrawal --rails-job {}",
+                "{} {}{} was claimed or failed; resolve-withdrawal --v2-job {}",
                 if job.all {
                     "Rule::EvaluateAllJob"
                 } else {

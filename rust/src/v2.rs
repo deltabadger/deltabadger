@@ -328,7 +328,7 @@ pub fn float_sum(xs: &[f64]) -> f64 {
 /// when the halfway point divided back still lies at or below x, then divided by 10**n. A value already exact at this many
 /// digits (float_round_overflow) is returned unchanged, and a positive one too small for them (float_round_underflow) is 0.
 pub fn float_round(x: f64, ndigits: i32) -> f64 {
-    assert!((1..=14).contains(&ndigits), "Float#round({ndigits}) takes Ruby's rational path, not ported");
+    assert!((1..=14).contains(&ndigits), "Float#round({ndigits}) takes 2.x's rational path, not ported");
     if x == 0.0 || !x.is_finite() || x.is_subnormal() { return x; }
     let binexp = (((x.to_bits() >> 52) & 0x7ff) as i32) - 1022; // frexp's exponent: x = m × 2^binexp, 0.5 <= |m| < 1
     if ndigits >= 17 - if binexp > 0 { binexp / 4 } else { binexp / 3 - 1 } { return x; }
@@ -392,7 +392,7 @@ impl Num {
 pub fn v2_sum(xs: &[Num]) -> Result<Num, CodecError> {
     let mut i = 0;
     let mut n: i64 = 0;
-    while let Some(Num::Int(x)) = xs.get(i) { n = n.checked_add(*x).ok_or(CodecError::IntegerOverflow("ruby_sum"))?; i += 1; }
+    while let Some(Num::Int(x)) = xs.get(i) { n = n.checked_add(*x).ok_or(CodecError::IntegerOverflow("v2_sum"))?; i += 1; }
     let mut v = Num::Int(n);
     if let Some(Num::Float(_)) = xs.get(i) {
         let (mut f, mut c) = (n as f64, 0.0f64);

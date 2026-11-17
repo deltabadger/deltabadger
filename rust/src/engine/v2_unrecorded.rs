@@ -1165,7 +1165,7 @@ pub async fn serve_bookings<F: crate::venue::VenueFactory>(c: &Connection, facto
             Err(e @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(e),
             // One request that can't be served never holds the others or the rows already booked (Codex branch r1).
             Err(e) => {
-                super::log(&format!("[engine] Rails-unrecorded booking request {obligation} refused: {}", e.kind()));
+                super::log(&format!("[engine] 2.x-unrecorded booking request {obligation} refused: {}", e.kind()));
                 let bot: Option<i64> = c.query_row("SELECT bot_id FROM rust_rails_unrecorded WHERE id = ?1", [obligation], |r| r.get(0)).optional()?;
                 match bot { Some(bot) => { refuse(c, obligation, bot, "unreadable", None, now)?; } None => { drop_request(c, obligation)?; } }
             }
@@ -1175,7 +1175,7 @@ pub async fn serve_bookings<F: crate::venue::VenueFactory>(c: &Connection, facto
     match watch(c, &|tx| polled(tx) || served.booked.iter().any(|(_, b)| *b == tx), now) {
         Ok(watch) => served.watch = watch,
         Err(e @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(e),
-        Err(e) => super::log(&format!("[engine] booked Rails-unrecorded orders not watched this pass: {}", e.kind())),
+        Err(e) => super::log(&format!("[engine] booked 2.x-unrecorded orders not watched this pass: {}", e.kind())),
     }
     Ok(served)
 }

@@ -457,7 +457,7 @@ fn order_kind_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<
     // Sell rows are no refusal on any venue: off Alpaca the same normalized walk reads them (tests/eligibility.rs proves it
     // on Kraken and Binance), and bot_reasons_with runs it for such a history before accepting it.
     special_row_reasons(c, bot, r)?;
-    if imported > 0 { r.push(why(Kind::History(History::ImportedOpen), format!("{imported} legacy imported row(s) left open (Rails never polls or settles them)"))); }
+    if imported > 0 { r.push(why(Kind::History(History::ImportedOpen), format!("{imported} legacy imported row(s) left open (2.x never polls or settles them)"))); }
     if no_asset > 0 { r.push(why(Kind::History(History::NoAsset), format!("{no_asset} order(s) recorded without base_asset_id"))); }
     Ok(())
 }
@@ -490,7 +490,7 @@ fn special_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(),
          FROM transactions WHERE bot_id = ?1 AND status = 0 AND transaction_type <> 'REGULAR'",
         [bot.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
     if kinds > 0 { r.push(why(Kind::History(History::SpecialRows), format!("{kinds} row(s) of an unsupported transaction type"))); }
-    if sides > 0 { r.push(why(Kind::History(History::SpecialRows), format!("{sides} special row(s) with a side Rails never writes (LIQUIDATION buy, REDEPLOY sell or none)"))); }
+    if sides > 0 { r.push(why(Kind::History(History::SpecialRows), format!("{sides} special row(s) with a side 2.x never writes (LIQUIDATION buy, REDEPLOY sell or none)"))); }
     if statuses > 0 { r.push(why(Kind::History(History::SpecialRows), format!("{statuses} special row(s) with an unknown external status"))); }
     let executed = crate::figures::fill::rejected_special_executions(c, bot.id).map_err(|e| EngineError::Data(format!("{e:?}")))?;
     if executed > 0 { r.push(why(Kind::History(History::SpecialRows), format!("{executed} rejected LIQUIDATION/REDEPLOY/REBALANCE order(s) reporting an execution"))); }
@@ -540,7 +540,7 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
             if venue == "Exchanges::Kraken" {
                 r.push(why(Kind::Asset(Some(asset_id)), "Kraken tokenized pair: xStock balances rebase (dividends, splits) and EEA accounts cannot trade them by API; not traded here"));
             } else if !TOKENIZED_PROVEN.contains(&venue.as_str()) {
-                r.push(why(Kind::Asset(Some(asset_id)), format!("tokenized {} on {} (no recorded Rails vector for tokenized pairs on this venue)", t.base_symbol, model::exchange_name(c, bot)?)));
+                r.push(why(Kind::Asset(Some(asset_id)), format!("tokenized {} on {} (no recorded 2.x vector for tokenized pairs on this venue)", t.base_symbol, model::exchange_name(c, bot)?)));
             }
         } else if !crypto && !stock {
             r.push(why(Kind::Asset(Some(asset_id)), format!("asset category {} / instrument {} (only plain cryptocurrencies, and stocks and ETFs on Alpaca)",

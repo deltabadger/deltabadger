@@ -1466,7 +1466,7 @@ pub enum Resolution {
 }
 pub fn parse_cli(args: &[String]) -> Result<(Target, Resolution), EngineError> {
     let usage = || {
-        data("usage: resolve-withdrawal <rule_id> | --recorder <scenario> | --rails <rule_log_id> | --rails-job <job> (--sent <id> [--amount <amount>] | --not-sent | --recorded <rule_log_id> | --skip); --rails-list <rule_id>")
+        data("usage: resolve-withdrawal <rule_id> | --recorder <scenario> | --v2 <rule_log_id> | --v2-job <job> (--sent <id> [--amount <amount>] | --not-sent | --recorded <rule_log_id> | --skip); --v2-list <rule_id>")
     };
     let id = |s: Option<&String>| {
         s.and_then(|v| v.parse::<i64>().ok())
@@ -1474,7 +1474,7 @@ pub fn parse_cli(args: &[String]) -> Result<(Target, Resolution), EngineError> {
             .ok_or_else(usage)
     };
     let (target, rest) = match args.first().map(String::as_str) {
-        Some("--rails-list") if args.len() == 2 => {
+        Some("--v2-list") if args.len() == 2 => {
             return Ok((Target::V2List(id(args.get(1))?), Resolution::List))
         }
         Some("--recorder") => (
@@ -1486,8 +1486,8 @@ pub fn parse_cli(args: &[String]) -> Result<(Target, Resolution), EngineError> {
             ),
             &args[2..],
         ),
-        Some("--rails") => (Target::V2(id(args.get(1))?), &args[2..]),
-        Some("--rails-job") => (
+        Some("--v2") => (Target::V2(id(args.get(1))?), &args[2..]),
+        Some("--v2-job") => (
             Target::V2Job(
                 args.get(1)
                     .filter(|s| !s.is_empty())
@@ -1543,7 +1543,7 @@ pub fn resolve(
    Target::Recorder(scenario)=>load(&tx,cipher,&format!("recorder:{scenario}"))?.ok_or_else(||data("no recorder intent"))?.request.exchange_id,
    Target::Rule(id)=>load(&tx,cipher,&format!("rule:{id}"))?.ok_or_else(||data("no withdrawal intent"))?.request.exchange_id,
    Target::V2(id)=>tx.query_row("SELECT r.exchange_id FROM rules r JOIN rule_logs l ON l.rule_id=r.id WHERE l.id=?1",[id],|r|r.get(0))?,
-   Target::V2Job(id)=>{let j=rules::jobs(&tx,q)?.into_iter().find(|j|j.id==*id).ok_or_else(||data("no such Rails job"))?;let rule=j.rule.ok_or_else(||data("EvaluateAllJob accepts --skip only"))?;tx.query_row("SELECT exchange_id FROM rules WHERE id=?1",[rule],|r|r.get(0))?},
+   Target::V2Job(id)=>{let j=rules::jobs(&tx,q)?.into_iter().find(|j|j.id==*id).ok_or_else(||data("no such 2.x job"))?;let rule=j.rule.ok_or_else(||data("EvaluateAllJob accepts --skip only"))?;tx.query_row("SELECT exchange_id FROM rules WHERE id=?1",[rule],|r|r.get(0))?},
    Target::V2List(_)=>return Err(data("list accepts no resolution")),};
         let exists: bool = tx.query_row(
             "SELECT EXISTS(SELECT 1 FROM rust_withdrawal_ids WHERE exchange_id=?1 AND venue_id=?2)",
@@ -1569,7 +1569,7 @@ fn resolve_in(
 ) -> Result<(), EngineError> {
     let at = crate::codec::format_time(now);
     match target {
-        Target::V2List(_) => Err(data("use open_attempts to list Rails evidence")),
+        Target::V2List(_) => Err(data("use open_attempts to list 2.x evidence")),
         Target::Rule(_) | Target::Recorder(_) => {
             let owner = match target {
                 Target::Rule(id) => format!("rule:{id}"),
@@ -1614,13 +1614,13 @@ fn resolve_in(
                 .into_iter()
                 .find(|(id, _)| *id == log)
                 .map(|(_, rule)| rule)
-                .ok_or_else(|| data("not an open ambiguous Rails attempt"))?;
+                .ok_or_else(|| data("not an open ambiguous 2.x attempt"))?;
             let raw: String =
                 c.query_row("SELECT details FROM rule_logs WHERE id=?1", [log], |r| {
                     r.get(0)
                 })?;
             let details: Value =
-                serde_json::from_str(&raw).map_err(|_| data("unreadable Rails attempt details"))?;
+                serde_json::from_str(&raw).map_err(|_| data("unreadable 2.x attempt details"))?;
             let (name, venue) = resolve_log(c, rule, &resolution, details, now)?;
             c.execute("INSERT INTO rust_rails_attempt_acks(rule_log_id,rule_id,resolution,venue_id,at) VALUES(?1,?2,?3,?4,?5)",params![log,rule,name,venue,at])?;
             Ok(())
@@ -1629,9 +1629,9 @@ fn resolve_in(
             let j = rules::jobs(c, q)?
                 .into_iter()
                 .find(|j| j.id == job)
-                .ok_or_else(|| data("no such Rails withdrawal job"))?;
+                .ok_or_else(|| data("no such 2.x withdrawal job"))?;
             if j.acknowledged {
-                return Err(data("Rails job already acknowledged"));
+                return Err(data("2.x job already acknowledged"));
             }
             if j.all {
                 if !j.claimed || !matches!(resolution, Resolution::Skip) {
@@ -1707,7 +1707,7 @@ fn resolve_log(
             let amount = amount
                 .clone()
                 .or_else(|| details["amount"].as_str().map(str::to_owned))
-                .ok_or_else(|| data("--amount is required when the Rails attempt has no amount"))?;
+                .ok_or_else(|| data("--amount is required when the 2.x attempt has no amount"))?;
             if !decimal(&amount)?.is_positive() {
                 return Err(data("amount must be positive"));
             }
@@ -1738,7 +1738,7 @@ fn resolve_log(
             )?;
             Ok(("not-sent".into(), None))
         }
-        _ => Err(data("invalid Rails attempt resolution")),
+        _ => Err(data("invalid 2.x attempt resolution")),
     }
 }
 

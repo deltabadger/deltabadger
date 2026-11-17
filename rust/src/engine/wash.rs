@@ -459,7 +459,7 @@ mod tests {
         let held = Held { asset_id: 2, claim: claim(&c, 1, 2, now.date_naive(), now).unwrap().unwrap() };
         settle_claim(&c, 1, Holder::Composition(Some(&held)), Reason::Accepted, now).unwrap();
         assert_eq!(logged(&c), vec![r#"{"base":"AAA","until":"2026-10-20"}"#.to_string()]);
-        assert_eq!(row(&c).2.as_deref(), Some(held.claim.token.as_str()), "an accepted claim's token stays, as Rails leaves it");
+        assert_eq!(row(&c).2.as_deref(), Some(held.claim.token.as_str()), "an accepted claim's token stays, as 2.x leaves it");
         settle_claim(&c, 1, Holder::Composition(None), Reason::Accepted, now).unwrap();
         settle_claim(&c, 1, Holder::None, Reason::Accepted, now).unwrap();
         assert_eq!(logged(&c).len(), 1, "no claim, nothing logged");
@@ -489,8 +489,8 @@ mod tests {
         // Keys 2.x wrote before a takeover are honoured; no asset key, nothing to do.
         let c = db(Some(true), None);
         set(&c, Some("2026-10-21 00:00:00"), Some("2026-09-01 00:00:00"));
-        c.execute("UPDATE wash_sale_locks SET claim_token = 'railstoken000001'", []).unwrap();
-        c.execute(r#"UPDATE bots SET transient_data = '{"rebalance_previous_lock":"2026-09-10T00:00:00.000Z","rebalance_claim_token":"railstoken000001","rebalance_locked_asset_id":2}'"#, []).unwrap();
+        c.execute("UPDATE wash_sale_locks SET claim_token = 'v2token000000001'", []).unwrap();
+        c.execute(r#"UPDATE bots SET transient_data = '{"rebalance_previous_lock":"2026-09-10T00:00:00.000Z","rebalance_claim_token":"v2token000000001","rebalance_locked_asset_id":2}'"#, []).unwrap();
         settle_claim(&c, 1, Holder::RebalanceSell, Reason::PreTransmission, now).unwrap();
         assert_eq!((row(&c).0.as_deref(), row(&c).2), (Some("2026-09-10 00:00:00"), None));
         assert_eq!(transient(&c), json!({}));

@@ -285,7 +285,7 @@ pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<Vec<String>, EngineE
     }
     let mut holds = c.prepare("SELECT id,json_extract(transient_data,'$.rust_split_hold.reason') FROM bots WHERE json_extract(transient_data,'$.rust_split_hold.reason') IS NOT NULL ORDER BY id")?;
     for line in holds.query_map([], |r| Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?)))? {
-        let (id,reason)=line?; lines.push(format!("bot {id}: last split refusal: {reason}; stop the engine, run sync ledger, correct the ledger with the Rails grouping fix if still inconsistent, then restart; no trade is needed"));
+        let (id,reason)=line?; lines.push(format!("bot {id}: last split refusal: {reason}; stop the engine, run sync ledger, correct the ledger with the 2.x grouping fix if still inconsistent, then restart; no trade is needed"));
     }
     Ok(lines)
 }

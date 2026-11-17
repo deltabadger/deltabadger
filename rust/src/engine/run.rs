@@ -578,7 +578,7 @@ pub async fn resync_bot<V: crate::venue::Attributed>(c: &Connection, id: i64, ma
     if let Some(external_id) = super::index::ranking_wake(c, &bot, clock.now(), &mut state.ranking_sent)? { state.ranking_owed.push(external_id); }
     let reasons = eligibility::bot_reasons(c, &bot)?;
     if !reasons.is_empty() {
-        if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to Rails ({})", reasons.join(", "))); }
+        if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to 2.x ({})", reasons.join(", "))); }
         return Ok(false);
     }
     if bot.rust_placement().is_some() { return Ok(false); }
@@ -627,7 +627,7 @@ pub async fn resync_bot<V: crate::venue::Attributed>(c: &Connection, id: i64, ma
             // The engine's own refusal of a bot that became ineligible during the run stays 2.x's to resync.
             let reasons = eligibility::bot_reasons(c, &model::load_bot(c, id)?)?;
             if !reasons.is_empty() {
-                if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to Rails ({m})")); }
+                if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to 2.x ({m})")); }
                 return Ok(false);
             }
             super::log(&format!("bot {id}: composition resync failed: {m}"));
@@ -832,7 +832,7 @@ async fn run_bookings<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> 
         Err(err) => {
             announce_lines(e, since);
             if matches!(err, EngineError::Lease(_) | EngineError::Store(_)) { return Err(err); }
-            super::log(&format!("[engine] Rails-unrecorded bookings deferred: {}", err.kind()));
+            super::log(&format!("[engine] 2.x-unrecorded bookings deferred: {}", err.kind()));
             return Ok(());
         }
     };
