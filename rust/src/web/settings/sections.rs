@@ -468,7 +468,7 @@ pub fn market_data(ctx: &Ctx, csrf: &str, m: &Market) -> String {
         } else {
             let key = ctx.t("setup.coingecko_api_key");
             format!(
-                "\n            {}\n              <input value=\"coingecko\" type=\"hidden\" name=\"market_data_provider\" id=\"market_data_provider\" />\n              <input required=\"required\" autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"{key}\" aria-label=\"{key}\" type=\"text\" name=\"coingecko_api_key\" id=\"coingecko_api_key\" />\n              {}\n              <details class=\"shelp\">\n                <summary>{}</summary>\n                <div class=\"sheet__prose\">{}</div>\n              </details>\n</form>",
+                "\n            {}\n              <input value=\"coingecko\" type=\"hidden\" name=\"market_data_provider\" id=\"market_data_provider\" />\n              <input required=\"required\" autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"{key}\" aria-label=\"{key}\" type=\"text\" name=\"coingecko_api_key\" id=\"coingecko_api_key\" />\n              {}\n              <section class=\"shelp\">\n                <h3 class=\"shelp__title\">{}</h3>\n                <div class=\"sheet__prose\">{}</div>\n              </section>\n</form>",
                 form_open(" class=\"sform sform--stack sform--inset sitem\" data-turbo-frame=\"market_data_settings\"", &ctx.path("/settings/update_market_data"), "patch", csrf),
                 submit(&connect, &validating),
                 crate::web::i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", crate::web::i18n::Arg::Text("CoinGecko"))]),

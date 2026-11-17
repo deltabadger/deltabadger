@@ -49,6 +49,7 @@
         line-height: 2.5rem
         height: 2.5rem
         font-size: 1.5rem
+        min-width: 8rem !important
 .ticker-group
     display: flex
     .ticker
@@ -70,6 +71,8 @@
     &--2
         .ticker:not(:last-child)
             margin-right: -8.75rem
+        .ticker--small:not(:last-child)
+            margin-right: -7rem
     &--many
         .ticker:not(:last-child)
             margin-right: -8.75rem
@@ -78,6 +81,8 @@
         .ticker:not(:first-child):not(.ticker--more)
             border-radius: 0 2rem 2rem 0
             color: transparent
+        .ticker--small:not(:last-child)
+            margin-right: -7rem
     // One stacked row; when it runs out of width ticker_fold_controller folds the tail into "+N".
     // Every chip overhangs the next by the overlap, the last one too, and the padding takes that
     // overhang: the box is exactly as wide as the chips look, which is what the fold measures.

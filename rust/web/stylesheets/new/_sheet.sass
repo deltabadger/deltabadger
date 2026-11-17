@@ -614,13 +614,55 @@ turbo-frame.sitem
             margin: 0
 
 // The walkthrough under a key form, closed until asked for.
-.shelp
+// A walkthrough beside a key form, always open: Settings' CoinGecko key (.shelp) and the DCA wizard's key step (the
+// connect card's .set-api__instructions in the sheet) read the same — a quiet card, a title, numbered steps.
+.shelp, .sheet__pane .set-api--connect .set-api__instructions
+    display: flex
+    flex-direction: column
+    gap: 1.5rem
+    max-width: 44rem
+    margin: 0
+    padding: 2rem 2.5rem
+    border: 0
+    border-radius: 1.5rem
+    background: var(--paper-on-washed)
     font-size: 1.5rem
-    > summary
-        cursor: pointer
-        color: var(--link)
-    > div
-        margin-top: 1rem
+    line-height: 1.6
+    color: var(--ash)
+    @media (max-width: 767.9px)
+        padding: 1.5rem 2rem
+    p, ol, ul
+        margin: 0
+        font-size: 1.5rem
+        color: var(--ash)
+    ol, ul
+        display: flex
+        flex-direction: column
+        gap: 0.75rem
+        padding-left: 2.5rem
+    li::marker
+        color: var(--stone)
+        font-variant-numeric: tabular-nums
+    li > ol, li > ul
+        margin-top: 0.5rem
+        padding-left: 2rem
+        gap: 0.5rem
+    b
+        color: var(--ink)
+    a
+        color: var(--link) !important
+        text-decoration: underline
+        &:hover
+            color: var(--link-hover)
+            text-decoration: none
+.shelp__title, .sheet__pane .set-api--connect .set-api__eyebrow
+    margin: 0
+    font-size: 1.75rem
+    line-height: 2.5rem
+    letter-spacing: 0
+    text-transform: none
+    font-weight: 600
+    color: var(--ink)
 
 .sclient
     margin-top: 1rem
@@ -668,3 +710,36 @@ turbo-frame.sitem
     text-transform: uppercase
     letter-spacing: 0.02em
     color: var(--stone)
+
+// D-WIZARD-SHEET-KEY-FORM: the key step reads as a Settings section — the pane's padding, a heading-sized title beside a
+// small mark, the fields and Connect as Settings' stacked form (.sform--stack), the walkthrough a quiet card under it.
+.sheet__pane .bot-creation-layout--api
+    padding: 2.5rem
+    @media (max-width: 767.9px)
+        padding: 1rem 2rem 4rem
+    // Settings' rhythm: 1rem between the fields, Connect and the walkthrough; more under the title, as under a heading.
+    .set-api
+        gap: 1rem
+        margin: 0
+        padding: 0
+    .set-api--connect
+        .set-api__brand
+            flex-direction: row
+            align-items: center
+            gap: 1.25rem
+            margin-bottom: 1rem
+            text-align: left
+        .set-api__mark
+            width: 2.5rem
+            height: 2.5rem
+        .set-api__title
+            font-size: 2rem
+            line-height: 2.5rem
+        .set-api__form
+            gap: 1rem
+            max-width: 44rem
+            margin: 0
+            .rinput--text
+                width: 100%
+        .set-api__actions
+            justify-content: flex-start

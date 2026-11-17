@@ -305,8 +305,14 @@ fn reform(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usize
                     .filter(|a| !(token && **a == "value")).map(|a| format!("{a}={:?}", attr(line, a))).collect::<Vec<_>>().join(" "));
             }
         }
-        // The labels after the fields: a Settings row puts its label before its field, Rails' row after.
-        out.extend((at..end).filter(|i| opens(&lines[*i], "label")).map(|i| format!("label for={:?}: {:?}", attr(text(&lines[i]), "for"), words(&lines[i + 1]))));
+        // Each visible field's name for a reader: Rails' <label for> (after its field), this crate's aria-label (Settings'
+        // fields carry their label as placeholder and aria-label).
+        let labels: Vec<(Option<String>, Option<String>)> = (at..end).filter(|i| opens(&lines[*i], "label")).map(|i| (attr(text(&lines[i]), "for"), words(&lines[i + 1]))).collect();
+        out.extend((at..end).filter(|i| opens(&lines[*i], "input") && matches!(attr(text(&lines[*i]), "type").as_deref(), Some("text" | "password"))).map(|i| {
+            let id = attr(text(&lines[i]), "id");
+            let named = labels.iter().find(|(f, _)| *f == id).and_then(|(_, t)| t.clone()).or_else(|| attr(text(&lines[i]), "aria-label"));
+            format!("field {id:?} named {named:?}")
+        }));
         out
     };
     let (got, want) = (said(ours, mine), said(theirs, rails));
@@ -608,7 +614,7 @@ mod tests {
         let form = |fields: &str| format!("<form class=\"set-api__form form\" data-turbo-frame=\"modal_content\" action=\"/bots/dca_single_assets/add_api_key\" method=\"post\">{CSRF}{fields}</form><section class=\"set-api__instructions\">how</section>");
         let submit = |class: &str, value: &str| format!("<input type=\"submit\" name=\"commit\" value=\"{value}\" class=\"{class}\" data-turbo-stream=\"true\" data-turbo-submits-with=\"Validating\" data-disable-with=\"{value}\" />");
         let rails_fields = format!("<div class=\"form__row form__row--input\"><input autofocus=\"autofocus\" autocomplete=\"off\" data-controller=\"autofocus\" class=\"form__input\" type=\"text\" name=\"api_key[key]\" id=\"api_key_key\" /><label class=\"form__label\" for=\"api_key_key\">API Key</label></div><div class=\"form__row form__row--input\"><input autocomplete=\"off\" class=\"form__input\" type=\"text\" name=\"api_key[secret]\" id=\"api_key_secret\" /><label class=\"form__label\" for=\"api_key_secret\">Secret Key</label></div><div class=\"set-api__actions\">{}</div>", submit("button button--sky", "Connect"));
-        let ours_fields = |key_name: &str, value: &str| format!("<div class=\"srow\"><div class=\"srow__text\"><label class=\"srow__label\" for=\"api_key_key\">API Key</label></div><div class=\"srow__control\"><input autofocus=\"autofocus\" autocomplete=\"off\" data-controller=\"autofocus\" class=\"rinput rinput--outline rinput--text\" type=\"text\" name=\"{key_name}\" id=\"api_key_key\" /></div></div><div class=\"srow\"><div class=\"srow__text\"><label class=\"srow__label\" for=\"api_key_secret\">Secret Key</label></div><div class=\"srow__control\"><input autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" type=\"text\" name=\"api_key[secret]\" id=\"api_key_secret\" /></div></div><div class=\"set-api__actions\">{}</div>", submit("rbutton rbutton--primary", value));
+        let ours_fields = |key_name: &str, value: &str| format!("<input autofocus=\"autofocus\" autocomplete=\"off\" data-controller=\"autofocus\" class=\"rinput rinput--outline rinput--text\" placeholder=\"API Key\" aria-label=\"API Key\" type=\"text\" name=\"{key_name}\" id=\"api_key_key\" /><input autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"Secret Key\" aria-label=\"Secret Key\" type=\"text\" name=\"api_key[secret]\" id=\"api_key_secret\" /><div class=\"set-api__actions\">{}</div>", submit("rbutton rbutton--secondary", value));
         let key_track = track(&[item("current", "Kraken", Some(("get", EXCHANGES, &[], true))), item("upcoming", "Assets", Some(("post", ORDER, &[("flow", "asset_first")], false))), item("upcoming", "Currency", None)]);
         let rails = || rails_page(&rails_step("Connect exchange", 50, &key_sentence(), &form(&rails_fields)));
         let ours = |fields: String| page(&sheet("modal_content", &key_track, &ours_step("", &form(&fields))));
@@ -617,6 +623,7 @@ mod tests {
         assert!(same(&theirs, &drawn), "{theirs:#}\n{drawn:#}");
         assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut rails(), &mut ours(ours_fields("api_key[public]", "Connect"))).is_err(), "a renamed field");
         assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut rails(), &mut ours(ours_fields("api_key[key]", "Save"))).is_err(), "another button");
+        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut rails(), &mut ours(ours_fields("api_key[key]", "Connect").replace("aria-label=\"Secret Key\"", "aria-label=\"Password\""))).is_err(), "another name");
     }
 
     #[test]
