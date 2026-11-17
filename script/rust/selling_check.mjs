@@ -3,17 +3,17 @@
 // Run by rust/tests/selling_browser.rs. Needs Chrome ($CHROME, else the usual places) and the compiled
 // bundle (script/rust/build_assets.sh). The page is a fixture with the markup rust/src/web/figure/holdings.rs
 // and web/bot/live.rs::selling_html render (their own tests pin it), served from this process with the
-// real app/assets/builds/application.js; headless Chrome is driven over its DevTools protocol.
+// real rust/web/builds/application.js; headless Chrome is driven over its DevTools protocol.
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "../..");
-const bundle = join(root, "app/assets/builds/application.js");
-const css = join(root, "app/assets/builds/application.css");
+const bundle = join(root, "rust/web/builds/application.js");
+const css = join(root, "rust/web/builds/application.css");
 if (!existsSync(bundle) || !existsSync(css)) {
-  console.error("no app/assets/builds/application.{js,css}: run script/rust/build_assets.sh");
+  console.error("no rust/web/builds/application.{js,css}: run script/rust/build_assets.sh");
   process.exit(2);
 }
 const chrome = [

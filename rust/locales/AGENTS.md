@@ -25,7 +25,7 @@ The full list of supported locales is `LOCALES` in `rust/src/web/locale.rs`. Cur
 **Note**: NEVER use non-European variants of Spanish, French, and Portuguese.
 
 ## Translation Files
-- Location: `config/locales/`
+- Location: `rust/locales/`
 - Pattern: `[component].[language_code].yml`
 - Language codes: EN, DE, FR, IT, ES, PT, NL, PL, RU, BG, EL, SV, DA, CS, SK
 - Default fallback: English (EN)

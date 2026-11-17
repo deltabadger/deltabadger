@@ -1,0 +1,5 @@
+- ALL CSS files MUST be placed in `rust/web/stylesheets/` directory
+- ALWAYS use `.sass` format (indented syntax), NEVER use `.scss` or `.css`
+- If the feature needs styling, create a new `.sass` file in `rust/web/stylesheets/new/` and reference it in `rust/web/stylesheets/application.scss`
+- Follow Rails asset pipeline conventions
+- Use Sass indented syntax (no braces or semicolons)

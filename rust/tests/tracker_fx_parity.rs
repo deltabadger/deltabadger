@@ -177,7 +177,7 @@ async fn compare(cases: &[&str]) {
         else {
             // Existing web-foundation exception contract: public error file and below-controller
             // headers. Rails recordings omit their debugging page, which is not production HTML.
-            let page = if answer.status == 404 { include_str!("../../public/404.html") } else if answer.status == 422 { include_str!("../../public/422.html") } else { include_str!("../../public/500.html") };
+            let page = if answer.status == 404 { include_str!("../web/public/404.html") } else if answer.status == 422 { include_str!("../web/public/422.html") } else { include_str!("../web/public/500.html") };
             assert_eq!(answer.body,page,"{name}: public error page");
             assert_eq!(answer.header("content-type"),Some("text/html; charset=utf-8"));
             assert_eq!(answer.header("cache-control"),Some("no-cache"));

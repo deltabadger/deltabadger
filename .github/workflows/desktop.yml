@@ -12,7 +12,7 @@ on:
       - 'script/rust/desktop_smoke/**'
       - '.github/workflows/desktop.yml'
       - '.github/workflows/release.yml'
-      - 'app/javascript/**'
+      - 'rust/web/javascript/**'
       - 'package.json'
       - 'bun.lock'
       - 'manual/api.md'

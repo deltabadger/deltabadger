@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde_json::Value;
 
-/// stop_message_key of the base cap's stop (config/locales/bot.en.yml: "The whole amount has been sold.").
+/// stop_message_key of the base cap's stop (rust/locales/bot.en.yml: "The whole amount has been sold.").
 pub const AMOUNT_SOLD: &str = "bot.settings.extra_amount_limit.amount_sold";
 /// D-6D-2's dedupe: the base cap's key (model::Bot::base_amount_limit_key) its stop mail was last owed under. Written with the
 /// mail marker and never cleared by the mail's delivery, so a rotation of a bot already stopped and mailed for this cap owes

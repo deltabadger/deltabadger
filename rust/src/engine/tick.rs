@@ -60,7 +60,7 @@ pub fn retry_wait(executions: u32, rate_limited: bool) -> Duration {
     Duration::from_secs(if rate_limited { 15 * executions as u64 } else { (executions as u64).pow(4) + 2 })
 }
 
-/// stop_message_key of the amount-limit stop (config/locales/bot.en.yml: "The whole amount has been invested.").
+/// stop_message_key of the amount-limit stop (rust/locales/bot.en.yml: "The whole amount has been invested.").
 pub const AMOUNT_SPENT: &str = "bot.settings.extra_amount_limit.amount_spent";
 
 /// Bot::ActionJob#stop_for_blocking_failure: only a still-working bot is stopped.

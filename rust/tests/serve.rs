@@ -3227,7 +3227,7 @@ async fn legacy_bookmarks_redirect() {
 #[tokio::test(flavor = "current_thread")]
 async fn legacy_error_paths_answer_under_every_method() {
     let (_dir, _opened, _seeded, app, mut browser) = legacy_fixture(None);
-    let page = |name: &str| String::from_utf8(std::fs::read(format!("{}/../public/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
+    let page = |name: &str| String::from_utf8(std::fs::read(format!("{}/web/public/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
     for method in ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"] {
         let csrf = if matches!(method, "GET" | "HEAD") { web::Csrf::None } else { web::Csrf::Header };
         for prefix in ["", "/de"] {
@@ -3249,7 +3249,7 @@ async fn legacy_unserved_posts_are_404() {
     let (_dir, opened, seeded, app, mut browser) = legacy_fixture(None);
     let bot = common::seed::insert_bot(&opened.primary, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     opened.primary.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [seeded.api_key_id]).unwrap(); // incorrect
-    let not_found = String::from_utf8(std::fs::read(format!("{}/../public/404.html", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
+    let not_found = String::from_utf8(std::fs::read(format!("{}/web/public/404.html", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
     for path in [format!("/bots/{bot}/show"), format!("/de/bots/{bot}/show"), "/api/remove_invalid_keys".to_string()] {
         let answer = browser.send(&app, "POST", &path, Some(&[("exchange_id", seeded.exchange_id.to_string().as_str())]), web::Csrf::Header, &[]).await;
         assert_eq!((answer.status, answer.body.as_str()), (404, not_found.as_str()), "{path}");
@@ -3331,7 +3331,7 @@ async fn bots_resource_routes_rails_draws() {
     // Stopped: a working bot's settings form is locked, so neither method would write.
     let spec = common::seed::BotSpec { status: deltabadger::enums::BotStatus::Stopped as i64, ..common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00") };
     let (patched, put) = (common::seed::insert_bot(&opened.primary, &seeded, &spec), common::seed::insert_bot(&opened.primary, &seeded, &spec));
-    let not_found = String::from_utf8(std::fs::read(format!("{}/../public/404.html", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
+    let not_found = String::from_utf8(std::fs::read(format!("{}/web/public/404.html", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
     let rows = |c: &rusqlite::Connection| -> Vec<(i64, i64, String)> {
         c.prepare("SELECT id, status, settings FROM bots ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().collect::<Result<_, _>>().unwrap()
     };

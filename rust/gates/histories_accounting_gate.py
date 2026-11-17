@@ -7,11 +7,11 @@ root=pathlib.Path(__file__).resolve().parents[2]
 owner='rust/src/engine/accounting.rs'
 
 def check():
-    subprocess.run([sys.executable,str(root/"script/rust/histories_timestamp_gate.py")],check=True)
+    subprocess.run([sys.executable,str(root/"rust/gates/histories_timestamp_gate.py")],check=True)
     # Generic numeric libraries implement operations, not application accounting. Freeze
     # their complete production bytes in the manifest; no new consumer can use this exception.
     import hashlib
-    primitives=json.loads((root/'script/rust/histories_arithmetic_primitives.json').read_text(encoding='utf-8'))
+    primitives=json.loads((root/'rust/gates/histories_arithmetic_primitives.json').read_text(encoding='utf-8'))
     for relative,digest in primitives.items():
         assert hashlib.sha256((root/relative).read_bytes()).hexdigest()==digest, f'changed accounting primitive: {relative}'
     for path in (root/'rust/src').rglob('*.rs'):

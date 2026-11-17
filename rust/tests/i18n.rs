@@ -63,7 +63,7 @@ fn the_already_running_refusal_is_one_english_key_every_locale_falls_back_to() {
     }
 }
 
-/// The dotiw gem's unit names are in the gem, not in config/locales, so the crate pins a copy
+/// The dotiw gem's unit names are in the gem, not in rust/locales, so the crate pins a copy
 /// (web::i18n FROM_GEMS). The recorder reads them from Rails; a gem update that rewords one fails here.
 #[test]
 fn the_pinned_unit_names_are_the_dotiw_gems() {

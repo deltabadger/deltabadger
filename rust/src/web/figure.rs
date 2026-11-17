@@ -39,7 +39,7 @@ fn unit(currency: &str) -> &str {
 fn suffixed(currency: &str) -> bool { matches!(currency, "CHF" | "PLN") }
 /// The thousands mark Rails writes in the headline's attribute: `number.currency.format.delimiter`, falling back to
 /// `number.format.delimiter`, then ','. Measured on every locale Rails ships (fallbacks on, no rails-i18n gem, no number
-/// keys in config/locales): ',' in each, so there is no table to keep.
+/// keys in rust/locales): ',' in each, so there is no table to keep.
 const DELIMITER: &str = ",";
 /// The account's display currency (User#denomination): the conversion is a held one, and when it cannot be had the
 /// figures are shown in dollars (Denomination.for: "a złoty sign on a dollar figure would be a lie").

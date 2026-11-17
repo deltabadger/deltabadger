@@ -23,6 +23,9 @@ on:
       - 'script/rust/latest_tag.sh'
       - 'src-tauri/**'
       - 'Dockerfile'
+      # The asset build both legs run (rust/web, rust/locales).
+      - 'script/rust/build_assets.sh'
+      - 'rust/build.rs'
   workflow_dispatch:
     inputs:
       mode:

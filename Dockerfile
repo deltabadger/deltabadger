@@ -9,19 +9,22 @@ FROM oven/bun:1.3-slim AS assets
 WORKDIR /src
 COPY package.json bun.lock ./
 COPY script/rust/build_assets.sh script/rust/build_assets.sh
-COPY app/javascript app/javascript
-COPY app/assets app/assets
+COPY rust/web/javascript rust/web/javascript
+COPY rust/web/stylesheets rust/web/stylesheets
+COPY rust/web/fonts rust/web/fonts
 RUN bash script/rust/build_assets.sh
 
-# Stage 2: the release binary. build.rs reads the repository (locales, assets, public/, the frozen
-# migration list) and runs a python3 gate on every build.
+# Stage 2: the release binary. build.rs reads the crate (locales, rust/web, the frozen migration list, the gates
+# in rust/gates, which it runs with python3 on every build) and, outside it, only the two files copied after it.
 FROM rust:1.94.0-slim-trixie AS build
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends python3 && \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /src
-COPY . .
-COPY --from=assets /src/app/assets/builds/application.js /src/app/assets/builds/application.js.map /src/app/assets/builds/application.css app/assets/builds/
+COPY rust rust
+COPY src-tauri/Cargo.toml src-tauri/Cargo.toml
+COPY manual/api.md manual/api.md
+COPY --from=assets /src/rust/web/builds/application.js /src/rust/web/builds/application.js.map /src/rust/web/builds/application.css rust/web/builds/
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/rust/target \
     cd rust && cargo build --release --locked --bin deltabadger && cp target/release/deltabadger /usr/local/bin/deltabadger

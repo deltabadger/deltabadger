@@ -1,6 +1,6 @@
 //! What Turbo and the compiled JS expect from the server: `<turbo-stream>` elements exactly as
 //! turbo-rails' tag builder writes them, the app's custom actions (`redirect`, `reload`, `add_class`,
-//! `remove_class`, app/javascript/controllers/application.js), and frame requests.
+//! `remove_class`, rust/web/javascript/controllers/application.js), and frame requests.
 use super::i18n::escape;
 use axum::http::HeaderMap;
 
