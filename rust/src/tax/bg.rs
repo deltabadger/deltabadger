@@ -1,11 +1,11 @@
 //! Bulgaria by its own law (ЗДДФЛ чл. 33 ал. 3–6, чл. 11 ал. 3, чл. 48; ГДД по чл. 50, Приложение № 5, Таблица 2):
 //! - D-TAX-BG-AVERAGE: every sale's cost is the weighted average of the units of the kind held, across every account (чл.
-//!   33 ал. 4; `fifo::Options::average_all`). Rails used FIFO.
+//!   33 ал. 4; `fifo::Options::average_all`). 2.x used FIFO.
 //! - D-TAX-BG-CURRENCY: BGN for every tax year up to 2025, EUR from 2026 (чл. 11 ал. 3); EUR↔BGN at the peg 1.95583
-//!   exactly, another currency at BNB's rate 1.95583 / ECB rounded to six significant digits (`Peg`). Rails: BGN for 2025
+//!   exactly, another currency at BNB's rate 1.95583 / ECB rounded to six significant digits (`Peg`). 2.x: BGN for 2025
 //!   only, at the ECB's BGN rate.
 //! - D-TAX-BG-ANNUAL: Annex 5 Table 2 (`annual`): the 10% expenses once on the year's net result from 2024 (none before),
-//!   tax 10% (чл. 48). Rails took 10% off each positive gain.
+//!   tax 10% (чл. 48). 2.x took 10% off each positive gain.
 //! - D-TAX-BG-DEPOSIT-ZERO: an unlinked deposit costs 0 (чл. 33 ал. 6 т. 3; `fifo::Options::deposit_cost_zero`).
 use super::{cents, fifo::Disposal, line, s, Cell};
 use crate::figures::{at::At, dec::Dec, FiguresError};

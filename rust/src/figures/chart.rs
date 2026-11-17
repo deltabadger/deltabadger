@@ -20,7 +20,7 @@ use std::collections::{HashMap, HashSet};
 
 /// `[[time, price], ...]`, ascending.
 pub type Marks = Vec<(At, Dec)>;
-/// `{ key => marks }` in Ruby's insertion order.
+/// `{ key => marks }` in 2.x's insertion order.
 pub type Grids = Vec<(String, Marks)>;
 
 /// How finely the buy marks are worth shipping (MARK_BUCKETS).
@@ -60,7 +60,7 @@ pub fn grid_price(marks: &[(At, Dec)], time: At) -> Result<Option<Dec>, NumError
     let before = &marks[index - 1];
     let span = at.0.minus(before.0);
     if span == 0.0 { return Ok(Some(before.1.clone())); }
-    // Multiplied before it is divided, as Rails does: (30 x 3600) / 10800 is exactly 10.
+    // Multiplied before it is divided, as 2.x does: (30 x 3600) / 10800 is exactly 10.
     let elapsed = Num::Float(time.minus(before.0)).to_d()?;
     let rise = (&(&at.1 - &before.1)? * &elapsed)?;
     let step = rise.div(&Num::Float(span).to_d()?)?;
@@ -68,7 +68,7 @@ pub fn grid_price(marks: &[(At, Dec)], time: At) -> Result<Option<Dec>, NumError
 }
 
 /// One fill as the chart marks it under the plot: when, into which holding, how much, for how much, and how many
-/// fills the mark stands for. The key is None for a pair bot's tickerless row recorded without a base (Rails' nil key).
+/// fills the mark stands for. The key is None for a pair bot's tickerless row recorded without a base (2.x's nil key).
 #[derive(Clone, Debug, PartialEq)]
 pub struct BuyMark { pub at: At, pub key: Option<String>, pub amount: Dec, pub quote: Dec, pub fills: i64 }
 
@@ -79,7 +79,7 @@ pub fn thinned_marks(marks: Vec<BuyMark>) -> Result<Vec<BuyMark>, NumError> {
     let (first, last) = (marks[0].at, marks[marks.len() - 1].at);
     let span = last.minus(first);
     if span == 0.0 { return Ok(marks); }
-    // Ruby groups by [bucket, key] in a Hash: the groups keep the order they were first met in.
+    // 2.x groups by [bucket, key] in a Hash: the groups keep the order they were first met in.
     let mut sums: Vec<BuyMark> = vec![];
     let mut place: HashMap<(u64, Option<String>), usize> = HashMap::new();
     for mark in marks {
@@ -121,7 +121,7 @@ impl<'a> RowKeys<'a> {
 }
 
 /// #chart_buy_marks: the buys the walk counts, as executed, oldest first.
-/// ponytail: Rails orders these by created_at alone, so two buys of one moment come as SQLite returns them; here
+/// ponytail: 2.x orders these by created_at alone, so two buys of one moment come as SQLite returns them; here
 /// they come by id, which is what its index gives. Only the order of two marks of one instant could differ.
 pub fn buy_marks(s: &Subject, metrics: &Metrics) -> Result<Vec<BuyMark>, FiguresError> {
     let mut marks = vec![];
@@ -137,7 +137,7 @@ pub fn buy_marks(s: &Subject, metrics: &Metrics) -> Result<Vec<BuyMark>, Figures
 }
 
 /// A pair bot's #chart_buy_marks: the same rows, each keyed by Bot::ChartSeries#chart_row_key, the ticker's base, else
-/// the row's own base as it is (nil included). A buy whose value cannot be known marks nothing, as Rails skips it.
+/// the row's own base as it is (nil included). A buy whose value cannot be known marks nothing, as 2.x skips it.
 pub fn pair_buy_marks(s: &Subject, ticker_base: Option<&str>) -> Result<Vec<BuyMark>, FiguresError> {
     let mut marks = vec![];
     for order in &s.orders {
@@ -266,7 +266,7 @@ impl Window<'_> {
                 Err(_) => continue,
             };
             let mut marks: Marks = vec![];
-            // Of two candles of one time the first stands (Ruby's uniq). Keyed by the nanoseconds: a set of `At`
+            // Of two candles of one time the first stands (2.x's uniq). Keyed by the nanoseconds: a set of `At`
             // would compare instants as its buckets happen to fall, and the steps would not be the same twice.
             let mut seen: HashSet<i64> = HashSet::new();
             for (time, open) in candles {
@@ -405,7 +405,7 @@ pub fn marked_at_market(chart: &Chart, grids: &Grids, display: &Grids, priceable
 pub fn marked(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketData, now: At) -> Result<Metrics, FiguresError> {
     marked_at(c, s, live, market, now).map(|(data, _)| data)
 }
-/// `marked`, and whether any holding had a candle grid to mark it with. Rails caches the marked chart only then
+/// `marked`, and whether any holding had a candle grid to mark it with. 2.x caches the marked chart only then
 /// (`metrics_with_current_prices_and_candles` returns from its cache block when the grids are blank), so a bot page draws
 /// it inline only then; otherwise the chart arrives in its own frame.
 pub fn marked_at(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketData, now: At) -> Result<(Metrics, bool), FiguresError> {
@@ -437,7 +437,7 @@ fn at_market(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketDat
     }
 
     let priceable: Vec<String> = symbols.iter().filter(|key| ticker_for_key(s, &data, key).is_some()).cloned().collect();
-    // What Rails leaves out in silence is named beside the chart: a holding with no ticker today is no part of any
+    // What 2.x leaves out in silence is named beside the chart: a holding with no ticker today is no part of any
     // point's value, though what was paid for it stays in what went in. `live` names such a holding only while it
     // is held; one sold out since is named here.
     let priceable_set: HashSet<_> = priceable.iter().collect();
@@ -462,7 +462,7 @@ fn at_market(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketDat
 /// Bots::DcaSingleAsset::Measurable#metrics_with_current_prices_and_candles: `live`'s chart marked on its ticker's
 /// candles, under `key` (the ticker's base). The valuation fetch raises to the caller (no rescue); the overlay's falls
 /// back to the valuation grid; the grid is pinned at `events` and never backfilled from fills. Whether a grid was had:
-/// Rails caches the result only then, stale live figures or not.
+/// 2.x caches the result only then, stale live figures or not.
 pub fn pair_marked(s: &Subject, live: &Metrics, key: &str, ticker: &db::Ticker, events: &[Event], market: &dyn MarketData, now: At) -> Result<(Metrics, bool), FiguresError> {
     budget::within(|| {
         charge_chart(&live.chart)?;
@@ -602,8 +602,8 @@ fn plotted(s: &Subject, marked: &Metrics, hide_balances: bool, decimals: i64, ma
 }
 
 impl Page {
-    /// The `data-bot--chart-<name>-value` attributes, each value as Rails' tag helper writes it: a string as it
-    /// is, anything else as JSON. Times are in `zone` with `digits` fractional digits (Rails: 3).
+    /// The `data-bot--chart-<name>-value` attributes, each value as 2.x's tag helper writes it: a string as it
+    /// is, anything else as JSON. Times are in `zone` with `digits` fractional digits (2.x: 3).
     pub fn attributes(&self, zone: &Tz, digits: usize) -> Vec<(&'static str, String)> {
         let time = |at: &At| J::Str(json::time(&at.utc().with_timezone(zone), digits));
         let floats = |serie: &Vec<f64>| J::arr(serie, |f| J::Float(*f));

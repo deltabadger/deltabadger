@@ -8,7 +8,7 @@
 //!   another fill. Both swap rows of one crypto-quoted fill (Binance, Coinbase) carry the same raw object and read as
 //!   the same `Fill`; one leg alone reads the same too.
 //! - `order_key`: the venue order id in the form `transactions.external_id` takes for an order placed there (each
-//!   venue's `add_order`, the Rails `get_order` parse beside it).
+//!   venue's `add_order`, the 2.x `get_order` parse beside it).
 //! - the market symbol resolves to exactly one `tickers` row of the exchange; none or several is unreadable.
 //! - a trade row whose raw object this can't read (a file import's, a missing or malformed field) is `Unreadable`;
 //!   a Binance convert, fiat payment or dust conversion is `NotATrade` (no order of a bot is ever one).

@@ -1,4 +1,4 @@
-//! A scripted Kraken: raw response bodies per path (the same script the Rails harness replays), plus a book
+//! A scripted Kraken: raw response bodies per path (the same script the recording harness replays), plus a book
 //! of placed orders so recovery by cl_ord_id behaves like the real venue.
 use super::*;
 use crate::engine::venue_rules::KRAKEN;

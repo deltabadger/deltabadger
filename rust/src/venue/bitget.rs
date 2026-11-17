@@ -1,6 +1,6 @@
 //! Honeymaker::Clients::Bitget and Exchanges::Bitget for the engine's spot orders (plan VB slice A4): prices, balances,
-//! placement, polls, cancel and the recovery by client order id. The classic v2 spot API, as Rails runs it (owner ruling:
-//! no UTA/v3). Rails is the oracle (post-audit, AUDIT-bitget G1-G7, merged in #608); each method names the Ruby it ports.
+//! placement, polls, cancel and the recovery by client order id. The classic v2 spot API, as 2.x runs it (owner ruling:
+//! no UTA/v3). 2.x is the oracle (post-audit, AUDIT-bitget G1-G7, merged in #608); each method names the 2.x method it ports.
 //! `venue::live` builds it for every Bitget bot.
 //!
 //! Signing (Honeymaker::Clients::Bitget#signed_headers): ACCESS-SIGN = base64(HMAC-SHA256(secret, timestamp + METHOD + path +
@@ -9,14 +9,14 @@
 //!
 //! A market order has one `size`, in quote coins for a buy and base coins for a sell (G1). An amount in the other unit is
 //! converted before the intent is written (`engine::venue_rules::WireFormat::Bitget`): at the touch the order was sized at,
-//! floored to the tick, which is what Rails' #market_price_for re-reads through its 5-second price cache; floored to that
+//! floored to the tick, which is what 2.x's #market_price_for re-reads through its 5-second price cache; floored to that
 //! unit's decimals. Nothing is re-read or resized here.
 //!
 //! Where it differs on purpose (plan VB §5, named in tests/parity.rs): the order carries `clientOid` = the intent id (D9;
-//! Rails sends none) and recovery asks for it (`order_by_client_id`), which can only FIND an order (absence is never
+//! 2.x sends none) and recovery asks for it (`order_by_client_id`), which can only FIND an order (absence is never
 //! concluded); a placement that may have reached Bitget (a lost reply, a 5xx, an unreadable answer, a success without an
-//! orderId) keeps the intent where Rails writes a failed (or a "BTCUSDT-") row; a number that is no decimal is refused where
-//! Rails reads it as 0.
+//! orderId) keeps the intent where 2.x writes a failed (or a "BTCUSDT-") row; a number that is no decimal is refused where
+//! 2.x reads it as 0.
 use super::binance::{build_query, Pairs};
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, Side, VenueError};
@@ -42,7 +42,7 @@ pub const CANCEL_PATH: &str = "/api/v2/spot/trade/cancel-order";
 pub const OK: &str = "00000";
 /// Exchanges::Bitget::ORDER_GONE_CODES: orderInfo for an order Bitget no longer has.
 pub const ORDER_GONE_CODES: [&str; 2] = ["40109", "43001"];
-/// A 00000 answer to the order without an orderId: Rails stores "<symbol>-"; Bitget took the order, or may have.
+/// A 00000 answer to the order without an orderId: 2.x stores "<symbol>-"; Bitget took the order, or may have.
 pub const NO_ORDER_ID: &str = "Bitget answered the order with no order id";
 pub const NO_CODE: &str = "Bitget answered the order with no result code";
 /// A28-3d-2: the order-history lists, their page and page cap, Bitget's documented reach, and the codes that refuse the
@@ -80,7 +80,7 @@ pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous(UNREADABLE.into
 fn required(v: &Value) -> Result<BigDec, VenueError> { super::json::required(v, unreadable) }
 /// `x&.to_d`: null or absent is None (honeymaker's BigDecimal() has refused anything that is no decimal already).
 fn optional(v: &Value) -> Result<Option<BigDec>, VenueError> { if v.is_null() { Ok(None) } else { required(v).map(Some) } }
-/// `#to_s` of a scalar, as Ruby interpolates it (nil is "").
+/// `#to_s` of a scalar, as 2.x interpolates it (nil is "").
 fn to_s(v: &Value) -> String { match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() } }
 /// Honeymaker's `result.data["code"] == "00000"`: a String only.
 fn ok(body: &Value) -> bool { body.get("code").and_then(Value::as_str) == Some(OK) }
@@ -114,7 +114,7 @@ pub fn gone(messages: &[String]) -> bool {
 
 /// Exchanges::Bitget#parse_order_data, after honeymaker's #normalize_order (whose BigDecimal() refuses a number that is no
 /// decimal, as here). The price is `priceAvg` when present, else `price`, a zero one none. `size` is quote coins on a market
-/// buy and base coins otherwise (G2). ORDER_STATUS_MAP; an order type or a status it does not list is refused, as Rails raises.
+/// buy and base coins otherwise (G2). ORDER_STATUS_MAP; an order type or a status it does not list is refused, as 2.x raises.
 pub fn parse_order(order_id: &str, o: &Value) -> Result<OrderState, VenueError> {
     let dig = |k: &str| super::dig_or_raise(o, k);
     let symbol = dig("symbol")?.as_str().ok_or_else(unreadable)?;
@@ -181,7 +181,7 @@ pub fn created_order_in(symbol: &str, o: &Value, unfilled: bool) -> Option<super
 
 /// The prices of a GET /api/v2/spot/market/tickers answer, as Exchanges::Bitget#get_tickers_prices reads them: no `data` is
 /// "Failed to get Bitget tickers"; every row by its `dig_or_raise`d `symbol` and `lastPr`, a later row for a symbol replacing
-/// an earlier one (a zero price kept, as Rails keeps it). DIVERGES on purpose as KuCoin's does: a price that is no decimal is
+/// an earlier one (a zero price kept, as 2.x keeps it). DIVERGES on purpose as KuCoin's does: a price that is no decimal is
 /// left out (String#to_d reads "12x" as 12).
 pub fn ticker_prices(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
     let data = match body.as_object().ok_or_else(unreadable)?.get("data") {
@@ -253,7 +253,7 @@ impl<T: Transport> BitgetVenue<T> {
     }
 
     /// #get_bid_ask_price: GET orderbook?symbol=<pair>&limit=1, its first bid and ask. No `data` is "Failed to get Bitget
-    /// order book for <pair>"; a missing level is unreadable (Rails raises).
+    /// order book for <pair>"; a missing level is unreadable (2.x raises).
     async fn book(&self, symbol: &str) -> Result<(BigDec, BigDec), VenueError> {
         let body = self.get(ORDERBOOK_PATH, vec![("symbol", symbol.into()), ("limit", "1".into())]).await?;
         let data = &body["data"];
@@ -332,7 +332,7 @@ impl<T: Transport> super::Venue for BitgetVenue<T> {
     /// Exchanges::Bitget#get_candles: pages of up to 1000 from `startTime` (the start's whole seconds in ms) to now, each
     /// row's time `to_i / 1000`; a full page asks again from a second after its last row (as sent), a blank or short page
     /// ends the walk. Rows are [time, open, high, low, close, volume, …]; 3 days built from daily. DIVERGES
-    /// (D-COND-CANDLE-ERROR-ENVELOPE): a code other than 00000 is the venue's refusal (Client#api_error), where Rails reads
+    /// (D-COND-CANDLE-ERROR-ENVELOPE): a code other than 00000 is the venue's refusal (Client#api_error), where 2.x reads
     /// its missing `data` as no candles; D-COND-CANDLE-CAP: past MAX_CANDLE_PAGES pages it is a settled failure.
     async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
         let (mut start, mut out) = (start_at.timestamp(), Vec::<Candle>::new());
@@ -380,7 +380,7 @@ impl<T: Transport> super::Venue for BitgetVenue<T> {
     }
 
     /// #set_market_order / #set_limit_order through Clients::Bitget#place_order: POST place-order with symbol, side, orderType,
-    /// size, (a limit's) price, force (`ioc` market, `gtc` limit), then clientOid (the intent id; Rails sends none). A market
+    /// size, (a limit's) price, force (`ioc` market, `gtc` limit), then clientOid (the intent id; 2.x sends none). A market
     /// order's size is in the unit its side takes (G1) and a limit order's in base (#532), as `WireFormat::Bitget` converted
     /// it. Sent at most once. The stored id is "<symbol>-<orderId>". An error envelope is honeymaker's api_error text; a 00000 answer without an orderId, or an answer
     /// without a code, may have placed the order: Ambiguous.
@@ -425,7 +425,7 @@ impl<T: Transport> super::Venue for BitgetVenue<T> {
         Ok(out)
     }
 
-    /// #get_order (Bot::FetchAndUpdateOrderJob): a gone order fails with Rails' "Bitget no longer knows order <id>".
+    /// #get_order (Bot::FetchAndUpdateOrderJob): a gone order fails with 2.x's "Bitget no longer knows order <id>".
     async fn order_identified<F>(&self, txid: &str, _identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
         match self.get_order(txid).await? {
@@ -436,7 +436,7 @@ impl<T: Transport> super::Venue for BitgetVenue<T> {
 
     /// Recovery may only FIND the order (plan VB §1.5: `absence_provable` false): orderInfo by `clientOid`, an order naming
     /// this client order id and symbol. Anything else proves nothing: the intent waits, for a later lookup or
-    /// `deltabadger resolve-placement`. Rails has no lookup (it sends no clientOid).
+    /// `deltabadger resolve-placement`. 2.x has no lookup (it sends no clientOid).
     async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         let Some(o) = self.order_info(vec![("clientOid", cl_ord_id.to_string())]).await? else { return Ok(None) };
         if o["clientOid"].as_str() != Some(cl_ord_id) || o["symbol"].as_str() != Some(symbol) { return Ok(None); }
@@ -511,7 +511,7 @@ impl<T: Transport> super::Venue for BitgetVenue<T> {
     async fn settled_quote_balance<F>(&self, ticker: &Ticker, _catalog: F) -> Result<BigDec, VenueError>
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> { self.available(|code| code == ticker.quote_code).await }
 
-    /// Exchanges::Bitget#get_tickers_prices (`ticker_prices`). Rails caches the answer for a minute; this reads fresh. A 2xx
+    /// Exchanges::Bitget#get_tickers_prices (`ticker_prices`). 2.x caches the answer for a minute; this reads fresh. A 2xx
     /// body that is not JSON is honeymaker's Failure (its text). Each price is its decimal's `to_s('F')`.
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
         let text = self.answer(&self.request("GET", TICKERS_PATH, vec![], None), false, TICKERS_LIMIT).await?;
@@ -523,7 +523,7 @@ impl<T: Transport> super::Venue for BitgetVenue<T> {
     }
 
     /// #cancel_order through Clients::Bitget#cancel_order: POST cancel-order with the symbol and orderId (a legacy id without
-    /// its symbol is looked up first); any 2xx is the cancel, as Rails takes it.
+    /// its symbol is looked up first); any 2xx is the cancel, as 2.x takes it.
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
         let (symbol, ext) = split_order_id(txid);
         let symbol = match symbol {
@@ -554,7 +554,7 @@ mod tests {
         assert!(gone(&[r#"{"code":"40109","msg":"The data of the order cannot be found"}"#.into()]));
         assert!(gone(&["Bitget API error 43001: 订单不存在".into()]));
         assert!(gone(&["Order not found".into()]));
-        assert!(!gone(&[r#"{"code":43001,"msg":"x"}"#.into()]), "an Integer code never equals Rails' String");
+        assert!(!gone(&[r#"{"code":43001,"msg":"x"}"#.into()]), "an Integer code never equals 2.x's String");
         assert!(!gone(&["Bitget API error 43012: Insufficient balance".into()]));
         assert_eq!(api_error(&serde_json::json!({ "code": "43012", "msg": "Insufficient balance" })), "Bitget API error 43012: Insufficient balance");
     }

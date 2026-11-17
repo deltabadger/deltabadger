@@ -1,5 +1,5 @@
 //! IBKR accounts (Ibkr plan I2, D-IBKR-ACCOUNT). One IBKR login can hold several brokerage accounts, and the account
-//! behind a login can change without its credentials changing. Rails reads whichever account the login lists first; here:
+//! behind a login can change without its credentials changing. 2.x reads whichever account the login lists first; here:
 //! - a login that lists more than one account is refused (incorrect);
 //! - a key's first correct check binds it to the one account it names (`ibkr_bindings`), never updated; a later check
 //!   naming another account is refused and writes nothing; deleting the key deletes its binding;

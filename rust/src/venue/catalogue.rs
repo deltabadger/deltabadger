@@ -1,11 +1,11 @@
 //! Each crypto venue's public catalogue, as `Exchanges::<Venue>#get_tickers_info(force: true)` reads it (PLAN-A17 A17-2):
-//! one row per pair, the hash Rails builds — `ticker, base, quote, minimum_base_size, minimum_quote_size,
+//! one row per pair, the hash 2.x builds — `ticker, base, quote, minimum_base_size, minimum_quote_size,
 //! maximum_base_size, maximum_quote_size, base_decimals, quote_decimals, price_decimals, available, trading_enabled` —
-//! with Rails' JSON types (`as_json`): a `.to_d` size is BigDecimal#to_s's plain string ("5.0"), an Integer a number,
+//! with 2.x's JSON types (`as_json`): a `.to_d` size is BigDecimal#to_s's plain string ("5.0"), an Integer a number,
 //! nil null, and a passed-through venue value as the venue sent it. That is the data-api ticker row shape
 //! `jobs::import::ticker_records_for` reads (sizes as strings or numbers), less the `*_external_id`s the synchronizer adds.
-//! Public endpoints only: no key, nothing signed. Request contracts are Rails' (honeymaker 0.12.5's clients), pinned by
-//! rust/tests/catalogue.rs against script/rust/catalogue_vectors.rb's recordings.
+//! Public endpoints only: no key, nothing signed. Request contracts are 2.x's (honeymaker 0.12.5's clients), pinned by
+//! rust/tests/catalogue.rs against the recorded answers.
 use super::http::{self, HttpRequest, Transport, TransportError};
 use crate::v2::{self, BigDec};
 use serde_json::{json, Map, Value};
@@ -34,7 +34,7 @@ const KRAKEN_REAL_COSTMIN: [(&str, &str); 16] = [("AUD", "10"), ("CAD", "5"), ("
     ("GBP", "5"), ("JPY", "500"), ("PYUSD", "5"), ("RLUSD", "5"), ("USD", "5"), ("USDC", "5"), ("USDQ", "5"), ("USDR", "5"), ("USDT", "5"),
     ("XBT", "0.00005")];
 
-/// The venue's catalogue rows, or the failure Rails' `get_tickers_info` returns (its errors as `to_sentence`).
+/// The venue's catalogue rows, or the failure 2.x's `get_tickers_info` returns (its errors as `to_sentence`).
 /// `venue_type` is the STI type ("Exchanges::Kraken"); a stock venue, a retired one (Bitmart) or an unknown type is an error.
 pub async fn read<T: Transport>(venue_type: &str, t: &T) -> Result<Vec<Value>, String> {
     use super::{binance, bingx, bitget, bitrue, bitvavo, bybit, coinbase, gemini, hyperliquid, kucoin, mexc};
@@ -70,7 +70,7 @@ pub async fn read<T: Transport>(venue_type: &str, t: &T) -> Result<Vec<Value>, S
     }
 }
 
-/// Gemini: the symbol list, then each symbol's details, 1 s apart, each read retried as Rails retries it; any failure fails
+/// Gemini: the symbol list, then each symbol's details, 1 s apart, each read retried as 2.x retries it; any failure fails
 /// the whole catalogue (all or nothing: the sync marks every ticker missing from it unavailable).
 async fn read_gemini<T: Transport>(t: &T, base: &str, name: &str) -> Result<Vec<Value>, String> {
     let symbols = gemini_ask(t, base, GEMINI_SYMBOLS.into(), MAX_BODY).await.map_err(Failure::sentence)?;
@@ -135,7 +135,7 @@ async fn ask<T: Transport>(t: &T, method: &'static str, base: &str, path: String
     http::decode_json(&resp.body).map_err(|_| Failure { errors: vec![as_error()], status: Some(resp.status), transient: false })
 }
 
-// --- the parsers: Rails' field rules over an answer, one to one --------------------------------------------------------
+// --- the parsers: 2.x's field rules over an answer, one to one --------------------------------------------------------
 
 pub fn parse_binance(info: &Value) -> Result<Vec<Value>, String> {
     list(&info["symbols"])?.iter().map(|p| {
@@ -262,7 +262,7 @@ fn gemini_row(name: &str, symbol: &str, detail: &Value) -> Result<Option<Value>,
         _ => return Err(format!("{name} {symbol}: no product_type in its details")),
     }
     // `x&.to_d || '0.01'.to_d`, counted on BigDecimal#to_s, which ActiveSupport writes in plain notation.
-    // A step Ruby reads as Infinity or NaN fails the venue (D-CG-NONFINITE-REFUSED; Rails counts 0 places).
+    // A step 2.x reads as Infinity or NaN fails the venue (D-CG-NONFINITE-REFUSED; 2.x counts 0 places).
     let step = |k: &str| -> Result<i64, String> {
         let v = if detail[k].is_null() { BigDec::parse("0.01").expect("a decimal") } else { to_d(&detail[k])? };
         Ok(decimals_text(&v.to_s_f()))
@@ -368,12 +368,12 @@ pub fn parse_mexc(info: &Value) -> Result<Vec<Value>, String> {
 /// `Utilities::Number.decimals(value)`: the digits after the point of `value.to_s`, trailing zeros stripped (a JSON
 /// string as sent, a Float as Float#to_s writes it, an Integer 0, nil 0).
 ///
-/// **D-CG-DECIMALS-EXPONENT** (PLAN-A17): Rails counts the characters after the point of whatever `to_s` wrote, so a value
+/// **D-CG-DECIMALS-EXPONENT** (PLAN-A17): 2.x counts the characters after the point of whatever `to_s` wrote, so a value
 /// in exponent form reads wrong — a JSON number below 1e-4 is a Float that Float#to_s writes as "1.0e-06" (BingX sends
-/// its steps as numbers: Rails says 5, so orders on that pair round to 5 places), and a string "1e-7" has no point at all
-/// (Rails says 0). Rust returns the value's true decimal places (6 and 7). Every value Ruby writes in plain notation reads
-/// as Rails reads it. (Gemini, the plan's example, passes `x.to_d.to_s`, which ActiveSupport writes in plain notation, so
-/// its 1e-8 tick is 8 in Rails too; the recorded vectors show it.)
+/// its steps as numbers: 2.x says 5, so orders on that pair round to 5 places), and a string "1e-7" has no point at all
+/// (2.x says 0). Rust returns the value's true decimal places (6 and 7). Every value 2.x writes in plain notation reads
+/// as 2.x reads it. (Gemini, the plan's example, passes `x.to_d.to_s`, which ActiveSupport writes in plain notation, so
+/// its 1e-8 tick is 8 in 2.x too; the recorded vectors show it.)
 pub fn decimals(v: &Value) -> i64 {
     let text = match v {
         Value::String(s) => s.clone(),
@@ -408,7 +408,7 @@ fn exponent_places(s: &str) -> Option<i64> {
     Some((frac.len() as i64 - exp - (all.len() - significant.len()) as i64).max(0))
 }
 
-// --- Ruby's readings of a venue value ----------------------------------------------------------------------------------
+// --- 2.x's readings of a venue value ----------------------------------------------------------------------------------
 
 fn row(v: [Value; 11]) -> Value {
     const KEYS: [&str; 10] = ["ticker", "base", "quote", "minimum_base_size", "minimum_quote_size", "maximum_base_size", "maximum_quote_size",
@@ -436,7 +436,7 @@ fn filter_in<'a>(filters: &'a [Value], types: &[&str]) -> Result<Option<&'a Valu
     Ok(filters.iter().find(|f| f["filterType"].as_str().is_some_and(|t| types.contains(&t))))
 }
 
-/// Ruby truthiness: all but nil and false.
+/// 2.x truthiness: all but nil and false.
 fn truthy(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) }
 /// `present?`: truthy and not a blank string.
 fn present(v: &Value) -> bool { truthy(v) && v.as_str().is_none_or(|s| !v2::blank(s)) }
@@ -461,9 +461,9 @@ fn to_i(v: &Value) -> Result<i64, String> {
         other => Err(format!("undefined method 'to_i' for {}", v2::raw(other))),
     }
 }
-/// Ruby's `v.to_d`: the value, and whether it is a negative zero (BigDecimal keeps the sign of 0: "-0".to_d is -0.0,
+/// 2.x's `v.to_d`: the value, and whether it is a negative zero (BigDecimal keeps the sign of 0: "-0".to_d is -0.0,
 /// written "-0.0"). nil is 0, a number as Integer#to_d and Float#to_d read it, a string as String#to_d (`loose`).
-/// None: Ruby reads it as Infinity or NaN.
+/// None: 2.x reads it as Infinity or NaN.
 fn v2_d(v: &Value) -> Result<Option<(BigDec, bool)>, String> {
     match v {
         Value::Null => Ok(Some((BigDec::zero(), false))),
@@ -479,11 +479,11 @@ fn v2_d(v: &Value) -> Result<Option<(BigDec, bool)>, String> {
 /// `v.to_d` where the value enters a computation or a count. Inputs outside the recorded set (catalogue_vectors.json's
 /// malformed-size scenarios) are read by the rule documented at `loose`.
 ///
-/// **D-CG-NONFINITE-REFUSED**: a value Ruby reads as Infinity or NaN that reaches a computation fails that venue's
-/// catalogue. Rails would carry it on: Bitget's `minTradeUSDT` or a ticker's `lastPr` into the quote minimum, MEXC's
+/// **D-CG-NONFINITE-REFUSED**: a value 2.x reads as Infinity or NaN that reaches a computation fails that venue's
+/// catalogue. 2.x would carry it on: Bitget's `minTradeUSDT` or a ticker's `lastPr` into the quote minimum, MEXC's
 /// `quoteAmountPrecision(Market)` into its `max`, and Gemini's `tick_size` / `quote_increment` into
 /// `Utilities::Number.decimals("Infinity")`, which is 0 places (orders rounded to whole units). A size that is only
-/// written (`d`) is nil, as Rails' `as_json` writes it.
+/// written (`d`) is nil, as 2.x's `as_json` writes it.
 fn to_d(v: &Value) -> Result<BigDec, String> { finite(v).map(|(x, _)| x) }
 fn finite(v: &Value) -> Result<(BigDec, bool), String> {
     v2_d(v)?.ok_or_else(|| format!("{} reads as Infinity or NaN (D-CG-NONFINITE-REFUSED)", v2::raw(v)))
@@ -543,11 +543,11 @@ mod tests {
                        (json!(0.01), 2), (json!(5), 0), (Value::Null, 0), (json!("5."), 1), (json!(0.0001), 4)] {
             assert_eq!(decimals(&v), n, "{v}");
         }
-        // D-CG-DECIMALS-EXPONENT: Rails reads these as 5, 5, 5 and 0.
+        // D-CG-DECIMALS-EXPONENT: 2.x reads these as 5, 5, 5 and 0.
         for (v, n) in [(json!(1e-6), 6), (json!(1e-8), 8), (json!(1.5e-11), 12), (json!("1e-7"), 7), (json!(1e-5), 5), (json!(1e20), 0)] {
             assert_eq!(decimals(&v), n, "{v}");
         }
-        assert_eq!(decimals(&json!("none")), 0, "an 'e' that is no exponent is Rails' count");
+        assert_eq!(decimals(&json!("none")), 0, "an 'e' that is no exponent is 2.x's count");
         // One value, every spelling: its true places.
         for v in [json!("1e-6"), json!("10e-7"), json!("0.1e-5"), json!("1.0e-06"), json!(1e-06), json!("100e-8"), json!("0.000001")] {
             assert_eq!(decimals(&v), 6, "{v}");
@@ -577,7 +577,7 @@ mod tests {
         assert_eq!(d(&json!(-0.0)).unwrap(), json!("-0.0"), "Float#to_d keeps the sign of 0");
     }
 
-    /// D-CG-NONFINITE-REFUSED: Rails reads tick_size "Infinity" as BigDecimal Infinity, whose decimals are 0, and lists the
+    /// D-CG-NONFINITE-REFUSED: 2.x reads tick_size "Infinity" as BigDecimal Infinity, whose decimals are 0, and lists the
     /// pair with base_decimals 0. Rust fails Gemini's catalogue instead.
     #[test]
     fn a_gemini_step_v2_reads_as_infinity_fails_the_venue() {

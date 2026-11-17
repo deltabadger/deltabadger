@@ -1,5 +1,5 @@
 //! Bybit history on the continuation kit: 729 days, seven-day spot windows, then 29-day transfer windows.
-//! D-BYBIT-STUCK refuses a repeated cursor; Rails would loop. Cursors and id-less dedup survive checkpoints.
+//! D-BYBIT-STUCK refuses a repeated cursor; 2.x would loop. Cursors and id-less dedup survive checkpoints.
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
 use super::binance_ledger::{amount, entry, objects, page_of, v2_time_at_ms, text, Fail};
 use super::continuation;

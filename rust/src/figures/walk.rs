@@ -50,8 +50,8 @@ pub struct AssetValue {
     pub pnl_percentage: Num, pub tax_basis: Num, pub harvestable: bool,
 }
 
-/// A held asset the live pass left out of the portfolio's value, and why. Rails leaves it out without a word
-/// (`measurable.rb:241-245`); this is returned beside the figures, and is no part of their JSON.
+/// A held asset the live pass left out of the portfolio's value, and why. 2.x leaves it out without a word;
+/// this is returned beside the figures, and is no part of their JSON.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Unpriced { pub key: String, pub asset_id: Option<i64>, pub reason: Why }
 
@@ -69,7 +69,7 @@ impl Why {
     pub fn as_str(self) -> &'static str { match self { Why::NoTicker => "no_ticker", Why::Delisted => "delisted", Why::NoPrice => "no_price" } }
 }
 
-/// What only a bot with submitted orders has. Rails adds these keys as the walk goes, so their order in its hash
+/// What only a bot with submitted orders has. 2.x adds these keys as the walk goes, so their order in its hash
 /// (and in JSON) depends on the history: `external_sales` and `restated_at` appear in the order they were first set.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Walked {
@@ -87,7 +87,7 @@ pub struct Walked {
     pub loss_lot_by_transaction: Vec<(i64, Option<bool>)>,
 }
 
-/// Rails' metrics hash. `to_json` writes it key for key as Rails' `to_json` does.
+/// 2.x's metrics hash. `to_json` writes it key for key as 2.x's `to_json` does.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Metrics {
     pub chart: Chart,
@@ -146,7 +146,7 @@ impl Metrics {
         Ok(out)
     }
 
-    /// The hash as Rails' `to_json` writes it; times in UTC with `digits` fractional digits (Rails: 3).
+    /// The hash as 2.x's `to_json` writes it; times in UTC with `digits` fractional digits (2.x: 3).
     pub fn to_json(&self, digits: usize) -> J {
         let amounts = |row: &Row| J::obj(row, J::num);
         let time = |at: &At| J::Str(super::json::time_utc(&at.utc(), digits));
@@ -314,7 +314,7 @@ pub fn listing_names(base: &str, symbol: Option<&str>) -> Vec<String> {
 /// Lots of the same asset recorded without it may be the ones FIFO consumed: the sale's verdict is unknown.
 fn shadowed(walk: &Walk, shadowed_by: &[(i64, Vec<String>)], order: &Order) -> bool {
     let Some((_, shadows)) = order.asset_id.and_then(|id| shadowed_by.iter().find(|(asset, _)| *asset == id)) else { return false };
-    // Rails sums the lots' units for every sale. No lot is ever below zero (one opens on a positive fill, shrinks to what is
+    // 2.x sums the lots' units for every sale. No lot is ever below zero (one opens on a positive fill, shrinks to what is
     // left of it, and is multiplied by a positive factor), so the sum is positive exactly when a lot is.
     shadows.iter().any(|key| walk.lots.iter().find(|(k, _)| k == key).is_some_and(|(_, list)| list.iter().any(|lot| lot.amount.is_positive())))
 }
@@ -386,7 +386,7 @@ fn walked(c: &Connection, s: &Subject, now: At) -> Result<Metrics, FiguresError>
         budget::charge(1, 0)?;
         let base = key_of(order);
         pending = walk.apply_due_splits(pending, Some(order.at))?;
-        // A non-REGULAR sell Rails does not price (MQ6): its tax view on the raw proceeds, then gate 1. A priced one is
+        // A non-REGULAR sell 2.x does not price (MQ6): its tax view on the raw proceeds, then gate 1. A priced one is
         // the fill below.
         if let Some(sell) = super::fill::special_sell(order)?.filter(|sell| sell.fill().is_none()) {
             let held = match walk.ledger.get(&base) { Some(entry) => entry.amount.to_d()?, None => Dec::zero() };

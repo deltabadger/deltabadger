@@ -28,7 +28,7 @@ pub struct Event { pub at: At, pub key: String, pub factor: Dec }
 pub struct Group { pub key: String, pub date: Option<i64>, pub rows: Vec<SplitRow> }
 
 /// `"10:1"` is 10. Anything else names no factor: a blank, one number, a zero side, words, extra parts. A ratio of
-/// numbers beyond `dec`'s limits is an error: Rails would restate by it.
+/// numbers beyond `dec`'s limits is an error: 2.x would restate by it.
 pub fn factor(raw_data: &Value) -> Result<Option<Dec>, NumError> {
     let text = match raw_data.get("split_ratio") {
         Some(Value::String(s)) => s.clone(),
@@ -109,7 +109,7 @@ pub fn groups_with(c: &Connection, user_id: i64, eligible: &Eligibility<'_>, hol
         let day = row.at.0.div_euclid(86_400_000_000_000);
         for (holding, strings) in holdings.iter().zip(&holding_strings) {
             budget::charge(1, 0)?;
-            // D-SPLIT-NEVER-A-COIN: a split is a security's corporate action. Rails resolves an asset-less report by its
+            // D-SPLIT-NEVER-A-COIN: a split is a security's corporate action. 2.x resolves an asset-less report by its
             // name, and on Alpaca a name a security shares with a coin restates the coin (or leaves it unresolved for
             // good). The holding's asset decides, else the report's; a coin is neither restated nor held unresolved.
             if let Some(id) = holding.asset_id.or(reported) {

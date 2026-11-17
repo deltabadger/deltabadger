@@ -10,7 +10,7 @@ fn decimal(value: &Value) -> Result<Option<crate::v2::BigDec>, EngineError> {
         .map_err(|e| EngineError::Data(format!("Coinbase repair: unreadable stored amount: {e:?}")))
 }
 pub const FLAG: &str = "rust_coinbase_size_in_quote_repaired_at";
-/// Runs on every takeover, not once: after a handback Rails imports quote-sized fills with its old amounts again,
+/// Runs on every takeover, not once: after a handback 2.x imports quote-sized fills with its old amounts again,
 /// and the next takeover must repair those too. Rows already correct are compared exactly and left untouched, so a
 /// rerun writes nothing; FLAG records when it last repaired a row.
 pub fn run(tx: &Transaction<'_>, now: DateTime<Utc>) -> Result<usize, EngineError> {
@@ -59,7 +59,7 @@ pub fn run(tx: &Transaction<'_>, now: DateTime<Utc>) -> Result<usize, EngineErro
             .map(|d| super::ledger::amount_sql(crate::venue::coinbase::COINBASE, d));
         // Read both sides through the ledger's decimal codec. NUMERIC affinity can shorten a
         // repeating quotient, so compare with what a fresh import actually stores in SQLite.
-        // The Rails-compatible decimal reader keeps 16 significant digits for REAL columns.
+        // The 2.x-compatible decimal reader keeps 16 significant digits for REAL columns.
         // Also require SQLite equality so it cannot hide a distinct stored value's final digit.
         let (stored_base, stored_quote, identical): (Value, Value, bool) = tx.query_row(
             "SELECT CAST(?1 AS NUMERIC), CAST(?2 AS NUMERIC), base_amount IS CAST(?1 AS NUMERIC) AND quote_amount IS CAST(?2 AS NUMERIC) FROM account_transactions WHERE id=?3",

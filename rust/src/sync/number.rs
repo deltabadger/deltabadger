@@ -47,7 +47,7 @@ pub fn decimal(text: &str, caps: &Caps) -> Result<BigDec, String> {
 
 /// `value&.to_d` for one JSON value as the venue wrote it (its text): `null` is none; a string is String#to_d (blank is
 /// 0); an integer is exact; any other number is a Float (Float#to_d: 16 significant digits). A boolean, an array or an
-/// object is an error, where Ruby raises NoMethodError.
+/// object is an error, where 2.x raises NoMethodError.
 pub fn json(token: &str) -> Result<Option<BigDec>, String> {
     let token = token.trim();
     match token.as_bytes().first() {

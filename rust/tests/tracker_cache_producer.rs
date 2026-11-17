@@ -38,7 +38,7 @@ async fn a_failed_walk_returns_its_error_and_never_wakes_itself(){
     o.primary.execute_batch("UPDATE account_transactions SET raw_data='not json'").unwrap();
     let db=Db::new(o.primary,common::seed::cipher());let wakers=jobs::Wakers::default();
     let outcome=job(s.user_id).run(Cx{db,clock:&clock(),wakers:wakers.clone()},vec![]).await;
-    assert_eq!(outcome,Outcome::Failed("a JSON column Rails did not write".into()));
+    assert_eq!(outcome,Outcome::Failed("a JSON column 2.x did not write".into()));
     assert_eq!(ledger_wakes(&wakers),0,"a failed walk must not wake another tracker_ledger run");
 }
 /// Inputs that another writer moves during every pass end the run as moving. The run stored no price itself, so it

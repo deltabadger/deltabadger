@@ -1,4 +1,4 @@
-//! The account's ledger rows as the tracker reads them, in two sets, as Rails has them:
+//! The account's ledger rows as the tracker reads them, in two sets, as 2.x has them:
 //! - `load_all`: every `account_transactions` row of the user, the futures and margin wallets' included, by instant
 //!   (`AccountTransaction.by_date_asc`): what PortfolioSnapshot::BackfillJob reads;
 //! - `walk_rows`: those rows less the borrowed wallets' (Tracker::UnfundedCash.borrowed?), in the order every reader of
@@ -196,7 +196,7 @@ fn json_number(v: Option<&Value>) -> Result<Option<Dec>, FiguresError> {
 fn json_column(text: Option<String>) -> Result<Value, FiguresError> {
     match text {
         None => Ok(Value::Null),
-        Some(t) => serde_json::from_str(&t).map_err(|_| data("a JSON column Rails did not write")),
+        Some(t) => serde_json::from_str(&t).map_err(|_| data("a JSON column 2.x did not write")),
     }
 }
 
@@ -223,7 +223,7 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
     let mut rows = vec![];
     while let Some(r) = q.next()? {
         crate::figures::budget::charge(1, 0)?;
-        let kind = Kind::from_stored(r.get(3)?).ok_or_else(|| data("an entry type Rails does not have"))?;
+        let kind = Kind::from_stored(r.get(3)?).ok_or_else(|| data("an entry type 2.x does not have"))?;
         let at_text: String = r.get(12)?;
         let raw = json_column(r.get(13)?)?;
         let manual = json_column(r.get(14)?)?;
@@ -270,7 +270,7 @@ pub fn coin_quoted(r: &Stored, stable_cash: bool) -> bool {
 /// D-TRACKER-COIN-QUOTE (and the tax report's D-TAX-COIN-QUOTE): a trade of a coin for a coin booked as one buy or sell row
 /// quoted in the other coin (Bybit, MEXC, Bitget, Gemini, BingX, Bitrue, Bitvavo, Hyperliquid, KuCoin; Binance and Coinbase
 /// store two swap legs) becomes the two legs it is: the row's coin coming in or going out, and the quote coin the other way,
-/// grouped. Rails read the row alone, so the quote coin never moved: the coin paid kept its holding and its lots, the coin
+/// grouped. 2.x read the row alone, so the quote coin never moved: the coin paid kept its holding and its lots, the coin
 /// received had none. The fee goes with the leg of its own coin, else with the coin coming in (as Binance books it). The new
 /// leg's id is the row's negated (a stored id is positive, so it is unique; never stored, never shown), its group
 /// `coin-quote:<id>`, with `~` before it until no stored row of the venue carries that group. The out-leg comes first, at

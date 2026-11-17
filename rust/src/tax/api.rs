@@ -1,5 +1,5 @@
 //! BotApi::Tax::{Params, GenerateReport, ReportStatus, DownloadReport, Generating} for the REST routes and the three MCP
-//! tools (GenerateTaxReportTool, GetTaxReportStatusTool, DownloadTaxReportTool). Crypto only, as Rails: no report scope.
+//! tools (GenerateTaxReportTool, GetTaxReportStatusTool, DownloadTaxReportTool). Crypto only, as 2.x: no report scope.
 use super::job;
 use crate::web::bot_api::{Domain, Res};
 use crate::web::mcp::protocol::tool_text;
@@ -25,7 +25,7 @@ pub enum Out { Res(Res), Accepted(Res), Csv { csv: String, filename: String } }
 
 fn failure(status: Domain, code: &'static str, message: impl Into<String>) -> Res { Res::failure(status, code, message.into()) }
 
-/// `value.to_s` as Ruby writes a parameter (a JSON number as its literal, nil as nothing).
+/// `value.to_s` as 2.x writes a parameter (a JSON number as its literal, nil as nothing).
 fn to_s(v: Option<&Value>) -> String { v.map(crate::web::mcp::tools::str_value).unwrap_or_default() }
 
 /// The registry's name for a code (Tax::Jurisdictions.for), from the recorded jurisdictions.
@@ -74,7 +74,7 @@ fn not_ported(message: String) -> Res { failure(Domain::NotPorted, "not_ported",
 /// D-TAX-PL-DECLARED-CARRY: the refusal of an amount `pl::carried` does not read.
 pub const INVALID_CARRY: &str = "pl_carried_costs must be an amount in PLN: 0 or more, at most 2 decimals, with a dot; null or \"\" clears it.";
 
-/// BotApi::Tax::GenerateReport#call. In ONE write transaction under the files' lock (Rails' `with_lock` around the
+/// BotApi::Tax::GenerateReport#call. In ONE write transaction under the files' lock (2.x's `with_lock` around the
 /// check and the enqueue): generating → 409; the report present and not forced → 409; the report and its refusal step
 /// aside; the request inserted and `pending_report` written; commit; the stale files removed. Any failure before the
 /// commit puts both back.

@@ -1,9 +1,9 @@
 //! AccountTransaction::SyncJob for a Bitget key (plan VB slice A4): Exchanges::Bitget#get_ledger (post-audit G6/G7, #608) on
 //! the venue continuation (sync::continuation), then AccountTransactionSync#store! and TransferMatcher.run! as ledger.rs ports
 //! them. Read only: signed GETs. Rows, tx_ids (a fill's `tradeId`, "deposit-"/"withdrawal-" and the record's `orderId`),
-//! fees and raw_data are Rails' (rust/tests/sync_parity.rs, the `bitget-ledger-` scenarios).
+//! fees and raw_data are 2.x's (rust/tests/sync_parity.rs, the `bitget-ledger-` scenarios).
 //!
-//! As Rails reads it:
+//! As 2.x reads it:
 //! - fills (/api/v2/spot/trade/fills): 89-day windows from the later of the start and 89 days before now (Bitget keeps 90
 //!   days) up to now, each window paged newest first, 100 rows a page, the next page by `idLessThan` = the last row's
 //!   `tradeId`, a short page ending the window;
@@ -17,10 +17,10 @@
 //! Across runs (plan VB §1.6): the walk's cursor holds the source, its window's start, the next `idLessThan` and the whole
 //! rows of the id-less fills it kept. A cut run replays its last page; the store's dedup state is the continuation's.
 //!
-//! Where it differs on purpose: an unreadable amount fails the sync (Rails stores a garbage amount as 0), as kucoin_ledger
+//! Where it differs on purpose: an unreadable amount fails the sync (2.x stores a garbage amount as 0), as kucoin_ledger
 //! does; a full page whose last row names no next `idLessThan`, or names the one just asked for, fails the sync
-//! (D-BITGET-STUCK: Rails asks for the same page forever). AUDIT-bitget S2 (a BGB-deducted fee booked in `feeCoin`), S3 (a
-//! withdrawal's `size` and `fee` booked apart) and S6 (`cTime` read in milliseconds) are ported as Rails reads them.
+//! (D-BITGET-STUCK: 2.x asks for the same page forever). AUDIT-bitget S2 (a BGB-deducted fee booked in `feeCoin`), S3 (a
+//! withdrawal's `size` and `fee` booked apart) and S6 (`cTime` read in milliseconds) are ported as 2.x reads them.
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
 use super::binance_ledger::{amount, entry, objects, page_of, v2_time_at_ms, text, Fail};
 use super::continuation;
@@ -48,12 +48,12 @@ pub fn transfers_from() -> DateTime<Utc> { "2018-04-01T00:00:00Z".parse().expect
 pub const OVERLAP_HOURS: i64 = 25;
 pub const MAX_PAGE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_PAGE_NODES: usize = 400_000;
-/// ponytail: Rails has no page cap; one stops a cursor that never ends.
+/// ponytail: 2.x has no page cap; one stops a cursor that never ends.
 const MAX_PAGES: usize = 100_000;
 
 /// `#to_i` of a JSON value (nil.to_i is 0).
 fn to_i(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::v2::to_i(s), _ => 0 } }
-/// `#to_s` of a scalar, as Ruby interpolates it (nil is "").
+/// `#to_s` of a scalar, as 2.x interpolates it (nil is "").
 fn to_s(v: &Value) -> String { match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() } }
 fn ms(t: DateTime<Utc>) -> i64 { crate::venue::bitvavo::v2_ms(t) }
 /// BigDecimal#abs.
@@ -177,7 +177,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
     fn done(&self) -> bool { self.source == Source::Done }
     fn cursor(&self) -> Value { json!({ "source": self.source.name(), "window": self.window, "before": self.before, "bare": self.bare }) }
     fn page_rows(&self) -> usize { PAGE }
-    /// One try at the transport's whole budget: Rails paces none of these reads.
+    /// One try at the transport's whole budget: 2.x paces none of these reads.
     fn request_reserve(&self) -> std::time::Duration { crate::venue::http::TOTAL_TIMEOUT }
     /// One page of #each_ledger_row.
     async fn step(&mut self) -> Result<Vec<Entry>, Fail> {
@@ -206,7 +206,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
             let parts: Vec<String> = [code, body.value.get("msg").filter(|v| !v.is_null())].into_iter().flatten().map(to_s).collect();
             return Err((format!("Bitget ledger read failed: {}", parts.join(" ")), false));
         }
-        // `Array(result.data['data'])`: none is an empty page; anything but a list of objects Rails cannot walk.
+        // `Array(result.data['data'])`: none is an empty page; anything but a list of objects 2.x cannot walk.
         let page = match body.member("data") {
             None => vec![],
             Some(super::wire::Node::Scalar(t)) if t == "null" => vec![],

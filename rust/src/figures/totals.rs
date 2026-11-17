@@ -25,10 +25,10 @@ pub const FIAT_SYMBOLS: [&str; 33] = [
 ];
 
 /// Utilities::Currency.exchange_rate, uncached: what one `from` is worth in `to`, a fiat currency. A Float one for a
-/// currency against itself; provider fiat FX uses Ruby Float operands and division (D5b-1 round 1).
+/// currency against itself; provider fiat FX uses 2.x Float operands and division (D5b-1 round 1).
 /// The outer error is this library's own.
-/// The figures only ever convert into a fiat currency (USD, or the one the account is shown in), so of Rails' four
-/// paths the two with a coin as the target are not here: asked for one, this fails as Rails' last line does.
+/// The figures only ever convert into a fiat currency (USD, or the one the account is shown in), so of 2.x's four
+/// paths the two with a coin as the target are not here: asked for one, this fails as 2.x's last line does.
 fn exchange_rate(c: &Connection, market: &dyn MarketData, from: &str, to: &str) -> Result<Fetch<Quoted>, FiguresError> {
     let (from, to) = (from.to_uppercase(), to.to_uppercase());
     if from == to { return Ok(Ok(Quoted::Num(Num::Float(1.0)))); }
@@ -98,11 +98,11 @@ fn positive_fx(value: Quoted) -> Fetch<Dec> {
 pub struct Rates(Vec<(String, Quoted)>);
 
 impl Rates {
-    /// The rate into USD, or None where Rails has a Failure.
+    /// The rate into USD, or None where 2.x has a Failure.
     fn usd(&mut self, c: &Connection, market: &dyn MarketData, currency: &str) -> Result<Option<Quoted>, FiguresError> {
         if let Some((_, rate)) = self.0.iter().find(|(known, _)| known == currency) { return Ok(Some(rate.clone())); }
         let rate = lift(exchange_rate(c, market, currency, "USD")?)?;
-        // Only an answer is kept: Rails never caches a failure.
+        // Only an answer is kept: 2.x never caches a failure.
         if let Some(rate) = &rate { self.0.push((currency.to_string(), rate.clone())); }
         Ok(rate)
     }
@@ -166,8 +166,8 @@ pub struct Part<'a> {
     /// Whether it has a submitted order.
     pub traded: bool,
     /// Its figures: the live ones for `global_pnl` and its snapshot, the marked ones for `pnl_history`.
-    /// `Ok(None)`: there are none yet (for the snapshot: Rails would hold none cached, because they are stale or
-    /// the bot has no chart point). `Err`: Rails raised computing them, or this library does not compute them.
+    /// `Ok(None)`: there are none yet (for the snapshot: 2.x would hold none cached, because they are stale or
+    /// the bot has no chart point). `Err`: 2.x raised computing them, or this library does not compute them.
     pub figures: Result<Option<&'a Metrics>, &'a Absent>,
 }
 
@@ -234,7 +234,7 @@ fn result(invested: &Num, value: &Num) -> Result<GlobalPnl, FiguresError> {
 }
 
 /// User#global_pnl: the account's profit over everything put in, in USD. None with no bots, no rate, or nothing
-/// invested. Every part carries its live figures: what Rails raised computing one is raised here, and a bot
+/// invested. Every part carries its live figures: what 2.x raised computing one is raised here, and a bot
 /// that has traded and has none makes the total not computed.
 pub fn global_pnl(c: &Connection, market: &dyn MarketData, rates: &mut Rates, parts: &[Part<'_>]) -> Result<Option<GlobalPnl>, FiguresError> {
     budget::within(|| {
@@ -282,7 +282,7 @@ pub fn left_out(parts: &[Part<'_>]) -> Vec<LeftOut> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Snapshot<T> { pub result: Option<T>, pub loading: bool }
 
-/// The parts carry what Rails would hold cached. A bot whose figures Rails raised computing has none cached, and
+/// The parts carry what 2.x would hold cached. A bot whose figures 2.x raised computing has none cached, and
 /// reads as one that has none yet; a bot this library does not compute has none to stand in for them.
 pub fn global_pnl_snapshot(c: &Connection, market: &dyn MarketData, rates: &mut Rates, parts: &[Part<'_>]) -> Result<Snapshot<GlobalPnl>, FiguresError> {
     budget::within(|| { complete(parts)?; cached(c, market, rates, parts) })
@@ -319,7 +319,7 @@ pub const MAX_POINTS: usize = 180;
 /// One bot's readings: `(time, value in USD, invested in USD)`, ascending.
 pub type Track = Vec<(At, Dec, Dec)>;
 
-/// An instant `seconds` (a Float, taken exactly, as Ruby's Time#+ takes it) after `base`, in a fraction of a
+/// An instant `seconds` (a Float, taken exactly, as 2.x's Time#+ takes it) after `base`, in a fraction of a
 /// nanosecond: `numerator / 2^shift` nanoseconds since the epoch.
 struct Exact { numerator: BigInt, shift: u32 }
 
@@ -391,7 +391,7 @@ pub fn pnl_history(c: &Connection, market: &dyn MarketData, rates: &mut Rates, p
 fn history(c: &Connection, market: &dyn MarketData, rates: &mut Rates, parts: &[Part<'_>]) -> Result<Snapshot<History>, FiguresError> {
     let mut tracks: Vec<Track> = vec![];
     for part in parts {
-        // What Rails raised computing this bot's chart is raised here, when the walk over the bots reaches it.
+        // What 2.x raised computing this bot's chart is raised here, when the walk over the bots reaches it.
         let metrics = match part.figures.map_err(FiguresError::from)? { Some(metrics) => metrics, None if part.traded => return Err(missing(part)), None => continue };
         if metrics.chart.labels.is_empty() { continue; }
         let Some(currency) = part.quote.filter(|q| !q.trim().is_empty()) else { continue };

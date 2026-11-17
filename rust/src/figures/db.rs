@@ -1,4 +1,4 @@
-//! What the figures read from the database: SELECTs only, shaped as Rails' own queries are.
+//! What the figures read from the database: SELECTs only, shaped as 2.x's own queries are.
 use super::at::At;
 use super::{budget, num::NumError};
 use std::collections::{HashMap, HashSet};
@@ -12,7 +12,7 @@ fn data(what: impl std::fmt::Debug) -> FiguresError { FiguresError::Data(format!
 /// A decimal column: the one way a number of the database comes in, measured (`dec`).
 pub(super) fn decimal(r: &SqlRow<'_>, i: usize) -> Result<Option<Dec>, FiguresError> { Ok(Dec::from_sql(r.get_ref(i)?)?) }
 pub(super) fn instant(text: &str) -> Result<At, FiguresError> { At::from_sql(text).map_err(|e| FiguresError::Data(format!("{e:?}"))) }
-/// Ids as SQL literals, so each query has the shape of the one Rails sends (`IN (1, 2, 3)`); they are integers.
+/// Ids as SQL literals, so each query has the shape of the one 2.x sends (`IN (1, 2, 3)`); they are integers.
 fn id_list(ids: &[i64]) -> Result<String, FiguresError> {
     budget::charge(ids.len() as u64, 0)?;
     Ok(ids.iter().map(i64::to_string).collect::<Vec<_>>().join(", "))
@@ -31,7 +31,7 @@ pub struct Bot {
     pub base_asset_ids: Vec<i64>,
 }
 
-/// Ruby's Integer/Float/String#to_i for the allocations keys and legacy base_asset_ids.
+/// 2.x's Integer/Float/String#to_i for the allocations keys and legacy base_asset_ids.
 /// An integer we cannot represent is refused, never silently replaced with zero.
 fn to_i(v: &Value) -> Result<i64, FiguresError> {
     match v {
@@ -223,7 +223,7 @@ pub fn listings(c: &Connection, exchange_id: i64, asset_ids: &[i64]) -> Result<V
 
 /// Bot::ChartSeries#chart_logo_assets(keys).compact, a pair bot's logos: `exchange.tickers.where(base: keys)` indexed by
 /// base, each base where its first listing comes and its last listing's asset standing; a base whose asset is gone is
-/// left out. The query is Rails' own, so its rows come in the order Rails reads them.
+/// left out. The query is 2.x's own, so its rows come in the order 2.x reads them.
 pub fn logo_listings(c: &Connection, exchange_id: i64, keys: &[Option<String>]) -> Result<Vec<(String, i64)>, FiguresError> {
     let named: Vec<&String> = keys.iter().flatten().collect();
     budget::charge(keys.len() as u64, 0)?;
@@ -262,7 +262,7 @@ pub fn asset_symbol(c: &Connection, id: Option<i64>) -> Result<Option<String>, F
 #[derive(Clone, Debug)]
 pub struct Asset { pub category: Option<String>, pub external_id: Option<String> }
 
-/// `Asset.find_by(symbol:)`. One row of several, as SQLite hands it to Rails for the same query.
+/// `Asset.find_by(symbol:)`. One row of several, as SQLite hands it to 2.x for the same query.
 pub fn asset_by_symbol(c: &Connection, symbol: &str) -> Result<Option<Asset>, FiguresError> {
     Ok(c.query_row("SELECT category, external_id FROM assets WHERE symbol = ?1 LIMIT 1", [symbol], |r| Ok(Asset { category: r.get(0)?, external_id: r.get(1)? })).optional()?)
 }

@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashSet};
 
-/// Undo only Ruby's sub-millisecond floating-point timestamp rounding. Canonical
+/// Undo only 2.x's sub-millisecond floating-point timestamp rounding. Canonical
 /// source evidence keeps integer milliseconds; ledger timestamps remain unchanged.
 pub(crate) fn identity_ms(at: DateTime<Utc>) -> i64 { (at.timestamp_micros()+500).div_euclid(1000) }
 pub const MARKER: &str = "rust_binance_a12_v1:install_written";

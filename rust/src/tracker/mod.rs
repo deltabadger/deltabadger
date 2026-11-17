@@ -1,4 +1,4 @@
-//! The tracker's ledger walk, its figures and the portfolio snapshots, as Rails computes them (Plan D4a):
+//! The tracker's ledger walk, its figures and the portfolio snapshots, as 2.x computes them (Plan D4a):
 //! - `rows`: the account's ledger rows in the order every reader walks them (Tax::PriceService.ordered);
 //! - `prices`: Tax::PriceService#price_at and Tax::AssetIdentity, over `historical_prices` and data-api;
 //! - `walk`: Tracker::Ledger.scopes, the FIFO engine with the tracker's extensions, the cash book and money in;
@@ -11,9 +11,9 @@
 //! - `fx`: Tax::EcbFxRates, the ECB's rates and their loading.
 //! - `gaps`: the "import history" line (Rust only): a venue holding more than its readable history, judged after a publish.
 //!
-//! The walk takes every venue's rows as Rails does: swaps, fees carried on rows, other cash at the ECB's rates, transfers
+//! The walk takes every venue's rows as 2.x does: swaps, fees carried on rows, other cash at the ECB's rates, transfers
 //! between venues, the funding a venue that does not lend cash never reported. A price nobody has is a zero and the
-//! figure is marked incomplete, as Rails marks it. Refused, with the reason: a walk that needs a price from CoinGecko
+//! figure is marked incomplete, as 2.x marks it. Refused, with the reason: a walk that needs a price from CoinGecko
 //! (this build fetches from data-api only), and a stock's closes from a venue other than Alpaca.
 pub mod backfill;
 pub mod figures;

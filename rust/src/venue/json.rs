@@ -9,8 +9,8 @@ pub(crate) fn field<'a>(v: &'a Value, key: &str, unreadable: fn() -> VenueError)
     v.get(key).filter(|x| !x.is_null()).ok_or_else(unreadable)
 }
 
-/// A decimal string or number: present and readable, or the whole answer is unreadable (never a zero). DIVERGES from Ruby
-/// on purpose (v2::json_to_d): Rails' `.to_d` reads "garbage" as 0.
+/// A decimal string or number: present and readable, or the whole answer is unreadable (never a zero). DIVERGES from 2.x
+/// on purpose (v2::json_to_d): 2.x's `.to_d` reads "garbage" as 0.
 pub(crate) fn required(v: &Value, unreadable: fn() -> VenueError) -> Result<BigDec, VenueError> {
     crate::v2::json_to_d(v).ok().flatten().ok_or_else(unreadable)
 }

@@ -1,6 +1,6 @@
 //! Tracker::LedgerJob#arm_wash_sale_locks and WashSaleLock.confirm!: every sale the walk judged a loss inside the
 //! horizon locks the symbol's assets out of every buy leg for the user's wash-sale window. Re-derived on every walk,
-//! idempotent, and never shortening a lock. The engine's legs read these rows (engine::wash) as Rails' bots do;
+//! idempotent, and never shortening a lock. The engine's legs read these rows (engine::wash) as 2.x's bots do;
 //! eligibility reads none of them, so no write here passes the guard.
 use crate::codec::format_time;
 use crate::figures::FiguresError;
@@ -19,7 +19,7 @@ pub fn days(c: &Connection, user_id: i64) -> Result<u64, FiguresError> {
 
 /// What `arm_wash_sale_locks(user, summary)` locks: per loss sale, every asset a ticker of that symbol names
 /// (over-locking is the safe direction), with the window's days. Read before the write unit: the tickers in one query
-/// (Rails' `Ticker.where(base: symbols).pluck`, ledger_job.rb:48), each row read a step, indexed by symbol.
+/// (2.x's `Ticker.where(base: symbols).pluck`), each row read a step, indexed by symbol.
 pub fn targets(c: &Connection, user_id: i64, loss_sales: &[(String, NaiveDate)]) -> Result<(u64, Vec<(i64, NaiveDate)>), FiguresError> {
     let days = days(c, user_id)?;
     if days == 0 || loss_sales.is_empty() { return Ok((days, vec![])); }

@@ -1,6 +1,6 @@
-//! What Import::Run and Ruby's CSV give the import readers: the upload as text (`as_text`), the rows
+//! What Import::Run and 2.x's CSV give the import readers: the upload as text (`as_text`), the rows
 //! (`CSV.parse(text, headers: true)`, csv 3.3.6), the filename's zone (`offset_from`), a cell's time (`time`) and a cell's
-//! amount (`amount`). Pinned by rust/tests/fixtures/import_vectors.json (script/rust/record_import_vectors.rb).
+//! amount (`amount`). Pinned by rust/tests/fixtures/import_vectors.json.
 use crate::v2::{self, BigDec};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use regex::Regex;
@@ -10,14 +10,14 @@ use std::sync::LazyLock;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Malformed(pub String);
 
-/// Import::Run.as_text: invalid UTF-8 scrubbed to U+FFFD (Ruby's `scrub` replaces each maximal invalid subpart, as
+/// Import::Run.as_text: invalid UTF-8 scrubbed to U+FFFD (2.x's `scrub` replaces each maximal invalid subpart, as
 /// from_utf8_lossy does), then one leading byte order mark dropped.
 pub fn as_text(bytes: &[u8]) -> String {
     let text = String::from_utf8_lossy(bytes);
     text.strip_prefix('\u{FEFF}').unwrap_or(&text).to_string()
 }
 
-/// One CSV row: a cell is None when it was empty and unquoted, as Ruby's CSV leaves it nil.
+/// One CSV row: a cell is None when it was empty and unquoted, as 2.x's CSV leaves it nil.
 pub type Row = Vec<Option<String>>;
 
 /// `CSV.parse(text, headers: true)`: the first row is the headers, every later row a record.
@@ -110,7 +110,7 @@ impl Iterator for Reader<'_> {
     }
 }
 
-/// Import::BinanceCsv::FILENAME_OFFSET (Ruby's \d is ASCII).
+/// Import::BinanceCsv::FILENAME_OFFSET (2.x's \d is ASCII).
 static FILENAME_OFFSET: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\(UTC([+-])([0-9]{1,2})(?::([0-5][0-9]))?\)").unwrap());
 /// Import::BinanceCsv::UTC_TIME.
 pub const UTC_TIME: &str = "UTC_Time";
@@ -128,7 +128,7 @@ pub fn offset_from(filename: Option<&str>, bytes: Option<&[u8]>) -> Option<Strin
 }
 
 /// The time spellings Import::Run.time is known to accept (Date._parse's grammar is far wider; anything outside these
-/// is refused, which only ever refuses a file Ruby would have read): a date as YYYY-MM-DD, YY-MM-DD, YYYY/MM/DD or
+/// is refused, which only ever refuses a file 2.x would have read): a date as YYYY-MM-DD, YY-MM-DD, YYYY/MM/DD or
 /// "D Mon YYYY", a space or T, H:MM:SS with an optional fraction, then an optional zone of its own (Z or ±HH:MM).
 static TIME: LazyLock<Regex> = LazyLock::new(|| Regex::new(concat!(
     r"^(?:(?P<y>[0-9]{4}|[0-9]{2})-(?P<m>[0-9]{1,2})-(?P<d>[0-9]{1,2})|(?P<sy>[0-9]{4})/(?P<sm>[0-9]{1,2})/(?P<sd>[0-9]{1,2})",
@@ -171,11 +171,11 @@ pub fn time(value: Option<&str>, offset: Option<&str>) -> Result<DateTime<Utc>, 
     Ok(zone.from_local_datetime(&wall).single().ok_or_else(bad)?.with_timezone(&Utc))
 }
 
-/// Import::Run::DECIMAL (Ruby's \d is ASCII).
+/// Import::Run::DECIMAL (2.x's \d is ASCII).
 static DECIMAL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^([+-]?)(?:([0-9]+)(?:\.([0-9]*))?|\.([0-9]+))(?:[eE]([+-]?[0-9]+))?$").unwrap());
 
 /// Import::Run.amount: a plain decimal (an exponent allowed), read exactly as `to_d` reads it. BigDec's own bounds
-/// (MAX_INPUT_LEN characters, 10^±MAX_EXPONENT, MAX_DIGITS digits) also refuse a value Ruby would have read.
+/// (MAX_INPUT_LEN characters, 10^±MAX_EXPONENT, MAX_DIGITS digits) also refuse a value 2.x would have read.
 pub fn amount(value: Option<&str>) -> Result<BigDec, Malformed> {
     let text = v2::strip(value.unwrap_or(""));
     let bad = || Malformed(format!("unreadable amount {text:?}"));

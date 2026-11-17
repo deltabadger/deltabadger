@@ -1,10 +1,10 @@
 //! Ireland (TCA 1997 ss. 28, 31, 546, 581, 601, 959AM): the CGT summary and its payment periods (A12-4). The engine's part
 //! is `fifo::Options::ireland` (s. 581's matching and loss restriction).
 //! - D-TAX-IE-RATE: 33% to 6 October 2026, 31% from 7 October 2026 (the taxpayer's date; TDM 02-03-01A); losses and the
-//!   exemption off the 33% gains first (s. 546(6), s. 601(3)). Rails: 33% on everything.
+//!   exemption off the 33% gains first (s. 546(6), s. 601(3)). 2.x: 33% on everything.
 //! - D-TAX-IE-PERIODS: the 15 December figure is the year's computation over the disposals to 30 November (s. 959AM), the
-//!   31 January one the rest; a negative rest is due 0.00 and shown as overpaid. Rails split the tax by gross gains.
-//! - D-TAX-IE-SUMMARY: Rails' lines where right, with the restricted and released losses, the 31% lines and the hint.
+//!   31 January one the rest; a negative rest is due 0.00 and shown as overpaid. 2.x split the tax by gross gains.
+//! - D-TAX-IE-SUMMARY: 2.x's lines where right, with the restricted and released losses, the 31% lines and the hint.
 use super::{cents, date, fifo::Disposal, line, s, Cell};
 use crate::figures::{dec::Dec, FiguresError};
 use crate::web::i18n::text;

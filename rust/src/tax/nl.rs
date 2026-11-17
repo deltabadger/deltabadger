@@ -1,10 +1,10 @@
 //! The Netherlands (Wet IB 2001 art. 5.1–5.3, 5.19, 5.25–5.36): the box 3 snapshot at 1 January (A12-6), over
 //! `wealth::held`:
-//! - D-TAX-NL-PEILDATUM: units held before 1 January `year` 00:00 in the taxpayer's zone (Rails: UTC), valued at the daily
+//! - D-TAX-NL-PEILDATUM: units held before 1 January `year` 00:00 in the taxpayer's zone (2.x: UTC), valued at the daily
 //!   price dated 1 January.
-//! - D-TAX-NL-RATES: the forfaitair rendement, allowance and rate of each year 2021–2026 (`RATES`); Rails had 2025 and 2026
+//! - D-TAX-NL-RATES: the forfaitair rendement, allowance and rate of each year 2021–2026 (`RATES`); 2.x had 2025 and 2026
 //!   only, 2026 at 7.78% and every earlier year at 2026's.
-//! - D-TAX-NL-BOX3: Rails' summary rows, Dutch labels, a hint.
+//! - D-TAX-NL-BOX3: 2.x's summary rows, Dutch labels, a hint.
 //! - D-TAX-NL-ACTUAL: once 1 January `year`+1 has come, crypto's contribution to the actual return (tegenbewijs): the
 //!   value then, less the value at the peildatum, less the fiat paid for coins, plus the fiat received for them and income
 //!   paid in fiat (gross of fees), plus the value of the coins paid as fees (each once, at the day's price).

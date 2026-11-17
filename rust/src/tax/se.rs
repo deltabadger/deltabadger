@@ -3,7 +3,7 @@
 //! average per coin per person) with `lost_kept`, `own_fee_disposed` and `defer_group_fees`.
 //! - D-TAX-SE-K4: per coin a gains row and a losses row of K4 avsnitt D, the sums for INK1 7.5 (gains) and 8.4 (the full
 //!   loss), the 70% Skatteverket applies, staking and lending income (7.2), the year's surplus or deficit, its 30% tax or
-//!   its reduction (30% to 100 000 kr, 21% above). Rails: Σ gains, Σ losses and 70% only.
+//!   its reduction (30% to 100 000 kr, 21% above). 2.x: Σ gains, Σ losses and 70% only.
 //! - D-TAX-SE-INCOME, D-TAX-SE-AIRDROP: mining (hobby income, 1.6) and airdrops (no guidance; out of the income section,
 //!   their lots assumed) listed in NOTE `se_income`.
 use super::{cents, fifo::Disposal, line, s, Cell};

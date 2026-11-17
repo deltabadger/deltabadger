@@ -1,5 +1,5 @@
-//! PortfolioSnapshot.record! (app/models/portfolio_snapshot.rb): today's row for the whole account and one per venue
-//! the account has rows or balances on, each the figures the tiles state, written as Rails writes them.
+//! PortfolioSnapshot.record!: today's row for the whole account and one per venue
+//! the account has rows or balances on, each the figures the tiles state, written as 2.x writes them.
 use super::figures::{self, Balance};
 use super::walk::{Summary, Walked};
 use crate::figures::{dec::Dec, FiguresError};
@@ -67,7 +67,7 @@ fn values(day: &Day) -> Result<[Option<String>; 4], FiguresError> {
     Ok([Some(column(&day.value)?), Some(column(&day.invested)?), day.held_value.as_ref().map(column).transpose()?, day.held_cost.as_ref().map(column).transpose()?])
 }
 
-/// `PortfolioSnapshot.upsert(row, unique_by: %i[user_id date], record_timestamps: true)`, as Rails generates it.
+/// `PortfolioSnapshot.upsert(row, unique_by: %i[user_id date], record_timestamps: true)`, as 2.x generates it.
 pub fn upsert_whole(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, date: NaiveDate, day: &Day) -> Result<(), FiguresError> {
     let [value, invested, held_value, held_cost] = values(day)?;
     c.prepare_cached(
@@ -98,7 +98,7 @@ pub fn upsert_venue(c: &crate::engine::model::FencedTransaction<'_>, user_id: i6
 }
 
 /// `PortfolioSnapshot.record!(user, scopes:)`'s rows, from the scopes just walked: the whole account's (no venue) and
-/// each venue's, not yet dated. A venue the walk has no rows of reads as an empty ledger, as Rails reads one. Computed
+/// each venue's, not yet dated. A venue the walk has no rows of reads as an empty ledger, as 2.x reads one. Computed
 /// before the write unit, so the write lock is held for the writes alone.
 /// Each of them is reconciled with its own balances: the whole account's row is not the sum of the venues'.
 pub fn today_rows(c: &Connection, user_id: i64, walked: &Walked, fx: &super::fx::FxTable, today: NaiveDate) -> Result<Vec<(Option<i64>, Day)>, FiguresError> {
@@ -131,7 +131,7 @@ mod tests {
     use super::*;
     use crate::figures::at::At;
 
-    /// decimal(20, 8) as ActiveRecord writes it: `BigDecimal#round(8).to_s('F')` (measured in Ruby: 1.12345679, 2.0,
+    /// decimal(20, 8) as ActiveRecord writes it: `BigDecimal#round(8).to_s('F')` (measured in 2.x: 1.12345679, 2.0,
     /// -1.0, 0.00000001).
     #[test]
     fn a_value_is_written_as_v2_writes_a_decimal_column() {

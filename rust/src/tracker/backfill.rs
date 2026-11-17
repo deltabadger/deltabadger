@@ -1,4 +1,4 @@
-//! PortfolioSnapshot::BackfillJob (app/jobs/portfolio_snapshot/backfill_job.rb): one forward sweep from the first
+//! PortfolioSnapshot::BackfillJob: one forward sweep from the first
 //! transaction to yesterday, valuing what was held at the end of each day at that day's close, with money in read
 //! term by term off the ledger walk. Rewrites every earlier day of both tables and stamps the history's version.
 use super::prices::{self, coin_ids_over, Fetch, Venue};
@@ -23,7 +23,7 @@ pub fn history_key(user_id: i64) -> String { format!("snapshot_history_version_{
 pub fn price_key(user_id: i64) -> String { format!("snapshot_price_generation_{user_id}") }
 /// D-CG-429-STOPS-PRICES (Rust's own key): the last sweep's price requests met a 429, so its gaps are still to be asked.
 pub fn rate_limited_key(user_id: i64) -> String { format!("rust_snapshot_prices_pending_{user_id}") }
-/// The calculation a stored history was swept by (Rust's own key; Rails has none): a history of another one is swept again.
+/// The calculation a stored history was swept by (Rust's own key; 2.x has none): a history of another one is swept again.
 /// 2: coin-quoted single rows are two legs (D-TRACKER-COIN-QUOTE), transfers wait for their funds (D-TRACKER-TRANSFER-ORDER),
 /// a non-cash sale's own fee leaves (D-TRACKER-HISTORY-SELL-FEE). 3: the sweep records what it could not price
 /// (`tracker::unpriced`, PLAN-venue-prices S1), so every stored history is swept once more to get that record. 4: a coin's
@@ -255,7 +255,7 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
 /// price key → day → the price that day, the last observed carried at most CARRY_LIMIT days and never across a day
 /// the symbol changed coin. Sparse: a day with no price has no entry, so what is held is the prices, which the budget
 /// meters; every day walked is a step.
-/// The prices `load_prices` builds, read before the money-in walk (whose own fetches it does not see), as Rails reads them.
+/// The prices `load_prices` builds, read before the money-in walk (whose own fetches it does not see), as 2.x reads them.
 pub type Prices = HashMap<String, BTreeMap<NaiveDate, Dec>>;
 
 pub fn prices_by_day(c: &Connection, plan: &Plan, last: NaiveDate) -> Result<Prices, FiguresError> {
@@ -622,7 +622,7 @@ mod tests {
     }
 
     /// D-TRACKER-HISTORY-SELL-FEE: a coin's own fee on its sale leaves on top, as the ledger takes it; a cash sale with a quote
-    /// keeps Rails' reading (the fee inside).
+    /// keeps 2.x's reading (the fee inside).
     #[test]
     fn a_coin_sale_s_own_fee_leaves_the_history() {
         let fee = |r: Stored, c: &str, a: &str| Stored { fee_currency: Some(c.into()), fee_amount: Some(Dec::strict(a).unwrap()), ..r };
@@ -630,7 +630,7 @@ mod tests {
         let rows = [leg(1, "binance", Kind::Deposit, "BTC", "1", "2026-09-01 10:00:00"),
                     fee(quoted(leg(2, "binance", Kind::Sell, "BTC", "0.5", "2026-09-02 10:00:00"), "USDT", "15000"), "BTC", "0.01")];
         let h = held(&rows).unwrap();
-        assert_eq!((h["binance"]["BTC"].to_s_f(), h["binance"]["USDT"].to_s_f()), ("0.49".to_string(), "15000.0".to_string()), "Rails: 0.5");
+        assert_eq!((h["binance"]["BTC"].to_s_f(), h["binance"]["USDT"].to_s_f()), ("0.49".to_string(), "15000.0".to_string()), "2.x: 0.5");
         let rows = [leg(1, "binance", Kind::Deposit, "USDT", "100", "2026-09-01 10:00:00"),
                     fee(quoted(leg(2, "binance", Kind::Sell, "USDT", "50", "2026-09-02 10:00:00"), "USD", "50"), "USDT", "1")];
         assert_eq!(held(&rows).unwrap()["binance"]["USDT"].to_s_f(), "50.0");
@@ -692,7 +692,7 @@ mod tests {
         assert!(matches!(sweep_in(budget::Limits { steps: 50_000, held: budget::FIGURE.held }).0, Err(FiguresError::NotComputed(ref m)) if m == crate::figures::OVER_BUDGET));
     }
 
-    /// A symbol first traded today, swept to yesterday, with a close already stored: its window is empty (Rails selects
+    /// A symbol first traded today, swept to yesterday, with a close already stored: its window is empty (2.x selects
     /// no prices from a reversed range), so the sweep runs and values nothing of it, and nothing panics.
     #[test]
     fn a_symbol_first_traded_today_has_no_prices_in_the_sweep() {

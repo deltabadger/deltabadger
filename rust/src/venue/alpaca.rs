@@ -1,5 +1,5 @@
-//! Exchanges::Alpaca + Clients::Alpaca for one-asset crypto buys, over a Transport. Rails is the oracle; each method
-//! names the Ruby it ports. Market data uses the bot's own key, as Rails' market_data_client does.
+//! Exchanges::Alpaca + Clients::Alpaca for one-asset crypto buys, over a Transport. 2.x is the oracle; each method
+//! names the 2.x method it ports. Market data uses the bot's own key, as 2.x's market_data_client does.
 use super::http::{self, DecodeError, HttpRequest, HttpResponse, ReqwestTransport, Transport, TransportError};
 use super::VenueFactory;
 use crate::crypto::{Cipher, Credentials};
@@ -40,8 +40,8 @@ impl Urls {
     pub fn for_passphrase(passphrase: Option<&str>) -> Self { Self::pick(passphrase, &Hosts::alpaca()) }
 }
 
-/// `value.to_d` on a JSON-parsed Ruby value: nil → 0, Integer exact, Float#to_d, a decimal String.
-/// DIVERGES from Ruby on purpose (v2::json_to_d): "garbage".to_d is 0 and "NaN".to_d is NaN in Ruby; here anything
+/// `value.to_d` on a JSON-parsed 2.x value: nil → 0, Integer exact, Float#to_d, a decimal String.
+/// DIVERGES from 2.x on purpose (v2::json_to_d): "garbage".to_d is 0 and "NaN".to_d is NaN in 2.x; here anything
 /// that is not a finite decimal within BigDec's bounds is `Err` with the raw value quoted, so it can never become a zero
 /// price, quantity, fill or balance. Each caller turns it into that call's unreadable-answer error.
 pub fn v2_to_d(v: &Value) -> Result<BigDec, String> { v2_opt_to_d(v).map(|d| d.unwrap_or_else(BigDec::zero)) }
@@ -64,7 +64,7 @@ pub fn error_message(r: &HttpRequest, resp: &HttpResponse) -> String {
     }
 }
 
-/// What an unreadable 2xx answer reports: the out-of-range number, or Rails' message for a body that is not JSON.
+/// What an unreadable 2xx answer reports: the out-of-range number, or 2.x's message for a body that is not JSON.
 fn unreadable(e: DecodeError, r: &HttpRequest, resp: &HttpResponse) -> String {
     match e { DecodeError::OutOfRange(m) => m, DecodeError::NotJson => error_message(r, resp) }
 }
@@ -108,7 +108,7 @@ pub fn parse_order(id: &str, o: &Value) -> Result<OrderState, String> {
     let filled_qty = required("filled_qty")?;
     let filled_avg_price = d("filled_avg_price")?;
     if filled_qty.is_positive() && filled_avg_price.is_none() { required("filled_avg_price")?; }
-    // Rails parses every supplied number, even when a positive fill price takes precedence.
+    // 2.x parses every supplied number, even when a positive fill price takes precedence.
     let notional = d("notional")?;
     let qty = d("qty")?;
     let limit_price = d("limit_price")?;
@@ -141,7 +141,7 @@ pub fn parse_read_order(id: &str, o: &Value) -> Result<OrderState, String> {
 pub struct Body { request: HttpRequest, response: HttpResponse }
 
 impl Body {
-    /// The body of a 2xx answer; else Rails' message for the failed request, as `get` gives it.
+    /// The body of a 2xx answer; else 2.x's message for the failed request, as `get` gives it.
     pub fn text(&self) -> Result<&str, VenueError> {
         if (200..300).contains(&self.response.status) { Ok(&self.response.body) } else { Err(self.unreadable()) }
     }
@@ -212,7 +212,7 @@ impl<T: Transport> AlpacaVenue<T> {
         }
     }
 
-    /// A read as Clients::Alpaca#with_rescue answers it: a 2xx body that parses; else Rejected with Rails' message (an
+    /// A read as Clients::Alpaca#with_rescue answers it: a 2xx body that parses; else Rejected with 2.x's message (an
     /// HTTP failure, a 3xx, an unreadable body, or a permanent transport failure is a Failure Result); a transient transport
     /// failure is Transient (Client.network_failure raises it).
     async fn get(&self, r: HttpRequest) -> Result<Value, VenueError> {
@@ -253,7 +253,7 @@ impl<T: Transport> AlpacaVenue<T> {
 
     /// Exchanges::Alpaca#get_ask_price / #get_bid_price / #get_last_price. Crypto: the latest quote's `ap` / `bp` / trade's
     /// `p` by pair in the `symbols` query. A stock or ETF: Clients::Alpaca#get_latest_quote / #get_latest_trade, the BASE in
-    /// the path, `quote.ap` / `quote.bp` / `trade.p`, no feed parameter. A zero or missing price is Rails' "Wrong … price" raise.
+    /// the path, `quote.ap` / `quote.bp` / `trade.p`, no feed parameter. A zero or missing price is 2.x's "Wrong … price" raise.
     async fn price_diagnostic_source(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
         let label = match side { PriceSide::Ask => "ask", PriceSide::Bid => "bid", PriceSide::Last => "last" };
         let raw = if ticker.crypto {
@@ -279,8 +279,8 @@ impl<T: Transport> AlpacaVenue<T> {
     }
 
     /// #set_market_order / #set_limit_order through Clients::Alpaca#create_order: crypto is always gtc, nils compacted,
-    /// Rails' key order, plus Rust's client_order_id (Rails sends none). A 4xx or a permanent transport failure (a TLS
-    /// failure while connecting: nothing sent) is a definitive refusal (Rails' failed row); a 3xx, a 5xx, a lost reply, or
+    /// 2.x's key order, plus Rust's client_order_id (2.x sends none). A 4xx or a permanent transport failure (a TLS
+    /// failure while connecting: nothing sent) is a definitive refusal (2.x's failed row); a 3xx, a 5xx, a lost reply, or
     /// a 2xx without a readable id may have placed the order.
     async fn add_order_diagnostic_source(&self, o: &NewOrder) -> Result<String, VenueError> {
         let mut body = json!({ "symbol": o.pair, "side": o.side.as_str(), "type": "market", "time_in_force": if o.day { "day" } else { "gtc" } });
@@ -318,7 +318,7 @@ impl<T: Transport> AlpacaVenue<T> {
         }
     }
 
-    /// #get_orders: identity exclusion precedes all status/number parsing, as in Rails.
+    /// #get_orders: identity exclusion precedes all status/number parsing, as in 2.x.
     async fn orders_identified_diagnostic_source<F>(&self, ids: &[String], mut identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
         let mut out = Vec::with_capacity(ids.len());
@@ -367,7 +367,7 @@ impl<T: Transport> AlpacaVenue<T> {
         }
     }
 
-    /// Rails has no trade or activity fallback for Alpaca orders (the activities endpoint feeds only the tracker).
+    /// 2.x has no trade or activity fallback for Alpaca orders (the activities endpoint feeds only the tracker).
     async fn fills_from_trades_diagnostic_source(&self, _txids: &[String], _since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> { Ok(vec![]) }
 
     /// #get_balances (account, then positions; either failure is the answer) and #spendable_balance for an all-crypto
@@ -396,7 +396,7 @@ impl<T: Transport> AlpacaVenue<T> {
     /// the positions (either failure is the answer); an account with no cash figure, a supported position with no symbol,
     /// or ambiguous USD cash fails it. A position names an asset by class + symbol through the catalog; its free is
     /// `qty_available` (shares on open sell orders are locked), the one USD cash asset's is `cash`, never buying power.
-    /// Absent is 0. Rails skips a position naming several assets; here one that may be this asset is an error, never a 0
+    /// Absent is 0. 2.x skips a position naming several assets; here one that may be this asset is an error, never a 0
     /// that would read as no holdings.
     async fn free_of_diagnostic_source(&self, asset_id: i64, catalog: crate::sync::balances::Catalog) -> Result<BigDec, VenueError> {
         let account = self.get(self.request("GET", false, "/v2/account".into(), vec![], None)).await?;
@@ -407,7 +407,7 @@ impl<T: Transport> AlpacaVenue<T> {
         if positions.iter().any(|(class, symbol, _)| names(class, symbol) && catalog.candidates(class, symbol).is_some_and(|ids| ids.len() > 1)) {
             return Err(VenueError::Rejected(vec!["an Alpaca position names this asset ambiguously".into()]));
         }
-        // Rails reads quantities only for the asset asked for: another position's gap is not this asset's answer.
+        // 2.x reads quantities only for the asset asked for: another position's gap is not this asset's answer.
         positions.retain(|(class, symbol, _)| names(class, symbol));
         let held = crate::sync::balances::complete_balances(&catalog, cash, positions).map_err(|why| VenueError::Rejected(vec![why]))?;
         Ok(held.into_iter().find(|(id, _, _)| *id == asset_id).map_or_else(BigDec::zero, |(_, free, _)| free))
@@ -432,7 +432,7 @@ impl<T: Transport> AlpacaVenue<T> {
             if let Some(token) = token.take() { page.push(("page_token", token)); page.sort_by(|a, b| a.0.cmp(b.0)); }
             let body = self.get(self.request("GET", true, path.clone(), page, None)).await?;
             let Value::Object(body) = body else {
-                // `page['next_page_token']` on an Array is Ruby's TypeError, which with_rescue returns as the Failure.
+                // `page['next_page_token']` on an Array is 2.x's TypeError, which with_rescue returns as the Failure.
                 return Err(if body.is_array() { VenueError::Rejected(vec!["no implicit conversion of String into Integer".into()]) } else { candle_unreadable() });
             };
             let bars = if ticker.crypto {
@@ -441,7 +441,7 @@ impl<T: Transport> AlpacaVenue<T> {
             match bars {
                 Value::Null => {}
                 Value::Array(bars) => for bar in bars { out.push(bar_candle(bar)?); },
-                // ponytail: Rails raises on a first page's non-array bars and fails a later one's join (with_rescue); both
+                // ponytail: 2.x raises on a first page's non-array bars and fails a later one's join (with_rescue); both
                 // are unreadable here.
                 _ => return Err(candle_unreadable()),
             }
@@ -469,7 +469,7 @@ pub fn bar_timeframe(timeframe: Timeframe) -> &'static str {
 }
 fn candle_unreadable() -> VenueError { VenueError::Ambiguous("Alpaca: unreadable candles".into()) }
 /// One bar `{t, o, h, l, c, v}` as #get_candles reads it: `Time.parse(t).utc`, an RFC 3339 time (anything else raises
-/// in Rails or is not Alpaca's), then candles::read.
+/// in 2.x or is not Alpaca's), then candles::read.
 fn bar_candle(bar: &Value) -> Result<Candle, VenueError> {
     let at = bar.get("t").and_then(Value::as_str).and_then(|t| DateTime::parse_from_rfc3339(t).ok()).ok_or_else(candle_unreadable)?.to_utc();
     let field = |k: &str| bar.get(k).unwrap_or(&Value::Null);
@@ -582,7 +582,7 @@ pub const HISTORY_MARGIN: chrono::Duration = chrono::Duration::minutes(10);
 /// compares equal); side buy or sell; a simple order (order_class "" or "simple"); market or limit (a limit's own
 /// `limit_price`); its size `qty` (base) or `notional` (quote), exactly one; `filled_qty`, with `filled_avg_price` when
 /// anything filled; the filled quote is their product (D-ALPACA-HISTORY-QUOTE-COMPUTED, as `parse_order`). A state by
-/// Rails' status lists, except `calculated`, `stopped` and `suspended`, which don't say whether it is still open (r1.3).
+/// 2.x's status lists, except `calculated`, `stopped` and `suspended`, which don't say whether it is still open (r1.3).
 pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState};
     use chrono::Timelike;
@@ -616,7 +616,7 @@ pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
     Some(CreatedOrder { external_id: id, symbol: symbol.into(), created_at, side, kind, size, state, filled_base, filled_quote: Some(filled_quote) })
 }
 
-/// The real venues by exchange type (venue::live::LiveVenue), as Rails' Exchange subclasses: Alpaca (paper or live, as
+/// The real venues by exchange type (venue::live::LiveVenue), as 2.x's Exchange subclasses: Alpaca (paper or live, as
 /// the key says), Kraken and Binance (each through its proxy, ExchangeProxy.for, read each time a venue is built). A venue with no Rust
 /// code yet gets a venue that sends nothing; `run`'s preflight refuses such bots before it claims the install, so this is
 /// the second line. A passphrase that does not decrypt never reaches here: `model::credentials_for` fails that bot's tick.
@@ -658,13 +658,13 @@ impl Default for LiveFactory {
 
 impl LiveFactory {
     /// An Alpaca venue for this key (the bot's, or a sync job's). Its host and its identity come from the same
-    /// credentials it signs with; no key is Rails' unsaved fallback, paper (`paper_mode?(nil)`).
+    /// credentials it signs with; no key is 2.x's unsaved fallback, paper (`paper_mode?(nil)`).
     pub fn alpaca(&self, credentials: Option<Credentials>, sensitive: Vec<String>) -> AlpacaVenue<ReqwestTransport> {
         let urls = Urls::pick(credentials.as_ref().and_then(|c| c.passphrase.as_deref()), &self.hosts);
         let identity = credentials.as_ref().map(placement_identity);
         let transport = match credentials {
             Some(c) => ReqwestTransport::new(self.client.clone(), c.key, c.secret).with_sensitive_values(c.redaction_values),
-            // Rails' unsaved fallback key: Alpaca answers 401 and the tick fails, per bot.
+            // 2.x's unsaved fallback key: Alpaca answers 401 and the tick fails, per bot.
             None => ReqwestTransport::new(self.client.clone(), String::new(), String::new()),
         };
         AlpacaVenue { transport: transport.with_clock(self.clock.clone()).with_sensitive_values(sensitive), urls, identity }

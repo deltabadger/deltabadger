@@ -1,6 +1,6 @@
 //! Honeymaker::Clients::Hyperliquid (with hyperliquid-rb 0.1.1 for orders and cancels) and Exchanges::Hyperliquid for the
 //! engine's spot orders (plan VB slice B1): prices, balances, placement, polls, cancel, the gone-order recovery from the
-//! fills and the recovery by cloid. Rails is the oracle (post-audit, AUDIT-hyperliquid H1-H8); each method names the Ruby it
+//! fills and the recovery by cloid. 2.x is the oracle (post-audit, AUDIT-hyperliquid H1-H8); each method names the 2.x method it
 //! ports. `venue::live` builds it for every Hyperliquid bot.
 //!
 //! Every read is a POST to /info whose JSON body names its `type` and the account's address (the API key). An order or a
@@ -10,7 +10,7 @@
 //! `post_action` (no vault, no expiry, through ExchangeProxy.for('hyperliquid') like every other request).
 //!
 //! Hyperliquid spot has no market order. A market plan reaches the adapter crossed (`OrderKind::Crossed`, D-679, plan VB
-//! §1.5): an IOC limit at Rails' 1% crossed price persisted in the intent. Price adjustment floors
+//! §1.5): an IOC limit at 2.x's 1% crossed price persisted in the intent. Price adjustment floors
 //! both before and after crossing. D-HYPERLIQUID-MARKET-IOC changes only time-in-force from GTC to IOC.
 //! Configured limit orders stay GTC. Final partial fills use the normal status/fills poll and accounting;
 //! iocCanceled is terminal, and its executed portion is credited without reserving the unfilled remainder.
@@ -20,20 +20,20 @@
 //! https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint
 //!
 //! Where it differs on purpose (plan VB §5, named in tests/parity.rs and tests/hyperliquid.rs):
-//! - the order carries a cloid (`0x` + the intent id's 32 hex digits, D9; Rails sends none) and recovery asks orderStatus
+//! - the order carries a cloid (`0x` + the intent id's 32 hex digits, D9; 2.x sends none) and recovery asks orderStatus
 //!   for it, which can only FIND an order (absence is never concluded);
 //! - the asset id comes from one spotMeta read (hyperliquid-rb's Info also reads meta and perpDexs, which name no spot
 //!   pair); a failed read before the order sends nothing;
-//! - a cancel addresses the pair orderStatus names for the order (Rails reads it from the order's row, H4), and is a
-//!   success only when Hyperliquid says so (Rails takes any HTTP 200 as cancelled, an `err` answer included:
+//! - a cancel addresses the pair orderStatus names for the order (2.x reads it from the order's row, H4), and is a
+//!   success only when Hyperliquid says so (2.x takes any HTTP 200 as cancelled, an `err` answer included:
 //!   D-HL-CANCEL-REFUSED);
-//! - D-HL-INVALID-PRIVATE-KEY: an invalid agent secret fails before sending and writes a failed row; Rails treats
+//! - D-HL-INVALID-PRIVATE-KEY: an invalid agent secret fails before sending and writes a failed row; 2.x treats
 //!   the signer exception as ambiguous during signal placement. The decision grid exercises the real transport refusal;
-//! - D-HL-PRE-SEND: a refused connection also proves nothing was sent; signal placement records failure where Rails
+//! - D-HL-PRE-SEND: a refused connection also proves nothing was sent; signal placement records failure where 2.x
 //!   treats hyperliquid-rb's wrapped network exception as ambiguous;
 //! - a placement that may have reached Hyperliquid (a 5xx, a lost reply, an answer that is not JSON, or whose status is
 //!   neither "ok" nor "err", or an "ok" without statuses or an oid) keeps the intent: only an answer that proves the refusal
-//!   (`err`, a status error, a 4xx) clears it; a number that is no decimal is refused where Rails reads it as 0.
+//!   (`err`, a status error, a 4xx) clears it; a number that is no decimal is refused where 2.x reads it as 0.
 use super::binance::Pairs;
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError};
@@ -54,7 +54,7 @@ pub const FILLS_PAGE: usize = 2000;
 pub const TIME_PAGE: usize = 500;
 /// Honeymaker::Clients::Hyperliquid::FILLS_PAGES: the cap on one order's cost walk.
 const FILLS_PAGES: usize = 25;
-/// ponytail: Rails' read_by_time has no page cap; the venue serves at most the 10000 most recent fills, so this many pages
+/// ponytail: 2.x's read_by_time has no page cap; the venue serves at most the 10000 most recent fills, so this many pages
 /// only stops a cursor that never ends.
 const MAX_TIME_PAGES: usize = 10_000;
 pub const NO_STATUSES: &str = "Hyperliquid order failed: no statuses returned";
@@ -67,10 +67,10 @@ pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous(UNREADABLE.into
 fn required(v: &Value) -> Result<BigDec, VenueError> { super::json::required(v, unreadable) }
 /// `x.to_d` / `BigDecimal((x || "0").to_s)` of a field that may be absent; present and unreadable refuses the whole answer.
 fn or_zero(v: &Value) -> Result<BigDec, VenueError> { if v.is_null() { Ok(BigDec::zero()) } else { required(v) } }
-/// `#to_s` of a scalar, as Ruby interpolates it (nil is "").
+/// `#to_s` of a scalar, as 2.x interpolates it (nil is "").
 fn to_s(v: &Value) -> String { match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() } }
 
-/// Ruby's String#inspect.
+/// 2.x's String#inspect.
 fn v2_string(s: &str) -> String {
     let mut out = String::from("\"");
     let mut chars = s.chars().peekable();
@@ -87,7 +87,7 @@ fn v2_string(s: &str) -> String {
     out
 }
 
-/// Ruby's #inspect (and #to_s) of what JSON.parse made of `v`, as "Hyperliquid order failed: #{response}" interpolates it.
+/// 2.x's #inspect (and #to_s) of what JSON.parse made of `v`, as "Hyperliquid order failed: #{response}" interpolates it.
 pub fn inspect(v: &Value) -> String {
     match v {
         Value::Null => "nil".into(),
@@ -148,7 +148,7 @@ fn top(body: &Value, side: usize) -> Result<Option<BigDec>, VenueError> {
 }
 
 impl<T: Transport> HyperliquidVenue<T> {
-    /// `user` is the account's address, the key Rails names every read with (`api_key.key`).
+    /// `user` is the account's address, the key 2.x names every read with (`api_key.key`).
     pub fn new(transport: T, base: &str, user: &str) -> Self { Self { transport, base: base.into(), user: user.into(), pairs: Pairs::default(), identity: None } }
     /// The key this venue sends with (`venue::key_identity`), recorded in each intent and compared before a recovery asks.
     pub fn with_identity(mut self, credentials: &crate::crypto::Credentials) -> Self { self.identity = Some(super::key_identity(&self.base, credentials)); self }
@@ -387,7 +387,7 @@ impl Fills {
 fn oid_of(external_id: &str) -> Option<u64> { external_id.rsplit_once('-')?.1.parse().ok() }
 
 /// A28-3c-3a: one historicalOrders row (an order's newest) read strictly, and whether it is still open. A simple limit
-/// order (`orderType` Limit, no trigger; Rails reads every Hyperliquid order as a limit), sized in base (`origSz`), its id
+/// order (`orderType` Limit, no trigger; 2.x reads every Hyperliquid order as a limit), sized in base (`origSz`), its id
 /// "<base>-<oid>" as `add_order` stores it. A final row's filled base is origSz − sz (`filled` needs sz 0); an `open` row's
 /// is left at 0 for its fills to state. A status naming a cancel or a reject ended the order (`order_status`).
 pub fn history_row(symbol: &str, base: &str, raw: &Value) -> Option<(super::CreatedOrder, bool)> {
@@ -415,7 +415,7 @@ pub fn history_row(symbol: &str, base: &str, raw: &Value) -> Option<(super::Crea
 /// `row['time'].to_i`.
 fn time_ms(v: &Value) -> i64 { match v { Value::Number(n) => n.as_i64().unwrap_or_else(|| n.as_f64().map_or(0, |f| f as i64)), Value::String(s) => crate::v2::to_i(s), _ => 0 } }
 
-/// `page.tally`, in the page's order: each distinct row (Ruby's Hash#eql?, which serde's map equality matches) and how often.
+/// `page.tally`, in the page's order: each distinct row (2.x's Hash#eql?, which serde's map equality matches) and how often.
 pub fn tally(page: &[Value]) -> Vec<(Value, usize)> {
     let mut out: Vec<(Value, usize)> = vec![];
     for row in page { match out.iter_mut().find(|(r, _)| r == row) { Some(slot) => slot.1 += 1, None => out.push((row.clone(), 1)) } }
@@ -550,7 +550,7 @@ impl<T: Transport> super::Venue for HyperliquidVenue<T> {
     /// #set_crossing_order / #set_limit_order through Clients::Hyperliquid#order → Exchange#order:
     /// a crossed market order is IOC (D-HYPERLIQUID-MARKET-IOC), a configured limit GTC; p and s
     /// go through float_to_wire, at the persisted price, plus `c`, the cloid (D9). Sent at most once. "ok" with the order resting or filled is its oid, stored
-    /// as "<base>-<oid>"; an `err` answer or a status error is the refusal Rails writes ("Hyperliquid order failed: …").
+    /// as "<base>-<oid>"; an `err` answer or a status error is the refusal 2.x writes ("Hyperliquid order failed: …").
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
         let price = match &o.kind {
             OrderKind::Crossed { price } | OrderKind::Limit { price } => price,
@@ -637,7 +637,7 @@ impl<T: Transport> super::Venue for HyperliquidVenue<T> {
     async fn settled_quote_balance<F>(&self, ticker: &Ticker, _catalog: F) -> Result<BigDec, VenueError>
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> { self.free(|code| code == ticker.quote_code).await }
 
-    /// Exchanges::Hyperliquid#get_tickers_prices: allMids, the listed pairs' mids (Rails caches the answer for a minute; this
+    /// Exchanges::Hyperliquid#get_tickers_prices: allMids, the listed pairs' mids (2.x caches the answer for a minute; this
     /// reads fresh). Each price is its decimal's `to_s('F')`; a mid that is no decimal is left out (as Binance's and KuCoin's).
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
         let body = self.info("allMids", vec![]).await?;
@@ -646,7 +646,7 @@ impl<T: Transport> super::Venue for HyperliquidVenue<T> {
 
     /// #cancel_order through Clients::Hyperliquid#cancel → Exchange#cancel: `{type: cancel, cancels: [{a, o}]}` for the pair
     /// orderStatus names for the order (H4). A success only when Hyperliquid answers "ok" with the cancel's status "success"
-    /// (D-HL-CANCEL-REFUSED: Rails takes any HTTP 200 as cancelled).
+    /// (D-HL-CANCEL-REFUSED: 2.x takes any HTTP 200 as cancelled).
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
         let oid = crate::v2::to_i(split_order_id(txid).1);
         let raw = self.info("orderStatus", vec![("user", self.user.clone().into()), ("oid", oid.into())]).await?;

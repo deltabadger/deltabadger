@@ -1,6 +1,6 @@
 //! Import::DeltabadgerCsv: the app's own export (the columns web::tracker::CSV_HEADERS writes) read back. Every row
 //! names its venue; nothing here is stripped but the type and the venue. D-CSV-ROUNDTRIP: a text cell loses the quote
-//! CsvSafe put ahead of a formula character (CsvSafe.unescape), so a round trip is lossless; Rails keeps it. Pinned by
+//! CsvSafe put ahead of a formula character (CsvSafe.unescape), so a round trip is lossless; 2.x keeps it. Pinned by
 //! rust/tests/fixtures/import_vectors.json.
 use super::csv::{self, Malformed, Table};
 use crate::v2;
@@ -25,7 +25,7 @@ pub fn read(text: &str) -> Result<(Vec<Routed>, Vec<String>), Malformed> {
     let (mut out, mut unrecognised) = (vec![], Vec::<String>::new());
     for row in &table.rows {
         let get = |name: &str| table.get(row, name);
-        // The text columns only: amounts, the date and the type are read as Rails reads them.
+        // The text columns only: amounts, the date and the type are read as 2.x reads them.
         let text = |name: &str| get(name).map(unescape);
         let presence = |name: &str| text(name).filter(|v| !v2::blank(v)).map(str::to_string);
         let type_name = v2::strip(get(kind).unwrap_or(""));

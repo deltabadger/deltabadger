@@ -126,7 +126,7 @@ pub fn fingerprint(c:&Connection,owner:i64)->Result<Option<Fingerprint>,FiguresE
     let Some(raw)=app_config::get_plain(c,&key(owner)).map_err(FiguresError::Data)? else {return Ok(None)};
     Ok(serde_json::from_str::<Value>(&raw).ok().filter(Value::is_object).map(|v|Fingerprint::of(&v)))
 }
-/// Cold includes absent/expired/obsolete/malformed cache entries, as Rails' shape guard does.
+/// Cold includes absent/expired/obsolete/malformed cache entries, as 2.x's shape guard does.
 /// SQL failures propagate; a computed failure has its own safe, stated reason.
 pub fn read(c:&Connection,owner:i64,exchange:Option<i64>,now:DateTime<Utc>)->Result<State,FiguresError> {
     Ok(read_published(c,owner,now)?.scoped(exchange))
