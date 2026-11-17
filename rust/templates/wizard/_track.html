@@ -1,6 +1,6 @@
 <ol class="sheet__track">
 {%- for item in items %}
-  <li data-item="{{ item.key }}" class="sheet__step{% if item.state == "done" %} sheet__step--done{% elif item.state == "current" %} sheet__step--current{% endif %}"{% if item.state == "current" %} aria-current="step"{% endif %}>
+  <li class="sheet__step{% if item.state == "done" %} sheet__step--done{% elif item.state == "current" %} sheet__step--current{% endif %}"{% if item.state == "current" %} aria-current="step"{% endif %}>
 {%- if item.action.kind == "get" %}
     <a class="sheet__control" href="{{ item.action.url }}" data-turbo-frame="modal_content"{% if item.action.back %} data-wizard-dir="back"{% endif %}>{% include "wizard/_track_label.html" %}</a>
 {%- elif item.action.kind == "post" %}

@@ -69,15 +69,10 @@ export default class extends Controller {
       document.documentElement.dataset.wizardDir !== "stay";
     const scrollStepToTop = () => event.target.closest("dialog")?.scrollTo({ top: 0 });
 
-    // The DCA sheet: a step change is instant, as a settings section is, unless the track's current item stays the
-    // same (the exchange's key step after the exchange: still that item, so it slides).
-    if (event.target.id === "modal_content" && document.documentElement.dataset.wizardDir !== "stay") {
-      const item = (root) => root?.querySelector(".sheet__track .sheet__step--current")?.dataset.item;
-      const before = item(event.target);
-      if (before && before !== item(event.detail.newFrame)) {
-        delete document.documentElement.dataset.wizardDir;
-        return;
-      }
+    // The DCA sheet: a step change is instant, as a settings section is.
+    if (event.target.id === "modal_content" && event.target.classList.contains("sheet__frame")) {
+      delete document.documentElement.dataset.wizardDir;
+      return;
     }
 
     // Wrap the wizard frame swap in a View Transition so named parts

@@ -284,6 +284,38 @@ fn ungroup(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usiz
     Ok(())
 }
 
+/// D-WIZARD-SHEET-KEY-FORM: the key step's form in Settings' rows and controls (`.srow`, `.rinput`, `.rbutton`) where Rails
+/// has its floating-label rows. Compared by what it submits and says: the form itself, every field (name, type, id, value
+/// but the token's, autofocus, autocomplete, its controller, Connect's Turbo attributes) and every label with its field,
+/// in order; then read back as Rails' form.
+fn reform(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usize) -> Result<(), String> {
+    let form = |lines: &[Value], at: usize| positions(lines, at, subtree_end(lines, at), |l| has_class(l, "form", "set-api__form")).first().copied();
+    let Some(mine) = form(ours, ours_step) else { return Ok(()) };
+    let mine_end = subtree_end(ours, mine);
+    if positions(ours, mine, mine_end, |l| has_class(l, "input", "rinput")).is_empty() { return Ok(()) }
+    let rails = form(theirs, step).ok_or("a key form where Rails has none")?;
+    let said = |lines: &[Value], at: usize| -> Vec<String> {
+        let end = subtree_end(lines, at);
+        let mut out = vec![text(&lines[at]).trim().to_string()];
+        for value in &lines[at..end] {
+            let line = text(value);
+            if opens(value, "input") {
+                let token = attr(line, "name").as_deref() == Some("authenticity_token");
+                out.push(["name", "type", "id", "value", "autofocus", "autocomplete", "data-controller", "data-turbo-stream", "data-turbo-submits-with", "data-disable-with"].iter()
+                    .filter(|a| !(token && **a == "value")).map(|a| format!("{a}={:?}", attr(line, a))).collect::<Vec<_>>().join(" "));
+            }
+        }
+        // The labels after the fields: a Settings row puts its label before its field, Rails' row after.
+        out.extend((at..end).filter(|i| opens(&lines[*i], "label")).map(|i| format!("label for={:?}: {:?}", attr(text(&lines[i]), "for"), words(&lines[i + 1]))));
+        out
+    };
+    let (got, want) = (said(ours, mine), said(theirs, rails));
+    if got != want { return Err(format!("the key form is not Rails':\n  drawn: {got:?}\n  Rails: {want:?}")) }
+    let back = reindent(&theirs[rails..subtree_end(theirs, rails)], depth(&ours[mine]));
+    ours.splice(mine..mine_end, back);
+    Ok(())
+}
+
 /// D-WIZARD-SHEET on one answer to `path` (see the module). Ok(1) when it was a sheet put back as Rails' step, Ok(0) when the
 /// answer is not a DCA step's (not a DCA path, or no step in either body), Err when this crate's answer draws a step that is
 /// not the sheet it must be.
@@ -363,6 +395,7 @@ pub fn wizard_sheet(path: &str, flow: Option<&str>, rails: &mut Value, rust: &mu
     let ours_step = positions(ours, ours_shell, ours_end, |l| has_class(l, "div", "bot-creation-layout"))[0];
     // D-WIZARD-VENUE-GROUPS: the brokers and the exchanges under their headings; read back as Rails' one grid.
     ungroup(theirs, step, ours, ours_step, locale)?;
+    reform(theirs, step, ours, ours_step)?;
     let ours_end = subtree_end(ours, ours_shell);
     // The basket is drawn open; Rails' was closed unless asked for.
     let list = |l: &Value| opens(l, "div") && attr(text(l), "class").is_some_and(|c| c.split(' ').any(|c| c == "wizard-assets__list"));
@@ -568,6 +601,22 @@ mod tests {
                       groups(group("Exchanges", &["14"]), group("Brokers", &["1", "3"])), groups(group("Brokers", &["14"]), group("Exchanges", &["1", "3", "9"]))] {
             assert!(wizard_sheet(EXCHANGES, None, &mut rails(), &mut ours(wrong.clone())).is_err(), "{wrong}");
         }
+    }
+
+    #[test]
+    fn the_key_form_is_compared_by_what_it_submits() {
+        let form = |fields: &str| format!("<form class=\"set-api__form form\" data-turbo-frame=\"modal_content\" action=\"/bots/dca_single_assets/add_api_key\" method=\"post\">{CSRF}{fields}</form><section class=\"set-api__instructions\">how</section>");
+        let submit = |class: &str, value: &str| format!("<input type=\"submit\" name=\"commit\" value=\"{value}\" class=\"{class}\" data-turbo-stream=\"true\" data-turbo-submits-with=\"Validating\" data-disable-with=\"{value}\" />");
+        let rails_fields = format!("<div class=\"form__row form__row--input\"><input autofocus=\"autofocus\" autocomplete=\"off\" data-controller=\"autofocus\" class=\"form__input\" type=\"text\" name=\"api_key[key]\" id=\"api_key_key\" /><label class=\"form__label\" for=\"api_key_key\">API Key</label></div><div class=\"form__row form__row--input\"><input autocomplete=\"off\" class=\"form__input\" type=\"text\" name=\"api_key[secret]\" id=\"api_key_secret\" /><label class=\"form__label\" for=\"api_key_secret\">Secret Key</label></div><div class=\"set-api__actions\">{}</div>", submit("button button--sky", "Connect"));
+        let ours_fields = |key_name: &str, value: &str| format!("<div class=\"srow\"><div class=\"srow__text\"><label class=\"srow__label\" for=\"api_key_key\">API Key</label></div><div class=\"srow__control\"><input autofocus=\"autofocus\" autocomplete=\"off\" data-controller=\"autofocus\" class=\"rinput rinput--outline rinput--text\" type=\"text\" name=\"{key_name}\" id=\"api_key_key\" /></div></div><div class=\"srow\"><div class=\"srow__text\"><label class=\"srow__label\" for=\"api_key_secret\">Secret Key</label></div><div class=\"srow__control\"><input autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" type=\"text\" name=\"api_key[secret]\" id=\"api_key_secret\" /></div></div><div class=\"set-api__actions\">{}</div>", submit("rbutton rbutton--primary", value));
+        let key_track = track(&[item("current", "Kraken", Some(("get", EXCHANGES, &[], true))), item("upcoming", "Assets", Some(("post", ORDER, &[("flow", "asset_first")], false))), item("upcoming", "Currency", None)]);
+        let rails = || rails_page(&rails_step("Connect exchange", 50, &key_sentence(), &form(&rails_fields)));
+        let ours = |fields: String| page(&sheet("modal_content", &key_track, &ours_step("", &form(&fields))));
+        let (mut theirs, mut drawn) = (rails(), ours(ours_fields("api_key[key]", "Connect")));
+        assert_eq!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut theirs, &mut drawn), Ok(1));
+        assert!(same(&theirs, &drawn), "{theirs:#}\n{drawn:#}");
+        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut rails(), &mut ours(ours_fields("api_key[public]", "Connect"))).is_err(), "a renamed field");
+        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut rails(), &mut ours(ours_fields("api_key[key]", "Save"))).is_err(), "another button");
     }
 
     #[test]

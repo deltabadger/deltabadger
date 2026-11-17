@@ -702,7 +702,7 @@ pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>
 
 #[derive(Template)]
 #[template(path="settings/alpaca_form.html")]
-struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool, modal:bool,
+struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool, modal:bool, sheet:bool,
     name_id:String, mark:&'static str, alpaca:bool, passphrase:bool, key_label:String, secret_label:String }
 
 /// The venues whose keys this build checks (the wizard's list): every other venue's key route is a named refusal.
@@ -722,11 +722,21 @@ fn requires_passphrase(class:&str)->bool{class!=crate::sync::ALPACA&&crate::venu
 /// type; `instructions` the walkthrough under it; the fields are the key and secret, and Alpaca's Paper/Live switch before them.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,modal:bool,instructions:String)->Result<String,WebError>{
+    card_in(ctx,csrf,action,form_data,name,class,live,modal,false,instructions)
+}
+/// The card as the DCA wizard's sheet draws it (D-WIZARD-SHEET-KEY-FORM): Settings' rows and controls (`.srow`, `.rinput`,
+/// `.rbutton`), the same fields and the same Connect.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn sheet_card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,instructions:String)->Result<String,WebError>{
+    card_in(ctx,csrf,action,form_data,name,class,live,false,true,instructions)
+}
+#[allow(clippy::too_many_arguments)]
+fn card_in(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,modal:bool,sheet:bool,instructions:String)->Result<String,WebError>{
     let name_id=crate::tracker::rows::name_id(class);
     // BotHelper#api_key_field_label: the venue's own word for a field, else the generic one.
     let label=|field:&str|{let specific=format!("bot.api.{name_id}.{field}");if lookup(ctx.locale,&specific).is_some(){ctx.t(&specific)}else{ctx.t(&format!("bot.api.{field}_label"))}};
     Ok(AlpacaForm{v:ctx,csrf,action,form_data,connect_title:i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text(name))]),
-        instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text(name))]),instructions,live,modal,
+        instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text(name))]),instructions,live,modal,sheet,
         mark:crate::web::bot::exchange_svg(&name_id),alpaca:class=="Exchanges::Alpaca",passphrase:requires_passphrase(class),key_label:label("public_key"),secret_label:label("private_key"),name_id}.render()?)
 }
 #[derive(Template)]

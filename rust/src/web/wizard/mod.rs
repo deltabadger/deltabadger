@@ -314,7 +314,7 @@ impl Action {
 
 /// One item of the track (D-WIZARD-TRACK r4): Exchange, Assets or Currency, by position done, current or upcoming; its label,
 /// or the venue's name, or the chosen tickers (five at most, `more` beyond); and what it does, by the sentence's slot state.
-pub struct Item { key: &'static str, state: &'static str, label: String, chips: Vec<Chip>, more: usize, stack_class: &'static str, action: Action }
+pub struct Item { state: &'static str, label: String, chips: Vec<Chip>, more: usize, stack_class: &'static str, action: Action }
 
 #[derive(Template)]
 #[template(path = "wizard/_track.html")]
@@ -378,7 +378,7 @@ pub fn steer(ctx: &Ctx, csrf: &str, of: SentenceOf, actions: bool) -> Result<Ste
         let state = match current { Some(current) if place < current => "done", Some(current) if place == current => "current", _ => "upcoming" };
         let action = actions_by_item[*item].take().filter(|_| actions).unwrap_or_else(Action::plain);
         let key = ["exchange", "assets", "spendable"][*item];
-        let mut entry = Item { key, state, label: ctx.t(&format!("bot.setup.progress_steps.{key}")), chips: vec![], more: 0, stack_class: "", action };
+        let mut entry = Item { state, label: ctx.t(&format!("bot.setup.progress_steps.{key}")), chips: vec![], more: 0, stack_class: "", action };
         match item {
             0 => if let (Some(name), false) = (&of.exchange, of.step == Step::Exchange) { entry.label = name.clone(); },
             1 => { entry.chips = chips.take().unwrap_or_default(); entry.more = more; entry.stack_class = stack_class; }

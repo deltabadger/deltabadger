@@ -102,8 +102,10 @@ struct Form { search: String, card: String }
 #[allow(clippy::too_many_arguments)]
 fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>, namespace: Namespace, venue: &Venue, live: bool) -> Result<(String, Option<String>), WebError> {
     let instructions = keys::key_instructions(c, app, ctx, &venue.class, &venue.name, 0)?;
-    let card = keys::card(ctx, csrf, ctx.path(namespace.action()), "data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"",
-                          &venue.name, &venue.class, live, false, instructions)?;
+    let form_data = "data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"";
+    let dca = matches!(namespace, Namespace::Single | Namespace::Multi);
+    let card = if dca { keys::sheet_card(ctx, csrf, ctx.path(namespace.action()), form_data, &venue.name, &venue.class, live, instructions)? }
+               else { keys::card(ctx, csrf, ctx.path(namespace.action()), form_data, &venue.name, &venue.class, live, false, instructions)? };
     if namespace == Namespace::Index { return Ok((super::index::key_form(ctx, &venue.name, &venue.class, &card)?, None)) }
     if namespace == Namespace::Signal { return Ok((super::signals::key_form(c, ctx, config, &card)?, None)) }
     let order = order(config, namespace);
