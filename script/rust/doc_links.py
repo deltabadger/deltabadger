@@ -9,7 +9,6 @@ or the repo root, as a glob when it has one. A backticked token counts as a path
 is an entry of the repo root or of the file's directory, or it starts with ./ or ../; URLs, env values and the like are
 not checked.
 """
-import fnmatch
 import os
 import re
 import subprocess
@@ -26,9 +25,10 @@ for p in subprocess.run(['git', 'ls-files'], capture_output=True, text=True, che
         tracked.add(p)
         p = os.path.dirname(p)
 
-link = re.compile(r'\]\(([^)\s]+)\)')
+# Inline links ([x](path), [x](<path>), [x](path "title")) and reference definitions ([x]: path).
+link = re.compile(r'\]\(\s*(?:<([^>]+)>|([^)\s]+))|^\s{0,3}\[[^\]]+\]:\s*(?:<([^>]+)>|(\S+))')
 tick = re.compile(r'`([^`\s]+)`')
-fence = re.compile(r'^\s*```')
+fence = re.compile(r'^\s{0,3}(`{3,}|~{3,})')
 
 
 def exists(base, path):
@@ -37,22 +37,28 @@ def exists(base, path):
         return True
     path = os.path.normpath(os.path.join(base, path))
     if any(c in path for c in '*?['):
-        return any(fnmatch.fnmatchcase(t, path) for t in tracked)
+        # Segment-aware: * and ? stay inside one directory, ** spans any number of them.
+        pattern = re.escape(path).replace(r'\*\*/', '(?:.*/)?').replace(r'\*\*', '.*').replace(r'\*', '[^/]*').replace(r'\?', '[^/]')
+        return any(re.fullmatch(pattern, t) for t in tracked)
     return path in tracked
 
 
 bad = []
 for f in files:
     here = os.path.dirname(f) or '.'
-    in_fence = False
+    in_fence = None
     developer = not f.startswith('manual/') or f == 'manual/33-development.md'
     for n, line in enumerate(open(f, encoding='utf-8'), 1):
-        if fence.match(line):
-            in_fence = not in_fence
-            continue
+        opened = fence.match(line)
         if in_fence:
+            # A fence closes on the same character, at least as long, with nothing after it.
+            if opened and opened.group(1)[0] == in_fence[0] and len(opened.group(1)) >= len(in_fence) and not line[opened.end():].strip():
+                in_fence = None
             continue
-        for target in link.findall(line):
+        if opened:
+            in_fence = opened.group(1)
+            continue
+        for target in (next(g for g in m if g) for m in link.findall(line)):
             if re.match(r'[a-z]+:|#|/', target):
                 continue
             if not exists(here, target):
