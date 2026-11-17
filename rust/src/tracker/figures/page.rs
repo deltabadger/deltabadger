@@ -10,7 +10,7 @@ pub const UNPRICED:&str="Tracker figures unavailable: unpriced holdings";
 #[derive(Clone,Debug)]
 pub struct Cold {pub holdings:Vec<Holding>,pub value:Option<Dec>,pub synced:Option<DateTime<Utc>>,pub stale:bool,pub unpriced:Vec<String>,pub only_cash:bool,pub reason:Option<&'static str>}
 fn time(raw:Option<String>)->Result<Option<DateTime<Utc>>,FiguresError>{raw.map(|s|crate::codec::parse_time(&s).map_err(|_|FiguresError::Data("unreadable balance timestamp".into()))).transpose()}
-/// Rails' waiting_for_ledger groups by asset identity, not symbol. Predicates stay in SQLite.
+/// 2.x's waiting_for_ledger groups by asset identity, not symbol. Predicates stay in SQLite.
 pub fn cold(c:&Connection,owner:i64,exchange:Option<i64>,show_cash:bool)->Result<Cold,FiguresError>{
     // One snapshot: the balances and the stamp saying which key produced them.
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=cold(&tx,owner,exchange,show_cash)?;tx.commit()?;return Ok(out)}

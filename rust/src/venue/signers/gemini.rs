@@ -9,7 +9,7 @@ use sha2::Sha384;
 /// The nonce every Gemini request takes (`Nonce::next`): one per process, so per key too.
 pub static NONCE: super::Nonce = super::Nonce::new();
 
-/// The payload text as Rails encodes it: `Hash#compact` (a null param is left out; an empty array is kept), the params in
+/// The payload text as 2.x encodes it: `Hash#compact` (a null param is left out; an empty array is kept), the params in
 /// the caller's order, then `request` and `nonce`. ActiveSupport's `to_json` escapes `<`, `>`, `&`, U+2028 and U+2029,
 /// which serde_json writes raw; they occur only inside strings, so rewriting the text is exact.
 pub fn payload(path: &str, params: &[(&str, Value)], nonce: u64) -> String {

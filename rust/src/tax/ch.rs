@@ -1,12 +1,12 @@
 //! Switzerland (DBG art. 16, 20; StHG art. 13–17; ESTV Arbeitspapier Kryptowährungen; KS Nr. 36): the wealth snapshot at
 //! 31 December at the ESTV Kursliste values (A12-6), over `wealth::held` and `estv`:
-//! - D-TAX-CH-YEAR-END: units held before 1 January `year`+1 00:00 in the taxpayer's zone (Rails: 23:59:59 UTC on 31
+//! - D-TAX-CH-YEAR-END: units held before 1 January `year`+1 00:00 in the taxpayer's zone (2.x: 23:59:59 UTC on 31
 //!   December); a year not ended: units to the start of tomorrow, prices dated today, provisional (`ch_provisional`).
 //! - D-TAX-CH-ESTV: a coin ESTV lists is valued at its Kursliste value of 31 December; one it does not list, or a year it
 //!   was not reached for (provisional), at the daily price, listed (`ch_market_value`). Only where the ticker names the
 //!   holding's coin, and only it (r3 item 2, r4 item 1).
 //! - D-TAX-CH-NO-VALUE: a coin with neither is listed at 0 (`ch_no_value`: declare it at its purchase price).
-//! - D-TAX-CH-INCOME: the year's income valued in CHF on receipt (Rails: "income not included").
+//! - D-TAX-CH-INCOME: the year's income valued in CHF on receipt (2.x: "income not included").
 //! - D-TAX-CH-KS36: the year's sales and the fiat trading volume against five times the holdings on 1 January
 //!   (`ch_private_gains`).
 use super::wealth::{fixed, summary, Held, Wealth};

@@ -1,7 +1,7 @@
 //! Bots::DcaSingleAsset::Measurable, which Bots::Signal includes: a pair bot's walk over its orders (`metrics`), the
-//! live pass (`live`) and the chart marked at market (`marked_at`), its three cache layers. Each is computed as Rails
+//! live pass (`live`) and the chart marked at market (`marked_at`), its three cache layers. Each is computed as 2.x
 //! computes it, apart from D1, D2 and D-PAIR-FILL-VALUE (`fill::pair_row`). The figures ride in `walk::Metrics`, so
-//! the totals, the chart page and every reader keep one implementation; `Pair::to_json` writes Rails' own hash.
+//! the totals, the chart page and every reader keep one implementation; `Pair::to_json` writes 2.x's own hash.
 use super::at::At;
 use super::db::{self, Bot, Kind, Subject};
 use super::json::J;
@@ -55,7 +55,7 @@ fn pnl(invested: &Num, value: &Num) -> Result<Num, FiguresError> {
     Ok(if invested.is_zero() { Num::Float(0.0) } else { Num::Float(value.sub(invested)?.to_f()).div(invested)? })
 }
 
-/// `transactions.submitted.distinct.pluck(:base).compact_blank`, as Rails asks SQLite for it (the first row is the
+/// `transactions.submitted.distinct.pluck(:base).compact_blank`, as 2.x asks SQLite for it (the first row is the
 /// split key of a pair with no ticker, and an unordered DISTINCT answers in the order the same query always does).
 fn spellings(c: &Connection, bot_id: i64) -> Result<Vec<String>, FiguresError> {
     let mut statement = c.prepare("SELECT DISTINCT \"transactions\".\"base\" FROM \"transactions\" WHERE \"transactions\".\"bot_id\" = ?1 AND \"transactions\".\"status\" = ?2")?;
@@ -106,7 +106,7 @@ impl Pair {
         Ok(self.restated_at.is_some_and(|at| now.plus_seconds(-QUARANTINE_SECONDS).is_none_or(|cutoff| at > cutoff)))
     }
 
-    /// The hash as Rails' `to_json` writes it, times in UTC with `digits` fractional digits.
+    /// The hash as 2.x's `to_json` writes it, times in UTC with `digits` fractional digits.
     pub fn to_json(&self, digits: usize) -> J {
         let time = |at: &At| J::Str(super::json::time_utc(&at.utc(), digits));
         let m = &self.metrics;
@@ -192,7 +192,7 @@ pub fn metrics(c: &Connection, id: i64, now: At) -> Result<Pair, FiguresError> {
 
 fn stale(mut p: Pair) -> Pair { p.metrics.prices_stale = true; p }
 
-/// #metrics_with_current_prices: the walk marked at its ticker's price, with one more point at `now`, and whether Rails
+/// #metrics_with_current_prices: the walk marked at its ticker's price, with one more point at `now`, and whether 2.x
 /// writes it to its cache. The venue is asked first, before any check; with no point yet or no ticker the walk stands,
 /// unflagged and unwritten; a restatement the market may not have priced, a failed read, or no price leave it stale.
 pub fn live(c: &Connection, walked: &Pair, market: &dyn MarketData, now: At) -> Result<(Pair, bool), FiguresError> {
@@ -224,7 +224,7 @@ pub fn live(c: &Connection, walked: &Pair, market: &dyn MarketData, now: At) -> 
     })
 }
 
-/// #metrics_with_current_prices_and_candles over `live` (cached or not, stale or not), and whether Rails writes it to
+/// #metrics_with_current_prices_and_candles over `live` (cached or not, stale or not), and whether 2.x writes it to
 /// its cache: only when there was a candle grid. A raised valuation fetch is raised.
 pub fn marked_at(live: &Pair, market: &dyn MarketData, now: At) -> Result<(Pair, bool), FiguresError> {
     let mut p = live.clone();

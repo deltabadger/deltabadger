@@ -24,8 +24,8 @@ pub(crate) enum Passphrase { Hmac, Plain, None }
 pub(crate) struct QueryHmacHex { pub key_header: &'static str, pub stamp: fn(chrono::DateTime<chrono::Utc>) -> i64 }
 /// Honeymaker::Clients::Binance (and ::BinanceUs), its timestamp as binance.rs has always computed it.
 pub(crate) const BINANCE_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MBX-APIKEY", stamp: super::binance::timestamp_ms };
-/// Honeymaker::Clients::Mexc, its timestamp as Ruby's Float makes it (`bitvavo::v2_ms`: 02:00:00.250 is ...249), so a
-/// request is the one Rails sends at the same moment.
+/// Honeymaker::Clients::Mexc, its timestamp as 2.x's Float makes it (`bitvavo::v2_ms`: 02:00:00.250 is ...249), so a
+/// request is the one 2.x sends at the same moment.
 pub(crate) const MEXC_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MEXC-APIKEY", stamp: super::bitvavo::v2_ms };
 
 pub(crate) const BITRUE_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MBX-APIKEY", stamp: super::bitvavo::v2_ms };

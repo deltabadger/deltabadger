@@ -1,5 +1,5 @@
-//! The real venues behind the engine (spec E1): one enum dispatching the Venue trait by the bot's exchange type (Rails'
-//! Exchange subclasses), and the per-venue proxy (ExchangeProxy.for). A ported venue trades as in Rails: there is no
+//! The real venues behind the engine (spec E1): one enum dispatching the Venue trait by the bot's exchange type (2.x's
+//! Exchange subclasses), and the per-venue proxy (ExchangeProxy.for). A ported venue trades as in 2.x: there is no
 //! live gate.
 use super::alpaca::AlpacaVenue;
 use super::binance::BinanceVenue;
@@ -89,7 +89,7 @@ impl Venue for LiveVenue {
 /// may be sent.
 pub type Egress = Result<(reqwest::Client, Option<String>), String>;
 
-/// `venue`'s egress from this install's settings now (`name` lowercase, as ExchangeProxy is called: "kraken"), as Rails
+/// `venue`'s egress from this install's settings now (`name` lowercase, as ExchangeProxy is called: "kraken"), as 2.x
 /// builds each Honeymaker client with ExchangeProxy.for: through the proxy when one is configured, else `direct`.
 pub fn egress(c: &Connection, cipher: &Cipher, env: &dyn Fn(&str) -> Option<String>, name: &str, direct: &reqwest::Client) -> Egress {
     let stored = crate::app_config::get(c, cipher, &format!("proxy_{name}")).map_err(|_| format!("the {name} proxy setting is unreadable"))?;

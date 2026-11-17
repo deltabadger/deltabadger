@@ -1,4 +1,4 @@
-//! Poland: a PIT-38 part E workpaper, not a per-sale FIFO (Rails' file). The law (specs/law-PL.md):
+//! Poland: a PIT-38 part E workpaper, not a per-sale FIFO (2.x's file). The law (specs/law-PL.md):
 //! - D-TAX-PL-COST-POOL. Revenue is the cash a coin is disposed of for, gross (art. 17 ust. 1 pkt 11, ust. 1f); costs are
 //!   the cash spent acquiring coins and the fees of such trades, deducted in the year paid (art. 22 ust. 14–15); a surplus
 //!   of costs joins the next year's (ust. 16); income b − (c + d) at 19% (art. 30b ust. 1a–1b), never a loss. No lot is

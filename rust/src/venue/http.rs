@@ -38,7 +38,7 @@ impl HttpRequest {
 }
 
 /// "METHOD /path?k=v&k=v", the query sorted and not encoded: how both parity harnesses name a request
-/// (script/rust/reference_data.rb ScriptedDataApi.key builds the same).
+/// (the recording harness's ScriptedDataApi.key builds the same).
 pub fn request_key(r: &HttpRequest) -> String {
     let mut q: Vec<String> = r.query.iter().map(|(k, v)| format!("{k}={v}")).collect();
     q.sort();
@@ -157,7 +157,7 @@ pub fn client_with(connect: Duration, read: Duration, total: Duration) -> reqwes
 }
 
 /// ExchangeProxy.for(name), for every proxied venue (Binance, Binance.US, Kraken): AppConfig `proxy_<name>` when present,
-/// else ENV `PROXY_<NAME>` when present (Rails' `presence`: a blank value is none). `app_config` is the decrypted AppConfig
+/// else ENV `PROXY_<NAME>` when present (2.x's `presence`: a blank value is none). `app_config` is the decrypted AppConfig
 /// value, read when the venue's client is built.
 pub fn proxy_for(name: &str, app_config: Option<String>, env: &dyn Fn(&str) -> Option<String>) -> Option<String> {
     let present = |v: Option<String>| v.filter(|v| !crate::v2::blank(v));
@@ -179,9 +179,9 @@ fn builder(connect: Duration, read: Duration, total: Duration) -> reqwest::Clien
         // Drop idle pooled connections after 5 s: a server has likely closed an older one, and an order POST written to a
         // dead socket would fail as a spurious MaybeSent and cost a needless recovery wait.
         .pool_idle_timeout(Duration::from_secs(5))
-        // Rails' effective User-Agent: Clients::Alpaca replaces Faraday's headers, so Net::HTTP sends "Ruby".
+        // 2.x's effective User-Agent: Clients::Alpaca replaces Faraday's headers, so Net::HTTP sends its default agent (the wire value below).
         .user_agent("Ruby")
-        // Rails reaches Alpaca directly (there is no PROXY_ALPACA); never pick up HTTP(S)_PROXY from the environment.
+        // 2.x reaches Alpaca directly (there is no PROXY_ALPACA); never pick up HTTP(S)_PROXY from the environment.
         // (`client_via` adds its one proxy after this.)
         .no_proxy()
         // Faraday has no follow-redirects middleware here: a 3xx is an answer, never a second request to another host
@@ -334,7 +334,7 @@ impl ReqwestTransport {
 
 /// Honeymaker's #with_rescue over a transport failure, as Exchanges::Binance and Exchanges::Kucoin read it (plan VB §1.4:
 /// the one split their `call`s share; Kraken's and Alpaca's are their own). Honeymaker returns a transport failure as a
-/// Failure, it never raises: on a placement that provably sent nothing it is a definitive refusal, a failed row as Rails
+/// Failure, it never raises: on a placement that provably sent nothing it is a definitive refusal, a failed row as 2.x
 /// writes one (Exchange#ambiguous_placement_error?: pre-transmission); one that may have sent is Ambiguous on a placement
 /// and Transient on a read. `redact` scrubs the message of the transport's credentials.
 pub(crate) fn transport_failure(e: TransportError, placement: bool, redact: impl Fn(String) -> String) -> super::VenueError {
@@ -363,11 +363,11 @@ pub(crate) async fn read_limited(mut resp: reqwest::Response, limit: usize) -> R
 /// Client.network_failure's split, then Client.pre_transmission?:
 /// - Permanent: only while connecting (`is_connect`, so provably before any request byte), a TLS failure other than the
 ///   peer closing the connection (rustls reports certificate and protocol errors as io::ErrorKind::InvalidData) or a
-///   permission refusal (EACCES/EPERM → PermissionDenied). Rails returns these as a Failure: not retried, and for a
+///   permission refusal (EACCES/EPERM → PermissionDenied). 2.x returns these as a Failure: not retried, and for a
 ///   placement a failed row. Outside connect they stay MaybeSent: on Linux sendmsg returns EPERM when netfilter drops a
 ///   packet on an established connection, possibly after request bytes went out, and a failed row would read as "absent".
 /// - NotSent: `is_connect` (DNS, refusal, a connect timeout): no request byte was written.
-/// - MaybeSent: anything else, as Rails rules for unknown provenance.
+/// - MaybeSent: anything else, as 2.x rules for unknown provenance.
 pub(crate) fn classify(e: reqwest::Error) -> TransportError {
     let m = describe(&e);
     let lower = m.to_ascii_lowercase();
@@ -409,9 +409,9 @@ fn describe(e: &reqwest::Error) -> String {
     m
 }
 
-/// Recorded answers per "METHOD path", the same script the Rails harness serves beneath Clients::Alpaca. A reply is
+/// Recorded answers per "METHOD path", the same script the recording harness serves beneath Clients::Alpaca. A reply is
 /// {"status", "body"} (a JSON string body is sent as raw text) or {"network": "pre_send"|"post_send"|"permanent", "message"}.
-/// The last reply for a key repeats; an unscripted call panics, as the Rails harness raises.
+/// The last reply for a key repeats; an unscripted call panics, as the recording harness raises.
 #[derive(Clone, Default)]
 pub struct ScriptedTransport { s: Rc<RefCell<Scripted>> }
 
@@ -434,7 +434,7 @@ impl ScriptedTransport {
     pub fn network(&self, key: &str, kind: &str, message: &str) -> &Self { self.push(key, serde_json::json!({ "network": kind, "message": message })) }
     fn push(&self, key: &str, reply: Value) -> &Self { self.s.borrow_mut().replies.entry(key.into()).or_default().push_back(reply); self }
     pub fn requests(&self) -> Vec<HttpRequest> { self.s.borrow().requests.clone() }
-    /// The order bodies POSTed, without Rust's client_order_id: what parity compares with Rails' wire.
+    /// The order bodies POSTed, without Rust's client_order_id: what parity compares with 2.x's wire.
     pub fn posted_orders(&self) -> Vec<Value> {
         self.s.borrow().requests.iter().filter(|r| r.method == "POST" && r.path == "/v2/orders").filter_map(|r| r.body.clone())
             .map(|mut b| { if let Value::Object(m) = &mut b { m.remove("client_order_id"); } b }).collect()
@@ -471,7 +471,7 @@ impl Transport for ScriptedTransport {
                 pairs.sort();
                 format!("{} {}?{}", r.method, r.path, pairs.join("&"))
             });
-            // A query's coin names a reply as the Rails harness names it: "GET /api/v1/historical_prices coin_id=bitcoin".
+            // A query's coin names a reply as the recording harness names it: "GET /api/v1/historical_prices coin_id=bitcoin".
             let coin_id = r.query.iter().find(|(k, _)| *k == "coin_id").map(|(_, v)| format!("{} {} coin_id={v}", r.method, r.path));
             let key = if let Some(f) = form.filter(|f| s.replies.contains_key(f)) { f }
                 else if let Some(c) = coin.filter(|c| s.replies.contains_key(c)) { c }
@@ -523,7 +523,7 @@ impl Transport for ScriptedTransport {
         let message = reply["message"].as_str().unwrap_or_default().to_string();
         match reply["network"].as_str() {
             Some("pre_send" | "pre_send_data" | "binance_pre_send" | "kucoin_pre_send" | "bitvavo_pre_send" | "gemini_pre_send" | "bitget_pre_send" | "hyperliquid_pre_send" | "kraken_pre_send") => Err(TransportError::NotSent(message)),
-            // The parity harness's per-venue kind (decisions.rb `NETWORK`): one spelling for every venue's host.
+            // The parity harness's per-venue kind: one spelling for every venue's host.
             Some(kind) if kind.starts_with("pre_send:") => Err(TransportError::NotSent(message)),
             Some("permanent") => Err(TransportError::Permanent(message)),
             Some("post_send") => Err(TransportError::MaybeSent(message)),

@@ -1,8 +1,8 @@
 //! BingX B6–B8 on the shared continuation kit. Transfers precede pair discovery; S2's seven-day
-//! trade reach is preserved. D-BINGX-PAGE names the failed endpoint instead of Rails' undefined `path`.
+//! trade reach is preserved. D-BINGX-PAGE names the failed endpoint instead of 2.x's undefined `path`.
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
 use super::binance_ledger::{amount, entry, page_of, v2_time_at_ms, text, Fail};
-use super::bitrue_ledger::listing_field as index; // Ruby's `value['key']`
+use super::bitrue_ledger::listing_field as index; // 2.x's `value['key']`
 use super::ledger::Outcome;
 use super::wire::Node;
 use super::{capture_bound_version, continuation, load_key_of, phase, Failure, Key, SyncError};
@@ -56,7 +56,7 @@ fn rows(n: Option<&Node>) -> Result<Vec<String>, Fail> {
         _ => Err(("BingX ledger read failed: unreadable rows".into(), false)),
     }
 }
-/// Ruby's `hash.dig('data', key)` on an answer whose `['code']` already read: a nested non-Hash raises as Ruby does.
+/// 2.x's `hash.dig('data', key)` on an answer whose `['code']` already read: a nested non-Hash raises as 2.x does.
 fn dig(v: &Value, key: &str) -> Result<Value, Fail> {
     let data = match v {
         Value::Object(m) => m.get("data").cloned().unwrap_or(Value::Null),
@@ -74,7 +74,7 @@ fn dig(v: &Value, key: &str) -> Result<Value, Fail> {
     };
     Err((format!("TypeError: {class} does not have #dig method"), true))
 }
-/// Ruby's `Array(v)`.
+/// 2.x's `Array(v)`.
 fn array(v: Value) -> Vec<Value> {
     match v {
         Value::Null => vec![],
@@ -83,7 +83,7 @@ fn array(v: Value) -> Vec<Value> {
         scalar => vec![scalar],
     }
 }
-/// Ruby's `v.to_d.positive?`.
+/// 2.x's `v.to_d.positive?`.
 fn positive(v: &Value) -> Result<bool, Fail> {
     match v {
         Value::Bool(_) | Value::Array(_) | Value::Object(_) => Err((format!("NoMethodError: undefined method 'to_d' for {}", crate::web::launchpad::receiver(v)), true)),
@@ -383,7 +383,7 @@ impl<'a, T: Transport> Walk<'a, T> {
                 false,
             ));
         }
-        // As Rails reads it: an answer of another shape raises before any pair is skipped.
+        // As 2.x reads it: an answer of another shape raises before any pair is skipped.
         for bal in array(dig(&v, "balances")?) {
             if positive(&index(&bal, "free")?)? || positive(&index(&bal, "locked")?)? {
                 if let Value::String(asset) = index(&bal, "asset")? {

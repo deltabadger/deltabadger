@@ -1,6 +1,6 @@
 //! Honeymaker::Clients::Binance (and ::BinanceUs) for the tracker's reads (signed GETs), and Exchanges::Binance for the
-//! engine's spot buys, one leg per basket member (spec E2): prices, balance, placement, polls and the fill rebuild. Rails is the oracle; each
-//! method names the Ruby it ports. Binance.US is this adapter configured (Exchanges::BinanceUs < Exchanges::Binance): its host
+//! engine's spot buys, one leg per basket member (spec E2): prices, balance, placement, polls and the fill rebuild. 2.x is the oracle; each
+//! method names the 2.x method it ports. Binance.US is this adapter configured (Exchanges::BinanceUs < Exchanges::Binance): its host
 //! (`US_URL`) and its rules row (`venue_rules::BINANCE_US`, which also names it in messages); nothing else differs.
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, PriceSide};
@@ -20,7 +20,7 @@ pub const READ_RECV_WINDOW: &str = "60000";
 /// is rejected (-1021), never executed late.
 pub const PLACE_RECV_WINDOW: &str = "5000";
 pub const UNREADABLE: &str = "Binance: unreadable response";
-/// Named on a read answered with HTTP 429/418 (spec E §2.10, a listed divergence: Rails fails it as a generic error), so
+/// Named on a read answered with HTTP 429/418 (spec E §2.10, a listed divergence: 2.x fails it as a generic error), so
 /// VenueRules::is_throttle sees it: BINANCE's only throttle text.
 /// Why a lookup by client order id never ends in "absent" (spec E §2.6): `GET /api/v3/order?origClientOrderId` answering
 /// -2013 for an order that does not exist is not confirmed by a recorded live (or testnet) answer. Until it is, the intent
@@ -59,7 +59,7 @@ pub fn build_query(params: &[(&'static str, String)]) -> String {
 /// Client#hmac_sha256: lower-case hex.
 pub fn sign(secret: &str, query: &str) -> String { super::sign::hmac(secret, query, super::sign::Encode::Hex) }
 
-/// Client#timestamp_ms: `(Time.now.utc.to_f * 1_000).to_i`, in Ruby's Float arithmetic.
+/// Client#timestamp_ms: `(Time.now.utc.to_f * 1_000).to_i`, in 2.x's Float arithmetic.
 pub fn timestamp_ms(now: DateTime<Utc>) -> i64 {
     let seconds = now.timestamp() as f64 + f64::from(now.timestamp_subsec_nanos()) / 1e9;
     (seconds * 1000.0) as i64
@@ -146,7 +146,7 @@ impl<T: Transport> BinanceVenue<T> {
     }
 
     /// History repair needs the status to distinguish retryable reads from unavailable historical
-    /// windows. No response diagnostic escapes this boundary; normal sync keeps its Rails contract.
+    /// windows. No response diagnostic escapes this boundary; normal sync keeps its 2.x contract.
     pub(crate) async fn history_get(&self, path: &str, params: Vec<(&'static str, String)>, now: DateTime<Utc>, limit: usize) -> Result<String, Option<u16>> {
         match self.transport.send_limited(&self.signed("GET", path, params, now), limit).await {
             Ok(response) if (200..300).contains(&response.status) => Ok(response.body),
@@ -183,7 +183,7 @@ impl<T: Transport> BinanceVenue<T> {
 
     /// #get_aggregated_trades_for_orders for one order: myTrades by symbol and orderId, paged by trade id from 0 (without one
     /// Binance answers the latest trades), each trade once by its id, 100 pages at most; complete only when the gross
-    /// quantities add up to executedQty, else Rails' failure (the order stays waiting).
+    /// quantities add up to executedQty, else 2.x's failure (the order stays waiting).
     async fn fill(&self, order_id: &str, executed: &BigDec) -> Result<Fill, super::VenueError> {
         let mut parts = order_id.split('-');
         let (symbol, ext) = (parts.next().unwrap_or_default(), crate::v2::to_i(parts.next().unwrap_or_default()));
@@ -331,13 +331,13 @@ pub struct Fill { pub price: BigDec, pub amount_exec: BigDec, pub quote_amount_e
 fn field<'a>(v: &'a serde_json::Value, key: &str) -> Result<&'a serde_json::Value, super::VenueError> { super::json::field(v, key, unreadable) }
 
 /// How a Binance-shaped venue's #parse_order_data differs (plan VB §1.5, `parse_binance_shaped`): its ORDER_STATUS_MAP and
-/// what an unlisted status is (Binance: Unknown, the poll decides; None: refused, as Rails raises "Unknown <venue> order
+/// what an unlisted status is (Binance: Unknown, the poll decides; None: refused, as 2.x raises "Unknown <venue> order
 /// status"), whether the fills' average replaces the price whenever something filled (MEXC X2) or only a zero price
 /// (Binance), and whether origQuoteOrderQty may be absent (MEXC's `&.to_d`).
 pub struct Shape { pub statuses: &'static [(&'static str, super::OrderStatus)], pub unlisted: Option<super::OrderStatus>, pub average_whenever_filled: bool,
                    pub quote_optional: bool }
 
-/// Exchanges::Binance::ORDER_STATUS_MAP; PENDING_CANCEL, and anything else, is Unknown (Rails raises; spec E §2.4).
+/// Exchanges::Binance::ORDER_STATUS_MAP; PENDING_CANCEL, and anything else, is Unknown (2.x raises; spec E §2.4).
 pub const BINANCE_SHAPE: Shape = Shape {
     statuses: &[("NEW", super::OrderStatus::Open), ("PENDING_NEW", super::OrderStatus::Open), ("PARTIALLY_FILLED", super::OrderStatus::Open),
                 ("FILLED", super::OrderStatus::Closed), ("CANCELED", super::OrderStatus::Cancelled), ("EXPIRED", super::OrderStatus::Cancelled),
@@ -351,7 +351,7 @@ pub fn parse_order(name: &str, order_id: &str, o: &serde_json::Value, pairs: &Pa
 }
 
 /// A Binance-shaped #parse_order_data (Binance, MEXC). The status by `shape`. An order type other than MARKET or LIMIT is
-/// refused, as Rails raises. The fills' average (cummulativeQuoteQty / executedQty, rounded half up to the listed pair's
+/// refused, as 2.x raises. The fills' average (cummulativeQuoteQty / executedQty, rounded half up to the listed pair's
 /// price decimals) replaces the price when something filled: always (MEXC) or only when the price is zero (Binance).
 pub fn parse_binance_shaped(name: &str, order_id: &str, o: &serde_json::Value, pairs: &Pairs, shape: &Shape) -> Result<Order, super::VenueError> {
     let symbol = field(o, "symbol")?.as_str().ok_or_else(unreadable)?;
@@ -407,7 +407,7 @@ pub fn parse_trade(t: &serde_json::Value, pairs: &Pairs) -> Result<Trade, super:
 }
 
 /// Exchanges::Binance#aggregate_trades over one order's trades (never empty: the caller refuses that first).
-/// Utilities::Math.weighted_average divides the BigDecimal Σ price×qty by Σ qty `.to_f`: a Float divisor, as Ruby converts it
+/// Utilities::Math.weighted_average divides the BigDecimal Σ price×qty by Σ qty `.to_f`: a Float divisor, as 2.x converts it
 /// (`BigDec::from_f64`, Float#to_d).
 pub fn aggregate(trades: &[Trade], pair: Option<&Pair>) -> Result<Fill, super::VenueError> {
     let total = |f: fn(&Trade) -> &BigDec| trades.iter().fold(BigDec::zero(), |a, t| &a + f(t));
@@ -487,9 +487,9 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
 
     /// #set_market_order / #set_limit_order through Clients::Binance#new_order: POST /api/v3/order, every field in the query.
     /// A market buy is `quoteOrderQty` or `quantity` with selfTradePreventionMode EXPIRE_MAKER; a limit buy GTC `price` and
-    /// `quantity` (Rails sends no STP there). Plus Rust's `newClientOrderId` (the intent id; Rails sends none) and the gem's
+    /// `quantity` (2.x sends no STP there). Plus Rust's `newClientOrderId` (the intent id; 2.x sends none) and the gem's
     /// default recvWindow. Sent at most once. The stored id is "SYMBOL-<orderId>" (ids repeat across symbols); an answer
-    /// without an orderId (Rails would store "SYMBOL-") may have placed the order: Ambiguous.
+    /// without an orderId (2.x would store "SYMBOL-") may have placed the order: Ambiguous.
     async fn add_order(&self, o: &NewOrder) -> Result<String, super::VenueError> {
         let mut params = vec![("symbol", o.pair.clone()), ("side", o.side.as_str().to_ascii_uppercase())];
         let kind = match &o.kind {
@@ -549,14 +549,14 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
             }
             if exhausted { return Err(super::VenueError::Rejected(vec![format!("Too many pages of {} {symbol} orders", self.rules.name)])); }
         }
-        // Rails rebuilds after every symbol's walk, in the order the orders were found.
+        // 2.x rebuilds after every symbol's walk, in the order the orders were found.
         let mut out = vec![];
         for (order, id) in found { out.push(self.settle(order, &id).await?); }
         Ok(out)
     }
 
     /// A28-3 (PLAN-A28-3 §1, §5, r1.3, r2.2): allOrders per symbol, created from `from` to `to` (startTime/endTime in ms, as
-    /// Rails' own allOrders reads send them), 1000 a page; every state, open orders included. A full page is a cap
+    /// 2.x's own allOrders reads send them), 1000 a page; every state, open orders included. A full page is a cap
     /// (incomplete); rows outside the window are dropped. Each row read strictly (`created_order`), never by the booking parse.
     async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
         use super::HistoryError::{Refused, Retry};
@@ -614,7 +614,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
         let order = self.parse_order(&id, &body)?;
         self.settle(order, &id).await.map(Some)
     }
-    /// Rails' trade fallback is inside #get_orders (the fill rebuild); a missing order is never looked up in trades.
+    /// 2.x's trade fallback is inside #get_orders (the fill rebuild); a missing order is never looked up in trades.
     async fn fills_from_trades(&self, _txids: &[String], _since: DateTime<Utc>) -> Result<Vec<OrderState>, super::VenueError> { Ok(vec![]) }
 
     /// Exchanges::Binance#get_balances for the quote asset: GET /api/v3/account (omitZeroBalances, the read recvWindow), each
@@ -635,10 +635,10 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
     async fn settled_quote_balance<F>(&self, ticker: &Ticker, _catalog: F) -> Result<BigDec, super::VenueError>
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, super::VenueError> { self.free_of(&ticker.quote_code).await }
 
-    /// Exchanges::Binance#get_tickers_prices: /api/v3/ticker/price for every symbol (`symbols:` is ignored, as in Rails),
+    /// Exchanges::Binance#get_tickers_prices: /api/v3/ticker/price for every symbol (`symbols:` is ignored, as in 2.x),
     /// each `dig_or_raise`d `symbol` and `price`, the price as `price.to_d` reads it (an Integer exactly, a Float by
     /// Float#to_d, a string as a decimal; a zero is kept). DIVERGES on purpose (v2::json_to_d, Q6): a string that is no
-    /// decimal ("abc", "12x") is left out, so the member reads unpriced, where String#to_d makes it 0 or 12. Rails caches
+    /// decimal ("abc", "12x") is left out, so the member reads unpriced, where String#to_d makes it 0 or 12. 2.x caches
     /// the answer for a minute; this reads fresh. Each price is its decimal's `to_s('F')`.
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, serde_json::Value)>, super::VenueError> {
         let body = self.call_prices(&self.request("GET", TICKER_PRICE, vec![])).await?;
@@ -670,7 +670,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
             let mut last = None;
             for row in body.as_array().ok_or_else(unreadable)? {
                 let row = row.as_array().ok_or_else(unreadable)?;
-                // A float time (Ruby's `Time.at` takes it) is unreadable: Binance sends integers (D-COND-CANDLE-UNREADABLE).
+                // A float time (2.x's `Time.at` takes it) is unreadable: Binance sends integers (D-COND-CANDLE-UNREADABLE).
                 let ms = row.first().and_then(serde_json::Value::as_i64).ok_or_else(unreadable)?;
                 let at = DateTime::from_timestamp(ms.div_euclid(1000), 0).ok_or_else(unreadable)?;
                 let field = |i: usize| row.get(i).unwrap_or(&serde_json::Value::Null);
@@ -704,7 +704,7 @@ impl<T: Transport> BinanceVenue<T> {
 }
 
 /// A28-3 (r1.2): one allOrders row read strictly for the report, never by #parse_order_data (the booking parse): each field
-/// present and of its documented type, the creation time `time` (ms, which no Rails client reads) included; side BUY or
+/// present and of its documented type, the creation time `time` (ms, which no 2.x client reads) included; side BUY or
 /// SELL; type MARKET or LIMIT (a positive price); a status Binance documents. None for anything else. The size is
 /// `origQuoteOrderQty` for a market order placed in the quote, else `origQty`; a negative `cummulativeQuoteQty` ("for
 /// some historical orders") is an unknown quote.
@@ -860,7 +860,7 @@ pub fn kline_interval(timeframe: Timeframe) -> &'static str {
     }
 }
 
-// E1: D-RULE-CLIENT-ID and D-RULE-WALLET-SPOT. Rails sends no client id or walletType.
+// E1: D-RULE-CLIENT-ID and D-RULE-WALLET-SPOT. 2.x sends no client id or walletType.
 impl<T: Transport> BinanceVenue<T> {
     async fn send_withdrawal(
         &self,

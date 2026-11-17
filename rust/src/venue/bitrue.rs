@@ -1,5 +1,5 @@
 //! Bitrue spot orders (A6), ported from Exchanges::Bitrue and honeymaker 0.12.5.
-//! Reuses QueryHmacHex, parse_binance_shaped and poll_each. T1/T2/T3/T4/T5/T6/T8 are Rails parity.
+//! Reuses QueryHmacHex, parse_binance_shaped and poll_each. T1/T2/T3/T4/T5/T6/T8 are 2.x parity.
 //! D9 sends a client id; D-BITRUE-AMBIG retains unproven placements; D-BITRUE-NUM refuses unreadable numbers.
 //! Official spot docs name no client-id length limit (checked 2026-10-21); the reversible 32-hex UUID is used
 //! consistently for send and lookup. Missing lookup results never prove absence.
@@ -176,7 +176,7 @@ impl<T: Transport> super::Venue for BitrueVenue<T> {
     /// (`fromIdx`), until a short page or one reaching the start; a page whose oldest is newer than asked, or an empty one,
     /// is dropped and ends the walk. A failed page is its `msg` (else the answer); an answer that is no object has no rows.
     /// Deduped by `is` (the first kept), each time `is.to_i / 1000`, sorted; 3 days and 1 month built from daily (none to
-    /// build from is Rails' failure); then only the candles from the start on. D-COND-CANDLE-CAP: past MAX_CANDLE_PAGES
+    /// build from is 2.x's failure); then only the candles from the start on. D-COND-CANDLE-CAP: past MAX_CANDLE_PAGES
     /// pages it is a settled failure.
     async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
         let (scale, source) = kline_scale(timeframe);

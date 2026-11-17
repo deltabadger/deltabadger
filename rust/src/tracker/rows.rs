@@ -1,4 +1,4 @@
-//! The account's ledger rows as the tracker reads them, in two sets, as Rails has them:
+//! The account's ledger rows as the tracker reads them, in two sets, as 2.x has them:
 //! - `load_all`: every `account_transactions` row of the user, the futures and margin wallets' included, by instant
 //!   (`AccountTransaction.by_date_asc`): what PortfolioSnapshot::BackfillJob reads;
 //! - `walk_rows`: those rows less the borrowed wallets' (Tracker::UnfundedCash.borrowed?), in the order every reader of
@@ -270,7 +270,7 @@ pub fn coin_quoted(r: &Stored, stable_cash: bool) -> bool {
 /// D-TRACKER-COIN-QUOTE (and the tax report's D-TAX-COIN-QUOTE): a trade of a coin for a coin booked as one buy or sell row
 /// quoted in the other coin (Bybit, MEXC, Bitget, Gemini, BingX, Bitrue, Bitvavo, Hyperliquid, KuCoin; Binance and Coinbase
 /// store two swap legs) becomes the two legs it is: the row's coin coming in or going out, and the quote coin the other way,
-/// grouped. Rails read the row alone, so the quote coin never moved: the coin paid kept its holding and its lots, the coin
+/// grouped. 2.x read the row alone, so the quote coin never moved: the coin paid kept its holding and its lots, the coin
 /// received had none. The fee goes with the leg of its own coin, else with the coin coming in (as Binance books it). The new
 /// leg's id is the row's negated (a stored id is positive, so it is unique; never stored, never shown), its group
 /// `coin-quote:<id>`, with `~` before it until no stored row of the venue carries that group. The out-leg comes first, at

@@ -24,7 +24,7 @@ pub const BALANCE_SYNC: &str = "balance_sync";
 /// starts from the stored watermark.
 pub const LEDGER_DEADLINE: Duration = Duration::from_secs(3600);
 
-/// How a job reaches Alpaca for one key. `LiveFactory` is the real one (the key's own host, paper or live, as Rails).
+/// How a job reaches Alpaca for one key. `LiveFactory` is the real one (the key's own host, paper or live, as 2.x).
 pub trait Connect {
     type T: Transport;
     fn connect(&self, credentials: &Credentials) -> AlpacaVenue<Self::T>;
@@ -215,7 +215,7 @@ impl Connect for LiveFactory {
     }
 }
 
-/// The ExchangeProxy name of a venue whose syncs go through its proxy: every synced venue but Alpaca (Rails has no
+/// The ExchangeProxy name of a venue whose syncs go through its proxy: every synced venue but Alpaca (2.x has no
 /// PROXY_ALPACA).
 fn proxied(venue: &str) -> Option<&'static str> {
     use crate::venue::registry::{self, BalanceSync, LedgerSync};
@@ -242,7 +242,7 @@ async fn key_credentials(db: &Db, key: i64) -> Result<(Credentials, crate::engin
 /// `Done` is a sync that reached the end of what the venue has, with or without anything to import: its
 /// `last_success_at` is what tells a key's first successful sync from "never ran" (Plan 2d). `NothingNew` is an
 /// import that stopped at its page cap with more to read: the run went well and the ledger is not yet whole, so the
-/// runner records the run and no success, and the next run continues. Never `Transient`: Rails' jobs declare no retry.
+/// runner records the run and no success, and the next run continues. Never `Transient`: 2.x's jobs declare no retry.
 fn outcome<T>(done: Result<Result<T, Failure>, SyncError>, complete: impl Fn(&T) -> bool) -> Outcome {
     match done {
         Ok(Ok(done)) if !complete(&done) => Outcome::NothingNew,
@@ -271,9 +271,9 @@ pub async fn run_within_deadline_attributed(job:&dyn Job,cx:Cx<'_>,wakes:Vec<Wak
     }
 }
 
-/// `ledger_sync`, scoped by the key: Rails' `AccountTransaction::SyncJob` for one key. It runs nightly at 02:00 UTC
+/// `ledger_sync`, scoped by the key: 2.x's `AccountTransaction::SyncJob` for one key. It runs nightly at 02:00 UTC
 /// (`AccountTransaction::SyncAllJob`'s fan-out, recurring key `sync_all_account_transactions_job`) and after every
-/// order row the engine records (`Transaction`'s after_create_commit). No retry: Rails' job declares none, and the
+/// order row the engine records (`Transaction`'s after_create_commit). No retry: 2.x's job declares none, and the
 /// next order or the next night is the retry. An import longer than one run wakes itself and goes on at once.
 pub struct LedgerSync<C: Connect> { venues: C, key_id: i64, limits: ledger::Limits }
 
@@ -345,10 +345,10 @@ impl<C: Connect> Job for LedgerSync<C> {
                 },
             };
             let outcome = outcome(done, |out| out.complete);
-            // S-7.7: an import that stopped at its page cap goes on as soon as the runner is free, as Rails' one job reads the
+            // S-7.7: an import that stopped at its page cap goes on as soon as the runner is free, as 2.x's one job reads the
             // whole history at once; other due jobs run in between.
             if outcome == Outcome::NothingNew { cx.wakers.wake(LEDGER_SYNC, Some(&self.key_id.to_string()), None); }
-            // Rails' SyncJob ends in a Tracker::LedgerJob: the user's tracker walks again once the ledger is whole.
+            // 2.x's SyncJob ends in a Tracker::LedgerJob: the user's tracker walks again once the ledger is whole.
             else if let Err(e)=crate::tracker::jobs::wake_for_key(&cx,self.key_id).await {return Outcome::Failed(e);}
             outcome
 
@@ -361,7 +361,7 @@ impl<C: Connect> Job for LedgerSync<C> {
     }
 }
 
-/// `balance_sync`, scoped by the key: Rails' `AccountBalance::SyncJob` for one key. It runs nightly at 02:30 UTC
+/// `balance_sync`, scoped by the key: 2.x's `AccountBalance::SyncJob` for one key. It runs nightly at 02:30 UTC
 /// (`AccountBalance::SyncAllJob`'s fan-out, recurring key `sync_all_account_balances_job`), after the ledger, or on a
 /// manual wake. No retry. The price source is the scheduler's one data-api client, shared (2f S-10).
 pub struct BalanceSync<C: Connect> { venues: C, prices: Rc<dyn PriceSource>, key_id: i64 }
@@ -424,7 +424,7 @@ impl<C: Connect> Job for BalanceSync<C> {
                 },
             };
             let outcome = outcome(done, |_| true);
-            // Rails' AccountBalance::SyncJob ends in PortfolioSnapshot.record!, whatever the sync did: the user's tracker
+            // 2.x's AccountBalance::SyncJob ends in PortfolioSnapshot.record!, whatever the sync did: the user's tracker
             // rewrites today's rows.
             if outcome == Outcome::NothingNew { cx.wakers.wake(BALANCE_SYNC, Some(&self.key_id.to_string()), None); }
             else if let Err(e)=crate::tracker::jobs::wake_for_key(&cx,self.key_id).await {return Outcome::Failed(e);}
@@ -437,7 +437,7 @@ impl<C: Connect> Job for BalanceSync<C> {
 }
 
 /// The jobs of an install, for the scheduler's start: per reading Alpaca, Binance, Binance.US, KuCoin, Bitvavo or MEXC key (`ApiKey.reading`,
-/// what Rails' nightly jobs iterate) one ledger job and one balance job, every ledger job before every balance job, so jobs due together run in Rails' order. New scopes are registered by the same constructors on their first wake.
+/// what 2.x's nightly jobs iterate) one ledger job and one balance job, every ledger job before every balance job, so jobs due together run in 2.x's order. New scopes are registered by the same constructors on their first wake.
 pub fn register<C: Connect + Clone + 'static>(c: &Connection, venues: &C, prices: Rc<dyn PriceSource>) -> Result<Vec<Box<dyn Job>>, SyncError> {
     let mut jobs: Vec<Box<dyn Job>> = vec![];
     for key in ledger_reading_keys(c)? { jobs.push(Box::new(LedgerSync::new(venues.clone(), key))); }
@@ -462,7 +462,7 @@ impl<C: Connect + Clone + 'static> Job for ScopeFactory<C> {
     fn run<'a>(&'a self,_cx:Cx<'a>,_wakes:Vec<Wake>)->JobFuture<'a> {Box::pin(async {Outcome::Failed("scope factory cannot run as a job".into())})}
 }
 
-/// Rails ApiKeyValidatorJob: validate a committed credential, then enqueue its trading balance sync.
+/// 2.x ApiKeyValidatorJob: validate a committed credential, then enqueue its trading balance sync.
 pub struct Validator<C:Connect>{pub venues:C,pub key_id:i64}
 impl<C:Connect> Job for Validator<C>{
     fn spec(&self)->Spec{Spec{name:API_KEY_VALIDATOR,scope:Some(self.key_id.to_string()),schedule:None,jitter:Jitter::NONE,retry:Retry::None,deadline:DEADLINE}}
@@ -496,7 +496,7 @@ impl<C:Connect> Job for Validator<C>{
             Validity::Incorrect=>{crate::engine::log(&format!("[{name}] API key validation: incorrect key"));(2,Some("incorrect key".to_string()))},
             Validity::Permissions{..}=>(2,Some("incorrect key".to_string())),
             Validity::Pending(e)=>{let safe=crate::web::settings::keys::scrub(&e.log_text(),&values);crate::engine::log(&format!("[{name}] API key validation failed: {safe}"));(0,Some(safe))}});
-        // D-IBKR-INCONCLUSIVE: an IBKR check with no verdict (IBKR down, a timeout, a busy login) writes nothing. Rails writes
+        // D-IBKR-INCONCLUSIVE: an IBKR check with no verdict (IBKR down, a timeout, a busy login) writes nothing. 2.x writes
         // pending_validation, and nothing would validate the key again: it would leave every sync and the startup validation.
         if exchange==crate::venue::ibkr::IBKR && status.value.0==0 { return crate::engine::model::Produced::new(Outcome::Failed(status.value.1.clone().unwrap_or_default()),status.origin().clone()); }
         let origin=status.origin().clone();
@@ -527,7 +527,7 @@ impl<C:Connect> Job for Validator<C>{
 
 }
 
-/// The correct IBKR keys with no binding (keys Rails left): each is validated at start (API_KEY_VALIDATOR, the key check
+/// The correct IBKR keys with no binding (keys 2.x left): each is validated at start (API_KEY_VALIDATOR, the key check
 /// that binds), so its account is known before anything reads it.
 pub fn unbound_ibkr_keys(c: &Connection) -> rusqlite::Result<Vec<i64>> {
     let mut s = c.prepare("SELECT k.id FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.status = 1 AND k.key_type = 0 AND e.type = ?1

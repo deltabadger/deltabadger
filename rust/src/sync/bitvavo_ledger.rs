@@ -1,9 +1,9 @@
 //! AccountTransaction::SyncJob for a Bitvavo key (plan VB slice A3): Exchanges::Bitvavo#get_ledger (post-audit V5/V6) on the
 //! venue continuation (sync::continuation), then AccountTransactionSync#store! and TransferMatcher.run! as ledger.rs ports
 //! them. Read only: signed GETs, and the public market listing. Rows, tx_ids (the trade's `id`; none for a transfer),
-//! fees and raw_data are Rails' (rust/tests/sync_parity.rs, the `bitvavo-ledger-` scenarios).
+//! fees and raw_data are 2.x's (rust/tests/sync_parity.rs, the `bitvavo-ledger-` scenarios).
 //!
-//! As Rails reads it:
+//! As 2.x reads it:
 //! - deposits, then withdrawals (`read_transfers`): newest first, 1000 a page from `start` (0 on a first sync), each page
 //!   ending at the oldest timestamp of the one before plus a millisecond (a row sharing it is read again), identical rows
 //!   counted per page and kept as often as the page that holds it most; a full page that brings nothing new fails. A
@@ -18,9 +18,9 @@
 //! boundary row read again in the next run is not stored twice), the currencies the kept transfers named (`discovered`),
 //! and, once the walk enters its trade phase, the frozen market list; a resumed trade phase reads exactly that list. Within
 //! a market, the ids of its last page are kept too, so a full page repeated in the next run still fails as #read_trades
-//! fails it. Transfer rows are counted by what Ruby's Hash#eql? compares (their key order is no difference).
+//! fails it. Transfer rows are counted by what 2.x's Hash#eql? compares (their key order is no difference).
 //!
-//! Where it reads more strictly than Rails (as kucoin_ledger does): an unreadable answer or amount fails the sync (Rails
+//! Where it reads more strictly than 2.x (as kucoin_ledger does): an unreadable answer or amount fails the sync (2.x
 //! stores a garbage amount as 0).
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
 use super::binance_ledger::{amount, entry, objects, page_of, v2_time_at_ms, text, Fail};
@@ -46,7 +46,7 @@ pub const READ_PAUSE: std::time::Duration = std::time::Duration::from_millis(375
 pub const OVERLAP_HOURS: i64 = 25;
 pub const MAX_PAGE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_PAGE_NODES: usize = 400_000;
-/// ponytail: Rails has no page cap; one stops a cursor that never ends.
+/// ponytail: 2.x has no page cap; one stops a cursor that never ends.
 const MAX_PAGES: usize = 100_000;
 
 /// `#to_i` of a JSON value (nil.to_i is 0).
@@ -128,7 +128,7 @@ struct Walk<'a, T: Transport> {
 impl<'a, T: Transport> Walk<'a, T> {
     fn new(venue: &'a BitvavoVenue<T>, db: &'a Db, key: &'a Key, pause: std::time::Duration, begin: continuation::Begin<'_>) -> Self {
         // #read_transfers: `end` starts a millisecond past the moment the fetch began.
-        // Both as Ruby's `(time.to_f * 1000).to_i`.
+        // Both as 2.x's `(time.to_f * 1000).to_i`.
         let begun_ms = crate::venue::bitvavo::v2_ms(begin.end) + 1;
         let mut walk = Self { transfers: begin.transfers, venue, db, key, pause, start_ms: begin.start.map(crate::venue::bitvavo::v2_ms), begun_ms, source: Source::Deposits, end_ms: begun_ms,
                               counts: vec![], discovered: BTreeSet::new(), markets: vec![], market: 0, trade_to: None, pages: 0, seen: HashSet::new(), last_page: vec![] };
@@ -151,7 +151,7 @@ impl<'a, T: Transport> Walk<'a, T> {
     async fn pause(&self) { if !self.pause.is_zero() { tokio::time::sleep(self.pause).await; } }
 
     /// One signed GET, its pause after it (as #read_transfers and #read_trades sleep before they look at the answer), and its
-    /// body read as Rails' honeymaker returns it: a failure's text, or the parsed page.
+    /// body read as 2.x's honeymaker returns it: a failure's text, or the parsed page.
     async fn read(&self, path: &str, query: Vec<(&'static str, String)>, what: &str) -> Result<super::wire::Node, Fail> {
         let text = self.venue.read_text(path, query, MAX_PAGE_BYTES).await;
         self.pause().await;
@@ -169,7 +169,7 @@ impl<'a, T: Transport> Walk<'a, T> {
         let (path, history) = if self.source == Source::Deposits { (DEPOSITS_PATH, "get_deposit_history") } else { (WITHDRAWALS_PATH, "get_withdrawal_history") };
         let query = vec![("start", self.start_ms.unwrap_or(0).to_string()), ("end", self.end_ms.to_string()), ("limit", TRANSFERS_PAGE.to_string())];
         let page = objects(&self.read(path, query, "Bitvavo transfers").await?, "Bitvavo transfer")?;
-        // page.tally, in the page's order: rows compared as Ruby's Hash#eql? compares them (key order is no difference).
+        // page.tally, in the page's order: rows compared as 2.x's Hash#eql? compares them (key order is no difference).
         let mut tally: Vec<(String, usize, Raw)> = vec![];
         for raw in &page {
             self.transfers.observe(self.source.name(), &raw.value)?;
@@ -279,7 +279,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
 
 /// One ledger sync of one Bitvavo key, as AccountTransaction::SyncJob#perform runs it, held to the job's deadline
 /// (sync::continuation): a long import goes on over several runs. Idempotent. `pause` is the pacing (READ_PAUSE; the parity
-/// harness passes zero, as Rails' harness stubs its sleep).
+/// harness passes zero, as the recording harness stubs 2.x's sleep).
 pub async fn sync<T: Transport>(db: &Db, transport: T, key_id: i64, credentials: &Credentials, clock: &dyn Clock, pause: std::time::Duration) -> Result<Result<Outcome, Failure>, SyncError> {
     let stopwatch = continuation::Wall::start();
     let run = continuation::Run { deadline: super::jobs::LEDGER_DEADLINE, chain_runs: continuation::CHAIN_RUNS, stopwatch: &stopwatch };

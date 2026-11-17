@@ -1,13 +1,13 @@
-//! Exchanges::Kraken + Honeymaker::Clients::Kraken for buys, one leg per basket member, over a Transport (spec E1). Rails is the oracle; each
-//! method names the Ruby it ports. The engine's FakeVenue reads the same raw bodies with the parsers below.
+//! Exchanges::Kraken + Honeymaker::Clients::Kraken for buys, one leg per basket member, over a Transport (spec E1). 2.x is the oracle; each
+//! method names the 2.x method it ports. The engine's FakeVenue reads the same raw bodies with the parsers below.
 //!
 //! Where the code lives (spec E §1, settled by E1's dependency test): a module of this crate on the shared transport. Linking
-//! honeymaker's core crate turns on serde_json/arbitrary_precision crate-wide, which changes how Ruby-parity JSON is held
+//! honeymaker's core crate turns on serde_json/arbitrary_precision crate-wide, which changes how parity JSON is held
 //! (tests/sync_vectors.rs: three tests fail with it on), so its reviewed logic is ported here instead.
 //!
 //! Signing (`private_headers`) happens inside the transport at send time (ReqwestTransport with `Auth::Kraken`), so the nonce
-//! is minted when the request leaves. The adapter builds the request without it: what ScriptedTransport records is what the
-//! Rails harness records (AddOrder params minus nonce).
+//! is minted when the request leaves. The adapter builds the request without it: what ScriptedTransport records is what the recording
+//! harness records (AddOrder params minus nonce).
 use super::http::{self, DecodeError, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, Venue, VenueError};
 use crate::engine::candles::{self, Candle, Timeframe};
@@ -49,7 +49,7 @@ pub fn www_form(pairs: &[(String, String)]) -> String {
     pairs.iter().map(|(k, v)| format!("{}={}", enc(k), enc(v))).collect::<Vec<_>>().join("&")
 }
 
-/// Base64.decode64 = String#unpack1("m"): ruby/pack.c's lenient branch (bytes outside the alphabet are skipped; '=' in the
+/// Base64.decode64 = String#unpack1("m"): the lenient branch of 2.x's interpreter (pack.c) (bytes outside the alphabet are skipped; '=' in the
 /// third or fourth slot ends the input). Ported from honeymaker's core (crates/honeymaker/src/encode.rs).
 fn v2_decode64(input: &[u8]) -> Vec<u8> {
     const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -110,7 +110,7 @@ pub fn private_headers(path: &str, body: &str, key: &str, secret: &str) -> Vec<(
 }
 
 /// Honeymaker::Clients::Kraken#nonce: microseconds, max(now, last + 1), per API key, process-wide. One engine process owns an
-/// install (the whole-install lock) and Rails is stopped meanwhile, so no other writer shares the key's sequence.
+/// install (the whole-install lock) and 2.x is stopped meanwhile, so no other writer shares the key's sequence.
 pub fn next_nonce(key: &str) -> u64 {
     static LAST: std::sync::Mutex<Option<std::collections::HashMap<[u8; 32], u64>>> = std::sync::Mutex::new(None);
     let id: [u8; 32] = Sha256::digest(key.as_bytes()).into();
@@ -131,12 +131,12 @@ pub(crate) fn private_form(r: &HttpRequest, key: &str) -> String {
 
 // ---- parsing: Exchanges::Kraken#parse_order_data and friends
 
-/// A Kraken decimal: absent or null is None (Ruby's nil). Anything present must be a finite decimal within BigDec's bounds,
-/// or the whole answer is unreadable — never a zero price, fill or balance. DIVERGES from Ruby on purpose (v2::json_to_d):
-/// Rails' `.to_d` reads "garbage" as 0 and "NaN" as NaN.
+/// A Kraken decimal: absent or null is None (2.x's nil). Anything present must be a finite decimal within BigDec's bounds,
+/// or the whole answer is unreadable — never a zero price, fill or balance. DIVERGES from 2.x on purpose (v2::json_to_d):
+/// 2.x's `.to_d` reads "garbage" as 0 and "NaN" as NaN.
 fn dec(v: &Value) -> Result<Option<BigDec>, VenueError> { crate::v2::json_to_d(v).map_err(|_| unreadable()) }
 pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous(UNREADABLE.into()) }
-/// `#to_s` of a JSON scalar, as Ruby interpolates an `error` entry.
+/// `#to_s` of a JSON scalar, as 2.x interpolates an `error` entry.
 fn v2_to_s(v: &Value) -> String { v.as_str().map_or_else(|| v.to_string(), str::to_string) }
 
 /// `Ok(())` for a clean body; `Rejected` for a non-empty `error`; `Ambiguous` when `error` is missing or not an array, or a
@@ -190,12 +190,12 @@ pub const HISTORY_REFUSED: [&str; 3] = [
     "EGeneral:Permission denied",
 ];
 
-/// A28-3d-4 (D-HISTORY-DOC-BUILT): one Open/ClosedOrders row read strictly in `parse_order`'s fields (Rails' QueryOrders
+/// A28-3d-4 (D-HISTORY-DOC-BUILT): one Open/ClosedOrders row read strictly in `parse_order`'s fields (2.x's QueryOrders
 /// shape, its status and type maps): `txid` non-empty (the id `add_order` stores); `descr.pair` one of `symbols` exactly (the
-/// altname Rails stores as `tickers.ticker`); `opentm` the creation time; `descr.type` buy/sell; `descr.ordertype` limit
+/// altname 2.x stores as `tickers.ticker`); `opentm` the creation time; `descr.type` buy/sell; `descr.ordertype` limit
 /// (`descr.price` > 0) or market; `vol` > 0, in the quote with `viqc` in `oflags`, else the base; `vol_exec` and `cost` (the
 /// filled quote) not negative. Status: open open, closed (something filled) filled, canceled / expired ended; pending
-/// (Unknown in Rails' map) and anything else None.
+/// (Unknown in 2.x's map) and anything else None.
 pub fn created_order(symbols: &[String], txid: &str, o: &Value) -> Option<super::CreatedOrder> {
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
     if txid.is_empty() { return None; }
@@ -240,7 +240,7 @@ fn opentm(v: &Value) -> Option<DateTime<Utc>> {
 
 /// Exchanges::Kraken#get_ask_price / #get_bid_price / #get_last_price over a checked Ticker body: the first result entry's
 /// `a[0]` / `b[0]` / `c[0]`. A
-/// zero book raises "Wrong … price", naming the pair (kraken.rb:225, :255).
+/// zero book raises "Wrong … price", naming the pair.
 pub(crate) fn ticker_price(body: &Value, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
     let Some((_, t)) = body["result"].as_object().and_then(|m| m.iter().next()) else {
         return Err(VenueError::Rejected(vec![format!("Failed to get Kraken {} ticker information", ticker.ticker)]));
@@ -253,7 +253,7 @@ pub(crate) fn ticker_price(body: &Value, ticker: &Ticker, side: PriceSide) -> Re
 
 /// One Ticker entry's last price as Exchanges::Kraken#get_tickers_prices reads it: `parse_venue_number(dig_or_raise(data,
 /// 'c')[0])`. A missing or null `c` raises (unreadable); a `c[0]` that is no finite decimal (null, `[]`, "x", "Infinity")
-/// is Rails' rescued ArgumentError: None, the pair omitted.
+/// is 2.x's rescued ArgumentError: None, the pair omitted.
 pub(crate) fn last_price(data: &Value) -> Result<Option<BigDec>, VenueError> {
     let first = match super::dig_or_raise(data, "c")? {
         Value::Array(c) => c.first().cloned().unwrap_or(Value::Null),
@@ -277,7 +277,7 @@ pub const OHLC: &str = "/0/public/OHLC";
 pub const OHLC_INTERVALS: [(Timeframe, &str); 10] = [(Timeframe::Minute, "1"), (Timeframe::FiveMinutes, "5"), (Timeframe::FifteenMinutes, "15"),
     (Timeframe::ThirtyMinutes, "30"), (Timeframe::Hour, "60"), (Timeframe::FourHours, "240"), (Timeframe::Day, "1440"),
     (Timeframe::ThreeDays, "1440"), (Timeframe::Week, "1440"), (Timeframe::Month, "1440")];
-/// The timeframes Rails builds from daily candles (CandleBuilder).
+/// The timeframes 2.x builds from daily candles (CandleBuilder).
 pub fn builds(timeframe: Timeframe) -> bool { matches!(timeframe, Timeframe::ThreeDays | Timeframe::Week | Timeframe::Month) }
 pub fn ohlc_interval(timeframe: Timeframe) -> &'static str {
     OHLC_INTERVALS.iter().find(|(t, _)| *t == timeframe).map(|(_, i)| *i).expect("every timeframe has an interval")
@@ -297,15 +297,15 @@ pub fn ohlc_request(base: &str, pair: &str, interval: &str, since: i64) -> HttpR
 pub fn tokenized(code: &str) -> bool { code.bytes().any(|b| b.is_ascii_lowercase()) }
 
 /// AddOrder, Ticker and OHLC: "required on requests for non-crypto pairs, i.e. use `tokenized_asset` for xStocks" (Kraken's
-/// REST docs). Rails never sends it (honeymaker Clients::Kraken), so Rails lists these pairs untradable.
+/// REST docs). 2.x never sends it (honeymaker Clients::Kraken), so 2.x lists these pairs untradable.
 fn asset_class(pair: &str) -> Option<(&'static str, String)> { tokenized(pair).then(|| ("asset_class", "tokenized_asset".to_string())) }
 
 /// One pair's public Ticker query, for the adapter and the page reader alike: `pair`, and an xStock's class.
 pub fn ticker_query(pair: &str) -> Vec<(&'static str, String)> { std::iter::once(("pair", pair.to_string())).chain(asset_class(pair)).collect() }
 /// The rows of an OHLC answer as Exchanges::Kraken#get_candles walks them, each with its time in whole seconds: a missing
 /// or null `error` is dig_or_raise's KeyError, a non-empty one the venue's refusal; the rows sit under `result`'s first key
-/// but `last`. Every structural miss Rails raises on (no `result`, no pair key, rows or a row that is no array, a time that
-/// is no integer) is unreadable. A float time (Ruby's `Time.at` takes it) is unreadable too: Kraken sends integers.
+/// but `last`. Every structural miss 2.x raises on (no `result`, no pair key, rows or a row that is no array, a time that
+/// is no integer) is unreadable. A float time (2.x's `Time.at` takes it) is unreadable too: Kraken sends integers.
 pub fn ohlc_rows(body: &Value) -> Result<Vec<(i64, &[Value])>, VenueError> {
     let errors = super::dig_or_raise(body, "error")?.as_array().ok_or_else(unreadable)?;
     if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(v2_to_s).collect())); }
@@ -351,7 +351,7 @@ pub fn pair_price(body: &Value, code: &str) -> Result<Option<BigDec>, VenueError
     last_price(data)
 }
 
-/// Exchanges::Kraken#get_balances for one asset: balance − hold_trade under the gem's ASSET_MAP. Rails assigns per row, so
+/// Exchanges::Kraken#get_balances for one asset: balance − hold_trade under the gem's ASSET_MAP. 2.x assigns per row, so
 /// with several rows for one asset (ZEUR, EUR.HOLD) the last in body order wins; absent is 0. `asset_symbol` is the code
 /// after ASSET_MAP: for a base, the ticker's own base code (XXBT → "XBT", which #asset_from_symbol resolves through the
 /// tickers' `base`), never the asset's symbol ("BTC" names no Kraken row, so it would read 0).
@@ -368,7 +368,7 @@ pub(crate) fn free_balance(body: &Value, asset_symbol: &str) -> Result<BigDec, V
 }
 
 /// Honeymaker::Clients::Kraken#aggregate_trades per wanted order, as Exchanges::Kraken#order_data_from_trade_aggregate maps
-/// it: closed, VWAP price, amounts unknown. The aggregate names its first trade's pair (Rails looks it up as a ticker).
+/// it: closed, VWAP price, amounts unknown. The aggregate names its first trade's pair (2.x looks it up as a ticker).
 /// TradesHistory's `count.to_i`: an Integer, a numeric String, or else 0.
 pub(crate) fn trades_count(body: &Value) -> u64 {
     match &body["result"]["count"] { Value::Number(n) => n.as_u64().unwrap_or(0), Value::String(s) => s.trim().parse().unwrap_or(0), _ => 0 }
@@ -501,7 +501,7 @@ impl<T: Transport> KrakenVenue<T> {
             Err(TransportError::MaybeSent(m)) => return Err(VenueError::Transient(redact(m))),
         };
         if !(200..300).contains(&resp.status) {
-            // Spec E §2.10, a listed divergence: HTTP 429/418 on a read is a throttle (polling's RateLimited wait); Rails fails
+            // Spec E §2.10, a listed divergence: HTTP 429/418 on a read is a throttle (polling's RateLimited wait); 2.x fails
             // it as a generic error. Never on a placement, where the answer below stays definitive.
             if !placement && matches!(resp.status, 429 | 418) {
                 return Err(VenueError::Rejected(vec![format!("the server responded with status {} ({HTTP_THROTTLE})", resp.status)]));
@@ -562,7 +562,7 @@ impl<T: Transport> Venue for KrakenVenue<T> {
         let r = HttpRequest { not_after: Some(o.deadline + chrono::Duration::from_std(http::TOTAL_TIMEOUT).expect("45 s")),
                               ..self.private("/0/private/AddOrder", &fields) };
         let body = self.call(&r, true).await?;
-        // Accepted with no id: Exchanges::Kraken's `unacknowledged` (kraken.rb:782), which may have placed the order.
+        // Accepted with no id: Exchanges::Kraken's `unacknowledged`, which may have placed the order.
         body["result"]["txid"][0].as_str().filter(|t| !t.is_empty()).map(str::to_string)
             .ok_or_else(|| VenueError::Ambiguous(format!("Failed to set Kraken {ordertype} order (order_id is nil)")))
     }
@@ -591,7 +591,7 @@ impl<T: Transport> Venue for KrakenVenue<T> {
     /// Exchanges::Kraken#recover_missing_from_trades → Clients::Kraken#closed_orders_from_trades: TradesHistory from `since`
     /// (the engine passes created_at − 1 h), paged by `ofs` until `count` or 20 pages, a trade served twice counted once.
     /// An id still unseen is never-filled only when the window's `count` (#trades_history_count: ofs 0 again) is at most
-    /// TRADES_RECOVERY_REACH; over it, the id comes back `Unknown` (Rails' :inconclusive): neither found nor gone.
+    /// TRADES_RECOVERY_REACH; over it, the id comes back `Unknown` (2.x's :inconclusive): neither found nor gone.
     async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> {
         if txids.is_empty() { return Ok(vec![]); }
         let page_at = |offset: usize| self.private("/0/private/TradesHistory", &[("start", since.timestamp().to_string()), ("ofs", offset.to_string())]);
@@ -612,7 +612,7 @@ impl<T: Transport> Venue for KrakenVenue<T> {
         Ok(found)
     }
 
-    /// A28-3d-4 (D-HISTORY-DOC-BUILT: the window listing is the docs'; Rails reads Kraken orders by txid only): OpenOrders
+    /// A28-3d-4 (D-HISTORY-DOC-BUILT: the window listing is the docs'; 2.x reads Kraken orders by txid only): OpenOrders
     /// (every open order), then ClosedOrders with `start` = floor(from) − 1 (exclusive), `end` = ceil(to), `closetime=open`
     /// (r1.1: by opening time, so an order closed after the window is listed) and `with_cursor=true`, each next page by the
     /// previous `cursor.next` (r2.1): none is the last page; a repeated or unreadable one, or one still left after the fifth
@@ -666,7 +666,7 @@ impl<T: Transport> Venue for KrakenVenue<T> {
     /// Ticker per wanted code the bulk did not return as a key (Kraken names some pairs its own way: XBTEUR comes back as
     /// XXBTZEUR), keyed by the requested code. A returned key whose price is unreadable is left out, never retried. In the
     /// fallback an `Unknown asset pair` skips that code; any other error, or an empty `result`, fails the whole read.
-    /// Rails caches the answer for a minute; this reads fresh (the 6b cache divergence). Each price is its decimal's
+    /// 2.x caches the answer for a minute; this reads fresh (the 6b cache divergence). Each price is its decimal's
     /// `to_s('F')`.
     async fn tickers_prices(&self, symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
         let body = self.fetch_prices(&self.public(TICKER, vec![])).await?;
@@ -681,7 +681,7 @@ impl<T: Transport> Venue for KrakenVenue<T> {
 
     /// Exchanges::Kraken#get_candles: one OHLC read since a second before the start (`start_at -= 1.second`, then `to_i`),
     /// the rows from that mutated start on (fractions kept, so a row in its second is dropped after a fractional start),
-    /// the forming candle with them; 3 days, 1 week and 1 month built from the daily ones. No cache, as in Rails. A 2xx
+    /// the forming candle with them; 3 days, 1 week and 1 month built from the daily ones. No cache, as in 2.x. A 2xx
     /// that is not JSON is honeymaker's Failure (its text).
     async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
         let since = start_at - chrono::Duration::seconds(1);
@@ -701,7 +701,7 @@ impl<T: Transport> Venue for KrakenVenue<T> {
 }
 
 // D-RULE-KRAKEN-KEY / D-RULE-KRAKEN-MAXFEE: persisted key and re-quote cap only.
-// The address is sent as Rails (honeymaker 0.12.5) sends it: Kraken refuses a withdrawal whose address does not match the key's.
+// The address is sent as 2.x (honeymaker 0.12.5) sends it: Kraken refuses a withdrawal whose address does not match the key's.
 impl<T: Transport> KrakenVenue<T> {
     async fn send_withdrawal(
         &self,

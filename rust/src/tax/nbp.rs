@@ -2,7 +2,7 @@
 //! business day before the day of the revenue or cost), in `nbp_rates`, and the ranges fetched in full, in `nbp_coverage`.
 //! "The last table before the day" is read only across covered days: a covered day with no table is a day NBP published
 //! none (a holiday); a day outside coverage is unknown, so the value is missing even when an older table is stored.
-//! Rust-only (Rails converts at the ECB's rate); the job fills the tables before the report, as `fx::ensure_loaded` does.
+//! Rust-only (2.x converts at the ECB's rate); the job fills the tables before the report, as `fx::ensure_loaded` does.
 use crate::figures::{dec::Dec, FiguresError};
 use crate::jobs::Db;
 use crate::tracker::fx::Source;

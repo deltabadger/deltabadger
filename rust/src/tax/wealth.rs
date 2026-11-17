@@ -1,10 +1,10 @@
-//! Units held at an instant for the wealth reports (NL, CH), with no row priced (Rails prices none):
+//! Units held at an instant for the wealth reports (NL, CH), with no row priced (2.x prices none):
 //! - D-TAX-WEALTH-HOLDINGS: each row moves what the ledger says it moves (`walk::quantity_moves`: an own- or third-coin fee, a
-//!   linked transfer's network fee, both legs of a coin-quoted trade once split), where Rails' walk moved the base only; a
+//!   linked transfer's network fee, both legs of a coin-quoted trade once split), where 2.x's walk moved the base only; a
 //!   stablecoin's own fee on its sale comes off on top as any coin's does (the tracker reads a stablecoin as cash there).
 //! - D-TAX-SNAPSHOT-KEEPS: coins that left by a withdrawal linked to no deposit are still the user's (R4's self-transfer
 //!   assumption): counted, less the withdrawal's own fee (listed by the report).
-//! - D-TAX-WEALTH-LOST: a `lost` row leaves the holdings (Rails never removed it).
+//! - D-TAX-WEALTH-LOST: a `lost` row leaves the holdings (2.x never removed it).
 //! - Holdings by asset identity (D-TAX-ASSET-IDENTITY), the symbol of the first row shown.
 use super::{cents, line, n, s, Cell, Outcome, Report};
 use crate::figures::{at::At, dec::Dec, FiguresError};
@@ -130,7 +130,7 @@ impl Report {
             let banner = text(l, "tax_report.incomplete_banner", &[("missing", Arg::Text(&warnings.len().to_string()))]);
             line(&mut out, &[s(format!("{}: {banner}", text(l, "tax_report.incomplete_banner_prefix", &[])))]);
         }
-        // Rails' order: by value, the highest first.
+        // 2.x's order: by value, the highest first.
         w.lines.sort_by(|a, b| b.1.to_f().total_cmp(&a.1.to_f()));
         for (h, value) in &w.lines { line(&mut out, &[s(w.day.to_string()), s(h.symbol.clone()), n(&h.units), cents(value)?, s(currency)]); }
         out.push_str(&w.summary);
@@ -153,7 +153,7 @@ impl Report {
     }
 }
 
-/// A summary line as Rails writes one: `[nil, nil, label, value, nil]`.
+/// A summary line as 2.x writes one: `[nil, nil, label, value, nil]`.
 pub(super) fn summary(out: &mut String, label: String, value: Option<Cell>) { line(out, &[Cell::Nil, Cell::Nil, s(label), value.unwrap_or(Cell::Nil), Cell::Nil]); }
 
 /// A decimal with exactly `places` decimals.

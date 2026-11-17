@@ -4,33 +4,33 @@
 //! public exchange information. A12 supersedes Q9 for identity collisions: retain legacy rows,
 //! assign only missing siblings new IDs, and give every newly inserted dust pair a distinct group.
 //!
-//! Where it reads more than Rails (D2b rulings; each a listed divergence in rust/tests/sync_parity.rs, Rails' result
-//! beside Rust's, and a Rails defect to fix so the engines converge):
-//! - every failed request, unreadable answer or number fails the whole sync and nothing is stored (Rails skips a failed
+//! Where it reads more than 2.x (D2b rulings; each a listed divergence in rust/tests/sync_parity.rs, 2.x's result
+//! beside Rust's, and a 2.x defect to fix so the engines converge):
+//! - every failed request, unreadable answer or number fails the whole sync and nothing is stored (2.x skips a failed
 //!   symbol or source and stores a garbage amount as 0);
 //! - trades are read per symbol by id (`fromId`: one past the largest trade id stored for it, else 0), every page of
-//!   1000, so a symbol's history is whole whatever its length (Rails reads the 500 most recent, or 500 from a time);
-//!   the watermark still counts what Rails' read returns, stored trades included (`v2_trades_seen`), so it moves as
-//!   Rails' does;
+//!   1000, so a symbol's history is whole whatever its length (2.x reads the 500 most recent, or 500 from a time);
+//!   the watermark still counts what 2.x's read returns, stored trades included (`v2_trades_seen`), so it moves as
+//!   2.x's does;
 //! - the symbols are found again every run, from Binance's exchange information: every pair whose base or quote the
-//!   account ever held (this run's transfers, today's balances, every stored row); Rails re-reads only fiat-quoted pairs
+//!   account ever held (this run's transfers, today's balances, every stored row); 2.x re-reads only fiat-quoted pairs
 //!   it already stored, so a coin/coin pair or a new pair is never read again after the first sync;
-//! - transfers are walked from the watermark less 25 hours to now, in Rails' own 89-day windows, with no 80-day floor
-//!   (Rails' floor drops what happened while an instance was off longer); deposits are stored at status 1 and 6
+//! - transfers are walked from the watermark less 25 hours to now, in 2.x's own 89-day windows, with no 80-day floor
+//!   (2.x's floor drops what happened while an instance was off longer); deposits are stored at status 1 and 6
 //!   (credited), and a transfer still pending holds the watermark at its time, so it is read again until it settles;
 //! - every other source is walked in windows Binance accepts from that same start (or from the source's opening on a
-//!   full sync: Rails asks a full sync's fiat, dust, dividend and earn sources with no start, and Binance answers only
+//!   full sync: 2.x asks a full sync's fiat, dust, dividend and earn sources with no start, and Binance answers only
 //!   its recent days), each window paged where the endpoint pages; a window that fills an unpageable answer fails the
-//!   sync (Rails keeps the first page: 100 converts, 500 dividends, 100 dust sweeps);
+//!   sync (2.x keeps the first page: 100 converts, 500 dividends, 100 dust sweeps);
 //! - withdrawal history (18000 of the 180000-a-minute account weight), converts (3000 account weight) and Simple Earn
-//!   (150 IP weight) are paced, as are the trade lists; Rails sends everything back to back;
-//! - flexible earn rewards are asked once per reward type, which Binance requires (Rails sends none, is refused, and
+//!   (150 IP weight) are paced, as are the trade lists; 2.x sends everything back to back;
+//! - flexible earn rewards are asked once per reward type, which Binance requires (2.x sends none, is refused, and
 //!   stores no flexible reward);
-//! - a Simple Earn row without Rails' amount field (`rewards`, `purchaseAmount`) is read from the `amount` Binance
-//!   documents for locked rewards, subscriptions and redemptions (Rails stores 0 for those);
-//! - an applyTime is read as UTC (Rails reads it in the process's zone);
+//! - a Simple Earn row without 2.x's amount field (`rewards`, `purchaseAmount`) is read from the `amount` Binance
+//!   documents for locked rewards, subscriptions and redemptions (2.x stores 0 for those);
+//! - an applyTime is read as UTC (2.x reads it in the process's zone);
 //! - margin and futures are not read (ruling Q11); the key carries no note of it: `last_sync_error` is the tracker's
-//!   "Sync failed" banner, so a run that completes clears it, as Rails' does;
+//!   "Sync failed" banner, so a run that completes clears it, as 2.x's does;
 //! - a Binance.US key's ledger is this same walk at api.binance.us, without the sources Exchanges::BinanceUs never asks
 //!   (converts, fiat payments, dust and Simple Earn: its `import_*` overrides are no-ops; margin and futures are read for
 //!   neither): deposits, withdrawals, spot trades and dividends (`others`' `us`).
@@ -63,9 +63,9 @@ pub const WINDOW_DAYS: i64 = 89;
 /// TRANSFER_HISTORY_FROM: Binance opened in July 2017.
 pub const HISTORY_FROM_MS: i64 = 1_498_867_200_000; // 2017-07-01T00:00:00Z
 pub const OVERLAP_HOURS: i64 = 25;
-/// Exchanges::Binance#ledger_window: Rails floors an incremental start to 80 days ago.
+/// Exchanges::Binance#ledger_window: 2.x floors an incremental start to 80 days ago.
 pub const LEDGER_WINDOW_DAYS: i64 = 80;
-/// What one myTrades answer holds when Rails sends no limit.
+/// What one myTrades answer holds when 2.x sends no limit.
 pub const V2_TRADES: usize = 500;
 /// What one answer may hold. The exchange information lists every symbol Binance ever had (a few thousand).
 pub const MAX_PAGE_BYTES: usize = 8 * 1024 * 1024;
@@ -106,7 +106,7 @@ pub const EARN_FROM_MS: i64 = 1_672_531_200_000; // 2023-01-01T00:00:00Z
 const CONVERT_DAYS: i64 = 30;
 const EARN_DAYS: i64 = 30;
 /// Flexible rewards are asked once per reward type: Binance refuses the call without one (-1102, "Mandatory parameter
-/// 'type'"), though its docs say it defaults to ALL. Rails sends none, so Binance refuses Rails' every call, and Rails
+/// 'type'"), though its docs say it defaults to ALL. 2.x sends none, so Binance refuses 2.x's every call, and 2.x
 /// skips the source in silence.
 const FLEXIBLE_REWARD_TYPES: [&str; 3] = ["BONUS", "REALTIME", "REWARDS"];
 const DIVIDEND_DAYS: i64 = 179;
@@ -139,11 +139,11 @@ impl Pacing {
     pub const NONE: Pacing = Pacing { withdrawals: std::time::Duration::ZERO, trades: std::time::Duration::ZERO, converts: std::time::Duration::ZERO, earn: std::time::Duration::ZERO };
 }
 
-/// `Time.at(ms / 1000.0)` as Rails stores it: the Float quotient, its microseconds truncated (ActiveRecord keeps six
+/// `Time.at(ms / 1000.0)` as 2.x stores it: the Float quotient, its microseconds truncated (ActiveRecord keeps six
 /// digits of the exact value of that double, so ...123 ms is stored as .122999).
 pub fn v2_time_at_ms(ms: i64) -> Option<DateTime<Utc>> { v2_time_at_secs_f(ms as f64 / 1000.0) }
 
-/// `Time.at(f)` of a Float of seconds as Rails stores it: the double's exact value, its microseconds truncated.
+/// `Time.at(f)` of a Float of seconds as 2.x stores it: the double's exact value, its microseconds truncated.
 pub fn v2_time_at_secs_f(f: f64) -> Option<DateTime<Utc>> {
     if !f.is_finite() { return None; }
     let bits = f.to_bits();
@@ -174,7 +174,7 @@ pub fn windows(start: i64, end: i64, days: i64) -> Vec<(i64, i64)> {
     out
 }
 
-/// A read that failed: the text the key records, and whether Rails would have raised (a malformed answer) rather
+/// A read that failed: the text the key records, and whether 2.x would have raised (a malformed answer) rather
 /// than returned the venue's failure.
 pub(super) type Fail = (String, bool);
 
@@ -206,7 +206,7 @@ pub(super) fn amount(raw: &Raw, key: &str, what: &str) -> Result<BigDec, Fail> {
     }
 }
 
-/// A JSON value as Rails would store it in a string column (`tx_id`): a string as it is, a number as its digits.
+/// A JSON value as 2.x would store it in a string column (`tx_id`): a string as it is, a number as its digits.
 pub(super) fn text(v: Option<&Value>) -> Option<String> {
     match v { Some(Value::String(s)) => Some(s.clone()), Some(Value::Number(n)) => Some(n.to_string()), _ => None }
 }
@@ -260,7 +260,7 @@ fn withdrawal(raw: &Raw, out: &mut Transfers) -> Result<(), Fail> {
 }
 
 /// #normalize_trade: a fiat-quoted trade is one buy or sell row; any other is a swap pair, the received leg carrying the
-/// commission. Ids and group ids are Rails' to the byte (D2b ruling Q9): "SYMBOL-orderId-id", "-in" the base leg.
+/// commission. Ids and group ids are 2.x's to the byte (D2b ruling Q9): "SYMBOL-orderId-id", "-in" the base leg.
 pub fn normalize_trade(raw: &Raw, symbol: &str, base: &str, quote: &str) -> Result<Vec<Entry>, Fail> {
     let buyer = !matches!(raw.value.get("isBuyer"), None | Some(Value::Null) | Some(Value::Bool(false)));
     let id = text(raw.value.get("id")).ok_or_else(|| ("unreadable trade id".to_string(), true))?;
@@ -291,7 +291,7 @@ pub fn normalize_trade(raw: &Raw, symbol: &str, base: &str, quote: &str) -> Resu
     Ok(vec![base_leg, quote_leg])
 }
 
-/// The largest trade id stored per symbol, read from Rails' own tx_ids ("SYMBOL-orderId-id", a swap leg with "-in" or
+/// The largest trade id stored per symbol, read from 2.x's own tx_ids ("SYMBOL-orderId-id", a swap leg with "-in" or
 /// "-out" after it). A tx_id of any other shape (a file import's) is not one.
 pub fn trade_cursor(tx_id: &str) -> Option<(String, i64)> {
     let mut parts = tx_id.split('-');
@@ -302,7 +302,7 @@ pub fn trade_cursor(tx_id: &str) -> Option<(String, i64)> {
 }
 
 /// What the run starts from, read in one phase.
-/// `stored`: every stored trade per symbol (id, time); `pairs`: Exchanges::Binance#known_traded_symbols, the pairs Rails
+/// `stored`: every stored trade per symbol (id, time); `pairs`: Exchanges::Binance#known_traded_symbols, the pairs 2.x
 /// re-reads on an incremental sync (base and quote of a stored trade row with a quote).
 struct Start { key: Key, watermark: Option<DateTime<Utc>>, raw_watermark: Option<i64>, coins: BTreeSet<String>, cursors: HashMap<String, i64>,
                stored: HashMap<String, Vec<(i64, DateTime<Utc>)>>, pairs: HashSet<String> }
@@ -360,7 +360,7 @@ fn held(text: &str) -> Result<Vec<String>, Fail> {
     Ok(out)
 }
 
-/// `seen`: the newest row time Rails' read of the same venue returns (AccountTransactionSync's `max_seen`).
+/// `seen`: the newest row time 2.x's read of the same venue returns (AccountTransactionSync's `max_seen`).
 struct Fetched { entries: Vec<Entry>, identities: Vec<(usize, Input)>, pending: Option<DateTime<Utc>>, seen: Option<DateTime<Utc>> }
 
 /// Every read of the run; no database handle in reach.
@@ -402,7 +402,7 @@ async fn fetch<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing:
     let stored: HashSet<&str> = start.cursors.keys().map(String::as_str).collect();
     let candidates = candidate_symbols(&list, &held, &stored, full);
     let mut seen = t.entries.iter().filter_map(|e| e.transacted_at).max();
-    // Rails' trade read starts at the floored start (an incremental sync), or reads the latest page (a full one).
+    // 2.x's trade read starts at the floored start (an incremental sync), or reads the latest page (a full one).
     let v2_from = (!full).then(|| from.max(ms(now - Duration::days(LEDGER_WINDOW_DAYS))));
     let mut identities = t.entries.iter().cloned().enumerate().map(|(n, entry)| {
         let source = if entry.entry_type == DEPOSIT { Source::Deposit } else { Source::Withdrawal };
@@ -476,7 +476,7 @@ fn total(page: &Raw) -> i64 {
 }
 
 /// #import_convert_trades, #import_fiat_payments, #import_dust_conversions, #import_dividends, #import_earn_rewards and
-/// #import_earn_subscriptions, in Rails' order, each walked from `since` (a full sync: from the source's opening) to now.
+/// #import_earn_subscriptions, in 2.x's order, each walked from `since` (a full sync: from the source's opening) to now.
 /// `us`: Binance.US's list (Exchanges::BinanceUs makes every one but #import_dividends a no-op).
 async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing: Pacing, since: Option<i64>, us: bool) -> Result<(Vec<Entry>, Vec<(usize, Input)>), Fail> {
     let now = ms(clock.now());
@@ -607,8 +607,8 @@ pub(super) fn repair_map(path:&str, kind:Option<&str>, raw:&Raw)->Result<Vec<Inp
         let asset = coin(row, "asset", "earn record")?;
         let id = id_keys.iter().find_map(|k| text(row.value.get(*k))).ok_or_else(|| (format!("unreadable earn record {}", id_keys[0]), true))?;
         let tx_id = if entry_type == STAKING_REWARD { format!("{prefix}-{id}-{asset}") } else { format!("{prefix}-{id}") };
-        // Rails' field, else the one Binance documents for locked rewards and every subscription and
-        // redemption (`amount`; Rails reads nil there and stores 0).
+        // 2.x's field, else the one Binance documents for locked rewards and every subscription and
+        // redemption (`amount`; 2.x reads nil there and stores 0).
         let quantity = if row.value.get(field).is_some_and(|v| !v.is_null()) { amount(row, field, "earn record")? } else { amount(row, "amount", "earn record")? };
         let mut e = entry(entry_type, &asset, quantity, row, millis_at(row, time_keys, "earn record")?);
         (e.tx_id, e.description) = (Some(tx_id), Some(description.clone()));
@@ -705,7 +705,7 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, transport: T, base: &st
     outcome.duplicates += identity_outcome.duplicates;
     outcome.skipped += identity_outcome.skipped;
     let max_seen = fetched.seen;
-    // The watermark: the newest row Rails' read returns (its trade page re-reads stored trades; Rust's reads by id never do), held back by a row that could not be saved and by a transfer still pending,
+    // The watermark: the newest row 2.x's read returns (its trade page re-reads stored trades; Rust's reads by id never do), held back by a row that could not be saved and by a transfer still pending,
     // never past the moment this sync began; unchanged when nothing was read.
     let watermark = [max_seen, progress.min_skipped, fetched.pending].into_iter().flatten().min().or(prior).map(|w| w.min(now));
     // `update!(last_synced_at:, last_sync_error: nil)`: written only when one of them moves.
@@ -722,12 +722,12 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, transport: T, base: &st
     Ok(Ok(outcome))
 }
 
-/// The newest trade time Rails' `account_trade_list` returns for one pair, the venue holding `stored` and `read` (by id):
+/// The newest trade time 2.x's `account_trade_list` returns for one pair, the venue holding `stored` and `read` (by id):
 /// the first V2_TRADES from `from` (an incremental sync), else the latest V2_TRADES, which end at the newest.
 pub fn v2_trades_seen(stored: &[(i64, DateTime<Utc>)], read: &[(i64, DateTime<Utc>)], from: Option<i64>) -> Option<DateTime<Utc>> {
     let venue: std::collections::BTreeMap<i64, DateTime<Utc>> = stored.iter().chain(read).copied().collect();
     match from {
-        // A stored time is Ruby's float read of the venue's milliseconds, at most a microsecond under them.
+        // A stored time is 2.x's float read of the venue's milliseconds, at most a microsecond under them.
         Some(from) => venue.values().filter(|at| ms(**at + Duration::microseconds(1)) >= from).take(V2_TRADES).max().copied(),
         None => venue.values().rev().take(V2_TRADES).max().copied(),
     }

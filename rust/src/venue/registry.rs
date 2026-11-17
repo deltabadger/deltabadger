@@ -1,4 +1,4 @@
-//! One static row per venue this build knows (plan VB §1.1): the metadata Rails' Exchange subclasses answer
+//! One static row per venue this build knows (plan VB §1.1): the metadata 2.x's Exchange subclasses answer
 //! (`name`, `name_id`, `requires_passphrase?`, the rules table) and, field by field, what Rust has ported for it. An
 //! `Option` that is `None` is not ported: the venue's keys get no job, no check and no wizard step. A row implies
 //! nothing beyond its fields. Every list that used to name the venues (the sync lists, the wizard's, the engine's
@@ -15,7 +15,7 @@ pub enum BalanceSync { Alpaca, Kraken, Binance, Kucoin, Bitvavo, Gemini, Bitget,
 pub enum LedgerSync { Alpaca, Kraken, Binance, Kucoin, Bitvavo, Gemini, Bitget, Mexc, Hyperliquid, Bybit, Bitrue, Coinbase, Bingx }
 
 /// How a key is checked (ApiKey#get_validity): Alpaca's account read (`settings::validator::check`), or the venue's own
-/// request sequence (`settings::key_check`) through its proxy. Binance.US's is its own (binance_us.rb: an account read,
+/// request sequence (`settings::key_check`) through its proxy. Binance.US's is its own (an account read,
 /// then a cancel probe), on Binance's wire. Bitvavo's reads the balance, then probes a cancel, for a reading key too. Bitget's
 /// probes a cancel (a withdrawal key reads its assets; a reading key its balances). MEXC's reads the account's canTrade,
 /// and for a reading key the deposit history too. IBKR's lists the login's accounts through its session (`key_check::ibkr_check`).
@@ -46,7 +46,7 @@ pub enum Figures {
     /// market/tickers prices and market/kline candles walked forward from the start, 1000 a page.
     Bybit,
     /// Per-conid snapshot prices (field 31) and daily marketdata/history candles, signed through the account's login
-    /// (Ibkr plan F1, D-IBKR-FIGURES: Rails answers `{}` and `[]`).
+    /// (Ibkr plan F1, D-IBKR-FIGURES: 2.x answers `{}` and `[]`).
     Ibkr,
     /// pricefeed prices and the one fixed recent window /v2/candles serves, kept from the start on.
     Gemini,
@@ -96,12 +96,12 @@ pub static ROWS: [Row; 15] = [
           needs_pairs: false, trades: true, balances: Some(BalanceSync::Alpaca), ledger: Some(LedgerSync::Alpaca), key_check: Some(KeyCheck::Alpaca),
           wizard: true, figures: Some(Figures::Alpaca), condition_candles: true },
     // D-RULE-KRAKEN-NO-LIVE-FIXTURE: the 2026-10-29 owner ruling waives G-LIVE using E2's offline G0 tests
-    // and X0's recorded Rails classifier cells. Fee semantics, the live WithdrawStatus shape and a live max_fee
+    // and X0's recorded 2.x classifier cells. Fee semantics, the live WithdrawStatus shape and a live max_fee
     // refusal remain unproven; fee_on_top stays None so sizing reserves the fee conservatively.
     Row { withdrawals: Some(super::withdrawal::Kind::Kraken), withdraws: true, fee_on_top: None, exchange_type: "Exchanges::Kraken", name: "Kraken", name_id: "kraken", base: super::kraken::URL, rules: Some(&venue_rules::KRAKEN), passphrase: false,
           needs_pairs: false, trades: true, balances: Some(BalanceSync::Kraken), ledger: Some(LedgerSync::Kraken), key_check: Some(KeyCheck::Kraken), wizard: true, figures: Some(Figures::Kraken), condition_candles: true },
     // D-RULE-BINANCE-NO-LIVE-FIXTURE: the G-LIVE fixture is waived as for Kraken (owner rule: no live tests on user money),
-    // from E1/E3's offline G0 tests through the real adapter and X0's recorded Rails classifier cells. Unproven:
+    // from E1/E3's offline G0 tests through the real adapter and X0's recorded 2.x classifier cells. Unproven:
     // whether withdrawFee is charged on top of amount, and the live
     // withdraw/history shape for our withdrawOrderId. fee_on_top stays None so sizing reserves the fee conservatively.
     Row { withdrawals: Some(super::withdrawal::Kind::Binance), withdraws: true, fee_on_top: None, exchange_type: super::binance::BINANCE, name: "Binance", name_id: "binance", base: super::binance::URL, rules: Some(&venue_rules::BINANCE),
@@ -119,19 +119,19 @@ pub static ROWS: [Row; 15] = [
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bitvavo), ledger: Some(LedgerSync::Bitvavo),
           key_check: Some(KeyCheck::Bitvavo), wizard: true, figures: Some(Figures::Bitvavo), condition_candles: true },
     // D-RULE-GEMINI-NO-LIVE-FIXTURE: the G-LIVE fixture is waived as for Kraken (owner rule: no live tests on user money),
-    // from E1/E3's offline G0 tests through the real adapter and X0's recorded Rails classifier cells. Unproven:
-    // the v2 withdraw's live semantics (Rails sends v1) and whether feeEstimate is the
+    // from E1/E3's offline G0 tests through the real adapter and X0's recorded 2.x classifier cells. Unproven:
+    // the v2 withdraw's live semantics (2.x sends v1) and whether feeEstimate is the
     // fee charged; recovery stays operator-only (candidates never settle). fee_on_top stays None so sizing reserves the fee conservatively.
     Row { withdrawals: Some(super::withdrawal::Kind::Gemini), withdraws: true, fee_on_top: None, exchange_type: super::gemini::GEMINI, name: "Gemini", name_id: "gemini", base: super::gemini::URL, rules: Some(&venue_rules::GEMINI),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Gemini), ledger: Some(LedgerSync::Gemini),
           key_check: Some(KeyCheck::Gemini), wizard: true, figures: Some(Figures::Gemini), condition_candles: true },
-    // Plan VB slice A4, the classic v2 API as Rails runs it.
+    // Plan VB slice A4, the classic v2 API as 2.x runs it.
     Row { withdrawals: None, withdraws: false, fee_on_top: None, exchange_type: super::bitget::BITGET, name: "Bitget", name_id: "bitget", base: super::bitget::URL, rules: Some(&venue_rules::BITGET),
           passphrase: true, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bitget), ledger: Some(LedgerSync::Bitget),
           key_check: Some(KeyCheck::Bitget), wizard: true, figures: Some(Figures::Bitget), condition_candles: true },
     // D-RULE-MEXC-NO-LIVE-FIXTURE: the G-LIVE fixture is waived as for Kraken (owner rule: no live tests on user money),
-    // from E1/E3's offline G0 tests through the real adapter and X0's recorded Rails classifier cells. Unproven:
-    // the live semantics of /api/v3/capital/withdraw (Rails sends the old /withdraw/apply),
+    // from E1/E3's offline G0 tests through the real adapter and X0's recorded 2.x classifier cells. Unproven:
+    // the live semantics of /api/v3/capital/withdraw (2.x sends the old /withdraw/apply),
     // the netWork mapping on a real coin list, and the fee semantics. fee_on_top stays None so sizing reserves the fee conservatively.
     Row { withdrawals: Some(super::withdrawal::Kind::Mexc), withdraws: true, fee_on_top: None, exchange_type: super::mexc::MEXC, name: "MEXC", name_id: "mexc", base: super::mexc::URL, rules: Some(&venue_rules::MEXC),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Mexc), ledger: Some(LedgerSync::Mexc),

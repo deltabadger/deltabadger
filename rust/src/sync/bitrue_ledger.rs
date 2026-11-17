@@ -1,8 +1,8 @@
 //! Exchanges::Bitrue#get_ledger (T9–T11) on the shared continuation kit.
 //! Trades use overlapping 89-day windows and recursively overlapping halves; transfers use offset pages.
 //! Every discovery set, pending half, dedupe set and frozen pair survives a checkpoint. The production pacing is
-//! 250 ms before each history request; admission reserves it. Rails starts at 2018-07-01, without a lookback clamp.
-//! D-BITRUE-PAGE: a repeated full transfer page fails with its endpoint rather than Rails' undefined `path` exception.
+//! 250 ms before each history request; admission reserves it. 2.x starts at 2018-07-01, without a lookback clamp.
+//! D-BITRUE-PAGE: a repeated full transfer page fails with its endpoint rather than 2.x's undefined `path` exception.
 use super::activities::{Entry, Raw, BUY, SELL, DEPOSIT, WITHDRAWAL};
 use super::binance_ledger::{amount, entry, page_of, v2_time_at_ms, text, Fail};
 use super::{continuation, capture_bound_version, load_key_of, phase, Failure, Key, SyncError};
@@ -39,7 +39,7 @@ fn rows(node: &Node, member: Option<&str>) -> Result<Vec<String>, Fail> {
 }
 fn raw(s: &str) -> Result<Raw, Fail> { Raw::parse(s).and_then(Result::ok).ok_or_else(|| ("unreadable Bitrue ledger row".into(), true)) }
 
-/// Ruby's `value['key']` on the exchange listing. In particular, a top-level nil or Array raises;
+/// 2.x's `value['key']` on the exchange listing. In particular, a top-level nil or Array raises;
 /// it is not an object with an absent member. Keep the exception text for the sync's existing failure path.
 pub(super) fn listing_field(value: &Value, key: &str) -> Result<Value, Fail> {
     let error = match value {
@@ -53,7 +53,7 @@ pub(super) fn listing_field(value: &Value, key: &str) -> Result<Value, Fail> {
     Err((error, true))
 }
 
-/// Rails uses `Array(info['symbols'])`: absent/null and an empty Hash are empty, while a nonempty
+/// 2.x uses `Array(info['symbols'])`: absent/null and an empty Hash are empty, while a nonempty
 /// Hash becomes key/value arrays (which raise on the string subscript below). Scalars become one row.
 fn listing_pairs(node: &Node) -> Result<Vec<(String, String, String)>, Fail> {
     let value: Value = serde_json::from_str(&node.text()).map_err(|_| ("unreadable Bitrue listing".into(), true))?;

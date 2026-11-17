@@ -1,10 +1,10 @@
-//! The decimal the figures hold: Ruby's BigDecimal (4.1.3) as Rails' accounting uses it. Exact sums, differences
-//! and products; a quotient rounded to a precision that depends on its operands; a negative zero, which Rails
+//! The decimal the figures hold: 2.x's BigDecimal (4.1.3) as 2.x's accounting uses it. Exact sums, differences
+//! and products; a quotient rounded to a precision that depends on its operands; a negative zero, which 2.x
 //! prints (`"-0.0"`).
 //!
-//! It is held as Ruby holds it: limbs of nine decimal digits, aligned on the decimal point. So a sum costs what
+//! It is held as 2.x holds it: limbs of nine decimal digits, aligned on the decimal point. So a sum costs what
 //! its operands are long, a product of a long number and a short one costs the long one's length, and writing a
-//! number out costs its length, as in Ruby. That matters because Rails' accounting grows its numbers: every sale
+//! number out costs its length, as in 2.x. That matters because 2.x's accounting grows its numbers: every sale
 //! multiplies a holding's cost by a quotient of some thirty digits, and after a thousand sales the cost is a
 //! number of thirty thousand digits that every later order adds to.
 //!
@@ -226,7 +226,7 @@ impl Dec {
     }
 
     /// A decimal as a venue, a provider or a column writes one: a sign, digits, a fraction, an exponent, and
-    /// nothing else. Ruby's String#to_d reads the same number from such a text; from any other it reads a number
+    /// nothing else. 2.x's String#to_d reads the same number from such a text; from any other it reads a number
     /// off the front ("12abc" is 12, "abc" is 0) or a BigDecimal that is no number ("NaN", "Infinity"), and a figure
     /// made from either would be a wrong figure, so here it is `NumError::NotANumber`.
     pub fn strict(text: &str) -> Result<Dec, NumError> { Dec::read(text, Door::Database) }
@@ -243,8 +243,8 @@ impl Dec {
         Ok(Dec { mag: shared(Mag::from_digits(&digits, scale)), negative })
     }
 
-    /// `value.to_d` on a value of a venue's or a provider's JSON: nil is zero (as in Ruby), an Integer is exact, a
-    /// Float is Float#to_d, a String is read strictly. Anything else has no `to_d` in Ruby. Within the venue's limits.
+    /// `value.to_d` on a value of a venue's or a provider's JSON: nil is zero (as in 2.x), an Integer is exact, a
+    /// Float is Float#to_d, a String is read strictly. Anything else has no `to_d` in 2.x. Within the venue's limits.
     pub fn to_d(v: &Value) -> Result<Dec, NumError> {
         match v {
             Value::Null => Ok(Dec::zero()),
@@ -289,7 +289,7 @@ impl Dec {
         }
     }
 
-    /// A number written out by this library or by Ruby, read back (the vectors): of any length the budget affords.
+    /// A number written out by this library or by 2.x, read back (the vectors): of any length the budget affords.
     pub fn parse(text: &str) -> Result<Dec, NumError> {
         let text = text.trim();
         let limbs = (text.len() / FIG) as u64 + 1;
@@ -303,11 +303,11 @@ impl Dec {
     pub fn is_positive(&self) -> bool { !self.negative && !self.mag.is_zero() }
     pub fn is_negative(&self) -> bool { self.negative && !self.mag.is_zero() }
     fn opposite(&self) -> Dec { Dec { mag: self.mag.clone(), negative: !self.negative } }
-    /// `-x`: the sign turned, a zero's included (Ruby's `-BigDecimal('0')` is `-0.0`).
+    /// `-x`: the sign turned, a zero's included (2.x's `-BigDecimal('0')` is `-0.0`).
     pub fn neg(&self) -> Dec { self.opposite() }
 
     /// BigDecimal#/ (BigDecimal_div2 with n = 0): the quotient to as many digits as the longer operand has, plus
-    /// sixteen (at least 32), the last of them rounded half up. Ruby gives Infinity for a zero divisor; Rails'
+    /// sixteen (at least 32), the last of them rounded half up. 2.x gives Infinity for a zero divisor; 2.x's
     /// accounting never divides by one without raising first, and neither does this.
     pub fn div(&self, o: &Dec) -> Result<Dec, NumError> {
         if o.is_zero() { return Err(zero_division()); }
@@ -351,7 +351,7 @@ impl Dec {
         Dec::computed(Mag::from_digits(rounded.trim_start_matches('0'), places), self.negative)
     }
 
-    /// BigDecimal#to_s in plain notation, as Rails prints one: at least one fractional digit.
+    /// BigDecimal#to_s in plain notation, as 2.x prints one: at least one fractional digit.
     pub fn to_s_f(&self) -> String {
         budget::step(self.mag.len().saturating_add(self.mag.exp.max(-self.mag.top()).max(0) as u64));
         let sign = if self.negative { "-" } else { "" };

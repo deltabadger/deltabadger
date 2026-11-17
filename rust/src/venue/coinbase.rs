@@ -76,10 +76,10 @@ pub const HISTORY_PAGES: usize = 5;
 /// fields: its own `product_id` the asked one; `order_id` a non-empty string (the bare id `add_order` stores, as fills.rs keys
 /// Coinbase fills); `created_time` RFC3339, kept to the microsecond (what A28-2's facts store); `side` BUY/SELL; LIMIT with
 /// only `limit_limit_gtc` {`limit_price` > 0, `base_size` > 0, no quote size}, or MARKET with only `market_market_ioc` and
-/// exactly one of `base_size` / `quote_size` positive (Rails places only these two); `filled_size` not negative; the filled
-/// quote `total_value_after_fees` − `outstanding_hold_amount` as Rails' parse computes it, not negative. Status: OPEN /
+/// exactly one of `base_size` / `quote_size` positive (2.x places only these two); `filled_size` not negative; the filled
+/// quote `total_value_after_fees` − `outstanding_hold_amount` as 2.x's parse computes it, not negative. Status: OPEN /
 /// QUEUED / CANCEL_QUEUED / EDIT_QUEUED open, FILLED (something filled) filled, CANCELLED / EXPIRED / FAILED ended; PENDING /
-/// UNKNOWN_ORDER_STATUS (Unknown in Rails' map) and anything else None.
+/// UNKNOWN_ORDER_STATUS (Unknown in 2.x's map) and anything else None.
 pub fn created_order(symbol: &str, o: &Value) -> Option<super::CreatedOrder> {
     use super::{CreatedKind, CreatedOrder, CreatedSize, CreatedState, Side};
     let zero = BigDec::zero();
@@ -346,7 +346,7 @@ impl<T: Transport> super::Venue for CoinbaseVenue<T> {
     /// latest and sorted by time; the walk ends at the window reaching now, the next one starting a second after the
     /// latest candle so far (at the window's end while there is none). Each `{start, open, high, low, close, volume}` at
     /// `start.to_i`; 4 hours built from two-hourly, 3 days, 1 week and 1 month from daily. DIVERGES
-    /// (D-COND-CANDLE-COINBASE-EMPTY-WINDOW): an empty window after one with candles moves on from its end, where Rails
+    /// (D-COND-CANDLE-COINBASE-EMPTY-WINDOW): an empty window after one with candles moves on from its end, where 2.x
     /// asks the same window again forever; D-COND-CANDLE-CAP: past MAX_CANDLE_PAGES windows it is a settled failure.
     async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
         let (granularity, seconds) = candle_granularity(timeframe);
@@ -362,7 +362,7 @@ impl<T: Transport> super::Venue for CoinbaseVenue<T> {
                 let at = row.get("start").and_then(candles::to_i).and_then(|s| DateTime::from_timestamp(s, 0));
                 at.and_then(|at| candles::fields(at, row, ["open", "high", "low", "close", "volume"])).ok_or_else(unreadable)
             }).collect::<Result<Vec<_>, _>>()?;
-            // ponytail: sorted by time; Rails sorts by the raw `start`, which differs only for times of different lengths.
+            // ponytail: sorted by time; 2.x sorts by the raw `start`, which differs only for times of different lengths.
             page.sort_by_key(|c| c.at);
             let latest = page.last().map(|c| c.at);
             out.extend(page);
@@ -540,11 +540,11 @@ impl<T: Transport> super::Venue for CoinbaseVenue<T> {
             None => Err(VenueError::Ambiguous(ABSENCE_UNPROVEN.into())),
         }
     }
-    /// A28-3d-3 (D-HISTORY-DOC-BUILT: `end_date` and reading a window's every row are the docs'; Rails asks this list by ids):
+    /// A28-3d-3 (D-HISTORY-DOC-BUILT: `end_date` and reading a window's every row are the docs'; 2.x asks this list by ids):
     /// per product, GET historical/batch with `product_ids`, `start_date` = from floored to the second and `end_date` = to
     /// floored + 1 s (r1.1: the end is exclusive; RFC3339 whole seconds), limit 100, then `cursor` while `has_next`, five
     /// pages at most (a cap, or a missing or repeated cursor: incomplete). No status filter (open orders are listed) and no
-    /// placement source (the default is an API key's, as Rails placed). Rows filtered here.
+    /// placement source (the default is an API key's, as 2.x placed). Rows filtered here.
     async fn orders_created(&self, symbols: &[String], from: DateTime<Utc>, to: DateTime<Utc>, deadline: tokio::time::Instant) -> Result<super::Created, super::HistoryError> {
         let secs = |s: i64| DateTime::from_timestamp(s, 0).map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)).unwrap_or_default();
         let (start, end) = (secs(from.timestamp()), secs(to.timestamp() + 1));

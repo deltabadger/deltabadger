@@ -1,4 +1,4 @@
-//! The tracker's background syncs for an Alpaca key, as Rails' jobs run them: the account-transaction (ledger) sync
+//! The tracker's background syncs for an Alpaca key, as 2.x's jobs run them: the account-transaction (ledger) sync
 //! (AccountTransaction::SyncJob) and the account-balance sync (AccountBalance::SyncJob). Each is an idempotent async
 //! function, safe to call at any time; when to call them is the scheduler's business.
 //!
@@ -6,7 +6,7 @@
 //! - every database phase runs off the runtime thread (`jobs::Db::run`), in short `BEGIN IMMEDIATE` transactions
 //!   (`write`), with `WRITE_GAP` after each; a transaction that writes what eligibility reads (`bots`, a split's
 //!   counters, or a split row) passes the engine's `eligibility::guard` before it commits;
-//! - every answer is read to a stated size, off the runtime thread (`parsed`), as Rails would hold it and within a
+//! - every answer is read to a stated size, off the runtime thread (`parsed`), as 2.x would hold it and within a
 //!   budget of values (`wire`); every number in it goes through `number`, which bounds it before any arithmetic;
 //! - no value of an answer is logged: a log line says what happened and where, never an id, a cursor or a body;
 //! - no transaction is open across a network call: the fetch phases take no database handle at all;
@@ -61,7 +61,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 pub const SYNC_ERROR_LIMIT: usize = 200;
 pub const ALPACA: &str = "Exchanges::Alpaca";
 
-/// This process failing, as opposed to the venue: SQLite, a stored value Rails did not write, a key that is not an
+/// This process failing, as opposed to the venue: SQLite, a stored value 2.x did not write, a key that is not an
 /// Alpaca key, a database phase whose task was cancelled.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SyncError(pub String);
@@ -178,10 +178,10 @@ pub fn validation_material(c:&Connection,cipher:&Cipher,key_id:i64)->Result<(Cre
 /// Why an answer was not read (`parsed`).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Unread {
-    /// Not JSON as Ruby's parser reads it (nested past its limit included): Clients::Alpaca#with_rescue's message for
-    /// the failed request, which Rails returns and the job goes on from.
+    /// Not JSON as 2.x's parser reads it (nested past its limit included): Clients::Alpaca#with_rescue's message for
+    /// the failed request, which 2.x returns and the job goes on from.
     NotJson,
-    /// Where Ruby raises, or a limit of this port: the job stops.
+    /// Where 2.x raises, or a limit of this port: the job stops.
     Raised(String),
 }
 
@@ -197,7 +197,7 @@ impl Unread {
 
 /// Reads a fetched answer on the blocking pool, so no body is parsed on the runtime thread. `read` gets the body of
 /// a 2xx answer (its size was bounded when it was fetched). The error is `(text, raised)` as `venue_failure` gives it:
-/// a failed request and an unparsable body are Rails' returned Failure; `Unread::Raised` is where Ruby raises.
+/// a failed request and an unparsable body are 2.x's returned Failure; `Unread::Raised` is where 2.x raises.
 pub async fn parsed<R: Send + 'static>(body: Body, read: impl FnOnce(&str) -> Result<R, Unread> + Send + 'static) -> Result<R, (String, bool)> {
     let work = tokio::task::spawn_blocking(move || match body.text() {
         Err(e) => Err(venue_failure(e)),
@@ -211,7 +211,7 @@ pub async fn parsed<R: Send + 'static>(body: Body, read: impl FnOnce(&str) -> Re
 }
 
 /// A sync that did not complete. `error` is the text now in `api_keys.last_sync_error`. `raised` is true where the
-/// Rails job re-raises (a transport failure Rails calls retryable): the rest of the job did not run.
+/// 2.x job re-raises (a transport failure 2.x calls retryable): the rest of the job did not run.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Failure { pub error: String, pub raised: bool }
 
@@ -314,8 +314,8 @@ pub fn credentials(c: &Connection, cipher: &Cipher, key_id: i64) -> Result<Crede
 pub fn decrypted(cipher: &Cipher, key_id: i64, (key, secret, passphrase): (Option<String>, Option<String>, Option<String>)) -> Result<Credentials, SyncError> {
     let open = |v: Option<String>| v.map(|v| cipher.decrypt(&v).map_err(|_| SyncError(format!("api key {key_id} is unreadable (is SECRET_KEY_BASE this instance's own?)")))).transpose();
     Ok(Credentials { redaction_values:vec![],
-        key: open(key)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is Rails' empty string
-        secret: open(secret)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is Rails' empty string
+        key: open(key)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is 2.x's empty string
+        secret: open(secret)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is 2.x's empty string
         passphrase: open(passphrase)?,
         ibkr: None,
     })
@@ -331,7 +331,7 @@ pub fn venue_failure(e: VenueError) -> (String, bool) {
 }
 
 fn token_char(c: char) -> bool { c.is_ascii_alphanumeric() || c == '_' || c == '-' }
-/// Ruby's `\s`: ASCII whitespace only.
+/// 2.x's `\s`: ASCII whitespace only.
 fn space(c: char) -> bool { matches!(c, ' ' | '\t' | '\n' | '\x0b' | '\x0c' | '\r') }
 
 /// Replaces every maximal run of `class` characters that `hit` accepts.
@@ -420,7 +420,7 @@ pub fn record_sync_error(c: &crate::engine::model::FencedTransaction<'_>, key_id
     Ok(stored)
 }
 
-/// Rails' quoted time for a bound parameter or a stored column.
+/// 2.x's quoted time for a bound parameter or a stored column.
 pub fn sql_time(t: DateTime<Utc>) -> String { format_time(t) }
 
 pub mod coinbase_ledger;

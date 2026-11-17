@@ -3,7 +3,7 @@
 //! in `cnb_coverage`. A fixing holds for its business day and the following non-business days (§ 35 zákona o ČNB), so a
 //! day's rate is the latest fixing dated on or before it, read back across covered days only: outside coverage a value
 //! is missing (banner, listed, 0), never an older stored fixing. Any currency's fixing defines the fixing day; a fixing
-//! that omits the currency is missing for it. Rust-only (Rails converts at the ECB's rate); the job fills the tables before
+//! that omits the currency is missing for it. Rust-only (2.x converts at the ECB's rate); the job fills the tables before
 //! the report, as `nbp::ensure_loaded` does.
 use crate::figures::{at::At, dec::Dec, FiguresError};
 use crate::jobs::Db;

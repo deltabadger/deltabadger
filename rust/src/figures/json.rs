@@ -1,4 +1,4 @@
-//! JSON as Rails writes it. Rails' encoder here is Oj in Rails mode (config/initializers/oj.rb): a BigDecimal is
+//! JSON as 2.x writes it. 2.x's encoder here is Oj in the mode 2.x's initializer selects: a BigDecimal is
 //! a string (`to_s`, plain notation), a Float is `num::oj_float`, a Time is ISO 8601 with a fixed number of
 //! fractional digits, cut not rounded, and `<`, `>`, `&`, U+2028 and U+2029 are escaped in strings.
 use super::num::{oj_float, Num};
@@ -79,7 +79,7 @@ fn written<Z: TimeZone>(t: &DateTime<Z>, digits: usize, utc: bool) -> String {
     format!("{}{fraction}{zone}", local.format("%Y-%m-%dT%H:%M:%S"))
 }
 
-/// A Time in UTC: `2026-03-02T14:30:00.250Z`, `digits` fractional digits (Rails: 3).
+/// A Time in UTC: `2026-03-02T14:30:00.250Z`, `digits` fractional digits (2.x: 3).
 pub fn time_utc(t: &DateTime<Utc>, digits: usize) -> String { written(t, digits, true) }
 
 /// A time in a user's zone (ActiveSupport::TimeWithZone): `2026-03-02T15:30:00.250+01:00`. `Z` only where the

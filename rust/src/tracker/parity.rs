@@ -1,7 +1,7 @@
-//! The Rust half of the tracker's value-parity harness (script/rust/tracker.rb is the Rails half): on a marked scratch
+//! The Rust half of the tracker's value-parity harness (the recording harness was the 2.x half): on a marked scratch
 //! copy, the ledger job's own run (`jobs::ledger_run`: walk, then today's rows and wash-sale locks in its one write
 //! unit) and then the backfill's, over the scripted data-api and Alpaca bodies, at the scenario's instant; reported as
-//! Rails reports it.
+//! 2.x reports it.
 use super::figures;
 use super::walk::{Summary, Walked};
 use crate::crypto::{Cipher, Credentials};
@@ -29,7 +29,7 @@ impl Connect for Scripted {
     fn connect(&self, _: &Credentials) -> AlpacaVenue<ScriptedTransport> { AlpacaVenue::new(self.0.clone(), Urls::for_passphrase(None)) }
 }
 
-/// An instant as Ruby's `iso8601(6)` states a UTC time.
+/// An instant as 2.x's `iso8601(6)` states a UTC time.
 fn time(at: crate::figures::at::At) -> String { at.utc().format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string() }
 
 pub fn summary_json(s: &Summary) -> Value {
@@ -71,7 +71,7 @@ fn figures_json(f: &figures::Figures) -> Result<Value, FiguresError> {
     }))
 }
 
-/// The scopes the walk stated and the figures each of today's rows was made from, as Rails' harness dumps them.
+/// The scopes the walk stated and the figures each of today's rows was made from, as the recording harness dumps them.
 fn report(c: &Connection, user_id: i64, walked: &Walked, today: chrono::NaiveDate) -> Result<Value, FiguresError> {
     let mut venues = Map::new();
     let mut listed = walked.venues.clone();
@@ -133,7 +133,7 @@ pub fn logged(t: &ScriptedTransport) -> Vec<Value> {
     }).collect()
 }
 
-/// Runs the scenario in `dir` (a scratch copy the Rails harness built) and reports what Rails' `record` reports.
+/// Runs the scenario in `dir` (a scratch copy the recording harness built) and reports what 2.x's `record` reports.
 pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, String> {
     let read = std::fs::read_to_string(dir.join("scenario.json")).map_err(|e| e.to_string())?;
     let scenario: Value = serde_json::from_str(&read).map_err(|e| e.to_string())?;
@@ -164,7 +164,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, String> {
     let ecb_script = ScriptedTransport::from_script(&scenario["ecb"]);
     let ecb = super::fx::Source::Scripted(ecb_script.clone());
     // One feed per job run, as the scheduler builds them (jobs::resolve::configured); a CoinGecko scenario's plan as
-    // Rails' pre-seeded `@detect_plan` holds it, or asked by each run's ping when the scenario seeds none.
+    // 2.x's pre-seeded `@detect_plan` holds it, or asked by each run's ping when the scenario seeds none.
     let feed = || match &scenario["coingecko"] {
         Value::Null => Feed::DataApi(DataApi::new(Config { url: "http://data-api:3000".into(), token: "parity-token".into() }, market.clone(), market.clone())),
         cg => {

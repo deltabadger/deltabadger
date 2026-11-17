@@ -48,7 +48,7 @@ pub fn unlisted(c: &Connection, s: &Subject, asset_id: Option<i64>) -> Result<Wh
     Ok(if listed { Why::Delisted } else { Why::NoTicker })
 }
 
-/// Rails' composition live pass asks the venue only after these local early returns.
+/// 2.x's composition live pass asks the venue only after these local early returns.
 pub fn needs_venue_price(c:&Connection,s:&Subject,metrics:&Metrics,now:At)->Result<bool,FiguresError>{
     Ok(!metrics.chart.labels.is_empty()&&!restated_prices_untrusted(c,s,metrics,now)?)
 }
@@ -74,7 +74,7 @@ fn marked_live(c: &Connection, s: &Subject, metrics: &Metrics, market: &dyn Mark
     // Only holdings that priced land here: a holding missing from it has no mark at `now`.
     let mut live_prices: Vec<(String, Num)> = vec![];
     let mut asset_values: Vec<(String, AssetValue)> = vec![];
-    // What Rails skips in silence is named here, beside the figures.
+    // What 2.x skips in silence is named here, beside the figures.
     let mut unpriced: Vec<Unpriced> = vec![];
     for (key, asset) in &data.asset_breakdown {
         // A holding sold out keeps its ledger row and has nothing left to show.

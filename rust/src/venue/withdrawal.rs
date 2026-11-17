@@ -1,29 +1,29 @@
 //! Withdrawal reads (PLAN-withdrawal-rules V1): the venues' address books, the §4 destination contract a rule is held to,
 //! the fee reads and quotes, the §6 sizing, and shared E1 send/recovery validation.
 //!
-//! Rails is the oracle where it is right (tests/fixtures/withdrawal_vectors.json `reads`, recorded through honeymaker
+//! 2.x is the oracle where it is right (tests/fixtures/withdrawal_vectors.json `reads`, recorded through honeymaker
 //! 0.12.5): Binance's and Kraken's listing requests and filters (the coin, Kraken's `verified`), Gemini's NETWORK_MAP and
-//! `active`, and the coin list's default network and chain shape. Where Rails is wrong the port diverges, by name:
-//! - D-RULE-LISTED-ENTRY: an entry is the full destination (address, network, tag; Kraken's key). Rails keeps the address
+//! `active`, and the coin list's default network and chain shape. Where 2.x is wrong the port diverges, by name:
+//! - D-RULE-LISTED-ENTRY: an entry is the full destination (address, network, tag; Kraken's key). 2.x keeps the address
 //!   only and sends a rule's own network and free-form tag beside it. A rule's stored network, tag and key must equal the
 //!   entry's; a field the rule leaves empty is taken from the one entry that matches, never inferred; two distinct matches
 //!   are refused as ambiguous.
-//! - D-RULE-MEXC-LISTING: MEXC answers a page object `{data, totalRecords, page, totalPageNum}`; Rails' `Array(result.data)`
+//! - D-RULE-MEXC-LISTING: MEXC answers a page object `{data, totalRecords, page, totalPageNum}`; 2.x's `Array(result.data)`
 //!   raises TypeError on it. Every page is read as `data[]`.
 //! - D-RULE-MEXC-ADDRESSTAG: an entry's memo is its `memo` only; one with an `addressTag` and no `memo` is refused.
-//! - D-RULE-GEMINI-MEMO: Gemini lists through Rails' NETWORK_MAP, but only the memo-free networks are a destination.
-//! - D-RULE-KRAKEN-QUOTE: Kraken's fee is a `WithdrawInfo` quote for the exact amount (Rails reads WithdrawMethods' first
+//! - D-RULE-GEMINI-MEMO: Gemini lists through 2.x's NETWORK_MAP, but only the memo-free networks are a destination.
+//! - D-RULE-KRAKEN-QUOTE: Kraken's fee is a `WithdrawInfo` quote for the exact amount (2.x reads WithdrawMethods' first
 //!   method and drops percentage fees); a quote whose net is not `amount − fee` is fee unknown.
 //! - D-RULE-KRAKEN-DUST-QUOTE: Kraken refuses a quote for an amount at its fee (`EFunding:Invalid arguments`, the dust a
 //!   100% withdrawal leaves). For exactly that 200 refusal the rule's last stored fee (per exchange and asset, not per
 //!   destination or account) is a skip heuristic only: it may turn the refusal into the "below minimum" row, never size a
 //!   send; when it does not prove the balance too small the refusal is logged as before.
-//! - D-RULE-GEMINI-FEE-ESTIMATE: Gemini's fee is `feeEstimate` (Rails knows no Gemini fee).
+//! - D-RULE-GEMINI-FEE-ESTIMATE: Gemini's fee is `feeEstimate` (2.x knows no Gemini fee).
 //! - D-RULE-FEE-FALLBACK (Q1): the rules page's fee display reads Binance's and MEXC's coin list with the FeeApiKey, else
 //!   the rule's own withdrawal key. The engine always sizes with the withdrawal key: its account pays the fee and is the
-//!   identity fenced at begin and dispatch. Rails reads nothing without a FeeApiKey (nothing in the app creates one), so
+//!   identity fenced at begin and dispatch. 2.x reads nothing without a FeeApiKey (nothing in the app creates one), so
 //!   its fee stays unknown.
-//! - D-RULE-FEE-STAMP: a fee read is written to the rule's own exchange_assets row only, and only when it is known. Rails
+//! - D-RULE-FEE-STAMP: a fee read is written to the rule's own exchange_assets row only, and only when it is known. 2.x
 //!   writes every coin the venue lists (creating rows), and stamps a missing or unreadable fee as fresh for 24 hours.
 //! - D-RULE-LOG-SECRETS: no error text this module returns carries a URL query, a signature or an HTML body.
 use super::VenueError;
@@ -34,7 +34,7 @@ use serde_json::Value;
 
 /// The refusal every surface shows for a destination the contract does not admit (§4).
 pub const NOT_LISTED_KEY: &str = "errors.withdrawal_address_not_listed";
-/// Binance's (and MEXC's) honeymaker recvWindow for the wallet reads, as Rails sends it.
+/// Binance's (and MEXC's) honeymaker recvWindow for the wallet reads, as 2.x sends it.
 pub const RECV_WINDOW: &str = "5000";
 pub const BINANCE_ADDRESSES: &str = "/sapi/v1/capital/withdraw/address/list";
 pub const BINANCE_COINS: &str = "/sapi/v1/capital/config/getall";
@@ -58,7 +58,7 @@ pub fn gemini_network(ticker: &str) -> Option<&'static str> {
     GEMINI_NETWORK_MAP.iter().find(|(t, _)| t.eq_ignore_ascii_case(ticker)).map(|(_, n)| *n)
 }
 
-/// The venues that withdraw (exchange.rb:534 less Binance.US, D-RULE-BINANCE-US-UNSUPPORTED: it has no address book, so no
+/// The venues that withdraw (as in 2.x, less Binance.US, D-RULE-BINANCE-US-UNSUPPORTED: it has no address book, so no
 /// destination contract).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind { Binance, Kraken, Gemini, Mexc }
@@ -100,7 +100,7 @@ pub enum Destination {
 }
 
 /// A rule's stored destination: `address`, settings `network`, `address_tag` and `address_name` (Kraken's key). Blank is
-/// absent, as Rails reads them with `.presence`.
+/// absent, as 2.x reads them with `.presence`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Stored { pub address: String, pub network: Option<String>, pub tag: Option<String>, pub key: Option<String> }
 
@@ -143,7 +143,7 @@ pub struct Network {
 pub struct Coin { pub networks: Vec<Network> }
 
 impl Coin {
-    /// The network Rails reads a coin's fee from: the first `isDefault`, else the first.
+    /// The network 2.x reads a coin's fee from: the first `isDefault`, else the first.
     pub fn default_network(&self) -> Option<&Network> { self.networks.iter().find(|n| n.is_default).or_else(|| self.networks.first()) }
 }
 
@@ -180,7 +180,7 @@ pub fn scrub(e: VenueError) -> VenueError {
 
 // ---- listings
 
-/// Exchanges::Binance#list_withdrawal_addresses' rows for `coin`, keeping what Rails drops: the network and addressTag
+/// Exchanges::Binance#list_withdrawal_addresses' rows for `coin`, keeping what 2.x drops: the network and addressTag
 /// (D-RULE-LISTED-ENTRY). An entry with no network is refused.
 pub fn binance_entries(body: &Value, coin: &str) -> Result<Vec<Entry>, VenueError> {
     let rows = body.as_array().ok_or_else(|| unreadable("Binance"))?;
@@ -314,7 +314,7 @@ fn destination(kind: Kind, coin: &str, stored: &Stored, e: &Entry, networks: Opt
         }
         Kind::Kraken => {
             let key = e.key.clone().ok_or(Refusal::Inadmissible("the entry names no key"))?;
-            // Rails lists an entry without a method too (kraken.rb:477 compact_blank); the method only narrows the lookup.
+            // 2.x lists an entry without a method too; the method only narrows the lookup.
             let method = e.network.clone().filter(|m| !crate::v2::blank(m));
             Ok(Destination::Kraken { asset: coin.to_string(), key, address, method })
         }
@@ -359,11 +359,11 @@ pub fn kraken_dust_fee(c: &Connection, kind: Kind, e: &VenueError, exchange_id: 
     Ok(fee.and_then(|f| known_fee(&Value::String(f))))
 }
 
-/// What a fee read writes back (D-RULE-FEE-STAMP): the exchange_assets columns Rails keeps, for the rule's asset.
+/// What a fee read writes back (D-RULE-FEE-STAMP): the exchange_assets columns 2.x keeps, for the rule's asset.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Stamp { pub fee: String, pub chains: Option<Value> }
 
-/// A coin list's stamp, as Rails writes it (the default network's fee; every network as {name, fee, is_default}), but
+/// A coin list's stamp, as 2.x writes it (the default network's fee; every network as {name, fee, is_default}), but
 /// only when every network's fee is known.
 pub fn coin_stamp(coin: &Coin) -> Option<Stamp> {
     if coin.networks.is_empty() || coin.networks.iter().any(|n| n.fee.is_none()) { return None; }
@@ -424,9 +424,9 @@ pub fn floor_p(x: &BigDec, multiple: Option<&BigDec>) -> BigDec {
 pub enum Sizing {
     /// Send `amount`; the fee at `budget` (`first_fee`, the trigger's) and at `amount` (`fee_cap`, Kraken's max_fee).
     Send { budget: BigDec, amount: BigDec, first_fee: BigDec, fee_cap: BigDec },
-    /// A quote was unknown (D-RULE-FEE-UNKNOWN-REFUSED): Rails' "Withdrawal fee unknown" row.
+    /// A quote was unknown (D-RULE-FEE-UNKNOWN-REFUSED): 2.x's "Withdrawal fee unknown" row.
     FeeUnknown { budget: BigDec },
-    /// The budget does not cover the fee: Rails' "does not cover fee" row.
+    /// The budget does not cover the fee: 2.x's "does not cover fee" row.
     DoesNotCover { budget: BigDec, fee: BigDec },
 }
 

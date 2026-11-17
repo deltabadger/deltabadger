@@ -1,8 +1,8 @@
 //! The German broker report (Anlage KAP / KAP-INV, `report_scope=broker`): Tax::BrokerReport, Tax::BrokerReportCsv,
 //! Tax::LotLedger, Tax::Vorabpauschale and FundClassification.resolve over the Alpaca ledger, by the law digested in
-//! specs/law-DE-broker.md (EStG §§ 20, 32d; InvStG §§ 2, 16, 18–20; KStG § 27 Abs. 8; DBA USA Art. 10, 11). Rails' bytes
-//! where Rails is right; where it is not, a named divergence:
-//! - D-TAX-BROKER-DISCLOSURES: the legal notes drop Rails' three that no longer hold (start value, interest net, the full
+//! specs/law-DE-broker.md (EStG §§ 20, 32d; InvStG §§ 2, 16, 18–20; KStG § 27 Abs. 8; DBA USA Art. 10, 11). 2.x's bytes
+//! where 2.x is right; where it is not, a named divergence:
+//! - D-TAX-BROKER-DISCLOSURES: the legal notes drop 2.x's three that no longer hold (start value, interest net, the full
 //!   credit) and state the USD cash rule in full, the credit, the return of capital and the Vorabpauschale's distributions.
 //! - D-TAX-BROKER-CREDIT: Zeile 41 takes per withholding the creditable tax (§ 32d Abs. 5 S. 1): a US dividend's at most
 //!   15 % (DBA USA Art. 10 Abs. 2 b) and 25 % of its taxable part, a non-US issuer's 25 % (listed), US interest's none
@@ -150,7 +150,7 @@ impl Ledger {
 
 /// The Vorabpauschale of one lot (§ 18 InvStG), gross of the Teilfreistellung. `None`: no Basiszins for the year.
 /// D-TAX-BROKER-VAP-MONTHS: max(0, min(Basisertrag, Mehrbetrag) − distributions), then less 1/12 per full month before the
-/// purchase month in the purchase year (Rails took the twelfths off the Basisertrag before the cap).
+/// purchase month in the purchase year (2.x took the twelfths off the Basisertrag before the cap).
 fn vorabpauschale(year: i32, acquired: NaiveDate, start: &Dec, end: &Dec, distributions: &Dec) -> R<Option<Dec>> {
     let Some(rate) = basiszins(year) else { return Ok(None) };
     if !rate.is_positive() { return Ok(Some(Dec::zero())); }
@@ -168,7 +168,7 @@ struct Rec { id: i64, kind: i64, key: Option<i64>, base: String, amount: Dec, qu
 
 impl Rec {
     /// D-TAX-BROKER-LOCAL-DATE: a fill's day is the taxpayer's (Alpaca trades until 20:00 ET, past midnight in Berlin); a
-    /// non-trade row keeps the day Alpaca booked it on (UTC), as Rails.
+    /// non-trade row keeps the day Alpaca booked it on (UTC), as 2.x.
     fn date(&self) -> NaiveDate { if matches!(self.kind, BUY | SELL) { self.local } else { self.at.date_naive() } }
     fn activity(&self) -> String {
         self.raw["activity_type"].as_str().map(str::to_string)
@@ -238,7 +238,7 @@ fn records(c: &Connection, user: i64, exchange: i64, year: i32) -> R<Vec<Rec>> {
 pub struct Window { pub symbol: String, pub from: NaiveDate, pub to: NaiveDate, pub first: bool }
 
 impl Window {
-    /// The days a stored close makes the window fresh (no fetch): the end window's from its last weekday on (Rails); the start
+    /// The days a stored close makes the window fresh (no fetch): the end window's from its last weekday on (2.x); the start
     /// window's on its first weekday (in a holiday year the window is fetched again; the answer holds the first trading
     /// day's close, which must lie within the first three weekdays: D-TAX-BROKER-VAP-START).
     pub fn fresh(&self) -> (NaiveDate, NaiveDate) {
@@ -260,7 +260,7 @@ enum Pick { Nothing, Close(NaiveDate, Dec), NoRate(NaiveDate) }
 pub enum Closes<'a> {
     /// The run's first pass: every window asked for, each answered as if priced.
     Needs(RefCell<BTreeSet<Window>>),
-    /// The stored closes, but the windows whose fetch failed (Rails' empty answer).
+    /// The stored closes, but the windows whose fetch failed (2.x's empty answer).
     Stored { c: &'a Connection, failed: &'a HashSet<Window> },
     /// The panel: the stored closes, and a missing one refuses nothing (the run fetches first).
     Panel(&'a Connection),
@@ -559,7 +559,7 @@ impl<'a> Walk<'a> {
         let gross_usd = self.distribution_usd(r)?;
         let gross_eur = match &rate { Some(rate) => Some(div(&gross_usd, rate)?), None => None };
         let scale = self.scale.get(&r.id).cloned().unwrap_or_else(Dec::one);
-        // Per share as stated, else over the shares it was paid on (`qty`); only then over the shares held that day (Rails).
+        // Per share as stated, else over the shares it was paid on (`qty`); only then over the shares held that day (2.x).
         let per_share_usd = match (r.per_share()?, r.qty()?) {
             (Some(p), _) => Some(mul(&p, &scale)?),
             (None, Some(qty)) => Some(div(&gross_usd, &qty)?),
@@ -944,7 +944,7 @@ mod tests {
         assert!(basiszins(2017).is_none() && basiszins(2027).is_none());
     }
 
-    // Rails' vorabpauschale_test, with D-TAX-BROKER-VAP-MONTHS.
+    // 2.x's vorabpauschale_test, with D-TAX-BROKER-VAP-MONTHS.
     #[test]
     fn a_full_year_lot_is_capped_by_the_basisertrag_and_the_mehrbetrag() {
         // 1,000 × 0.7 × 2.29 % = 16.03; Mehrbetrag 100 does not bite.
@@ -960,7 +960,7 @@ mod tests {
 
     #[test]
     fn the_purchase_year_s_twelfths_come_off_the_vorabpauschale_itself() {
-        // April: three full months before. min(16.03, 10) × 9/12 = 7.5 (Rails: min(12.0225, 10) = 10).
+        // April: three full months before. min(16.03, 10) × 9/12 = 7.5 (2.x: min(12.0225, 10) = 10).
         assert_eq!(vorabpauschale(2024, day("2024-04-15"), &n("1000"), &n("1010"), &n("0")).unwrap().unwrap(), n("7.5"));
         // December: one twelfth. 16.03 / 12.
         assert_eq!(vorabpauschale(2024, day("2024-12-01"), &n("1000"), &n("1100"), &n("0")).unwrap().unwrap(), div(&n("16.03"), &n("12")).unwrap());
@@ -968,7 +968,7 @@ mod tests {
         assert_eq!(vorabpauschale(2024, day("2024-01-02"), &n("1000"), &n("1100"), &n("0")).unwrap().unwrap(), n("16.03"));
     }
 
-    // Rails' lot_ledger_test.
+    // 2.x's lot_ledger_test.
     #[test]
     fn a_disposal_spans_lots_first_in_first_out_with_their_vap() {
         let mut l = Ledger::default();
@@ -982,7 +982,7 @@ mod tests {
         assert!(over[1].uncovered && over[1].units == n("3") && l.lots.is_empty());
     }
 
-    /// An install with the Rails schema, an Alpaca user (id 1, venue 1) and ECB dollar rates of 1.08 through 2023 and 2024.
+    /// An install with the 2.x schema, an Alpaca user (id 1, venue 1) and ECB dollar rates of 1.08 through 2023 and 2024.
     fn install() -> Connection {
         let c = Connection::open_in_memory().unwrap();
         c.execute_batch(include_str!("../../tests/fixtures/settings_primary_schema.sql")).unwrap();

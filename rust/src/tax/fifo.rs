@@ -1,25 +1,25 @@
-//! Tax::Methods::Fifo with AcquisitionFee and ReturnOfCapital (app/models/tax/methods/{fifo,acquisition_fee,
-//! return_of_capital}.rb), method by method, over the rows Tax::Report hands it, with Report#calculation_options.
+//! Tax::Methods::Fifo with AcquisitionFee and ReturnOfCapital, method by method,
+//! over the rows Tax::Report hands it, with Report#calculation_options.
 //! LIFO and the 4-week rule (A12-4) hang on `take`.
 //!
-//! Where Rust departs from Rails, by name:
+//! Where Rust departs from 2.x, by name:
 //! - D-TAX-ASSET-IDENTITY: lots are kept per coin (`Tx::asset`, the coin the symbol means on its venue that day), not
 //!   per ticker, so two coins sharing a symbol never take each other's basis.
 //! - D-TAX-UNCOVERED: a disposal some unit of which no lot covered is `data_incomplete` and not `cost_basis_complete`,
-//!   its uncovered quantity kept for the report's warning block (Rails marks it complete when any lot existed).
-//! - D-TAX-LOST: a `lost` row takes its lots in FIFO order with no disposal row (Rails has no branch, and sells the lost
+//!   its uncovered quantity kept for the report's warning block (2.x marks it complete when any lot existed).
+//! - D-TAX-LOST: a `lost` row takes its lots in FIFO order with no disposal row (2.x has no branch, and sells the lost
 //!   coins again later at their old basis).
 //! - D-TAX-COIN-FEE: where spending a coin is a disposal (`crypto_to_crypto_taxable`), every fee paid in a coin is one:
 //!   a fee of a row of its own, a fee in a third coin on a trade, and a linked transfer's network fee are each a
-//!   disposal of that coin at its value, its basis from the lots, no fee column. Elsewhere their lots go at zero, as Rails,
-//!   and so do a non-taxable swap out-leg's (Rails never took those).
-//! - D-TAX-SWAP-FEE: a fee on a swap-in that carries several tranches joins the cost once (Rails weighted it twice, so
+//!   disposal of that coin at its value, its basis from the lots, no fee column. Elsewhere their lots go at zero, as 2.x,
+//!   and so do a non-taxable swap out-leg's (2.x never took those).
+//! - D-TAX-SWAP-FEE: a fee on a swap-in that carries several tranches joins the cost once (2.x weighted it twice, so
 //!   two equal tranches carried half of it).
 //! - D-TAX-US-SWAP-COST: US, from 2025 (Treas. Reg. 1.1012-1(h)(2)): the cost of a coin-for-coin exchange belongs to the
 //!   coin given up; a fee on the in-leg comes off the out-leg's proceeds instead of joining the new coin's basis.
 //! - D-TAX-ORPHAN-SWAP: where swaps are not taxable, a swap-in with nothing to carry opens at market value marked assumed.
 //! - D-TAX-US-WALLET (`Options::per_venue_from`): from the start of 2025 in the user's zone, lots per account (one per
-//!   venue in this app: one key of each type per user and exchange). Before it one pool, as Rails; at the boundary the
+//!   venue in this app: one key of each type per user and exchange). Before it one pool, as 2.x; at the boundary the
 //!   pool as it stands is placed on the venues that hold the units then, the oldest lots to the venue first seen, and the
 //!   placement is kept for the report (`allocation`), so no lot an earlier year's report used is used again. A linked
 //!   transfer between venues carries its lots; an unlinked withdrawal takes them off the venue.
@@ -78,7 +78,7 @@ pub struct Options<'a> {
     pub tag_mining: bool,
     /// D-TAX-DK-STABLECOIN: the instant each coin's units held are recorded (`Fifo::snapshot`).
     pub snapshot_at: Option<At>,
-    /// Italy (Circolare 30/E p. 54): lots leave newest first, everywhere they leave (Rails' Lifo overrides the dequeue).
+    /// Italy (Circolare 30/E p. 54): lots leave newest first, everywhere they leave (2.x's Lifo overrides the dequeue).
     pub lifo: bool,
     /// D-TAX-IT-FEES: from this instant fees count nowhere: none joins a cost, none comes off a gain, and units paid as an
     /// own-coin fee on an acquisition leave at their share of its cost.
@@ -134,7 +134,7 @@ pub struct Ireland<'a> { pub from: &'a dyn Fn(At) -> At, pub until: &'a dyn Fn(A
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Order {
     Fifo,
-    /// Newest first; the parts come back oldest first (Rails' `unshift`).
+    /// Newest first; the parts come back oldest first (2.x's `unshift`).
     Lifo,
     /// D-TAX-IE-4WEEK (s. 581(1)–(2)): the lots dated from `.0` to `.1` newest first, then the rest oldest first.
     Recent(At, At),
@@ -187,7 +187,7 @@ pub struct Disposal {
     pub released: Dec, pub unusable: Dec,
     /// The instant it takes effect: its own, or the walk's clock for a row walked out of time order (a CFEE after its fills).
     pub effective: At,
-    /// GB's identification (`same_day`, `bed_and_breakfast`, `section104`: Rails' values); None elsewhere.
+    /// GB's identification (`same_day`, `bed_and_breakfast`, `section104`: 2.x's values); None elsewhere.
     pub rule: Option<&'static str>,
     /// The coin's identity (`Tx::asset`), which `asset` spells as its symbol.
     pub asset_id: String,
@@ -754,7 +754,7 @@ impl<'a> Fifo<'a> {
             }
         } else {
             // D-TAX-COIN-FEE: an unlinked withdrawal's fee in its own coin is inside its amount (`walk::quantity_moves`) and
-            // was spent, not moved: it leaves the lots as the fee it is, the rest as the withdrawal. Rails kept it.
+            // was spent, not moved: it leaves the lots as the fee it is, the rest as the withdrawal. 2.x kept it.
             let mut amount = r.amount.clone();
             if let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive() && r.fee_currency.as_deref() == Some(r.base.as_str())) {
                 self.spend_fee_coin(tx, fee)?;
@@ -765,7 +765,7 @@ impl<'a> Fifo<'a> {
                 self.dequeue_cost(&k, &amount)?;
             }
         }
-        // D-TAX-COIN-FEE: a fee in another coin on any withdrawal leaves that coin's lots (Rails never took it).
+        // D-TAX-COIN-FEE: a fee in another coin on any withdrawal leaves that coin's lots (2.x never took it).
         if let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive()).filter(|_| crypto_fee_asset(r) && r.fee_currency.as_deref() != Some(r.base.as_str())) {
             self.spend_fee_coin(tx, fee)?;
         }
@@ -811,7 +811,7 @@ impl<'a> Fifo<'a> {
     }
 
     /// `consume_disposal_fee`. D-TAX-COIN-FEE: a fee in the coin sold leaves on top of the amount sold (the ledger's
-    /// convention, `walk::quantity_moves`); Rails left those units in the lots.
+    /// convention, `walk::quantity_moves`); 2.x left those units in the lots.
     fn consume_disposal_fee(&mut self, tx: &Tx) -> Result<(), FiguresError> {
         let r = &tx.row;
         let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive()) else { return Ok(()) };
@@ -852,7 +852,7 @@ impl<'a> Fifo<'a> {
         self.dequeue_cost(&k, amount)
     }
 
-    /// `record_disposal` of the row's own coin; its fee as Rails takes it, plus any swap cost moved onto it.
+    /// `record_disposal` of the row's own coin; its fee as 2.x takes it, plus any swap cost moved onto it.
     fn sell(&mut self, tx: &Tx) -> Result<(), FiguresError> {
         let r = &tx.row;
         if self.o.pvct_from.is_some_and(|f| r.at.0 >= f.0) { self.pvct_point(r.uid)?; }
@@ -985,7 +985,7 @@ impl<'a> Fifo<'a> {
     #[allow(clippy::too_many_arguments)]
     fn disposal_row(&self, tx: &Tx, sale: &Sale, amount: &Dec, proceeds: &Dec, fee: &Dec, tranches: &[Tranche], has_lots: bool, uncovered: Dec) -> Result<Disposal, FiguresError> {
         let r = &tx.row;
-        // Rails' Lifo dates a disposal at its newest part (`latest_date`).
+        // 2.x's Lifo dates a disposal at its newest part (`latest_date`).
         let acquired = if self.o.lifo { tranches.last() } else { tranches.first() }.map(|t| self.holding_ref(t, tx));
         let cost_basis = sum(tranches.iter().map(|t| &t.cost))?;
         let basis_assumed = tranches.iter().any(|t| t.basis_assumed);
@@ -1081,7 +1081,7 @@ impl<'a> Fifo<'a> {
             if !tranche_amount.is_positive() { continue; }
             let mut carried = (&(&t.cost * &share)? * &total_weight)?.div(&t.weight)?;
             if let Some(f) = &kept { carried = (&carried * f)?; }
-            // D-TAX-SWAP-FEE: the lot gets weight/total of `cost`, so the fee joins whole here (Rails weighted it again).
+            // D-TAX-SWAP-FEE: the lot gets weight/total of `cost`, so the fee joins whole here (2.x weighted it again).
             let cost = (&carried + &fee_cost)?;
             let unpriced = if t.amount.is_positive() { (&tranche_amount * &t.unpriced)?.div(&t.amount)? } else { Dec::zero() };
             let cpu = cost.div(&rest)?;
@@ -1091,7 +1091,7 @@ impl<'a> Fifo<'a> {
         }
         if cash_amount.is_positive() {
             let mut scale = if tranches.is_empty() { fee_cost.clone() } else if coin_value.is_positive() { coin_value.clone() } else { transferred_cost.clone() };
-            // D-TAX-SWAP-FEE: when no tranche took any units, the fee joins the cash lot (Rails dropped it).
+            // D-TAX-SWAP-FEE: when no tranche took any units, the fee joins the cash lot (2.x dropped it).
             if !tranches.is_empty() && !rest.is_positive() { scale = (&scale + &fee_cost)?; }
             let cpu = unit(&(&cash + &scale)?, &lot_amount)?;
             let lot_assumed = assumed || (rest.is_zero() && tranches.iter().any(|t| t.basis_assumed));
@@ -1163,7 +1163,7 @@ impl<'a> Fifo<'a> {
         let k = self.key(&r.exchange, &tx.asset);
         let order = self.order();
         let (mut tranches, held) = dequeue_tranches(self.lots.entry(k).or_default(), &r.amount, order)?;
-        // D-TAX-COIN-FEE: the leg's fee in a coin leaves its lots too (Rails left those units to be sold again).
+        // D-TAX-COIN-FEE: the leg's fee in a coin leaves its lots too (2.x left those units to be sold again).
         self.consume_disposal_fee(tx)?;
         let Some(key) = group_key(r) else {
             // An out-leg with no group: its basis goes nowhere (listed by the report as an unmatched swap).
@@ -1595,7 +1595,7 @@ impl<'a> Fifo<'a> {
     }
 
     /// A disposal in walk 2: its share of the day's same-day and 30-day matches (`units / D_d`, the day's last disposal
-    /// taking the rest), the rest from the pool; rows `same_day`, `bed_and_breakfast`, `section104`, in Rails' order.
+    /// taking the rest), the rest from the pool; rows `same_day`, `bed_and_breakfast`, `section104`, in 2.x's order.
     fn dispose_uk(&mut self, tx: &Tx, sale: Sale, own: bool, day: NaiveDate) -> Result<(), FiguresError> {
         let id = (sale.asset.to_string(), day);
         let ident = self.uk.ident.as_ref().expect("walk 2");
@@ -1655,7 +1655,7 @@ impl<'a> Fifo<'a> {
 
     /// After walk 2: the events asserted the same as walk 1's, then each matched row's cost from its buckets (`bucket cost ×
     /// units / bucket units`), its data marked incomplete where an acquisition it took was assumed or unpriced, its
-    /// acquisition date and holding days as Rails gives them; each disposal's rows settled in cents.
+    /// acquisition date and holding days as 2.x gives them; each disposal's rows settled in cents.
     fn resolve(&mut self) -> Result<(), FiguresError> {
         let Some(ident) = self.uk.ident.take() else { return Ok(()) };
         if self.uk.events != ident.events { return Err(FiguresError::Data("the two walks of the identification differ".into())); }
@@ -1673,7 +1673,7 @@ impl<'a> Fifo<'a> {
                     first = first.or(Some(b.first));
                 }
                 row.cost_basis = cost;
-                // Rails' `match_and_record`: the disposal's own date on the same day, the first acquisition's on the 30 days.
+                // 2.x's `match_and_record`: the disposal's own date on the same day, the first acquisition's on the 30 days.
                 if let Some(f) = first {
                     row.acquired = Some(if row.rule == Some("same_day") { row.at } else { f });
                     row.holding_days = ((row.at.minus(f) / 86_400.0) as i64).abs();

@@ -2,7 +2,7 @@
 //! the balance sync reads BalanceEx and the ledger reads Ledgers. The ledger sync (K2, K3): Exchanges::Kraken#get_ledger
 //! then AccountTransactionSync#store! and TransferMatcher.run!, on the continuation kit.
 //!
-//! As Rails reads it: a throttled page (`EAPI:Rate limit exceeded`, and HTTP 429/418) is asked again up to 6 times, 10 s
+//! As 2.x reads it: a throttled page (`EAPI:Rate limit exceeded`, and HTTP 429/418) is asked again up to 6 times, 10 s
 //! apart; any other failure fails the sync with the venue's first error. 25 h overlap, the ledger id as tx_id, the refid as
 //! group_id, the watermark from the data, no bot linking.
 //!
@@ -35,7 +35,7 @@ use std::collections::{HashMap, HashSet};
 
 pub const KRAKEN: &str = "Exchanges::Kraken";
 
-/// Kraken's legacy X-codes that Exchanges::Kraken::ASSET_MAP lacks (D-KR-2): Rails drops a balance under any of them.
+/// Kraken's legacy X-codes that Exchanges::Kraken::ASSET_MAP lacks (D-KR-2): 2.x drops a balance under any of them.
 const LEGACY: [(&str, &str); 8] = [("XLTC", "LTC"), ("XXRP", "XRP"), ("XXLM", "XLM"), ("XXMR", "XMR"), ("XETC", "ETC"), ("XZEC", "ZEC"),
                                    ("XMLN", "MLN"), ("XREP", "REP")];
 /// The terminal suffixes of a code that holds the same asset elsewhere in the account: staked (.S), opt-in rewards (.M),
@@ -125,7 +125,7 @@ impl KrakenIdentity {
     }
 }
 
-/// A code no asset is named by, as Rails spells it: ASSET_MAP (and the legacy X-codes), XBT as BTC.
+/// A code no asset is named by, as 2.x spells it: ASSET_MAP (and the legacy X-codes), XBT as BTC.
 fn mapped_code(code: &str) -> String {
     let mapped = crate::venue::kraken::ASSET_MAP.iter().chain(LEGACY.iter()).find(|(k, _)| *k == code).map_or(code, |(_, v)| *v);
     if mapped == "XBT" { "BTC".into() } else { mapped.into() }
@@ -324,7 +324,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
 }
 
 /// One ledger sync of one Kraken key, held to the job's deadline (sync::continuation). `wait` is the throttle wait
-/// (THROTTLE_WAIT; the parity harness passes zero, as Rails' harness stubs its sleep).
+/// (THROTTLE_WAIT; the parity harness passes zero, as the recording harness stubs 2.x's sleep).
 pub async fn sync<T: Transport>(db: &Db, transport: T, key_id: i64, credentials: &Credentials, clock: &dyn Clock, wait: std::time::Duration) -> Result<Result<Outcome, Failure>, SyncError> {
     let stopwatch = continuation::Wall::start();
     let run = continuation::Run { deadline: super::jobs::LEDGER_DEADLINE, chain_runs: continuation::CHAIN_RUNS, stopwatch: &stopwatch };
@@ -340,7 +340,7 @@ pub async fn sync_within<T: Transport>(db: &Db, transport: T, key_id: i64, crede
     let (key, produced, identity) = phase(db, move |c| {
         let key = load_key_of(c, key_id, &[KRAKEN])?;
         // A watermark another credential produced is read as none: the history is read whole (#511), and so is the first
-        // Rust sync after Rails' (no provenance stamp), which is what repairs Rails' rows (D-KR-5).
+        // Rust sync after 2.x's (no provenance stamp), which is what repairs 2.x's rows (D-KR-5).
         let produced = super::cache::ledger_produced_by(c, key_id, &captured)?;
         let identity = KrakenIdentity::load(c, key.exchange_id)?;
         Ok((key, produced, identity))

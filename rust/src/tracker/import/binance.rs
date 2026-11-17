@@ -1,6 +1,6 @@
 //! Import::BinanceCsv, line for line: Binance's own transaction export read into the entries
-//! Exchanges::Binance#get_ledger makes of the same events. Every list keeps Ruby's order (`group_by` by first
-//! appearance, `partition`, `filter_map`) and every `sort_by` is a stable sort, as Ruby's is on the app's Linux image
+//! Exchanges::Binance#get_ledger makes of the same events. Every list keeps 2.x's order (`group_by` by first
+//! appearance, `partition`, `filter_map`) and every `sort_by` is a stable sort, as 2.x's is on the app's Linux image
 //! (glibc's qsort_r is a merge sort). Pinned by rust/tests/fixtures/import_vectors.json.
 use super::csv::{self, Malformed, Table, UTC_TIME};
 use crate::v2::{self, BigDec};

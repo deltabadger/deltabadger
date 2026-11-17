@@ -1,12 +1,12 @@
 //! The tracker's jobs under the scheduler (`crate::jobs`), per user with a reading key of a venue this build syncs:
 //! - `tracker_ledger` (Tracker::LedgerJob): the walk, today's snapshot rows (PortfolioSnapshot.record!) and the
-//!   wash-sale locks. On demand only: the ledger and balance syncs wake it after every run, as Rails' sync jobs end
+//!   wash-sale locks. On demand only: the ledger and balance syncs wake it after every run, as 2.x's sync jobs end
 //!   in a LedgerJob or a record!, and so do the backfill and a tracker page that finds no warm ledger.
-//! - `portfolio_backfill` (PortfolioSnapshot::BackfillJob): every earlier day. Woken by the tracker page, as Rails
+//! - `portfolio_backfill` (PortfolioSnapshot::BackfillJob): every earlier day. Woken by the tracker page, as 2.x
 //!   enqueues it there, and run at 03:00 UTC after the nightly syncs; either way only when `backfill::wanted`.
 //!
-//! A pass is Rails' `walk(user)`: its inputs are read once (`Inputs`, one read transaction), then the walk runs on a
-//! blocking thread holding no connection, and a price Rails would fetch is fetched at that lookup, inline: the walk hands
+//! A pass is 2.x's `walk(user)`: its inputs are read once (`Inputs`, one read transaction), then the walk runs on a
+//! blocking thread holding no connection, and a price 2.x would fetch is fetched at that lookup, inline: the walk hands
 //! the request to the job's runtime thread, which fetches, stores and answers (`pass`). Nothing a pass reads can move
 //! under it. `tracker_ledger` repeats the pass while the ledger's version moved, as `Tracker::Ledger.compute!` does (up
 //! to three passes), and writes nothing when the rows or balances moved after the last one.
@@ -36,8 +36,8 @@ pub const PORTFOLIO_BACKFILL: &str = "portfolio_backfill";
 ///
 /// Steps: eight billion, eight times a figure's. A real account's walk takes more than one figure may: a Binance
 /// account whose referral income (3,818 rows, 91 coins) was then swept in one dust conversion (74 coins out, 68 BNB
-/// in-legs) holds 30,600 BNB lots, as Rails' FIFO opens one lot per tranche per in-leg, and they travel on through
-/// three swaps. One walk of its 10,833 rows takes 998 million steps (161 million before the referral rows; Rails
+/// in-legs) holds 30,600 BNB lots, as 2.x's FIFO opens one lot per tranche per in-leg, and they travel on through
+/// three swaps. One walk of its 10,833 rows takes 998 million steps (161 million before the referral rows; 2.x
 /// 46 s, 8 s before); the backfill's sweep 2.5 million more. The ledger job may walk three times. Eleven unpriced
 /// sales bought back take 805 million and each one more four times as many, so the thirteenth (13 billion) is still
 /// refused.
@@ -82,7 +82,7 @@ pub type Wall = std::sync::Arc<dyn Fn() -> DateTime<Utc> + Send + Sync>;
 pub fn system_wall() -> Wall { std::sync::Arc::new(Utc::now) }
 
 /// One write unit (`BEGIN IMMEDIATE` … `COMMIT`, rolled back on an error), dated by the wall clock read once the
-/// write lock is held, after every load and walk before it, as Rails' `Date.current` is read when the row is built.
+/// write lock is held, after every load and walk before it, as 2.x's `Date.current` is read when the row is built.
 pub fn written<R>(c: &Connection, wall: &dyn Fn() -> DateTime<Utc>, write: impl FnOnce(&Connection, DateTime<Utc>) -> Result<R, FiguresError>) -> Result<R, FiguresError> {
     let tx=rusqlite::Transaction::new_unchecked(c,rusqlite::TransactionBehavior::Immediate)?;
     match write(&tx, wall()) {
@@ -269,7 +269,7 @@ async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&Feed<T>>, ecb:
             let snapshot = crate::sync::cache::balances_current(c, &snapshot_origin).map_err(|_| FiguresError::Data("snapshot balance provenance unavailable".into()))?;
             if snapshot {
                 super::snapshot::write(c, user_id, &rows, now.date_naive())?;
-                // The lock rows' timestamps are the pass's clock reading, as Rails' frozen `Time.current` is in one job.
+                // The lock rows' timestamps are the pass's clock reading, as 2.x's frozen `Time.current` is in one job.
                 super::wash::confirm_all(c, user_id, &locks, began)?;
             } else {
                 crate::engine::log(&format!("[tracker] today's snapshot for user {user_id} not written: balances not produced by a current key"));
@@ -484,7 +484,7 @@ pub const RATE_LIMITED: &str = "CoinGecko answered 429: no more prices asked thi
 /// Why a run's page cache did not publish: the ledger or the prices moved under it.
 pub const CACHE_MOVING: &str = "Tracker ledger unavailable: inputs changed during calculation";
 
-/// The ledger job's run: a walk that fails publishes its failure to the page cache (Rails' cache holds no entry; the
+/// The ledger job's run: a walk that fails publishes its failure to the page cache (2.x's cache holds no entry; the
 /// page states the calculation failed). A run that fails, or whose cache moved, wakes the next only if it stored a price
 /// itself (passes moved by its own price writes finish then); one that stored nothing made no progress, and a writer
 /// that moves the inputs wakes this job itself.
@@ -634,7 +634,7 @@ mod tests {
     /// A sale before any purchase: the walk opens AAPL a second before it, at 9 September's price.
     const SOLD_FIRST: [(i64, &str, &str, Option<&str>, &str); 2] = [(1, "AAPL", "1", Some("200"), "2026-09-10 00:00:00"), (0, "AAPL", "3", Some("585"), "2026-09-11 14:30:00")];
 
-    /// One pass: Rails' lookups, in order. The account-wide walk's opening asks first and finds nothing (a zero and a
+    /// One pass: 2.x's lookups, in order. The account-wide walk's opening asks first and finds nothing (a zero and a
     /// warning: no loss judged); the located walk's opening asks again and gets the price, which serves the rest of the
     /// pass. Neither result replaces the other: within the pass the global sale has no verdict.
     #[tokio::test(flavor = "current_thread")]

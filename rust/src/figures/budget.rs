@@ -1,5 +1,5 @@
-//! What one figure may cost to compute. Ruby's BigDecimal has no limit, and Rails' accounting grows its numbers:
-//! a history of sales the venue did not price doubles a number's digits with every sale, which takes Rails four
+//! What one figure may cost to compute. 2.x's BigDecimal has no limit, and 2.x's accounting grows its numbers:
+//! a history of sales the venue did not price doubles a number's digits with every sale, which takes 2.x four
 //! times as long each time (minutes after fifteen such sales, days after twenty); a long history of priced sales
 //! keeps, for every point of its chart, a cost of tens of thousands of digits.
 //!
@@ -25,13 +25,13 @@ pub struct Limits { pub steps: u64, pub held: u64 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Used { pub steps: u64, pub held: u64 }
 
-/// The limits of one figure, chosen from measurement (script/rust/figures.rb's `priced_pairs` and
+/// The limits of one figure, chosen from measurement (the recording harness's `priced_pairs` and
 /// `unpriced_rebalances` are the histories; rust/examples/figures_limits.rs prints what each costs here).
 ///
 /// Steps: one billion. All figures of 100,000 buys take 20 million; 700 priced sale/buy pairs take 23 million.
-/// The walk of 4,000 priced pairs takes 285 million (Rails accounting: about one second). Eleven sales with no
-/// reported proceeds, each bought back, take 805 million for all figures (Rails accounting: 1.5 seconds);
-/// the twelfth exceeds this budget. Rails then takes four times as long with every pair.
+/// The walk of 4,000 priced pairs takes 285 million (2.x accounting: about one second). Eleven sales with no
+/// reported proceeds, each bought back, take 805 million for all figures (2.x accounting: 1.5 seconds);
+/// the twelfth exceeds this budget. 2.x then takes four times as long with every pair.
 ///
 /// Held: 64 million limbs, which is 256 megabytes of digits. The 4,000 priced sales and buys hold 57 million: a
 /// cost of up to 128,000 digits at each of 8,000 points.

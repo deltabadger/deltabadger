@@ -1,6 +1,6 @@
 //! Import::Run#import!, and the controller's zone step (Tracker::ImportsController#resolve_offset): a file read in its
 //! format, each row routed to the account it belongs to, and everything written by the sync's own writer
-//! (`sync::ledger::store_file`) in ONE transaction, as Rails writes it: a file lands whole or not at all, and an API
+//! (`sync::ledger::store_file`) in ONE transaction, as 2.x writes it: a file lands whole or not at all, and an API
 //! sync of the same venue, which takes the same write lock, waits for it and then reads the whole file as stored.
 use super::{binance, csv, deltabadger, kucoin};
 use crate::engine::model;
@@ -80,7 +80,7 @@ pub fn reading(c: &Connection, user_id: i64) -> Result<Vec<Reading>, SyncError> 
 /// venue-native export's account id (crate::identity).
 pub struct Read { entries: Vec<(Option<String>, Entry)>, unrecognised: Vec<String>, rows: Vec<kucoin::SourceRow>, account_id: Option<crate::identity::AccountId> }
 
-/// What a column holds of an amount: its nearest double, which must be finite (Rails stores 1e309 as Infinity, which
+/// What a column holds of an amount: its nearest double, which must be finite (2.x stores 1e309 as Infinity, which
 /// no later read takes; this refuses the file instead).
 fn storable(e: &Entry) -> bool {
     [Some(&e.base_amount), e.quote_amount.as_ref(), e.fee_amount.as_ref()].into_iter().flatten().all(|d| d.to_f().is_finite())
@@ -202,7 +202,7 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
 
 #[cfg(test)]
 mod tests {
-    /// An amount BigDec holds but the column's double does not (Ruby's BigDecimal holds it too, and Rails stores
+    /// An amount BigDec holds but the column's double does not (2.x's BigDecimal holds it too, and 2.x stores
     /// Infinity) refuses the file before any database is touched.
     #[test]
     fn an_amount_no_double_holds_is_malformed() {

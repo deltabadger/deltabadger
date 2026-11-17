@@ -1,4 +1,4 @@
-//! An instant as these walks hold it: Ruby's Time, to the nanosecond.
+//! An instant as these walks hold it: 2.x's Time, to the nanosecond.
 use crate::codec::parse_time;
 use chrono::{DateTime, Utc};
 
@@ -17,12 +17,12 @@ impl At {
     /// None outside the years 1678 to 2261, which nanoseconds in 64 bits cannot hold.
     pub fn from_utc(t: DateTime<Utc>) -> Option<At> { t.timestamp_nanos_opt().map(At) }
     pub fn utc(self) -> DateTime<Utc> { DateTime::from_timestamp_nanos(self.0) }
-    /// A datetime column as Rails wrote it (UTC, microseconds when it has any).
+    /// A datetime column as 2.x wrote it (UTC, microseconds when it has any).
     pub fn from_sql(text: &str) -> Result<At, crate::codec::CodecError> {
         At::from_utc(parse_time(text)?).ok_or_else(||crate::codec::CodecError::Time("timestamp outside figures range".into()))
     }
     pub fn plus_seconds(self, seconds: i64) -> Option<At> { seconds.checked_mul(1_000_000_000).and_then(|n| self.0.checked_add(n)).map(At) }
-    /// `Time - Time`: a Float. Whole seconds are exact; otherwise Ruby divides the nanoseconds by 1e9 as doubles.
+    /// `Time - Time`: a Float. Whole seconds are exact; otherwise 2.x divides the nanoseconds by 1e9 as doubles.
     pub fn minus(self, other: At) -> f64 {
         let nanos = i128::from(self.0) - i128::from(other.0);
         if nanos % 1_000_000_000 == 0 { (nanos / 1_000_000_000) as f64 } else { nanos as f64 / 1e9 }

@@ -1,4 +1,4 @@
-//! Tax::Jurisdictions: REGISTRY as data (every flag of every entry, in Rails' order), `holding_period`, `held_long?`,
+//! Tax::Jurisdictions: REGISTRY as data (every flag of every entry, in 2.x's order), `holding_period`, `held_long?`,
 //! and the report currency of a year (Tax::Report#currency). BotApi::Tax::ListJurisdictions reads this table.
 use chrono::{Days, Months, NaiveDate};
 
@@ -10,7 +10,7 @@ pub struct Period { pub years: u32, pub days: u64 }
 #[derive(Clone, Copy, Debug)]
 pub struct WealthYear { pub year: i32, pub allowance: i64, pub deemed_return: &'static str, pub rate: &'static str }
 
-/// One REGISTRY entry. A flag Rails leaves out is None / false here; decimals are kept as Rails writes them.
+/// One REGISTRY entry. A flag 2.x leaves out is None / false here; decimals are kept as 2.x writes them.
 #[derive(Clone, Copy, Debug)]
 pub struct Jurisdiction {
     pub code: &'static str,
@@ -18,7 +18,7 @@ pub struct Jurisdiction {
     pub method: &'static str,
     pub currency: &'static str,
     pub locale: &'static str,
-    /// None where Rails has no key (the engines' default: taxable).
+    /// None where 2.x has no key (the engines' default: taxable).
     pub crypto_to_crypto_taxable: Option<bool>,
     /// The export form asks "treat stablecoins as fiat"; the report reads the flag only then (D-TAX-STABLECOIN-QUESTION).
     pub stablecoin_ambiguous: bool,
@@ -32,7 +32,7 @@ pub struct Jurisdiction {
     /// (max_year, amount).
     pub exemption_threshold: Option<(i32, i64)>,
     pub expense_deduction: Option<&'static str>,
-    /// D-TAX-BG-CURRENCY: the last tax year reported in leva (Rails' `currency_by_year` named 2025 only).
+    /// D-TAX-BG-CURRENCY: the last tax year reported in leva (2.x's `currency_by_year` named 2025 only).
     pub bgn_until: Option<i32>,
     pub flat_tax_rate: Option<&'static str>,
     pub wealth_tax: &'static [WealthYear],
@@ -69,17 +69,17 @@ const BASE: Jurisdiction = Jurisdiction {
 /// Tax::Jurisdictions::REGISTRY, in its order.
 pub const REGISTRY: [Jurisdiction; 18] = [
     Jurisdiction { code: "DE", name: "Germany", locale: "de", holding_exemption: Some(YEAR), ..BASE },
-    // D-TAX-AT-STABLECOIN: a stablecoin is crypto (EStR Rz 6178b), so the question is not asked; Rails has
+    // D-TAX-AT-STABLECOIN: a stablecoin is crypto (EStR Rz 6178b), so the question is not asked; 2.x has
     // `stablecoin_ambiguous: true`.
     Jurisdiction { code: "AT", name: "Austria", locale: "de", crypto_to_crypto_taxable: Some(false), old_stock_cutoff: Some((2021, 3, 1)), ..BASE },
     Jurisdiction { code: "FR", name: "France", method: "pvct", locale: "fr", crypto_to_crypto_taxable: Some(false), annual_threshold: Some(305), ..BASE },
     // D-TAX-IT-SWAPS: a crypto-asset exchanged for another of the same characteristics and functions is no realisation
-    // (art. 67 c. 1 lett. c-sexies, Circolare 30/E p. 47); Rails taxes it.
+    // (art. 67 c. 1 lett. c-sexies, Circolare 30/E p. 47); 2.x taxes it.
     Jurisdiction { code: "IT", name: "Italy", method: "lifo", locale: "it", crypto_to_crypto_taxable: Some(false), exemption_threshold: Some((2024, 2000)),
                    tax_rate: Some(("26%", "33%", (2026, 1, 1))), ..BASE },
     Jurisdiction { code: "ES", name: "Spain", locale: "es", ..BASE },
     // D-TAX-BG-CURRENCY: leva for every tax year up to 2025 (the 2025 return "се попълва в левове"), euros from 2026
-    // (ЗДДФЛ чл. 11 ал. 3); Rails has `currency_by_year: { 2025 => 'BGN' }`.
+    // (ЗДДФЛ чл. 11 ал. 3); 2.x has `currency_by_year: { 2025 => 'BGN' }`.
     Jurisdiction { code: "BG", name: "Bulgaria", locale: "bg", expense_deduction: Some("0.1"), bgn_until: Some(super::bg::BGN_UNTIL), ..BASE },
     Jurisdiction { code: "GR", name: "Greece", locale: "el", flat_tax_rate: Some("0.15"), ..BASE },
     Jurisdiction { code: "NL", name: "Netherlands", method: "wealth_snapshot", locale: "nl",
@@ -102,9 +102,9 @@ pub const REGISTRY: [Jurisdiction; 18] = [
                    czech_exemptions: Some(Czech { time_test: Period { years: 3, days: 0 }, exemptions_from: (2025, 2, 15), value_test: 100_000,
                                                   annual_cap: 40_000_000 }), ..BASE },
     // No holding period: the 7% rate was repealed before it took effect (Act 530/2023). D-TAX-SK-SWAPS: a coin exchanged
-    // for another coin is a sale (§ 2 písm. ai) ZDP, Finančná správa 293880); Rails has `crypto_to_crypto_taxable: false`.
+    // for another coin is a sale (§ 2 písm. ai) ZDP, Finančná správa 293880); 2.x has `crypto_to_crypto_taxable: false`.
     // D-TAX-STABLECOIN-QUESTION: a swap is taxed, so a stablecoin as cash or as a coin gives the same figures and the
-    // question is not asked; Rails has `stablecoin_ambiguous: true`.
+    // question is not asked; 2.x has `stablecoin_ambiguous: true`.
     Jurisdiction { code: "SK", name: "Slovakia", locale: "sk", ..BASE },
 ];
 
@@ -114,7 +114,7 @@ pub fn find(code: &str) -> Option<&'static Jurisdiction> { REGISTRY.iter().find(
 /// D-TAX-NOT-PORTED-GATE: the jurisdictions whose crypto report this build computes, and (`ported`) the years whose law was
 /// reviewed. A create this build cannot compute (web, REST, MCP) is refused up front as not ported, and nothing is ever
 /// queued for it. Since A12-6 every jurisdiction is served, and since A12-7 the broker report too (tax/broker.rs, on the web
-/// as Rails serves it): the gate holds only a crypto year outside `ported` and an install on CoinGecko prices until A17 (an
+/// as 2.x serves it): the gate holds only a crypto year outside `ported` and an install on CoinGecko prices until A17 (an
 /// unknown country is a validation error first).
 /// Austria by its own law (A12-2b: the moving average per wallet, § 27b from 1 March 2022, `fifo::Austria`); Poland by
 /// its own report (tax/pl.rs), from 2019; Bulgaria and the Czech Republic by their own law (A12-3: bg.rs, cz.rs).

@@ -1,6 +1,6 @@
 //! France (CGI art. 150 VH bis; BOI-RPPM-PVBMC-30; form 2086): the PVCT report (A12-6). The engine's part is
 //! `fifo::Options::pvct_from` (the units held before each cession and the running acquisition price).
-//! - D-TAX-FR-FEE-RATIO: l. 218 = C − f; the fraction l. 223 × C / V takes the gross price (BOFiP -30-20 § 50); Rails put
+//! - D-TAX-FR-FEE-RATIO: l. 218 = C − f; the fraction l. 223 × C / V takes the gross price (BOFiP -30-20 § 50); 2.x put
 //!   C − f in the ratio too. Fractions carried unrounded across every cession from 2019, printed in cents.
 //! - D-TAX-FR-PORTFOLIO-VALUE: V = each coin held × the day's price, the coin sold at the cession's own price × max(units
 //!   held, units sold), so V ≥ C; a coin is priced only where its symbol that day still means the coin held.
@@ -150,7 +150,7 @@ mod tests {
         assert_eq!(ps.warnings, ["TON/EUR 2025-06-01", "TON/EUR 2025-06-01"]);
     }
 
-    /// `fr_two_sales`: the fee comes off the first term only (+1,267.71, not Rails' +1,283.14), then −315.71.
+    /// `fr_two_sales`: the fee comes off the first term only (+1,267.71, not 2.x's +1,283.14), then −315.71.
     #[test]
     fn the_fee_comes_off_the_first_term_only() {
         let out = chain(vec![input(1, "9000", "18", "18000", "21000", false), input(2, "15000", "30", "23000", "15000", false)]).unwrap();

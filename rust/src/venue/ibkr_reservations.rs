@@ -1,5 +1,5 @@
 //! IBKR sell reservations (Ibkr plan I4b, D-IBKR-SELLCAP). A margin account can short: IBKR fills a sell of more shares
-//! than are held. Rails has no cap. Here a sell intent reserves what it sells, in the intent's own transaction, and is
+//! than are held. 2.x has no cap. Here a sell intent reserves what it sells, in the intent's own transaction, and is
 //! placed only while the position covers it beside this install's other unsettled sells of the same asset:
 //!
 //!   available = position − Σ unreleased (quantity − coalesce(amount_exec, 0)) on (account_ref, the asset's conids)
@@ -87,7 +87,7 @@ pub fn link(c: &Connection, bot_id: i64, transaction_id: i64) -> rusqlite::Resul
                AND cl_ord_id = (SELECT json_extract(transient_data, '$.rust_placement.cl_ord_id') FROM bots WHERE id = ?1)", params![bot_id, transaction_id]).map(|_| ())
 }
 
-/// D-IBKR-HANDBACK: Rails would trade IBKR bots without the account binding, the reservations or the recovery by cOID, so
+/// D-IBKR-HANDBACK: 2.x would trade IBKR bots without the account binding, the reservations or the recovery by cOID, so
 /// the handback is refused while any IBKR bot that is not deleted, open IBKR order, unresolved IBKR intent or unreleased
 /// reservation exists. One line per finding.
 pub fn handback_refusals(c: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Vec<String>> {

@@ -21,7 +21,7 @@ pub enum Action { Order(OrderWire), Cancel { asset: u64, oid: u64 } }
 #[derive(Debug, PartialEq, Eq)]
 pub struct Signature { pub r: String, pub s: String, pub v: u8 }
 
-/// `Utils.float_to_wire` over the BigDecimal Rails passes: `format("%.8f", x)` (through the double), refused when that
+/// `Utils.float_to_wire` over the BigDecimal 2.x passes: `format("%.8f", x)` (through the double), refused when that
 /// double, coerced back to a BigDecimal (Float#to_d: 16 significant digits), is 1e-12 or more away from x; then trailing
 /// zeros (and a bare `.`) dropped. A refusal is a refused order, never re-rounded (PLAN-VB §1.5).
 pub fn float_to_wire(x: &BigDec) -> Result<String, String> {
