@@ -1,5 +1,5 @@
 {
-  "rust/src/v2.rs": "290a5d12ac2e9c854baa7ec03e8478e874fb671ecd98a371b4a01b58ea2d6558",
+  "rust/src/v2.rs": "7612b922e3c3148337315e1528dd990c4a9bf7d369703a4ac17441e056f28379",
   "rust/src/figures/num.rs": "c0894fdd16e9dfef0f38fe2783992f434210a0cad6e57f3a25a4e62bdf7d99e4",
   "rust/src/web/format.rs": "26965ce1c0cf4dfac51a4a492146ee2bfd8282ae70e712bfe24c1c17997cf334",
   "rust/src/codec.rs": "1263b66417212449c7f2495910835129c6fa014bb372bf777926df3eb7af6a95"

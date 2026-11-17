@@ -174,7 +174,7 @@ pub fn location(value: &str) -> String {
 pub fn first_difference(v2: &[String], rust: &[String]) -> Option<String> {
     let at = v2.iter().zip(rust.iter()).position(|(a, b)| a != b).or((v2.len() != rust.len()).then_some(v2.len().min(rust.len())))?;
     let context = |lines: &[String]| lines[at.saturating_sub(3)..(at + 3).min(lines.len())].join("\n    ");
-    Some(format!("line {at}\n  rails:\n    {}\n  rust:\n    {}", context(v2), context(rust)))
+    Some(format!("line {at}\n  2.x:\n    {}\n  rust:\n    {}", context(v2), context(rust)))
 }
 
 /// D-A6-STALE: 2.x has no halt token. Validate the one extra hidden field against the actual

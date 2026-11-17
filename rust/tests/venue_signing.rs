@@ -377,7 +377,7 @@ fn ibkr_generated_keys_round_trip_through_v2_openssl() {
                             dh_pem: dh.to_pem, signature: Base64.strict_encode64(key.sign(OpenSSL::Digest.new("SHA256"), msg)))
     "##;
     let out = common::v2::run(&[(dir.path(), "/d")], &[("SNIPPET", V2)], r#"ruby -ropenssl -rjson -rbase64 -e "$SNIPPET" /d"#);
-    assert!(out.status.success(), "2.70.21's ruby: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(out.status.success(), "2.70.21's interpreter: {}", String::from_utf8_lossy(&out.stderr));
     let r: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!((r["private"].as_bool(), r["bits"].as_u64(), r["public_matches"].as_bool()), (Some(true), Some(2048), Some(true)));
     assert_eq!(r["public_pem"].as_str().unwrap(), public, "2.x's public_key.to_pem, byte for byte");

@@ -256,8 +256,8 @@
     "rust/src/sync/mod.rs": {
       "upstream": {
         "work.await.unwrap_or_else(|_| Err((\"reading the venue's answer was interrupted\".into(), true)))": 1,
-        "key: open(key)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is Rails' empty string": 1,
-        "secret: open(secret)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is Rails' empty string": 1,
+        "key: open(key)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is 2.x's empty string": 1,
+        "secret: open(secret)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is 2.x's empty string": 1,
         "VenueError::Rejected(errors) => (errors.into_iter().next().unwrap_or_default(), false),": 1
       },
       "reviewed": {}
@@ -380,14 +380,14 @@
         "lines.push(format!(\"- {}: {}\",symbol.unwrap_or_else(||format!(\"Unknown({id})\")),float_to_s(n)));": 1,
         "let id=id.as_deref().unwrap_or(\"\");if ids.contains(id){continue}": 1,
         "let amount=parsed.amount.map(|a|a.to_s_f()).unwrap_or_else(||\"N/A\".into());": 1,
-        "let price=parsed.price.map(|p|format!(\"@ {}\",p.to_s_f())).unwrap_or_default(); // Rails omits the price only when nil.": 1,
+        "let price=parsed.price.map(|p|format!(\"@ {}\",p.to_s_f())).unwrap_or_default(); // 2.x omits the price only when nil.": 1,
         "let side=raw[\"side\"].as_str().map(str::to_uppercase).unwrap_or_else(||\"?\".into());": 1,
-        "let ext=ext.unwrap_or_default(); // nil interpolates to the empty string in Rails.": 1,
+        "let ext=ext.unwrap_or_default(); // nil interpolates to the empty string in 2.x.": 1,
         "lines.push(format!(\"- [{date}] #{id} {} {} {}/{} {} ({}) | {name} | ext: {ext}\",match side{Some(0)=>\"BUY\",Some(1)=>\"SELL\",_=>\"\"},amount.unwrap_or_else(||\"N/A\".into()),base.unwrap_or_default(),quote.unwrap_or_default(),price.map(|v|format!(\"@ {v}\")).unwrap_or_default(),match kind{Some(0)=>\"Market order\",Some(1)=>\"Limit order\",_=>\"Unknown\"}));": 1,
         "let quote=tools::asset(c,&settings[\"quote_asset_id\"])?.unwrap_or_default(); // nil quote interpolates as empty.": 1,
         "Ok(Some(Bot{id,label,kind,status,settings,transient,exchange:exchange.unwrap_or_else(||\"N/A\".into()),quote,base,pair,started}))": 1,
         "let ids=if pair_kind(kind){s[\"base_asset_id\"].as_i64().into_iter().collect::<Vec<_>>()}else if let Some(a)=s[\"allocations\"].as_object().filter(|a|!a.is_empty()){a.keys().filter_map(|k|crate::web::bot::id_from_path(k)).collect()}else{s[\"base_asset_ids\"].as_array().into_iter().flatten().map(|v|v.as_i64().unwrap_or(0)).collect()};": 1,
-        "if ids.len()==1{assets.first().and_then(|(_,_,name)|name.clone()).unwrap_or_default()}else{ // allow-swallow: absent asset/name is an Option; Rails generates bot.new below.": 1,
+        "if ids.len()==1{assets.first().and_then(|(_,_,name)|name.clone()).unwrap_or_default()}else{ // allow-swallow: absent asset/name is an Option; 2.x generates bot.new below.": 1,
         "let ids=if let Some(a)=s[\"allocations\"].as_object().filter(|a|!a.is_empty()){a.keys().filter_map(|k|crate::web::bot::id_from_path(k)).collect::<Vec<_>>()}else{s[\"base_asset_ids\"].as_array().into_iter().flatten().map(|v|v.as_i64().unwrap_or(0)).collect()};": 1,
         "let symbol=symbol.clone().unwrap_or_default(); // nil symbol joins as empty in a pair.": 1,
         "let weight=s[\"allocations\"][id.to_string()].as_f64().unwrap_or(0.0); // nil.to_f in allocation_for.": 1,
@@ -395,7 +395,7 @@
         "if let Ok((s,m))=&result {if !pair_kind(&b.kind){": 1,
         "let minimum=crate::figures::dec::Dec::from_sql((&value).into()).map_err(|_|error())?.unwrap_or_else(figures::dec::Dec::zero); // nil.to_d is zero.": 1,
         "let jurisdiction=jurisdiction.as_deref().filter(|s|!s.trim().is_empty()).unwrap_or(\"US\");": 1,
-        "if until>now.utc(){let days=(crate::web::timezone::local(until,&zone).date_naive()-crate::web::timezone::local(now.utc(),&zone).date_naive()).num_days();locks.push(format!(\"{} {days}d\",symbol.unwrap_or_default()));} // nil symbol interpolates empty, as Rails.": 1,
+        "if until>now.utc(){let days=(crate::web::timezone::local(until,&zone).date_naive()-crate::web::timezone::local(now.utc(),&zone).date_naive()).num_days();locks.push(format!(\"{} {days}d\",symbol.unwrap_or_default()));} // nil symbol interpolates empty, as 2.x.": 1,
         "lines.push(format!(\"Interval: {}\",b.settings[\"interval\"].as_str().unwrap_or(\"N/A\")));": 1,
         "lines.push(format!(\"Total acquired: {} {}\",num(&p.amount)?,b.base.as_deref().unwrap_or(\"units\")));": 1,
         "let amount=row.map(|(_,r)|r.amount.clone()).unwrap_or(Num::Int(0));": 1,
@@ -576,7 +576,7 @@
         "let e_min = parts.iter().map(|&(_, e)| e).min().unwrap_or(0).min(0);": 1,
         "let e_min = parts.iter().map(|(_, e)| *e).min().unwrap_or(0).min(0);": 1,
         "let (mantissa, exp) = sci.split_once('e').unwrap_or((&sci, \"0\"));": 1,
-        "let point = exp.parse::<i64>().unwrap_or(0) + 1; // digits before the decimal point (Ruby's decpt)": 1
+        "let point = exp.parse::<i64>().unwrap_or(0) + 1; // digits before the decimal point (2.x's decpt)": 1
       },
       "reviewed": {}
     },

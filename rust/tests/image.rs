@@ -357,7 +357,7 @@ fn v2_encrypts_a_sample(volume: &Volume, env: &[&str]) {
     args.extend([V2_2X, "rake", "runner", "print AppConfig.create!(key: 'coingecko_api_key', value: 'b3-2-sample').\
         class.connection.select_value(\"SELECT value FROM app_configs WHERE key = 'coingecko_api_key'\")"]);
     let stored = docker(&args);
-    assert!(stored.lines().last().is_some_and(|l| l.starts_with("{\"p\":")), "Rails stored it encrypted: {stored}");
+    assert!(stored.lines().last().is_some_and(|l| l.starts_with("{\"p\":")), "2.x stored it encrypted: {stored}");
 }
 
 /// The takeover itself: `serve` claims the install (`/health-check` 200, the "took over" line, never C9), saves its

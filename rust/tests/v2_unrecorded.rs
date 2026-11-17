@@ -79,7 +79,7 @@ fn money(c: &Connection) -> Vec<String> {
 // ---- collection ------------------------------------------------------------------------------------------------------
 
 #[test]
-fn every_rails_ambiguous_line_on_a_dca_bot_is_collected_once_and_a_signal_bots_is_not() {
+fn every_v2_ambiguous_line_on_a_dca_bot_is_collected_once_and_a_signal_bots_is_not() {
     let c = primary();
     let s = binance(&c);
     let b = bot(&c, &s);
@@ -94,16 +94,16 @@ fn every_rails_ambiguous_line_on_a_dca_bot_is_collected_once_and_a_signal_bots_i
 }
 
 #[test]
-fn only_what_rails_wrote_after_the_last_handback_is_collected() {
+fn only_what_v2_wrote_after_the_last_handback_is_collected() {
     let c = primary();
     let s = binance(&c);
     let b = bot(&c, &s);
     ambiguous_line(&c, b, "2026-09-10 10:00:00"); // the engine's own, before its handback
     failed_row(&c, &s, b, "Net::ReadTimeout with #<TCPSocket>", "2026-09-10 10:00:01");
-    let rails = ambiguous_line(&c, b, AT);
+    let v2 = ambiguous_line(&c, b, AT);
     ru::collect(&c, &queue(), Some(t("2026-09-20T00:00:00Z")), now()).unwrap();
     let got: Vec<i64> = c.prepare("SELECT source_ref FROM rust_rails_unrecorded").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
-    assert_eq!(got, [rails]);
+    assert_eq!(got, [v2]);
 }
 
 #[test]
@@ -278,7 +278,7 @@ fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/v2_unrecorde
 
 /// r3.3: the saved text alone gives 2.x's verdict (Client.network_failure + the placement guard) on every recorded failure.
 #[test]
-fn the_saved_error_text_reads_as_rails_decided_the_failure() {
+fn the_saved_error_text_reads_as_v2_decided_the_failure() {
     let v = vectors();
     let cases = v["vectors"].as_array().unwrap();
     assert_eq!(cases.len(), 8);
@@ -440,7 +440,7 @@ fn an_unreadable_queue_time_never_fails_the_takeover_and_its_line_says_the_time_
 }
 
 #[test]
-fn a_change_while_rails_was_placing_leaves_the_scope_unknown() {
+fn a_change_while_v2_was_placing_leaves_the_scope_unknown() {
     let c = primary();
     let s = binance(&c);
     let b = bot(&c, &s);

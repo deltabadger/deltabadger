@@ -1,4 +1,4 @@
-# A hung test is ended after an hour (the longest, the pages grid recording Rails live, takes well under that) instead of
+# A hung test is ended after an hour (the longest, the pages grid, takes well under that) instead of
 # holding its CI partition until the job's 2-hour timeout.
 [profile.default]
 slow-timeout = { period = "60s", terminate-after = 60 }
@@ -9,7 +9,7 @@ slow-timeout = { period = "60s", terminate-after = 60 }
 filter = 'binary(pages) & test(v2_and_rust_serve_the_same_pages_shard_)'
 priority = 90
 
-# These also record Rails and replay pages; start them before the short parity checks.
+# These also replay the recorded pages; start them before the short parity checks.
 [[profile.default.overrides]]
 filter = 'binary(pages) & (test(=a_signal_bots_rule_forms_are_its_basket_twins) | test(=settings_metrics_panel_matches_recorded_v2_bytes))'
 priority = 80

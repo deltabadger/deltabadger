@@ -226,7 +226,7 @@ fn the_engine_gets_exactly_the_desktop_environment() {
     let with = Launch { locale: Some("pl-PL".into()), time_zone: Some("Europe/Warsaw".into()), ..engine("env-os") };
     let os = with.engine_env(3007, "tok", "lch", &keys);
     assert_eq!((os.get("DELTABADGER_DESKTOP_LOCALE").map(String::as_str), os.get("DELTABADGER_DESKTOP_TIME_ZONE").map(String::as_str)), (Some("pl-PL"), Some("Europe/Warsaw")));
-    // None of the Rails rows (§1.2 D).
+    // None of 2.x's rows (§1.2 D).
     for gone in ["RAILS_ENV", "PIDFILE", "BOOTSNAP_CACHE_DIR", "CACHE_DATABASE_PATH", "CABLE_DATABASE_PATH", "BUNDLE_GEMFILE", "SOLID_QUEUE_IN_PUMA"] {
         assert!(!env.contains_key(gone), "{gone}");
     }

@@ -1521,7 +1521,7 @@ async fn the_data_api_pull_ranks_what_it_imports_and_nothing_else() {
     let c = o.primary;
     let bot = seed::index_bot(&c, &s, "layer-1", 3, 0.0, false); // a data-api install
     c.execute("DELETE FROM rust_index_rankings", []).unwrap();
-    v2_category_row(&c, "rails-only", &["bitcoin"]);
+    v2_category_row(&c, "v2-only", &["bitcoin"]);
     let t = ScriptedTransport::default();
     t.reply("GET /api/v2/indices", 200, json!({ "data": [
         { "external_id": "nasdaq-100", "source": "deltabadger", "name": "Nasdaq 100", "top_coins": ["AAPL.US"], "weights": { "AAPL.US": 0.08 } },
@@ -1535,7 +1535,7 @@ async fn the_data_api_pull_ranks_what_it_imports_and_nothing_else() {
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
     assert_eq!(ranked, [("layer-1".to_string(), "data-api".to_string(), fp.clone()), ("nasdaq-100".into(), "data-api".into(), fp)]);
     assert_eq!(index::ranked_row(&c, "layer-1").unwrap().map(|r| r.source), Some(Some("coingecko".into())));
-    assert!(index::ranked_row(&c, "rails-only").unwrap().is_none());
+    assert!(index::ranked_row(&c, "v2-only").unwrap().is_none());
     let bot = deltabadger::engine::model::load_bot(&c, bot).unwrap();
     assert!(deltabadger::engine::staleness::ranking_stale(&c, &bot, at(CG_NOW)).unwrap().is_none(), "the imported row composes");
 }

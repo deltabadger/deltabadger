@@ -1615,7 +1615,7 @@ mod reset_password {
 
 /// PLAN-B11-9 §5 (#2, #6): the frozen beta fixture's takeover installs, written by this build's (pre-rename) writers:
 /// `B11_9_FREEZE=1 cargo test --test cli freeze_b11_9 -- --ignored`. One 2.x install with 2.x's withdrawal rule (a
-/// recorded withdrawal, an attempt `resolve-withdrawal --rails` settles), a ready rule job, a failed fan-out, a signal bot
+/// recorded withdrawal, an attempt `resolve-withdrawal --v2` settles), a ready rule job, a failed fan-out, a signal bot
 /// with a waiting and a claimed signal job, and tracker jobs for a user without a key; then `mid_takeover` (killed after
 /// the claim committed, 2.x's rows still queued) and `takeover` (claimed, plus the A28 report job's state and a job
 /// whose last run failed in 2.x's words, by the scheduler's own writers).

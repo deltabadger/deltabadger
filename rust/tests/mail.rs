@@ -18,7 +18,7 @@ fn every_recorded_message_is_encoded_as_the_mail_gem_encodes_it() {
         let text = |k: &str| c[k].as_str().unwrap().to_string();
         let message = Message { from: text("from"), reply_to: c["reply_to"].as_str().map(str::to_string), to: text("to"), subject: text("subject"), html: text("html") };
         let ours = message.encode(date, "<vector@deltabadger.test>").unwrap_or_else(|why| panic!("{:?}: {why}", c["subject"]));
-        if ours != text("encoded") { failures.push(format!("subject {:?}, from {:?}, body {:.40?}\n  ruby: {:?}\n  rust: {ours:?}", c["subject"], c["from"], c["html"], c["encoded"])); }
+        if ours != text("encoded") { failures.push(format!("subject {:?}, from {:?}, body {:.40?}\n  2.x:  {:?}\n  rust: {ours:?}", c["subject"], c["from"], c["html"], c["encoded"])); }
         assert!(ours.is_ascii(), "a message on the wire is ASCII");
         assert_eq!(mailbox(&message.from).map(|m| m.address), c["envelope_from"].as_str().map(str::to_string), "envelope sender of {:?}", c["from"]);
         assert_eq!(json!([message.to.trim()]), c["envelope_to"], "envelope recipient");

@@ -292,7 +292,7 @@ jobs:
           echo "smoked $smoked, exported $PUSHED, the load build's own metadata '${METADATA}'"
           [ -n "$PUSHED" ] && [ "$smoked" = "$PUSHED" ]
 
-  # Every test, on Linux, with no Ruby on the runner: nothing reaches Rails or Ruby (PLAN-B11 B11-3). The 2.x interop
+  # Every test, on Linux, with nothing of 2.x on the runner: no test reaches it (PLAN-B11 B11-3). The 2.x interop
   # tests skip here (no DELTABADGER_IMAGE) and run in the image job.
   full-suite:
     if: github.event_name != 'schedule'

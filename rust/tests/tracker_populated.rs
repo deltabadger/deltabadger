@@ -232,7 +232,7 @@ async fn populated_regions_match_v2() {
             failures.push(name.clone());
         }
     }
-    assert!(failures.is_empty(), "{} pages differ (rust/rails pairs written beside the grid):\n{}", failures.len(), failures.join("\n"));
+    assert!(failures.is_empty(), "{} pages differ (rust/expected pairs written beside the grid):\n{}", failures.len(), failures.join("\n"));
 }
 
 /// The history-gap line is absent from every recorded page because of the notes, not because a gate kept the step out

@@ -1,5 +1,5 @@
 //! 2.x semantics that 2.x's output depends on, each pinned by vectors recorded from 2.x
-//! (the recorded vectors' "bigdec" and "ruby" groups). BigDec is 2.x's BigDecimal as bigdecimal 4.1.3
+//! (the recorded vectors' "bigdec" and "v2" groups). BigDec is 2.x's BigDecimal as bigdecimal 4.1.3
 //! computes it: exact + − ×, and division rounded half-up to a precision that depends on the operands.
 use crate::codec::CodecError;
 use bigdecimal::num_bigint::{BigInt, Sign};

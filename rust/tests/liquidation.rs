@@ -197,11 +197,11 @@ async fn failed_liquidation_command_drains_swept_amount_limit_stops() { command_
 
 #[tokio::test(flavor="current_thread")]
 async fn requests_are_compare_cleared_and_taken_requests_are_never_replayed() {
-    for case in ["queued","taken","archived","pending_key","rails_marker","invalid"] {
+    for case in ["queued","taken","archived","pending_key","v2_marker","invalid"] {
         let (d,o,id,s,_)=swap_bot(stopped());
         let mut request=json!({"id":"request-1","at":at(T0).timestamp(),"holdings":[["BTC",s.btc]]});
         if case=="taken" { request["taken_at"]=json!(1); }
-        if case=="rails_marker" { request.as_object_mut().unwrap().remove("holdings"); }
+        if case=="v2_marker" { request.as_object_mut().unwrap().remove("holdings"); }
         if case=="invalid" { request["holdings"]=Value::Null; }
         model::merge_transient_compact(&o.primary,id,&[("liquidation_selling_since",request)]).unwrap();
         if case=="archived" { o.primary.execute("UPDATE bots SET status=?1",[deltabadger::enums::BotStatus::Archived as i64]).unwrap(); }
@@ -213,13 +213,13 @@ async fn requests_are_compare_cleared_and_taken_requests_are_never_replayed() {
         let mut events=e.subscribe_to(|_|true);
         run::run_commands(&mut e,&FixedClock(at(T0))).await.unwrap();
         let mut seen=vec![];while let Ok(event)=events.try_recv() {seen.push(event);}
-        if case!="rails_marker" {
+        if case!="v2_marker" {
             assert!(seen.iter().any(|e|matches!(e,deltabadger::engine::events::EngineEvent::TickEnded {bot_id} if *bot_id==id)),"compare-clear redraws the status bar: {case}");
         }
         run::run_commands(&mut e,&FixedClock(at(T0))).await.unwrap();
         assert_eq!(t.posted_orders().len(),usize::from(case=="queued"),"{case}");
         let b=model::load_bot(&e.primary,id).unwrap();
-        assert_eq!(b.transient["liquidation_selling_since"].is_null(),case!="rails_marker","{case}");
+        assert_eq!(b.transient["liquidation_selling_since"].is_null(),case!="v2_marker","{case}");
         if case=="archived" || case=="pending_key" {
             let reason:String=e.primary.query_row("SELECT json_extract(details,'$.reason') FROM bot_activity_logs WHERE event='liquidation_not_started'",[],|r|r.get(0)).unwrap();
             assert_eq!(reason,if case=="archived" {"archived"} else {"api_key_pending"});

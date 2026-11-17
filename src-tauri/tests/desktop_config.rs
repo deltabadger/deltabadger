@@ -8,10 +8,10 @@ fn read(path: &str) -> String { std::fs::read_to_string(root().join(path)).unwra
 
 fn config() -> serde_json::Value { serde_json::from_str(&read("src-tauri/tauri.conf.json")).unwrap() }
 
-// Was: "Linux builds use the empty bundle skeleton and system Ruby fallback". No build runs Ruby now: every platform
+// Was: "Linux builds use the empty bundle skeleton and the system fallback of 2.x's toolchain". No build runs that toolchain now: every platform
 // runs the one engine script, and no platform file overrides it.
 #[test]
-fn no_build_runs_ruby_and_every_platform_builds_the_engine_first() {
+fn no_build_runs_the_v2_toolchain_and_every_platform_builds_the_engine_first() {
     let config = config();
     assert_eq!(config["build"]["beforeBuildCommand"], "bash script/rust/desktop_engine.sh");
     assert_eq!(config["build"]["beforeDevCommand"]["script"], "bash script/rust/desktop_engine.sh --debug");
@@ -25,9 +25,9 @@ fn no_build_runs_ruby_and_every_platform_builds_the_engine_first() {
     }
 }
 
-// The bundle is the shell, the sidecar and the catalogue: nothing of Ruby or Rails.
+// The bundle is the shell, the sidecar and the catalogue: nothing of 2.x.
 #[test]
-fn the_bundle_carries_the_engine_and_the_catalogue_and_nothing_of_rails() {
+fn the_bundle_carries_the_engine_and_the_catalogue_and_nothing_of_v2() {
     let config = config();
     let bundle = &config["bundle"];
     assert_eq!(bundle["externalBin"], serde_json::json!(["binaries/deltabadger-engine"]));

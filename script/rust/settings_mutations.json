@@ -1897,7 +1897,7 @@
     ]
   },
   {
-    "label": "r1-ruby-unicode-whitespace",
+    "label": "r1-v2-unicode-whitespace",
     "expression": "test(r1_v2_name_whitespace)",
     "lib": false,
     "edits": [

@@ -171,10 +171,10 @@ async fn ambiguous_then_proven_absent_clears_its_own_marker_only() {
     assert_eq!(lines(&s.e.primary).last().unwrap().1["resolution"], json!("not_placed"));
     // A marker this engine did not raise (2.x's, or a newer one) is never lifted by another order's recovery.
     let tx = model::immediate(&s.e.primary).unwrap();
-    model::merge_transient_compact(&tx, s.bot, &[(signal::MARKER_KEY, json!({ "id": "rails-uuid", "at": "2026-09-01T13:00:00Z", "side": "buy", "error": "x" }))]).unwrap();
+    model::merge_transient_compact(&tx, s.bot, &[(signal::MARKER_KEY, json!({ "id": "v2-uuid", "at": "2026-09-01T13:00:00Z", "side": "buy", "error": "x" }))]).unwrap();
     signal::clear_marker(&tx, s.bot, "another-cl-ord-id").unwrap();
     tx.commit().unwrap();
-    assert_eq!(transient(&s.e.primary, s.bot)["signal_placement_unresolved"]["id"], json!("rails-uuid"));
+    assert_eq!(transient(&s.e.primary, s.bot)["signal_placement_unresolved"]["id"], json!("v2-uuid"));
 }
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]

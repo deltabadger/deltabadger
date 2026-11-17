@@ -18,7 +18,7 @@
 
 # Dependencies
 /node_modules
-# Local leftovers of the 2.x Ruby toolchain in existing checkouts (bundle, editor index, credentials): kept ignored
+# Local leftovers of the 2.x toolchain in existing checkouts (bundle, editor index, credentials): kept ignored
 /.bundle
 /vendor
 .ruby-lsp

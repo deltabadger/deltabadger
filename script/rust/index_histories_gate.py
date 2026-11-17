@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """B2b structural gate (RULING-B2B-1 MQ4): no engine sizing path reads the walk's `contributed` figure.
 
-Rails books a REGULAR buy's drained flight cash as already-owned money, so `contributed` can be below what was paid in.
+2.x books a REGULAR buy's drained flight cash as already-owned money, so `contributed` can be below what was paid in.
 That is a figures-page value only; this fails the moment anything outside display code reads it. The engine walk
 (basket.rs) produces it on its own lines and nothing reads it back.
 """

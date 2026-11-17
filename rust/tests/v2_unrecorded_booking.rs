@@ -387,7 +387,7 @@ async fn a_ledger_only_candidate_or_an_unserved_venue_offers_nothing() {
 // ---- one booking: 2.x's accepted row, then the follow-up poll (r2.1, r2.2) ------------------------------------------------
 
 #[tokio::test]
-async fn a_booking_writes_rails_accepted_row_and_the_follow_up_settles_it() {
+async fn a_booking_writes_v2_accepted_row_and_the_follow_up_settles_it() {
     let f = fx(Kind::Binance);
     let mine = fill(&f.c, &f.s, 50, 7, "0.0004", "20", "2026-09-29T14:03:06Z");
     f.answer(&[o(7, St::Filled, "0.0004", "20")]);
@@ -672,7 +672,7 @@ async fn a_booked_order_inside_the_window_shrinks_the_next_orders_floored_at_zer
 }
 
 #[tokio::test]
-async fn a_booked_failed_row_order_before_the_window_leaves_the_carry_and_keeps_rails_stamp() {
+async fn a_booked_failed_row_order_before_the_window_leaves_the_carry_and_keeps_v2_stamp() {
     let f = carry_fx(true);
     // A settings change after 2.x's tick moved the window past it.
     f.c.execute("UPDATE bots SET settings_changed_at = '2026-09-02 12:00:00' WHERE id = ?1", [f.b]).unwrap();
@@ -855,7 +855,7 @@ fn every_booking_line_renders_in_english_without_a_missing_key() {
 /// Book each recorded case from its order, follow it up with its recorded bodies, and compare the row with 2.x's own after
 /// `persist_accepted_order!` and after `update_with_order_data`, numerically, on every column the recorder lists.
 #[tokio::test]
-async fn each_booked_row_equals_rails_row_after_persist_and_after_the_poll() {
+async fn each_booked_row_equals_v2_row_after_persist_and_after_the_poll() {
     let vectors: Value = serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/v2_unrecorded_vectors.json")).unwrap()).unwrap();
     let cases = vectors["bookings"]["cases"].as_object().expect("the recorder's bookings key").clone();
     assert_eq!(cases.len(), 5);
@@ -884,8 +884,8 @@ async fn each_booked_row_equals_rails_row_after_persist_and_after_the_poll() {
 }
 
 /// The row's columns as 2.x names them, numbers compared as numbers, asset ids by their symbol.
-fn same(c: &Connection, tx: i64, rails: &Value, what: &str) {
-    for (col, want) in rails.as_object().unwrap() {
+fn same(c: &Connection, tx: i64, v2: &Value, what: &str) {
+    for (col, want) in v2.as_object().unwrap() {
         let got: rusqlite::types::Value = match col.as_str() {
             "base_asset_id" | "quote_asset_id" => c.query_row(&format!("SELECT a.symbol FROM transactions t JOIN assets a ON a.id = t.{col} WHERE t.id = ?1"), [tx], |r| r.get(0)).unwrap(),
             _ => c.query_row(&format!("SELECT {col} FROM transactions WHERE id = ?1"), [tx], |r| r.get(0)).unwrap(),
@@ -1063,7 +1063,7 @@ async fn the_line_offers_each_order_with_its_carry_and_a_none_button() {
 #[tokio::test]
 async fn an_offer_that_leaves_the_carry_says_it_goes_into_the_history_only() {
     let f = carry_fx(true);
-    // As a_booked_failed_row_order_before_the_window_leaves_the_carry_and_keeps_rails_stamp: outside the window.
+    // As a_booked_failed_row_order_before_the_window_leaves_the_carry_and_keeps_v2_stamp: outside the window.
     f.c.execute("UPDATE bots SET settings_changed_at = '2026-09-02 12:00:00' WHERE id = ?1", [f.b]).unwrap();
     f.answer(&[O { at: DAY1, ..o(7, St::Filled, "0.0004", "20") }]);
     Report::new(Factory { venue: f.binance(), hook: RefCell::new(None) }).pass(&f.db, t("2026-09-03T00:00:01Z")).await.unwrap();

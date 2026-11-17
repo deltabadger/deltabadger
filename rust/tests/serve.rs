@@ -3276,8 +3276,8 @@ async fn a_stale_create_form_creates_nothing() {
     let mut stale = Browser::default();
     let referer = format!("http://{}/bots", web::HOST);
     for path in ["/bots/dca_indexes", "/bots/dca_indexes/confirm_settings", "/bots/dca_multi_assets"] {
-        let headers = [stream[0], stream[1], ("cookie", "_deltabadger_session=rails-2x"), ("referer", referer.as_str())];
-        let answer = stale.send(&app, "POST", path, Some(&[("authenticity_token", "rails-token")]), web::Csrf::None, &headers).await;
+        let headers = [stream[0], stream[1], ("cookie", "_deltabadger_session=v2-session"), ("referer", referer.as_str())];
+        let answer = stale.send(&app, "POST", path, Some(&[("authenticity_token", "v2-token")]), web::Csrf::None, &headers).await;
         assert_eq!((answer.status, answer.header("location")), (302, Some("/bots")), "{path}: turned back before the route");
         assert_eq!(bot_rows(&opened.primary), 0, "{path}");
     }
