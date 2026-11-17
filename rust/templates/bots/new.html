@@ -1,10 +1,3 @@
-<turbo-frame complete="" id="modal">
-  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" data-modal--base-close-url-value="{{ v.path("/bots") }}" class="dialogview" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
-    <div class="dialogview__vertical-center">
-      <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
-        {% include "svg/_24x24_close.html" %}
-</button>      <turbo-frame id="modal_content">
-        
   <div class="bot-creation-layout bot-type-chooser" data-dialog-size="bare">
     <div class="introtiles">
 
@@ -24,7 +17,3 @@
 {%- endif %}
     </div>
   </div>
-
-</turbo-frame>    </div>
-  </dialog>
-</turbo-frame>

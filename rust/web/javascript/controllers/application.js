@@ -10,10 +10,10 @@ export { application };
 
 // Custom Turbo Stream Actions
 Turbo.StreamActions.redirect = function () {
-  // A DCA step answering with the next step while the sheet is open (a correct key): only the sheet's frame changes, as
+  // A wizard step (DCA, signal, withdrawal rule) answering with the next step while the sheet is open (a correct key): only the sheet's frame changes, as
   // every other step change in it does, so the sheet does not zoom in again.
   const sheet = document.querySelector("turbo-frame.sheet__frame#modal_content");
-  if (sheet && /\/bots\/dca_(single|multi)_assets\//.test(new URL(this.target, location.href).pathname)) {
+  if (sheet && /\/(bots\/(dca_(single|multi)_assets|signals)|rules\/withdrawals)\//.test(new URL(this.target, location.href).pathname)) {
     sheet.src = this.target;
     return;
   }

@@ -2437,7 +2437,11 @@ async fn reading_key_positions_explicit_unauthorized_is_an_incorrect_key_as_in_v
     let mut h=Harness::new(server.uri()).await;let ex=h.seed.exchange_id.to_string();let before=h.snapshot();
     let bad=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&ex),("key_type","trading"),("api_key[key]","bad-account"),("api_key[secret]","bad-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
     let read=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&ex),("key_type","read_only"),("api_key[key]","positions-bad"),("api_key[secret]","bad-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-    assert_eq!(bad.status,422);assert_eq!(read.status,422);assert_eq!(read.body,bad.body,"a positions 401 must be the same incorrect-key error, not an inconclusive validation error");assert_eq!(h.snapshot(),before);
+    assert_eq!(bad.status,422);assert_eq!(read.status,422);
+    // The sheet's card says why under its fields (D-TRACKER-SHEET); the two cards differ by their key type, the reasons must not.
+    let reason=|body:&str|body.split("class=\"sform__error\"").nth(1).and_then(|s|s.split("</p>").next()).map(str::to_string);
+    assert!(reason(&bad.body).is_some(),"{}",bad.body);
+    assert_eq!(reason(&read.body),reason(&bad.body),"a positions 401 must be the same incorrect-key error, not an inconclusive validation error");assert_eq!(h.snapshot(),before);
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -3255,7 +3259,9 @@ async fn r2_validation_logs_flashes_and_pages_check_every_encoding(){
         let deltabadger::web::settings::validator::Validity::Pending(diagnostic)=validity else{panic!("fixture response is inconclusive")};
         assert_eq!(diagnostic.text,deltabadger::crypto::VENUE_TEXT_REDACTED,"validation returns a whole-text decision for each captured stored column: {encoded}");
         let before=h.snapshot();let response=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","next-key"),("api_key[secret]","next-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-        assert_eq!(response.status,422);assert!(response.body.contains("Failed to validate API key permissions"));assert!(!response.body.contains(&encoded));assert!(!response.body.contains("venue-free-text"));assert_eq!(h.snapshot(),before);
+        assert_eq!(response.status,422);assert!(response.body.contains("Failed to validate API key permissions"));assert!(!response.body.contains("venue-free-text"));assert_eq!(h.snapshot(),before);
+        // The sheet's card answers with the key step again (D-TRACKER-SHEET), whose Paper/Live switch says "paper" itself.
+        if secret!="paper"{assert!(!response.body.contains(&encoded));}
         let logs=h.logs.0.lock().unwrap().join("\n");assert!(logs.contains("HTTP 503"));assert!(!logs.contains(&encoded)&&!logs.contains("venue-free-text"),"validation logger: {encoded}");
         let page=h.browser.get(&h.app,"/settings/connect").await;assert_eq!(page.status,200);assert!(!page.body.contains("venue-free-text"));if secret!="paper"{assert!(!page.body.contains(&encoded));}server.verify().await;
     }}
@@ -3853,7 +3859,7 @@ async fn d5b_pick_exchange_lists_available_venues_and_stores_only_the_exchange_i
     assert!(page.body.contains("action=\"/tracker/pick_exchange\""));
     let buttons:Vec<&str>=page.body.split("name=\"exchange_id\" type=\"submit\" value=\"").skip(1).map(|s|s.split('"').next().unwrap()).collect();
     let (kraken,bitmart,gemini,binance)=(d5b_exchange(&h.c,"Kraken"),d5b_exchange(&h.c,"Bitmart"),d5b_exchange(&h.c,"Gemini"),d5b_exchange(&h.c,"Binance"));
-    assert_eq!(buttons,[binance.as_str(),kraken.as_str(),"1",bitmart.as_str()],"stable venues first, then by name; available only, retired included");
+    assert_eq!(buttons,["1",binance.as_str(),kraken.as_str(),bitmart.as_str()],"the broker under Brokers (D-TRACKER-SHEET, D-WIZARD-VENUE-GROUPS), then stable venues first, then by name; available only, retired included");
     assert!(!buttons.contains(&gemini.as_str()));
     assert!(!page.body.contains("disabled"),"the tracker's picker disables nothing");
     let localized=h.browser.send(&h.app,"GET","/de/tracker/pick_exchange/new",None,Csrf::None,&[("turbo-frame","modal")]).await;
@@ -4269,4 +4275,45 @@ async fn a_test_email_to_a_server_that_never_answers_is_an_alert_after_the_greet
     assert!(waited >= std::time::Duration::from_secs(5) && waited < std::time::Duration::from_secs(15), "bounded by the greeting's read timeout: {waited:?}");
     assert_eq!(h.snapshot(), before, "nothing is written");
     assert_eq!(silent.sessions().len(), 1, "one connection, never greeted");
+}
+
+/// D-TRACKER-SHEET, which the 2.x recordings cannot hold: the tracker's connect steps are the sheet closing to the tracker,
+/// whether the connect button's venue step or a venue link straight to the key step asked (both in the `modal` frame); its
+/// track is Exchange and Connect; a refused key says why under the sheet's fields, in the sheet's frame.
+#[tokio::test(flavor="current_thread")]
+async fn the_tracker_connect_steps_are_the_sheet(){
+    let server=MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({"message":"unauthorized."}))).mount(&server).await;
+    let mut h=Harness::new(server.uri()).await;
+    let select=|s:&str|scraper::Selector::parse(s).unwrap();
+    let modal=[("Turbo-Frame","modal")];
+    let track=|page:&scraper::Html|page.select(&select("ol.sheet__track > li")).map(|li|{
+        let class=li.value().attr("class").unwrap_or_default();
+        let state=if class.contains("--done"){"done"}else if class.contains("--current"){"current"}else{"upcoming"};
+        let link=li.select(&select("a.sheet__control")).next().and_then(|a|a.value().attr("href")).unwrap_or("plain").to_string();
+        format!("{}:{state} {link}",li.text().collect::<String>().trim())
+    }).collect::<Vec<_>>();
+    let sheet=|body:&str|{
+        let page=scraper::Html::parse_document(body);
+        assert_eq!(page.select(&select("dialog.sheet-dialog[data-modal--base-close-url-value=\"/tracker\"] turbo-frame.sheet__frame#modal_content")).count(),1,"{body}");
+        for old in ["dialogview","process-progress","conversational","modal__footer"]{assert!(!body.contains(old),"{old}");}
+        page
+    };
+    let step=h.browser.send(&h.app,"GET","/tracker/pick_exchange/new",None,Csrf::None,&modal).await;
+    assert_eq!(step.status,200,"{}",step.body);
+    let page=sheet(&step.body);
+    assert_eq!(track(&page),["Exchange:current plain","Connect exchange:upcoming plain"]);
+    assert_eq!(page.select(&select("form[data-turbo-frame=\"exchange-picker\"][action=\"/tracker/pick_exchange/new\"] input[name=\"query\"]")).count(),1);
+    assert!(page.select(&select("section.exchange-group button[name=\"exchange_id\"]")).count()>0,"the venues, grouped");
+    // A venue link straight to the key step (the populated tracker's menu, a sync warning's fix).
+    let step=h.browser.send(&h.app,"GET","/tracker/add_api_key/new?exchange_id=1&key_type=read_only",None,Csrf::None,&modal).await;
+    assert_eq!(step.status,200,"{}",step.body);
+    let page=sheet(&step.body);
+    assert_eq!(track(&page),["Alpaca:done /tracker/pick_exchange/new","Connect exchange:current plain"]);
+    assert_eq!(page.select(&select("form[action=\"/tracker/add_api_key?exchange_id=1&key_type=read_only\"][data-turbo-frame=\"modal_content\"] input.rinput[name=\"api_key[key]\"]")).count(),1);
+    // Refused: the sheet's frame again, the reason under the fields, nothing flashed.
+    let refused=h.submit("POST","/tracker/add_api_key?exchange_id=1&key_type=read_only",&[("api_key[key]","bad-key"),("api_key[secret]","bad-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    assert_eq!(refused.status,422,"{}",refused.body);
+    assert!(refused.body.starts_with("<turbo-stream action=\"update\" target=\"modal_content\">"),"{}",refused.body);
+    assert!(refused.body.contains("class=\"sform__error\"")&&refused.body.contains("sheet__track")&&!refused.body.contains("target=\"flash\""),"{}",refused.body);
 }

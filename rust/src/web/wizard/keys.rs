@@ -97,17 +97,20 @@ pub struct FullPage<'a> { pub close_url: String, pub content: &'a str }
 #[template(path = "wizard/_api_key_form.html")]
 struct Form { search: String, card: String }
 
-/// The step's `_form`: the venue's connect card, with the DCA step's track (the index and signal steps' own form, with their
+/// A key step's pane in the sheet: the venue's card alone (D-SHEET-EVERYWHERE).
+pub fn key_pane(card: &str) -> Result<String, WebError> { Ok(Form { search: String::new(), card: card.to_string() }.render()?) }
+
+/// The step's `_form`: the venue's connect card, with the DCA or signal step's track (the index step's own form, with its
 /// progress bar and sentence, and no track). `live`: the Paper/Live switch on Live (Alpaca).
 #[allow(clippy::too_many_arguments)]
 fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>, namespace: Namespace, venue: &Venue, live: bool, error: Option<&str>) -> Result<(String, Option<String>), WebError> {
     let instructions = keys::key_instructions(c, app, ctx, &venue.class, &venue.name, 0)?;
     let form_data = "data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"";
-    let dca = matches!(namespace, Namespace::Single | Namespace::Multi);
-    let card = if dca { keys::sheet_card(ctx, csrf, ctx.path(namespace.action()), form_data, &venue.name, &venue.class, live, instructions, error)? }
+    let sheet = namespace != Namespace::Index;
+    let card = if sheet { keys::sheet_card(ctx, csrf, ctx.path(namespace.action()), form_data, &venue.name, &venue.class, live, instructions, error)? }
                else { keys::card(ctx, csrf, ctx.path(namespace.action()), form_data, &venue.name, &venue.class, live, false, instructions)? };
     if namespace == Namespace::Index { return Ok((super::index::key_form(ctx, &venue.name, &venue.class, &card)?, None)) }
-    if namespace == Namespace::Signal { return Ok((super::signals::key_form(c, ctx, config, &card)?, None)) }
+    if namespace == Namespace::Signal { return Ok((Form { search: String::new(), card }.render()?, Some(super::signals::key_track(c, ctx, config)?))) }
     let order = order(config, namespace);
     let multi = namespace == Namespace::Multi;
     let ids = if multi { basket_ids(config) } else { vec![] };
@@ -208,9 +211,9 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
     let (inner, view, reason) = (app.clone(), ctx.clone(), message.clone());
     let (content, sheet) = app.db(move |c| {
         let csrf = view.csrf_token();
-        // A DCA step says why under its fields (D-WIZARD-SHEET-KEY-FORM); the index and signal steps flash it.
-        let dca = matches!(namespace, Namespace::Single | Namespace::Multi);
-        match form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live, dca.then_some(reason.as_str()))? {
+        // A step in the sheet says why under its fields (D-WIZARD-SHEET-KEY-FORM); the index step flashes it.
+        let sheet = namespace != Namespace::Index;
+        match form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live, sheet.then_some(reason.as_str()))? {
             (content, Some(track)) => Ok((super::sheet_frame(&track, &content)?, true)),
             (content, None) => Ok((content, false)),
         }

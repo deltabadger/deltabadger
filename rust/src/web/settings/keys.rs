@@ -228,7 +228,24 @@ pub async fn save(
         return Ok(crate::web::layout::not_ported_for(&ctx));
     };
     if !bot_request {ctx.session.lock().tracker_connect=Some(exchange);}
+    let live = ctx.params.form("api_key[passphrase]").map_or(original.passphrase.as_deref() == Some("live"), |mode| mode == "live");
     let outcome = submit(&app, &ctx, user.id, exchange, &class, &name, kind, original).await?;
+    // D-TRACKER-SHEET: a tracker key refused says why under the sheet's fields; the bot page's form flashes it as before.
+    if !bot_request {
+        let message = match &outcome {
+            Submitted::Correct => None,
+            Submitted::Incorrect => Some(i18n::text(ctx.locale, "errors.incorrect_api_key_permissions", &[])),
+            Submitted::Permissions(missing, forbidden) => Some(super::key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&class), &name, kind, missing, forbidden)),
+            Submitted::Failed => Some(i18n::text(ctx.locale, "errors.api_key_permission_validation_failed", &[])),
+            Submitted::Refused(reason) => Some(refusal_text(&ctx, reason)),
+        };
+        if let Some(message) = message {
+            let (inner, v) = (app.clone(), ctx.clone());
+            let (track, content) = app.db(move |c| tracker_step(c, &inner, &v, exchange, &class, &name, kind, live, Some(&message))).await?;
+            let body = turbo::stream("update", "modal_content", &format!("{}\n", crate::web::wizard::sheet_frame(&track, &content)?));
+            return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], format!("{body}\n")).into_response());
+        }
+    }
     match outcome {
         Submitted::Correct => {}
         Submitted::Incorrect => return flash_response(&ctx, StatusCode::UNPROCESSABLE_ENTITY, "errors.incorrect_api_key_permissions"),
@@ -745,9 +762,6 @@ fn card_in(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,
 #[derive(Template)]
 #[template(path="settings/alpaca_modal.html")]
 struct AlpacaModal<'a> { card:&'a str }
-#[derive(Template)]
-#[template(path="settings/alpaca_full.html")]
-struct AlpacaFull<'a> { v:&'a Ctx, card:&'a str, progress_title:String, name:&'a str }
 pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::extract::Extension(ctx):axum::extract::Extension<Ctx>) -> Result<Response,WebError> {
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let exchange=tracker_exchange(&app,&ctx).await?;
@@ -779,30 +793,40 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     }
     if requested.is_none()&&(healthy||(key.status==1&&!crate::tracker::import::run::missing_permission(&class,key.last_error.as_deref()))){return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker")))}
     let csrf=ctx.csrf_token();
-    let modal=ctx.turbo_frame.as_deref()==Some("modal");
-    let (inner,v,venue_class,venue_name)=(app.clone(),ctx.clone(),class.clone(),name.clone());
-    let instructions=app.db(move|c|key_instructions(c,&inner,&v,&venue_class,&venue_name,kind)).await?;
-    let card=card(&ctx,&csrf,ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"})),if modal{"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\""}else{"data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\""},&name,&class,key.passphrase.as_deref()==Some("live"),modal,instructions)?;
-    let body=if modal{AlpacaModal{card:&card}.render()?}else{AlpacaFull{v:&ctx,card:&card,progress_title:i18n::t(ctx.locale,"bot.setup.progress_steps.connect",&[]),name:&name}.render()?};
+    let (inner,v,live)=(app.clone(),ctx.clone(),key.passphrase.as_deref()==Some("live"));
+    let (track,content)=app.db(move|c|tracker_step(c,&inner,&v,exchange,&class,&name,kind,live,None)).await?;
+    let body=crate::web::wizard::sheet_to(&ctx,"/tracker",&track,&content)?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
 
-#[derive(Template)]
-#[template(path="settings/pick_exchange.html")]
-struct PickExchange<'a> { v:&'a Ctx, progress_title:String, table:crate::web::wizard::exchanges::Table }
-/// Tracker::PickExchangesController#new: every available venue, stable ones first (Bots::Searchable), none disabled.
+/// D-TRACKER-SHEET: the tracker's key step in the sheet, however it was asked for (the connect button's venue step, or a venue,
+/// sync-warning or gap link straight to it): the track (the venue done, its link back to the venue step; Connect current) and
+/// the venue's card, `error` under its fields.
+#[allow(clippy::too_many_arguments)]
+fn tracker_step(c:&Connection,app:&App,ctx:&Ctx,exchange:i64,class:&str,name:&str,kind:i64,live:bool,error:Option<&str>)->Result<(String,String),WebError>{
+    use crate::web::wizard::{self, Stop};
+    let instructions=key_instructions(c,app,ctx,class,name,kind)?;
+    let action=ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"}));
+    let card=sheet_card(ctx,&ctx.csrf_token(),action,"data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"",name,class,live,instructions,error)?;
+    let track=wizard::track(ctx,1,vec![Stop::new("exchange").name(Some(name.to_string())).back(ctx.path("/tracker/pick_exchange/new")),Stop::new("api")])?;
+    Ok((track,wizard::keys::key_pane(&card)?))
+}
+
+/// Tracker::PickExchangesController#new: every available venue, stable ones first (Bots::Searchable), none disabled, in the sheet
+/// (D-TRACKER-SHEET): the pane's search box over the venues, brokers and exchanges apart; the track's Exchange current.
 pub async fn pick_form(axum::extract::State(app):axum::extract::State<App>,axum::extract::Extension(ctx):axum::extract::Extension<Ctx>)->Result<Response,WebError>{
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let inner=app.clone();let owner=user.clone();
     let (venues,shell)=app.db(move|c|{
-        let mut s=c.prepare("SELECT id,type FROM exchanges WHERE available=1 ORDER BY type IN ('Exchanges::Binance','Exchanges::BinanceUs','Exchanges::Coinbase','Exchanges::Kraken') DESC,name")?;
-        let venues=s.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
-        let venues=venues.into_iter().map(|(id,class)|crate::web::wizard::exchanges::Venue{id,mark:crate::web::bot::exchange_wordmark(&crate::web::bot::Exchange{id,name:String::new(),class,maker_fee:None}.name_id()),unavailable:false}).collect::<Vec<_>>();
+        let mut s=c.prepare("SELECT id,name,type FROM exchanges WHERE available=1")?;
+        let venues=s.query_map([],|r|Ok(crate::web::bot::Exchange{id:r.get(0)?,name:r.get::<_,Option<String>>(1)?.unwrap_or_default(),class:r.get(2)?,maker_fee:None}))?.collect::<Result<Vec<_>,_>>()?;
         Ok((venues,crate::web::shell::Shell::load(c,&inner,&owner)?))
     }).await?;
+    use crate::web::wizard::{self, exchanges, Stop};
     let csrf=ctx.csrf_token();
-    let table=crate::web::wizard::exchanges::Table{action:ctx.path("/tracker/pick_exchange"),csrf:csrf.clone(),param_name:"exchange_id".into(),venues,unavailable_note:String::new()};
-    let body=PickExchange{v:&ctx,progress_title:i18n::t(ctx.locale,"bot.setup.progress_steps.exchange",&[]),table}.render()?;
+    let table=exchanges::Table{action:ctx.path("/tracker/pick_exchange"),csrf:csrf.clone(),param_name:"exchange_id".into(),venues:vec![],unavailable_note:String::new()};
+    let content=exchanges::venue_pane(&ctx,wizard::search_box("exchange-picker",&ctx.path("/tracker/pick_exchange/new"),"exchange")?,table,venues)?;
+    let body=wizard::sheet_to(&ctx,"/tracker",&wizard::track(&ctx,0,vec![Stop::new("exchange"),Stop::new("api")])?,&content)?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
 /// Tracker::PickExchangesController#create: `Exchange.find` (any row), the session keeps only its id.

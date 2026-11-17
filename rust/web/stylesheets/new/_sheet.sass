@@ -66,6 +66,12 @@
         grid-template-columns: minmax(0, 1fr)
         grid-template-rows: auto minmax(0, 1fr)
 
+// D-SHEET-NO-DIALOG: a sheet with neither a track nor a menu (the bot-type chooser, the bot menu's index picker) is all pane.
+.sheet__frame:not(:has(.sheet__track, .sheet__menu))
+    grid-template-columns: minmax(0, 1fr)
+    > .sheet__side
+        display: none
+
 .sheet__side
     display: flex
     flex-direction: column
@@ -343,6 +349,10 @@
     .wizard-assets, .modal--search
         width: auto
         max-width: none
+    // The signal wizard's Start and the withdrawal rule's Create: the step's way on, as the asset step's Next.
+    #create-bot-button
+        justify-content: flex-start
+        padding-left: 2rem
     // It was pulled up under the sentence, which is gone.
     .wizard-assets__list
         top: 0

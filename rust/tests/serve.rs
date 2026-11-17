@@ -3063,24 +3063,50 @@ async fn the_signal_wizard_starts_a_bot_on_bybit() {
     browser.get(&app, "/login").await;
     assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
     let (exchange, base, quote) = (seeded.exchange_id.to_string(), seeded.btc.to_string(), seeded.quote.to_string());
-    assert_eq!(browser.get(&app, "/bots/signals/pick_buyable_asset/new").await.status, 200);
+    // D-SIGNAL-SHEET: every step is the sheet closing to the bots page, with no old dialog, and its track: Asset, Exchange,
+    // Currency, Settings, an earlier item showing what was chosen with its link back (the venue's too on the key step).
+    let track = |body: &str| {
+        let page = scraper::Html::parse_document(body);
+        let select = |s: &str| scraper::Selector::parse(s).unwrap();
+        assert_eq!(page.select(&select("dialog.sheet-dialog[data-modal--base-close-url-value=\"/bots\"] turbo-frame.sheet__frame#modal_content")).count(), 1, "{body}");
+        for old in ["dialogview", "process-progress", "conversational--bot-setup"] { assert!(!body.contains(old), "{old}"); }
+        page.select(&select("ol.sheet__track > li")).map(|li| {
+            let class = li.value().attr("class").unwrap_or_default();
+            let state = if class.contains("--done") { "done" } else if class.contains("--current") { "current" } else { "upcoming" };
+            let link = li.select(&select("a.sheet__control")).next().and_then(|a| a.value().attr("href")).unwrap_or("plain").to_string();
+            format!("{}:{state} {link}", li.text().collect::<String>().trim())
+        }).collect::<Vec<_>>()
+    };
+    let first = browser.get(&app, "/bots/signals/pick_buyable_asset/new").await;
+    assert_eq!(first.status, 200);
+    assert_eq!(track(&first.body), ["Assets:current plain", "Exchange:upcoming plain", "Currency:upcoming plain", "Settings:upcoming plain"]);
+    assert!(first.body.contains("data-turbo-frame=\"asset-picker\" style=\"position:relative\" action=\"/bots/signals/pick_buyable_asset/new\""), "the pane's search");
     let picked = browser.post(&app, "/bots/signals/pick_buyable_asset", &[("bots_signal[base_asset_id]", &base)]).await;
     assert_eq!(picked.header("location"), Some("/bots/signals/pick_exchange/new"));
     let venues = browser.get(&app, "/bots/signals/pick_exchange/new").await;
     assert!(venues.status == 200 && venues.body.contains(&format!("value=\"{exchange}\"")), "Bybit is offered: {}", venues.body);
+    assert_eq!(track(&venues.body), ["BTC:done /bots/signals/pick_buyable_asset/new", "Exchange:current plain", "Currency:upcoming plain", "Settings:upcoming plain"]);
+    assert!(venues.body.contains("class=\"exchange-group\""), "the venues, grouped");
     let chosen = browser.post(&app, "/bots/signals/pick_exchange", &[("bots_signal[exchange_id]", &exchange)]).await;
     assert_eq!(chosen.header("location"), Some("/bots/signals/add_api_key/new"));
     let step = browser.get(&app, "/bots/signals/add_api_key/new").await;
     assert!(step.status == 200 && step.body.contains("action=\"/bots/signals/add_api_key\""), "the key step: {} {}", step.status, step.body);
+    assert_eq!(track(&step.body), ["BTC:done /bots/signals/pick_buyable_asset/new", "Bybit:current /bots/signals/pick_exchange/new", "Currency:upcoming plain", "Settings:upcoming plain"]);
+    assert!(step.body.contains("class=\"rinput rinput--outline rinput--text\""), "the sheet's card");
     // The key as the step's check saves it (keys::submit: correct).
     c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
               (seeded.user_id, seeded.exchange_id, app.cipher.encrypt("bybit-key"), app.cipher.encrypt("bybit-secret"))).unwrap();
     let on = browser.get(&app, "/bots/signals/add_api_key/new").await;
     assert_eq!(on.header("location"), Some("/bots/signals/pick_spendable_asset/new"), "{} {}", on.status, on.body);
-    assert_eq!(browser.get(&app, "/bots/signals/pick_spendable_asset/new").await.status, 200);
+    let quotes = browser.get(&app, "/bots/signals/pick_spendable_asset/new").await;
+    assert_eq!(quotes.status, 200);
+    assert_eq!(track(&quotes.body), ["BTC:done /bots/signals/pick_buyable_asset/new", "Bybit:done /bots/signals/pick_exchange/new", "Currency:current plain", "Settings:upcoming plain"]);
     let spent = browser.post(&app, "/bots/signals/pick_spendable_asset", &[("bots_signal[quote_asset_id]", &quote)]).await;
     assert_eq!(spent.header("location"), Some("/bots/signals/confirm_settings/new"));
-    assert_eq!(browser.get(&app, "/bots/signals/confirm_settings/new").await.status, 200);
+    let confirm = browser.get(&app, "/bots/signals/confirm_settings/new").await;
+    assert_eq!(confirm.status, 200);
+    assert_eq!(track(&confirm.body), ["BTC:done /bots/signals/pick_buyable_asset/new", "Bybit:done /bots/signals/pick_exchange/new", "USDT:done /bots/signals/pick_spendable_asset/new", "Settings:current plain"]);
+    assert!(confirm.body.contains("id=\"new-settings\"") && confirm.body.contains("class=\"rbutton rbutton--primary\" data-turbo-submits-with"), "the rules and Start");
     let edited = browser.send(&app, "PATCH", "/bots/signals/confirm_settings/update_signal", Some(&[("signal_index", "0"), ("amount", "25"), ("amount_type", "percentage")]), web::Csrf::Header, &[]).await;
     assert_eq!(edited.status, 200, "{}", edited.body);
     let started = browser.send(&app, "POST", "/bots/signals", Some(&[]), web::Csrf::Header, &[]).await;
