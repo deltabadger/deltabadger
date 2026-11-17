@@ -181,7 +181,7 @@ async fn v2_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
     let migrations: Vec<store::Migration> = store::REGISTRY.migrations.iter().copied().chain(common::as_migrations(&list)).collect();
     let tables: Vec<(&str, store::TableContract)> = store::REGISTRY.tables.iter().chain(common::PROBE_TABLES)
         .map(|(v, t)| (*v, store::TableContract { name: t.name, columns: t.columns, unique_indexes: t.unique_indexes })).collect();
-    let registry = store::Registry { migrations: &migrations, tables: &tables, retired: &[] };
+    let registry = store::Registry { migrations: &migrations, tables: &tables, retired: store::REGISTRY.retired };
     // Opened before the probe migrates: this build's own registry does not know it, so `open` would refuse after.
     let o = store::open(&p).unwrap();
     assert_eq!(store::migrate_with(&p, &l, &registry).unwrap(), vec![common::PROBE.to_string()]);
