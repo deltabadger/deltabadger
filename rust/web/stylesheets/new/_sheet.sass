@@ -143,6 +143,10 @@
         align-items: center
         min-height: 4rem
         padding: 0 2rem 1.75rem
+        // A long label on a narrow phone: the row scrolls sideways, as the settings menu does (sheet_controller brings
+        // the current step into view).
+        overflow-x: auto
+        scrollbar-width: none
 
 .sheet__step
     position: relative
@@ -190,6 +194,7 @@
             box-shadow: 0 0 0 0.375rem color-mix(in srgb, var(--link) 20%, transparent)
     @media (max-width: 767.9px)
         display: flex
+        flex: none
         align-items: center
         gap: 1rem
         padding: 0
