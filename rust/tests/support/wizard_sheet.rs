@@ -1,19 +1,19 @@
 //! D-WIZARD-SHEET, D-WIZARD-NO-SENTENCE and D-WIZARD-TRACK (named divergences from the 2.x recordings): a DCA wizard step
-//! is the sheet Settings uses, its track in the side column and the step in the pane, where Rails draws it in the full-page
+//! is the sheet Settings uses, its track in the side column and the step in the pane, where 2.x draws it in the full-page
 //! dialog with a progress bar and the conversational sentence on top. The step itself (the `.bot-creation-layout` subtree:
-//! table, basket, search, form) is compared as it was, with Rails' progress bar and sentence left out, Rails' basket read as
-//! open, and this crate's pane search box and Next button taken out — each required to be exactly the form Rails' sentence
+//! table, basket, search, form) is compared as it was, with 2.x's progress bar and sentence left out, 2.x's basket read as
+//! open, and this crate's pane search box and Next button taken out — each required to be exactly the form 2.x's sentence
 //! had for it. Around the step, this crate's lines must be exactly the sheet (`wizard/sheet.html`, or for the key step's 422
-//! stream `wizard/_sheet_frame.html`) with one track, and Rails' exactly the full-page shell. The track's three items are
-//! checked against Rails' progress bar (which is current) and its sentence (each item's text, and the request its slot
-//! made: method, URL, fields, frame, direction). Then this crate's shell is put back as Rails' around this crate's step,
+//! stream `wizard/_sheet_frame.html`) with one track, and 2.x's exactly the full-page shell. The track's three items are
+//! checked against 2.x's progress bar (which is current) and its sentence (each item's text, and the request its slot
+//! made: method, URL, fields, frame, direction). Then this crate's shell is put back as 2.x's around this crate's step,
 //! so everything else is compared as before. On the chooser only the DCA tile's frame target and its dropped
 //! `data-wizard-dir` are left out. The index and signal wizards, and a lazy page of results (no shell), are not touched.
 use super::{attr, html, is_space, subtree_end};
 use serde_json::{json, Value};
 
 const LOCALES: [&str; 15] = ["en", "de", "fr", "it", "es", "pt", "nl", "pl", "ru", "bg", "el", "sv", "da", "cs", "sk"];
-/// The track's items (exchange 0, assets 1, currency 2) in each order, and the item each of Rails' four progress steps is.
+/// The track's items (exchange 0, assets 1, currency 2) in each order, and the item each of 2.x's four progress steps is.
 const EXCHANGE_FIRST: ([usize; 3], [usize; 4]) = ([0, 1, 2], [0, 0, 1, 2]);
 const ASSET_FIRST: ([usize; 3], [usize; 4]) = ([1, 0, 2], [1, 0, 0, 2]);
 const ITEM_KEYS: [&str; 3] = ["exchange", "assets", "spendable"];
@@ -85,7 +85,7 @@ fn sheet_shell(close_url: &str, close_label: &str) -> Vec<Value> {
     body_of(&html::normalize(&page))
 }
 
-/// The full-page dialog Rails draws a step in (`wizard/full_page.html` writes it as Rails does, `complete` aside), the step as
+/// The full-page dialog 2.x draws a step in (`wizard/full_page.html` writes it as 2.x does, `complete` aside), the step as
 /// a placeholder.
 fn full_page_shell(close_url: &str) -> Vec<Value> {
     let page = include_str!("../../templates/wizard/full_page.html").replace("{{ close_url }}", &escape(close_url))
@@ -115,7 +115,7 @@ fn request(lines: &[Value], at: usize) -> Request {
     Request { method: attr(line, "method").unwrap_or_default().to_lowercase(), url: attr(line, "action").unwrap_or_default(), fields, search, frame, dir }
 }
 
-/// What Rails' sentence offered: per item (exchange, assets, currency) the request its slot made and the text it showed (the
+/// What 2.x's sentence offered: per item (exchange, assets, currency) the request its slot made and the text it showed (the
 /// venue's name, the tickers), and its search (the exchange's or the quote's active slot). None: the step has no sentence.
 struct Slots { requests: [Option<Request>; 3], shown: [Option<Vec<String>>; 3], search: Option<Request>, advances: Vec<Request> }
 
@@ -155,9 +155,9 @@ fn slots(lines: &[Value], from: usize, to: usize) -> Option<(usize, Slots)> {
     Some((at, slots))
 }
 
-/// Rails' progress bar in its step: the title and the share, 25 to 100.
+/// 2.x's progress bar in its step: the title and the share, 25 to 100.
 fn progress(lines: &[Value], from: usize, to: usize) -> Result<(usize, String, usize), String> {
-    let bar = positions(lines, from, to, |l| has_class(l, "div", "process-progress")).first().copied().ok_or("Rails' step has no progress bar")?;
+    let bar = positions(lines, from, to, |l| has_class(l, "div", "process-progress")).first().copied().ok_or("2.x's step has no progress bar")?;
     let end = subtree_end(lines, bar);
     let title = (bar..end).find(|i| opens(&lines[*i], "h4")).and_then(|h| words(&lines[h + 1])).ok_or("no title")?;
     let share = (bar..end).find(|i| has_class(&lines[*i], "div", "slider__style__progress")).and_then(|i| attr(text(&lines[i]), "style"))
@@ -165,9 +165,9 @@ fn progress(lines: &[Value], from: usize, to: usize) -> Result<(usize, String, u
     Ok((bar, title, share))
 }
 
-/// The orders and locales the step may be in, by Rails' progress bar (its title names the step, its share the place):
+/// The orders and locales the step may be in, by 2.x's progress bar (its title names the step, its share the place):
 /// (locale, the items in their order, the current item's place).
-/// A reading of Rails' progress bar: the locale, the items in their order, the current item's place.
+/// A reading of 2.x's progress bar: the locale, the items in their order, the current item's place.
 type Reading = (&'static str, [usize; 3], usize);
 
 fn readings(title: &str, share: usize, flow: Option<&str>) -> Result<Vec<Reading>, String> {
@@ -221,13 +221,13 @@ fn cut(lines: &mut Vec<Value>, at: usize) {
     lines.drain(start..end);
 }
 
-/// One item as Rails' step implies it: its state, its text (None: not compared) and its request.
+/// One item as 2.x's step implies it: its state, its text (None: not compared) and its request.
 type Expected<'a> = (String, Option<Vec<String>>, Option<&'a Request>);
 /// One item of this crate's track: its state, its text and its request.
 type Drawn = (String, Vec<String>, Option<Request>);
 
-/// The track's checks against Rails' step: one reading of its progress bar (locale, order, current item) under which every
-/// item has its state by position, its text (Rails' sentence's, else the item's label) and exactly its slot's request.
+/// The track's checks against 2.x's step: one reading of its progress bar (locale, order, current item) under which every
+/// item has its state by position, its text (2.x's sentence's, else the item's label) and exactly its slot's request.
 fn check_track(theirs: &[Value], step: usize, slots: Option<&Slots>, drawn: &[Drawn], flow: Option<&str>) -> Result<&'static str, String> {
     let (_, title, share) = progress(theirs, step, subtree_end(theirs, step))?;
     let mut failures = vec![];
@@ -251,15 +251,15 @@ fn check_track(theirs: &[Value], step: usize, slots: Option<&Slots>, drawn: &[Dr
 }
 
 /// D-WIZARD-VENUE-GROUPS: this crate's exchange step draws its venues in two grids under "Brokers" and "Exchanges" where
-/// Rails draws one. Each group must keep Rails' order and the two must hold exactly Rails' tiles, under the locale's headings
-/// (a group with no venue is not drawn); then this crate's groups are put back as Rails' grid.
+/// 2.x draws one. Each group must keep 2.x's order and the two must hold exactly 2.x's tiles, under the locale's headings
+/// (a group with no venue is not drawn); then this crate's groups are put back as 2.x's grid.
 fn ungroup(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usize, locale: &str) -> Result<(), String> {
     let Some(groups) = positions(ours, ours_step, subtree_end(ours, ours_step), |l| has_class(l, "div", "exchange-groups")).first().copied() else { return Ok(()) };
-    let grid = positions(theirs, step, subtree_end(theirs, step), |l| has_class(l, "div", "exchange-grid")).first().copied().ok_or("venue groups where Rails has no grid")?;
+    let grid = positions(theirs, step, subtree_end(theirs, step), |l| has_class(l, "div", "exchange-grid")).first().copied().ok_or("venue groups where 2.x has no grid")?;
     let options = |lines: &[Value], at: usize| -> Vec<Vec<Value>> {
         children(lines, at, subtree_end(lines, at), depth(&lines[at])).into_iter().map(|o| without_space(&reindent(&lines[o..subtree_end(lines, o)], 0))).collect()
     };
-    let rails = options(theirs, grid);
+    let v2 = options(theirs, grid);
     let groups_end = subtree_end(ours, groups);
     let (mut drawn, mut titles) = (vec![], vec![]);
     for group in children(ours, groups, groups_end, depth(&ours[groups])) {
@@ -270,42 +270,42 @@ fn ungroup(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usiz
         drawn.push(options(ours, grid));
     }
     let title = |key: &str| deltabadger::web::i18n::text(locale, &format!("bot.setup.venue_groups.{key}"), &[]);
-    // No venue at all (nothing the basket trades on): no group, where Rails' grid is empty.
+    // No venue at all (nothing the basket trades on): no group, where 2.x's grid is empty.
     let want: Vec<String> = match drawn.len() { 2 => vec![title("brokers"), title("exchanges")], 0 | 1 => vec![], n => return Err(format!("{n} venue groups")) };
     if drawn.len() == 2 && titles != want { return Err(format!("the venue groups' headings: {titles:?}, not {want:?}")) }
     if drawn.len() == 1 && ![title("brokers"), title("exchanges")].contains(&titles[0]) { return Err(format!("the venue group's heading: {:?}", titles[0])) }
-    // Each group in Rails' order, and the two together exactly Rails' tiles.
-    let in_order = |group: &[Vec<Value>]| group.iter().map(|o| rails.iter().position(|r| r == o)).collect::<Option<Vec<_>>>().is_some_and(|at| at.windows(2).all(|w| w[0] < w[1]));
-    if !drawn.iter().all(|group| in_order(group)) || drawn.iter().map(Vec::len).sum::<usize>() != rails.len() {
-        return Err("the venue groups are not Rails' tiles, each group in Rails' order".into());
+    // Each group in 2.x's order, and the two together exactly 2.x's tiles.
+    let in_order = |group: &[Vec<Value>]| group.iter().map(|o| v2.iter().position(|r| r == o)).collect::<Option<Vec<_>>>().is_some_and(|at| at.windows(2).all(|w| w[0] < w[1]));
+    if !drawn.iter().all(|group| in_order(group)) || drawn.iter().map(Vec::len).sum::<usize>() != v2.len() {
+        return Err("the venue groups are not 2.x's tiles, each group in 2.x's order".into());
     }
     let back = reindent(&theirs[grid..subtree_end(theirs, grid)], depth(&ours[groups]));
     ours.splice(groups..groups_end, back);
     Ok(())
 }
 
-/// D-WIZARD-SHEET-KEY-FORM: the key card's title is the venue's name alone (its button says "Connect"), where Rails' reads
-/// "Connect {name}" in the page's locale; read back as Rails'.
+/// D-WIZARD-SHEET-KEY-FORM: the key card's title is the venue's name alone (its button says "Connect"), where 2.x's reads
+/// "Connect {name}" in the page's locale; read back as 2.x's.
 fn retitle(theirs: &[Value], step: usize, ours: &mut [Value], ours_step: usize, locale: &str) -> Result<(), String> {
     let title = |lines: &[Value], at: usize| positions(lines, at, subtree_end(lines, at), |l| has_class(l, "h2", "set-api__title")).first().map(|t| t + 1);
-    let (Some(mine), Some(rails)) = (title(ours, ours_step), title(theirs, step)) else { return Ok(()) };
+    let (Some(mine), Some(v2)) = (title(ours, ours_step), title(theirs, step)) else { return Ok(()) };
     let name = words(&ours[mine]).unwrap_or_default();
     let want = deltabadger::web::i18n::text(locale, "bot.setup.connect_to", &[("name", deltabadger::web::i18n::Arg::Text(&name))]);
-    if words(&theirs[rails]).as_deref() != Some(want.as_str()) { return Err(format!("the key card's title {name:?} is not Rails' {:?}", words(&theirs[rails]))) }
-    ours[mine] = json!(format!("{}{}", "  ".repeat(depth(&ours[mine])), text(&theirs[rails]).trim_start()));
+    if words(&theirs[v2]).as_deref() != Some(want.as_str()) { return Err(format!("the key card's title {name:?} is not 2.x's {:?}", words(&theirs[v2]))) }
+    ours[mine] = json!(format!("{}{}", "  ".repeat(depth(&ours[mine])), text(&theirs[v2]).trim_start()));
     Ok(())
 }
 
-/// D-WIZARD-SHEET-KEY-FORM: the key step's form in Settings' rows and controls (`.srow`, `.rinput`, `.rbutton`) where Rails
+/// D-WIZARD-SHEET-KEY-FORM: the key step's form in Settings' rows and controls (`.srow`, `.rinput`, `.rbutton`) where 2.x
 /// has its floating-label rows. Compared by what it submits and says: the form itself, every field (name, type, id, value
 /// but the token's, autofocus, autocomplete, its controller, Connect's Turbo attributes) and every label with its field,
-/// in order; then read back as Rails' form.
+/// in order; then read back as 2.x's form.
 fn reform(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usize) -> Result<(), String> {
     let form = |lines: &[Value], at: usize| positions(lines, at, subtree_end(lines, at), |l| has_class(l, "form", "set-api__form")).first().copied();
     let Some(mine) = form(ours, ours_step) else { return Ok(()) };
     let mine_end = subtree_end(ours, mine);
     if positions(ours, mine, mine_end, |l| has_class(l, "input", "rinput")).is_empty() { return Ok(()) }
-    let rails = form(theirs, step).ok_or("a key form where Rails has none")?;
+    let v2 = form(theirs, step).ok_or("a key form where 2.x has none")?;
     let said = |lines: &[Value], at: usize| -> Vec<String> {
         let end = subtree_end(lines, at);
         let mut out = vec![text(&lines[at]).trim().to_string()];
@@ -317,7 +317,7 @@ fn reform(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usize
                     .filter(|a| !(token && **a == "value")).map(|a| format!("{a}={:?}", attr(line, a))).collect::<Vec<_>>().join(" "));
             }
         }
-        // Each visible field's name for a reader: Rails' <label for> (after its field), this crate's aria-label (Settings'
+        // Each visible field's name for a reader: 2.x's <label for> (after its field), this crate's aria-label (Settings'
         // fields carry their label as placeholder and aria-label).
         let labels: Vec<(Option<String>, Option<String>)> = (at..end).filter(|i| opens(&lines[*i], "label")).map(|i| (attr(text(&lines[i]), "for"), words(&lines[i + 1]))).collect();
         out.extend((at..end).filter(|i| opens(&lines[*i], "input") && matches!(attr(text(&lines[*i]), "type").as_deref(), Some("text" | "password"))).map(|i| {
@@ -327,40 +327,40 @@ fn reform(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usize
         }));
         out
     };
-    let (got, want) = (said(ours, mine), said(theirs, rails));
-    if got != want { return Err(format!("the key form is not Rails':\n  drawn: {got:?}\n  Rails: {want:?}")) }
-    let back = reindent(&theirs[rails..subtree_end(theirs, rails)], depth(&ours[mine]));
+    let (got, want) = (said(ours, mine), said(theirs, v2));
+    if got != want { return Err(format!("the key form is not 2.x's:\n  drawn: {got:?}\n  2.x: {want:?}")) }
+    let back = reindent(&theirs[v2..subtree_end(theirs, v2)], depth(&ours[mine]));
     ours.splice(mine..mine_end, back);
     Ok(())
 }
 
-/// D-WIZARD-SHEET on one answer to `path` (see the module). Ok(1) when it was a sheet put back as Rails' step, Ok(0) when the
+/// D-WIZARD-SHEET on one answer to `path` (see the module). Ok(1) when it was a sheet put back as 2.x's step, Ok(0) when the
 /// answer is not a DCA step's (not a DCA path, or no step in either body), Err when this crate's answer draws a step that is
 /// not the sheet it must be.
-pub fn wizard_sheet(path: &str, flow: Option<&str>, rails: &mut Value, rust: &mut Value) -> Result<usize, String> {
+pub fn wizard_sheet(path: &str, flow: Option<&str>, v2: &mut Value, rust: &mut Value) -> Result<usize, String> {
     if !dca_step(path) { return Ok(0) }
-    let (Value::Array(theirs), Value::Array(ours)) = (rails, rust) else { return Ok(0) };
+    let (Value::Array(theirs), Value::Array(ours)) = (v2, rust) else { return Ok(0) };
     let layout = |lines: &[Value]| positions(lines, 0, lines.len(), |l| has_class(l, "div", "bot-creation-layout"));
     let [step] = layout(theirs)[..] else { return Ok(0) };
     let modal = |l: &Value| opens(l, "turbo-frame") && attr(text(l), "id").as_deref() == Some("modal");
     let stream = |l: &Value| opens(l, "turbo-stream") && attr(text(l), "target").as_deref() == Some("modal_content");
-    // Rails' shell: the modal frame, or the stream's template.
+    // 2.x's shell: the modal frame, or the stream's template.
     let (shell, streamed) = match (enclosing(theirs, step, modal), enclosing(theirs, step, stream)) {
         (Some(frame), None) => (frame, false),
         (None, Some(at)) => (enclosing(theirs, step, |l| opens(l, "template")).filter(|t| *t > at).ok_or("a stream without a template")?, true),
-        _ => return Err("Rails' step is neither in the modal frame nor in a stream".into()),
+        _ => return Err("2.x's step is neither in the modal frame nor in a stream".into()),
     };
     // No step at all is another answer (a venue this build does not trade is refused); the comparison holds it as it did.
     if layout(ours).is_empty() { return Ok(0) }
     let ours_at = if streamed { positions(ours, 0, ours.len(), stream).first().and_then(|s| positions(ours, *s, subtree_end(ours, *s), |l| opens(l, "template")).first().copied()) }
                   else { positions(ours, 0, ours.len(), modal).first().copied() };
-    let ours_shell = ours_at.ok_or("no sheet where Rails has its step")?;
+    let ours_shell = ours_at.ok_or("no sheet where 2.x has its step")?;
     let ours_end = subtree_end(ours, ours_shell);
     let [ours_step] = layout(&ours[ours_shell..ours_end])[..] else { return Err("this crate's sheet holds no step, or more than one".into()) };
     let ours_step = ours_shell + ours_step;
     let tracks_at = positions(ours, ours_shell, ours_end, |l| has_class(l, "ol", "sheet__track"));
     let [track_at] = tracks_at[..] else { return Err(format!("this crate's sheet holds {} tracks", tracks_at.len())) };
-    // The track, against Rails' progress bar and sentence.
+    // The track, against 2.x's progress bar and sentence.
     let step_end = subtree_end(theirs, step);
     let sentence = slots(theirs, step, step_end);
     let locale = check_track(theirs, step, sentence.as_ref().map(|(_, s)| s), &items(ours, track_at), flow)?;
@@ -373,19 +373,19 @@ pub fn wizard_sheet(path: &str, flow: Option<&str>, rails: &mut Value, rust: &mu
         let template = |inner: Vec<Value>| [vec![json!("<template>")], reindent(&inner, 1), vec![json!("</template>")]].concat();
         let sheet = without_space(&template(body_of(&html::normalize(&sheet_frame()))));
         if ours_frame != sheet { return Err(format!("the stream's template is not the sheet's frame: {ours_frame:?}")) }
-        let rails_shell = without_space(&template(vec![json!("<x-layout>"), json!("</x-layout>")]));
-        if theirs_frame != rails_shell { return Err(format!("Rails' stream holds more than its step: {theirs_frame:?}")) }
+        let v2_shell = without_space(&template(vec![json!("<x-layout>"), json!("</x-layout>")]));
+        if theirs_frame != v2_shell { return Err(format!("2.x's stream holds more than its step: {theirs_frame:?}")) }
     } else {
         let close_url = positions(theirs, shell, subtree_end(theirs, shell), |l| opens(l, "dialog")).first().and_then(|d| attr(text(&theirs[*d]), "data-modal--base-close-url-value")).unwrap_or_default();
         let close = deltabadger::web::i18n::text(locale, "button.close", &[]);
         if ours_frame != without_space(&sheet_shell(&close_url, &close)) { return Err(format!("this crate's dialog is not the sheet: {ours_frame:?}")) }
-        if theirs_frame != without_space(&full_page_shell(&close_url)) { return Err(format!("Rails' dialog is not the full-page shell: {theirs_frame:?}")) }
+        if theirs_frame != without_space(&full_page_shell(&close_url)) { return Err(format!("2.x's dialog is not the full-page shell: {theirs_frame:?}")) }
     }
-    // The pane's search box and Next button: each exactly the form Rails' sentence had for it, then taken out.
+    // The pane's search box and Next button: each exactly the form 2.x's sentence had for it, then taken out.
     let ours_step_end = subtree_end(ours, ours_step);
     let searches = positions(ours, ours_step, ours_step_end, |l| has_class(l, "div", "sheet__search"));
-    let rails_search = sentence.as_ref().and_then(|(_, s)| s.search.as_ref());
-    match (searches.as_slice(), rails_search) {
+    let v2_search = sentence.as_ref().and_then(|(_, s)| s.search.as_ref());
+    match (searches.as_slice(), v2_search) {
         ([], None) => {}
         ([at], Some(want)) => {
             let form = positions(ours, *at, subtree_end(ours, *at), |l| opens(l, "form"))[0];
@@ -394,7 +394,7 @@ pub fn wizard_sheet(path: &str, flow: Option<&str>, rails: &mut Value, rust: &mu
                 return Err(format!("the pane's search is not the sentence's: {got:?} / {want:?}"));
             }
         }
-        (found, want) => return Err(format!("{} search boxes in the pane where Rails' sentence had {}", found.len(), if want.is_some() { "one" } else { "none" })),
+        (found, want) => return Err(format!("{} search boxes in the pane where 2.x's sentence had {}", found.len(), if want.is_some() { "one" } else { "none" })),
     }
     let nexts = positions(ours, ours_step, ours_step_end, |l| has_class(l, "form", "sheet__next"));
     let advances = sentence.as_ref().map_or(&[][..], |(_, s)| s.advances.as_slice());
@@ -411,41 +411,41 @@ pub fn wizard_sheet(path: &str, flow: Option<&str>, rails: &mut Value, rust: &mu
     for at in nexts.iter().chain(&searches).copied().rev().collect::<std::collections::BTreeSet<_>>().into_iter().rev() { cut(ours, at) }
     let ours_end = subtree_end(ours, ours_shell);
     let ours_step = positions(ours, ours_shell, ours_end, |l| has_class(l, "div", "bot-creation-layout"))[0];
-    // D-WIZARD-VENUE-GROUPS: the brokers and the exchanges under their headings; read back as Rails' one grid.
+    // D-WIZARD-VENUE-GROUPS: the brokers and the exchanges under their headings; read back as 2.x's one grid.
     ungroup(theirs, step, ours, ours_step, locale)?;
-    // The reason a key was refused, under the fields where Rails flashes it (taken out with the form below).
+    // The reason a key was refused, under the fields where 2.x flashes it (taken out with the form below).
     let refused = positions(ours, ours_step, subtree_end(ours, ours_step), |l| has_class(l, "p", "sform__error")).first().and_then(|p| words(&ours[p + 1]));
     retitle(theirs, step, ours, ours_step, locale)?;
     reform(theirs, step, ours, ours_step)?;
     let ours_end = subtree_end(ours, ours_shell);
-    // The basket is drawn open; Rails' was closed unless asked for.
+    // The basket is drawn open; 2.x's was closed unless asked for.
     let list = |l: &Value| opens(l, "div") && attr(text(l), "class").is_some_and(|c| c.split(' ').any(|c| c == "wizard-assets__list"));
     if positions(ours, ours_step, subtree_end(ours, ours_step), list).iter().any(|at| attr(text(&ours[*at]), "class").is_some_and(|c| c.split(' ').any(|c| c == "hidden"))) {
         return Err("this crate's basket is hidden".into());
     }
     for at in positions(theirs, step, step_end, list) { theirs[at] = json!(text(&theirs[at]).replacen("class=\"wizard-assets__list hidden\"", "class=\"wizard-assets__list \"", 1)) }
-    // Rails' flash of that reason, which this crate's step says itself: the same words, then left out.
+    // 2.x's flash of that reason, which this crate's step says itself: the same words, then left out.
     if let Some(reason) = refused {
         let flash = positions(theirs, 0, theirs.len(), |l| opens(l, "turbo-stream") && attr(text(l), "target").as_deref() == Some("flash")).first().copied()
-            .ok_or("a refusal under the fields where Rails flashed nothing")?;
+            .ok_or("a refusal under the fields where 2.x flashed nothing")?;
         if !(flash..subtree_end(theirs, flash)).any(|i| words(&theirs[i]).as_deref() == Some(reason.as_str())) {
-            return Err(format!("the refusal under the fields, {reason:?}, is not Rails' flash"));
+            return Err(format!("the refusal under the fields, {reason:?}, is not 2.x's flash"));
         }
         cut(theirs, flash);
     }
-    // Rails' step without its progress bar and its sentence (and the whitespace before each).
+    // 2.x's step without its progress bar and its sentence (and the whitespace before each).
     if let Some((at, _)) = sentence { cut(theirs, at) }
     let (bar, _, _) = progress(theirs, step, subtree_end(theirs, step))?;
     cut(theirs, bar);
     let (step_end, shell_end) = (subtree_end(theirs, step), subtree_end(theirs, shell));
-    // This crate's shell is Rails', around this crate's step.
+    // This crate's shell is 2.x's, around this crate's step.
     let rebuilt = [theirs[shell..step].to_vec(), reindent(&ours[ours_step..subtree_end(ours, ours_step)], depth(&theirs[step])), theirs[step_end..shell_end].to_vec()].concat();
     ours.splice(ours_shell..ours_end, rebuilt);
     Ok(1)
 }
 
 /// D-WIZARD-SHEET on the chooser: the DCA tile opens the sheet in the modal frame (`data-turbo-frame="modal"`) with no
-/// `data-wizard-dir`; put back as Rails' tile. Ok(1) when it was there, Err when the tile is there in another shape.
+/// `data-wizard-dir`; put back as 2.x's tile. Ok(1) when it was there, Err when the tile is there in another shape.
 pub fn chooser_tile(path: &str, rust: &mut Value) -> Result<usize, String> {
     if route(path) != "/bots/new" { return Ok(0) }
     let Value::Array(ours) = rust else { return Ok(0) };
@@ -474,12 +474,12 @@ mod tests {
         let fields: String = fields.iter().map(|(n, v)| format!("<input value=\"{v}\" type=\"hidden\" name=\"{n}\" />")).collect();
         format!("<form class=\"{class}\" data-turbo-frame=\"modal_content\"{} action=\"{url}\" accept-charset=\"UTF-8\" method=\"post\">{CSRF}{fields}<input {shown} readonly tabindex=\"-1\"></form>", if dir { " data-wizard-dir=\"back\"" } else { "" })
     }
-    /// Rails' sentence on the exchange-first key step with nothing chosen: the venue filled (back), the assets' order switch.
+    /// 2.x's sentence on the exchange-first key step with nothing chosen: the venue filled (back), the assets' order switch.
     fn key_sentence() -> String {
         format!("<div class=\"conversational conversational--bot-setup\"><span class=\"conversational__lead\">Buy</span><div class=\"conversational__assets\">{}</div><span class=\"conversational__lead\">on</span><form class=\"conversational__link filled\" data-turbo-frame=\"modal_content\" data-wizard-dir=\"back\" action=\"{EXCHANGES}\" accept-charset=\"UTF-8\" method=\"get\"><input value=\"Kraken\" readonly tabindex=\"-1\"></form></div>",
                 post("ticker ticker--placeholder ticker--switch", ORDER, &[("flow", "asset_first")], false, "placeholder=\"\""))
     }
-    /// Rails' sentence on the asset step, exchange first, BTC and ETH chosen on Kraken: the venue goes back by the advance with
+    /// 2.x's sentence on the asset step, exchange first, BTC and ETH chosen on Kraken: the venue goes back by the advance with
     /// `to=exchange`, the quote advances.
     fn asset_sentence() -> String {
         format!("<div class=\"conversational conversational--bot-setup\"><span class=\"conversational__lead\">Buy</span><div class=\"conversational__assets\"><div class=\"conversational__stack conversational__stack--toggle\"><div class=\"ticker-group ticker-group--2\"><div class=\"ticker\" data-ticker-symbol=\"BTC\">BTC</div><div class=\"ticker\" data-ticker-symbol=\"ETH\">ETH</div></div></div></div><span class=\"conversational__lead\">on</span>{}<span class=\"conversational__lead\">spending</span>{}</div>",
@@ -493,13 +493,13 @@ mod tests {
     fn basket(hidden: bool) -> String {
         format!("<div class=\"wizard-assets__list {}\" data-class-toggle-target=\"togglable\"><div class=\"wizard-assets__row\">BTC</div></div>", if hidden { "hidden" } else { "" })
     }
-    fn rails_step(title: &str, share: usize, sentence: &str, inner: &str) -> String {
+    fn v2_step(title: &str, share: usize, sentence: &str, inner: &str) -> String {
         format!("<div class=\"bot-creation-layout\">\n    {}\n\n    {sentence}\n\n    {}\n  </div>\n", bar(title, share), body(inner))
     }
     fn ours_step(extras: &str, inner: &str) -> String { format!("<div class=\"bot-creation-layout\">\n    {extras}\n\n    {}\n  </div>\n", body(inner)) }
     fn page(modal: &str) -> Value { json!(html::normalize(&format!("<html><body><main>bots</main>{modal}</body></html>"))) }
-    fn rails_page(content: &str) -> Value {
-        // As rails_answer has it, the backdrop's click put on (D-FULL-PAGE-DIALOG-BACKDROP-CLOSES).
+    fn v2_page(content: &str) -> Value {
+        // As v2_answer has it, the backdrop's click put on (D-FULL-PAGE-DIALOG-BACKDROP-CLOSES).
         page(&include_str!("../../templates/wizard/full_page.html").replace("{{ close_url }}", "/bots").replace("{% include \"svg/_24x24_close.html\" %}", include_str!("../../templates/svg/_24x24_close.html"))
             .replace("{{ content|safe }}", content).replacen(" complete=\"\"", "", 1))
     }
@@ -538,38 +538,38 @@ mod tests {
 
     #[test]
     fn the_first_screen_switches_the_order_from_the_track_and_has_no_search() {
-        let rails = || rails_page(&rails_step("Pick exchange", 25, &invite_sentence(), ""));
+        let v2 = || v2_page(&v2_step("Pick exchange", 25, &invite_sentence(), ""));
         let plain_track = || track(&[item("current", "Exchange", None), item("upcoming", "Assets", Some(("post", ORDER, &[("flow", "asset_first")], false))), item("upcoming", "Currency", None)]);
-        let (mut theirs, mut ours) = (rails(), page(&sheet("modal_content", &plain_track(), &ours_step("", ""))));
+        let (mut theirs, mut ours) = (v2(), page(&sheet("modal_content", &plain_track(), &ours_step("", ""))));
         assert_eq!(wizard_sheet(EXCHANGES, None, &mut theirs, &mut ours), Ok(1));
         assert!(same(&theirs, &ours), "{theirs:#}\n{ours:#}");
         assert!(!theirs.to_string().contains("process-progress") && !theirs.to_string().contains("conversational"));
-        // Rails had no search on this screen.
+        // 2.x had no search on this screen.
         let with_search = ours_step(&search("exchange-picker", EXCHANGES, "exchange"), "");
-        assert!(wizard_sheet(EXCHANGES, None, &mut rails(), &mut page(&sheet("modal_content", &plain_track(), &with_search))).is_err());
+        assert!(wizard_sheet(EXCHANGES, None, &mut v2(), &mut page(&sheet("modal_content", &plain_track(), &with_search))).is_err());
         // The switch with the other flow, or as a GET, is not the sentence's.
         for wrong in [item("upcoming", "Assets", Some(("post", ORDER, &[("flow", "exchange_first")], false))), item("upcoming", "Assets", Some(("get", ORDER, &[], false))), item("upcoming", "Assets", None)] {
             let drawn = track(&[item("current", "Exchange", None), wrong, item("upcoming", "Currency", None)]);
-            assert!(wizard_sheet(EXCHANGES, None, &mut rails(), &mut page(&sheet("modal_content", &drawn, &ours_step("", "")))).is_err());
+            assert!(wizard_sheet(EXCHANGES, None, &mut v2(), &mut page(&sheet("modal_content", &drawn, &ours_step("", "")))).is_err());
         }
     }
 
     #[test]
     fn the_asset_step_shows_the_tickers_opens_the_basket_and_mirrors_each_slot() {
-        let rails = |hidden: bool| rails_page(&rails_step("Pick asset", 75, &asset_sentence(), &basket(hidden)));
+        let v2 = |hidden: bool| v2_page(&v2_step("Pick asset", 75, &asset_sentence(), &basket(hidden)));
         let ours = |track: String, extras: String, hidden: bool| page(&sheet("modal_content", &track, &ours_step(&extras, &basket(hidden))));
         for hidden in [true, false] {
-            let (mut theirs, mut drawn) = (rails(hidden), ours(asset_track(&[("to", "exchange")]), next(""), false));
-            assert_eq!(wizard_sheet(ASSET_PATH, Some("exchange_first"), &mut theirs, &mut drawn), Ok(1), "basket hidden in Rails: {hidden}");
+            let (mut theirs, mut drawn) = (v2(hidden), ours(asset_track(&[("to", "exchange")]), next(""), false));
+            assert_eq!(wizard_sheet(ASSET_PATH, Some("exchange_first"), &mut theirs, &mut drawn), Ok(1), "basket hidden in 2.x: {hidden}");
             assert!(same(&theirs, &drawn), "{theirs:#}\n{drawn:#}");
         }
-        let refused = |track: String, extras: String, hidden: bool| wizard_sheet(ASSET_PATH, Some("exchange_first"), &mut rails(true), &mut ours(track, extras, hidden));
+        let refused = |track: String, extras: String, hidden: bool| wizard_sheet(ASSET_PATH, Some("exchange_first"), &mut v2(true), &mut ours(track, extras, hidden));
         assert!(refused(asset_track(&[("to", "exchange")]), next(""), true).is_err(), "a hidden basket");
         assert!(refused(asset_track(&[("to", "assets")]), next(""), false).is_err(), "a changed `to`");
         assert!(refused(asset_track(&[]), next(""), false).is_err(), "the back without `to`");
         assert!(refused(asset_track(&[("to", "exchange")]), next("<input type=\"hidden\" name=\"to\" value=\"exchange\" />"), false).is_err(), "Next with `to`");
         assert!(refused(asset_track(&[("to", "exchange")]), format!("{}{}", next(""), next("")), false).is_err(), "two Next");
-        assert!(refused(asset_track(&[("to", "exchange")]), format!("{}{}", next(""), search("asset-picker", "/q", "USD")), false).is_err(), "a search Rails had not");
+        assert!(refused(asset_track(&[("to", "exchange")]), format!("{}{}", next(""), search("asset-picker", "/q", "USD")), false).is_err(), "a search 2.x had not");
         let unnamed = track(&[item("done", "Exchange", Some(("post", ADVANCE, &[("to", "exchange")], true))), item("current", "BTC</span><span>ETH", None), item("upcoming", "Currency", Some(("post", ADVANCE, &[], false)))]);
         assert!(refused(unnamed, next(""), false).is_err(), "the venue's name not shown");
         let no_tickers = track(&[item("done", "Kraken", Some(("post", ADVANCE, &[("to", "exchange")], true))), item("current", "Assets", None), item("upcoming", "Currency", Some(("post", ADVANCE, &[], false)))]);
@@ -577,10 +577,10 @@ mod tests {
         let two = format!("{}{}", asset_track(&[("to", "exchange")]), asset_track(&[("to", "exchange")]));
         assert!(refused(two, next(""), false).is_err(), "two tracks");
         // A changed field inside the step passes the adapter and is then a difference.
-        let (mut theirs, mut drawn) = (rails(false), page(&sheet("modal_content", &asset_track(&[("to", "exchange")]), &ours_step(&next(""), &basket(false)).replace("value=\"1\"", "value=\"2\""))));
+        let (mut theirs, mut drawn) = (v2(false), page(&sheet("modal_content", &asset_track(&[("to", "exchange")]), &ours_step(&next(""), &basket(false)).replace("value=\"1\"", "value=\"2\""))));
         assert_eq!(wizard_sheet(ASSET_PATH, Some("exchange_first"), &mut theirs, &mut drawn), Ok(1));
         assert!(!same(&theirs, &drawn));
-        assert!(wizard_sheet(ASSET_PATH, None, &mut rails(false), &mut page(&sheet("modal_frame", &asset_track(&[("to", "exchange")]), &ours_step(&next(""), &basket(false))))).is_err(), "a wrong frame id");
+        assert!(wizard_sheet(ASSET_PATH, None, &mut v2(false), &mut page(&sheet("modal_frame", &asset_track(&[("to", "exchange")]), &ours_step(&next(""), &basket(false))))).is_err(), "a wrong frame id");
     }
 
     #[test]
@@ -588,48 +588,48 @@ mod tests {
         let stream = |inner: &str| json!(html::normalize(&format!("<turbo-stream action=\"update\" target=\"modal_content\"><template>{inner}\n</template></turbo-stream>\n<turbo-stream action=\"prepend\" target=\"flash\"><template><div>no</div></template></turbo-stream>")));
         let key_track = |exchange: Act| track(&[item("current", "Kraken", exchange), item("upcoming", "Assets", Some(("post", ORDER, &[("flow", "asset_first")], false))), item("upcoming", "Currency", None)]);
         let frame = |track: String| include_str!("../../templates/wizard/_sheet_frame.html").replace("{{ track|safe }}", &track).replace("{{ content|safe }}", &ours_step("", ""));
-        let rails = || stream(&rails_step("Connect exchange", 50, &key_sentence(), ""));
-        let (mut theirs, mut ours) = (rails(), stream(&frame(key_track(Some(("get", EXCHANGES, &[], true))))));
+        let v2 = || stream(&v2_step("Connect exchange", 50, &key_sentence(), ""));
+        let (mut theirs, mut ours) = (v2(), stream(&frame(key_track(Some(("get", EXCHANGES, &[], true))))));
         assert_eq!(wizard_sheet("/bots/dca_single_assets/add_api_key", None, &mut theirs, &mut ours), Ok(1));
         assert!(same(&theirs, &ours), "{theirs:#}\n{ours:#}");
-        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key", None, &mut rails(), &mut stream(&frame(key_track(None)))).is_err(), "the current venue must still go back");
-        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key", None, &mut rails(), &mut stream(&frame(key_track(Some(("get", EXCHANGES, &[], false)))))).is_err(), "the direction");
-        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key", None, &mut rails(), &mut stream(&ours_step("", ""))).is_err(), "no track");
+        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key", None, &mut v2(), &mut stream(&frame(key_track(None)))).is_err(), "the current venue must still go back");
+        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key", None, &mut v2(), &mut stream(&frame(key_track(Some(("get", EXCHANGES, &[], false)))))).is_err(), "the direction");
+        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key", None, &mut v2(), &mut stream(&ours_step("", ""))).is_err(), "no track");
     }
 
     #[test]
     fn a_search_answer_is_compared_inside_the_step() {
         let results = |r: &str| format!("<turbo-frame id=\"asset-picker\"><button>{r}</button></turbo-frame>");
-        let rails = || rails_page(&rails_step("Pick asset", 75, &asset_sentence(), &results("NVDA")));
+        let v2 = || v2_page(&v2_step("Pick asset", 75, &asset_sentence(), &results("NVDA")));
         let ours = |r: &str| page(&sheet("modal_content", &asset_track(&[("to", "exchange")]), &ours_step(&next(""), &results(r))));
-        let (mut theirs, mut drawn) = (rails(), ours("NVDA"));
+        let (mut theirs, mut drawn) = (v2(), ours("NVDA"));
         assert_eq!(wizard_sheet("/bots/dca_single_assets/pick_buyable_asset/new?query=nv", Some("exchange_first"), &mut theirs, &mut drawn), Ok(1));
         assert!(same(&theirs, &drawn));
-        let (mut theirs, mut drawn) = (rails(), ours("NVDL"));
+        let (mut theirs, mut drawn) = (v2(), ours("NVDL"));
         assert_eq!(wizard_sheet("/bots/dca_single_assets/pick_buyable_asset/new?query=nv", Some("exchange_first"), &mut theirs, &mut drawn), Ok(1));
         assert!(!same(&theirs, &drawn), "a different result list");
     }
 
     #[test]
-    fn the_exchange_step_groups_brokers_and_exchanges_in_rails_order() {
+    fn the_exchange_step_groups_brokers_and_exchanges_in_v2_order() {
         let tile = |id: &str| format!("<div class=\"exchange-grid__option\"><button name=\"p\" type=\"submit\" value=\"{id}\" class=\"exchange-grid__item\" data-turbo-frame=\"modal_content\">{id}</button></div>");
-        let rails_grid = format!("<div class=\"exchange-grid\">{}{}{}</div>", tile("1"), tile("14"), tile("3"));
+        let v2_grid = format!("<div class=\"exchange-grid\">{}{}{}</div>", tile("1"), tile("14"), tile("3"));
         let group = |title: &str, ids: &[&str]| format!("<section class=\"exchange-group\"><h3 class=\"exchange-group__heading\">{title}</h3><div class=\"exchange-grid\">{}</div></section>", ids.iter().map(|id| tile(id)).collect::<String>());
         let groups = |a: String, b: String| format!("<div class=\"exchange-groups\">{a}{b}</div>");
-        let rails = || rails_page(&rails_step("Pick exchange", 25, &invite_sentence(), &rails_grid));
+        let v2 = || v2_page(&v2_step("Pick exchange", 25, &invite_sentence(), &v2_grid));
         let plain_track = track(&[item("current", "Exchange", None), item("upcoming", "Assets", Some(("post", ORDER, &[("flow", "asset_first")], false))), item("upcoming", "Currency", None)]);
         let ours = |inner: String| page(&sheet("modal_content", &plain_track, &ours_step("", &inner)));
-        let (mut theirs, mut drawn) = (rails(), ours(groups(group("Brokers", &["14"]), group("Exchanges", &["1", "3"]))));
+        let (mut theirs, mut drawn) = (v2(), ours(groups(group("Brokers", &["14"]), group("Exchanges", &["1", "3"]))));
         assert_eq!(wizard_sheet(EXCHANGES, None, &mut theirs, &mut drawn), Ok(1));
         assert!(same(&theirs, &drawn), "{theirs:#}\n{drawn:#}");
-        // No venue: no group, Rails' grid empty.
-        let (mut theirs, mut drawn) = (rails_page(&rails_step("Pick exchange", 25, &invite_sentence(), "<div class=\"exchange-grid\"></div>")), ours(groups(String::new(), String::new())));
+        // No venue: no group, 2.x's grid empty.
+        let (mut theirs, mut drawn) = (v2_page(&v2_step("Pick exchange", 25, &invite_sentence(), "<div class=\"exchange-grid\"></div>")), ours(groups(String::new(), String::new())));
         assert_eq!(wizard_sheet(EXCHANGES, None, &mut theirs, &mut drawn), Ok(1));
         assert!(same(&theirs, &drawn));
-        assert!(wizard_sheet(EXCHANGES, None, &mut rails(), &mut ours(groups(String::new(), String::new()))).is_err(), "Rails' tiles missing");
+        assert!(wizard_sheet(EXCHANGES, None, &mut v2(), &mut ours(groups(String::new(), String::new()))).is_err(), "2.x's tiles missing");
         for wrong in [groups(group("Brokers", &["14"]), group("Exchanges", &["3", "1"])), groups(group("Brokers", &["14"]), group("Exchanges", &["1"])),
                       groups(group("Exchanges", &["14"]), group("Brokers", &["1", "3"])), groups(group("Brokers", &["14"]), group("Exchanges", &["1", "3", "9"]))] {
-            assert!(wizard_sheet(EXCHANGES, None, &mut rails(), &mut ours(wrong.clone())).is_err(), "{wrong}");
+            assert!(wizard_sheet(EXCHANGES, None, &mut v2(), &mut ours(wrong.clone())).is_err(), "{wrong}");
         }
     }
 
@@ -637,24 +637,24 @@ mod tests {
     fn the_key_form_is_compared_by_what_it_submits() {
         let form = |fields: &str| format!("<form class=\"set-api__form form\" data-turbo-frame=\"modal_content\" action=\"/bots/dca_single_assets/add_api_key\" method=\"post\">{CSRF}{fields}</form><section class=\"set-api__instructions\">how</section>");
         let submit = |class: &str, value: &str| format!("<input type=\"submit\" name=\"commit\" value=\"{value}\" class=\"{class}\" data-turbo-stream=\"true\" data-turbo-submits-with=\"Validating\" data-disable-with=\"{value}\" />");
-        let rails_fields = format!("<div class=\"form__row form__row--input\"><input autofocus=\"autofocus\" autocomplete=\"off\" data-controller=\"autofocus\" class=\"form__input\" type=\"text\" name=\"api_key[key]\" id=\"api_key_key\" /><label class=\"form__label\" for=\"api_key_key\">API Key</label></div><div class=\"form__row form__row--input\"><input autocomplete=\"off\" class=\"form__input\" type=\"text\" name=\"api_key[secret]\" id=\"api_key_secret\" /><label class=\"form__label\" for=\"api_key_secret\">Secret Key</label></div><div class=\"set-api__actions\">{}</div>", submit("button button--sky", "Connect"));
+        let v2_fields = format!("<div class=\"form__row form__row--input\"><input autofocus=\"autofocus\" autocomplete=\"off\" data-controller=\"autofocus\" class=\"form__input\" type=\"text\" name=\"api_key[key]\" id=\"api_key_key\" /><label class=\"form__label\" for=\"api_key_key\">API Key</label></div><div class=\"form__row form__row--input\"><input autocomplete=\"off\" class=\"form__input\" type=\"text\" name=\"api_key[secret]\" id=\"api_key_secret\" /><label class=\"form__label\" for=\"api_key_secret\">Secret Key</label></div><div class=\"set-api__actions\">{}</div>", submit("button button--sky", "Connect"));
         let ours_fields = |key_name: &str, value: &str| format!("<input autofocus=\"autofocus\" autocomplete=\"off\" data-controller=\"autofocus\" class=\"rinput rinput--outline rinput--text\" placeholder=\"API Key\" aria-label=\"API Key\" type=\"text\" name=\"{key_name}\" id=\"api_key_key\" /><input autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"Secret Key\" aria-label=\"Secret Key\" type=\"text\" name=\"api_key[secret]\" id=\"api_key_secret\" /><div class=\"set-api__actions\">{}</div>", submit("rbutton rbutton--secondary", value));
         let key_track = track(&[item("current", "Kraken", Some(("get", EXCHANGES, &[], true))), item("upcoming", "Assets", Some(("post", ORDER, &[("flow", "asset_first")], false))), item("upcoming", "Currency", None)]);
-        let rails = || rails_page(&rails_step("Connect exchange", 50, &key_sentence(), &form(&rails_fields)));
+        let v2 = || v2_page(&v2_step("Connect exchange", 50, &key_sentence(), &form(&v2_fields)));
         let ours = |fields: String| page(&sheet("modal_content", &key_track, &ours_step("", &form(&fields))));
-        let (mut theirs, mut drawn) = (rails(), ours(ours_fields("api_key[key]", "Connect")));
+        let (mut theirs, mut drawn) = (v2(), ours(ours_fields("api_key[key]", "Connect")));
         assert_eq!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut theirs, &mut drawn), Ok(1));
         assert!(same(&theirs, &drawn), "{theirs:#}\n{drawn:#}");
-        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut rails(), &mut ours(ours_fields("api_key[public]", "Connect"))).is_err(), "a renamed field");
-        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut rails(), &mut ours(ours_fields("api_key[key]", "Save"))).is_err(), "another button");
-        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut rails(), &mut ours(ours_fields("api_key[key]", "Connect").replace("aria-label=\"Secret Key\"", "aria-label=\"Password\""))).is_err(), "another name");
+        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut v2(), &mut ours(ours_fields("api_key[public]", "Connect"))).is_err(), "a renamed field");
+        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut v2(), &mut ours(ours_fields("api_key[key]", "Save"))).is_err(), "another button");
+        assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut v2(), &mut ours(ours_fields("api_key[key]", "Connect").replace("aria-label=\"Secret Key\"", "aria-label=\"Password\""))).is_err(), "another name");
     }
 
     #[test]
-    fn a_refused_key_is_said_under_the_fields_as_rails_flashed_it() {
+    fn a_refused_key_is_said_under_the_fields_as_v2_flashed_it() {
         let header = |title: &str| format!("<header class=\"set-api__brand\"><span class=\"set-api__mark\">m</span><h2 class=\"set-api__title\">{title}</h2></header>");
         let submit = |class: &str| format!("<input type=\"submit\" name=\"commit\" value=\"Connect\" class=\"{class}\" data-turbo-stream=\"true\" />");
-        let rails_card = format!("<div class=\"set-api set-api--connect\">{}<form class=\"set-api__form form\" action=\"/k\" method=\"post\">{CSRF}<div class=\"form__row\"><input class=\"form__input\" type=\"text\" name=\"api_key[key]\" id=\"api_key_key\" /><label class=\"form__label\" for=\"api_key_key\">API Key</label></div><div class=\"set-api__actions\">{}</div></form></div>",
+        let v2_card = format!("<div class=\"set-api set-api--connect\">{}<form class=\"set-api__form form\" action=\"/k\" method=\"post\">{CSRF}<div class=\"form__row\"><input class=\"form__input\" type=\"text\" name=\"api_key[key]\" id=\"api_key_key\" /><label class=\"form__label\" for=\"api_key_key\">API Key</label></div><div class=\"set-api__actions\">{}</div></form></div>",
                                  header("Connect Binance"), submit("button button--sky"));
         let ours_card = |title: &str, reason: &str| format!("<div class=\"set-api set-api--connect\">{}<form class=\"set-api__form form\" action=\"/k\" method=\"post\">{CSRF}<input class=\"rinput rinput--outline rinput--text rinput--invalid\" aria-label=\"API Key\" aria-invalid=\"true\" type=\"text\" name=\"api_key[key]\" id=\"api_key_key\" /><p class=\"sform__error\" id=\"api_key_error\" role=\"alert\">{reason}</p><div class=\"set-api__actions\">{}</div></form></div>",
                                  header(title), submit("rbutton rbutton--secondary"));
@@ -662,33 +662,33 @@ mod tests {
         let update = |inner: &str| format!("<turbo-stream action=\"update\" target=\"modal_content\"><template>{inner}\n</template></turbo-stream>");
         let key_track = track(&[item("current", "Binance", Some(("get", EXCHANGES, &[], true))), item("upcoming", "Assets", Some(("post", ORDER, &[("flow", "asset_first")], false))), item("upcoming", "Currency", None)]);
         let frame = |card: String| include_str!("../../templates/wizard/_sheet_frame.html").replace("{{ track|safe }}", &key_track).replace("{{ content|safe }}", &ours_step("", &card));
-        let rails = |reason: &str| json!(html::normalize(&format!("{}{}", update(&rails_step("Connect exchange", 50, &key_sentence().replace("Kraken", "Binance"), &rails_card)), flash(reason))));
+        let v2 = |reason: &str| json!(html::normalize(&format!("{}{}", update(&v2_step("Connect exchange", 50, &key_sentence().replace("Kraken", "Binance"), &v2_card)), flash(reason))));
         let ours = |title: &str, reason: &str| json!(html::normalize(&update(&frame(ours_card(title, reason)))));
         let path = "/bots/dca_single_assets/add_api_key";
-        let (mut theirs, mut drawn) = (rails("Incorrect API key permissions"), ours("Binance", "Incorrect API key permissions"));
+        let (mut theirs, mut drawn) = (v2("Incorrect API key permissions"), ours("Binance", "Incorrect API key permissions"));
         assert_eq!(wizard_sheet(path, None, &mut theirs, &mut drawn), Ok(1));
         assert!(same(&theirs, &drawn), "{theirs:#}\n{drawn:#}");
-        assert!(wizard_sheet(path, None, &mut rails("Incorrect API key permissions"), &mut ours("Binance", "Something else")).is_err(), "another reason");
-        assert!(wizard_sheet(path, None, &mut json!(html::normalize(&update(&rails_step("Connect exchange", 50, &key_sentence(), &rails_card)))), &mut ours("Binance", "Incorrect API key permissions")).is_err(), "Rails flashed nothing");
-        assert!(wizard_sheet(path, None, &mut rails("Incorrect API key permissions"), &mut ours("Kraken", "Incorrect API key permissions")).is_err(), "another venue's name");
+        assert!(wizard_sheet(path, None, &mut v2("Incorrect API key permissions"), &mut ours("Binance", "Something else")).is_err(), "another reason");
+        assert!(wizard_sheet(path, None, &mut json!(html::normalize(&update(&v2_step("Connect exchange", 50, &key_sentence(), &v2_card)))), &mut ours("Binance", "Incorrect API key permissions")).is_err(), "2.x flashed nothing");
+        assert!(wizard_sheet(path, None, &mut v2("Incorrect API key permissions"), &mut ours("Kraken", "Incorrect API key permissions")).is_err(), "another venue's name");
     }
 
     #[test]
     fn the_broker_step_has_a_plain_track() {
-        let rails = || rails_page(&format!("<div class=\"bot-creation-layout\">\n    {}\n\n    {}\n  </div>\n", bar("Pick exchange", 50), body("")));
+        let v2 = || v2_page(&format!("<div class=\"bot-creation-layout\">\n    {}\n\n    {}\n  </div>\n", bar("Pick exchange", 50), body("")));
         let plain = track(&[item("done", "BTC", None), item("current", "Exchange", None), item("upcoming", "Currency", None)]);
-        let (mut theirs, mut ours) = (rails(), page(&sheet("modal_content", &plain, &ours_step("", ""))));
+        let (mut theirs, mut ours) = (v2(), page(&sheet("modal_content", &plain, &ours_step("", ""))));
         assert_eq!(wizard_sheet("/bots/dca_multi_assets/pick_stock_broker/new", Some("asset_first"), &mut theirs, &mut ours), Ok(1));
         assert!(same(&theirs, &ours));
         let linked = track(&[item("done", "BTC", Some(("get", ASSETS, &[], true))), item("current", "Exchange", None), item("upcoming", "Currency", None)]);
-        assert!(wizard_sheet("/bots/dca_multi_assets/pick_stock_broker/new", Some("asset_first"), &mut rails(), &mut page(&sheet("modal_content", &linked, &ours_step("", "")))).is_err(),
-                "Rails offered no way back there");
+        assert!(wizard_sheet("/bots/dca_multi_assets/pick_stock_broker/new", Some("asset_first"), &mut v2(), &mut page(&sheet("modal_content", &linked, &ours_step("", "")))).is_err(),
+                "2.x offered no way back there");
     }
 
     #[test]
     fn index_signal_lazy_pages_and_refusals_are_not_touched() {
         for path in ["/bots/dca_indexes/pick_exchange/new", "/bots/signals/pick_buyable_asset/new", "/de/bots/dca_indexes/add_api_key"] {
-            let (mut theirs, mut ours) = (rails_page(&rails_step("Pick exchange", 25, &invite_sentence(), "")), page("<div>other</div>"));
+            let (mut theirs, mut ours) = (v2_page(&v2_step("Pick exchange", 25, &invite_sentence(), "")), page("<div>other</div>"));
             let before = ours.clone();
             assert_eq!(wizard_sheet(path, None, &mut theirs, &mut ours), Ok(0), "{path}");
             assert_eq!(ours, before);
@@ -699,13 +699,13 @@ mod tests {
         assert_eq!((theirs, ours), (lazy.clone(), lazy));
         // This build refuses the step (a venue it does not trade): the comparison holds the refusal as before.
         let refusal = page("<div class=\"not-ported\">no</div>");
-        let (mut theirs, mut ours) = (rails_page(&rails_step("Connect exchange", 50, &key_sentence(), "")), refusal.clone());
+        let (mut theirs, mut ours) = (v2_page(&v2_step("Connect exchange", 50, &key_sentence(), "")), refusal.clone());
         assert_eq!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut theirs, &mut ours), Ok(0));
         assert_eq!(ours, refusal);
     }
 
     #[test]
-    fn the_choosers_dca_tile_is_put_back_as_rails_writes_it() {
+    fn the_choosers_dca_tile_is_put_back_as_v2_writes_it() {
         let tile = |attrs: &str| json!(html::normalize(&format!("<a class=\"itile itile--bot-type\" {attrs} href=\"/de/bots/dca_single_assets/pick_exchange/new\">DCA</a><a class=\"itile\" data-turbo-frame=\"modal_content\" data-wizard-dir=\"enter\" href=\"/bots/dca_indexes/setup_coingecko/new\">Index</a>")));
         let mut ours = tile("data-turbo-frame=\"modal\"");
         assert_eq!(chooser_tile("/de/bots/new", &mut ours), Ok(1));

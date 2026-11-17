@@ -38,7 +38,7 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, brokers: Vec<(i64, St
     let venues = brokers.into_iter().map(|(id, class)| Venue { id, mark: exchange_wordmark(&crate::tracker::rows::name_id(&class)), unavailable: false }).collect();
     let table = Table { action: ctx.path("/bots/dca_multi_assets/pick_stock_broker"), csrf: ctx.csrf_token(), param_name: FIELD.into(), venues,
                         unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
-    // Rails draws no sentence here: the track says where the flow stands and does nothing (D-WIZARD-TRACK r5).
+    // 2.x draws no sentence here: the track says where the flow stands and does nothing (D-WIZARD-TRACK r5).
     let chips = super::chips(c, &basket_ids(config))?;
     let steered = super::steer(ctx, "", super::SentenceOf { order: &order, step: Step::Exchange, multi: true, chips, exchange: None }, false)?;
     super::sheet(ctx, &steered.track, &New { table }.render()?)

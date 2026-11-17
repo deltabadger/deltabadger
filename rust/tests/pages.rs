@@ -2905,7 +2905,7 @@ async fn replay_page_shard(shard: usize) {
         }
         let (mut sheet_answers, mut chooser_tiles) = (0, 0);
         for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
-            let (Some(theirs), Some(ours)) = (rails["responses"].get_mut(index), rust["responses"].get_mut(index)) else { continue };
+            let (Some(theirs), Some(ours)) = (v2["responses"].get_mut(index), rust["responses"].get_mut(index)) else { continue };
             let path = step["path"].as_str().unwrap_or_default();
             // The wizard's order as the session holds it, when the step reads the session.
             let flow = ours.get("session").and_then(|s| s.get("bot_config")).filter(|c| c.is_object()).map(|c| c["flow"].as_str().unwrap_or("exchange_first").to_string());

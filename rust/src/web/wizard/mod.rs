@@ -292,7 +292,7 @@ pub fn sheet_frame(track: &str, content: &str) -> Result<String, WebError> {
     Ok(SheetFrame { track, content }.render()?)
 }
 
-/// What a DCA step knows of the wizard: the slots of Rails' bots/wizard/_sentence ("Buy {assets} on {exchange} spending
+/// What a DCA step knows of the wizard: the slots of 2.x's bots/wizard/_sentence ("Buy {assets} on {exchange} spending
 /// {quote}"), which this build draws as the track and the pane's search box (D-WIZARD-NO-SENTENCE).
 pub struct SentenceOf<'a> {
     pub order: &'a StepOrder,
