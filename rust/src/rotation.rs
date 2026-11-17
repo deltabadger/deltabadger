@@ -1,6 +1,6 @@
 //! Secret rotation (PLAN-A29): 2.x's `deltabadger:encryption:report`, `:reset` and `:derived_keys`
 //! as `deltabadger encryption-report | encryption-reset | encryption-derived-keys`, and the
-//! boot warnings of config/initializers/secret_key_base_guard.rb and encryption_key_check.rb. One list of published
+//! boot warnings of 2.x's secret-key-base guard and encryption-key check. One list of published
 //! secrets and one exposure rule, used by the commands and by `run`/`serve`'s start.
 //!
 //! `clear` never decrypts (EncryptedCredentials::Reset's contract): it takes no Cipher and writes raw columns only, so it
@@ -252,7 +252,7 @@ pub fn written_under_another_key(c: &Connection, cipher: &Cipher) -> rusqlite::R
     Ok(false)
 }
 
-/// The keys app/models/app_config.rb names (its setting constants; `proxy_` is a prefix): a plain legacy value under one
+/// The keys 2.x's AppConfig names (its setting constants; `proxy_` is a prefix): a plain legacy value under one
 /// of these is a setting the reset clears too. The retired Alpaca keys (D-STOCKS-RETIRED) are left out: no code names
 /// them (settings.rs no_code_reads_the_install_alpaca_credential), and AppConfig only ever stored them encrypted, so the
 /// encrypted-row rule clears them.

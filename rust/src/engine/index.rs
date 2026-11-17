@@ -1,6 +1,6 @@
 //! Bots::DcaIndex's composition, derived on every tick before anything is sized (Bots::DcaIndex#execute_action,
-//! dca_index.rb:126-143; IndexAllocatable#derive_composition, index_allocatable.rb:61-123) from the data-api `indices` row
-//! (MarketData.get_top_coins, market_data.rb:117-143) as this engine ranked it (`ranked_row`), and written as 2.x writes it (basket::write_members). The buy leg is
+//! IndexAllocatable#derive_composition) from the data-api `indices` row
+//! (MarketData.get_top_coins) as this engine ranked it (`ranked_row`), and written as 2.x writes it (basket::write_members). The buy leg is
 //! the basket's (tick::buy). It never sells: a member that leaves is only marked out of the index.
 use crate::venue::Attributed;
 use super::model::{self, Bot, Ticker};
@@ -185,7 +185,7 @@ pub use crate::asset_taxonomy::stablecoin;
 
 /// MarketData.get_top_coins' data-api branch: the ranked ids with the asset's market_cap, else the index's published weight;
 /// a coin with neither, or with no local asset, is skipped. On a `coingecko` ranking (`own_caps`) the ranking's own caps
-/// only, as 2.x's live answer weighs (`coin['market_cap'].to_f`, index_allocatable.rb:108): `weights[id]` with to_f
+/// only, as 2.x's live answer weighs (`coin['market_cap'].to_f`): `weights[id]` with to_f
 /// (missing or null: 0.0), never the asset's cap, never skipped for zero. Stablecoins and ids without a local asset are
 /// skipped on both. Ok(None): a negative or non-finite cap (D-CG-INVALID-CAP-HELD; its writer never stores one).
 fn top_coins(c: &Connection, ids: &[String], weights: &Map<String, Value>, own_caps: bool) -> Result<Option<Vec<(String, f64)>>, EngineError> {

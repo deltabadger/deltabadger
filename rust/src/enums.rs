@@ -1,4 +1,4 @@
-//! 2.x enum integers, as stored. Pinned by tests/enums.rs and test/contracts/rust_enums_test.rb.
+//! 2.x enum integers, as stored. Pinned by tests/enums.rs.
 macro_rules! v2_enum {
     ($name:ident { $($variant:ident = $value:literal => $label:literal),+ $(,)? }) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]

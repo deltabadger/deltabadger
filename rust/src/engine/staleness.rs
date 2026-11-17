@@ -53,13 +53,13 @@ fn newest(a: Option<Clock>, b: Option<Clock>) -> Option<Clock> {
 /// derives members, sizes, minimums and the cap's precision floor from. Its stamp is the newest `exchange_assets.updated_at`
 /// among the Alpaca exchange's Cryptocurrency assets, NOT `tickers.updated_at`: Ticker::TechnicallyAnalyzable writes a
 /// ticker's all-time high with `update!`, which moves `tickers.updated_at` without any sync.
-/// `exchange_assets` rows are written by MarketData.import_tickers! alone (market_data.rb:323-327: `ExchangeAsset.upsert_all`
+/// `exchange_assets` rows are written by MarketData.import_tickers! alone (`ExchangeAsset.upsert_all`
 /// with `updated_at: now`, which rewrites an unchanged row too), and for this exchange's crypto assets import_tickers! is
 /// reached only from MarketData.sync_alpaca_crypto_listings_from_deltabadger! (:659), after its degraded-payload guard
 /// (:647). Asset::SyncAlpacaCryptoFromDeltabadgerJob runs it daily at 10:15 UTC. The generic
 /// venue sync skips Alpaca (Exchange::SyncTickersAndAssetsJob returns for a stock venue; Exchange::SyncAllTickersAndAssetsJob
 /// excludes Exchange::STOCK_TYPES), Alpaca's fee fetch writes nothing, and the self-hosted
-/// Exchange::SyncAlpacaAssetsJob only creates rows (`find_or_create_by!`, sync_alpaca_assets_job.rb:62, :122).
+/// Exchange::SyncAlpacaAssetsJob only creates rows (`find_or_create_by!`).
 ///
 /// Whether this install runs that sync at all: the `app_configs` row `alpaca_crypto_listings_last_good_count`, which only a
 /// successful run writes. Without it (a self-hosted install, or one that never synced) no stamp
@@ -85,7 +85,7 @@ pub enum Verdict { Fresh, Stale(Stale), Unknown(Stale) }
 
 
 /// Alpaca's stock and ETF listings: sync_alpaca_listings_from_deltabadger! upserts the exchange asset of every listing it
-/// resolves (import_tickers!, market_data.rb:323-327) and writes `alpaca_listings_last_good_count` only on success
+/// resolves (import_tickers!) and writes `alpaca_listings_last_good_count` only on success
 /// (:575). Daily at 10:00 + up to 15 min.
 pub const ALPACA_STOCK_TICKERS: Source = Source {
     name: "Alpaca stock tickers", column: "exchange_assets.updated_at",
@@ -96,7 +96,7 @@ pub const ALPACA_STOCK_TICKERS: Source = Source {
     per_exchange: true, gate: Some("alpaca_listings_last_good_count"), evidence: false,
 };
 
-/// A crypto venue's catalogue (import_tickers!, market_data.rb:316-338), every 4 h at :15.
+/// A crypto venue's catalogue (import_tickers!), every 4 h at :15.
 /// ponytail: no gate row exists for it, and other jobs may touch a venue's exchange_assets; `check` reports it, nothing
 /// refuses on it until the engine runs bots on those venues.
 pub const VENUE_TICKERS: Source = Source {
@@ -106,7 +106,7 @@ pub const VENUE_TICKERS: Source = Source {
     newest_sql: "SELECT max(updated_at) FROM exchange_assets WHERE exchange_id = ?1", per_exchange: true, gate: None, evidence: false,
 };
 
-/// Index membership and weights (import_indices!, market_data.rb:266-273, :904-905), daily at 10:30.
+/// Index membership and weights (import_indices!), daily at 10:30.
 pub const INDICES: Source = Source {
     name: "Indices", column: "indices.updated_at",
     refreshed_by: "Index::SyncFromCoingeckoJob, daily at 10:30 UTC", max_age_secs: bound_secs(24),
@@ -120,7 +120,7 @@ pub const TOP_COINS: Source = Source {
     ..INDICES
 };
 
-/// The crypto catalogue's market caps (import_assets!, market_data.rb:233-245, :885-886), daily at 00:20 + up to 5 min.
+/// The crypto catalogue's market caps (import_assets!), daily at 00:20 + up to 5 min.
 pub const CRYPTO_ASSETS: Source = Source {
     name: "Crypto assets", column: "assets.updated_at",
     refreshed_by: "Asset::FetchAllAssetsDataFromCoingeckoJob, daily at 00:20 UTC + up to 5 min", max_age_secs: bound_secs(24),

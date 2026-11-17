@@ -1,4 +1,4 @@
-//! Asset::InferColorFromImageJob (app/jobs/asset/infer_color_from_image_job.rb, Asset#infer_color_from_image,
+//! Asset::InferColorFromImageJob (Asset#infer_color_from_image,
 //! Utilities::Image): an asset's colour from its logo, after a CoinGecko refresh changed its image_url
 //! (reference::refresh wakes it per asset).
 //!

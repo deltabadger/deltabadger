@@ -1,4 +1,4 @@
-//! ActiveRecord::Encryption as this app configures it (config/initializers/active_record_encryption.rb,
+//! ActiveRecord::Encryption as this app configures it (its encryption initializer,
 //! load_defaults 8.1): keys from the env pair or derived from secret_key_base, PBKDF2-SHA256 key, AES-256-GCM.
 use aes_gcm::{aead::{Aead, KeyInit}, Aes256Gcm, Nonce};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};

@@ -1,4 +1,4 @@
-//! MarketDataSettings and AppConfig's market-data readers (app_config.rb:134-150,
+//! MarketDataSettings and AppConfig's market-data readers (AppConfig,
 //! :257-289), as one pure rule. Every reader of the install's market-data configuration (web::bots::market_data,
 //! jobs::data_api::config, engine::provider) reads its four rows its own way and asks this function what they mean.
 use crate::jobs::data_api::Config;

@@ -32,8 +32,7 @@ pub enum EngineEvent {
     /// A tick of this bot ended, whatever it did: 2.x broadcasts its bars from the job's rescue and from
     /// Bot::BroadcastAfterScheduledActionJob once the next tick is enqueued.
     TickEnded { bot_id: i64 },
-    /// A poll (a follow-up or a tick's sweep) or a reversal's cancel wrote this order (Transaction after_update_commit → Bot#broadcast_updated_order,
-    /// app/models/transaction.rb:22).
+    /// A poll (a follow-up or a tick's sweep) or a reversal's cancel wrote this order (Transaction after_update_commit → Bot#broadcast_updated_order).
     OrderWritten { bot_id: i64, transaction_id: i64 },
     /// A signal bot's marker of an order of unknown fate was set or lifted (Bots::Signal#mark_placement_unresolved! and
     /// the recovery that settles its intent): 2.x redraws bots/signals/_unresolved_placement on the bot's page

@@ -596,7 +596,7 @@ const BELOW_MINIMUM: &[BelowMinimum] = &[
     // Kraken support, "API error messages": "EOrder:Order minimum not met (volume too low)".
     row("Exchanges::Kraken", None, "EOrder:Order minimum not met", Text("EOrder:Order minimum not met"), false, true),
     // Hyperliquid docs, Error responses: MinTradeNtl "Order must have minimum value of $10.", MinTradeSpotNtl "… of 10
-    // {quote_token}." (2.x test/models/bot/order_setter_test.rb records the latter as a hard rejection); as the status
+    // {quote_token}." (2.x's own test records the latter as a hard rejection); as the status
     // error hyperliquid::add_order words it.
     row("Exchanges::Hyperliquid", None, "Hyperliquid order failed: Order must have minimum value of ",
         Text("Hyperliquid order failed: Order must have minimum value of "), true, true),

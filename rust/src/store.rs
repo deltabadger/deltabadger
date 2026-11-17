@@ -737,7 +737,7 @@ pub mod test_support {
     }
 }
 
-/// The schema of a 2.x-built primary (db/schema.rb as script/rust/prepare_install.rb loads it), replayed: every
+/// The schema of a 2.x-built primary (2.x's schema as 2.x loads it), replayed: every
 /// `sqlite_master` statement in 2.x's order, its `sqlite_sequence` rows, the 123 frozen `schema_migrations` rows
 /// (schema/v2_versions.txt) and `ar_internal_metadata` `environment = production`. 2.x's `schema_sha1` row is not
 /// written: nothing reads it in production (divergence D-BOOT-NO-SCHEMA-SHA1). Generated and proved equal to 2.x by
@@ -862,7 +862,7 @@ pub fn bootstrap(paths: &Paths, lock: &EngineLock, cipher: &crate::crypto::Ciphe
 /// tests/seeds.rs checks its shape and floors.
 const SEED_DATA: &[u8] = include_bytes!("../seed/seed_data.json.gz");
 
-/// db/seeds.rb's 15 exchanges, in its order: (type, name, maker_fee, taker_fee).
+/// 2.x's seeds' 15 exchanges, in its order: (type, name, maker_fee, taker_fee).
 const EXCHANGES: [(&str, &str, &str, &str); 15] = [
     ("Exchanges::Binance", "Binance", "0.1", "0.1"), ("Exchanges::BinanceUs", "Binance.US", "0.0", "0.01"),
     ("Exchanges::Kraken", "Kraken", "0.25", "0.4"), ("Exchanges::Coinbase", "Coinbase", "0.6", "1.2"),
@@ -885,7 +885,7 @@ fn bundle_files(gz: &[u8]) -> Result<std::collections::BTreeMap<String, serde_js
     serde_json::from_slice(&json).map_err(|e| format!("seed bundle: {e}"))
 }
 
-/// Rails.application.load_seed on a fresh primary, in the transaction the caller holds (no BEGIN, no
+/// 2.x's seed load on a fresh primary, in the transaction the caller holds (no BEGIN, no
 /// pacing, no guard): the exchanges, then MarketData.import_assets! (upserts, instrument types, Asset.mark_tokenized!,
 /// as 2.x runs them), import_indices!, import_tickers! per ticker file whose stem is an available exchange's name_id
 /// (a file without one is skipped), each planned on this connection right before its write; then the two app_configs

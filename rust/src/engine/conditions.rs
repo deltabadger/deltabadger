@@ -250,7 +250,7 @@ async fn last_price<V: Attributed>(venue: &V, bot: &Bot, ticker: &Ticker, now: D
 /// The last price comes through Exchange's 5 s cache, the one the tick's own reference reads. The writes are stamped with
 /// the clock read after the price arrives (2.x's `Time.current` there): a read that crosses an interval checkpoint must
 /// not stamp, or capture the carry at, the instant before it. Each write also broadcasts the status line from inside it, as
-/// 2.x does (broadcast_price_limit_info_update: its Rails.cache.fetch, stored in `INFO_KEY`).
+/// 2.x does (broadcast_price_limit_info_update: its cache fetch, stored here in `INFO_KEY`).
 pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Evaluated, EngineError> {
     evaluate_side(c, venue, bot, bot.selling(), clock, prices, version).await
 }
@@ -406,7 +406,7 @@ pub const SELLING: &str = "selling";
 pub fn side_of(selling: bool) -> &'static str { if selling { SELLING } else { BUYING } }
 /// A side named by a request (`buying`/`selling`); anything else is no side (the active one is meant).
 pub fn side_named(side: &str) -> Option<&'static str> { [BUYING, SELLING].into_iter().find(|s| *s == side) }
-/// D-COND-INFO-STORE: what 2.x keeps in Rails.cache under `bot_<id>_<rule>_info_<side>` for 20 s, kept in transient_data
+/// D-COND-INFO-STORE: what 2.x keeps in its cache under `bot_<id>_<rule>_info_<side>` for 20 s, kept in transient_data
 /// (a Rust-only key, outside the parity snapshots): `{rule: {side: {base, quote, price, condition_met, expires_us}}}`.
 pub const INFO_KEY: &str = "rust_condition_info";
 /// The status line's requests the web left for the engine (BroadcastsController#*_info_update → the info job), Rust-only:
@@ -428,7 +428,7 @@ fn info_value(ticker: &Ticker, decimals: Option<i64>, price: &BigDec, met: bool)
     Some(json!({ "base": ticker.base_symbol, "quote": ticker.quote_symbol, "price": price.round(places).to_s_f(), "condition_met": met }))
 }
 
-/// `Rails.cache.fetch(key, expires_in: 20.seconds) { info }`: a live entry is kept as it is (its own expiry too); otherwise
+/// 2.x's 20-second cache fetch of the info: a live entry is kept as it is (its own expiry too); otherwise
 /// `info` is stored for 20 s. Returns what the broadcast shows.
 fn fetch_info(tx: &Connection, bot_id: i64, rule: &str, side: &str, now: DateTime<Utc>, info: Value) -> Result<Value, EngineError> {
     let transient: String = tx.query_row("SELECT transient_data FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
@@ -513,7 +513,7 @@ pub fn judge(rule: &PriceRule, price: &BigDec) -> Result<bool, EngineError> {
     price_met(rule, price)
 }
 
-/// Bot::BroadcastPriceLimitInfoUpdateJob (broadcast_price_limit_info_update, price_limitable.rb:224-250) for one claimed
+/// Bot::BroadcastPriceLimitInfoUpdateJob (broadcast_price_limit_info_update) for one claimed
 /// request, on any status, for the claimed side's rule: its ticker, its last price, the answer (`judge`), then the cached
 /// info. Any failure leaves no info, as 2.x broadcasts nothing then; the request is served either way. Some(info): what
 /// the line shows.

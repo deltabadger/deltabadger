@@ -1,7 +1,7 @@
 //! Bot and account mail. A message is built here exactly as Action Mailer 8.1 and the mail gem 2.9.1 build it for this
 //! app's mailers: one text/html part, UTF-8, the headers in the gem's order, the subject folded and Q-encoded word by
 //! word, the body sent as 7bit, quoted-printable or base64, whichever the gem would pick. Only Date and Message-ID are
-//! this process's own. Pinned by rust/tests/mail.rs (vectors from script/rust/mail_vectors.rb) and, for whole mails
+//! this process's own. Pinned by rust/tests/mail.rs (recorded vectors) and, for whole mails
 //! against 2.x, by rust/tests/mail_parity.rs.
 //!
 //! One rule is stricter than the gem's: no value that becomes a header may hold a control character (a line break in

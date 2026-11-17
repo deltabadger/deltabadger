@@ -129,7 +129,7 @@ fn available_exchanges(c: &Connection, coins: &[String]) -> Result<Map<String, V
     Ok(out)
 }
 
-/// Availability qualified against each venue's own list (:76-80, exchange_availability.rb:63-72's per-exchange branch).
+/// Availability qualified against each venue's own list (ExchangeAvailability's per-exchange branch).
 fn availability_of(c: &Connection, per_exchange: &Map<String, Value>) -> Result<Map<String, Value>, EngineError> {
     let mut out = Map::new();
     for (ty, coins) in per_exchange {

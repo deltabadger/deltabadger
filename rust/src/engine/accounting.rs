@@ -120,7 +120,7 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
     pending_quote_amount_num(c, bot, now_us)?.to_dec().map_err(data)
 }
 
-/// The trigger rules' `started_at` decorator on the active side (price_limitable.rb:106-115 and its three siblings, the
+/// The trigger rules' `started_at` decorator on the active side (Bot::PriceLimitable and its three siblings, the
 /// `active_*` keys): for each rule of that side that is on (`== true`) with the `pause` action, the later of started_at and
 /// its `*_condition_met_at`, nil while one is unmet. Every reader shares it: the engine's carry and gate, the web's preview,
 /// the MCP read. Only a rule that `conditions::decorates` for `kind`: one this engine runs, or a basket's that 2.x reads

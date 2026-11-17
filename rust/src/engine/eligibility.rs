@@ -336,7 +336,7 @@ fn admission_kind(exchange: Option<&str>) -> Kind {
 pub const IBKR_NO_LIMIT: &str = "a limit order on Interactive Brokers (its orders are market orders until its price increments are recorded)";
 
 /// Which signal bots this build runs, by venue: the one rule the engine's guard and the signal bot's pages
-/// (web::bot::signal::refusal) both apply. Every venue whose registry row trades runs them (plan A5: script/rust/decisions.rb
+/// (web::bot::signal::refusal) both apply. Every venue whose registry row trades runs them (plan A5: the recorded decision grids
 /// grid-signal records each); any other venue (IBKR, an unknown type) is named.
 pub fn signal_admission(exchange: Option<&str>) -> Option<&'static str> {
     if exchange.is_some_and(|e| crate::venue::registry::trading_rules(e).is_some()) { return None; }
@@ -498,7 +498,7 @@ fn special_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(),
 }
 
 /// The venues whose trading of a tokenized pair is a recorded 2.x vector (plan B2): Hyperliquid's in
-/// tests/hyperliquid_tokenized.rs (script/rust/decisions.rb grid-hyperliquid-tokenized). A venue joins in the commit that records it.
+/// tests/hyperliquid_tokenized.rs (the recorded grid-hyperliquid-tokenized answers). A venue joins in the commit that records it.
 pub const TOKENIZED_PROVEN: [&str; 1] = ["Exchanges::Hyperliquid"];
 
 /// Every member's pair on this venue, and the composition rows 2.x's tick reads (bot_index_assets).
@@ -507,8 +507,8 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
     for &asset_id in members {
         let Some(t) = model::ticker_for_asset(c, bot, asset_id)? else {
             // An index bot's stored rows are not what it trades: every derivation (the tick, the resync, the rebalance) seats
-            // members from this venue's tickers alone and marks every other row out of the index (index_allocatable.rb:69-102,
-            // allocatable.rb:118-128), so a row without a ticker here, one a venue switch left, is a holding only. A basket's
+            // members from this venue's tickers alone and marks every other row out of the index (IndexAllocatable,
+            // Allocatable), so a row without a ticker here, one a venue switch left, is a holding only. A basket's
             // members are its own settings and must trade here.
             if bot.bot_type != "Bots::DcaIndex" { r.push(why(Kind::Asset(Some(asset_id)), format!("no ticker for the asset {asset_id} on this venue"))); }
             continue;
@@ -516,7 +516,7 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
         // An unbounded integer column used as a rounding scale: refused here, before any leg is sized with it.
         if let Err(e) = t.scales() { r.push(why(Kind::Asset(Some(asset_id)), e)); }
         // 2.x's crypto assets are category 'Cryptocurrency' (Exchange::Synchronizer). Stocks and ETFs are category Stock,
-        // typed by instrument_type (MarketData::CATEGORY_BY_TYPE, market_data.rb:377, :447), and trade on Alpaca only. A legacy
+        // typed by instrument_type (MarketData::CATEGORY_BY_TYPE), and trade on Alpaca only. A legacy
         // `alpaca_<uuid>` asset is never refreshed by the listings sync, so nothing vouches for it.
         let (category, instrument, external_id): (Option<String>, Option<String>, Option<String>) = c.query_row(
             "SELECT category, instrument_type, external_id FROM assets WHERE id = ?1", [t.base_asset_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;

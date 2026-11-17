@@ -43,7 +43,7 @@ pub struct Engine<F: VenueFactory> {
     /// Follow-up polls owed, one per ORDER (FetchAndUpdateOrderJob): tx id → (bot, due time, that job's own retry counters).
     polls: HashMap<i64, model::Produced<(i64, i64, Attempts)>>,
     reconcile_at: HashMap<i64, model::Produced<i64>>,
-    /// 2.x's 5 s price cache (Rails.cache), shared by every tick of this process.
+    /// 2.x's 5 s price cache, shared by every tick of this process.
     prices: PriceCache,
     /// Set by the first `step`: an Alpaca absence is trusted only a full margin (20 min) after it (placement::recover_since).
     process_start: Option<DateTime<Utc>>,

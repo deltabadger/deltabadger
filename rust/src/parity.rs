@@ -1,4 +1,4 @@
-//! The Rust half of the decision-parity harness (script/rust/decisions.rb is the 2.x half): the same
+//! The Rust half of the decision-parity harness (the recorded answers are the 2.x half): the same
 //! ticks, with retries, on a marked scratch copy, reported in the canonical shape 2.x reports.
 use crate::engine::notice::{self, Notice, Pending};
 use crate::engine::{model, polling};
@@ -55,7 +55,7 @@ pub fn snapshot(c: &Connection) -> Result<Value, EngineError> {
                 if JSON_COLUMNS.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
                 // What only this engine writes: its placement intent, its waits and counted stops, and the mails it owes.
                 if name == "transient_data" { if let Value::Object(m) = &mut v { for key in RUST_KEYS.iter().chain(&notice::KEYS) { m.remove(*key); } } }
-                // A claim token is random on either side: compared as present or null (decisions.rb #rows does the same).
+                // A claim token is random on either side: compared as present or null (the recorded rows do the same).
                 if name == "transient_data" { if let Some(t) = v.get_mut(crate::engine::wash::REBALANCE_CLAIM_TOKEN).filter(|t| !t.is_null()) { *t = json!("present"); } }
                 if table == "wash_sale_locks" && name == "claim_token" && !v.is_null() { v = json!("present"); }
                 row.insert(name.clone(), v);
@@ -131,7 +131,7 @@ fn query_sent(t: &ScriptedTransport, path: &str) -> Vec<Value> {
 
 /// The orders the Hyperliquid adapter POSTed, as the recording harness records them: each order action's wire (`{a, b, p, s, r,
 /// t}`) without Rust's own cloid `c`; a cancel is no order.
-/// The account address decisions.rb's Hyperliquid key holds (script/rust/decisions.rb HL_ADDRESS).
+/// The account address the recording harness's Hyperliquid key holds (its HL_ADDRESS).
 pub const HYPERLIQUID_HARNESS_ADDRESS: &str = "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123";
 
 /// Script the reads, but exercise the real transport's signer refusal for an invalid private key.
@@ -880,7 +880,7 @@ fn alpaca_copy_script(c: &Connection, bot: &crate::engine::model::Bot, recorded:
 const REFERENCE_TABLES: [&str; 6] = ["assets", "tickers", "exchange_assets", "indices", "bot_activity_logs", "app_configs"];
 const REFERENCE_JSON: [&str; 6] = ["top_coins", "top_coins_by_exchange", "available_exchanges", "weights", "withdrawal_chains", "details"];
 
-/// The reference-data tables as script/rust/reference_data.rb snapshots them: JSON columns parsed, app_configs values
+/// The reference-data tables as the recorded snapshots hold them: JSON columns parsed, app_configs values
 /// decrypted (the IV is random), and the runner's own `rust_job.*` rows left out.
 pub fn reference_snapshot(c: &Connection, cipher: &Cipher) -> Result<Value, EngineError> {
     let mut out = Map::new();
@@ -913,7 +913,7 @@ pub fn reference_snapshot(c: &Connection, cipher: &Cipher) -> Result<Value, Engi
     Ok(Value::Object(out))
 }
 
-/// Every row whose content changed, deletions included (`after: null`), in id order: 2.x's `diff` in reference_data.rb.
+/// Every row whose content changed, deletions included (`after: null`), in id order: the recorded `diff`.
 pub fn diff_tables(before: &Value, after: &Value, tables: &[&str]) -> Value {
     let mut out = Map::new();
     for table in tables {
@@ -932,7 +932,7 @@ pub fn diff_tables(before: &Value, after: &Value, tables: &[&str]) -> Value {
     Value::Object(out)
 }
 
-/// The Rust half of the reference-data parity (script/rust/reference_data.rb is the 2.x half): the scenario's job, once,
+/// The Rust half of the reference-data parity (the recorded answers are the 2.x half): the scenario's job, once,
 /// as the scheduler runs it, on a marked scratch copy, against the same scripted data-api bodies. 2.x's shape.
 pub async fn reference(dir: &Path) -> Result<Value, EngineError> {
     let read = std::fs::read_to_string(dir.join("scenario.json")).map_err(|e| EngineError::Data(e.to_string()))?;

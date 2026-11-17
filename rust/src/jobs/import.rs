@@ -1,6 +1,6 @@
 //! MarketData's import half for the reference-data jobs: what a payload row
 //! becomes in `assets`, `tickers`, `exchange_assets` and `indices`. Values are cast as ActiveRecord casts them before
-//! upsert_all serializes them (activerecord 8.1 insert_all.rb:247). Decimals are bound as decimal text, which SQLite's
+//! upsert_all serializes them (activerecord 8.1's InsertAll). Decimals are bound as decimal text, which SQLite's
 //! NUMERIC affinity stores exactly as it stores 2.x's quoted BigDecimal.
 //!
 //! upsert_all on SQLite is `INSERT … ON CONFLICT (<unique_by>) DO UPDATE SET c = excluded.c` for
@@ -299,7 +299,7 @@ pub fn plan_assets(rows: &[Value], public_url: &str) -> R<AssetsPlan> {
 }
 
 /// Publishes an assets plan: the upserts, then the payload's instrument types, then the local tokenized registry
-/// (Asset.mark_tokenized!, app/models/asset.rb:25-39), each phase in units of CHUNK. Callers return early on a blank
+/// (Asset.mark_tokenized!), each phase in units of CHUNK. Callers return early on a blank
 /// payload, as `return if assets_data.blank?` does.
 pub async fn import_assets(db: &Db, plan: AssetsPlan, now: DateTime<Utc>) -> R<()> {
     let t = format_time(now);
@@ -357,7 +357,7 @@ pub fn coingecko_columns(external_id: &str, d: &Value) -> R<Option<Vec<Sql>>> {
 /// Publishes CoinGecko asset refreshes `(asset id, coingecko_columns)` in units of CHUNK. `update!` writes, and moves
 /// updated_at, only on a row whose cast values changed: the UPDATE's guard compares each column with `IS` (the decimal
 /// columns compare numerically under their NUMERIC affinity). Once each unit commits, `images_changed` is told the
-/// assets whose image_url that unit changed (market_data.rb:86 enqueues Asset::InferColorFromImageJob for each), on the
+/// assets whose image_url that unit changed (2.x enqueues Asset::InferColorFromImageJob for each), on the
 /// blocking pool right after the commit: neither a later unit's failure nor a run dropped at its deadline (its committed
 /// unit outlives it) loses them.
 pub async fn refresh_assets<W: Fn(Vec<i64>) + Clone + Send + 'static>(db: &Db, rows: Vec<(i64, Vec<Sql>)>, now: DateTime<Utc>, images_changed: W) -> R<()> {

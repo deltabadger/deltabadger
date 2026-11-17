@@ -596,7 +596,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     let keys = EncryptionKeys::resolve(env, &secret).map_err(|e| format!("encryption keys: {e:?}"))?;
     let own = store::open(paths).map_err(|e| explain(e, paths, env))?;
     let cipher = Cipher::new(&keys);
-    // Utilities::Currency's Rails.cache entries: one fiat-rate cache for the whole engine process, shared by every run.
+    // Utilities::Currency's cache entries: one fiat-rate cache for the whole engine process, shared by every run.
     let rates = std::sync::Arc::new(jobs::data_api::RateCache::default());
     let api = jobs::data_api::config(env, &own.primary, &cipher)?.map(|config| jobs::data_api::DataApi::live(config).with_rates(rates.clone()));
     let api = std::rc::Rc::new(api);
@@ -712,7 +712,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         Some(port) => port.trim().parse::<u16>().unwrap_or_else(|_| fail("PORT must be a port number")),
         None => 3000,
     };
-    // BINDING, the name `rails server` reads for its bind address (PLAN-B6 §1.3): the desktop sets 127.0.0.1.
+    // BINDING, the name 2.x's server read for its bind address (PLAN-B6 §1.3): the desktop sets 127.0.0.1.
     if let Some(ip) = env("BINDING").filter(|b| !b.trim().is_empty()) {
         deltabadger::web::server::set_binding(ip.trim().parse().unwrap_or_else(|_| fail("BINDING must be an IP address, such as 127.0.0.1")));
     }

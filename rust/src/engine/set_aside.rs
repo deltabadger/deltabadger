@@ -69,7 +69,7 @@ pub fn apply(tx: &Connection, cipher: Option<&Cipher>, report: &dyn Fn(&Connecti
         let n = tx.execute("UPDATE rules SET status = ?1, updated_at = ?2 WHERE id = ?3 AND status IN (?4, ?5, ?6, ?7)",
             params![RuleStatus::Stopped as i64, crate::codec::format_time(now), id, RuleStatus::Scheduled as i64, RuleStatus::Executing as i64,
                     RuleStatus::Retrying as i64, RuleStatus::Waiting as i64])?;
-        // RuleLog status failed (rule_log.rb: pending success failed transient), as 2.x's log_failed.
+        // RuleLog status failed (RuleLog's statuses: pending success failed transient), as 2.x's log_failed.
         if n > 0 { super::rules::log(tx, *id, None, 2, &rule_stopped(tx, *id)?, &json!({}), now)?; }
     }
     let rules = first.rules.clone();

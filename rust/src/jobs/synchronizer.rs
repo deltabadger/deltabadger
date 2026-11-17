@@ -47,7 +47,7 @@ pub const FIAT: [(&str, &str, &str, &str); 17] = [
     ("CZK.FOREX", "CZK", "Czech Koruna", "#D36C6C"), ("RUB.FOREX", "RUB", "Russian Ruble", "#9C9CDE"), ("IDR.FOREX", "IDR", "Indonesian Rupiah", "#E74C3C"),
 ];
 
-/// Each crypto venue's COINGECKO_ID (app/models/exchanges/*.rb).
+/// Each crypto venue's COINGECKO_ID (2.x's exchange models).
 pub fn coingecko_id(venue_type: &str) -> Option<&'static str> {
     Some(match venue_type {
         "Exchanges::Binance" => "binance", "Exchanges::BinanceUs" => "binance_us", "Exchanges::Bingx" => "bingx", "Exchanges::Bitget" => "bitget",
@@ -67,7 +67,7 @@ const KRAKEN_BLACKLIST: [&str; 1] = ["COPM"];
 pub const CRAWL_CLAIM: &str = "rust_job.crawl_claim.";
 pub const BACKFILL_CLAIM: &str = "rust_job.asset_backfill_claim";
 
-/// 2.x's `Rails.cache.write(key, true, expires_in: 1.day, unless_exist: true)`, persisted: taken iff no claim of the last
+/// 2.x's one-day `unless_exist` cache write, persisted: taken iff no claim of the last
 /// day holds, in one statement (two racing claimers get one claim).
 pub fn claim(c: &Connection, key: &str, now: DateTime<Utc>) -> R<bool> {
     let stamp = |t: DateTime<Utc>| t.to_rfc3339_opts(SecondsFormat::Micros, true);

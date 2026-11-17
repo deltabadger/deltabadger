@@ -21,8 +21,7 @@ pub const MAX_REFERENCE_BODY: usize = 32 * 1024 * 1024;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Config { pub url: String, pub token: String }
 
-/// MarketDataSettings.deltabadger? and AppConfig.market_data_url / _token (app/models/market_data_settings.rb:7-11, :38-48;
-/// app/models/app_config.rb:269-289):
+/// MarketDataSettings.deltabadger? and AppConfig.market_data_url / _token:
 /// - the provider is deltabadger when MARKET_DATA_URL is present in the environment, or when app_configs names it;
 /// - the URL and token come from app_configs when a row exists, even a blank one, else from the environment.
 ///
@@ -221,9 +220,9 @@ pub trait PriceSource {
     fn venue_quotes(&self) -> Option<&dyn crate::sync::venue_quotes::VenueQuotes> { None }
 }
 
-/// Utilities::Currency.exchange_rate's Rails.cache entries for fiat into USD: a successful rate is held
+/// Utilities::Currency.exchange_rate's cache entries for fiat into USD: a successful rate is held
 /// STABLE_CACHE_DURATION (12 hours, both currencies fiat) and read instead of asking again; a failure is never held.
-/// Beside them, Coingecko#get_exchange_rates' own entry (`coingecko_exchange_rates`, coingecko.rb:126-135): one successful
+/// Beside them, Coingecko#get_exchange_rates' own entry (`coingecko_exchange_rates`): one successful
 /// CoinGecko answer serves every rate for 60 s. In-process: it starts empty when the engine starts (2.x's cache store
 /// outlives a restart).
 #[derive(Default)]

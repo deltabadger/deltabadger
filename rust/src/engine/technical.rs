@@ -57,7 +57,7 @@ enum Key { Rsi(i64, usize, Timeframe), Ma(i64, usize, Timeframe), High(i64, Wind
 #[derive(Clone, Debug)]
 enum Kept { Rsi(Num), Ma { sma: Num, ema: Num }, Price(Option<BigDec>), Empty }
 
-/// DIVERGES (D-COND-CACHE): Rails.cache with 2.x's keys and lifetimes, held in engine memory, so a restart forgets it.
+/// DIVERGES (D-COND-CACHE): 2.x's cache, with its keys and lifetimes, held in engine memory, so a restart forgets it.
 /// RSI and the moving averages until their candle closes (Utilities::Time.seconds_to_current_candle_close), a window's
 /// high or low 20 s, a known-empty ATH seed 1 h. A Failure is never kept.
 #[derive(Default)]
@@ -143,7 +143,7 @@ fn div_f(f: f64, n: &Num) -> Option<Num> {
     Some(match n { Num::Dec(d) => Num::Dec(BigDec::from_f64(f).ok()?.div(d)?), _ => Num::Float(f / to_f(n)) })
 }
 
-/// RubyTechnicalAnalysis::RelativeStrengthIndex#call over BigDecimal closes (`period < closes.len()`): the first window
+/// the technical-analysis gem's RelativeStrengthIndex#call over BigDecimal closes (`period < closes.len()`): the first window
 /// seeds both channels with WildersSmoothing (a Float mean), each later one smooths by 1/period. None where 2.x raises.
 fn rsi_of(closes: &[BigDec], period: usize) -> Option<Num> {
     let one = 1.0 / period as f64;
@@ -200,7 +200,7 @@ pub async fn rsi<V: Venue>(venue: &V, cache: &Cache, ticker: &Ticker, tf: Timefr
     Ok(value)
 }
 
-/// Ticker#get_moving_average_value: RubyTechnicalAnalysis::MovingAverages' SMA (`last(period).sum.to_f / period`) or EMA
+/// Ticker#get_moving_average_value: the technical-analysis gem's MovingAverages SMA (`last(period).sum.to_f / period`) or EMA
 /// (a BigDecimal fold with the gem's percentages, 12 and 26 hard-coded), each rounded to the ticker's price decimals.
 /// Both are kept under one key, as 2.x keeps them.
 pub async fn moving_average<V: Venue>(venue: &V, cache: &Cache, ticker: &Ticker, tf: Timeframe, period: usize, kind: MaType, now: DateTime<Utc>) -> Result<Num, VenueError> {

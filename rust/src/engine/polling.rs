@@ -213,7 +213,7 @@ fn apply_body(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &Ord
     if exec_changed && side == 0 && !bot.selling() && bot.bot_type != model::SIGNAL_TYPE && s.quote_amount_exec.as_ref().is_some_and(BigDec::is_positive) && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)? {
         return Ok(Some(Cap::Quote));
     }
-    // Its sell-side mirror (transaction.rb:34-36 → Bot::BaseAmountLimitable#handle_base_amount_limit_update): a sell of any
+    // Its sell-side mirror (Transaction's after_commit → Bot::BaseAmountLimitable#handle_base_amount_limit_update): a sell of any
     // kind whose executed base changed to a positive value, or that was newly closed (base_cap_relevant_change?), re-checks
     // the base cap while the bot sells its one asset; reached, Bot::StopJob(amount_sold) and the base cap's mail.
     let base_hit = side == 1 && base_changed && bot.base_amount_limited() && super::accounting::base_amount_limit_reached_at(c, &bot, now)?;

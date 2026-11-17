@@ -36,8 +36,8 @@ impl Schedule {
 }
 
 /// Seconds added to each fire, drawn afresh for every fire: `rand(min..=max)`. The fleet's jobs share one data-api, so
-/// 2.x spreads its bulk pulls (sync_stocks_from_deltabadger_job.rb:20-36, fetch_all_assets_data_from_coingecko_job.rb:14-17,
-/// sync_all_tickers_and_assets_job.rb:5-9).
+/// 2.x spreads its bulk pulls (SyncStocksFromDeltabadgerJob, FetchAllAssetsDataFromCoingeckoJob,
+/// SyncAllTickersAndAssetsJob).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Jitter { pub min_secs: i64, pub max_secs: i64 }
 

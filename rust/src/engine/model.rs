@@ -515,7 +515,7 @@ pub fn signal(c: &Connection, id: i64) -> Result<Option<SignalRule>, EngineError
     c.query_row(&format!("{SIGNAL_SELECT} WHERE id = ?1"), [id], signal_row).optional()?.transpose()
 }
 
-/// One side's price rule as Bot::PriceLimitable reads it (price_limitable.rb:131-169, after_initialize).
+/// One side's price rule as Bot::PriceLimitable reads it (after_initialize).
 #[derive(Debug, Clone)]
 pub struct PriceRule {
     /// "price_limit" or "sell_price_limit": the keys' prefix.

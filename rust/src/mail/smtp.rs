@@ -95,7 +95,7 @@ impl Settings {
     /// `app_configs` value (AppConfig.get).
     /// - SMTP_ADDRESS set: the environment wins over anything saved in Settings (port 587, EHLO `localhost` by default).
     /// - else `smtp_provider` = `custom_smtp` with a user name and a password: that server (smtp.gmail.com:587 by default).
-    /// - else not configured. (2.x then delivers to production.rb's localhost:25; this crate sends nothing.)
+    /// - else not configured. (2.x then delivers to its production default, localhost:25; this crate sends nothing.)
     ///
     /// A server name that is not a host name or an IP address, and an EHLO name that is not a host name or an address
     /// literal, are "not configured" too: neither may carry a space or a line break onto the wire.

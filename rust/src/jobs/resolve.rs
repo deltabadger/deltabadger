@@ -31,7 +31,7 @@ pub fn all_with<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Opt
 /// Live scheduler jobs resolve the market-data configuration at the start of each run. Keep the
 /// original job for its spec and event subscriptions; construct its consumer with the current client.
 /// This also wraps late scopes, so a claim applies to balance and tracker jobs created after startup.
-/// `rates`: the engine's one fiat-rate cache (Utilities::Currency's Rails.cache entries), shared by every run.
+/// `rates`: the engine's one fiat-rate cache (Utilities::Currency's cache entries), shared by every run.
 pub fn configured(job: Box<dyn Job>, env: &dyn Fn(&str) -> Option<String>, rates: Arc<RateCache>) -> Box<dyn Job> {
     configured_with(job, env, rates, crate::venue::alpaca::LiveFactory::new())
 }

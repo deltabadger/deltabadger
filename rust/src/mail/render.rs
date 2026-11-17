@@ -11,7 +11,7 @@ use crate::web::locale;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
 
-/// `root_url`: where links and the logo point. config/environments/production.rb builds it from APP_ROOT_URL and FORCE_SSL.
+/// `root_url`: where links and the logo point. 2.x's production config builds it from APP_ROOT_URL and FORCE_SSL.
 pub struct Urls { pub root: String }
 
 impl Urls {

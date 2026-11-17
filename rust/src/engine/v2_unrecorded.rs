@@ -1,4 +1,4 @@
-//! A28-1 (PLAN-A28 r2-r5): the orders 2.x may have sent but never recorded (2.x's KNOWN GAP, action_job.rb:167-183),
+//! A28-1 (PLAN-A28 r2-r5): the orders 2.x may have sent but never recorded (2.x's KNOWN GAP in Bot::ActionJob),
 //! reported to the bot's owner with what the imported ledger shows. Nothing here writes a `transactions` row, moves a
 //! carry or calls a venue (D-V2-UNRECORDED-REPORTED).
 //!
@@ -443,7 +443,7 @@ fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, 
 }
 
 /// A28-3d-2 r1.1: whether a bot's order row on `exchange` holds `external_id`: that id, or on Bitget its bare `<orderId>` too
-/// (2.x's Bitget parser takes both, bitget.rb:719, so a legacy row may hold that form). The one check A28-1's ledger
+/// (2.x's Bitget parser takes both, so a legacy row may hold that form). The one check A28-1's ledger
 /// candidates, the live line (`merged`) and a booking (`write_booking`) all make.
 fn held(c: &Connection, exchange: i64, venue_type: &str, external_id: &str) -> Result<bool, EngineError> {
     let bare = if venue_type == BITGET { external_id.rsplit_once('-').map(|(_, id)| id) } else { None };

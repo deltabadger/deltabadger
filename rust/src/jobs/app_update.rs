@@ -1,9 +1,8 @@
-//! AppUpdate and AppUpdate::CheckJob (app/models/app_update.rb, app/jobs/app_update/check_job.rb, clients/github.rb,
-//! installation.rb): twice a day, ask GitHub for the latest release and keep the answer for the Settings row
+//! AppUpdate and AppUpdate::CheckJob (with 2.x's GitHub client and Installation): twice a day, ask GitHub for the latest release and keep the answer for the Settings row
 //! (web::settings::sections, settings/widgets/_app_update). Desktop installs update themselves and opted-out installs
 //! (DELTABADGER_UPDATE_CHECK=false, which launchpad sets on every hosted container) never ask.
 //!
-//! 2.x keeps the answer in Rails.cache, a database in production (solid_cache), for 25 hours. Here it is one plain
+//! 2.x keeps the answer in its cache, a database in production (solid_cache), for 25 hours. Here it is one plain
 //! `app_configs` row (KEY) with the time it was fetched; a read past TTL is no answer. A failed run never touches it.
 use super::schedule::{Jitter, Schedule};
 use super::{Cx, Job, JobFuture, Outcome, Retry, Spec, Wake, DEADLINE};

@@ -105,7 +105,7 @@ pub struct VenueRules {
 }
 
 /// BigDecimal#exponent of a non-zero value: the n with |x| = 0.d… × 10^n (66.6 → 2, 3.5 → 1, 0.0234 → -1). From the plain
-/// text, as `ruby.rs` is a hash-pinned accounting primitive.
+/// text, as `v2.rs` is a hash-pinned accounting primitive.
 fn exponent(price: &BigDec) -> i64 {
     let text = price.to_s_f();
     let (whole, fraction) = text.trim_start_matches('-').split_once('.').unwrap_or(("0", ""));
@@ -385,7 +385,7 @@ const BITGET_TRANSIENT: [&str; 15] = ["Net::ReadTimeout", "Net::OpenTimeout", "F
 pub static BITGET: VenueRules = VenueRules {
     exchange_type: "Exchanges::Bitget",
     name: "Bitget",
-    // Exchanges::Bitget::ERRORS (bitget.rb:3-23, post-audit G4), matched inside the body or honeymaker's api_error text;
+    // Exchanges::Bitget::ERRORS (post-audit G4), matched inside the body or honeymaker's api_error text;
     // pinned by tests/bitget.rs against the recorded list.
     kinds: [("insufficient_funds", &["Insufficient balance", "Insufficient account balance"]),
             ("invalid_key", &["Invalid Api Key", "Invalid ACCESS_KEY", "Invalid signature", "Apikey does not exist", "sign signature error",
@@ -425,7 +425,7 @@ const MEXC_TRANSIENT: [&str; 16] = ["Net::ReadTimeout", "Net::OpenTimeout", "Far
 pub static MEXC: VenueRules = VenueRules {
     exchange_type: "Exchanges::Mexc",
     name: "MEXC",
-    // Exchanges::Mexc::ERRORS (mexc.rb:3-20, AUDIT-mexc X4), matched on #parse_error_message's `msg`.
+    // Exchanges::Mexc::ERRORS (AUDIT-mexc X4), matched on #parse_error_message's `msg`.
     kinds: [("insufficient_funds", &["Insufficient balance", "Insufficient position", "Oversold"]),
             ("invalid_key", &["Api key info invalid", "API-key format invalid", "Invalid Api-Key ID.", "Signature for this request is not valid",
                               "Signature verification failed"]),

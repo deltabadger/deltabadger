@@ -372,7 +372,7 @@ fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, En
             V2Work::Redone => {
                 w.done.push(row.id);
                 // D-UPGRADE-V2-AMBIGUITY-INHERITED: an ActionJob a dead process held may have sent an order 2.x never
-                // recorded, as 2.x's own ambiguity does (action_job.rb's KNOWN GAP); its bot carries one line (C12).
+                // recorded, as 2.x's own ambiguity does (Bot::ActionJob's KNOWN GAP); its bot carries one line (C12).
                 if row.class == "Bot::ActionJob" && row.ambiguous {
                     if let Some(bot) = bot_of(args, None).filter(|b| !w.unrecorded.contains(b)) { if live_bot(c, bot)? { w.unrecorded.push(bot); } }
                 }
@@ -669,7 +669,7 @@ pub enum Handback {
     Settled,
     /// Handed back as it is: 2.x never reads it, and a reclaim finds it again.
     Ignored,
-    /// Handed back: 2.x's adoption acts on it (config/initializers/engine_lease.rb `adopt_handback!`).
+    /// Handed back: 2.x's adoption acts on it (its engine-lease initializer's `adopt_handback!`).
     Adopted,
     /// Handed back: a cache 2.x never reads, refilled on demand.
     Cache,
@@ -725,7 +725,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "engine_lease", Adopted),
         (AppConfig, "rust_created_at", Refuses("this install was created new, so there is no earlier app to hand it back to.")),
         (AppConfig, "rust_taken_over_at", Ignored), (AppConfig, "rust_handed_back_at", Ignored),
-        // The latest release the update check stored (jobs::app_update): 2.x keeps its own in Rails.cache.
+        // The latest release the update check stored (jobs::app_update): 2.x keeps its own in its cache.
         (AppConfig, "rust_app_update", Ignored),
         (AppConfig, "rust_binance_a12_v1:", Refuses("Binance A12 identity data permanently requires Rust ownership")),
         (AppConfig, "rust_binance_repair_gaps.", Ignored), (AppConfig, "rust_account_identity_key_v1", Ignored),

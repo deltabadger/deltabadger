@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 pub enum Feed<T: Transport> { DataApi(DataApi<T>), CoinGecko(CoinGecko<T>) }
 
-/// Coingecko's guard (coingecko.rb: `return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?`).
+/// Coingecko's guard (`return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?`).
 fn no_key() -> ApiError { ApiError::Failed { status: None, message: "CoinGecko API key not configured".into() } }
 
 /// D-CG-429-STOPS-PRICES: what a stopped run answers instead of asking.

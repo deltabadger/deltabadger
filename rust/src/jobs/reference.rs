@@ -30,7 +30,7 @@ pub const PRUNE: &str = "prune_bot_activity_logs_job";
 pub const IBKR: &str = "sync_ibkr_listings_job";
 
 const NOT_PORTED: &str = "the market-data provider is not deltabadger (MARKET_DATA_URL): this build syncs reference data only from data-api";
-const ALPACA_LISTINGS_LAST_GOOD: &str = "alpaca_listings_last_good_count";        // market_data.rb:398
+const ALPACA_LISTINGS_LAST_GOOD: &str = "alpaca_listings_last_good_count";        // MarketData's key
 const MIN_HEALTHY_ALPACA_LISTINGS: i64 = 1000;                                    // :401
 const ALPACA_CRYPTO_LAST_GOOD: &str = "alpaca_crypto_listings_last_good_count";   // :589
 const MIN_HEALTHY_ALPACA_CRYPTO: i64 = 30;                                        // :590
@@ -477,7 +477,7 @@ impl Job for AssetData {
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(asset_data(&self.cg, self.asset, cx)) }
 }
 
-/// fetch_data_from_coingecko_job.rb + Asset#sync_data_with_coingecko, 2.x's guards in 2.x's order, each before any
+/// FetchDataFromCoingeckoJob + Asset#sync_data_with_coingecko, 2.x's guards in 2.x's order, each before any
 /// request: the deltabadger provider; not configured; a blacklisted id; a blank key (a Failure).
 pub async fn asset_data(cg: &Clients, asset: i64, cx: Cx<'_>) -> Outcome {
     let guard = cx.db.run(move |c, cipher| {

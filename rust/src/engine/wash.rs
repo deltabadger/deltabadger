@@ -207,7 +207,7 @@ pub enum Reason {
 ///
 /// | holder | reason | lock |
 /// |---|---|---|
-/// | composition | Rejected, not `unknown` (2.x's `Failure`, order_setter.rb:83) | restore |
+/// | composition | Rejected, not `unknown` (2.x's `Failure`) | restore |
 /// | composition | PreTransmission (2.x re-raises; the composition does not rescue) | keep |
 /// | liquidation | Rejected `safe`, PreTransmission | restore |
 /// | rebalance sell | Rejected `safe`, PreTransmission, BelowMinimum | restore, clear the keys |
