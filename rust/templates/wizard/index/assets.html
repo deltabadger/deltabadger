@@ -1,6 +1,6 @@
 {#- D-INDEX-IN-ASSETS: the Assets step's Index view. The rows post as _tiles.html's tiles do (the same index-filter targets, the
     buttons direct children of the form, which the controller reorders through). -#}
-<div class="bot-creation-layout index-view" data-controller="index-filter arrow-keys-navigation" data-action="keydown@window-&gt;arrow-keys-navigation#navigate">
+<div class="bot-creation-layout index-view" data-controller="index-filter">
 {%- if let Some(error) = error %}
   <p class="wizard-assets__warning" role="alert">{{ error }}</p>
 {%- endif %}
@@ -13,7 +13,8 @@
     </div>
   </div>
 {%- if configured %}
-  <form class="index-rows selectable-options" data-turbo-frame="modal_content" action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  {#- The list's keys are the rows' (from the search box too); the switch and the connect form keep their own Enter. #}
+  <form class="index-rows selectable-options" data-controller="arrow-keys-navigation" data-action="keydown@window-&gt;arrow-keys-navigation#navigate" data-turbo-frame="modal_content" action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
 {%- for tile in tiles %}
     <button type="submit" name="index_type" value="{{ tile.index_type }}" class="index-row" data-index-filter-target="tile" data-index-order="{{ loop.index0 }}" data-index-name="{{ tile.name }}" data-index-category-id="{{ tile.external_id }}" data-index-description="{{ tile.description }}" data-action="click-&gt;index-filter#select" data-arrow-keys-navigation-target="item button">
       <span class="index-row__line">

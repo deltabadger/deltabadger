@@ -265,6 +265,11 @@ try {
     await until("the Asset view", () => shows(`${frame} .modal--search .segmented a[href$="kind=index"]`));
     await click(`${frame} .modal--search .segmented a[href$="kind=index"]`);
     await until("the Index view", () => shows(`${frame} button.index-row`));
+    // Enter on the focused switch is the link's own: it never picks an index.
+    await call(function (f) { document.querySelector(`${f} .modal--search .segmented a[href$="kind=index"]`).focus(); }, frame);
+    await press("Enter", 13);
+    await sleep(1500);
+    if (!(await shows(`${frame} button.index-row`)) || (await shows(`${frame} #exchange-picker`))) throw new Error("Enter on the switch picked an index");
     // A filter that matches nothing: Enter picks nothing.
     await type(`${frame} input[data-index-filter-target=input]`, "zzzz");
     await sleep(300);
