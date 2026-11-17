@@ -108,12 +108,6 @@ fn no_page_text_says_v2() {
         // A refusal reason pages and API answers show; index_histories.rs also finds it in stored details, so it waits for
         // B11-9 (PLAN-B11-9 r1.1).
         ("src/engine/eligibility.rs", "\"row(s) with a status Rails never writes\""),
-        // WebError::Config: logged, the page is the generic error page.
-        ("src/web/bot/signal_write.rs", "\"bot_signals {}: {key} is not one Rails knows\""),
-        ("src/web/rest.rs", "\"a transactions parameter Rails cannot convert\""),
-        ("src/web/wizard/signals.rs", "\"a wizard rule's {key} is not one Rails knows\""),
-        // The create callbacks table tests/fixtures/bot_create_callbacks.json pins; never rendered.
-        ("src/web/wizard/create.rs", "\"no-op: Rails.cache only\""),
     ];
     let literal = regex::Regex::new(r#""(?:[^"\\]|\\.)*""#).unwrap();
     let capital = regex::Regex::new(r"\bRails\b").unwrap();

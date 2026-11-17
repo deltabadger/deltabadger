@@ -416,10 +416,10 @@ impl<'a> Rows<'a> {
         if view.resolved { return String::new(); }
         let venue = log.details.get("venue").and_then(Value::as_str).unwrap_or_default();
         if view.pending {
-            return format!("\n    <span class=\"text-inactive\">{}</span>", escape(&i18n::text(self.ctx.locale, "bot.rails_orders.checking", &[("venue", Arg::Text(venue))])));
+            return format!("\n    <span class=\"text-inactive\">{}</span>", escape(&i18n::text(self.ctx.locale, "bot.v2_orders.checking", &[("venue", Arg::Text(venue))])));
         }
-        let t = |key: &str, args: &[(&str, Arg)]| i18n::text(self.ctx.locale, &format!("bot.rails_orders.{key}"), args);
-        let action = escape(&self.ctx.path(&format!("/bots/{}/rails_orders", self.bot.id)));
+        let t = |key: &str, args: &[(&str, Arg)]| i18n::text(self.ctx.locale, &format!("bot.v2_orders.{key}"), args);
+        let action = escape(&self.ctx.path(&format!("/bots/{}/v2_orders", self.bot.id)));
         let token = format!("<input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" />", escape(&self.ctx.csrf_token()));
         let quote = self.bot.quote_asset.as_ref().map(|asset| asset.symbol().to_string()).unwrap_or_default();
         let amount = |value: &BigDec| round_amount(value, self.decimals.get(&quote).copied(), Some(&quote));

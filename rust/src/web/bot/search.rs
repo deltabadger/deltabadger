@@ -322,7 +322,7 @@ pub(crate) fn items(rows: Vec<Row>) -> Result<Vec<Item>, WebError> {
     rows.into_iter().map(|row| Ok(Item {
         id: row.id,
         ticker_class: colors::ticker_class(row.category.as_deref(), row.color.as_deref()),
-        pill: colors::pill_color(row.color.as_deref()).ok_or_else(|| WebError::Config("an asset colour Ruby cannot read".into()))?,
+        pill: colors::pill_color(row.color.as_deref()).ok_or_else(|| WebError::Config("an asset colour 2.x cannot read".into()))?,
         logo: crate::web::tracker::row::asset_logo(row.image_url, row.color, row.symbol.clone(), row.category)?,
         symbol: row.symbol,
         name: row.name.unwrap_or_default(),

@@ -190,7 +190,7 @@ fn rule_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: RuleOp, params
             let casts = [("direction", ["buy", "sell"]), ("amount_type", ["fixed", "percentage"])].map(|(key, names)| (key, enum_value(&fields, key, names)));
             // Every attribute is assigned before any is validated: an unknown value raises first.
             if let Some((key, _)) = casts.iter().find(|(_, cast)| matches!(cast, Cast::Raises)) {
-                return Err(WebError::Config(format!("bot_signals {}: {key} is not one Rails knows", current.id)));
+                return Err(WebError::Config(format!("bot_signals {}: {key} is not one 2.x knows", current.id)));
             }
             let mut null_amount_type = false;
             for (key, cast) in casts {

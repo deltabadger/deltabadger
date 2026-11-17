@@ -257,7 +257,7 @@ pub fn chips(c: &Connection, ids: &[i64]) -> Result<Vec<Chip>, WebError> {
         let Some((id, symbol, name, color, category)) = found else { continue };
         chips.push(Chip {
             id, symbol: symbol.unwrap_or_default(), name: name.unwrap_or_default(), class: colors::ticker_class(category.as_deref(), color.as_deref()),
-            pill: colors::pill_color(color.as_deref()).ok_or_else(|| WebError::Config("an asset colour Ruby cannot read".into()))?,
+            pill: colors::pill_color(color.as_deref()).ok_or_else(|| WebError::Config("an asset colour 2.x cannot read".into()))?,
         });
     }
     Ok(chips)

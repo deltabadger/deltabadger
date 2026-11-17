@@ -484,7 +484,7 @@ mod token_tests {
         let mut slots = vec![];
         let kept = rendered(&mut Token::Slots(&mut slots));
         assert_eq!(slots.len(), 2, "one slot per redeploy form: {kept}");
-        assert!(broadcast.contains("redeploy-prompt__actions") && !broadcast.contains("value=\"\" autocomplete=\"off\""), "a broadcast has no session: Rails writes no token field: {broadcast}");
+        assert!(broadcast.contains("redeploy-prompt__actions") && !broadcast.contains("value=\"\" autocomplete=\"off\""), "a broadcast has no session: 2.x writes no token field: {broadcast}");
         assert!(page.contains("value=\"a&quot;&amp;&lt;&gt;&#39;b\" autocomplete=\"off\" />"), "the token is escaped: {page}");
         assert_eq!(with_token(&kept, &slots, token), page, "the page: each request's token where the renderer put a form, and nowhere else");
         assert_eq!(kept, broadcast, "the broadcast: the kept fragment as it is");

@@ -51,9 +51,9 @@ pub async fn create(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(seg
         (Err(refused),_)=>(flash::ALERT,refused.text().to_string()),
         (Ok(()),Answer::Offer(_))=>{
             app.wake_engine();
-            (flash::NOTICE,i18n::text(ctx.locale,"bot.rails_orders.requested",&[("venue",i18n::Arg::Text(&venue))]))
+            (flash::NOTICE,i18n::text(ctx.locale,"bot.v2_orders.requested",&[("venue",i18n::Arg::Text(&venue))]))
         }
-        (Ok(()),Answer::None)=>(flash::NOTICE,i18n::text(ctx.locale,"bot.rails_orders.dismissed",&[])),
+        (Ok(()),Answer::None)=>(flash::NOTICE,i18n::text(ctx.locale,"bot.v2_orders.dismissed",&[])),
     };
     flash::set(&ctx.session,style,text);
     Ok(layout::redirect(StatusCode::FOUND,&ctx.path(&format!("/bots/{id}"))))
@@ -108,12 +108,12 @@ pub fn api(c:&Connection,user:i64,bot:i64,obligation:i64,given:Answer,now:DateTi
     Ok(match done {
         Ok(())=>match given {
             Answer::Offer(offer)=>{
-                let message=i18n::text(en,"bot.rails_orders.requested",&[("venue",i18n::Arg::Text(&venue))]);
+                let message=i18n::text(en,"bot.v2_orders.requested",&[("venue",i18n::Arg::Text(&venue))]);
                 Answered{res:Res::success(json!({"bot_id":bot,"obligation":obligation,"offer":offer,"state":"checking"})),
                          text:format!("{message} get_bot_details shows the result under unrecorded orders."),accepted:true}
             }
             Answer::None=>Answered{res:Res::success(json!({"bot_id":bot,"obligation":obligation,"state":"not_mine"})),
-                                   text:i18n::text(en,"bot.rails_orders.dismissed",&[]),accepted:false},
+                                   text:i18n::text(en,"bot.v2_orders.dismissed",&[]),accepted:false},
         },
         Err(ru::Refused::NotFound)=>fail(Domain::NotFound,"order_not_listed",ru::Refused::NotFound.text().into(),Value::Null),
         Err(ru::Refused::Pending)=>fail(Domain::Conflict,"already_checking",ru::Refused::Pending.text().into(),json!({"state":"checking"})),

@@ -364,7 +364,7 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             let Ok(p) = params() else { return Ok(bad_request()) };
             match bot_api::transactions(c, user, p.get("bot_id").unwrap_or(&Value::Null), p.get("limit").unwrap_or(&Value::Null))? {
                 Some(res) => render(res),
-                None => return Err(WebError::Config("a transactions parameter Rails cannot convert".into())),
+                None => return Err(WebError::Config("a transactions parameter 2.x cannot convert".into())),
             }
         }
         Action::Indices => { let Ok(p) = params() else { return Ok(bad_request()) }; render(bot_api::indices(c, app, p.get("exchange_name").unwrap_or(&Value::Null))?) }

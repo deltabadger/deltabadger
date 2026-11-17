@@ -939,7 +939,7 @@ fn web(f: &Fx, at: &str) -> (deltabadger::web::App, common::web::Browser, std::s
     (app, browser, wake)
 }
 async fn answer(app: &deltabadger::web::App, b: &mut common::web::Browser, bot: i64, form: &[(&str, &str)], csrf: common::web::Csrf) -> common::web::Answer {
-    b.send(app, "POST", &format!("/bots/{bot}/rails_orders"), Some(form), csrf, &[]).await
+    b.send(app, "POST", &format!("/bots/{bot}/v2_orders"), Some(form), csrf, &[]).await
 }
 /// The flash the POST left in the session.
 fn flash(app: &deltabadger::web::App, b: &common::web::Browser) -> Vec<(String, String)> {
@@ -1047,7 +1047,7 @@ async fn the_line_offers_each_order_with_its_carry_and_a_none_button() {
     assert_eq!(forms.len(), 2, "one per offer and one none: {row}");
     assert!(forms[0].contains("data-turbo-confirm=\"Add this order to this bot: bought 0.0004 BTC for 20 EUR (filled), placed 2026-09-02 00:00:03 UTC. \
                                 This bot now owes 20.00 EUR toward its next order. With this order added, it owes 0.00 EUR.\""), "{row}");
-    assert!(forms[0].contains(&format!("action=\"/bots/{}/rails_orders\"", f.b)) && forms[0].contains(">This was this bot&#39;s order</button>"), "{row}");
+    assert!(forms[0].contains(&format!("action=\"/bots/{}/v2_orders\"", f.b)) && forms[0].contains(">This was this bot&#39;s order</button>"), "{row}");
     assert!(forms[0].contains(&format!("name=\"obligation\" value=\"{obligation}\"")) && forms[0].contains(&format!("name=\"offer\" value=\"{}\"", offers[0].0)), "{row}");
     assert!(forms[1].contains("data-turbo-confirm=\"None of these orders was this bot&#39;s? The bot keeps trading as it does now.\"") &&
             forms[1].contains(">None of these was this bot&#39;s</button>") && forms[1].contains("name=\"none\" value=\"1\""), "{row}");
@@ -1055,7 +1055,7 @@ async fn the_line_offers_each_order_with_its_carry_and_a_none_button() {
     // The form's own token is accepted, as a browser posts it.
     let field = regex::Regex::new(r#"name="authenticity_token" value="([^"]+)""#).unwrap();
     let mine = field.captures(forms[1]).unwrap()[1].to_string();
-    let posted = b.send(&app, "POST", &format!("/bots/{}/rails_orders", f.b), Some(&[("obligation", &obligation.to_string()), ("none", "1"), ("authenticity_token", &mine)]), common::web::Csrf::None, &[]).await;
+    let posted = b.send(&app, "POST", &format!("/bots/{}/v2_orders", f.b), Some(&[("obligation", &obligation.to_string()), ("none", "1"), ("authenticity_token", &mine)]), common::web::Csrf::None, &[]).await;
     assert_eq!(posted.header("location"), Some(format!("/bots/{}", f.b).as_str()));
     assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_resolutions WHERE resolution = 'not_mine'"), 1);
 }

@@ -268,7 +268,7 @@ fn rules(signals: &[Value]) -> Result<Vec<Rule>, WebError> {
             match rule.get(key).map_or(Some(default), Value::as_str) {
                 Some(text) if text == names[0] => Ok(false),
                 Some(text) if text == names[1] => Ok(true),
-                _ => Err(WebError::Config(format!("a wizard rule's {key} is not one Rails knows"))),
+                _ => Err(WebError::Config(format!("a wizard rule's {key} is not one 2.x knows"))),
             }
         };
         let sell = name("direction", "", ["buy", "sell"])?;
@@ -306,7 +306,7 @@ fn settings(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>, rules
     let pill = |asset: &Option<crate::web::bot::Asset>| -> Result<Pill, WebError> {
         let color = asset.as_ref().and_then(|a| a.color.as_deref());
         Ok(Pill { class: crate::web::colors::ticker_class(asset.as_ref().and_then(|a| a.category.as_deref()), color),
-                  pill: crate::web::colors::pill_color(color).ok_or_else(|| WebError::Config("an asset colour Ruby cannot read".into()))?,
+                  pill: crate::web::colors::pill_color(color).ok_or_else(|| WebError::Config("an asset colour 2.x cannot read".into()))?,
                   symbol: asset.as_ref().and_then(|a| a.symbol.clone()), id: asset.as_ref().map(|a| a.id) })
     };
     // `bot.quote_asset.symbol`: each rule reads it.
@@ -424,7 +424,7 @@ pub async fn update_signal(State(app): State<App>, Extension(ctx): Extension<Ctx
     let index = index(&ctx);
     let present = |name: &str| field(&ctx, name).filter(|text| !crate::v2::blank(text));
     let (direction, amount, amount_type, enabled) = (present("direction"), present("amount"), present("amount_type"), field(&ctx, "enabled"));
-    let amount = amount.map(|text| crate::web::bot::action_params::numeric(&json!(text), false).map_err(|_| WebError::Config("an amount past what Ruby reads".into()))).transpose()?;
+    let amount = amount.map(|text| crate::web::bot::action_params::numeric(&json!(text), false).map_err(|_| WebError::Config("an amount past what 2.x reads".into()))).transpose()?;
     let found = with_rules(&ctx, |rules| {
         let Some(rule) = at(rules.len(), index).and_then(|at| rules[at].as_object_mut()) else { return false };
         if let Some(direction) = direction { rule.insert("direction".into(), json!(direction)); }
@@ -530,7 +530,7 @@ mod tests {
         let built = rules(&[json!({"direction": "sell", "amount": 150.0, "amount_type": "percentage"}), json!({"direction": "buy", "amount": 0, "enabled": false})]).unwrap();
         assert!(built[0].sell && built[0].percentage && built[0].enabled && !built[0].valid(), "over 100 %");
         assert!(!built[1].sell && !built[1].enabled && !built[1].valid(), "not above 0");
-        assert!(rules(&[json!({"direction": "hold", "amount": 1})]).is_err(), "an enum Rails does not know raises");
+        assert!(rules(&[json!({"direction": "hold", "amount": 1})]).is_err(), "an enum 2.x does not know raises");
         assert!(rules(&[default_rule()]).unwrap()[0].valid());
     }
 
