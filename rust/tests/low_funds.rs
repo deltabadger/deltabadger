@@ -1,8 +1,8 @@
 //! A bot out of funds on KuCoin (plan LF, Rust-only): KuCoin ends a market buy it could not fund `isActive: false,
-//! cancelExist: false` with nothing dealt, which Rails reads `:unknown` forever. Two named divergences:
+//! cancelExist: false` with nothing dealt, which 2.x reads `:unknown` forever. Two named divergences:
 //! D-KUCOIN-ZERO-FILL-FUNDS (such a buy, once older than ZERO_FILL_SETTLE, is KuCoin's insufficient-funds answer: the row and
 //! the bot fail exactly as a placement KuCoin rejected with "Balance insufficient!"; a sell is Closed with nothing filled)
-//! and D-LOW-FUNDS-STATUS ("Low funds" before the countdown, from the synced balances). Rails-free.
+//! and D-LOW-FUNDS-STATUS ("Low funds" before the countdown, from the synced balances). 2.x-free.
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use common::seed::{self, BotSpec, TxSpec};
@@ -104,7 +104,7 @@ fn only_explicit_terminal_evidence_on_a_market_order_is_kept_and_it_settles_stri
     let done = s.clone().settled(created + ZERO_FILL_SETTLE + Duration::milliseconds(1));
     assert_eq!((done.status, done.amount_exec.is_zero(), done.closed_empty()), (OrderStatus::Closed, true, true));
     assert_eq!(s.settled(created - Duration::hours(1)).status, OrderStatus::Unknown, "a createdAt in the future of the poll");
-    // Anything short of that evidence keeps Rails' outcome: Unknown with nothing kept to settle.
+    // Anything short of that evidence keeps 2.x's outcome: Unknown with nothing kept to settle.
     let edit = |f: &dyn Fn(&mut Value)| { let mut raw = base.clone(); f(&mut raw); raw };
     let unkept: Vec<(&str, Value)> = vec![
         ("isActive null", edit(&|r| r["isActive"] = Value::Null)), ("isActive absent", edit(&|r| { r.as_object_mut().unwrap().remove("isActive"); })),

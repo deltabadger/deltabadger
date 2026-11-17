@@ -1,6 +1,6 @@
 //! PLAN-withdrawal-rules V1: the venues' withdrawal address books, the §4 destination contract, the fee reads and quotes,
-//! the §6 sizing and the fee stamp. Rails' recorded reads (withdrawal_vectors.json `reads`, honeymaker 0.12.5) are the
-//! oracle where Rails is right; each divergence is asserted narrowly, by name.
+//! the §6 sizing and the fee stamp. 2.x's recorded reads (withdrawal_vectors.json `reads`, honeymaker 0.12.5) are the
+//! oracle where 2.x is right; each divergence is asserted narrowly, by name.
 use deltabadger::crypto::Credentials;
 use deltabadger::v2::BigDec;
 use deltabadger::venue::binance::{self, BinanceVenue};
@@ -44,7 +44,7 @@ fn script(c: &Value) -> ScriptedTransport {
 }
 const ADDRESS: &str = "bc1qx0destination0000000000000000000000";
 
-// ---- Rails' cells where Rails is right
+// ---- 2.x's cells where 2.x is right
 
 #[tokio::test(flavor = "current_thread")]
 async fn binance_kraken_and_gemini_list_what_v2_lists_with_the_same_request() {
@@ -75,7 +75,7 @@ async fn binance_kraken_and_gemini_list_what_v2_lists_with_the_same_request() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn the_kraken_key_v2_sends_with_is_the_key_selected() {
-    // Rails' withdraw looks the key up by address (kraken.rb:486): the recorded Withdraw carries the one Rust selects.
+    // 2.x's withdraw looks the key up by address: the recorded Withdraw carries the one Rust selects.
     let v = vectors();
     let c = cell(&v, "execute", "success_kraken");
     let t = script(c);
@@ -156,7 +156,7 @@ fn d_rule_mexc_addresstag_takes_the_memo_from_memo_only() {
 
 #[test]
 fn d_rule_listed_entry_refuses_the_free_form_tag_v2_stored() {
-    // Rails created this rule with a tag the listed entry does not carry (create.rb:93); its withdraw would send it.
+    // 2.x created this rule with a tag the listed entry does not carry; its withdraw would send it.
     let v = vectors();
     let c = v["api"].as_array().unwrap().iter().find(|c| c["case"] == "create_listed" && c["surface"] == "rest").unwrap();
     assert_eq!(c["status"], 201);
@@ -195,7 +195,7 @@ fn d_rule_fee_stamp_writes_no_unreadable_fee() {
     assert!(v2["withdrawal_fee"].is_null() && v2["withdrawal_fee_updated_at"] == v["at"], "2.x stamps a missing fee as fresh");
     let body = &c["replies"]["GET /sapi/v1/capital/config/getall"][0]["body"];
     assert_eq!(withdrawal::coin_stamp(&withdrawal::coin_networks(body, "BTC", "Binance").unwrap().unwrap()), None);
-    // Rails writes every coin it can map (USDT here); Rust writes the rule's asset row only, and never creates one.
+    // 2.x writes every coin it can map (USDT here); Rust writes the rule's asset row only, and never creates one.
     assert!(cell(&v, "reads", "binance_fees_fee_key")["exchange_assets"].as_array().unwrap().iter().any(|a| a["asset"] == "USDT" && a["withdrawal_fee"] == "4"));
     let db = db();
     db.execute_batch("INSERT INTO exchange_assets (id, exchange_id, asset_id) VALUES (1, 1, 1), (2, 1, 2);").unwrap();
@@ -340,7 +340,7 @@ async fn an_inconsistent_kraken_quote_is_unknown() {
     assert_eq!(venue.withdrawal_fee(&d, &bd("4")).await, Err(VenueError::Rejected(vec!["EFunding:Unknown withdraw key".into()])));
     assert_eq!(sent(&t.requests()[0]).into_iter().collect::<Vec<_>>(),
                [("amount", "1.0"), ("asset", "XBT"), ("key", "cold")].map(|(k, v)| (k.to_string(), v.to_string())));
-    // Sized through an unknown quote: Rails' "fee unknown" outcome, nothing to send.
+    // Sized through an unknown quote: 2.x's "fee unknown" outcome, nothing to send.
     let sized = withdrawal::size(&bd("1"), &bd("100"), None, |x| { let (venue, d) = (&venue, &d); async move { venue.withdrawal_fee(d, &x).await } }).await.unwrap();
     assert_eq!(sized, Sizing::FeeUnknown { budget: bd("1") });
 }
@@ -419,7 +419,7 @@ async fn d_rule_log_secrets_no_url_query_or_html_reaches_a_message() {
     assert!(text.contains("status 500") && !text.contains("signature") && !text.contains("timestamp"), "{text}");
 }
 
-// ---- the venue code Rails withdraws (Exchange#symbol_from_asset)
+// ---- the venue code 2.x withdraws (Exchange#symbol_from_asset)
 
 #[test]
 fn the_venue_code_is_the_first_available_tickers() {
@@ -431,7 +431,7 @@ fn the_venue_code_is_the_first_available_tickers() {
     assert_eq!(withdrawal::venue_code(&db, 1, 9).unwrap(), None);
 }
 
-/// The columns these reads touch, as db/schema.rb has them.
+/// The columns these reads touch, as 2.x's schema has them.
 fn db() -> rusqlite::Connection {
     let c = rusqlite::Connection::open_in_memory().unwrap();
     c.execute_batch("CREATE TABLE exchange_assets (id INTEGER PRIMARY KEY, asset_id INTEGER NOT NULL, exchange_id INTEGER NOT NULL, available BOOLEAN DEFAULT 1,

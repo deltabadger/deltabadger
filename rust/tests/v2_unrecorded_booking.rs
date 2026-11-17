@@ -1,8 +1,8 @@
-//! A28-2a (PLAN-A28-2 Final shape): booking an order Rails sent but never recorded, on the bot owner's confirmation. The
+//! A28-2a (PLAN-A28-2 Final shape): booking an order 2.x sent but never recorded, on the bot owner's confirmation. The
 //! report's live line stores its bookable orders as offers; the web's request is served by the engine's pass
-//! (`serve_bookings`), which re-reads the order by the history read's own contract, books it as Rails'
+//! (`serve_bookings`), which re-reads the order by the history read's own contract, books it as 2.x's
 //! `persist_accepted_order!` writes a row, and the ordinary follow-up poll settles it. Real Binance and Bybit venues over
-//! `http::ScriptedTransport`, hand-written bodies (and, for parity, the Rails recorder's). No live venue call.
+//! `http::ScriptedTransport`, hand-written bodies (and, for parity, the recording harness's). No live venue call.
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use common::seed::{self, BotSpec, Seeded};
@@ -61,7 +61,7 @@ struct Fx { _dir: tempfile::TempDir, path: PathBuf, c: Connection, s: Seeded, b:
 
 fn open(path: &PathBuf) -> Connection { Connection::open(path).unwrap() }
 
-/// A running weekly bot on `kind` with an ambiguous Rails tick at AT, collected; its ledger synced after the window.
+/// A running weekly bot on `kind` with an ambiguous 2.x tick at AT, collected; its ledger synced after the window.
 fn fx(kind: Kind) -> Fx { fx_with(kind, BotSpec::weekly(20.0, "2026-09-01 10:00:00"), kind.symbol(), "2026-09-22 14:03:00", AT, now()) }
 
 fn fx_with(kind: Kind, spec: BotSpec, symbol: &str, prior: &str, at: &str, collected: DateTime<Utc>) -> Fx {
@@ -384,7 +384,7 @@ async fn a_ledger_only_candidate_or_an_unserved_venue_offers_nothing() {
     assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_offers"), 0);
 }
 
-// ---- one booking: Rails' accepted row, then the follow-up poll (r2.1, r2.2) ------------------------------------------------
+// ---- one booking: 2.x's accepted row, then the follow-up poll (r2.1, r2.2) ------------------------------------------------
 
 #[tokio::test]
 async fn a_booking_writes_rails_accepted_row_and_the_follow_up_settles_it() {
@@ -593,7 +593,7 @@ async fn a_double_request_or_a_second_pass_books_once() {
 #[tokio::test]
 async fn one_attempt_books_one_order_whatever_source_named_it() {
     let f = fx(Kind::Binance);
-    // The same Rails tick's failed row, five minutes on: a second obligation of one attempt.
+    // The same 2.x tick's failed row, five minutes on: a second obligation of one attempt.
     f.c.execute("INSERT INTO transactions (bot_id, exchange_id, status, side, base_asset_id, quote_asset_id, transaction_type, error_messages, bot_interval, \
                  bot_quote_amount, created_at, updated_at) VALUES (?1, ?2, 1, 0, ?3, ?4, 'REGULAR', '[\"Net::ReadTimeout\"]', 'week', 20, '2026-09-29 14:08:00', '2026-09-29 14:08:00')",
                 params![f.b, f.s.exchange_id, f.s.btc, f.s.quote]).unwrap();
@@ -631,7 +631,7 @@ async fn none_was_mine_resolves_the_group_with_one_line_and_no_row() {
 
 // ---- the carry (§4, r1.7) ------------------------------------------------------------------------------------------------
 
-/// PLAN-A28 §5's case: DCA 20/day from day 0 00:00; day 0 bought 20, day 1 Rails' ambiguous tick (20 landed unseen), day 2
+/// PLAN-A28 §5's case: DCA 20/day from day 0 00:00; day 0 bought 20, day 1 2.x's ambiguous tick (20 landed unseen), day 2
 /// bought 40; takeover on day 2.
 fn carry_fx(failed_row: bool) -> Fx {
     let spec = BotSpec { settings: json!({ "interval": "day", "quote_amount": 20 }), ..BotSpec::weekly(20.0, "2026-09-01 00:00:00") };
@@ -653,7 +653,7 @@ const DAY1: &str = "2026-09-02T00:00:03Z";
 #[tokio::test]
 async fn a_booked_order_inside_the_window_shrinks_the_next_orders_floored_at_zero() {
     let f = carry_fx(false);
-    // Rails' recorder: readings one second after each tick.
+    // The recording harness: readings one second after each tick.
     let vectors: Value = serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/v2_unrecorded_vectors.json")).unwrap()).unwrap();
     let carry = vectors["bookings"]["carry"].clone();
     let pinned = |k: &str| carry[format!("{k}_after_tick")].as_str().map(|s| s.parse::<f64>().unwrap());
@@ -674,7 +674,7 @@ async fn a_booked_order_inside_the_window_shrinks_the_next_orders_floored_at_zer
 #[tokio::test]
 async fn a_booked_failed_row_order_before_the_window_leaves_the_carry_and_keeps_rails_stamp() {
     let f = carry_fx(true);
-    // A settings change after Rails' tick moved the window past it.
+    // A settings change after 2.x's tick moved the window past it.
     f.c.execute("UPDATE bots SET settings_changed_at = '2026-09-02 12:00:00' WHERE id = ?1", [f.b]).unwrap();
     let before = f.carry("2026-09-04 00:00:01");
     f.answer(&[O { at: DAY1, ..o(7, St::Filled, "0.0004", "20") }]);
@@ -850,9 +850,9 @@ fn every_booking_line_renders_in_english_without_a_missing_key() {
     }
 }
 
-// ---- parity with the Rails recorder (PLAN-A28-2 r2.6) ------------------------------------------------------------------------
+// ---- parity with the recording harness (PLAN-A28-2 r2.6) -------------------------------------------------------------------
 
-/// Book each recorded case from its order, follow it up with its recorded bodies, and compare the row with Rails' own after
+/// Book each recorded case from its order, follow it up with its recorded bodies, and compare the row with 2.x's own after
 /// `persist_accepted_order!` and after `update_with_order_data`, numerically, on every column the recorder lists.
 #[tokio::test]
 async fn each_booked_row_equals_rails_row_after_persist_and_after_the_poll() {
@@ -883,7 +883,7 @@ async fn each_booked_row_equals_rails_row_after_persist_and_after_the_poll() {
     }
 }
 
-/// The row's columns as Rails names them, numbers compared as numbers, asset ids by their symbol.
+/// The row's columns as 2.x names them, numbers compared as numbers, asset ids by their symbol.
 fn same(c: &Connection, tx: i64, rails: &Value, what: &str) {
     for (col, want) in rails.as_object().unwrap() {
         let got: rusqlite::types::Value = match col.as_str() {
@@ -905,7 +905,7 @@ fn same(c: &Connection, tx: i64, rails: &Value, what: &str) {
     }
 }
 
-/// Codex branch r1: a failed row's stored pair is Rails' at T; one the bot no longer holds is refused at booking.
+/// Codex branch r1: a failed row's stored pair is 2.x's at T; one the bot no longer holds is refused at booking.
 #[tokio::test]
 async fn a_failed_row_offer_for_a_pair_the_bot_no_longer_holds_is_refused() {
     let f = carry_fx(true);
@@ -969,7 +969,7 @@ async fn the_post_without_csrf_or_on_another_users_bot_writes_nothing() {
         assert_eq!((forged.status, forged.header("location")), (302, Some("/")), "2.x's unverified-request handler");
         assert_eq!((money(&f.c), waiting(&f.c)), before);
     }
-    // A forged request signs the session out (Rails' handler): sign in again.
+    // A forged request signs the session out (2.x's handler): sign in again.
     let (app, mut b, _) = web(&f, "2026-09-30T12:00:00Z");
     f.c.execute("INSERT INTO users (id, email, created_at, updated_at) VALUES (9999, 'foreign@example.com', '2026-01-01', '2026-01-01')", []).unwrap();
     f.c.execute("UPDATE bots SET user_id = 9999 WHERE id = ?1", [f.b]).unwrap();
@@ -1949,7 +1949,7 @@ async fn a_failed_bitget_bitvavo_or_gemini_lookup_counts_an_attempt_and_a_refuse
 
 #[tokio::test]
 async fn r1_1_a_bitget_order_that_gains_a_bare_id_row_before_its_booking_is_held() {
-    // The offer is made; then a legacy row holding the bare `<orderId>` (bitget.rb:719) appears: the booking is refused held.
+    // The offer is made; then a legacy row holding the bare `<orderId>` appears: the booking is refused held.
     let f = fx(Kind::Bitget);
     f.answer(&[o(7, St::Filled, "0.0004", "20")]);
     f.report().await;
@@ -2090,7 +2090,7 @@ async fn an_id_that_cannot_stand_in_a_coinbase_path_is_never_looked_up() {
 
 // ---- A28-3d-4: Kraken is report only (D-HISTORY-NO-LEDGER-REPORT-ONLY) -------------------------------------------------------
 
-/// `o` as a Kraken Open/ClosedOrders row (Rails' QueryOrders shape plus `opentm`): a market buy sized in the quote (`viqc`).
+/// `o` as a Kraken Open/ClosedOrders row (2.x's QueryOrders shape plus `opentm`): a market buy sized in the quote (`viqc`).
 fn kraken_row(o: &O) -> Value {
     let status = match o.state { St::Open | St::Partly => "open", St::Filled => "closed", St::PartlyCancelled | St::Cancelled => "canceled" };
     let (ty, price, flags) = match o.limit { Some(p) => ("limit", p, "fciq"), None => ("market", "0", "fciq,viqc") };
@@ -2136,7 +2136,7 @@ async fn a_kraken_or_kucoin_order_is_listed_never_offered_and_every_confirm_path
     }
 }
 
-/// `o` as a KuCoin classic order row (Rails' parse shape plus `createdAt`): a market buy sized in the quote (`funds`).
+/// `o` as a KuCoin classic order row (2.x's parse shape plus `createdAt`): a market buy sized in the quote (`funds`).
 fn kucoin_row(o: &O) -> Value {
     let (ty, price, size, funds) = match o.limit { Some(p) => ("limit", p, o.size, "0"), None => ("market", "0", "0", o.size) };
     json!({ "id": Kind::Kucoin.external_id(o.id), "symbol": "BTC-EUR", "type": ty, "side": if o.sell { "sell" } else { "buy" }, "price": price, "size": size, "funds": funds,

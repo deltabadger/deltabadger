@@ -1,6 +1,6 @@
 //! Figures are made ahead of any page: the queue of work and its consumer, the fill that keeps what it rendered, expiry
 //! at consumption, the bounded market fetch, the builder's own connection, and what wakes the warming. A page only reads
-//! what was kept, or shows Rails' loading state and leaves the work to the queue.
+//! what was kept, or shows 2.x's loading state and leaves the work to the queue.
 //! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
 //! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).
 mod common;
@@ -748,7 +748,7 @@ async fn an_account_without_an_alpaca_key_reads_a_precomputed_reason() {
     let install = Install::new(1, 0);
     let c = install.connection();
     c.execute("DELETE FROM api_keys WHERE user_id=1", []).unwrap();
-    // A long history, one fill of it executed with no value: the reason Rails' row_readings case shows.
+    // A long history, one fill of it executed with no value: the reason 2.x's row_readings case shows.
     c.execute_batch("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<3000) \
         INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) \
         SELECT 1,1,'AAA',2,'USD',1,1,1,100,100,0,0,2,'n'||i,'REGULAR',datetime('2026-03-03','+'||i||' minutes'),'2026-01-01' FROM n; \
@@ -827,7 +827,7 @@ async fn a_fill_repaired_in_the_same_second_changes_the_no_key_reason() {
     until(10, "the repaired account's figures", async || matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Ready(..))).await;
 }
 
-/// A live key reads market data as a paper key does (Rails' market_data_client): its account gets figures, and every
+/// A live key reads market data as a paper key does (2.x's market_data_client): its account gets figures, and every
 /// request it made was to the data host (the script answers nothing else).
 #[tokio::test]
 async fn a_live_key_account_gets_its_figures() {
@@ -956,7 +956,7 @@ async fn a_failed_render_only_pass_keeps_its_publication_for_the_next_fill() {
     until(10, "the publication the failed pass owed", async || published(&install.app, 1).await).await;
 }
 
-// ---- Stale while refilling: Rails' per-bot cache outlives another bot's writes ------------------------------------------
+// ---- Stale while refilling: 2.x's per-bot cache outlives another bot's writes ------------------------------------------
 
 /// Bot `bot` of account 1, started (scheduled), on AAA like the account's first.
 fn start_bot(c: &rusqlite::Connection, bot: i64) {
@@ -995,7 +995,7 @@ async fn another_bots_start_and_order_keep_a_bots_figures_until_the_refill_swaps
         if shown["bots"]["100"].is_null() { assert!(shown["account"].is_null(), "B's order has no figures yet: the headline waits"); }
         shown["bots"]["100"]["tile"].is_string() && shown["account"].is_string()
     }).await;
-    // B's figures read before its order may show a moment, as its Rails cache would; the refill after the order swaps in.
+    // B's figures read before its order may show a moment, as its 2.x cache would; the refill after the order swaps in.
     until(10, "the refill for the current revision", async || {
         let (shown, _) = page_figures(&install.app, 1, "en", "").await;
         assert_eq!(shown.expect("never the loading state for A")["bots"]["1"]["tile"], tile, "A's tile");
@@ -1123,7 +1123,7 @@ async fn a_write_to_a_pair_tickers_precision_refills_its_figures() {
 
 #[tokio::test]
 async fn raised_pair_candles_keep_every_live_figure_and_retry_on_the_next_fill() {
-    // Rails' metrics job caches and broadcasts the live figures before the candles layer raises, and is retried.
+    // 2.x's metrics job caches and broadcasts the live figures before the candles layer raises, and is retried.
     let mut sc = script(0);
     for key in ["GET data.alpaca.markets/v2/stocks/AAA/bars", "GET data.alpaca.markets/v2/stocks/AAA/bars?adjustment=split"] {
         sc[key] = json!({"network": "transient", "message": "Faraday::ConnectionFailed: connection refused"});

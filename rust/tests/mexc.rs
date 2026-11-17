@@ -1,7 +1,7 @@
 //! The MEXC trading adapter (venue::mexc, plan VB slice A5) over recorded bodies: its signer against honeymaker's own requests
 //! (the `QueryHmacHex` scheme Binance shares, tests/binance_trade.rs pinning Binance's), its rules against
-//! Exchanges::Mexc::ERRORS, #parse_order_data (`parse_binance_shaped`) and the sizing wire recorded from Rails, and its
-//! reads, placement, per-order polls, the recovery by client order id (it can only FIND an order) and cancel. Rails-free.
+//! Exchanges::Mexc::ERRORS, #parse_order_data (`parse_binance_shaped`) and the sizing wire recorded from 2.x, and its
+//! reads, placement, per-order polls, the recovery by client order id (it can only FIND an order) and cancel. 2.x-free.
 mod common;
 use chrono::{DateTime, Utc};
 use deltabadger::engine::amount::{self, Sizing};
@@ -67,7 +67,7 @@ fn every_recorded_honeymaker_request_is_reproduced() {
         let params: Vec<(&'static str, String)> = reqwest::Url::parse(&format!("http://x/?{query}")).unwrap().query_pairs()
             .filter(|(k, _)| k != "timestamp" && k != "signature").map(|(k, v)| (&*Box::leak(k.into_owned().into_boxed_str()), v.into_owned())).collect();
         let v = MexcVenue::new(ScriptedTransport::default(), URL, c["api_secret"].as_str().unwrap());
-        // A moment half a millisecond in: Ruby's Float milliseconds of it are the recorded ones.
+        // A moment half a millisecond in: 2.x's Float milliseconds of it are the recorded ones.
         let public = c["call"].as_str().unwrap().ends_with("public");
         let r = if public { v.request(method, c["path"].as_str().unwrap(), params) }
                 else { v.signed(method, c["path"].as_str().unwrap(), params, DateTime::from_timestamp_micros(c["timestamp"].as_i64().unwrap() * 1000 + 500).unwrap()) };
@@ -125,7 +125,7 @@ fn every_recorded_v2_order_parse_is_reproduced() {
         if filled && c["raw"]["symbol"] != "NEWUSDT" { rounded += 1; }
     }
     assert!(averaged > 1000 && rounded > 1000, "X2's average over a non-zero price, and the tick rounding, are exercised: {averaged} {rounded}");
-    // An unlisted status raises in Rails (#parse_order_status): refused, never read as some status.
+    // An unlisted status raises in 2.x (#parse_order_status): refused, never read as some status.
     let raw = raw_order("C02__1", "PENDING_CANCEL", "MARKET", "0", "0");
     assert_eq!(mexc::parse_order("BTCUSDT-C02__1", &raw, &pairs()), Err(VenueError::Rejected(vec!["Unknown MEXC order status: PENDING_CANCEL".into()])));
 }

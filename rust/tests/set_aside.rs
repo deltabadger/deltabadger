@@ -163,7 +163,7 @@ fn a_bot_with_an_unresolved_order_is_not_set_aside() {
     assert_eq!(state(&o.primary), before);
 }
 
-/// Codex review (disproved): a row whose class is NULL fails the takeover before its transaction (the Rails command-job
+/// Codex review (disproved): a row whose class is NULL fails the takeover before its transaction (the 2.x command-job
 /// check reads every bot's class), so nothing is stopped or claimed: it never reaches the set-aside or the claim.
 #[test]
 fn a_bot_without_a_type_fails_the_takeover_before_anything_is_written() {
@@ -177,7 +177,7 @@ fn a_bot_without_a_type_fails_the_takeover_before_anything_is_written() {
     assert!(lease::read(&o.primary, &seed::cipher()).unwrap().is_none());
 }
 
-/// Codex review: a set-aside bot's Rails jobs go at every start, not only the one that set it aside (a crash between the
+/// Codex review: a set-aside bot's 2.x jobs go at every start, not only the one that set it aside (a crash between the
 /// claim's commit and the queue delete leaves them).
 #[test]
 fn a_set_aside_bots_v2_jobs_go_at_a_later_start_too() {

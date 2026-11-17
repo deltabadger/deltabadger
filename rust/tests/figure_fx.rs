@@ -219,8 +219,8 @@ async fn a_reconnect_is_not_replayed_figures_whose_rate_was_refreshed() {
     assert!(loading::resubscribed(&install.app, 1, stream).await.is_empty(), "figures in the old rate were replayed");
 }
 
-/// A listed divergence, not parity: the provider sent tether's price as a String. Rails' User#global_pnl multiplies by
-/// it and raises (`String can't be coerced`), a Rails defect on a display-only figure; the server reads the decimal it
+/// A listed divergence, not parity: the provider sent tether's price as a String. 2.x's User#global_pnl multiplies by
+/// it and raises (`String can't be coerced`), a 2.x defect on a display-only figure; the server reads the decimal it
 /// spells and shows the total.
 #[tokio::test]
 async fn divergence_a_string_coin_price_still_shows_the_total() {
@@ -305,7 +305,7 @@ async fn a_bot_on_a_venue_the_figures_cannot_read_leaves_the_others_figures() {
 
 #[tokio::test]
 async fn a_raised_price_read_leaves_only_its_bot_without_figures_and_holds_the_headline() {
-    // The crypto quote raises (a transient network failure): the tether basket's figures stay loading, as Rails' metrics job for
+    // The crypto quote raises (a transient network failure): the tether basket's figures stay loading, as 2.x's metrics job for
     // that bot raises and is retried. The dollar basket keeps its figures, and the headline waits while the traded bot has none.
     let mut sc = script(true, json!(0.9993));
     sc["GET data.alpaca.markets/v1beta3/crypto/us/latest/trades"] = json!({"network": "transient", "message": "Faraday::ConnectionFailed: connection refused"});
@@ -682,7 +682,7 @@ fn count(log: &Arc<std::sync::Mutex<Vec<String>>>, key: &str) -> usize { log.loc
 
 /// One CoinGecko `exchange_rates` answer serves every fiat pair for 60 s (Coingecko#get_exchange_rates): three pairs in
 /// one fill ask it once, a cold pair 30 s later is served by the same answer, one 61 s later asks again. A coin's price
-/// is `simple/price` with Rails' params. Each pair is held as on data-api (12 h fiat and stablecoins).
+/// is `simple/price` with 2.x's params. Each pair is held as on data-api (12 h fiat and stablecoins).
 #[tokio::test]
 async fn coingecko_fiat_pairs_share_one_exchange_rates_answer_for_a_minute() {
     let (install, log) = on_coingecko(Value::Null);
@@ -703,7 +703,7 @@ async fn coingecko_fiat_pairs_share_one_exchange_rates_answer_for_a_minute() {
     assert_eq!(count(&log, "GET pro-api.coingecko.com/api/v3/ping"), 2, "each fill's client asks the plan once");
 }
 
-/// D-CG-FX-FAILURE-HOLD: a failed pair (a 500, or a 429) is held five minutes, not asked again on every read as Rails
+/// D-CG-FX-FAILURE-HOLD: a failed pair (a 500, or a 429) is held five minutes, not asked again on every read as 2.x
 /// asks; a failure is not held at CoinGecko's own level, so a cold pair asks again.
 #[tokio::test]
 async fn a_failed_coingecko_pair_is_held_five_minutes_and_a_cold_one_asks_again() {

@@ -387,7 +387,7 @@ async fn after_a_handback_a_v2_refresh_counts_for_a_catalogue_fed_source() {
     let bot = model::load_bot(&c, seed::insert_bot(&c, &alpaca, &BotSpec::weekly(60.0, "2026-10-01 10:00:00"))).unwrap();
     let now = at(RUN) + Duration::days(2);
     assert!(matches!(staleness::verdict(&c, &bot, now).unwrap(), staleness::Verdict::Stale(_)), "40-day-old evidence");
-    // Handed back to Rails a day later; Rails' crypto sync refreshes the catalogue; the engine takes the install over again.
+    // Handed back to 2.x a day later; 2.x's crypto sync refreshes the catalogue; the engine takes the install over again.
     let (back, refreshed, taken) = (at(RUN) + Duration::days(1), at(RUN) + Duration::days(1) + Duration::hours(1), at(RUN) + Duration::days(2));
     for (k, t) in [(staleness::HANDED_BACK_AT, back), (staleness::TAKEN_OVER_AT, taken)] {
         deltabadger::app_config::set_plain(&c, k, &t.to_rfc3339(), t).unwrap();

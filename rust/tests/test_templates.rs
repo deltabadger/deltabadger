@@ -1,4 +1,4 @@
-//! The install template the suite copies instead of rebuilding (common::shared_template): the frozen Rails install
+//! The install template the suite copies instead of rebuilding (common::shared_template): the frozen 2.x install
 //! v2_install hands to every test (common::install_template_for).
 mod common;
 use sha2::{Digest, Sha256};

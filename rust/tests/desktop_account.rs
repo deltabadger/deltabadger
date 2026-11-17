@@ -117,7 +117,7 @@ fn the_os_language_and_zone_map_to_the_apps_or_the_defaults() {
     for (iana, want) in [("Europe/Warsaw", "Warsaw"), ("America/New_York", "Eastern Time (US & Canada)"), ("Etc/Nowhere", "UTC"), ("", "UTC")] {
         assert_eq!(desktop::map_zone(iana), want, "{iana}");
     }
-    // Several Rails names share one zone: always the same one.
+    // Several 2.x names share one zone: always the same one.
     assert_eq!(desktop::map_zone("Asia/Kolkata"), desktop::map_zone("Asia/Kolkata"));
 }
 

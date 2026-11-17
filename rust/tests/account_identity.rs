@@ -64,7 +64,7 @@ impl Fx {
         identity::record_import(&tx, &self.cipher, self.user, self.exchange(venue), account.map(id).as_ref(), now()).unwrap();
         tx.commit().unwrap();
     }
-    /// The same key material in a fresh envelope: Rails' or Rust's re-save of an unchanged key.
+    /// The same key material in a fresh envelope: 2.x's or Rust's re-save of an unchanged key.
     fn reencrypt(&self, id: i64) {
         let creds = self.credentials(id);
         self.c.execute("UPDATE api_keys SET key = ?1, secret = ?2, passphrase = ?3 WHERE id = ?4",

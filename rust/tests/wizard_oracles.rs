@@ -1,5 +1,5 @@
-//! The wizard's two recorded oracles that are not pages: how Rails judges a Kraken or Binance key (key_verdicts.json, every
-//! case replayed through web::settings::key_check) and which callbacks Rails runs when the wizard saves a bot
+//! The wizard's two recorded oracles that are not pages: how 2.x judges a Kraken or Binance key (key_verdicts.json, every
+//! case replayed through web::settings::key_check) and which callbacks 2.x runs when the wizard saves a bot
 //! (bot_create_callbacks.json and index_create_callbacks.json, each one named in web::wizard::create::CALLBACKS and
 //! web::wizard::index_create::CALLBACKS).
 use deltabadger::venue::http::{HttpResponse, TransportError};
@@ -20,7 +20,7 @@ fn answer(recorded: &Value) -> Result<HttpResponse, TransportError> {
     Ok(HttpResponse { status: recorded["status"].as_u64().unwrap() as u16, body: recorded["body"].as_str().unwrap().to_string() })
 }
 
-/// Rails' verdict as `Verdict`: a Failure's text is only logged, so a failure is compared as one.
+/// 2.x's verdict as `Verdict`: a Failure's text is only logged, so a failure is compared as one.
 fn expected(verdict: &Value) -> Verdict {
     match verdict["kind"].as_str().unwrap() {
         "success" => match &verdict["data"] {
@@ -92,7 +92,7 @@ fn key_verdicts_replay_every_recorded_case() {
         let request = key_check::kucoin_request(deltabadger::venue::kucoin::URL, kind);
         let ours = if kind == 2 { key_check::kucoin_read_verdict(&answer(&case["response"]), request.method, request.url().as_str()) }
                    else { key_check::kucoin_verdict(kind, &answer(&case["response"]), request.method, request.url().as_str()) };
-        // A reading key's balances #get_balances cannot walk raise in Rails (the form answers 500, the queued job is discarded
+        // A reading key's balances #get_balances cannot walk raise in 2.x (the form answers 500, the queued job is discarded
         // and the key stays pending): no verdict, as an inconclusive answer.
         let raised = kind == 2 && case["verdict"]["kind"] == "raises";
         let theirs = if raised { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
@@ -116,8 +116,8 @@ fn key_verdicts_replay_every_recorded_case() {
         let url = request.url();
         let ours = if kind == 2 { key_check::gemini_read_verdict(&answer(&case["response"]), url.as_str()) }
                    else { key_check::gemini_verdict(kind, &answer(&case["response"]), url.as_str()) };
-        // Rails raises on balances #get_balances cannot walk (the key stays pending): no verdict, as an inconclusive answer. A
-        // 200 that Faraday leaves unparsed (text/plain "OK") is a valid key to Rails, which reads no `result: error` in it;
+        // 2.x raises on balances #get_balances cannot walk (the key stays pending): no verdict, as an inconclusive answer. A
+        // 200 that Faraday leaves unparsed (text/plain "OK") is a valid key to 2.x, which reads no `result: error` in it;
         // Rust sees no content type and reads a 2xx that is not JSON as no verdict (D-GEMINI-PLAIN-200: never valid on a
         // body Gemini does not send).
         let lenient = name == "plain_text_200" && kind != 2;
@@ -132,7 +132,7 @@ fn key_verdicts_replay_every_recorded_case() {
         replayed += 1;
     }
     // Binance.US (plan VB slice A2): the account read, then the cancel probe, each case's whole request sequence replayed
-    // through the check itself over Rails' recorded answers.
+    // through the check itself over 2.x's recorded answers.
     let us = &recorded["binance_us"];
     assert_eq!(serde_json::from_value::<Vec<i64>>(us["invalid_key_codes"].clone()).unwrap(), key_check::BINANCE_INVALID_KEY);
     assert_eq!(json!({ "symbol": key_check::BINANCE_US_PROBE[0].1, "order_id": key_check::BINANCE_US_PROBE[1].1 }), us["trade_probe"]);
@@ -164,8 +164,8 @@ fn key_verdicts_replay_every_recorded_case() {
         replayed += 1;
     }
     // Bitvavo (plan VB slice A3): the balance read, then (a key that is not a withdrawal key) the cancel probe, each case's
-    // whole request sequence replayed through the check over Rails' recorded answers. Listed divergence D-BITVAVO-KEY-TEXT:
-    // a 2xx body that is no JSON passes Rails' check when its content type is not JSON (Faraday leaves it a String, with no
+    // whole request sequence replayed through the check over 2.x's recorded answers. Listed divergence D-BITVAVO-KEY-TEXT:
+    // a 2xx body that is no JSON passes 2.x's check when its content type is not JSON (Faraday leaves it a String, with no
     // errorCode); Rust's transport does not carry the content type and Bitvavo answers JSON, so Rust gives no verdict on it.
     let bv = &recorded["bitvavo"];
     assert_eq!((bv["refused_codes"].clone(), bv["not_found_code"].clone()), (json!(key_check::BITVAVO_REFUSED), json!(deltabadger::venue::bitvavo::ORDER_NOT_FOUND)));
@@ -204,8 +204,8 @@ fn key_verdicts_replay_every_recorded_case() {
     assert_eq!((bitvavo, text_passes), (214, 7), "a recorded Bitvavo case was added or dropped");
     replayed += bitvavo;
     // Bitget (plan VB slice A4): one request per key type (the cancel probe of order 0, the assets read, the balances read),
-    // replayed through the check over Rails' recorded answer. An answer Rails raises on (a `msg` that is no String, balances
-    // it cannot walk) leaves the key pending in Rails (the job is discarded): no verdict here.
+    // replayed through the check over 2.x's recorded answer. An answer 2.x raises on (a `msg` that is no String, balances
+    // it cannot walk) leaves the key pending in 2.x (the job is discarded): no verdict here.
     let bg = &recorded["bitget"];
     assert_eq!((bg["order_not_found_codes"].clone(), bg["no_trade_codes"].clone()), (json!(key_check::BITGET_ORDER_NOT_FOUND), json!(key_check::BITGET_NO_TRADE)));
     let invalid: Vec<String> = deltabadger::engine::venue_rules::BITGET.kinds.iter().find(|(k, _)| *k == "invalid_key").unwrap().1.iter().map(|s| s.to_string()).collect();
@@ -234,7 +234,7 @@ fn key_verdicts_replay_every_recorded_case() {
     assert_eq!(bitget, 122, "a recorded Bitget case was added or dropped");
     replayed += bitget;
     // MEXC (plan VB slice A5): the account read and its canTrade, then (a reading key's #get_read_api_key_validity) the deposit
-    // history, each case's whole request sequence replayed through the check over Rails' recorded answers.
+    // history, each case's whole request sequence replayed through the check over 2.x's recorded answers.
     let mx = &recorded["mexc"];
     assert_eq!(mx["rejected_codes"], json!(key_check::MEXC_REJECTED));
     let invalid: Vec<String> = deltabadger::engine::venue_rules::MEXC.kinds.iter().find(|(k, _)| *k == "invalid_key").unwrap().1.iter().map(|s| s.to_string()).collect();
@@ -257,7 +257,7 @@ fn key_verdicts_replay_every_recorded_case() {
         let (_, ours) = rt.block_on(key_check::mexc_check(&transport, &venue, kind, reading));
         let theirs = expected(&case["verdict"]);
         // Listed divergence D-MEXC-KEY-TEXT (as Bitvavo's): a deposit history answered 2xx with a body that is no JSON passes
-        // Rails' reading check when its content type is not JSON (Faraday leaves it a String, with no code); Rust's transport
+        // 2.x's reading check when its content type is not JSON (Faraday leaves it a String, with no code); Rust's transport
         // does not carry the content type and MEXC answers JSON, so Rust gives no verdict on it.
         if name.ends_with("deposits plain_text_200") {
             assert!(theirs == Verdict::Valid(true) && matches!(&ours, Verdict::Failure(t) if t == "OK"), "D-MEXC-KEY-TEXT {name}: {ours:?}, 2.x {theirs:?}");
@@ -278,8 +278,8 @@ fn key_verdicts_replay_every_recorded_case() {
     replayed += mexc;
     // Hyperliquid (plan VB slice B1): one /info read per key type (userRole for the address a trading or withdrawal key's secret
     // signs as, none for a secret that is no key; the reading key's spotClearinghouseState), replayed through the check over
-    // Rails' recorded answer. An answer Rails raises on leaves the key pending in Rails: no verdict here. A 200 that Faraday
-    // leaves unparsed (text/plain "OK") reads as no role (trading: invalid) or as no balances (reading: valid) to Rails; Rust
+    // 2.x's recorded answer. An answer 2.x raises on leaves the key pending in 2.x: no verdict here. A 200 that Faraday
+    // leaves unparsed (text/plain "OK") reads as no role (trading: invalid) or as no balances (reading: valid) to 2.x; Rust
     // sees no content type and reads a 2xx that is not JSON as no verdict (D-HL-PLAIN-200: never a verdict on a body
     // Hyperliquid does not send).
     let hl = &recorded["hyperliquid"];
@@ -404,7 +404,7 @@ fn key_verdicts_replay_every_recorded_case() {
     assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240 + 70 + 108 + 81 + 82 + 96, "the combined venue key grid: 1,210 existing + 240 MEXC + 70 Hyperliquid + 108 Bybit + 81 Bitrue + 82 Coinbase + 96 BingX cases");
 }
 
-/// A recorded callback list against a port's table: the same callbacks, in Rails' order, each handled.
+/// A recorded callback list against a port's table: the same callbacks, in 2.x's order, each handled.
 fn assert_handled(fixture_name: &str, table: &[(&str, &str, &str, &str, &str)]) {
     let recorded = fixture(fixture_name);
     let mut theirs = vec![];

@@ -57,7 +57,7 @@ fn the_masked_values_can_be_read_before_they_are_masked() {
     assert_eq!(masked.streams, vec!["InVzZXJfMTpwcmVmZXJlbmNlcyI=--aaaa"]);
     assert_eq!(masked.assets, vec!["/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css"]);
     // An asset reference with a digest nobody built is masked like any other, so the page still
-    // compares equal: it is the harness that must look each one up (tests/pages.rs, script/rust/pages.rb).
+    // compares equal: it is the harness that must look each one up (tests/pages.rs).
     let broken = PAGE.replace("968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd", "0000000000000000");
     assert!(same(&broken));
     assert_eq!(common::html::masked_values(&broken).assets, vec!["/assets/application-0000000000000000.css"]);

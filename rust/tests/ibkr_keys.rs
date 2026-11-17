@@ -1,9 +1,9 @@
-//! IBKR keys on Rust (Ibkr plan I2): the key check with IBKR's activation wait, replayed against Rails' recorded verdicts
+//! IBKR keys on Rust (Ibkr plan I2): the key check with IBKR's activation wait, replayed against 2.x's recorded verdicts
 //! (ibkr_key_verdicts.json); the immutable key binding and bot ownership (D-IBKR-ACCOUNT); the activation job; the
 //! pending-activation guards; and the balance sync through `ibkr_conids`.
 //!
-//! The scripted IBKR answers beyond Rails' recording (ledger and position pages, account lists) are provisional: no IBKR
-//! session has been recorded yet (gate G1), so they are the shapes Rails' parser expects, tagged `source: "provisional"`.
+//! The scripted IBKR answers beyond 2.x's recording (ledger and position pages, account lists) are provisional: no IBKR
+//! session has been recorded yet (gate G1), so they are the shapes 2.x's parser expects, tagged `source: "provisional"`.
 mod common;
 use chrono::{DateTime, Utc};
 use common::seed::{self, BotSpec};
@@ -30,7 +30,7 @@ fn fixture(name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name)).unwrap()).unwrap()
 }
 
-/// Rails' recorded verdicts.
+/// 2.x's recorded verdicts.
 fn verdicts() -> Value { fixture("ibkr_key_verdicts.json") }
 
 fn material() -> Material {
@@ -40,7 +40,7 @@ fn material() -> Material {
                encryption_key: s("encryption_key"), dh_param: verdicts()["ibkr"]["dh_param"].as_str().unwrap().into(), realm: s("realm") }
 }
 
-/// The DH random Rails' recording froze: the recorded LST answers validate under it. Every Session in this binary mints with it.
+/// The DH random 2.x's recording froze: the recorded LST answers validate under it. Every Session in this binary mints with it.
 fn freeze_dh() { ibkr::fix_dh_random(Some(verdicts()["ibkr"]["dh_random"].as_str().unwrap().into())); }
 
 /// One recorded case's answer as ScriptedTransport replays it.
@@ -83,7 +83,7 @@ async fn ibkr_key_verdicts_replay_every_recorded_case() {
             other => panic!("{name}: 2.x answered {other:?}"),
         };
         if name == "lock_busy" {
-            // D-IBKR-LOCK-TIMEOUT: Rails reads IbkrLock::Timeout (no status) as pending activation; here it is no verdict.
+            // D-IBKR-LOCK-TIMEOUT: 2.x reads IbkrLock::Timeout (no status) as pending activation; here it is no verdict.
             assert_eq!(theirs, "pending_activation", "2.x no longer reads a busy login as pending activation: drop the divergence");
             assert!(matches!(key_check::ibkr_verdict(&Err(Error::LockTimeout)), IbkrVerdict::Failure(_)));
             replayed += 1;
@@ -97,7 +97,7 @@ async fn ibkr_key_verdicts_replay_every_recorded_case() {
         let clock = FixedClock(at(NOW));
         let ours = key_check::ibkr_check(&ibkr::Session::new(&t, login(), &clock)).await;
         // D-IBKR-ACCOUNT: several accounts are refused; an account that is no U…/DU…/DF… id (a pseudo account, a text
-        // answer Rails reads as one account) is no verdict.
+        // answer 2.x reads as one account) is no verdict.
         let expected = match name {
             "two_accounts" => IbkrVerdict::Incorrect(ibkr_account::MULTI_ACCOUNT),
             "pseudo_account" | "plain_text_200" => { assert_eq!(theirs, "correct", "{name}"); IbkrVerdict::Failure("IBKR named no account Deltabadger can read".into()) }
@@ -428,7 +428,7 @@ async fn a_correct_key_without_a_binding_is_checked_and_bound_by_its_first_sync(
     freeze_dh();
     let fx = Fx::new(1);
     let (aapl, ..) = ibkr_catalogue(&fx);
-    // A key Rails left correct: no binding. The sync checks it once (the binding check), then reads.
+    // A key 2.x left correct: no binding. The sync checks it once (the binding check), then reads.
     assert!(fx.bindings().is_empty());
     let t = scripted(json!({ "accounts": ["U1234567"] }), &[json!([{ "conid": 265598, "position": 4.0, "source": "provisional" }]), json!([])]);
     sync_balances(&fx, t).await.unwrap();
@@ -515,7 +515,7 @@ async fn negative_balances_are_live_answers_but_never_stored() {
     assert!(!stored.contains(&aapl) && stored.len() == 1, "{stored:?}");
 }
 
-/// D-IBKR-INCONCLUSIVE: a check with no verdict (IBKR down, a timeout) never moves an IBKR key's status. Rails'
+/// D-IBKR-INCONCLUSIVE: a check with no verdict (IBKR down, a timeout) never moves an IBKR key's status. 2.x's
 /// update_status! writes pending_validation, which takes a correct key out of every sync and of the startup validation
 /// for good (nothing schedules that validator again).
 #[tokio::test(flavor = "current_thread")]

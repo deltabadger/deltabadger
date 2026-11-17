@@ -44,7 +44,7 @@ fn scalar(value: &Value) -> Sql {
         Value::String(v) => Sql::Text(v.clone()), _ => Sql::Text(value.to_string()) }
 }
 fn same_rows(actual: Value, expected: Value, label: &str) {
-    // Rails' action snapshot already serializes SQLite values, not ActiveRecord attributes.
+    // 2.x's action snapshot already serializes SQLite values, not ActiveRecord attributes.
     for (table,rows) in expected.as_object().unwrap() { assert_eq!(&actual[table],rows,"{label}: {table}"); }
     assert_eq!(actual.as_object().unwrap().len(),expected.as_object().unwrap().len());
 }
@@ -70,7 +70,7 @@ pub fn masked(body:&str,app:Option<&deltabadger::web::App>,token:Option<&str>)->
     out
 }
 
-/// The rows Rails' step saw before it ran, written over the copied install.
+/// The rows 2.x's step saw before it ran, written over the copied install.
 pub fn restore(c:&Connection,expected:&Value)->Value{
     c.execute_batch("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE").unwrap();let before=combined(expected,"before");
     for(table,rows)in before.as_object().unwrap(){c.execute(&format!("DELETE FROM {table}"),[]).unwrap();
@@ -102,7 +102,7 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         for file in ["production.sqlite3","production_queue.sqlite3"]{std::fs::copy(source.join(file),dir.path().join(file)).unwrap();}
         let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();
         let before=restore(&c,expected);
-        // Rails keeps no credential provenance. A Rust sync stamps which key produced the balances; seed that
+        // 2.x keeps no credential provenance. A Rust sync stamps which key produced the balances; seed that
         // completed stamp for the holdings cases (not for `holdings_unsynced`), then remove it before the row check.
         let seeded=if matches!(mode(&name),Mode::Holdings) && name!="holdings_unsynced" {
             let keys=|c:&Connection|c.prepare("SELECT key FROM app_configs").unwrap().query_map([],|r|r.get::<_,String>(0)).unwrap().collect::<Result<Vec<_>,_>>().unwrap();
@@ -142,12 +142,12 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         same_rows(snapshot(&c),before,&name);assert_eq!(snapshot(&queue),queue_before,"{name}: queue changed");
         // A populated page this grid's fixture cannot prepare (no Rust ledger cache, no sync stamps): served, and compared
         // byte for byte by tracker_populated, whose fixtures are.
-        // D-TRACKER-NO-PROVIDER-WALL: a page Rails served as the welcome screen now reads the account (an unreadable colour
-        // in it is the error Rails' own full layout gives).
+        // D-TRACKER-NO-PROVIDER-WALL: a page 2.x served as the welcome screen now reads the account (an unreadable colour
+        // in it is the error 2.x's own full layout gives).
         if matches!(mode(&name),Mode::ServerError) {
             assert_eq!((answer.status,answer.body.as_str()),(500,include_str!("../../web/public/500.html")),"{name}");continue;
         }
-        // D-TRACKER-NO-PROVIDER-WALL: where Rails answered with the welcome screen that asks for CoinGecko, Rust serves the
+        // D-TRACKER-NO-PROVIDER-WALL: where 2.x answered with the welcome screen that asks for CoinGecko, Rust serves the
         // account's tracker page (its banner offers CoinGecko instead).
         let walled=expected["status"]==json!(200) && expected["body"].as_str().is_some_and(|b|b.contains("<div class=\"welcome-screen\">") && b.contains("tracker/connect_market_data\""));
         if walled {
@@ -163,7 +163,7 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         if matches!(mode(&name),Mode::Served) {
             assert_eq!(answer.status,200,"{name}: the populated page is served");assert!(answer.body.contains("  <div class=\"tracker\">\n"),"{name}");continue;
         }
-        // PLAN-A19 (D-TRACKER-FILTER-ISO-ONLY, D-TRACKER-FILTER-BAD-INPUT): a window this build does not read. What Rails
+        // PLAN-A19 (D-TRACKER-FILTER-ISO-ONLY, D-TRACKER-FILTER-BAD-INPUT): a window this build does not read. What 2.x
         // did stays recorded (it served the page, or raised); Rust answers 400.
         if matches!(mode(&name),Mode::BadRequest) {
             assert!(expected["status"]==json!(200) || (expected["status"]==json!(500) && expected.get("exception").is_some()),"{name}: 2.x served or raised: {}",expected["status"]);
@@ -183,13 +183,13 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
                 "holdings_unpriced"|"holdings_zero_value"=>Some("Tracker figures unavailable: unpriced holdings"),
                 "holdings_unsynced"=>Some("Tracker figures unavailable: balances not yet synced with the current key"),_=>None};
             if name=="holdings_unsynced" {
-                // The navbar ring withholds unsynced balances already (S1); Rails draws them.
+                // The navbar ring withholds unsynced balances already (S1); 2.x draws them.
                 let head=oracle.find("      <circle cx=\"12\" cy=\"12\" r=\"9\" fill=\"none\"\n").unwrap();
                 let end=head+oracle[head..].find("</svg>\n").unwrap();
                 oracle.replace_range(head..end,"    <circle class=\"stroke--icon\" cx=\"12\" cy=\"12\" r=\"9\"\n            fill=\"none\" stroke-width=\"2\"/>\n");
             }
             // PLAN-venue-prices S1: an unpriced holding is listed with no number under the missing-prices banner. Both are
-            // checked here, then the card is cut from both pages (Rails' has no such row) and the rest compared.
+            // checked here, then the card is cut from both pages (2.x's has no such row) and the rest compared.
             let unpriced=matches!(name.as_str(),"holdings_unpriced"|"holdings_zero_value");
             if unpriced {
                 assert!(actual.contains("<div class=\"widget tracker-notice\" role=\"status\">"),"{name}: the missing-prices banner");

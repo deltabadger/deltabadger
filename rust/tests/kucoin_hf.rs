@@ -1657,7 +1657,7 @@ fn open_row(c: &rusqlite::Connection, bot: &model::Bot, ext: &str, created: &str
 
 /// R07, r2.6: each claim marks the open KuCoin rows it finds without a record or a mark: classic when Rust placed them
 /// (created in a Rust ownership window), unproven otherwise. A mark is never written twice, so a known-classic row stays
-/// known through restarts and a Rails window.
+/// known through restarts and a 2.x window.
 #[tokio::test(flavor = "current_thread")]
 async fn r07_takeover_marks_rows_by_who_placed_them() {
     use deltabadger::{engine::handover, lease};
@@ -1671,7 +1671,7 @@ async fn r07_takeover_marks_rows_by_who_placed_them() {
     handover::take_over(&l, &o, &common::seed::cipher(), "test", at("2026-10-30T11:30:00Z")).unwrap();
     assert_eq!(origin(&o.primary, rust).as_deref(), Some("classic"), "placed while Rust owned the install");
     assert_eq!(origin(&o.primary, v2).as_deref(), Some("unproven"));
-    // Handed back at 12:00; Rails places C1; Rust takes over again.
+    // Handed back at 12:00; 2.x places C1; Rust takes over again.
     let tx = model::immediate(&o.primary).unwrap();
     lease::hand_back(&l, &tx, &common::seed::cipher(), at("2026-10-30T12:00:00Z")).unwrap();
     deltabadger::app_config::set_plain(&tx, lease::HANDED_BACK_AT, "2026-10-30T12:00:00.000Z", at("2026-10-30T12:00:00Z")).unwrap();
@@ -1774,8 +1774,8 @@ async fn refused(dir: &tempfile::TempDir, o: &deltabadger::store::Opened, want: 
     assert_eq!(lease::read(&o.primary, &common::seed::cipher()).unwrap().unwrap()["engine"], "rust", "{want}: the lease never moved");
 }
 
-/// R08: Rails trades no HF account: an HF order row and an HF intent each refuse the handback, naming the bot; the lease
-/// stays Rust's. An adopted row whose route is unproven hands back: Rails placed it on its own route.
+/// R08: 2.x trades no HF account: an HF order row and an HF intent each refuse the handback, naming the bot; the lease
+/// stays Rust's. An adopted row whose route is unproven hands back: 2.x placed it on its own route.
 #[tokio::test(flavor = "current_thread")]
 async fn r08_hf_orders_intents_and_unproven_rows_refuse_the_handback() {
     let (dir, o, bot, _t, _v, _id, _ext) = placed("KEY-A", false).await;
@@ -1792,7 +1792,7 @@ async fn r08_hf_orders_intents_and_unproven_rows_refuse_the_handback() {
 }
 
 /// §7: on an install whose Rust tables were never created, every HF-4 read stands (known fills read the visible ledger
-/// alone; the barrier, the handback refusals and the takeover marks read Rails' tables).
+/// alone; the barrier, the handback refusals and the takeover marks read 2.x's tables).
 #[tokio::test(flavor = "current_thread")]
 async fn unmigrated_install_reads_stand() {
     use deltabadger::engine::reconcile;
@@ -2107,7 +2107,7 @@ async fn f01_an_adopted_row_is_proven_on_hf() {
     assert_eq!(c.query_row("SELECT count(*) FROM app_configs WHERE key=?1", [format!("rust_kucoin_origin:{tx}")], |r| r.get::<_, i64>(0)).unwrap(), 0, "the marker is gone");
 }
 
-/// F01/R08: once the engine has placed on an HF account, handing the install back to Rails is refused, naming the bot.
+/// F01/R08: once the engine has placed on an HF account, handing the install back to 2.x is refused, naming the bot.
 #[tokio::test(flavor = "current_thread")]
 async fn f01_an_hf_bot_refuses_the_handback() {
     let server = wiremock::MockServer::start().await;
@@ -2547,7 +2547,7 @@ async fn u3a_known_fills_of_a_uta_row_are_the_uta_familys() {
     assert!(receipt(&o.primary, id).is_none() && obligation(&o.primary, id).is_some());
 }
 
-/// U3a, R08: a UTA order row and a UTA intent each refuse the handback (Rails trades no UTA).
+/// U3a, R08: a UTA order row and a UTA intent each refuse the handback (2.x trades no UTA).
 #[tokio::test(flavor = "current_thread")]
 async fn u3a_uta_orders_and_intents_refuse_the_handback() {
     use deltabadger::engine::{placement, FixedClock};
@@ -2768,7 +2768,7 @@ async fn u3b_a_row_appearing_after_the_switch_is_held_on_the_next_observation() 
     assert!(!t.requests().iter().any(|r| r.path.contains("/fills")), "no fills fallback");
 }
 
-/// U4 (UTA.md A13, A14): the UTA refusal and its copy are gone from the Rust tree and from Rails' locales and views.
+/// U4 (UTA.md A13, A14): the UTA refusal and its copy are gone from the Rust tree and from 2.x's locales and views.
 #[test]
 fn u4_no_uta_refusal_copy_is_left() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

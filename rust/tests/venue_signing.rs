@@ -1,6 +1,6 @@
 //! Slice S (PLAN-VB §1.2): the Gemini, Coinbase and Hyperliquid signers against the requests honeymaker 0.12.5 and
-//! hyperliquid-rb 0.1.1 sent under frozen clocks, nonces and throwaway keys (script/rust/record_venue_signing.rb); and IBKR's
-//! OAuth 1.0a + live session token (slice I0) against Clients::Ibkr::Oauth/Session and oauth_test.rb's Python vectors.
+//! hyperliquid-rb 0.1.1 sent under frozen clocks, nonces and throwaway keys; and IBKR's
+//! OAuth 1.0a + live session token (slice I0) against Clients::Ibkr::Oauth/Session and 2.x's OAuth test's Python vectors.
 use aws_lc_rs::signature::{UnparsedPublicKey, ECDSA_P256_SHA256_FIXED};
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
@@ -249,7 +249,7 @@ fn ibkr_helpers_match_v2_on_every_recorded_edge() {
     }
 }
 
-/// oauth_test.rb's vectors, computed in Python against IBKR's reference (ibind oauth1a.py): a second, independent oracle.
+/// 2.x's OAuth test vectors, computed in Python against IBKR's reference (ibind oauth1a.py): a second, independent oracle.
 #[test]
 fn ibkr_matches_the_python_reference_vectors() {
     assert_eq!(ibkr::escape("a b~c/d"), "a+b~c%2Fd");
@@ -295,7 +295,7 @@ fn ibkr_oauth_builders_are_byte_equal_to_v2() {
     }
 }
 
-/// The exit criterion of slice I0: with Rails' frozen nonces, timestamp and DH random, the scripted server's DH answer and
+/// The exit criterion of slice I0: with 2.x's frozen nonces, timestamp and DH random, the scripted server's DH answer and
 /// the fixed keys, the LST and the Authorization header of every request Clients::Ibkr::Session sent are reproduced.
 #[test]
 fn ibkr_session_requests_and_the_lst_are_byte_equal_to_v2() {
@@ -354,9 +354,9 @@ fn ibkr_refuses_unreadable_key_material() {
     assert_eq!(ibkr::Signer::new(&bad_secret).unwrap().prepend(), None, "a secret that does not decrypt");
 }
 
-/// The connect wizard's keys (I3) as Ruby's OpenSSL reads them (2.70.21's own ruby, in the published image: common::v2): Rust's PKCS#8 private PEM and SPKI public PEM load in
-/// `OpenSSL::PKey::RSA.new` and agree, ffdhe2048 loads in `OpenSSL::PKey::DH.new` with Rails' own p and g, and the key
-/// Ruby writes back (`to_pem`, PKCS#1, what Rails stores) signs in Rust byte-equal to Ruby's signature.
+/// The connect wizard's keys (I3) as 2.x's OpenSSL reads them (2.70.21's own interpreter, in the published image: common::v2): Rust's PKCS#8 private PEM and SPKI public PEM load in
+/// `OpenSSL::PKey::RSA.new` and agree, ffdhe2048 loads in `OpenSSL::PKey::DH.new` with 2.x's own p and g, and the key
+/// 2.x writes back (`to_pem`, PKCS#1, what 2.x stores) signs in Rust byte-equal to 2.x's signature.
 #[test]
 fn ibkr_generated_keys_round_trip_through_v2_openssl() {
     if !common::v2::enabled() { return; }

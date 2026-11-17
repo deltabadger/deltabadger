@@ -265,7 +265,7 @@ fn base_wire_buys_are_bounded_limits_and_quote_venues_send_quote() {
     let plan = redeploy::size(&ticker(8, 1, "0.0001", "5"), &d("64000"), &d("100"), &KRAKEN, true).unwrap().unwrap();
     assert!(plan.quote_type && !plan.limit);
     assert_eq!(plan.volume.to_s_f(), "100.0");
-    // A crossing venue keeps Rails' path: base, the 1% haircut, its persisted crossed price.
+    // A crossing venue keeps 2.x's path: base, the 1% haircut, its persisted crossed price.
     let plan = redeploy::size(&ticker(5, 2, "0.00001", "1"), &d("64000"), &d("100"), &GEMINI, true).unwrap().unwrap();
     assert!(!plan.limit && !plan.quote_type && plan.wire_price.is_some());
     assert_eq!(plan.volume.to_s_f(), "0.00154");
@@ -352,7 +352,7 @@ async fn handback_refuses_a_redeploy_request() {
     assert!(matches!(result, Err(deltabadger::engine::EngineError::Ineligible(ref r)) if r.iter().any(|r| r.contains("redeploy request"))));
 }
 
-/// The venues where D-6C-12 changes what is sent: Rails sizes their buy in base (with its 1% haircut); Rust sends the quote
+/// The venues where D-6C-12 changes what is sent: 2.x sizes their buy in base (with its 1% haircut); Rust sends the quote
 /// where the venue takes it (Kraken `viqc`, KuCoin `funds`, Bitvavo `amountQuote`) and a GTC limit at ref × 1.01 on Bitrue.
 #[cfg(unix)]
 const D_6C_12: [&str; 4] = ["kraken", "kucoin", "bitvavo", "bitrue"];
@@ -361,7 +361,7 @@ const D_6C_12: [&str; 4] = ["kraken", "kucoin", "bitvavo", "bitrue"];
 fn redeploy_grid_difference(name: &str, _: &std::path::Path, v2: &Value, rust: &Value) -> Result<(), String> {
     let mut expected = v2.clone();
     if name.contains("-hyperliquid-") {
-        // D-HYPERLIQUID-MARKET-IOC: the same crossed price and size as Rails, sent IOC instead of GTC.
+        // D-HYPERLIQUID-MARKET-IOC: the same crossed price and size as 2.x, sent IOC instead of GTC.
         for order in expected["sent"].as_array_mut().unwrap() {
             assert_eq!(order["t"]["limit"]["tif"], "Gtc", "{name}");
             order["t"]["limit"]["tif"] = json!("Ioc");
@@ -371,8 +371,8 @@ fn redeploy_grid_difference(name: &str, _: &std::path::Path, v2: &Value, rust: &
     let (timeout, pre_send) = (name.ends_with("-timeout"), name.ends_with("-pre_send"));
     let (alpaca, kraken, hyperliquid) = (venue == "alpaca", venue == "kraken", venue == "hyperliquid");
     if name == "redeploy-alpaca-basket-below_minimum" {
-        // D-ALPACA-BASE-FLOOR: Rails sends a notional whose base is under minimum_base_size; Rust skips it, and nothing placed
-        // is Rails' own below_minimums line.
+        // D-ALPACA-BASE-FLOOR: 2.x sends a notional whose base is under minimum_base_size; Rust skips it, and nothing placed
+        // is 2.x's own below_minimums line.
         assert_eq!(v2["sent"].as_array().unwrap().len(), 1);
         let logs: Vec<_> = rust["changes"]["bot_activity_logs"].as_array().unwrap().iter().map(|l| (l["after"]["event"].clone(), l["after"]["details"].clone())).collect();
         assert_eq!(logs, vec![(json!("redeploy_skipped"), json!({"base":"BTC","reason":"below_minimum"})), (json!("redeploy_below_minimums"), json!({"reason":["below_minimums"]}))]);
@@ -417,18 +417,18 @@ fn redeploy_grid_difference(name: &str, _: &std::path::Path, v2: &Value, rust: &
             let nonce = pending["id"].as_str().unwrap();
             assert!(nonce.len() == 12 && nonce.bytes().all(|b| b.is_ascii_hexdigit()));
             if timeout || !kraken {
-                // Rails draws a fresh nonce; Rust's halt is named by the intent's client order id.
+                // 2.x draws a fresh nonce; Rust's halt is named by the intent's client order id.
                 let nonce = &rust["changes"]["bots"][0]["after"]["transient_data"]["redeploy_pending"]["id"];
                 assert!(uuid::Uuid::parse_str(nonce.as_str().unwrap()).is_ok());
                 bots[0]["after"]["transient_data"]["redeploy_pending"]["id"] = nonce.clone();
             } else {
-                // D-6C-PRE-SEND: Kraken's transport proves a refused connection sent nothing; Rails leaves it ambiguous.
+                // D-6C-PRE-SEND: Kraken's transport proves a refused connection sent nothing; 2.x leaves it ambiguous.
                 bots[0]["after"]["transient_data"].as_object_mut().unwrap().remove("redeploy_pending");
                 bots.retain(|b| b["before"] != b["after"]);
             }
         }
         let logs = expected["changes"]["bot_activity_logs"].as_array_mut().unwrap();
-        // Rails' batch ends on the halt with nothing placed and reports it as `redeploy_below_minimums` too
+        // 2.x's batch ends on the halt with nothing placed and reports it as `redeploy_below_minimums` too
         // (Redeployable#place_redeploy_orders!). D-6C-HALT-NOT-BELOW: Rust leaves only the halt. Kraken's refused connection
         // is a skip on the Rust side (below), after which nothing placed is the below-minimums line on both.
         if logs.len() != 2 || logs[1]["after"]["event"] != "redeploy_below_minimums" || logs[0]["after"]["event"] != "redeploy_ambiguous" {
@@ -526,7 +526,7 @@ async fn a_failed_halt_write_rolls_back_the_abandonment() {
     assert!(model::load_bot(&o.primary, id).unwrap().transient[redeploy::PENDING_KEY].is_null());
 }
 
-/// Rails halts only when it abandons a row: an abandoned row cleared before (no halt standing) is not re-halted by the scan.
+/// 2.x halts only when it abandons a row: an abandoned row cleared before (no halt standing) is not re-halted by the scan.
 #[tokio::test(flavor = "current_thread")]
 async fn the_scan_leaves_a_cleared_abandoned_row_alone() {
     let (d, o, id, s, eth) = proceeds_bot("640", "100");

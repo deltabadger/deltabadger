@@ -48,7 +48,7 @@ fn scalar(value: &Value) -> Sql {
         Value::String(v) => Sql::Text(v.clone()), _ => Sql::Text(value.to_string()) }
 }
 fn same_rows(actual: Value, expected: Value, label: &str) {
-    // Rails' action snapshot already serializes SQLite values, not ActiveRecord attributes.
+    // 2.x's action snapshot already serializes SQLite values, not ActiveRecord attributes.
     for (table,rows) in expected.as_object().unwrap() { assert_eq!(&actual[table],rows,"{label}: {table}"); }
     assert_eq!(actual.as_object().unwrap().len(),expected.as_object().unwrap().len());
 }
@@ -109,7 +109,7 @@ async fn compare(cases: &[&str]) {
         for name in ["production.sqlite3","production_queue.sqlite3"] { std::fs::copy(source.join(name),dir.path().join(name)).unwrap(); }
         let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
         // The record directory contains the post-request database. Rebuild the pre-request
-        // row state from the recorder before opening App, retaining the real Rails schema.
+        // row state from the recorder before opening App, retaining the real 2.x schema.
         c.execute_batch("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE").unwrap();
         let before = combined(expected,"before");
         for (table,rows) in before.as_object().unwrap() {
@@ -153,7 +153,7 @@ async fn compare(cases: &[&str]) {
             browser.send_body(&app,step["method"].as_str().unwrap(),step["path"].as_str().unwrap(),Some(body.into()),Csrf::Header,&headers).await
         } else { browser.send(&app,step["method"].as_str().unwrap(),step["path"].as_str().unwrap(),Some(&form),Csrf::Header,&headers).await };
         if ["fx_review_zero","fx_review_negative","fx_string_garbage","fx_string_empty"].contains(&name.as_str()) {
-            // Rulings: invalid or prefix-garbage FX is refused with no effects; Rails falls back or parses a prefix.
+            // Rulings: invalid or prefix-garbage FX is refused with no effects; 2.x falls back or parses a prefix.
             assert_eq!(expected["status"],200);
             assert_eq!(answer.status,422);assert!(answer.body.contains("Currency conversion unavailable"));
             same_rows(snapshot(&c),combined(expected,"before"),&format!("{name}: refused unchanged"));
@@ -176,7 +176,7 @@ async fn compare(cases: &[&str]) {
         } }
         else {
             // Existing web-foundation exception contract: public error file and below-controller
-            // headers. Rails recordings omit their debugging page, which is not production HTML.
+            // headers. 2.x recordings omit their debugging page, which is not production HTML.
             let page = if answer.status == 404 { include_str!("../web/public/404.html") } else if answer.status == 422 { include_str!("../web/public/422.html") } else { include_str!("../web/public/500.html") };
             assert_eq!(answer.body,page,"{name}: public error page");
             assert_eq!(answer.header("content-type"),Some("text/html; charset=utf-8"));

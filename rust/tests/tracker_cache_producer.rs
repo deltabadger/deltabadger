@@ -103,7 +103,7 @@ impl Job for StopWhenDone {
         outcome
     })}
 }
-/// One run fetches every price its walk asks for, inline, as Rails does (no allowance of fetches): the prefetch, then
+/// One run fetches every price its walk asks for, inline, as 2.x does (no allowance of fetches): the prefetch, then
 /// each day's window; the stored prices move the generation, so compute! walks again, asks nothing, and publishes.
 #[tokio::test(flavor="current_thread")]
 async fn a_history_priced_one_day_at_a_time_is_priced_in_one_run(){
@@ -162,7 +162,7 @@ impl Connect for EcbVenues {
     fn connect(&self,_:&deltabadger::crypto::Credentials)->AlpacaVenue<Self::T>{AlpacaVenue::new(ScriptedTransport::from_script(&json!({})),Urls::for_passphrase(Some("paper")))}
     fn ecb(&self)->Option<deltabadger::tracker::fx::Source>{Some(deltabadger::tracker::fx::Source::Scripted(self.0.clone()))}
 }
-/// No data-api configured (the install's provider is CoinGecko): Rails' Tax::EcbFxRates still loads the ECB's rates
+/// No data-api configured (the install's provider is CoinGecko): 2.x's Tax::EcbFxRates still loads the ECB's rates
 /// when they are stale, and so does the ledger job, from the source its venues give it.
 #[tokio::test(flavor="current_thread")]
 async fn the_ecb_is_loaded_with_no_data_api_configured(){
@@ -179,7 +179,7 @@ async fn the_ecb_is_loaded_with_no_data_api_configured(){
     assert_eq!(newest,"2026-09-18");
 }
 
-// S0: which venues hold the page cache back. A deleted key's rows are final history (Rails' `dependent: :nullify`);
+// S0: which venues hold the page cache back. A deleted key's rows are final history (2.x's `dependent: :nullify`);
 // only a key that exists without a current import, over rows, refuses.
 fn binance(c:&rusqlite::Connection)->i64{c.execute("INSERT INTO exchanges(type,name,maker_fee,taker_fee,created_at,updated_at) VALUES('Exchanges::Binance','Binance','0.1','0.1','2026-09-01 00:00:00','2026-09-01 00:00:00')",[]).unwrap();c.last_insert_rowid()}
 fn key(c:&rusqlite::Connection,owner:i64,venue:i64,status:i64)->i64{let cipher=common::seed::cipher();c.execute("INSERT INTO api_keys(user_id,exchange_id,key,secret,status,key_type,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,0,'2026-09-01 00:00:00','2026-09-01 00:00:00')",rusqlite::params![owner,venue,cipher.encrypt("k"),cipher.encrypt("s"),status]).unwrap();c.last_insert_rowid()}
@@ -212,7 +212,7 @@ fn a_refused_publication_is_logged(){
     assert!(out.status.success());
     assert!(String::from_utf8_lossy(&out.stdout).contains("not published: a venue with history has a key but no current import"),"{}",String::from_utf8_lossy(&out.stdout));
 }
-/// A key that synced balances, then was deleted: its balances stay (Rails keeps them too), but no current key produced
+/// A key that synced balances, then was deleted: its balances stay (2.x keeps them too), but no current key produced
 /// them. Today's snapshot, which reads them, is skipped; the ledger cache, which does not, publishes on a fresh pass.
 #[tokio::test(flavor="current_thread")]
 async fn a_deleted_key_with_synced_balances_leaves_the_ledger_publishable(){

@@ -333,7 +333,7 @@ mod action_race {
         f.woke(false).await
     }
 
-    /// MCP paper trading off: a bot on a live Alpaca key starts, as in Rails (the key's mode only picks Alpaca's host).
+    /// MCP paper trading off: a bot on a live Alpaca key starts, as in 2.x (the key's mode only picks Alpaca's host).
     #[tokio::test(flavor="current_thread")]
     async fn start_accepts_a_live_key()->Result {
         let f=Fixture::new().await?;

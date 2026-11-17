@@ -1,5 +1,5 @@
 //! The populated tracker index's regions (pending report, venue filters, tiles, holdings, sync warnings) against the
-//! pages Rails rendered for the same installs (script/rust/pages_tracker_populated.rb). The page itself stays the 501
+//! pages 2.x rendered for the same installs. The page itself stays the 501
 //! until the chart and the record are ported, so the regions are compared one by one, byte for byte.
 mod common;
 #[allow(dead_code)]
@@ -12,7 +12,7 @@ use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::{path::Path, sync::Arc};
 
-/// The Rails page, cut where its regions begin and end.
+/// The 2.x page, cut where its regions begin and end.
 fn v2_regions(body: &str) -> [String; 5] {
     let cut = |from: &str, to: &str| -> String {
         let Some(start) = body.find(from) else { return String::new() };
@@ -27,20 +27,20 @@ fn v2_regions(body: &str) -> [String; 5] {
      cut("<div class=\"widget tracker-holdings", "    <div class=\"tracker-record\""), cut("<div id=\"sync-warnings\" data-turbo-permanent>", "\n    <input data-turbo-permanent id=\"hamburger\"")]
 }
 
-/// The display currencies asked for with no rate held (Rails draws them in dollars; Rust withholds the money).
+/// The display currencies asked for with no rate held (2.x draws them in dollars; Rust withholds the money).
 const NO_RATE: [(&str, &str); 5] = [("populated_fx_unavailable", "€"), ("populated_fx_unavailable_GBP", "£"), ("populated_fx_unavailable_CHF", "Fr."),
                                      ("populated_fx_unavailable_PLN", "zł"), ("populated_fx_unavailable_history", "€")];
 fn no_rate(name: &str) -> bool { NO_RATE.iter().any(|(n, _)| *n == name) }
 
-/// D-TRACKER-FILTER-USER-DAYS: the rows Rails' UTC day takes that the user's local day does not, by their instant (the
+/// D-TRACKER-FILTER-USER-DAYS: the rows 2.x's UTC day takes that the user's local day does not, by their instant (the
 /// fixture placed them so; none sits in the reverse band).
 const OUTSIDE_LOCAL_DAY: [(&str, &str); 2] = [("populated_window_santiago", "2026-09-06 02:00:00"), ("populated_window_magadan", "2014-10-26 20:00:00")];
 
-/// D-TRACKER-FILTER-ISO-ONLY: windows Rails parses and serves (200); Rust answers 400. Every other `populated_bad_` case
-/// is a Rails exception: 500 (D-TRACKER-FILTER-BAD-INPUT, Rust 400) or `exchange_id[a]`'s RecordNotFound (404, parity).
+/// D-TRACKER-FILTER-ISO-ONLY: windows 2.x parses and serves (200); Rust answers 400. Every other `populated_bad_` case
+/// is a 2.x exception: 500 (D-TRACKER-FILTER-BAD-INPUT, Rust 400) or `exchange_id[a]`'s RecordNotFound (404, parity).
 const V2_PARSES: [&str; 3] = ["populated_bad_nov", "populated_bad_compact", "populated_bad_slashes"];
 
-/// Rails' regions with SPEC's never-a-number rule applied (RULING-D5B2B §4), each a listed money divergence: where
+/// 2.x's regions with SPEC's never-a-number rule applied (RULING-D5B2B §4), each a listed money divergence: where
 /// Rust withholds an amount the cell states why, and the holdings card is its reason. Balances that are stale, unpriced
 /// or not produced by the current key withhold what they decide (money in, value, unrealised, total); a display currency
 /// with no rate withholds every amount.
@@ -70,7 +70,7 @@ fn withheld(name: &str, tiles: String, holdings: String) -> (String, String) {
 }
 
 /// PLAN-venue-prices S1, for a page with an unpriced holding: Rust's banner names it and its card lists it with no number;
-/// both are then cut, from Rust's page and Rails' (whose card has no such row), so the rest compares byte for byte.
+/// both are then cut, from Rust's page and 2.x's (whose card has no such row), so the rest compares byte for byte.
 fn unpriced_card(name: &str, ours: &str, theirs: &str) -> (String, String) {
     assert!(ours.contains("<div class=\"widget tracker-notice\" role=\"status\">"), "{name}: the missing-prices banner");
     assert!(ours.contains("<span class=\"tracker-holdings__value\"><span class=\"no-value\">—</span></span>"), "{name}: the unpriced row");
@@ -80,14 +80,14 @@ fn unpriced_card(name: &str, ours: &str, theirs: &str) -> (String, String) {
         format!("{}{}", &page[..start], &page[end..])
     };
     let card = |page: &str| cut(page, "<div class=\"widget tracker-holdings", "</div>\n\n    </div>\n  </div>\n");
-    // The positions table states no price, gain or return for it where Rails states its cost as its value.
+    // The positions table states no price, gain or return for it where 2.x states its cost as its value.
     let v2_cells = "    <td><small>$</small>30,030.00</td>\n    <td class=\"tracker-row__cash\">+<small>$</small>0.00</td>\n    <td class=\"text-success\">+0.0%</td>\n";
     let rust_cells = "    <td></td>\n    <td class=\"tracker-row__cash\"></td>\n    <td title=\"No cost basis for this holding, so no P/L is shown.\"><span class=\"no-value\">—</span></td>\n";
     assert_eq!(theirs.matches(v2_cells).count(), 1, "{name}: 2.x's cost-as-value cells");
     (card(&cut(ours, "<div class=\"widget tracker-notice\"", "</div>\n")), card(&theirs.replacen(v2_cells, rust_cells, 1)))
 }
 
-/// Rails' page with the listed divergences applied (`withheld`), and with no display rate each transaction row's money
+/// 2.x's page with the listed divergences applied (`withheld`), and with no display rate each transaction row's money
 /// stated as unavailable (D5a's rule: never a dollar figure where the reader's currency was asked for).
 fn withheld_page(name: &str, body: &str) -> String {
     let [_, _, tiles, holdings, _] = v2_regions(body);
@@ -96,7 +96,7 @@ fn withheld_page(name: &str, body: &str) -> String {
     if !tiles.is_empty() { out = out.replacen(&tiles, &new_tiles, 1); }
     out = out.replacen(&holdings, &new_holdings, 1);
     if name == "populated_dead" {
-        // The navbar ring withholds balances no current key produced already (S1); Rails draws them.
+        // The navbar ring withholds balances no current key produced already (S1); 2.x draws them.
         let head = out.find("      <circle cx=\"12\" cy=\"12\" r=\"9\" fill=\"none\"\n").unwrap();
         let end = head + out[head..].find("</svg>\n").unwrap();
         out.replace_range(head..end, "    <circle class=\"stroke--icon\" cx=\"12\" cy=\"12\" r=\"9\"\n            fill=\"none\" stroke-width=\"2\"/>\n");
@@ -126,7 +126,7 @@ fn ctx(app: &deltabadger::web::App, c: &Connection, owner: i64, path: &str, toke
     deltabadger::web::layout::Ctx::new(app.clone(), Arc::new(params), session::Session::new(data), auth::Current::SignedIn(Arc::new(user)), "nonce".into(), app.now(), &request)
 }
 
-/// The completed stamps a Rust sync leaves for the keys that read (Rails keeps no provenance).
+/// The completed stamps a Rust sync leaves for the keys that read (2.x keeps no provenance).
 fn stamp(c: &Connection, at: chrono::DateTime<chrono::Utc>) {
     let keys = c.prepare("SELECT id,user_id,exchange_id FROM api_keys WHERE key_type!=1 AND status=1").unwrap()
         .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?))).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
@@ -165,15 +165,15 @@ async fn populated_regions_match_v2() {
         let at: chrono::DateTime<chrono::Utc> = scenario["at"].as_str().unwrap().parse().unwrap();
         stamp(&c, at);
         let owner: i64 = c.query_row("SELECT id FROM users ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap();
-        // The pending report's files, as the scenario's hook wrote them beside Rails.
+        // The pending report's files, as the scenario's hook wrote them beside 2.x.
         let tmp = dir.path().join("tmp");
         let reports = tmp.join("tax_reports");
         std::fs::create_dir_all(&reports).unwrap();
         let csv = reports.join(format!("{owner}_DE_2025_broker.csv"));
         if name == "populated_report_refused" { std::fs::write(format!("{}.refused.json", csv.display()), r#"{"reason":"tokenized_unsupported","symbols":["TSLAx","NVDAx"]}"#).unwrap(); }
         if name == "populated_report_ready" { std::fs::write(&csv, "date,amount\n").unwrap(); }
-        // The ledger the scheduler would have cached by now (none where Rails has none cached either).
-        // The pass writes today's snapshot as Rails' job does; the recorded page read none (Rails' fixture computed the
+        // The ledger the scheduler would have cached by now (none where 2.x has none cached either).
+        // The pass writes today's snapshot as 2.x's job does; the recorded page read none (2.x's fixture computed the
         // ledger alone), so the history the page draws is put back as it was.
         c.execute_batch("CREATE TEMP TABLE kept_whole AS SELECT * FROM portfolio_snapshots; CREATE TEMP TABLE kept_venues AS SELECT * FROM portfolio_venue_snapshots;").unwrap();
         if !matches!(name.as_str(), "populated_cold" | "populated_cold_hidden" | "populated_cold_scope" | "populated_window_cold" | "populated_dead") {
@@ -201,7 +201,7 @@ async fn populated_regions_match_v2() {
         let headers = step["headers"].as_object().unwrap().iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect::<Vec<_>>();
         let answer = browser.send(&app, "GET", step["path"].as_str().unwrap(), None, common::web::Csrf::None, &headers).await;
         if name.starts_with("populated_bad_") {
-            // What Rails did is the recording's (its status, and its exception when it raised); Rust's answer is listed.
+            // What 2.x did is the recording's (its status, and its exception when it raised); Rust's answer is listed.
             let v2_status = expected["status"].as_i64().unwrap();
             let (want_v2, want_rust, page) = if V2_PARSES.contains(&name.as_str()) { (200, 400, include_str!("../web/public/400.html")) }
                 else if name == "populated_bad_exchange_hash" { (404, 404, include_str!("../web/public/404.html")) }

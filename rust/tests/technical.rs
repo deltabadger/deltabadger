@@ -1,5 +1,5 @@
-//! engine::technical against Ticker::TechnicallyAnalyzable as recorded (script/rust/record_indicator_vectors.rb): RSI and
-//! the moving averages to the last digit and Ruby class, the high and low of a window with the timeframe it reads, and the
+//! engine::technical against Ticker::TechnicallyAnalyzable as recorded: RSI and
+//! the moving averages to the last digit and 2.x class, the high and low of a window with the timeframe it reads, and the
 //! all-time high with the `tickers` row it writes, the caches between calls.
 mod common;
 use chrono::{DateTime, Utc};
@@ -68,8 +68,8 @@ fn ticker_named(id: i64, pd: i64) -> Ticker {
 }
 
 /// RSI, SMA and EMA over every recorded series: the candle read's start, then the value and its class, or the Failure.
-/// D-COND-RSI-DEGENERATE: where Rails' RSI is Float NaN (a flat series) Rust answers Rails' too-few-closes Failure; the
-/// recording keeps Rails' NaN and this test names each such case.
+/// D-COND-RSI-DEGENERATE: where 2.x's RSI is Float NaN (a flat series) Rust answers 2.x's too-few-closes Failure; the
+/// recording keeps 2.x's NaN and this test names each such case.
 #[tokio::test(flavor = "current_thread")]
 async fn indicators_match_v2_to_the_last_digit() {
     let f = fixture();
@@ -100,7 +100,7 @@ async fn indicators_match_v2_to_the_last_digit() {
         }
         assert_eq!(outcome(got, |v| encode(&v)), want, "{name}");
     }
-    // Rails' NaN comes only from RSI (the guard above reads `value`, which a moving average never has as NaN) and covers
+    // 2.x's NaN comes only from RSI (the guard above reads `value`, which a moving average never has as NaN) and covers
     // the flat series at every period.
     assert_eq!(degenerate.iter().filter(|n| *n == "flat_30").count(), 5);
     assert_eq!(degenerate.len(), 50, "D-COND-RSI-DEGENERATE cases");
@@ -170,7 +170,7 @@ async fn high_low_and_ath_sequences_match_v2() {
             let r = &step["row"];
             let v2_ath = r["ath"].as_str().map(|s| s.parse::<f64>().unwrap());
             assert_eq!(row(c, ticker.id), serde_json::json!({ "ath_type": r["ath_type"], "ath": v2_ath, "ath_updated_at": r["ath_updated_at"], "updated_at": r["updated_at"] }), "{name}");
-            // The row read back as Rails reads it (Float#to_d of the REAL).
+            // The row read back as 2.x reads it (Float#to_d of the REAL).
             let read = c.query_row("SELECT ath FROM tickers WHERE id = ?1", [ticker.id], |x| Ok(deltabadger::v2::from_sql(x.get_ref(0)?).unwrap())).unwrap();
             assert_eq!(dec(read), r["ath_read"], "{name}");
         }

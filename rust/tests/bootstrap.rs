@@ -4,7 +4,7 @@
 //!   survived (-wal included) ends equal to an uninterrupted bootstrap. Every restart, and the reference, stops at
 //!   `after-claim`, so both sides end at the same point.
 //! - §6 + r6.1: one test per state of the primary and of the queue; refusals leave every file as it was.
-//! - T4: a missing queue is still Missing, on a Rails-built install and on a Rust-born one.
+//! - T4: a missing queue is still Missing, on a 2.x-built install and on a Rust-born one.
 //! - r2.1: handback refuses a Rust-born install and writes nothing. Every other command creates no database file.
 //!
 //! Install-time stamps differ run to run and are masked, exactly these: the seed `now` (every seed stamp, the

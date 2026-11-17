@@ -1,4 +1,4 @@
-//! Rails-free cold figures and complete-page boundary regressions.
+//! 2.x-free cold figures and complete-page boundary regressions.
 use deltabadger::{tracker::figures::page as holdings,web::tracker::{holdings as page,read}};
 use rusqlite::Connection;
 fn db()->Connection {
@@ -76,7 +76,7 @@ fn cold_nullable_asset_labels_are_empty_text_without_losing_value(){
 
 #[test]
 fn cold_figures_need_balances_synced_by_the_current_key(){
-    // Rails has no credential provenance; Rust's navbar already withholds these balances, so the page does too.
+    // 2.x has no credential provenance; Rust's navbar already withholds these balances, so the page does too.
     for case in ["no stamp","incomplete sync","replaced key"]{
         let c=db();
         match case {"no stamp"=>{c.execute("DELETE FROM app_configs",[]).unwrap();},"incomplete sync"=>stamp(&c,false),_=>{c.execute("UPDATE api_keys SET secret='replaced'",[]).unwrap();}}

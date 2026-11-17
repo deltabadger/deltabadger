@@ -40,7 +40,7 @@ fn takeover_claims_the_install_removes_its_bots_v2_jobs_drops_the_rest_and_unsti
     }
 }
 
-/// PLAN-B2 R3 (D-UPGRADE-SET-ASIDE): a working bot this build refuses is stopped with its reasons, its Rails job goes as
+/// PLAN-B2 R3 (D-UPGRADE-SET-ASIDE): a working bot this build refuses is stopped with its reasons, its 2.x job goes as
 /// for every bot the engine now owns, and the install is taken over.
 #[test]
 fn an_ineligible_working_bot_is_set_aside_and_the_install_is_taken_over() {
@@ -154,7 +154,7 @@ async fn a_completed_handback_is_adopted_by_v2() {
 /// install's files, with the test cipher's keys, and reports whether it started.
 fn v2_boot(dir: &std::path::Path) -> (bool, String) { v2_boot_running(dir, "") }
 
-/// `v2_boot`, running `script` (Ruby) in the booted app.
+/// `v2_boot`, running `script` (2.x) in the booted app.
 fn v2_boot_running(dir: &std::path::Path, script: &str) -> (bool, String) {
     let scratch = tempfile::tempdir().unwrap();
     std::fs::write(scratch.path().join("script.rb"), format!("{script}\nputs :booted\n")).unwrap(); // a file, so a raise shows its backtrace
@@ -168,7 +168,7 @@ fn v2_on(dir: &std::path::Path, scratch: &std::path::Path, args: &[&str]) -> std
     common::v2::v2(dir, scratch, "engine-test-secret", args)
 }
 
-/// Rails runs on an install Rust migrated: it ignores rust_schema_migrations and Rust's tables in db:migrate,
+/// 2.x runs on an install Rust migrated: it ignores rust_schema_migrations and Rust's tables in db:migrate,
 /// db:migrate:status and a boot after a handback, and leaves them as they were.
 #[tokio::test(flavor = "current_thread")]
 async fn v2_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
@@ -378,8 +378,8 @@ async fn crash_then_handback(raised: bool) {
 }
 
 /// A settled order deferred the next buy to the next weekly checkpoint, then the engine died and the operator handed back.
-/// The handback removes the engine's key; Rails' own adoption re-arms the bot at next_interval_checkpoint_at, which is that
-/// checkpoint, so Rails does not buy the remainder early either.
+/// The handback removes the engine's key; 2.x's own adoption re-arms the bot at next_interval_checkpoint_at, which is that
+/// checkpoint, so 2.x does not buy the remainder early either.
 #[tokio::test(flavor = "current_thread")]
 async fn a_deferral_crash_then_handback_then_v2_tick_buys_nothing_before_the_next_checkpoint() {
     if !common::v2::enabled() { return; }
@@ -390,7 +390,7 @@ async fn a_deferral_crash_then_handback_then_v2_tick_buys_nothing_before_the_nex
     let o = store::open(&p).unwrap();
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());
     let b = seed::insert_bot(&o.primary, &s, &BotSpec { status: 5, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
-    o.primary.execute("UPDATE bots SET label = 'Bitcoin' WHERE id = ?1", [b]).unwrap(); // Rails loads it: Labelable needs one
+    o.primary.execute("UPDATE bots SET label = 'Bitcoin' WHERE id = ?1", [b]).unwrap(); // 2.x loads it: Labelable needs one
     placement::defer_to_next_checkpoint(&o.primary, &model::load_bot(&o.primary, b).unwrap(), at).unwrap();
     assert_eq!(model::load_bot(&o.primary, b).unwrap().rust_defer_until_us().unwrap(), Some("2026-09-08T10:00:00Z".parse::<DateTime<Utc>>().unwrap().timestamp_micros()));
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", at).unwrap();
@@ -399,7 +399,7 @@ async fn a_deferral_crash_then_handback_then_v2_tick_buys_nothing_before_the_nex
     assert_eq!(bot.status, deltabadger::enums::BotStatus::Scheduled);
     assert!(bot.transient.get("rust_defer_until").is_none(), "the engine's key does not reach 2.x");
     drop((l, o));
-    // Rails boots, adopts the handback, and its repair sweep (run here at the handback's time) re-arms the bot.
+    // 2.x boots, adopts the handback, and its repair sweep (run here at the handback's time) re-arms the bot.
     let (booted, err) = v2_boot_running(dir.path(),
         "require 'active_support/testing/time_helpers'\ninclude ActiveSupport::Testing::TimeHelpers\ntravel_to(Time.utc(2026, 9, 1, 10, 30)) { Bot::RepairOrphanedBotsJob.perform_now }");
     assert!(booted, "{err}");
@@ -436,7 +436,7 @@ fn a_stale_catalog_is_noted_at_a_v2_takeover_and_at_an_engine_owned_restart() ->
     let paths = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&paths, now()).map_err(|e| format!("{e:?}"))?;
     o.primary.execute("UPDATE exchange_assets SET updated_at = '2020-01-01 00:00:00'", [])?;
-    // D-UPGRADE-FRESHNESS-AT-TICK: the takeover from Rails admits it; the tick refuses the bot (below).
+    // D-UPGRADE-FRESHNESS-AT-TICK: the takeover from 2.x admits it; the tick refuses the bot (below).
     let first = handover::take_over(&lock, &o, &seed::cipher(), "test", now()).map_err(|e| format!("{e:?}"))?;
     assert_eq!(first.eligible, vec![bot]);
     let takeover = handover::take_over(&lock, &o, &seed::cipher(), "test", now()).map_err(|e| format!("{e:?}"))?;
@@ -469,8 +469,8 @@ fn an_index_bots_v2_jobs_are_removed_at_takeover() {
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0);
 }
 
-/// Slice 7a: a bot resting on its price rule is handed over as it rests. Takeover drops Rails' check chain and leaves it
-/// `waiting` (the engine checks it); handback leaves it `waiting`, and Rails' adoption restarts its check chain, where
+/// Slice 7a: a bot resting on its price rule is handed over as it rests. Takeover drops 2.x's check chain and leaves it
+/// `waiting` (the engine checks it); handback leaves it `waiting`, and 2.x's adoption restarts its check chain, where
 /// `scheduled` would trade it at the next checkpoint whatever the price.
 #[tokio::test(flavor = "current_thread")]
 async fn a_price_paused_bot_is_handed_over_paused_and_v2_restarts_its_check() {
@@ -499,10 +499,10 @@ async fn a_price_paused_bot_is_handed_over_paused_and_v2_restarts_its_check() {
     assert!(booted, "{err}");
 }
 
-/// Plan CI T3b: a Bot::ResyncIndexCompositionJob Rails has not finished (ready, scheduled or claimed; a failed one is over)
+/// Plan CI T3b: a Bot::ResyncIndexCompositionJob 2.x has not finished (ready, scheduled or claimed; a failed one is over)
 /// becomes its bot's `rust_index_resync` marker at takeover, for a created or stopped index bot too, never for an archived
 /// one; a takeover repeated after a crash between the marker and the delete marks again. At handback the markers stay: a
-/// Rust reclaim finds them, and Rails' adoption enqueues one job per marked bot however many handbacks came first.
+/// Rust reclaim finds them, and 2.x's adoption enqueues one job per marked bot however many handbacks came first.
 #[tokio::test(flavor = "current_thread")]
 async fn v2_pending_resyncs_become_markers_at_takeover_and_v2_adopts_them_once_after_handbacks() {
     if !common::v2::enabled() { return; }
@@ -537,7 +537,7 @@ async fn v2_pending_resyncs_become_markers_at_takeover_and_v2_adopts_them_once_a
 
     handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
     assert_eq!((n(created), n(stopped)), (Some(1), Some(3)), "kept for 2.x");
-    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap(); // a Rust reclaim before Rails booted
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap(); // a Rust reclaim before 2.x booted
     assert_eq!((n(created), n(stopped)), (Some(1), Some(3)), "found intact");
     handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
     drop((l, o));
@@ -573,7 +573,7 @@ fn insert_row(c: &rusqlite::Connection, table: &str, row: &serde_json::Map<Strin
     c.execute(&sql, rusqlite::params_from_iter(values)).unwrap();
 }
 
-/// Rails' recorded Bot::SignalJob `name` in the queue, with its execution row, as script/rust/record_signal_jobs.rb left it.
+/// 2.x's recorded Bot::SignalJob `name` in the queue, with its execution row, as the recording harness left it.
 fn queue_signal_job(q: &rusqlite::Connection, fixture: &serde_json::Value, name: &str) {
     let job = &fixture["jobs"][name];
     insert_row(q, "solid_queue_jobs", job["row"].as_object().unwrap());
@@ -618,8 +618,8 @@ fn imported(fixture: &serde_json::Value, name: &str) -> model::SignalCall {
                         triggered_at: job["triggered_at"].as_str().unwrap().parse().unwrap() }
 }
 
-/// §R1: every waiting job becomes its bot's call, in queue order, with the triggered_at Rails deserializes; a job whose rule
-/// or bot is gone becomes none (discard_on); a finished one stays Rails' record. A failed one may have placed its order: it
+/// §R1: every waiting job becomes its bot's call, in queue order, with the triggered_at 2.x deserializes; a job whose rule
+/// or bot is gone becomes none (discard_on); a finished one stays 2.x's record. A failed one may have placed its order: it
 /// becomes the bot's marker (r3.1, D-UPGRADE-CLAIMED-SIGNAL). The calls commit with the claim, then the rows go, then the
 /// import set empties.
 #[test]
@@ -649,7 +649,7 @@ fn v2_signal_jobs_become_the_engines_calls_and_leave_the_queue() {
 async fn a_crash_between_the_import_and_the_delete_imports_nothing_twice_and_runs_nothing_meanwhile() {
     let (_dir, l, o, fixture, _) = signal_install(&["ready", "blocked", "rule_removed"]);
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
-    // The state step 1 leaves: the calls and the set committed, Rails' rows still queued.
+    // The state step 1 leaves: the calls and the set committed, 2.x's rows still queued.
     for name in ["ready", "blocked", "rule_removed"] { queue_signal_job(&o.queue, &fixture, name); }
     let ids: Vec<String> = ["ready", "blocked", "rule_removed"].iter().map(|n| job_id(&fixture, n)).collect();
     deltabadger::app_config::set_plain(&o.primary, handover::SIGNAL_IMPORT_KEY, &json!(ids).to_string(), now()).unwrap();
@@ -708,7 +708,7 @@ fn claimed_and_failed_signal_jobs_become_one_marker_and_a_line_each() {
     assert!(signal_calls_of(&o).is_empty() && job_ids(&o.queue).is_empty());
 }
 
-/// §R10's takeover case: Rails' marker of an ambiguous send and one queued job. The imported call places nothing and
+/// §R10's takeover case: 2.x's marker of an ambiguous send and one queued job. The imported call places nothing and
 /// expires at 300 s + 1 µs with its line.
 #[tokio::test(flavor = "current_thread")]
 async fn an_imported_call_behind_v2_marker_places_nothing_and_expires() {
@@ -801,7 +801,7 @@ fn snapshot_bots(o: &store::Opened) -> Vec<(i64, i64, String, String)> {
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap().map(Result::unwrap).collect()
 }
 
-/// D-HANDBACK-RUST-CONDITIONS: Rails' DcaIndex never reads a spending cap or a trigger rule, so while an index bot has one
+/// D-HANDBACK-RUST-CONDITIONS: 2.x's DcaIndex never reads a spending cap or a trigger rule, so while an index bot has one
 /// on that this engine runs, the handback is refused by bot and switch, before anything is handed back: the lease stays
 /// Rust's, a signal bot's waiting call is not consumed, and the switches and met_at stay as they are. Off, it hands back.
 #[tokio::test(flavor = "current_thread")]
@@ -962,7 +962,7 @@ fn withdrawal_cli_migrates_and_seeds_before_any_takeover() {
     assert!(lease::read(&c,&seed::cipher()).unwrap().is_none(),"resolution does not take ownership");
 }
 
-/// D-KUCOIN-HF-LEDGER: a KuCoin history the HF migration marked is Rust's (Rails reads neither HF fills nor the one-trade
+/// D-KUCOIN-HF-LEDGER: a KuCoin history the HF migration marked is Rust's (2.x reads neither HF fills nor the one-trade
 /// rule), through a later ClassicLf too: the marker alone refuses the handback, before and inside its transaction.
 #[tokio::test(flavor = "current_thread")]
 async fn an_hf_enabled_kucoin_history_refuses_the_handback_and_a_classic_only_one_hands_back() {
@@ -1001,7 +1001,7 @@ fn every_v2_job_class_has_an_outcome() {
     assert_eq!(handover::v2_work("Some::FutureJob"), handover::V2Work::Dropped, "an unknown class is dropped, never a hard stop");
 }
 
-// ---- PLAN-B2 B2-6a: Rails' queued money work at a takeover ---------------------------------------------------------------
+// ---- PLAN-B2 B2-6a: 2.x's queued money work at a takeover ---------------------------------------------------------------
 
 /// A queue row of `class` with ActiveJob's serialized `arguments` (Q5), in execution state `exec` (ready, scheduled,
 /// blocked, claimed, failed). Returns its row id.
@@ -1077,8 +1077,8 @@ fn a_queue_with_every_v2_job_class_gets_each_rows_outcome() {
             "Bot::StopJob" => json!([gid(b), { "stop_message_key": "bot.settings.extra_amount_limit.amount_spent", "_aj_ruby2_keywords": ["stop_message_key"] }]),
             "Rule::ExecuteJob" => json!([{ "_aj_globalid": "gid://deltabadger/Rules::Withdrawal/99" }]),
             "ApiKeyValidatorJob" => json!([s.api_key_id]),
-            "Ibkr::GenerateConnectionKeysJob" => json!([999]), // no such key: Rails' job returns
-            // Enqueued with the Asset itself (sync_alpaca_assets_job.rb:166), as ActiveJob serialises a record.
+            "Ibkr::GenerateConnectionKeysJob" => json!([999]), // no such key: 2.x's job returns
+            // Enqueued with the Asset itself, as ActiveJob serialises a record.
             "Asset::FetchDataFromCoingeckoJob" | "Asset::InferColorFromImageJob" => json!([{ "_aj_globalid": format!("gid://deltabadger/Asset/{asset}") }]),
             _ if matches!(work, V2Work::WakeUnscoped(_)) => json!([{ "jitter": true, "_aj_ruby2_keywords": ["jitter"] }]),
             _ if matches!(work, V2Work::Wake(_)) => json!([s.user_id]),
@@ -1103,15 +1103,15 @@ fn a_queue_with_every_v2_job_class_gets_each_rows_outcome() {
                                   (asset_color::NAME.to_string(), asset.to_string()), (TICKERS.to_string(), String::new()),
                                   (setup_sync::NAME.to_string(), String::new())]);
     assert!(deltabadger::app_config::get_plain(&o.primary, setup_sync::REQUEST).unwrap().is_some(), "a taken SeedAndSyncJob is a setup request");
-    // The waiting signal job names a basket, not a signal bot: Rails' discard, through the import set.
+    // The waiting signal job names a basket, not a signal bot: 2.x's discard, through the import set.
     assert_eq!(t.dropped_jobs, dropped);
     assert_eq!(stopped_with(&o.primary, b), (2, Some("bot.settings.extra_amount_limit.amount_spent".into())), "Bot::StopJob ran");
     assert_eq!(bot_events(&o.primary, b).iter().filter(|e| *e == handover::UPGRADE_COMMAND_DROPPED).count(), 5, "one line per command");
     assert!(!bot_events(&o.primary, b).iter().any(|e| e == handover::UPGRADE_ORDER_UNRECORDED), "a waiting ActionJob is no ambiguity");
 }
 
-/// r3.1 (D-UPGRADE-V2-AMBIGUITY-INHERITED): Rails' own ambiguity (placement_ambiguous, the successor scheduled) is
-/// inherited as Rails leaves it: the successor goes, the bot gets one line (C12), and it trades again.
+/// r3.1 (D-UPGRADE-V2-AMBIGUITY-INHERITED): 2.x's own ambiguity (placement_ambiguous, the successor scheduled) is
+/// inherited as 2.x leaves it: the successor goes, the bot gets one line (C12), and it trades again.
 #[tokio::test(flavor = "current_thread")]
 async fn a_completed_ambiguous_action_job_is_inherited_with_a_line_and_trading_resumes() {
     let (dir, l, o, _s, b) = dca_install();
@@ -1152,7 +1152,7 @@ fn a_claimed_or_failed_action_job_leaves_one_line_once() {
     }
 }
 
-/// r5-3: a claimed or failed RebalanceJob is behind Rails' own barrier (rebalance_pending): the row goes, the barrier stays,
+/// r5-3: a claimed or failed RebalanceJob is behind 2.x's own barrier (rebalance_pending): the row goes, the barrier stays,
 /// so no leg is placed again until the pending swap is settled; and no C12 line.
 #[test]
 fn a_claimed_or_failed_rebalance_job_keeps_v2_barrier() {
@@ -1190,7 +1190,7 @@ fn a_failed_only_signal_job_becomes_the_marker() {
     assert!(signal_calls_of(&o).is_empty() && job_ids(&o.queue).is_empty());
 }
 
-/// r6 fork A: a claimed or failed job on a bot that already holds a marker (Rails') or an unresolved intent (this
+/// r6 fork A: a claimed or failed job on a bot that already holds a marker (2.x's) or an unresolved intent (this
 /// engine's) is a hard stop naming the bot: the existing marker is never overwritten, and nothing is written.
 #[test]
 fn a_failed_signal_job_beside_a_marker_or_an_intent_is_a_hard_stop() {
@@ -1263,7 +1263,7 @@ fn a_claimed_liquidation_halts_on_its_marker_or_leaves_a_line() {
     }
 }
 
-/// r6 fork A: an unfinished FetchAndCreateOrderJob holds an order Rails placed and never recorded: a hard stop naming the
+/// r6 fork A: an unfinished FetchAndCreateOrderJob holds an order 2.x placed and never recorded: a hard stop naming the
 /// bot and the order id, and nothing is written.
 #[test]
 fn a_fetch_and_create_order_job_is_a_hard_stop_naming_the_order() {
@@ -1311,7 +1311,7 @@ fn the_takeovers_lines_read_in_plain_words() {
     }
 }
 
-/// Codex B2-6a P1: a handback after a crash between the claim and the queue delete finishes the queue first, so Rails is
+/// Codex B2-6a P1: a handback after a crash between the claim and the queue delete finishes the queue first, so 2.x is
 /// never handed a row the takeover already acted on (a StopJob run twice, a dropped command run after all).
 #[tokio::test(flavor = "current_thread")]
 async fn a_handback_after_a_crash_before_the_queue_delete_hands_v2_none_of_those_rows() {
@@ -1327,7 +1327,7 @@ async fn a_handback_after_a_crash_before_the_queue_delete_hands_v2_none_of_those
     assert_eq!(deltabadger::app_config::get_plain(&o.primary, handover::QUEUE_DONE_KEY).unwrap(), None);
 }
 
-/// Codex B2-6a P1: a soft-deleted bot's exchange order is still on the exchange, and Rails' job would still record it: a
+/// Codex B2-6a P1: a soft-deleted bot's exchange order is still on the exchange, and 2.x's job would still record it: a
 /// hard stop, as for any bot. Only a bot whose row is gone has nothing to record into.
 #[test]
 fn a_fetch_and_create_order_job_of_a_deleted_bot_is_still_a_hard_stop() {
@@ -1339,7 +1339,7 @@ fn a_fetch_and_create_order_job_of_a_deleted_bot_is_still_a_hard_stop() {
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 1);
 }
 
-/// Codex B2-6a P2: Rails' own ambiguity is read before the takeover writes its lines (a dropped command's here), so a
+/// Codex B2-6a P2: 2.x's own ambiguity is read before the takeover writes its lines (a dropped command's here), so a
 /// takeover line never hides it.
 #[test]
 fn v2_last_ambiguity_still_gets_its_line_beside_a_dropped_command() {
@@ -1351,7 +1351,7 @@ fn v2_last_ambiguity_still_gets_its_line_beside_a_dropped_command() {
     assert!(lines.contains(&handover::UPGRADE_COMMAND_DROPPED.to_string()) && lines.contains(&handover::UPGRADE_ORDER_UNRECORDED.to_string()), "{lines:?}");
 }
 
-// ---- PLAN-B2 B2-6b: Rails' wakes, IBKR keys -----------------------------------------------------------------------------
+// ---- PLAN-B2 B2-6b: 2.x's wakes, IBKR keys -----------------------------------------------------------------------------
 
 use deltabadger::sync::jobs::API_KEY_VALIDATOR;
 use deltabadger::tracker::jobs::{PORTFOLIO_BACKFILL, TRACKER_LEDGER};
@@ -1395,7 +1395,7 @@ fn v2_wake_rows_become_one_journal_entry_each_woken_until_their_job_runs() {
     deltabadger::jobs::state::record_success(&o.primary, TRACKER_LEDGER, Some(&user.to_string()), now()).unwrap();
     assert_eq!(handover::due_v2_wakes(&o.primary, now()).unwrap(), due(&all[1..]));
     assert_eq!(wake_journal(&o), all[1..]);
-    // The key is gone (Rails' job would fail on it): dropped.
+    // The key is gone (2.x's job would fail on it): dropped.
     o.primary.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
     assert_eq!(handover::due_v2_wakes(&o.primary, now()).unwrap(), due(&all[1..2]));
 }
@@ -1447,7 +1447,7 @@ impl deltabadger::sync::jobs::Connect for Egress {
     fn key_check_egress(&self, _: &str, _: Option<String>) -> Result<(String, reqwest::Client), String> { Ok((self.0.clone(), reqwest::Client::builder().no_proxy().build().unwrap())) }
 }
 
-/// A wake row Rails queued after an earlier takeover (a handback, Rails ran again) is new work: its entry takes the new
+/// A wake row 2.x queued after an earlier takeover (a handback, 2.x ran again) is new work: its entry takes the new
 /// takeover's time, so a run before it does not count, though the old entry was still journalled.
 #[test]
 fn a_wake_row_queued_after_an_earlier_takeover_is_owed_a_new_run() {
@@ -1493,7 +1493,7 @@ fn names(row: &str, literal: &str) -> bool {
 }
 
 /// PLAN-B2 r1.10: every piece of Rust-only state has exactly one handback outcome in handover::HANDBACK_STATE, built from the
-/// code: every table Rust's migrations create that 2.x's db/schema.rb lacks, every `"rust_…"` key in src/, every activity
+/// code: every table Rust's migrations create that 2.x's schema lacks, every `"rust_…"` key in src/, every activity
 /// event the takeover writes. A row naming nothing the code still has fails too.
 #[test]
 fn every_rust_only_state_has_a_handback_outcome() {
@@ -1501,7 +1501,7 @@ fn every_rust_only_state_has_a_handback_outcome() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let rows: std::collections::BTreeSet<&str> = HANDBACK_STATE.iter().map(|(_, name, _)| *name).collect();
     assert_eq!(rows.len(), HANDBACK_STATE.len(), "a state listed twice");
-    // 2.x's tables: rust/schema/baseline.sql is db/schema.rb as 2.70.21 loads it (B1).
+    // 2.x's tables: rust/schema/baseline.sql is 2.x's schema as 2.70.21 loads it (B1).
     let schema = std::fs::read_to_string(root.join("schema/baseline.sql")).unwrap();
     let v2: std::collections::BTreeSet<String> = regex::Regex::new(r#"CREATE TABLE "([a-z_0-9]+)""#).unwrap()
         .captures_iter(&schema).map(|m| m[1].to_string()).collect();
@@ -1664,7 +1664,7 @@ async fn a_handback_keeps_rust_state_for_a_reclaim_and_2x_shows_rust_texts_untra
     assert_eq!(held(&o.primary), keys.len(), "the handback keeps what it hands back");
     drop((l, o));
 
-    // `check` reads the result as handed back: nothing to refuse, the lease Rails' to adopt.
+    // `check` reads the result as handed back: nothing to refuse, the lease 2.x's to adopt.
     let check = Command::new(env!("CARGO_BIN_EXE_deltabadger")).arg("check").env("STORAGE_DIR", dir.path()).env("SECRET_KEY_BASE", "engine-test-secret")
         .env("IBKR_CATALOGUE_URL", "off").env_remove("DATABASE_PATH").env_remove("QUEUE_DATABASE_PATH").env_remove("DATABASE_URL")
         .env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT").output().unwrap();
@@ -1682,7 +1682,7 @@ async fn a_handback_keeps_rust_state_for_a_reclaim_and_2x_shows_rust_texts_untra
     let out = v2_on(dir.path(), scratch.path(), &["runner", "/x/render.rb"]);
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(out.status.success() && stdout.contains("rendered"), "2.x raises on a Rust-only text: {}\n{stdout}", String::from_utf8_lossy(&out.stderr));
-    // D-HANDBACK-RUST-TEXT: no raise, a missing translation (an inherited display gap; no Rails polish).
+    // D-HANDBACK-RUST-TEXT: no raise, a missing translation (an inherited display gap; no 2.x polish).
     let line = |prefix: &str| stdout.lines().find(|l| l.starts_with(prefix)).unwrap_or_else(|| panic!("{prefix}: {stdout}")).to_lowercase();
     assert!(line(&format!("STATUS {aside} ")).contains("translation missing: en.bot.status.set_aside"), "{stdout}");
     for event in [handover::UPGRADE_SIGNAL_UNRESOLVED, handover::UPGRADE_COMMAND_DROPPED, handover::UPGRADE_ORDER_UNRECORDED] {
@@ -1721,7 +1721,7 @@ fn unscoped_and_asset_wakes_replay_until_their_job_runs() {
     assert!(handover::due_v2_wakes(&o.primary, now()).unwrap().is_empty(), "the asset is gone");
 }
 
-// ---- A28-1: Rails' unrecorded-order candidates (engine::v2_unrecorded) ----------------------------------------------
+// ---- A28-1: 2.x's unrecorded-order candidates (engine::v2_unrecorded) ----------------------------------------------
 
 fn unrecorded_refs(c: &rusqlite::Connection) -> Vec<i64> {
     let mut s = c.prepare("SELECT source_ref FROM rust_rails_unrecorded ORDER BY id").unwrap();
@@ -1732,8 +1732,8 @@ fn line_id(c: &rusqlite::Connection, bot: i64, at: DateTime<Utc>) -> i64 {
     c.last_insert_rowid()
 }
 
-/// r4.1, r5.1: the takeover from Rails collects what Rails wrote; a restart collects nothing; after a handback that Rails
-/// adopted (its boot deletes the lease, so the reclaim reads FromV2) only what Rails wrote after the handback is
+/// r4.1, r5.1: the takeover from 2.x collects what 2.x wrote; a restart collects nothing; after a handback that 2.x
+/// adopted (its boot deletes the lease, so the reclaim reads FromV2) only what 2.x wrote after the handback is
 /// collected, never this engine's own lines from before it.
 #[tokio::test(flavor = "current_thread")]
 async fn v2_unrecorded_candidates_are_collected_per_v2_ownership_only() {
@@ -1746,7 +1746,7 @@ async fn v2_unrecorded_candidates_are_collected_per_v2_ownership_only() {
     assert_eq!(unrecorded_refs(&o.primary), [first], "a restart collects nothing");
     let back = now() + chrono::Duration::hours(3);
     handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(back)).await.unwrap();
-    o.primary.execute("DELETE FROM app_configs WHERE key = 'engine_lease'", []).unwrap(); // Rails adopts the handback
+    o.primary.execute("DELETE FROM app_configs WHERE key = 'engine_lease'", []).unwrap(); // 2.x adopts the handback
     let v2 = line_id(&o.primary, b, back + chrono::Duration::hours(1));
     let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", back + chrono::Duration::hours(2)).unwrap();
     assert!(matches!(t.claim, Claim::FromV2));

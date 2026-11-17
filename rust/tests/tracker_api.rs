@@ -1,5 +1,5 @@
 //! PLAN-A11, Rust-only: the tracker through REST and MCP against the web form for the same input, its lock, its guard, the
-//! wakes after a commit, and the bounds Rails has none of (D-EXPORT-SIZE, D-MCP-LIST-TEXT). The Rails parity is the page
+//! wakes after a commit, and the bounds 2.x has none of (D-EXPORT-SIZE, D-MCP-LIST-TEXT). The 2.x parity is the page
 //! grid's `api_tracker_*` and the control grid's `tracker_*` scenarios.
 mod common;
 use axum::{body::{to_bytes, Body}, http::Request};
@@ -203,7 +203,7 @@ async fn wakes_follow_commits_on_both_surfaces() {
     step(vec![]);
 }
 
-/// D-EXPORT-SIZE: past 4 MB the export is refused on both surfaces (Rails builds any size).
+/// D-EXPORT-SIZE: past 4 MB the export is refused on both surfaces (2.x builds any size).
 #[tokio::test(flavor = "current_thread")]
 async fn an_export_past_four_megabytes_is_refused() {
     let (_dir, c, owner, app, _b) = install();

@@ -1,4 +1,4 @@
-//! E0 G0: durable transaction boundaries, Rails evidence, and money fences. No sockets.
+//! E0 G0: durable transaction boundaries, 2.x evidence, and money fences. No sockets.
 mod common;
 use deltabadger::{
     crypto::{Cipher, EncryptionKeys},
@@ -1418,7 +1418,7 @@ async fn engine_steps_with_unreadable_rule(status: i64) {
     let cipher = common::seed::cipher();
     let seed = common::seed::seed_kraken(&opened.primary, &cipher);
     opened.primary.execute("INSERT INTO rules(id,user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES(1,?1,'Rules::Withdrawal',?2,?3,?4,?5,'{}',?6,?6)", params![seed.user_id,status,seed.exchange_id,seed.btc,old_address(),now().to_rfc3339()]).unwrap();
-    // A ready Rails ExecuteJob for the unreadable rule is imported before the first engine pass.
+    // A ready 2.x ExecuteJob for the unreadable rule is imported before the first engine pass.
     let queue = Db::new();
     queue.job("old-key-job", false, false);
     let tx = deltabadger::engine::model::immediate(&opened.primary).unwrap();
@@ -1945,7 +1945,7 @@ async fn kraken_quote_over_budget_or_threshold_refuses_before_send() {
         assert_eq!(kraken_sends(&t), 0);
     }
 }
-/// D-RULE-{KRAKEN,BINANCE,MEXC,GEMINI}-NO-LIVE-FIXTURE: the four venues Rails withdraws on (less Binance.US,
+/// D-RULE-{KRAKEN,BINANCE,MEXC,GEMINI}-NO-LIVE-FIXTURE: the four venues 2.x withdraws on (less Binance.US,
 /// D-RULE-BINANCE-US-UNSUPPORTED) send, each from its offline G0 evidence, with the fee semantics unknown.
 #[test]
 fn l_venues_capability_is_enabled_with_unknown_fee_semantics() {
@@ -2050,13 +2050,13 @@ impl<V: Venue, F: Fn(deltabadger::crypto::Credentials) -> V> deltabadger::venue:
     }
 }
 /// The venue code "BTC" names the asset whose symbol is "BITCOIN": the balance must be read by the venue's own code, as
-/// Rails' get_balance(asset_id:) reads it (a mapping like RONIN → RON on Binance).
+/// 2.x's get_balance(asset_id:) reads it (a mapping like RONIN → RON on Binance).
 fn btc_pairs() -> deltabadger::venue::binance::Pairs {
     deltabadger::venue::binance::Pairs { assets: [("BTC".into(), "BITCOIN".into())].into(), ..Default::default() }
 }
 
 /// L-Binance, L-MEXC, L-Gemini: an active rule runs through `run::step` with the real adapter. Above the threshold it
-/// sends once, reserving the fee (fee_on_top None); below it, Rails' pending row and nothing sent.
+/// sends once, reserving the fee (fee_on_top None); below it, 2.x's pending row and nothing sent.
 async fn l_engine_threshold<V: Venue>(class: &'static str, below: bool, factory: impl Fn(&ScriptedTransport, deltabadger::crypto::Credentials) -> V) {
     use deltabadger::{engine::run, lease, store::{self, Paths}};
     let (name, network, send, accepted, venue_id) = match class {
@@ -2298,7 +2298,7 @@ async fn kraken_method_is_immutable_and_an_entry_without_one_is_selected() {
         &json!({"error":[],"result":[{"address":"destination","key":"cold","verified":true}]}),
     )
     .unwrap();
-    // Rails lists an entry without a method too (kraken.rb:477); it is selected with no method to filter the lookup by.
+    // 2.x lists an entry without a method too; it is selected with no method to filter the lookup by.
     assert!(matches!(v::select(
         v::Kind::Kraken,
         "XBT",

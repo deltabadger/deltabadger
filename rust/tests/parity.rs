@@ -2,8 +2,8 @@
 use std::path::{Path, PathBuf};
 use common::decisions::{built_grid, copy_dir, r5_cleanup_expected, v2};
 
-/// Grid variants where Rust deliberately decides otherwise than Rails, each asserted on its own terms below.
-/// add_service_unavailable: AddOrder answered EService:Unavailable may still have been placed. Rails writes a failed
+/// Grid variants where Rust deliberately decides otherwise than 2.x, each asserted on its own terms below.
+/// add_service_unavailable: AddOrder answered EService:Unavailable may still have been placed. 2.x writes a failed
 /// row; Rust keeps the intent and settles it by cl_ord_id recovery, as for a lost reply.
 const DIVERGENCES: [&str; 1] = ["add_service_unavailable"];
 
@@ -28,7 +28,7 @@ fn rust_kept_the_intent(dir: &Path, rust_out: &serde_json::Value) -> Result<(), 
 /// Both grids' `-unreadable_{price,placed,poll}_{nan,infinity,garbage}` variants: a venue number that is "NaN", "Infinity" or
 /// "garbage", in a price, in the placement's answer (Kraken: the placed order's first poll) and in a fill poll. Rust
 /// refuses every one as an unreadable answer (v2::json_to_d): a price fails the tick with no order (retried); the Alpaca
-/// placement answer keeps the intent for recovery; a poll changes no row and records no fill. What Rails did, recorded
+/// placement answer keeps the intent for recovery; a poll changes no row and records no fill. What 2.x did, recorded
 /// from the grid (Kraken parses with honeymaker's strict BigDecimal(), Alpaca with String#to_d):
 /// - price, garbage: both venues read 0 and raise their own "Wrong ask/last price … 0.0": retried, no order (only the
 ///   message differs from Rust's).
@@ -66,7 +66,7 @@ fn unreadable_number_refused(name: &str, dir: &Path, v2_out: &serde_json::Value,
     if ok { Ok(()) } else { Err(format!("Rust must refuse the number as unreadable: {rust_out}")) }
 }
 
-/// D-BELOW-MIN-REJECTION: Kraken refuses the order as under its minimum ("EOrder:Order minimum not met"). Rails writes a
+/// D-BELOW-MIN-REJECTION: Kraken refuses the order as under its minimum ("EOrder:Order minimum not met"). 2.x writes a
 /// failed row; Rust sends the same order and reports the leg as the pre-check reports one it skips: one skipped row, an
 /// order_skipped line, no failure.
 fn below_minimum_skipped(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
@@ -97,7 +97,7 @@ async fn v2_and_rust_decide_identically_across_the_scenario_grid() {
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(v2_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), 333, "the grid has {} scenarios", dirs.len());
-    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before 2.x writes to its copies
     v2(&["record", v2_root.path().to_str().unwrap()]);
 
     let mut failures = vec![];
@@ -120,7 +120,7 @@ async fn v2_and_rust_decide_identically_across_the_scenario_grid() {
         }
         if v2_out != rust_out { failures.push(format!("{name}\n  2.x: {v2_out}\n  rust:  {rust_out}")); }
     }
-    // The mails are part of what is compared; pin what Rails enqueues, so that two silent sides cannot pass. Checked
+    // The mails are part of what is compared; pin what 2.x enqueues, so that two silent sides cannot pass. Checked
     // before the comparison's own verdict, so it holds even while other scenarios differ.
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -129,7 +129,7 @@ async fn v2_and_rust_decide_identically_across_the_scenario_grid() {
         let expected: Option<&[&str]> = [("-blocking", &["stopped_by_error"][..]), ("-rejected", &["end_of_funds"]), ("-low_funds", &["end_of_funds"]), ("-on_schedule", &[])]
             .into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, mails)| mails);
         if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails 2.x enqueued"); }
-        // A capped TradesHistory walk: Rails keeps the order waiting beyond 1,000 trades and abandons it at 1,000.
+        // A capped TradesHistory walk: 2.x keeps the order waiting beyond 1,000 trades and abandons it at 1,000.
         for (suffix, abandoned) in [("-history_beyond_reach", false), ("-history_within_reach", true)] {
             if !name.ends_with(suffix) { continue; }
             let gone = v2_out["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["external_id"] == "OFAR-1" && t["after"]["external_status"] == 4);
@@ -170,15 +170,15 @@ async fn a_copy_is_planned_per_eligible_bot_at_its_next_checkpoint() {
     assert_eq!(sc["script"]["http"]["/0/public/Ticker"][0], body);
 }
 
-/// Alpaca grid variants where Rust deliberately decides otherwise than Rails, each asserted on its own terms below.
-/// add_server_error, add_unreadable: Alpaca may have placed the order. Rails writes a failed row; Rust keeps the intent and
-/// settles it by client_order_id (the spec's 5xx ruling). untradable_clock_closed: Rails asks the stock market's clock for a
+/// Alpaca grid variants where Rust deliberately decides otherwise than 2.x, each asserted on its own terms below.
+/// add_server_error, add_unreadable: Alpaca may have placed the order. 2.x writes a failed row; Rust keeps the intent and
+/// settles it by client_order_id (the spec's 5xx ruling). untradable_clock_closed: 2.x asks the stock market's clock for a
 /// crypto bot whose ticker went untradable (an empty ticker list is not "all crypto") and parks it until the open; Rust
 /// treats crypto as always open and fails the tick as the open-clock case does.
-/// Binance grid variants where Rust deliberately decides otherwise than Rails (spec E §2.7, §2.10), each asserted on its own
+/// Binance grid variants where Rust deliberately decides otherwise than 2.x (spec E §2.7, §2.10), each asserted on its own
 /// terms: a placement that may have reached Binance (a 5xx, a lost reply, an unreadable answer, an answer without an
-/// orderId) keeps the intent for recovery where Rails writes a failed row (or a "BTCUSDT-" row); a read answered HTTP 429
-/// waits as a throttle where Rails fails the run.
+/// orderId) keeps the intent for recovery where 2.x writes a failed row (or a "BTCUSDT-" row); a read answered HTTP 429
+/// waits as a throttle where 2.x fails the run.
 const BINANCE_DIVERGENCES: [&str; 4] = ["add_server_error", "add_timeout_after_send", "add_unreadable", "add_no_order_id"];
 
 fn unacknowledged_kept(dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
@@ -187,7 +187,7 @@ fn unacknowledged_kept(dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_
     rust_kept_the_intent(dir, rust_out)
 }
 
-/// The scripted 429 answers every retry, so both sides end the run failed: Rails at once as a generic error, Rust only after
+/// The scripted 429 answers every retry, so both sides end the run failed: 2.x at once as a generic error, Rust only after
 /// its throttle waits (the failure's kind is "throttle", its retries the rate-limit ones). Neither places or changes a row.
 fn throttle_waits(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     let failed = |out: &serde_json::Value| -> Vec<serde_json::Value> { out["changes"]["bot_activity_logs"].as_array().unwrap().iter()
@@ -231,7 +231,7 @@ async fn binance_grid(grid: &str) {
         Validator { names: &ending(&["sweep_rate_limited"]), check: &|_, _, r, u| throttle_waits(r, u) },
         Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_v2(r, u) },
     ]).await;
-    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    // Pin what 2.x does where a silent pair of sides would otherwise pass.
     for (name, v2_out) in &outputs {
         let mailed: Vec<&str> = v2_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
         let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
@@ -247,12 +247,12 @@ async fn binance_grid(grid: &str) {
     }
 }
 
-/// KuCoin grid variants where Rust deliberately decides otherwise than Rails (plan K r4/r5), each asserted on its own terms:
+/// KuCoin grid variants where Rust deliberately decides otherwise than 2.x (plan K r4/r5), each asserted on its own terms:
 /// a placement that may have reached KuCoin (a 5xx, a lost reply, an unreadable answer, a 200000 without an orderId, and
-/// the 500000 / 230005 envelopes) keeps the intent, which on KuCoin waits for the operator, where Rails writes a failed row.
+/// the 500000 / 230005 envelopes) keeps the intent, which on KuCoin waits for the operator, where 2.x writes a failed row.
 const KUCOIN_DIVERGENCES: [&str; 6] = ["add_server_error", "add_timeout_after_send", "add_unreadable", "add_no_order_id", "add_internal_500000", "add_busy_230005"];
 
-/// An order type Rails' #parse_order_data refuses raises out of #get_orders, so the run's error is that sentence alone;
+/// An order type 2.x's #parse_order_data refuses raises out of #get_orders, so the run's error is that sentence alone;
 /// Rust reports it inside the sweep's "Failed to fetch orders … Result: [...]". Same outcome (the run fails, no row
 /// changes, one error mail); only the wording differs.
 fn unknown_type_wrapped(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
@@ -264,9 +264,9 @@ fn unknown_type_wrapped(v2_out: &serde_json::Value, rust_out: &serde_json::Value
 }
 
 /// D-WAITING-RESERVE-ZERO-QUOTE: KuCoin answers `funds "0"` for an order sized by `size`, and the poll writes that 0 over the
-/// waiting row's quote. Rails then reserves 0 for it (exchanges/kucoin.rb:685, bot/accountable.rb:111 `quote_amount ||
+/// waiting row's quote. 2.x then reserves 0 for it (2.x's `quote_amount ||
 /// (amount * price)`, 0 being truthy) and the next order buys the waiting amount again; Rust reserves amount × price. So
-/// Rust's next order is Rails' less that reserve, and nothing else differs.
+/// Rust's next order is 2.x's less that reserve, and nothing else differs.
 fn waiting_reserved(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     let rows = |out: &serde_json::Value| out["changes"]["transactions"].as_array().cloned().unwrap_or_default();
     let zeroed: Vec<serde_json::Value> = rows(v2_out).into_iter()
@@ -287,7 +287,7 @@ fn waiting_reserved(v2_out: &serde_json::Value, rust_out: &serde_json::Value) ->
 }
 
 /// D-KUCOIN-ZERO-FILL-FUNDS: a market buy KuCoin ended with nothing dealt (`isActive` and `cancelExist` false, nothing
-/// dealt) long before the run is KuCoin's out-of-funds answer. Rails reads it `:unknown`, so its sweep and its follow-up raise
+/// dealt) long before the run is KuCoin's out-of-funds answer. 2.x reads it `:unknown`, so its sweep and its follow-up raise
 /// "status is unknown" at every run; Rust fails the row with KuCoin's insufficient-funds error ("Balance insufficient!") as a
 /// placement KuCoin rejected with it records it, nothing filled, and the run goes on.
 fn zero_fill_settled(name: &str, dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
@@ -314,7 +314,7 @@ async fn v2_and_rust_decide_identically_across_the_kucoin_grid() {
         Validator { names: &ending(&["sweep_done_no_deal", "poll_done_no_deal"]), check: &zero_fill_settled },
         Validator { names: &ending(&["sweep_active", "sweep_active_partial"]), check: &|_, _, r, u| waiting_reserved(r, u) },
     ]).await;
-    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    // Pin what 2.x does where a silent pair of sides would otherwise pass.
     for (name, v2_out) in &outputs {
         let mailed: Vec<&str> = v2_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
         let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
@@ -331,12 +331,12 @@ async fn v2_and_rust_decide_identically_across_the_kucoin_grid() {
     }
 }
 
-/// Gemini grid variants where Rust deliberately decides otherwise than Rails (plan VB §5), each asserted on its own terms: a
+/// Gemini grid variants where Rust deliberately decides otherwise than 2.x (plan VB §5), each asserted on its own terms: a
 /// placement that may have reached Gemini (a 5xx System or Maintenance answer, a lost reply, an unreadable answer, an answer
-/// without an order_id) keeps the intent for recovery by client order id, where Rails writes a failed row.
+/// without an order_id) keeps the intent for recovery by client order id, where 2.x writes a failed row.
 const GEMINI_DIVERGENCES: [&str; 4] = ["add_server_error", "add_maintenance", "add_timeout_after_send", "add_unreadable"];
 
-/// An answer without an order_id: Rails stores `raw["order_id"].to_s`, a submitted row with an empty external id that
+/// An answer without an order_id: 2.x stores `raw["order_id"].to_s`, a submitted row with an empty external id that
 /// no poll can ever find; Rust keeps the intent for recovery by client order id (NO_ORDER_ID).
 fn gemini_unacknowledged(dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     if !v2_out["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["external_id"] == "" && t["after"]["status"] == 0) {
@@ -355,11 +355,11 @@ fn num(v: &serde_json::Value) -> Option<f64> {
     }
 }
 
-/// D-679 (plan VB §1.5, GitHub #679): a Gemini market BUY is sized at the crossed ask it is sent at, where Rails sizes it
+/// D-679 (plan VB §1.5, GitHub #679): a Gemini market BUY is sized at the crossed ask it is sent at, where 2.x sizes it
 /// at the raw ask and sends that base at the cross (a fill at the cross can spend up to 1% over the budget). Asserted on
-/// Rails' recording: every order Rust sends is Rails' to the field (the crossed price included, read once) but its
+/// 2.x's recording: every order Rust sends is 2.x's to the field (the crossed price included, read once) but its
 /// `amount`, which is floor(budget / crossed, base_decimals), spends at most the budget at a fill at the cross, and is no
-/// larger than Rails'; each new market-buy row carries the crossed price and budget / crossed where Rails has the ask and
+/// larger than 2.x's; each new market-buy row carries the crossed price and budget / crossed where 2.x has the ask and
 /// budget / ask; everything else is equal. A scenario that sizes no market buy is simply equal.
 fn crossed_buy(name: &str, dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     use deltabadger::v2::BigDec;
@@ -383,7 +383,7 @@ fn crossed_buy(name: &str, dir: &Path, v2_out: &serde_json::Value, rust_out: &se
                 if &base * &price > budget { return Err(format!("{name}: {} at the cross {} spends over the budget {}", base.to_s_f(), price.to_s_f(), budget.to_s_f())); }
                 crossed = Some((num(&ours["price"]).unwrap(), q));
             }
-            // No row (a placement-safe refusal): the budget is bounded by Rails' own base at the raw ask.
+            // No row (a placement-safe refusal): the budget is bounded by 2.x's own base at the raw ask.
             None => {
                 let step = BigDec::parse(&format!("1e-{decimals}")).unwrap();
                 let ask = ask.clone().ok_or("no scripted ask to bound the budget")?;
@@ -409,7 +409,7 @@ fn crossed_buy(name: &str, dir: &Path, v2_out: &serde_json::Value, rust_out: &se
     Ok(())
 }
 
-/// D-679 at the minimum: 60 at the raw ask clears Gemini's minimum and Rails places it; at the crossed ask it does not, and
+/// D-679 at the minimum: 60 at the raw ask clears Gemini's minimum and 2.x places it; at the crossed ask it does not, and
 /// Rust writes the skipped row with its order_skipped line instead (the DCA leg's existing below-minimum outcome).
 fn crossed_below_minimum(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     if v2_out["sent"].as_array().unwrap().len() != 1 { return Err(format!("2.x no longer places at the raw ask: {v2_out}")); }
@@ -421,7 +421,7 @@ fn crossed_below_minimum(v2_out: &serde_json::Value, rust_out: &serde_json::Valu
     Ok(())
 }
 
-/// Landed recovery (plan VB §1.5): after a lost reply Rails writes a failed row; Rust keeps the intent, and its next tick's
+/// Landed recovery (plan VB §1.5): after a lost reply 2.x writes a failed row; Rust keeps the intent, and its next tick's
 /// client-order-id lookup FINDS the order and records it (filled), sending nothing more.
 fn landed_found(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     if !v2_out["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["status"] == 1) { return Err(format!("2.x no longer writes a failed row: {v2_out}")); }
@@ -457,7 +457,7 @@ async fn v2_and_rust_decide_identically_across_the_gemini_grid() {
         Validator { names: &ending(&["landed_missing"]), check: &|_, d, r, u| landed_missing(d, r, u) },
         Validator { names: &market, check: &|n, d, r, u| crossed_buy(n, d, r, u) },
     ]).await;
-    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    // Pin what 2.x does where a silent pair of sides would otherwise pass.
     for (name, v2_out) in &outputs {
         let mailed: Vec<&str> = v2_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
         let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
@@ -477,13 +477,13 @@ async fn v2_and_rust_decide_identically_across_the_gemini_grid() {
     }
 }
 
-/// Hyperliquid grid variants where Rust deliberately decides otherwise than Rails (plan VB §5, slice B1), each asserted on its
+/// Hyperliquid grid variants where Rust deliberately decides otherwise than 2.x (plan VB §5, slice B1), each asserted on its
 /// own terms: a placement that may have reached Hyperliquid (a 5xx, a lost reply, an answer that is not JSON, an "ok" without
 /// statuses or without an oid, an answer whose status is neither "ok" nor "err") keeps the intent for recovery by cloid, where
-/// Rails writes a failed row. Only an answer that proves the refusal (`err`, a status error, a 4xx) clears it.
+/// 2.x writes a failed row. Only an answer that proves the refusal (`err`, a status error, a 4xx) clears it.
 const HYPERLIQUID_DIVERGENCES: [&str; 6] = ["add_server_error", "add_timeout_after_send", "add_unreadable", "add_no_statuses", "add_no_oid", "add_odd_status"];
 
-/// Landed recovery on Hyperliquid: after a lost reply Rails writes a failed row; Rust keeps the intent, and its next tick's
+/// Landed recovery on Hyperliquid: after a lost reply 2.x writes a failed row; Rust keeps the intent, and its next tick's
 /// orderStatus by cloid FINDS the order and records it (filled, its cost from its fills), sending nothing more.
 fn hyperliquid_landed_found(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     if !v2_out["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["status"] == 1) { return Err(format!("2.x no longer writes a failed row: {v2_out}")); }
@@ -495,7 +495,7 @@ fn hyperliquid_landed_found(v2_out: &serde_json::Value, rust_out: &serde_json::V
     Ok(())
 }
 
-/// D-HL-INVALID-PRIVATE-KEY: Rails cannot classify the raised signer error inside signal placement;
+/// D-HL-INVALID-PRIVATE-KEY: 2.x cannot classify the raised signer error inside signal placement;
 /// Rust's real transport proves no exchange request was sent, records one failure and clears the intent.
 fn hyperliquid_invalid_private_key(dir: &Path, v2: &serde_json::Value, rust: &serde_json::Value) -> Result<(), String> {
     let err = "Hyperliquid: the API secret is not an agent private key; not sent";
@@ -529,8 +529,8 @@ fn hyperliquid_invalid_private_key(dir: &Path, v2: &serde_json::Value, rust: &se
     Ok(())
 }
 
-/// D-HYPERLIQUID-MARKET-IOC and D-679, path 2: Rails and Rust use the same 1% cross
-/// and base quantity; only the time-in-force differs (Rails GTC, Rust IOC).
+/// D-HYPERLIQUID-MARKET-IOC and D-679, path 2: 2.x and Rust use the same 1% cross
+/// and base quantity; only the time-in-force differs (2.x GTC, Rust IOC).
 fn hyperliquid_path_two(name: &str, out: &serde_json::Value, ioc: bool) {
     use deltabadger::v2::BigDec;
     for order in out["sent"].as_array().unwrap() {
@@ -567,7 +567,7 @@ fn hyperliquid_path_two(name: &str, out: &serde_json::Value, ioc: bool) {
             assert_eq!(order["s"], "0.00426", "{name}: sell the excess at the persisted bound");
         }
     }
-    // The `api` axis sizes from the caller's amount, compared with Rails' as it is.
+    // The `api` axis sizes from the caller's amount, compared with 2.x's as it is.
     if name.starts_with("signal-hyperliquid-") && !name.contains("-api-") {
         let size = if name.contains("-buy-fixed-") { "0.00154" }
             else if name.contains("-buy-percentage-") { "0.01546" }
@@ -579,7 +579,7 @@ fn hyperliquid_path_two(name: &str, out: &serde_json::Value, ioc: bool) {
     }
 }
 
-/// D-HYPERLIQUID-MARKET-IOC: validate Rails GTC versus Rust IOC at the same price and
+/// D-HYPERLIQUID-MARKET-IOC: validate 2.x GTC versus Rust IOC at the same price and
 /// quantity, then compare every other field and database effect through the existing validators.
 fn hyperliquid_market_ioc_comparison(name: &str, v2: &serde_json::Value, rust: &serde_json::Value) -> serde_json::Value {
     hyperliquid_path_two(name, v2, false);
@@ -609,7 +609,7 @@ async fn v2_and_rust_decide_identically_across_the_hyperliquid_grid() {
         Validator { names: &ending(&["landed_missing"]), check: &|_, d, r, u| { assert_eq!(r["sent"], u["sent"]); landed_missing(d, r, u) } },
         Validator { names: &ending(&["min_value"]), check: &|_, _, r, u| below_minimum_skip("Order must have minimum value of", r, u) },
     ]).await;
-    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    // Pin what 2.x does where a silent pair of sides would otherwise pass.
     for (name, v2_out) in &outputs {
         let mailed: Vec<&str> = v2_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
         let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
@@ -640,13 +640,13 @@ async fn v2_and_rust_decide_identically_across_the_hyperliquid_grid() {
     }
 }
 
-/// Bitvavo grid variants where Rust deliberately decides otherwise than Rails (plan VB §5, slice A3), each asserted on its own
+/// Bitvavo grid variants where Rust deliberately decides otherwise than 2.x (plan VB §5, slice A3), each asserted on its own
 /// terms: a placement that may have reached Bitvavo (a 5xx, a lost reply, an unreadable answer, errorCode 109 "timed out,
 /// your order may have been placed") keeps the intent, which waits for the operator (absence is never concluded), where
-/// Rails writes a failed row.
+/// 2.x writes a failed row.
 const BITVAVO_DIVERGENCES: [&str; 4] = ["add_server_error", "add_timeout_after_send", "add_unreadable", "add_timed_out_109"];
 
-/// Rails' #parse_order_data raises out of #get_orders, so the run's error is that sentence alone; Rust reports it inside
+/// 2.x's #parse_order_data raises out of #get_orders, so the run's error is that sentence alone; Rust reports it inside
 /// the sweep's "Failed to fetch orders … Result: [...]". Same outcome; only the wrapper differs.
 fn wrapped_like_v2(rust_wrapper: &str, sentence: &str, v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     let normalised = rust_out.to_string().replace(rust_wrapper, sentence);
@@ -657,7 +657,7 @@ fn wrapped_like_v2(rust_wrapper: &str, sentence: &str, v2_out: &serde_json::Valu
     Ok(())
 }
 
-/// A 200 without an orderId: Rails stores the row as "BTC-EUR-" (honeymaker's "<market>-<orderId>"); Rust keeps the intent.
+/// A 200 without an orderId: 2.x stores the row as "BTC-EUR-" (honeymaker's "<market>-<orderId>"); Rust keeps the intent.
 fn unacknowledged_bitvavo_kept(dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     if !v2_out["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["external_id"] == "BTC-EUR-") {
         return Err(format!("2.x no longer stores \"BTC-EUR-\": drop the listed divergence\n  2.x: {v2_out}"));
@@ -676,7 +676,7 @@ async fn v2_and_rust_decide_identically_across_the_bitvavo_grid() {
                                                                                                       "Unknown Bitvavo order type: stopLoss", r, u) },
         Validator { names: &ending(&["below_venue_minimum"]), check: &|_, _, r, u| below_minimum_skip("Minimum order size in quote currency", r, u) },
     ]).await;
-    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    // Pin what 2.x does where a silent pair of sides would otherwise pass.
     for (name, v2_out) in &outputs {
         let mailed: Vec<&str> = v2_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
         let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
@@ -701,12 +701,12 @@ async fn v2_and_rust_decide_identically_across_the_bitvavo_grid() {
     }
 }
 
-/// Bitget grid variants where Rust deliberately decides otherwise than Rails (plan VB §5, slice A4), each asserted on its own
+/// Bitget grid variants where Rust deliberately decides otherwise than 2.x (plan VB §5, slice A4), each asserted on its own
 /// terms: a placement that may have reached Bitget (a 5xx, a lost reply, an unreadable answer, 40010 "Request timed out" or
-/// 40015 "System is abnormal") keeps the intent, which a clientOid lookup may find, where Rails writes a failed row.
+/// 40015 "System is abnormal") keeps the intent, which a clientOid lookup may find, where 2.x writes a failed row.
 const BITGET_DIVERGENCES: [&str; 5] = ["add_server_error", "add_timeout_after_send", "add_unreadable", "add_timed_out_40010", "add_abnormal_40015"];
 
-/// A 00000 answer without an orderId: Rails stores the row as "BTCUSDT-" (honeymaker's "<symbol>-<orderId>"); Rust keeps
+/// A 00000 answer without an orderId: 2.x stores the row as "BTCUSDT-" (honeymaker's "<symbol>-<orderId>"); Rust keeps
 /// the intent.
 fn unacknowledged_bitget_kept(dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     if !v2_out["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["external_id"] == "BTCUSDT-") {
@@ -715,7 +715,7 @@ fn unacknowledged_bitget_kept(dir: &Path, v2_out: &serde_json::Value, rust_out: 
     rust_kept_the_intent(dir, rust_out)
 }
 
-/// Landed recovery on Bitget: after a lost reply Rails writes a failed row; Rust keeps the intent, and its next tick's
+/// Landed recovery on Bitget: after a lost reply 2.x writes a failed row; Rust keeps the intent, and its next tick's
 /// clientOid lookup FINDS the order and records it (filled), sending nothing more.
 fn bitget_landed_found(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     if !v2_out["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["status"] == 1) { return Err(format!("2.x no longer writes a failed row: {v2_out}")); }
@@ -741,7 +741,7 @@ async fn v2_and_rust_decide_identically_across_the_bitget_grid() {
         Validator { names: &ending(&["sweep_unknown_status"]), check: &|_, _, r, u| wrapped_like_v2(r#"Failed to fetch orders BTCUSDT-208. Result: [\"Unknown Bitget order status: expired\"]"#,
                                                                                                         "Unknown Bitget order status: expired", r, u) },
     ]).await;
-    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    // Pin what 2.x does where a silent pair of sides would otherwise pass.
     for (name, v2_out) in &outputs {
         let mailed: Vec<&str> = v2_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
         let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-insufficient_http_200", &["end_of_funds"]), ("-invalid_key", &["stopped_by_error"]),
@@ -767,9 +767,9 @@ async fn v2_and_rust_decide_identically_across_the_bitget_grid() {
     }
 }
 
-/// MEXC grid variants where Rust deliberately decides otherwise than Rails (plan VB §5, slice A5), each asserted on its own
+/// MEXC grid variants where Rust deliberately decides otherwise than 2.x (plan VB §5, slice A5), each asserted on its own
 /// terms: a placement that may have reached MEXC (a 5xx, a lost reply, an unreadable answer, MEXC's "service not
-/// available") keeps the intent, which waits for the operator (absence is never concluded), where Rails writes a failed row.
+/// available") keeps the intent, which waits for the operator (absence is never concluded), where 2.x writes a failed row.
 const MEXC_DIVERGENCES: [&str; 4] = ["add_server_error", "add_service_unavailable", "add_timeout_after_send", "add_unreadable"];
 
 #[tokio::test(flavor = "current_thread")]
@@ -788,7 +788,7 @@ async fn v2_and_rust_decide_identically_across_the_mexc_grid() {
         Validator { names: &ending(&["sweep_unknown_status"]), check: &wrapped("C02__209", "Unknown MEXC order status: PENDING_CANCEL") },
         Validator { names: &ending(&["below_venue_minimum"]), check: &|_, _, r, u| below_minimum_skip("Minimum transaction volume cannot be less than", r, u) },
     ]).await;
-    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    // Pin what 2.x does where a silent pair of sides would otherwise pass.
     for (name, v2_out) in &outputs {
         let mailed: Vec<&str> = v2_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
         let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
@@ -808,8 +808,8 @@ async fn v2_and_rust_decide_identically_across_the_mexc_grid() {
     }
 }
 
-/// Slice 6a: a one-asset basket selling on Kraken, Binance, Alpaca, Gemini and Bitget (script/rust/decisions.rb sell_scenarios),
-/// compared whole. Gemini's market sells go out at the crossed bid Rails re-reads at placement, prepared once (plan VB §1.5);
+/// Slice 6a: a one-asset basket selling on Kraken, Binance, Alpaca, Gemini and Bitget (the recorded sell_scenarios),
+/// compared whole. Gemini's market sells go out at the crossed bid 2.x re-reads at placement, prepared once (plan VB §1.5);
 /// Bitget's in base (G1): no divergence.
 #[tokio::test(flavor = "current_thread")]
 async fn v2_and_rust_decide_identically_across_the_sell_grid() {
@@ -819,7 +819,7 @@ async fn v2_and_rust_decide_identically_across_the_sell_grid() {
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(v2_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), 315, "the sell grid has {} scenarios", dirs.len());
-    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before 2.x writes to its copies
     v2(&["record", v2_root.path().to_str().unwrap()]);
     let mut failures = vec![];
     for d in &dirs {
@@ -828,7 +828,7 @@ async fn v2_and_rust_decide_identically_across_the_sell_grid() {
         let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.unwrap();
         let v2_out = r5_cleanup_expected(&v2_out, &rust_out);
         if v2_out != rust_out { failures.push(format!("{name}\n  2.x: {v2_out}\n  rust:  {rust_out}")); }
-        // Pin what Rails does, so that two silent sides cannot pass.
+        // Pin what 2.x does, so that two silent sides cannot pass.
         let sent = v2_out["sent"].as_array().unwrap().len();
         let placing = ["-first_tick", "-on_schedule", "-free_below", "-carry_frozen", "-rejected_insufficient", "-resting_sell", "-reserve_settled", "-reserve_pending_cancel"]
             .iter().any(|v| name.ends_with(v));
@@ -846,10 +846,10 @@ async fn v2_and_rust_decide_identically_across_the_sell_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
-/// Slice 6b: a wider basket's ranked DCA-out (script/rust/decisions.rb basket_sell_scenarios), compared whole: on Alpaca, and
+/// Slice 6b: a wider basket's ranked DCA-out (the recorded basket_sell_scenarios), compared whole: on Alpaca, and
 /// (plan CB T3) on Kraken, Binance and KuCoin, valued by each venue's bulk price read.
 /// Sanctioned divergence `unreadable_string_price` (plan CB Q6, v2::json_to_d): a Binance or KuCoin price that is no decimal
-/// ("abc", "12x") leaves its member unpriced, so nothing is valued and nothing sells, where Rails' String#to_d values it at 0
+/// ("abc", "12x") leaves its member unpriced, so nothing is valued and nothing sells, where 2.x's String#to_d values it at 0
 /// or 12 and trades on that.
 #[tokio::test(flavor = "current_thread")]
 async fn v2_and_rust_decide_identically_across_the_basket_sell_grid() {
@@ -865,7 +865,7 @@ async fn v2_and_rust_decide_identically_across_the_basket_sell_grid() {
         if v2_out != rust_out { failures.push(format!("{name}\n  2.x: {v2_out}\n  rust:  {rust_out}")); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    // Pin what Rails does, so that two silent sides cannot pass: which members each cell sells, by base asset.
+    // Pin what 2.x does, so that two silent sides cannot pass: which members each cell sells, by base asset.
     let base = |o: &serde_json::Value| -> String {
         let code = o["symbol"].as_str().or(o["pair"].as_str()).unwrap();
         if code == "XBTEUR" { return "BTC".into(); }
@@ -912,14 +912,14 @@ async fn v2_and_rust_decide_identically_across_the_basket_sell_grid() {
     assert!(failures.is_empty(), "pinned expectations:\n{}", failures.join("\n"));
 }
 
-/// Slice 6b: threshold rebalancing on a stopped basket (script/rust/decisions.rb rebalance_scenarios), fire by fire: on Alpaca,
+/// Slice 6b: threshold rebalancing on a stopped basket (the recorded rebalance_scenarios), fire by fire: on Alpaca,
 /// and (plan CB T4) on Kraken, Binance and KuCoin, with each venue's fees, floors and placement answers.
-/// Sanctioned divergence `unknown_outcome`: Rails halts a swap whose placement outcome is unknown (a lost reply, a 5xx, an
+/// Sanctioned divergence `unknown_outcome`: 2.x halts a swap whose placement outcome is unknown (a lost reply, a 5xx, an
 /// accepted order without an id, a venue's unknown-outcome text) at once; the engine keeps the intent with its phase and
 /// resolves it by client order id (placement::recover_since), halting only if the venue still cannot answer a full absence
 /// window later.
 /// Sanctioned divergence `unreadable_string_price` (plan CB Q6): a Binance or KuCoin price that is no decimal leaves its
-/// member unpriced, so nothing is due, where Rails' String#to_d values it at 0 or 12 and sells on the drift that makes.
+/// member unpriced, so nothing is due, where 2.x's String#to_d values it at 0 or 12 and sells on the drift that makes.
 #[tokio::test(flavor = "current_thread")]
 async fn v2_and_rust_rebalance_identically() {
     let (_copies, outputs) = grid_outputs("grid-rebalance", 238 + 20 + 3).await;
@@ -936,7 +936,7 @@ async fn v2_and_rust_rebalance_identically() {
             &comparison
         } else { rust_out };
         if unknown.iter().any(|u| name.ends_with(u)) {
-            // Both sent the one sell; Rails halted (or, on Binance's id-less answer, stored "BTCUSDT-" and waits on it), the
+            // Both sent the one sell; 2.x halted (or, on Binance's id-less answer, stored "BTCUSDT-" and waits on it), the
             // engine waits on its intent with the selling phase, no row on its side.
             assert_eq!(v2_out["sent"], rust_out["sent"], "{name}");
             assert_eq!(phase(rust_out), serde_json::json!("selling"), "{name}: {rust_out}");
@@ -963,7 +963,7 @@ async fn v2_and_rust_rebalance_identically() {
         if v2_out != rust_out { failures.push(format!("{name}\n  2.x: {v2_out}\n  rust:  {rust_out}")); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    // Pin what Rails does, so that two silent sides cannot pass: what each cell sent (by base asset), and the phase it left.
+    // Pin what 2.x does, so that two silent sides cannot pass: what each cell sent (by base asset), and the phase it left.
     let base = |o: &serde_json::Value| -> String {
         if let Some(asset) = o["a"].as_i64() { return match asset { 10_142 => "BTC", 10_143 => "ETH", _ => panic!("unexpected asset {asset}") }.into(); }
         let code = o["symbol"].as_str().or(o["pair"].as_str()).unwrap();
@@ -1005,14 +1005,14 @@ async fn v2_and_rust_rebalance_identically() {
             "swap" | "nothing_sold" | "buy_below_minimum" | "under_threshold" | "rule_off" | "selling" | "open_buy" | "sell_below_minimum" | "pre_send"
             | "at_threshold" | "unbalanced" | "safe_rejection" | "raised_price" | "unpriced_member" | "unreadable_price" | "takeover_proceeds_unknown" => serde_json::Value::Null,
             "rejected" | "rejected_400" | "buy_rejected" | "post_send" | "server_error" | "unknown_text" | "takeover_sell_no_id" | "takeover_buy_attempted_no_id" => serde_json::json!("ambiguous"),
-            // Binance stores an id-less answer as "BTCUSDT-" and waits on it; elsewhere Rails halts.
+            // Binance stores an id-less answer as "BTCUSDT-" and waits on it; elsewhere 2.x halts.
             "no_order_id" if name.contains("-binance-") => serde_json::json!("selling"),
             "no_order_id" => serde_json::json!("ambiguous"),
             "resting_sell" | "open_buy_stale" | "below_drift" | "exited_member" | "merged_foreign" => serde_json::json!("selling"),
             _ => serde_json::json!("buying"),
         };
         if left != want { pins.push(format!("{name}: phase {left}, pinned {want}")); }
-        // What the swap owes after the fees (plan CB Q1, ported as Rails has it): a Binance quote commission comes off the
+        // What the swap owes after the fees (plan CB Q1, ported as 2.x has it): a Binance quote commission comes off the
         // proceeds; a base or BNB commission does not; Kraken's `cost` and KuCoin's `dealFunds` are gross.
         let owed = match name.as_str() {
             "rebalance-binance-w50-fee_quote_swap" => Some("255.7304"), "rebalance-binance-w50-fee_base_swap" | "rebalance-binance-w50-fee_bnb_swap" => Some("256.0004"),
@@ -1034,12 +1034,12 @@ async fn v2_and_rust_rebalance_identically() {
 const ALPACA_DIVERGENCES: [&str; 3] = ["add_server_error", "add_unreadable", "untradable_clock_closed"];
 
 /// D-SPLIT-NEVER-A-COIN: a security's split that recorded no asset (named on the venue, held in both classes, or not listed).
-/// Rails restates the coin, or cannot attribute the split, and stands the tick down; Rust decides as Rails does where the
+/// 2.x restates the coin, or cannot attribute the split, and stands the tick down; Rust decides as 2.x does where the
 /// report recorded the security (`security_split` of the same interval and mode).
 const COIN_SPLITS: [&str; 3] = ["security_split_bothclasses", "security_split_nameonly", "security_split_unlisted"]; // sorted
 
-/// Ok(true) where Rails visibly stood the coin down: inside the two-day quarantine of a restatement it made, or for good on
-/// a split it could not attribute. A week's tick lands after that quarantine, where Rails' phantom restatement no longer
+/// Ok(true) where 2.x visibly stood the coin down: inside the two-day quarantine of a restatement it made, or for good on
+/// a split it could not attribute. A week's tick lands after that quarantine, where 2.x's phantom restatement no longer
 /// shows in a quote-sized buy.
 fn coin_never_split(v2_out: &serde_json::Value, rust_out: &serde_json::Value, twin: &Path) -> Result<bool, String> {
     let twin: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(twin.join("expected.json")).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
@@ -1092,7 +1092,7 @@ async fn v2_and_rust_decide_identically_across_the_alpaca_grid() {
     dirs.sort();
     // 369 (with #451's unreadable-number variants), the six mail variants (54 scenarios) and A14's four security splits (36).
     assert_eq!(dirs.len(), 459, "the Alpaca grid has {} scenarios", dirs.len());
-    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before 2.x writes to its copies
     v2(&["record", v2_root.path().to_str().unwrap()]);
 
     let mut failures = vec![];
@@ -1100,7 +1100,7 @@ async fn v2_and_rust_decide_identically_across_the_alpaca_grid() {
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
         let mut v2_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("expected.json")).unwrap()).unwrap();
-        // The Rust engine's mail markers, seeded on the row before Rails ticked it: Rails must hand them back as they were.
+        // The Rust engine's mail markers, seeded on the row before 2.x ticked it: 2.x must hand them back as they were.
         if let Some(left) = v2_out.as_object_mut().unwrap().remove("markers") {
             assert!(name.contains("-markers_survive_"), "{name}: only these scenarios seed markers");
             assert_eq!(left, seeded_markers(), "{name}: 2.x changed or dropped a marker");
@@ -1129,9 +1129,9 @@ async fn v2_and_rust_decide_identically_across_the_alpaca_grid() {
             None => {}
         }
     }
-    // The divergence is real only if Rails shows it: in each variant, some cell where it stood the coin down.
+    // The divergence is real only if 2.x shows it: in each variant, some cell where it stood the coin down.
     if failures.is_empty() { assert_eq!(coin_stood_down.keys().copied().collect::<Vec<_>>(), COIN_SPLITS.to_vec(), "{coin_stood_down:?}"); }
-    // The comparison below sees the funds notification only if Rails really sends it one way and not the other: a Rust side
+    // The comparison below sees the funds notification only if 2.x really sends it one way and not the other: a Rust side
     // that suppressed it (or sent it always) then differs in `funds_notified` and fails.
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -1140,7 +1140,7 @@ async fn v2_and_rust_decide_identically_across_the_alpaca_grid() {
         if name.ends_with("-funds_low_cash_only") { assert_eq!(v2_out["funds_notified"], false, "{name}: 2.x must not notify"); }
         if name.ends_with("-poll_partially_filled") { assert_eq!(v2_out["poll_error"], serde_json::Value::Null, "{name}: mid-fill is open, asked again"); }
         if name.ends_with("-insufficient_buying_power") { assert_eq!(v2_out["funds_notified"], true, "{name}: Bot::Failable stamps the budget"); }
-        // The mails are compared above, which proves nothing if Rails mails in neither scenario or in both: pin Rails' side.
+        // The mails are compared above, which proves nothing if 2.x mails in neither scenario or in both: pin 2.x's side.
         let mailed: Vec<&str> = v2_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
         let expected: Option<&[&str]> = [("-funds_low_buying_power", &["end_of_funds"][..]), ("-funds_budget_spent", &[]), ("-funds_budget_reopened", &["end_of_funds"]),
                                          ("-error_budget_spent", &[]), ("-error_budget_reopened", &["notify_about_error"]), ("-insufficient_buying_power", &["end_of_funds"]),
@@ -1157,7 +1157,7 @@ async fn v2_and_rust_decide_identically_across_the_alpaca_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
-/// script/rust/decisions.rb SEEDED_MARKERS.
+/// The recording harness's SEEDED_MARKERS.
 fn seeded_markers() -> serde_json::Value {
     serde_json::json!({ "rust_funds_mail_pending": { "quote_asset": 2, "stamped_at": "2026-08-31T09:00:00.000Z" },
                         "rust_error_mail_pending": { "unknown": { "error": "an <old> \"error\"", "stamped_at": "2026-08-31T09:00:00.000Z" } },
@@ -1165,14 +1165,14 @@ fn seeded_markers() -> serde_json::Value {
                         "rust_limit_mail_pending": { "stamped_at": "2026-08-31T09:00:00.000Z" } })
 }
 
-/// The same four markers through Rails' web paths: the settings form on the running bot, a stop, the settings form on
-/// the stopped bot. Rails writes `transient_data` back whole from the row it loaded, unknown keys included.
+/// The same four markers through 2.x's web paths: the settings form on the running bot, a stop, the settings form on
+/// the stopped bot. 2.x writes `transient_data` back whole from the row it loaded, unknown keys included.
 #[test]
 fn a_v2_web_save_of_the_bot_keeps_the_mail_markers() {
     let dir = tempfile::tempdir().unwrap();
     v2(&["web-save", dir.path().to_str().unwrap()]);
     let out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(dir.path().join("web_save.json")).unwrap()).unwrap();
-    // Rails really saved, three times: or the markers' survival proves nothing.
+    // 2.x really saved, three times: or the markers' survival proves nothing.
     assert_eq!((out["saved_while_running"].clone(), out["stopped"].clone(), out["saved_while_stopped"].clone()), (serde_json::json!(true), serde_json::json!(true), serde_json::json!(true)), "{out}");
     assert_eq!(out["settings"], serde_json::json!({ "quote_amount": 80.0, "interval": "day", "limit_ordered": true }), "{out}");
     assert_eq!((out["status"].as_str(), out["label"].as_str()), (Some("stopped"), Some("Renamed again")), "{out}");
@@ -1210,8 +1210,8 @@ async fn an_alpaca_copy_is_planned_with_alpaca_bodies() {
 
 type Outputs = Vec<(String, PathBuf, serde_json::Value, serde_json::Value)>;
 
-/// Builds `command`'s grid, records Rails over it, and decides every scenario in Rust on a pristine copy, asserting the grid's
-/// size so a silently shrinking grid fails: (name, Rust's copy, Rails' output, Rust's output), in name order. The TempDir keeps
+/// Builds `command`'s grid, records 2.x over it, and decides every scenario in Rust on a pristine copy, asserting the grid's
+/// size so a silently shrinking grid fails: (name, Rust's copy, 2.x's output, Rust's output), in name order. The TempDir keeps
 /// Rust's copies for the asserters that read them.
 async fn grid_outputs(command: &str, expected: usize) -> (tempfile::TempDir, Outputs) {
     let v2_root = tempfile::tempdir().unwrap();
@@ -1220,9 +1220,9 @@ async fn grid_outputs(command: &str, expected: usize) -> (tempfile::TempDir, Out
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(v2_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), expected, "{command} has {} scenarios", dirs.len());
-    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before 2.x writes to its copies
     if matches!(command, "grid-venue-index" | "grid-wash-sale") {
-        // D-INDEX-TOP-N: record an independent Rails oracle with stablecoins removed from its
+        // D-INDEX-TOP-N: record an independent 2.x oracle with stablecoins removed from its
         // ranking, retaining all original holdings, orders, scripts and settings. Comparing the
         // entire result proves the replacement members' allocations and database effects too.
         let excluded = tempfile::tempdir().unwrap();
@@ -1286,7 +1286,7 @@ fn normalised(out: &serde_json::Value, drop: &dyn Fn(&str, &serde_json::Value) -
 
 fn notional_sum(sent: &[serde_json::Value]) -> f64 { sent.iter().map(|o| o["notional"].as_str().unwrap_or("0").parse::<f64>().unwrap()).sum() }
 
-/// The 5xx leg's mail, listed with its failed row: Rails fails the run, mails notify_about_error for it and spends that mail's
+/// The 5xx leg's mail, listed with its failed row: 2.x fails the run, mails notify_about_error for it and spends that mail's
 /// day (failure_notifications.unknown); the engine keeps the intent, owes no mail and spends nothing. Each side must show
 /// exactly that; the comparison then leaves the mails and that budget out.
 fn five_xx_mails(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(serde_json::Value, serde_json::Value), String> {
@@ -1310,9 +1310,9 @@ fn five_xx_mails(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Re
     Ok((strip(v2_out), strip(rust_out)))
 }
 
-/// A 5xx on leg k: Rails writes legs 1..k-1 and a failed row for leg k; Rust writes the same k-1 rows, keeps leg k's intent on
+/// A 5xx on leg k: 2.x writes legs 1..k-1 and a failed row for leg k; Rust writes the same k-1 rows, keeps leg k's intent on
 /// leg k's own ticker, and logs placement_ambiguous once. Apart from that one row and that one log, everything else (the
-/// POSTs, the bot's row with its carry and settings, the members, the logs, the funds notification) must equal Rails'.
+/// POSTs, the bot's row with its carry and settings, the members, the logs, the funds notification) must equal 2.x's.
 fn leg_intent_kept(dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_json::Value, k: usize) -> Result<(), String> {
     let rows = |out: &serde_json::Value| out["changes"]["transactions"].as_array().unwrap().clone();
     let v2_rows = rows(v2_out);
@@ -1339,8 +1339,8 @@ fn leg_intent_kept(dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_json
 
 /// A recover-* scenario: leg k was ambiguous, the engine's reconciliation tick settled it as not placed and sent nothing, and
 /// at the next checkpoint both sides buy what was not bought. Listed differences, removed before comparing: Rust's
-/// placement_ambiguous resolution log; in the 5xx variant also Rails' failed row for leg k and Rust's ambiguity log for it
-/// (Rails logs none there). Each is removed only after it is counted exactly once, so a duplicate cannot hide.
+/// placement_ambiguous resolution log; in the 5xx variant also 2.x's failed row for leg k and Rust's ambiguity log for it
+/// (2.x logs none there). Each is removed only after it is counted exactly once, so a duplicate cannot hide.
 fn settled_like_v2(v2_out: &serde_json::Value, rust_out: &serde_json::Value, five_xx: bool) -> Result<(), String> {
     if rust_out["recover_sent"] != 0 { return Err(format!("the reconciliation tick sent {} order(s); it must send none", rust_out["recover_sent"])); }
     let count = |out: &serde_json::Value, table: &str, f: &dyn Fn(&serde_json::Value) -> bool| out["changes"][table].as_array().unwrap().iter().filter(|r| f(&r["after"])).count();
@@ -1363,20 +1363,20 @@ fn settled_like_v2(v2_out: &serde_json::Value, rust_out: &serde_json::Value, fiv
 }
 
 /// A landed ambiguous leg: what it was and what it must show. `k` counts the POSTs of the first tick through the ambiguous
-/// one; `pair` is the landed leg's pair, `quote` and `base` the fill the lookup reported; `gap` is what Rails, with no row for
+/// one; `pair` is the landed leg's pair, `quote` and `base` the fill the lookup reported; `gap` is what 2.x, with no row for
 /// the landed order, buys more at the next checkpoint.
 struct Landed { k: usize, pair: &'static str, quote: f64, base: f64, gap: f64 }
 
 /// Rust's OTX-L row: status, external status, quote exec, base exec, base asset, the landed pair's asset, the bot's intent.
 type LandedRow = (i64, i64, f64, f64, i64, i64, Option<String>);
 
-/// A landed leg recovered by client order id, held to Rails' own decision. `reference` is Rails' output on the scenario
+/// A landed leg recovered by client order id, held to 2.x's own decision. `reference` is 2.x's output on the scenario
 /// `<name>-reference`: the same bot at the next checkpoint, holding the rows the engine holds by then (the accepted legs,
-/// swept to filled, and the landed leg as the engine records it). Rust must send exactly Rails' orders there, symbol by
-/// symbol and amount by amount; its first `k` POSTs are Rails' own; its reconciliation tick sends nothing; its OTX-L row is
-/// on the landed pair, closed, with the lookup's fill; no intent is left. Rails' own run still buys `gap` more: the listed
+/// swept to filled, and the landed leg as the engine records it). Rust must send exactly 2.x's orders there, symbol by
+/// symbol and amount by amount; its first `k` POSTs are 2.x's own; its reconciliation tick sends nothing; its OTX-L row is
+/// on the landed pair, closed, with the lookup's fill; no intent is left. 2.x's own run still buys `gap` more: the listed
 /// divergence. A wrong split (the whole total in one member, say) fails the comparison with the reference. `reference`
-/// carries Rust's copy of the reference scenario too, whose decision equals Rails' there (its own grid cell), for the
+/// carries Rust's copy of the reference scenario too, whose decision equals 2.x's there (its own grid cell), for the
 /// members' final rows.
 fn landed_matches_reference(dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_json::Value, reference: Option<(&Path, &serde_json::Value)>, l: &Landed) -> Result<(), String> {
     let (reference_dir, reference) = reference.ok_or("no -reference scenario for this landed recovery")?;
@@ -1412,7 +1412,7 @@ fn landed_matches_reference(dir: &Path, v2_out: &serde_json::Value, rust_out: &s
             return Err(format!("order {ext} ends differently\n  reference: {}\n  rust:      {mine:?}", updated["after"]));
         }
     }
-    // The logs: the first tick's (and the reconciliation's) are Rails' own run's; the next checkpoint's are the reference's.
+    // The logs: the first tick's (and the reconciliation's) are 2.x's own run's; the next checkpoint's are the reference's.
     let logs = |out: &serde_json::Value, next: bool| -> Vec<serde_json::Value> {
         out["changes"]["bot_activity_logs"].as_array().unwrap().iter().map(strip)
             .filter(|r| r["created_at"].as_str().is_some_and(|c| (c >= since.as_str()) == next)).collect()
@@ -1478,7 +1478,7 @@ fn exited_member_admitted(dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Rails' tie order is undefined: a 50/50 basket may place its two legs in either order. Equal once both sides' orders and new
+/// 2.x's tie order is undefined: a 50/50 basket may place its two legs in either order. Equal once both sides' orders and new
 /// rows are sorted by member.
 fn equal_up_to_tie_order(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> bool {
     let canon = |out: &serde_json::Value| {
@@ -1532,7 +1532,7 @@ async fn v2_and_rust_decide_identically_across_the_basket_grid() {
         }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    // Rails' side must show what each cell exists for, or an equal comparison proves nothing.
+    // 2.x's side must show what each cell exists for, or an equal comparison proves nothing.
     let events = |out: &serde_json::Value| -> Vec<String> {
         out["changes"]["bot_activity_logs"].as_array().unwrap().iter().filter_map(|l| l["after"]["event"].as_str().map(str::to_string)).collect()
     };
@@ -1588,14 +1588,14 @@ async fn a_basket_copy_is_planned_with_every_members_prices() {
     assert_eq!(ids.len(), 2, "one transaction per accepted leg: {ids:?}");
 }
 
-/// Amount-limit scenarios in which Rails mails stopped_by_amount_limit (Bot::Notifyable, deliver_later on every qualifying fill,
-/// no dedupe), and so does the engine (notice::LIMIT, written with the fill). Archived: Rails mails although
+/// Amount-limit scenarios in which 2.x mails stopped_by_amount_limit (Bot::Notifyable, deliver_later on every qualifying fill,
+/// no dedupe), and so does the engine (notice::LIMIT, written with the fill). Archived: 2.x mails although
 /// Bot::Lifecycle#stop changes nothing.
 const LIMIT_MAILS: [&str; 10] = ["limit-poll-reaches", "limit-poll-reaches-limit_order", "limit-poll-stopped_bot", "limit-poll-archived",
                                  "limit-sweep-reaches", "limit-sweep-reaches-under_floor", "limit-sweep-reaches-twice", "limit-poll-cancelled_partial_reaches",
                                  "limit-poll-cancelled_fractional_reaches", "limit-tick_then_poll"];
 
-/// Plan CB T2's crypto cells (decisions.rb venue_limit_scenarios) in which Rails mails stopped_by_amount_limit: the fills that
+/// Plan CB T2's crypto cells (the recorded venue_limit_scenarios) in which 2.x mails stopped_by_amount_limit: the fills that
 /// spend the cap (on every venue, slice 6d-0), a slipped base-sized fill past it, and Binance's fee-inclusive executed quote
 /// (Kraken's and KuCoin's are gross, so the same fill leaves 0.06 and stops nothing).
 fn venue_limit_mails(name: &str) -> bool {
@@ -1609,7 +1609,7 @@ fn venue_limit_mails(name: &str) -> bool {
 /// sides are equal; Hyperliquid's 10 USDC minimum skips the 7.18 (D-CAP-REMAINDER-STOP); Gemini sizes at the cross (D-679).
 const GUARD_UNTRIMMED: [&str; 3] = ["limit-bitget-guard-trim", "limit-hyperliquid-guard-trim", "limit-gemini-guard-trim"];
 
-/// The exact-cap guard's trim on a crypto venue (listed divergence, RULING-B2A-R2): Rails sizes 0.0002 BTC from its Float
+/// The exact-cap guard's trim on a crypto venue (listed divergence, RULING-B2A-R2): 2.x sizes 0.0002 BTC from its Float
 /// remainder and spends past the exact cap by a few 1e-15; Rust sends one base increment less. Beyond that order's volume and
 /// its row's amount and quote_amount, both sides are equal.
 fn guard_trimmed(name: &str, v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
@@ -1643,7 +1643,7 @@ fn guard_trimmed(name: &str, v2_out: &serde_json::Value, rust_out: &serde_json::
     Ok(())
 }
 
-/// An unresolved intent counts as spent. Rails writes no row for the ambiguous 60 USD order that in fact landed, so its next
+/// An unresolved intent counts as spent. 2.x writes no row for the ambiguous 60 USD order that in fact landed, so its next
 /// checkpoint spends the whole 100 USD cap again (160 sent against the cap); Rust recovers the order by its client order id,
 /// counts it, and spends the 40 left (100 sent).
 fn overspend_prevented(dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_json::Value, reference: Option<(&Path, &serde_json::Value)>) -> Result<(), String> {
@@ -1654,12 +1654,12 @@ fn overspend_prevented(dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_
     Ok(())
 }
 
-/// Slice 6d-2: the base cap on a one-asset seller (script/rust/decisions.rb limit_sell_scenarios), on all 14 venues, compared
+/// Slice 6d-2: the base cap on a one-asset seller (the recorded limit_sell_scenarios), on all 14 venues, compared
 /// whole beside two named divergences:
-/// - D-6D-1: the base cap's mail states the cap at the base's precision, zeros trimmed, where Rails prints its Float
+/// - D-6D-1: the base cap's mail states the cap at the base's precision, zeros trimmed, where 2.x prints its Float
 ///   ("1.0e-05").
 /// - D-6D-2: a rotation into selling with the cap used up stops the bot (amount_sold; a working bot's `stopped` line) and
-///   owes the base cap's mail; Rails leaves it idle and says nothing.
+///   owes the base cap's mail; 2.x leaves it idle and says nothing.
 #[tokio::test(flavor = "current_thread")]
 async fn v2_and_rust_decide_identically_across_the_limit_sell_grid() {
     let (_copies, outputs) = grid_outputs("grid-limit-sell", 154).await;
@@ -1671,7 +1671,7 @@ async fn v2_and_rust_decide_identically_across_the_limit_sell_grid() {
         let mailed = |out: &serde_json::Value| -> Vec<String> { out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap().to_string()).collect() };
         let bot_after = |out: &serde_json::Value| out["changes"]["bots"].as_array().unwrap().first().map(|b| b["after"].clone()).unwrap_or_default();
         let reaches = name.ends_with("-poll_reaches") || name.ends_with("-poll_reaches_exponent") || name.ends_with("-sweep_reaches");
-        // Rails' side pinned, so that two silent sides cannot pass.
+        // 2.x's side pinned, so that two silent sides cannot pass.
         let expected: &[&str] = if reaches { &["stopped_by_base_amount_limit"] } else { &[] };
         if mailed(&v2_out) != expected { failures.push(format!("{name}: 2.x mailed {:?}, expected {expected:?}", mailed(&v2_out))); }
         if reaches && bot_after(&v2_out)["stop_message_key"] != SOLD { failures.push(format!("{name}: 2.x did not stop with amount_sold\n  2.x: {v2_out}")); }
@@ -1690,7 +1690,7 @@ async fn v2_and_rust_decide_identically_across_the_limit_sell_grid() {
             v2_out["mails"] = rust_out["mails"].clone();
         }
         if name.contains("-rotation_used_") {
-            // D-6D-2: Rust stopped the bot and owes the mail; Rails did neither. Beyond those, both sides are equal.
+            // D-6D-2: Rust stopped the bot and owes the mail; 2.x did neither. Beyond those, both sides are equal.
             let (v2_bot, rust_bot) = (bot_after(&v2_out), bot_after(&rust_out));
             if v2_bot["stop_message_key"] == SOLD || !mailed(&v2_out).is_empty() { failures.push(format!("{name}: 2.x now stops at rotation: drop D-6D-2\n  2.x: {v2_out}")); }
             if (rust_bot["status"].clone(), rust_bot["stop_message_key"].clone()) != (serde_json::json!(2), serde_json::json!(SOLD)) || mailed(&rust_out) != ["stopped_by_base_amount_limit"] {
@@ -1721,13 +1721,13 @@ async fn v2_and_rust_decide_identically_across_the_amount_limit_grid() {
         let mailed = |out: &serde_json::Value| -> Vec<String> {
             out["mails"].as_array().unwrap_or_else(|| panic!("{name}: no mails reported")).iter().map(|m| m["mail"].as_str().unwrap().to_string()).collect()
         };
-        // Rails' side pinned, so that two silent sides cannot pass.
+        // 2.x's side pinned, so that two silent sides cannot pass.
         let expected: &[&str] = if name == "limit-sweep-reaches-twice" {
             &["stopped_by_amount_limit", "stopped_by_amount_limit"] // one per callback
         } else if LIMIT_MAILS.contains(&name.as_str()) || venue_limit_mails(name) {
             &["stopped_by_amount_limit"]
         } else if name.ends_with("-5xx") {
-            &["notify_about_error"] // Rails' failed row for the 5xx leg (Bot::Notifyable#notify_about_error)
+            &["notify_about_error"] // 2.x's failed row for the 5xx leg (Bot::Notifyable#notify_about_error)
         } else {
             &[]
         };
@@ -1763,7 +1763,7 @@ async fn v2_and_rust_decide_identically_across_the_amount_limit_grid() {
         }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    // Rails' side must show what each cell exists for, or an equal comparison proves nothing.
+    // 2.x's side must show what each cell exists for, or an equal comparison proves nothing.
     for (name, _, v2_out, _) in &outputs {
         let bot = v2_out["changes"]["bots"].as_array().unwrap().first().map(|b| b["after"].clone()).unwrap_or_default();
         let sent: Vec<&str> = v2_out["sent"].as_array().unwrap().iter().filter_map(|o| o["notional"].as_str()).collect();
@@ -1795,12 +1795,12 @@ async fn v2_and_rust_decide_identically_across_the_amount_limit_grid() {
     }
 }
 
-/// Stock grid variants where Rust deliberately decides otherwise than Rails (spec Amendment 2026-10-02b), each asserted below.
+/// Stock grid variants where Rust deliberately decides otherwise than 2.x (spec Amendment 2026-10-02b), each asserted below.
 const STOCK_DIVERGENCES: [&str; 8] = ["clock_5xx", "clock_unreadable", "clock_certificate", "clock_stale_body", "clock_stale_cache",
                                       "clock_past_next_open", "add_server_error", "cap_sold_split"];
 
-/// D-SPLIT-BASE-CAP (PLAN-A14b): a seller capped at 10 shares sold 4 before a 2:1 split. Rails counts both as traded and sells
-/// 6; Rust restates them into today's shares (20 − 8) and sells 12. Otherwise the outcome is Rails' with that order's amount.
+/// D-SPLIT-BASE-CAP (PLAN-A14b): a seller capped at 10 shares sold 4 before a 2:1 split. 2.x counts both as traded and sells
+/// 6; Rust restates them into today's shares (20 − 8) and sells 12. Otherwise the outcome is 2.x's with that order's amount.
 fn cap_restated(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     if v2_out["sent"][0]["qty"] != "6.000000000" { return Err(format!("2.x no longer sells 6 as traded: drop the listed divergence\n  2.x: {v2_out}")); }
     if rust_out["sent"][0]["qty"] != "12.000000000" { return Err(format!("Rust must sell 12 restated shares: {rust_out}")); }
@@ -1822,7 +1822,7 @@ fn events_and_status(dir: &Path) -> Result<(Vec<String>, i64), String> {
     Ok((events, c.query_row("SELECT status FROM bots", [], |r| r.get(0)).map_err(|e| e.to_string())?))
 }
 
-/// Rails reads the clock as open and places; Rust places nothing. `parked`: Rust read the fresh clock as closed (no cache);
+/// 2.x reads the clock as open and places; Rust places nothing. `parked`: Rust read the fresh clock as closed (no cache);
 /// otherwise it retried as transient and ended `retrying` with execution_retrying.
 fn clock_failed_closed(dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_json::Value, parked: bool) -> Result<(), String> {
     if v2_out["sent"].as_array().map(Vec::len) != Some(1) { return Err(format!("2.x no longer places on this clock: drop the listed divergence\n  2.x: {v2_out}")); }
@@ -1833,7 +1833,7 @@ fn clock_failed_closed(dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_
     Ok(())
 }
 
-/// Rails parks on a closed clock whose next_open is already past (and would spin on its cache); Rust retries and parks nothing.
+/// 2.x parks on a closed clock whose next_open is already past (and would spin on its cache); Rust retries and parks nothing.
 fn past_next_open_retried(dir: &Path, v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     let v2_events: Vec<&str> = v2_out["changes"]["bot_activity_logs"].as_array().ok_or("expected JSON array")?.iter().filter_map(|l| l["after"]["event"].as_str()).collect();
     if v2_events != ["market_closed"] { return Err(format!("2.x no longer parks on a past next_open: {v2_out}")); }
@@ -1878,7 +1878,7 @@ async fn v2_and_rust_decide_identically_across_the_stock_grid() -> Result<(), Bo
         }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
-    // The comparison proves parity only where Rails really does what the variant names: pin those facts on Rails' side.
+    // The comparison proves parity only where 2.x really does what the variant names: pin those facts on 2.x's side.
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
         let r: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("expected.json"))?)?;
@@ -1894,7 +1894,7 @@ async fn v2_and_rust_decide_identically_across_the_stock_grid() -> Result<(), Bo
         if name.ends_with("-funds_low_buying_power") { assert_eq!(r["funds_notified"], true, "{name}: a stock bot spends buying_power"); }
         if name.ends_with("-funds_low_cash_only") { assert_eq!(r["funds_notified"], false, "{name}"); }
         if name.ends_with("-first_tick") { assert_eq!(r["sent"][0]["time_in_force"], "day", "{name}"); }
-        // A14b: Rails' base cap counts as traded across a split: 10 − 4 = 6 either way.
+        // A14b: 2.x's base cap counts as traded across a split: 10 − 4 = 6 either way.
         if name.ends_with("-cap_sold_nosplit") || name.ends_with("-cap_sold_split") { assert_eq!(r["sent"][0]["qty"], "6.000000000", "{name}"); }
     }
     Ok(())
@@ -1917,7 +1917,7 @@ async fn v2_and_rust_decide_identically_across_the_index_grid() -> Result<(), Bo
         let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.map_err(|e| format!("{e:?}"))?;
         let v2_out = r5_cleanup_expected(&v2_out, &rust_out);
         if let Err(e) = index_top_n(&rust_root.path().join(&name), &v2_out, &rust_out) { failures.push(format!("{name} (D-INDEX-TOP-N): {e}")); }
-        // Pinned on Rails' side, so a vacuous pass is impossible: what each composition names really happened there.
+        // Pinned on 2.x's side, so a vacuous pass is impossible: what each composition names really happened there.
         let members: Vec<&serde_json::Value> = v2_out["changes"]["bot_index_assets"].as_array().ok_or("expected JSON array")?.iter().collect();
         if name.contains("-duplicate-") && name.ends_with("-all_flat") {
             let allocations = members.iter().map(|m| -> Result<_, Box<dyn std::error::Error>> { Ok(f64::from_bits(u64::from_str_radix(m["after"]["target_allocation"]["f"].as_str().ok_or("expected allocation bits")?, 16)?)) }).collect::<Result<Vec<_>, _>>()?;
@@ -1951,7 +1951,7 @@ async fn a_stock_and_an_index_copy_are_planned_with_stock_bodies_and_an_open_clo
         seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(aapl, 1.0)]));
         seed::insert_index(&o.primary, "nasdaq-100", &["MSFT.US", "AAPL.US"], &json!({ "MSFT.US": 3.1e12, "AAPL.US": 3.4e12 }));
         seed::index_bot(&o.primary, &s, "nasdaq-100", 2, 0.0, false);
-        // A Rails source holds no rankings (D-INDEX-UNATTESTED-HELD): the copy prices the row Rails reads all the same.
+        // A 2.x source holds no rankings (D-INDEX-UNATTESTED-HELD): the copy prices the row 2.x reads all the same.
         o.primary.execute("DELETE FROM rust_index_rankings", []).map_err(|e| format!("{e:?}"))?;
     }
     let tickers = json!({ "AAPL": { "quote": { "symbol": "AAPL", "quote": { "ap": 187.43 } }, "trade": { "symbol": "AAPL", "trade": { "p": 187.41 } } },
@@ -1976,7 +1976,7 @@ async fn a_stock_and_an_index_copy_are_planned_with_stock_bodies_and_an_open_clo
 
 
 /// Slice 7s: the price rule's status line (Bot::BroadcastPriceLimitInfoUpdateJob) on every venue of the condition grid, both
-/// sides: the payload each info phase broadcasts and every row it wrote (met_at, the carry and its marker), as Rails does them.
+/// sides: the payload each info phase broadcasts and every row it wrote (met_at, the carry and its marker), as 2.x does them.
 #[tokio::test(flavor = "current_thread")]
 async fn v2_and_rust_show_the_price_status_line_identically() {
     use serde_json::Value;
@@ -1994,13 +1994,13 @@ async fn v2_and_rust_show_the_price_status_line_identically() {
         let v2_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("expected.json")).unwrap()).unwrap();
         let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.unwrap();
         let v2_out = r5_cleanup_expected(&v2_out, &rust_out);
-        // D-INFO-READONLY (audit #5): Rails' job stamps or clears met_at and captures the carry; Rust's never changes trading
-        // state. Rails' rows with those writes taken back must equal Rust's, every other column, row, line and payload included.
+        // D-INFO-READONLY (audit #5): 2.x's job stamps or clears met_at and captures the carry; Rust's never changes trading
+        // state. 2.x's rows with those writes taken back must equal Rust's, every other column, row, line and payload included.
         let (expected, wrote) = info_writes_taken_back(&v2_out);
         let writes = ["cold_met", "clear", "carry_held", "warm", "flip"].iter().any(|c| name.ends_with(&format!("-{c}")));
         if wrote != writes { failures.push(format!("{name}: 2.x's info job wrote {wrote}, the D-INFO-READONLY cells expect {writes}\n  2.x: {v2_out}")); }
         if expected != rust_out { failures.push(format!("{name}\n  2.x: {expected}\n  rust:  {rust_out}")); }
-        // Pin what Rails shows, so that two silent sides cannot pass.
+        // Pin what 2.x shows, so that two silent sides cannot pass.
         let case = name.rsplit('-').next().unwrap();
         let shown: Vec<usize> = v2_out["infos"].as_array().unwrap().iter().map(|p| p.as_array().unwrap().len()).collect();
         let html = |i: usize| v2_out["infos"][i][0]["html"].as_str().unwrap_or("").to_string();
@@ -2021,7 +2021,7 @@ async fn v2_and_rust_show_the_price_status_line_identically() {
     assert!(failures.is_empty(), "{} of {} status-line scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
-/// D-INFO-READONLY: Rails' recording with its info job's trading-state writes taken back — every `*_condition_met_at`, the
+/// D-INFO-READONLY: 2.x's recording with its info job's trading-state writes taken back — every `*_condition_met_at`, the
 /// carry (`missed_quote_amount`), its marker and the `updated_at` those writes touch restored to the row's before — and
 /// whether there were any. A bot row left unchanged drops out of `changes`, as an unwritten row never enters it.
 fn info_writes_taken_back(v2: &serde_json::Value) -> (serde_json::Value, bool) {
@@ -2047,7 +2047,7 @@ fn info_writes_taken_back(v2: &serde_json::Value) -> (serde_json::Value, bool) {
 }
 
 /// D-COND-INFO-READ-ONLY: the ATH status line preserves both bot trading state and the ticker history.
-/// Rails' recorder supplies the display and bot writes; its resulting ticker row independently pins the ATH write.
+/// The recording harness supplies the display and bot writes; its resulting ticker row independently pins the ATH write.
 #[tokio::test(flavor = "current_thread")]
 async fn ath_status_lines_match_v2_without_its_bot_or_ticker_writes() {
     use serde_json::{json, Value};
@@ -2100,7 +2100,7 @@ async fn ath_status_lines_match_v2_without_its_bot_or_ticker_writes() {
 }
 
 /// Slice 7b-0 characterisation, with 7c end-to-end rule-off comparisons for buy flips.
-/// Pins what Rails does on a degenerate daily close series (the plan's "7b-0
+/// Pins what 2.x does on a degenerate daily close series (the plan's "7b-0
 /// findings"): a flat series gives RSI NaN, which meets neither `below` nor `above`; an all-gain series gives 100.0; 14
 /// closes (RSI) or 8 (SMA 9) fail, which reads as not met; an unmet or failed buy-side flip rule places nothing (its
 /// decorated started_at is nil), a sell-side one sells. And the Alpaca crypto ATH seed reads every page at limit=10000.
@@ -2113,7 +2113,7 @@ async fn v2_reads_degenerate_indicator_series_as_recorded() {
     dirs.sort();
     assert_eq!(dirs.len(), 68, "the degenerate grid has {} scenarios", dirs.len());
     // D-FLIP-UNMET-KEEPS-BUYING: each buy-side flip cell (unmet or failed), played by Rust, and the same scenario with the
-    // rule switched off, recorded by Rails. Copied before Rails records (which writes the databases); the tick only.
+    // rule switched off, recorded by 2.x. Copied before 2.x records (which writes the databases); the tick only.
     let (rust_root, off_root) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let flips: Vec<String> = dirs.iter().map(|d| d.file_name().unwrap().to_string_lossy().to_string())
         .filter(|n| n.contains("-buy-") && n.ends_with("_flip")).collect();
@@ -2203,7 +2203,7 @@ async fn v2_reads_degenerate_indicator_series_as_recorded() {
 }
 
 /// Slice 7a: price_limit / sell_price_limit with `pause` on Kraken, Binance and Alpaca, buying and selling, and five smoke cases
-/// on every other venue (plan 7s T4). Every tick, check and check job queued (with its time) as Rails decides them.
+/// on every other venue (plan 7s T4). Every tick, check and check job queued (with its time) as 2.x decides them.
 #[tokio::test(flavor = "current_thread")]
 async fn v2_and_rust_decide_identically_across_the_condition_grid() {
     let v2_root = tempfile::tempdir().unwrap();
@@ -2220,7 +2220,7 @@ async fn v2_and_rust_decide_identically_across_the_condition_grid() {
         let v2_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("expected.json")).unwrap()).unwrap();
         let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.unwrap();
         let mut v2_out = r5_cleanup_expected(&v2_out, &rust_out);
-        // Named divergence (not the condition's): with its only pair unavailable, Rails' Kraken balance read (Bot::Fundable,
+        // Named divergence (not the condition's): with its only pair unavailable, 2.x's Kraken balance read (Bot::Fundable,
         // behind the pause) finds no EUR and mails end_of_funds; Rust reads the venue's EUR balance.
         if name.starts_with("cond-kraken-buy-missing_ticker") {
             assert_eq!(v2_out["mails"], serde_json::json!([{ "mail": "end_of_funds", "quote": "EUR" }]), "{name}: drop the listed divergence");
@@ -2231,7 +2231,7 @@ async fn v2_and_rust_decide_identically_across_the_condition_grid() {
         if name.starts_with("cond-gemini-buy-") {
             if let Err(e) = crossed_buy(&name, d, &v2_out, &rust_out) { failures.push(format!("{name}: {e}")); }
         } else if v2_out != rust_out { failures.push(format!("{name}\n  2.x: {v2_out}\n  rust:  {rust_out}")); }
-        // Pin what Rails does, so that two silent sides cannot pass.
+        // Pin what 2.x does, so that two silent sides cannot pass.
         let case = name.splitn(4, '-').nth(3).unwrap();
         let checks = v2_out["checks"].as_array().unwrap().len();
         let paused = ["unmet", "at_limit", "missing_ticker", "missing_ticker_unset", "server_error"].iter().any(|v| case.ends_with(v)) || case.starts_with("check_");
@@ -2249,7 +2249,7 @@ async fn v2_and_rust_decide_identically_across_the_condition_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
-/// 7b-3: price-drop, MA and RSI use Rails' rows, logs, sent orders and check schedules on all three reference venues.
+/// 7b-3: price-drop, MA and RSI use 2.x's rows, logs, sent orders and check schedules on all three reference venues.
 #[tokio::test(flavor = "current_thread")]
 async fn v2_and_rust_decide_identically_across_the_indicator_condition_grid() {
     let v2_root = tempfile::tempdir().unwrap();
@@ -2277,7 +2277,7 @@ async fn v2_and_rust_decide_identically_across_the_indicator_condition_grid() {
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
-/// D-COND-RSI-DEGENERATE: Rails' NaN is an unmet Success (and clears a prior latch); Rust returns a settled Failure,
+/// D-COND-RSI-DEGENERATE: 2.x's NaN is an unmet Success (and clears a prior latch); Rust returns a settled Failure,
 /// preserves trading state and retries the check in one minute. All finite and too-short series retain full parity.
 #[tokio::test(flavor = "current_thread")]
 async fn degenerate_pause_rules_match_v2_except_the_named_nan_failure() {
@@ -2327,8 +2327,8 @@ async fn degenerate_pause_rules_match_v2_except_the_named_nan_failure() {
 }
 
 /// D-KRAKEN-LIMIT-COSTMIN: the 20-coin Kraken index's smallest limit leg (AVAX, about 0.30 EUR) clears ordermin, which is all
-/// Rails' :base limit logic checks, and Rails sends it; Rust also checks costmin (0.5 EUR, script/rust/decisions.rb's Kraken
-/// pair) and skips it. Everything else is Rails' decision: the same orders and rows less that leg, plus Rust's one
+/// 2.x's :base limit logic checks, and 2.x sends it; Rust also checks costmin (0.5 EUR, the recording harness's Kraken
+/// pair) and skips it. Everything else is 2.x's decision: the same orders and rows less that leg, plus Rust's one
 /// orders_below_minimum line naming it.
 const KRAKEN_LIMIT_COSTMIN: [&str; 2] = ["vi-kraken-top-fewer_than_n-limit", "vi-kraken-category-fewer_than_n-limit"];
 const KRAKEN_GRID_COSTMIN: &str = "0.5";
@@ -2358,7 +2358,7 @@ fn kraken_limit_under_costmin(v2_out: &serde_json::Value, rust_out: &serde_json:
 
 /// Plan CI T4: crypto index bots on Kraken (EUR), Binance (USDT and BTC), KuCoin (USDT and USDC) and Alpaca (USD crypto beside stocks), every venue
 /// scripted at the Faraday adapter; the probe table (rejected keys, transport failures, a 5xx); rotation with a resting leaver
-/// order and a carry; and each resync trigger followed by a tick (plan CI T3b), all decided by Rails and by Rust alike.
+/// order and a carry; and each resync trigger followed by a tick (plan CI T3b), all decided by 2.x and by Rust alike.
 #[tokio::test(flavor = "current_thread")]
 async fn v2_and_rust_decide_identically_across_the_venue_index_grid() -> Result<(), Box<dyn std::error::Error>> {
     let (_copies, outputs) = grid_outputs("grid-venue-index", 336).await;
@@ -2370,7 +2370,7 @@ async fn v2_and_rust_decide_identically_across_the_venue_index_grid() -> Result<
         } else if name.contains("spend_cap_applies") {
             if let Err(e) = index_cap_applies(rust_out) { failures.push(format!("{name} (listed divergence D-IDX-CAP): {e}\n  rust: {rust_out}")); }
         } else if let Err(e) = index_top_n(dir, v2_out, rust_out) { failures.push(format!("{name} (D-INDEX-TOP-N): {e}")); }
-        // Pinned on Rails' side, so that two silent engines cannot pass: what each case names really happened there.
+        // Pinned on 2.x's side, so that two silent engines cannot pass: what each case names really happened there.
         let sent: Vec<String> = v2_out["sent"].as_array().ok_or("sent")?.iter()
             .map(|o| o.get("pair").or_else(|| o.get("symbol")).and_then(|v| v.as_str()).unwrap_or_default().to_string()).collect();
         let members = v2_out["changes"]["bot_index_assets"].as_array().ok_or("members")?;
@@ -2390,7 +2390,7 @@ async fn v2_and_rust_decide_identically_across_the_venue_index_grid() -> Result<
         if name.contains("-leaver") || name.contains("-member_unavailable-") || name.contains("index_sync_then_tick") {
             checks.push(pinned(exited, "mark a member out of the index"));
         }
-        // A17-4: Rails composed live from the scripted CoinGecko answer (and Rust from its stored ranking of it, compared above).
+        // A17-4: 2.x composed live from the scripted CoinGecko answer (and Rust from its stored ranking of it, compared above).
         if name.contains("-coingecko_") { checks.push(pinned(seated == 3, "seat three members from the CoinGecko answer")); }
         if name.contains("-coingecko_unlisted") { checks.push(pinned(!sent.iter().any(|p| p.starts_with("SOL")), "pass over the member Kraken does not list")); }
         if name.contains("-index_missing-") { checks.push(pinned(sent.is_empty() && errors == ["Index not found"], "fail with Index not found")); }
@@ -2406,7 +2406,7 @@ async fn v2_and_rust_decide_identically_across_the_venue_index_grid() -> Result<
         if name.contains("venue_switch_then_tick") {
             checks.push(pinned(exited && seated == 3 && sent == ["BTC-USDT", "ETH-USDT", "ADA-USDT"], "reseat the members on the new venue and buy them"));
         }
-        // A stored spending cap on an index bot is inert in Rails: it buys though the cap is long spent.
+        // A stored spending cap on an index bot is inert in 2.x: it buys though the cap is long spent.
         if name.contains("spend_cap_applies") { checks.push(pinned(!sent.is_empty(), "buy past a spent cap it never reads")); }
         if name.ends_with("closed_resync") { checks.push(pinned(sent.is_empty() && seated == 3, "resync with the market closed")); }
         // The resync's failure kinds: its newcomer probes are the tick's first reads, so the tick buys after each of them.
@@ -2417,8 +2417,8 @@ async fn v2_and_rust_decide_identically_across_the_venue_index_grid() -> Result<
     Ok(())
 }
 
-/// D-CAP-REMAINDER-STOP: a binding cap whose whole remainder sizes to no placeable leg. Rails skips the leg and keeps the bot
-/// running (its reached test is the precision floor); the engine writes the same skipped rows and Rails' lines, then the
+/// D-CAP-REMAINDER-STOP: a binding cap whose whole remainder sizes to no placeable leg. 2.x skips the leg and keeps the bot
+/// running (its reached test is the precision floor); the engine writes the same skipped rows and 2.x's lines, then the
 /// amount-limit stop: one `stopped` line, the bot stopped, the amount-limit mail. Neither side sends an order.
 fn remainder_stop(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     if !v2_out["sent"].as_array().is_some_and(Vec::is_empty) || !rust_out["sent"].as_array().is_some_and(Vec::is_empty) { return Err("an order was sent".into()); }
@@ -2434,9 +2434,9 @@ fn remainder_stop(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> R
     Ok(())
 }
 
-/// D-INDEX-TOP-N: compare every effect with Rails on the eligible ranking; the only extra
+/// D-INDEX-TOP-N: compare every effect with 2.x on the eligible ranking; the only extra
 /// effect allowed is the explicit shortage activity line. The original recordings above still
-/// pin Rails' inclusion of USDC/USDT, so this cannot silently become an unnamed parity change.
+/// pin 2.x's inclusion of USDC/USDT, so this cannot silently become an unnamed parity change.
 fn index_top_n(dir: &std::path::Path, v2: &serde_json::Value, rust: &serde_json::Value) -> Result<(), String> {
     let (expected,actual) = index_top_n_pair(dir,v2,rust)?;
     if expected!=actual { return Err(format!("effects differ\n  expected: {expected}\n  rust: {actual}")); }
@@ -2481,27 +2481,27 @@ fn index_top_n_pair(dir: &std::path::Path, v2: &serde_json::Value, rust: &serde_
 }
 
 /// D-IDX-CAP: the engine reads an index bot's spending cap. Spent long ago (60 bought since it was switched on, cap 10), the
-/// tick's amount is cut to nothing left: no order, no row (set_orders' `amount.zero?`), where Rails, never reading the cap, buys.
+/// tick's amount is cut to nothing left: no order, no row (set_orders' `amount.zero?`), where 2.x, never reading the cap, buys.
 fn index_cap_applies(rust_out: &serde_json::Value) -> Result<(), String> {
     if !rust_out["sent"].as_array().is_some_and(Vec::is_empty) { return Err("the engine sent an order past the cap".into()); }
     if !rust_out["changes"]["transactions"].as_array().is_some_and(Vec::is_empty) { return Err("the engine wrote an order row".into()); }
     Ok(())
 }
 
-/// decisions.rb SIGNAL_GRID_SIZE: the webhook cells and PLAN-A9 O3's `api` axis.
+/// The recording harness's SIGNAL_GRID_SIZE: the webhook cells and PLAN-A9 O3's `api` axis.
 const SIGNAL_GRID_SIZE: usize = 420 + 79 + 927 + 203;
 
-/// Plan 8a: one webhook call of a signal bot (script/rust/decisions.rb signal_scenarios): Bot::SignalJob at `at` with its own
+/// Plan 8a: one webhook call of a signal bot (the recorded signal_scenarios): Bot::SignalJob at `at` with its own
 /// retries, against the engine's executor on a pristine copy, on Kraken, Binance, KuCoin and Alpaca (crypto and a stock).
 /// Recorded per case: the rows, the lines, the mails and every order request the venue received (the assertion against a
-/// double placement). The marker's `id` is the one value the two sides draw differently: Rails a fresh uuid, the engine its
+/// double placement). The marker's `id` is the one value the two sides draw differently: 2.x a fresh uuid, the engine its
 /// intent's cl_ord_id. Listed, each asserted on its own terms:
 /// - transport wording (Kraken, Binance, KuCoin): the harness scripts a transport failure as Client.network_failure names
 ///   it ("Faraday::ConnectionFailed: …", "Faraday::TimeoutError: …"); honeymaker's #with_rescue reports the exception's own
 ///   message. Same rows, lines and mails otherwise (as `refused_like_v2`).
 /// - ambiguous wording (`unreadable`, `no_order_id`): both sides send once, write no row, raise the marker and log one
 ///   placement_ambiguous; only the error text in the two differs (the adapters name what they could not read).
-/// - Alpaca `pre_send` and D-HL-PRE-SEND on Hyperliquid: a refused connection provably sent nothing. Rails' Clients::Alpaca raises it and
+/// - Alpaca `pre_send` and D-HL-PRE-SEND on Hyperliquid: a refused connection provably sent nothing. 2.x's Clients::Alpaca raises it and
 ///   #place_signal_order reads any raise as ambiguous (the marker, no row); the engine writes the failed row and mails, as
 ///   for any other definitive refusal, and the next call places.
 /// Plan A5 adds Binance.US, Bitvavo, Gemini, Bitget, MEXC, Bybit, Bitrue, Coinbase and BingX (their kits hold free ≠ total,
@@ -2509,7 +2509,7 @@ const SIGNAL_GRID_SIZE: usize = 420 + 79 + 927 + 203;
 /// Gemini's crossing cases):
 /// - transport wording on all nine, as for Kraken, Binance and KuCoin above (honeymaker's #with_rescue).
 /// - D-BYBIT-AMBIG (`app_ambiguous`, `app_ambiguous_10016`): Bybit's 10000 "Server Timeout" and 10016 "Server error" cannot
-///   prove the order was refused. Rails' client reads them as a rejection (a failed row and the error mail, no marker); the
+///   prove the order was refused. 2.x's client reads them as a rejection (a failed row and the error mail, no marker); the
 ///   engine keeps them ambiguous as its Bybit DCA path does (grid-bybit): the marker, one placement_ambiguous line, no row,
 ///   no mail. Same order sent.
 #[tokio::test(flavor = "current_thread", start_paused = true)] // Exchange#with_transient_retry's backoff, never slept
@@ -2572,9 +2572,9 @@ async fn v2_and_rust_decide_identically_across_the_signal_grid() {
         if differs { failures.push(format!("{name}\n  2.x: {v2_out}\n  rust:  {rust_out}")); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    // Pinned on Rails' side, so that two silent sides cannot pass: what each case names really happened there.
+    // Pinned on 2.x's side, so that two silent sides cannot pass: what each case names really happened there.
     let mut pins = vec![];
-    // The `api` axis, pinned on Rails' side too: one BotOrder answer each, with the outcome the cell names.
+    // The `api` axis, pinned on 2.x's side too: one BotOrder answer each, with the outcome the cell names.
     for (name, _, out, _) in outputs.iter().filter(|(name, ..)| name.contains("-api-")) {
         let answers = out["api"].as_array().unwrap_or_else(|| panic!("{name}: no BotOrder answer recorded"));
         assert_eq!(answers.len(), 1, "{name}");
@@ -2605,7 +2605,7 @@ async fn v2_and_rust_decide_identically_across_the_signal_grid() {
             "reserved" if sell => (0, vec![2], vec!["order_skipped"], 0, false),
             "reserved" => (1, vec![0], vec![], 0, false),
             "min_rejected" => (1, vec![1], vec![], 1, false),
-            "app_ambiguous" | "app_ambiguous_10016" if venue == "bybit" => (1, vec![1], vec![], 1, false), // D-BYBIT-AMBIG: Rails' side
+            "app_ambiguous" | "app_ambiguous_10016" if venue == "bybit" => (1, vec![1], vec![], 1, false), // D-BYBIT-AMBIG: 2.x's side
             "app_ambiguous" => (1, vec![], vec!["placement_ambiguous"], 0, true),
             "expired" | "unresolved_marker" => (0, vec![], vec!["signal_expired"], 0, false),
             "stopped" | "disabled" => (0, vec![], vec!["signal_ignored"], 0, false),
@@ -2657,7 +2657,7 @@ async fn v2_and_rust_decide_identically_across_the_signal_grid() {
     assert!(pins.is_empty(), "pinned expectations:\n{}", pins.join("\n"));
 }
 
-/// Plan A5: what Rails sent on each of the nine new signal venues (decisions.rb signal_more_venues), per rule (buy-fixed,
+/// Plan A5: what 2.x sent on each of the nine new signal venues (the recorded signal_more_venues), per rule (buy-fixed,
 /// buy-percentage, sell-fixed, sell-percentage): `accepted`; the second of `two_calls` for the percentage rules (the second
 /// balance reads 8000 quote and 0.4 base free); `quote_constrained`'s percentage buy (50 quote free; None: below the minimum).
 /// Gemini's are `amount@price` (its crossed IOC limit).
@@ -2754,7 +2754,7 @@ fn bitrue_ambiguous(name: &str, dir: &Path, v2: &serde_json::Value, rust: &serde
         out["changes"]["bot_activity_logs"] = serde_json::json!([]);
         out["mails"] = serde_json::json!([]);
         for bot in out["changes"]["bots"].as_array_mut().unwrap() {
-            // An id-less acknowledgement leaves Rails running; the intent remains retrying in Rust.
+            // An id-less acknowledgement leaves 2.x running; the intent remains retrying in Rust.
             if name.ends_with("-add_no_order_id") { bot["after"]["status"] = serde_json::json!(5); }
             if let Some(data) = bot["after"]["transient_data"].as_object_mut() {
                 data.shift_remove("last_failure_kind");
@@ -2790,7 +2790,7 @@ async fn v2_and_rust_decide_identically_across_the_bitrue_grid() {
         Validator { names: &ending(&["sweep_unknown_type"]), check: &wrapped("208", "Unknown Bitrue order type: STOP_LOSS") },
         Validator { names: &ending(&["sweep_unknown_status"]), check: &wrapped("209", "Unknown Bitrue order status: UNLISTED") },
     ]).await;
-    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    // Pin what 2.x does where a silent pair of sides would otherwise pass.
     for (name, v2_out) in &outputs {
         let mailed: Vec<&str> = v2_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
         let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
@@ -2810,7 +2810,7 @@ async fn v2_and_rust_decide_identically_across_the_bitrue_grid() {
     }
 }
 
-/// Coinbase's normal decisions match Rails; D-CB-PAGING and D-CB-PLACEMENT are asserted separately.
+/// Coinbase's normal decisions match 2.x; D-CB-PAGING and D-CB-PLACEMENT are asserted separately.
 /// D-CB-PLACEMENT retains uncertain intents and recovers landed orders without placing again.
 #[tokio::test(flavor="current_thread")]
 async fn v2_and_rust_decide_identically_across_the_coinbase_grid(){
@@ -2841,7 +2841,7 @@ async fn v2_and_rust_decide_identically_across_the_coinbase_grid(){
     ]).await;
 }
 
-// D-BINGX-AMBIG / D-BINGX-NUM / D9, validated against the Rails grid.
+// D-BINGX-AMBIG / D-BINGX-NUM / D9, validated against the 2.x grid.
 const BINGX_DIVERGENCES: [&str; 6] = ["add_server_error", "add_service_unavailable", "add_timeout_after_send", "add_unreadable", "throttled", "timestamp_700003"];
 #[tokio::test(flavor = "current_thread")]
 async fn v2_and_rust_decide_identically_across_the_bingx_grid() {
@@ -2874,7 +2874,7 @@ fn bingx_ambiguous(name: &str, dir: &Path, v2: &serde_json::Value, rust: &serde_
 }
 
 /// D-WASH-UNSENT-KEEPS: a composition sale's placement refused before transmission (a refused connection) on a venue that
-/// answers it as a Failure (Binance), written as a failed row by both sides. Rails restores the claim, its Failure's error
+/// answers it as a Failure (Binance), written as a failed row by both sides. 2.x restores the claim, its Failure's error
 /// chain proving the order never left (Exchange#ambiguous_placement_error?); the engine's rejection carries only the text,
 /// which reads transient, so it keeps the lock. The safe direction: a window served for nothing, never a loss washed.
 fn unsent_lock_kept(v2_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
@@ -2887,12 +2887,12 @@ fn unsent_lock_kept(v2_out: &serde_json::Value, rust_out: &serde_json::Value) ->
     refused_like_v2(&expected, rust_out)
 }
 
-/// PLAN-wash-sale WS-3: the account's wash-sale rule on (script/rust/decisions.rb wash_sale_scenarios), over the buy legs (B),
+/// PLAN-wash-sale WS-3: the account's wash-sale rule on (the recorded wash_sale_scenarios), over the buy legs (B),
 /// the one-asset and ranked sale claims (S), the fill confirmation (F), the rebalance legs (R) and the signal bot (G), on
 /// Kraken, Binance and Alpaca, compared whole with `wash_sale_locks` in the snapshot (claim tokens as present or null).
-/// Divergences: D-WASH-UNSENT-KEEPS (S6 on Binance), and the sanctioned unknown outcome (S7: Rails writes a failed row,
+/// Divergences: D-WASH-UNSENT-KEEPS (S6 on Binance), and the sanctioned unknown outcome (S7: 2.x writes a failed row,
 /// the engine keeps its intent), where both sides keep the lock alike. D-INDEX-TOP-N (B5 on Binance and Kraken)
-/// compares every effect, including wash-sale locks, with Rails on the non-stable ranking. The locked ETH stays unbought.
+/// compares every effect, including wash-sale locks, with 2.x on the non-stable ranking. The locked ETH stays unbought.
 #[tokio::test(flavor = "current_thread")]
 async fn v2_and_rust_guard_wash_sales_identically() {
     let (_copies, outputs) = grid_outputs("grid-wash-sale", 70).await;
@@ -2919,7 +2919,7 @@ async fn v2_and_rust_guard_wash_sales_identically() {
         if let Err(e) = checked { failures.push(format!("{name} {e}\n  2.x: {v2_out}\n  rust:  {rust_out}")); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    // Pin what Rails does, so that two silent sides cannot pass: which cells write a lock row, and which send nothing.
+    // Pin what 2.x does, so that two silent sides cannot pass: which cells write a lock row, and which send nothing.
     let mut pins = vec![];
     for (name, _, v2_out, _) in &outputs {
         let locks = v2_out["changes"]["wash_sale_locks"].as_array().unwrap().len();
@@ -2949,7 +2949,7 @@ async fn v2_and_rust_guard_wash_sales_identically() {
 }
 
 /// 7c: the recorded decorator chain on every price venue and the three candle reference venues.
-/// D-FLIP-UNMET-KEEPS-BUYING compares an unmet/failed buy's orders and carry to its rule-off Rails twin.
+/// D-FLIP-UNMET-KEEPS-BUYING compares an unmet/failed buy's orders and carry to its rule-off 2.x twin.
 #[tokio::test(flavor = "current_thread")]
 async fn flip_condition_grid_matches_v2_and_rule_off_buy_twins() {
     let v2_root = tempfile::tempdir().unwrap();
@@ -2990,7 +2990,7 @@ async fn flip_condition_grid_matches_v2_and_rule_off_buy_twins() {
             let mut expected = r5_cleanup_expected(&v2, &rust);
             if name.contains("-buy-") && (name.ends_with("-met") || name.ends_with("-below_met")) {
                 // D-FLIP-CARRY-KEEPS-ACCRUAL: CE-1 excludes flip rules from the carry window.
-                // Rails stamps the condition now and discards the accrued interval, capturing 30.
+                // 2.x stamps the condition now and discards the accrued interval, capturing 30.
                 // Rust captures the rule-off 60 + 30 and caps it at the effective amount, 60.
                 assert_eq!(expected["changes"]["bots"][0]["after"]["transient_data"]["missed_quote_amount"], "30.0", "{name}");
                 assert_eq!(rust["changes"]["bots"][0]["after"]["transient_data"]["missed_quote_amount"], serde_json::json!(60.0), "{name}");
@@ -3015,12 +3015,12 @@ const ORDERS_GRID_SIZE: usize = (15 * 10) + 6 + 1 + 2;
 
 /// PLAN-A9 O4 (grid-orders). Every request sent, the service's Result and the MCP tool's text must match per cell, except
 /// these named differences, each asserted exactly:
-/// - D-HYPERLIQUID-MARKET-IOC: a Hyperliquid market order is Ioc in Rust, Gtc in Rails, at the same price and size.
-/// - D-ORDER-AMBIGUOUS (`server_error`): a 5xx may have placed the order. Rails answers `order_failed` with the body;
+/// - D-HYPERLIQUID-MARKET-IOC: a Hyperliquid market order is Ioc in Rust, Gtc in 2.x, at the same price and size.
+/// - D-ORDER-AMBIGUOUS (`server_error`): a 5xx may have placed the order. 2.x answers `order_failed` with the body;
 ///   Rust answers 502 `placement_ambiguous`. The same single request is sent.
-/// - D-ORDER-KRAKEN-QUOTE-SELL: Rails' Kraken adapter raises on a quote market sell before sending (MCP's error, REST's
-///   500); Rust refuses it as `order_failed` with Rails' message. Nothing is sent on either side.
-/// Rails' side is also pinned to the committed recording (tests/fixtures/grid_orders_expected.json), so Rails drifting under
+/// - D-ORDER-KRAKEN-QUOTE-SELL: 2.x's Kraken adapter raises on a quote market sell before sending (MCP's error, REST's
+///   500); Rust refuses it as `order_failed` with 2.x's message. Nothing is sent on either side.
+/// 2.x's side is also pinned to the committed recording (tests/fixtures/grid_orders_expected.json), so 2.x drifting under
 /// the grid shows as a fixture diff rather than as a silent pass.
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn v2_and_rust_place_identically_across_the_orders_grid() {
@@ -3040,7 +3040,7 @@ async fn v2_and_rust_place_identically_across_the_orders_grid() {
             comparison = hyperliquid_market_ioc_comparison(name, v2_out, rust_out);
             &comparison
         } else { rust_out };
-        // What Rust is compared on: Rails' entry without the tool's arguments and a raise (Rust has neither).
+        // What Rust is compared on: 2.x's entry without the tool's arguments and a raise (Rust has neither).
         let mut v2 = v2_out.clone();
         for o in v2["orders"].as_array_mut().into_iter().flatten() { o.as_object_mut().unwrap().retain(|k, _| k == "result" || k == "mcp"); }
         let (r, u) = (&v2["orders"][0], &rust_out["orders"][0]);

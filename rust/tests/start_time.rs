@@ -1,4 +1,4 @@
-//! Bot::Startable against Rails' own answers (script/rust/start_time.rb -> fixtures/start_time_vectors.json). Rails-free.
+//! Bot::Startable against 2.x's own answers (fixtures/start_time_vectors.json). 2.x-free.
 use chrono::{DateTime, Utc};
 use deltabadger::codec::parse_time;
 use deltabadger::engine::schedule::{checkpoints, effective, Interval};
@@ -39,9 +39,9 @@ fn oracle(zone: &str, now: DateTime<Utc>, mode: &str, time: &str) -> DateTime<Ut
 }
 
 /// Every mode, wall times in and around the DST changes of Warsaw, New York, Lord Howe (30 minutes), Dublin and Casablanca
-/// (negative DST), clocks a week before to a day after, exactly on a candidate, and malformed input. Rails' nil is an `Err`
+/// (negative DST), clocks a week before to a day after, exactly on a candidate, and malformed input. 2.x's nil is an `Err`
 /// here (the :start validation refuses those first; nil must never read as "start now"). Rust is the oracle's answer in
-/// every case; where Rails differs (D-START-WALL-STEP), Rails' instant is not the chosen wall time, and each cause occurs:
+/// every case; where 2.x differs (D-START-WALL-STEP), 2.x's instant is not the chosen wall time, and each cause occurs:
 /// the fixed-UTC step across a change, and a gap moved today leaking into a weekday's target day.
 #[test]
 fn initial_start_at_matches_v2_or_the_chosen_wall_time() {
@@ -64,7 +64,7 @@ fn initial_start_at_matches_v2_or_the_chosen_wall_time() {
         use chrono::TimeZone;
         if tz.from_local_datetime(&got.with_timezone(&tz).naive_local()).single().is_none() { repeated += 1; }
         if got == v2 { same += 1; continue; }
-        // Rails missed the chosen time: either its wall time is not the chosen one (a fixed-UTC step across a change), or it
+        // 2.x missed the chosen time: either its wall time is not the chosen one (a fixed-UTC step across a change), or it
         // is the chosen one moved by a gap that was today's, not the target day's.
         let local = v2.with_timezone(&tz);
         let today_missing = tz.from_local_datetime(&now.with_timezone(&tz).date_naive().and_time(got.with_timezone(&tz).time())).earliest().is_none();
@@ -81,17 +81,17 @@ fn initial_start_at_matches_v2_or_the_chosen_wall_time() {
 #[test]
 fn a_passed_start_steps_to_the_chosen_wall_time() {
     let at = |now: &str, mode: &str, time: &str, zone: &str| initial_start_at(Some(mode), Some(time), None, now.parse().unwrap(), zone).unwrap().to_rfc3339();
-    // Saturday 2026-10-24 10:00 in Warsaw (CEST): 09:30 has passed; Sunday 09:30 CET (Rails: 08:30 CET, an hour early).
+    // Saturday 2026-10-24 10:00 in Warsaw (CEST): 09:30 has passed; Sunday 09:30 CET (2.x: 08:30 CET, an hour early).
     assert_eq!(at("2026-10-24T08:00:00Z", "hour", "09:30", "Warsaw"), "2026-10-25T08:30:00+00:00");
-    // Saturday 2026-03-28 10:00 in Warsaw (CET): Sunday 09:30 CEST (Rails: 10:30 CEST, an hour late).
+    // Saturday 2026-03-28 10:00 in Warsaw (CET): Sunday 09:30 CEST (2.x: 10:30 CEST, an hour late).
     assert_eq!(at("2026-03-28T09:00:00Z", "hour", "09:30", "Warsaw"), "2026-03-29T07:30:00+00:00");
-    // Weekly: Sunday 2026-10-25 12:00 in New York (EDT), 09:30 passed: next Sunday 09:30 EST (Rails 08:30 EST).
+    // Weekly: Sunday 2026-10-25 12:00 in New York (EDT), 09:30 passed: next Sunday 09:30 EST (2.x 08:30 EST).
     assert_eq!(at("2026-10-25T16:00:00Z", "sunday", "09:30", "Eastern Time (US & Canada)"), "2026-11-01T14:30:00+00:00");
     // Lord Howe's gap day (02:00 -> 02:30 on 2026-10-04): a Saturday 02:15 seen that day is next Saturday's 02:15 +11:00
-    // (Rails carries the gap's 03:15 into it).
+    // (2.x carries the gap's 03:15 into it).
     assert_eq!(at("2026-10-03T16:37:00Z", "saturday", "02:15", "Australia/Lord_Howe"), "2026-10-09T15:15:00+00:00");
 }
-/// What Rails reads around the delayed first run: next_interval_checkpoint_at and last_interval_checkpoint_at (both
+/// What 2.x reads around the delayed first run: next_interval_checkpoint_at and last_interval_checkpoint_at (both
 /// `.round(6)`) from the anchor Bot::Lifecycle#start wrote, just before, exactly at and just after it, and at the next run.
 #[test]
 fn the_checkpoints_around_the_first_run_match_v2() {
@@ -136,13 +136,13 @@ fn an_iana_zone_is_read_and_an_unknown_one_is_refused() {
     assert_eq!(initial_start_at(Some("hour"), Some("09:30"), None, now, "Mars/Olympus"), Err("unknown time zone"));
 }
 
-/// D-START-REPEAT-EARLIER: a chosen time that occurs twice that day is its earlier occurrence, in every zone (Rails' pick
+/// D-START-REPEAT-EARLIER: a chosen time that occurs twice that day is its earlier occurrence, in every zone (2.x's pick
 /// in every recorded one, Dublin's and Casablanca's negative DST included); one that does not occur moves forward an hour,
 /// a 30-minute gap included.
 #[test]
 fn a_repeated_time_is_its_earlier_occurrence_and_a_missing_one_moves_an_hour() {
     let at = |now: &str, time: &str, zone: &str| initial_start_at(Some("hour"), Some(time), None, now.parse().unwrap(), zone).unwrap().to_rfc3339();
-    // Dublin 2026-10-25 01:30 occurs at 00:30Z (IST) and 01:30Z (GMT): the earlier, as recorded Rails picks.
+    // Dublin 2026-10-25 01:30 occurs at 00:30Z (IST) and 01:30Z (GMT): the earlier, as recorded 2.x picks.
     assert_eq!(at("2026-10-24T22:00:00Z", "01:30", "Dublin"), "2026-10-25T00:30:00+00:00");
     // Between the two occurrences the earlier one has passed: the next day's, never today's later one.
     assert_eq!(at("2026-10-25T00:45:00Z", "01:30", "Dublin"), "2026-10-26T01:30:00+00:00");
@@ -155,7 +155,7 @@ fn a_repeated_time_is_its_earlier_occurrence_and_a_missing_one_moves_an_hour() {
     assert_eq!(at("2026-03-28T23:30:00Z", "02:30", "Warsaw"), "2026-03-29T01:30:00+00:00");
 }
 
-/// A date start reads its wall time in the owner's zone as ActiveSupport::TimeZone[] does: a Rails name or an IANA id.
+/// A date start reads its wall time in the owner's zone as ActiveSupport::TimeZone[] does: a 2.x name or an IANA id.
 /// An unknown name is refused, in the form and at the start, never read as UTC.
 #[test]
 fn a_date_start_reads_the_owners_zone_strictly() {

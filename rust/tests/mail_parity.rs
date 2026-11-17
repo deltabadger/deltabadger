@@ -1,5 +1,5 @@
-//! Mail parity: Rails sends every mail of the grid through its own mailers into ActionMailer::Base.deliveries
-//! (script/rust/mails.rb), this crate builds the same mails from the same database, and each pair must be the same
+//! Mail parity: 2.x sends every mail of the grid through its own mailers into ActionMailer::Base.deliveries
+//!, this crate builds the same mails from the same database, and each pair must be the same
 //! message, byte for byte, once Date and Message-ID (the two fields that are each process's own) are set aside.
 //! Then the sender, end to end on a baseline install against the fake SMTP server.
 //! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
@@ -86,7 +86,7 @@ fn v2_and_rust_build_the_same_mails_across_the_grid() {
     for case in &cases {
         let name = case["name"].as_str().unwrap();
         let mut ours = build(&c, case);
-        // D-MAIL-PLAIN-DECIMAL: the amount-limit mail writes a tiny limit as "0.00001" where Rails prints "1.0e-05".
+        // D-MAIL-PLAIN-DECIMAL: the amount-limit mail writes a tiny limit as "0.00001" where 2.x prints "1.0e-05".
         if case["notice"]["mail"] == "stopped_by_amount_limit" && ours.html.contains("0.00001") {
             assert!(!ours.html.contains("e-05"), "{name}: {}", ours.html);
             ours.html = ours.html.replace("0.00001", "1.0e-05");
@@ -327,7 +327,7 @@ async fn with_no_smtp_settings_nothing_is_tried_and_a_marker_waits_for_settings_
         let mut i = install();
         mark(&i, notice::STOPPED, notice::stopped_marker("unauthorized.", chrono::Utc::now() - chrono::Duration::days(7)));
         mark(&i, notice::FUNDS, notice::funds_marker(Some(i.quote), chrono::Utc::now() - chrono::Duration::days(6) - chrono::Duration::hours(23)));
-        // Nothing in the environment, nothing saved in Settings: Rails would deliver to localhost:25 (a listed divergence).
+        // Nothing in the environment, nothing saved in Settings: 2.x would deliver to localhost:25 (a listed divergence).
         let db = Connection::open(i.o.primary.path().unwrap()).unwrap();
         store::configure(&db).unwrap();
         let mut unconfigured = Sender::new(db, seed::cipher(), &|_| None, SystemClock);
@@ -504,7 +504,7 @@ fn a_label_a_name_and_an_error_are_bounded_in_a_mail_and_ordinary_ones_are_untou
     let (from, urls) = ("bots@example.com", Urls::from_env(&|_| None));
     let stopped = |error: &str| render::for_notice(&i.o.primary, i.bot_id, &Notice::StoppedByError { error: error.into() }, from, &urls).unwrap().unwrap();
     assert_eq!(stopped("unauthorized.").subject, "Weekly BTC has been stopped");
-    // A listed divergence, for sizes no form produces: Rails has no bound.
+    // A listed divergence, for sizes no form produces: 2.x has no bound.
     i.o.primary.execute("UPDATE bots SET label = ?1", ["ł".repeat(201)]).unwrap();
     i.o.primary.execute("UPDATE users SET name = ?1", ["n".repeat(5000)]).unwrap();
     let mail = stopped(&"e".repeat(5000));

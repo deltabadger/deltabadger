@@ -1,18 +1,18 @@
 #![cfg(unix)] // Unix only, as rust/tests/parity.rs is
-//! The reference-data jobs write exactly the rows Rails writes, for every scripted data-api payload of the grid
-//! (script/rust/reference_data.rb is the Rails half).
+//! The reference-data jobs write exactly the rows 2.x writes, for every scripted data-api payload of the grid
+//! (the recorded reference data is the 2.x half).
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 mod common;
 
-/// Named divergences (PLAN-A17 A17-2): (scenario, divergence, requests Rails makes and Rust does not, assets Rails mints,
-/// tickers Rails writes). Rust's rows and requests are Rails' without those (and without the exchange assets of those
+/// Named divergences (PLAN-A17 A17-2): (scenario, divergence, requests 2.x makes and Rust does not, assets 2.x mints,
+/// tickers 2.x writes). Rust's rows and requests are 2.x's without those (and without the exchange assets of those
 /// assets); the scenarios order them last, so every other row matches id for id.
 type Divergent = (&'static str, &'static str, &'static [&'static str], &'static [&'static str], &'static [&'static str]);
 const DIVERGENT: &[Divergent] = &[
-    // Rails binds SYM to its first id and ONE to shared-id (first wins); Rust leaves SYM, ONE and TWO unresolved.
+    // 2.x binds SYM to its first id and ONE to shared-id (first wins); Rust leaves SYM, ONE and TWO unresolved.
     ("cg-tickers-ambiguous", "D-CG-SYMBOL-AMBIGUOUS", &[], &["sym-one", "shared-id"], &["SYMUSD", "ONEUSD"]),
-    // Kraken's crawl answers 429: Rails crawls Coinbase next and creates its new pair; Rust asks no further crawl.
+    // Kraken's crawl answers 429: 2.x crawls Coinbase next and creates its new pair; Rust asks no further crawl.
     ("cg-tickers-429", "D-CG-429-NO-MORE-CRAWLS", &["/exchanges/gdax/tickers"], &["ethereum"], &["ETH-USD"]),
 ];
 
@@ -28,9 +28,9 @@ fn without(v2: &Value, (_, _, requests, assets, tickers): &Divergent) -> Value {
 }
 
 /// PLAN-A17 A17-4, the CoinGecko category pass (the `coingecko-categories*` scenarios), compared with its named columns apart:
-/// D-INDEX-TOP-N (Rust ranks Top Coins first; Rails' job never does: answered empty here, Rust refuses it and writes nothing,
+/// D-INDEX-TOP-N (Rust ranks Top Coins first; 2.x's job never does: answered empty here, Rust refuses it and writes nothing,
 /// so only its request is dropped) and D-CG-CATEGORY-STORED (Rust stores every valid member with its caps: `top_coins`
-/// compared on Rails' first 10, `weights` apart). The rankings (rust_index_rankings) are Rust's only and not snapshotted.
+/// compared on 2.x's first 10, `weights` apart). The rankings (rust_index_rankings) are Rust's only and not snapshotted.
 fn categories_view(v: &Value) -> Value {
     let mut out = v.clone();
     out["requests"] = Value::Array(v["requests"].as_array().unwrap().iter()
@@ -45,11 +45,11 @@ fn categories_view(v: &Value) -> Value {
     out
 }
 
-/// (scenario, divergence, Rails requests Rust does not make): Rust retries each (Transient or RateLimited), Rails does not.
+/// (scenario, divergence, 2.x requests Rust does not make): Rust retries each (Transient or RateLimited), 2.x does not.
 const CATEGORY_DIVERGENT: &[(&str, &str, &[&str])] = &[
-    // A failed categories read: Rails returns; Rust's run is Transient, retried 4 x 15 min.
+    // A failed categories read: 2.x returns; Rust's run is Transient, retried 4 x 15 min.
     ("coingecko-categories-failed", "D-CG-INDEX-PULL-RETRIED", &[]),
-    // music answers 429: Rails asks pump-fun next (and skips it: no venue); Rust asks nothing more and ends RateLimited.
+    // music answers 429: 2.x asks pump-fun next (and skips it: no venue); Rust asks nothing more and ends RateLimited.
     ("coingecko-categories-429-midway", "D-CG-INDEX-429-STOPS", &["category=pump-fun"]),
 ];
 
@@ -57,7 +57,7 @@ const CATEGORY_DIVERGENT: &[(&str, &str, &[&str])] = &[
 async fn v2_and_rust_write_the_same_reference_rows_for_every_scripted_payload() {
     let v2_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
-    // Frozen (common::frozen): Rails builds the grid, the installs are copied before Rails writes to its copies, Rails records.
+    // Frozen (common::frozen): 2.x builds the grid, the installs are copied before 2.x writes to its copies, 2.x records.
     let frozen = common::frozen("reference-grid", |d| d.join("expected").is_dir() && d.join("input").is_dir());
     common::copy_tree(&frozen.join("expected"), v2_root.path());
     common::copy_tree(&frozen.join("input"), rust_root.path());
@@ -78,7 +78,7 @@ async fn v2_and_rust_write_the_same_reference_rows_for_every_scripted_payload() 
         if name.starts_with("coingecko-categories") {
             let (mut expected, rust) = (categories_view(&v2_out), categories_view(&rust_out));
             if name == "coingecko-categories" {
-                // D-CG-CATEGORY-STORED, positively: payments' 12 valid members, Rails' first 10, Rust's caps.
+                // D-CG-CATEGORY-STORED, positively: payments' 12 valid members, 2.x's first 10, Rust's caps.
                 let payments = |o: &Value| o["changes"]["indices"].as_array().unwrap().iter().find(|c| c["after"]["external_id"] == "payments").map(|c| c["after"].clone()).unwrap_or_default();
                 let (r, u) = (payments(&v2_out), payments(&rust_out));
                 if r["top_coins"].as_array().map(Vec::len) != Some(10) || u["top_coins"].as_array().map(Vec::len) != Some(12)

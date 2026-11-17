@@ -1,6 +1,6 @@
 //! A14b (PLAN-A14b-split-base-cap.md, D-SPLIT-BASE-CAP): a one-asset seller's base cap ("don't sell more than N shares")
-//! and the sales it counts are restated into today's shares across stock splits. Rails counts both as traded; with no
-//! split Rust is Rails' number bit for bit (the stock grid's `cap_sold_nosplit`, the limit-sell grid, amount_limit.rs).
+//! and the sales it counts are restated into today's shares across stock splits. 2.x counts both as traded; with no
+//! split Rust is 2.x's number bit for bit (the stock grid's `cap_sold_nosplit`, the limit-sell grid, amount_limit.rs).
 mod common;
 use axum::{body::{to_bytes, Body}, http::Request};
 use chrono::{DateTime, Utc};
@@ -305,7 +305,7 @@ async fn the_basis_moves_only_with_the_number_or_the_switch_on_every_surface() {
         (key(now, 20.0, STAMP), dec("12")), // the same number, re-spelled: kept
         (key(now, 10.0, STAMP), dec("2")), // 10 − 8: earlier sales stay counted, restated
         (None, dec("-1")), // off: removed
-        (key(now, 10.0, on), dec("10")), // on: a new window, as in Rails
+        (key(now, 10.0, on), dec("10")), // on: a new window, as in 2.x
     ]);
     assert_eq!(edits_on(Surface::Mcp).await, web, "MCP writes the same basis");
     assert_eq!(edits_on(Surface::Rest).await, web, "REST writes the same basis");
@@ -373,7 +373,7 @@ fn a_stale_basis_is_read_as_unknown() {
     assert_eq!(f.left(), dec("2"), "valid: typed after the split");
     key(&f, json!(10.0), STAMP);
     assert_eq!(f.left(), dec("2"), "10.0 is 10");
-    // Rails toggled the switch off and on during a handback: a new cycle, the key rejected; unknown, exact here.
+    // 2.x toggled the switch off and on during a handback: a new cycle, the key rejected; unknown, exact here.
     key(&f, json!(10), "2026-08-19T14:00:00.000Z");
     assert_eq!(f.left(), dec("12"));
     key(&f, json!(11), STAMP);
@@ -384,7 +384,7 @@ fn a_stale_basis_is_read_as_unknown() {
 
 #[test]
 fn a_reclaimed_bot_whose_number_v2_changed_and_changed_back_reads_unknown() {
-    // Rails edited 10 → 20 → 10 after the split: settings_changed_at moved, no stamp did; the handback removed the key.
+    // 2.x edited 10 → 20 → 10 after the split: settings_changed_at moved, no stamp did; the handback removed the key.
     let f = recorded(Some("2:1"));
     f.c().execute("UPDATE bots SET settings_changed_at = '2026-09-02 10:00:00' WHERE id = ?1", [f.id]).unwrap();
     assert_eq!(f.left(), dec("2"), "10×1 − 8, not 12");

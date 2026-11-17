@@ -1,5 +1,5 @@
-//! PLAN-B4b: `deltabadger export`, the download of a stopped copy. Its files against Rails' own export of the same input
-//! (tests/fixtures/portable_export.json, script/rust/record_portable_export.rb), the scrub's guards, the canonical
+//! PLAN-B4b: `deltabadger export`, the download of a stopped copy. Its files against 2.x's own export of the same input
+//! (tests/fixtures/portable_export.json), the scrub's guards, the canonical
 //! projection, the refusals, and the restores it promises (§5).
 #![cfg(unix)]
 mod common;
@@ -34,7 +34,7 @@ impl Box {
         Box { s: Scratch { storage: root.join("storage"), output: root.join("export"), marker: root.join(".dockerenv") }, _dir: dir }
     }
     fn primary(&self) -> PathBuf { self.s.storage.join("production.sqlite3") }
-    /// The source, for the test's own writes (this SQLite enforces foreign keys by default; Rails' seed order doesn't).
+    /// The source, for the test's own writes (this SQLite enforces foreign keys by default; 2.x's seed order doesn't).
     fn db(&self) -> Connection { let c = Connection::open(self.primary()).unwrap(); c.pragma_update(None, "foreign_keys", "OFF").unwrap(); c }
     fn out(&self, rel: &str) -> PathBuf { self.s.output.join(rel) }
     fn export(&self) -> Result<Vec<String>, ExportError> { export::run(&self.s, &scratch_env, now()) }
@@ -59,7 +59,7 @@ fn to_sql(v: &Value) -> Sql {
     }
 }
 
-/// The recorder's seed (the Rails tables' rows), written into a Rails-built install with this build's migrations.
+/// The recorder's seed (the 2.x tables' rows), written into a 2.x-built install with this build's migrations.
 fn v2_input(b: &Box) {
     let template = common::v2_install();
     install_into(b, template.path());
@@ -119,7 +119,7 @@ fn contains(hay: &[u8], needle: &str) -> bool { hay.windows(needle.len()).any(|w
 
 const CACHE_CABLE: [&str; 2] = ["portable/production_cable.sqlite3", "portable/production_cache.sqlite3"];
 
-// ---- 1, 7, 8: the files against Rails' ------------------------------------------------------------------------------
+// ---- 1, 7, 8: the files against 2.x's ------------------------------------------------------------------------------
 
 #[test]
 fn the_files_are_v2_files_of_the_same_install() {
@@ -185,7 +185,7 @@ fn csv_names_fit_launchpads_rule_and_v2_sizes() {
     assert!(longest.len() <= 100, "{longest}");
 }
 
-// ---- 2: the scrub on Rails' tables ----------------------------------------------------------------------------------
+// ---- 2: the scrub on 2.x's tables ----------------------------------------------------------------------------------
 
 #[test]
 fn the_scrubbed_v2_tables_are_v2_scrubbed_rows() {
@@ -806,7 +806,7 @@ fn a_3_0_export_restores_on_3_0_signed_in_with_the_same_password_and_2fa() {
     assert_eq!(restored.decrypt(&address).unwrap(), "bc1qkeptaddress");
     let statuses: Vec<i64> = r.prepare("SELECT status FROM bots UNION SELECT status FROM rules").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
     assert!(statuses.iter().all(|s| [2, 3, 7].contains(s)), "{statuses:?}");
-    // No key material: the api_keys rows are kept, their columns empty (Rails), no fee key, no setting to re-enter;
+    // No key material: the api_keys rows are kept, their columns empty (2.x), no fee key, no setting to re-enter;
     // the one setting a reset would clear is the kept identity key (D-EXPORT-ACCOUNT-ANCHORS-KEPT), no credential.
     let report = ok(&cli(to.path(), &env, &["encryption-report"]));
     assert!(report.contains("Every stored value still decrypts under the current secret"), "{report}");
@@ -877,8 +877,8 @@ fn a_2x_export_is_taken_over_by_3_0_and_exports_again() {
     flate2::read::GzDecoder::new(&include_bytes!("fixtures/portable_export_2x.sqlite3.gz")[..]).read_to_end(&mut primary).unwrap();
     std::fs::write(b.primary(), primary).unwrap();
     deltabadger::store::create_queue_schema(&Connection::open(b.s.storage.join("production_queue.sqlite3")).unwrap()).unwrap();
-    // Restore 5.2: Rails' download, as Rails' recorder left it, passes `check` and is taken over (no lease: from Rails).
-    // Rails' seed holds an open order with no key to look after it, which the takeover rightly refuses: it is settled first.
+    // Restore 5.2: 2.x's download, as the recording harness left it, passes `check` and is taken over (no lease: from 2.x).
+    // 2.x's seed holds an open order with no key to look after it, which the takeover rightly refuses: it is settled first.
     b.db().execute("UPDATE transactions SET external_status = 3 WHERE external_status = 1", []).unwrap();
     let paths = deltabadger::store::Paths::from_env(&|_| None, &b.s.storage);
     deltabadger::store::check(&paths).unwrap();

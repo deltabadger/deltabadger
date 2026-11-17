@@ -1,4 +1,4 @@
-//! Bybit V5 safety and Rails parity (plan VB A8).
+//! Bybit V5 safety and 2.x parity (plan VB A8).
 use deltabadger::venue::bybit::{self, BybitVenue, URL};
 use deltabadger::venue::http::ScriptedTransport;
 use deltabadger::venue::{NewOrder, OrderKind, Side, Venue, VenueError};
@@ -113,7 +113,7 @@ fn shaped(v: &Value, index: &Value) -> Ticker {
              minimum_base_size: bd(shape["minimum_base_size"].as_str().unwrap()), minimum_quote_size: bd(shape["minimum_quote_size"].as_str().unwrap()), ..btc_usdt() }
 }
 
-/// What Rails handed honeymaker's #create_order, as the adapter's POST body names it (no orderLinkId).
+/// What 2.x handed honeymaker's #create_order, as the adapter's POST body names it (no orderLinkId).
 fn want_body(w: &Value) -> Value {
     let mut want = json!({"category":w["category"],"symbol":w["symbol"],"side":w["side"],"orderType":w["order_type"],"qty":w["qty"]});
     for (wire, key) in [("price","price"),("timeInForce","time_in_force"),("marketUnit","market_unit")] { if let Some(v) = w.get(key) { want[wire] = v.clone(); } }

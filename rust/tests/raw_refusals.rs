@@ -1,4 +1,4 @@
-//! D-RAW-REFUSALS-COPY (part 2 of D-ORDER-TOO-LARGE-COPY): venue refusals Rails shows raw read as a plain sentence on the
+//! D-RAW-REFUSALS-COPY (part 2 of D-ORDER-TOO-LARGE-COPY): venue refusals 2.x shows raw read as a plain sentence on the
 //! bot page, in the orders list, in the mail and in the desktop notice. Four groups: too small outside the scheduled DCA
 //! skip, our own transport errors (`is_transient`), Binance-style size-filter failures, and JSON bodies (their message
 //! field). Display only: what the engine stores and does is unchanged, pinned here per group.
@@ -228,7 +228,7 @@ fn every_locale_has_the_three_sentences_of_its_own() {
     }
 }
 
-/// Every recorded Rails mail this divergence changes reads one of its sentences (the parity harness compares them with the
+/// Every recorded 2.x mail this divergence changes reads one of its sentences (the parity harness compares them with the
 /// reading before it, `humanize_error_before_raw_refusals`).
 #[test]
 fn the_recorded_parity_texts_this_changes_read_a_sentence() {

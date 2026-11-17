@@ -40,7 +40,7 @@ fn settings_are_read_with_v2_readers_and_defaults() {
 fn credentials_follow_v2_api_key_lookup() {
     let (_d, o, s) = install();
     let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
-    o.primary.execute("UPDATE api_keys SET status = 2", []).unwrap(); // incorrect: Rails still uses it
+    o.primary.execute("UPDATE api_keys SET status = 2", []).unwrap(); // incorrect: 2.x still uses it
     let c = model::credentials_for(&o.primary, &seed::cipher(), &bot).unwrap().unwrap();
     assert_eq!(c.key, "test-key");
     o.primary.execute("DELETE FROM api_keys", []).unwrap();
@@ -206,7 +206,7 @@ fn a_safety_write_retries_busy_until_the_short_competing_transaction_commits() {
     assert_eq!(bot.run_generation(), 1);
 }
 
-/// Bot::PriceLimitable's readers (price_limitable.rb:131-169, after_initialize): on only at `== true`, the buy side's `||=`
+/// Bot::PriceLimitable's readers (after_initialize): on only at `== true`, the buy side's `||=`
 /// defaults, the sell side's read-time fallbacks, the stored action, ticker id and met_at.
 #[test]
 fn a_price_rule_reads_as_v2_reads_it() {
@@ -227,7 +227,7 @@ fn a_price_rule_reads_as_v2_reads_it() {
     // Basket flip rules retain their action for the shared condition gate.
     assert_eq!(read(base().with("sell_price_limited", json!(true)).with("sell_price_limit_action", json!("start_buying")), true).unwrap().unwrap().action, "start_buying");
     assert_eq!(sell.met_at_us, Some("2026-09-02T10:00:00.123Z".parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_micros()));
-    // `||=` on the buy side: false takes the default; the sell side keeps a stored false, which Rails cannot compare.
+    // `||=` on the buy side: false takes the default; the sell side keeps a stored false, which 2.x cannot compare.
     assert_eq!(read(base().with("price_limited", json!(true)).with("price_limit", json!(false)), false).unwrap().unwrap().limit, Num::Int(1_000_000));
     assert!(read(base().with("sell_price_limited", json!(true)).with("sell_price_limit", json!(false)), true).is_err());
     assert!(read(base().with("price_limited", json!(true)).with("price_limit", json!("100")), false).is_err(), "a string limit raises in 2.x");
@@ -262,7 +262,7 @@ fn a_signal_bot_its_rules_and_its_waiting_calls_read_as_stored() {
     let b = model::load_bot(c, id).unwrap();
     assert_eq!(b.asset_ids(), vec![s.btc], "Bots::Signal#ticker: the one pair");
     assert_eq!(model::ticker_for(c, &b).unwrap().unwrap().ticker, "XBTEUR");
-    // Rails stores the amount in a NUMERIC column: 100 comes back an INTEGER, 0.5 a REAL.
+    // 2.x stores the amount in a NUMERIC column: 100 comes back an INTEGER, 0.5 a REAL.
     for (direction, kind, amount, enabled) in [(0, 0, "100", 1), (1, 1, "0.5", 0)] {
         c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, '2026-09-01 10:00:00', '2026-09-01 10:00:00')",
                   rusqlite::params![id, direction, kind, amount, enabled, format!("t{direction}")]).unwrap();

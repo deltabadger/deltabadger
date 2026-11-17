@@ -227,7 +227,7 @@ async fn without_app_root_url_the_origin_of_the_requests_own_host_may_connect() 
     assert_eq!(open_with(address, "http://bot.example", cookie, &[("x-forwarded-host", "bot.example")]).await.err(), Some(404));
 }
 
-/// Rails lets anyone who holds a signed stream name subscribe to it. Here a stream that belongs to
+/// 2.x lets anyone who holds a signed stream name subscribe to it. Here a stream that belongs to
 /// one user (`user_<id>`, `user_<id>:…`) is for that user's connections only, so a name that leaked
 /// from one account's page is no use to another account.
 #[tokio::test(flavor = "current_thread")]
@@ -642,7 +642,7 @@ async fn action_committed_fragments_are_private_and_failures_and_noops_are_silen
     app.hub.broadcast("user_1:bot_updates","continue-marker");
     assert_eq!(next_event(&mut owner).await["message"],"continue-marker");
     // The engine takes the request (engine::run::continue_start): then the bars follow, as
-    // Bot::BroadcastAfterScheduledActionJob sends them once Rails' job is enqueued.
+    // Bot::BroadcastAfterScheduledActionJob sends them once 2.x's job is enqueued.
     app.db(move |c| { c.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.rust_continue_start') WHERE id=?1",[bot])?; Ok(()) })
         .await.map_err(|e|format!("{e:?}"))?;
     for target in ["status_bar", "progress_bar"] {

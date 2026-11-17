@@ -167,7 +167,7 @@ impl Fx {
     fn deferred(&self, key: i64) -> Option<Value> {
         self.c.query_row("SELECT value FROM app_configs WHERE key = ?1", [format!("rust_sync.kraken_repair_deferred:{key}")], |r| r.get::<_, String>(0)).ok().map(|t| serde_json::from_str(&t).unwrap())
     }
-    /// A row as Rails' sync wrote it (Exchanges::Kraken#normalize_kraken_ledger_entry): `|amount|`, the fee beside it.
+    /// A row as 2.x's sync wrote it (Exchanges::Kraken#normalize_kraken_ledger_entry): `|amount|`, the fee beside it.
     #[allow(clippy::too_many_arguments)]
     fn v2_row(&self, user: i64, key: i64, (id, e): &(String, Value), kind: i64, currency: &str, fee: Option<f64>, asset: Option<i64>) -> i64 {
         let amount = e["amount"].as_str().unwrap().trim_start_matches('-').parse::<f64>().unwrap();
@@ -389,7 +389,7 @@ async fn negative_fees_go_through_the_lot_engine_folded() {
     assert!((coins["BTC"] - 0.00513).abs() < 1e-12 && (cash["USD"] - 700.15).abs() < 1e-9, "{coins:?} {cash:?}");
 }
 
-/// D-KR-5: the first Rust sync re-reads the history Rails stored (no provenance stamp) and rewrites the syncing user's
+/// D-KR-5: the first Rust sync re-reads the history 2.x stored (no provenance stamp) and rewrites the syncing user's
 /// rows, by the conflict rules; another user's rows under the same ledger ids are untouched. An old Deltabadger CSV with
 /// the same tx_ids, imported after, changes nothing.
 #[tokio::test(flavor = "current_thread")]
@@ -446,14 +446,14 @@ async fn the_upgrade_repairs_only_the_syncing_users_rows() {
     assert_eq!(fx.dump(other), before_other, "the other user's rows under the same ids are untouched");
     assert!(fx.deferred(key).is_none(), "the deferred list goes at completion");
     // The walk: Kraken's own quantities where no link reaches another venue, and an opening only for the linked conflict
-    // left as Rails stored it.
+    // left as 2.x stored it.
     let (coins, _, _, w) = walked(&fx, user);
     let opened: Vec<&str> = w.rows.iter().filter(|r| r.opening).map(|r| r.base.as_str()).collect();
     assert_eq!(opened, ["DOT.S"]);
     let kraken = deltas(&[dot_entry.clone(), doge.clone(), ltc.clone(), btc, manual_entry.clone()], &symbol_of);
     for coin in ["BTC", "DOGE", "LTC", "DOT"] { assert!((coins[coin] - kraken[coin]).abs() < 1e-12, "{coin}: walk {}, Kraken {}", coins[coin], kraken[coin]); }
 
-    // An old Deltabadger CSV of the same rows (Rails' shapes) changes nothing.
+    // An old Deltabadger CSV of the same rows (2.x's shapes) changes nothing.
     let after = fx.dump(user);
     let csv = format!("{}\n2026-09-16T01:00:00Z,staking_reward,DOT.S,0.25,,,DOT.S,0.01,kraken,U1,S1,\n2026-09-16T04:00:00Z,withdrawal,BTC,0.002,,,BTC,0.0001,kraken,U4,W4,\n\
                        2026-09-16T00:00:00Z,buy,BTC,0.01,,,,,kraken,U9,T9,", deltabadger::web::tracker::CSV_HEADERS.join(","));

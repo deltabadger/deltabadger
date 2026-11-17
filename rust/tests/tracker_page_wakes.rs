@@ -86,7 +86,7 @@ async fn a_served_page_wakes_what_is_wanted_and_a_refused_page_wakes_nothing() {
     assert!(asked.contains(&(TRACKER_LEDGER.to_string(), me.clone())), "{status} {asked:?}");
 }
 
-/// An account with nothing in it yet: no ledger cached, no history stamped. Rails' loaders ask for both.
+/// An account with nothing in it yet: no ledger cached, no history stamped. 2.x's loaders ask for both.
 #[tokio::test(flavor = "current_thread")]
 async fn an_empty_account_asks_for_both() {
     let (_dir, c, owner, app, mut b) = install();

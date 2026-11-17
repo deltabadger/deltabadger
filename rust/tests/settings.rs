@@ -569,7 +569,7 @@ async fn missing_otp_seed_get_is_idempotent_foreign_get_enables_nothing_and_patc
 }
 /// Exchanges::Alpaca#get_api_key_validity asks the key's own mode's host: a live key the live server, a paper key the
 /// paper server, never the other. The tracker card validates before it saves; the legacy JSON route saves the key
-/// pending and leaves validation to the woken validator job, as Rails' Api::ApiKeysController (ApiKeyValidatorJob
+/// pending and leaves validation to the woken validator job, as 2.x's Api::ApiKeysController (ApiKeyValidatorJob
 /// .perform_later), so it sends nothing itself.
 #[tokio::test(flavor = "current_thread")]
 async fn each_mode_validates_on_its_own_host_and_saves() {
@@ -1216,7 +1216,7 @@ async fn tick_with_a_possible_pre_intent_replacement(replace: bool, same_stamp: 
         let bot=model::load_bot(&h.c,bot_id).unwrap();
         let first=model::credential_version(&h.c,&bot).unwrap();
         let first_stamp:String=h.c.query_row("SELECT updated_at FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();
-        // A real identical save at the repeated wall clock keeps Rails' timestamp and still changes
+        // A real identical save at the repeated wall clock keeps 2.x's timestamp and still changes
         // the ciphertext version. Assert this before the paused tick so a timestamp-only bypass is
         // caught by the data contract, even if it would skip before reaching the paused HTTP boundary.
         assert_eq!(h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","previous-key"),("api_key[secret]","rotated-a-secret"),("api_key[passphrase]","paper")],Csrf::Header).await.status,200);
@@ -1378,7 +1378,7 @@ async fn credential_digest_covers_each_stored_column_and_ignores_sync_metadata()
         let (_,captured)=model::credentials_with_version(&h.c,&h.app.cipher,&bot).unwrap();
         let stored:Option<String>=h.c.query_row(&format!("SELECT {column} FROM api_keys WHERE id=?1"),[h.seed.api_key_id],|r|r.get(0)).unwrap();
         let plaintext=stored.map(|v|h.app.cipher.decrypt(&v).unwrap()).unwrap_or_else(||"synthetic-value".into());
-        // Identical plaintext, fresh Rails-compatible encryption nonce. No timestamp change.
+        // Identical plaintext, fresh 2.x-compatible encryption nonce. No timestamp change.
         h.c.execute(&format!("UPDATE api_keys SET {column}=?1 WHERE id=?2"),(h.app.cipher.encrypt(&plaintext),h.seed.api_key_id)).unwrap();
         let result=placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,false,None,&FixedClock(at)).unwrap();
         assert!(matches!(result,placement::Begun::CredentialsChanged),"each encrypted credential column must prevent an intent after re-encryption: {column}");
@@ -1404,7 +1404,7 @@ async fn finishing_a_ledger_sync_without_replacement_does_not_block_placement() 
 
 #[tokio::test(flavor="current_thread")]
 async fn legacy_key_fields_come_from_api_key_never_a_top_level_query_parameter() {
-    // Rails reads params.require(:api_key): a top-level `?key=`/`?secret=` never wins over the body.
+    // 2.x reads params.require(:api_key): a top-level `?key=`/`?secret=` never wins over the body.
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
@@ -2202,7 +2202,7 @@ async fn confirmation_resend_is_private_csrf_protected_and_delivers_only_the_pen
 #[tokio::test(flavor="current_thread")]
 async fn configured_connections_show_provider_state_without_stock_rows_or_echoed_credentials(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
-    // D-ALPACA-CATALOGUE: a catalog credential Rails stored is never read here; the catalogue comes from ours.
+    // D-ALPACA-CATALOGUE: a catalog credential 2.x stored is never read here; the catalogue comes from ours.
     for (key,value) in [("alpaca_api_key","catalog-key-placeholder"),("alpaca_api_secret","catalog-secret-placeholder"),("alpaca_mode","paper"),("coingecko_api_key","coingecko-key-placeholder"),("market_data_provider","coingecko")]{
         deltabadger::app_config::set(&h.c,&h.app.cipher,key,value,h.app.now()).unwrap();
     }
@@ -2269,7 +2269,7 @@ async fn market_data_has_no_switch_and_an_unconnected_install_shows_what_to_conn
     assert!(picked(&page,"deltabadger")&&!page.contains("value=\"deltabadger\" type=\"hidden\" name=\"market_data_provider\" />\n"),"connected: no button left: {page}");
 }
 
-/// D-BROKERS-AS-VENUES and D-STOCKS-NO-GATE: no stock catalog on the install, a member holding an IBKR key. Rails gates stocks
+/// D-BROKERS-AS-VENUES and D-STOCKS-NO-GATE: no stock catalog on the install, a member holding an IBKR key. 2.x gates stocks
 /// behind the admin (an "ask your admin" line on the empty bots page and the wizard's first steps, an activation link for the
 /// admin) and gives the member a Connect section for IBKR; here a broker is a venue like any other, so none of it is drawn.
 #[tokio::test(flavor="current_thread")]
@@ -3928,7 +3928,7 @@ impl deltabadger::sync::jobs::Connect for LocalVenues {
         Ok((self.0.clone(),builder.build().map_err(|e|e.to_string())?))
     }
 }
-/// ApiKeyValidatorJob as Rails performed it on a pending key (validator_effects.json, recorded from Rails before B11):
+/// ApiKeyValidatorJob as 2.x performed it on a pending key (validator_effects.json, recorded from 2.x before B11):
 /// the venue's own check, the status it leaves, and the balance sync a correct trading key enqueues.
 #[tokio::test(flavor="current_thread")]
 async fn validator_job_matches_v2_on_every_checked_venue(){
@@ -3947,7 +3947,7 @@ async fn validator_job_matches_v2_on_every_checked_venue(){
         let h=Harness::new(server.uri()).await;
         let kind=match case["key_type"].as_str().unwrap(){"trading"=>0,"withdrawal"=>1,_=>2};
         let kucoin=text("venue")=="Exchanges::Kucoin";
-        // D-KUCOIN-HF-MODE: a key Rails' check judges correct is read for its account mode (an incorrect one's read is
+        // D-KUCOIN-HF-MODE: a key 2.x's check judges correct is read for its account mode (an incorrect one's read is
         // refused here, unanswered, and keeps the verdict: UTA r1.9).
         if kucoin && case["status"]=="correct" { kucoin_classic_detection(&server).await; }
         h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=?3",(text("venue"),text("name"),h.seed.exchange_id)).unwrap();

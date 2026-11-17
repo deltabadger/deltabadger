@@ -50,7 +50,7 @@ fn columns_read_and_write_as_v2_does() {
     assert_eq!(from_sql(ValueRef::Real(30.0003)).unwrap(), Some(bd("30.0003")));
     assert_eq!(from_sql(ValueRef::Text(b"0.0012")).unwrap(), Some(bd("0.0012")));
     assert_eq!(from_sql(ValueRef::Null).unwrap(), None);
-    // Rails' SQLite adapter binds BigDecimal#to_f after round(18) — not the decimal text.
+    // 2.x's SQLite adapter binds BigDecimal#to_f after round(18) — not the decimal text.
     assert_eq!(to_sql(&bd("58054.794626705257545240")).to_bits(), 0x40ec58d96d94fbf4);
 }
 
@@ -138,7 +138,7 @@ fn time_as_json_is_activesupports_rendering_of_a_parsed_clock_time() {
 }
 
 /// Float#to_d and Float#to_s over 10k recorded floats, ties between two shortest digit strings among them
-/// (script/rust/record_float_digits.rb). Every Rust port of either is held to the same rows.
+///. Every Rust port of either is held to the same rows.
 #[test]
 fn float_digits_match_v2_on_ties_and_everything_else() {
     let fixture: serde_json::Value = serde_json::from_str(include_str!("fixtures/float_digits.json")).unwrap();

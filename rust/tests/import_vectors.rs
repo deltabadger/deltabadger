@@ -1,4 +1,4 @@
-//! The import readers against vectors recorded from Rails (script/rust/record_import_vectors.rb). Rails-free.
+//! The import readers against vectors recorded from 2.x. 2.x-free.
 use base64::Engine;
 use deltabadger::sync::activities::Entry;
 use deltabadger::tracker::import::{binance, csv, deltabadger as own};
@@ -24,7 +24,7 @@ fn serialize(e: &Entry, exchange: Option<&Option<String>>) -> Value {
     out
 }
 
-/// The constants the import port shares with Rails' parser, as recorded.
+/// The constants the import port shares with 2.x's parser, as recorded.
 #[test]
 fn the_ported_constants_are_the_recorded_ones() {
     let v = vectors();
@@ -103,7 +103,7 @@ fn every_recorded_file_reads_to_the_same_entries_in_the_same_order() {
             let (entries, unrecognised) = read.unwrap_or_default();
             let mut want = c["entries"].clone();
             if format == "deltabadger" {
-                // D-CSV-ROUNDTRIP: Rust drops CsvSafe's quote ahead of a formula character in a text cell; Rails keeps it.
+                // D-CSV-ROUNDTRIP: Rust drops CsvSafe's quote ahead of a formula character in a text cell; 2.x keeps it.
                 for entry in want.as_array_mut().into_iter().flatten() {
                     for field in ["base_currency", "quote_currency", "fee_currency", "exchange_name_id", "tx_id", "group_id", "description"] {
                         let Some(v) = entry[field].as_str() else { continue };

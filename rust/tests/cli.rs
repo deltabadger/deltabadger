@@ -427,14 +427,14 @@ fn run_and_serve_send_the_mail_a_bot_is_owed_and_neither_send_nor_print_a_creden
         assert!(plain.sessions().iter().all(|s| !s.lines.iter().any(|l| l.starts_with("AUTH"))), "{command}: {:?}", plain.sessions());
         assert_eq!(owed(), 1, "{command}");
 
-        // The next start, the same relay used without credentials (plain text is then allowed, as in Rails): the mail
+        // The next start, the same relay used without credentials (plain text is then allowed, as in 2.x): the mail
         // goes out and the marker with it, through eligibility::guard.
         let (code, printed) = run_until(&plain, None, &|server| server.messages().len() == 1 && owed() == 0);
         assert_eq!(code, Some(0), "{command}: {printed}");
         assert!(printed.contains(&format!("[mail] stopped_by_error for bot {bot}: sent")), "{command}: {printed}");
         let mail = &plain.messages()[0];
         assert!(mail.contains("\r\nFrom: bots@example.com\r\nTo: o@example.com\r\n") && mail.contains("\r\nSubject: Weekly BTC has been stopped\r\n"), "{command}: {mail}");
-        // D-SMTP-NO-AUTH: no credentials, so no AUTH (Rails sends AUTH PLAIN with empty ones).
+        // D-SMTP-NO-AUTH: no credentials, so no AUTH (2.x sends AUTH PLAIN with empty ones).
         assert_eq!(plain.sessions().last().unwrap().lines[..2], ["EHLO localhost", "MAIL FROM:<bots@example.com>"], "{command}");
     }
 }
@@ -585,7 +585,7 @@ fn binance_repair_requires_explicit_mode_approval_and_rust_ownership() {
     assert!(deltabadger::lease::read(&o.primary,&seed::cipher()).unwrap().is_none());
 }
 
-/// PLAN-B2 B2-0 (r1.0, r2.8): a store refusal (here Behind: the newest Rails migration missing) keeps `serve` up on the
+/// PLAN-B2 B2-0 (r1.0, r2.8): a store refusal (here Behind: the newest 2.x migration missing) keeps `serve` up on the
 /// refusal page. Every path shows the refusal with 503, `/health-check` and `/up` are 503, `/ui-ready` is 200, the engine
 /// lock is free while it shows, no file changes, and SIGTERM stops it with 0. `run` and `check` still just exit 1.
 #[test]
@@ -609,7 +609,7 @@ fn a_refused_serve_shows_why_on_its_port_and_writes_nothing() {
         let out = finished(&mut cli(dir.path(), &[cmd]));
         assert_eq!(out.status.code(), Some(1), "{cmd}: {}", stderr(&out));
     }
-    // C1-U (PLAN-B5 r2.2): DELTABADGER_PLATFORM read as Rails reads it (stripped, any case); another platform keeps C1.
+    // C1-U (PLAN-B5 r2.2): DELTABADGER_PLATFORM read as 2.x reads it (stripped, any case); another platform keeps C1.
     for (platform, line) in [("umbrel", BEHIND_UMBREL), (" Umbrel ", BEHIND_UMBREL), ("docker", BEHIND)] {
         let r = refused(dir.path(), cli(dir.path(), &["serve"]).env("DELTABADGER_PLATFORM", platform));
         assert_eq!(r.status, Some(0), "{platform:?}: {}", r.stderr);
@@ -643,7 +643,7 @@ fn a_future_heartbeat_refuses_serve_in_plain_words() {
     assert_eq!(files_of(dir.path()), before);
 }
 
-/// A takeover refused for support (an unconfirmed Rails withdrawal): the page says so in plain words; the lines, which name
+/// A takeover refused for support (an unconfirmed 2.x withdrawal): the page says so in plain words; the lines, which name
 /// support's command, go to stderr only.
 #[test]
 fn a_takeover_refused_for_support_shows_plain_words_and_logs_the_lines() {
@@ -663,7 +663,7 @@ fn a_takeover_refused_for_support_shows_plain_words_and_logs_the_lines() {
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 }
 
-/// A Solid Queue heartbeat `seconds_ago` old, as a pre-floor 2.x Rails leaves it (no flock).
+/// A Solid Queue heartbeat `seconds_ago` old, as a pre-floor 2.x leaves it (no flock).
 fn v2_heartbeat(dir: &Path, seconds_ago: i64) {
     let at = deltabadger::codec::format_time(chrono::Utc::now() - chrono::Duration::seconds(seconds_ago));
     rusqlite::Connection::open(dir.join("production_queue.sqlite3")).unwrap().execute(
@@ -756,7 +756,7 @@ fn check_and_handback_refuse_a_fresh_heartbeat_at_once() {
     }
 }
 
-/// R1: a Rails that keeps its heartbeat fresh is refused after the one wait, in today's words.
+/// R1: a 2.x that keeps its heartbeat fresh is refused after the one wait, in today's words.
 #[test]
 fn run_refuses_a_heartbeat_still_fresh_after_its_one_wait() {
     let dir = common::v2_install();
@@ -840,7 +840,7 @@ fn run_with_a_wrong_secret_leaves_known_account_identities_untouched() {
     assert_eq!(files_of(dir.path()), before, "the identity key and exchange_accounts are byte-equal");
 }
 
-/// v2.0.0's primary (its 49 migrations, which are this build's first 49) with no other Rails table: Behind in today's
+/// v2.0.0's primary (its 49 migrations, which are this build's first 49) with no other 2.x table: Behind in today's
 /// words, before the secret check could read app_configs (there is none); a wrong secret changes nothing about that.
 #[test]
 fn a_v2_0_0_primary_is_behind_before_the_secret_check() {
@@ -863,7 +863,7 @@ fn a_v2_0_0_primary_is_behind_before_the_secret_check() {
     assert_eq!(files_of(dir.path()), before);
 }
 
-/// `check` predicts `serve` (PLAN-B2 r2.2): an index bot holding a malformed switch Rails never read ("1") is refused, but a pending
+/// `check` predicts `serve` (PLAN-B2 r2.2): an index bot holding a malformed switch 2.x never read ("1") is refused, but a pending
 /// Rust migration (clear_stray_conditions) turns it off at the start, so `check` assesses a copy with it applied and
 /// says ready, writing nothing; `serve` then takes the install over.
 #[test]
@@ -897,7 +897,7 @@ fn check_assesses_the_install_as_serve_will_after_its_pending_migrations() {
     assert_eq!(exited(&mut child, std::time::Duration::from_secs(20)).code(), Some(0));
 }
 
-// --- B2-4: the backup before a takeover from Rails (PLAN-B2 r3.4, §5, r6 Q3) ---
+// --- B2-4: the backup before a takeover from 2.x (PLAN-B2 r3.4, §5, r6 Q3) ---
 
 const DATABASES: [&str; 2] = ["production.sqlite3", "production_queue.sqlite3"];
 
@@ -951,7 +951,7 @@ fn restore(from: &Path, dir: &Path) {
     }
 }
 
-/// A 2.x install (Rails migrations only) with a Kraken key and a bot; `refusing` makes the assessment refuse it.
+/// A 2.x install (2.x migrations only) with a Kraken key and a bot; `refusing` makes the assessment refuse it.
 fn open_order(c: &rusqlite::Connection, s: &seed::Seeded, bot: i64) {
     seed::insert_row(c, s, bot, s.btc, &serde_json::json!({"external_id":"WAIT", "external_status":0, "side":0,
         "amount":"0.001", "quote_amount":"60", "amount_exec":"0", "quote_amount_exec":"0", "created_at":"2026-09-01 10:00:01"}));
@@ -1139,7 +1139,7 @@ fn a_start_that_cannot_back_up_stops_before_any_write() {
     std::fs::set_permissions(&shelf, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
 
-/// PLAN-B2 B2-6 (item 11): a process killed after the claim committed and before Rails' rows left the queue. The stop and
+/// PLAN-B2 B2-6 (item 11): a process killed after the claim committed and before 2.x's rows left the queue. The stop and
 /// the line committed with the claim, the set names the rows, the rows are still queued; the next start deletes them and
 /// stops, writes and counts nothing twice.
 #[cfg(all(unix, debug_assertions))]
@@ -1178,7 +1178,7 @@ fn a_crash_between_the_claim_and_the_queue_delete_acts_on_v2_jobs_once() {
     assert_eq!((set, after, status, queued), (None, lines, 2, 0), "the rows go; nothing twice");
 }
 
-/// A 2.x install whose user has stored history and no key, with Rails' tracker jobs for that user still queued
+/// A 2.x install whose user has stored history and no key, with 2.x's tracker jobs for that user still queued
 /// (PLAN-B2 r3.3, r4.4, r4.5: a waiting LedgerJob, a failed ::Retry, a claimed BackfillJob).
 #[cfg(unix)] // its only caller is unix-only
 fn two_x_install_with_tracker_jobs() -> (tempfile::TempDir, i64, Vec<i64>) {
@@ -1227,7 +1227,7 @@ fn run_until(dir: &Path, until: &[String]) -> Vec<String> {
     lines
 }
 
-/// PLAN-B2 r3.3, r4.4 (B2-6b): Rails' queued tracker work for a user with stored history and no key runs at the first
+/// PLAN-B2 r3.3, r4.4 (B2-6b): 2.x's queued tracker work for a user with stored history and no key runs at the first
 /// start (no precondition skips it), its job state records the runs, and the next start removes the entries and wakes
 /// nothing again.
 #[cfg(unix)]
@@ -1251,7 +1251,7 @@ fn v2_tracker_jobs_for_a_user_without_a_key_run_after_the_takeover_and_leave_the
     assert!(!again.iter().any(|l| l.contains(&ledger) || l.contains(&backfill)), "nothing is woken again: {again:?}");
 }
 
-/// PLAN-B2 r3.3 (B2-6b): a process killed after the claim committed and before Rails' wake rows left the queue. The
+/// PLAN-B2 r3.3 (B2-6b): a process killed after the claim committed and before 2.x's wake rows left the queue. The
 /// journal committed with the claim and names each job once; the next start deletes the rows and imports nothing again.
 #[cfg(all(unix, debug_assertions))]
 #[test]
@@ -1614,11 +1614,11 @@ mod reset_password {
 }
 
 /// PLAN-B11-9 §5 (#2, #6): the frozen beta fixture's takeover installs, written by this build's (pre-rename) writers:
-/// `B11_9_FREEZE=1 cargo test --test cli freeze_b11_9 -- --ignored`. One 2.x install with Rails' withdrawal rule (a
+/// `B11_9_FREEZE=1 cargo test --test cli freeze_b11_9 -- --ignored`. One 2.x install with 2.x's withdrawal rule (a
 /// recorded withdrawal, an attempt `resolve-withdrawal --rails` settles), a ready rule job, a failed fan-out, a signal bot
 /// with a waiting and a claimed signal job, and tracker jobs for a user without a key; then `mid_takeover` (killed after
-/// the claim committed, Rails' rows still queued) and `takeover` (claimed, plus the A28 report job's state and a job
-/// whose last run failed in Rails' words, by the scheduler's own writers).
+/// the claim committed, 2.x's rows still queued) and `takeover` (claimed, plus the A28 report job's state and a job
+/// whose last run failed in 2.x's words, by the scheduler's own writers).
 #[cfg(all(unix, debug_assertions))]
 #[test]
 #[ignore = "B11_9_FREEZE=1 writes tests/fixtures/b11_9_beta; pre-rename writers only"]
@@ -1635,7 +1635,7 @@ fn freeze_b11_9_takeover_installs() {
         c.execute("INSERT INTO rule_logs(rule_id,status,message,details,created_at) VALUES(?1,1,'Withdrew 0.9 BTC','{\"withdrawal_id\":\"X\",\"amount\":\"0.9\"}',?2)", rusqlite::params![rule, at]).unwrap();
         c.execute("INSERT INTO rule_logs(rule_id,status,message,details,created_at) VALUES(?1,2,'Unexpected error: unreadable','{}',?2)", rusqlite::params![rule, at]).unwrap();
         let attempt = c.last_insert_rowid().to_string();
-        // Rails' last sync of Alpaca's crypto catalogue (staleness::ALPACA_CRYPTO_TICKERS): the takeover reads it as a job's `rails_at`.
+        // 2.x's last sync of Alpaca's crypto catalogue (staleness::ALPACA_CRYPTO_TICKERS): the takeover reads it as a job's `rails_at`.
         c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Alpaca', 'Alpaca', '0.15', '0.25', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", []).unwrap();
         let alpaca = c.last_insert_rowid();
         for asset in [btc, quote] {

@@ -34,7 +34,7 @@ fn every_bound_is_two_missed_refreshes_of_its_jobs_schedule_plus_an_hour() {
 fn a_stale_refusal_names_the_refreshing_jobs_last_error() {
     let (_d, o, s) = common::install_alpaca();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
-    // Taken over with Rails' last complete sync at 08-30 09:00; this engine's run then failed.
+    // Taken over with 2.x's last complete sync at 08-30 09:00; this engine's run then failed.
     state::seed(&o.primary, reference::ALPACA_CRYPTO, Some(at("2026-08-30T09:00:00Z")), at("2026-08-31T00:00:00Z")).unwrap();
     state::record_error(&o.primary, reference::ALPACA_CRYPTO, None, at("2026-09-01T10:15:04Z"), "data-api answered 502").unwrap();
     let bot = model::load_bot(&o.primary, id).unwrap();
@@ -51,7 +51,7 @@ async fn a_run_that_fails_after_its_first_unit_leaves_the_source_ageing_through_
     let (lock, o) = (lease::lock(&p, at("2026-09-30T08:00:00Z")).unwrap(), store::open(&p).unwrap());
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
-    // Rails' last complete sync of the crypto catalogue, as the door measures it: the exchange assets' stamp, behind its gate row.
+    // 2.x's last complete sync of the crypto catalogue, as the door measures it: the exchange assets' stamp, behind its gate row.
     o.primary.execute("INSERT INTO exchange_assets (asset_id, exchange_id, available, created_at, updated_at) VALUES (?1, ?2, 1, ?3, ?3) \
                        ON CONFLICT (asset_id, exchange_id) DO UPDATE SET updated_at = excluded.updated_at",
                       rusqlite::params![s.btc, s.exchange_id, "2026-09-29 10:15:00"]).unwrap();
@@ -83,7 +83,7 @@ async fn a_run_that_fails_after_its_first_unit_leaves_the_source_ageing_through_
     assert_eq!(state::read(&o.primary, reference::ALPACA_CRYPTO, None).unwrap().incomplete_since, Some(at("2026-10-01T10:15:00Z")),
                "the job marked its import before the first unit, and the failure left the mark");
 
-    let later = at("2026-10-01T11:16:00Z"); // 49 h 1 min after Rails' last complete sync
+    let later = at("2026-10-01T11:16:00Z"); // 49 h 1 min after 2.x's last complete sync
     let bot = model::load_bot(&o.primary, id).unwrap();
     let stale_everywhere = |c: &rusqlite::Connection, when: &str| {
         assert!(staleness::stale(c, &bot, later).unwrap().is_some(), "the tick, {when}");
@@ -112,14 +112,14 @@ async fn after_a_handback_only_a_v2_refresh_makes_the_column_count_again() {
     o.primary.execute("INSERT OR IGNORE INTO app_configs (key, value, created_at, updated_at) VALUES ('alpaca_crypto_listings_last_good_count', '31', \
                        '2026-09-29 10:15:00', '2026-09-29 10:15:00')", []).unwrap();
     handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", at("2026-09-30T08:00:00Z")).unwrap();
-    // A partial import of this engine marked its record and stamped some rows; then the install went back to Rails.
+    // A partial import of this engine marked its record and stamped some rows; then the install went back to 2.x.
     state::mark_incomplete(&o.primary, reference::ALPACA_CRYPTO, None, at("2026-10-01T10:15:00Z")).unwrap();
     stamp(&o.primary, "2026-10-01 10:15:00");
     handover::hand_back(&lock, &o, &FakeFactory::default(), &seed::cipher(), &FixedClock(at("2026-10-01T12:00:00Z"))).await.unwrap();
     let bot = model::load_bot(&o.primary, id).unwrap();
-    let now = at("2026-10-02T00:00:00Z"); // past 49 h since Rails' 09-29 sync
+    let now = at("2026-10-02T00:00:00Z"); // past 49 h since 2.x's 09-29 sync
     assert!(matches!(staleness::verdict(&o.primary, &bot, now).unwrap(), Verdict::Stale(_)), "a stamp from before the handback may be ours: not trusted");
-    // Rails runs after the handback and refreshes the catalogue: its stamp is newer than the handback.
+    // 2.x runs after the handback and refreshes the catalogue: its stamp is newer than the handback.
     stamp(&o.primary, "2026-10-01 13:00:00");
     assert!(matches!(staleness::verdict(&o.primary, &bot, now).unwrap(), Verdict::Fresh), "only 2.x can have written after the handback");
     assert!(!staleness::report(&o.primary, now).unwrap().iter().any(|l| l.starts_with("Alpaca crypto tickers:") && l.contains("STALE")));
@@ -155,7 +155,7 @@ async fn only_a_refresh_inside_v2_last_ownership_window_counts_through_a_later_t
     state::mark_incomplete(&o.primary, reference::ALPACA_CRYPTO, None, at("2026-10-01T10:15:00Z")).unwrap();
     stamp(&o.primary, "2026-10-01 10:15:00");
     handover::hand_back(&lock, &o, &FakeFactory::default(), &seed::cipher(), &FixedClock(at("2026-10-01T12:00:00Z"))).await.unwrap();
-    // Rails owns the install and refreshes the catalogue: inside its open window, so the door admits it.
+    // 2.x owns the install and refreshes the catalogue: inside its open window, so the door admits it.
     stamp(&o.primary, "2026-10-01 13:00:00");
     assert!(matches!(staleness::verdict(&o.primary, &bot, at("2026-10-02T00:00:00Z")).unwrap(), Verdict::Fresh), "2.x's own refresh counts");
     // This engine claims it again (the window closes at 10-02 01:00) and crashes before any later transaction.
@@ -170,7 +170,7 @@ async fn only_a_refresh_inside_v2_last_ownership_window_counts_through_a_later_t
     assert_eq!(deltabadger::app_config::get_plain(&o.primary, staleness::TAKEN_OVER_AT).unwrap().as_deref(), Some("2026-10-02T01:00:00.000Z"),
                "the window closed with the claim, and the restart did not move it");
     stamp(&o.primary, "2026-10-02 10:15:00");
-    let now = at("2026-10-02T12:00:00Z"); // past 49 h since the last refresh this engine completed or read (Rails' 09-29 baseline)
+    let now = at("2026-10-02T12:00:00Z"); // past 49 h since the last refresh this engine completed or read (2.x's 09-29 baseline)
     let stale_everywhere = |c: &rusqlite::Connection, when: &str| {
         assert!(staleness::stale(c, &bot, now).unwrap().is_some(), "the tick, {when}");
         assert!(matches!(staleness::verdict(c, &bot, now).unwrap(), Verdict::Stale(_)), "the door, {when}: 10-02 10:15 is this engine's partial stamp");

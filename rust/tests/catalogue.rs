@@ -1,5 +1,5 @@
-//! venue::catalogue against Rails' `get_tickers_info(force: true)` (PLAN-A17 A17-2): every vector recorded by
-//! script/rust/catalogue_vectors.rb is replayed over its own ScriptedTransport, and must give Rails' rows (or Rails'
+//! venue::catalogue against 2.x's `get_tickers_info(force: true)` (PLAN-A17 A17-2): every recorded vector
+//! is replayed over its own ScriptedTransport, and must give 2.x's rows (or 2.x's
 //! failure sentence) after the same requests — method, host, path, query, body, count, and for Gemini the same pacing,
 //! on paused time. The one named divergence, D-CG-DECIMALS-EXPONENT, is asserted value by value.
 use deltabadger::venue::catalogue;
@@ -18,7 +18,7 @@ impl Transport for Timed {
     }
 }
 
-/// D-CG-DECIMALS-EXPONENT: (scenario, row, field, Rails' value, Rust's value).
+/// D-CG-DECIMALS-EXPONENT: (scenario, row, field, 2.x's value, Rust's value).
 const DIVERGENCES: [(&str, usize, &str, i64, i64); 9] = [
     ("bingx_exponent_steps", 0, "base_decimals", 5, 6),   // stepSize 1e-06: Float#to_s "1.0e-06"
     ("bingx_exponent_steps", 0, "quote_decimals", 5, 8),  // tickSize 1e-08
@@ -29,7 +29,7 @@ const DIVERGENCES: [(&str, usize, &str, i64, i64); 9] = [
     ("bingx_exponent_steps", 2, "price_decimals", 0, 7),
     // 1e-05 is "1.0e-05": five characters after the point, which happens to be right.
     ("bingx_exponent_steps", 1, "base_decimals", 5, 5),
-    // The plan's Gemini example: `tick_size.to_d.to_s` is plain notation under ActiveSupport, so Rails is right there.
+    // The plan's Gemini example: `tick_size.to_d.to_s` is plain notation under ActiveSupport, so 2.x is right there.
     ("gemini_exponent_ticks", 1, "base_decimals", 8, 8),
 ];
 

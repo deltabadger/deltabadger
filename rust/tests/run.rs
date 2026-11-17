@@ -284,7 +284,7 @@ fn transient_has(e: &Engine<FakeFactory>, id: i64, key: &str) -> bool { model::l
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_continued_bot_that_still_owes_its_contribution_runs_at_once() {
-    // Stamped at the second checkpoint and stopped before it placed: 2 × 60 − 60 = 60 owed, not under 60 (Rails: now).
+    // Stamped at the second checkpoint and stopped before it placed: 2 × 60 − 60 = 60 owed, not under 60 (2.x: now).
     let (_d, mut e, id, v) = continued(&["2026-09-01 10:00:01"], requested());
     run::step(&mut e, &at("2026-09-08T12:00:00Z")).await.unwrap();
     assert_eq!(v.sent().len(), 1, "the owed contribution is bought now, not at the next checkpoint");
@@ -490,7 +490,7 @@ async fn a_paused_bot_is_checked_each_minute_and_trades_off_grid_once_met() {
     assert_eq!(wake, us("2026-09-01T10:00:59.999999Z"), "checked at the end of the minute");
     run::step(&mut e, &at("2026-09-01T10:00:40Z")).await.unwrap();
     assert_eq!(v.calls("/0/public/Ticker"), 1, "no check before its time");
-    // Checked at 10:00:59.999999 the next check is at once (end_of_minute is that same instant in Rails); half a second into
+    // Checked at 10:00:59.999999 the next check is at once (end_of_minute is that same instant in 2.x); half a second into
     // the next minute it is that minute's end.
     let wake = run::step(&mut e, &at("2026-09-01T10:01:00.5Z")).await.unwrap();
     assert_eq!((v.calls("/0/public/Ticker"), wake), (2, us("2026-09-01T10:01:59.999999Z")), "unmet: the next minute's end");

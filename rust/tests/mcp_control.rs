@@ -1,4 +1,4 @@
-//! The same raw HTTP messages and fixed tokens on Rails-created SQLite databases.
+//! The same raw HTTP messages and fixed tokens on 2.x-created SQLite databases.
 mod common;
 use common::web::{self, TestClock};
 use axum::{body::{Body, to_bytes}, http::Request};
@@ -12,11 +12,11 @@ fn read(p: impl AsRef<Path>) -> Value { serde_json::from_slice(&std::fs::read(p)
 fn copy_install(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
     for f in ["production.sqlite3", "production_queue.sqlite3", "secret_key_base"] { std::fs::copy(from.join(f), to.join(f)).unwrap(); }
-    // The tax report fixtures (mcp_control.rb tax_install), under the instance's tmp/ as APP_TMP_DIR names it.
+    // The tax report fixtures (the recorded tax_install), under the instance's tmp/ as APP_TMP_DIR names it.
     if from.join("tmp").is_dir() { common::copy_tree(&from.join("tmp"), &to.join("tmp")); }
 }
 /// PLAN-A12 A12-1: a tax_ scenario's install as `serve` opens it (this build's migrations applied), with the report
-/// mcp_control.rb holds as generating (an unfinished Solid Queue job) held as this build's request row (the A12-1 contract).
+/// The recording holds as generating (an unfinished Solid Queue job) held as this build's request row (the A12-1 contract).
 fn tax_install(dir: &Path, steps: &Value) {
     let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
     deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
@@ -65,7 +65,7 @@ fn snapshot(dir:&Path)->Value {
         tables.insert(table.to_string(),json!(rows));
     }
     // PLAN-A12: the reports asked for, as (user, country, year, stablecoin_as_fiat, scope): this build's request rows (all but
-    // the seeded generating one), where Rails records its enqueued Tax::GenerateReportJob (mcp_control.rb snapshot).
+    // the seeded generating one), where 2.x records its enqueued Tax::GenerateReportJob (the recorded snapshot).
     let mut asked:Vec<Value>=vec![];
     // No such table before this build's migrations (every scenario but the tax_ ones): nothing asked.
     if let Ok(mut q)=c.prepare("SELECT user_id, country, year, stablecoin_as_fiat, scope FROM rust_tax_reports WHERE request <> '00000000000000000000000000000001' ORDER BY id") {
@@ -104,7 +104,7 @@ fn comparable(mut transcript: Value) -> Value {
 #[tokio::test(flavor="current_thread")]
 async fn control_transcripts() {
     let root = tempfile::tempdir().unwrap();
-    // The grid is Rails' own (frozen); Rails plays it in `record` on its own copy, keeping only its answers (expected.json).
+    // The grid is 2.x's own (frozen); 2.x plays it in `record` on its own copy, keeping only its answers (expected.json).
     let grid=common::frozen("mcp-control-grid",common::has_subdirs);
     common::copy_tree(&grid,root.path());
     let dirs: Vec<_> = std::fs::read_dir(root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("steps.json").is_file()).collect();
@@ -138,7 +138,7 @@ async fn control_transcripts() {
         let name=dir.file_name().unwrap().to_string_lossy();
         let mut requests=0;
         for (row,v2) in got["rows"]["bots"].as_array_mut().unwrap().iter_mut().zip(want["rows"]["bots"].as_array().unwrap()) {
-            // Plan CI T3b: the composition resync Rails enqueues (Bots::DcaIndex#start, #resync_index_composition) is the
+            // Plan CI T3b: the composition resync 2.x enqueues (Bots::DcaIndex#start, #resync_index_composition) is the
             // engine's marker on the row; tests/web_actions.rs and tests/index_resync.rs pin when it is written.
             if let Some(marker)=row["transient_data"].as_object_mut().unwrap().shift_remove("rust_index_resync") {
                 assert_eq!(row["type"],"Bots::DcaIndex","{name}");
@@ -183,7 +183,7 @@ async fn control_transcripts() {
                 std::fs::write(std::path::Path::new(&root).join("registry-pages.json"),serde_json::to_string_pretty(&json!({"expected":want,"rust":got})).unwrap()).unwrap();
             }
         }
-        // D-API-CREATE-REFUSED: a bot Rails makes and starts that this build's engine does not run is refused, nothing written.
+        // D-API-CREATE-REFUSED: a bot 2.x makes and starts that this build's engine does not run is refused, nothing written.
         if name.starts_with("create_refused_") {
             let v2:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
             assert!(v2["result"]["content"][0]["text"].as_str().unwrap().contains("created and started"),"2.x creates {name}");
@@ -235,14 +235,14 @@ async fn control_transcripts() {
             }
         }
         if name.starts_with("settings_form_") {
-            // Named divergence: settings that need what this build does not run yet. Rails saves them; Rust
+            // Named divergence: settings that need what this build does not run yet. 2.x saves them; Rust
             // refuses the whole call by its reason and writes nothing. Rebalancing runs here for an Alpaca basket or
             // index bot (6b T8), stopped ones included, so the engine guard refuses it only on a bot otherwise
             // outside the slice: the Index bot (2), whose stock members name no instrument. A market-cap basket's derived
             // composition (Plan CB T5) is compared in full, bot_index_assets included.
-            // D-IDX-CONDITIONS / D-IDX-CAP over BotApi: Rails' index bot (2) has no rules, so it refuses every rule field as a
+            // D-IDX-CONDITIONS / D-IDX-CAP over BotApi: 2.x's index bot (2) has no rules, so it refuses every rule field as a
             // basket's. Here the cap and the buy-side price rule save on it; a flip is refused by name; a rule not built for it
-            // yet is the write guard's refusal; its sell side stays refused as in Rails (compared whole below).
+            // yet is the write guard's refusal; its sell side stays refused as in 2.x (compared whole below).
             if let Some((field,(rule,selling)))=name.strip_prefix("settings_form_").and_then(|n|n.strip_suffix("_2")).and_then(|f|deltabadger::web::bot::draft::field_rule(f).map(|r|(f,r))) {
                 use deltabadger::engine::conditions::{support,Support};
                 let flip=field.ends_with("_mode") && !selling;
@@ -269,7 +269,7 @@ async fn control_transcripts() {
                 }
             }
             let rebalancing=want["rows"]["bots"].as_array().unwrap().iter().any(|b|b["id"]==json!(2)&&b["settings"]["rebalance_enabled"]==json!(true));
-            // Plan CB T5: Rails' save derived the members from the caps (BTC 1.3e12 of 1.7e12), or back from the sliders.
+            // Plan CB T5: 2.x's save derived the members from the caps (BTC 1.3e12 of 1.7e12), or back from the sliders.
             if name.starts_with("settings_form_case_market_cap_") {
                 let derived=want["rows"]["bot_index_assets"].as_array().unwrap().iter()
                     .any(|r|r["bot_id"]==json!(1)&&(r["in_index"]==json!(1)||r["in_index"]==json!(true))&&r["target_allocation"]["float_bits"].as_str().and_then(|b|u64::from_str_radix(b,16).ok()).is_some_and(|b|(f64::from_bits(b)-1.3/1.7).abs()<1e-6));
@@ -294,7 +294,7 @@ async fn control_transcripts() {
             for v in [&mut got,&mut want] { *v=serde_json::from_str(&dry.replace_all(&v.to_string(),"dry-order-<id>")).unwrap(); }
         }
         if name.starts_with("order_dry_cancel") {
-            // D-ORDER-DRY-CANCEL: Rails' Exchange::Dryable#dry_cancel_order raises; this build answers the success text with
+            // D-ORDER-DRY-CANCEL: 2.x's Exchange::Dryable#dry_cancel_order raises; this build answers the success text with
             // no venue call, and neither side writes a row.
             let answer=|t:&Value|->Value{serde_json::from_str::<Value>(t["responses"][2]["body"].as_str().unwrap()).unwrap()["result"].clone()};
             assert_eq!(answer(&want)["isError"],true,"2.x raises on {name}: {}",answer(&want));
@@ -320,8 +320,8 @@ async fn control_transcripts() {
     assert!(failures.is_empty(), "M4 mismatches: {failures:?}");
 }
 
-/// The listed tracker divergences (PLAN-A11): the named tool calls' Rails results become the ones this build owes, in the
-/// answer and in the session's stored copy of it, after checking Rails still answers what the divergence names.
+/// The listed tracker divergences (PLAN-A11): the named tool calls' 2.x results become the ones this build owes, in the
+/// answer and in the session's stored copy of it, after checking 2.x still answers what the divergence names.
 fn tracker_difference(name:&str,want:&mut Value)->Result<(),String> {
     use deltabadger::web::{mcp::protocol::tool_text,tracker::api};
     let text=|want:&Value,i:usize|->Result<(Value,String),String>{
@@ -358,7 +358,7 @@ fn tracker_difference(name:&str,want:&mut Value)->Result<(),String> {
             message["message_json"]=json!(serde_json::to_string(&json).unwrap());
             stored+=1;
         }
-        // Two calls Rails answered alike share their stored copies: the first rewrite took both.
+        // Two calls 2.x answered alike share their stored copies: the first rewrite took both.
         if stored==0 && !rewritten.contains(&old) { return Err(format!("step {i}: the session holds no copy of 2.x's result")); }
         rewritten.push(old);
     }
@@ -366,9 +366,9 @@ fn tracker_difference(name:&str,want:&mut Value)->Result<(),String> {
 }
 
 /// D-TAX-NOT-PORTED-GATE (PLAN-A12 item 6): a generate_tax_report this build cannot compute
-/// yet answers its refusal as an error text, nothing written or queued. Every call Rails started in a `tax_d_` scenario becomes
-/// that answer (in the response and the session's stored copy), after checking Rails started it; its job and the owner's
-/// pending_report are taken back (Rails' users rows become this build's, once they differ in nothing else).
+/// yet answers its refusal as an error text, nothing written or queued. Every call 2.x started in a `tax_d_` scenario becomes
+/// that answer (in the response and the session's stored copy), after checking 2.x started it; its job and the owner's
+/// pending_report are taken back (2.x's users rows become this build's, once they differ in nothing else).
 fn tax_difference(name:&str,want:&mut Value,got:&Value)->Result<(),String> {
     use deltabadger::web::mcp::protocol::tool_text;
     if !name.starts_with("tax_d_not_ported") { return Ok(()) }
@@ -410,7 +410,7 @@ fn tax_difference(name:&str,want:&mut Value,got:&Value)->Result<(),String> {
     Ok(())
 }
 
-/// The before-snapshot is evidence for named divergences only, never part of the Rails comparison.
+/// The before-snapshot is evidence for named divergences only, never part of the 2.x comparison.
 fn result_without_before(got:&mut Value) { got.as_object_mut().unwrap().shift_remove("before_business"); }
 
 #[derive(Clone)]
@@ -454,11 +454,11 @@ fn changes(before:&Value,after:&Value)->Value {
 async fn real_v2_ticks_and_mcp_tools_race_on_identical_files() {
     use deltabadger::{crypto::{Cipher,EncryptionKeys},engine::{model,tick,provider},venue::alpaca::{AlpacaVenue,Urls}};
     use std::rc::Rc;
-    // Rails' races, frozen (common::frozen); every Rust leg works on its own copy.
+    // 2.x's races, frozen (common::frozen); every Rust leg works on its own copy.
     let output=common::frozen("mcp-control-races",common::has_subdirs);
     let lost=read(output.join("settings_lost_update/race.json"));
     assert_eq!((lost["read"].as_f64(),lost["committed"].as_f64(),lost["final"].as_f64()),(Some(50.0),Some(20.0),Some(20.0)),"the rename keeps the amount committed after its load");
-    // mcp_control_races.rb records the six lifecycle/settings controls. Liquidation's and redeploy's request/clear races
+    // The recording harness records the six lifecycle/settings controls. Liquidation's and redeploy's request/clear races
     // and their real MCP entry points are exercised in liquidation.rs, liquidation_web.rs and redeploy_web.rs.
     for name in deltabadger::web::mcp::control::NAMES.into_iter().filter(|n|!["liquidate_exited_asset","answer_redeploy_offer"].contains(n)) {
         let dir=output.join(name);let v2=read(dir.join("race.json"));

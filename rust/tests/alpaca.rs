@@ -248,7 +248,7 @@ fn preflight_accepts_a_live_key_and_refuses_an_undecryptable_passphrase() {
     assert!(e.iter().any(|p| p.starts_with(&format!("bot {id}:")) && p.contains("api key unreadable")), "{e:?}");
 }
 
-/// A Kraken bot passes preflight like Rails: a connected key is all it needs (no live gate). Without a key it is refused as
+/// A Kraken bot passes preflight like 2.x: a connected key is all it needs (no live gate). Without a key it is refused as
 /// on Alpaca.
 #[test]
 fn a_kraken_bot_passes_preflight_like_v2() {
@@ -406,7 +406,7 @@ async fn an_unreadable_or_ambiguous_holding_is_an_error_never_zero() {
     assert_eq!(v.free_base_identified(&apple(), catalog).await, Err(VenueError::Rejected(vec!["the account has no cash figure".into()])));
     let (_, v) = venue(json!({ "GET /v2/account": ok(json!({ "cash": "1" })), "GET /v2/positions": status(500, json!({ "message": "internal server error" })) }));
     assert_eq!(v.free_base_identified(&apple(), catalog).await, Err(VenueError::Rejected(vec!["internal server error".into()])));
-    // Another position's missing quantity is not this asset's answer, as Rails reads only the asset asked for.
+    // Another position's missing quantity is not this asset's answer, as 2.x reads only the asset asked for.
     let v = account(json!([{ "asset_class": "us_equity", "symbol": "BTC", "qty": "7" }, { "asset_class": "us_equity", "symbol": "AAPL", "qty": "2", "qty_available": "2" }]));
     assert_eq!(v.free_base_identified(&apple(), catalog).await, Ok(bd("2")));
 }
@@ -420,7 +420,7 @@ async fn the_settled_quote_is_cash_below_buying_power_and_buys_keep_buying_power
     assert_eq!(v.settled_quote_balance(&apple(), ambiguous).await, Err(VenueError::Rejected(vec!["Unmapped or ambiguous Alpaca cash asset".into()])));
 }
 
-/// parse_venue_number raises ArgumentError on a price it cannot read (alpaca.rb:611): a raise, never a failed Result, so
+/// parse_venue_number raises ArgumentError on a price it cannot read: a raise, never a failed Result, so
 /// the price gate fails the tick and the price check's chain ends (conditions::raised), as for a zero price.
 #[tokio::test(flavor = "current_thread")]
 async fn an_unreadable_price_is_v2_raise() {

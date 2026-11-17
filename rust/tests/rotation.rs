@@ -1,4 +1,4 @@
-//! PLAN-A29: `deltabadger encryption-report | encryption-reset | encryption-derived-keys`, Rails' deltabadger:encryption
+//! PLAN-A29: `deltabadger encryption-report | encryption-reset | encryption-derived-keys`, 2.x's deltabadger:encryption
 //! tasks, run as the operator runs them, on an install holding every kind of stored credential.
 mod common;
 use common::seed::{self, BotSpec};
@@ -52,7 +52,7 @@ fn tables(c: &Connection) -> BTreeMap<String, Vec<String>> {
 
 struct Fixture { dir: tempfile::TempDir, bot: i64, rule: i64, seeded: seed::Seeded }
 
-/// An install under `secret` holding every kind of credential Rails' report lists, Rust's own encrypted rows, a plain
+/// An install under `secret` holding every kind of credential 2.x's report lists, Rust's own encrypted rows, a plain
 /// Rust row, a working bot with rebalancing on and a working withdrawal rule. Taken over by Rust (its lease encrypted).
 fn install(secret: &str) -> Fixture {
     let dir = common::v2_install();
@@ -365,9 +365,9 @@ fn a_published_or_short_secret_is_said_at_start() {
     assert!(!err(&o).contains("SECURITY"), "{}", err(&o));
 }
 
-// ---- Rails cross-check (PLAN-A29 r2.7) ------------------------------------------------------------------------------
+// ---- 2.x cross-check (PLAN-A29 r2.7) ------------------------------------------------------------------------------
 
-/// The listed text rewrites (PLAN-A29 §5): Rails' words → 3.0's. Nothing else may differ.
+/// The listed text rewrites (PLAN-A29 §5): 2.x's words → 3.0's. Nothing else may differ.
 const REWRITES: &[(&str, &str)] = &[
     ("re-run with PUBLISHED=yes.", "re-run with --published."), // R1
     ("  1. Stop the app. A job a worker has already picked up cannot be cancelled and\n     would keep trading while this runs.",
@@ -386,7 +386,7 @@ fn cell(v: &serde_json::Value) -> String {
     match v { serde_json::Value::Null => "NULL".into(), serde_json::Value::String(s) => s.clone(), serde_json::Value::Bool(b) => (*b as i64).to_string(), other => other.to_string() }
 }
 
-/// Each row of `table` as column → text, the columns D-RESET-STOP-LOGGED's stop writes masked (Rails' update_all writes
+/// Each row of `table` as column → text, the columns D-RESET-STOP-LOGGED's stop writes masked (2.x's update_all writes
 /// no updated_at; both write a stopped_at of their own `now`).
 fn rows(c: &Connection, table: &str) -> Vec<BTreeMap<String, String>> {
     let mut s = c.prepare(&format!("SELECT * FROM {table} ORDER BY id")).unwrap();
@@ -439,7 +439,7 @@ fn v2_and_rust_clear_the_same_rows_and_differ_only_by_the_listed_rewrites() {
     }
 }
 
-/// An order Rails placed and never recorded (its Bot::FetchAndCreateOrderJob still queued): the takeover's own hard
+/// An order 2.x placed and never recorded (its Bot::FetchAndCreateOrderJob still queued): the takeover's own hard
 /// stop, reached through the reset's judgement of the next start.
 #[test]
 fn an_order_v2_never_recorded_refuses_the_reset() {

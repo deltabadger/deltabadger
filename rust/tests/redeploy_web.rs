@@ -159,7 +159,7 @@ fn accept_is_required_and_strict_on_every_surface() {
         assert_eq!(res.message,"accept must be true or false.");
     }
     assert!(request(c,id).is_null() && offset(c)==0.0);
-    // "true" and "false" are answers, as Rails' Boolean.parse reads a form or a query.
+    // "true" and "false" are answers, as 2.x's Boolean.parse reads a form or a query.
     assert_eq!(api(c,&app,s.user_id,id,json!({"accept":"false","dry_run":true})).data["accepted"],false);
     let dry=api(c,&app,s.user_id,id,json!({"accept":"true","dry_run":true}));
     assert_eq!(dry.code,None);

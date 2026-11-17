@@ -1,7 +1,7 @@
 //! A MEXC ledger import over several runs (plan VB §1.6 on slice A5's walk): 7-day transfer ranges, a full page halved with
 //! its halves' rows kept only when the range ends, a coin seen only on a deposit in one run whose pair's trades are read in
 //! a later one, the frozen pair list, a trades read halved, and a run cut mid-range replayed. Every multi-run import stores
-//! exactly the rows, and ends on exactly the watermark, of one run. Rails-free: the one-run walk against Rails is
+//! exactly the rows, and ends on exactly the watermark, of one run. 2.x-free: the one-run walk against 2.x is
 //! sync_parity.rs's `mexc-ledger-` scenarios.
 mod common;
 use deltabadger::crypto::Credentials;

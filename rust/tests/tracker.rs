@@ -1,5 +1,5 @@
 //! The tracker's jobs on a baseline install, under the real scheduler: a sync wakes the walk, which writes
-//! today's rows; the backfill runs at 03:00 when a sweep is wanted, and wakes the walk after it. (Agreement with Rails'
+//! today's rows; the backfill runs at 03:00 when a sweep is wanted, and wakes the walk after it. (Agreement with 2.x's
 //! figures: tracker_parity.rs.)
 mod common;
 use common::seed;
@@ -124,7 +124,7 @@ fn every_user_with_a_reading_key_gets_a_walk_and_a_backfill() {
     assert_eq!(specs[2..], [("credential_scope_factory",None,None), (TRACKER_LEDGER, me.clone(), None), (PORTFOLIO_BACKFILL, me, Some(Schedule::Daily { hour: 3, minute: 0 }))]);
 }
 
-/// Rails' AccountBalance::SyncJob ends in PortfolioSnapshot.record!: the balance sync at 02:30 wakes the user's walk,
+/// 2.x's AccountBalance::SyncJob ends in PortfolioSnapshot.record!: the balance sync at 02:30 wakes the user's walk,
 /// which writes today's row from the balances it just stored.
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn the_nightly_balance_sync_wakes_the_walk_and_today_is_recorded() {
@@ -305,7 +305,7 @@ async fn run_ledger(dir: &Path, user: i64, api: &Feed<Hooked>) -> Result<deltaba
 }
 
 /// A row edited while a fetch is out never reaches the pass that was walking: every lookup of that pass used the rows
-/// it loaded. The ledger moved, so the pass is walked again over the edited rows, as Rails' compute! walks again, and
+/// it loaded. The ledger moved, so the pass is walked again over the edited rows, as 2.x's compute! walks again, and
 /// the walk states that pass's $1,500 in, not a mix of the two ledgers.
 #[tokio::test(flavor = "current_thread")]
 async fn a_row_edited_during_a_fetch_writes_nothing_from_mixed_inputs() {
@@ -320,7 +320,7 @@ async fn a_row_edited_during_a_fetch_writes_nothing_from_mixed_inputs() {
 }
 
 /// A ledger edited during every fetch of every pass: after the third pass the rows still moved, and nothing is written,
-/// not a snapshot, not a lock, not the page cache; the run says why. (Rails writes its third pass; this build writes
+/// not a snapshot, not a lock, not the page cache; the run says why. (2.x writes its third pass; this build writes
 /// nothing from a ledger that is no longer the one it walked.)
 #[tokio::test(flavor = "current_thread")]
 async fn rows_moving_every_pass_write_nothing() {

@@ -94,7 +94,7 @@ fn split_bots_schema_is_pinned(){
     assert!(split["description"].as_str().unwrap().contains("proceeds_unanswered"));
 }
 
-/// A1 listed additions: Rails property types and required fields, plus the W2 matrix fields.
+/// A1 listed additions: 2.x property types and required fields, plus the W2 matrix fields.
 #[test]
 fn withdrawal_rule_schemas_and_permissions_are_pinned() {
     use deltabadger::web::{mcp::tools::NAMES, oauth::{TOOL_DEFAULTS,TOOL_GROUPS}};

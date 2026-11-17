@@ -10,7 +10,7 @@ fn every_recorded_v2_classification_is_reproduced() {
         let m = vec![c[1].as_str().unwrap().to_string()];
         assert_eq!(rules.failure_kind(&m), c[2].as_str(), "failure_kind {c}");
         assert_eq!(rules.is_throttle(&m), c[4].as_bool().unwrap(), "throttled_error? {c}");
-        // Known gap, kept as merged: Kraken's poll rule omits Client::NETWORK_TRANSIENT_PATTERNS, which Rails'
+        // Known gap, kept as merged: Kraken's poll rule omits Client::NETWORK_TRANSIENT_PATTERNS, which 2.x's
         // transient_error? adds for every venue. Not decided until the real Kraken client exists.
         if std::ptr::eq(rules, &KRAKEN) && NETWORK_TRANSIENT_PATTERNS.iter().any(|p| m[0].contains(p)) { continue; }
         assert_eq!(rules.is_transient(&m), c[3].as_bool().unwrap(), "transient_error? {c}");
@@ -19,7 +19,7 @@ fn every_recorded_v2_classification_is_reproduced() {
 
 #[test]
 fn each_venue_carries_v2_minimum_logic_wire_and_absence_window() {
-    // D-KRAKEN-LIMIT-COSTMIN: Rails' Kraken limit buy is :base (ordermin only); Rust checks costmin too, :base_and_quote_in_base
+    // D-KRAKEN-LIMIT-COSTMIN: 2.x's Kraken limit buy is :base (ordermin only); Rust checks costmin too, :base_and_quote_in_base
     // as every venue with a notional floor, so a limit buy under costmin is skipped instead of sent and rejected.
     assert_eq!((KRAKEN.minimum_logic, KRAKEN.wire, KRAKEN.deadline_sent, KRAKEN.transport_raises), (MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase }, WireFormat::Kraken, true, false));
     assert_eq!((ALPACA.minimum_logic, ALPACA.wire, ALPACA.deadline_sent, ALPACA.transport_raises), (MinimumLogic { market: AmountLogic::Quote, limit: AmountLogic::Quote }, WireFormat::Alpaca, false, true));
@@ -54,7 +54,7 @@ async fn every_recorded_venue_order_number_is_accepted_or_refused_as_in_v2() {
     }
 }
 
-// ---- plan VB slice P: Exchange#adjusted_price and #market_price_for, recorded from Rails (record_venue_vectors.rb prices)
+// ---- plan VB slice P: Exchange#adjusted_price and #market_price_for, recorded from 2.x (the venue price vectors)
 
 fn prices_fixture() -> serde_json::Value { serde_json::from_str(include_str!("fixtures/prices_vectors.json")).unwrap() }
 
@@ -64,7 +64,7 @@ fn every_recorded_adjusted_and_market_price_is_reproduced() {
     use deltabadger::engine::venue_rules::{PriceRule, Rounding, VenueRules, BINANCE, HYPERLIQUID, KUCOIN, MARKET_CROSS};
     use deltabadger::v2::BigDec;
     use deltabadger::venue::Side;
-    // Exercise the production Hyperliquid rule against the recorded Rails prices.
+    // Exercise the production Hyperliquid rule against the recorded 2.x prices.
     let gemini = VenueRules { cross: Some(MARKET_CROSS), ..KRAKEN };
     for existing in [&KRAKEN, &ALPACA, &BINANCE, &deltabadger::engine::venue_rules::BINANCE_US, &KUCOIN, &deltabadger::engine::venue_rules::BITVAVO, &deltabadger::engine::venue_rules::MEXC] {
         assert_eq!((existing.price_rule, existing.cross), (PriceRule::Decimals, None), "{}: the default rule, never crossed", existing.name);

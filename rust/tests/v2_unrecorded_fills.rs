@@ -1,7 +1,7 @@
 //! A28-1 (sync::fills): a tracker ledger row read back as the venue fill it records. Raw objects are the shapes each
 //! importer stores (the ledger tests' venue answers: tests/*_continuation.rs, tests/coinbase.rs, tests/sync.rs), with the
 //! venue's order and fill ids its documented answer carries. Rows the importer builds itself are built through it
-//! (binance_ledger::normalize_trade, coinbase_ledger::fill, activities::normalize). No Rails, no network.
+//! (binance_ledger::normalize_trade, coinbase_ledger::fill, activities::normalize). No 2.x, no network.
 use chrono::{DateTime, Utc};
 use deltabadger::v2::BigDec;
 use deltabadger::sync::activities::{CryptoPairs, Entry, Raw};
@@ -96,7 +96,7 @@ fn binance_fills() {
         let (a, b) = (fill(&c, venue, &stored(ex, &legs[0])), fill(&c, venue, &stored(ex, &legs[1])));
         assert_eq!(a, b, "both swap legs read as one fill");
         assert_eq!((a.fill_id.as_str(), a.ticker_id, a.base_asset_id, a.quote_asset_id), ("ETHBTC-3-7", eth_btc, asset("ETH"), asset("BTC")));
-        // binance.rs:513 `format!("{}-{id}", o.pair)`; Rails binance.rb:279 splits the same "SYMBOL-orderId".
+        // binance.rs:513 `format!("{}-{id}", o.pair)`; 2.x splits the same "SYMBOL-orderId".
         assert_eq!(a.order_key, "ETHBTC-3");
         assert_eq!(trade(&a), (Side::Buy, d("2"), d("0.1")));
         assert_eq!(Some(a.at), legs[0].transacted_at, "the importer's own time");
@@ -156,7 +156,7 @@ fn coinbase_fills() {
     let (fa, fb) = (fill(&c, COINBASE, &stored(ex, &a[0])), fill(&c, COINBASE, &stored(ex, &b[0])));
     assert_eq!((fa.ticker_id, fa.fill_id.as_str(), trade(&fa)), (eth_eur, "ETH-EUR|t1", (Side::Buy, d("0.05"), d("100"))));
     assert_eq!((fb.fill_id.as_str(), trade(&fb)), ("ETH-EUR|t2", (Side::Buy, d("0.01"), d("20"))));
-    // coinbase.rs:407 the raw `success_response.order_id`; Rails coinbase.rb:264 looks it up as stored.
+    // coinbase.rs:407 the raw `success_response.order_id`; 2.x looks it up as stored.
     assert_eq!((fa.order_key.as_str(), fb.order_key.as_str()), ("o-1", "o-1"));
     assert_eq!(Some(fa.at), a[0].transacted_at);
     let sell = one(coinbase_raw("ETH-EUR", "t3", "o-2", "SELL", "0.5", "2000", false));
@@ -232,7 +232,7 @@ fn bybit_fills() {
     let f1 = fill(&c, BYBIT, &row(ex, Some("e1"), 0, bybit_raw("e1", "1900", "Buy", "0.001", "60")));
     let f2 = fill(&c, BYBIT, &row(ex, Some("e2"), 0, bybit_raw("e2", "1900", "Buy", "0.002", "120")));
     assert_eq!((f1.ticker_id, f1.fill_id.as_str(), trade(&f1), f1.at), (t, "BTCUSDT|e1", (Side::Buy, d("0.001"), d("60")), at(T)));
-    // bybit.rs:266 the bare `result.orderId`; Rails bybit.rb:291 #get_order finds it as stored.
+    // bybit.rs:266 the bare `result.orderId`; 2.x's #get_order finds it as stored.
     assert_eq!((f1.order_key.as_str(), f2.order_key.as_str(), f2.fill_id.as_str()), ("1900", "1900", "BTCUSDT|e2"));
     assert_eq!(trade(&fill(&c, BYBIT, &row(ex, Some("e3"), 1, bybit_raw("e3", "1901", "Sell", "0.001", "61")))), (Side::Sell, d("0.001"), d("61")));
     unreadable(&c, BYBIT, &row(ex, Some("e4"), 0, bybit_raw("e4", "1902", "Buy", "0.001", "lots")));
@@ -261,7 +261,7 @@ fn mexc_and_bitrue_fills() {
         let r = |symbol: &str, id: i64, buyer: bool| row(ex, Some(&format!("{symbol}-{order}-{id}")), if buyer { 0 } else { 1 }, spot_raw(symbol, id, order, buyer, Some("60")));
         let (f1, f2) = (fill(&c, venue, &r("BTCUSDT", 5, true)), fill(&c, venue, &r("BTCUSDT", 6, true)));
         assert_eq!((f1.ticker_id, f1.fill_id.clone(), trade(&f1), f1.at), (t, format!("BTCUSDT-{order}-5"), (Side::Buy, d("0.001"), d("60")), at(T)));
-        // mexc.rs:289 / bitrue.rs:263 `format!("{}-{id}", o.pair)`; Rails mexc.rb:285 / bitrue.rb:286 split it back.
+        // mexc.rs:289 / bitrue.rs:263 `format!("{}-{id}", o.pair)`; 2.x splits it back.
         assert_eq!((f1.order_key.clone(), f2.order_key.clone()), (format!("BTCUSDT-{order}"), format!("BTCUSDT-{order}")));
         assert_ne!(f1.fill_id, f2.fill_id);
         assert_eq!(fill(&c, venue, &r("BTCUSDT", 7, false)).side, Side::Sell);
@@ -295,7 +295,7 @@ fn gemini_fills() {
     let t = ticker(&c, ex, "BTCUSD", "BTC", "USD");
     let (f1, f2) = (fill(&c, GEMINI, &row(ex, Some("11"), 0, gemini_raw(11, "555", "Buy"))), fill(&c, GEMINI, &row(ex, Some("12"), 0, gemini_raw(12, "555", "Buy"))));
     assert_eq!((f1.ticker_id, f1.fill_id.as_str(), trade(&f1), f1.at), (t, "btcusd|11", (Side::Buy, d("0.001"), d("60")), at(T)));
-    // gemini.rs:265 the raw `order_id`; Rails gemini.rb:275 #order_status by it.
+    // gemini.rs:265 the raw `order_id`; 2.x's #order_status by it.
     assert_eq!((f1.order_key.as_str(), f2.order_key.as_str(), f2.fill_id.as_str()), ("555", "555", "btcusd|12"));
     assert_eq!(fill(&c, GEMINI, &row(ex, Some("13"), 1, gemini_raw(13, "556", "Sell"))).side, Side::Sell);
     let mut bad = gemini_raw(14, "557", "Buy");
@@ -319,7 +319,7 @@ fn bitvavo_fills() {
     let t = ticker(&c, ex, "BTC-EUR", "BTC", "EUR");
     let (f1, f2) = (fill(&c, BITVAVO, &row(ex, Some("tr1"), 0, bitvavo_raw("tr1", "ord-1", "buy"))), fill(&c, BITVAVO, &row(ex, Some("tr2"), 0, bitvavo_raw("tr2", "ord-1", "buy"))));
     assert_eq!((f1.ticker_id, f1.fill_id.as_str(), trade(&f1), f1.at), (t, "BTC-EUR|tr1", (Side::Buy, d("0.002"), d("100")), at(T)));
-    // bitvavo.rs:359 `format!("{market}-{id}")`; Rails bitvavo.rb:490 splits it back.
+    // bitvavo.rs:359 `format!("{market}-{id}")`; 2.x splits it back.
     assert_eq!((f1.order_key.as_str(), f2.order_key.as_str(), f2.fill_id.as_str()), ("BTC-EUR-ord-1", "BTC-EUR-ord-1", "BTC-EUR|tr2"));
     assert_eq!(fill(&c, BITVAVO, &row(ex, Some("tr3"), 1, bitvavo_raw("tr3", "ord-2", "sell"))).side, Side::Sell);
     let mut bad = bitvavo_raw("tr4", "ord-3", "buy");
@@ -344,7 +344,7 @@ fn bingx_fills() {
     ticker(&c, ex, "ETH-USDT", "ETH", "USDT");
     let (f1, f2) = (fill(&c, BINGX, &row(ex, Some("1"), 0, bingx_raw("BTC-USDT", "1", "9", true))), fill(&c, BINGX, &row(ex, Some("2"), 0, bingx_raw("BTC-USDT", "2", "9", true))));
     assert_eq!((f1.ticker_id, f1.fill_id.as_str(), trade(&f1), f1.at), (t, "BTC-USDT|9|1", (Side::Buy, d("0.001"), d("60")), at(T)));
-    // bingx.rs:463 `format!("{}-{id}", o.pair)`; Rails bingx.rb:714 rpartitions it back.
+    // bingx.rs:463 `format!("{}-{id}", o.pair)`; 2.x rpartitions it back.
     assert_eq!((f1.order_key.as_str(), f2.order_key.as_str()), ("BTC-USDT-9", "BTC-USDT-9"));
     assert_ne!(f1.fill_id, f2.fill_id);
     assert_ne!(fill(&c, BINGX, &row(ex, Some("1"), 0, bingx_raw("ETH-USDT", "1", "9", true))).fill_id, f1.fill_id, "trade id 1 on two pairs: two fills");
@@ -367,7 +367,7 @@ fn hyperliquid_fills() {
     ticker(&c, ex, "PURR/USDC", "PURR", "USDC");
     let (f1, f2) = (fill(&c, HYPERLIQUID, &row(ex, Some("1"), 0, hyperliquid_raw("@107", 1, 70, "B"))), fill(&c, HYPERLIQUID, &row(ex, Some("2"), 0, hyperliquid_raw("@107", 2, 70, "B"))));
     assert_eq!((f1.ticker_id, f1.base_asset_id, f1.fill_id.as_str(), trade(&f1), f1.at), (t, asset("HYPE"), "@107|1", (Side::Buy, d("2.5"), d("100")), at(T)));
-    // hyperliquid.rs:418 `format!("{base}-{oid}")` (the ticker's base); Rails hyperliquid.rb:524 #build_order_id(ticker.base, oid).
+    // hyperliquid.rs:418 `format!("{base}-{oid}")` (the ticker's base); 2.x's #build_order_id(ticker.base, oid).
     assert_eq!((f1.order_key.as_str(), f2.order_key.as_str(), f2.fill_id.as_str()), ("HYPE-70", "HYPE-70", "@107|2"));
     let purr = fill(&c, HYPERLIQUID, &row(ex, Some("3"), 1, hyperliquid_raw("PURR/USDC", 3, 71, "A")));
     assert_eq!((purr.side, purr.order_key.as_str()), (Side::Sell, "PURR-71"));
@@ -399,7 +399,7 @@ fn alpaca_fills() {
     let (f1, f2) = (fill(&c, ALPACA, &stored(ex, &alpaca_entry("AAPL", "a1", "ord-uuid-1", "buy"))), fill(&c, ALPACA, &stored(ex, &alpaca_entry("AAPL", "a2", "ord-uuid-1", "buy"))));
     assert_eq!((f1.ticker_id, f1.fill_id.as_str(), trade(&f1)), (aapl, "AAPL|a1", (Side::Buy, d("0.5"), d("100"))));
     assert_eq!(f1.at, "2026-09-10T14:30:00Z".parse::<DateTime<Utc>>().unwrap());
-    // alpaca.rs:306 the order's raw `id`; Rails alpaca.rb:1007 `order_id: result.data['id']`.
+    // alpaca.rs:306 the order's raw `id`; 2.x's `order_id: result.data['id']`.
     assert_eq!((f1.order_key.as_str(), f2.order_key.as_str(), f2.fill_id.as_str()), ("ord-uuid-1", "ord-uuid-1", "AAPL|a2"));
     assert_eq!(fill(&c, ALPACA, &stored(ex, &alpaca_entry("AAPL", "a3", "ord-uuid-2", "sell"))).side, Side::Sell);
     // Crypto: compact ("BTCUSD", activities' crypto pairs) or slashed, the same ticker.

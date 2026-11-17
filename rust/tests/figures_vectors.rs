@@ -1,4 +1,4 @@
-//! Every pure rule of rust/src/figures against what Ruby recorded (script/rust/record_figures_vectors.rb).
+//! Every pure rule of rust/src/figures against what 2.x recorded.
 use deltabadger::figures::at::At;
 use deltabadger::figures::dec::Dec;
 use deltabadger::figures::json::{self, J};
@@ -30,7 +30,7 @@ fn a_float_prints_as_v2_prints_it_and_as_v2_json_does() {
         .chain(oj.iter().filter(|c| oj_float(float(&c[0])) != c[1].as_str().unwrap()).map(|c| format!("json {c} gave {}", oj_float(float(&c[0])))))
         .collect();
     assert!(wrong.is_empty(), "{} differ:\n{}", wrong.len(), wrong[..wrong.len().min(10)].join("\n"));
-    // The fallback is exercised, and so is the loss: sixteen digits are not always the double Rails computed.
+    // The fallback is exercised, and so is the loss: sixteen digits are not always the double 2.x computed.
     assert!(oj.iter().any(|c| c[1].as_str().unwrap().len() > 17 && float_to_s(float(&c[0])) == c[1].as_str().unwrap()));
     assert!(oj.iter().any(|c| c[1].as_str().unwrap().parse::<f64>().unwrap() != float(&c[0])), "no vector shows the sixteen-digit loss");
 }
@@ -50,7 +50,7 @@ fn every_recorded_operation_keeps_v2s_value_and_kind() {
             other => panic!("unknown op {other}"),
         };
         let got = match &got { Ok(n) => tagged(n), Err(_) => serde_json::json!({ "raise": "not a number" }) };
-        // Ruby's BigDecimal has a negative zero (0 x -1 is -0.0) and Rails prints it: the sign is part of the answer.
+        // 2.x's BigDecimal has a negative zero (0 x -1 is -0.0) and 2.x prints it: the sign is part of the answer.
         if c[3]["d"] == "-0.0" { negative_zeros += 1; }
         if got != c[3] { wrong.push(format!("{c} gave {got}")); }
     }
@@ -98,7 +98,7 @@ fn json_text_and_times_are_written_as_v2_writes_them() {
         let text = json::time(&at.with_timezone(&zone), c[2].as_u64().unwrap() as usize);
         assert_eq!(J::Str(text).write(), c[3].as_str().unwrap(), "{c}");
     }
-    // A text is read as a number only where it is a clean decimal, and then as String#to_d reads it. What Ruby
+    // A text is read as a number only where it is a clean decimal, and then as String#to_d reads it. What 2.x
     // reads off the front of anything else ("12abc" is 12), and its Infinity and NaN, are no figure here.
     let strings = v["to_d"].as_array().unwrap();
     assert_eq!(strings.len(), 49);
@@ -208,7 +208,7 @@ fn every_kind_of_fill_moves_the_books_as_v2_moves_them() {
     assert_eq!(branches.len(), 7, "every branch is met: {branches:?}");
 }
 
-// ---- the walk: how a row is read, a split ratio, the profit ratio, and the pin of the Ruby being mirrored ----
+// ---- the walk: how a row is read, a split ratio, the profit ratio, and the pin of the 2.x being mirrored ----
 
 use deltabadger::figures::db::Order;
 use deltabadger::figures::{splits, walk};
@@ -443,7 +443,7 @@ fn the_totals_are_of_every_bot_of_the_account_or_not_computed() {
     }
 
     // A second bot that has traded and brought no figures: the total is not computed, never the first bot's alone.
-    // The snapshot reads it as Rails reads a bot with nothing cached yet: loading.
+    // The snapshot reads it as 2.x reads a bot with nothing cached yet: loading.
     let (pnl, snapshot, history) = all(&[part(1, Ok(Some(&figures))), part(2, Ok(None))]);
     not_computed(&pnl, "bot 2 has traded and has no figures");
     assert_eq!(snapshot.unwrap(), (None, true));
@@ -456,7 +456,7 @@ fn the_totals_are_of_every_bot_of_the_account_or_not_computed() {
         for result in [&pnl as &dyn std::fmt::Debug, &snapshot, &history] { not_computed(result, "a value that is not a finite decimal number"); }
     }
 
-    // A bot whose figures Rails raised computing: the total raises it, the snapshot is loading, as in Rails.
+    // A bot whose figures 2.x raised computing: the total raises it, the snapshot is loading, as in 2.x.
     let raised = Absent::Raised("Client::TransientNetworkError: refused".into());
     let (pnl, snapshot, history) = all(&[part(1, Ok(Some(&figures))), part(2, Err(&raised))]);
     assert!(matches!(pnl, Err(FiguresError::Raised(_))) && matches!(history, Err(FiguresError::Raised(_))));

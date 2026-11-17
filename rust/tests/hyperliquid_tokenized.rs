@@ -1,13 +1,13 @@
-//! Plan B2: a Hyperliquid tokenized stock (an RWA spot listing, category Tokenized Stock) traded by Rails and by Rust over the
-//! same bodies: script/rust/decisions.rb's grid-hyperliquid-tokenized, the Hyperliquid grid's scenarios on MU's pair @333.
-//! Rails has no tokenized path on Hyperliquid, so every scenario is compared whole, with no listed divergence.
-#![cfg(unix)] // Unix only: it ran Rails until B11 froze its answers into tests/recorded
+//! Plan B2: a Hyperliquid tokenized stock (an RWA spot listing, category Tokenized Stock) traded by 2.x and by Rust over the
+//! same bodies: the recorded grid-hyperliquid-tokenized, the Hyperliquid grid's scenarios on MU's pair @333.
+//! 2.x has no tokenized path on Hyperliquid, so every scenario is compared whole, with no listed divergence.
+#![cfg(unix)] // Unix only: it ran 2.x until B11 froze its answers into tests/recorded
 mod common;
 
 #[tokio::test(flavor = "current_thread")]
 async fn v2_and_rust_trade_a_hyperliquid_tokenized_stock_identically() {
     let outputs = common::venue_grid::run_venue_grid("grid-hyperliquid-tokenized", 20, &[]).await;
-    // Pin what Rails does, so a silent pair of sides cannot pass.
+    // Pin what 2.x does, so a silent pair of sides cannot pass.
     for (name, v2_out) in &outputs {
         let sent = v2_out["sent"].as_array().unwrap();
         // Nothing is sent under the 10-USDC floor, by a poll alone, or without a price: a book with no side has no mid, and a limit

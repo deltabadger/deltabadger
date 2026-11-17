@@ -1,5 +1,5 @@
-//! A28-1 (PLAN-A28 r2-r5, D-V2-UNRECORDED-REPORTED): the orders Rails may have sent but never recorded are collected
-//! at a takeover and reported with what the imported ledger shows. Rails-free: a primary from baseline.sql plus this
+//! A28-1 (PLAN-A28 r2-r5, D-V2-UNRECORDED-REPORTED): the orders 2.x may have sent but never recorded are collected
+//! at a takeover and reported with what the imported ledger shows. 2.x-free: a primary from baseline.sql plus this
 //! build's migrations, and a queue with the Solid Queue columns the collection reads.
 mod common;
 use chrono::{DateTime, Duration, Utc};
@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 fn t(s: &str) -> DateTime<Utc> { s.parse().unwrap() }
 /// The takeover.
 fn now() -> DateTime<Utc> { t("2026-09-30T12:00:00Z") }
-/// Rails' ambiguous tick.
+/// 2.x's ambiguous tick.
 const AT: &str = "2026-09-29 14:03:00";
 
 fn primary() -> Connection {
@@ -272,11 +272,11 @@ fn every_line_renders_in_english_without_a_missing_key() {
     }
 }
 
-// ---- the oracle: Rails' own verdict on real transport failures (script/rust/v2_unrecorded.rb) -----------------------
+// ---- the oracle: 2.x's own verdict on real transport failures -----------------------
 
 fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/v2_unrecorded_vectors.json")).unwrap() }
 
-/// r3.3: the saved text alone gives Rails' verdict (Client.network_failure + the placement guard) on every recorded failure.
+/// r3.3: the saved text alone gives 2.x's verdict (Client.network_failure + the placement guard) on every recorded failure.
 #[test]
 fn the_saved_error_text_reads_as_rails_decided_the_failure() {
     let v = vectors();
@@ -600,7 +600,7 @@ fn a_settings_change_in_the_spans_own_second_leaves_the_scope_unknown() {
     let s = binance(&c);
     let b = bot(&c, &s);
     ambiguous_line(&c, b, "2026-09-29 14:03:00.100000");
-    c.execute("UPDATE bots SET settings_changed_at = '2026-09-29 14:03:00' WHERE id = ?1", [b]).unwrap(); // to the second, as Rails stores it
+    c.execute("UPDATE bots SET settings_changed_at = '2026-09-29 14:03:00' WHERE id = ?1", [b]).unwrap(); // to the second, as 2.x stores it
     ru::collect(&c, &queue(), None, now()).unwrap();
     synced(&c, s.api_key_id, now());
     ru::report(&c, now()).unwrap();

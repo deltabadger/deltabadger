@@ -1,6 +1,6 @@
-//! store::seed is Rails' db/seeds.rb (PLAN-B1 §4, T5, r1.6): on a fresh baseline primary, seeded from the bundle Rails'
+//! store::seed is 2.x's seeds (PLAN-B1 §4, T5, r1.6): on a fresh baseline primary, seeded from the bundle 2.x's
 //! answer was recorded with (tests/fixtures/seed_bundle_b11.json.gz, the bundle at the oracle commit), for each
-//! SMTP_ADDRESS / MARKET_DATA_URL combination recorded, every row of every table equals Rails' (ids, sqlite_sequence,
+//! SMTP_ADDRESS / MARKET_DATA_URL combination recorded, every row of every table equals 2.x's (ids, sqlite_sequence,
 //! decimals and timestamps as stored, app_configs decrypted); EXPECTED_REWRITE=1 rewrites seeds_expected.json from Rust's
 //! rows (common::expected). The shipped bundle (rust/seed/seed_data.json.gz, refreshed by releases) is held to its shape
 //! and floors (PLAN-B11 r1.4, PLAN-B8 r2.5), and a rolled-back seed leaves the baseline as it was.
@@ -22,7 +22,7 @@ fn fresh() -> (tempfile::TempDir, Connection) {
     (dir, c)
 }
 
-/// The bundle Rails' recorded seeds were made from.
+/// The bundle 2.x's recorded seeds were made from.
 const FROZEN_BUNDLE: &[u8] = include_bytes!("fixtures/seed_bundle_b11.json.gz");
 
 fn seeded(env: &BTreeMap<String, String>, now: DateTime<Utc>) -> Tables {

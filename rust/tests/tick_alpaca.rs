@@ -186,7 +186,7 @@ async fn a_lost_reply_whose_order_landed_is_recorded_with_its_fill() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_certificate_failure_reading_the_balance_is_not_low_and_the_tick_succeeds() {
-    // Rails: Client.network_failure returns a Failure for an SSL cause, and Bot::Fundable reads a Failure as "not low".
+    // 2.x: Client.network_failure returns a Failure for an SSL cause, and Bot::Fundable reads a Failure as "not low".
     let (_d, o, id, _) = setup(weekly());
     let t = script(json!({ "GET /v2/account": [{ "network": "permanent", "message": "Faraday::SSLError: certificate verify failed" }] }));
     let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
@@ -351,7 +351,7 @@ async fn a_restarted_engine_keeps_a_running_bots_old_intent_until_a_margin_after
 #[tokio::test(flavor = "current_thread")]
 async fn a_restarted_engine_keeps_a_stopped_bots_old_intent_until_a_margin_after_its_own_start() { a_restarted_engine_keeps_an_old_intent(Some(2)).await }
 
-// A venue number this build cannot read (non-finite, garbage, out of BigDec's range) is an error, never zero. Ruby's
+// A venue number this build cannot read (non-finite, garbage, out of BigDec's range) is an error, never zero. 2.x's
 // String#to_d gives 0 for garbage and NaN/Infinity for those words; the engine refuses both on purpose.
 const UNREADABLE: [&str; 4] = ["NaN", "Infinity", "garbage", "-Infinity"];
 /// Outside BigDec's own range, or outside the venue-number caps (exponent ±40, 64 significant digits).

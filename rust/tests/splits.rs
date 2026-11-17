@@ -109,7 +109,7 @@ async fn a_wrong_split_stands_down_then_correct_rows_clear_without_any_order() {
     let bot=model::load_bot(&o.primary,id).unwrap();
     let now="2026-09-10T14:00:00Z".parse().unwrap();
     assert!(splits::refusal(&o.primary,&venue,&bot,now).await.unwrap().unwrap().contains("venue quantity 30"));
-    // Simulate the corrected row written by a later Rails grouping fix. The engine never rewrites it itself.
+    // Simulate the corrected row written by a later 2.x grouping fix. The engine never rewrites it itself.
     o.primary.execute("UPDATE account_transactions SET base_amount=20,raw_data=json_set(raw_data,'$.split_ratio','3:1') WHERE id=?1",[row]).unwrap();
     assert!(splits::refusal(&o.primary,&venue,&bot,now).await.unwrap().is_none());
     assert_eq!(basket::walk(&o.primary,&bot,now).unwrap().amounts[&asset],BigDec::from_i64(30));
@@ -178,8 +178,8 @@ fn an_archived_account_history_exhausts_one_budget_and_visibly_stands_down() {
 }
 
 /// Bot::Restatable#grouped_split_rows on a name a venue lists twice (Alpaca's BTC security beside BTC/USD): a report's
-/// recorded asset decides, as test/models/bot/restatable_test.rb pins it. D-SPLIT-NEVER-A-COIN: a report that recorded
-/// no asset never restates the coin, nor leaves it unresolved. Rails falls back to the name while the account holds one
+/// recorded asset decides, as 2.x's own restatable test pins it. D-SPLIT-NEVER-A-COIN: a report that recorded
+/// no asset never restates the coin, nor leaves it unresolved. 2.x falls back to the name while the account holds one
 /// class under it (restating the coin) and otherwise holds the coin unresolved for good. The security itself is still
 /// restated by name.
 #[test]
@@ -303,7 +303,7 @@ fn distinct_events_multiply_equal_ratios_and_require_each_factor() {
 }
 
 /// The wash-sale verdict reads the walk's lots. D-SPLIT-NEVER-A-COIN: a 4:1 split of the BTC security, recorded by name
-/// only, leaves the coin's lots whole, so a sale below cost is still a loss (Rails' fallback would quarter the basis and
+/// only, leaves the coin's lots whole, so a sale below cost is still a loss (2.x's fallback would quarter the basis and
 /// read it as a gain, leaving the repurchase unlocked). Control: a stock's own split restates its lots, so a sale above
 /// the restated basis is no loss.
 #[test]
@@ -340,7 +340,7 @@ fn the_wash_sale_verdict_reads_a_coins_lots_whole_and_a_stocks_lots_restated() {
         let held = if coin { s.btc } else { security };
         let bot = seed::insert_bot(c, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(held, 1.0)]));
         if coin { buy(c, &s, bot, held, "BTC", "0.001", "64000", "64") } else { buy(c, &s, bot, held, "AAPL", "1", "100", "100") }
-        // The coin's case: the report recorded no asset (Rails' name fallback). The stock's: its own split, recorded.
+        // The coin's case: the report recorded no asset (2.x's name fallback). The stock's: its own split, recorded.
         if with_split { split(c, &s, (!coin).then_some(security), if coin { "BTC" } else { "AAPL" }); }
         let b = model::load_bot(c, bot).unwrap();
         let ticker = model::ticker_for_asset(c, &b, held).unwrap().unwrap();

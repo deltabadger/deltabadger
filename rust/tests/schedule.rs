@@ -21,7 +21,7 @@ fn every_recorded_v2_schedule_is_reproduced() {
 
 #[test]
 fn a_tick_exactly_on_the_grid_does_not_count_that_interval_yet() {
-    // Rails: at now == checkpoint, ceil gives the same point, so `last` is the PREVIOUS one. The engine's
+    // 2.x: at now == checkpoint, ceil gives the same point, so `last` is the PREVIOUS one. The engine's
     // loop must therefore run strictly after a checkpoint (Task 11).
     let eff = effective(Interval::Day, 10.0, None);
     let anchor = micros("2026-09-01T00:00:00Z");

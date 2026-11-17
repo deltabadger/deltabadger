@@ -227,7 +227,7 @@ fn check_and_repair_use_the_paused_rules_timeframe() {
     }
 }
 
-/// Index and signal gates use the recorded basket decision; Rails does not include these concerns on those classes.
+/// Index and signal gates use the recorded basket decision; 2.x does not include these concerns on those classes.
 #[cfg(unix)]
 #[tokio::test(flavor = "current_thread")]
 async fn index_and_signal_candle_gates_match_recorded_v2_basket_twins() {

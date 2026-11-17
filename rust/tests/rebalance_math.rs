@@ -1,4 +1,4 @@
-//! Replays script/rust/record_rebalance_math.rb: Rails' composition_targets, drift, due check, extreme entries and sell
+//! Replays the recorded rebalance math: 2.x's composition_targets, drift, due check, extreme entries and sell
 //! ranking over live valuations with Float and String Alpaca prices, decimal(10,6) weights, ties and exact thresholds.
 use deltabadger::engine::basket::target_from_sql;
 use deltabadger::engine::model::Ticker;
@@ -44,7 +44,7 @@ fn inputs(c: &Value) -> (Metrics, Vec<Member>, Vec<i64>) {
         let zero = Num::Int(0);
         data.asset_breakdown.push((sym.clone(), Breakdown { amount: amount.clone(), quote_invested: zero.clone(), tax_basis: zero.clone(), tax_units: zero.clone(), tax_cost_unknown: false }));
         data.key_assets.push((sym.clone(), Some(id(sym))));
-        // A Float price is recorded as its Float#to_s (Rails' JSON encoder would drop its 17th digit): sent here as the JSON
+        // A Float price is recorded as its Float#to_s (2.x's JSON encoder would drop its 17th digit): sent here as the JSON
         // number Alpaca sent.
         let price = match &c["prices"][sym] { Value::Object(f) => json!(f["float"].as_str().unwrap().parse::<f64>().unwrap()), p => p.clone() };
         let price = &price;
@@ -116,7 +116,7 @@ fn every_recorded_v2_rebalance_valuation_and_ranking_is_reproduced() {
             "{} cases, {targeted} targeted, {due} due, {ties} with tied deviations, {sold} sells, {bought} buys", cases.len());
 }
 
-// ---- 6b T5: the pending state in Rails' exact shape ----
+// ---- 6b T5: the pending state in 2.x's exact shape ----
 
 #[test]
 fn the_pending_state_round_trips_in_v2_shape() {

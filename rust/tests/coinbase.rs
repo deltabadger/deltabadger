@@ -241,7 +241,7 @@ fn startup_repair_is_scoped_atomic_and_idempotent() {
     tx.commit().unwrap();
     assert_eq!(c.total_changes(), before);
 
-    // A handback to Rails, which imports a quote-sized fill with its old amounts, then the next takeover: the repair
+    // A handback to 2.x, which imports a quote-sized fill with its old amounts, then the next takeover: the repair
     // runs again and fixes the new row, leaving the already repaired ones untouched.
     assert_eq!(c.execute("UPDATE account_transactions SET base_amount=CAST('9.947791211' AS NUMERIC), updated_at='2026-09-21' WHERE id=901", []).unwrap(), 1);
     let tx = c.unchecked_transaction().unwrap();

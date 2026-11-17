@@ -335,7 +335,7 @@ async fn zero_open_then_terminal_missing_then_late_positive_proceeds_for_both_te
 }
 
 /// D-HYPERLIQUID-MARKET-IOC: liquidation sends the same crossed sell price and base
-/// quantity as Rails, with IOC instead of GTC. All database effects remain in the comparison.
+/// quantity as 2.x, with IOC instead of GTC. All database effects remain in the comparison.
 #[cfg(unix)]
 fn hyperliquid_ioc_expected(v2: &Value, rust: &Value) -> Value {
     let mut expected = v2.clone();
@@ -349,8 +349,8 @@ fn hyperliquid_ioc_expected(v2: &Value, rust: &Value) -> Value {
     expected
 }
 
-/// D-LIQUIDATION-ONE-LINE on Rails' side (its `liquidation_placed` lines go in common::decisions::status_lines_expected):
-/// a skip Rails calls `unpriced` where this crate read no free balance is named `no_free_balance`.
+/// D-LIQUIDATION-ONE-LINE on 2.x's side (its `liquidation_placed` lines go in common::decisions::status_lines_expected):
+/// a skip 2.x calls `unpriced` where this crate read no free balance is named `no_free_balance`.
 #[cfg(unix)]
 fn one_line_expected(v2: &Value, rust: &Value) -> Value {
     let mut expected = v2.clone();
@@ -393,7 +393,7 @@ fn liquidation_grid_difference(name: &str, _: &std::path::Path, v2: &Value, rust
                 bots[0]["after"]["transient_data"]["liquidation_pending"]["id"]=nonce.clone();
             } else {
                 // D-6C-PRE-SEND: Kraken's transport proves a refused connection sent nothing.
-                // Honeymaker wraps it as a generic failure, which Rails leaves ambiguous.
+                // Honeymaker wraps it as a generic failure, which 2.x leaves ambiguous.
                 bots[0]["after"]["transient_data"].as_object_mut().unwrap().remove("liquidation_pending");
                 bots.retain(|b|b["before"]!=b["after"]);
             }

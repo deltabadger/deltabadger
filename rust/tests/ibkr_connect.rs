@@ -1,5 +1,5 @@
-//! The IBKR connect page on Rust (Ibkr plan I3) where it differs from Rails by design, beside its page parity
-//! (pages_settings.rb settings_ibkr_*): a new connection's keys made inline with ffdhe2048 (D-IBKR-DHGROUP), downloads of
+//! The IBKR connect page on Rust (Ibkr plan I3) where it differs from 2.x by design, beside its page parity
+//! (the recorded settings_ibkr_* scenarios): a new connection's keys made inline with ffdhe2048 (D-IBKR-DHGROUP), downloads of
 //! their public halves, a key whose material makes no session offering Disconnect only (D-IBKR-RECONNECT), and a
 //! disconnect that drops the key's account binding and keeps its ledger rows.
 mod common;
@@ -76,7 +76,7 @@ async fn a_new_connection_makes_its_keys_inline_and_serves_their_public_halves()
 async fn a_key_whose_material_makes_no_session_offers_disconnect_only_and_is_never_completed() {
     let mut fx = hosted().await;
     let now = "2026-09-01 00:00:00";
-    // A Rails key whose job never ran (no RSA keys), then one whose material this build cannot read.
+    // A 2.x key whose job never ran (no RSA keys), then one whose material this build cannot read.
     fx.c.execute("INSERT INTO api_keys(user_id, exchange_id, key_type, status, created_at, updated_at) VALUES(?1, ?2, 0, 3, ?3, ?3)", (fx.user, fx.exchange, now)).unwrap();
     for material in [None, Some("not a key")] {
         if let Some(text) = material {

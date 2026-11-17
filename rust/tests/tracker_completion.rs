@@ -1,4 +1,4 @@
-//! Real jobs publish the Rails completion once, after commit, without changing their outcomes.
+//! Real jobs publish the 2.x completion once, after commit, without changing their outcomes.
 mod common;
 use deltabadger::{
     engine::FixedClock,

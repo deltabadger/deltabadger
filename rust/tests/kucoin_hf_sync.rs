@@ -600,7 +600,7 @@ async fn l09_restore_and_api_in_either_order_count_once_and_survive_an_app_confi
         assert_eq!(fx.sync_with(&api, &fixed("2026-10-30T12:20:00Z"), false).await, Ok(true));
         assert_eq!(fx.trades().len(), 1);
         ledgers.push(ledger(&fx));
-        // A Rails reset of app_configs keeps the marker, flags and withheld rows; the gap row is rebuilt.
+        // A 2.x reset of app_configs keeps the marker, flags and withheld rows; the gap row is rebuilt.
         fx.c.execute("DELETE FROM app_configs", []).unwrap();
         assert_eq!(fx.count("SELECT count(*) FROM kucoin_coverage WHERE source = 'hf_enabled'"), 1);
         assert_eq!(fx.sync_with(&api, &fixed("2026-10-30T12:30:00Z"), false).await, Ok(true));

@@ -56,7 +56,7 @@ fn r1_guard_limits_persisted_intents_and_alpaca_wire(){
         assert_eq!(bd(&order.volume),bd(expected),"quantized wire must respect exact availability");
         let cost=if order.quote_volume {bd(&order.volume)}else{&bd(&order.volume)*&bd("10")};
         assert!(cost<=bd("0.01"));
-        // R2 preserves the entire safe Rails plan, including its unrounded commitment.
+        // R2 preserves the entire safe 2.x plan, including its unrounded commitment.
         if bd(requested).floor(2) <= bd("0.01") { assert_eq!(intent.plan.quote_amount,plan.quote_amount); }
         else { assert!(intent.plan.quote_amount<=bd("0.01")); }
     }
@@ -242,8 +242,8 @@ fn r2_guard_preserves_safe_plan_and_persists_reduced_quantity(){
 async fn r2_exact_cost_matches_recorded_wire(){r2_tick_case("exact_cost").await;}
 #[tokio::test(flavor="current_thread")]
 async fn r2_unchanged_minimum_is_skipped_as_sent(){
-    // D-ALPACA-BASE-FLOOR: 1 USD at 3 sends qty 0.333333333, worth 0.999999999, under the 1 USD floor. Rails checks the
-    // floored budget and sends it (the recorded rails_wire); Rust checks the order as sent and skips it.
+    // D-ALPACA-BASE-FLOOR: 1 USD at 3 sends qty 0.333333333, worth 0.999999999, under the 1 USD floor. 2.x checks the
+    // floored budget and sends it (the recorded v2_wire); Rust checks the order as sent and skips it.
     use common::scripted::{script,venue,ok};
     let vectors=r2_vectors();
     let case=vectors["cases"].as_array().unwrap().iter().find(|c|c["name"]=="minimum_unchanged").unwrap();
@@ -960,7 +960,7 @@ async fn r9_mcp_settings_cancel_resume_tick_spends_v2_40() {
         assert_eq!(model::load_bot(&o.primary,id).unwrap().missed_quote_amount().unwrap().to_s_f(),"40.0","R9 captured carry {stamp}");
         // Venue cancellation without execution restores cap availability, but not owed carry.
         o.primary.execute("UPDATE transactions SET external_status=3 WHERE bot_id=?1 AND external_status=0",[id]).unwrap();
-        // The oracle resumes (record_histories_r9.rb: start_fresh: false), the restart dialog's Continue.
+        // The oracle resumes (the recording: start_fresh: false), the restart dialog's Continue.
         let result=r9_call(&app,&sid,"start_bot",json!({"bot_id":id,"start_fresh":false})).await;
         assert_ne!(result["result"]["isError"],true,"{result}");
         let t=history_market();
@@ -1081,9 +1081,9 @@ async fn r9c_mcp_can_stop_a_bot_with_damaged_timestamps() {
     }
 }
 
-// R10: Rails selects window rows with SQLite's text comparison, `created_at >= ?`, against its
+// R10: 2.x selects window rows with SQLite's text comparison, `created_at >= ?`, against its
 // quoted boundary ('2026-01-05 12:00:00'). An RFC3339 row an hour earlier sorts after it ('T' > ' '),
-// so Rails counts its $60. Parsed instants must not decide membership.
+// so 2.x counts its $60. Parsed instants must not decide membership.
 #[tokio::test(flavor="current_thread")]
 async fn r10_window_membership_is_v2_text_comparison() {
     let (_d,o,s,id)=r9_history("2026-01-05 12:00:00");
@@ -1106,7 +1106,7 @@ async fn r10_window_membership_is_v2_text_comparison() {
 
 // R10: a persisted deferral that cannot be read (null, garbage or out-of-range expiry) refuses the bot and is kept.
 // AAA/BBB owe $100 (buys 5/$50 each, AAA sell 2/$20); a failed tick deferred the retrying bot to the next checkpoint.
-// Rails places $0 before it; removing the damaged marker would let a restart buy $60/$40 at once.
+// 2.x places $0 before it; removing the damaged marker would let a restart buy $60/$40 at once.
 #[tokio::test(flavor="current_thread")]
 async fn r10_damaged_deferral_marker_refuses_and_is_kept() {
     use deltabadger::engine::run::{self,Engine};

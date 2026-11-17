@@ -54,7 +54,7 @@ fn an_install_upgraded_from_the_current_schema_gets_the_probe_once() {
     let before = snapshot(&p);
     assert_eq!(store::migrate_with(&p, &l, &registry).unwrap(), Vec::<String>::new(), "a restart applies nothing");
     assert_eq!(snapshot(&p), before, "and writes nothing");
-    // Rails' history is Rails' own: still exactly its migrations.
+    // 2.x's history is 2.x's own: still exactly its migrations.
     let v2: i64 = Connection::open(&p.primary).unwrap().query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
     assert_eq!(v2 as usize, MIGRATIONS.len());
 }
@@ -167,7 +167,7 @@ fn pending_migrations_never_hide_a_v2_or_queue_problem() {
             Err(e) => assert!(expected(&e), "{name}: {e:?}"),
             Ok(r) => panic!("{name}: passed with {r:?}"),
         }
-        // (A broken queue already stops the engine lock, which reads Rails' heartbeat there.)
+        // (A broken queue already stops the engine lock, which reads 2.x's heartbeat there.)
         if let Ok(l) = lease::lock(&p, chrono::Utc::now()) { assert!(store::migrate_with(&p, &l, &registry).is_err(), "{name}: nothing is migrated"); }
         assert!(!has_table(&p, "rust_schema_migrations"), "{name}");
     }
@@ -346,7 +346,7 @@ fn row(o: &store::Opened, id: i64) -> (String, String) {
     o.primary.query_row("SELECT settings, updated_at FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
 }
 
-/// D-STRAY-FLAGS-MIGRATION: Rails never read an index or signal bot's rule switches or spending cap; the first start of this
+/// D-STRAY-FLAGS-MIGRATION: 2.x never read an index or signal bot's rule switches or spending cap; the first start of this
 /// build turns each one that is set off (a malformed "1" too), leaves updated_at, every other key and every other bot as
 /// they were, and the install is admitted.
 #[test]
@@ -686,7 +686,7 @@ fn the_frozen_beta_fixture_holds_every_stored_name_the_rename_moves() {
 }
 
 /// The migrator's own guard, whatever the build's scan let through: a file that drops or rebuilds a table no Rust
-/// contract names (a Rails-born one) is rolled back and refused.
+/// contract names (a 2.x-born one) is rolled back and refused.
 #[test]
 fn a_migration_that_drops_or_rebuilds_a_v2_table_is_rolled_back() {
     for sql in ["DROP TABLE rules;", "DROP TABLE rules; CREATE TABLE rules (id INTEGER PRIMARY KEY, status INTEGER NOT NULL);"] {

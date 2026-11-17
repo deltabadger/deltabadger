@@ -10,7 +10,7 @@ fn sources_and_history_vectors_are_reviewable() {
     assert_eq!(v["cases"].as_array().unwrap().len(),29);
     for name in ["null_price_buy","cancelled_partial_buy"] {
         let c=v["cases"].as_array().unwrap().iter().find(|c|c["name"]==name).unwrap();
-        // Rails reads a buy's known fill through Transaction.normalized_fill: no divergence left.
+        // 2.x reads a buy's known fill through Transaction.normalized_fill: no divergence left.
         assert_eq!(c["v2_unchanged"],c["normalized"],"{name}");
         assert_eq!(c["normalized"]["orders"][0]["quote"],"60.0");
         assert_eq!(c["normalized"]["contributed"],"100.0");

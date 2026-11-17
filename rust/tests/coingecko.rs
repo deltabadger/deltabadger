@@ -1,6 +1,6 @@
 //! PLAN-A17 (A17-1), the Rust-only half: the one market-data rule its three readers share, the CoinGecko asset refresh's
 //! request budget, its rate-limit and degraded answers, the one-asset job's own record, setup sync's CoinGecko branch and
-//! its durable request, and staleness on a CoinGecko-fed catalogue. Rails' half is script/rust/reference_data.rb.
+//! its durable request, and staleness on a CoinGecko-fed catalogue. 2.x's half is the recorded reference-data scenarios.
 mod common;
 use chrono::{DateTime, Utc};
 use common::seed;
@@ -132,7 +132,7 @@ async fn an_answer_with_no_coin_asked_certifies_nothing() {
     assert!(t.requests().is_empty());
 }
 
-/// D-CG-ASSET-ROW-SKIPS: a coin without a name is skipped; the assets after it are still refreshed (Rails' dig_or_raise
+/// D-CG-ASSET-ROW-SKIPS: a coin without a name is skipped; the assets after it are still refreshed (2.x's dig_or_raise
 /// stops the job there).
 #[tokio::test(flavor = "current_thread")]
 async fn a_coin_without_a_name_is_skipped_and_the_rest_refreshed() {
@@ -159,7 +159,7 @@ async fn the_one_asset_job_keeps_its_own_record() {
     demo(&t).reply("GET /api/v3/coins/ethereum", 200, json!({ "symbol": "eth", "name": "Ethereum", "image": { "large": "https://img/eth.png" } }));
     let cg = clients(&t);
     // As jobs::resolve builds it in production, with the scripted clients.
-    // A21: the image it fills in wakes the asset's colour job too (fetch_data_from_coingecko_job.rb:11).
+    // A21: the image it fills in wakes the asset's colour job too.
     let resolver: deltabadger::jobs::Resolver = Box::new(move |name, scope| {
         let asset = scope.unwrap().parse().unwrap();
         if name == deltabadger::jobs::asset_color::NAME { return Ok(Box::new(deltabadger::jobs::asset_color::InferColor::new(asset)) as Box<dyn Job>); }

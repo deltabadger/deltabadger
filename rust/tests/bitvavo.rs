@@ -1,7 +1,7 @@
 //! The Bitvavo trading adapter (venue::bitvavo, plan VB slice A3) over recorded bodies: its signer against honeymaker's own
 //! requests (the `Prehash` scheme KuCoin shares, tests/kucoin.rs pinning KuCoin's), its rules against Exchanges::Bitvavo::ERRORS,
-//! #parse_order_data and the sizing wire recorded from Rails, and its reads, placement, polls, the gone-order recovery from
-//! the trades, the recovery by client order id (it can only FIND an order) and cancel. Rails-free.
+//! #parse_order_data and the sizing wire recorded from 2.x, and its reads, placement, polls, the gone-order recovery from
+//! the trades, the recovery by client order id (it can only FIND an order) and cancel. 2.x-free.
 mod common;
 use chrono::{DateTime, Utc};
 use deltabadger::engine::amount::{self, Sizing};
@@ -161,7 +161,7 @@ async fn prices_and_balances_read_as_v2_reads_them() {
     assert_eq!(v.free_base_balance(&btc_eur()).await, Ok(bd("0.5")));
     let keys: Vec<String> = t.requests().iter().map(deltabadger::venue::http::request_key).collect();
     assert_eq!(keys[..3], ["GET /v2/ticker/book?market=BTC-EUR", "GET /v2/ticker/book?market=BTC-EUR", "GET /v2/ticker/price?market=BTC-EUR"]);
-    // A zero price raises "Wrong … price", a missing field is Rails' KeyError, an error body is the venue's.
+    // A zero price raises "Wrong … price", a missing field is 2.x's KeyError, an error body is the venue's.
     let (_, v) = venue(json!({ "GET /v2/ticker/book": ok(json!({ "bid": "0", "bidSize": "1", "ask": "0", "askSize": "1" })), "GET /v2/ticker/price": ok(json!({ "market": "BTC-EUR" })) }));
     assert_eq!(v.price(&btc_eur(), PriceSide::Bid).await, Err(VenueError::Rejected(vec!["Wrong bid price for BTC-EUR: 0.0".into()])));
     assert_eq!(v.price(&btc_eur(), PriceSide::Last).await, Err(VenueError::Ambiguous("Key path price not found".into())));

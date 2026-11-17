@@ -1,5 +1,5 @@
 //! A16 (PLAN-A16-signup-password.md): the security properties of signup and password reset that the page grid
-//! (pages_accounts.rb) cannot show, each on the production handlers.
+//! cannot show, each on the production handlers.
 mod common;
 use common::web::{self as web_support, Answer, Browser, Csrf, TestClock};
 use deltabadger::mail::Message;
@@ -90,7 +90,7 @@ fn visible(answer: &Answer) -> (u16, Option<String>, String) {
 
 #[test]
 fn reset_token_digest_is_devises() {
-    // tests/fixtures/devise_token_vectors.json, recorded by script/rust/devise_tokens.rb from Devise's own generator.
+    // tests/fixtures/devise_token_vectors.json, recorded from Devise's own generator.
     let vectors: Value = serde_json::from_str(include_str!("fixtures/devise_token_vectors.json")).unwrap();
     assert_eq!(vectors["key_digest"], "OpenSSL::Digest::SHA1");
     assert_eq!(vectors["iterations"], 65536);
@@ -152,7 +152,7 @@ async fn concurrent_signups_with_one_address_make_one_account() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn signup_name_with_a_line_break_is_refused() {
-    // D-SIGNUP-NAME-ONE-LINE: Rails' ^…$ takes "Ann\nanything"; a tab between words is still a name, as in Rails.
+    // D-SIGNUP-NAME-ONE-LINE: 2.x's ^…$ takes "Ann\nanything"; a tab between words is still a name, as in 2.x.
     let h = harness();
     for (name, status) in [("Ann\nEvil", 422), ("Ann\r\nEvil", 422), ("Ann\n", 422), ("Ann\tExample", 303)] {
         let mut browser = Browser::default();
@@ -335,7 +335,7 @@ async fn a_lock_expired_on_the_clock_is_lifted_and_the_counter_is_shared_with_lo
     let refused = login.post(&h.app, "/login", &[("user[email]", "owner@example.com"), ("user[password]", PASSWORD)]).await;
     assert_ne!(refused.status, 303);
     h.clock.set(web_support::at("2026-09-10T12:16:00Z"));
-    // Fifteen minutes on, the reset page lifts the lock even when it refuses the request for its blank code (Rails' order).
+    // Fifteen minutes on, the reset page lifts the lock even when it refuses the request for its blank code (2.x's order).
     let blank = h.reset(&mut browser, &token, NEW_PASSWORD, Some("")).await;
     assert_eq!(blank.status, 422);
     let lifted = h.user("owner@example.com");
@@ -345,7 +345,7 @@ async fn a_lock_expired_on_the_clock_is_lifted_and_the_counter_is_shared_with_lo
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_malformed_gmail_alias_answers_alike_with_or_without_its_account() {
-    // D-SIGNUP-TAKEN-NEEDS-VALID-ADDRESS: Rails drops the format error once the alias is taken, so "ann+!@gmail.com"
+    // D-SIGNUP-TAKEN-NEEDS-VALID-ADDRESS: 2.x drops the format error once the alias is taken, so "ann+!@gmail.com"
     // passed (303, the owner mailed) when ann@gmail.com existed and was refused (422) otherwise.
     let mut seen = vec![];
     for existing in [true, false] {
@@ -390,7 +390,7 @@ async fn a_reset_request_waits_for_a_busy_database_alike_for_any_address() {
 }
 
 /// D-NO-MAIL-SAYS-SO: with registration open and no way to send mail, the registration row says new accounts cannot
-/// confirm; with mail, or with registration closed, the row is Rails'.
+/// confirm; with mail, or with registration closed, the row is 2.x's.
 #[tokio::test(flavor = "current_thread")]
 async fn the_registration_row_says_when_no_confirmation_mail_can_arrive() {
     const HINT: &str = "Email sending is not set up, so new accounts cannot confirm their email address.";
@@ -434,7 +434,7 @@ async fn saving_smtp_redraws_an_open_registrations_row() {
     assert!(on.body.contains(r#"target="registration_settings""#) && !on.body.contains(HINT), "{}", on.body);
     let off = browser.send(&app, "POST", "/settings/update_email_notifications", Some(&save("")), Csrf::Header, &stream).await;
     assert!(off.body.contains(r#"target="registration_settings""#) && off.body.contains(HINT), "{}", off.body);
-    // Closed registration: Rails' answer, the email row alone.
+    // Closed registration: 2.x's answer, the email row alone.
     db(&h.dir).execute("DELETE FROM app_configs WHERE key = 'registration_open'", []).unwrap();
     let closed = browser.send(&app, "POST", "/settings/update_email_notifications", Some(&save("custom_smtp")), Csrf::Header, &stream).await;
     assert!(!closed.body.contains("registration_settings"), "{}", closed.body);

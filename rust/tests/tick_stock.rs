@@ -104,7 +104,7 @@ fn events(o: &store::Opened) -> Vec<String> {
     let mut s = o.primary.prepare("SELECT event FROM bot_activity_logs ORDER BY id").unwrap();
     s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
 }
-/// Ticks with Rails' retries replayed (retry_on's waits), until an outcome other than RetryAfter.
+/// Ticks with 2.x's retries replayed (retry_on's waits), until an outcome other than RetryAfter.
 async fn tick_until_settled(o: &store::Opened, t: &ScriptedTransport, id: i64, start: DateTime<Utc>) -> TickOutcome {
     seed::fresh_stock_jobs(&o.primary, start);
     let (mut now, mut attempts) = (start, Attempts::default());

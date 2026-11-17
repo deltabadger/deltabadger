@@ -1,11 +1,11 @@
-#![cfg(unix)] // Unix only: it ran Rails until B11 froze its answers into tests/recorded
-//! Value parity for the tracker's walk, figures, snapshots and wash-sale locks: Rails' real jobs (Tracker::LedgerJob,
+#![cfg(unix)] // Unix only: it ran 2.x until B11 froze its answers into tests/recorded
+//! Value parity for the tracker's walk, figures, snapshots and wash-sale locks: 2.x's real jobs (Tracker::LedgerJob,
 //! PortfolioSnapshot::BackfillJob) and the Rust jobs run on copies of one install over the same scripted data-api and
 //! Alpaca bodies, at one instant. The scopes the walk stated, the figures of each of today's rows, the snapshot rows,
 //! the lock rows, the stored prices, the history keys and the requests sent must be identical, except in the listed
-//! divergences, where Rails' result and Rust's are each asserted. A scenario that says "diverges: D-TRACKER-…" states the
+//! divergences, where 2.x's result and Rust's are each asserted. A scenario that says "diverges: D-TRACKER-…" states the
 //! Rust output checked by hand and committed in fixtures/tracker_divergences/<name>.json (TRACKER_DIVERGENCES_WRITE=1 writes
-//! them afresh, for review), Rails' differs, and `reviewed_figures` asserts the figures it was reviewed for.
+//! them afresh, for review), 2.x's differs, and `reviewed_figures` asserts the figures it was reviewed for.
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 mod common;
@@ -20,7 +20,7 @@ fn read(path: &Path) -> Value { serde_json::from_str(&std::fs::read_to_string(pa
 /// A reviewed divergence's Rust output (TRACKER_DIVERGENCES_WRITE=1 writes it afresh, for review).
 fn reviewed(name: &str) -> PathBuf { PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracker_divergences").join(format!("{name}.json")) }
 
-/// The figures each reviewed divergence was checked by hand to state (Rust, and Rails where it names Rails' error).
+/// The figures each reviewed divergence was checked by hand to state (Rust, and 2.x where it names 2.x's error).
 fn reviewed_figures(outputs: &std::collections::HashMap<String, (Value, Value)>) {
     let side = |name: &str, v2: bool| { let (a, b) = &outputs[name]; if v2 { a.clone() } else { b.clone() } };
     // "SYMBOL quantity@cost" of a scope's positions, in symbol order; a scope is "whole" or an exchange id.
@@ -42,7 +42,7 @@ fn reviewed_figures(outputs: &std::collections::HashMap<String, (Value, Value)>)
         let num = |v: &Value| match v { Value::Object(m) => f64::from_be_bytes(u64::from_str_radix(m["f"].as_str().unwrap(), 16).unwrap().to_be_bytes()).to_string(), v => v.to_string() };
         (num(&row["value_usd"]), num(&row["held_value_usd"]))
     };
-    // D-TRACKER-COIN-QUOTE. Each of the nine venues: 0.5 BTC sold for 10 ETH carries its 25,000 to the ETH; Rails realised 5,000.
+    // D-TRACKER-COIN-QUOTE. Each of the nine venues: 0.5 BTC sold for 10 ETH carries its 25,000 to the ETH; 2.x realised 5,000.
     for venue in 2..=10 {
         let v = venue.to_string();
         assert_eq!(positions("cq_every_venue", &v, false), "BTC 0.5@25000.0, ETH 10.0@25000.0", "venue {v}");
@@ -58,12 +58,12 @@ fn reviewed_figures(outputs: &std::collections::HashMap<String, (Value, Value)>)
     assert_eq!(positions("cq_sell_fee_third_coin", "whole", false), "BTC 0.5@25000.0, ETH 10.0@25010.0, KCS 99.0@990.0");
     assert_eq!(field("cq_sell_fee_third_coin", "whole", "fees", false), "10.0");
     assert!(positions("cq_sell_fee_in_quote", "whole", false).starts_with("BTC 0.5@25000.0, ETH 9.99@24999.99"));
-    // D-TRACKER-SWAP-FEE: over two lots the KCS fee joins once (50,005 under Rails' allocation).
+    // D-TRACKER-SWAP-FEE: over two lots the KCS fee joins once (50,005 under 2.x's allocation).
     assert_eq!(positions("cq_sell_fee_third_coin_two_lots", "whole", false), "ETH 20.0@50010.0, KCS 99.0@990.0");
     assert_eq!(figure("cq_sell_fee_third_coin_two_lots", "unrealised", false), "9990.0");
     assert_eq!(positions("cq_binance_two_lot_swap_fee", "whole", false), "BNB 0.9@270.0, BTC 0.05@2030.0");
     assert_eq!(positions("cq_binance_two_lot_swap_fee", "whole", true), "BNB 0.9@270.0, BTC 0.05@2015.0");
-    // A quote coin never held opens what was spent (money in); Rails held ETH with nothing in.
+    // A quote coin never held opens what was spent (money in); 2.x held ETH with nothing in.
     assert_eq!((field("cq_quote_never_held", "whole", "openings", false), field("cq_quote_never_held", "whole", "total_invested", false)), (r#"[["BTC","0.5"]]"#.into(), "30000.0".into()));
     assert_eq!(field("cq_quote_never_held", "whole", "total_invested", true), "0.0");
     // A cash base sold or bought for a coin reads as the cash trade booked the usual way (the control venue, id 3).
@@ -94,12 +94,12 @@ fn reviewed_figures(outputs: &std::collections::HashMap<String, (Value, Value)>)
     assert_eq!((xyz["quantity"].as_str(), xyz["value"].as_str(), xyz["note"]["kind"].as_str()), (Some("10.0"), Some("25000.0"), Some("estimated")));
     assert_eq!(figure("cq_quote_unpriced", "value", false), "55000.0");
     assert_eq!((field("cq_fee_takes_everything", "whole", "realised", false), positions("cq_fee_takes_everything", "whole", false)), ("-100.0".into(), "".into()));
-    // No loss, so no lock (Rails: BTC locked to 6 October); a lock already armed stays as it was.
+    // No loss, so no lock (2.x: BTC locked to 6 October); a lock already armed stays as it was.
     assert_eq!(side("cq_wash_coin_quoted_loss", false)["tables"]["wash_sale_locks"], json!([]));
     assert_ne!(side("cq_wash_coin_quoted_loss", true)["tables"]["wash_sale_locks"], json!([]));
     assert_eq!(side("cq_wash_existing_lock", false)["tables"]["wash_sale_locks"], side("cq_wash_existing_lock", true)["tables"]["wash_sale_locks"]);
     assert_eq!(positions("cq_group_collision", "whole", false), positions("cq_every_venue", "2", false));
-    // D-TRACKER-HISTORY-SELL-FEE: the history holds 0.49 BTC as the ledger does (Rails 0.5).
+    // D-TRACKER-HISTORY-SELL-FEE: the history holds 0.49 BTC as the ledger does (2.x 0.5).
     assert_eq!(snapshot("cq_history_sell_fee", "2026-09-16", false).1, "29400");
     assert_eq!(snapshot("cq_history_sell_fee", "2026-09-16", true).1, "30000");
     assert_eq!(snapshot("same_coin_sale_fee", "2026-09-20", false), ("1599.4".into(), "599.4".into()));
@@ -116,7 +116,7 @@ fn reviewed_figures(outputs: &std::collections::HashMap<String, (Value, Value)>)
     assert_eq!(field("to_cycle_unfunded", "4", "openings", false), r#"[["BTC","1.0"]]"#, "one opening, on C");
     assert_eq!(field("to_opening_then_reciprocal", "2", "openings", false), r#"[["BTC","1.0"]]"#, "the opening the earlier withdrawal forced, on A alone");
     assert_eq!((positions("to_adjustments_then_reciprocal", "2", false), positions("to_adjustments_then_reciprocal", "3", false)), ("".into(), "BTC 1.0@60000.0".into()));
-    // The parity cases of the same schedule (Rails' order is already funded).
+    // The parity cases of the same schedule (2.x's order is already funded).
     for name in ["to_chain_bc_ab", "to_reciprocal_ba_ab", "to_cycle_funded_reverse", "cq_stable_quoted_sale", "to_cash_linked_deposit_fee_fx"] {
         assert_eq!(side(name, false), side(name, true), "{name}");
     }
@@ -140,21 +140,21 @@ fn coingecko_divergences(outputs: &std::collections::HashMap<String, (Value, Val
         days.sort();
         days
     };
-    // D-CG-429-STOPS-PRICES, the endpoint's 429: Rust asked bitcoin once and nothing more in either run; Rails asked ethereum
+    // D-CG-429-STOPS-PRICES, the endpoint's 429: Rust asked bitcoin once and nothing more in either run; 2.x asked ethereum
     // after it, and bitcoin's windows again, and stored ethereum's days.
     assert_eq!(paths("cg_endpoint_429", false), ["coins/bitcoin 2026-09-10..2026-09-11", "coins/bitcoin 2026-09-03..2026-10-01"], "one request per run");
     assert!(paths("cg_endpoint_429", true).iter().any(|p| p.starts_with("coins/ethereum")));
     assert!(stored("cg_endpoint_429", false, "ETH").is_empty() && !stored("cg_endpoint_429", true, "ETH").is_empty());
-    // The backfill's gaps stay pending in Rust (the price generation unstamped, so the next run sweeps again); Rails stamps it.
+    // The backfill's gaps stay pending in Rust (the price generation unstamped, so the next run sweeps again); 2.x stamps it.
     let generation = |name: &str, v2: bool| -> Value {
         let (a, b) = &outputs[name];
         (if v2 { a } else { b })["tables"].as_object().unwrap().iter().find(|(k, _)| k.starts_with("snapshot_price_generation_")).map(|(_, v)| v.clone()).unwrap()
     };
     for name in ["cg_endpoint_429", "cg_ping_429"] { assert!(generation(name, false).is_null() && !generation(name, true).is_null(), "{name}"); }
-    // The ping's 429: Rails read it as a demo key and stored bitcoin's days; Rust asked nothing past each run's ping.
+    // The ping's 429: 2.x read it as a demo key and stored bitcoin's days; Rust asked nothing past each run's ping.
     assert_eq!(paths("cg_ping_429", false), ["ping ..", "ping .."]);
     assert!(stored("cg_ping_429", false, "BTC").is_empty() && !stored("cg_ping_429", true, "BTC").is_empty());
-    // D-CG-HISTORY-WINDOW: Rails asked the backfill's whole span, refused, storing none of it; Rust asked from 2 October
+    // D-CG-HISTORY-WINDOW: 2.x asked the backfill's whole span, refused, storing none of it; Rust asked from 2 October
     // 2025 (the first UTC midnight after the run's clock less 365 days) and stored the window's days, the cutoff's first.
     assert!(paths("cg_window_crossing", true).contains(&"coins/bitcoin 2025-09-15..2026-10-01".to_string()));
     assert!(paths("cg_window_crossing", false).contains(&"coins/bitcoin 2025-10-02..2026-10-01".to_string()));
@@ -164,7 +164,7 @@ fn coingecko_divergences(outputs: &std::collections::HashMap<String, (Value, Val
     let (rust, v2) = (stored("cg_window_older_stored", false, "BTC"), stored("cg_window_older_stored", true, "BTC"));
     assert_eq!((rust.first().map(String::as_str), v2.first().map(String::as_str)), (Some("2025-09-15"), Some("2025-09-15")));
     assert!(rust.contains(&"2025-10-02".to_string()) && !v2.contains(&"2025-10-02".to_string()));
-    // Wholly before the cutoff: the walk's ETH lookups are not asked by Rust; Rails asked each and was refused.
+    // Wholly before the cutoff: the walk's ETH lookups are not asked by Rust; 2.x asked each and was refused.
     assert!(!paths("cg_window_wholly_before", false).iter().any(|p| p.starts_with("coins/ethereum 2025-06") || p.starts_with("coins/ethereum 2025-04")));
     assert!(paths("cg_window_wholly_before", true).iter().any(|p| p == "coins/ethereum 2025-06-10..2025-06-11"));
 }
@@ -193,7 +193,7 @@ fn unknown_origin(name:&str,v2:&Value,rust:&Value,before_locks:&Value)->Option<R
 async fn v2_and_rust_state_identical_figures_snapshots_and_locks_across_the_tracker_grid() {
     let v2_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
-    // Frozen (common::frozen): Rails builds the grid, the installs are copied before Rails writes to its copies, Rails records.
+    // Frozen (common::frozen): 2.x builds the grid, the installs are copied before 2.x writes to its copies, 2.x records.
     let frozen = common::frozen("tracker-grid", |d| d.join("expected").is_dir() && d.join("input").is_dir());
     common::copy_tree(&frozen.join("expected"), v2_root.path());
     common::copy_tree(&frozen.join("input"), rust_root.path());
@@ -213,7 +213,7 @@ async fn v2_and_rust_state_identical_figures_snapshots_and_locks_across_the_trac
         drop(initial);
         let mut rust_out = deltabadger::tracker::parity::run(&rust_root.path().join(&name), cipher.clone()).await.unwrap_or_else(|e| panic!("{name}: {e}"));
         let mut v2_out = read(&d.join("expected.json"));
-        // A transport failure ends both runs with it: Rails raises Client::TransientNetworkError wrapping Faraday's error, Rust
+        // A transport failure ends both runs with it: 2.x raises Client::TransientNetworkError wrapping Faraday's error, Rust
         // states the transport's message. The text is each side's own; that both ended on it is compared.
         if scenario["transport_failure"] == true {
             for key in ["ledger_error", "backfill_error"] {
@@ -222,7 +222,7 @@ async fn v2_and_rust_state_identical_figures_snapshots_and_locks_across_the_trac
                 (v2_out[key], rust_out[key]) = (json!("transport failure"), json!("transport failure"));
             }
         }
-        // A reviewed divergence (D-TRACKER-…): Rust's output is the file checked by hand, and Rails' is not.
+        // A reviewed divergence (D-TRACKER-…): Rust's output is the file checked by hand, and 2.x's is not.
         if let Some(id) = scenario["expect"].as_str().and_then(|e| e.strip_prefix("diverges: ")) {
             assert!(id.split(" + ").all(|d| d.starts_with("D-TRACKER-") || d.starts_with("D-CG-")), "{name}: {id}");
             let path = reviewed(&name);
@@ -257,7 +257,7 @@ async fn v2_and_rust_state_identical_figures_snapshots_and_locks_across_the_trac
     expected.sort();
     assert_eq!(divergences,expected,"all reviewed legacy-origin and original divergences are exercised");
 
-    // What the grid must have exercised, read from Rails' own output.
+    // What the grid must have exercised, read from 2.x's own output.
     let v2_of = |name: &str| read(&v2_root.path().join(name).join("expected.json"));
     // The page's figures (Plan tracker holdings S0b): every one stated somewhere in the grid, not only zeros, and only
     // where Rust's are compared (a listed divergence nulls Rust's expected ledger).
@@ -310,7 +310,7 @@ async fn v2_and_rust_state_identical_figures_snapshots_and_locks_across_the_trac
         assert_eq!(today(&v2_of(name))["partial"], 1, "{name}");
     }
     assert_eq!(today(&v2_of("buys_priced"))["partial"], 0);
-    // Every venue's history (Plan D2b-2a), as Rails states it.
+    // Every venue's history (Plan D2b-2a), as 2.x states it.
     let requests = |name: &str, kind: &str| v2_of(name)["requests"][kind].as_array().unwrap().len();
     assert_eq!((requests("ecb_stale_table_loads", "ecb"), requests("ecb_falls_back_to_bundesbank", "ecb"), requests("ecb_fails_then_loads", "ecb")), (1, 12, 13),
                "the ECB; the Bundesbank behind it; a failed load, then the next pass's load");

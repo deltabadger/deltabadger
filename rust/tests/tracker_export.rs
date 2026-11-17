@@ -1,6 +1,6 @@
-//! GET /tracker/export against Rails (script/rust/record_tracker_export.rb records fixtures/tracker_export.json): the rows Rails
-//! read are installed, each request is replayed, and the answer must be Rails' bytes and download headers, leaving the
-//! tracker_settings Rails left.
+//! GET /tracker/export against 2.x (recorded in fixtures/tracker_export.json): the rows 2.x
+//! read are installed, each request is replayed, and the answer must be 2.x's bytes and download headers, leaving the
+//! tracker_settings 2.x left.
 mod common;
 use common::web::{self, Browser, Csrf, TestClock};
 use deltabadger::web::{csrf, session};
@@ -16,7 +16,7 @@ fn install(c: &Connection, tables: &Value, v2_owner: i64, owner: i64) {
             let row = row.as_object().unwrap();
             let columns: Vec<String> = row.keys().map(|k| format!("\"{k}\"")).collect();
             let values: Vec<Sql> = row.iter().map(|(k, v)| match v {
-                // The recorded owner is this install's user; Rails' other owner is nobody here.
+                // The recorded owner is this install's user; 2.x's other owner is nobody here.
                 Value::Number(n) if k == "user_id" => Sql::Integer(if n.as_i64() == Some(v2_owner) { owner } else { -1 }),
                 Value::Object(real) => Sql::Real(real["real"].as_str().unwrap().parse().unwrap()),
                 Value::Null => Sql::Null,
@@ -44,7 +44,7 @@ async fn export_is_v2_own_csv_and_saves_the_export_type() {
     let mut browser = Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: None };
     let cases = v["cases"].as_array().unwrap();
     assert_eq!(cases.len(), 17);
-    // PLAN-A19: what Rails did stays recorded; Rust answers these 400 (D-TRACKER-FILTER-BAD-INPUT for the 500s,
+    // PLAN-A19: what 2.x did stays recorded; Rust answers these 400 (D-TRACKER-FILTER-BAD-INPUT for the 500s,
     // D-TRACKER-FILTER-ISO-ONLY for the day Date.parse reads), after the same export-type write.
     let refused = [("impossible_date", 500), ("structured_from", 500), ("non_iso", 200)];
     for case in cases {

@@ -2,7 +2,7 @@
 //! userNonFundingLedgerUpdates, each page from the newest `time` of the one before (its millisecond read again), identical
 //! rows counted by the page that holds them most: pairs of equal zero-hash staking rows, one pair on a page's last
 //! millisecond. Every multi-run import stores exactly the rows, and ends on exactly the watermark, of one run; a run cut
-//! mid-walk replays. Rails-free: the one-run walk against Rails is sync_parity.rs's `hyperliquid-ledger-` scenarios.
+//! mid-walk replays. 2.x-free: the one-run walk against 2.x is sync_parity.rs's `hyperliquid-ledger-` scenarios.
 mod common;
 use deltabadger::crypto::Credentials;
 use deltabadger::engine::FixedClock;
@@ -139,7 +139,7 @@ async fn an_import_over_many_runs_stores_what_one_run_stores() {
     assert_eq!(stored(&cut_db, cut_key).await, (rows, watermark), "a cut run replays and stores every row once");
 }
 
-/// A full page whose rows all share one millisecond: the next page is the same page, which brings nothing new. Rails fails
+/// A full page whose rows all share one millisecond: the next page is the same page, which brings nothing new. 2.x fails
 /// ("returned a full page with nothing new"); so does the walk, in one run and when it is read a page a run.
 #[tokio::test(flavor = "current_thread")]
 async fn a_full_page_with_nothing_new_fails_instead_of_looping() {

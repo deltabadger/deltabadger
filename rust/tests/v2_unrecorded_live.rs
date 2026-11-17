@@ -6,14 +6,14 @@
 //! rows and fills built on recorded ones (tests/fixtures/order_lists/hyperliquid, a public protocol address; each edit named
 //! in `hl_row` / `hl_fill`); it runs the cases below whose orders are limits (`SERVED_ALL`) and its own: a Hyperliquid
 //! order is always a limit sized in base. A28-3d-1 adds MEXC, Bitrue and BingX, their lists built from the docs, each row
-//! one of the venue's Rails order vectors (tests/fixtures/<venue>_vectors.json) plus `time` (`doc_row`). A28-3d-2 adds
+//! one of the venue's 2.x order vectors (tests/fixtures/<venue>_vectors.json) plus `time` (`doc_row`). A28-3d-2 adds
 //! Bitget and Bitvavo the same way (their vectors plus `cTime` / `created`: `bitget_row`, `bitvavo_row`) and Gemini, which
 //! has no order vectors, its rows the bodies of tests/gemini.rs (`gemini_row`; a limit only, so in `SERVED_ALL`). A28-3d-3
 //! adds Coinbase, its rows its vectors (`coinbase_orders`) plus `created_time` (`coinbase_row`), each page in its
 //! `{orders, has_next, cursor}` envelope. A28-3d-4 adds Kraken, which has no fills ledger: its line is A28-1's `no_history`
-//! one unless the venue lists an order (D-HISTORY-NO-LEDGER-BASIS); its rows a Rails order vector (`venue_order_numbers`)
+//! one unless the venue lists an order (D-HISTORY-NO-LEDGER-BASIS); its rows a 2.x order vector (`venue_order_numbers`)
 //! plus `opentm` (`kraken_row`), OpenOrders and ClosedOrders keyed by txid. A28-3d-5 adds KuCoin, with no fills ledger either:
-//! its rows a Rails order vector (`kucoin_vectors.json` `kucoin_orders`) plus `createdAt` (`kucoin_row`), the classic list's
+//! its rows a 2.x order vector (`kucoin_vectors.json` `kucoin_orders`) plus `createdAt` (`kucoin_row`), the classic list's
 //! active then done pages. No live venue call. Every pass is checked by the money guard.
 mod common;
 use chrono::{DateTime, Duration, Utc};
@@ -99,7 +99,7 @@ struct Fx { _dir: tempfile::TempDir, path: PathBuf, c: Connection, s: Seeded, b:
 
 fn open(path: &PathBuf) -> Connection { Connection::open(path).unwrap() }
 
-/// A due obligation on `kind`: a running bot's ambiguous Rails tick, collected, its ledger synced after the window.
+/// A due obligation on `kind`: a running bot's ambiguous 2.x tick, collected, its ledger synced after the window.
 fn fx(kind: Kind) -> Fx {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("primary.sqlite3");
@@ -725,7 +725,7 @@ async fn three_failed_passes_write_a28_1s_line() {
 
 #[tokio::test]
 async fn a_key_replaced_since_before_the_window_is_never_read() {
-    // Rails stores updated_at to the second: the second before the window's start is no proof of continuity either.
+    // 2.x stores updated_at to the second: the second before the window's start is no proof of continuity either.
     for (updated, read) in [("2026-09-29 13:52:58", true), ("2026-09-29 13:52:59", false), ("2026-09-29 13:55:00", false), ("2026-09-30 09:00:00", false)] {
         for kind in SERVED_ALL {
             let f = fx(kind);
@@ -798,7 +798,7 @@ async fn an_order_recorded_between_the_read_and_the_write_is_not_named() {
 #[tokio::test]
 async fn the_reads_of_a_pass_are_bounded_and_taken_round_robin() {
     let f = fx(Kind::Binance);
-    // 21 more obligations, each its own Rails tick a day earlier, the last one the one with an open order (r1.8).
+    // 21 more obligations, each its own 2.x tick a day earlier, the last one the one with an open order (r1.8).
     f.c.execute_batch("DELETE FROM rust_rails_unrecorded; DELETE FROM bot_activity_logs WHERE event = 'placement_ambiguous'").unwrap();
     for n in 0..21 { ambiguous_line(&f.c, f.b, &format!("2026-09-28 {:02}:00:00", n + 1)); }
     ambiguous_line(&f.c, f.b, AT);
@@ -1383,7 +1383,7 @@ const BINGX_OPEN: &str = "GET /openApi/spot/v1/trade/openOrders";
 const BINGX_HISTORY: &str = "GET /openApi/spot/v1/trade/historyOrders";
 fn bingx_page(rows: Vec<Value>) -> Value { json!({ "code": 0, "msg": "", "debugMsg": "", "data": { "orders": rows } }) }
 
-/// The venue's Rails order vectors (tests/fixtures/<venue>_vectors.json: `<venue>_orders`, Bitget's `bitget_parsed`), read once.
+/// The venue's 2.x order vectors (tests/fixtures/<venue>_vectors.json: `<venue>_orders`, Bitget's `bitget_parsed`), read once.
 fn doc_vectors(kind: Kind) -> &'static [Value] {
     use std::sync::OnceLock;
     static MEXC: OnceLock<Vec<Value>> = OnceLock::new();
@@ -1402,7 +1402,7 @@ fn doc_vectors(kind: Kind) -> &'static [Value] {
 fn doc_shape(kind: Kind) -> &'static binance::Shape { match kind { Kind::Mexc => &mexc::SHAPE, Kind::Bitrue => &bitrue::SHAPE, _ => &bingx::SHAPE } }
 /// A vector's raw LIMIT FILLED row edited into `o`: symbol (the seeded pair), orderId (as the vectors write it, a string),
 /// type, side, status, price, origQty, origQuoteOrderQty, executedQty, cummulativeQuoteQty, plus `time` (ms), which no
-/// Rails parse reads. Nothing else is in a vector's row.
+/// 2.x parse reads. Nothing else is in a vector's row.
 fn doc_row(kind: Kind, o: &O) -> Value {
     let mut r = doc_vectors(kind).iter().map(|e| e["raw"].clone()).find(|r| r["type"] == "LIMIT" && r["status"] == "FILLED" && r.get("origQuoteOrderQty").is_some()).unwrap();
     let status = match o.state {
@@ -1735,7 +1735,7 @@ fn two(kind: Kind, tr: &ScriptedTransport, open: Vec<Value>, closed: Vec<Value>)
 fn avg(o: &O) -> Option<String> { dec(o.exec).is_positive().then(|| dec(o.cum).div(&dec(o.exec)).unwrap().to_s_f()) }
 /// A Bitget vector's raw limit filled row (`bitget_parsed`) edited into `o`: symbol, orderId (a string), orderType, side,
 /// status, price, size (quote on a market buy), priceAvg (cum / exec, none unfilled), baseVolume, quoteVolume, plus `cTime`
-/// (ms as a string, as Bitget sends every field), which no Rails parse reads.
+/// (ms as a string, as Bitget sends every field), which no 2.x parse reads.
 fn bitget_row(o: &O) -> Value {
     let mut r = doc_vectors(Kind::Bitget).iter().map(|e| e["raw"].clone()).find(|r| r["orderType"] == "limit" && r["status"] == "filled").unwrap();
     let status = match o.state { St::Open => "live", St::Partly => "partially_filled", St::Filled => "filled", St::PartlyCancelled | St::Cancelled => "cancelled" };
@@ -1749,7 +1749,7 @@ fn bitget_row(o: &O) -> Value {
 }
 /// A Bitvavo vector's raw limit filled row (`bitvavo_orders`) edited into `o`: orderId (a string), market, orderType, side,
 /// status, price, amount (a limit's) or amountQuote (a market order's; the other null), filledAmount, filledAmountQuote,
-/// plus `created` (ms), which no Rails parse reads.
+/// plus `created` (ms), which no 2.x parse reads.
 fn bitvavo_row(o: &O) -> Value {
     let mut r = doc_vectors(Kind::Bitvavo).iter().map(|e| e["raw"].clone()).find(|r| r["orderType"] == "limit" && r["status"] == "filled").unwrap();
     let status = match o.state { St::Open => "new", St::Partly => "partiallyFilled", St::Filled => "filled", St::PartlyCancelled | St::Cancelled => "canceled" };
@@ -1806,7 +1806,7 @@ fn every_bitget_and_bitvavo_vector_row_reads_strictly_as_rails_parses_it_or_not_
         }
         assert!(read > 500, "{kind:?}: {read}");
     }
-    // Rails' Unknown Bitget statuses never read.
+    // 2.x's Unknown Bitget statuses never read.
     for status in ["init", "new"] {
         let mut r = bitget_row(&limit(7, St::Open, "0", "0"));
         r["status"] = json!(status);
@@ -1862,7 +1862,7 @@ fn a_bitget_bitvavo_or_gemini_row_is_read_only_in_its_venues_words() {
     r["side"] = json!("SELL");
     r["cTime"] = json!(ms(PLACED));
     assert_eq!(read2(Kind::Bitget, &r).map(|o| (o.size, o.created_at)), Some((CreatedSize::Base(dec("20")), t(PLACED))));
-    // Bitvavo: every Rails end state ends the order; a market order sized in the quote.
+    // Bitvavo: every 2.x end state ends the order; a market order sized in the quote.
     for status in ["canceled", "cancelled", "expired", "rejected"] {
         let mut r = bitvavo_row(&limit(7, St::Cancelled, "0", "0"));
         r["status"] = json!(status);
@@ -2098,7 +2098,7 @@ async fn a_gemini_order_held_on_another_side_outside_or_none_leaves_a28_1s_line(
 
 #[tokio::test]
 async fn r1_1_a_bare_bitget_id_holds_the_order_on_the_live_line() {
-    // A legacy row holding the bare `<orderId>` (bitget.rb:719), no fill linked: the order is held, as A28-1 holds it.
+    // A legacy row holding the bare `<orderId>`, no fill linked: the order is held, as A28-1 holds it.
     let f = fx(Kind::Bitget);
     let oracle = f.a28_1();
     f.c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, side, transaction_type, error_messages, created_at, updated_at) \
@@ -2120,7 +2120,7 @@ async fn r1_1_a_bare_bitget_id_holds_the_order_on_the_live_line() {
 const CB_ORDERS: &str = "GET /api/v3/brokerage/orders/historical/batch";
 /// One page in Coinbase's envelope: `has_next` while a cursor follows.
 fn cb_page(rows: Vec<Value>, cursor: Option<&str>) -> Value { json!({ "orders": rows, "sequence": "0", "has_next": cursor.is_some(), "cursor": cursor.unwrap_or("") }) }
-/// The Rails order vectors (tests/fixtures/coinbase_vectors.json `coinbase_orders`), read once.
+/// The 2.x order vectors (tests/fixtures/coinbase_vectors.json `coinbase_orders`), read once.
 fn cb_vectors() -> &'static [Value] {
     static V: std::sync::OnceLock<Vec<Value>> = std::sync::OnceLock::new();
     V.get_or_init(|| {
@@ -2131,7 +2131,7 @@ fn cb_vectors() -> &'static [Value] {
 /// A Coinbase vector's raw MARKET FILLED row edited into `o`: order_id (the bare id), product_id, order_type, side, status
 /// (open while open, CANCELLED once ended), average_filled_price (cum / exec, "0" unfilled), filled_size,
 /// total_value_after_fees (= cum), outstanding_hold_amount ("0"), order_configuration rebuilt as `add_order` sends it (a
-/// limit's base size and price, a market order's quote size), plus `created_time`, which no Rails parse reads.
+/// limit's base size and price, a market order's quote size), plus `created_time`, which no 2.x parse reads.
 fn coinbase_row(o: &O) -> Value {
     let mut r = cb_vectors().iter().map(|e| e["raw"].clone()).find(|r| r["order_type"] == "MARKET" && r["status"] == "FILLED").unwrap();
     let status = match o.state { St::Open | St::Partly => "OPEN", St::Filled => "FILLED", St::PartlyCancelled | St::Cancelled => "CANCELLED" };
@@ -2220,12 +2220,12 @@ fn a_coinbase_row_is_read_only_in_its_venues_words() {
         edit(&mut r);
         assert!(cb_read(&r).is_none(), "{name}");
     }
-    // D-HISTORY-COINBASE-QUOTE-AFTER-FEES: the filled quote is what Rails' parse computes, total after fees less the hold.
+    // D-HISTORY-COINBASE-QUOTE-AFTER-FEES: the filled quote is what 2.x's parse computes, total after fees less the hold.
     let mut r = base.clone();
     r["total_value_after_fees"] = json!("20.5");
     r["outstanding_hold_amount"] = json!("0.5");
     assert_eq!(cb_read(&r).unwrap().filled_quote, Some(dec("20")));
-    // Every open and ended status of Rails' map; the creation time kept to the microsecond.
+    // Every open and ended status of 2.x's map; the creation time kept to the microsecond.
     for (status, state) in [("OPEN", CreatedState::Open), ("QUEUED", CreatedState::Open), ("CANCEL_QUEUED", CreatedState::Open), ("EDIT_QUEUED", CreatedState::Open),
                             ("CANCELLED", CreatedState::Cancelled), ("EXPIRED", CreatedState::Cancelled), ("FAILED", CreatedState::Cancelled)] {
         let mut r = coinbase_row(&limit(7, St::Open, "0", "0"));
@@ -2353,7 +2353,7 @@ async fn a_coinbase_failure_after_only_older_orders_is_the_reads_and_after_one_i
 const KRAKEN_OPEN: &str = "POST /0/private/OpenOrders";
 const KRAKEN_CLOSED: &str = "POST /0/private/ClosedOrders";
 fn kraken_txid(id: u64) -> String { format!("O{id:05}-AAAAA-BBBBBB") }
-/// The Rails order vectors' Kraken bodies (tests/fixtures/v2_vectors.json `venue_order_numbers`), with whether Rails reads them.
+/// The 2.x order vectors' Kraken bodies (tests/fixtures/v2_vectors.json `venue_order_numbers`), with whether 2.x reads them.
 fn kraken_vectors() -> &'static [(Value, bool)] {
     static V: std::sync::OnceLock<Vec<(Value, bool)>> = std::sync::OnceLock::new();
     V.get_or_init(|| {
@@ -2365,7 +2365,7 @@ fn kraken_vectors() -> &'static [(Value, bool)] {
 fn kraken_secs(at: &str) -> Value { json!(t(at).timestamp_micros() as f64 / 1e6) }
 /// The first read Kraken vector (a closed market buy on XBTEUR) edited into `o`: status, descr's type, ordertype and price, vol
 /// (a market buy's in the quote, `viqc`), vol_exec, cost, price (cum / exec, "0" unfilled), plus `opentm` and `closetm`, which
-/// no Rails parse reads. `__txid` is its key in the list (`kraken_map`).
+/// no 2.x parse reads. `__txid` is its key in the list (`kraken_map`).
 fn kraken_row(o: &O) -> Value {
     let mut r = kraken_vectors().iter().find(|(_, read)| *read).unwrap().0.clone();
     let status = match o.state { St::Open | St::Partly => "open", St::Filled => "closed", St::PartlyCancelled | St::Cancelled => "canceled" };
@@ -2425,7 +2425,7 @@ fn a_kraken_row_is_read_only_in_its_venues_words() {
     r["oflags"] = json!("fciq");
     r["vol"] = json!("0.0004");
     assert_eq!(kraken_read(&r).unwrap().size, CreatedSize::Base(dec("0.0004")));
-    // Every status of Rails' map.
+    // Every status of 2.x's map.
     for (status, exec, state) in [("open", "0", CreatedState::Open), ("open", "0.0001", CreatedState::PartlyFilledOpen), ("canceled", "0", CreatedState::Cancelled),
                                   ("expired", "0.0001", CreatedState::PartlyFilledCancelled), ("closed", "0.0004", CreatedState::Filled)] {
         let mut r = base.clone();
@@ -2626,7 +2626,7 @@ async fn a_kraken_line_is_a28_1s_no_history_line_unless_the_venue_lists_an_order
 
 const KUCOIN_ORDERS: &str = "GET /api/v1/orders";
 fn kucoin_id(id: u64) -> String { format!("6720{id:020}") }
-/// The Rails order vectors' KuCoin rows (tests/fixtures/kucoin_vectors.json `kucoin_orders`, each with Rails' parse).
+/// The 2.x order vectors' KuCoin rows (tests/fixtures/kucoin_vectors.json `kucoin_orders`, each with 2.x's parse).
 fn kucoin_vectors() -> &'static [Value] {
     static V: std::sync::OnceLock<Vec<Value>> = std::sync::OnceLock::new();
     V.get_or_init(|| {
@@ -2636,7 +2636,7 @@ fn kucoin_vectors() -> &'static [Value] {
 }
 /// The first vector row with both flags JSON booleans, edited into `o`: id, symbol (the seeded pair), type, side, price (the
 /// limit's, "0" on a market), size (a limit's base, "0" on a market), funds (a market's quote, "0" on a limit), dealSize,
-/// dealFunds, isActive, cancelExist, plus `createdAt` (ms), which no Rails parse reads.
+/// dealFunds, isActive, cancelExist, plus `createdAt` (ms), which no 2.x parse reads.
 fn kucoin_row(o: &O) -> Value {
     let mut r = kucoin_vectors().iter().map(|e| e["raw"].clone()).find(|r| r["isActive"].is_boolean() && r["cancelExist"].is_boolean()).unwrap();
     let (ty, price, size, funds) = match o.limit { Some(p) => ("limit", p, o.size, "0"), None => ("market", "0", "0", o.size) };
@@ -2659,7 +2659,7 @@ async fn kucoin_list(tr: &ScriptedTransport, from: DateTime<Utc>, to: DateTime<U
 }
 fn kucoin_ids(c: &deltabadger::venue::Created) -> Vec<String> { c.orders.iter().map(|o| o.external_id.trim_start_matches("6720").trim_start_matches('0').to_string()).collect() }
 
-/// Why the reader must refuse a vector row (r1.3), from the row and Rails' own parse of it; None when it must read it.
+/// Why the reader must refuse a vector row (r1.3), from the row and 2.x's own parse of it; None when it must read it.
 fn kucoin_rejection(e: &Value) -> Option<&'static str> {
     let r = &e["raw"];
     let d = |k: &str| dec(r[k].as_str().unwrap());
@@ -2708,11 +2708,11 @@ fn a_kucoin_row_is_read_only_in_its_venues_words() {
     let got = kucoin_read(&base).unwrap();
     assert_eq!((got.external_id, got.symbol.as_str(), got.kind, got.size, got.state, got.filled_base, got.filled_quote, got.created_at),
                (kucoin_id(7), "BTC-EUR", CreatedKind::Limit { price: dec("50000") }, CreatedSize::Base(dec("0.0004")), CreatedState::Filled, dec("0.0004"), Some(dec("20")), t(PLACED)));
-    // r1.3: the limit price is the raw `price`, never Rails' dealFunds / dealSize.
+    // r1.3: the limit price is the raw `price`, never 2.x's dealFunds / dealSize.
     let mut r = base.clone();
     r["price"] = json!("49000");
     assert_eq!(kucoin_read(&r).unwrap().kind, CreatedKind::Limit { price: dec("49000") });
-    // r1.3: side and type in any case, as Rails reads them.
+    // r1.3: side and type in any case, as 2.x reads them.
     for (side, ty) in [("SELL", "LIMIT"), ("Buy", "Limit")] {
         let mut r = base.clone();
         r["side"] = json!(side);
@@ -2729,7 +2729,7 @@ fn a_kucoin_row_is_read_only_in_its_venues_words() {
     let mut r = base.clone();
     r["funds"] = json!("20");
     assert_eq!(kucoin_read(&r).unwrap().size, CreatedSize::Base(dec("0.0004")));
-    // Rails' map: cancelExist first, then isActive, then something dealt.
+    // 2.x's map: cancelExist first, then isActive, then something dealt.
     for (active, cancelled, exec, state) in [(true, false, "0", CreatedState::Open), (true, false, "0.0001", CreatedState::PartlyFilledOpen),
                                              (false, true, "0", CreatedState::Cancelled), (false, true, "0.0001", CreatedState::PartlyFilledCancelled),
                                              (true, true, "0", CreatedState::Cancelled), (false, false, "0.0004", CreatedState::Filled)] {
@@ -2917,7 +2917,7 @@ async fn a_kucoin_failure_after_only_older_orders_is_the_reads_and_after_one_in_
 async fn a_kucoin_classic_order_is_listed_whatever_the_accounts_mode_and_a_failing_classic_list_is_retried() {
     use deltabadger::venue::kucoin_account::{Resolver, MODE, OPENED};
     use deltabadger::venue::HistoryError;
-    // r1.1: an account that reads ClassicHf today; Rails placed on the classic route, so the classic list is read, no mode asked.
+    // r1.1: an account that reads ClassicHf today; 2.x placed on the classic route, so the classic list is read, no mode asked.
     let c = Connection::open_in_memory().unwrap();
     c.execute_batch("CREATE TABLE api_keys(id INTEGER PRIMARY KEY, key TEXT, secret TEXT, passphrase TEXT, access_token TEXT, rsa_signature_key TEXT, rsa_encryption_key TEXT, dh_param TEXT);
                      INSERT INTO api_keys(id,key,secret,passphrase) VALUES(1,'key','secret','passphrase');").unwrap();

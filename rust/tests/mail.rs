@@ -1,6 +1,6 @@
-//! What rust/src/mail and engine::notice port from Ruby, against values Ruby produced (script/rust/mail_vectors.rb):
+//! What rust/src/mail and engine::notice port from 2.x, against values 2.x produced:
 //! the mail gem's message encoding, Float#to_s, Exchange#humanize_error, SmtpSettings.current and the sender address,
-//! production.rb's root URL. Rails-free.
+//! 2.x's production root URL. 2.x-free.
 use chrono::{TimeZone, Utc};
 use deltabadger::mail::{mailbox, Message};
 use deltabadger::v2::{float_to_s, to_i};
@@ -134,9 +134,9 @@ fn smtp_settings_and_the_sender_resolve_as_v2_resolves_them() {
         let text = |v: Value| v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string());
         let ours = match smtp::Settings::current(&env, &config) {
             Ok(ours) => ours,
-            // Rails' nil is "deliver to localhost:25"; here it is "mail is not configured" (a listed divergence).
+            // 2.x's nil is "deliver to localhost:25"; here it is "mail is not configured" (a listed divergence).
             Err(why) if c["settings"].is_null() => { assert_eq!(why, "no SMTP_ADDRESS, and no SMTP settings saved", "{c}"); continue }
-            // The one recorded configuration Rails accepts and this crate does not: an empty SMTP_DOMAIN, which Rails
+            // The one recorded configuration 2.x accepts and this crate does not: an empty SMTP_DOMAIN, which 2.x
             // would send as `EHLO ` (a listed divergence).
             Err(why) => { assert_eq!((why.as_str(), text(v2("domain")).as_str()), ("SMTP_DOMAIN is not a host name or an address literal", ""), "{c}"); refused += 1; continue }
         };
@@ -146,7 +146,7 @@ fn smtp_settings_and_the_sender_resolve_as_v2_resolves_them() {
         assert_eq!(ours.domain, text(v2("domain")), "domain of {c}");
         assert_eq!(ours.credentials, (text(v2("user_name")), text(v2("password"))), "credentials of {c}");
         assert_eq!((ours.open_timeout.as_secs(), ours.read_timeout.as_secs()), (5, 5));
-        // STARTTLS is required exactly when Rails requires it (`enable_starttls: :always`): a non-empty user name or
+        // STARTTLS is required exactly when 2.x requires it (`enable_starttls: :always`): a non-empty user name or
         // password, whitespace included.
         assert_eq!(ours.has_secret(), text(v2("enable_starttls")) == "always", "STARTTLS rule of {c}");
         configured += 1;
@@ -185,7 +185,7 @@ fn the_root_url_is_what_production_rb_derives() {
 
 #[test]
 fn a_stored_locale_v2_does_not_know_is_english_and_a_missing_one_is_the_default() {
-    // A listed divergence: Rails raises I18n::InvalidLocale for the first and sends nothing.
+    // A listed divergence: 2.x raises I18n::InvalidLocale for the first and sends nothing.
     assert_eq!((render::user_locale(Some("xx")), render::user_locale(None), render::user_locale(Some("pl"))), ("en", "en", "pl"));
 }
 

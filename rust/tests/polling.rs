@@ -82,7 +82,7 @@ async fn a_missing_order_is_abandoned_only_after_fourteen_days() {
 }
 
 /// 387d9df90: an order QueryOrders dropped and a capped TradesHistory walk did not see, in a window of more than 1,000 trades,
-/// may have filled further back. The sweep keeps it waiting however old; the follow-up fails as Rails' get_order does.
+/// may have filled further back. The sweep keeps it waiting however old; the follow-up fails as 2.x's get_order does.
 #[tokio::test(flavor = "current_thread")]
 async fn an_order_beyond_the_trades_walk_reach_is_never_abandoned() {
     let (_d, o, s, b) = setup(json!({}));

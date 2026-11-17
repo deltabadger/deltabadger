@@ -1,5 +1,5 @@
-//! PLAN-A9 slice O1: what the order routes and tools answer where Rails has no answer to record. The refusals before the
-//! venue are compared with Rails on the page grid (api_orders_*) and the MCP control grid
+//! PLAN-A9 slice O1: what the order routes and tools answer where 2.x has no answer to record. The refusals before the
+//! venue are compared with 2.x on the page grid (api_orders_*) and the MCP control grid
 //! (order_*); this file holds the named divergences: D-ORDER-AMOUNT-VALIDATION and D-ORDER-IBKR (its `not_ported` answer
 //! gives the Idempotency-Key back). Cancels past the checks are sent (slice O2): tests/cancel_order.rs.
 //!
@@ -74,7 +74,7 @@ async fn rest_refuses_what_v2_hands_the_venue_and_queues_standalone_past_every_c
     let (d, app, bot) = install();
     let pair = json!({"type": "market_buy", "exchange_name": "Alpaca", "base_asset": "BTC", "quote_asset": "USD"});
     let with = |extra: Value| { let mut b = pair.clone(); b.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone()); b };
-    // D-ORDER-AMOUNT-VALIDATION: BotOrder's refusals, after Rails' own checks.
+    // D-ORDER-AMOUNT-VALIDATION: BotOrder's refusals, after 2.x's own checks.
     for (body, code, message) in [
         (with(json!({"amount": "abc"})), "invalid_number", "amount must be a number greater than 0."),
         (with(json!({"amount": -5})), "invalid_number", "amount must be a number greater than 0."),
@@ -86,7 +86,7 @@ async fn rest_refuses_what_v2_hands_the_venue_and_queues_standalone_past_every_c
         assert_eq!((status, answer), (422, json!({"data": null, "error": {"code": code, "message": message}})), "{body}");
     }
     let stored = keys(&d).len();
-    // D-ORDER-IBKR: Rails' checks pass on a venue this build does not trade: 501, and the key is given back.
+    // D-ORDER-IBKR: 2.x's checks pass on a venue this build does not trade: 501, and the key is given back.
     let ibkr = json!({"type": "limit_buy", "exchange_name": "Interactive Brokers", "base_asset": "BTC", "quote_asset": "USD", "amount": 10, "price": 400});
     for _ in 0..2 {
         let (status, answer) = order(&app, ibkr.clone(), "same-key").await;
@@ -95,7 +95,7 @@ async fn rest_refuses_what_v2_hands_the_venue_and_queues_standalone_past_every_c
     assert_eq!(keys(&d).len(), stored, "a not_ported answer claims no key");
     // PLAN-A9 O4: past every check a standalone order is queued for the engine; with none attached it is withdrawn at
     // once (venue_busy, nothing placed) and the answer is stored with the key. D-ORDER-MARKET-PRICE: a market order's
-    // `price` is ignored (Rails' market services raise on it).
+    // `price` is ignored (2.x's market services raise on it).
     for (body, key) in [(with(json!({"amount": 10})), "standalone"), (with(json!({"amount": 10, "price": 100})), "standalone-priced")] {
         for _ in 0..2 {
             let (status, answer) = order(&app, body.clone(), key).await;
@@ -108,7 +108,7 @@ async fn rest_refuses_what_v2_hands_the_venue_and_queues_standalone_past_every_c
     assert_eq!((status, answer), (409, json!({"data": null, "error": {"code": "venue_busy", "message": "Alpaca is busy with another order from your bots. Nothing was placed; try again."}})));
     assert_eq!(keys(&d).last().unwrap(), &("through-bot".to_string(), "completed".to_string()));
     assert_eq!(Connection::open(d.path().join("production.sqlite3")).unwrap().query_row("SELECT count(*) FROM rust_api_orders", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
-    // D-ORDER-IBKR: a cancel past Rails' checks on a venue this build does not trade (a cancel elsewhere is sent: tests/cancel_order.rs).
+    // D-ORDER-IBKR: a cancel past 2.x's checks on a venue this build does not trade (a cancel elsewhere is sent: tests/cancel_order.rs).
     let (status, _, answer) = send(&app, "DELETE", "/api/v1/orders/venue-1?exchange_name=interactive%20brokers", "orders-api", None, &[]).await;
     assert_eq!((status, answer["error"]["code"].clone()), (501, json!("not_ported")));
 }
@@ -548,7 +548,7 @@ async fn a_standalone_order_is_placed_in_one_pass_answers_v2_bytes_replays_and_i
     // Kept through the start-up sweep of answered rows (a day later) as well.
     deltabadger::engine::api_orders::sweep_at_start(k.c(), kt(86_400).0).unwrap();
     assert_eq!(retained(&k).len(), 2);
-    // r3 §1, D-ORDER-KRAKEN-QUOTE-SELL: Rails' adapter raises before sending; here Rails' message as order_failed, nothing sent.
+    // r3 §1, D-ORDER-KRAKEN-QUOTE-SELL: 2.x's adapter raises before sending; here 2.x's message as order_failed, nothing sent.
     let request = post(&k.app, standalone("market_sell", json!({"amount": "100", "amount_type": "quote"})), "quote-sell");
     queued(&k, 1).await;
     run::step(&mut k.e, &kt(2)).await.unwrap();
@@ -593,7 +593,7 @@ async fn a_standalone_order_asks_again_at_its_claim_what_changed_after_validatio
     assert_eq!(once(&mut k, &replaced, "key").await, refusal(403, "api_key_missing", "No valid API key found for Kraken. Please add an API key in Settings."));
     let mut k = kraken(priced());
     assert_eq!(once(&mut k, "UPDATE tickers SET trading_enabled=0", "pair").await, refusal(409, "ticker_not_tradable", "Trading pair BTC/EUR is not tradable on Kraken."));
-    // The lock's last day in the surface's zone: REST in UTC (the 25th), MCP in the user's (the Azores: the 24th). Rails
+    // The lock's last day in the surface's zone: REST in UTC (the 25th), MCP in the user's (the Azores: the 24th). 2.x
     // names the ticker's base (Kraken's XBT).
     let mut k = kraken(priced());
     k.c().execute("UPDATE users SET wash_sale_enabled=1, wash_sale_jurisdiction='US', time_zone='Azores'", []).unwrap();
@@ -966,7 +966,7 @@ fn a_key_and_its_link_are_settled_together_or_not_at_all() {
 }
 
 /// 3.0 A20c, D-OPEN-ORDERS-UNREAD-NAMED: an exchange whose open orders this build does not read live is named in
-/// `unavailable`, never dropped (Rails' ListOpen skips it: `list_open.rb:64-65`). The balances 501 names the venues
+/// `unavailable`, never dropped (2.x's ListOpen skips it). The balances 501 names the venues
 /// whose balances are read; the portfolio's 501 keeps its own text (tests/mcp_reads.rs m3_other_venue_figures).
 #[tokio::test(flavor = "current_thread")]
 async fn open_orders_name_every_exchange_not_read_live_on_both_surfaces() {

@@ -1,4 +1,4 @@
-//! A25 (PLAN-A25 r4): the admin jobs page at /jobs over Rust's scheduler and engine. Rails-free: the crate's own schema,
+//! A25 (PLAN-A25 r4): the admin jobs page at /jobs over Rust's scheduler and engine. 2.x-free: the crate's own schema,
 //! a scheduler built from the crate's registration functions (never run: no outbound call), the web in-process.
 mod common;
 use common::seed::{self, BotSpec, Seeded};
