@@ -713,11 +713,11 @@ fn left_over(c: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Vec<String>
             lines.push(format!("Rule {rule}: a withdrawal may have been sent and its result isn't recorded; resolve it with resolve-withdrawal {rule}."));
         }
     }
-    if table(c, "rust_rails_unrecorded")? {
+    if table(c, "rust_v2_unrecorded")? {
         // Owed until reported, or while an answer is asked for (offers, no resolution in its group); reported with
         // nothing to answer is done (A28-1's report-only outcome).
-        let mut s = c.prepare("SELECT o.id, o.bot_id, o.reported_at IS NULL, EXISTS (SELECT 1 FROM rust_rails_unrecorded_offers f WHERE f.obligation_id = o.id) \
-                               FROM rust_rails_unrecorded o ORDER BY o.id")?;
+        let mut s = c.prepare("SELECT o.id, o.bot_id, o.reported_at IS NULL, EXISTS (SELECT 1 FROM rust_v2_unrecorded_offers f WHERE f.obligation_id = o.id) \
+                               FROM rust_v2_unrecorded o ORDER BY o.id")?;
         let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, bool>(2)?, r.get::<_, bool>(3)?)))?.collect::<Result<Vec<_>, _>>()?;
         drop(s);
         for (id, bot, unreported, offered) in rows {

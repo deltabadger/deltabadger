@@ -792,9 +792,28 @@ fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
 /// The two newest Rust migrations and how to make each pending again on a made install (its table gone, its row
 /// with it), as on an install from the build before it. The newest migration must be here, or these tests would stop
 /// testing "an update brings a migration" the day one is added.
-const UNDO: [(&str, &str); 2] = [
-    ("20261111000001", "DROP TABLE rust_index_rankings"),
-    ("20261112000001", "DROP TABLE rust_index_retired")];
+type Undo = (&'static str, fn() -> String);
+const UNDO: [Undo; 2] = [
+    ("20261112000001", || "DROP TABLE rust_index_retired".into()),
+    ("20261117000001", undo_v2_stored_names)];
+
+/// B11-9's migration undone on a desktop data dir (no takeover rows to rename back): its new tables dropped, each table
+/// it retired or rebuilt created again as the released migration that made it wrote it (names from the registry).
+fn undo_v2_stored_names() -> String {
+    let v = UNDO[1].0;
+    let reg = deltabadger::store::REGISTRY;
+    let made: Vec<&str> = reg.tables.iter().filter(|(at, _)| *at == v).map(|(_, t)| t.name).collect();
+    let back: Vec<&str> = reg.retired.iter().filter(|(at, _)| *at == v).map(|(_, t)| *t).chain(made.iter().copied().filter(|t| reg.tables.iter().any(|(at, c)| c.name == *t && *at < v))).collect();
+    let mut sql: String = made.iter().map(|t| format!("DROP TABLE {t};")).collect();
+    for m in deltabadger::store::RUST_MIGRATIONS.iter().filter(|m| m.version < v) {
+        let code: String = m.sql.lines().map(|l| l.split("--").next().unwrap()).collect::<Vec<_>>().join("\n");
+        for text in code.split(';') {
+            let creates = |t: &str| text.contains(&format!("CREATE TABLE {t} ")) || text.contains(&format!(" ON {t} ("));
+            if back.iter().any(|t| creates(t)) { sql.push_str(text.trim()); sql.push(';'); }
+        }
+    }
+    sql
+}
 
 #[test]
 fn the_undo_table_covers_the_newest_migration() {
@@ -806,7 +825,7 @@ fn the_undo_table_covers_the_newest_migration() {
 /// `data` as the build before the newest `n` migrations left it.
 fn pending(data: &Data, n: usize) {
     for (version, undo) in &UNDO[UNDO.len() - n..] {
-        data.sql(&format!("{undo}; DELETE FROM rust_schema_migrations WHERE version = '{version}'"));
+        data.sql(&format!("{}; DELETE FROM rust_schema_migrations WHERE version = '{version}'", undo()));
     }
 }
 

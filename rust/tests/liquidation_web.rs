@@ -449,7 +449,7 @@ async fn an_orders_event_announces_only_the_lines_below_it_and_never_the_v2_orde
     c.execute("UPDATE bot_activity_logs SET created_at='2026-09-01 12:00:30' WHERE id=?1",[early]).unwrap();
     let b=liquidation_row(&c,&s,id,s.btc,1);
     c.execute("UPDATE transactions SET created_at='2026-09-01 12:01:00' WHERE id=?1",[b]).unwrap();
-    let late=log(&c,id,"rails_order_open",json!({"when":"x","venue":"Alpaca","orders":"1","obligation":1}));
+    let late=log(&c,id,"v2_order_open",json!({"when":"x","venue":"Alpaca","orders":"1","obligation":1}));
     let prepended=|messages:&[(String,String)]|messages.iter().filter(|(_,html)|html.contains("action=\"prepend\"")).map(|(_,html)|html.clone()).collect::<Vec<_>>();
     // A's event: nothing older than A.
     assert_eq!(prepended(&lines.announce(&c,&app,&EngineEvent::OrderRecorded {bot_id:id,transaction_id:a}).unwrap()),Vec::<String>::new());

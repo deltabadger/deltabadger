@@ -22,14 +22,14 @@ use super::{amount, EngineError};
 use crate::codec::{format_time, parse_time};
 use crate::venue::Side;
 
-pub const JOB: &str = "rails_unrecorded_report";
-/// Activity events (texts: web::i18n `bot_activity.events.<event>`; `rails_order_unchecked` by its `reason`).
-pub const CANDIDATES: &str = "rails_order_candidates";
-pub const NONE_SEEN: &str = "rails_order_none_seen";
-pub const UNCHECKED: &str = "rails_order_unchecked";
+pub const JOB: &str = "v2_unrecorded_report";
+/// Activity events (texts: web::i18n `bot_activity.events.<event>`; `v2_order_unchecked` by its `reason`).
+pub const CANDIDATES: &str = "v2_order_candidates";
+pub const NONE_SEEN: &str = "v2_order_none_seen";
+pub const UNCHECKED: &str = "v2_order_unchecked";
 /// A28-3: a line naming the venue's own orders (r2.1): one still open among them, or none open.
-pub const LIVE_OPEN: &str = "rails_order_open";
-pub const LIVE_LISTED: &str = "rails_order_listed";
+pub const LIVE_OPEN: &str = "v2_order_open";
+pub const LIVE_LISTED: &str = "v2_order_listed";
 
 /// Trades listed around the span (r2.3: a heuristic window, never a proof of when the request went out).
 const AROUND: i64 = 10 * 60;
@@ -132,7 +132,7 @@ pub fn collect(tx: &Connection, queue: &Connection, since: Option<DateTime<Utc>>
     }
     let mut n = 0;
     for (bot, source, sref, from, to, scope) in found {
-        n += tx.execute("INSERT INTO rust_rails_unrecorded (bot_id, source, source_ref, span_from, span_to, scope, collected_at) \
+        n += tx.execute("INSERT INTO rust_v2_unrecorded (bot_id, source, source_ref, span_from, span_to, scope, collected_at) \
                          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT (source, source_ref) DO NOTHING",
                         params![bot, source, sref, from, to, scope.map(|s| s.to_string()), until])?;
     }
@@ -174,7 +174,7 @@ fn http_status(text: &str, class: char) -> bool {
 /// ever: the row is marked in the line's transaction.
 pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<usize, EngineError> {
     let open: Vec<i64> = {
-        let mut s = c.prepare("SELECT id FROM rust_rails_unrecorded WHERE reported_at IS NULL ORDER BY id")?;
+        let mut s = c.prepare("SELECT id FROM rust_v2_unrecorded WHERE reported_at IS NULL ORDER BY id")?;
         let ids = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
         ids
     };
@@ -189,9 +189,9 @@ pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<usize, EngineError> 
             // A row whose stored times can't be read is answered as such, so it never stops the obligations after it.
             Err(EngineError::Data(e)) => {
                 let tx = model::immediate(c)?;
-                let bot: i64 = tx.query_row("SELECT bot_id FROM rust_rails_unrecorded WHERE id = ?1", [id], |r| r.get(0))?;
+                let bot: i64 = tx.query_row("SELECT bot_id FROM rust_v2_unrecorded WHERE id = ?1", [id], |r| r.get(0))?;
                 let line = Line { event: UNCHECKED, outcome: "time", details: json!({ "when": "at a time that can't be read", "venue": "exchange", "reason": "time", "error": e }) };
-                if tx.execute("UPDATE rust_rails_unrecorded SET reported_at = ?2, outcome = ?3 WHERE id = ?1 AND reported_at IS NULL", params![id, format_time(now), line.outcome])? == 1 {
+                if tx.execute("UPDATE rust_v2_unrecorded SET reported_at = ?2, outcome = ?3 WHERE id = ?1 AND reported_at IS NULL", params![id, format_time(now), line.outcome])? == 1 {
                     model::log_activity(&tx, bot, line.event, Level::Warning, line.details, now)?;
                     tx.commit()?;
                     written += 1;
@@ -202,7 +202,7 @@ pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<usize, EngineError> 
         };
         let Some(Judged { line, .. }) = judge(c, &o, now, &mut linked)? else { continue };
         let tx = model::immediate(c)?;
-        if tx.execute("UPDATE rust_rails_unrecorded SET reported_at = ?2, outcome = ?3 WHERE id = ?1 AND reported_at IS NULL", params![id, format_time(now), line.outcome])? == 1 {
+        if tx.execute("UPDATE rust_v2_unrecorded SET reported_at = ?2, outcome = ?3 WHERE id = ?1 AND reported_at IS NULL", params![id, format_time(now), line.outcome])? == 1 {
             model::log_activity(&tx, o.bot, line.event, Level::Warning, line.details, now)?;
             tx.commit()?;
             written += 1;
@@ -217,12 +217,12 @@ fn load(c: &Connection, id: i64) -> Result<Option<Obligation>, EngineError> { lo
 
 /// The obligation, only while its line is unwritten when `open`.
 fn load_where(c: &Connection, id: i64, open: bool) -> Result<Option<Obligation>, EngineError> {
-    let row = c.query_row("SELECT bot_id, source, span_from, span_to, scope, collected_at, source_ref FROM rust_rails_unrecorded WHERE id = ?1 AND (reported_at IS NULL OR NOT ?2)",
+    let row = c.query_row("SELECT bot_id, source, span_from, span_to, scope, collected_at, source_ref FROM rust_v2_unrecorded WHERE id = ?1 AND (reported_at IS NULL OR NOT ?2)",
                           params![id, open],
                           |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?, r.get::<_, Option<String>>(4)?, r.get::<_, String>(5)?, r.get::<_, i64>(6)?)))
         .optional()?;
     let Some((bot, source, from, to, scope, collected, source_ref)) = row else { return Ok(None) };
-    let t = |s: &str| parse_time(s).map_err(|e| EngineError::Data(format!("rust_rails_unrecorded {id}: {e:?}")));
+    let t = |s: &str| parse_time(s).map_err(|e| EngineError::Data(format!("rust_v2_unrecorded {id}: {e:?}")));
     Ok(Some(Obligation { bot, source, source_ref, from: t(&from)?, to: t(&to)?, scope: scope.and_then(|s| serde_json::from_str(&s).ok()), collected: t(&collected)? }))
 }
 
@@ -533,7 +533,7 @@ const READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
 /// No read starts after this much of a pass (the job's deadline is 600 s).
 const PASS_BUDGET: std::time::Duration = std::time::Duration::from_secs(300);
 /// The id after the last obligation a pass read live (r1.4).
-pub const LIVE_CURSOR: &str = "rust_rails_unrecorded.live_cursor";
+pub const LIVE_CURSOR: &str = "rust_v2_unrecorded.live_cursor";
 
 /// A live read prepared from the database (phase 1) and compared again with what the write prepares (r1.5).
 #[derive(Clone, Debug, PartialEq)]
@@ -570,7 +570,7 @@ impl<F: crate::venue::VenueFactory> Report<F> {
 /// Phase 1: every open obligation from the cursor on (then those before it), each judged as A28-1 judges it.
 fn plan(c: &Connection, cipher: &crate::crypto::Cipher, now: DateTime<Utc>) -> Result<(usize, Vec<LiveRead>), EngineError> {
     let ids: Vec<i64> = {
-        let mut s = c.prepare("SELECT id FROM rust_rails_unrecorded WHERE reported_at IS NULL ORDER BY id")?;
+        let mut s = c.prepare("SELECT id FROM rust_v2_unrecorded WHERE reported_at IS NULL ORDER BY id")?;
         let ids = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
         ids
     };
@@ -598,7 +598,7 @@ fn prepare(c: &Connection, cipher: &crate::crypto::Cipher, id: i64, now: DateTim
         Ok(Some(o)) => o,
         Ok(None) => return Ok(Prep::Wait),
         Err(EngineError::Data(e)) => {
-            let bot: i64 = c.query_row("SELECT bot_id FROM rust_rails_unrecorded WHERE id = ?1", [id], |r| r.get(0))?;
+            let bot: i64 = c.query_row("SELECT bot_id FROM rust_v2_unrecorded WHERE id = ?1", [id], |r| r.get(0))?;
             return Ok(Prep::Write(bot, Line { event: UNCHECKED, outcome: "time", details: json!({ "when": "at a time that can't be read", "venue": "exchange", "reason": "time", "error": e }) }));
         }
         Err(e) => return Err(e),
@@ -626,7 +626,7 @@ fn prepare(c: &Connection, cipher: &crate::crypto::Cipher, id: i64, now: DateTim
     if symbols.len() > MAX_SYMBOLS { return Ok(Prep::Write(o.bot, line)); }
     let stamp = version.cache_stamp().to_string();
     let state: Option<(String, i64, Option<String>, Option<String>)> = c.query_row(
-        "SELECT stamp, attempts, refused_at, last_at FROM rust_rails_unrecorded_live WHERE obligation_id = ?1", [id],
+        "SELECT stamp, attempts, refused_at, last_at FROM rust_v2_unrecorded_live WHERE obligation_id = ?1", [id],
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
     // A row of another key is no state of this one (a new key is read afresh).
     if let Some((_, attempts, refused, last)) = state.filter(|(s, ..)| same_stamp(s, &stamp)) {
@@ -652,7 +652,7 @@ fn write_line(c: &Connection, id: i64, bot: i64, line: &Line, now: DateTime<Utc>
 }
 
 fn mark(c: &Connection, id: i64, bot: i64, line: &Line, now: DateTime<Utc>) -> Result<bool, EngineError> {
-    if c.execute("UPDATE rust_rails_unrecorded SET reported_at = ?2, outcome = ?3 WHERE id = ?1 AND reported_at IS NULL", params![id, format_time(now), line.outcome])? != 1 { return Ok(false); }
+    if c.execute("UPDATE rust_v2_unrecorded SET reported_at = ?2, outcome = ?3 WHERE id = ?1 AND reported_at IS NULL", params![id, format_time(now), line.outcome])? != 1 { return Ok(false); }
     model::log_activity(c, bot, line.event, Level::Warning, line.details.clone(), now)?;
     Ok(true)
 }
@@ -668,12 +668,12 @@ fn settle(c: &Connection, cipher: &crate::crypto::Cipher, read: &LiveRead, resul
         Err(e) => {
             let refused = matches!(e, HistoryError::Refused(_));
             let tx = model::immediate(c)?;
-            let row: Option<(String, i64, Option<String>)> = tx.query_row("SELECT stamp, attempts, refused_at FROM rust_rails_unrecorded_live WHERE obligation_id = ?1", [p.id],
+            let row: Option<(String, i64, Option<String>)> = tx.query_row("SELECT stamp, attempts, refused_at FROM rust_v2_unrecorded_live WHERE obligation_id = ?1", [p.id],
                                                                           |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
             let (attempts, refused_at) = match row { Some((s, a, r)) if same_stamp(&s, &p.stamp) => (a, r), _ => (0, None) };
             let attempts = attempts + i64::from(!refused);
             let refused_at = if refused { Some(format_time(now)) } else { refused_at };
-            tx.execute("INSERT INTO rust_rails_unrecorded_live (obligation_id, stamp, attempts, refused_at, last_at) VALUES (?1, ?2, ?3, ?4, ?5) \
+            tx.execute("INSERT INTO rust_v2_unrecorded_live (obligation_id, stamp, attempts, refused_at, last_at) VALUES (?1, ?2, ?3, ?4, ?5) \
                         ON CONFLICT (obligation_id) DO UPDATE SET stamp = excluded.stamp, attempts = excluded.attempts, refused_at = excluded.refused_at, last_at = excluded.last_at",
                        params![p.id, p.stamp, attempts, refused_at, format_time(now)])?;
             tx.commit()?;
@@ -699,7 +699,7 @@ fn settle(c: &Connection, cipher: &crate::crypto::Cipher, read: &LiveRead, resul
         if !mark(tx, p.id, p.bot, &line, now)? { return Ok(false); }
         // D-HISTORY-NO-LEDGER-REPORT-ONLY: a booking links its imported fills; a venue with none offers nothing.
         for o in offers.iter().filter(|o| bookable(o) && !no_ledger(&p.venue_type)) {
-            tx.execute("INSERT INTO rust_rails_unrecorded_offers (obligation_id, external_id, symbol, facts) VALUES (?1, ?2, ?3, ?4) ON CONFLICT DO NOTHING",
+            tx.execute("INSERT INTO rust_v2_unrecorded_offers (obligation_id, external_id, symbol, facts) VALUES (?1, ?2, ?3, ?4) ON CONFLICT DO NOTHING",
                        params![p.id, o.external_id, o.symbol, facts_json(o).to_string()])?;
         }
         Ok(true)
@@ -823,12 +823,12 @@ fn describe_live(o: &CreatedOrder, base: &str, quote: &str, ledger: Option<&(Big
 // abandoned by age (D-V2-UNRECORDED-NEVER-STALE) and never lowered below what the owner confirmed
 // (D-V2-UNRECORDED-SETTLED-LOWER).
 
-/// Activity events (texts: web::i18n `bot_activity.events.<event>`; `rails_order_not_added` by its `reason`).
-pub const RECOVERED: &str = "rails_order_recovered";
-pub const NOT_ADDED: &str = "rails_order_not_added";
-pub const NOT_MINE: &str = "rails_order_not_mine";
-pub const UNSETTLED: &str = "rails_order_unsettled";
-pub const SETTLED_LOWER: &str = "rails_order_settled_lower";
+/// Activity events (texts: web::i18n `bot_activity.events.<event>`; `v2_order_not_added` by its `reason`).
+pub const RECOVERED: &str = "v2_order_recovered";
+pub const NOT_ADDED: &str = "v2_order_not_added";
+pub const NOT_MINE: &str = "v2_order_not_mine";
+pub const UNSETTLED: &str = "v2_order_unsettled";
+pub const SETTLED_LOWER: &str = "v2_order_settled_lower";
 
 /// A transient identity read is retried no sooner than this, at most `BOOK_ATTEMPTS` times (r2.1).
 const BOOK_RETRY_AFTER: i64 = 60;
@@ -872,7 +872,7 @@ fn facts_of(v: &Value) -> Option<CreatedOrder> {
 
 /// r1.6: the obligations of the bot whose search windows overlap the obligation's, transitively (itself included).
 fn group(c: &Connection, obligation: i64) -> Result<Vec<i64>, EngineError> {
-    let Some(bot) = c.query_row("SELECT bot_id FROM rust_rails_unrecorded WHERE id = ?1", [obligation], |r| r.get::<_, i64>(0)).optional()? else { return Ok(vec![]) };
+    let Some(bot) = c.query_row("SELECT bot_id FROM rust_v2_unrecorded WHERE id = ?1", [obligation], |r| r.get::<_, i64>(0)).optional()? else { return Ok(vec![]) };
     Ok(groups(c, bot)?.of(obligation))
 }
 
@@ -886,7 +886,7 @@ impl Groups {
 }
 
 pub(crate) fn groups(c: &Connection, bot: i64) -> Result<Groups, EngineError> {
-    let mut s = c.prepare("SELECT id, span_from, span_to FROM rust_rails_unrecorded WHERE bot_id = ?1 ORDER BY id")?;
+    let mut s = c.prepare("SELECT id, span_from, span_to FROM rust_v2_unrecorded WHERE bot_id = ?1 ORDER BY id")?;
     let rows = s.query_map([bot], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))?.collect::<Result<Vec<_>, _>>()?;
     let around = Duration::seconds(AROUND);
     // A window that can't be read joins nothing.
@@ -958,12 +958,12 @@ impl Refused {
 /// The obligation's group, when the obligation is the user's bot's and its line was written; else NotFound. Decided or
 /// Pending when the group has a resolution or a waiting request.
 fn open_group(c: &Connection, user: i64, bot: i64, obligation: i64) -> Result<Result<Vec<i64>, Refused>, EngineError> {
-    let mine: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM rust_rails_unrecorded o JOIN bots b ON b.id = o.bot_id WHERE o.id = ?1 AND o.bot_id = ?2 \
+    let mine: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM rust_v2_unrecorded o JOIN bots b ON b.id = o.bot_id WHERE o.id = ?1 AND o.bot_id = ?2 \
                                   AND b.user_id = ?3 AND o.reported_at IS NOT NULL)", params![obligation, bot, user], |r| r.get(0))?;
     if !mine { return Ok(Err(Refused::NotFound)); }
     let ids = group(c, obligation)?;
-    if any_of(c, "rust_rails_unrecorded_resolutions", &ids)? { return Ok(Err(Refused::Decided)); }
-    if any_of(c, "rust_rails_unrecorded_requests", &ids)? { return Ok(Err(Refused::Pending)); }
+    if any_of(c, "rust_v2_unrecorded_resolutions", &ids)? { return Ok(Err(Refused::Decided)); }
+    if any_of(c, "rust_v2_unrecorded_requests", &ids)? { return Ok(Err(Refused::Pending)); }
     Ok(Ok(ids))
 }
 
@@ -971,9 +971,9 @@ fn open_group(c: &Connection, user: i64, bot: i64, obligation: i64) -> Result<Re
 pub fn request_booking(c: &Connection, user: i64, bot: i64, obligation: i64, offer: i64, now: DateTime<Utc>) -> Result<Result<(), Refused>, EngineError> {
     let tx = model::immediate(c)?;
     if let Err(r) = open_group(&tx, user, bot, obligation)? { return Ok(Err(r)); }
-    let offered: bool = tx.query_row("SELECT EXISTS (SELECT 1 FROM rust_rails_unrecorded_offers WHERE id = ?1 AND obligation_id = ?2)", params![offer, obligation], |r| r.get(0))?;
+    let offered: bool = tx.query_row("SELECT EXISTS (SELECT 1 FROM rust_v2_unrecorded_offers WHERE id = ?1 AND obligation_id = ?2)", params![offer, obligation], |r| r.get(0))?;
     if !offered { return Ok(Err(Refused::NotFound)); }
-    tx.execute("INSERT INTO rust_rails_unrecorded_requests (obligation_id, offer_id, requested_at, attempts) VALUES (?1, ?2, ?3, 0)", params![obligation, offer, format_time(now)])?;
+    tx.execute("INSERT INTO rust_v2_unrecorded_requests (obligation_id, offer_id, requested_at, attempts) VALUES (?1, ?2, ?3, 0)", params![obligation, offer, format_time(now)])?;
     tx.commit()?;
     Ok(Ok(()))
 }
@@ -983,7 +983,7 @@ pub fn dismiss(c: &Connection, user: i64, bot: i64, obligation: i64, now: DateTi
     let tx = model::immediate(c)?;
     let ids = match open_group(&tx, user, bot, obligation)? { Ok(ids) => ids, Err(r) => return Ok(Err(r)) };
     for id in &ids {
-        tx.execute("INSERT INTO rust_rails_unrecorded_resolutions (obligation_id, resolution, resolved_at) VALUES (?1, 'not_mine', ?2)", params![id, format_time(now)])?;
+        tx.execute("INSERT INTO rust_v2_unrecorded_resolutions (obligation_id, resolution, resolved_at) VALUES (?1, 'not_mine', ?2)", params![id, format_time(now)])?;
     }
     model::log_activity(&tx, bot, NOT_MINE, Level::Info, json!({ "obligation": obligation }), now)?;
     tx.commit()?;
@@ -1010,9 +1010,9 @@ pub fn offers_for(c: &Connection, bot: i64, obligations: &[i64], now: DateTime<U
         let Some(o) = load_where(c, id, false)? else { continue };
         if o.bot != bot { continue; }
         let ids = groups.of(id);
-        let mut view = ObligationView { obligation: id, resolved: any_of(c, "rust_rails_unrecorded_resolutions", &ids)?,
-                                        pending: any_of(c, "rust_rails_unrecorded_requests", &ids)?, offers: vec![] };
-        let mut s = c.prepare("SELECT id, facts FROM rust_rails_unrecorded_offers WHERE obligation_id = ?1 ORDER BY id")?;
+        let mut view = ObligationView { obligation: id, resolved: any_of(c, "rust_v2_unrecorded_resolutions", &ids)?,
+                                        pending: any_of(c, "rust_v2_unrecorded_requests", &ids)?, offers: vec![] };
+        let mut s = c.prepare("SELECT id, facts FROM rust_v2_unrecorded_offers WHERE obligation_id = ?1 ORDER BY id")?;
         let rows = s.query_map([id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
         for (offer, facts) in rows {
             let Some(f) = serde_json::from_str(&facts).ok().as_ref().and_then(facts_of) else { continue };
@@ -1060,15 +1060,15 @@ pub fn decision(c: &Connection, obligation: i64) -> Result<Option<(String, Optio
 fn decided(c: &Connection, ids: &[i64]) -> Result<Option<(String, Option<i64>, String)>, EngineError> {
     if ids.is_empty() { return Ok(None); }
     let list = ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
-    Ok(c.query_row(&format!("SELECT resolution, transaction_id, resolved_at FROM rust_rails_unrecorded_resolutions WHERE obligation_id IN ({list}) ORDER BY obligation_id LIMIT 1"),
+    Ok(c.query_row(&format!("SELECT resolution, transaction_id, resolved_at FROM rust_v2_unrecorded_resolutions WHERE obligation_id IN ({list}) ORDER BY obligation_id LIMIT 1"),
                    [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?)
 }
 
 /// Read-only: the bot's listing, or None when it has no answerable obligation.
 pub fn listing(c: &Connection, bot: i64, now: DateTime<Utc>) -> Result<Option<Listing>, EngineError> {
     let eligible: Vec<(i64, String, String)> = {
-        let mut s = c.prepare("SELECT o.id, o.span_from, o.span_to FROM rust_rails_unrecorded o WHERE o.bot_id = ?1 AND o.reported_at IS NOT NULL \
-                               AND EXISTS (SELECT 1 FROM rust_rails_unrecorded_offers f WHERE f.obligation_id = o.id) ORDER BY o.id")?;
+        let mut s = c.prepare("SELECT o.id, o.span_from, o.span_to FROM rust_v2_unrecorded o WHERE o.bot_id = ?1 AND o.reported_at IS NOT NULL \
+                               AND EXISTS (SELECT 1 FROM rust_v2_unrecorded_offers f WHERE f.obligation_id = o.id) ORDER BY o.id")?;
         let rows = s.query_map([bot], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
         rows
     };
@@ -1083,7 +1083,7 @@ pub fn listing(c: &Connection, bot: i64, now: DateTime<Utc>) -> Result<Option<Li
             let ids = &groups.members[g];
             let state = match decided(c, ids)? {
                 Some((r, tx, at)) => (if r == "booked" { ListedState::Booked } else { ListedState::NotMine }, tx, at),
-                None if any_of(c, "rust_rails_unrecorded_requests", ids)? => (ListedState::Checking, None, String::new()),
+                None if any_of(c, "rust_v2_unrecorded_requests", ids)? => (ListedState::Checking, None, String::new()),
                 None => (ListedState::Open, None, String::new()),
             };
             slot.insert(state);
@@ -1154,7 +1154,7 @@ pub async fn serve_bookings<F: crate::venue::VenueFactory>(c: &Connection, facto
                                                            now: DateTime<Utc>) -> Result<Served, EngineError> {
     let mut served = Served::default();
     let due: Vec<i64> = {
-        let mut s = c.prepare("SELECT obligation_id FROM rust_rails_unrecorded_requests WHERE last_at IS NULL OR last_at <= ?1 ORDER BY requested_at, obligation_id")?;
+        let mut s = c.prepare("SELECT obligation_id FROM rust_v2_unrecorded_requests WHERE last_at IS NULL OR last_at <= ?1 ORDER BY requested_at, obligation_id")?;
         let ids = s.query_map([format_time(now - Duration::seconds(BOOK_RETRY_AFTER))], |r| r.get(0))?.collect::<Result<_, _>>()?;
         ids
     };
@@ -1166,7 +1166,7 @@ pub async fn serve_bookings<F: crate::venue::VenueFactory>(c: &Connection, facto
             // One request that can't be served never holds the others or the rows already booked (Codex branch r1).
             Err(e) => {
                 super::log(&format!("[engine] 2.x-unrecorded booking request {obligation} refused: {}", e.kind()));
-                let bot: Option<i64> = c.query_row("SELECT bot_id FROM rust_rails_unrecorded WHERE id = ?1", [obligation], |r| r.get(0)).optional()?;
+                let bot: Option<i64> = c.query_row("SELECT bot_id FROM rust_v2_unrecorded WHERE id = ?1", [obligation], |r| r.get(0)).optional()?;
                 match bot { Some(bot) => { refuse(c, obligation, bot, "unreadable", None, now)?; } None => { drop_request(c, obligation)?; } }
             }
         }
@@ -1185,8 +1185,8 @@ struct Booking { obligation: i64, offer: i64, attempts: i64, o: Obligation, fact
 
 async fn book<F: crate::venue::VenueFactory>(c: &Connection, factory: &F, cipher: &crate::crypto::Cipher, obligation: i64, now: DateTime<Utc>) -> Result<Option<(i64, i64)>, EngineError> {
     let req: Option<(i64, i64, Option<String>)> = c.query_row(
-        "SELECT r.offer_id, r.attempts, (SELECT facts FROM rust_rails_unrecorded_offers WHERE id = r.offer_id AND obligation_id = r.obligation_id) \
-         FROM rust_rails_unrecorded_requests r WHERE r.obligation_id = ?1", [obligation], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
+        "SELECT r.offer_id, r.attempts, (SELECT facts FROM rust_v2_unrecorded_offers WHERE id = r.offer_id AND obligation_id = r.obligation_id) \
+         FROM rust_v2_unrecorded_requests r WHERE r.obligation_id = ?1", [obligation], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
     let Some((offer, attempts, facts)) = req else { return Ok(None) };
     let o = match load_where(c, obligation, false) { Ok(Some(o)) => o, Ok(None) | Err(EngineError::Data(_)) => return drop_request(c, obligation), Err(e) => return Err(e) };
     let Some(facts) = facts.and_then(|f| serde_json::from_str(&f).ok()).as_ref().and_then(facts_of) else { return refuse(c, obligation, o.bot, "unreadable", None, now) };
@@ -1211,7 +1211,7 @@ async fn book<F: crate::venue::VenueFactory>(c: &Connection, factory: &F, cipher
     // A transient failure counts an attempt; the last one refuses.
     let retry = || {
         if b.attempts + 1 >= BOOK_ATTEMPTS { return refused("unreachable"); }
-        c.execute("UPDATE rust_rails_unrecorded_requests SET attempts = attempts + 1, last_at = ?2 WHERE obligation_id = ?1", params![obligation, format_time(now)])?;
+        c.execute("UPDATE rust_v2_unrecorded_requests SET attempts = attempts + 1, last_at = ?2 WHERE obligation_id = ?1", params![obligation, format_time(now)])?;
         Ok(None)
     };
     let read = venue.orders_created(std::slice::from_ref(&b.facts.symbol), at - Duration::seconds(1), at + Duration::seconds(1), tokio::time::Instant::now() + READ_TIMEOUT).await;
@@ -1251,14 +1251,14 @@ async fn book<F: crate::venue::VenueFactory>(c: &Connection, factory: &F, cipher
 
 /// The request alone goes (its obligation is gone).
 fn drop_request(c: &Connection, obligation: i64) -> Result<Option<(i64, i64)>, EngineError> {
-    c.execute("DELETE FROM rust_rails_unrecorded_requests WHERE obligation_id = ?1", [obligation])?;
+    c.execute("DELETE FROM rust_v2_unrecorded_requests WHERE obligation_id = ?1", [obligation])?;
     Ok(None)
 }
 
-/// A refusal (r2.1): the request goes and the bot gets one `rails_order_not_added` line saying why; nothing else is written.
+/// A refusal (r2.1): the request goes and the bot gets one `v2_order_not_added` line saying why; nothing else is written.
 fn refuse(c: &Connection, obligation: i64, bot: i64, reason: &str, facts: Option<&CreatedOrder>, now: DateTime<Utc>) -> Result<Option<(i64, i64)>, EngineError> {
     let tx = model::immediate(c)?;
-    if tx.execute("DELETE FROM rust_rails_unrecorded_requests WHERE obligation_id = ?1", [obligation])? == 1 {
+    if tx.execute("DELETE FROM rust_v2_unrecorded_requests WHERE obligation_id = ?1", [obligation])? == 1 {
         let venue: String = tx.query_row("SELECT coalesce(e.name, 'the exchange') FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", [bot], |r| r.get(0))
             .optional()?.unwrap_or_else(|| "the exchange".into());
         let placed = facts.map(|f| f.created_at.format("%Y-%m-%d %H:%M:%S UTC").to_string());
@@ -1284,10 +1284,10 @@ fn scope_now(c: &Connection, o: &Obligation, bot: &model::Bot) -> Result<Option<
 fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Cipher, b: &Booking, bot_then: &model::Bot, venue_type: &str, fresh: &CreatedOrder,
                  now: DateTime<Utc>) -> Result<Result<i64, &'static str>, EngineError> {
     let c: &Connection = f;
-    let still: Option<i64> = c.query_row("SELECT offer_id FROM rust_rails_unrecorded_requests WHERE obligation_id = ?1", [b.obligation], |r| r.get(0)).optional()?;
+    let still: Option<i64> = c.query_row("SELECT offer_id FROM rust_v2_unrecorded_requests WHERE obligation_id = ?1", [b.obligation], |r| r.get(0)).optional()?;
     if still != Some(b.offer) { return Ok(Err("gone")); }
     let ids = group(c, b.obligation)?;
-    if any_of(c, "rust_rails_unrecorded_resolutions", &ids)? { return Ok(Err("resolved")); }
+    if any_of(c, "rust_v2_unrecorded_resolutions", &ids)? { return Ok(Err("resolved")); }
     let bot = model::load_bot(c, bot_then.id)?;
     if bot.status == BotStatus::Deleted { return Ok(Err("deleted")); }
     // §5: a tick that claimed the bot sized on the carry this would change.
@@ -1342,10 +1342,10 @@ fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Ciphe
               params![row, amount.as_ref().map(crate::v2::to_sql), quote_amount.as_ref().map(crate::v2::to_sql), crate::v2::to_sql(&price), interval.unwrap_or_default(), stamped])?;
     link_fills(c, bot.user_id, exchange, venue_type, &fresh.external_id, since, row)?;
     for id in &ids {
-        c.execute("INSERT INTO rust_rails_unrecorded_resolutions (obligation_id, resolution, offer_id, transaction_id, resolved_at, confirmed_base, confirmed_quote) \
+        c.execute("INSERT INTO rust_v2_unrecorded_resolutions (obligation_id, resolution, offer_id, transaction_id, resolved_at, confirmed_base, confirmed_quote) \
                    VALUES (?1, 'booked', ?2, ?3, ?4, ?5, ?6)",
                   params![id, b.offer, row, format_time(now), fresh.filled_base.to_s_f(), fresh.filled_quote.as_ref().map(BigDec::to_s_f)])?;
-        c.execute("DELETE FROM rust_rails_unrecorded_requests WHERE obligation_id = ?1", [id])?;
+        c.execute("DELETE FROM rust_v2_unrecorded_requests WHERE obligation_id = ?1", [id])?;
     }
     let (base_name, quote_name): (String, String) = c.query_row("SELECT base, quote FROM tickers WHERE id = ?1", [ticker_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     model::log_activity(c, bot.id, RECOVERED, Level::Info, json!({ "obligation": b.obligation, "transaction_id": row,
@@ -1383,8 +1383,9 @@ struct Booked { facts: CreatedOrder, venue: String, base: Option<String>, quote:
 
 /// The booked row's `Booked` (for the watch's lines and the r5.1 guard).
 fn booked_facts(c: &Connection, tx: i64) -> Result<Option<Booked>, EngineError> {
+    if !booking_tables(c)? { return Ok(None) }
     let row: Option<(String, Option<String>, Option<String>, String)> = c.query_row(
-        "SELECT o.facts, r.confirmed_base, r.confirmed_quote, r.resolved_at FROM rust_rails_unrecorded_resolutions r JOIN rust_rails_unrecorded_offers o ON o.id = r.offer_id \
+        "SELECT o.facts, r.confirmed_base, r.confirmed_quote, r.resolved_at FROM rust_v2_unrecorded_resolutions r JOIN rust_v2_unrecorded_offers o ON o.id = r.offer_id \
          WHERE r.transaction_id = ?1 AND r.resolution = 'booked' LIMIT 1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
     let Some((facts, base, quote, resolved)) = row else { return Ok(None) };
     let Some(facts) = serde_json::from_str(&facts).ok().as_ref().and_then(facts_of) else { return Ok(None) };
@@ -1393,11 +1394,11 @@ fn booked_facts(c: &Connection, tx: i64) -> Result<Option<Booked>, EngineError> 
 }
 
 /// r3.2: the booked rows still unknown or open, of bots not deleted: those no poll holds are enrolled again (in an hour);
-/// an unknown one 7 days after booking gets its one `rails_order_unsettled` line.
+/// an unknown one 7 days after booking gets its one `v2_order_unsettled` line.
 fn watch(c: &Connection, polled: &dyn Fn(i64) -> bool, now: DateTime<Utc>) -> Result<Vec<(i64, i64)>, EngineError> {
     let rows: Vec<(i64, i64, i64)> = {
         let mut s = c.prepare("SELECT t.id, t.bot_id, t.external_status FROM transactions t JOIN bots b ON b.id = t.bot_id WHERE t.status = 0 AND t.external_status IN (0, 1) \
-                               AND b.status <> ?1 AND t.id IN (SELECT transaction_id FROM rust_rails_unrecorded_resolutions WHERE resolution = 'booked') ORDER BY t.id")?;
+                               AND b.status <> ?1 AND t.id IN (SELECT transaction_id FROM rust_v2_unrecorded_resolutions WHERE resolution = 'booked') ORDER BY t.id")?;
         let rows = s.query_map([BotStatus::Deleted as i64], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
         rows
     };
@@ -1417,7 +1418,7 @@ const UNKNOWN_STATUS: i64 = 0;
 #[allow(clippy::too_many_arguments)]
 fn notice_once(c: &Connection, tx: i64, bot: i64, kind: &str, event: &str, facts: &CreatedOrder, venue: &str, now: DateTime<Utc>) -> Result<(), EngineError> {
     let own = c.is_autocommit().then(|| model::immediate(c)).transpose()?;
-    if c.execute("INSERT INTO rust_rails_unrecorded_notices (transaction_id, kind, at) VALUES (?1, ?2, ?3) ON CONFLICT DO NOTHING", params![tx, kind, format_time(now)])? == 1 {
+    if c.execute("INSERT INTO rust_v2_unrecorded_notices (transaction_id, kind, at) VALUES (?1, ?2, ?3) ON CONFLICT DO NOTHING", params![tx, kind, format_time(now)])? == 1 {
         model::log_activity(c, bot, event, Level::Warning, json!({ "transaction_id": tx, "venue": venue,
             "placed": facts.created_at.format("%Y-%m-%d %H:%M:%S UTC").to_string() }), now)?;
     }
@@ -1427,12 +1428,19 @@ fn notice_once(c: &Connection, tx: i64, bot: i64, kind: &str, event: &str, facts
 
 /// r4.1 (D-V2-UNRECORDED-NEVER-STALE): is this row a booked one?
 pub(crate) fn booked(c: &Connection, tx: i64) -> Result<bool, EngineError> {
-    Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM rust_rails_unrecorded_resolutions WHERE transaction_id = ?1 AND resolution = 'booked')", [tx], |r| r.get(0))?)
+    if !booking_tables(c)? { return Ok(false) }
+    Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM rust_v2_unrecorded_resolutions WHERE transaction_id = ?1 AND resolution = 'booked')", [tx], |r| r.get(0))?)
+}
+
+/// PLAN-B11-9 r1.3: only a copy 2.x built (a parity scratch copy) lacks the booking tables; nothing on it is booked. An
+/// install with the old tables and the rename pending never gets here (store::open refuses it, ReplacementPending).
+fn booking_tables(c: &Connection) -> Result<bool, EngineError> {
+    Ok(crate::engine::rules::table_exists(c, "rust_v2_unrecorded_resolutions")?)
 }
 
 /// r5.1 (D-V2-UNRECORDED-SETTLED-LOWER), inside the poll's transaction: true when the answer would lower a booked row
 /// below the gross totals the owner confirmed, net of the venue's taker fee (percent): it is then not applied, and the
-/// hold is noted; after 7 days held, one `rails_order_settled_lower` line. A consistent answer ends the hold.
+/// hold is noted; after 7 days held, one `v2_order_settled_lower` line. A consistent answer ends the hold.
 pub(crate) fn holds(c: &Connection, bot: i64, tx: i64, s: &crate::venue::OrderState, now: DateTime<Utc>) -> Result<bool, EngineError> {
     use crate::venue::OrderStatus;
     if matches!(s.status, OrderStatus::Unknown | OrderStatus::Failed) { return Ok(false); }
@@ -1446,12 +1454,12 @@ pub(crate) fn holds(c: &Connection, bot: i64, tx: i64, s: &crate::venue::OrderSt
     };
     let lower = below(base, Some(&s.amount_exec)) || (!s.sell && below(quote, s.quote_amount_exec.as_ref()));
     if !lower {
-        c.execute("DELETE FROM rust_rails_unrecorded_notices WHERE transaction_id = ?1 AND kind = 'held'", [tx])?;
+        c.execute("DELETE FROM rust_v2_unrecorded_notices WHERE transaction_id = ?1 AND kind = 'held'", [tx])?;
         return Ok(false);
     }
     super::log(&format!("[engine] bot {bot}: {venue} answered transaction {tx} with less filled than its owner confirmed; the row waits"));
-    c.execute("INSERT INTO rust_rails_unrecorded_notices (transaction_id, kind, at) VALUES (?1, 'held', ?2) ON CONFLICT DO NOTHING", params![tx, format_time(now)])?;
-    let since: String = c.query_row("SELECT at FROM rust_rails_unrecorded_notices WHERE transaction_id = ?1 AND kind = 'held'", [tx], |r| r.get(0))?;
+    c.execute("INSERT INTO rust_v2_unrecorded_notices (transaction_id, kind, at) VALUES (?1, 'held', ?2) ON CONFLICT DO NOTHING", params![tx, format_time(now)])?;
+    let since: String = c.query_row("SELECT at FROM rust_v2_unrecorded_notices WHERE transaction_id = ?1 AND kind = 'held'", [tx], |r| r.get(0))?;
     if matches!(parse_time(&since), Ok(at) if at + Duration::days(NOTICE_DAYS) <= now) { notice_once(c, tx, bot, "lower", SETTLED_LOWER, &facts, &venue, now)?; }
     Ok(true)
 }

@@ -452,7 +452,7 @@ async fn an_owned_restart_keeps_ticks_refused_until_a_complete_scheduler_refresh
     seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     handover::take_over(&lock, &o, &seed::cipher(), "test", at(T0)).map_err(|e| format!("{e:?}"))?;
     state::record_success(&o.primary, reference::ALPACA_CRYPTO, None, at("2026-08-01T00:00:00Z"))?;
-    o.primary.execute("UPDATE app_configs SET value = json_set(value, '$.rails_at', NULL) WHERE key = ?1", [state::key(reference::ALPACA_CRYPTO, None)])?;
+    o.primary.execute("UPDATE app_configs SET value = json_set(value, '$.v2_at', NULL) WHERE key = ?1", [state::key(reference::ALPACA_CRYPTO, None)])?;
     handover::take_over(&lock, &o, &seed::cipher(), "test", at(T0)).map_err(|e| format!("{e:?}"))?;
     let t = script(json!({}));
     let mut engine = run::Engine::new(o.primary, ScriptedFactory(t.clone()), seed::cipher(), lock);

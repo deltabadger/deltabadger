@@ -180,7 +180,7 @@ fn record_at(c: &Connection, s: &Source) -> Result<Option<Option<Clock>>, Engine
     let row_at = if s.name == TOP_COINS.name { Some(column_at(c,s,None)?) } else { None };
     Ok(crate::jobs::state::find(c, s.job, None).map_err(EngineError::Data)?.map(|st| {
         let catalogue = st.source_at.filter(|_| st.catalogue).map(|at| (at, CATALOGUE_BOUND_SECS));
-        let hosted = if s.evidence { st.source_at.filter(|_| !st.catalogue) } else { st.last_success_at.max(st.rails_at) };
+        let hosted = if s.evidence { st.source_at.filter(|_| !st.catalogue) } else { st.last_success_at.max(st.v2_at) };
         let hosted = match row_at { Some(row) => hosted.zip(row).map(|(run,row)|run.min(row)), None => hosted };
         newest(hosted.map(|at| (at, s.max_age_secs)), catalogue)
     }))

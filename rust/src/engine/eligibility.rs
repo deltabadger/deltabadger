@@ -109,7 +109,7 @@ pub fn rebalance_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, Engin
 /// Unported operations still refuse admission. Liquidation and redeploy states are admitted and stand trading down inside the engine.
 const PENDING_KEYS: [&str; 1] = ["rebalance_pending"];
 
-const UNKNOWN_STATUS: &str = "row(s) with a status Rails never writes";
+const UNKNOWN_STATUS: &str = "row(s) with a status 2.x never writes";
 const AMBIGUOUS_HALT: &str = "rebalance_pending in phase \"ambiguous\"";
 const ABANDONED_REBALANCE: &str = "abandoned REBALANCE order(s) (fill unknown)";
 

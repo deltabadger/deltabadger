@@ -356,19 +356,19 @@ async fn a_status_v2_never_writes_refuses_the_install_and_the_sweep() {
             c.execute_batch(&format!("UPDATE transactions SET status = {status} WHERE transaction_type = 'REDEPLOY'; UPDATE bots SET status = {bot_status}")).unwrap();
             let report = eligibility::check_install(c).unwrap();
             assert!(report.eligible.is_empty(), "status {status}, bot {bot_status}");
-            assert!(report.problems.iter().any(|p| p.contains("row(s) with a status Rails never writes")), "status {status}, bot {bot_status}: {:?}", report.problems);
+            assert!(report.problems.iter().any(|p| p.contains("row(s) with a status 2.x never writes")), "status {status}, bot {bot_status}: {:?}", report.problems);
             assert!(report.refusal().is_err());
             // Engine start follows up every outstanding order of any bot: the row is unresolved, never skipped.
             let row: i64 = c.query_row("SELECT id FROM transactions WHERE transaction_type = 'REDEPLOY'", [], |r| r.get(0)).unwrap();
             let t = transport();
             let followed = deltabadger::engine::polling::follow_up(c, &venue(&t), b.id, row, at()).await;
-            assert!(format!("{followed:?}").contains("status Rails never writes"), "status {status}, bot {bot_status}: {followed:?}");
+            assert!(format!("{followed:?}").contains("status 2.x never writes"), "status {status}, bot {bot_status}: {followed:?}");
             assert!(t.requests().is_empty(), "status {status}, bot {bot_status}");
             if bot_status == 1 {
                 let t = transport();
                 let _ = tick::tick(c, &venue(&t), b.id, &FixedClock(at()), &mut tick::Attempts::default()).await;
                 let refused: i64 = c.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'execution_failed' \
-                    AND (details LIKE '%unreadable transaction status%' OR details LIKE '%status Rails never writes%')", [b.id], |r| r.get(0)).unwrap();
+                    AND (details LIKE '%unreadable transaction status%' OR details LIKE '%status 2.x never writes%')", [b.id], |r| r.get(0)).unwrap();
                 assert_eq!(refused, 1, "status {status}: the tick refuses (at the shared row reader, or else at the sweep)");
                 assert!(t.posted_orders().is_empty() && !t.requests().iter().any(|r| r.path.starts_with("/v2/orders/")), "status {status}");
             }
