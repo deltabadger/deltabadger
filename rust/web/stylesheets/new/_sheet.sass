@@ -715,8 +715,16 @@ turbo-frame.sitem
 // small mark, the fields and Connect as Settings' stacked form (.sform--stack), the walkthrough a quiet card under it.
 .sheet__pane .bot-creation-layout--api
     padding: 2.5rem
+    // One column, centred in the pane both ways; a walkthrough taller than the pane grows it and scrolls from the top.
+    box-sizing: border-box
+    min-height: 100%
+    justify-content: center
+    align-items: center
     @media (max-width: 767.9px)
         padding: 1rem 2rem 4rem
+    > .vt-step-body
+        width: 100%
+        max-width: 44rem
     // Settings' rhythm: 1rem between the fields, Connect and the walkthrough; more under the title, as under a heading.
     .set-api
         gap: 1rem
@@ -735,11 +743,25 @@ turbo-frame.sitem
         .set-api__title
             font-size: 2rem
             line-height: 2.5rem
+        // Its first line: Alpaca's Paper/Live switch on the left, Connect on the right (alone where there is no switch);
+        // the fields under them, full width. Only drawn there: in the page Connect still comes after the fields.
         .set-api__form
+            display: grid
+            grid-template-columns: 1fr auto
+            align-items: center
             gap: 1rem
             max-width: 44rem
             margin: 0
+            > *
+                grid-column: 1 / -1
             .rinput--text
                 width: 100%
+        .set-api__mode
+            grid-row: 1
+            grid-column: 1
+            justify-self: start
+            margin: 0
         .set-api__actions
-            justify-content: flex-start
+            grid-row: 1
+            grid-column: 2
+            justify-content: flex-end
