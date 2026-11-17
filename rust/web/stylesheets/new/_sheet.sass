@@ -879,6 +879,9 @@ turbo-frame.sitem
     display: flex
     flex-direction: column
     gap: 1rem
+    // The key card's column: 44rem of content, the pane's side inset outside it.
+    box-sizing: content-box
+    width: calc(100% - 4rem)
     max-width: 44rem
     margin: 0 auto
     padding: 3rem 2rem
