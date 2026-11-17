@@ -39,12 +39,20 @@ export default class extends Controller {
           if (heading.style.translate !== shift) heading.style.translate = shift;
         });
       };
+      // A result's exchanges that do not fit their cell fade out at its right edge. Measured when the pane is resized or
+      // its content changes (a search, a lazy page of results), not on scroll; the class is written only when it changes,
+      // or the observer below would loop.
+      this.fade = () => this.pane.querySelectorAll(".modal--search__cell--exchanges").forEach((cell) => {
+        const over = cell.scrollWidth > cell.clientWidth + 1;
+        if (cell.classList.contains("is-overflowing") !== over) cell.classList.toggle("is-overflowing", over);
+      });
+      this.refresh = () => { this.check(); this.fade(); };
       this.pane.addEventListener("scroll", this.check, { passive: true });
-      this.resized = new ResizeObserver(this.check);
+      this.resized = new ResizeObserver(this.refresh);
       this.resized.observe(this.pane);
-      this.changed = new MutationObserver(this.check);
+      this.changed = new MutationObserver(this.refresh);
       this.changed.observe(this.pane, { childList: true, subtree: true, attributes: true });
-      this.check();
+      this.refresh();
       // The DCA key step: Connect is the primary button once every key field holds something, secondary until then.
       this.ready = () => {
         const form = this.pane.querySelector(".set-api__form");
