@@ -1,5 +1,5 @@
-//! Ruby semantics that Rails' output depends on, each pinned by vectors recorded from Ruby
-//! (script/rust/record_vectors.rb: "bigdec", "ruby"). BigDec is Ruby's BigDecimal as bigdecimal 4.1.3
+//! 2.x semantics that 2.x's output depends on, each pinned by vectors recorded from 2.x
+//! (the recorded vectors' "bigdec" and "ruby" groups). BigDec is 2.x's BigDecimal as bigdecimal 4.1.3
 //! computes it: exact + − ×, and division rounded half-up to a precision that depends on the operands.
 use crate::codec::CodecError;
 use bigdecimal::num_bigint::{BigInt, Sign};
@@ -139,7 +139,7 @@ impl BigDec {
         if scale <= 0 { n - scale } else { n.max(scale) }
     }
 
-    /// BigDecimal#/ (BigDecimal_div2 with n = 0). None for a zero divisor, where Ruby gives Infinity.
+    /// BigDecimal#/ (BigDecimal_div2 with n = 0). None for a zero divisor, where 2.x gives Infinity.
     pub fn div(&self, other: &Self) -> Option<Self> {
         if other.is_zero() { return None; }
         if self.is_zero() { return Some(Self::zero()); }
@@ -164,7 +164,7 @@ impl BigDec {
         Some(Self(BigDecimal::new(if negative { -q } else { q }, exponent).normalized()))
     }
 
-    /// A value with at most `places` fractional digits is already floored, ceiled and rounded (Ruby returns it unchanged), so
+    /// A value with at most `places` fractional digits is already floored, ceiled and rounded (2.x returns it unchanged), so
     /// it is returned as it is: with_scale_round would first pad it with zeros, `places` of them. `places` is a u8; an engine
     /// precision reaches it only through `scale`.
     fn scaled(&self, places: u8, mode: RoundingMode) -> Self {
@@ -203,8 +203,8 @@ pub fn scale(places: i64) -> Result<u8, CodecError> {
     }
 }
 
-/// A number in a venue's JSON as Ruby's `value.to_d` reads it: null is None (nil), an Integer exact, a Float by Float#to_d,
-/// a String as a decimal, each within the venue caps (VENUE_MAX_*). DIVERGES from Ruby on purpose: String#to_d reads "garbage" as 0 ("12abc" as 12) and "NaN" or
+/// A number in a venue's JSON as 2.x's `value.to_d` reads it: null is None (nil), an Integer exact, a Float by Float#to_d,
+/// a String as a decimal, each within the venue caps (VENUE_MAX_*). DIVERGES from 2.x on purpose: String#to_d reads "garbage" as 0 ("12abc" as 12) and "NaN" or
 /// "Infinity" as non-finite BigDecimals, and either would flow on as an ordinary price, quantity or fill. Here a string
 /// that is not a finite decimal within the bounds above, and any other JSON type, is an error, never zero.
 pub fn json_to_d(v: &Value) -> Result<Option<BigDec>, CodecError> {
@@ -237,7 +237,7 @@ pub fn from_sql(v: ValueRef<'_>) -> Result<Option<BigDec>, CodecError> {
     }
 }
 
-/// How Rails writes one: Transaction#before_save's round(18), then the SQLite adapter binds BigDecimal#to_f.
+/// How 2.x writes one: Transaction#before_save's round(18), then the SQLite adapter binds BigDecimal#to_f.
 pub fn to_sql(d: &BigDec) -> f64 { d.round(18).to_f() }
 
 /// `Time#as_json` for a UTC time: ISO 8601 with milliseconds and `Z`.
@@ -271,7 +271,7 @@ pub fn checked_round6_micros(anchor_us: i64, terms: &[(f64, i64)]) -> Option<i64
     let sum: BigInt = parts.iter().map(|(m, e)| m << (e - e_min) as usize).sum();
     let scaled = sum * 1_000_000;
     let divisor = BigInt::from(1) << (-e_min) as usize;
-    // Floor((scaled / divisor) + 1/2), including negative times (Ruby half-up).
+    // Floor((scaled / divisor) + 1/2), including negative times (2.x half-up).
     let numerator: BigInt = scaled * 2 + &divisor;
     let denominator: BigInt = divisor * 2;
     let mut rounded: BigInt = &numerator / &denominator;
@@ -313,7 +313,7 @@ pub fn inspect(items: &[String]) -> String {
 }
 
 /// Array#sum over Floats (array.c ary_sum): Kahan-Babuska compensated summation from Integer 0. Not a left fold:
-/// [0.1, 0.2, 0.3].sum is 0.6 in Ruby. Pinned by the float_sum vectors.
+/// [0.1, 0.2, 0.3].sum is 0.6 in 2.x. Pinned by the float_sum vectors.
 pub fn float_sum(xs: &[f64]) -> f64 {
     let (mut f, mut c) = (0.0f64, 0.0f64);
     for &x in xs {
@@ -328,7 +328,7 @@ pub fn float_sum(xs: &[f64]) -> f64 {
 /// when the halfway point divided back still lies at or below x, then divided by 10**n. A value already exact at this many
 /// digits (float_round_overflow) is returned unchanged, and a positive one too small for them (float_round_underflow) is 0.
 pub fn float_round(x: f64, ndigits: i32) -> f64 {
-    assert!((1..=14).contains(&ndigits), "Float#round({ndigits}) takes Ruby's rational path, not ported");
+    assert!((1..=14).contains(&ndigits), "Float#round({ndigits}) takes 2.x's rational path, not ported");
     if x == 0.0 || !x.is_finite() || x.is_subnormal() { return x; }
     let binexp = (((x.to_bits() >> 52) & 0x7ff) as i32) - 1022; // frexp's exponent: x = m × 2^binexp, 0.5 <= |m| < 1
     if ndigits >= 17 - if binexp > 0 { binexp / 4 } else { binexp / 3 - 1 } { return x; }
@@ -348,7 +348,7 @@ pub fn decimal_column(f: f64, precision: usize, scale: i32) -> Result<BigDec, Co
     Ok(BigDec::parse(&format!("{:.*e}", precision.clamp(1, 16) - 1, rounded))?.round(scale as u8)) // 1..=14: float_round asserted it
 }
 
-/// A Ruby numeric as Rails' amount-cap arithmetic carries it: Integer, Float or BigDecimal.
+/// A 2.x numeric as 2.x's amount-cap arithmetic carries it: Integer, Float or BigDecimal.
 /// Bot::QuoteAmountLimitable mixes all three: decimal columns pluck as BigDecimal, `pluck(Arel.sql('COALESCE(...)'))` as
 /// SQLite's own INTEGER or REAL, and the settings JSON holds the limit as an Integer or a Float. Pinned by the amount_caps
 /// vectors.
@@ -356,7 +356,7 @@ pub fn decimal_column(f: f64, precision: usize, scale: i32) -> Result<BigDec, Co
 pub enum Num { Int(i64), Float(f64), Dec(BigDec) }
 
 impl Num {
-    /// self + o, or self - o with `sub`, coerced as Ruby does: Integer with Integer stays Integer; Integer with Float is
+    /// self + o, or self - o with `sub`, coerced as 2.x does: Integer with Integer stays Integer; Integer with Float is
     /// Float arithmetic; anything with a BigDecimal is BigDecimal arithmetic, a Float operand converted as BigDecimal#coerce
     /// converts it (Float#to_d: 16 significant digits, BigDec::from_f64).
     fn op(&self, o: &Num, sub: bool) -> Result<Num, CodecError> {
@@ -376,11 +376,11 @@ impl Num {
     pub fn sub(&self, o: &Num) -> Result<Num, CodecError> { self.op(o, true) }
     fn to_f(&self) -> f64 { match self { Num::Int(i) => *i as f64, Num::Float(f) => *f, Num::Dec(d) => d.to_f() } }
     pub fn is_negative(&self) -> bool { match self { Num::Int(i) => *i < 0, Num::Float(f) => *f < 0.0, Num::Dec(d) => *d < BigDec::zero() } }
-    /// The value as a BigDecimal, a Float as Float#to_d (what a later BigDecimal operation in Ruby makes of it).
+    /// The value as a BigDecimal, a Float as Float#to_d (what a later BigDecimal operation in 2.x makes of it).
     pub fn to_dec(&self) -> Result<BigDec, CodecError> {
         match self { Num::Int(i) => Ok(BigDec::from_i64(*i)), Num::Float(f) => BigDec::from_f64(*f), Num::Dec(d) => Ok(d.clone()) }
     }
-    /// self < f, as Ruby compares with a Float: a BigDecimal against Float#to_d, the others as doubles.
+    /// self < f, as 2.x compares with a Float: a BigDecimal against Float#to_d, the others as doubles.
     pub fn lt_f64(&self, f: f64) -> Result<bool, CodecError> {
         Ok(match self { Num::Dec(d) => *d < BigDec::from_f64(f)?, _ => self.to_f() < f })
     }
@@ -388,11 +388,11 @@ impl Num {
 
 /// Array#sum (array.c ary_sum) over Integers, Floats and BigDecimals: Integers add exactly; from the first Float on, a
 /// Kahan-Babuska sum in doubles that starts from the Integer prefix (later Integers join as doubles); anything else leaves
-/// that path (the double so far, uncompensated, as Ruby's `not_float` does) and is added with `+`. Empty is Integer 0.
+/// that path (the double so far, uncompensated, as 2.x's `not_float` does) and is added with `+`. Empty is Integer 0.
 pub fn v2_sum(xs: &[Num]) -> Result<Num, CodecError> {
     let mut i = 0;
     let mut n: i64 = 0;
-    while let Some(Num::Int(x)) = xs.get(i) { n = n.checked_add(*x).ok_or(CodecError::IntegerOverflow("ruby_sum"))?; i += 1; }
+    while let Some(Num::Int(x)) = xs.get(i) { n = n.checked_add(*x).ok_or(CodecError::IntegerOverflow("v2_sum"))?; i += 1; }
     let mut v = Num::Int(n);
     if let Some(Num::Float(_)) = xs.get(i) {
         let (mut f, mut c) = (n as f64, 0.0f64);
@@ -410,8 +410,8 @@ pub fn v2_sum(xs: &[Num]) -> Result<Num, CodecError> {
     Ok(v)
 }
 
-/// `format!("{:e}", f)` with Ruby's digits. Both are the shortest digits that read back as `f`, but where two shortest
-/// strings are equally near it (831844647283.65625: "…6562" or "…6563") Ruby's dtoa (mode 0, behind Float#to_s and
+/// `format!("{:e}", f)` with 2.x's digits. Both are the shortest digits that read back as `f`, but where two shortest
+/// strings are equally near it (831844647283.65625: "…6562" or "…6563") 2.x's dtoa (mode 0, behind Float#to_s and
 /// Float#to_d) takes the even one and Rust's formatter the odd one. Every port of either reads its digits here.
 pub fn float_e(f: f64) -> String {
     let sci = format!("{f:e}");
@@ -449,7 +449,7 @@ pub fn float_to_s(f: f64) -> String {
     let sci = float_e(f.abs()); // "1.2345678912345679e8": the shortest round-trip digits
     let (mantissa, exp) = sci.split_once('e').unwrap_or((&sci, "0"));
     let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
-    let point = exp.parse::<i64>().unwrap_or(0) + 1; // digits before the decimal point (Ruby's decpt)
+    let point = exp.parse::<i64>().unwrap_or(0) + 1; // digits before the decimal point (2.x's decpt)
     let n = digits.len() as i64;
     if (point > 15 && !(point == 16 && n > 16)) || point <= -4 { // sixteen integer digits stay plain when a seventeenth follows
         let fraction = if n > 1 { &digits[1..] } else { "0" };
@@ -486,11 +486,11 @@ pub fn time_as_json(raw: &str, t: &chrono::DateTime<chrono::FixedOffset>) -> Str
 }
 
 
-/// Ruby String#strip: ASCII whitespace plus NUL, never Unicode separators.
+/// 2.x String#strip: ASCII whitespace plus NUL, never Unicode separators.
 pub fn strip(value: &str) -> &str { value.trim_matches(|c| matches!(c, '\0'|' '|'\t'|'\n'|'\r'|'\x0b'|'\x0c')) }
 /// ActiveSupport String#blank? uses the Unicode POSIX space class.
 pub fn blank(value: &str) -> bool { value.chars().all(char::is_whitespace) }
-/// Ruby \s is ASCII; keep Unicode letter classes enabled in the same expression.
+/// 2.x \s is ASCII; keep Unicode letter classes enabled in the same expression.
 pub fn validation_regex(pattern: &str) -> Result<regex::Regex, regex::Error> {
     regex::Regex::new(&pattern.replace(r"\s", r"[\x09-\x0d\x20]"))
 }

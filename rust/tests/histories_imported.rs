@@ -110,7 +110,7 @@ fn terminal_imported_rows_are_admitted_and_legacy_open_ones_refused() {
         let (_d, o, bot) = build(case);
         let reasons = eligibility::bot_reasons(&o.primary, &bot).unwrap();
         if name == "legacy_open" {
-            assert!(reasons.iter().any(|r| r == "1 legacy imported row(s) left open (Rails never polls or settles them)"), "{reasons:?}");
+            assert!(reasons.iter().any(|r| r == "1 legacy imported row(s) left open (2.x never polls or settles them)"), "{reasons:?}");
             continue;
         }
         assert!(!reasons.iter().any(|r| r.contains("imported") || r.contains("asset category")), "{name}: {reasons:?}");

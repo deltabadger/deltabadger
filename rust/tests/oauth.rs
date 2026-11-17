@@ -588,7 +588,7 @@ async fn v2_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows() {
 
     // The catalogue the consent screen and the grants are built from is Rails' own.
     let catalogue = read(&root.join("catalogue.json"));
-    // D-SPLIT-API: split_bots (off, among the controls) and D-RAILS-UNRECORDED-API: answer_unrecorded_order (off, among the
+    // D-SPLIT-API: split_bots (off, among the controls) and D-V2-UNRECORDED-API: answer_unrecorded_order (off, among the
     // trade tools) are this build's own; the rest of the catalogue is Rails'.
     let ours = |name: &&str| !["split_bots", "answer_unrecorded_order"].contains(name);
     assert_eq!(oauth::TOOL_DEFAULTS.iter().filter(|(name, _)| !ours(name)).collect::<Vec<_>>(), [&("split_bots", false), &("answer_unrecorded_order", false)]);

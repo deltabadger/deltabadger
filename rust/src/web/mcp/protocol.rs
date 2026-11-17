@@ -68,7 +68,7 @@ fn split_bots(data: &mut Value) {
         }
     }));
 }
-/// D-RAILS-UNRECORDED-API: answer_unrecorded_order, this build's own, after split_bots (oauth::TOOL_DEFAULTS' order).
+/// D-V2-UNRECORDED-API: answer_unrecorded_order, this build's own, after split_bots (oauth::TOOL_DEFAULTS' order).
 fn unrecorded_orders(data: &mut Value) {
     let id = |description: &str| json!({"type": "integer", "description": description});
     let Some(tools) = data["tools"].as_array_mut() else { return };

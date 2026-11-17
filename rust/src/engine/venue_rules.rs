@@ -1,4 +1,4 @@
-//! What Rails' Exchange subclasses decide differently per venue, as one table per venue selected by exchange type:
+//! What 2.x's Exchange subclasses decide differently per venue, as one table per venue selected by exchange type:
 //! Exchanges::*::ERRORS with Exchange#failure_kind (substring, first kind wins, FAILURE_KINDS order), the polls'
 //! #transient_error? / #throttled_error?, #minimum_amount_logic, the order wire format, and when an order the engine
 //! sent can be proven absent.
@@ -6,10 +6,10 @@ use super::model::Ticker;
 use crate::v2::BigDec;
 use crate::venue::Side;
 
-/// One branch of Bot::OrderSetter#calculate_best_amount_info (order_setter.rb:23-77).
+/// One branch of Bot::OrderSetter#calculate_best_amount_info.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AmountLogic {
-    /// :base_or_quote and :base_and_quote (one branch in Rails): quote or base, whichever minimum binds.
+    /// :base_or_quote and :base_and_quote (one branch in 2.x): quote or base, whichever minimum binds.
     BaseOrQuote,
     /// :base_and_quote_in_base: always base, against max(ceil(minimum_quote_size / price), minimum_base_size).
     BaseAndQuoteInBase,
@@ -34,7 +34,7 @@ pub enum WireFormat {
     /// Exchanges::Bitget#set_market_order / #set_limit_order (G1, #532): BigDecimal#to_s('F') strings and one `size` in the
     /// unit the order takes: quote coins for a market buy, base coins for a market sell and a limit order. An amount in the
     /// other unit is converted at #market_price_for (the touch the order was sized at, floored to the tick) and floored to
-    /// that unit's decimals, as Rails converts it.
+    /// that unit's decimals, as 2.x converts it.
     Bitget,
     /// Bybit takes either market unit; limit quantities are converted to base before the intent.
     Bybit,
@@ -68,7 +68,7 @@ pub struct VenueRules {
     pub kinds: [(&'static str, &'static [&'static str]); 6],
     /// What the polls' Exchange#transient_error? matches, for this venue as the engine applies it.
     pub transient_text: &'static [&'static str],
-    /// AddOrder answers that leave it unknown whether the order was placed (a sanctioned divergence: Rails writes a failed row).
+    /// AddOrder answers that leave it unknown whether the order was placed (a sanctioned divergence: 2.x writes a failed row).
     pub add_outcome_unknown: &'static [&'static str],
     pub minimum_logic: MinimumLogic,
     pub wire: WireFormat,
@@ -81,7 +81,7 @@ pub struct VenueRules {
     /// A venue without a server-side deadline (deadline_sent false): absence is concluded only from a lookup that starts
     /// this long after BOTH the intent's `at` and this process's start. Unused where the deadline is sent.
     pub absence_margin_secs: i64,
-    /// Rails' in-app clients (Clients::Alpaca) raise Client::TransientNetworkError on a transport failure; honeymaker's
+    /// 2.x's in-app clients (Clients::Alpaca) raise Client::TransientNetworkError on a transport failure; honeymaker's
     /// return a Failure. It decides what a failed price or balance read does to a tick.
     pub transport_raises: bool,
     /// Bot::FetchAndUpdateOrderJob raises on an unknown status and on a failed fetch. True for
@@ -96,7 +96,7 @@ pub struct VenueRules {
     pub absence_provable: bool,
     /// Exchange#authoritative_missing_orders? false where #get_orders names missing ids: a young order the venue left out
     /// fails the sweep ("Exchange omitted recent order(s)"). Kraken is authoritative; Alpaca's and Binance's #get_orders
-    /// never name one in Rails, so the guard cannot fire there.
+    /// never name one in 2.x, so the guard cannot fire there.
     pub young_missing_fails: bool,
     /// Exchange#adjusted_price (plan VB slice P).
     pub price_rule: PriceRule,
@@ -105,7 +105,7 @@ pub struct VenueRules {
 }
 
 /// BigDecimal#exponent of a non-zero value: the n with |x| = 0.d… × 10^n (66.6 → 2, 3.5 → 1, 0.0234 → -1). From the plain
-/// text, as `ruby.rs` is a hash-pinned accounting primitive.
+/// text, as `v2.rs` is a hash-pinned accounting primitive.
 fn exponent(price: &BigDec) -> i64 {
     let text = price.to_s_f();
     let (whole, fraction) = text.trim_start_matches('-').split_once('.').unwrap_or(("0", ""));
@@ -124,7 +124,7 @@ impl VenueRules {
     pub fn is_invalid_key(&self, messages: &[String]) -> bool { self.kinds.iter().any(|(k, pats)| *k == "invalid_key" && any(pats, messages)) }
     pub fn add_outcome_unknown(&self, messages: &[String]) -> bool { any(self.add_outcome_unknown, messages) }
 
-    /// Ticker#adjusted_price → Exchange#adjusted_price. `Err` where Rails raises: a scale outside `v2::MAX_SCALE`, or
+    /// Ticker#adjusted_price → Exchange#adjusted_price. `Err` where 2.x raises: a scale outside `v2::MAX_SCALE`, or
     /// Hyperliquid's `clamp(0, max_decimals)` with a negative max (base_decimals above 8 raises ArgumentError).
     pub fn adjusted_price(&self, price: &BigDec, ticker: &Ticker, method: Rounding) -> Result<BigDec, String> {
         let decimals = match self.price_rule {
@@ -141,7 +141,7 @@ impl VenueRules {
     }
 
     /// Exchange#market_price_for after its read of `touch` (the ask for a buy, the bid for a sell): adjusted_price(touch);
-    /// on a crossing venue (Gemini#/Hyperliquid#market_price_for) adjusted AGAIN after × (1 ± cross), as Rails does:
+    /// on a crossing venue (Gemini#/Hyperliquid#market_price_for) adjusted AGAIN after × (1 ± cross), as 2.x does:
     /// adjust(adjust(touch) × cross), not adjust(touch × cross).
     pub fn market_price(&self, touch: &BigDec, ticker: &Ticker, side: Side) -> Result<BigDec, String> {
         let adjusted = self.adjusted_price(touch, ticker, Rounding::Floor)?;
@@ -166,7 +166,7 @@ pub static KRAKEN: VenueRules = VenueRules {
     transient_text: &["EGeneral:Internal error", "EAPI:Invalid nonce", "EService:Unavailable", "EService:Busy", "EService:Deadline elapsed"],
     // The transient kind minus "EAPI:Invalid nonce", which Kraken returns before it looks at the order.
     add_outcome_unknown: &["EGeneral:Internal error", "EService:Unavailable", "EService:Busy", "EService:Deadline elapsed"],
-    // Exchanges::Kraken: a market buy is :base_or_quote. A limit buy is :base in Rails; D-KRAKEN-LIMIT-COSTMIN: Rust checks
+    // Exchanges::Kraken: a market buy is :base_or_quote. A limit buy is :base in 2.x; D-KRAKEN-LIMIT-COSTMIN: Rust checks
     // costmin too (:base_and_quote_in_base, as every venue with a notional floor), so a limit buy under it is skipped, not
     // sent and rejected.
     minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
@@ -245,7 +245,7 @@ pub static IBKR: VenueRules = VenueRules {
     transport_raises: true,
     follow_up_strict: true, market_hours: false, // D-BROKER-HOURS: Exchanges::Ibkr#market_open? fails open
     // D-IBKR-MISSING: an order IBKR's status read no longer reports waits (never recovered from /trades, never abandoned):
-    // IBKR keeps no complete order history to prove it gone. Rails abandons it as stale.
+    // IBKR keeps no complete order history to prove it gone. 2.x abandons it as stale.
     reports_missing: false,
     absence_provable: false,
     young_missing_fails: false,
@@ -269,7 +269,7 @@ pub static BINANCE_US: VenueRules = VenueRules { exchange_type: "Exchanges::Bina
 const BINANCE_RULES: VenueRules = VenueRules {
     exchange_type: "Exchanges::Binance",
     name: "Binance",
-    // Exchanges::Binance::ERRORS (binance.rb:3-9). Rails has no throttle list; the one text is venue::binance::HTTP_THROTTLE,
+    // Exchanges::Binance::ERRORS. 2.x has no throttle list; the one text is venue::binance::HTTP_THROTTLE,
     // which only a read answered HTTP 429/418 carries (spec E §2.10, a listed divergence).
     kinds: [("insufficient_funds", &["Account has insufficient balance for requested action."]),
             ("invalid_key", &["API-key format invalid.", "Invalid API-key, IP, or permissions for action.", "Invalid Api-Key ID."]),
@@ -278,7 +278,7 @@ const BINANCE_RULES: VenueRules = VenueRules {
     transient_text: &BINANCE_TRANSIENT,
     // Exchange#ambiguous_placement_error? is decided by HTTP status and transport in BinanceVenue::add_order, never by text.
     add_outcome_unknown: &[],
-    // Exchanges::Binance#minimum_amount_logic: market :base_and_quote (Rails runs the :base_or_quote branch), limit
+    // Exchanges::Binance#minimum_amount_logic: market :base_and_quote (2.x runs the :base_or_quote branch), limit
     // :base_and_quote_in_base.
     minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
     // Honeymaker::Clients::Binance#new_order sends BigDecimal#to_s('F') strings, as Kraken's client does.
@@ -306,7 +306,7 @@ const KUCOIN_TRANSIENT: [&str; 15] = ["Net::ReadTimeout", "Net::OpenTimeout", "F
 pub static KUCOIN: VenueRules = VenueRules {
     exchange_type: "Exchanges::Kucoin",
     name: "KuCoin",
-    // Exchanges::Kucoin::ERRORS (kucoin.rb:3-28), pinned by tests/kucoin.rs against the recorded list.
+    // Exchanges::Kucoin::ERRORS, pinned by tests/kucoin.rs against the recorded list.
     kinds: [("insufficient_funds", &["Balance insufficient!", "Insufficient balance"]),
             ("invalid_key", &["Invalid API-Key", "Invalid KC-API-SIGN", "Invalid passphrase", "The API key does not exist or site mismatch.",
                               "KC-API-KEY does not exist", "KC-API-KEY not exists", "KC-API-PASSPHRASE", "Signature error"]),
@@ -317,7 +317,7 @@ pub static KUCOIN: VenueRules = VenueRules {
     // Exchange#ambiguous_placement_error? reads ERRORS[:transient]; "Invalid KC-API-TIMESTAMP" (400002) is placement-safe
     // instead. The network patterns are left to the transport, which knows whether the request left (Client.pre_transmission?).
     add_outcome_unknown: &["Internal Server Error", "The system is busy", "500000", "230005"],
-    // Exchanges::Kucoin#minimum_amount_logic: market :base_or_quote, limit :base_and_quote_in_base (kucoin.rb:362).
+    // Exchanges::Kucoin#minimum_amount_logic: market :base_or_quote, limit :base_and_quote_in_base.
     minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
     // Honeymaker::Clients::Kucoin#place_order sends BigDecimal#to_s('F') strings.
     wire: WireFormat::Kraken,
@@ -327,7 +327,7 @@ pub static KUCOIN: VenueRules = VenueRules {
     transport_raises: false,
     // Bot::FetchAndUpdateOrderJob asks Exchanges::Kucoin#get_order: one order, strict.
     follow_up_strict: true, market_hours: false,
-    // #get_orders names a forgotten order under `missing` (kucoin.rb:312).
+    // #get_orders names a forgotten order under `missing`.
     reports_missing: true,
     absence_provable: false,
     young_missing_fails: true,
@@ -344,7 +344,7 @@ const BITVAVO_TRANSIENT: [&str; 20] = ["Net::ReadTimeout", "Net::OpenTimeout", "
 pub static BITVAVO: VenueRules = VenueRules {
     exchange_type: "Exchanges::Bitvavo",
     name: "Bitvavo",
-    // Exchanges::Bitvavo::ERRORS (bitvavo.rb:3-25), matched on the body as Bitvavo spells it.
+    // Exchanges::Bitvavo::ERRORS, matched on the body as Bitvavo spells it.
     kinds: [("insufficient_funds", &["sufficient balance to complete"]),
             ("invalid_key", &["No active API key found", "API Key must be of length", "\"errorCode\":308", "\"errorCode\":309"]),
             ("permission_denied", &["\"errorCode\":307", "\"errorCode\":310", "\"errorCode\":311", "\"errorCode\":312"]),
@@ -385,7 +385,7 @@ const BITGET_TRANSIENT: [&str; 15] = ["Net::ReadTimeout", "Net::OpenTimeout", "F
 pub static BITGET: VenueRules = VenueRules {
     exchange_type: "Exchanges::Bitget",
     name: "Bitget",
-    // Exchanges::Bitget::ERRORS (bitget.rb:3-23, post-audit G4), matched inside the body or honeymaker's api_error text;
+    // Exchanges::Bitget::ERRORS (post-audit G4), matched inside the body or honeymaker's api_error text;
     // pinned by tests/bitget.rs against the recorded list.
     kinds: [("insufficient_funds", &["Insufficient balance", "Insufficient account balance"]),
             ("invalid_key", &["Invalid Api Key", "Invalid ACCESS_KEY", "Invalid signature", "Apikey does not exist", "sign signature error",
@@ -425,7 +425,7 @@ const MEXC_TRANSIENT: [&str; 16] = ["Net::ReadTimeout", "Net::OpenTimeout", "Far
 pub static MEXC: VenueRules = VenueRules {
     exchange_type: "Exchanges::Mexc",
     name: "MEXC",
-    // Exchanges::Mexc::ERRORS (mexc.rb:3-20, AUDIT-mexc X4), matched on #parse_error_message's `msg`.
+    // Exchanges::Mexc::ERRORS (AUDIT-mexc X4), matched on #parse_error_message's `msg`.
     kinds: [("insufficient_funds", &["Insufficient balance", "Insufficient position", "Oversold"]),
             ("invalid_key", &["Api key info invalid", "API-key format invalid", "Invalid Api-Key ID.", "Signature for this request is not valid",
                               "Signature verification failed"]),
@@ -436,7 +436,7 @@ pub static MEXC: VenueRules = VenueRules {
     // Exchange#ambiguous_placement_error?: ERRORS[:transient] leaves a placement unknown whatever the HTTP status, but the
     // -1021 strings, placement-safe (placement::PLACEMENT_SAFE_TRANSIENT_ERRORS).
     add_outcome_unknown: &["service not available", "Gateway Time-out"],
-    // Exchanges::Mexc#minimum_amount_logic: market :base_and_quote (Rails runs the :base_or_quote branch), limit
+    // Exchanges::Mexc#minimum_amount_logic: market :base_and_quote (2.x runs the :base_or_quote branch), limit
     // :base_and_quote_in_base. A zero base minimum (PEPEUSDT's baseSizePrecision) leaves the quote minimum the only floor.
     minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
     // Honeymaker::Clients::Mexc#new_order sends BigDecimal#to_s('F') strings.
@@ -469,7 +469,7 @@ const GEMINI_TRANSIENT: [&str; 15] = ["Net::ReadTimeout", "Net::OpenTimeout", "F
 pub static GEMINI: VenueRules = VenueRules {
     exchange_type: "Exchanges::Gemini",
     name: "Gemini",
-    // Exchanges::Gemini::ERRORS (gemini.rb:16-37), matched inside the error body; pinned by tests/gemini.rs.
+    // Exchanges::Gemini::ERRORS, matched inside the error body; pinned by tests/gemini.rs.
     kinds: [("insufficient_funds", &["InsufficientFunds", "Insufficient Funds"]), ("invalid_key", &["InvalidSignature", "InvalidApiKey"]),
             ("permission_denied", &["MissingRole"]), ("restricted", &[]), ("throttle", &["RateLimit"]),
             ("transient", &["InvalidNonce", "\"reason\":\"System\"", "\"reason\":\"Maintenance\""])],

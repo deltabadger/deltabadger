@@ -749,11 +749,11 @@ async fn sizing_property_both_fee_semantics() {
 #[test]
 fn cli_all_modes_amount_and_list() {
     for args in [
-        vec!["--rails-list", "1"],
-        vec!["--rails", "1", "--sent", "X", "--amount", "0.1"],
-        vec!["--rails-job", "job", "--sent", "X", "--amount", "0.1"],
-        vec!["--rails-job", "job", "--recorded", "3"],
-        vec!["--rails-job", "job", "--skip"],
+        vec!["--v2-list", "1"],
+        vec!["--v2", "1", "--sent", "X", "--amount", "0.1"],
+        vec!["--v2-job", "job", "--sent", "X", "--amount", "0.1"],
+        vec!["--v2-job", "job", "--recorded", "3"],
+        vec!["--v2-job", "job", "--skip"],
         vec!["1", "--not-sent"],
     ] {
         assert!(w::parse_cli(&args.into_iter().map(str::to_string).collect::<Vec<_>>()).is_ok());

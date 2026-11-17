@@ -1,11 +1,11 @@
 //! Ticker::TechnicallyAnalyzable: RSI and the moving averages over a ticker's closed candles, the high and low of a
-//! trailing window, and the all-time high the price-drop rule reads, which Rails keeps on the `tickers` row (`ath`,
+//! trailing window, and the all-time high the price-drop rule reads, which 2.x keeps on the `tickers` row (`ath`,
 //! `ath_updated_at`). Values only: the rules that read them (gate, check, status line) are 7b-3's. Each value carries
-//! Ruby's numeric class (`Num`) and is computed as Ruby computes it (BigDecimal closes, Float smoothing, BigDecimal#/),
+//! 2.x's numeric class (`Num`) and is computed as 2.x computes it (BigDecimal closes, Float smoothing, BigDecimal#/),
 //! pinned by tests/fixtures/indicator_vectors.json.
 //!
-//! Every function answers Rails' `Result`: `Ok(Ok(value))` is a Success, `Ok(Err(e))` a Failure with the venue's text or
-//! Rails' own; the outer `Err` is the engine's (the database).
+//! Every function answers 2.x's `Result`: `Ok(Ok(value))` is a Success, `Ok(Err(e))` a Failure with the venue's text or
+//! 2.x's own; the outer `Err` is the engine's (the database).
 use super::candles::{Candle, Timeframe};
 use super::model::Ticker;
 use super::EngineError;
@@ -47,7 +47,7 @@ impl Span {
     }
 }
 
-/// `moving_average_limit_in_ma_type`'s two values (any other raises in Rails, Bot::MovingAverageLimitable).
+/// `moving_average_limit_in_ma_type`'s two values (any other raises in 2.x, Bot::MovingAverageLimitable).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MaType { Sma, Ema }
 
@@ -57,7 +57,7 @@ enum Key { Rsi(i64, usize, Timeframe), Ma(i64, usize, Timeframe), High(i64, Wind
 #[derive(Clone, Debug)]
 enum Kept { Rsi(Num), Ma { sma: Num, ema: Num }, Price(Option<BigDec>), Empty }
 
-/// DIVERGES (D-COND-CACHE): Rails.cache with Rails' keys and lifetimes, held in engine memory, so a restart forgets it.
+/// DIVERGES (D-COND-CACHE): 2.x's cache, with its keys and lifetimes, held in engine memory, so a restart forgets it.
 /// RSI and the moving averages until their candle closes (Utilities::Time.seconds_to_current_candle_close), a window's
 /// high or low 20 s, a known-empty ATH seed 1 h. A Failure is never kept.
 #[derive(Default)]
@@ -108,16 +108,16 @@ fn minus_float(t: DateTime<Utc>, f: f64) -> DateTime<Utc> {
     DateTime::from_timestamp(ns.div_euclid(1_000_000_000) as i64, ns.rem_euclid(1_000_000_000) as u32).expect("in range")
 }
 
-/// `Time.now.utc - earlier` as Ruby gives it: the nanosecond difference as a double, over 10⁹.
+/// `Time.now.utc - earlier` as 2.x gives it: the nanosecond difference as a double, over 10⁹.
 fn seconds_since(now: DateTime<Utc>, earlier: DateTime<Utc>) -> f64 {
     let ns = |t: DateTime<Utc>| i128::from(t.timestamp()) * 1_000_000_000 + i128::from(t.timestamp_subsec_nanos());
     (ns(now) - ns(earlier)) as f64 / 1e9
 }
 
 /// Ticker#closed_candle_closes: the closes of the candles since `(multiplier + 2)` timeframes ago, the newest dropped
-/// while it is still forming. No candles at all is Rails' Failure.
+/// while it is still forming. No candles at all is 2.x's Failure.
 async fn closed_candle_closes<V: Venue>(venue: &V, ticker: &Ticker, tf: Timeframe, multiplier: u32, now: DateTime<Utc>) -> Result<Vec<BigDec>, VenueError> {
-    // D-COND-LOOKBACK-RANGE: Rails' arbitrary-range Time accepts dates outside chrono's range.
+    // D-COND-LOOKBACK-RANGE: 2.x's arbitrary-range Time accepts dates outside chrono's range.
     // Such a lookback is a settled read failure, never an overflow or a panic.
     let since = multiplier.checked_add(2).and_then(|n| back(now, tf, n))
         .ok_or_else(|| VenueError::Rejected(vec!["condition candle lookback is outside the supported date range".into()]))?;
@@ -143,8 +143,8 @@ fn div_f(f: f64, n: &Num) -> Option<Num> {
     Some(match n { Num::Dec(d) => Num::Dec(BigDec::from_f64(f).ok()?.div(d)?), _ => Num::Float(f / to_f(n)) })
 }
 
-/// RubyTechnicalAnalysis::RelativeStrengthIndex#call over BigDecimal closes (`period < closes.len()`): the first window
-/// seeds both channels with WildersSmoothing (a Float mean), each later one smooths by 1/period. None where Ruby raises.
+/// the technical-analysis gem's RelativeStrengthIndex#call over BigDecimal closes (`period < closes.len()`): the first window
+/// seeds both channels with WildersSmoothing (a Float mean), each later one smooths by 1/period. None where 2.x raises.
 fn rsi_of(closes: &[BigDec], period: usize) -> Option<Num> {
     let one = 1.0 / period as f64;
     let two = 1.0 - one;
@@ -172,7 +172,7 @@ fn rsi_of(closes: &[BigDec], period: usize) -> Option<Num> {
 }
 
 /// `value.round(places)`: Float#round (Integer at 0 places) or BigDecimal#round (Integer at 0 places, else half up).
-/// DIVERGES (D-COND-ROUND-UNPORTED): Float#round past 14 places (Ruby's rational path) is not ported: a settled failure.
+/// DIVERGES (D-COND-ROUND-UNPORTED): Float#round past 14 places (2.x's rational path) is not ported: a settled failure.
 fn round(n: &Num, places: i64) -> Option<Num> {
     match n {
         Num::Float(f) if places == 0 => f.is_finite().then(|| Num::Int(f.round() as i64)),
@@ -184,8 +184,8 @@ fn round(n: &Num, places: i64) -> Option<Num> {
 }
 
 /// Ticker#get_rsi_value. DIVERGES (D-COND-RSI-DEGENERATE): a series with no gain and no loss in its smoothing (a flat
-/// series; with period 1, a flat last step) gives Rails NaN (Float, or BigDecimal at period 1), a Success that reads as
-/// unmet on both sides and shows "NaN"; here it is Rails' own too-few-closes Failure, never kept.
+/// series; with period 1, a flat last step) gives 2.x NaN (Float, or BigDecimal at period 1), a Success that reads as
+/// unmet on both sides and shows "NaN"; here it is 2.x's own too-few-closes Failure, never kept.
 pub async fn rsi<V: Venue>(venue: &V, cache: &Cache, ticker: &Ticker, tf: Timeframe, period: usize, now: DateTime<Utc>) -> Result<Num, VenueError> {
     let key = Key::Rsi(ticker.id, period, tf);
     if let Some(Kept::Rsi(v)) = cache.get(&key, now) { return Ok(v); }
@@ -200,9 +200,9 @@ pub async fn rsi<V: Venue>(venue: &V, cache: &Cache, ticker: &Ticker, tf: Timefr
     Ok(value)
 }
 
-/// Ticker#get_moving_average_value: RubyTechnicalAnalysis::MovingAverages' SMA (`last(period).sum.to_f / period`) or EMA
+/// Ticker#get_moving_average_value: the technical-analysis gem's MovingAverages SMA (`last(period).sum.to_f / period`) or EMA
 /// (a BigDecimal fold with the gem's percentages, 12 and 26 hard-coded), each rounded to the ticker's price decimals.
-/// Both are kept under one key, as Rails keeps them.
+/// Both are kept under one key, as 2.x keeps them.
 pub async fn moving_average<V: Venue>(venue: &V, cache: &Cache, ticker: &Ticker, tf: Timeframe, period: usize, kind: MaType, now: DateTime<Utc>) -> Result<Num, VenueError> {
     let pick = |sma: Num, ema: Num| match kind { MaType::Sma => sma, MaType::Ema => ema };
     let key = Key::Ma(ticker.id, period, tf);
@@ -251,7 +251,7 @@ async fn extreme<V: Venue>(venue: &V, ticker: &Ticker, span: Span, low: bool, no
 pub async fn low_of_last<V: Venue>(venue: &V, cache: &Cache, ticker: &Ticker, window: Window, now: DateTime<Utc>) -> Result<Option<BigDec>, VenueError> {
     let key = Key::Low(ticker.id, window);
     if let Some(Kept::Price(v)) = cache.get(&key, now) { return Ok(v); }
-    // Rails raises (FloatDomainError) on an infinite low window; the sell side never offers one.
+    // 2.x raises (FloatDomainError) on an infinite low window; the sell side never offers one.
     let span = window.span().ok_or_else(|| VenueError::Rejected(vec!["There is no all-time low window".into()]))?;
     let low = extreme(venue, ticker, span, true, now).await?;
     cache.put(key, now + Duration::seconds(20), Kept::Price(low.clone()));
@@ -261,7 +261,7 @@ pub async fn low_of_last<V: Venue>(venue: &V, cache: &Cache, ticker: &Ticker, wi
 /// Ticker#get_high_of_last. A finite window is its candles' high. The ATH (`Window::Ath`) is `tickers.ath`, kept current:
 /// a ticker seeded on a history that cannot change reads only the candles since `ath_updated_at` and keeps the larger;
 /// otherwise (unseeded, or an Alpaca stock, whose history every split restates) it walks 20 years of days, then the
-/// fallback windows, and the full walk of a restated ticker replaces the high. Rails' `update!(ath:, ath_updated_at:)`
+/// fallback windows, and the full walk of a restated ticker replaces the high. 2.x's `update!(ath:, ath_updated_at:)`
 /// writes the row (only what changed, `updated_at` with it). An unseeded ticker with no history at all is remembered
 /// for an hour and not walked again.
 pub async fn high_of_last<V: Venue>(c: &Connection, venue: &V, cache: &Cache, ticker: &Ticker, window: Window, now: DateTime<Utc>) -> Result<Result<Option<BigDec>, VenueError>, EngineError> {

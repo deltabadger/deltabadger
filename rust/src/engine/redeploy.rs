@@ -48,7 +48,7 @@ pub(crate) fn clear(c: &Connection, id: i64, request: &Value) -> Result<(), Engi
 }
 
 /// D-6C-12: what one share sends, or None below the venue's minimum. A quote-sized market buy where the venue's market
-/// logic takes quote and the quote clears its minimum. Otherwise base-denominated: a crossing venue keeps Rails' path (its
+/// logic takes quote and the quote clears its minimum. Otherwise base-denominated: a crossing venue keeps 2.x's path (its
 /// persisted crossed limit, with the 1% haircut); any other venue sends a GTC limit at ref × 1.01, sized share / limit and
 /// floored, checked against the limit minimums at that price and quantity. Spend never exceeds the share there.
 /// `headroom`: false when the fold only asks whether a share is placeable (Redeployable#placeable? sizes without it).

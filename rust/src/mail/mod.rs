@@ -1,8 +1,8 @@
 //! Bot and account mail. A message is built here exactly as Action Mailer 8.1 and the mail gem 2.9.1 build it for this
 //! app's mailers: one text/html part, UTF-8, the headers in the gem's order, the subject folded and Q-encoded word by
 //! word, the body sent as 7bit, quoted-printable or base64, whichever the gem would pick. Only Date and Message-ID are
-//! this process's own. Pinned by rust/tests/mail.rs (vectors from script/rust/mail_vectors.rb) and, for whole mails
-//! against Rails, by rust/tests/mail_parity.rs.
+//! this process's own. Pinned by rust/tests/mail.rs (recorded vectors) and, for whole mails
+//! against 2.x, by rust/tests/mail_parity.rs.
 //!
 //! One rule is stricter than the gem's: no value that becomes a header may hold a control character (a line break in
 //! a display name or a label would otherwise write a header of its own). Such a message is refused, not repaired.
@@ -129,7 +129,7 @@ fn subject_field(subject: &str) -> String {
     format!("Subject: {}", lines.join("\r\n "))
 }
 
-/// Ruby's `[text].pack("M")` (pack.c, qpencode): `=XX` for bytes above 126, below 32 (but not line feed or tab) and `=`;
+/// 2.x's `[text].pack("M")` (pack.c, qpencode): `=XX` for bytes above 126, below 32 (but not line feed or tab) and `=`;
 /// a soft break after 73 columns; a space or tab before a line feed is protected by a soft break; a last line without a
 /// line feed ends in one.
 fn pack_m(text: &str) -> String {
@@ -191,7 +191,7 @@ fn transfer_encode(html: &str) -> (&'static str, String) {
 
 impl Message {
     /// The message on the wire (CRLF line ends, ASCII only). `date` and `message_id` are the two fields that are this
-    /// process's own; everything else is what Rails would send. Err names the first value that may not be sent: a
+    /// process's own; everything else is what 2.x would send. Err names the first value that may not be sent: a
     /// sender or recipient that is not an address, or a header value with a control character in it.
     pub fn encode(&self, date: DateTime<Utc>, message_id: &str) -> Result<String, &'static str> {
         let from = mailbox(&self.from).filter(|m| address_ok(&m.address)).ok_or("the sender is blank, not an address, or holds a control character")?;

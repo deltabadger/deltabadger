@@ -638,7 +638,7 @@ fn a_future_heartbeat_refuses_serve_in_plain_words() {
     let r = refused(dir.path(), &mut bare(dir.path(), &["serve"]));
     assert_eq!(r.status, Some(0), "{}", r.stderr);
     let line = "Deltabadger didn't start: your previous version of Deltabadger still seems to be running on this data. Stop it, then start this again. Nothing was changed.";
-    assert!(r.stderr.contains(&format!("deltabadger: {line}\ndeltabadger: the Rails app looks alive (job heartbeat -")), "{}", r.stderr);
+    assert!(r.stderr.contains(&format!("deltabadger: {line}\ndeltabadger: 2.x looks alive (job heartbeat -")), "{}", r.stderr);
     assert!(r.page.contains(&line.replace('\'', "&#39;")) && !r.page.contains("heartbeat") && !r.page.contains("Rails"), "{}", r.page);
     assert_eq!(files_of(dir.path()), before);
 }
@@ -657,7 +657,7 @@ fn a_takeover_refused_for_support_shows_plain_words_and_logs_the_lines() {
     let r = refused(dir.path(), &mut cli(dir.path(), &["serve"]));
     assert_eq!(r.status, Some(0), "{}", r.stderr);
     let line = "Deltabadger didn't start: some of your data has to be checked by support first. Nothing was bought or sold. Contact support.";
-    let support = format!("rule {rule}: Rails attempt {attempt} is unconfirmed; resolve-withdrawal --rails {attempt}");
+    let support = format!("rule {rule}: 2.x attempt {attempt} is unconfirmed; resolve-withdrawal --v2 {attempt}");
     assert!(r.stderr.contains(&support) && r.stderr.contains(&format!("deltabadger: {line}")), "{}", r.stderr);
     assert!(r.page.contains(&line.replace('\'', "&#39;")) && !r.page.contains("resolve-withdrawal"), "{}", r.page);
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
@@ -751,7 +751,7 @@ fn check_and_handback_refuse_a_fresh_heartbeat_at_once() {
         let out = finished(&mut cli(dir.path(), &[cmd]));
         assert_eq!(out.status.code(), Some(1), "{cmd}");
         let err = stderr(&out);
-        assert!(err.contains("the Rails app looks alive (job heartbeat ") && err.contains("s ago); stop it first") && err.contains("still seems to be running on this data"), "{cmd}: {err}");
+        assert!(err.contains("2.x looks alive (job heartbeat ") && err.contains("s ago); stop it first") && err.contains("still seems to be running on this data"), "{cmd}: {err}");
         assert!(started.elapsed() < std::time::Duration::from_secs(10), "{cmd} took {:?}", started.elapsed());
     }
 }
@@ -768,7 +768,7 @@ fn run_refuses_a_heartbeat_still_fresh_after_its_one_wait() {
     assert_eq!(exited(&mut child, std::time::Duration::from_secs(20)).code(), Some(1));
     let mut err = String::new();
     std::io::Read::read_to_string(&mut child.0.stderr.take().unwrap(), &mut err).unwrap();
-    assert!(err.contains("the Rails app looks alive (job heartbeat ") && err.contains("s ago); stop it first"), "{err}");
+    assert!(err.contains("2.x looks alive (job heartbeat ") && err.contains("s ago); stop it first"), "{err}");
     assert!(rx.try_iter().all(|line| !line.contains("before taking over")), "one wait only");
     assert!(lease_of(dir.path()).is_none());
 }
@@ -1681,7 +1681,7 @@ fn freeze_b11_9_takeover_installs() {
                       else { "INSERT INTO solid_queue_failed_executions (job_id, error, created_at) VALUES (?1, 'pruned', '2026-09-30 11:00:00')" };
             q.execute(sql, [id]).unwrap();
         }
-        let resolved = Command::new(env!("CARGO_BIN_EXE_deltabadger")).args(["resolve-withdrawal", "--rails", &attempt, "--sent", "new-id", "--amount", "0.9"])
+        let resolved = Command::new(env!("CARGO_BIN_EXE_deltabadger")).args(["resolve-withdrawal", "--v2", &attempt, "--sent", "new-id", "--amount", "0.9"])
             .env("STORAGE_DIR", dir.path()).env("SECRET_KEY_BASE", "engine-test-secret").env_remove("DATABASE_PATH").env_remove("QUEUE_DATABASE_PATH")
             .env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT").env_remove("ACTIVE_RECORD_ENCRYPTION_KEYS_EXTERNAL").output().unwrap();
         assert!(resolved.status.success(), "{}", stderr(&resolved));

@@ -480,7 +480,7 @@ async fn the_pl_form_generates_with_its_carry_and_keeps_the_modal_on_a_refused_a
 }
 
 /// PLAN-B2 r7.2 (B2-6b pin): a 2.x install stopped while its Tax::GenerateReportJob was queued. The takeover drops the job
-/// (D-UPGRADE-RAILS-WORK-DROPPED); the leftover `pending_report` shows nothing in progress on the tracker page, and the
+/// (D-UPGRADE-V2-WORK-DROPPED); the leftover `pending_report` shows nothing in progress on the tracker page, and the
 /// API/MCP status says `none`: the user asks for the report again.
 #[tokio::test]
 async fn a_v2_report_job_dropped_at_takeover_leaves_nothing_in_progress() {

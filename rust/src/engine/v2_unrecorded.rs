@@ -1,14 +1,14 @@
-//! A28-1 (PLAN-A28 r2-r5): the orders Rails may have sent but never recorded (Rails' KNOWN GAP, action_job.rb:167-183),
+//! A28-1 (PLAN-A28 r2-r5): the orders 2.x may have sent but never recorded (2.x's KNOWN GAP in Bot::ActionJob),
 //! reported to the bot's owner with what the imported ledger shows. Nothing here writes a `transactions` row, moves a
-//! carry or calls a venue (D-RAILS-UNRECORDED-REPORTED).
+//! carry or calls a venue (D-V2-UNRECORDED-REPORTED).
 //!
-//! `collect` runs in a takeover's claim transaction when the install comes from Rails, and records one obligation per
-//! source Rails wrote while it owned the install (r4.1, r5.1). `report` (the hourly job) writes each obligation's one line
+//! `collect` runs in a takeover's claim transaction when the install comes from 2.x, and records one obligation per
+//! source 2.x wrote while it owned the install (r4.1, r5.1). `report` (the hourly job) writes each obligation's one line
 //! once the ledger can say what it holds, or says why it can't (r3.4).
 //!
-//! A28-3 (PLAN-A28-3 r1-r4, D-RAILS-UNRECORDED-LIVE-HISTORY): the job (`Report`) also reads the order history of a served
+//! A28-3 (PLAN-A28-3 r1-r4, D-V2-UNRECORDED-LIVE-HISTORY): the job (`Report`) also reads the order history of a served
 //! venue (Binance, Binance.US, Bybit) live once that line is due, through the bot's trading key, and names in the line the
-//! orders it lists that no bot recorded, open ones first (D-RAILS-UNRECORDED-OPEN-NAMED). The live read only adds: with no
+//! orders it lists that no bot recorded, open ones first (D-V2-UNRECORDED-OPEN-NAMED). The live read only adds: with no
 //! such order, or no answer, the line is A28-1's. Nothing is booked, cancelled or carried. A28-3d-4/-5: Kraken and KuCoin,
 //! which have no fills ledger, are read onto A28-1's `no_history` line and are report only (`NO_LEDGER_SERVED`).
 
@@ -53,21 +53,21 @@ const FAILED_ROW: &str = "failed_row";
 /// (bot, source, source_ref, window start, window end, details).
 type Source = (i64, &'static str, i64, String, String, Option<Value>);
 
-/// Records the obligations of Rails' ownership that ended with this takeover: sources created after `since` (the last
+/// Records the obligations of 2.x's ownership that ended with this takeover: sources created after `since` (the last
 /// handback, r5.1; None = an install Rust never ran) and before `now`. Idempotent on (source, source_ref).
 pub fn collect(tx: &Connection, queue: &Connection, since: Option<DateTime<Utc>>, now: DateTime<Utc>) -> Result<usize, EngineError> {
     let owned = |t: DateTime<Utc>| since.is_none_or(|s| t > s) && t < now;
     let until = format_time(now);
     let mut found: Vec<Source> = vec![];
-    // (a) every placement_ambiguous line on a non-signal bot (D-RAILS-UNRECORDED-ALL-LINES).
+    // (a) every placement_ambiguous line on a non-signal bot (D-V2-UNRECORDED-ALL-LINES).
     // A line this engine wrote (placement.rs: a proved absence, an operator's resolution) carries its source and the
-    // intent's client order id, which Rails' `{ error: }` never does (r4.1).
+    // intent's client order id, which 2.x's `{ error: }` never does (r4.1).
     let mut s = tx.prepare("SELECT l.id, l.bot_id, l.created_at, l.details FROM bot_activity_logs l JOIN bots b ON b.id = l.bot_id \
                             WHERE l.event = 'placement_ambiguous' AND b.type <> ?1 AND b.status <> ?2 ORDER BY l.id")?;
     for row in s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64],
                            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<String>>(3)?)))? {
         let (id, bot, at, details) = row?;
-        // Rails' window is judged on the parsed time; one that can't be read is collected with its error (Codex r4).
+        // 2.x's window is judged on the parsed time; one that can't be read is collected with its error (Codex r4).
         let at_error = match parse_time(&at) { Ok(t) if !owned(t) => continue, Ok(_) => None, Err(e) => Some(format!("{at:?}: {e:?}")) };
         let details: Value = match details.as_deref().map(serde_json::from_str::<Value>) { Some(Ok(v)) => v, _ => Value::Null };
         if details.get("source").is_some() || details.get("cl_ord_id").is_some() || details.get("resolution").is_some() { continue; }
@@ -77,7 +77,7 @@ pub fn collect(tx: &Connection, queue: &Connection, since: Option<DateTime<Utc>>
         }
     }
     drop(s);
-    // (c) failed REGULAR rows with no external id whose saved error is an ambiguous placement (D-RAILS-UNRECORDED-FAILED-ROWS).
+    // (c) failed REGULAR rows with no external id whose saved error is an ambiguous placement (D-V2-UNRECORDED-FAILED-ROWS).
     let mut s = tx.prepare("SELECT t.id, t.bot_id, t.created_at, t.error_messages, t.exchange_id, t.base_asset_id, t.quote_asset_id, t.side, e.type \
                             FROM transactions t JOIN bots b ON b.id = t.bot_id JOIN exchanges e ON e.id = t.exchange_id \
                             WHERE t.status = 1 AND t.transaction_type = 'REGULAR' AND t.external_id IS NULL AND t.run_identity IS NULL \
@@ -336,9 +336,9 @@ struct Scope { exchange: i64, bases: Vec<i64>, quote: i64, side: Side }
 /// The pairs come from the stored settings by asset id, delisted ones included (r4.2).
 fn current_scope(c: &Connection, o: &Obligation, exchange: i64) -> Result<Option<Scope>, EngineError> {
     let bot = model::load_bot(c, o.bot)?;
-    // From the span's start: a change while Rails was placing leaves the scope unknown too.
+    // From the span's start: a change while 2.x was placing leaves the scope unknown too.
     let after = format_time(o.from);
-    // Rails stores these marks to the second: one in the span's own second may follow it (Codex r5), so it counts.
+    // 2.x stores these marks to the second: one in the span's own second may follow it (Codex r5), so it counts.
     let second = o.from.format("%Y-%m-%d %H:%M:%S").to_string();
     let changed: bool = c.query_row("SELECT (settings_changed_at IS NOT NULL AND settings_changed_at >= ?2) OR (started_at IS NOT NULL AND started_at >= ?2) FROM bots WHERE id = ?1",
                                     params![o.bot, second], |r| r.get(0))?;
@@ -352,7 +352,7 @@ fn current_scope(c: &Connection, o: &Obligation, exchange: i64) -> Result<Option
     let Some(quote) = bot.quote_asset_id() else { return Ok(None) };
     if bases.is_empty() || exchange == 0 { return Ok(None); }
     let side = if bot.selling() { Side::Sell } else { Side::Buy };
-    // The exchange then: Rails can move a bot to another exchange without touching any of the marks above. The bot's own
+    // The exchange then: 2.x can move a bot to another exchange without touching any of the marks above. The bot's own
     // nearest order before the span names it; with none before it is unknown.
     let before: Option<i64> = c.query_row("SELECT exchange_id FROM transactions WHERE bot_id = ?1 AND created_at <= ?2 ORDER BY created_at DESC, id DESC LIMIT 1",
                                           params![o.bot, after], |r| r.get(0)).optional()?;
@@ -443,7 +443,7 @@ fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, 
 }
 
 /// A28-3d-2 r1.1: whether a bot's order row on `exchange` holds `external_id`: that id, or on Bitget its bare `<orderId>` too
-/// (Rails' Bitget parser takes both, bitget.rb:719, so a legacy row may hold that form). The one check A28-1's ledger
+/// (2.x's Bitget parser takes both, so a legacy row may hold that form). The one check A28-1's ledger
 /// candidates, the live line (`merged`) and a booking (`write_booking`) all make.
 fn held(c: &Connection, exchange: i64, venue_type: &str, external_id: &str) -> Result<bool, EngineError> {
     let bare = if venue_type == BITGET { external_id.rsplit_once('-').map(|(_, id)| id) } else { None };
@@ -507,7 +507,7 @@ impl<F: crate::venue::VenueFactory> crate::jobs::Job for Report<F> {
 use crate::venue::binance::{BINANCE, BINANCE_US};
 use crate::venue::{Created, CreatedKind, CreatedOrder, CreatedSize, CreatedState, HistoryError, Venue};
 
-/// The venues whose order history is read live: A28-3a (Rails' own clients pin their order-list answer, §1), A28-3b-1 Alpaca
+/// The venues whose order history is read live: A28-3a (2.x's own clients pin their order-list answer, §1), A28-3b-1 Alpaca
 /// (a recorded answer, tests/fixtures/order_lists/alpaca), A28-3c-3a Hyperliquid, and A28-3d-1..5's lists built from the docs.
 const SERVED: [&str; 14] = [BINANCE, BINANCE_US, crate::venue::bybit::BYBIT, crate::sync::ALPACA, crate::venue::hyperliquid::HYPERLIQUID, MEXC, BITRUE, BINGX,
                             BITGET, BITVAVO, GEMINI, COINBASE, KRAKEN, KUCOIN];
@@ -518,7 +518,7 @@ fn no_ledger(venue_type: &str) -> bool { NO_LEDGER_SERVED.contains(&venue_type) 
 use crate::venue::catalogue::KRAKEN;
 use crate::venue::kucoin::KUCOIN;
 /// A28-3d G4 (D-HISTORY-DOC-BOOK-CONFIRMED): the venues whose list read is built from the docs alone; a booking also needs
-/// the venue's Rails-called single-order lookup to read the same order (`Venue::order_created`).
+/// the venue's 2.x-called single-order lookup to read the same order (`Venue::order_created`).
 const DOC_BUILT: [&str; 7] = [MEXC, BITRUE, BINGX, BITGET, BITVAVO, GEMINI, COINBASE];
 use crate::venue::{bingx::BINGX, bitget::BITGET, bitrue::BITRUE, bitvavo::BITVAVO, coinbase::COINBASE, gemini::GEMINI, mexc::MEXC};
 /// Pairs one read may ask for (§4); more leave the line A28-1's.
@@ -611,7 +611,7 @@ fn prepare(c: &Connection, cipher: &crate::crypto::Cipher, id: i64, now: DateTim
         Ok(_) | Err(EngineError::Data(_)) => return Ok(Prep::Write(o.bot, line)),
         Err(e) => return Err(e),
     };
-    // r1.1: a key replaced since before the window may be another account's; Rails stores the mark to the second.
+    // r1.1: a key replaced since before the window may be another account's; 2.x stores the mark to the second.
     let updated: Option<String> = c.query_row("SELECT updated_at FROM api_keys WHERE id = ?1", [version.id], |r| r.get(0))?;
     let continuous = match updated.as_deref().map(parse_time) { Some(Ok(u)) => u + Duration::seconds(1) < b.from, _ => false };
     if !continuous { return Ok(Prep::Write(o.bot, line)); }
@@ -813,15 +813,15 @@ fn describe_live(o: &CreatedOrder, base: &str, quote: &str, ledger: Option<&(Big
     (format!("{text}, placed {at}"), false)
 }
 
-// ---- A28-2: booking an order Rails sent unrecorded, on the bot owner's confirmation (PLAN-A28-2 Final shape) ----------------
+// ---- A28-2: booking an order 2.x sent unrecorded, on the bot owner's confirmation (PLAN-A28-2 Final shape) ----------------
 //
-// D-RAILS-UNRECORDED-RECOVERED: the owner names one order a served venue's live line offered; the engine re-reads it by its
-// own history read (r1.1) and books it as `persist_accepted_order!` writes a row (r2.2), stamped at Rails' tick anchor; the
+// D-V2-UNRECORDED-RECOVERED: the owner names one order a served venue's live line offered; the engine re-reads it by its
+// own history read (r1.1) and books it as `persist_accepted_order!` writes a row (r2.2), stamped at 2.x's tick anchor; the
 // follow-up poll then settles it as every order (FetchAndUpdateOrderJob). One booking per attempt group
-// (D-RAILS-UNRECORDED-ONE-PER-ATTEMPT), never while the bot is mid-tick (D-RAILS-UNRECORDED-BOOK-BUSY), never on KuCoin or
-// IBKR (D-RAILS-UNRECORDED-NO-ROUTE). A booked row is watched until it settles (D-RAILS-UNRECORDED-WATCHED), never
-// abandoned by age (D-RAILS-UNRECORDED-NEVER-STALE) and never lowered below what the owner confirmed
-// (D-RAILS-UNRECORDED-SETTLED-LOWER).
+// (D-V2-UNRECORDED-ONE-PER-ATTEMPT), never while the bot is mid-tick (D-V2-UNRECORDED-BOOK-BUSY), never on KuCoin or
+// IBKR (D-V2-UNRECORDED-NO-ROUTE). A booked row is watched until it settles (D-V2-UNRECORDED-WATCHED), never
+// abandoned by age (D-V2-UNRECORDED-NEVER-STALE) and never lowered below what the owner confirmed
+// (D-V2-UNRECORDED-SETTLED-LOWER).
 
 /// Activity events (texts: web::i18n `bot_activity.events.<event>`; `rails_order_not_added` by its `reason`).
 pub const RECOVERED: &str = "rails_order_recovered";
@@ -978,7 +978,7 @@ pub fn request_booking(c: &Connection, user: i64, bot: i64, obligation: i64, off
     Ok(Ok(()))
 }
 
-/// POST "None of these was this bot's" (D-RAILS-UNRECORDED-NOT-MINE): the group resolved `not_mine`, one line, no row.
+/// POST "None of these was this bot's" (D-V2-UNRECORDED-NOT-MINE): the group resolved `not_mine`, one line, no row.
 pub fn dismiss(c: &Connection, user: i64, bot: i64, obligation: i64, now: DateTime<Utc>) -> Result<Result<(), Refused>, EngineError> {
     let tx = model::immediate(c)?;
     let ids = match open_group(&tx, user, bot, obligation)? { Ok(ids) => ids, Err(r) => return Ok(Err(r)) };
@@ -1165,7 +1165,7 @@ pub async fn serve_bookings<F: crate::venue::VenueFactory>(c: &Connection, facto
             Err(e @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(e),
             // One request that can't be served never holds the others or the rows already booked (Codex branch r1).
             Err(e) => {
-                super::log(&format!("[engine] Rails-unrecorded booking request {obligation} refused: {}", e.kind()));
+                super::log(&format!("[engine] 2.x-unrecorded booking request {obligation} refused: {}", e.kind()));
                 let bot: Option<i64> = c.query_row("SELECT bot_id FROM rust_rails_unrecorded WHERE id = ?1", [obligation], |r| r.get(0)).optional()?;
                 match bot { Some(bot) => { refuse(c, obligation, bot, "unreadable", None, now)?; } None => { drop_request(c, obligation)?; } }
             }
@@ -1175,7 +1175,7 @@ pub async fn serve_bookings<F: crate::venue::VenueFactory>(c: &Connection, facto
     match watch(c, &|tx| polled(tx) || served.booked.iter().any(|(_, b)| *b == tx), now) {
         Ok(watch) => served.watch = watch,
         Err(e @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(e),
-        Err(e) => super::log(&format!("[engine] booked Rails-unrecorded orders not watched this pass: {}", e.kind())),
+        Err(e) => super::log(&format!("[engine] booked 2.x-unrecorded orders not watched this pass: {}", e.kind())),
     }
     Ok(served)
 }
@@ -1196,7 +1196,7 @@ async fn book<F: crate::venue::VenueFactory>(c: &Connection, factory: &F, cipher
     // §2.1: read-side checks.
     if bot.status == BotStatus::Deleted { return refused("deleted"); }
     let venue_type = model::exchange_type(c, &bot)?;
-    // D-RAILS-UNRECORDED-NO-ROUTE: KuCoin, IBKR and the venues with no fills ledger (D-HISTORY-NO-LEDGER-REPORT-ONLY) are
+    // D-V2-UNRECORDED-NO-ROUTE: KuCoin, IBKR and the venues with no fills ledger (D-HISTORY-NO-LEDGER-REPORT-ONLY) are
     // never served here, whatever SERVED holds.
     if !SERVED.contains(&venue_type.as_str()) || [crate::venue::kucoin::KUCOIN, crate::venue::ibkr::IBKR].contains(&venue_type.as_str()) || no_ledger(&venue_type) {
         return refused("unsupported");
@@ -1278,7 +1278,7 @@ fn scope_now(c: &Connection, o: &Obligation, bot: &model::Bot) -> Result<Option<
     }
 }
 
-/// §2.3 + r2.1 step 3 + r2.3, in the one fenced transaction: every re-check, then Rails' accepted row (r2.2), the fills
+/// §2.3 + r2.1 step 3 + r2.3, in the one fenced transaction: every re-check, then 2.x's accepted row (r2.2), the fills
 /// linked, the group resolved, the request gone, the line, the history generation; readability and the eligibility guard
 /// last. Err(reason) means the caller rolls everything back; "gone" is a request another pass already served.
 fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Cipher, b: &Booking, bot_then: &model::Bot, venue_type: &str, fresh: &CreatedOrder,
@@ -1301,7 +1301,7 @@ fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Ciphe
     };
     let [(ticker_id, base, quote)] = tickers[..] else { return Ok(Err("settings_changed")) };
     if !scope.bases.contains(&base) || quote != scope.quote { return Ok(Err("settings_changed")); }
-    // A failed row's stored scope is Rails' at T: the pair must also be in the bot's settings now (Codex branch r1).
+    // A failed row's stored scope is 2.x's at T: the pair must also be in the bot's settings now (Codex branch r1).
     let mut now_bases = bot.asset_ids();
     if let Some(b) = bot.settings.get("base_asset_id").and_then(Value::as_i64) { now_bases.push(b); }
     if !now_bases.contains(&base) || bot.quote_asset_id() != Some(quote) { return Ok(Err("settings_changed")); }
@@ -1331,8 +1331,8 @@ fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Ciphe
                                    quote_type: in_quote, volume: amount.clone().or(quote_amount.clone()).unwrap_or_else(BigDec::zero), kind: amount::TxKind::Regular,
                                    origin: if in_quote { amount::Origin::QuoteBudget } else { amount::Origin::Base }, wire_price: None };
     let row = amount::write_order_row(f, &bot, &plan, amount::RowKind::Submitted { external_id: fresh.external_id.clone() }, b.o.from)?;
-    // r1.2 / r2.2: the order's own denomination only; Rails' BUY schedule columns for every side (base_order_values), or
-    // the failed Rails row's own stamp (D-RAILS-UNRECORDED-FAILED-ROW-STAMP).
+    // r1.2 / r2.2: the order's own denomination only; 2.x's BUY schedule columns for every side (base_order_values), or
+    // the failed 2.x row's own stamp (D-V2-UNRECORDED-FAILED-ROW-STAMP).
     let (interval, stamped): (Option<String>, Option<f64>) = if b.o.source == FAILED_ROW {
         c.query_row("SELECT bot_interval, bot_quote_amount FROM transactions WHERE id = ?1", [b.o.source_ref], |r| Ok((r.get(0)?, r.get(1)?)))?
     } else {
@@ -1425,12 +1425,12 @@ fn notice_once(c: &Connection, tx: i64, bot: i64, kind: &str, event: &str, facts
     Ok(())
 }
 
-/// r4.1 (D-RAILS-UNRECORDED-NEVER-STALE): is this row a booked one?
+/// r4.1 (D-V2-UNRECORDED-NEVER-STALE): is this row a booked one?
 pub(crate) fn booked(c: &Connection, tx: i64) -> Result<bool, EngineError> {
     Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM rust_rails_unrecorded_resolutions WHERE transaction_id = ?1 AND resolution = 'booked')", [tx], |r| r.get(0))?)
 }
 
-/// r5.1 (D-RAILS-UNRECORDED-SETTLED-LOWER), inside the poll's transaction: true when the answer would lower a booked row
+/// r5.1 (D-V2-UNRECORDED-SETTLED-LOWER), inside the poll's transaction: true when the answer would lower a booked row
 /// below the gross totals the owner confirmed, net of the venue's taker fee (percent): it is then not applied, and the
 /// hold is noted; after 7 days held, one `rails_order_settled_lower` line. A consistent answer ends the hold.
 pub(crate) fn holds(c: &Connection, bot: i64, tx: i64, s: &crate::venue::OrderState, now: DateTime<Utc>) -> Result<bool, EngineError> {

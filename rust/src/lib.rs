@@ -1,4 +1,4 @@
-//! Deltabadger's Rust backend. It reads and writes the Rails app's SQLite files under the Rails
+//! Deltabadger's Rust backend. It reads and writes the 2.x app's SQLite files under the 2.x
 //! schema.
 /// The release's version, src-tauri/Cargo.toml's (build.rs, D-ENGINE-VERSION).
 pub const VERSION: &str = env!("DELTABADGER_VERSION");

@@ -50,7 +50,7 @@ pub enum TickOutcome {
     Paused,
     /// A trigger committed its reversal and next checkpoint; the Fundable tail completed.
     Flipped,
-    /// Reference data only a Rails job refreshes is past its bound (staleness.rs): nothing was read from the venue, nothing
+    /// Reference data only a 2.x job refreshes is past its bound (staleness.rs): nothing was read from the venue, nothing
     /// written, and the bot stays due.
     Stale { source: &'static str, message: String },
 }
@@ -68,7 +68,7 @@ pub fn stop(c: &Connection, bot_id: i64, stop_message_key: &str, now: DateTime<U
     stop_owing_mail(c, bot_id, stop_message_key, None, now).map(|_| ())
 }
 
-/// `stop`, and in the same statement the marker of the mail Rails sends with this stop (engine::notice): the mail is owed
+/// `stop`, and in the same statement the marker of the mail 2.x sends with this stop (engine::notice): the mail is owed
 /// only if this call is the one that stopped the bot. Returns whether it was (false: a stop, archive or delete got there first).
 /// The stop (with its marker) and its activity-log row are one transaction on every path: the caller's when it has one,
 /// else this call's own. A log row that cannot be written leaves the bot working and nothing owed, so a retry writes all three.
@@ -109,24 +109,24 @@ fn stop_if(c: &Connection, bot_id: i64, stop_message_key: Option<&str>, mail: Op
     })
 }
 
-/// The stop Bot::QuoteAmountLimitable#handle_quote_amount_limit_update enqueues (Bot::StopJob → Bot::Lifecycle#stop,
-/// lifecycle.rb:91-115): every status but archived and deleted, so a stopped bot is stopped again (a new stopped_at and a
-/// `stopped` log). It owes no mail itself: Rails mails stopped_by_amount_limit from the fill callback, whatever the stop then
+/// The stop Bot::QuoteAmountLimitable#handle_quote_amount_limit_update enqueues (Bot::StopJob → Bot::Lifecycle#stop):
+/// every status but archived and deleted, so a stopped bot is stopped again (a new stopped_at and a
+/// `stopped` log). It owes no mail itself: 2.x mails stopped_by_amount_limit from the fill callback, whatever the stop then
 /// does, so the marker (notice::LIMIT) is written where the stop is counted (polling::apply_committed).
 /// The base cap's (Bot::BaseAmountLimitable#handle_base_amount_limit_update) is the same stop with `amount_sold`.
 pub fn stop_for_amount_limit(c: &Connection, bot_id: i64, cap: super::amount_limit::Cap, now: DateTime<Utc>) -> Result<(), EngineError> {
     stop_if(c, bot_id, Some(cap.stop_message_key()), None, None, &format!("status NOT IN ({}, {})", BotStatus::Deleted as i64, BotStatus::Archived as i64), now).map(|_| ())
 }
 
-/// A Bot::StopJob Rails left queued (PLAN-B2 r1.3): the same stop, now, with the key the job carries (none: Rails' `stop`
+/// A Bot::StopJob 2.x left queued (PLAN-B2 r1.3): the same stop, now, with the key the job carries (none: 2.x's `stop`
 /// without one). In the caller's transaction.
 pub fn stop_for_v2_job(c: &Connection, bot_id: i64, stop_message_key: Option<&str>, now: DateTime<Utc>) -> Result<bool, EngineError> {
     stop_if(c, bot_id, stop_message_key, None, None, &format!("status NOT IN ({}, {})", BotStatus::Deleted as i64, BotStatus::Archived as i64), now)
 }
 
-/// The amount-limit stops a sweep counted (polling::apply_committed), one per qualifying fill callback, as Rails runs one
+/// The amount-limit stops a sweep counted (polling::apply_committed), one per qualifying fill callback, as 2.x runs one
 /// Bot::StopJob per callback: Bot::Lifecycle#stop writes a `stopped` log every time it succeeds, a stopped bot included
-/// (lifecycle.rb:91-115). Each stop consumes one count in its own transaction, so a crash replays exactly the rest: at the end
+///. Each stop consumes one count in its own transaction, so a crash replays exactly the rest: at the end
 /// of the tick that swept, at the next start (run::step), or at the handback.
 /// A count that no longer applies (Bot::pending_amount_limit_stops) is discarded and logged, never run.
 pub fn run_pending_amount_limit_stops(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
@@ -147,7 +147,7 @@ fn drain_amount_limit_stops(c: &Connection, bot_id: i64, now: DateTime<Utc>, own
         let Some((n, current)) = pending.pending_amount_limit_stops()? else { return Ok(()) };
         let remove = "UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_amount_limit_stops_pending') WHERE id = ?1";
         if !current || n <= 0 {
-            // Counted before the bot was started (afresh or continued) or its limit changed: Rails' Bot::StopJob ran before either.
+            // Counted before the bot was started (afresh or continued) or its limit changed: 2.x's Bot::StopJob ran before either.
             tx.execute(remove, [bot_id])?;
             tx.commit()?;
             if !current { super::log(&format!("[engine] bot {bot_id}: {n} amount-limit stop(s) counted before a start or a limit change; discarded")); }
@@ -183,7 +183,7 @@ enum Fail {
 
 type PriceKey = (i64, i64, PriceSide);
 
-/// Exchange#get_{ask,last}_price's Rails.cache entry (exchanges/alpaca.rb:273-335, exchanges/kraken.rb:218-260): kept
+/// Exchange#get_{ask,last}_price's cache entry: kept
 /// 5 s from when it was written, keyed by exchange, ticker and side; only a usable (non-zero) price is stored. It lives
 /// in the engine (and across a parity scenario's retries), never in a venue instance, so it survives venue recreation.
 type CachedPrice = (chrono::DateTime<chrono::Utc>, model::Produced<BigDec>);
@@ -243,7 +243,7 @@ enum Exit {
     Exhausted,
 }
 
-/// Bot::Failable#notify_about_failure? and #record_failure!(kind, notified:), with the marker of the mail Rails then sends
+/// Bot::Failable#notify_about_failure? and #record_failure!(kind, notified:), with the marker of the mail 2.x then sends
 /// (engine::notice), written with the budget it spends.
 /// - A buy refused for funds shares Bot::Fundable's budget: one mail a day per user and quote asset, stamped on
 ///   bots.last_end_of_funds_notification with update_column (updated_at does not move). The engine only buys.
@@ -253,7 +253,7 @@ fn record_notified_failure(c: &model::FencedTransaction<'_>, bot_id: i64, kind: 
     let now = clock.now();
     let bot = model::load_bot(c, bot_id)?;
     // Bot::Failable#shares_end_of_funds_budget?: never while selling, whose "insufficient" is base, not quote: the error
-    // mail on the kind's own budget (action_job.rb#notify_recoverable).
+    // mail on the kind's own budget (Bot::ActionJob#notify_recoverable).
     let shared = kind == Some("insufficient_funds") && !bot.selling();
     let key = kind.unwrap_or("unknown");
     let budget = bot.transient.get("failure_notifications").and_then(Value::as_object).cloned().unwrap_or_default();
@@ -354,7 +354,7 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
     model::require_run(c, bot)?;
     // Bot::ActionJob: a key IBKR has not activated yet never reaches the venue. Nothing is written or logged; the bot waits
     // as for stale reference data, and ticks once the activation job has marked the key correct (D-IBKR-ACTIVATION: the
-    // checkpoint missed meanwhile runs then, where Rails reschedules to the next one).
+    // checkpoint missed meanwhile runs then, where 2.x reschedules to the next one).
     if model::key_pending(c, bot)? { return Ok(TickOutcome::Stale { source: "api_key_pending_activation", message: "waiting for IBKR activation".into() }); }
     // An intent is settled whatever the status: a bot stopped after an ambiguous send still owns that order.
     let checkpoint_after_recovery = placement::pending_requires_checkpoint(bot)?;
@@ -374,14 +374,14 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
     model::require_run(c, bot)?;
     if !matches!(bot.status, BotStatus::Scheduled | BotStatus::Retrying) { return Ok(TickOutcome::Skipped); }
     // The settled intent was a failed run's order, and Bot::ActionJob runs the next order of a failed run at
-    // next_interval_checkpoint_at (action_job.rb:193, :272, :325-328). So the tick ends here, for Placed and NotPlaced alike,
-    // one asset or a basket's leg k: what was not bought is owed again at the next checkpoint, as in Rails.
+    // next_interval_checkpoint_at. So the tick ends here, for Placed and NotPlaced alike,
+    // one asset or a basket's leg k: what was not bought is owed again at the next checkpoint, as in 2.x.
     if settled {
         *attempts = Attempts::default();
         return Ok(if checkpoint_after_recovery { TickOutcome::Rescheduled } else { TickOutcome::Skipped });
     }
     // A reversal's cancel not recorded yet (run::run_reversals failed this pass): the run is not claimed, so the bot stays due
-    // and trades on the engine's next pass once the cancels are recorded, on schedule as Rails would.
+    // and trades on the engine's next pass once the cancels are recorded, on schedule as 2.x would.
     if super::reversal::barred(bot) {
         super::log(&format!("[engine] bot {bot_id}: waits for a reversal's cancels to be recorded; ticks on the next pass"));
         return Ok(TickOutcome::Skipped);
@@ -389,7 +389,7 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
     // Decide nothing from reference data past its bound.
     if let Some(s) = staleness::stale(c, bot, clock.now())? { return Ok(TickOutcome::Stale { source: s.source, message: s.message }); }
 
-    // Bot::ActionJob#perform asks the market before it writes anything (action_job.rb:91-100): on a venue with market hours,
+    // Bot::ActionJob#perform asks the market before it writes anything: on a venue with market hours,
     // for a bot that is not all crypto (Exchanges::Alpaca#market_open?). The clock fails closed (clock.rs).
     if venue.rules().market_hours && !model::all_crypto(c, bot)? {
         let clock_result=venue.clock_result().await;
@@ -422,7 +422,7 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
     bot.transient["tick_generation"] = json!(next_tick);
 
     // Anything that goes wrong inside execute_action fails this bot's tick the way a StandardError does in
-    // Rails (retrying, execution_failed, next checkpoint) — it never leaves the bot `executing`.
+    // 2.x (retrying, execution_failed, next checkpoint) — it never leaves the bot `executing`.
     let selling_before = bot.selling();
     let executed = match execute(c, venue, bot, clock, cx).await {
         Ok(r) => r,
@@ -433,7 +433,7 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
         Ok(Ran { fenced: true, .. }) => { *attempts = Attempts::default(); TickOutcome::Skipped }
         Ok(Ran { ledger_stale: Some(stale), .. }) => unclaim(c, bot, claimed_over, *stale, clock.now(), &cx.credential_version)?,
         // `break_reschedule`: a clean run (clear_failure_state!, disable_starting_time!) that logs reschedule_disabled and
-        // leaves a pause waiting for its check or a flip on its own checkpoint (action_job.rb:150-161).
+        // leaves a pause waiting for its check or a flip on its own checkpoint.
         Ok(Ran { paused: true, .. } | Ran { flipped: true, .. }) => {
             let flipped = matches!(executed, Ok(Ran { flipped: true, .. }));
             if bot.status == BotStatus::Stopped { return Ok(TickOutcome::Stopped); }
@@ -450,7 +450,7 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
             // clear_failure_state!, then back to scheduled unless stopped meanwhile.
             model::run_credential_write(c, bot, &cx.credential_version, |tx| {
                 if model::load_bot(tx, bot_id)?.last_failure_kind().is_some() { record_failure(tx, bot_id, None)?; }
-                // The starting time only places the first run; it turns off before the transition, as in action_job.rb:139.
+                // The starting time only places the first run; it turns off before the transition, as in 2.x's Bot::ActionJob.
                 amount::disable_starting_time(tx, bot_id, clock.now())?;
                 Ok(if model::transition_working(tx, bot_id, BotStatus::Scheduled, clock.now())? { TickOutcome::Done { placed } } else { TickOutcome::Skipped })
             })?
@@ -475,7 +475,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut mod
     let prepared = super::placement::prepare(c, venue).await?;
     if let Err(e) = prepared { return Ok(Err(Fail::Preflight(e.message()))); }
     // Bot::Rebalanceable's first stand-down: a swap in flight owes its buy the proceeds of its sell, so the DCA leg places
-    // nothing, reads nothing and sweeps nothing (rebalanceable.rb:64-68). Success: the contribution is carried by the interval
+    // nothing, reads nothing and sweeps nothing. Success: the contribution is carried by the interval
     // count.
     if super::rebalance::is_pending(&bot.transient) {
         let now = clock.now();
@@ -494,7 +494,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut mod
             return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None, paused: false, flipped: false }));
         }
     }
-    // Bot::Rebalanceable's stand-down, the outermost decorator of execute_action (rebalanceable.rb:75-82): a restatement the
+    // Bot::Rebalanceable's stand-down, the outermost decorator of execute_action: a restatement the
     // market has not priced yet, or a split the bot cannot size. No sweep, no order, no balance read; success, so the bot goes
     // back to scheduled, and the contribution is carried by the interval count.
     if splits::untrusted(c, bot, clock.now())? {
@@ -502,7 +502,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut mod
         model::run_write(c, bot, |tx| model::log_activity(tx, bot_id, "dca_skipped_restatement", Level::Info, json!({}), now))?;
         return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None, paused: false, flipped: false }));
     }
-    // Bot::PriceLimitable's decorator, inside Fundable and outside LimitOrderable's sweep (dca_multi_asset.rb:34-44): a paused
+    // Bot::PriceLimitable's decorator, inside Fundable and outside LimitOrderable's sweep: a paused
     // bot sweeps nothing. Met for the first time, the tick sizes from the row the stamp left.
     let mut after = None;
     loop {
@@ -640,7 +640,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut mod
             }
             (placed, fenced) = (legs.placed, legs.fenced);
             if let Err(f) = bought? { return Ok(Err(f)); }
-            // A fill this tick's sweep applied already owes Rails' own stop (polling::apply_committed), run at the tick's end.
+            // A fill this tick's sweep applied already owes 2.x's own stop (polling::apply_committed), run at the tick's end.
             let owed = model::load_bot(c, bot_id)?.pending_amount_limit_stops()?.is_some_and(|(n, current)| current && n > 0);
             if legs.cap_spent && !fenced && !owed { cap_spent(c, bot, &x, clock, cx)?; }
         }
@@ -662,7 +662,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut mod
 }
 
 /// Bot::PriceLimitable#execute_action's decision: pass to the rest of the tick, pause, or fail the tick (a rejected key raises
-/// out of limit_condition_met?, limit_checkable.rb:29-33; an in-app client raises a transport failure into retry_on). Any
+/// out of limit_condition_met?; an in-app client raises a transport failure into retry_on). Any
 /// other failed pause read pauses; conditions::gate has already passed through failed flip reads.
 enum Gated { Pass(Option<Box<model::Bot>>), Flip(super::conditions::Rule, Box<model::Bot>), Pause(super::conditions::Rule), Fail(Fail) }
 async fn condition_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, clock: &dyn Clock, cx: &TickContext<'_>, after: Option<super::conditions::Rule>) -> Result<Gated, EngineError> {
@@ -691,12 +691,12 @@ async fn condition_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &
     })
 }
 
-/// Bot::Fundable's tail, after a successful execute_action, a pause included (fundable.rb:5-17).
+/// Bot::Fundable's tail, after a successful execute_action, a pause included.
 async fn fundable<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, clock: &dyn Clock, committed: bool) -> Result<Result<(), Fail>, EngineError> {
     // Bot::Fundable#funds_are_low?: the quote asset's balance, whatever the member tickers (an index bot has no allocations),
     // spent as Exchanges::Alpaca#spendable_balance picks it. A failed balance Result means "not low"; only a transport
     // failure raises.
-    // While selling the user spends base, not quote: no quote-buffer check and no balance read (fundable.rb:10-12).
+    // While selling the user spends base, not quote: no quote-buffer check and no balance read.
     if bot.selling() { return Ok(Ok(())); }
     model::require_run(c, bot)?;
     let funds=venue.balance_result(&model::quote_symbol(c, bot)?, model::all_crypto(c, bot)?).await;
@@ -718,7 +718,7 @@ async fn fundable<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model:
         }
         // honeymaker's with_rescue turns a network failure into a Failure result: "not low", the tick succeeds.
         Err(VenueError::Rejected(_) | VenueError::Unauthorized(_) | VenueError::Coded { errors: _, .. } | VenueError::Transient(_)) => {}
-        // An unreadable body raises a plain StandardError in Rails: execution_failed, no retry.
+        // An unreadable body raises a plain StandardError in 2.x: execution_failed, no retry.
         Err(VenueError::Ambiguous(m)) => return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false })),
     }
     Ok(Ok(()))
@@ -735,7 +735,7 @@ struct Ran { placed: bool, fenced: bool, ledger_stale: Option<Box<staleness::Sta
 struct Legs { placed: bool, fenced: bool, skipped: Vec<amount::OrderPlan>, ledger_stale: Option<Box<staleness::Stale>>, cap_spent: bool }
 
 /// D-CAP-REMAINDER-STOP (basket and index): a spending cap whose whole remainder, split and sized as this tick sizes it, has
-/// no leg the venue takes is reached. Rails would skip the legs at every checkpoint forever (its reached test is the pair's
+/// no leg the venue takes is reached. 2.x would skip the legs at every checkpoint forever (its reached test is the pair's
 /// precision floor); the bot stops with the amount-limit stop, its `stopped` line and its mail. The stop fences the run, so
 /// the tick ends there (Skipped), with nothing after it (no Fundable, no below-minimum notice).
 /// `x`: the remainder the legs were sized from. A settings write while the prices were read (the cap raised or switched off,
@@ -757,7 +757,7 @@ fn cap_spent(c: &Connection, bot: &model::Bot, x: &BigDec, clock: &dyn Clock, cx
 struct Claimed { status: BotStatus, last_action_job_at: Option<Value>, defer: Option<Value> }
 
 /// A leg was refused because the account ledger needs a complete refresh after the basket was sized: typically another bot's
-/// order on the same key woke `ledger_sync` while this tick was running (sync::jobs::LedgerSync::wants). Rails has no such
+/// order on the same key woke `ledger_sync` while this tick was running (sync::jobs::LedgerSync::wants). 2.x has no such
 /// fence and would have bought, so this tick must not consume the checkpoint: last_action_job_at and the wait go back to what
 /// the claim found, the bot goes back to the status it had, and the outcome is `Stale`, as when the tick-start check
 /// refuses. The bot stays due. The scheduler wakes the engine when a ledger sync records a success (jobs::Scheduler::record),
@@ -781,7 +781,7 @@ fn unclaim(c: &Connection, bot: &mut model::Bot, claimed: Claimed, stale: stalen
 
 /// Bot::Composition::OrderSetter#set_orders(side: :buy) over get_orders_data: holdings, every member's price before any
 /// order (Step 1), the split, then the legs in member order. Each leg is settled (row written, intent cleared) before the next
-/// is sent, and the first leg that is not accepted ends the loop (order_setter.rb:80); legs never sent stay owed through
+/// is sent, and the first leg that is not accepted ends the loop; legs never sent stay owed through
 /// pending_quote_amount. A price failure can only come before the first leg.
 #[allow(clippy::too_many_arguments)]
 async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, capped: bool, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
@@ -826,8 +826,8 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
     let rules = venue.rules();
     // D-679 (plan VB §1.5): on a venue that crosses the book (Gemini, Hyperliquid), a market buy leg's quote budget is sized
     // at the price it is sent at, Exchange#market_price_for's crossed ask (the same read, crossed: no second price read),
-    // never at the raw ask Rails sizes it at (so a fill at the cross could spend over the budget). The split above stays
-    // at the raw ask, as Rails values the basket.
+    // never at the raw ask 2.x sizes it at (so a fill at the cross could spend over the budget). The split above stays
+    // at the raw ask, as 2.x values the basket.
     let crossed = rules.cross.is_some() && bot.limit_distance().is_none();
     let mut sized = vec![];
     for leg in split {
@@ -906,7 +906,7 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bo
         Sent::BelowMinimum(_) => { legs.skipped.push(intent.plan.clone()); Placed::Next }
         Sent::Ambiguous(m) => Placed::Failed(Fail::Ambiguous(m)), // the intent stays; later legs wait for the next checkpoint
         // Nothing reached the venue. After a placed leg, Bot::ActionJob's already-placed guard refuses the replay
-        // (action_job.rb:223-235); before one, retry_on replays the whole tick.
+        //; before one, retry_on replays the whole tick.
         Sent::NotSent(m) => Placed::Failed(if legs.placed { Fail::TransientAfterAction } else { Fail::Transient(m) }),
     })
 }
@@ -1064,7 +1064,7 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
     // floored from this amount).
     let wanted = match cap { Some(cap) if cap < wanted => cap, _ => wanted };
     let amount = if free < wanted { free } else { wanted };
-    // order_setter.rb:292: a loss sold while a buy of it rests anywhere on the account is washed when that buy fills. The
+    // Bot::OrderSetter: a loss sold while a buy of it rests anywhere on the account is washed when that buy fills. The
     // verdict first, so only a loss sweeps.
     if super::wash::sell_at_loss(c, bot, &ticker, &amount, &(&amount * &price), clock.now())?
         && super::rebalance::waiting_buy_blocks_sell(c, venue, bot, &ticker, clock.now()).await? {
@@ -1079,7 +1079,7 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
             let m = format!("limit price rounds to zero at {decimals} decimals");
             return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
         }
-        // A crossing venue sends the base Rails sizes at the crossed bid it would re-read at placement (plan VB §1.5).
+        // A crossing venue sends the base 2.x sizes at the crossed bid it would re-read at placement (plan VB §1.5).
         Sizing::Place(plan) => {
             let plan = plan.with_wire_price(venue.rules(), &reference, false)?;
             if let Placed::Failed(f) = place(c, venue, bot, &plan, &[&ticker], &composition, reconciled, clock, cx, legs).await? { return Ok(Err(f)); }
@@ -1135,7 +1135,7 @@ async fn basket_sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mod
         let Some(wanted) = remaining.div(&price) else { return Ok(Err(general("divided by 0".into()))) };
         let amount = if held < wanted { held } else { wanted };
         if below(amount::size_sell(bot, &ticker, &amount, &price)?) { below_floor.get_or_insert((ticker, amount, price)); continue; }
-        // order_setter.rb:257: a loss with a buy of the name resting anywhere on the account is not sold (a gain is).
+        // Bot::OrderSetter: a loss with a buy of the name resting anywhere on the account is not sold (a gain is).
         if super::wash::sell_at_loss(c, bot, &ticker, &amount, &(&amount * &price), clock.now())?
             && super::rebalance::waiting_buy_blocks_sell(c, venue, bot, &ticker, clock.now()).await? { continue; }
         let free = match live_free_balance(c, venue, bot, &ticker, ticker.base_asset_id).await? { Ok(free) => free, Err(e) => return Ok(Err(balance_failure(venue, bot, e))) };
@@ -1299,7 +1299,7 @@ fn handle_failure_inner(c: &model::FencedTransaction<'_>, bot_id: i64, fail: Fai
     }
 }
 
-/// Bot::ActionJob's closed path (action_job.rb:93-100): `update!(waiting_for_market_open: true)`, which saves nothing (and
+/// Bot::ActionJob's closed path: `update!(waiting_for_market_open: true)`, which saves nothing (and
 /// moves no updated_at) when the key already holds true; `market_closed` with next_market_open_at; the next run at next_open.
 /// No sweep, no last_action_job_at, no status change, no price.
 fn park(c: &model::FencedTransaction<'_>, bot: &model::Bot, next_open: DateTime<Utc>, details: String, now: DateTime<Utc>) -> Result<TickOutcome, EngineError> {

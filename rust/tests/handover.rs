@@ -30,7 +30,7 @@ fn takeover_claims_the_install_removes_its_bots_v2_jobs_drops_the_rest_and_unsti
     job(&o.queue, "AccountTransaction::SyncJob", "gid://deltabadger/ApiKey/1");
     let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     assert!(matches!(t.claim, Claim::FromV2));
-    // D-UPGRADE-RAILS-WORK-DROPPED: the sync has nothing left to finish (the scheduler runs its own), so it goes, counted.
+    // D-UPGRADE-V2-WORK-DROPPED: the sync has nothing left to finish (the scheduler runs its own), so it goes, counted.
     assert_eq!((t.deleted_jobs, t.dropped_jobs, t.normalised), (2, 1, 2));
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0, "the bot's job and the dropped sync go");
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_scheduled_executions"), 0, "their executions cascade");
@@ -953,11 +953,11 @@ fn withdrawal_cli_migrates_and_seeds_before_any_takeover() {
             .env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT").env_remove("ACTIVE_RECORD_ENCRYPTION_KEYS_EXTERNAL")
             .output().unwrap()
     };
-    let duplicate=run(&["--rails",&log,"--sent","X","--amount","0.9"]);
+    let duplicate=run(&["--v2",&log,"--sent","X","--amount","0.9"]);
     assert!(!duplicate.status.success());assert!(String::from_utf8_lossy(&duplicate.stderr).contains("already recorded"));
     assert_eq!(count(&c,"SELECT count(*) FROM rust_withdrawal_ids"),1);assert_eq!(count(&c,"SELECT count(*) FROM rust_rails_attempt_acks"),0);
-    let listed=run(&["--rails-list",&rule.to_string()]);assert!(listed.status.success(),"{}",String::from_utf8_lossy(&listed.stderr));assert!(String::from_utf8_lossy(&listed.stdout).contains(&format!("Rails attempt {log}")));
-    let resolved=run(&["--rails",&log,"--sent","new-id","--amount","0.9"]);assert!(resolved.status.success(),"{}",String::from_utf8_lossy(&resolved.stderr));
+    let listed=run(&["--v2-list",&rule.to_string()]);assert!(listed.status.success(),"{}",String::from_utf8_lossy(&listed.stderr));assert!(String::from_utf8_lossy(&listed.stdout).contains(&format!("2.x attempt {log}")));
+    let resolved=run(&["--v2",&log,"--sent","new-id","--amount","0.9"]);assert!(resolved.status.success(),"{}",String::from_utf8_lossy(&resolved.stderr));
     assert_eq!(count(&c,"SELECT count(*) FROM rust_rails_attempt_acks"),1);assert_eq!(count(&c,"SELECT count(*) FROM rust_rule_log_origins"),1);
     assert!(lease::read(&c,&seed::cipher()).unwrap().is_none(),"resolution does not take ownership");
 }
@@ -1110,7 +1110,7 @@ fn a_queue_with_every_v2_job_class_gets_each_rows_outcome() {
     assert!(!bot_events(&o.primary, b).iter().any(|e| e == handover::UPGRADE_ORDER_UNRECORDED), "a waiting ActionJob is no ambiguity");
 }
 
-/// r3.1 (D-UPGRADE-RAILS-AMBIGUITY-INHERITED): Rails' own ambiguity (placement_ambiguous, the successor scheduled) is
+/// r3.1 (D-UPGRADE-V2-AMBIGUITY-INHERITED): Rails' own ambiguity (placement_ambiguous, the successor scheduled) is
 /// inherited as Rails leaves it: the successor goes, the bot gets one line (C12), and it trades again.
 #[tokio::test(flavor = "current_thread")]
 async fn a_completed_ambiguous_action_job_is_inherited_with_a_line_and_trading_resumes() {
@@ -1287,7 +1287,7 @@ fn rule_jobs_a_failed_fanout_is_acknowledged_its_children_judged_and_an_unreadab
     let child_job: String = o.queue.query_row("SELECT active_job_id FROM solid_queue_jobs WHERE id = ?1", [child], |r| r.get(0)).unwrap();
     let Err(EngineError::Ineligible(lines)) = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()) else { panic!("refused") };
     assert_eq!(lines.len(), 1, "the child only: {lines:?}");
-    assert!(lines[0].contains(&format!("resolve-withdrawal --rails-job {child_job}")), "{lines:?}");
+    assert!(lines[0].contains(&format!("resolve-withdrawal --v2-job {child_job}")), "{lines:?}");
     o.queue.execute("DELETE FROM solid_queue_jobs WHERE id = ?1", [child]).unwrap();
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     assert_eq!(count(&o.primary, "SELECT count(*) FROM rust_rails_job_acks WHERE resolution = 'skip'"), 1, "the fan-out is acknowledged");
@@ -1364,7 +1364,7 @@ fn wake_journal(o: &store::Opened) -> Vec<(String, String)> {
 
 /// r3.3, r4.4, r4.5: every unfinished wake row (waiting, claimed or failed) becomes one journal entry per job and scope
 /// (LedgerJob and ::Retry are one), and leaves the queue; a row naming nothing there is dropped and logged. The entry is
-/// woken at every start until its job has run since the takeover (D-UPGRADE-RAILS-WAKES), whatever the user's keys (here only a Kraken key, which
+/// woken at every start until its job has run since the takeover (D-UPGRADE-V2-WAKES), whatever the user's keys (here only a Kraken key, which
 /// no tracker sync reads); then it goes. A user or key gone since is dropped at the start.
 #[test]
 fn v2_wake_rows_become_one_journal_entry_each_woken_until_their_job_runs() {

@@ -1,6 +1,6 @@
 //! A28-2a (PLAN-A28-2 §2, r2.1): the owner's answer to a `rails_order_open`/`listed` line. "This was this bot's order"
 //! leaves a request the engine serves (`v2_unrecorded::serve_bookings`); "None of these was this bot's" is decided here.
-//! A28-2b (PLAN-A28-2b, D-RAILS-UNRECORDED-API): MCP's `answer_unrecorded_order` and REST's
+//! A28-2b (PLAN-A28-2b, D-V2-UNRECORDED-API): MCP's `answer_unrecorded_order` and REST's
 //! `POST /api/v1/bots/:id/unrecorded_orders` answer through the same `answer`; the outcome is read in `get_bot_details`.
 use axum::{extract::{Extension,Path,State},http::StatusCode,response::{IntoResponse,Response}};
 use rusqlite::{Connection,OptionalExtension};

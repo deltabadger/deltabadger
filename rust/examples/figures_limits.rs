@@ -1,4 +1,4 @@
-//! Hostile numbers and long histories against the figures, with no Rails in them.
+//! Hostile numbers and long histories against the figures, with no 2.x in them.
 //!
 //! Numbers: compact values that would be a gigabyte written out, digit strings of ten megabytes, integers beyond
 //! 64 bits, Infinity. Each must come back as "not computed", within a second, and none may panic or allocate what
@@ -126,7 +126,7 @@ fn shadowed_history(c: &Connection, orders: i64) -> Result<(), String> {
 
 /// Three units bought for 100; then, `pairs` times, one of them sold and one bought back for 33. Priced: each
 /// sale reports 34, and the holding's cost gains 32 digits (a third of it is taken off, and a third is 32 digits).
-/// Not reported: a REBALANCE sale with a positive unit price but no proceeds reported, whose Rails estimate is the cost itself, which the buy then
+/// Not reported: a REBALANCE sale with a positive unit price but no proceeds reported, whose 2.x estimate is the cost itself, which the buy then
 /// divides by: the cost's digits double.
 fn pairs(c: &Connection, pairs: i64, priced: bool) -> Result<(), String> {
     let sale = if priced { "34, 1, 1, 34, 'AAA', 2, 1, 2, 'REGULAR'" } else { "1, 1, 1, NULL, 'AAA', 2, 1, 2, 'REBALANCE'" };
@@ -218,7 +218,7 @@ fn histories() -> Result<usize, String> {
     computed(&what, &cost, LONG as usize / 2 * 2 + 2)?;
     at_most(&what, "steps: a pass is not linear", cost.used.steps, STEPS_PER_ORDER * LONG as u64)?;
 
-    // Sales that lengthen a cost by 32 digits each: 700 of them, as in the grid, where Rails' figures are the same.
+    // Sales that lengthen a cost by 32 digits each: 700 of them, as in the grid, where 2.x's figures are the same.
     let what = "700 priced sales, each followed by a buy";
     let cost = history(what, &|c| pairs(c, 700, true))?;
     computed(what, &cost, 1402)?;

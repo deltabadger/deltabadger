@@ -1,4 +1,4 @@
-//! How Rails stores values in SQLite, and the conversions that match it.
+//! How 2.x stores values in SQLite, and the conversions that match it.
 use chrono::{DateTime, NaiveDateTime, Timelike, Utc};
 use rusqlite::types::ValueRef;
 use rust_decimal::Decimal;
@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 #[derive(Debug)]
 pub enum CodecError {
-    /// R7: refuse fixed-width monetary overflow; never emulate Ruby bignums.
+    /// R7: refuse fixed-width monetary overflow; never emulate 2.x bignums.
     IntegerOverflow(&'static str),
     Time(String),
     Decimal(String),
@@ -23,7 +23,7 @@ pub fn format_time(t: DateTime<Utc>) -> String {
 
 
 /// R9: one fallible stored-timestamp parser. Zone-less ActiveRecord SQL times are UTC.
-/// Explicit offsets retain their instant; only Rails SQL and RFC3339 shapes are admitted.
+/// Explicit offsets retain their instant; only 2.x SQL and RFC3339 shapes are admitted.
 pub fn parse_time(s: &str) -> Result<DateTime<Utc>, CodecError> {
     parse_stored_time(s).map(|at|at.with_timezone(&Utc))
 }
@@ -92,8 +92,8 @@ pub fn validate_bot_times(settings:&serde_json::Value, transient:&serde_json::Va
     Ok(())
 }
 
-/// SQLite gives a `decimal` column NUMERIC affinity, so Rails' decimal text comes back as REAL or
-/// INTEGER. Rails then casts a Float with `to_d`, i.e. `BigDecimal(float, 0)`.
+/// SQLite gives a `decimal` column NUMERIC affinity, so 2.x's decimal text comes back as REAL or
+/// INTEGER. 2.x then casts a Float with `to_d`, i.e. `BigDecimal(float, 0)`.
 pub fn decimal_from_sql(v: ValueRef<'_>) -> Result<Option<Decimal>, CodecError> {
     match v {
         ValueRef::Null => Ok(None),
@@ -107,7 +107,7 @@ pub fn decimal_from_sql(v: ValueRef<'_>) -> Result<Option<Decimal>, CodecError> 
     }
 }
 
-/// Rails' `BigDecimal(float, 0)`: the shortest round-trip digits of the float, which bigdecimal
+/// 2.x's `BigDecimal(float, 0)`: the shortest round-trip digits of the float, which bigdecimal
 /// truncates (not rounds) to 16 significant digits. `v2::float_e` prints exactly those shortest digits.
 pub fn real_to_decimal(f: f64) -> Result<Decimal, CodecError> {
     let err = || CodecError::Decimal(format!("{f:e} is outside the decimal range"));
@@ -140,7 +140,7 @@ pub fn parse_form_time(value: &Value, name: &str, now: DateTime<Utc>) -> Result<
     let s = input.trim();
     if s.is_empty() { return Ok(Value::Null); }
     if let Ok(at) = DateTime::parse_from_rfc3339(s) { return Ok(json!(at.with_timezone(&Utc).to_rfc3339_opts(chrono::SecondsFormat::Secs, true))); }
-    // Time.zone.parse in the owner's zone (a Rails name or an IANA id); an unknown name is refused, never read as UTC.
+    // Time.zone.parse in the owner's zone (a 2.x name or an IANA id); an unknown name is refused, never read as UTC.
     let zone = crate::web::timezone::strict(name).ok_or_else(|| WebError::Engine(crate::engine::EngineError::Data("unknown time zone".into())))?;
     let naive = ["%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]
         .iter().find_map(|pattern| NaiveDateTime::parse_from_str(s, pattern).ok())

@@ -2,16 +2,16 @@
 //! - check: take the engine lock, check the install read-only, list the Rust migrations `run`/`serve`
 //!   would apply, and report on an in-memory copy with them applied (with SECRET_KEY_BASE, after the same secret check
 //!   `run`/`serve` make), and exit.
-//! - run: take the install over from Rails and trade its eligible bots until SIGTERM/SIGINT.
-//! - handback: settle every unresolved order, then return the install to Rails. It refuses while `run` or `serve` runs.
+//! - run: take the install over from 2.x and trade its eligible bots until SIGTERM/SIGINT.
+//! - handback: settle every unresolved order, then return the install to 2.x. It refuses while `run` or `serve` runs.
 //! - serve: `run` with the web UI in the same process: it takes the install over and trades its eligible bots while
-//!   serving the UI, until SIGTERM/SIGINT stops both. Like `run`, it needs a `handback` before Rails starts again.
+//!   serving the UI, until SIGTERM/SIGINT stops both. Like `run`, it needs a `handback` before 2.x starts again.
 //! - sync ledger|balances [<api_key_id>]: one tracker sync by hand, under the engine lock, and exit.
 //! - reset-password <email> [--stdin | --generate]: set an account's password from the install's shell (PLAN-A16b,
 //!   D-RESET-PASSWORD-COMMAND), asked twice on the terminal, read from a pipe, or made and printed once to a terminal.
 //!   Not an engine: it takes no engine lock and writes one short transaction while `serve` runs (`reset_password`).
 //! - encryption-report [--published] | encryption-reset [--confirm clear-credentials] [--confirm-ibkr] [--published] |
-//!   encryption-derived-keys: Rails' deltabadger:encryption:* tasks (PLAN-A29, deltabadger::rotation). The report and
+//!   encryption-derived-keys: 2.x's deltabadger:encryption:* tasks (PLAN-A29, deltabadger::rotation). The report and
 //!   derived-keys only read; the reset takes the engine lock and clears every stored credential in one transaction.
 //!
 //! - export: the download of a stopped copy, in launchpad's scratch container only (PLAN-B4b, deltabadger::export): reads
@@ -19,7 +19,7 @@
 //!
 //! Env: STORAGE_DIR (default ./storage), DATABASE_PATH and QUEUE_DATABASE_PATH; run, handback and serve also need
 //! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). serve also reads PORT (default 3000),
-//! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. run and serve send the bots' mail and read what Rails
+//! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. run and serve send the bots' mail and read what 2.x
 //! reads for it: SMTP_ADDRESS, SMTP_PORT, SMTP_DOMAIN, SMTP_USER_NAME, SMTP_PASSWORD, NOTIFICATIONS_SENDER, APP_ROOT_URL
 //! and FORCE_SSL. Without data-api, run and serve import db/seed_data/catalogue.json.gz at start and the public catalogue
 //! snapshot daily from IBKR_CATALOGUE_URL (default data.deltabadger.com's; `off` turns it off). DELTABADGER_PLATFORM=umbrel
@@ -33,7 +33,7 @@
 //! Files: on an empty STORAGE_DIR, `run` and `serve` create the install under the engine lock (store::bootstrap: the
 //! primary, seeded and owned by Rust from its first commit, and an empty queue; never cache or cable). Every other
 //! command refuses a missing install and never creates a database file (`check` may create the directory and the lock
-//! file). A 2.x install keeps the files Rails created. `run` and `serve` apply Rust's migrations (store::migrate);
+//! file). A 2.x install keeps the files 2.x created. `run` and `serve` apply Rust's migrations (store::migrate);
 //! `resolve-withdrawal` migrates too but never creates an install.
 use deltabadger::crypto::{Cipher, EncryptionKeys};
 use deltabadger::engine::eligibility::{check_install_at, Refusal};
@@ -134,7 +134,7 @@ fn main() {
                 let tx=deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e|fail(&format!("{e:?}")));
                 deltabadger::engine::rules::seed_v2_ids(&tx).unwrap_or_else(|e|fail(&format!("{e:?}")));
                 tx.commit().unwrap_or_else(|e|fail(&format!("{e:?}")));
-                for (attempt,rule) in deltabadger::engine::rules::open_attempts(&o.primary,Some(id)).unwrap_or_else(|e|fail(&format!("{e:?}"))) {println!("rule {rule}: Rails attempt {attempt}");}
+                for (attempt,rule) in deltabadger::engine::rules::open_attempts(&o.primary,Some(id)).unwrap_or_else(|e|fail(&format!("{e:?}"))) {println!("rule {rule}: 2.x attempt {attempt}");}
             } else {
                 withdrawal::resolve(&o.primary,&o.queue,&cipher,target,resolution,chrono::Utc::now()).unwrap_or_else(|e|fail(&format!("{e:?}")));
                 deltabadger::engine::rules::finish_cleanup(&o.primary,&o.queue,chrono::Utc::now()).unwrap_or_else(|e|fail(&format!("{e:?}")));
@@ -287,7 +287,7 @@ fn read_only_primary(paths: &Paths, env: &dyn Fn(&str) -> Option<String>) -> rus
     rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap_or_else(|e| fail(&format!("{e}")))
 }
 
-/// `deltabadger encryption-report` (Rails' encryption:report): read-only; runs beside the app. The owed list needs the
+/// `deltabadger encryption-report` (2.x's encryption:report): read-only; runs beside the app. The owed list needs the
 /// stopped app's lock (it judges a copy as the next start would), so with the app up it says it wasn't checked.
 fn encryption_report(env: &dyn Fn(&str) -> Option<String>) {
     use deltabadger::rotation;
@@ -305,7 +305,7 @@ fn encryption_report(env: &dyn Fn(&str) -> Option<String>) {
     print!("{}", rotation::report_text(&inventory, compromised, owed.as_deref()));
 }
 
-/// `deltabadger encryption-reset` (Rails' encryption:reset, PLAN-A29): under the engine lock, compromised judged before
+/// `deltabadger encryption-reset` (2.x's encryption:reset, PLAN-A29): under the engine lock, compromised judged before
 /// anything changes, then the confirmation, the IBKR confirmation and the owed work, then one transaction that decrypts
 /// nothing (rotation::clear).
 fn encryption_reset(env: &dyn Fn(&str) -> Option<String>) {
@@ -337,14 +337,14 @@ fn encryption_reset(env: &dyn Fn(&str) -> Option<String>) {
     print!("{}", rotation::cleared_text(&summary, compromised, rotation::independent(env), platform));
 }
 
-/// `deltabadger encryption-derived-keys` (Rails' encryption:derived_keys): read-only, prints, never writes.
+/// `deltabadger encryption-derived-keys` (2.x's encryption:derived_keys): read-only, prints, never writes.
 fn encryption_derived_keys(env: &dyn Fn(&str) -> Option<String>) {
     use deltabadger::rotation;
     encryption_flags("usage: deltabadger encryption-derived-keys", &[]);
     let (secret, cipher) = encryption_secret(env);
     let paths = paths(env);
     let c = read_only_primary(&paths, env);
-    // An error is indeterminate: refused like an unreadable install (Rails' readability).
+    // An error is indeterminate: refused like an unreadable install (2.x's readability).
     let readable = rotation::written_under_another_key(&c, &cipher).ok().map(|unreadable| !unreadable);
     print!("{}", rotation::derived_keys_text(readable, env, &secret, rotation::platform(env)));
 }
@@ -358,7 +358,7 @@ fn take_lock(paths: &Paths) -> EngineLock {
     lease::lock(paths, chrono::Utc::now()).unwrap_or_else(|e| lock_refused(paths, e))
 }
 
-/// `run` and `serve`: `take_lock`, but a Rails heartbeat under 120 s old is waited out once (lease::lock_waiting_once,
+/// `run` and `serve`: `take_lock`, but a 2.x heartbeat under 120 s old is waited out once (lease::lock_waiting_once,
 /// PLAN-B2 R1). SIGTERM/SIGINT during the wait exits 0 with nothing held, claimed or written; `serve` shows the wait on
 /// its port meanwhile (r2.8) and closes that page before it binds the app there.
 fn take_lock_waiting(paths: &Paths) -> EngineLock {
@@ -405,7 +405,7 @@ fn lock_refused(paths: &Paths, e: LeaseError) -> ! {
         // Not on the refusal page: the engine that holds the lock is the one serving this install.
         LeaseError::Locked => { deltabadger::eline!("deltabadger: another Deltabadger engine is running on this data"); std::process::exit(1) }
         // A heartbeat in the future is a clock ahead of this one: the detail's negative age says so.
-        LeaseError::V2Alive { seconds_ago } => fail_with(V2_ALIVE, &format!("the Rails app looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
+        LeaseError::V2Alive { seconds_ago } => fail_with(V2_ALIVE, &format!("2.x looks alive (job heartbeat {seconds_ago}s ago); stop it first")),
         LeaseError::Io(e) => fail(&format!("{}: {e}", paths.lock_file().display())),
         e => fail(&format!("{e:?}")),
     }
@@ -422,7 +422,7 @@ const BEHIND_UMBREL: &str = "Deltabadger didn't start: this data is from an olde
                              Umbrel App Store: the update brings your data up to date first. If the update button isn't available, \
                              restart your Umbrel first. Nothing was changed.";
 
-/// C1 for this platform: DELTABADGER_PLATFORM read as Rails' Installation.platform_from_env reads it (stripped, any case).
+/// C1 for this platform: DELTABADGER_PLATFORM read as 2.x's Installation.platform_from_env reads it (stripped, any case).
 fn behind(env: &dyn Fn(&str) -> Option<String>) -> &'static str {
     if env("DELTABADGER_PLATFORM").is_some_and(|p| p.trim().eq_ignore_ascii_case("umbrel")) { BEHIND_UMBREL } else { BEHIND }
 }
@@ -476,7 +476,7 @@ fn explain(e: StoreError, paths: &Paths, env: &dyn Fn(&str) -> Option<String>) -
 
 /// The shared start of `run`, `serve`, `handback`, `sync` and `repair-binance-history`: no URL overrides, the instance's
 /// SECRET_KEY_BASE, the exclusive lock, and an install this build accepts and this secret reads (check_readable).
-/// Refusals here exit 1 before any file is created or changed. `run` and `serve` (`start`) wait out a just-stopped Rails
+/// Refusals here exit 1 before any file is created or changed. `run` and `serve` (`start`) wait out a just-stopped 2.x
 /// heartbeat once (take_lock_waiting) and create the install on an empty STORAGE_DIR (store::bootstrap: a new install
 /// holds nothing encrypted but its own lease); after check_readable they copy an install the lease does not give to this
 /// engine (back_up), then apply this build's pending Rust migrations,
@@ -499,7 +499,7 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     }
     check_readable(&paths, &cipher, env);
     // EncryptionKeyCheck at start (r2.5): one readable sample let the start through; anything else written under other keys
-    // is said, never refused. An error is a line only (Rails' indeterminate).
+    // is said, never refused. An error is a line only (2.x's indeterminate).
     if start {
         let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap_or_else(|e| fail(&format!("{e}")));
         match deltabadger::rotation::written_under_another_key(&c, &cipher) {
@@ -509,7 +509,7 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
         }
     }
     if start { pause("before-backup"); stop_if_requested(); }
-    // One copy per start at most (PLAN-B7 §4): before a takeover from Rails, or before this build migrates a desktop install
+    // One copy per start at most (PLAN-B7 §4): before a takeover from 2.x, or before this build migrates a desktop install
     // that is already Rust's. A new install has nothing to copy.
     if start && !created {
         if !owned_by_rust(&paths, &cipher) { back_up(&paths, store::TAKEOVER_COPY) }
@@ -522,7 +522,7 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
         pause("after-migrate");
     }
     let opened = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths, env));
-    // An encryption reset Rails made while Rust was stopped: known account identities are cleared before any is recorded.
+    // An encryption reset 2.x made while Rust was stopped: known account identities are cleared before any is recorded.
     if start { deltabadger::identity::initialize(&opened.primary, &cipher, chrono::Utc::now()).unwrap_or_else(|e| fail(&e)); }
     deltabadger::engine::provider::bind(&opened.primary,&cipher,env).unwrap_or_else(|_| fail("index configuration reader unavailable"));
     (lock, opened, cipher)
@@ -535,7 +535,7 @@ fn owned_by_rust(paths: &Paths, cipher: &Cipher) -> bool {
     matches!(lease::read(&c, cipher), Ok(Some(v)) if v["engine"] == "rust")
 }
 
-/// The copy before a takeover from Rails (PLAN-B2 r3.4, §5) or before a desktop update migrates (PLAN-B7 §4, `prefix`):
+/// The copy before a takeover from 2.x (PLAN-B2 r3.4, §5) or before a desktop update migrates (PLAN-B7 §4, `prefix`):
 /// C5a once a new copy is complete; a failure stops the start with C5b (r6 Q3) before anything is migrated or claimed, in
 /// the user's words: what happened, then what to do.
 fn back_up(paths: &Paths, prefix: &str) {
@@ -574,7 +574,7 @@ fn check_readable(paths: &Paths, cipher: &Cipher, env: &dyn Fn(&str) -> Option<S
 }
 
 /// The mail sender, ready to become a service: on its own connection (a background service never uses the engine's),
-/// with what the environment says about SMTP read now. Opened before the claim, so a failure here leaves the install Rails'.
+/// with what the environment says about SMTP read now. Opened before the claim, so a failure here leaves the install 2.x's.
 fn mail_sender(env: &dyn Fn(&str) -> Option<String>, cipher: &Cipher) -> deltabadger::mail::sender::Sender<SystemClock> {
     let install = paths(env);
     let own = store::open(&install).unwrap_or_else(|e| refuse_store(e, &install, env)).primary;
@@ -596,7 +596,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     let keys = EncryptionKeys::resolve(env, &secret).map_err(|e| format!("encryption keys: {e:?}"))?;
     let own = store::open(paths).map_err(|e| explain(e, paths, env))?;
     let cipher = Cipher::new(&keys);
-    // Utilities::Currency's Rails.cache entries: one fiat-rate cache for the whole engine process, shared by every run.
+    // Utilities::Currency's cache entries: one fiat-rate cache for the whole engine process, shared by every run.
     let rates = std::sync::Arc::new(jobs::data_api::RateCache::default());
     let api = jobs::data_api::config(env, &own.primary, &cipher)?.map(|config| jobs::data_api::DataApi::live(config).with_rates(rates.clone()));
     let api = std::rc::Rc::new(api);
@@ -618,7 +618,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.push(Box::new(deltabadger::sync::jobs::IbkrActivation { venues: LiveFactory::new() }));
     // D-BINANCE-ORDER-LINK: stored Binance fills link to their bot orders, at every start.
     registered.push(Box::new(deltabadger::sync::binance_order_links::OrderLinks));
-    // A28-1: the lines for Rails' unrecorded-order candidates, hourly; A28-3: with the served venues' order history read live.
+    // A28-1: the lines for 2.x's unrecorded-order candidates, hourly; A28-3: with the served venues' order history read live.
     registered.push(Box::new(deltabadger::engine::v2_unrecorded::Report::new(LiveFactory::new())));
     let resume_setup = jobs::setup_sync::unfinished(&own.primary, &cipher)?;
     let unbound = deltabadger::sync::jobs::unbound_ibkr_keys(&own.primary).map_err(|e| e.to_string())?;
@@ -654,13 +654,13 @@ fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Resul
     let t = match handover::take_over(lock, o, cipher, deltabadger::VERSION, chrono::Utc::now()) {
         Ok(t) => t,
         Err(EngineError::HardStop(message)) => return refused(EXIT_REFUSED, message),
-        // The lines are support's (e.g. a Rails withdrawal to resolve with resolve-withdrawal): stderr only.
+        // The lines are support's (e.g. a 2.x withdrawal to resolve with resolve-withdrawal): stderr only.
         Err(EngineError::Ineligible(p)) => { deltabadger::eline!("deltabadger: {}", p.join("\n")); return refused(EXIT_REFUSED, TAKEOVER_INELIGIBLE.into()) }
         Err(e) => return refused(EXIT_ENGINE_ERROR, format!("takeover failed: {e:?}")),
     };
     for aside in &t.set_aside { log(&deltabadger::engine::set_aside::stopped(aside)); }
     for rule in &t.rules_stopped { log(&format!("stopped rule {rule}: its exchange has no withdrawals in this build")); }
-    // D-UPGRADE-RAILS-WORK-DROPPED: the queued jobs with nothing left to finish are counted here.
+    // D-UPGRADE-V2-WORK-DROPPED: the queued jobs with nothing left to finish are counted here.
     log(&format!("took over ({:?}): {} bot(s), {} queued job(s) removed, {} of them with nothing left to do, {} webhook call(s) taken over, {} bot(s) back to scheduled",
                  t.claim, t.eligible.len(), t.deleted_jobs, t.dropped_jobs, t.imported_calls, t.normalised));
     #[cfg(debug_assertions)]
@@ -686,7 +686,7 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
             Err(e) => { deltabadger::eline!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
         };
         let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler];
-        log("running: SIGTERM finishes the tick in hand and stops; then run `deltabadger handback` before starting Rails");
+        log("running: SIGTERM finishes the tick in hand and stops; then run `deltabadger handback` before starting 2.x");
         // `serve`'s supervisor without the web: one "ended" rule for both commands.
         match supervisor::serve(engine, None, &SystemClock, services).await {
             Ended::Stopped => { log("stopped on request"); 0 }
@@ -701,7 +701,7 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 
 /// `deltabadger serve`: `run` and the web UI in one process. Every refusal, the web side's
 /// included (config, the port), comes before the claim, so a `serve` that cannot serve leaves
-/// the install Rails'. Once PORT is read, a refusal shows the refusal page there until SIGTERM (web::refused, PLAN-B2
+/// the install 2.x's. Once PORT is read, a refusal shows the refusal page there until SIGTERM (web::refused, PLAN-B2
 /// r1.0), except when another engine holds the install or the port cannot be taken. Exit codes: 0 stopped as asked
 /// (the refusal page too), 1 refused with nothing shown, 2 ended otherwise.
 fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
@@ -712,7 +712,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         Some(port) => port.trim().parse::<u16>().unwrap_or_else(|_| fail("PORT must be a port number")),
         None => 3000,
     };
-    // BINDING, the name `rails server` reads for its bind address (PLAN-B6 §1.3): the desktop sets 127.0.0.1.
+    // BINDING, the name 2.x's server read for its bind address (PLAN-B6 §1.3): the desktop sets 127.0.0.1.
     if let Some(ip) = env("BINDING").filter(|b| !b.trim().is_empty()) {
         deltabadger::web::server::set_binding(ip.trim().parse().unwrap_or_else(|_| fail("BINDING must be an IP address, such as 127.0.0.1")));
     }
@@ -793,7 +793,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         };
         let services = vec![mail, scheduler, figures, warnings, live];
         log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
-                      then run `deltabadger handback` before starting Rails"));
+                      then run `deltabadger handback` before starting 2.x"));
         match supervisor::serve(engine, Some((app, listener)), &SystemClock, services).await {
             Ended::Stopped => { log("stopped on request"); 0 }
             Ended::Engine(e) => { log(&format!("engine stopped: {e:?}; the web UI stopped with it")); EXIT_ENGINE_ERROR }
@@ -827,9 +827,9 @@ fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 
 /// One ledger or balance sync by hand, for one Alpaca key or for every key the nightly jobs read, exactly as the
 /// scheduler's job runs it. It holds the exclusive engine lock from before it opens a database until it exits, so it
-/// runs only while neither the Rails app nor another `deltabadger` process (`run`, `serve`) has this install: a sync
-/// can never run against an install Rails is also syncing. It claims nothing and writes no lease: an install Rails
-/// owns stays Rails' (the rows are the ones Rails' own job would write). Every split's unit passes
+/// runs only while neither the 2.x app nor another `deltabadger` process (`run`, `serve`) has this install: a sync
+/// can never run against an install 2.x is also syncing. It claims nothing and writes no lease: an install 2.x
+/// owns stays 2.x's (the rows are the ones 2.x's own job would write). Every split's unit passes
 /// `eligibility::guard`, as under the scheduler; nothing else it writes is the engine's business. Balances by hand
 /// have no market-data source, so coins keep their last price; stocks and cash are priced. A run is held to the
 /// deadline its job declares, as the scheduler's runner would hold it.
@@ -951,7 +951,7 @@ fn repair_binance_history(env:&dyn Fn(&str)->Option<String>)->i32 {
     0
 }
 
-/// Rails would open the database a URL names; this build only knows paths. Refusing keeps both engines' lock next to
+/// 2.x would open the database a URL names; this build only knows paths. Refusing keeps both engines' lock next to
 /// the same file, and keeps a command from settling work against an install the operator did not mean.
 fn refuse_url_overrides(env: &dyn Fn(&str) -> Option<String>) {
     if let Some(var) = ["DATABASE_URL", "PRIMARY_DATABASE_URL", "QUEUE_DATABASE_URL", "CACHE_DATABASE_URL", "CABLE_DATABASE_URL"]
@@ -1047,7 +1047,7 @@ fn fail_with(line: &str, detail: &str) -> ! {
 }
 
 fn refuse(msg: &str) -> ! {
-    // Every `fail` in `serve` comes before the takeover (claim_install): nothing was taken over from Rails and nothing
+    // Every `fail` in `serve` comes before the takeover (claim_install): nothing was taken over from 2.x and nothing
     // trades. A new install bootstrap created is Rust's from its first commit (lease::begin_created), so a later refusal
     // leaves it Rust's and idle, as an exit did. The lock goes now; the idle handles the frames below read nothing more.
     if let Some(port) = REFUSAL_PORT.get() { lease::release_all(); std::process::exit(deltabadger::web::refused::serve(*port, msg)); }

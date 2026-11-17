@@ -8,7 +8,7 @@ pub fn all<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Option<D
     all_with(venues,api,Rc::new(None),prices,wall)
 }
 /// `all`, the tracker and tax jobs asking `feed` (jobs::market): the reference and balance jobs keep `api`.
-/// `prices`: the balance sync's (sync::balances::MarketPrices on the scheduler: the run's feed and Rails' CoinGecko fallback).
+/// `prices`: the balance sync's (sync::balances::MarketPrices on the scheduler: the run's feed and 2.x's CoinGecko fallback).
 pub fn all_with<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Option<DataApi<T>>>,feed:Rc<Option<Feed<T>>>,prices:Rc<dyn crate::jobs::data_api::PriceSource>,wall:tracker::jobs::Wall)->Resolver{
     Box::new(move|name,scope|{
         if scope.is_none(){
@@ -31,7 +31,7 @@ pub fn all_with<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Opt
 /// Live scheduler jobs resolve the market-data configuration at the start of each run. Keep the
 /// original job for its spec and event subscriptions; construct its consumer with the current client.
 /// This also wraps late scopes, so a claim applies to balance and tracker jobs created after startup.
-/// `rates`: the engine's one fiat-rate cache (Utilities::Currency's Rails.cache entries), shared by every run.
+/// `rates`: the engine's one fiat-rate cache (Utilities::Currency's cache entries), shared by every run.
 pub fn configured(job: Box<dyn Job>, env: &dyn Fn(&str) -> Option<String>, rates: Arc<RateCache>) -> Box<dyn Job> {
     configured_with(job, env, rates, crate::venue::alpaca::LiveFactory::new())
 }
@@ -92,7 +92,7 @@ impl<C: Connect + Clone + 'static, T: Transport + 'static> Job for Configured<C,
             // One snapshot of the configuration per run: a switch takes effect at the next run (PLAN-A17 A17-3 item 1).
             let api = Rc::new((self.feeds)(&settings, self.rates.clone()).and_then(Feed::into_data_api));
             let feed = Rc::new((self.feeds)(&settings, self.rates.clone()));
-            // The balance sync's prices: the run's feed, and a CoinGecko client for Rails' fallback made by the same factory.
+            // The balance sync's prices: the run's feed, and a CoinGecko client for 2.x's fallback made by the same factory.
             let fallback = |key: &str| {
                 let only = crate::market_data::Settings { provider: crate::market_data::Provider::CoinGecko { key: Some(key.into()) }, ..settings.clone() };
                 match (self.feeds)(&only, self.rates.clone()) { Some(Feed::CoinGecko(cg)) => cg, _ => unreachable!("a CoinGecko provider makes a CoinGecko feed") }

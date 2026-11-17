@@ -68,7 +68,7 @@ pub enum Reading { Price, Drop(technical::Window), Ma(Timeframe, usize, technica
 #[derive(Debug, Clone)]
 pub struct ConditionRule { pub common: PriceRule, pub reading: Reading }
 
-/// Rails' initialized buy defaults and nil-only sell defaults. Invalid stored values are named at admission.
+/// 2.x's initialized buy defaults and nil-only sell defaults. Invalid stored values are named at admission.
 pub fn read_rule(bot: &Bot, kind: Rule, selling: bool) -> Result<Option<ConditionRule>, String> {
     if kind == Rule::Price { return bot.price_rule(selling).map(|r| r.map(|common| ConditionRule { common, reading: Reading::Price })); }
     if kind == Rule::Cap || bot.support(kind, selling) != Support::Implemented { return Ok(None); }
@@ -120,8 +120,8 @@ pub fn read_rule(bot: &Bot, kind: Rule, selling: bool) -> Result<Option<Conditio
         value_condition: Some(value_condition), ticker_id, action: action(&bot.settings, prefix), met_at_us }, reading }))
 }
 
-/// D-IDX-CONDITIONS / D-IDX-CAP: one rule set for every bot kind, Rails' class gap fixed (only DcaMultiAsset includes the
-/// concerns in Rails). `selling`: the rule's sell side; `action`: its `*_action` (the cap has none: "pause").
+/// D-IDX-CONDITIONS / D-IDX-CAP: one rule set for every bot kind, 2.x's class gap fixed (only DcaMultiAsset includes the
+/// concerns in 2.x). `selling`: the rule's sell side; `action`: its `*_action` (the cap has none: "pause").
 pub fn support(kind: Kind, rule: Rule, selling: bool, action: &str) -> Support {
     let flip = matches!(action, "start_selling" | "start_buying");
     // The cap's sell side (base_amount_limited) has nothing to sell on an index bot.
@@ -141,9 +141,9 @@ pub fn action(settings: &Value, prefix: &str) -> String {
     }
 }
 
-/// Whether a rule that is on decorates the carry window's `started_at`: where Rails reads it (a basket, whatever this build
+/// Whether a rule that is on decorates the carry window's `started_at`: where 2.x reads it (a basket, whatever this build
 /// runs: eligibility refuses what it does not) or where this engine runs it (Implemented). An index or signal bot's rule this
-/// build does not run stays inert there, as in Rails. A signal bot has no carry window: its rules gate each call (§2c).
+/// build does not run stays inert there, as in 2.x. A signal bot has no carry window: its rules gate each call (§2c).
 pub fn decorates(kind: Kind, support: Support) -> bool {
     kind != Kind::Signal && (support == Support::Implemented || (kind == Kind::Basket && support == Support::NotImplemented))
 }
@@ -155,7 +155,7 @@ pub fn stored_support(bot_type: &str, settings: &Value, rule: Rule, selling: boo
     support(Kind::of(bot_type), rule, selling, &action)
 }
 
-/// `price <=> n` as Ruby compares a BigDecimal with an Integer, a Float (Float#to_d) or a BigDecimal.
+/// `price <=> n` as 2.x compares a BigDecimal with an Integer, a Float (Float#to_d) or a BigDecimal.
 fn cmp(price: &BigDec, n: &Num) -> Result<Ordering, EngineError> { Ok(price.cmp(&n.to_dec().map_err(EngineError::Arithmetic)?)) }
 fn num_cmp(a: &Num, b: &Num) -> Result<Ordering, EngineError> {
     Ok(match (a, b) {
@@ -166,7 +166,7 @@ fn num_cmp(a: &Num, b: &Num) -> Result<Ordering, EngineError> {
 }
 fn num_f(n: &Num) -> f64 { match n { Num::Int(i) => *i as f64, Num::Float(f) => *f, Num::Dec(d) => d.to_f() } }
 
-/// price_limit_value_condition_satisfied? (price_limitable.rb:294-308): strict below/above; `between` is inclusive of
+/// price_limit_value_condition_satisfied?: strict below/above; `between` is inclusive of
 /// `[lower, upper].min` and `.max`; any other condition is never met.
 pub fn price_met(rule: &PriceRule, price: &BigDec) -> Result<bool, EngineError> {
     Ok(match rule.value_condition.as_deref() {
@@ -181,7 +181,7 @@ pub fn price_met(rule: &PriceRule, price: &BigDec) -> Result<bool, EngineError> 
     })
 }
 
-/// What get_price_limit_condition_met? answered (price_limitable.rb:197-222), its writes made.
+/// What get_price_limit_condition_met? answered, its writes made.
 pub enum Evaluated {
     /// No rule on the active side.
     Off,
@@ -192,14 +192,14 @@ pub enum Evaluated {
     Met { refreshed: Option<Box<Bot>> },
     /// The price was read and does not satisfy the rule (a met_at it had is gone, its carry captured).
     Unmet,
-    /// No available ticker for the rule: not met, nothing written (price_limitable.rb:202).
+    /// No available ticker for the rule: not met, nothing written.
     Unavailable,
     /// The price read failed: nothing written; the caller decides what the failure means.
     Failed(VenueError),
 }
 
 /// The rule's ticker: `tickers.available.find_by(id: <prefix>_in_ticker_id)`, Bot#tickers being the venue's available,
-/// trading-enabled pairs at the bot's quote for its members and bot_index_assets (dca_multi_asset.rb:364-369); a rule with
+/// trading-enabled pairs at the bot's quote for its members and bot_index_assets; a rule with
 /// no stored id reads the one that sorts first by its venue code (`tickers.min_by { |t| t[:base] }`).
 pub fn rule_ticker(c: &Connection, bot: &Bot, rule: &PriceRule) -> Result<Option<Ticker>, EngineError> { Ok(rule_ticker_quoted(c, bot, rule)?.0) }
 
@@ -248,9 +248,9 @@ async fn last_price<V: Attributed>(venue: &V, bot: &Bot, ticker: &Ticker, now: D
 /// met for the first time stamps `<prefix>_condition_met_at`; unmet after a met_at captures the carry
 /// (set_missed_quote_amount, capped as QuoteAmountLimitable caps pending_quote_amount) and clears met_at, in one write.
 /// The last price comes through Exchange's 5 s cache, the one the tick's own reference reads. The writes are stamped with
-/// the clock read after the price arrives (Rails' `Time.current` there): a read that crosses an interval checkpoint must
+/// the clock read after the price arrives (2.x's `Time.current` there): a read that crosses an interval checkpoint must
 /// not stamp, or capture the carry at, the instant before it. Each write also broadcasts the status line from inside it, as
-/// Rails does (broadcast_price_limit_info_update: its Rails.cache.fetch, stored in `INFO_KEY`).
+/// 2.x does (broadcast_price_limit_info_update: its cache fetch, stored here in `INFO_KEY`).
 pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Evaluated, EngineError> {
     evaluate_side(c, venue, bot, bot.selling(), clock, prices, version).await
 }
@@ -378,7 +378,7 @@ pub async fn evaluate_rule<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, 
             if current.bot_type == model::SIGNAL_TYPE {
                 model::update_transient(tx, bot.id, &[(key.as_str(), Value::Null)], now)?;
             } else if current.condition_started_us()? == cleared.condition_started_us()? {
-                // Accountable#check_missed_quote_amount_was_set (accountable.rb:119-127): settings_changed_at is unchanged,
+                // Accountable#check_missed_quote_amount_was_set: settings_changed_at is unchanged,
                 // and clearing this latch leaves the decorated started_at unchanged too. Flip rules never move that mark.
                 // Keep the stored carry (nil when absent), and clear the capture marker.
                 let before = current.transient.get("missed_quote_amount").cloned().unwrap_or(Value::Null);
@@ -406,7 +406,7 @@ pub const SELLING: &str = "selling";
 pub fn side_of(selling: bool) -> &'static str { if selling { SELLING } else { BUYING } }
 /// A side named by a request (`buying`/`selling`); anything else is no side (the active one is meant).
 pub fn side_named(side: &str) -> Option<&'static str> { [BUYING, SELLING].into_iter().find(|s| *s == side) }
-/// D-COND-INFO-STORE: what Rails keeps in Rails.cache under `bot_<id>_<rule>_info_<side>` for 20 s, kept in transient_data
+/// D-COND-INFO-STORE: what 2.x keeps in its cache under `bot_<id>_<rule>_info_<side>` for 20 s, kept in transient_data
 /// (a Rust-only key, outside the parity snapshots): `{rule: {side: {base, quote, price, condition_met, expires_us}}}`.
 pub const INFO_KEY: &str = "rust_condition_info";
 /// The status line's requests the web left for the engine (BroadcastsController#*_info_update → the info job), Rust-only:
@@ -422,13 +422,13 @@ pub fn live_info<'a>(stored: Option<&'a Value>, rule: &str, side: &str, now: Dat
 }
 
 /// broadcast_price_limit_info_update's hash: the pair's asset symbols, the price rounded to `decimals[:quote]`, the answer.
-/// None: no quote precision (`round(nil)` raises in Rails: no info).
+/// None: no quote precision (`round(nil)` raises in 2.x: no info).
 fn info_value(ticker: &Ticker, decimals: Option<i64>, price: &BigDec, met: bool) -> Option<Value> {
     let places = crate::v2::scale(decimals?).ok()?;
     Some(json!({ "base": ticker.base_symbol, "quote": ticker.quote_symbol, "price": price.round(places).to_s_f(), "condition_met": met }))
 }
 
-/// `Rails.cache.fetch(key, expires_in: 20.seconds) { info }`: a live entry is kept as it is (its own expiry too); otherwise
+/// 2.x's 20-second cache fetch of the info: a live entry is kept as it is (its own expiry too); otherwise
 /// `info` is stored for 20 s. Returns what the broadcast shows.
 fn fetch_info(tx: &Connection, bot_id: i64, rule: &str, side: &str, now: DateTime<Utc>, info: Value) -> Result<Value, EngineError> {
     let transient: String = tx.query_row("SELECT transient_data FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
@@ -452,7 +452,7 @@ pub fn forget_info(tx: &Connection, bot_id: i64, rule: &str, side: &str) -> Resu
 }
 
 /// Leaves a status-line request for `rule` on `side` (the web's BroadcastsController#*_info_update; `user`: the bot must be
-/// theirs). No side: the bot's active side as it is stored now (Rails' job reads the bot's direction). One statement: the
+/// theirs). No side: the bot's active side as it is stored now (2.x's job reads the bot's direction). One statement: the
 /// version is bumped atomically, so a request the engine claimed earlier never hides this one. False: no such bot.
 pub fn want_info(c: &Connection, bot_id: i64, user: Option<i64>, rule: &str, side: Option<&str>, locale: &str) -> Result<bool, EngineError> {
     let k = INFO_WANTED_KEY;
@@ -513,11 +513,11 @@ pub fn judge(rule: &PriceRule, price: &BigDec) -> Result<bool, EngineError> {
     price_met(rule, price)
 }
 
-/// Bot::BroadcastPriceLimitInfoUpdateJob (broadcast_price_limit_info_update, price_limitable.rb:224-250) for one claimed
+/// Bot::BroadcastPriceLimitInfoUpdateJob (broadcast_price_limit_info_update) for one claimed
 /// request, on any status, for the claimed side's rule: its ticker, its last price, the answer (`judge`), then the cached
-/// info. Any failure leaves no info, as Rails broadcasts nothing then; the request is served either way. Some(info): what
+/// info. Any failure leaves no info, as 2.x broadcasts nothing then; the request is served either way. Some(info): what
 /// the line shows.
-/// D-INFO-READONLY: Rails' job runs get_price_limit_condition_met? with its writes, so a page view stamps or clears met_at and
+/// D-INFO-READONLY: 2.x's job runs get_price_limit_condition_met? with its writes, so a page view stamps or clears met_at and
 /// captures the carry, a stopped bot's included, and that changes later trades. Here the status line never changes trading
 /// state: the only writes are the info cache (`fetch_info`) and the served request (`ack_info`).
 /// Err(RunFenced): the bot's configuration changed since the claim; nothing is kept and the request stays.
@@ -592,9 +592,9 @@ pub enum Checked {
     Gone,
 }
 
-/// A zero price is not a failed Result in Rails: Exchange#get_last_price raises "Wrong last price for …" (kraken.rb:224-236),
+/// A zero price is not a failed Result in 2.x: Exchange#get_last_price raises "Wrong last price for …",
 /// out of the gate (the tick fails) and out of the check job (the chain dies until Repair). So does an unreadable price:
-/// parse_venue_number's ArgumentError (alpaca.rb:611), which the adapter words "unreadable … price for …" or, for a number
+/// parse_venue_number's ArgumentError, which the adapter words "unreadable … price for …" or, for a number
 /// out of range, "unreadable number …". VenueError carries no raise/Result distinction, so this reads that wording.
 pub fn raised(e: &VenueError) -> Option<String> {
     match e { VenueError::Rejected(m) | VenueError::Unauthorized(m) | VenueError::Coded { errors: m, .. } if m.first().is_some_and(|m| m.starts_with("Wrong ") || m.starts_with("invalid value for BigDecimal") || m.starts_with("unreadable ")) => Some(crate::v2::to_sentence(m)), _ => None }
@@ -628,7 +628,7 @@ pub async fn check<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot,
         Evaluated::Off | Evaluated::Unmet | Evaluated::Unavailable => { model::run_write(c, bot, revive)?; Ok(Checked::Next(next_at(bot, kind, now)?)) }
         Evaluated::Failed(e) => match raised(&e) {
             Some(m) => Err(EngineError::Data(m)),
-            // A failed Result, a rejected key included, or a rescued transport raise: again in a minute (limit_check_job_base.rb:11, :52-55).
+            // A failed Result, a rejected key included, or a rescued transport raise: again in a minute.
             None => { model::run_write(c, bot, revive)?; Ok(Checked::Next(now + Duration::minutes(1))) }
         },
     }

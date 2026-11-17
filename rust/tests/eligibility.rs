@@ -340,7 +340,7 @@ fn malformed_asset_categories_incomplete_indices_and_other_quotes_are_refused() 
     let cases: Vec<(&str, Make)> = vec![
         ("category stock", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'stock' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("category etf", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'etf' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
-        ("tokenized BTC on Alpaca (no recorded Rails vector for tokenized pairs on this venue)",
+        ("tokenized BTC on Alpaca (no recorded 2.x vector for tokenized pairs on this venue)",
          Box::new(|c, s| { c.execute("UPDATE assets SET category = 'Tokenized Stock', instrument_type = NULL WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("no ticker for the asset", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
         ("index_type None", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
@@ -671,7 +671,7 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
             let many: serde_json::Map<String, serde_json::Value> = (0..101).map(|i| ((5000 + i).to_string(), json!(1.0 / 101.0))).collect();
             seed::insert_bot(c, s, &plain().with("allocations", serde_json::Value::Object(many)))
         })),
-        ("1 legacy imported row(s) left open (Rails never polls or settles them)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth));
+        ("1 legacy imported row(s) left open (2.x never polls or settles them)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth));
             history_row(c, s, id, 0, "REGULAR", Some(s.btc), "imported_1"); c.execute("UPDATE transactions SET external_status = 1 WHERE bot_id = ?1", [id]).unwrap(); id })),
         ("1 order(s) recorded without base_asset_id", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", None, "ONOASSET"); id })),
         ("asset {btc} listed more than once", Box::new(|c, s, _| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, format!("0{}", s.btc): 0.5 }))))),
@@ -1174,7 +1174,7 @@ fn tokenized_crypto_is_admitted_and_tokenized_stocks_refused() {
         assert_eq!(r.eligible, vec![id], "{venue}");
         o.primary.execute("UPDATE assets SET category = 'Stock' WHERE id = ?1", [s.btc]).unwrap();
         let reasons = eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
-        let want = if alpaca { "tokenized BTC on Alpaca (no recorded Rails vector for tokenized pairs on this venue)".to_string() }
+        let want = if alpaca { "tokenized BTC on Alpaca (no recorded 2.x vector for tokenized pairs on this venue)".to_string() }
                    else { "Kraken tokenized pair: xStock balances rebase (dividends, splits) and EEA accounts cannot trade them by API; not traded here".to_string() };
         assert_eq!(reasons, vec![want], "{venue}");
     }
@@ -1183,7 +1183,7 @@ fn tokenized_crypto_is_admitted_and_tokenized_stocks_refused() {
     o.primary.execute("UPDATE assets SET category = 'Tokenized Stock' WHERE id = ?1", [s.btc]).unwrap();
     let id = seed::insert_bot(&o.primary, &s, &plain());
     let reasons = eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
-    assert!(reasons.contains(&"tokenized BTC on Bybit (no recorded Rails vector for tokenized pairs on this venue)".to_string()), "{reasons:?}");
+    assert!(reasons.contains(&"tokenized BTC on Bybit (no recorded 2.x vector for tokenized pairs on this venue)".to_string()), "{reasons:?}");
 }
 
 /// A: an imported row Rails' importer wrote (closed) is read as any other REGULAR row and admitted; a stopped bot whose only
@@ -1216,7 +1216,7 @@ fn a_tokenized_stock_runs_on_hyperliquid_only() {
     };
     assert_eq!(reasons("Exchanges::Hyperliquid"), Vec::<String>::new());
     let refused = reasons("Exchanges::Binance");
-    assert!(refused.iter().any(|r| r.starts_with("tokenized BTC on ") && r.ends_with(" (no recorded Rails vector for tokenized pairs on this venue)")), "{refused:?}");
+    assert!(refused.iter().any(|r| r.starts_with("tokenized BTC on ") && r.ends_with(" (no recorded 2.x vector for tokenized pairs on this venue)")), "{refused:?}");
     let refused = reasons("Exchanges::Kraken");
     assert!(refused.contains(&"Kraken tokenized pair: xStock balances rebase (dividends, splits) and EEA accounts cannot trade them by API; not traded here".to_string()), "{refused:?}");
     // instrument_type 'tokenized' outside the crypto category reads the same way.

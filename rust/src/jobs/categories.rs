@@ -1,4 +1,4 @@
-//! Index::SyncFromCoingeckoJob's coingecko branch (app/jobs/index/sync_from_coingecko_job.rb:31-128), the category half of
+//! Index::SyncFromCoingeckoJob's coingecko branch, the category half of
 //! the INDICES job on a CoinGecko install (PLAN-A17 A17-4, Rust item 3). `reference::coingecko_indices` runs Top Coins
 //! first, then `pass`, on one client (one plan ping). Every write is a unit fenced by the run's captured provider
 //! fingerprint; each ranked row is attested `coingecko` (engine::index::record_ranking) in the unit that writes it.
@@ -23,9 +23,9 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 /// The slice completed for (fingerprint, slot): `<fingerprint>@<slot>` (contract item 5).
 pub const SLICE_KEY: &str = "rust_job.indices_slice";
-/// Index::EXCLUDED_CATEGORY_IDS (app/models/index.rb:11-16).
+/// Index::EXCLUDED_CATEGORY_IDS.
 const EXCLUDED: [&str; 4] = ["stablecoins", "fiat-backed-stablecoin", "eur-stablecoin", "usd-stablecoin"];
-/// Index::ExchangeAvailability::TOP_COINS_COUNT and MINIMUM_SUPPORTED_COINS (exchange_availability.rb:4-5).
+/// Index::ExchangeAvailability::TOP_COINS_COUNT and MINIMUM_SUPPORTED_COINS.
 const TOP_COINS_COUNT: usize = 10;
 const MINIMUM_SUPPORTED_COINS: i64 = 3;
 const CHANGED: &str = "index configuration changed during refresh; refresh again";
@@ -46,7 +46,7 @@ pub fn current(c: &Connection, external_id: &str, fingerprint: &str, slot: DateT
 }
 
 /// Followed (D-CG-FOLLOWED-DAILY, Q-FOLLOWED (a)): the categories of index bots neither deleted nor archived that have an
-/// exchange, stopped ones included (Rails' recheck set), sorted; never `top-coins`.
+/// exchange, stopped ones included (2.x's recheck set), sorted; never `top-coins`.
 fn followed(c: &Connection) -> Result<BTreeSet<String>, EngineError> { Ok(followers(c)?.into_keys().collect()) }
 
 /// The followed categories, each with its bots (in id order).
@@ -110,7 +110,7 @@ fn top_coins_by_exchange(c: &Connection, coins: &[String]) -> Result<Map<String,
     Ok(out)
 }
 
-/// `Index.calculate_available_exchanges(top_coins:)` (exchange_availability.rb:21-36): per available venue, the most
+/// `Index.calculate_available_exchanges(top_coins:)`: per available venue, the most
 /// available trading-enabled tickers on one quote whose base is one of `coins`, kept when at least 3.
 fn available_exchanges(c: &Connection, coins: &[String]) -> Result<Map<String, Value>, EngineError> {
     let mut out = Map::new();
@@ -129,7 +129,7 @@ fn available_exchanges(c: &Connection, coins: &[String]) -> Result<Map<String, V
     Ok(out)
 }
 
-/// Availability qualified against each venue's own list (:76-80, exchange_availability.rb:63-72's per-exchange branch).
+/// Availability qualified against each venue's own list (ExchangeAvailability's per-exchange branch).
 fn availability_of(c: &Connection, per_exchange: &Map<String, Value>) -> Result<Map<String, Value>, EngineError> {
     let mut out = Map::new();
     for (ty, coins) in per_exchange {
@@ -152,7 +152,7 @@ fn cap(v: &Value) -> f64 {
 enum Ranked { Written, Disqualified, Skipped, Unlisted }
 
 /// One category's good answer (:55-118): the valid coins (answer ids, deduped first-wins, with a local asset, in answer
-/// order); Rails' rules for a non-followed one; else the row, its caps and its ranking. In the caller's fenced unit.
+/// order); 2.x's rules for a non-followed one; else the row, its caps and its ranking. In the caller's fenced unit.
 fn rank(c: &Connection, id: &str, rows: &[Value], followed: bool, feed: Option<&Value>, fingerprint: &str, now: DateTime<Utc>) -> Result<Ranked, EngineError> {
     let mut seen = HashSet::new();
     let mut valid = vec![];
@@ -194,7 +194,7 @@ fn rank(c: &Connection, id: &str, rows: &[Value], followed: bool, feed: Option<&
         }
         (Some((row, old_name, old_description, old_cap, old_json)), feed) => {
             // update!: the feed's attributes while CoinGecko lists the category, else the row keeps its own; updated_at moves
-            // only on a change (a JSON column compared parsed, as Rails compares the cast values).
+            // only on a change (a JSON column compared parsed, as 2.x compares the cast values).
             let (name, description, market_cap, cap_changed) = match feed {
                 Some(f) => {
                     let (n, d, m) = attrs(f)?;
@@ -222,7 +222,7 @@ pub fn write_answer(c: &Connection, id: &str, rows: &[Value], fingerprint: &str,
 
 /// `refresh_availability` (:132-138) as D-CG-AVAILABILITY-FROM-RANKING reads it: for every `coingecko` row, the new
 /// (top_coins_by_exchange, available_exchanges) when they changed. A row this engine ranked under `fingerprint` (of any age)
-/// re-derives the per-venue lists from its stored full ranking; any other row, Rails' `refresh_available_exchanges!`
+/// re-derives the per-venue lists from its stored full ranking; any other row, 2.x's `refresh_available_exchanges!`
 /// (its saved per-venue lists, else its top_coins). Read outside the write lock; one row's failure is logged.
 fn refresh_plan(c: &Connection, fingerprint: &str) -> Result<Vec<(i64, Option<String>, String)>, EngineError> {
     type Row = (i64, Option<String>, Option<String>, Option<String>, Option<String>, bool);
@@ -360,7 +360,7 @@ async fn steps(api: &dyn Api, fingerprint: &str, cx: &Cx<'_>, tally: &mut Tally)
     }).await?;
     let due: Vec<Due> = due.into_iter().zip(skip).filter_map(|(d, cur)| (!cur).then_some(d)).collect();
 
-    // e. Each due category, one `coins/markets?category=` page of 250 (Rails' get_coins_list_with_market_data(limit: 250)).
+    // e. Each due category, one `coins/markets?category=` page of 250 (2.x's get_coins_list_with_market_data(limit: 250)).
     let mut slice_open = 0usize; // slice categories not answered
     let mut disqualified: Vec<String> = vec![];
     for d in &due {
@@ -421,7 +421,7 @@ async fn steps(api: &dyn Api, fingerprint: &str, cx: &Cx<'_>, tally: &mut Tally)
         }).await?;
     }
 
-    // h. The last unit: the provider record (the list was read), the slice's completion, Rails' recheck_index_bots; then the
+    // h. The last unit: the provider record (the list was read), the slice's completion, 2.x's recheck_index_bots; then the
     // engine is woken.
     let (list_read, completed) = (feed.is_some(), slice_asked && slice_open == 0);
     let fp = fingerprint.to_string();

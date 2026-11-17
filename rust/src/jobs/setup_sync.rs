@@ -17,8 +17,8 @@ const STATUS: &str = "setup_sync_status";
 const SYNCS: [&str; 4] = [reference::TICKERS, reference::ASSETS, reference::INDICES, reference::STOCKS];
 
 /// D-CG-SETUP-DURABLE: a setup run asked for (a CoinGecko key saved, a resync, a taken-over SeedAndSyncJob), as a plain
-/// counter the job reads at start and clears at the end only if no newer request came meanwhile. Rails enqueues the job
-/// in the request, and loses it if the process dies first; `setup_sync_status` keeps exactly Rails' writes.
+/// counter the job reads at start and clears at the end only if no newer request came meanwhile. 2.x enqueues the job
+/// in the request, and loses it if the process dies first; `setup_sync_status` keeps exactly 2.x's writes.
 pub const REQUEST: &str = "rust_job.setup_sync.request";
 
 /// Ask for a setup run, in the caller's transaction; the caller wakes NAME after commit.
@@ -55,8 +55,8 @@ impl<T: Transport> SeedAndSync<T> {
 }
 
 /// What the CoinGecko branch runs, in order (PLAN-A17 item 8, A17-2 item 6): every venue's tickers (sync_exchanges_from_coingecko:
-/// force, no claim, no backfill wake), the assets refresh (Rails' sync_assets_from_coingecko!), then the indices job
-/// (D-CG-SETUP-RANKING: the stored ranking a Top Coins bot composes from). Rails' 65 s sleeps are the throttle's job.
+/// force, no claim, no backfill wake), the assets refresh (2.x's sync_assets_from_coingecko!), then the indices job
+/// (D-CG-SETUP-RANKING: the stored ranking a Top Coins bot composes from). 2.x's 65 s sleeps are the throttle's job.
 const COINGECKO_SYNCS: [&str; 3] = [reference::TICKERS, reference::ASSETS, reference::INDICES];
 
 /// Setup runs its steps itself, so its deadline covers them all: the CoinGecko tickers' 60 minutes plus the assets and the
@@ -109,7 +109,7 @@ impl<T: Transport + 'static> Job for SeedAndSync<T> {
                     for name in SYNCS {
                         let sub = Cx { db: cx.db.clone(), clock: cx.clock, wakers: cx.wakers.clone() };
                         let outcome = reference::run_once(name, Some((self.api)(config.clone())), sub).await;
-                        // Rails logs a failed sync and goes on; its record is the job's own.
+                        // 2.x logs a failed sync and goes on; its record is the job's own.
                         record(&cx, name, outcome).await;
                     }
                     None

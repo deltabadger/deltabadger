@@ -1,4 +1,4 @@
-//! The reference-data jobs of config/recurring.yml, each a port of its Rails job on the deltabadger market-data provider.
+//! The reference-data jobs of config/recurring.yml, each a port of its 2.x job on the deltabadger market-data provider.
 //! HTTP is awaited on the runtime thread. Everything after it (the walk of the payload, the casts, the writes) runs in a
 //! `Db::run` closure on the blocking pool, and the writes in units of CHUNK rows (import::publish).
 use super::coingecko::{self, Clients};
@@ -25,12 +25,12 @@ pub const INDICES: &str = "sync_indices_from_coingecko_job";
 pub const TICKERS: &str = "sync_all_tickers_and_assets_job";
 pub const ASSETS: &str = "fetch_all_assets_data_from_coingecko_job";
 pub const PRUNE: &str = "prune_bot_activity_logs_job";
-/// The IBKR catalogue sync (Ibkr plan R1, D-IBKR-CATALOGUE): Rails has no such job; IBKR listings come from our catalogue
+/// The IBKR catalogue sync (Ibkr plan R1, D-IBKR-CATALOGUE): 2.x has no such job; IBKR listings come from our catalogue
 /// through the same importer as every venue's, behind a revision fence.
 pub const IBKR: &str = "sync_ibkr_listings_job";
 
 const NOT_PORTED: &str = "the market-data provider is not deltabadger (MARKET_DATA_URL): this build syncs reference data only from data-api";
-const ALPACA_LISTINGS_LAST_GOOD: &str = "alpaca_listings_last_good_count";        // market_data.rb:398
+const ALPACA_LISTINGS_LAST_GOOD: &str = "alpaca_listings_last_good_count";        // MarketData's key
 const MIN_HEALTHY_ALPACA_LISTINGS: i64 = 1000;                                    // :401
 const ALPACA_CRYPTO_LAST_GOOD: &str = "alpaca_crypto_listings_last_good_count";   // :589
 const MIN_HEALTHY_ALPACA_CRYPTO: i64 = 30;                                        // :590
@@ -45,19 +45,19 @@ const KINDS: [Kind; 7] = [Kind::Stocks, Kind::AlpacaCrypto, Kind::Indices, Kind:
 fn spec(kind: Kind) -> Spec {
     let daily = |hour, minute| Some(Schedule::Daily { hour, minute });
     match kind {
-        // :53-56; jitter 1 s–15 min (sync_stocks_from_deltabadger_job.rb:28-36, :100-102); retry_on ×2, 5 attempts (:17-18).
+        // :53-56; jitter 1 s–15 min; retry_on ×2, 5 attempts (:17-18).
         Kind::Stocks => Spec { name: STOCKS, schedule: daily(10, 0), jitter: Jitter { min_secs: 1, max_secs: 900 }, retry: Retry::Polynomial { attempts: 5 }, deadline: DEADLINE, scope: None },
-        // :58-60; retry_on ×2, 5 attempts (sync_alpaca_crypto_from_deltabadger_job.rb:5-6).
+        // :58-60; retry_on ×2, 5 attempts.
         Kind::AlpacaCrypto => Spec { name: ALPACA_CRYPTO, schedule: daily(10, 15), jitter: Jitter::NONE, retry: Retry::Polynomial { attempts: 5 }, deadline: DEADLINE, scope: None },
-        // :33-35; PullFailed, 15 minutes, 4 attempts (sync_from_coingecko_job.rb:15-17).
+        // :33-35; PullFailed, 15 minutes, 4 attempts.
         Kind::Indices => Spec { name: INDICES, schedule: daily(10, 30), jitter: Jitter::NONE, retry: Retry::Fixed { wait_secs: 900, attempts: 4 }, deadline: DEADLINE, scope: None },
-        // :13-15; `rand(60)` s on the deltabadger provider (sync_all_tickers_and_assets_job.rb:9, :14).
+        // :13-15; `rand(60)` s on the deltabadger provider.
         Kind::Tickers => Spec { name: TICKERS, schedule: Some(Schedule::EveryHours { every: 4, minute: 15 }), jitter: Jitter { min_secs: 0, max_secs: 59 }, retry: Retry::None, deadline: COINGECKO_TICKERS_DEADLINE, scope: None },
-        // :20-23; 1 s–5 min (fetch_all_assets_data_from_coingecko_job.rb:17, :39).
+        // :20-23; 1 s–5 min.
         Kind::Assets => Spec { name: ASSETS, schedule: daily(0, 20), jitter: Jitter { min_secs: 1, max_secs: 300 }, retry: Retry::None, deadline: DEADLINE, scope: None },
         // :89-91.
         Kind::Prune => Spec { name: PRUNE, schedule: daily(4, 0), jitter: Jitter::NONE, retry: Retry::None, deadline: DEADLINE, scope: None },
-        // No Rails entry: daily after the 10:00-10:30 chain, retried as the other catalogue syncs are.
+        // No 2.x entry: daily after the 10:00-10:30 chain, retried as the other catalogue syncs are.
         Kind::Ibkr => Spec { name: IBKR, schedule: daily(10, 45), jitter: Jitter::NONE, retry: Retry::Polynomial { attempts: 5 }, deadline: DEADLINE, scope: None },
     }
 }
@@ -132,7 +132,7 @@ async fn run<T: Transport>(kind: Kind, api: Option<&DataApi<T>>, cg: &Clients, c
     }
 }
 
-/// What the stock and Alpaca syncs do with a failed request (market_data.rb:430-431, :456-459): a 429 raises
+/// What the stock and Alpaca syncs do with a failed request: a 429 raises
 /// RateLimitedError and a network failure TransientNetworkError, which retry_on retries; any other is a logged Failure.
 fn api_failure(e: ApiError) -> Outcome {
     if e.rate_limited() { return Outcome::RateLimited(e.message()); }
@@ -196,7 +196,7 @@ async fn assets<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
         import::plan_assets(rows, &url).map(Some)
     }).await;
     match plan {
-        Ok(None) => Outcome::NothingNew, // Rails writes nothing; the catalogue keeps its age
+        Ok(None) => Outcome::NothingNew, // 2.x writes nothing; the catalogue keeps its age
         Ok(Some(plan)) => {
             if let Err(m) = incomplete(cx, ASSETS, now).await { return Outcome::Failed(m); }
             done(import::import_assets(&cx.db, plan, now).await)
@@ -205,7 +205,7 @@ async fn assets<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
     }
 }
 
-/// Ok: Done; Err: the failure Rails rescues into a logged Result::Failure.
+/// Ok: Done; Err: the failure 2.x rescues into a logged Result::Failure.
 fn done(r: Result<(), String>) -> Outcome { r.map_or_else(Outcome::Failed, |()| Outcome::Done) }
 
 /// Before an import's first write unit: until the runner records this job's complete success, the
@@ -214,7 +214,7 @@ async fn incomplete(cx: &Cx<'_>, job: &'static str, now: DateTime<Utc>) -> Resul
     cx.db.run(move |c, _| super::state::mark_incomplete(c, job, None, now)).await
 }
 
-/// `Exchange.available.where.not(type: Exchange::STOCK_TYPES)` (exchange.rb:23, :51), in id order.
+/// `Exchange.available.where.not(type: Exchange::STOCK_TYPES)`, in id order.
 fn venues(c: &Connection) -> Result<Vec<(i64, String)>, String> {
     let mut s = c.prepare("SELECT id, type FROM exchanges WHERE available = 1 AND type NOT IN ('Exchanges::Alpaca', 'Exchanges::Ibkr') ORDER BY id")
         .map_err(|e| e.to_string())?;
@@ -222,8 +222,8 @@ fn venues(c: &Connection) -> Result<Vec<(i64, String)>, String> {
     Ok(rows)
 }
 
-/// Exchange#name_id (exchange.rb:77-79): the class name, demodulized and underscored ("Exchanges::BinanceUs" → "binance_us").
-/// ponytail: one underscore per capital; Ruby groups acronyms ("ABCDef" → "abc_def"), which no exchange class has.
+/// Exchange#name_id: the class name, demodulized and underscored ("Exchanges::BinanceUs" → "binance_us").
+/// ponytail: one underscore per capital; 2.x groups acronyms ("ABCDef" → "abc_def"), which no exchange class has.
 pub fn name_id(ty: &str) -> String {
     let short = ty.rsplit("::").next().unwrap_or(ty);
     let mut out = String::new();
@@ -285,7 +285,7 @@ async fn indices<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
     }).await;
     let (plan, listed) = match plan { Ok((rows, listed)) => (Ok(rows), listed), Err(m) => (Err(m), None) };
     let result = match plan {
-        Ok(rows) if rows.is_empty() => { // Rails writes nothing; the indices keep their age
+        Ok(rows) if rows.is_empty() => { // 2.x writes nothing; the indices keep their age
             let now = cx.clock.now();
             return match cx.db.run(move |c, _| crate::engine::model::locked(c, |tx| crate::engine::index::mark_resync_all(tx, now)).map_err(|e| format!("{e:?}"))).await {
                 Ok(_) => { cx.wakers.wake_engine(); Outcome::NothingNew }
@@ -386,11 +386,11 @@ async fn top_coins(api: &dyn coingecko::Api, captured: &str, cx: &Cx<'_>) -> Out
     match result { Ok(())=>{cx.wakers.wake_engine();Outcome::Done},Err(e)=>Outcome::Failed(e) }
 }
 
-/// MarketData.sync_assets_from_coingecko! (market_data.rb:61-90), as Asset::FetchAllAssetsDataFromCoingeckoJob runs it on
+/// MarketData.sync_assets_from_coingecko!, as Asset::FetchAllAssetsDataFromCoingeckoJob runs it on
 /// the coingecko provider: `return unless configured?`, a blank key a Failure before anything; `Asset.mark_tokenized!`,
 /// committed whatever follows; every crypto external id, 250 per `coins/markets?ids=` page (Coingecko#
 /// get_coins_list_with_market_data, all batches before any write, a failed one ending the run); then each crypto asset the
-/// answer carries refreshed (asset.rb:147-166), the blacklist skipped, a coin without symbol or name skipped
+/// answer carries refreshed, the blacklist skipped, a coin without symbol or name skipped
 /// (D-CG-ASSET-ROW-SKIPS). A changed image wakes Asset::InferColorFromImageJob (jobs::asset_color) for that asset.
 /// Done only when some asset was refreshed or confirmed; ids asked and no coin answered certifies nothing (Failed).
 async fn coingecko_assets(cg: &Clients, cx: &Cx<'_>) -> Outcome {
@@ -437,7 +437,7 @@ fn crypto_assets(c: &Connection) -> Result<Vec<(i64, String)>, String> {
     rows
 }
 
-/// Asset::COINGECKO_BLACKLISTED_IDS (asset.rb:46-49).
+/// Asset::COINGECKO_BLACKLISTED_IDS.
 const BLACKLIST: [&str; 2] = ["covalent", "assister-ai"];
 
 fn v2_class(v: &Value) -> &'static str {
@@ -477,7 +477,7 @@ impl Job for AssetData {
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(asset_data(&self.cg, self.asset, cx)) }
 }
 
-/// fetch_data_from_coingecko_job.rb + Asset#sync_data_with_coingecko, Rails' guards in Rails' order, each before any
+/// FetchDataFromCoingeckoJob + Asset#sync_data_with_coingecko, 2.x's guards in 2.x's order, each before any
 /// request: the deltabadger provider; not configured; a blacklisted id; a blank key (a Failure).
 pub async fn asset_data(cg: &Clients, asset: i64, cx: Cx<'_>) -> Outcome {
     let guard = cx.db.run(move |c, cipher| {
@@ -517,7 +517,7 @@ async fn alpaca_crypto<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outco
     let body = match feeds.get(ALPACA_CRYPTO_LISTINGS).await { Ok(b) => b, Err(e) => return api_failure(e) };
     let rev = match admit(feeds, cx, ALPACA_CRYPTO, &body).await { Ok(r) => r, Err(out) => return out };
     let now = cx.clock.now();
-    // Computed first (reads, and the one-row `usd` write Rails also makes before its guard), published after.
+    // Computed first (reads, and the one-row `usd` write 2.x also makes before its guard), published after.
     let step = cx.db.run(move |c, cipher| {
         let Some(alpaca) = alpaca_id(c)? else { return Ok(Err(Outcome::NothingNew)) };
         import::in_transaction(c, cipher, "usd", |c| import::ensure_usd(c, false, now))?;
@@ -705,7 +705,7 @@ async fn gate(cx: &Cx<'_>, r: Rev) -> Result<Rev, Outcome> {
 }
 
 /// D-BROKER-SEED: a catalogue source imports through R1's protocol under `job`'s record. Ok(None): data-api's payload,
-/// imported as Rails imports it; Ok(Some(rev)): import behind rev's fence, then `finished`; Err: nothing to import.
+/// imported as 2.x imports it; Ok(Some(rev)): import behind rev's fence, then `finished`; Err: nothing to import.
 async fn admit<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>, job: &'static str, body: &Value) -> Result<Option<Rev>, Outcome> {
     if !feeds.catalogue() { return Ok(None); }
     match revision(job, body, true, cx.clock.now()) {
@@ -969,7 +969,7 @@ fn legacy_tickers(c: &Connection, alpaca: i64) -> Result<Vec<(i64, String)>, Str
     rows
 }
 
-/// The backfill's rows, as Ruby walks `Array(result.data && result.data['data'])`: what Ruby would raise on is an error here,
+/// The backfill's rows, as 2.x walks `Array(result.data && result.data['data'])`: what 2.x would raise on is an error here,
 /// before anything is written; a String row or identifier is indexed as a substring and never matches, so it is skipped.
 fn backfill_rows(body: &Value) -> Result<Vec<&serde_json::Map<String, Value>>, String> {
     let malformed = |what: &str, v: &Value| Err(format!("stock backfill: malformed payload ({what} is {v}); nothing rewritten"));
@@ -1001,7 +1001,7 @@ fn backfill_rows(body: &Value) -> Result<Vec<&serde_json::Map<String, Value>>, S
 /// payload carries no alpaca identifier at all. Every rewrite is planned, and checked, before the first is written.
 fn backfill(c: &Connection, cipher: &crate::crypto::Cipher, body: &Value, now: DateTime<Utc>) -> Result<Vec<i64>, String> {
     use std::collections::{BTreeSet, HashMap, HashSet};
-    // Keyed by the raw JSON value, as Ruby's Set and Hash key `false`, `5` and "5" apart.
+    // Keyed by the raw JSON value, as 2.x's Set and Hash key `false`, `5` and "5" apart.
     let mut canonicals: HashMap<String, BTreeSet<String>> = HashMap::new();
     let mut alpaca_ids: HashMap<String, usize> = HashMap::new();
     let mut raw: HashMap<String, &Value> = HashMap::new();
@@ -1057,7 +1057,7 @@ async fn backfill_unit(cx: &Cx<'_>, body: Value, fence: Option<import::Fence>) -
     })).await
 }
 
-/// The sync is gated on the flag (sync_stocks_from_deltabadger_job.rb:62-64); Rails returns quietly.
+/// The sync is gated on the flag; 2.x returns quietly.
 async fn backfill_gate(cx: &Cx<'_>) -> Option<Outcome> {
     match cx.db.run(flag_unset).await {
         Ok(false) => None,
@@ -1094,7 +1094,7 @@ async fn stocks<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outcome {
         if let Some(out) = backfill_gate(cx).await { return out; }
     }
 
-    // sync_stocks_from_deltabadger! (:428-463). A failure skips the listings (sync_stocks_from_deltabadger_job.rb:66-73).
+    // sync_stocks_from_deltabadger! (:428-463). A failure skips the listings.
     let body = match feeds.get(STOCK_ASSETS).await { Ok(b) => b, Err(e) => return api_failure(e) };
     // A catalogue source already at this revision (or without evidence) imports nothing; the listings still go on.
     let assets = match admit(feeds, cx, STOCK_ASSETS_FEED, &body).await { Ok(rev) => Some(rev), Err(Outcome::Failed(m)) => return Outcome::Failed(m), Err(_) => None };
@@ -1146,7 +1146,7 @@ async fn stocks<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outcome {
 }
 
 /// BotActivityLog::PruneJob: `where('created_at < ?', 90.days.ago).delete_all`, in units of CHUNK rows (a backlog after
-/// a long stop is bounded per unit). The rows deleted are Rails'.
+/// a long stop is bounded per unit). The rows deleted are 2.x's.
 async fn prune(cx: &Cx<'_>) -> Outcome {
     let cutoff = format_time(cx.clock.now() - Duration::days(90));
     loop {

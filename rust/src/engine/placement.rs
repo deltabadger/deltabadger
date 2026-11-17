@@ -25,7 +25,7 @@ pub const ABSENCE_AFTER_SECONDS: i64 = 60;
 /// Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS: definitive pre-trade rejections, plus Exchanges::Kucoin::ERRORS[:placement_safe_transient]
 /// (400002), Exchanges::Bitvavo's (errorCode 304, outside the access window), Exchanges::Gemini::ERRORS[:placement_safe_transient]
 /// (InvalidNonce), Exchanges::Bitget's (40008, "Request timestamp expired") and Exchanges::Bitrue's timestamp errors.
-/// Rails scopes each venue's string to its venue;
+/// 2.x scopes each venue's string to its venue;
 /// they are listed for every venue here, strings only that venue sends (Kraken's nonce error is "EAPI:Invalid nonce").
 pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 8] = ["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was", "Invalid KC-API-TIMESTAMP",
     "\"errorCode\":304", "InvalidNonce", "Request timestamp expired", "recvWindow IllegalArgumentException", "timestamp IllegalArgumentException"];
@@ -80,7 +80,7 @@ impl Intent {
         // An intent written before rebalancing existed names no kind: it was a REGULAR order.
         let kind = match v.get("transaction_type") { None | Some(Value::Null) => TxKind::Regular, Some(x) => x.as_str().and_then(TxKind::parse).ok_or_else(bad)? };
         let source = match v.get("source") { None | Some(Value::Null) => None, Some(Value::String(s)) => Some(s.clone()), Some(_) => return Err(bad()) };
-        // D-679: an intent written before origins existed was sized as Rails sizes it, and is read as a base quantity: its
+        // D-679: an intent written before origins existed was sized as 2.x sizes it, and is read as a base quantity: its
         // volume is never re-derived. One with no wire price was never crossed (every venue before Gemini).
         let origin = match v.get("origin") { None | Some(Value::Null) => Origin::Base, Some(x) => x.as_str().and_then(Origin::parse).ok_or_else(bad)? };
         let wire_price = match v.get("wire_price") { None | Some(Value::Null) => None, Some(_) => Some(d("wire_price")?) };
@@ -103,7 +103,7 @@ pub fn load_intent(c: &Connection, bot: &Bot, producer: Option<model::Credential
 
 /// Bots whose unresolved order (`rust_placement`) was sent under another composition, asset, exchange or quote than the
 /// row holds now. `eligibility::guard` refuses ANY such change while the order is unresolved. Recovery would cope, since
-/// `Intent::from_json` finds the order's ticker by its id whatever the bot's settings, but Rails freezes a working bot's
+/// `Intent::from_json` finds the order's ticker by its id whatever the bot's settings, but 2.x freezes a working bot's
 /// composition too, and one rule is simpler and safe. The intent records what it was sent under (`exchange_id`,
 /// `quote_asset_id`, `allocations`, written by `begin`; one written by an earlier build gets them at takeover,
 /// `backfill_snapshots`). An intent without them counts as changed: fail closed.
@@ -149,7 +149,7 @@ pub(crate) fn still_pending(c: &Connection, bot_id: i64, cl_ord_id: &str) -> Res
 }
 fn gone(bot_id: i64) -> EngineError { EngineError::Data(format!("bot {bot_id} has no matching unresolved order")) }
 
-// A Rust-only key, written and removed without touching updated_at: a clean tick leaves nothing Rails would not.
+// A Rust-only key, written and removed without touching updated_at: a clean tick leaves nothing 2.x would not.
 pub(crate) fn set_intent(c: &Connection, bot_id: i64, v: Option<&Value>) -> Result<(), EngineError> {
     match v {
         Some(v) => c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement', json(?1)) WHERE id = ?2", params![v.to_string(), bot_id])?,
@@ -160,7 +160,7 @@ pub(crate) fn set_intent(c: &Connection, bot_id: i64, v: Option<&Value>) -> Resu
 
 /// After a run is rescheduled (an intent settled, placed or not, or a failure that reschedules), nothing is placed before
 /// the bot's next checkpoint, as Bot::ActionJob's next run of a failed run is at next_interval_checkpoint_at
-/// (action_job.rb:325-328). Written with `json_set` (in the transaction that settles an intent), so a restart honours it
+///. Written with `json_set` (in the transaction that settles an intent), so a restart honours it
 /// (run::step_bot), together with the schedule it was computed under: a fresh start or an interval edit voids it. The
 /// deferred tick removes it (tick::tick_recovering). A Rust-only key, outside the parity snapshots, like `rust_placement`.
 pub fn defer_to_next_checkpoint(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
@@ -176,7 +176,7 @@ pub fn defer_failure(c:&model::FencedTransaction<'_>,bot:&Bot,now:DateTime<Utc>)
 }
 
 /// A wait that has already ended (at the bot's last checkpoint): the bot is due at once, across a restart too, until its next
-/// tick removes it. What a continue start that Rails runs at once leaves (run::step_bot).
+/// tick removes it. What a continue start that 2.x runs at once leaves (run::step_bot).
 pub fn run_now(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
     wait_until(c, bot, now, |cps| cps.last_us)
 }
@@ -224,7 +224,7 @@ pub fn begin_held(c: &Connection, bot: &Bot, plan: &OrderPlan, identity: Option<
 /// written, nothing will be sent, and `Begun::Changed` is returned with one log line naming the reason; the next pass sees the new row.
 /// A bot no longer on the run that sized it (stopped, or stopped and started again) answers `Begun::Fenced` instead.
 ///
-/// Rails' leg loop fences a stop, or a stop and a restart, the same way (Automation::Statusable#stopped_mid_tick?) but not an
+/// 2.x's leg loop fences a stop, or a stop and a restart, the same way (Automation::Statusable#stopped_mid_tick?) but not an
 /// edit: it places an order sized before an edit landed, a divergence. The fence only ever removes such
 /// an order; what it would have bought stays owed through pending_quote_amount.
 pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, clock: &dyn Clock) -> Result<Begun, EngineError> {
@@ -236,7 +236,7 @@ pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, 
 /// sized the order (Automation::Statusable::FENCED); that tick writes nothing more to the bot.
 /// LedgerStale: the account ledger stopped being fresh after the order was sized (a sync started or failed meanwhile);
 /// nothing was written or sent, and the tick returns its checkpoint (tick.rs) instead of ending as a success.
-/// WashSaleLocked: a buy of an asset the account locked after it was sized (order_setter.rb:56, rebalancer.rb:212); nothing
+/// WashSaleLocked: a buy of an asset the account locked after it was sized; nothing
 /// was written.
 /// Refused: the venue's own check in the intent's transaction refused the order (an IBKR order: its account, its contract
 /// or its sell cap, `ibkr_reservations::reserve`); nothing was written, the reason is the user's.
@@ -259,7 +259,7 @@ pub fn begin_with_credentials(c: &Connection, bot: &Bot, plan: &OrderPlan, ticke
 /// (`rebalance_claim_holds`). `state` is the pending phase written in the intent's own transaction (set_rebalance_pending!
 /// for a sell, mark_buy_attempted! for a buy), so a crash after the send always leaves both the intent and the phase.
 #[allow(clippy::too_many_arguments)]
-/// A sell's `loss` claims the lock and rewrites Rails' three keys in the same transaction (rebalancer.rb:59-69).
+/// A sell's `loss` claims the lock and rewrites 2.x's three keys in the same transaction.
 pub fn begin_rebalance(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, identity: Option<Value>, state: &super::rebalance::Pending, loss: bool, hold: Option<&crate::venue::PlacementHold>, clock: &dyn Clock) -> Result<Begun, EngineError> {
     begin_checked(c,bot,plan,clock,Some((tickers,composition,reconciled)),Some(version),identity,Some(Op::Rebalance(state)),loss,hold)
 }
@@ -351,7 +351,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         }
     }
     let guarded;
-    // The exact quote cap bounds what a REGULAR BUY spends; a sell spends nothing (Rails' QuoteAmountLimitable decorates the buy
+    // The exact quote cap bounds what a REGULAR BUY spends; a sell spends nothing (2.x's QuoteAmountLimitable decorates the buy
     // carry), and guard_exact_cap passes a REBALANCE buy through untouched.
     let plan = if plan.side == Side::Buy {
         let safe = match super::amount::guard_exact_cap(&tx, &current, plan)? {
@@ -365,7 +365,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     let cap = fence.filter(|_| current.base_amount_limited()).map(|(_, _, reconciled)| reconciled.cap.clone());
     let mut intent = Intent { cap, wash_claim: None, send_by: None, source: None, symbol: plan.ticker.ticker.clone(), bot_id: bot.id, run: match plan.kind { TxKind::Regular => Some(bot.run_identity()?), TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => None }, credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
     // Before anything is committed or sent: an intent recovery or `resolve-placement` could not read back would strand the
-    // bot after a real order. Such a plan is refused as Rails fails a StandardError raised inside execute_action
+    // bot after a real order. Such a plan is refused as 2.x fails a StandardError raised inside execute_action
     // (execution_failed, no retry; the next checkpoint sizes afresh). Dropping `tx` rolls back. The read-back resolves the
     // intent's own ticker by its id, as recovery will.
     let mut v = intent.to_json()?;
@@ -381,7 +381,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     v["allocations"] = current.settings.get("allocations").cloned().unwrap_or(Value::Null);
     v["composition"] = composition_snapshot(&tx, &current)?;
     if let Some(Value::Object(identity)) = identity { for (k, value) in identity { v[k] = value; } }
-    // The sale's wash-sale claim, after every fence (as Rails claims after #stopped_mid_tick?), with the intent.
+    // The sale's wash-sale claim, after every fence (as 2.x claims after #stopped_mid_tick?), with the intent.
     let asset = plan.ticker.base_asset_id;
     if plan.side == Side::Sell {
         match plan.kind {
@@ -422,16 +422,16 @@ pub const SIGNAL_SOURCE: &str = "signal";
 pub enum SignalClaim { Intent(Box<Intent>), Blocked, Stopped, Disabled, Gone, Changed, CredentialsChanged, Locked, BelowMinimum, Expired, CapReached(BigDec) }
 
 /// Who a signal bot's order is for (PLAN-A9 r1 §1): a webhook call (consumed with the intent), an API request (taken by the
-/// engine, consumed with the intent: `sending`), or the one more attempt after a placement-safe rejection, which Rails
+/// engine, consumed with the intent: `sending`), or the one more attempt after a placement-safe rejection, which 2.x
 /// places at once whatever happened meanwhile (only the barrier, the pair, the credentials and an API request's send
 /// deadline are asked).
 #[derive(Clone, Copy)]
 pub enum Claim<'a> { Webhook(&'a model::SignalCall), Api(&'a super::api_orders::Request), Replace { send_by: Option<DateTime<Utc>> } }
 
 /// A signal bot's intent (plan 8a §R4, §R10): `run: None`, `source: "signal"`. In its own immediate transaction:
-/// - the barrier (engine::signal::blocked: Rails' unresolved marker or an unresolved intent) stands → `Blocked`;
+/// - the barrier (engine::signal::blocked: 2.x's unresolved marker or an unresolved intent) stands → `Blocked`;
 /// - for a webhook call: it is still queued (`Gone`), the bot still works (a stop that committed first: `Stopped`, which
-///   logs `signal_ignored` as Rails' job would at its start) and the rule is still on (`Disabled`, the same line);
+///   logs `signal_ignored` as 2.x's job would at its start) and the rule is still on (`Disabled`, the same line);
 /// - for an API request: it is still taken by this engine (`Gone`), before its `send_by` (`Expired`), the bot still works
 ///   (`Stopped`), and a buy is covered by the spending cap (`CapReached`: refused, never clamped);
 /// - a buy of an asset locked since it was sized (`Locked`), on both;
@@ -488,7 +488,7 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, claim: C
         return Ok(SignalClaim::CredentialsChanged);
     }
     // D-SIG-CAP: the exact cap bounds a buy under the intent lock, on the call and on the one more attempt alike. A reduction
-    // under the venue's minimum is the skipped row Rails writes for an order under it, with the call consumed.
+    // under the venue's minimum is the skipped row 2.x writes for an order under it, with the call consumed.
     // An API buy names its amount: one the cap does not fully cover is refused, never clamped (Jan, 2026-10-31).
     if matches!(claim, Claim::Api(_)) && plan.side == Side::Buy {
         if let Some(left) = super::accounting::exact_cap_available(&tx, &current)? {
@@ -537,7 +537,7 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, claim: C
 
 /// BelowMinimum (D-BELOW-MIN-REJECTION): the venue definitively refused a scheduled DCA buy leg as under its minimum
 /// order size (`below_minimum`). `send_recorded` writes no failed row and clears the intent; the tick reports the leg as
-/// the pre-check reports one it skips (tick::record_skipped). Rails records a failed order.
+/// the pre-check reports one it skips (tick::record_skipped). 2.x records a failed order.
 #[derive(Debug)]
 pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String), Fenced, BelowMinimum(Vec<String>) }
 
@@ -577,8 +577,8 @@ use Shown::{BodyCode, Text};
 /// a mixed refusal stays a failure. Upper limits and precision failures never match. Venues without a `skips` row (KuCoin,
 /// Bitget, BingX, Bitrue, Coinbase, Gemini) have no cited too-small answer the engine skips: theirs stay failed rows.
 const BELOW_MINIMUM: &[BelowMinimum] = &[
-    // Binance spot API docs, Errors → Filter failures (-1013): "MIN_NOTIONAL: price * quantity is too low"; Rails' own
-    // fixture of the answer (test/models/exchanges/binance_test.rb, action_job_test.rb). Not "Filter failure: NOTIONAL",
+    // Binance spot API docs, Errors → Filter failures (-1013): "MIN_NOTIONAL: price * quantity is too low"; 2.x's own
+    // fixture of the answer. Not "Filter failure: NOTIONAL",
     // whose range also has a maximum, nor LOT_SIZE (too high or too low, or off the step).
     row("Exchanges::Binance", Some("-1013"), "Filter failure: MIN_NOTIONAL", Text("Filter failure: MIN_NOTIONAL"), false, true),
     row("Exchanges::BinanceUs", Some("-1013"), "Filter failure: MIN_NOTIONAL", Text("Filter failure: MIN_NOTIONAL"), false, true),
@@ -596,14 +596,14 @@ const BELOW_MINIMUM: &[BelowMinimum] = &[
     // Kraken support, "API error messages": "EOrder:Order minimum not met (volume too low)".
     row("Exchanges::Kraken", None, "EOrder:Order minimum not met", Text("EOrder:Order minimum not met"), false, true),
     // Hyperliquid docs, Error responses: MinTradeNtl "Order must have minimum value of $10.", MinTradeSpotNtl "… of 10
-    // {quote_token}." (Rails test/models/bot/order_setter_test.rb records the latter as a hard rejection); as the status
+    // {quote_token}." (2.x's own test records the latter as a hard rejection); as the status
     // error hyperliquid::add_order words it.
     row("Exchanges::Hyperliquid", None, "Hyperliquid order failed: Order must have minimum value of ",
         Text("Hyperliquid order failed: Order must have minimum value of "), true, true),
     // Alpaca's 403 to a crypto buy under its $10 floor: "cost basis must be >= minimal amount of order 10". Its numeric code
     // (40310000) is shared with other refusals (insufficient buying power), so the text decides.
     row("Exchanges::Alpaca", None, "cost basis must be >= minimal amount of order", Text("cost basis must be >= minimal amount of order "), true, true),
-    // Display only. Bitget docs, Error codes: 45110 "Less than the minimum order amount" (the scripted Rails recordings
+    // Display only. Bitget docs, Error codes: 45110 "Less than the minimum order amount" (the scripted 2.x recordings
     // word it "less than the minimum order quantity": the code decides). A non-2xx answer is stored as its body; a 2xx
     // error envelope as bitget::api_error writes it, "Bitget API error 45110: …".
     row("Exchanges::Bitget", Some("45110"), "", BodyCode("code"), false, false),
@@ -659,7 +659,7 @@ fn skips_below_minimum(intent: &Intent) -> bool {
 /// Acquire the dispatch write lock before rechecking the captured generation. The crypto adapters and Alpaca have no
 /// blocking preflight or session lock between this check and HTTP send. IBKR's has: its add_order reads the contract rules
 /// and waits for its login's lock (up to ibkr::LOCK_WAIT) before the POST, and a stop landing in that wait does not
-/// withdraw the order, as a stop landing during Clients::Ibkr's IbkrLock wait does not in Rails. STOP can
+/// withdraw the order, as a stop landing during Clients::Ibkr's IbkrLock wait does not in 2.x. STOP can
 /// invalidate this run while the response is in flight; the accepted order still gets recorded.
 pub async fn send<V: Venue>(c: &Connection, venue: &V, intent: &Intent, clock: &dyn Clock) -> Result<Sent, EngineError> {
     // Preparation may perform HTTP. Refresh before the existing dispatch fence, so a rotation during
@@ -767,7 +767,7 @@ fn intent_owned(c: &Connection, intent: &Intent) -> Result<bool, EngineError> {
 
 /// A signal bot's intent (`begin_signal`) is owned while the bot is not deleted or archived and no reversal bars it, as a
 /// REBALANCE one's without the composition check (its pair cannot change while it is working; `stranded` refuses it anyway).
-/// A stop after the claim leaves the order, as Rails' job would.
+/// A stop after the claim leaves the order, as 2.x's job would.
 fn signal_claim_holds(c: &Connection, bot_id: i64) -> Result<bool, EngineError> {
     let bot = model::load_bot(c, bot_id)?;
     Ok(!matches!(bot.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) && !super::reversal::barred(&bot))
@@ -791,7 +791,7 @@ async fn send_to_venue<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) 
     dispatch(&handle, &intent.plan, intent.cl_ord_id.clone(), send_until, skips_below_minimum(intent)).await
 }
 
-/// The one order request of a plan, and what its answer means (PLAN-A9 O4 r0 §2.3 step 7, r2): Rails' limit refusal, the
+/// The one order request of a plan, and what its answer means (PLAN-A9 O4 r0 §2.3 step 7, r2): 2.x's limit refusal, the
 /// crossed price a crossing venue needs, the wire order and the venue's verdict. `send_until` is the order's deadline:
 /// the adapter sends nothing after it (its pre-send read included, r1 §1), and Kraken carries it. On an intent it is
 /// `at` + the send window, or the API request's earlier `send_by`. `skips_minimum`: a venue minimum refusal is
@@ -897,10 +897,10 @@ fn record_rejected_in(tx: &rusqlite::Transaction<'_>, bot: &Bot, intent: &Intent
       }
       TxKind::Regular => {}
     }
-    // Rails restores a composition sale's claim unless Exchange#ambiguous_placement_error? (order_setter.rb:83); its
+    // 2.x restores a composition sale's claim unless Exchange#ambiguous_placement_error?; its
     // HTTP/acknowledgement half is already Sent::Ambiguous here (add_outcome_unknown), its text half is #transient_error?.
     let unknown = !safe && super::venue_rules::for_exchange(&model::exchange_type(tx, bot)?).is_some_and(|rules| rules.is_transient(errors));
-    // Before the failed row, as Rails rolls the claim back before create_failed_order!.
+    // Before the failed row, as 2.x rolls the claim back before create_failed_order!.
     settle(tx, bot.id, intent, Settlement::NotPlaced(Reason::Rejected { safe, unknown }), now)?;
     if !safe {
         let id = write_order_row(&fenced, bot, &intent.plan, RowKind::Failed { errors: errors.to_vec() }, intent.at)?;
@@ -917,7 +917,7 @@ pub fn drop_intent(c: &Connection, bot_id: i64) -> Result<(), EngineError> { set
 pub enum Recovery { NoIntent, Recorded(i64), NotPlaced, Pending }
 
 /// Legacy intents cannot identify their producing run. Settling one must conservatively
-/// retain Rails' ambiguous-placement checkpoint wait; this does not grant dispatch ownership.
+/// retain 2.x's ambiguous-placement checkpoint wait; this does not grant dispatch ownership.
 pub fn pending_requires_checkpoint(bot: &Bot) -> Result<bool, EngineError> {
     let Some(raw) = bot.rust_placement() else { return Ok(false) };
     // A REBALANCE order belongs to no DCA run (begin_rebalance).
@@ -934,7 +934,7 @@ pub fn pending_requires_checkpoint(bot: &Bot) -> Result<bool, EngineError> {
 /// account (the key id changed). Either would truthfully answer not-found, and past the absence margin that would clear an
 /// order that exists. An intent from before the mode was recorded was sent paper (that build sent every Alpaca order to
 /// the paper host); one without a fingerprint or a host is compared on what it has. A venue that states no identity (no
-/// key: Rails' unsaved fallback) is not compared.
+/// key: 2.x's unsaved fallback) is not compared.
 fn identity_mismatch(intent: &Value, now: Option<Value>) -> Option<&'static str> {
     let now = now?;
     let mode = |v: &Value| v["alpaca_live"].as_bool().unwrap_or(false);
@@ -1021,7 +1021,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             let fenced=model::check_credential_result(&tx, &intent.credential_version)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             set_intent(&tx, bot.id, None)?;
-            // Absence proven: the claim stays, as a Rails worker crash leaves it.
+            // Absence proven: the claim stays, as a 2.x worker crash leaves it.
             settle(&tx, bot.id, &intent, Settlement::NotPlaced(Reason::Absent), started)?;
             defer_recovered(&fenced, &intent, started)?;
             model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning,

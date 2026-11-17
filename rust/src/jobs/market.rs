@@ -1,6 +1,6 @@
 //! The market-data feed a run asks (PLAN-A17 "A17-3 in detail" item 1): the install's provider, data-api or the user's
 //! own CoinGecko key, built from `market_data::Settings` once per run by jobs/resolve.rs `configured`. Each method is one
-//! question both providers answer in one shape; Rails reads the configuration per call, a run here reads it once.
+//! question both providers answer in one shape; 2.x reads the configuration per call, a run here reads it once.
 //!
 //! Consumers: tracker/jobs.rs and tracker/prices.rs `fetch_range` (historical, the walk and the backfill), tax/job.rs
 //! (historical). The live-price and FX consumers are built beside these by the balance/FX track: the balance
@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 pub enum Feed<T: Transport> { DataApi(DataApi<T>), CoinGecko(CoinGecko<T>) }
 
-/// Coingecko's guard (coingecko.rb: `return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?`).
+/// Coingecko's guard (`return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?`).
 fn no_key() -> ApiError { ApiError::Failed { status: None, message: "CoinGecko API key not configured".into() } }
 
 /// D-CG-429-STOPS-PRICES: what a stopped run answers instead of asking.
@@ -30,7 +30,7 @@ fn uniq(ids: &[String]) -> Vec<String> {
 
 impl<T: Transport> Feed<T> {
     /// The feed `settings` name, its clients made by `data_api` and `coingecko` (the key "" when none is set: every call
-    /// then fails as Rails' does). None: no provider.
+    /// then fails as 2.x's does). None: no provider.
     pub fn from_settings(settings: &Settings, data_api: impl FnOnce(Config) -> DataApi<T>, coingecko: impl FnOnce(&str) -> CoinGecko<T>) -> Option<Self> {
         match &settings.provider {
             Provider::DataApi(config) => Some(Self::DataApi(data_api(config.clone()))),

@@ -1,8 +1,8 @@
 //! Bot::Reversible's ⇄ flip, split as plan Revision r4 rules. The web's one write transaction (web::bot::write::reverse)
 //! rotates the bot and records the work; it never calls a venue. The engine then cancels each captured order
 //! (`cancel_captured`), and credits a cancelled buy's unspent reserve to the carry exactly once, when the order's final
-//! state is known (`settle`). The pending credits are kept in Rails' own representation (`flip_reserve_pending`, PR #597),
-//! so a handback leaves Rails able to finish them; the cancels are Rust's alone, and a handback waits for them.
+//! state is known (`settle`). The pending credits are kept in 2.x's own representation (`flip_reserve_pending`, PR #597),
+//! so a handback leaves 2.x able to finish them; the cancels are Rust's alone, and a handback waits for them.
 use super::model::{self, Level};
 use super::{accounting, EngineError};
 use crate::enums::TxExternalStatus;
@@ -21,7 +21,7 @@ pub const CANCELS: &str = "rust_reversal_cancels";
 fn ids(v: Option<&Value>) -> Vec<i64> { v.and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_i64).collect()).unwrap_or_default() }
 fn entries(bot: &model::Bot) -> Vec<Value> { bot.transient.get(CANCELS).and_then(Value::as_array).cloned().unwrap_or_default() }
 
-/// Writes both keys; an empty one goes, as Rails' `.presence` + `compact` drops an empty pending list.
+/// Writes both keys; an empty one goes, as 2.x's `.presence` + `compact` drops an empty pending list.
 fn write(c: &Connection, bot_id: i64, pending: &[i64], cancels: &[Value]) -> Result<(), EngineError> {
     for (key, value) in [(RESERVE_PENDING, json!(pending)), (CANCELS, json!(cancels))] {
         let path = format!("$.{key}");
@@ -93,7 +93,7 @@ pub async fn cancel_captured<V: Venue + Attributed>(c: &Connection, venue: &V, b
                     continue;
                 }
                 // D-KUCOIN-CANCEL-OBLIGATION (UTA r5, r6.1): on KuCoin a cancel that may have gone out is resolved only by a
-                // final state, the venue's or the row's own; anything else keeps the cancel entry and the reserve. Rails drops
+                // final state, the venue's or the row's own; anything else keeps the cancel entry and the reserve. 2.x drops
                 // both, so a lost status read could drop the reserve of an order that filled.
                 let uncertain = |e: &VenueError| (kucoin || order.record.is_some()) && !matches!(e, VenueError::Rejected(_));
                 let row_final = || c.query_row("SELECT external_status IN (2, 3) FROM transactions WHERE id = ?1", [id], |r| r.get::<_, bool>(0)).unwrap_or(false);
@@ -118,7 +118,7 @@ pub async fn cancel_captured<V: Venue + Attributed>(c: &Connection, venue: &V, b
             cancels.retain(|e| e["id"] != id);
             let mut pending = ids(bot.transient.get(RESERVE_PENDING));
             if let Outcome::Failed = outcome {
-                // Rails never registers a buy whose cancel failed: it may still be live on the exchange.
+                // 2.x never registers a buy whose cancel failed: it may still be live on the exchange.
                 if entry["registered"] == true { pending.retain(|p| *p != id); }
                 tx.execute("INSERT INTO bot_activity_logs (bot_id, event, level, message, details, created_at) VALUES (?1, 'order_cancel_failed', ?2, ?3, ?4, ?5)",
                     params![bot_id, Level::Warning as i64, format!("Could not cancel order {ext} while reversing — it may still be open on the exchange."),
@@ -146,7 +146,7 @@ pub(crate) fn drop_cancel(c: &Connection, bot_id: i64, tx_id: i64) -> Result<(),
 
 /// One HF row's cancel pass: true when its row is to be polled. An acknowledged cancel is a request: the entry and its
 /// reserve stay for the poll that reads the final state. Only the venue refusing the first request is a failed cancel (as
-/// Rails reads one); once one may have gone out, a refusal tells nothing of it. Otherwise the order is read: a final
+/// 2.x reads one); once one may have gone out, a refusal tells nothing of it. Otherwise the order is read: a final
 /// state settles it through the gate, which ends the entry and credits the reserve; anything else keeps both.
 async fn hf_cancel<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, id: i64, order: &crate::venue::OrderRef, was_sent: bool, now: DateTime<Utc>) -> Result<bool, EngineError> {
     match venue.cancel_with(order).await {
@@ -199,7 +199,7 @@ fn final_buy_remainder(row: &crate::figures::fill::StoredOrder) -> Option<BigDec
     if row.quote_amount_exec.is_none() && row.price.is_none() && exec.is_positive() { return None; }
     let price = row.price.clone().unwrap_or_else(BigDec::zero);
     let filled = row.quote_amount_exec.clone().unwrap_or_else(BigDec::zero).max(&exec * &price);
-    // `quote_amount || (amount * price)`: Ruby raises on a nil there; such a row is never settled.
+    // `quote_amount || (amount * price)`: 2.x raises on a nil there; such a row is never settled.
     // D-WAITING-RESERVE-ZERO-QUOTE: a quote of 0 (a venue's limit-order answer) asks for amount × price.
     let requested = match (row.quote_amount.as_ref().filter(|q| q.is_positive()), &row.amount, &row.price) { (Some(q), _, _) => q.clone(), (None, Some(a), Some(p)) => a * p, _ => return None };
     Some((&requested - &filled).max(BigDec::zero()))

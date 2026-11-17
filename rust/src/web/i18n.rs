@@ -871,7 +871,7 @@ const FROM_GEMS: &[(&str, &str)] = &[
     // PLAN-B2 C3, C4, C12 (B2-6): Rust-only, the activity lines a takeover writes for work Rails left in its queue.
     ("en.bot_activity.events.upgrade_signal_unresolved", "A webhook call (%{call}) may or may not have placed an order: Deltabadger stopped while placing it. Check your exchange, then confirm it on this page. Until then this bot places nothing."),
     ("en.bot_activity.events.upgrade_command_dropped", "Your request to %{action} didn't run before the update. Request it again."),
-    // A28-1 (D-RAILS-UNRECORDED-REPORTED): Rust-only, what the imported history shows about such an order (PLAN-A28 r4.4).
+    // A28-1 (D-V2-UNRECORDED-REPORTED): Rust-only, what the imported history shows about such an order (PLAN-A28 r4.4).
     ("en.bot_activity.events.rails_order_candidates", "Before the update, an order from this bot may have gone through without being recorded (%{when}). Your %{venue} history has trades from that time that no bot recorded: %{trades}. If one was this bot's, the bot may have traded more than planned."),
     ("en.bot_activity.events.rails_order_candidate", "Before the update, an order from this bot may have gone through without being recorded (%{when}). Your %{venue} history has a trade from that time that no bot recorded: %{trades}. If it was this bot's, the bot may have traded more than planned."),
     ("en.bot_activity.events.rails_order_none_seen", "Before the update, an order from this bot may have gone through without being recorded (%{when}). No trade from that time that no bot recorded is in the %{venue} history Deltabadger has imported. That doesn't show whether the order was placed: an order can rest unfilled or fill later. Check your %{venue} order history."),
@@ -882,14 +882,14 @@ const FROM_GEMS: &[(&str, &str)] = &[
     ("en.bot_activity.events.rails_order_unchecked_unreadable", "Before the update, an order from this bot may have gone through without being recorded (%{when}). Some of your %{venue} trades from that time couldn't be read. Check your %{venue} history around that time."),
     ("en.bot_activity.events.rails_order_unchecked_reach", "Before the update, an order from this bot may have gone through without being recorded (%{when}). No trade from that time that no bot recorded is in the %{venue} history Deltabadger has imported, but that history may not reach back that far. Check your %{venue} order history."),
     ("en.bot_activity.events.rails_order_unchecked_time", "Before the update, an order from this bot may have gone through without being recorded (%{when}). Deltabadger can't tell when it was sent, so it can't check. Check your %{venue} history."),
-    // A28-3 (D-RAILS-UNRECORDED-LIVE-HISTORY, D-RAILS-UNRECORDED-OPEN-NAMED): what the venue's own order history lists (PLAN-A28-3 r2.1).
+    // A28-3 (D-V2-UNRECORDED-LIVE-HISTORY, D-V2-UNRECORDED-OPEN-NAMED): what the venue's own order history lists (PLAN-A28-3 r2.1).
     ("en.bot_activity.events.rails_order_open", "Before the update, an order from this bot may have gone through without being recorded (%{when}). %{venue} has an order from that time that no bot recorded and that is still open: %{orders}. Deltabadger won't touch it: if you don't want it, cancel it on %{venue}. This may not be every order from that time. Check your %{venue} order history."),
     ("en.bot_activity.events.rails_order_listed", "Before the update, an order from this bot may have gone through without being recorded (%{when}). %{venue} has orders from that time that no bot recorded: %{orders}. If one was this bot's, the bot may have traded more than planned. This may not be every order from that time. Check your %{venue} order history."),
     ("en.bot_activity.events.rails_order_listed_one", "Before the update, an order from this bot may have gone through without being recorded (%{when}). %{venue} has an order from that time that no bot recorded: %{orders}. If it was this bot's, the bot may have traded more than planned. This may not be every order from that time. Check your %{venue} order history."),
     // A28-2 (PLAN-A28-2): the owner's booking of an order Rails sent unrecorded, and its watch.
     ("en.bot_activity.events.rails_order_recovered", "Added an order from before the update to this bot's history: %{order}."),
     // A28-2a: the line's buttons, their confirmations and the POST's flash (web::bot::v2_orders).
-    // A28-2b (D-RAILS-UNRECORDED-API): the Settings switch of this build's own tool, as A28's copy in English for every locale.
+    // A28-2b (D-V2-UNRECORDED-API): the Settings switch of this build's own tool, as A28's copy in English for every locale.
     ("en.settings.mcp.tools.answer_unrecorded_order.label", "Answer unrecorded order"),
     ("en.settings.mcp.tools.answer_unrecorded_order.description", "Say which order from before the update was a bot's, or that none was"),
     ("en.bot.rails_orders.book", "This was this bot's order"),

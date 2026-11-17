@@ -1,4 +1,4 @@
-//! Handover. Takeover: refuse an ineligible install, claim it, drop Rails' jobs for the bots
+//! Handover. Takeover: refuse an ineligible install, claim it, drop 2.x's jobs for the bots
 //! this engine now runs, unstick `executing`. Handback: every order accounted for, then — in ONE
 //! SQLite transaction — every working bot `scheduled` and the handover row set to handed back.
 use super::{eligibility, model, placement, Clock, EngineError};
@@ -12,18 +12,18 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 
 pub struct Takeover { pub claim: Claim, pub eligible: Vec<i64>, pub deleted_jobs: usize, pub normalised: usize, pub imported_calls: usize,
-    /// Rails queue rows this takeover dropped with nothing left to finish (D-UPGRADE-RAILS-WORK-DROPPED); `log`: its start-log lines.
+    /// 2.x queue rows this takeover dropped with nothing left to finish (D-UPGRADE-V2-WORK-DROPPED); `log`: its start-log lines.
     pub dropped_jobs: usize, pub log: Vec<String>,
     /// The bots and rules this start set aside (set_aside::apply), in the claim's own transaction.
     pub set_aside: Vec<super::set_aside::Aside>, pub rules_stopped: Vec<i64> }
 
-/// What a takeover does with a Rails queue row of one class (PLAN-B2 r1.3, r2.5, r3.1-r3.3, r4.2-r4.7, r5 3-4, r6 fork A,
-/// r7.2). Rails never runs again on a taken-over install, so every class it can leave has exactly one of these.
+/// What a takeover does with a 2.x queue row of one class (PLAN-B2 r1.3, r2.5, r3.1-r3.3, r4.2-r4.7, r5 3-4, r6 fork A,
+/// r7.2). 2.x never runs again on a taken-over install, so every class it can leave has exactly one of these.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum V2Work {
     /// Deleted for every bot the engine owns, set-aside bots included; Rust's own tick, checks and rebalance decide again
-    /// (D-UPGRADE-RAILS-CHECKS-REDONE). A claimed or failed one is ordinary work Rails left ambiguous: one activity line on
-    /// its bot (D-UPGRADE-RAILS-AMBIGUITY-INHERITED). RebalanceJob's legs are behind Rails' own barrier (rebalancer.rb).
+    /// (D-UPGRADE-V2-CHECKS-REDONE). A claimed or failed one is ordinary work 2.x left ambiguous: one activity line on
+    /// its bot (D-UPGRADE-V2-AMBIGUITY-INHERITED). RebalanceJob's legs are behind 2.x's own barrier.
     Redone,
     /// Bot::StopJob: the pending amount-limit stop happens now, in the claim transaction, with its stop_message_key.
     Stop,
@@ -50,15 +50,15 @@ pub enum V2Work {
     /// Ibkr::GenerateConnectionKeysJob: the key row's empty material is filled in the claim transaction, as the job does
     /// (two RSA-2048 keys and ffdhe2048, D-IBKR-DHGROUP); material already there is never replaced.
     IbkrKeys,
-    /// Nothing to finish without Rails (mail not sent yet, page refreshes, syncs the scheduler runs on its own, a tax
-    /// report the user asks for again): deleted and counted in the takeover's log line (D-UPGRADE-RAILS-WORK-DROPPED). So
+    /// Nothing to finish without 2.x (mail not sent yet, page refreshes, syncs the scheduler runs on its own, a tax
+    /// report the user asks for again): deleted and counted in the takeover's log line (D-UPGRADE-V2-WORK-DROPPED). So
     /// is a class missing from this table, which only a newer 2.x could have enqueued.
     Dropped,
 }
 
 /// Every job class 2.x can leave in its queue (r3.2, r4.5): each `class … < …` under app/jobs by its full name, each
 /// perform_later receiver, config/recurring.yml's classes and its `command:` runner, and the mailer's job. Pinned against
-/// the repository by tests/handover.rs `every_rails_job_class_has_an_outcome`.
+/// the repository by tests/handover.rs `every_v2_job_class_has_an_outcome`.
 pub const V2_WORK: &[(&str, V2Work)] = {
     use V2Work::*;
     &[
@@ -78,7 +78,7 @@ pub const V2_WORK: &[(&str, V2Work)] = {
         ("Ibkr::GenerateConnectionKeysJob", IbkrKeys),
         // Abstract bases: never enqueued themselves.
         ("ApplicationJob", Dropped), ("BotJob", Dropped), ("Bot::LimitCheckJobBase", Dropped),
-        // Mail Rails had not sent yet.
+        // Mail 2.x had not sent yet.
         ("ActionMailer::MailDeliveryJob", Dropped), ("ApplicationMailDeliveryJob", Dropped),
         // Page refreshes and metrics caches: the web renders from the data.
         ("Bot::BroadcastIndicatorLimitInfoUpdateJob", Dropped), ("Bot::BroadcastMetricsUpdateJob", Dropped),
@@ -128,7 +128,7 @@ pub fn active_job(queue: &Connection, class: &str, gid: &str) -> rusqlite::Resul
     }))
 }
 
-/// An engine-owned install keeps only check_install's refusals on restart. A takeover from Rails adds the flip-rule
+/// An engine-owned install keeps only check_install's refusals on restart. A takeover from 2.x adds the flip-rule
 /// check and notes stale reference data without refusing it (check_install_at, D-UPGRADE-FRESHNESS-AT-TICK): the scheduler
 /// that refreshes it starts only after the claim. The tick refuses a stale bot in both cases.
 pub fn startup_report(c: &rusqlite::Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<eligibility::Report, EngineError> {
@@ -143,7 +143,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     super::provider::bind_cipher(&o.primary,cipher)?;
     let problems = super::rules::takeover_problems(&o.primary,&o.queue)?;
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
-    // Rails' queue, read and judged before anything changes owner (PLAN-B2 r1.3, r3.1, r4.2-r4.7, r5, r6 fork A). A row a
+    // 2.x's queue, read and judged before anything changes owner (PLAN-B2 r1.3, r3.1, r4.2-r4.7, r5, r6 fork A). A row a
     // takeover already acted on (QUEUE_DONE_KEY) is only deleted again. What may hold an order nothing records is a hard
     // stop here, before anything is written.
     // Every bot's class, read before anything is written: a row without one fails the takeover here, never after the claim.
@@ -168,10 +168,10 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         (*id, [signer::generate_rsa().0, signer::generate_rsa().0, signer::ffdhe2048_pem()].map(|pem| cipher.encrypt(&pem)))
     }).collect();
     let mut rule_jobs=super::rules::jobs(&o.primary,&o.queue)?;
-    // Claim first, with the startup data steps: once committed, Rails refuses, and a failure below is
+    // Claim first, with the startup data steps: once committed, 2.x refuses, and a failure below is
     // repaired by the next start, which repeats the deletes and the normalisation idempotently.
     let tx = model::immediate(&o.primary)?;
-    // Bot::StopJob (r1.3): the amount-limit stop Rails had queued happens now, before the check, as Rails would have run it.
+    // Bot::StopJob (r1.3): the amount-limit stop 2.x had queued happens now, before the check, as 2.x would have run it.
     for (bot, key) in &work.stops { super::tick::stop_for_v2_job(&tx, *bot, key.as_deref(), now)?; }
     // PLAN-B2 R3 (D-UPGRADE-SET-ASIDE): before the claim, every working bot or rule this build refuses is stopped with its
     // reasons, and the check runs again on this transaction. What it still refuses is a hard stop: returning drops `tx`,
@@ -184,7 +184,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     let converted = plan.converted.iter().map(|id| super::set_aside::converted(&tx, *id)).collect::<Result<Vec<_>, _>>()?;
     // D-KUCOIN-HF-RETENTION: before the claim moves the takeover stamp, the open KuCoin rows it adopts are marked.
     super::reconcile::mark_adopted(&tx, cipher, now)?;
-    // A28-1: Rails' ownership window, read before the claim restamps it (lease::claim's own rule for a new ownership).
+    // A28-1: 2.x's ownership window, read before the claim restamps it (lease::claim's own rule for a new ownership).
     let handed_back = lease::plain_at(&tx, lease::HANDED_BACK_AT)?;
     let taken_before = lease::plain_at(&tx, lease::TAKEN_OVER_AT)?;
     let claim = lease::claim(lock, &tx, cipher, version, now)?;
@@ -193,11 +193,11 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     placement::backfill_snapshots(&tx)?;
     crate::sync::coinbase_repair::run(&tx, now)?;
     // From here on a reference source is as fresh as its job's completed runs; a job this engine has not run yet starts
-    // from Rails' baseline, read once, here, in the commit that closes Rails' ownership window. A restart reseeds nothing.
+    // from 2.x's baseline, read once, here, in the commit that closes 2.x's ownership window. A restart reseeds nothing.
     super::staleness::seed(&tx, now)?;
     let imported_calls = import_signal_jobs(&tx, &signal_jobs, now)?;
     apply_queue_work(&tx, &work, matches!(claim, Claim::FromV2), now)?;
-    // A28-1: what Rails may have sent unrecorded while it owned the install, from the last handback on (r4.1, r5.1).
+    // A28-1: what 2.x may have sent unrecorded while it owned the install, from the last handback on (r4.1, r5.1).
     let v2_window = match claim {
         Claim::FromV2 | Claim::AfterHandback => true,
         Claim::AfterCrash => handed_back.is_some_and(|back| taken_before.is_none_or(|taken| taken < back)),
@@ -214,15 +214,15 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     // commit repeats it next start, which is harmless.
     for line in work.log.iter().chain(&converted) { super::log(line); }
     tx.commit()?;
-    // A crash here leaves the outcomes committed and Rails' rows queued: the next start deletes them and repeats nothing.
+    // A crash here leaves the outcomes committed and 2.x's rows queued: the next start deletes them and repeats nothing.
     #[cfg(debug_assertions)]
     crate::store::abort_point("after-queue-commit");
     let deleted_signal_jobs = finish_signal_import(o, now)? + super::rules::finish_cleanup(&o.primary,&o.queue,now)? + finish_queue_work(o, now)?;
 
-    // Bot::ResyncIndexCompositionJob rows Rails has not finished (ready, scheduled, blocked or claimed; a failed one is over),
+    // Bot::ResyncIndexCompositionJob rows 2.x has not finished (ready, scheduled, blocked or claimed; a failed one is over),
     // for every index bot neither deleted nor archived that has an exchange, whatever its status: each becomes the bot's
     // resync marker, committed before the rows go, so a crash between the two marks again on the next takeover. A claimed
-    // row of a dead Rails process is included: the resync runs at least once.
+    // row of a dead 2.x process is included: the resync runs at least once.
     let mut s = o.primary.prepare(&format!("SELECT id FROM bots WHERE type = 'Bots::DcaIndex' AND status NOT IN ({}, {}) AND exchange_id IS NOT NULL",
                                            BotStatus::Deleted as i64, BotStatus::Archived as i64))?;
     let index_gids: Vec<(i64, String)> = s.query_map([], |r| r.get::<_, i64>(0))?.map(|id| id.map(|id| (id, format!("gid://deltabadger/Bots::DcaIndex/{id}"))))
@@ -244,19 +244,19 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     let tx = model::immediate(&o.primary)?;
     let mut normalised = 0;
     for id in &report.eligible {
-        normalised += model::unstick(&tx, *id, now)? as usize; // the last run (Rails' or ours) was cut short
+        normalised += model::unstick(&tx, *id, now)? as usize; // the last run (2.x's or ours) was cut short
     }
     tx.commit()?;
     Ok(Takeover { claim, eligible: report.eligible, deleted_jobs: resyncs.len() + deleted_signal_jobs, dropped_jobs: work.dropped, normalised, imported_calls,
                   set_aside: plan.bots, rules_stopped: plan.rules, log: work.log })
 }
 
-// ---- Rails' queue at a takeover (PLAN-B2 B2-6) ----------------------------------------------------------------------------
+// ---- 2.x's queue at a takeover (PLAN-B2 B2-6) ----------------------------------------------------------------------------
 
 /// app_configs key (the import-set pattern of SIGNAL_IMPORT_KEY): the queue rows (solid_queue_jobs.id) whose outcome a
 /// takeover committed with its claim and that may still be queued (the queue is its own database). A start skips them and
 /// deletes them again, then the ids whose rows are gone leave the set, so a crash between the commit and the delete never
-/// stops, marks or logs twice. Rails is gone, so nothing enqueues a row in between.
+/// stops, marks or logs twice. 2.x is gone, so nothing enqueues a row in between.
 pub const QUEUE_DONE_KEY: &str = "rust_rails_queue_done";
 
 fn queue_done(c: &Connection) -> Result<Vec<i64>, EngineError> {
@@ -287,7 +287,7 @@ fn finish_queue_work(o: &Opened, now: DateTime<Utc>) -> Result<usize, EngineErro
     Ok(deleted)
 }
 
-/// A queue row Rails had not finished, and where it stood: waiting (ready, scheduled, blocked or none), claimed by a
+/// A queue row 2.x had not finished, and where it stood: waiting (ready, scheduled, blocked or none), claimed by a
 /// process that died, or failed (Solid Queue fails a dead process's claims when it prunes it).
 struct QueueRow { id: i64, job: Option<String>, class: String, arguments: Option<String>, ambiguous: bool }
 
@@ -314,10 +314,10 @@ fn bot_of(arguments: Option<&str>, class: Option<&str>) -> Option<i64> {
     id.parse().ok()
 }
 
-/// The bot a Rails job's first argument names (A28-1's queue source).
+/// The bot a 2.x job's first argument names (A28-1's queue source).
 pub(crate) fn job_bot(arguments: Option<&str>) -> Option<i64> { bot_of(arguments, None) }
 
-/// A bot row that is there and not deleted: Rails' GlobalID finds a deleted bot too, but nothing of it runs again.
+/// A bot row that is there and not deleted: 2.x's GlobalID finds a deleted bot too, but nothing of it runs again.
 fn live_bot(c: &Connection, id: i64) -> Result<bool, EngineError> {
     Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM bots WHERE id = ?1 AND status <> ?2)", params![id, BotStatus::Deleted as i64], |r| r.get(0))?)
 }
@@ -330,7 +330,7 @@ fn bot_row(c: &Connection, id: i64) -> Result<bool, EngineError> {
 /// `triggered_at`: the call's time, or why it can't be read (kept in the line's details).
 struct Unresolved { bot: i64, marker_id: String, side: Option<crate::venue::Side>, triggered_at: Result<DateTime<Utc>, String> }
 
-/// The DCA bots whose newest activity line is Rails' own placement_ambiguous, read before the takeover writes any line.
+/// The DCA bots whose newest activity line is 2.x's own placement_ambiguous, read before the takeover writes any line.
 fn v2_ambiguous(c: &Connection) -> Result<Vec<i64>, EngineError> {
     let mut s = c.prepare("SELECT b.id FROM bots b WHERE b.type <> ?1 AND b.status <> ?2 AND (SELECT l.event FROM bot_activity_logs l WHERE l.bot_id = b.id \
                            ORDER BY l.created_at DESC, l.id DESC LIMIT 1) = 'placement_ambiguous' ORDER BY b.id")?;
@@ -338,18 +338,18 @@ fn v2_ambiguous(c: &Connection) -> Result<Vec<i64>, EngineError> {
     Ok(ids)
 }
 
-/// What the claim transaction does with Rails' queue, and what it deletes after the commit.
+/// What the claim transaction does with 2.x's queue, and what it deletes after the commit.
 #[derive(Default)]
 struct QueueWork {
     /// The rows acted on (journalled in QUEUE_DONE_KEY, deleted after the commit).
     done: Vec<i64>,
-    /// Of those, the rows dropped (D-UPGRADE-RAILS-WORK-DROPPED).
+    /// Of those, the rows dropped (D-UPGRADE-V2-WORK-DROPPED).
     dropped: usize,
     stops: Vec<(i64, Option<String>)>,
     signals: Vec<Unresolved>,
     /// (bot, class, claimed or failed).
     commands: Vec<(i64, String, bool)>,
-    /// Bots of a claimed or failed Bot::ActionJob (C12), and (v2_ambiguous) those Rails' last line left ambiguous.
+    /// Bots of a claimed or failed Bot::ActionJob (C12), and (v2_ambiguous) those 2.x's last line left ambiguous.
     unrecorded: Vec<i64>,
     v2_ambiguous: Vec<i64>,
     /// (job, scope) of the wake rows, one per pair (V2_WAKES_KEY); the IBKR keys whose material is filled.
@@ -371,8 +371,8 @@ fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, En
         match v2_work(&row.class) {
             V2Work::Redone => {
                 w.done.push(row.id);
-                // D-UPGRADE-RAILS-AMBIGUITY-INHERITED: an ActionJob a dead process held may have sent an order Rails never
-                // recorded, as Rails' own ambiguity does (action_job.rb's KNOWN GAP); its bot carries one line (C12).
+                // D-UPGRADE-V2-AMBIGUITY-INHERITED: an ActionJob a dead process held may have sent an order 2.x never
+                // recorded, as 2.x's own ambiguity does (Bot::ActionJob's KNOWN GAP); its bot carries one line (C12).
                 if row.class == "Bot::ActionJob" && row.ambiguous {
                     if let Some(bot) = bot_of(args, None).filter(|b| !w.unrecorded.contains(b)) { if live_bot(c, bot)? { w.unrecorded.push(bot); } }
                 }
@@ -395,7 +395,7 @@ fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, En
                 }
             }
             V2Work::FetchOrder => {
-                // r6 fork A: Rails placed this order and never recorded it; the job holds its id. Nothing here records it.
+                // r6 fork A: 2.x placed this order and never recorded it; the job holds its id. Nothing here records it.
                 let order = argument(args, 1).map(|v| v.as_str().map_or_else(|| v.to_string(), str::to_string)).unwrap_or_default();
                 match bot_of(args, None) {
                     // A soft-deleted bot's order is still on the exchange: only a bot whose row is gone has nothing to record it in.
@@ -412,11 +412,11 @@ fn queue_work(o: &Opened, cipher: &Cipher, skip: &[i64]) -> Result<QueueWork, En
             }
             V2Work::Wake(job) => {
                 // Waiting, claimed or failed alike: every one of these jobs is safe to run again. Its argument is a plain
-                // integer (ActiveJob serializes an Integer as itself); a row naming nothing there is Rails' RecordNotFound.
+                // integer (ActiveJob serializes an Integer as itself); a row naming nothing there is 2.x's RecordNotFound.
                 w.done.push(row.id);
                 let (table, noun) = wake_scope(job);
                 // Asset::FetchDataFromCoingeckoJob and Asset::InferColorFromImageJob are enqueued with the Asset itself
-                // (sync_alpaca_assets_job.rb:166, market_data.rb:86): a GlobalID.
+                //: a GlobalID.
                 let id = if job == crate::jobs::reference::ASSET_DATA || job == crate::jobs::asset_color::NAME { asset_of(args) } else { first_id(args) };
                 match id {
                     Some(id) if exists(c, table, id)? => { if !w.wakes.contains(&(job, Some(id))) { w.wakes.push((job, Some(id))); } }
@@ -498,7 +498,7 @@ fn apply_queue_work(tx: &Connection, w: &QueueWork, from_v2: bool, now: DateTime
         model::log_activity(tx, u.bot, UPGRADE_SIGNAL_UNRESOLVED, Level::Warning, json!({ "call": call, "marker_id": u.marker_id, "triggered_at_error": unread }), now)?;
     }
     for (bot, class, ambiguous) in &w.commands {
-        // r4.3: Rails persisted the command's intent before it sent anything; a surviving `placing` marker becomes the
+        // r4.3: 2.x persisted the command's intent before it sent anything; a surviving `placing` marker becomes the
         // ambiguous halt as the engine promotes one (composition::promote_orphan). Nothing moves money.
         let kind = if class.contains("Liquidat") { TxKind::Liquidation } else { TxKind::Redeploy };
         let marker = super::composition::name(kind).is_some_and(|name| model::load_bot(tx, *bot).is_ok_and(|b| b.transient.get(format!("{name}_pending")).is_some_and(Value::is_object)));
@@ -509,22 +509,22 @@ fn apply_queue_work(tx: &Connection, w: &QueueWork, from_v2: bool, now: DateTime
             model::log_activity(tx, *bot, UPGRADE_COMMAND_DROPPED, Level::Warning, json!({ "action": command_action(class), "job": class }), now)?;
         }
     }
-    // C12: a claimed or failed ActionJob, and, at the first takeover from Rails, a DCA bot whose last line is Rails' own
-    // placement_ambiguous (the order Rails' KNOWN GAP leaves unrecorded).
+    // C12: a claimed or failed ActionJob, and, at the first takeover from 2.x, a DCA bot whose last line is 2.x's own
+    // placement_ambiguous (the order 2.x's KNOWN GAP leaves unrecorded).
     let mut bots = w.unrecorded.clone();
     if from_v2 { for id in &w.v2_ambiguous { if !bots.contains(id) { bots.push(*id); } } }
     for bot in bots { model::log_activity(tx, bot, UPGRADE_ORDER_UNRECORDED, Level::Warning, json!({}), now)?; }
     Ok(())
 }
 
-// ---- Rails' wakes and IBKR keys (PLAN-B2 r2.5, r3.3, r4.4, r4.5) ------------------------------------------------------
+// ---- 2.x's wakes and IBKR keys (PLAN-B2 r2.5, r3.3, r4.4, r4.5) ------------------------------------------------------
 
-/// app_configs key: the Rust jobs a takeover owes a run, one entry per (job, scope) of a Rails queue row it took (Tracker::
+/// app_configs key: the Rust jobs a takeover owes a run, one entry per (job, scope) of a 2.x queue row it took (Tracker::
 /// LedgerJob and its ::Retry, PortfolioSnapshot::BackfillJob, ApiKeyValidatorJob), each with the takeover's time. Written in
 /// the claim transaction, beside the rows' ids in QUEUE_DONE_KEY (so a crash before their delete imports nothing twice). At
 /// every start the scheduler wakes each entry (due_v2_wakes) until that job's state for that scope shows a run at or
 /// after the entry's time; a run that failed leaves it for the next start.
-/// D-UPGRADE-RAILS-WAKES: Rails ran such a job once, with its own retries; here it runs at least once after the takeover,
+/// D-UPGRADE-V2-WAKES: 2.x ran such a job once, with its own retries; here it runs at least once after the takeover,
 /// and one whose run keeps failing (a key the validator doesn't cover, a backfill without market data) is woken again at
 /// every start, as a manual wake of it would be. Duplicates of one job and scope run once.
 pub const V2_WAKES_KEY: &str = "rust_rails_wakes";
@@ -587,7 +587,7 @@ fn import_wakes(tx: &Connection, wakes: &[(&'static str, Option<i64>)], now: Dat
         let scope = id.map_or_else(String::new, |id| id.to_string());
         // A taken-over SeedAndSyncJob is a setup request too (D-CG-SETUP-DURABLE), so it survives as one.
         if *job == crate::jobs::setup_sync::NAME { crate::jobs::setup_sync::request(tx, now).map_err(EngineError::Data)?; }
-        // A row taken now is new work even beside an entry still journalled (Rails queued it after a handback): its time is
+        // A row taken now is new work even beside an entry still journalled (2.x queued it after a handback): its time is
         // this takeover's. A crash replay never gets here twice for one row (QUEUE_DONE_KEY skips it).
         match all.iter_mut().find(|w| w.job == *job && w.scope == scope) {
             Some(w) => w.at.clone_from(&at),
@@ -599,7 +599,7 @@ fn import_wakes(tx: &Connection, wakes: &[(&'static str, Option<i64>)], now: Dat
 
 /// At every start, before the scheduler runs: the journal's (job, scope) pairs to wake once. An entry whose job has run
 /// for its scope since the entry was made leaves the journal; so does one whose user or key is gone since (with a
-/// start-log line: Rails' job would fail on it). No other precondition is checked: the job's own run decides (r4.4).
+/// start-log line: 2.x's job would fail on it). No other precondition is checked: the job's own run decides (r4.4).
 pub fn due_v2_wakes(c: &Connection, now: DateTime<Utc>) -> Result<Vec<(String, Option<String>)>, EngineError> {
     let tx = model::immediate(c)?;
     let all = v2_wakes(&tx)?;
@@ -651,13 +651,13 @@ pub enum Held {
     AppConfig,
     /// A `bots.transient_data` key.
     Bot,
-    /// A field inside a Rails row's JSON.
+    /// A field inside a 2.x row's JSON.
     Field,
     /// A text key with no 2.x translation: a `stop_message_key` or a `bot_activity_logs.event`.
     Text,
 }
 
-/// What a handback does with one piece of Rust-only state (PLAN-B2 §7, r1.10, r7.1). Rails is never handed state it
+/// What a handback does with one piece of Rust-only state (PLAN-B2 §7, r1.10, r7.1). 2.x is never handed state it
 /// can't run safely: an order only Rust records, a rule only Rust runs, a pending decision only Rust settles.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Handback {
@@ -669,7 +669,7 @@ pub enum Handback {
     Settled,
     /// Handed back as it is: 2.x never reads it, and a reclaim finds it again.
     Ignored,
-    /// Handed back: 2.x's adoption acts on it (config/initializers/engine_lease.rb `adopt_handback!`).
+    /// Handed back: 2.x's adoption acts on it (its engine-lease initializer's `adopt_handback!`).
     Adopted,
     /// Handed back: a cache 2.x never reads, refilled on demand.
     Cache,
@@ -686,7 +686,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // The user's imported accounts and rows (tracker): 2.x never reads them.
         (Table, "exchange_accounts", Ignored), (Table, "exchange_account_credentials", Ignored), (Table, "exchange_account_imports", Ignored),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
-        // IBKR: an IBKR bot, an open IBKR order and an unresolved IBKR intent refuse on Rails' own rows (D-IBKR-HANDBACK).
+        // IBKR: an IBKR bot, an open IBKR order and an unresolved IBKR intent refuse on 2.x's own rows (D-IBKR-HANDBACK).
         (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored),
         (Table, "ibkr_reservations", Refuses("shares held for an order that has not settled")),
         // KuCoin HF (D-KUCOIN-HF-LEDGER): an hf_enabled coverage row refuses; its fills go with it.
@@ -698,14 +698,14 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "rust_api_orders", Ignored), (Table, "rust_api_order_standalone", Ignored),
         // A20d: an order key's link to its order, read only by the start sweep. A key handed back in_progress is 2.x's 409.
         (Table, "rust_idempotency_orders", Ignored),
-        // A28-1: Rails' unrecorded-order candidates and whether their line was written; 2.x never reads it.
+        // A28-1: 2.x's unrecorded-order candidates and whether their line was written; 2.x never reads it.
         (Table, "rust_rails_unrecorded", Ignored),
         // A28-3: the live order-history reads of those candidates (refused or failed with a key), and the pass's cursor.
         (Table, "rust_rails_unrecorded_live", Ignored), (AppConfig, "rust_rails_unrecorded.live_cursor", Ignored),
         // A28-2: the bookable orders of those lines, the owner's resolutions and requests, and the booked rows' notices.
         (Table, "rust_rails_unrecorded_offers", Ignored), (Table, "rust_rails_unrecorded_resolutions", Ignored),
         (Table, "rust_rails_unrecorded_requests", Ignored), (Table, "rust_rails_unrecorded_notices", Ignored),
-        // A17-4: which provider ranked an index row; Rails never reads it, its deletes cascade, and the next claim clears it.
+        // A17-4: which provider ranked an index row; 2.x never reads it, its deletes cascade, and the next claim clears it.
         (Table, "rust_index_rankings", Ignored),
         // A17-4 r18: index ids the provider retired; 2.x never reads it, and it outlives a takeover.
         (Table, "rust_index_retired", Ignored),
@@ -725,15 +725,15 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "engine_lease", Adopted),
         (AppConfig, "rust_created_at", Refuses("this install was created new, so there is no earlier app to hand it back to.")),
         (AppConfig, "rust_taken_over_at", Ignored), (AppConfig, "rust_handed_back_at", Ignored),
-        // The latest release the update check stored (jobs::app_update): 2.x keeps its own in Rails.cache.
+        // The latest release the update check stored (jobs::app_update): 2.x keeps its own in its cache.
         (AppConfig, "rust_app_update", Ignored),
         (AppConfig, "rust_binance_a12_v1:", Refuses("Binance A12 identity data permanently requires Rust ownership")),
         (AppConfig, "rust_binance_repair_gaps.", Ignored), (AppConfig, "rust_account_identity_key_v1", Ignored),
         (AppConfig, "rust_coinbase_size_in_quote_repaired_at", Ignored),
         // D-CG-429-STOPS-PRICES' pending backfill retry: 2.x backfills on its own schedule and never reads it.
         (AppConfig, "rust_snapshot_prices_pending_", Ignored),
-        // KuCoin (reconcile.rs): an HF or UTA order record refuses; a Classic one is Rails' own route. An obligation or an
-        // unproven route sits on Rails' own transaction row, which adopt_handback! polls while it is open.
+        // KuCoin (reconcile.rs): an HF or UTA order record refuses; a Classic one is 2.x's own route. An obligation or an
+        // unproven route sits on 2.x's own transaction row, which adopt_handback! polls while it is open.
         (AppConfig, "rust_kucoin_order:", Refuses("KuCoin HF orders are Rust-only")),
         (AppConfig, "rust_kucoin_unresolved:", Ignored), (AppConfig, "rust_kucoin_evidence:", Ignored), (AppConfig, "rust_kucoin_origin:", Ignored),
         (AppConfig, "rust_kucoin_hf_gap.", Ignored),
@@ -757,7 +757,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Bot, "rust_index_resync", Adopted),
         // A17-4 r18: a composition's provenance; 2.x never reads it, and the next claim removes it.
         (Bot, "rust_composed_index", Ignored),
-        // A14b: Rails can change the base cap and change it back without moving a stamp; a reclaim reads the unknown basis.
+        // A14b: 2.x can change the base cap and change it back without moving a stamp; a reclaim reads the unknown basis.
         (Bot, "rust_base_cap_basis", Settled),
         // D-HANDBACK-SPLIT-HOLD: 2.x does not compare a split against the venue's positions, so it would trade the bot.
         (Bot, "rust_split_hold", Refuses("its holdings disagree with a stock split")),
@@ -767,7 +767,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Bot, "rust_set_aside_mail_pending", Ignored), (Bot, "rust_error_mail_pending", Ignored), (Bot, "rust_stopped_mail_pending", Ignored),
         (Bot, "rust_limit_mail_pending", Ignored), (Bot, "rust_base_limit_mail_pending", Ignored), (Bot, "rust_funds_mail_pending", Ignored),
         (Bot, "rust_base_cap_stop_mailed", Ignored),
-        // The tick's own holds and stamps; a halted rebalance's halt is Rails' own rebalance_pending.
+        // The tick's own holds and stamps; a halted rebalance's halt is 2.x's own rebalance_pending.
         (Bot, "rust_failure_origin", Ignored), (Bot, "rust_flip_refusal", Ignored),
         (Bot, "rust_history_generation", Ignored), (Bot, "run_generation", Ignored), (Bot, "tick_generation", Ignored), (Bot, "rust_rebalance_halted", Ignored), (Bot, "rust_rebalance_resolution", Ignored),
         (Bot, "rust_rebalance_resolved_orders", Ignored),
@@ -786,21 +786,21 @@ pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: 
 
 /// `hand_back` by a process that started at `process_start` (placement::recover_since).
 pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock, process_start: DateTime<Utc>) -> Result<usize, EngineError> {
-    // PLAN-B1 r2.1: an install 3.0 created has no Rails to go back to. Refused before anything is written; the marker stays.
+    // PLAN-B1 r2.1: an install 3.0 created has no 2.x to go back to. Refused before anything is written; the marker stays.
     if crate::app_config::get_plain(&o.primary, lease::CREATED_AT).map_err(EngineError::Data)?.is_some() {
         return Err(EngineError::Ineligible(vec!["this install was created new, so there is no earlier app to hand it back to.".into()]));
     }
     if crate::sync::binance_writer::written(&o.primary)? {
         return Err(EngineError::Ineligible(vec!["Binance A12 identity data permanently requires Rust ownership".into()]));
     }
-    // The row Rails will read back must open with this secret before anything is written. With a wrong SECRET_KEY_BASE the
-    // handback would otherwise overwrite it with a row Rails cannot decrypt and report success. An absent row (never taken
+    // The row 2.x will read back must open with this secret before anything is written. With a wrong SECRET_KEY_BASE the
+    // handback would otherwise overwrite it with a row 2.x cannot decrypt and report success. An absent row (never taken
     // over by Rust) holds nothing to protect.
     lease::read(&o.primary, cipher)?;
     refuse_rust_only_conditions(&o.primary)?;
     refuse_ibkr(&o.primary, clock.now())?;
     hand_back_calls(o, clock.now())?;
-    // Rails must never be handed a row a takeover already acted on (QUEUE_DONE_KEY): a crash before its delete is finished
+    // 2.x must never be handed a row a takeover already acted on (QUEUE_DONE_KEY): a crash before its delete is finished
     // here, and a row that still won't go refuses.
     finish_queue_work(o, clock.now())?;
     if !queue_done(&o.primary)?.is_empty() {
@@ -817,7 +817,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
         if let placement::Recovery::Pending = placement::recover_since(&o.primary, &venue, &bot, clock, process_start).await? { unresolved.push(id); }
     }
     // A reversal's cancel not yet recorded is Rust's alone: wait for it. So is a reserve still waiting for its buy's final
-    // state: a Rails without the reader for that list would never credit it, so it is settled here before Rails takes over.
+    // state: a 2.x without the reader for that list would never credit it, so it is settled here before 2.x takes over.
     for id in super::reversal::unrecorded(&o.primary)? { if !unresolved.contains(&id) { unresolved.push(id); } }
     for id in super::reversal::pending_settlements(&o.primary)? { if !unresolved.contains(&id) { unresolved.push(id); } }
     if !unresolved.is_empty() { return Err(EngineError::Unresolved(unresolved)); }
@@ -825,7 +825,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     refuse_split_holds(&o.primary)?;
     refuse_commands(&o.primary)?;
     // Amount-limit stops a swept fill left pending (the engine died before its tick ended) land now, one `stopped` line each,
-    // as the engine's next start would have run them (run::step). Rails neither reads the count nor polls the closed row
+    // as the engine's next start would have run them (run::step). 2.x neither reads the count nor polls the closed row
     // again, so after the handback nothing else would ever stop the bot.
     let mut s = o.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_amount_limit_stops_pending') IS NOT NULL ORDER BY id")?;
     let stops: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
@@ -846,7 +846,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     let problems=super::rules::handback_problems(&tx)?;
     if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
-    // A bot paused on its price rule stays `waiting`: Rails' adoption (Bot::RepairOrphanedBotsJob) restarts its check chain,
+    // A bot paused on its price rule stays `waiting`: 2.x's adoption (Bot::RepairOrphanedBotsJob) restarts its check chain,
     // where `scheduled` would trade it at the next checkpoint whatever the price.
     let mut s = tx.prepare(&format!("SELECT id FROM bots WHERE status IN ({working}) AND status <> ?1 ORDER BY id"))?;
     let ids = s.query_map([scheduled], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
@@ -855,24 +855,24 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
         if model::condition_paused_type(&tx, &model::load_bot(&tx, id)?)?.is_some() { continue; }
         tx.execute("UPDATE bots SET status = ?1, updated_at = ?2 WHERE id = ?3", params![scheduled, crate::codec::format_time(now), id])?;
     }
-    // The check's death marker, and the status line's stored info and waiting requests (Rails' own cache starts empty).
+    // The check's death marker, and the status line's stored info and waiting requests (2.x's own cache starts empty).
     for key in [super::conditions::DEAD, super::conditions::INFO_KEY, super::conditions::INFO_WANTED_KEY, super::polling::REFRESH_KEY, super::accounting::BASIS_KEY] {
         tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{key}') WHERE json_type(transient_data, '$.{key}') IS NOT NULL"), [])?;
     }
     let scheduled: usize = tx.query_row("SELECT count(*) FROM bots WHERE status = ?1", [scheduled], |r| r.get::<_, i64>(0))? as usize;
     // rust_defer_until is the engine's own key, and it goes. Adopting a handback re-arms every scheduled bot at
     // next_interval_checkpoint_at (EngineLease.adopt_handback! → Bot::RepairOrphanedBotsJob#repair_bot), the first checkpoint
-    // after the handback. For a checkpoint wait that is never before the deferred checkpoint, so Rails keeps the wait. A
-    // run-now wait (placement::run_now, a continue Rails would run at once) that has not ticked yet is dropped: the bot runs
+    // after the handback. For a checkpoint wait that is never before the deferred checkpoint, so 2.x keeps the wait. A
+    // run-now wait (placement::run_now, a continue 2.x would run at once) that has not ticked yet is dropped: the bot runs
     // one checkpoint late, with the amount carried.
     placement::remove_wait(&tx, None)?;
     // A pending composition resync (index::RESYNC_KEY) stays on its bot: EngineLease.adopt_handback! enqueues
     // Bot::ResyncIndexCompositionJob for it and removes the key, and a reclaim before that finds it here still.
-    // A continue start the engine never handled goes the same way: Rails' adoption re-arms the bot at its next checkpoint.
+    // A continue start the engine never handled goes the same way: 2.x's adoption re-arms the bot at its next checkpoint.
     tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start') \
                 WHERE json_type(transient_data, '$.rust_continue_start') IS NOT NULL", [])?;
     lease::hand_back(lock, &tx, cipher, now)?;
-    // When this engine left, plain, so `check` reads it without keys: Rails' stamps after it are Rails' own (staleness).
+    // When this engine left, plain, so `check` reads it without keys: 2.x's stamps after it are 2.x's own (staleness).
     crate::app_config::set_plain(&tx, lease::HANDED_BACK_AT, &now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), now)
         .map_err(EngineError::Data)?;
     tx.commit()?;
@@ -928,16 +928,16 @@ fn write_import_set(c: &rusqlite::Connection, ids: &[String], now: DateTime<Utc>
     crate::app_config::set_plain(c, SIGNAL_IMPORT_KEY, &serde_json::to_string(ids).expect("ids serialise"), now).map_err(EngineError::Data)
 }
 
-/// Whether a takeover's import of Rails' webhook calls is unfinished (its queue rows may still be there).
+/// Whether a takeover's import of 2.x's webhook calls is unfinished (its queue rows may still be there).
 pub fn signal_import_pending(c: &rusqlite::Connection) -> Result<bool, EngineError> { Ok(!import_set(c)?.is_empty()) }
 
-/// A Bot::SignalJob Rails had not run: its active_job_id, and its bot and the call it becomes, or None for a job Rails
+/// A Bot::SignalJob 2.x had not run: its active_job_id, and its bot and the call it becomes, or None for a job 2.x
 /// would discard (`discard_on ActiveJob::DeserializationError`: its bot or its rule is gone).
 type SignalJob = (String, Option<(i64, model::SignalCall)>);
 
 /// Every waiting Bot::SignalJob row (ready, scheduled or blocked; a claimed or failed one is queue_work's), in queue order, and
 /// the waiting rows this build cannot read (no job id, arguments it does not read): (queue row, start-log line). Those are
-/// deleted, never placed (D-UPGRADE-UNREAD-SIGNAL; Rails' discard_on discards what it cannot deserialize).
+/// deleted, never placed (D-UPGRADE-UNREAD-SIGNAL; 2.x's discard_on discards what it cannot deserialize).
 /// (queue row, start-log line) of a waiting call this build can't read.
 type UnreadSignal = (i64, String);
 
@@ -1013,7 +1013,7 @@ fn finish_signal_import(o: &Opened, now: DateTime<Utc>) -> Result<usize, EngineE
     Ok(deleted)
 }
 
-/// Plan 8d T3 (§R8, §R8'): the webhook calls still waiting. Rails cannot be handed a valid call (that would be a Solid Queue
+/// Plan 8d T3 (§R8, §R8'): the webhook calls still waiting. 2.x cannot be handed a valid call (that would be a Solid Queue
 /// row, which is not ported), so while any is still valid the handback refuses with the instant the last one expires
 /// (`hand_back_retrying` waits it out; no engine runs during a handback, so none is placed). Then each is removed with
 /// the line the engine would write for it, in one transaction: `signal_expired`, or none for a rule that is gone.
@@ -1034,7 +1034,7 @@ fn hand_back_calls(o: &Opened, now: DateTime<Utc>) -> Result<(), EngineError> {
     Ok(())
 }
 
-/// D-HANDBACK-RUST-CONDITIONS: the index and signal bots (not deleted) with a rule switched on that this engine runs and Rails
+/// D-HANDBACK-RUST-CONDITIONS: the index and signal bots (not deleted) with a rule switched on that this engine runs and 2.x
 /// never reads there (its DcaIndex and Signal lack the concerns): (bot id, the switch). Handing them back would trade
 /// them with the rule silently dropped.
 pub fn rust_only_conditions(c: &Connection) -> Result<Vec<(i64, String)>, EngineError> {
@@ -1058,7 +1058,7 @@ fn refuse_ibkr(c: &Connection, now: DateTime<Utc>) -> Result<(), EngineError> {
     if found.is_empty() { Ok(()) } else { Err(EngineError::Ineligible(found)) }
 }
 
-/// Rails cannot finish a deferred base-cap rotation decision, even when its cancels and reserves are settled.
+/// 2.x cannot finish a deferred base-cap rotation decision, even when its cancels and reserves are settled.
 fn refuse_pending_rotations(c: &Connection) -> Result<(), EngineError> {
     let key = super::amount_limit::ROTATION_PENDING;
     let mut s = c.prepare("SELECT id FROM bots WHERE json_type(transient_data, ?1) IS NOT NULL ORDER BY id")?;
@@ -1078,7 +1078,7 @@ fn refuse_split_holds(c: &Connection) -> Result<(), EngineError> {
 }
 
 fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
-    // D-KUCOIN-HF-LEDGER: Rails reads neither HF fills nor the one-trade rule; the marker stays through a later ClassicLf.
+    // D-KUCOIN-HF-LEDGER: 2.x reads neither HF fills nor the one-trade rule; the marker stays through a later ClassicLf.
     if crate::sync::kucoin_hf::any_enabled(c).map_err(|e| EngineError::Data(e.0))? { return Err(EngineError::Ineligible(vec!["KuCoin HF history is Rust-only".into()])); }
     let hf = super::reconcile::handback_refusals(c)?;
     if !hf.is_empty() { return Err(EngineError::Ineligible(hf)); }

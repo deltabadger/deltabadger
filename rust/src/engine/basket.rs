@@ -15,7 +15,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use std::collections::HashMap;
 
 fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
-/// The transaction types Rails writes; eligibility names any other.
+/// The transaction types 2.x writes; eligibility names any other.
 const KINDS: [&str; 4] = ["REGULAR", "REBALANCE", "LIQUIDATION", "REDEPLOY"];
 
 /// Normalized REGULAR history: holdings, lifetime contribution, uninvested proceeds, and the last
@@ -30,7 +30,7 @@ impl Default for Walk {
 /// callers without a tick clock (2c's ledger vectors); a tick calls `walk` with its own.
 pub fn holdings(c: &Connection, bot: &Bot) -> Result<HashMap<i64, BigDec>, EngineError> { Ok(walk(c, bot, Utc::now())?.amounts) }
 
-/// Bot::Composition::Measurable#metrics with its split queue (measurable.rb:51-58, :179-180): the events effective at `now`.
+/// Bot::Composition::Measurable#metrics with its split queue: the events effective at `now`.
 pub fn walk(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Walk, EngineError> {
     crate::figures::budget::within(|| {
         let s = splits::splits(c, bot, now)?;
@@ -59,7 +59,7 @@ fn walk_bounded(c: &Connection, bot: &Bot, events: &[SplitEvent]) -> Result<Walk
         let asset = order.asset_id.filter(|_| (order.buy || order.sell) && KINDS.contains(&order.kind.as_str()))
             .ok_or_else(|| data("an unknown transaction type, missing side or missing asset is outside the history walk"))?;
         let key = asset.to_string();
-        // A non-REGULAR sell takes Rails' raw-proceeds gates (MQ6); every buy and REGULAR sell the shared normalizer (B2-1).
+        // A non-REGULAR sell takes 2.x's raw-proceeds gates (MQ6); every buy and REGULAR sell the shared normalizer (B2-1).
         let fill = match fill::special_sell_for_engine(&order).map_err(data)? {
             Some(sell) if sell.unpriced() => { books.unpriced_liquidation(&mut ledger, &key, &sell.executed).map_err(data)?; continue; }
             Some(sell) => sell.fill(),
@@ -109,7 +109,7 @@ pub fn target_from_sql(v: ValueRef<'_>) -> Result<Option<BigDec>, EngineError> {
 }
 
 /// Bots::DcaMultiAsset#refresh_composition, on every tick before anything is sized: derive_composition, then
-/// update_bot_index_assets. Err(message) is Rails' Failure, which fails the tick; nothing is written then.
+/// update_bot_index_assets. Err(message) is 2.x's Failure, which fails the tick; nothing is written then.
 pub fn refresh_composition(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Result<(), String>, EngineError> {
     let members = match derive_composition(c, bot)? { Ok(members) => members, Err(failure) => return Ok(Err(failure)) };
     write_members(c, bot.id, &members, now)?;
@@ -119,7 +119,7 @@ pub fn refresh_composition(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Res
 /// A derived member: (asset, ticker, weight).
 pub type Derived = (i64, i64, f64);
 
-/// Bots::DcaMultiAsset#derive_composition: each member in settings order, the weights renormalised to sum to one, or Rails'
+/// Bots::DcaMultiAsset#derive_composition: each member in settings order, the weights renormalised to sum to one, or 2.x's
 /// Failure message.
 pub fn derive_composition(c: &Connection, bot: &Bot) -> Result<Result<Vec<Derived>, String>, EngineError> {
     let allocations = bot.allocations().ok_or_else(|| EngineError::Data(format!("bot {}: allocations this build does not read", bot.id)))?;
@@ -136,7 +136,7 @@ pub fn derive_composition(c: &Connection, bot: &Bot) -> Result<Result<Vec<Derive
             for (member, weight) in matched.iter_mut().zip(caps) { member.2 = weight; }
         }
     }
-    // `matched.sum { weight }` is Ruby's compensated Float sum; each weight is renormalised in Float (`weight / total`).
+    // `matched.sum { weight }` is 2.x's compensated Float sum; each weight is renormalised in Float (`weight / total`).
     let total = float_sum(&matched.iter().map(|(_, _, w)| *w).collect::<Vec<_>>());
     if total <= 0.0 { return Ok(Err(format!("None of the portfolio's weighted assets trade on {}", model::exchange_name(c, bot)?))); }
     Ok(Ok(matched.iter().map(|(asset, ticker, weight)| (*asset, *ticker, weight / total)).collect()))
@@ -205,10 +205,10 @@ fn save_member(c: &Connection, bot_id: i64, asset_id: i64, ticker_id: i64, weigh
 #[derive(Clone, Debug)]
 pub struct Member { pub asset_id: i64, pub ticker: Ticker, pub weight: f64 }
 
-/// Bot::Composition::Allocatable#buyable_allocations: the in_index rows by target_allocation DESC, ties by id (Rails' order
+/// Bot::Composition::Allocatable#buyable_allocations: the in_index rows by target_allocation DESC, ties by id (2.x's order
 /// is undefined there), less the `locked` assets (engine::wash::locked; a sell passes none), re-weighted to `t / total` in
 /// BigDecimal only when the total is positive and not exactly 1 (thirds stored as 0.333333 are), then `.to_f`
-/// (order_setter.rb:406).
+///.
 pub fn members(c: &Connection, bot: &Bot, locked: &[i64]) -> Result<Vec<Member>, EngineError> {
     let mut s = c.prepare("SELECT asset_id, ticker_id, target_allocation FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY target_allocation DESC, id")?;
     let rows = s.query_map([bot.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, target_from_sql(r.get_ref(2)?))))?
@@ -254,7 +254,7 @@ fn min3(a: BigDec, b: BigDec, c: BigDec) -> BigDec {
     if c < m { c } else { m }
 }
 
-/// get_orders_data, Steps 2-5 (composition/order_setter.rb:410-482), over members already priced in member order:
+/// get_orders_data, Steps 2-5, over members already priced in member order:
 /// - current value = (holding + reserved) × price, at the order price (a limit price for a limit bot);
 /// - target = (Σ current + x) × weight (BigDecimal × Float, the Float as Float#to_d);
 /// - offset = max(0, target − current);
@@ -276,11 +276,11 @@ pub fn split(priced: &[Priced], holdings: &HashMap<i64, BigDec>, reserved: &Hash
     let mut legs = vec![];
     for (p, offset) in priced.iter().zip(offsets) {
         if offset.is_zero() { continue; }
-        // Rails divides first (a BigDecimal division with its own precision), then multiplies by x.
+        // 2.x divides first (a BigDecimal division with its own precision), then multiplies by x.
         let share = x * &offset.div(&total_offset).expect("a positive offset makes the total positive");
         let order = min3(offset, share, remaining.clone());
         if !order.is_positive() { continue; }
-        // A limit price under the pair's precision floors to zero, and Rails' division would send a volume of Infinity.
+        // A limit price under the pair's precision floors to zero, and 2.x's division would send a volume of Infinity.
         if p.price.is_zero() { return Err(p.member.ticker.price_decimals); }
         remaining = &remaining - &order;
         legs.push(Leg { ticker: p.member.ticker.clone(), reference: p.reference.clone(), quote: order });
@@ -288,7 +288,7 @@ pub fn split(priced: &[Priced], holdings: &HashMap<i64, BigDec>, reserved: &Hash
     Ok(legs)
 }
 
-/// Bot::Composition::Allocatable#update_bot_index_assets (allocatable.rb:108-132), in one transaction: the members not kept
+/// Bot::Composition::Allocatable#update_bot_index_assets, in one transaction: the members not kept
 /// are marked out of the index (`update_all`, so updated_at stays), then each kept member is saved (#save_member) with its
 /// Float weight, in the order given. An index bot (index.rs) and a basket (refresh_composition) both write through here.
 pub fn write_members(c: &Connection, bot_id: i64, members: &[(i64, i64, f64)], now: DateTime<Utc>) -> Result<(), EngineError> {
