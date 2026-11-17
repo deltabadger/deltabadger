@@ -159,7 +159,7 @@ pub async fn tile(
         };
         let inner=app.clone();
         let Some(rule)=app.db(move|c|model::load(c,&inner,user.id,id)).await? else {return Ok(layout::missing())};
-        // Rails has no separate toggle-submit parameter. Created and stopped tiles
+        // 2.x has no separate toggle-submit parameter. Created and stopped tiles
         // both post the hidden stopped value when their settings are edited.
         match field("status") {
             Some("scheduled") if rule.status!=1=>service::Command::Start(id,patch),
@@ -218,7 +218,7 @@ pub async fn confirm_destroy(
     .render()?;
     Ok(layout::html(StatusCode::OK, body))
 }
-/// D-RULE-POST-404: Rails routes the resource POST but defines no create action.
+/// D-RULE-POST-404: 2.x routes the resource POST but defines no create action.
 pub async fn missing() -> Response {
     layout::missing()
 }

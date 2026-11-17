@@ -1,10 +1,10 @@
 //! The signal wizard (Bots::Signals::*, plan 8e): the asset to trade (PickBuyableAssetsController), the venue
 //! (PickExchangesController), the key (keys.rs, `Namespace::Signal`), the quote (PickSpendableAssetsController), the rules
 //! (ConfirmSettingsController, kept in `session[:bot_config]['signals']` until the bot exists) and the save (SignalsController:
-//! the bot and its rules, then started). Each step builds the bot from the session as Rails does; the asset and quote lists are
+//! the bot and its rules, then started). Each step builds the bot from the session as 2.x does; the asset and quote lists are
 //! the shared search (bot::search) with a one-pair scope.
 //!
-//! Venues: the exchange step offers only the venues this engine runs signal bots on (eligibility::signal_admission). Rails'
+//! Venues: the exchange step offers only the venues this engine runs signal bots on (eligibility::signal_admission). 2.x's
 //! own way of showing a venue it cannot trade on (bots/pick_exchanges/_table's disabled button) names Hyperliquid's missing
 //! adapter, so it does not fit; a refused venue is left out instead, and one sent anyway is refused by name at its key step.
 use super::exchanges::{ordered, Table, Venue as Tile};
@@ -261,7 +261,7 @@ impl Rule {
 /// The default rule: buy for 100 of the quote.
 fn default_rule() -> Value { json!({"direction": "buy", "amount": 100, "enabled": true}) }
 
-/// The session's rules, built. An enum value Rails does not know raises (ArgumentError) as it does there.
+/// The session's rules, built. An enum value 2.x does not know raises (ArgumentError) as it does there.
 fn rules(signals: &[Value]) -> Result<Vec<Rule>, WebError> {
     signals.iter().map(|rule| {
         let name = |key: &str, default: &str, names: [&str; 2]| -> Result<bool, WebError> {
@@ -333,7 +333,7 @@ fn button(ctx: &Ctx, csrf: &str, rules: &[Rule]) -> Result<String, WebError> {
 #[template(path = "wizard/signals/confirm_settings.html")]
 struct Confirm { progress: String, name_id: String, mark: &'static str, name: String, exchange_url: String, button: String, settings: String }
 
-/// The session's rules (`session[:bot_config]['signals']`): a wizard not begun, or not yet at this step, is Rails' NoMethodError.
+/// The session's rules (`session[:bot_config]['signals']`): a wizard not begun, or not yet at this step, is 2.x's NoMethodError.
 fn session_rules(config: Option<&Value>) -> Result<Vec<Value>, WebError> {
     dig(config, &["signals"]).and_then(Value::as_array).cloned().ok_or_else(|| missing("rules"))
 }
@@ -386,7 +386,7 @@ pub async fn confirm_create(State(app): State<App>, Extension(ctx): Extension<Ct
 /// `signal_index.to_i`, read from the query or the form.
 fn index(ctx: &Ctx) -> i64 { field(ctx, "signal_index").map_or(0, |text| search::to_i(&text)) }
 
-/// Ruby's Array index: a negative one counts from the end.
+/// 2.x's Array index: a negative one counts from the end.
 fn at(len: usize, index: i64) -> Option<usize> {
     let at = if index < 0 { index + len as i64 } else { index };
     (0..len as i64).contains(&at).then_some(at as usize)
@@ -445,8 +445,8 @@ pub async fn update_signal(State(app): State<App>, Extension(ctx): Extension<Ctx
 enum Saved { Started(i64, Vec<(String, String)>), Refused(String, bool), Unported, Unservable(&'static str) }
 
 /// POST /bots/signals: the bot built from the session with its rules (the default one when the session has none) is saved, each
-/// rule with a token of its own, and started. A rule Rails would not save refuses the whole save (422, nothing written); a start
-/// the model refuses leaves the saved bot as it is (422, the reasons), as Rails does; a write the engine's guard refuses leaves
+/// rule with a token of its own, and started. A rule 2.x would not save refuses the whole save (422, nothing written); a start
+/// the model refuses leaves the saved bot as it is (422, the reasons), as 2.x does; a write the engine's guard refuses leaves
 /// nothing. A session without a venue or a pair, or one whose bot no page here could serve, is refused by name, nothing written.
 pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
@@ -474,7 +474,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         let id = signal_write::insert_created(&tx, user.id, exchange, &settings, None, &saved, view.locale, view.now)?;
         let started = signal_write::start_created(&tx, &view, user.id, id)?;
         // A bot whose pages this build cannot serve (`bot::refusal`, as a rule write checks it: an enabled sell rule while the
-        // wash-sale question is unanswered, say) is not made at all. Rails saves it and asks the question on its page; here it
+        // wash-sale question is unanswered, say) is not made at all. 2.x saves it and asks the question on its page; here it
         // would be a bot no page, list or action could reach, so nothing is written and the reason is named.
         if !matches!(started, Started::Refused(_)) {
             if let Some(reason) = signal_write::refused_after(&tx, &view.app, id)? { return Ok(Saved::Unservable(reason)) }
@@ -486,7 +486,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
             }
             Started::Invalid(errors) => {
                 let message = signal_write::sentence(&errors);
-                // The saved bot stays (Rails saved it before the start), as long as the engine would hold it.
+                // The saved bot stays (2.x saved it before the start), as long as the engine would hold it.
                 if let Err(refusal) = eligibility::guard(&tx, &view.app.cipher, Some(id)) {
                     return Ok(Saved::Refused(i18n::text(view.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&refusal.reason()))]), false));
                 }

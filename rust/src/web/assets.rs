@@ -1,6 +1,6 @@
 //! The files `serve` hands out, embedded at build time (build.rs `assets`): the bun and dart-sass
 //! builds and rust/web/images at fingerprinted /assets/ paths, and rust/web/public/ at its own paths.
-//! They are answered before the session and CSRF code runs, as Rails' static file server does.
+//! They are answered before the session and CSRF code runs, as 2.x's static file server does.
 use axum::body::Body;
 use axum::http::{header, HeaderValue, Response, StatusCode};
 
@@ -70,7 +70,7 @@ pub fn find(url: &str) -> Option<&'static Embedded> {
     EMBEDDED.binary_search_by(|file| file.url.cmp(url)).ok().map(|i| &EMBEDDED[i])
 }
 
-/// Rails' `asset_path`: the fingerprinted path of a logical name. An unknown name answers with a
+/// 2.x's `asset_path`: the fingerprinted path of a logical name. An unknown name answers with a
 /// path nothing is served at, so the mistake shows as one missing file; tests/web.rs checks every
 /// name the templates use.
 pub fn path(logical: &str) -> &'static str {
@@ -84,7 +84,7 @@ pub fn path(logical: &str) -> &'static str {
     EMBEDDED.iter().find(|file| file.logical == logical).map_or("/assets/missing", |file| file.url)
 }
 
-/// config/environments/production.rb `public_file_server.headers`: one year for every static file.
+/// 2.x's `public_file_server.headers`: one year for every static file.
 pub fn respond(file: &'static Embedded, head: bool) -> Response<Body> {
     let mut response = Response::new(if head { Body::empty() } else { Body::from(file.body) });
     *response.status_mut() = StatusCode::OK;

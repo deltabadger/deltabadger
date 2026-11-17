@@ -1,4 +1,4 @@
-//! The preference writes of SettingsController (app/controllers/settings_controller.rb): the menu's display currency
+//! The preference writes of SettingsController: the menu's display currency
 //! and balance switch, the tracker's cash switch, the account page's advanced-bots switch, and the admin's registration
 //! and email-notification settings.
 use super::view;
@@ -156,7 +156,7 @@ async fn show_cash(app: App, ctx: Ctx, headers: HeaderMap, user: User) -> Result
         let mut members = match parsed {
             wire::Node::Object(members) => members,
             wire::Node::Scalar(s) if s == "null" => vec![],
-            // `Array#merge` and friends: Rails raises.
+            // `Array#merge` and friends: 2.x raises.
             _ => return Err(WebError::Config("users.tracker_settings is not an object".into())),
         };
         let value = wire::Node::Scalar(on.into());
@@ -269,7 +269,7 @@ async fn email_notifications(app: App, ctx: Ctx) -> Result<Response, WebError> {
 }
 
 /// D-NO-MAIL-SAYS-SO: an open registration's row says whether confirmation mail can arrive, so it is redrawn with the mail
-/// it depends on. Closed, the row cannot change, and the answer is Rails'.
+/// it depends on. Closed, the row cannot change, and the answer is 2.x's.
 fn registration_row(tx: &Connection, app: &App, ctx: &Ctx, csrf: &str) -> Result<Option<String>, WebError> {
     Ok(match auth::app_config(tx, &app.cipher, "registration_open")?.as_deref() {
         Some("true") => Some(view::registration(ctx, csrf, true, super::mail::set_up(app, tx)?)?),

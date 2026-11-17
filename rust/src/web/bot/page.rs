@@ -63,9 +63,9 @@ struct Show<'a> {
     status_bar: String,
     status_button: String,
     chart: String,
-    /// The chart drawn with the page (bots/show.html.erb): its figures are ready, and the panels' are too.
+    /// The chart drawn with the page: its figures are ready, and the panels' are too.
     inline_chart: Option<String>,
-    /// Figures Rails would have found cached (BotsController#show's `!@metrics_loading`).
+    /// Figures 2.x would have found cached (BotsController#show's `!@metrics_loading`).
     cached: bool,
     columns_id: String,
     working: bool,
@@ -241,7 +241,7 @@ pub(super) fn not_found(ctx: &Ctx) -> Response {
     layout::redirect(StatusCode::FOUND, &ctx.path("/bots"))
 }
 
-/// Whether Rails reads the request's format as a Turbo stream: the path says `.turbo_stream`, or
+/// Whether 2.x reads the request's format as a Turbo stream: the path says `.turbo_stream`, or
 /// there is no extension and the Accept header, when it is not a browser's catch-all, names it first.
 fn turbo_stream_format(extension: Option<&str>, headers: &HeaderMap) -> bool {
     match extension {
@@ -298,7 +298,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         let mut others = c.prepare("SELECT id, label, type, settings FROM bots WHERE user_id = ?1 AND status NOT IN (3, 7) AND id != ?2 ORDER BY position, id")?;
         let rows = others.query_map([user.id, bot.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, Option<String>>(2)?, r.get::<_, String>(3)?)))?
             .collect::<Result<Vec<_>, _>>()?;
-        // Each switcher entry is a loaded bot in Rails: one stored without a name shows its generated one.
+        // Each switcher entry is a loaded bot in 2.x: one stored without a name shows its generated one.
         let mut other_bots = Vec::with_capacity(rows.len());
         for (id, label, class, settings) in rows {
             let label = match label.filter(|label| !label.trim().is_empty()) {
@@ -310,10 +310,10 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         let hide_money = user.hide_balances;
         let figures = crate::web::figure::loading::render_page(&inner,c,user.id,&snapshot,ctx.locale,csrf,ctx.path("").as_str())?;
         let mut metrics = figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["metrics"].as_str()).map(str::to_string);
-        // BotsController#show: @metrics_loading is "Rails cached no figures"; a ready chart is drawn only beside cached ones,
+        // BotsController#show: @metrics_loading is "2.x cached no figures"; a ready chart is drawn only beside cached ones,
         // exactly when its frame would ask for no refresh.
         let cached = metrics.is_some() && figures.as_ref().is_some_and(|v|v["bots"][bot.id.to_string()]["cached"].as_bool() == Some(true));
-        // @chart_metrics: Rails' marked chart is cached apart from its figures, and not when no holding had candles.
+        // @chart_metrics: 2.x's marked chart is cached apart from its figures, and not when no holding had candles.
         let chart_cached = cached && figures.as_ref().is_some_and(|v|v["bots"][bot.id.to_string()]["chart_cached"].as_bool() == Some(true));
         let inline_chart = figures.as_ref().filter(|_|chart_cached).and_then(|v|v["bots"][bot.id.to_string()]["chart"].as_str()).map(str::to_string);
         let status = status::render(c, ctx, csrf, &bot, configured)?;
@@ -359,7 +359,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
     shell::application_with_modal(&ctx, &csrf, &user, &shell, Page { status: StatusCode::OK, body, flash_now: Vec::new() }, modal_src)
 }
 
-/// GET /bots/:bot_id/chart: the chart's frame. A bot that is not this user's is a 404: `find` raises in Rails.
+/// GET /bots/:bot_id/chart: the chart's frame. A bot that is not this user's is a 404: `find` raises in 2.x.
 pub async fn chart_frame(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let (inner, owner) = (app.clone(), user.clone());
@@ -374,7 +374,7 @@ pub async fn chart_frame(State(app): State<App>, Extension(ctx): Extension<Ctx>,
     let snapshot = crate::web::figure::loading::prepare(&app,user.id).await?;
     let (view,owner,id,token,inner)=(ctx.clone(),user.clone(),bot.id,csrf.clone(),app.clone());
     let ready = app.db(move|c|Ok(crate::web::figure::loading::render_page(&inner,c,owner.id,&snapshot,view.locale,&token,&view.path(""))?
-        // metrics_with_current_prices_and_candles_from_cache: a drawn chart only as Rails caches it (`chart_cached`); a chart
+        // metrics_with_current_prices_and_candles_from_cache: a drawn chart only as 2.x caches it (`chart_cached`); a chart
         // that cannot be stated stays its hidden target, never a loading frame that would never resolve.
         .and_then(|v|{ let bot=&v["bots"][id.to_string()]; let chart=bot["chart"].as_str()?; (bot["chart_cached"]==true || chart==crate::web::figure::NOT_CHARTED).then(||chart.to_string()) }))).await?;
     // Bots::ChartsController: a refresh is asked for by a cold chart, or by a page whose own panels found no figures.
@@ -453,7 +453,7 @@ pub(super) fn exchange_select(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, 
 struct Menu<'a> { v: &'a Ctx, csrf: &'a str, path: String, menu_id: String, archived: bool, index: bool, follow_index: bool, id: i64, split: bool }
 
 /// bots/_menu. D-SPLIT-BOT-MENU: Split, where the dashboard's tile would offer it (`Bot::Split.splittable?`), opens the split
-/// modal for this one bot in the confirmation frame; Rails' menu has no Split.
+/// modal for this one bot in the confirmation frame; 2.x's menu has no Split.
 pub(super) fn menu(ctx: &Ctx, csrf: &str, bot: &Bot, configured: bool) -> Result<String, WebError> {
     Ok(Menu { v: ctx, csrf, path: ctx.path(&format!("/bots/{}",bot.id)), menu_id: bot.dom_id("menu"), id: bot.id,
         split: bot.kind != Kind::Signal && crate::web::bots::mergeable(bot).1,

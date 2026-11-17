@@ -6,7 +6,7 @@ use rusqlite::Connection;
 /// Name and email format/uniqueness run only when changed; password validators
 /// need an assigned password. Devise email presence and preference inclusions
 /// run on every save, even if the assigned preferences themselves are unchanged.
-/// Stored values are not assignment-normalized by Rails when loading a record.
+/// Stored values are not assignment-normalized by 2.x when loading a record.
 pub(super) fn validate_save(c: &Connection, owner: i64) -> Result<bool, WebError> {
     Ok(save_errors(c, owner)?.is_empty())
 }
@@ -30,7 +30,7 @@ pub(super) fn save_errors(c: &Connection, owner: i64) -> Result<Vec<&'static str
     Ok(errors)
 }
 
-/// User::Password::PATTERN as Ruby's `=~` reads it: lookaheads from some position for a lowercase letter, an
+/// User::Password::PATTERN as 2.x's `=~` reads it: lookaheads from some position for a lowercase letter, an
 /// uppercase letter and a digit (ASCII classes), a symbol (`[\W_]`: anything but an ASCII letter or digit), and 8
 /// characters. `.` stops at a line feed, so all of it must be on one line, but `[\W_]` also matches the line feed
 /// itself: a line that a line feed ends has its symbol.

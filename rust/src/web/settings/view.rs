@@ -214,7 +214,7 @@ pub fn wash(c: &Connection, ctx: &Ctx, csrf: &str, user_id: i64) -> Result<Strin
         |r| Ok((r.get(0)?, r.get(1)?)),
     )?;
     let question = question(ctx, enabled, jurisdiction.as_deref());
-    // The locked list is read even with protection off, as Rails does; rendering is conditional.
+    // The locked list is read even with protection off, as 2.x does; rendering is conditional.
     let mut statement=c.prepare("SELECT assets.symbol,wash_sale_locks.buy_locked_until FROM wash_sale_locks JOIN assets ON assets.id=wash_sale_locks.asset_id WHERE user_id=?1 AND buy_locked_until>?2 ORDER BY buy_locked_until,wash_sale_locks.id")?;
     let locks = statement
         .query_map((user_id, crate::codec::format_time(ctx.now)), |r| {
@@ -300,7 +300,7 @@ pub async fn account(
     } else {
         i18n::text(ctx.locale, "devise.registrations.edit.awaiting_confirmation", &[("email", Arg::Text(&pending_email))])
     };
-    // Rails re-renders the whole section on a failed save, and current_user.errors reaches every row: the
+    // 2.x re-renders the whole section on a failed save, and current_user.errors reaches every row: the
     // email and password rows open, and each field shows its own attribute's message.
     let errors = sections::Errors(&draft.messages);
     let registration = registration(ctx, &csrf, registration_open.0, registration_open.1)?;

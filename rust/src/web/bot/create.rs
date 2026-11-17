@@ -1,10 +1,10 @@
 //! BotApi::Bots::Create, CreateIndex and CreateSignal (CreateSupport#save_and_start): a bot made and started in one call,
-//! from MCP's create tools and REST's `POST /api/v1/bots`. The checks run in Rails' order with its codes and words; the
+//! from MCP's create tools and REST's `POST /api/v1/bots`. The checks run in 2.x's order with its codes and words; the
 //! bot is then built and inserted as the wizard saves it (wizard::create, wizard::index_create, signal_write) and started
-//! as the bot page starts it (write::lifecycle_in, signal_write::start_created), all in ONE write transaction: Rails'
+//! as the bot page starts it (write::lifecycle_in, signal_write::start_created), all in ONE write transaction: 2.x's
 //! insert is the start's own save (`valid?(:start) && save`), so a refused create leaves nothing (no row, no log, no wake).
 //! D-API-CREATE-REFUSED: a create the engine would not run is refused, nothing written. D-API-CREATE-HYPERLIQUID-LIMIT:
-//! a Hyperliquid bot gets the wizard's limit orders (Rails' API create leaves them off and its start then refuses it).
+//! a Hyperliquid bot gets the wizard's limit orders (2.x's API create leaves them off and its start then refuses it).
 use super::{action_params::ActionParams, draft::FieldError, mcp_input, signal_write, write::{self, Action, Outcome, Prepared, Step}, For};
 use crate::engine::{eligibility, model};
 use crate::v2::BigDec;
@@ -119,7 +119,7 @@ fn pair_not_found(venue: &Venue, symbol: &str, quote: &Value) -> Res {
 /// One basket entry: its symbol, and its weight when one was given (`None`: none given).
 type Entry = (String, Option<BigDec>);
 
-/// Ruby's `String#split(',')`: the empty strings at the end are dropped.
+/// 2.x's `String#split(',')`: the empty strings at the end are dropped.
 fn v2_split(s: &str, on: char) -> Vec<&str> {
     let mut parts: Vec<&str> = s.split(on).collect();
     while parts.last().is_some_and(|p| p.is_empty()) { parts.pop(); }
@@ -237,7 +237,7 @@ fn start(tx: &Connection, ctx: &Ctx, user: i64, id: i64, create_errors: Vec<Fiel
 /// Bot::Accountable on a NEW record (CreateSupport#save_and_start calls set_missed_quote_amount before the start): the
 /// carry is captured on the insert, so the bot owes 0 (0.0 when the start is delayed: Lifecycle#start captures it again,
 /// as a Float). The wizard's bot is saved first and started later, where the start finds no change to capture and
-/// stores nil; the rows are Rails' own (pages_api.rb, api_create_*).
+/// stores nil; the rows are 2.x's own.
 fn new_record_carry(tx: &Connection, id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<bool, WebError> {
     let started: Option<String> = tx.query_row("SELECT started_at FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
     let delayed = match started { Some(at) => crate::codec::parse_time(&at).map_err(|e| WebError::Config(format!("a new bot's started_at: {e:?}")))? > now, None => false };
@@ -319,7 +319,7 @@ fn dca(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Result<
     let settings = json!({"quote_asset_id": pairs[0].1, "quote_amount": amount.to_f(), "interval": get(p, "interval"), "weighting": weighting,
                           "allocations": allocations, "base_asset_ids": members});
     let mut config = json!({"exchange_id": venue.id, "settings": settings});
-    // D-API-CREATE-HYPERLIQUID-LIMIT: the wizard's lock, which Rails' API create skips.
+    // D-API-CREATE-HYPERLIQUID-LIMIT: the wizard's lock, which 2.x's API create skips.
     wizard::create::lock_limit_orders(tx, &mut config)?;
     let mut built = wizard::create::build(tx, &config, "en")?;
     if present(get(p, "label")) { built.label = text(get(p, "label")); }
@@ -402,7 +402,7 @@ fn index(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Resul
     if let Some(res) = unservable(tx, ctx, id)? { return Ok(refused(res)); }
     if new_record_carry(tx, id, ctx.now)? { prepared.broadcasts.extend(scheduled_bars(tx, ctx, user, id)?); }
     // The start's save writes the Smart Intervals amount the bot reads (the default a saved bot's settings page shows); a new
-    // record's after_initialize found no quote to derive it from, so Rails stores none.
+    // record's after_initialize found no quote to derive it from, so 2.x stores none.
     if !derived { tx.execute("UPDATE bots SET settings = json_remove(settings, '$.smart_interval_quote_amount') WHERE id = ?1", [id])?; }
     let (label, kind, status, stored) = row(tx, id)?;
     let data = json!({"id": id, "label": label, "type": kind, "status": status, "exchange": venue.name, "index": asked,

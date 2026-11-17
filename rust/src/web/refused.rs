@@ -102,7 +102,7 @@ pub fn serve(port: u16, reason: &str) -> i32 {
     })
 }
 
-/// `starting_page` on `port` at the bind address (server::binding) for as long as the future is polled: `serve` waiting out a Rails heartbeat (PLAN-B2
+/// `starting_page` on `port` at the bind address (server::binding) for as long as the future is polled: `serve` waiting out a 2.x heartbeat (PLAN-B2
 /// r2.8), with the refusal page's routes. Dropping it closes the listener; the runtime's end closes the connections still
 /// open. Returns only when the port cannot be taken.
 pub async fn show_starting(port: u16, wait: u64) -> std::io::Error {

@@ -14,7 +14,7 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result<Resp
     // from its tracker; the venues price what they can and the page's banner names the rest.
     let missing=false;
     {
-        // Rails' order: the venue (`Exchange.find`, 404) before any date is read.
+        // 2.x's order: the venue (`Exchange.find`, 404) before any date is read.
         if let Some(raw)=ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty()) {
             let Some(id)=crate::web::bot::id_from_path(raw) else{return Ok(layout::missing())};
             let exists:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM exchanges WHERE id=?1)",[id],|r|r.get(0))?;
@@ -51,7 +51,7 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result<Resp
     shell::application_with_flash_extra(ctx,&ctx.csrf_token(),user,&shell,page,"  <div id=\"sync-warnings\" data-turbo-permanent>\n    \n  </div>\n")
 }
 
-/// `load_ledgers` and `load_history`: the jobs this page asks for, past the market-data check, for any account (Rails
+/// `load_ledgers` and `load_history`: the jobs this page asks for, past the market-data check, for any account (2.x
 /// runs both loaders whether or not anything is connected). The ledger walks while `Ledger.cached` is nil, warming or
 /// failed. The sweep is asked for by its own gate, `backfill::wanted`, which covers the page's test for every scope;
 /// unlike `stale_prices?` it ignores a partial row outside the window (today's, the sync's to rewrite), which no sweep

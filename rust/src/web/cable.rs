@@ -9,17 +9,17 @@
 //! Client to server: `{"command":"subscribe"|"unsubscribe","identifier":"<json>"}`.
 //!
 //! Who may connect: a browser with a signed-in session, checked on the upgrade request exactly as a
-//! page request checks it. Rails does not authenticate the connection at all
-//! (app/channels/application_cable/connection.rb identifies nobody): there a signed stream name is
+//! page request checks it. 2.x does not authenticate the connection at all
+//! (its connection identifies nobody): there a signed stream name is
 //! the only gate, and anyone can open sockets. Here a stranger gets a 401 before the upgrade, and
 //! what a signed-in user can hold is bounded: `MAX_MESSAGE_BYTES`, `MAX_SUBSCRIPTIONS`,
 //! `MAX_CONNECTIONS_PER_USER`, `MAX_CONNECTIONS`. A signed stream name is still needed to subscribe.
 //!
-//! Which streams: in Rails whoever holds a signed name may subscribe to it. Here a stream that
+//! Which streams: in 2.x whoever holds a signed name may subscribe to it. Here a stream that
 //! belongs to one user (`user_<id>` or `user_<id>:…`, the names the pages sign for
 //! `turbo_stream_from "user_<id>", …`) is confirmed only on that user's own connections
 //! (`stream_is_for`); for anyone else it is rejected like a name that does not verify. Other
-//! stream names are as in Rails.
+//! stream names are as in 2.x.
 //!
 //! A connection lives longer than the request that opened it, so what authenticated it is kept with
 //! it (the user, the password salt of the session, the end of the session's cookie) and asked again:
@@ -58,7 +58,7 @@ pub const CHANNEL: &str = "Turbo::StreamsChannel";
 /// honest message. axum's defaults are 64 MiB and 16 MiB. The limit is checked against the length
 /// in the frame header, before the payload is read.
 pub const MAX_MESSAGE_BYTES: usize = 4096;
-/// Subscriptions one connection may hold. The Rails page with the most stream sources has four
+/// Subscriptions one connection may hold. The 2.x page with the most stream sources has four
 /// (three in tracker/index or bots/show, one in the layout's syncing notice); 32 leaves room for
 /// pages to come and bounds a connection at 32 identifiers of at most 4 KiB.
 pub const MAX_SUBSCRIPTIONS: usize = 32;
@@ -344,8 +344,8 @@ fn signature(key: &[u8; 32], data: &str) -> Option<String> {
     Some(hex::encode(mac.finalize().into_bytes()))
 }
 
-/// `<base64 of the JSON string>--<hex HMAC-SHA256 of that base64>`: the shape of Rails' signed
-/// stream names, under this process's own key, so a name Rails signed is not accepted here.
+/// `<base64 of the JSON string>--<hex HMAC-SHA256 of that base64>`: the shape of 2.x's signed
+/// stream names, under this process's own key, so a name 2.x signed is not accepted here.
 pub fn signed_stream_name(key: &[u8; 32], name: &str) -> String {
     let data = B64.encode(Value::String(name.to_string()).to_string());
     format!("{data}--{}", signature(key, &data).unwrap_or_default()) // allow-swallow: an Option that is never None (above)
@@ -390,7 +390,7 @@ pub fn stream_source(key: &[u8; 32], name: &str) -> String {
 
 /// Action Cable's allow_request_origin?: the whole origin (scheme, host, port) is APP_ROOT_URL's
 /// (`allowed_request_origins`) or the one the request came to (`allow_same_origin_as_host`, on by
-/// default): the scheme as Rails reads it (Rack's `ssl?`, so what a proxy forwarded counts) and the
+/// default): the scheme as 2.x reads it (Rack's `ssl?`, so what a proxy forwarded counts) and the
 /// `Host` header, which is all Action Cable looks at; a forwarded host is not consulted here.
 /// D-B5-ORIGIN-HOST: the second used to count only without APP_ROOT_URL, which shut the live updates
 /// of a page opened at another name than the configured one (see `Config::form_origins`).
@@ -408,7 +408,7 @@ fn plain(status: StatusCode, body: &'static str) -> Response {
 pub async fn connect(State(app): State<App>, headers: HeaderMap, upgrade: Result<WebSocketUpgrade, WebSocketUpgradeRejection>) -> Response {
     let Ok(upgrade) = upgrade else { return plain(StatusCode::NOT_FOUND, "Page not found") };
     if !origin_allowed(&app.config, &headers) {
-        return plain(StatusCode::NOT_FOUND, "Page not found"); // Rails' answer
+        return plain(StatusCode::NOT_FOUND, "Page not found"); // 2.x's answer
     }
     // The session cookie, read as the page pipeline reads it, and Devise's per-request check: a
     // locked or unconfirmed account, or a session from before a password change, is not signed in.
@@ -522,11 +522,11 @@ async fn command(app: &App, user_id: i64, socket: &mut WebSocket, subscriptions:
     match message["command"].as_str() {
         Some("subscribe") => {
             if subscriptions.iter().any(|(known, _)| known == identifier) {
-                return Ok(()); // the client re-sends an unconfirmed subscribe; Rails answers the first only
+                return Ok(()); // the client re-sends an unconfirmed subscribe; 2.x answers the first only
             }
-            let options: Value = serde_json::from_str(identifier).unwrap_or(Value::Null); // allow-swallow: malformed subscription options have no channel and are ignored below, as in Rails
+            let options: Value = serde_json::from_str(identifier).unwrap_or(Value::Null); // allow-swallow: malformed subscription options have no channel and are ignored below, as in 2.x
             if options["channel"] != CHANNEL {
-                return Ok(()); // Rails logs "Subscription class not found" and sends nothing
+                return Ok(()); // 2.x logs "Subscription class not found" and sends nothing
             }
             // A name that verifies, and that is not another user's own stream.
             let stream = options["signed_stream_name"].as_str().and_then(|signed| verified_stream_name(&app.keys.streams, signed));

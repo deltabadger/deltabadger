@@ -1,6 +1,6 @@
 //! The populated index's regions (TrackerController#index): the pending report, the venue filters, the six tiles, the
 //! holdings card and the sync warnings. The chart and the record are not ported yet, so no GET serves a page with these
-//! regions (`index` keeps the 501); `regions` is what that page will place, and what the grid compares with Rails.
+//! regions (`index` keeps the 501); `regions` is what that page will place, and what the grid compares with 2.x.
 use super::{fx::Prepared, Ctx, WebError};
 use crate::figures::{dec::Dec, totals::Denomination};
 use crate::tracker::figures::{page, Figures, Note};
@@ -12,7 +12,7 @@ fn invalid() -> WebError { super::row::invalid() }
 fn dec(raw: &str) -> Result<Dec, WebError> { Dec::parse(raw).map_err(|_| invalid()) }
 fn num<T>(r: Result<T, crate::figures::num::NumError>) -> Result<T, WebError> { r.map_err(|_| invalid()) }
 
-/// What the page places, region by region, in Rails' order.
+/// What the page places, region by region, in 2.x's order.
 pub struct Regions { pub pending: String, pub filters: String, pub notice: String, pub chart: String, pub tiles: String, pub holdings: String, pub record: String, pub warnings: String, pub bar_end: String }
 
 /// `rescue_from Tracker::Figures::AmbiguousAssetClass`: the page is a 422 with the message.
@@ -36,7 +36,7 @@ fn with_query(ctx: &Ctx, path: &str, pairs: &[(&str, Option<&str>)]) -> String {
 
 // ---- check_pending_report -------------------------------------------------------------------------------------------
 
-/// Ruby's `to_i` on a JSON value as the settings hold it.
+/// 2.x's `to_i` on a JSON value as the settings hold it.
 fn to_i(v: &serde_json::Value) -> i64 {
     match v {
         serde_json::Value::Number(n) => n.as_i64().or_else(|| n.as_f64().map(|f| f as i64)).unwrap_or(0),
@@ -444,7 +444,7 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
 #[template(path = "tracker/populated.html")]
 struct Page<'a> { v: &'a Ctx, preferences: String, tax_report: String, sync: String, body: String }
 
-/// TrackerController#index for a populated account: every region, as Rails' index places them.
+/// TrackerController#index for a populated account: every region, as 2.x's index places them.
 pub fn page(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<axum::response::Response, WebError> {
     use axum::response::IntoResponse;
     let Some(user) = ctx.user() else { return Ok(crate::web::auth::unauthenticated(ctx)) };
@@ -475,7 +475,7 @@ mod tests {
         }
     }
 
-    /// number_with_precision: a percentage that rounds to zero is written without its minus (Rails' 0.0%).
+    /// number_with_precision: a percentage that rounds to zero is written without its minus (2.x's 0.0%).
     #[test]
     fn a_percentage_rounding_to_zero_has_no_minus() {
         let p = |v: &str| super::percent_text(&crate::figures::dec::Dec::parse(v).unwrap()).unwrap();

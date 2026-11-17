@@ -3,11 +3,11 @@
 //!
 //! Divergences:
 //! - D-IBKR-DHGROUP: a new connection's keys are made inline when it is created (two RSA-2048 keys and the RFC 7919
-//!   ffdhe2048 group), so the page goes straight to the downloads; Rails generates a DH prime in a job and shows
+//!   ffdhe2048 group), so the page goes straight to the downloads; 2.x generates a DH prime in a job and shows
 //!   "generating" until it has run.
-//! - D-IBKR-RECONNECT: a key whose stored keys make no session (none yet: Rails' job never ran; or material this build
+//! - D-IBKR-RECONNECT: a key whose stored keys make no session (none yet: 2.x's job never ran; or material this build
 //!   cannot read) offers Disconnect only, then a fresh connect. Nothing completes or converts it.
-//! - D-IBKR-NOECHO: the credentials form is always empty. Rails' `form_with scope: :api_key` fills it from `@api_key`,
+//! - D-IBKR-NOECHO: the credentials form is always empty. 2.x's `form_with scope: :api_key` fills it from `@api_key`,
 //!   writing the stored consumer key, access token and its secret into the page.
 use super::keys::{self, Key, Submitted};
 use crate::venue::signers::ibkr as signer;
@@ -121,7 +121,7 @@ pub async fn download(app: App, ctx: Ctx) -> Result<Response, WebError> {
     });
     match pem {
         None => Ok(back(&ctx)),
-        // Rails raises reading a stored key OpenSSL cannot parse.
+        // 2.x raises reading a stored key OpenSSL cannot parse.
         Some(None) => Err(WebError::Config("unreadable IBKR key".into())),
         Some(Some(pem)) => Ok(([(header::CONTENT_TYPE, "application/x-pem-file".to_string()),
                                 (header::CONTENT_DISPOSITION, format!("attachment; filename=\"ibkr_{artifact}.pem\"; filename*=UTF-8''ibkr_{artifact}.pem"))], pem).into_response()),

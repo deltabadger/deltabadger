@@ -19,7 +19,7 @@ use std::collections::HashMap;
 /// BotActivityFeed: rows per page.
 pub const PAGE: usize = 10;
 
-/// D-PENDING-MARKET-HIDDEN: an accepted market order the venue has not finished (unknown or open). Rails finishes a market
+/// D-PENDING-MARKET-HIDDEN: an accepted market order the venue has not finished (unknown or open). 2.x finishes a market
 /// order within its run, so its log only ever shows the outcome; a zero fill still settling (ZERO_FILL_SETTLE) outlives the
 /// run here. The log leaves such a row out until it is final, and the status bar says "Setting orders…" meanwhile
 /// (D-PENDING-MARKET-SETTING). A limit order keeps its "Open order" row: resting is real. NULL-safe, so `NOT` keeps old rows.
@@ -103,9 +103,9 @@ fn cursor(value: Option<&str>) -> Option<Cursor> {
     let mut parts = value?.splitn(3, '|');
     let (at, kind, id) = (parts.next()?, parts.next()?, parts.next().unwrap_or(""));
     let activity = match kind { "activity" => true, "transaction" => false, _ => return None };
-    // A malformed request cursor is ignored, as Rails does; this is not stored data.
+    // A malformed request cursor is ignored, as 2.x does; this is not stored data.
     let at = match parse_time(at) {Ok(at)=>at,Err(_)=>return None};
-    // `id.to_i`, which Rails writes into the query as it is: past the column's range it compares as the range's end does.
+    // `id.to_i`, which 2.x writes into the query as it is: past the column's range it compares as the range's end does.
     let id = format::to_i(id).clamp(i128::from(i64::MIN), i128::from(i64::MAX));
     Some(Cursor { at, activity, id: i64::try_from(id).unwrap_or(0) })
 }
@@ -370,10 +370,10 @@ impl<'a> Rows<'a> {
             "orders_below_minimum" => event(&log.event, &[("count", Arg::Count(log.details.get("count").and_then(Value::as_i64).unwrap_or(0))), ("bases", Arg::Text(&detail("bases")))]),
             "wash_sale_locked" => event(&log.event, &[("base", Arg::Text(&detail("base"))), ("until", Arg::Text(&detail("until")))]),
             "order_abandoned" => event(&log.event, &[("order_id", Arg::Text(&detail("order_id")))]),
-            // PLAN-B2 C3, C4 (B2-6): a takeover's lines for Rails' queued work.
+            // PLAN-B2 C3, C4 (B2-6): a takeover's lines for 2.x's queued work.
             "upgrade_signal_unresolved" => event(&log.event, &[("call", Arg::Text(&detail("call")))]),
             "upgrade_command_dropped" => event(&log.event, &[("action", Arg::Text(&detail("action")))]),
-            // A28-1: Rails' unrecorded-order candidates (engine::v2_unrecorded).
+            // A28-1: 2.x's unrecorded-order candidates (engine::v2_unrecorded).
             "rails_order_candidates" => {
                 let one = log.details.get("count").and_then(Value::as_i64) == Some(1);
                 event(if one { "rails_order_candidate" } else { "rails_order_candidates" },
@@ -460,7 +460,7 @@ fn query_escape(value: &str) -> String {
 /// GET /bots/:id.turbo_stream for the `orders_pagination` frame: the next ten rows appended to the
 /// list, and the frame replaced by one that asks for the ten after them, while there are more.
 /// A sale, a liquidation, a redeploy or a rebalance leg is the same row as a buy: the partials read
-/// the order's status, its venue status and its side, never its type. Rails picks the merged page
+/// the order's status, its venue status and its side, never its type. 2.x picks the merged page
 /// first (BotActivityFeed#page) and reads on from there, so only the ten rows that are shown are
 /// read: the rows after them belong to a later page.
 pub fn feed(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User) -> Result<String, WebError> {
@@ -519,7 +519,7 @@ fn load_one(c: &Connection, bot: &Bot, id: i64) -> Result<Option<Order>, WebErro
     Ok(Some(order))
 }
 
-/// Bot#broadcast_new_order (app/models/bot.rb:316-348): the placeholder goes, the order's sentence
+/// Bot#broadcast_new_order: the placeholder goes, the order's sentence
 /// row and, for an accepted order, its columnar row are prepended on the bot's page stream, then the filters are replaced.
 pub fn new_order(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, id: i64) -> Result<Vec<(String, String)>, WebError> {
     let Some(order) = load_one(c, bot, id)? else { return Ok(vec![]) };
@@ -527,7 +527,7 @@ pub fn new_order(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, id: i64) -> 
     if order.pending_market() { return Ok(vec![(format!("user_{}:bot_updates", user.id), super::page::filters_broadcast(c, ctx, bot, user.hide_balances)?)]); }
     let rows = Rows { broadcast: true, ..Rows::new(ctx, bot, user) };
     let page = super::page::page_stream(bot);
-    // Rails removes it with the bot's first transaction. Here every new row removes it: rows a tick inserted together are
+    // 2.x removes it with the bot's first transaction. Here every new row removes it: rows a tick inserted together are
     // rendered once all are in, so none would read as the first, and Turbo's remove of a target no longer on the page
     // does nothing (StreamElement#targetElementsById answers [], @hotwired/turbo).
     let mut out = vec![(page.clone(), turbo::remove("orders_list_placeholder"))];
@@ -537,7 +537,7 @@ pub fn new_order(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, id: i64) -> 
     Ok(out)
 }
 
-/// Bot#broadcast_updated_order (app/models/bot.rb:359-379): both rows of the order replaced, then the filters.
+/// Bot#broadcast_updated_order: both rows of the order replaced, then the filters.
 pub fn updated_order(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, id: i64) -> Result<Vec<(String, String)>, WebError> {
     let Some(order) = load_one(c, bot, id)? else { return Ok(vec![]) };
     // D-PENDING-MARKET-HIDDEN: a market order still pending is not on the page; one now final may not be either, so it is

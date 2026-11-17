@@ -10,7 +10,7 @@ use crate::engine::accounting::{web_effective_amount as effective_amount, web_mi
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Map, Value};
 
-/// `Bots::DcaMultiAsset.stored_attributes[:settings]`, in Rails' order (pinned by tests/pages.rs against Rails).
+/// `Bots::DcaMultiAsset.stored_attributes[:settings]`, in 2.x's order (pinned by tests/pages.rs against 2.x).
 pub const STORED_DCA_MULTI_ASSET: &[&str] = & ["quote_asset_id", "quote_amount", "interval", "allocations", "base_asset_ids", "weighting",
     "smart_intervaled", "smart_interval_quote_amount", "smart_interval_base_amount", "limit_ordered", "limit_order_pcnt_distance",
     "quote_amount_limited", "quote_amount_limit", "base_amount_limited", "base_amount_limit", "price_limited", "price_limit",
@@ -51,7 +51,7 @@ pub enum Switched {
 
 fn t(locale: &str, key: &str) -> String { i18n::text(locale, &format!("errors.bots.index_switch.{key}"), &[]) }
 
-/// Bot::IndexSwitch.refusal, plus the engine's own fence (write::engine_holds). Rails' `poll_in_flight?` has no analogue: a
+/// Bot::IndexSwitch.refusal, plus the engine's own fence (write::engine_holds). 2.x's `poll_in_flight?` has no analogue: a
 /// stopped bot has no condition check in this engine, and the switch bumps the run generation.
 fn refusal(c: &Connection, bot: &model::Bot, now: chrono::DateTime<chrono::Utc>) -> Result<Option<&'static str>, WebError> {
     if !matches!(bot.status, BotStatus::Stopped | BotStatus::Created) { return Ok(Some("stop_first")); }
@@ -72,7 +72,7 @@ pub(crate) fn busy(c: &Connection, bot: &model::Bot, redeploy: bool, now: chrono
 /// POST /bots/:id/custom_allocation (Bots::CustomAllocationsController#create, Bot::IndexSwitch.customize!): the index bot becomes
 /// a portfolio of its in-index members that still trade at its venue and quote, at their weights rounded to the slider's 0.1%.
 ///
-/// D-IDX-CUSTOM-STORED: Rails re-derives the index in the request first (market data and venue probes); this build reads the
+/// D-IDX-CUSTOM-STORED: 2.x re-derives the index in the request first (market data and venue probes); this build reads the
 /// stored members, which the engine's resync keeps, and refuses `in_flight` while a resync it was asked for is still due.
 pub fn customize(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result<Switched, WebError> {
     match customize_inner(c, ctx, owner, id) {
@@ -150,7 +150,7 @@ fn switch(tx: &Connection, ctx: &Ctx, owner: i64, id: i64, draft: &draft::Draft,
         (to, Value::Object(draft.original.settings.clone()).to_string(), id, owner, from))?)?;
     let target = Bot::find(tx, owner, id, For::Page, ctx.locale)?.ok_or_else(|| super::data("switched bot disappeared".into()))?;
     // The target's own settings, and those of each rule switched on that this build runs on the target kind (an index bot's
-    // cap and price rule); a rule that is off is not carried (Rails carries none to an index bot).
+    // cap and price rule); a rule that is off is not carried (2.x carries none to an index bot).
     let source_settings = Value::Object(target.settings.clone());
     let runs = |key: &str| STORED_DCA_MULTI_ASSET.contains(&key) && rule_of(key).is_some_and(|(rule, selling, prefix)| {
         let flag = prefix.as_ref().map_or_else(|| "quote_amount_limited".to_string(), |p| format!("{p}ed"));
@@ -209,10 +209,10 @@ pub(crate) fn offered(c: &Connection, ctx: &Ctx, id: i64) -> Result<Vec<wizard::
 /// picked ("Follow index"), or an index bot changes its index ("Change the index"), with a new bot's size for it: a bounded
 /// index held whole, any other ten members. `category` is the tile's `index_category_id`.
 ///
-/// D-IDX-FOLLOW-LATE: Rails derives the new members in the request (market data and venue probes for newcomers); this build
+/// D-IDX-FOLLOW-LATE: 2.x derives the new members in the request (market data and venue probes for newcomers); this build
 /// leaves the engine a resync marker, and the engine derives them once woken (engine::run::resync_bot).
 /// D-IDX-COINGECKO: where this engine cannot derive (or run) the index bot (an install with no provider: neither data-api
-/// nor a CoinGecko key), Rails switches and this build refuses, writing nothing. On a CoinGecko key it switches, and the
+/// nor a CoinGecko key), 2.x switches and this build refuses, writing nothing. On a CoinGecko key it switches, and the
 /// engine holds the bot until CoinGecko ranks the new index (staleness::ranking_stale).
 pub fn follow(c: &Connection, ctx: &Ctx, owner: i64, id: i64, category: Option<&str>) -> Result<Switched, WebError> {
     match follow_inner(c, ctx, owner, id, category) {
@@ -270,7 +270,7 @@ fn rule_of(key: &str) -> Option<(Rule, bool, Option<String>)> {
     Some((*rule, selling, Some(format!("{}{prefix}", if selling { "sell_" } else { "" }))))
 }
 
-/// A store accessor's write: ActiveRecord::Store assigns only a value that differs, by Ruby's ==, from what the store reads
+/// A store accessor's write: ActiveRecord::Store assigns only a value that differs, by 2.x's ==, from what the store reads
 /// (so a nil never adds an absent key).
 fn store(settings: &mut Map<String, Value>, key: &str, value: Value) {
     let old = settings.get(key).unwrap_or(&Value::Null);

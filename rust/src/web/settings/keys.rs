@@ -375,7 +375,7 @@ pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue:
 struct Warnings{title:String,fixes:Vec<Fix>}
 struct Fix{message:String,trading:bool,trading_path:String,reading_path:String,trading_label:String,add_label:String,replace_label:String}
 /// `unresolved`: the key's last balance sync held codes no asset is named by (`rust_sync.kraken_unresolved:<key_id>`, D-KR-6),
-/// a failure Rails never records; it reads as the sync's own failure.
+/// a failure 2.x never records; it reads as the sync's own failure.
 struct WarningKey{exchange:i64,name:String,venue:String,status:i64,kind:i64,error:Option<String>,unresolved:bool}
 impl WarningKey{
     fn failed(&self)->bool{self.unresolved||self.error.as_deref().is_some_and(|e|!crate::v2::blank(e))}
@@ -435,7 +435,7 @@ pub fn list(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, 
     Ok(super::sections::api_keys(ctx, csrf, &keys))
 }
 /// settings/widgets/_market_data: the container's market data source, the one section Connect holds (D-BROKERS-AS-VENUES).
-/// `show_coingecko_form`: Rails' `@show_coingecko_form`, a switch to CoinGecko with no key to use. `platform_errors`: Rails'
+/// `show_coingecko_form`: 2.x's `@show_coingecko_form`, a switch to CoinGecko with no key to use. `platform_errors`: 2.x's
 /// `@platform_errors` with `@show_platform_form`, a claim that failed.
 pub(super) fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str,show_coingecko_form:bool,platform_errors:Option<&str>)->Result<String,WebError>{
     let setting=|name:&str|auth::app_config(c,&app.cipher,name);
@@ -462,7 +462,7 @@ pub async fn show_keys(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let user = ctx.user().ok_or_else(|| WebError::Config("missing key owner".into()))?;
     super::view::section_page(&ctx, &csrf, user, &shell, "api_keys", &format!("  {pane}\n"), StatusCode::OK, vec![])
 }
-/// GET /settings/connect: for an admin, the container's market data; for anyone else an empty pane, as Rails draws it.
+/// GET /settings/connect: for an admin, the container's market data; for anyone else an empty pane, as 2.x draws it.
 pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)); };
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
@@ -573,7 +573,7 @@ pub async fn legacy(
     let Some(user) = ctx.user().cloned() else {
         return Ok(auth::unauthenticated(&ctx));
     };
-    // Rails reads `params.require(:api_key)` only: never a top-level `?secret=`. Its params merge the query string
+    // 2.x reads `params.require(:api_key)` only: never a top-level `?secret=`. Its params merge the query string
     // and the body with the body winning, so `?api_key[name]=` counts only when the body has no value.
     let parameter = |name: &str| {
         let nested = format!("api_key[{name}]");
@@ -795,7 +795,7 @@ pub async fn pick_form(axum::extract::State(app):axum::extract::State<App>,axum:
 /// Tracker::PickExchangesController#create: `Exchange.find` (any row), the session keeps only its id.
 pub async fn pick_save(axum::extract::State(app):axum::extract::State<App>,axum::extract::Extension(ctx):axum::extract::Extension<Ctx>)->Result<Response,WebError>{
     if ctx.user().is_none() {return Ok(auth::unauthenticated(&ctx))}
-    // A missing or non-numeric id finds no row: RecordNotFound, Rails' 404.
+    // A missing or non-numeric id finds no row: RecordNotFound, 2.x's 404.
     let Some(Ok(id))=ctx.params.form("exchange_id").or_else(||ctx.params.query("exchange_id")).map(str::parse::<i64>) else {return Ok(crate::web::layout::missing())};
     let found=app.db(move|c|Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM exchanges WHERE id=?1)",[id],|r|r.get::<_,bool>(0))?)).await?;
     if !found {return Ok(crate::web::layout::missing())}

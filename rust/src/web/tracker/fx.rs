@@ -6,13 +6,13 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 
 pub const SUCCESS_TTL:i64=12*60*60;
-/// A failed conversion is held this long before it is asked again (Denomination::FAILURE_BACKOFF). Rails'
+/// A failed conversion is held this long before it is asked again (Denomination::FAILURE_BACKOFF). 2.x's
 /// Utilities::Currency holds no failure; the figures fill passes several times per load, and every cut.
 ///
-/// D-CG-FX-FAILURE-HOLD: on a CoinGecko install too (a 429 included), a failed pair is held 5 minutes. Rails caches only
+/// D-CG-FX-FAILURE-HOLD: on a CoinGecko install too (a 429 included), a failed pair is held 5 minutes. 2.x caches only
 /// successes and asks again on every read, which on a closed quota is a request per page view.
 pub const FAILURE_TTL:i64=5*60;
-/// Coingecko's own holds of a successful answer (coingecko.rb:6-17, :126-135, `expires_in: 60.seconds`): one
+/// Coingecko's own holds of a successful answer (`expires_in: 60.seconds`): one
 /// `exchange_rates` answer serves every fiat pair, a (coin, currency) price serves its pairs. A failure is not held here.
 pub const COINGECKO_TTL:i64=60;
 /// The install's held conversions (`figures::page_market::FxStore`), shared by the tracker and the figures, and one

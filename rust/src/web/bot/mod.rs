@@ -1,4 +1,4 @@
-//! A bot as the bot list and the bot page read it: the row, what Rails' model derives from it
+//! A bot as the bot list and the bot page read it: the row, what 2.x's model derives from it
 //! (Bots::DcaMultiAsset, Bots::DcaIndex and their concerns), and what this build does not render.
 //! Page readers share their model with the guarded settings writer in `write`.
 pub mod action_params;
@@ -57,30 +57,29 @@ pub const MAX_ASSETS: usize = 100;
 pub const MIN_COINS: i64 = 2;
 pub const MAX_COINS: i64 = 100;
 /// The most decimals a ticker may state and still be rendered. The pages round to a ticker's
-/// decimals, and the column has no bound of its own (db/schema.rb, app/models/ticker.rb). 14 is
-/// where the bound is because it is as far as `format::float_round` is Ruby's: past 14 digits MRI
+/// decimals, and the column has no bound of its own. 14 is
+/// where the bound is because it is as far as `format::float_round` is 2.x's: past 14 digits MRI
 /// rounds a Float through a Rational (float.c, `rb_float_round`), which is not ported. It is inside
 /// `v2::MAX_SCALE`, the engine's bound on a rounding scale, and tighter only because the pages
 /// round Floats, which the engine never does. Real tickers go past it: MEXC lists two with 15
 /// (db/seed_data/tickers/mexc.json), on a venue these pages do not serve yet. On Alpaca, the one
-/// venue served, stocks are written with 9 and 2 (app/models/exchanges/alpaca.rb) and crypto with
-/// the decimals of the step the venue states (app/jobs/exchange/sync_alpaca_assets_job.rb,
-/// app/models/market_data.rb), which nothing bounds: an Alpaca ticker past 14 is refused like any
+/// venue served, stocks are written with 9 and 2 and crypto with
+/// the decimals of the step the venue states, which nothing bounds: an Alpaca ticker past 14 is refused like any
 /// other, until the Rational path is ported.
 pub const MAX_DECIMALS: i64 = 14;
 /// The longest a bot may wait between two orders and still be rendered: a thousand years of
-/// 365.2425 days. Smart Intervals stretch the interval by `smart amount / amount`, and Rails bounds
-/// that amount from below only, so a row can state any span. Rails prints it in words whatever it is
-/// (Ruby's Time has no last year); the calendar here ends near the year 262,000, and a checkpoint
+/// 365.2425 days. Smart Intervals stretch the interval by `smart amount / amount`, and 2.x bounds
+/// that amount from below only, so a row can state any span. 2.x prints it in words whatever it is
+/// (2.x's Time has no last year); the calendar here ends near the year 262,000, and a checkpoint
 /// is held as microseconds in an i64, which end near the year 294,000. Nobody waits a thousand years
 /// for an order.
 pub const MAX_SPAN_SECONDS: f64 = 31_556_952_000.0;
-/// The shortest span between two orders of a working bot that is still rendered: one second. Rails
+/// The shortest span between two orders of a working bot that is still rendered: one second. 2.x
 /// starts no bot whose Smart Intervals leave less than five minutes, but checks that at the start
 /// only, and a row can state any amount: zero and a negative one give a span of nothing or less,
 /// and one small enough underflows to it. The checkpoints of such a span are not numbers (a
 /// quotient by zero), so a working bot below this is refused before any is computed. A bot that is
-/// not working has no checkpoint to compute, and Rails prints its own error under the field.
+/// not working has no checkpoint to compute, and 2.x prints its own error under the field.
 pub const MIN_SPAN_SECONDS: f64 = 1.0;
 
 pub(crate) fn fill_error(error: crate::figures::FiguresError) -> WebError {
@@ -119,8 +118,8 @@ pub fn cast_boolean(value: Option<&Value>) -> bool {
     }
 }
 
-/// A text Ruby's `to_f` and `to_d` and this crate read as the same number: digits, with a sign
-/// before them and a fraction after them or without. Rails coerces a setting it reads with either
+/// A text 2.x's `to_f` and `to_d` and this crate read as the same number: digits, with a sign
+/// before them and a fraction after them or without. 2.x coerces a setting it reads with either
 /// from any text ("0.6abc" is 0.6, "abc" is 0); the port follows it where the two cannot differ
 /// and refuses the rest.
 fn plain_decimal(text: &str) -> bool {
@@ -301,7 +300,7 @@ pub struct Bot {
     pub memberships: Vec<Membership>,
     /// `bot.tickers` (each type's set_tickers): what the bot can price and trade here.
     pub tickers: Vec<Ticker>,
-    /// The status of the user's trading key on this exchange; `None` without one (Rails then builds a pending key).
+    /// The status of the user's trading key on this exchange; `None` without one (2.x then builds a pending key).
     pub api_key: Option<i64>,
     pub index: Option<IndexRow>,
     pub last_order: Option<LastOrder>,
@@ -315,25 +314,25 @@ pub struct Bot {
     /// Stored without a name: `label` is the generated one, in memory only (Automation::Labelable#ensure_label_exists).
     /// A save writes it only when it is submitted on purpose.
     pub label_unsaved: bool,
-    /// What a reader gives a key the row leaves nil or blank, never saved: Rails' sell-side readers while selling (Rails never
+    /// What a reader gives a key the row leaves nil or blank, never saved: 2.x's sell-side readers while selling (2.x never
     /// persists them), and an index bot's rule defaults (`draft::index_defaults`: it persists only the subject).
     pub reads: Map<String, Value>,
     /// A signal bot's rules (`bot.bot_signals`), in id order; none for any other type.
     pub signals: Vec<signal::Rule>,
 }
 
-/// What a setting the pages read may be stored as. Rails validates each on every save, so a row a
-/// form wrote always fits; a row something else wrote may not, and Rails then prints what its own
+/// What a setting the pages read may be stored as. 2.x validates each on every save, so a row a
+/// form wrote always fits; a row something else wrote may not, and 2.x then prints what its own
 /// reader makes of it. This build reads the stored shape and nothing else: an absent or null
-/// setting takes Rails' default, and any other shape is refused, never read as a default or as zero.
+/// setting takes 2.x's default, and any other shape is refused, never read as a default or as zero.
 enum Shape {
     /// A JSON number.
     Number,
     /// A JSON number from 0 to 1.
     Share,
-    /// `true` or `false`: Rails validates every switch as exactly one of the two.
+    /// `true` or `false`: 2.x validates every switch as exactly one of the two.
     Flag,
-    /// `missed_quote_amount`, which Rails reads with `to_d` and validates as not negative: a number, or a decimal text within `v2::BigDec`'s bounds.
+    /// `missed_quote_amount`, which 2.x reads with `to_d` and validates as not negative: a number, or a decimal text within `v2::BigDec`'s bounds.
     Carry,
     /// A JSON number without a fraction.
     Integer,
@@ -341,11 +340,11 @@ enum Shape {
     Text,
     /// A JSON string that is one of these.
     OneOf(&'static [&'static str]),
-    /// A ticker's id: an integer, or the digits of one (Rails looks it up either way).
+    /// A ticker's id: an integer, or the digits of one (2.x looks it up either way).
     Id,
-    /// A time as Rails writes one into a JSON column (`Time#as_json`), or the empty text Rails reads as none.
+    /// A time as 2.x writes one into a JSON column (`Time#as_json`), or the empty text 2.x reads as none.
     Time,
-    /// `rebalance_threshold`, which Rails reads with `presence&.to_d` and validates as above 0 and at most 1: such a number, a text that is plainly one, or nothing (false, a blank text).
+    /// `rebalance_threshold`, which 2.x reads with `presence&.to_d` and validates as above 0 and at most 1: such a number, a text that is plainly one, or nothing (false, a blank text).
     Threshold,
 }
 
@@ -356,11 +355,11 @@ const SELL_ACTIONS: &[&str] = &["pause", "start_buying"];
 const INTERVALS: &[&str] = &["hour", "day", "week", "month"];
 const TIMEFRAMES: &[&str] = &["one_hour", "four_hours", "one_day", "three_days", "one_week", "one_month"];
 
-/// Every setting the two pages read, or Rails validates when it is asked whether the bot may start,
+/// Every setting the two pages read, or 2.x validates when it is asked whether the bot may start,
 /// beyond the few `refusal` checks by hand; for both bot types (a type that has no such setting has
 /// no such key). Compared with every `validates` of the two classes and their concerns that runs in
 /// the default or the `:start` context, and with every attribute the templates read. The two switches
-/// Rails reads by a boolean cast and does not validate (`start_time_enabled`, `hold_all`) are read
+/// 2.x reads by a boolean cast and does not validate (`start_time_enabled`, `hold_all`) are read
 /// the same way here, whatever is stored.
 const SETTINGS: &[(&str, Shape)] = &[
     ("smart_intervaled", Shape::Flag), ("limit_ordered", Shape::Flag), ("quote_amount_limited", Shape::Flag), ("price_limited", Shape::Flag),
@@ -397,7 +396,7 @@ const SETTINGS: &[(&str, Shape)] = &[
     ("sell_indicator_limit_in_indicator", Shape::OneOf(&["rsi"])),
     ("sell_indicator_limit_in_timeframe", Shape::OneOf(TIMEFRAMES)), ("sell_indicator_limit_action", Shape::OneOf(SELL_ACTIONS)), ("sell_indicator_limit_in_ticker_id", Shape::Id),
 ];
-/// And of `transient_data`: the two times the pages read, and the carry Rails validates.
+/// And of `transient_data`: the two times the pages read, and the carry 2.x validates.
 const TRANSIENT: &[(&str, Shape)] = &[("last_action_job_at", Shape::Time), ("quote_amount_limit_enabled_at", Shape::Time), ("base_amount_limit_enabled_at", Shape::Time), ("missed_quote_amount", Shape::Carry)];
 
 /// The number a text that is plainly a decimal states, as a Float.
@@ -405,8 +404,8 @@ fn plain(text: &str) -> Option<f64> {
     if plain_decimal(text) { text.parse().ok() } else { None }
 }
 
-/// What Rails validates only while a rule is switched on (`if: :price_limited?` and its like): a
-/// row may hold anything there while the rule is off, and Rails renders it; switched on, a value
+/// What 2.x validates only while a rule is switched on (`if: :price_limited?` and its like): a
+/// row may hold anything there while the rule is off, and 2.x renders it; switched on, a value
 /// outside the range is an error under its field, which this build does not print, so it refuses.
 fn ranges_hold(settings: &Value) -> bool {
     let on = |key: &str| settings.get(key) == Some(&Value::Bool(true));
@@ -422,7 +421,7 @@ fn fits(value: &Value, shape: &Shape) -> bool {
         Shape::Number => value.is_number(),
         Shape::Share => value.as_f64().is_some_and(|share| (0.0..=1.0).contains(&share)),
         Shape::Flag => value.is_boolean(),
-        // Rails writes the carry as a BigDecimal, which a JSON column holds as its text ("9999999999999999999999999999900.0"
+        // 2.x writes the carry as a BigDecimal, which a JSON column holds as its text ("9999999999999999999999999999900.0"
         // after a budget of 1e31): any text `v2::BigDec` reads within its bounds, not negative.
         Shape::Carry => match value {
             Value::Number(number) => number.as_f64().is_some_and(|carry| carry >= 0.0),
@@ -447,7 +446,7 @@ fn shaped(values: &Value, shapes: &[(&str, Shape)]) -> bool {
     shapes.iter().all(|(key, shape)| values.get(key).is_none_or(|value| value.is_null() || fits(value, shape)))
 }
 
-/// A basket's `allocations` as the pages can read them: asset ids as Rails writes them (`"12"`,
+/// A basket's `allocations` as the pages can read them: asset ids as 2.x writes them (`"12"`,
 /// never `"012"` or `"12abc"`, which `to_i` would still read) and weights that are numbers or
 /// plainly numbers. `base_asset_ids`, which a bot the wizard has not finished carries instead, are integers.
 fn members_shaped(settings: &Value) -> bool {
@@ -464,7 +463,7 @@ fn members_shaped(settings: &Value) -> bool {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum For { Page, Feed, FiguresPage, Settings }
 
-/// Why a bot's pages are not served by this build. Rails serves each of these; porting what
+/// Why a bot's pages are not served by this build. 2.x serves each of these; porting what
 /// a line names removes it.
 pub fn refusal(c: &Connection, bot_id: i64, provider_is_deltabadger: bool, asked: For) -> Result<Option<&'static str>, WebError> {
     let row = c.query_row("SELECT b.type, e.type, b.settings, b.transient_data FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1",
@@ -479,18 +478,18 @@ pub fn refusal(c: &Connection, bot_id: i64, provider_is_deltabadger: bool, asked
     let selling = settings.get("direction").and_then(Value::as_str) == Some("selling");
     if let Some(why) = crate::engine::eligibility::admission(exchange.as_deref(), class == "Bots::DcaIndex", selling) { return Ok(Some(why)); }
     // What the wizard always stores and no concern has a default for. Every other setting a row may
-    // lack is given the value Rails gives it on load (`Bot::fill_defaults`).
+    // lack is given the value 2.x gives it on load (`Bot::fill_defaults`).
     let needed: &[&str] = if class == "Bots::DcaIndex" { &["quote_asset_id", "interval", "index_type"] } else { &["quote_asset_id", "interval", "allocations"] };
     if needed.iter().any(|key| settings.get(key).is_none_or(Value::is_null)) { return Ok(Some("settings the wizard always stores are missing")); }
-    // Shapes Rails' readers would coerce or trip over, each in its own way: read as stored, or not at all.
+    // Shapes 2.x's readers would coerce or trip over, each in its own way: read as stored, or not at all.
     let members = class == "Bots::DcaIndex" || members_shaped(&settings);
     if settings.get("quote_asset_id").and_then(Value::as_i64).is_none() || !members || !shaped(&settings, SETTINGS) || !shaped(&transient, TRANSIENT) || !ranges_hold(&settings) {
         return Ok(Some("a setting stored in a shape this build does not read"));
     }
     crate::engine::accounting::validate_stored_amounts(&settings, &transient)?;
-    // Shapes no form saves. Rails would print each as an error under its field; nothing can have stored them but a migration.
+    // Shapes no form saves. 2.x would print each as an error under its field; nothing can have stored them but a migration.
     let positive = |key: &str| settings.get(key).and_then(Value::as_f64).is_some_and(|number| number > 0.0);
-    // `||=` in Ruby: a setting that is absent, null or false takes its default.
+    // `||=` in 2.x: a setting that is absent, null or false takes its default.
     let defaulted = |key: &str| matches!(settings.get(key), None | Some(Value::Null | Value::Bool(false)));
     let mode_known = settings.get("start_time_mode").is_none_or(|mode| mode.is_null() || mode.as_str().is_some_and(|mode| mode.is_empty() || start::MODES.contains(&mode)));
     let smart_ok = defaulted("smart_interval_quote_amount") || settings.get("smart_interval_quote_amount").is_some_and(Value::is_number);
@@ -511,7 +510,7 @@ pub fn refusal(c: &Connection, bot_id: i64, provider_is_deltabadger: bool, asked
     if unbounded { return Ok(Some("a ticker with more decimals than this build rounds to")); }
     // A LIQUIDATION, REDEPLOY or REBALANCE row the engine does not read (engine::eligibility::unread_special_rows, the rule its
     // guard applies) is refused here too; one it reads is served, and the guard's own refusals stand at the start. The feed does
-    // not ask: Rails picks its ten rows first, and its rows read no figure. Neither does a figures page: the figures read the walk.
+    // not ask: 2.x picks its ten rows first, and its rows read no figure. Neither does a figures page: the figures read the walk.
     if matches!(asked, For::Page | For::Settings)
         && !crate::engine::eligibility::unread_special_rows(c, &crate::engine::model::load_bot(c, bot_id)?)?.is_empty() {
         return Ok(Some(UNREAD_ORDERS));
@@ -640,7 +639,7 @@ impl Bot {
             has_submitted_orders: exists(" AND status = 0")?,
             has_pending_market_orders: exists(&format!(" AND {}", orders::PENDING_MARKET))?,
         };
-        // Signal rules receive read-only defaults; basket/index settings follow Rails.
+        // Signal rules receive read-only defaults; basket/index settings follow 2.x.
         bot.fill_defaults();
         if bot.label_unsaved { bot.label = bot.default_label(locale); }
         Ok(Some(bot))
@@ -660,7 +659,7 @@ impl Bot {
                 let category = self.text("index_category_id").map(str::to_string);
                 if self.text("index_type") == Some("category") && category.as_deref() != Some("nasdaq-100") {
                     if self.text("index_name").is_none_or(|name| name.trim().is_empty()) {
-                        // Category IDs are slugs; Rails titleizes the ID when no display name is saved.
+                        // Category IDs are slugs; 2.x titleizes the ID when no display name is saved.
                         name = category.map_or_else(|| "Index".into(), |category| {
                             category.replace(['-', '_'], " ").split_whitespace().map(|word| {
                                 let mut chars = word.chars();
@@ -668,7 +667,7 @@ impl Bot {
                             }).collect::<Vec<_>>().join(" ")
                         });
                     }
-                    // Rails default_label appends num_coins even when hold_all uses the whole universe.
+                    // 2.x default_label appends num_coins even when hold_all uses the whole universe.
                     if let Some(count) = self.setting("num_coins").and_then(Value::as_i64) { name.push_str(&format!(" · {count}")); }
                 }
                 name
@@ -692,7 +691,7 @@ impl Bot {
     /// What each concern's `after_initialize` gives a setting the row lacks, in memory, on every load
     /// (Bot::SmartIntervalable, LimitOrderable, QuoteAmountLimitable, PriceLimitable,
     /// PriceDropLimitable, MovingAverageLimitable, IndicatorLimitable, and
-    /// Bots::DcaIndex::IndexAllocatable). Rails writes them with the next save; a page writes nothing,
+    /// Bots::DcaIndex::IndexAllocatable). 2.x writes them with the next save; a page writes nothing,
     /// so a row from before a rule existed is rendered with these and stays as it is. `||=`: a
     /// setting that is absent, null or false takes its default. All of it is read from the database.
     fn fill_defaults(&mut self) {
@@ -803,7 +802,7 @@ impl Bot {
         crate::engine::accounting::sell_minimum(amount, seconds, decimals)
     }
 
-    /// What `refusal` cannot see in the row alone, because Rails' defaults are part of it: a span
+    /// What `refusal` cannot see in the row alone, because 2.x's defaults are part of it: a span
     /// between two orders that the calendar here does not hold (`MAX_SPAN_SECONDS`), and for a
     /// working bot one too short to compute a checkpoint from (`MIN_SPAN_SECONDS`). Asked of every
     /// bot `find` returns, before anything is rendered from it.
@@ -904,12 +903,12 @@ impl Bot {
         }
     }
 
-    /// Bot::Startable#repeat_anchor_at under D-START-ANCHOR-STARTED: `started_at`, whatever start_at holds. Rails reads a
+    /// Bot::Startable#repeat_anchor_at under D-START-ANCHOR-STARTED: `started_at`, whatever start_at holds. 2.x reads a
     /// start_at that differs while the rule is on; the engine never does, and the page and the carry a settings edit
     /// captures must agree with the engine.
     pub fn anchor(&self) -> Result<Option<DateTime<Utc>>, WebError> { Ok(self.started_at) }
 
-    /// `next_interval_checkpoint_at` and `last_interval_checkpoint_at`. Without an anchor Rails counts from now.
+    /// `next_interval_checkpoint_at` and `last_interval_checkpoint_at`. Without an anchor 2.x counts from now.
     pub fn checkpoints(&self, now: DateTime<Utc>) -> Result<Option<Checkpoints>, WebError> {
         let anchor = self.anchor()?.unwrap_or(now);
         match schedule::checkpoints(anchor.timestamp_micros(), now.timestamp_micros(), match self.effective() {Some(e)=>e,None=>return Ok(None)}) {
@@ -918,7 +917,7 @@ impl Bot {
         }
     }
 
-    /// The same two checkpoints (next, last) before Rails rounds them: what it enqueues the next job for and measures the progress bar from.
+    /// The same two checkpoints (next, last) before 2.x rounds them: what it enqueues the next job for and measures the progress bar from.
     pub fn unrounded(&self, now: DateTime<Utc>) -> Result<Option<(Unrounded, Unrounded)>, WebError> {
         let anchor = self.anchor()?.unwrap_or(now);
         match schedule::unrounded(anchor.timestamp_micros(), now.timestamp_micros(), match self.effective() {Some(e)=>e,None=>return Ok(None)}) {
@@ -951,7 +950,7 @@ impl Bot {
         weights.iter().filter_map(|(asset_id, stored)| Some((asset_id.parse().ok()?, weight(stored)?))).collect()
     }
 
-    /// `allocations.values.sum(&:to_f)`: Ruby's compensated Float sum, in stored order.
+    /// `allocations.values.sum(&:to_f)`: 2.x's compensated Float sum, in stored order.
     pub fn allocations_total(&self) -> f64 {
         float_sum(self.allocations().iter().map(|(_, weight)| *weight))
     }
@@ -1053,7 +1052,7 @@ impl Bot {
 pub fn retired_type(class: &str) -> bool { class == "Exchanges::Bitmart" }
 
 /// `render "svg/exchanges/#{exchange.name_id}"`: the venue's wordmark on the picker's tiles (rust/templates/svg/exchanges,
-/// rendered by Rails).
+/// rendered by 2.x).
 pub fn exchange_wordmark(name_id: &str) -> &'static str {
     match name_id {
         "alpaca" => include_str!("../../../templates/svg/exchanges/_alpaca.html"),
@@ -1077,7 +1076,7 @@ pub fn exchange_wordmark(name_id: &str) -> &'static str {
     }
 }
 
-/// `render "svg/exchange-#{exchange.name_id}"`: the venue's mark (rust/templates/svg, rendered by Rails).
+/// `render "svg/exchange-#{exchange.name_id}"`: the venue's mark (rust/templates/svg, rendered by 2.x).
 pub fn exchange_svg(name_id: &str) -> &'static str {
     match name_id {
         "alpaca" => include_str!("../../../templates/svg/_exchange_alpaca.html"),
@@ -1096,7 +1095,7 @@ pub fn exchange_svg(name_id: &str) -> &'static str {
         "kraken" => include_str!("../../../templates/svg/_exchange_kraken.html"),
         "kucoin" => include_str!("../../../templates/svg/_exchange_kucoin.html"),
         "mexc" => include_str!("../../../templates/svg/_exchange_mexc.html"),
-        // Rails raises a missing-template error for a class without a mark; no exchange class is without one.
+        // 2.x raises a missing-template error for a class without a mark; no exchange class is without one.
         _ => "",
     }
 }
@@ -1110,7 +1109,7 @@ fn allocation_ids(settings: &Map<String, Value>) -> Vec<i64> {
 }
 
 /// Bots::DcaIndex#current_index, as the engine's composition reads it: the row engine::index::ranked_row selects, else (no
-/// ranking selects one: an unranked install or fixture) Rails' lookup.
+/// ranking selects one: an unranked install or fixture) 2.x's lookup.
 fn index_row(c: &Connection, settings: &Map<String, Value>) -> Result<Option<IndexRow>, WebError> {
     let json = |text: Option<String>| text.and_then(|t| serde_json::from_str::<Value>(&t).ok());
     if let Some(r) = crate::engine::index::ranked_row(c, &crate::web::wizard::index::followed(Some(settings))).map_err(|e| data(format!("{e:?}")))? {
@@ -1157,7 +1156,7 @@ fn float_sum(xs: impl IntoIterator<Item = f64>) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    /// Ruby: `([0.1] * 9 + [0.099]).sum` is 0.9990000000000001, inside allocations_balanced?'s 0.001; a left fold is not.
+    /// 2.x: `([0.1] * 9 + [0.099]).sum` is 0.9990000000000001, inside allocations_balanced?'s 0.001; a left fold is not.
     #[test]
     fn allocations_add_up_as_v2_adds_them() {
         let weights = [0.1; 9].into_iter().chain([0.099]);

@@ -1,6 +1,6 @@
-//! The container's market data: SettingsController#update_market_data, #disconnect_market_data and #resync_assets
-//! (settings_controller.rb:186-235), admin only, and the CoinGecko key the tracker's and the index wizard's CoinGecko steps
-//! save (tracker_controller.rb:160-185, bots/dca_indexes/setup_coingeckos_controller.rb).
+//! The container's market data: SettingsController#update_market_data, #disconnect_market_data and #resync_assets,
+//! admin only, and the CoinGecko key the tracker's and the index wizard's CoinGecko steps
+//! save.
 use super::keys;
 use crate::{
     jobs::{coingecko, setup_sync},
@@ -114,7 +114,7 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
     let provider = ctx.params.form("market_data_provider").map(str::to_string);
     let posted = ctx.params.form("coingecko_api_key").filter(|key| !crate::v2::blank(key)).map(str::to_string);
     // D-CG-SETTINGS-KEY-CHECKED: a key posted here is checked as the tracker's and the wizard's are; nothing is written for a
-    // key CoinGecko refuses. The stored key a switch back uses is not checked again (Rails).
+    // key CoinGecko refuses. The stored key a switch back uses is not checked again (2.x).
     if provider.as_deref() == Some("coingecko") {
         if let Some(key) = &posted {
             if !key_valid(&app, key).await { return invalid_key(&ctx); }
@@ -141,7 +141,7 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
                     } else {
                         config(crate::app_config::set(&tx, cipher, "market_data_provider", "coingecko", now))?;
                         config(crate::app_config::set(&tx, cipher, "coingecko_api_key", &key, now))?;
-                        // D-CG-SETTINGS-SAVE-SYNCS: Rails' update_market_data enqueues nothing, so a fresh key syncs
+                        // D-CG-SETTINGS-SAVE-SYNCS: 2.x's update_market_data enqueues nothing, so a fresh key syncs
                         // nothing until the schedules fire; here it asks for the setup run the tracker's save asks for.
                         request_setup(&tx, &inner)?;
                         requested = true;
@@ -170,7 +170,7 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
 }
 
 /// D-CG-DISCONNECT-KEEPS-PLATFORM: the provider and the key, not a claimed platform's `market_data_url`/`_token`
-/// (Rails' clear_market_data_settings! drops them too).
+/// (2.x's clear_market_data_settings! drops them too).
 async fn disconnect(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
     let widget = app

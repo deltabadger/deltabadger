@@ -1,5 +1,5 @@
 //! The populated index's chart (tracker/_chart, from the swept history) and record (tracker/_record: the transactions
-//! table and the positions table), as Rails renders them.
+//! table and the positions table), as 2.x renders them.
 use super::{Ctx, WebError};
 use crate::figures::{at::At, dec::Dec, json::J, num::oj_float, totals::Denomination};
 use crate::tracker::figures::{page, Figures};
@@ -42,7 +42,7 @@ fn series(c: &Connection, owner: i64, scope: Option<i64>) -> Result<Vec<Day>, We
     Ok(out)
 }
 
-/// A Float as Ruby's `Float#to_d` reads it: its shortest decimal.
+/// A Float as 2.x's `Float#to_d` reads it: its shortest decimal.
 fn float_dec(f: f64) -> Result<Dec, WebError> { num(Dec::parse(&oj_float(f))) }
 fn to_f(d: &Dec) -> Result<f64, WebError> { d.to_s_f().parse().map_err(|_| invalid()) }
 
@@ -202,7 +202,7 @@ fn type_label(symbol: &str, category: Option<&str>) -> &'static str {
     match category { Some("Cryptocurrency") => "Crypto", Some("Stock" | "Common Stock") => "Stock", Some("ETF") => "ETF", Some("Fund") => "Fund", Some("Fiat" | "Currency") => "Cash", _ => "" }
 }
 
-/// A positions row. Its amounts are in `den`, which is dollars when no display rate is held, as Rails' `Denomination.for`
+/// A positions row. Its amounts are in `den`, which is dollars when no display rate is held, as 2.x's `Denomination.for`
 /// falls back (the chart does the same; the transactions' Value cells state the rate is unavailable instead).
 fn position_row(c: &Connection, ctx: &Ctx, r: &Position, den: &Denomination, hidden: bool) -> Result<String, WebError> {
     let zone = &ctx.user().ok_or_else(invalid)?.time_zone;
@@ -237,7 +237,7 @@ fn offered(options: Vec<SegmentedOption>) -> Vec<SegmentedOption> { if options.i
 /// What every filter row of the record does with its control's change.
 pub const FILTERS_ACTION: &str = "segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold";
 
-/// The record's switch (3.0, Rust only): Holdings first and on, then Rails' Positions and Transactions.
+/// The record's switch (3.0, Rust only): Holdings first and on, then 2.x's Positions and Transactions.
 pub(super) fn switch(ctx: &Ctx) -> Result<String, WebError> {
     let label = |key: &str| i18n::text(ctx.locale, key, &[]);
     segmented(label("tracker.positions"), Some("tracker-record"), true,

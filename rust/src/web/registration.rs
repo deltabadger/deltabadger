@@ -1,11 +1,11 @@
 //! Signup: Users::RegistrationsController on Devise 5 (registerable, confirmable, validatable, paranoid privacy on a
-//! taken address), on the same `users` columns. The validations are setup's (`setup::validate`, User#valid? in Rails'
+//! taken address), on the same `users` columns. The validations are setup's (`setup::validate`, User#valid? in 2.x's
 //! order).
 //!
 //! Named divergences (PLAN-A16):
 //! - D-SIGNUP-NO-THANK-YOU: /thank-you is gone in 3.0; a signup lands on the login page with Devise's own
 //!   signed_up_but_unconfirmed notice.
-//! - Privacy: a taken address answers exactly as a new one (Rails answers 302 to the one and 303 to the other), with one
+//! - Privacy: a taken address answers exactly as a new one (2.x answers 302 to the one and 303 to the other), with one
 //!   bcrypt computation on both, and mails the account owner instead (D-ACCOUNT-MAIL-OFF-REQUEST: never in the request).
 //! - D-SIGNUP-RACE: two signups with one address at once: the second meets the unique index and takes the taken path.
 //! - D-SIGNUP-REAL-EMAIL: the Gmail account that "already taken" goes to is matched by username exactly, not by LIKE.
@@ -101,7 +101,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     let outcome = app.db(move |c| {
         let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
         let errors = setup::validate(&tx, locale, name.as_deref(), &address, password.as_deref())?;
-        // Rails drops every email error once one is :taken, and answers as for a new account if nothing else is wrong.
+        // 2.x drops every email error once one is :taken, and answers as for a new account if nothing else is wrong.
         // D-SIGNUP-TAKEN-NEEDS-VALID-ADDRESS: so a malformed Gmail alias ("ann+!@gmail.com") passed whenever its base account
         // existed and was refused otherwise, telling which. Here :taken counts only for an address valid on its own; the
         // taken error itself is never shown.
@@ -146,7 +146,7 @@ fn email_exists(c: &Connection, email: &str) -> Result<bool, WebError> {
 
 /// User::Email.real_email: for a Gmail address, the account holding the same Google username (exact, then the other
 /// domain, then a +tag address on gmail.com, then on googlemail.com); any other address is itself. D-SIGNUP-REAL-EMAIL:
-/// usernames compared exactly, where Rails' LIKE read `_` and `%` in them as wildcards.
+/// usernames compared exactly, where 2.x's LIKE read `_` and `%` in them as wildcards.
 fn real_email(c: &Connection, email: &str) -> Result<String, WebError> {
     let Some(username) = setup::google_username(email) else { return Ok(email.to_string()) };
     for exact in [format!("{username}@gmail.com"), format!("{username}@googlemail.com")] {
@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn real_email_matches_the_google_username_exactly() {
-        // D-SIGNUP-REAL-EMAIL: Rails' LIKE 'j_n+%@gmail.com' also matched jan+x@gmail.com (a lower id).
+        // D-SIGNUP-REAL-EMAIL: 2.x's LIKE 'j_n+%@gmail.com' also matched jan+x@gmail.com (a lower id).
         let c = db(&["jan+x@gmail.com", "j_n+y@gmail.com"]);
         assert_eq!(real_email(&c, "j_n@gmail.com").unwrap(), "j_n+y@gmail.com");
         assert_eq!(real_email(&c, "jan+new@googlemail.com").unwrap(), "jan+x@gmail.com");

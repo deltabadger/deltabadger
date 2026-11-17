@@ -6,7 +6,7 @@ use crate::web::{
 };
 use serde_json::{json, Value};
 
-// Rails' update response order, followed by the additional W2 matrix fields.
+// 2.x's update response order, followed by the additional W2 matrix fields.
 const FIELDS: [&str; 9] = [
     "withdrawal_percentage",
     "max_fee_percentage",
@@ -47,7 +47,7 @@ pub struct Request {
     pub args: Value,
 }
 impl Request {
-    /// ActionMCP's number properties are Floats. Preserve their Rails string representation.
+    /// ActionMCP's number properties are Floats. Preserve their 2.x string representation.
     /// max_interval is an integer (days), and identifiers are checked before truncation.
     pub fn mcp(user: i64, action: Action, mut args: Value) -> Self {
         for field in ["withdrawal_percentage", "max_fee_percentage", "min_amount"] {

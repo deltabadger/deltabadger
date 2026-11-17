@@ -29,7 +29,7 @@ use axum::{
     response::Response,
 };
 
-/// D-SETTINGS-ROOT: Connect is the admin's section only, so anyone else opens on Account (Rails sends everyone to Connect).
+/// D-SETTINGS-ROOT: Connect is the admin's section only, so anyone else opens on Account (2.x sends everyone to Connect).
 pub async fn root(Extension(ctx): Extension<Ctx>) -> Response {
     let section = if ctx.user().is_some_and(|user| !user.admin) { "/settings/account" } else { "/settings/connect" };
     layout::redirect(StatusCode::FOUND, &ctx.path(section))

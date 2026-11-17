@@ -7,7 +7,7 @@ type Holdings=Vec<(String,i64)>;
 pub(crate) fn strings(value:&Value)->Vec<String> {
     match value { Value::Null=>vec![],Value::Array(a)=>a.iter().map(crate::web::mcp::tools::str_value).collect(),v=>vec![crate::web::mcp::tools::str_value(v)] }
 }
-/// Rails held_assets: ledger amounts, known assets and the venue base minimum; no price dependency.
+/// 2.x held_assets: ledger amounts, known assets and the venue base minimum; no price dependency.
 pub(crate) fn held(c:&Connection,id:i64,now:chrono::DateTime<chrono::Utc>)->Result<Holdings,WebError> {
     crate::figures::budget::within(|| {
         let s=Subject::load(c,id).map_err(super::fill_error)?;
@@ -138,7 +138,7 @@ pub async fn new(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segmen
         };
         let (table,harvest,exited)=crate::web::figure::liquidation_table(&tx,&view,id,&selected).map_err(super::fill_error)?;
         let mut query=form_urlencoded::Serializer::new(String::new());
-        // Rails route helper sorts the keys: asset_id, then symbol.
+        // 2.x route helper sorts the keys: asset_id, then symbol.
         for (_,asset) in &selected {query.append_pair("asset_id[]",&asset.to_string());}
         for (key,_) in &selected {query.append_pair("symbol[]",key);}
         let t=|key:&str|i18n::text(view.locale,key,&[]);

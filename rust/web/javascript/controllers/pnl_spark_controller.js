@@ -137,7 +137,7 @@ export default class extends Controller {
     const value = usd * this.rateValue
     const sign = value > 0 ? "+" : value < 0 ? "-" : ""
     // Grouped by hand with the server's own mark rather than by the browser's locale, which groups
-    // a Polish page with spaces where Rails wrote commas — the number would change shape the
+    // a Polish page with spaces where 2.x wrote commas — the number would change shape the
     // moment it was hovered.
     const digits = Math.round(Math.abs(value)).toString()
       .replace(/\B(?=(\d{3})+(?!\d))/g, this.delimiterValue)

@@ -1,5 +1,5 @@
 //! The platform claim: Clients::Launchpad#claim (POST <LAUNCHPAD_URL>/api/claim, 5 s to connect, 10 s per read) and
-//! Platform::RedeemClaim's reading of the answer. Stricter than Rails: HTTP errors use fixed messages, never
+//! Platform::RedeemClaim's reading of the answer. Stricter than 2.x: HTTP errors use fixed messages, never
 //! upstream bodies or request URLs, which may contain credentials. Claim diagnostics are never logged.
 use serde_json::{Map, Value};
 use std::time::Duration;
@@ -29,7 +29,7 @@ pub struct Claim {
 pub enum Failure {
     /// Result::Failure: the sentence the page shows.
     Message(String),
-    /// An answer Rails raises on inside its transaction (a `proxies` that is not an object): a 500.
+    /// An answer 2.x raises on inside its transaction (a `proxies` that is not an object): a 500.
     Malformed,
 }
 
@@ -57,7 +57,7 @@ fn text(value: &Value) -> Option<String> {
     }
 }
 
-/// How Ruby names the receiver of a NoMethodError (`undefined method 'x' for …`).
+/// How 2.x names the receiver of a NoMethodError (`undefined method 'x' for …`).
 pub(crate) fn receiver(value: &Value) -> &'static str {
     match value {
         Value::Null => "nil",
@@ -153,7 +153,7 @@ mod tests {
             proxies: vec![("proxy_binance".into(), "http://p".into()), ("proxy_n".into(), "1".into())], identity: (Some("Owner".into()), Some("o@example.com".into())) }));
         let failed = |status, content_type, body: &str| match read(status, content_type, body) { Err(Failure::Message(m)) => m, other => panic!("{other:?}") };
         assert_eq!(failed(401, JSON, "{}"), INVALID_CLAIM);
-        // Deliberately stricter than Rails: errors never expose an upstream body or request URL.
+        // Deliberately stricter than 2.x: errors never expose an upstream body or request URL.
         for (status, content_type, body) in [(500, JSON, r#"{"error":"credential-sentinel"}"#),
             (502, Some("text/html"), "<HTML>credential-sentinel</HTML>"), (503, None, " ")] {
             assert_eq!(failed(status, content_type, body), "Deltabadger could not complete the claim. Please try again.");

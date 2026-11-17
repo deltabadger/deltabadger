@@ -77,7 +77,7 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Resu
 enum Saved { Created(i64), Invalid(String) }
 
 /// POST .../pick_spendable_asset: the quote joins the session's settings with the wizard's defaults (quote_amount 100, interval
-/// week, where none is set), and the bot is saved: created, not started. A blank quote re-renders the step (422); a bot Rails
+/// week, where none is set), and the bot is saved: created, not started. A blank quote re-renders the step (422); a bot 2.x
 /// would not save re-renders it with the reason, the session keeping what was merged into it.
 pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };

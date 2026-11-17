@@ -4,7 +4,7 @@
 use super::i18n::escape;
 use axum::http::HeaderMap;
 
-/// `Mime[:turbo_stream]`, with the charset Rails adds to a response.
+/// `Mime[:turbo_stream]`, with the charset 2.x adds to a response.
 pub const CONTENT_TYPE: &str = "text/vnd.turbo-stream.html; charset=utf-8";
 
 /// replace, update, append, prepend: `content` is trusted markup, `target` is escaped.

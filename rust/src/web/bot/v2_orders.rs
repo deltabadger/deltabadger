@@ -129,7 +129,7 @@ pub fn api(c:&Connection,user:i64,bot:i64,obligation:i64,given:Answer,now:DateTi
 /// `unrecorded_orders` of get_bot_details (PLAN-A28-2b §3): the data, and the MCP text's lines (none when the bot has
 /// no answerable obligation). `quote` names the carry's currency.
 pub fn listing(c:&Connection,bot:i64,quote:&str,now:DateTime<Utc>)->Result<(Value,Vec<String>),WebError> {
-    // An install without the A28 tables (a Rails-only schema) has none.
+    // An install without the A28 tables (a 2.x-only schema) has none.
     let present:bool=c.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_rails_unrecorded_offers')",[],|r|r.get(0))?;
     if !present {return Ok((Value::Null,vec![]))}
     let Some(l)=ru::listing(c,bot,now)? else {return Ok((Value::Null,vec![]))};

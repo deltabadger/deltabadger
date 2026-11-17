@@ -1,13 +1,13 @@
-//! Rails' I18n as this app uses it: rust/locales/*.yml (embedded by build.rs), looked up by full
-//! key with a fallback to English, `%{name}` interpolation, and pluralisation with Rails' default
-//! one/other rule plus the Russian rule in config/locales/plurals.rb.
+//! 2.x's I18n as this app uses it: rust/locales/*.yml (embedded by build.rs), looked up by full
+//! key with a fallback to English, `%{name}` interpolation, and pluralisation with 2.x's default
+//! one/other rule plus 2.x's Russian rule.
 //! `t` is the view helper (ActionView's `translate`); `text` is `I18n.t`, which controllers use.
 
 include!(concat!(env!("OUT_DIR"), "/translations.rs"));
 
 pub const DEFAULT: &str = "en";
 
-/// Keys Rails takes from a gem's own locale file, not from rust/locales. Pinned by tests/i18n.rs:
+/// Keys 2.x takes from a gem's own locale file, not from rust/locales. Pinned by tests/i18n.rs:
 /// ActiveModel's "taken" message, and the dotiw gem's unit names (`distance_of_time_in_words`) in the
 /// ten of this app's locales the gem has a file for.
 const FROM_GEMS: &[(&str, &str)] = &[
@@ -662,7 +662,7 @@ const FROM_GEMS: &[(&str, &str)] = &[
     ("ru.settings.registration.mail_not_set_up", "Отправка писем не настроена, поэтому новые аккаунты не смогут подтвердить адрес электронной почты."),
     ("sk.settings.registration.mail_not_set_up", "Odosielanie e-mailov nie je nastavené, takže nové účty nemôžu potvrdiť svoju e-mailovú adresu."),
     ("sv.settings.registration.mail_not_set_up", "E-postutskick är inte konfigurerat, så nya konton kan inte bekräfta sin e-postadress."),
-    // A12-7 (PLAN-A12 "A12-7"): the German broker report's Rust-only copy. The report is German everywhere (Rails renders it in de),
+    // A12-7 (PLAN-A12 "A12-7"): the German broker report's Rust-only copy. The report is German everywhere (2.x renders it in de),
     // so every locale but en carries the German text.
     ("bg.tax_report.broker.warnings.vorabpauschale_distributions_estimated", "Vorabpauschale %{detail}: eine Ausschüttung ohne Angabe je Anteil wurde nach dem Bestand am Zahltag aufgeteilt. Die Vorabpauschale und ihr Abzug bei einem späteren Verkauf können daher abweichen — bitte mit den Ausschüttungen des Fonds je Anteil prüfen."),
     ("cs.tax_report.broker.warnings.vorabpauschale_distributions_estimated", "Vorabpauschale %{detail}: eine Ausschüttung ohne Angabe je Anteil wurde nach dem Bestand am Zahltag aufgeteilt. Die Vorabpauschale und ihr Abzug bei einem späteren Verkauf können daher abweichen — bitte mit den Ausschüttungen des Fonds je Anteil prüfen."),
@@ -862,13 +862,13 @@ const FROM_GEMS: &[(&str, &str)] = &[
     ("sv.tax_report.broker.disclosures.vorabpauschale_distributions", "Die Vorabpauschale zieht die Ausschüttungen des ganzen Kalenderjahres ab, soweit sie in Ihrem Konto gebucht sind. Ausschüttungen vor Ihrem ersten Kauf im Jahr fehlen hier; dann ist die Vorabpauschale eine Obergrenze (siehe Hinweise)."),
     ("en.tracker.import.identity_refused_file", "Nothing imported. This file doesn't match your Binance history. It may be cut short or edited. Download a fresh, full export from Binance and try again."),
     ("en.tracker.import.identity_refused_history", "Nothing imported. Your saved Binance history needs a repair before this file can be added. Updating Deltabadger runs the repair, then try the import again."),
-    // D-IMPORT-COUNTS (PLAN-A8-bot-csv): Rust-only, after Rails' import notice.
+    // D-IMPORT-COUNTS (PLAN-A8-bot-csv): Rust-only, after 2.x's import notice.
     ("en.bot.details.stats.import_skipped", "Skipped %{count} row(s): not closed, not this bot's assets or quote, or an asset name that fits more than one."),
     // PLAN-B2 C2 (B2-5, D-UPGRADE-SET-ASIDE): Rust-only, the stop_message_key of a bot a takeover set aside.
     ("en.bot_alerts_mailer.set_aside.subject", "%{label} was stopped"),
     ("en.bot_alerts_mailer.set_aside.template_html", "<p>Deltabadger stopped your bot <b>%{label}</b> while updating your data. Nothing was bought or sold.</p><p>%{reasons}</p>"),
     ("en.bot.status.set_aside", "Deltabadger stopped this bot while updating your data: %{reason} Nothing was bought or sold."),
-    // PLAN-B2 C3, C4, C12 (B2-6): Rust-only, the activity lines a takeover writes for work Rails left in its queue.
+    // PLAN-B2 C3, C4, C12 (B2-6): Rust-only, the activity lines a takeover writes for work 2.x left in its queue.
     ("en.bot_activity.events.upgrade_signal_unresolved", "A webhook call (%{call}) may or may not have placed an order: Deltabadger stopped while placing it. Check your exchange, then confirm it on this page. Until then this bot places nothing."),
     ("en.bot_activity.events.upgrade_command_dropped", "Your request to %{action} didn't run before the update. Request it again."),
     // A28-1 (D-V2-UNRECORDED-REPORTED): Rust-only, what the imported history shows about such an order (PLAN-A28 r4.4).
@@ -886,7 +886,7 @@ const FROM_GEMS: &[(&str, &str)] = &[
     ("en.bot_activity.events.rails_order_open", "Before the update, an order from this bot may have gone through without being recorded (%{when}). %{venue} has an order from that time that no bot recorded and that is still open: %{orders}. Deltabadger won't touch it: if you don't want it, cancel it on %{venue}. This may not be every order from that time. Check your %{venue} order history."),
     ("en.bot_activity.events.rails_order_listed", "Before the update, an order from this bot may have gone through without being recorded (%{when}). %{venue} has orders from that time that no bot recorded: %{orders}. If one was this bot's, the bot may have traded more than planned. This may not be every order from that time. Check your %{venue} order history."),
     ("en.bot_activity.events.rails_order_listed_one", "Before the update, an order from this bot may have gone through without being recorded (%{when}). %{venue} has an order from that time that no bot recorded: %{orders}. If it was this bot's, the bot may have traded more than planned. This may not be every order from that time. Check your %{venue} order history."),
-    // A28-2 (PLAN-A28-2): the owner's booking of an order Rails sent unrecorded, and its watch.
+    // A28-2 (PLAN-A28-2): the owner's booking of an order 2.x sent unrecorded, and its watch.
     ("en.bot_activity.events.rails_order_recovered", "Added an order from before the update to this bot's history: %{order}."),
     // A28-2a: the line's buttons, their confirmations and the POST's flash (web::bot::v2_orders).
     // A28-2b (D-V2-UNRECORDED-API): the Settings switch of this build's own tool, as A28's copy in English for every locale.
@@ -3429,7 +3429,7 @@ const FROM_GEMS: &[(&str, &str)] = &[
 pub enum Arg<'a> {
     /// Plain text: escaped when the key is an HTML key.
     Text(&'a str),
-    /// Markup that is already safe (`html_safe` in Rails): never escaped.
+    /// Markup that is already safe (`html_safe` in 2.x): never escaped.
     Html(&'a str),
     /// `count:`; it also selects the plural form.
     Count(i64),
@@ -3440,7 +3440,7 @@ fn leaf(full_key: &str) -> Option<&'static str> {
         .or_else(|| FROM_GEMS.iter().find(|(k, _)| *k == full_key).map(|(_, v)| *v))
 }
 
-/// config/locales/plurals.rb: only `ru` has a rule; every other locale uses I18n's one/other.
+/// 2.x's plural rules: only `ru` has one; every other locale uses I18n's one/other.
 fn category(locale: &str, n: i64) -> &'static str {
     if n == 1 {
         "one"
@@ -3464,7 +3464,7 @@ fn in_locale(locale: &str, key: &str, count: Option<i64>) -> Option<&'static str
         }
     }
     // I18n::Backend::Pluralization: with a rule, the explicit "0"/"1" keys win and a missing form
-    // falls back to `other`. Without one Rails raises on a missing form; here it reads as missing.
+    // falls back to `other`. Without one 2.x raises on a missing form; here it reads as missing.
     if locale == "ru" && (n == 0 || n == 1) {
         if let Some(explicit) = form(if n == 0 { "0" } else { "1" }) {
             return Some(explicit);
@@ -3493,7 +3493,7 @@ pub fn escape(text: &str) -> String {
     out
 }
 
-/// I18n.interpolate: `%{name}` takes the argument, `%%{name}` is a literal `%{name}`. Rails raises
+/// I18n.interpolate: `%{name}` takes the argument, `%%{name}` is a literal `%{name}`. 2.x raises
 /// on a name with no argument; here the placeholder stays as written.
 fn interpolate(template: &str, args: &[(&str, Arg)], escape_text: bool) -> String {
     let mut out = String::with_capacity(template.len());
@@ -3552,7 +3552,7 @@ fn value_text(arg: &Arg) -> String {
 }
 
 /// The view helper `t`: markup ready to place in a page. A plain key's text is escaped; an HTML
-/// key's text is trusted and only its plain arguments are escaped; a missing key is Rails'
+/// key's text is trusted and only its plain arguments are escaped; a missing key is 2.x's
 /// `translation_missing` span.
 pub fn t(locale: &str, key: &str, args: &[(&str, Arg)]) -> String {
     match lookup(locale, key, count_of(args)) {
@@ -3587,7 +3587,7 @@ pub fn text_chain(locale: &str, keys: &[String], args: &[(&str, Arg)]) -> Option
     locales.iter().find_map(|l| keys.iter().find_map(|key| in_locale(l, key, count))).map(|template| interpolate(template, args, false))
 }
 
-/// Every embedded (full key, text) pair, for the test that compares the table with Rails' own.
+/// Every embedded (full key, text) pair, for the test that compares the table with 2.x's own.
 pub fn all() -> &'static [(&'static str, &'static str)] {
     TRANSLATIONS
 }

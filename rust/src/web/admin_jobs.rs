@@ -1,5 +1,5 @@
 //! A25 (PLAN-A25 r4, D-JOBS-RUST-VIEW): the install admin's view of Rust's own scheduler and engine at `/jobs`, in place of
-//! Rails' Mission Control. Read-only but for one action, Run now, which wakes a listed job through `Wakers::wake`.
+//! 2.x's Mission Control. Read-only but for one action, Run now, which wakes a listed job through `Wakers::wake`.
 //! Nothing here places, cancels or settles an order or touches a bot's intent.
 //!
 //! Never shown (D-JOBS-DIAGNOSTIC-OMITTED): a job's stored error text (it can carry a venue's or data-api's reply), a
@@ -97,7 +97,7 @@ fn engine(c: &rusqlite::Connection, admin: i64) -> Result<Engine, WebError> {
 
 /// GET /jobs.
 pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
-    // Rails mounts /jobs outside the locale scope: `/de/jobs` stays the refusal it was.
+    // 2.x mounts /jobs outside the locale scope: `/de/jobs` stays the refusal it was.
     if ctx.params.path_locale.is_some() { return Ok(layout::not_ported_for(&ctx)); }
     if let Some(answer) = auth::unless_admin(&ctx) { return Ok(answer); }
     let user = ctx.user().cloned().expect("the admin");

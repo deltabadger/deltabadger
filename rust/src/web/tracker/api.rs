@@ -1,7 +1,7 @@
 //! PLAN-A11: the tracker through REST and MCP. BotApi::Transactions::{ListAccount, ExportCsv} and
 //! BotApi::Tracker::{SetTransferLink, SetTransactionPrice, Sync}, one service each for both surfaces, on the web's own
 //! pieces: its CSV writer, candidate query, link and price stores, sync plan and guarded write (`super::guarded`).
-//! The tools' texts are the Rails tools'. Named divergences: specs/PLAN-A11-tracker-api.md.
+//! The tools' texts are the 2.x tools'. Named divergences: specs/PLAN-A11-tracker-api.md.
 use super::{csv_rows, first_sync, guarded, read, row::Row, sync_plan, transaction, Guarded, Step, SyncPlan, CSV_COLUMNS};
 use crate::{codec, v2::{self, BigDec}, web::{bot_api::{self, Domain, Res}, bot::mcp_input, mcp::{protocol::tool_text, read_limits, tools::str_value}, timezone, App, WebError}};
 use chrono::{DateTime, NaiveDate};
@@ -56,8 +56,8 @@ fn day(v: &Value) -> Result<Option<NaiveDate>, ()> {
 }
 
 
-/// ListAccount's and ExportCsv's shared checks, in Rails' order: the exchange (any venue row), then the dates.
-/// D-API-NONSCALAR: an `exchange_id` that is no scalar is an unknown exchange (Rails raises on Array#to_i).
+/// ListAccount's and ExportCsv's shared checks, in 2.x's order: the exchange (any venue row), then the dates.
+/// D-API-NONSCALAR: an `exchange_id` that is no scalar is an unknown exchange (2.x raises on Array#to_i).
 fn filter(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Result<Result<Filter, Res>, WebError> {
     let none = Value::Null;
     let arg = |name: &str| args.get(name).unwrap_or(&none);
@@ -96,7 +96,7 @@ fn list(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Resul
         // `raw&.to_i || 50`, ≤ 0 → 50, at most 200; D-API-NONSCALAR: a value that is no scalar is the default.
         let limit = match args.get("limit") { None | Some(Value::Null) => 50, Some(v) => bot_api::to_i(v).filter(|n| *n > 0).map_or(50, |n| n.min(200)) };
         f.binds.push(Sql::Integer(limit));
-        // Rails' own query (by_date, then the filters), so that rows at one instant come out in the same order.
+        // 2.x's own query (by_date, then the filters), so that rows at one instant come out in the same order.
         let sql = format!("SELECT * FROM account_transactions WHERE user_id=?1{} ORDER BY transacted_at DESC LIMIT ?{}", f.sql, f.binds.len());
         let mut statement = c.prepare(&sql)?;
         let mut rows = statement.query(rusqlite::params_from_iter(f.binds))?;
@@ -150,7 +150,7 @@ fn line(row: &Value, at: DateTime<Tz>) -> String {
 
 // ---- export -----------------------------------------------------------------------------------------------------------
 
-/// BotApi::Transactions::ExportCsv: the newest MAX_ROWS rows (Rails' `order(desc)` then `to_csv`'s appended `order(asc)`),
+/// BotApi::Transactions::ExportCsv: the newest MAX_ROWS rows (2.x's `order(desc)` then `to_csv`'s appended `order(asc)`),
 /// through the web export's writer. D-EXPORT-SIZE: past read_limits::STORED_BYTES, refused.
 fn export(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Result<Result<Csv, Res>, WebError> {
     read::only(c, |c| {
@@ -211,8 +211,8 @@ fn link(c: &Connection, app: &App, user: i64, id: i64, linked: bool, zone: Tz) -
 }
 
 /// BotApi::Tracker::SetTransactionPrice. Validated as BotApi::Number reads the value (a Float written `to_d.to_s('F')`);
-/// stored as `parse_manual` reads it (`value.to_s.strip`: a Float as Ruby writes it), r1 item 2. D-PRICE-NONTEXT: a value
-/// that is neither null, text nor a number is `invalid_price` (Rails clears on false, [] and {}).
+/// stored as `parse_manual` reads it (`value.to_s.strip`: a Float as 2.x writes it), r1 item 2. D-PRICE-NONTEXT: a value
+/// that is neither null, text nor a number is `invalid_price` (2.x clears on false, [] and {}).
 fn price(c: &Connection, app: &App, user: i64, id: i64, value: &Value) -> Result<Res, WebError> {
     let invalid = || failure(Domain::ValidationFailed, "invalid_price", "price_usd must be a non-negative number, or empty to clear.");
     // None: clear; Some(Ok(text)): the text to store once validated; Some(Err): not a value.
@@ -254,7 +254,7 @@ fn sync(c: &Connection, app: &App, user: i64) -> Result<Res, WebError> {
 
 // ---- surfaces ---------------------------------------------------------------------------------------------------------
 
-/// Api::V1::TransactionsController and TrackerController past their gates: `params` as Rails merges them (sync reads none).
+/// Api::V1::TransactionsController and TrackerController past their gates: `params` as 2.x merges them (sync reads none).
 /// REST runs in UTC (no Time.zone is set for it).
 pub fn rest(c: &Connection, app: &App, user: i64, route: Route, params: &Map<String, Value>) -> Result<Out, WebError> {
     let id = || params.get("id").and_then(bot_api::to_i).unwrap_or(0);
@@ -274,8 +274,8 @@ pub fn rest(c: &Connection, app: &App, user: i64, route: Route, params: &Map<Str
     })
 }
 
-/// The six tools past ApplicationMCPTool's gate and the schema: Rails' texts, failures as `report_error`. MCP runs in the
-/// caller's zone (action_mcp_time_zone.rb): the list's dates, the day bounds and the transfer window.
+/// The six tools past ApplicationMCPTool's gate and the schema: 2.x's texts, failures as `report_error`. MCP runs in the
+/// caller's zone: the list's dates, the day bounds and the transfer window.
 pub fn mcp(c: &Connection, app: &App, user: i64, name: &str, args: &Value) -> Result<Value, WebError> {
     let none = Map::new();
     let args_map = args.as_object().unwrap_or(&none);

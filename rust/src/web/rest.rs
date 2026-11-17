@@ -2,8 +2,8 @@
 //! one tool gate per route, and every answer in the `{data, error}` envelope. Outside the session/CSRF pipeline, as
 //! ActionController::API is outside ApplicationController.
 //!
-//! Every route Rails draws is matched here, with its `(.:format)` suffix. One this build does not serve yet still
-//! authenticates and gates as Rails does, then answers the 501 `not_ported` envelope; a path Rails does not route
+//! Every route 2.x draws is matched here, with its `(.:format)` suffix. One this build does not serve yet still
+//! authenticates and gates as 2.x does, then answers the 501 `not_ported` envelope; a path 2.x does not route
 //! (a locale prefix included: the API is outside the locale scope) is the 404 every missing page is.
 use super::bot_api::{self, Domain, Res};
 use super::mcp::reads;
@@ -41,7 +41,7 @@ enum Order { Create, Cancel }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Reading { Details, Balances, Orders, Portfolio }
 
-/// `bad`: a path parameter that is no UTF-8 once decoded, which Rails' router refuses (400) before any controller.
+/// `bad`: a path parameter that is no UTF-8 once decoded, which 2.x's router refuses (400) before any controller.
 struct Route { gate: Gate, action: Action, path: Vec<(&'static str, String)>, bad: bool }
 
 /// Journey::Router::Utils.unescape_uri: each `%XX` is its byte, anything else (a `+`, a stray `%`) stays as it is; the
@@ -60,7 +60,7 @@ pub(crate) fn unescape(segment: &str) -> Option<String> {
     String::from_utf8(out).ok()
 }
 
-/// config/routes.rb's `namespace :api { namespace :v1 { ... } }`, matched on the path past `/api/v1` as Rails' router
+/// 2.x's `namespace :api { namespace :v1 { ... } }`, matched on the path past `/api/v1` as 2.x's router
 /// matches it: a dynamic segment is anything without `/` or `.`, and the last segment may end in `.<format>`.
 fn route(method: &Method, path: &str) -> Option<Route> {
     let rest = path.strip_prefix("/api/v1/")?;
@@ -81,7 +81,7 @@ fn route(method: &Method, path: &str) -> Option<Route> {
     let (gate, action) = match segments.as_slice() {
         ["bots"] if get => (tool("list_bots"), Action::Bots),
         ["bots"] if post => (Some(Gate::BotType), Action::Create),
-        // D-SPLIT-API: this build's own route (Rails routes no POST /bots/split).
+        // D-SPLIT-API: this build's own route (2.x routes no POST /bots/split).
         ["bots", "split"] if post => (tool("split_bots"), Action::Split),
         ["bots", id, rest @ ..] => {
             path.push(("id", id.to_string()));
@@ -146,8 +146,8 @@ fn route(method: &Method, path: &str) -> Option<Route> {
     gate.map(|gate| Route { gate, action, path: decoded.unwrap_or(path), bad })
 }
 
-/// The request's parameters as Rails' `params` holds them (ActionDispatch::Http::Parameters#parameters): the body's,
-/// then the query's over them, then the path's over both. A body Rails cannot parse is `Err`: its 400, raised where an
+/// The request's parameters as 2.x's `params` holds them (ActionDispatch::Http::Parameters#parameters): the body's,
+/// then the query's over them, then the path's over both. A body 2.x cannot parse is `Err`: its 400, raised where an
 /// action first reads `params`. (ParamsWrapper's copy of the body under the controller's name is never read.)
 pub(super) struct Input<'a> { pub params: &'a Params, json: Option<Vec<u8>>, pub path: &'a [(&'static str, String)], pub idempotency: Option<&'a str> }
 
@@ -245,7 +245,7 @@ pub(super) fn failure(status: StatusCode, code: &str, message: &str) -> Answer {
 }
 
 /// render_result: the data on a success, the code and message on a failure (with the failure's data as `details`, which
-/// only D-SPLIT-API's refusals carry). What Rails raises is its 500, below the
+/// only D-SPLIT-API's refusals carry). What 2.x raises is its 500, below the
 /// controllers.
 fn render(res: Res) -> Answer {
     if res.status == Domain::Raised { return Answer::Below(Box::new(WebError::Config(res.message).into_response())); }
@@ -274,7 +274,7 @@ fn require_tool(c: &Connection, who: bearer::Bearer, tool: &str) -> Result<Optio
     Ok((!allowed).then(|| failure(StatusCode::FORBIDDEN, "tool_disabled", &format!("Tool '{tool}' is disabled for this user."))))
 }
 
-/// `params[:type]` as Ruby interpolates it.
+/// `params[:type]` as 2.x interpolates it.
 fn type_text(v: Option<&Value>) -> String { v.map(super::mcp::tools::str_value).unwrap_or_default() }
 
 /// BotsController#gate_create_by_type and OrdersController#gate_create_by_type: the tool a `type` names, or the 422.
@@ -297,10 +297,10 @@ fn service_arguments(write: bot_api::Write, params: &Map<String, Value>) -> Map<
     match write {
         bot_api::Write::Liquidate => {
             let mut args:Map<String,Value>=params.iter().filter(|(k,_)| k.as_str()=="symbol").map(|(k,v)|(k.clone(),v.clone())).collect();
-            // Rails REST is a live action; the paper-trading preference belongs to MCP only.
+            // 2.x REST is a live action; the paper-trading preference belongs to MCP only.
             args.insert("dry_run".into(),json!(false)); args
         },
-        // `params[:accept]` as it came; Rails REST is live, like the liquidation above.
+        // `params[:accept]` as it came; 2.x REST is live, like the liquidation above.
         bot_api::Write::Redeploy => Map::from_iter([("accept".to_string(), params.get("accept").cloned().unwrap_or(Value::Null)), ("dry_run".to_string(), json!(false))]),
         bot_api::Write::Settings => params.iter()
             .filter(|(name, value)| super::bot::mcp_input::setting_names().contains(&name.as_str()) && (name.as_str() == "allocations" || !(value.is_array() || value.is_object())))
@@ -388,7 +388,7 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             }
         }
         Action::Read(reading) => {
-            // The summary reads no parameter, so a body Rails cannot parse never reaches it.
+            // The summary reads no parameter, so a body 2.x cannot parse never reaches it.
             let none = Map::new();
             let p = if reading == Reading::Portfolio { &none } else { match params() { Ok(p) => p, Err(()) => return Ok(bad_request()) } };
             let ask = match reading {
@@ -405,7 +405,7 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             }
         }
         Action::Tracker(route) => {
-            // BotApi::Tracker::Sync reads no parameter, so a body Rails cannot parse never reaches it (PLAN-A11 r1).
+            // BotApi::Tracker::Sync reads no parameter, so a body 2.x cannot parse never reaches it (PLAN-A11 r1).
             let none = Map::new();
             let p = if route == tracker::Route::Sync { &none } else { match params() { Ok(p) => p, Err(()) => return Ok(bad_request()) } };
             match tracker::rest(c, app, user, route, p)? {
@@ -606,8 +606,8 @@ pub(crate) fn finish(app: &App, answer: Answer, head: bool, if_none_match: Optio
     response
 }
 
-/// `render json:` (Oj.optimize_rails, `escape_html_entities_in_json` on), in one pass: a string with Oj's escapes, a
-/// Float as Oj's Rails encoder prints it, an Integer as its digits. The data's decimals and times are already their
+/// `render json:` (Oj as 2.x's JSON encoder, `escape_html_entities_in_json` on), in one pass: a string with Oj's escapes, a
+/// Float as that encoder prints it, an Integer as its digits. The data's decimals and times are already their
 /// rendered text (`bot_api`).
 pub fn encode(value: &Value) -> String {
     fn write(value: &Value, out: &mut String) {
@@ -645,7 +645,7 @@ pub fn encode(value: &Value) -> String {
 mod tests {
     use super::*;
 
-    /// script/rust/record_api_json.rb: `{data: value, error: nil}.to_json` for every kind of value an answer holds.
+    /// The recorded answers: `{data: value, error: nil}.to_json` for every kind of value an answer holds.
     #[test]
     fn encode_writes_what_v2_renders() {
         let fixture: Value = serde_json::from_str(include_str!("../../tests/fixtures/api_json_vectors.json")).unwrap();
@@ -793,7 +793,7 @@ mod tests {
     }
 
     /// The manual's REST table against the router, both ways, and its tools against the MCP catalogue. Undocumented on
-    /// purpose: PUT wherever PATCH is served, HEAD wherever GET is, and a `.<format>` suffix on any path (Rails' routing
+    /// purpose: PUT wherever PATCH is served, HEAD wherever GET is, and a `.<format>` suffix on any path (2.x's routing
     /// draws them; a client never needs them).
     #[test]
     fn manual_documents_every_served_route_and_tool() {
@@ -874,7 +874,7 @@ mod tests {
         let body = &bearer[bearer.find("pub fn code(self)").unwrap()..];
         let body = &body[..body.find("\n    }\n").unwrap()];
         codes.extend(regex::Regex::new(&format!("=> {code}")).unwrap().captures_iter(body).map(|c| c[1].to_string()));
-        // A split reason the refusal renames; and the one failure that is Rails' 500 below the controllers, never an envelope.
+        // A split reason the refusal renames; and the one failure that is 2.x's 500 below the controllers, never an envelope.
         let renamed = regex::Regex::new(&format!(r"Reason::Bot\(\s*{code},\s*_\)\s*=>")).unwrap();
         for gone in renamed.captures_iter(include_str!("bot/split.rs")).map(|c| c[1].to_string()).chain(["internal_error".to_string()]) { codes.remove(&gone); }
         codes

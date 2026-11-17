@@ -273,7 +273,7 @@ fn bounds(rule: &Rule) -> Result<(), Refusal> {
             ));
         }
     }
-    // Rails treats max_interval as days. Accept a positive integer or no deadline.
+    // 2.x treats max_interval as days. Accept a positive integer or no deadline.
     let interval = rule.text("max_interval");
     if !crate::v2::blank(&interval) && !interval.parse::<i64>().is_ok_and(|n| n > 0) {
         return Err(refuse(

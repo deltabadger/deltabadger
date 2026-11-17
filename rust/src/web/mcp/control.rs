@@ -13,7 +13,7 @@ fn finish(out:Outcome<Shown>)->Value {
         Outcome::Unported(reason)=>tool_text(&bot_api::refused(reason),true), // Rust boundary divergence.
         Outcome::GuardRefused(shown)=>tool_text(&shown.text,true), // Rust guard/key/fence divergence.
         Outcome::Invalid(shown,_)=>tool_text(&shown.text,true), // BotApi validation/conflict failure: report_error.
-        Outcome::NoChange(shown)=>tool_text(&shown.text,false), // Rails unchanged result.
+        Outcome::NoChange(shown)=>tool_text(&shown.text,false), // 2.x unchanged result.
         Outcome::Committed(shown)=>tool_text(&shown.text,false),
     }
 }
@@ -23,7 +23,7 @@ pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Val
     let errors=validate(args,schema,"");
     if !errors.is_empty(){return Ok(tool_text(&format!("Invalid input: {}",errors.join(", ")),true));}
     let numeric_id=args["bot_id"].as_f64().ok_or_else(||WebError::Config("validated bot id is not numeric".into()))?;
-    // Rails' query treats ids outside SQLite INTEGER range as not found, rather
+    // 2.x's query treats ids outside SQLite INTEGER range as not found, rather
     // than saturating onto an owned row at the boundary.
     if !(i64::MIN as f64..-(i64::MIN as f64)).contains(&numeric_id) {
         return Ok(tool_text("Bot not found.",true));
@@ -48,7 +48,7 @@ pub fn split(c:&Connection,app:&App,user:i64,args:&Value)->Result<Value,WebError
     })
 }
 /// A10: create_bot, create_index_bot and create_signal_bot (CreateBotTool, CreateIndexBotTool, CreateSignalBotTool#perform):
-/// the service's refusal as the error text; a success in the tool's words. A `number` property reaches Rails as a Float.
+/// the service's refusal as the error text; a success in the tool's words. A `number` property reaches 2.x as a Float.
 pub fn create(c:&Connection,app:&App,who:Bearer,kind:crate::web::bot::create::Kind,args:&Value)->Result<Value,WebError>{
     use crate::web::bot::create::Kind;
     let res=bot_api::create(c,app,who.user_id,kind,&args.as_object().cloned().unwrap_or_default())?;

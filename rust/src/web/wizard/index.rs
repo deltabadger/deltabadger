@@ -4,7 +4,7 @@
 //! saves the bot (index_create). Every step but the first sends the browser to it while no market data is configured.
 //!
 //! What this engine runs is an index bot on Alpaca, Kraken or Binance on a data-api install (eligibility::admission and index_reasons);
-//! the steps offer what Rails offers, and the key and quote steps refuse, by name, an index bot this build would not run.
+//! the steps offer what 2.x offers, and the key and quote steps refuse, by name, an index bot this build would not run.
 use super::exchanges::{ordered, Table, Venue as Tile};
 use super::index_create::{self as create, count_named, display_index_name, index_row};
 use super::keys::FullPage;
@@ -456,7 +456,7 @@ enum Saved { Created(i64), Invalid(String) }
 
 /// POST .../pick_spendable_asset: the quote joins the session's settings with the index wizard's defaults (quote_amount 100,
 /// interval week, allocation_flattening 0.0, where none is set), and the bot is saved: created, not started. A blank quote
-/// re-renders the step (422); a bot Rails would not save re-renders it with the reason, the session keeping what was merged.
+/// re-renders the step (422); a bot 2.x would not save re-renders it with the reason, the session keeping what was merged.
 pub async fn quote_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     if let Some(answer) = expired(&ctx) { return Ok(answer) }
