@@ -32,23 +32,23 @@ The full list of supported locales is `LOCALES` in `rust/src/web/locale.rs`. Cur
 
 ## Conventions — DO NOT BREAK
 
-### Never pass `default:` to `t(...)` or `I18n.t(...)`
-Every language must carry a real translation. A `default: 'English fallback'`
-argument hides the fact that other locales were skipped, so a user browsing in
-German or Polish sees English silently. If you add a new translation key:
+### Every key in every locale
+Every language must carry a real translation. An English fallback in code hides
+the fact that other locales were skipped, so a user browsing in German or Polish
+sees English silently. If you add a new translation key:
 
 1. Add the key to **every** `base.<locale>.yml` (or the appropriate
    per-component `[name].<locale>.yml`) with a native-language value.
-2. Call it as `t('namespace.key')` without `default:`.
+2. Look it up with `i18n::t` (pages; `v.t(...)` in templates) or `i18n::text`
+   (plain text), never with a hard-coded fallback string.
 
-Exception for "soft lookup" where the key may legitimately be absent (e.g. the
-exchange has no instructions yet): use `I18n.exists?('...')` to probe, then
-call `t('...')` only when it exists. Do NOT use `default: nil` for this.
+Where the key may legitimately be absent (e.g. the exchange has no instructions
+yet), use `i18n::text_chain`, which returns `None`, and handle that case.
 
-For dynamic keys (`tax_report.summary.tax_#{pct}`, `progress_steps.#{step}`,
-etc.), either enumerate every possible value in every locale, or refactor to a
-single parameterized key (`tax_report.summary.tax_percent` with interpolation
-`%{pct}`). Don't hide the gap with `default: "Tax (#{pct}%)"`.
+For dynamic keys (`tax_report.summary.tax_{pct}`, `progress_steps.{step}`,
+etc.), either enumerate every possible value in every locale, or use a single
+parameterized key (`tax_report.summary.tax_percent` with interpolation
+`%{pct}`).
 
 ### YAML style for locale files
 - For single-line values, use inline quoted strings: `key: 'Value'` or
@@ -66,13 +66,6 @@ single parameterized key (`tax_report.summary.tax_percent` with interpolation
   Do NOT fake multi-line with `\n` escapes inside a double-quoted string, and
   do NOT use `>` (folded) unless you explicitly want newlines collapsed to
   spaces.
-
-- Never use Ruby `<<~YAML` heredocs when generating YAML from scripts — Ruby's
-  dedent strips leading whitespace and collides with YAML's 4-space
-  indentation rules, silently breaking every downstream key. Build YAML as an
-  array of explicitly-indented lines instead, and use
-  `YAML.dump(str, line_width: -1)` for each scalar so long values don't get
-  hard-wrapped into invalid block scalars.
 
 - Indentation is 4 spaces per level. Check existing files before adding
   blocks — mismatched indent silently breaks every downstream key.

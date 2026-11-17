@@ -17,7 +17,7 @@ are synthetic unless explicitly attributed. All credentials are throwaway text.
 Regenerate with `python3 script/rust/record_kucoin_hf.py --source-dir <cache>`;
 add `--check` to compare without writes or network access. Retain the fetched
 cache to reproduce the dated documentation snapshot. SDK URLs are commit-pinned.
-No Rails recorder or source pin is involved in HF-0. Python's standard-library HMAC generates the expectations;
+No 2.x recorder or source pin is involved in HF-0. Python's standard-library HMAC generates the expectations;
 the Rust tests recompute them with the existing Rust crypto dependencies. They do
 not call the classic signer and cannot establish HF transport correctness yet.
 
@@ -49,7 +49,7 @@ integration assertions. HF-5 must have no deferred rows left.
 `grid-kucoin-hf` is the later Rust-only replay runner, with the documented contract
 as its oracle. It must compare actual sends, placement intents, transaction rows,
 balances, ledger rows, cursors and diagnostics against expectations. It must never
-call an invented Rails HF path. Preserve exact decimal strings and raw IDs. Every
+call an invented 2.x HF path. Preserve exact decimal strings and raw IDs. Every
 money-path test inspects persisted effects, including after reopening the store;
 an adapter error alone does not satisfy the row.
 
@@ -108,11 +108,11 @@ the sandbox; the worktree report records the actual gate results.
 | R04 / HF-4 / `polling`, `reversal`, CLI tests | Missing terminal proof, partial totals, trade-only CSV, cancel acknowledgment, wrong account/order/symbol, conflicting/decreasing amounts or fees, stale/replacement credentials | No financial writes or obligation removal. Explain missing evidence and direct existing-row resolution to reconcile-order, never intent-only resolve-placement. Explicit zero totals required for proven zero fill. |
 | R05 / HF-4 / `polling`, `reversal` | Valid R03; crash/retry, failed commit, two simultaneous resolvers or poll/resolver; differing evidence after settlement | Under credential/ownership fence re-read row/receipt. Atomically update final state, both executions, price/fees, cancel removal, reserve/proceeds, evidence and activity. Preserve IDs/links/origin. Exact replay no-op; conflict is visible. Reserve/proceeds credited once, no second fill/row/POST; failed commit retains every obligation. |
 | R06 / HF-4 / `handover`, `placement` | Takeover with unresolved HF intents/orders/cancels; shutdown >7 days; current mode/credentials changed | Reconcile original family/account first; stop new spending until obligations resolve. Original-family positive reads allowed only with verified provenance. Mode change never redirects recovery; edited pair/replacement account never recovers an old intent. |
-| R07 / HF-4 / `handover`, `polling`, `reversal` | Pre-HF Rust classic row versus adopted Rails row without provenance; candidate classic/HF endpoint reads | Pre-HF Rust rows stay known classic. Adopted row needs exact positive identity reconciliation; conflicting/missing evidence blocks it. Never infer HF from current mode or route cancel by current mode. Persist reconciled origin. |
-| R08 / HF-4 / `handover` | Handback of HF-dependent bot, unresolved HF order/intent/cancel, UTA/unknown routing; concurrent ownership change | Rust refuses before and inside ownership transaction. Classic-only handback unchanged. No Rails patch. |
+| R07 / HF-4 / `handover`, `polling`, `reversal` | Pre-HF Rust classic row versus adopted 2.x row without provenance; candidate classic/HF endpoint reads | Pre-HF Rust rows stay known classic. Adopted row needs exact positive identity reconciliation; conflicting/missing evidence blocks it. Never infer HF from current mode or route cancel by current mode. Persist reconciled origin. |
+| R08 / HF-4 / `handover` | Handback of HF-dependent bot, unresolved HF order/intent/cancel, UTA/unknown routing; concurrent ownership change | Rust refuses before and inside ownership transaction. Classic-only handback unchanged. No 2.x patch. |
 | F01 / HF-5 / `kucoin_hf`, `grid-kucoin-hf`, key-check tests | Factory/engine/sync/key validation connect completed HF paths | All prior rows green through real construction (including alpaca factory path), shared resolver and selected balance account. HF trading key checks require Spot permission; General-only fails. Failed reads preserve balances. No runtime opt-in or live-money gate. |
 | F02 / HF-5 / `parity`, `sync_parity`, `kucoin`, `kucoin_import` | Classic wrapper, original fixtures and source guards, full HF replay matrix | All 172 grid-kucoin cases, signing/sizing/status vectors, key verdicts and KuCoin ledger/balance scenarios unchanged. Validate each named HF divergence narrowly in its actual replay result. Preserve D-KUCOIN-TRANSFER-PIN and D-KUCOIN-ZERO-FILL-FUNDS. |
-| F03 / HF-5 / tracker gap tests | HF reading is connected | Remove the sentence claiming HF trades cannot be read, only when reading ships; use existing gap line and copy. HF-0 does not edit Rails/locales. |
+| F03 / HF-5 / tracker gap tests | HF reading is connected | Remove the sentence claiming HF trades cannot be read, only when reading ships; use existing gap line and copy. HF-0 does not edit 2.x or the locales. |
 
 ## Mutation review and divergence mapping
 
