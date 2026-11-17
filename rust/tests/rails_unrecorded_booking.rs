@@ -687,7 +687,7 @@ async fn a_booked_failed_row_order_before_the_window_leaves_the_carry_and_keeps_
     let tx = served.booked[0].1;
     assert_eq!(f.carry("2026-09-04 00:00:01"), before);
     let row = f.row(tx);
-    assert_eq!((row["bot_interval"].clone(), row["bot_quote_amount"].clone()), (json!("week"), json!(15)), "D-RAILS-UNRECORDED-FAILED-ROW-STAMP");
+    assert_eq!((row["bot_interval"].clone(), row["bot_quote_amount"].clone()), (json!("week"), json!(15)), "D-V2-UNRECORDED-FAILED-ROW-STAMP");
 }
 
 // ---- the race (§5, r2.4) -------------------------------------------------------------------------------------------------
@@ -763,7 +763,7 @@ async fn a_booked_bybit_row_thirty_days_old_and_missing_is_never_abandoned() {
     let bot = model::load_bot(&f.c, f.b).unwrap();
     let swept = polling::sweep(&f.c, &f.bybit(), &bot, t("2026-10-30T12:00:00Z")).await;
     assert_eq!(swept, Ok(()), "a missing booked row neither fails the bot's sweep nor is abandoned");
-    assert_eq!(f.row(tx)["external_status"], json!(0), "D-RAILS-UNRECORDED-NEVER-STALE");
+    assert_eq!(f.row(tx)["external_status"], json!(0), "D-V2-UNRECORDED-NEVER-STALE");
     assert_eq!(f.carry("2026-10-30 12:00:00"), carry);
     assert_eq!(f.serve().await.watch, [(f.b, tx)]);
 }
@@ -920,7 +920,7 @@ async fn a_failed_row_offer_for_a_pair_the_bot_no_longer_holds_is_refused() {
     assert_eq!(lines(&f.c, f.b, ru::NOT_ADDED)[0]["reason"], "settings_changed");
 }
 
-// ---- the web: the line's buttons and POST /bots/:id/rails_orders (A28-2a, §1, §2, r1.7, r2.1) -----------------------------
+// ---- the web: the line's buttons and POST /bots/:id/v2_orders (A28-2a, §1, §2, r1.7, r2.1) -----------------------------
 
 /// The web over the fixture's install at `at`, an engine attached (its wake), and the owner signed in.
 fn web(f: &Fx, at: &str) -> (deltabadger::web::App, common::web::Browser, std::sync::Arc<tokio::sync::Notify>) {
@@ -1073,7 +1073,7 @@ async fn an_offer_that_leaves_the_carry_says_it_goes_into_the_history_only() {
     assert!(row.contains("It goes into the bot&#39;s history only; its next order isn&#39;t affected.\""), "{row}");
 }
 
-// ---- MCP and REST: answer_unrecorded_order and POST /api/v1/bots/:id/unrecorded_orders (A28-2b, D-RAILS-UNRECORDED-API) -
+// ---- MCP and REST: answer_unrecorded_order and POST /api/v1/bots/:id/unrecorded_orders (A28-2b, D-V2-UNRECORDED-API) -
 
 /// The web's App over the fixture, with an OAuth client holding an `mcp` and an `api` token that follow the owner's tools
 /// (a NULL grant), and the owner's `tools` on for both surfaces.

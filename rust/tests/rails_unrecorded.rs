@@ -1,4 +1,4 @@
-//! A28-1 (PLAN-A28 r2-r5, D-RAILS-UNRECORDED-REPORTED): the orders Rails may have sent but never recorded are collected
+//! A28-1 (PLAN-A28 r2-r5, D-V2-UNRECORDED-REPORTED): the orders Rails may have sent but never recorded are collected
 //! at a takeover and reported with what the imported ledger shows. Rails-free: a primary from baseline.sql plus this
 //! build's migrations, and a queue with the Solid Queue columns the collection reads.
 mod common;
@@ -88,7 +88,7 @@ fn every_rails_ambiguous_line_on_a_dca_bot_is_collected_once_and_a_signal_bots_i
     c.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, created_at, updated_at) VALUES ('Bots::Signal', 1, ?1, ?2, '{}', '{}', ?3, ?3)",
               params![s.exchange_id, s.user_id, AT]).unwrap();
     ambiguous_line(&c, c.last_insert_rowid(), AT);
-    assert_eq!(ru::collect(&c, &queue(), None, now()).unwrap(), 2, "every line, not only the newest (D-RAILS-UNRECORDED-ALL-LINES)");
+    assert_eq!(ru::collect(&c, &queue(), None, now()).unwrap(), 2, "every line, not only the newest (D-V2-UNRECORDED-ALL-LINES)");
     assert_eq!(ru::collect(&c, &queue(), None, now()).unwrap(), 0, "a second takeover collects nothing twice");
     assert_eq!(obligations(&c).iter().map(|o| o.2.clone()).collect::<Vec<_>>(), ["2026-08-01 10:00:00", AT]);
 }
