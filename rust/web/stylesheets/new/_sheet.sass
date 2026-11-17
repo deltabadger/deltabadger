@@ -136,8 +136,9 @@
     display: flex
     flex-direction: column
     margin: 0
-    padding: 2.25rem 1.5rem
+    padding: 1.5rem
     list-style: none
+    gap: 0
     @media (max-width: 767.9px)
         flex-direction: row
         align-items: center
@@ -150,14 +151,68 @@
 
 .sheet__step
     position: relative
-    padding: 0 0 3.5rem 3.5rem
+    padding: 0 0 3.5rem
     font-size: 1.75rem
     line-height: 2.5rem
     font-weight: 500
     color: var(--concrete)
-    cursor: default
     &:last-child
         padding-bottom: 0
+    // The line down to the next step's marker.
+    &:not(:last-child)::after
+        content: ""
+        position: absolute
+        top: 2.25rem
+        bottom: 0rem
+        left: calc(0.75rem - 0.0625rem)
+        width: 0.125rem
+        background: var(--zinc)
+    &--done
+        color: var(--ash)
+        &:not(:last-child)::after
+            background: var(--link)
+    &--current
+        color: var(--ink)
+        font-weight: 600
+    @media (max-width: 767.9px)
+        display: flex
+        flex: none
+        align-items: center
+        gap: 1rem
+        padding: 0
+        white-space: nowrap
+        &:not(:last-child)::after
+            position: static
+            flex: none
+            width: 2rem
+            height: 0.125rem
+            margin-right: 1rem
+        // Only the current step is named on a phone; the others stay readable to a screen reader.
+        &:not(.sheet__step--current) .sheet__label
+            position: absolute
+            width: 1px
+            height: 1px
+            overflow: hidden
+            clip-path: inset(50%)
+
+// The track's control (not the settings menu's .sheet__item): what an item shows and, when it does something (a way back, the order switch, the advance), what is clicked: the
+// marker is part of it, so a phone's bare marker is a target too. Plain items take no pointer and no hover.
+.sheet__control-form
+    display: contents
+.sheet__control
+    position: relative
+    display: flex
+    align-items: center
+    min-height: 2.5rem
+    margin: 0
+    padding: 0 0 0 3.5rem
+    border: 0
+    background: none
+    color: inherit
+    font: inherit
+    text-align: left
+    text-decoration: none
+    cursor: default
     // The marker, centred on the label's first line.
     &::before
         content: ""
@@ -170,49 +225,45 @@
         border: 0.1875rem solid var(--steel)
         border-radius: 50%
         background: var(--washed)
-    // The line down to the next step's marker.
-    &:not(:last-child)::after
-        content: ""
-        position: absolute
-        top: 2.25rem
-        bottom: 0.25rem
-        left: calc(0.75rem - 0.0625rem)
-        width: 0.125rem
-        background: var(--zinc)
-    &--done
-        color: var(--ash)
-        &::before
-            border-color: var(--link)
-            background: var(--link)
-        &:not(:last-child)::after
-            background: var(--link)
-    &--current
-        color: var(--ink)
-        font-weight: 600
-        &::before
-            border-color: var(--link)
-            box-shadow: 0 0 0 0.375rem color-mix(in srgb, var(--link) 20%, transparent)
+    .sheet__step--done > &::before, .sheet__step--done > .sheet__control-form > &::before
+        border-color: var(--link)
+        background: var(--link)
+    .sheet__step--current > &::before, .sheet__step--current > .sheet__control-form > &::before
+        border-color: var(--link)
+        box-shadow: 0 0 0 0.375rem color-mix(in srgb, var(--link) 20%, transparent)
+    @at-root a#{&}, button#{&}
+        cursor: pointer
+        &:hover
+            color: var(--ink)
+        &:focus-visible
+            outline: 0.25rem solid color-mix(in srgb, var(--link) 40%, transparent)
+            outline-offset: 0.25rem
+            border-radius: 0.5rem
     @media (max-width: 767.9px)
-        display: flex
-        flex: none
-        align-items: center
-        gap: 1rem
-        padding: 0
-        white-space: nowrap
-        &::before, &:not(:last-child)::after
+        min-height: 4rem
+        &::before
             position: static
-        &:not(:last-child)::after
             flex: none
-            width: 2rem
-            height: 0.125rem
             margin-right: 1rem
-        // Only the current step is named on a phone; the others stay readable to a screen reader.
-        &:not(.sheet__step--current) > span
-            position: absolute
-            width: 1px
-            height: 1px
-            overflow: hidden
-            clip-path: inset(50%)
+        padding: 0
+
+.sheet__label--tickers
+    display: flex
+    align-items: center
+    gap: 0.75rem
+    .ticker-group
+        display: flex
+.sheet__more-count
+    font-size: 1.5rem
+    color: var(--stone)
+
+// The pane's search box (the exchange and quote steps): the search the sentence held.
+.sheet__search
+    margin-bottom: -1rem
+// The asset step's way on, under the basket.
+.sheet__next
+    display: flex
+    justify-content: flex-end
 
 .sheet__pane
     overflow-y: auto
@@ -221,6 +272,10 @@
     padding: 2.5rem
     @media (max-width: 767.9px)
         padding: 1rem 2rem 4rem
+    // The DCA wizard's steps carry their own padding (the exchange grid, the search and its rows, the key card), drawn
+    // for a full-width card; Settings' rows and sticky headings are laid out against the pane's.
+    &--flush
+        padding: 0
     // A thin bar of our own instead of the system one, kept 2rem clear of the card's rounded corners.
     // Only the ::-webkit- rules (Chrome, Safari, the desktop WebView): Chrome drops them once
     // scrollbar-width or scrollbar-color is set, so those two are for Firefox alone.
@@ -276,6 +331,9 @@
     .wizard-assets, .modal--search
         width: auto
         max-width: none
+    // It was pulled up under the sentence, which is gone.
+    .wizard-assets__list
+        top: 0
 
 .sheet__heading
     // Sticks to the pane's top edge and covers what scrolls under it; its bottom edge fades out.
@@ -285,8 +343,8 @@
     top: -3rem
     z-index: 1
     // The padding sets a stuck heading on the baseline of the sidebar's first item.
-    margin: 2.875rem -2.25rem 0.5rem
-    padding: 2.75rem 2.25rem 0
+    margin: 2.875rem -2.25rem 0
+    padding: 2.75rem 2.25rem 2rem
     background: var(--washed)
     font-size: 2rem
     font-weight: 600

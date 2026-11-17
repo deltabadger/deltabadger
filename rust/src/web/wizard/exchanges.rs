@@ -1,7 +1,7 @@
 //! The DCA wizard's exchange step (Bots::Wizard::PickExchangesController), in the single namespace (before any asset, the
 //! first step of the default exchange-first order) and the multi one (a basket's venue). The grid is bots/pick_exchanges/_table,
 //! which the tracker's venue picker renders too.
-use super::{basket_ids, chips, current_variant, dig, prerequisite, reset_downstream, track, sentence, step_complete, BotType, SentenceOf, Step,
+use super::{basket_ids, chips, current_variant, dig, prerequisite, reset_downstream, steer, step_complete, BotType, SentenceOf, Step,
             StepOrder, BASE_KEY, QUOTE_KEY};
 use crate::web::bot::search::{self, Basket};
 use crate::web::bot::{exchange_wordmark, Exchange};
@@ -98,7 +98,7 @@ fn prerequisite_path(c: &Connection, user_id: i64, config: Option<&Value>, names
 #[derive(Template)]
 #[template(path = "wizard/pick_exchange.html")]
 struct New {
-    sentence: String,
+    search: String,
     table: Table,
 }
 
@@ -120,10 +120,10 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, namespace: Namespace)
     let venues = ordered(venues, ctx.params.query("query")).into_iter()
         .map(|venue| Venue { id: venue.id, mark: exchange_wordmark(&venue.name_id()), unavailable: false }).collect();
     let order = StepOrder::new(namespace.bot_type(), current_variant(config));
-    let sentence = sentence(ctx, &csrf, SentenceOf { order: &order, step: Step::Exchange, multi: namespace == Namespace::Multi, chips, exchange: None })?;
+    let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Exchange, multi: namespace == Namespace::Multi, chips, exchange: None }, true)?;
     let table = Table { action: ctx.path(&format!("{}/pick_exchange", namespace.base())), csrf, param_name: namespace.param().into(), venues,
                         unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
-    super::sheet(ctx, &track(ctx, &order, Step::Exchange)?, &New { sentence, table }.render()?)
+    super::sheet(ctx, &steered.track, &New { search: steered.search, table }.render()?)
 }
 
 async fn render(app: &App, ctx: &Ctx, namespace: Namespace, status: StatusCode) -> Result<Response, WebError> {

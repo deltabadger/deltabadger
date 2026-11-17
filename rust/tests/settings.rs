@@ -2308,70 +2308,102 @@ async fn brokers_are_venues_without_a_stock_gate_or_a_member_connect_section(){
     }
 }
 
-/// D-WIZARD-SHEET and D-WIZARD-TRACK, which the 2.x recordings cannot hold: each DCA step, walked in both orders (so the
-/// single bot's asset picker hands over to the basket's steps), is the sheet, its track every step of the order with the
-/// earlier ones done and the step itself current, labelled the same all the way; a frame answer's `modal_content` is the
-/// track beside the pane, and no step draws the progress bar.
+/// D-WIZARD-SHEET, D-WIZARD-NO-SENTENCE and D-WIZARD-TRACK, which the 2.x recordings cannot hold: each DCA step, walked in
+/// both orders (so the single bot's asset picker hands over to the basket's steps), is the sheet with no sentence; its track
+/// is Exchange, Assets and Currency in the order in force, the earlier ones done, the venue's name and the chosen tickers in
+/// place of their labels, and each item does what the sentence's slot did — clicked here to go back and to switch the order.
 #[tokio::test(flavor="current_thread")]
 async fn each_dca_step_is_the_sheet_with_its_track(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     let (exchange,btc)=(h.seed.exchange_id.to_string(),h.seed.btc.to_string());
     let (modal,frame)=([("Turbo-Frame","modal")],[("Turbo-Frame","modal_content")]);
+    let select=|s:&str|scraper::Selector::parse(s).unwrap();
+    // Each item: "text:state" and what it does ("plain", "GET url" or "POST url field=value…").
     let track=|body:&str|{
         let page=scraper::Html::parse_document(body);
-        let tracks:Vec<_>=page.select(&scraper::Selector::parse("ol.sheet__track").unwrap()).collect();
-        assert_eq!(tracks.len(),1,"one track: {body}");
-        tracks[0].select(&scraper::Selector::parse("li").unwrap()).map(|step|{
+        assert_eq!(page.select(&select("ol.sheet__track")).count(),1,"one track: {body}");
+        assert!(!body.contains("conversational")&&!body.contains("process-progress")&&!body.contains("dialogview"),"no sentence, no progress bar, no full-page dialog");
+        page.select(&select("ol.sheet__track > li")).map(|step|{
             let class=step.value().attr("class").unwrap();
             let state=if class.contains("sheet__step--done"){"done"}else if class.contains("sheet__step--current"){"current"}else{"upcoming"};
             assert_eq!(step.value().attr("aria-current").is_some(),state=="current","{class}");
-            format!("{}:{state}",step.text().collect::<String>())
+            let shown=step.text().map(str::trim).filter(|t|!t.is_empty()).collect::<Vec<_>>().join(" ");
+            let action=if let Some(a)=step.select(&select("a")).next(){format!("GET {}",a.value().attr("href").unwrap())}
+                else if let Some(f)=step.select(&select("form")).next(){
+                    let fields:Vec<String>=f.select(&select("input[type=hidden]")).filter(|i|i.value().attr("name")!=Some("authenticity_token")).map(|i|format!("{}={}",i.value().attr("name").unwrap(),i.value().attr("value").unwrap())).collect();
+                    format!("POST {} {}",f.value().attr("action").unwrap(),fields.join(",")).trim_end().to_string()
+                } else {"plain".to_string()};
+            format!("{shown}:{state} {action}")
         }).collect::<Vec<_>>()
     };
     // The page and the frame Turbo takes out of it: the sheet, its frame holding the track's column and the pane, nothing else.
     let sheet=|body:&str|{
-        assert!(body.contains("<dialog class=\"dialog sheet-dialog\""),"the sheet: {body}");
-        assert!(!body.contains("process-progress")&&!body.contains("dialogview"),"no progress bar, no full-page dialog");
         let page=scraper::Html::parse_document(body);
-        let frame=page.select(&scraper::Selector::parse("div.sheet > turbo-frame.sheet__frame#modal_content").unwrap()).next().expect("the step's frame in the sheet");
+        let frame=page.select(&select("div.sheet > turbo-frame.sheet__frame#modal_content")).next().expect("the step's frame in the sheet");
         let children:Vec<String>=frame.children().filter_map(scraper::ElementRef::wrap).map(|e|format!("{}.{}",e.value().name(),e.value().attr("class").unwrap_or(""))).collect();
-        assert_eq!(children,["nav.sheet__side","div.sheet__pane"]);
-        assert!(frame.select(&scraper::Selector::parse("div.sheet__pane > .bot-creation-layout").unwrap()).next().is_some(),"the step in the pane");
+        assert_eq!(children,["nav.sheet__side","div.sheet__pane sheet__pane--flush"]);
+        assert!(frame.select(&select("div.sheet__pane--flush > .bot-creation-layout")).next().is_some(),"the step in the pane");
     };
     // A redirect followed to the page it names, as a frame visit.
     async fn follow(h:&mut Harness,mut answer:common::web::Answer,headers:&[(&str,&str)])->common::web::Answer{
         while (300..400).contains(&answer.status){let to=answer.header("location").unwrap().to_string();answer=h.browser.send(&h.app,"GET",&to,None,Csrf::None,headers).await;}
         answer
     }
-    let labels=|order:[&str;4],current:usize|order.iter().enumerate().map(|(i,label)|format!("{label}:{}",match i.cmp(&current){std::cmp::Ordering::Less=>"done",std::cmp::Ordering::Equal=>"current",_=>"upcoming"})).collect::<Vec<_>>();
-    let exchange_first=["Pick exchange","Connect exchange","Assets","Currency"];
-    let asset_first=["Assets","Pick exchange","Connect exchange","Currency"];
+    let (ex,assets_new,advance,order)=("/bots/dca_single_assets/pick_exchange/new","/bots/dca_single_assets/pick_buyable_asset/new","/bots/dca_single_assets/pick_buyable_asset/advance","/bots/dca_single_assets/order");
 
-    // Exchange first, the chooser's default: exchange, (the key is correct, so on) assets, quote.
+    // Exchange first: the first screen has no search and offers the other order on Assets.
     assert_eq!(h.browser.send(&h.app,"GET","/bots/new",None,Csrf::None,&modal).await.status,200);
-    let step=h.browser.send(&h.app,"GET","/bots/dca_single_assets/pick_exchange/new",None,Csrf::None,&modal).await;
-    assert_eq!(step.status,200);sheet(&step.body);assert_eq!(track(&step.body),labels(exchange_first,0));
+    let step=h.browser.send(&h.app,"GET",ex,None,Csrf::None,&modal).await;
+    assert_eq!(step.status,200);sheet(&step.body);
+    assert_eq!(track(&step.body),["Exchange:current plain".to_string(),format!("Assets:upcoming POST {order} flow=asset_first"),"Currency:upcoming plain".into()]);
+    assert!(!step.body.contains("sheet__search"),"no search on the first screen, as Rails had none");
+    // The key step, not skipped (no key yet): the current venue goes back, Assets still switches the order.
+    h.c.execute("UPDATE api_keys SET status=2 WHERE id=?1",[h.seed.api_key_id]).unwrap();
+    h.c.execute("UPDATE api_keys SET key=NULL, secret=NULL WHERE id=?1",[h.seed.api_key_id]).unwrap();
     let picked=h.browser.send(&h.app,"POST","/bots/dca_single_assets/pick_exchange",Some(&[("bots_dca_single_asset[exchange_id]",exchange.as_str())]),Csrf::Header,&frame).await;
     let step=follow(&mut h,picked,&frame).await;
-    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);assert_eq!(track(&step.body),labels(exchange_first,2),"the key was correct: on to the assets");
+    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);
+    assert_eq!(track(&step.body),[format!("Alpaca:current GET {ex}"),format!("Assets:upcoming POST {order} flow=asset_first"),"Currency:upcoming plain".into()]);
+    h.c.execute("UPDATE api_keys SET status=1 WHERE id=?1",[h.seed.api_key_id]).unwrap();
+    let again=h.browser.send(&h.app,"GET","/bots/dca_single_assets/add_api_key/new",None,Csrf::None,&frame).await;
+    let step=follow(&mut h,again,&frame).await;
+    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);
+    assert_eq!(track(&step.body),[format!("Alpaca:done POST {advance} to=exchange"),"Assets:current plain".into(),"Currency:upcoming plain".into()],"the key was correct: on to the assets");
+    assert!(!step.body.contains("sheet__next"),"no Next with an empty basket");
     let added=h.browser.send(&h.app,"POST","/bots/dca_single_assets/pick_buyable_asset",Some(&[("bots_dca_single_asset[base_asset_id]",btc.as_str())]),Csrf::Header,&frame).await;
-    let step=follow(&mut h,added,&frame).await;sheet(&step.body);assert_eq!(track(&step.body),labels(exchange_first,2),"a basket member added: the same step");
-    let advanced=h.browser.send(&h.app,"POST","/bots/dca_single_assets/pick_buyable_asset/advance",None,Csrf::Header,&frame).await;
+    let step=follow(&mut h,added,&frame).await;sheet(&step.body);
+    assert_eq!(track(&step.body),[format!("Alpaca:done POST {advance} to=exchange"),"BTC:current plain".into(),format!("Currency:upcoming POST {advance}")],"the ticker in place of Assets");
+    assert!(step.body.contains("sheet__next")&&!step.body.contains("wizard-assets__list hidden"),"Next, and the basket open");
+    let advanced=h.browser.send(&h.app,"POST",advance,None,Csrf::Header,&frame).await;
     let step=follow(&mut h,advanced,&frame).await;
-    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);assert_eq!(track(&step.body),labels(exchange_first,3),"the basket's quote step");
+    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);
+    assert_eq!(track(&step.body),["Alpaca:done GET /bots/dca_multi_assets/pick_exchange/new".to_string(),format!("BTC:done GET {assets_new}"),"Currency:current plain".into()],"the basket's quote step");
+    assert!(step.body.contains("sheet__search")&&step.body.contains("/bots/dca_multi_assets/pick_spendable_asset/new"),"the quote search in the pane");
+    // Back to the assets by the track, then back to the exchange from there (the advance with to=exchange).
+    let step=h.browser.send(&h.app,"GET",assets_new,None,Csrf::None,&frame).await;
+    assert_eq!(track(&step.body)[1],"BTC:current plain");
+    let back=h.browser.send(&h.app,"POST",advance,Some(&[("to","exchange")]),Csrf::Header,&frame).await;
+    let step=follow(&mut h,back,&frame).await;
+    assert_eq!(step.status,200,"{}",step.body);
+    assert_eq!(track(&step.body)[0],"Exchange:current plain","picking again: the label, and the search");
+    assert!(step.body.contains("sheet__search"));
 
-    // Asset first: assets, exchange, (key correct) quote.
-    let switched=h.browser.send(&h.app,"POST","/bots/dca_single_assets/order",Some(&[("flow","asset_first")]),Csrf::Header,&frame).await;
+    // Asset first, switched from the track: assets, exchange, (key correct) quote.
+    let switched=h.browser.send(&h.app,"POST",order,Some(&[("flow","asset_first")]),Csrf::Header,&frame).await;
     let step=follow(&mut h,switched,&frame).await;
-    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);assert_eq!(track(&step.body),labels(asset_first,0));
+    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);
+    assert_eq!(track(&step.body),["Assets:current plain".to_string(),format!("Exchange:upcoming POST {order} flow=exchange_first"),"Currency:upcoming plain".into()]);
     let added=h.browser.send(&h.app,"POST","/bots/dca_single_assets/pick_buyable_asset",Some(&[("bots_dca_single_asset[base_asset_id]",btc.as_str())]),Csrf::Header,&frame).await;
-    follow(&mut h,added,&frame).await;
-    let advanced=h.browser.send(&h.app,"POST","/bots/dca_single_assets/pick_buyable_asset/advance",None,Csrf::Header,&frame).await;
+    let step=follow(&mut h,added,&frame).await;
+    assert_eq!(track(&step.body),["BTC:current plain".to_string(),format!("Exchange:upcoming POST {advance}"),"Currency:upcoming plain".into()]);
+    let advanced=h.browser.send(&h.app,"POST",advance,None,Csrf::Header,&frame).await;
     let step=follow(&mut h,advanced,&frame).await;
-    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);assert_eq!(track(&step.body),labels(asset_first,1),"the basket's exchange step");
+    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);
+    assert_eq!(track(&step.body),[format!("BTC:done GET {assets_new}"),"Exchange:current plain".into(),"Currency:upcoming plain".into()],"the basket's exchange step");
     let picked=h.browser.send(&h.app,"POST","/bots/dca_multi_assets/pick_exchange",Some(&[("bots_dca_multi_asset[exchange_id]",exchange.as_str())]),Csrf::Header,&frame).await;
     let step=follow(&mut h,picked,&frame).await;
-    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);assert_eq!(track(&step.body),labels(asset_first,3),"the key was correct: on to the quote");
+    assert_eq!(step.status,200,"{}",step.body);sheet(&step.body);
+    assert_eq!(track(&step.body),[format!("BTC:done GET {assets_new}"),"Alpaca:done GET /bots/dca_multi_assets/pick_exchange/new".into(),"Currency:current plain".into()],"the key was correct: on to the quote");
 }
 
 #[tokio::test(flavor="current_thread")]

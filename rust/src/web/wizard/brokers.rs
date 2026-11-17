@@ -3,7 +3,7 @@
 //! quote default (Bots::StockBrokerRoutable#finalize_stock_broker!). Interactive Brokers is offered as Rails offers it; its key
 //! step is a venue this build does not trade (wizard::keys), the refusal the plan names.
 use super::keys::stock_bot;
-use super::{basket_ids, current_variant, dig, track, BotType, Step, StepOrder, QUOTE_KEY};
+use super::{basket_ids, current_variant, dig, BotType, Step, StepOrder, QUOTE_KEY};
 use crate::web::bot::exchange_wordmark;
 use crate::web::bot::search::Basket;
 use crate::web::layout::{self, Ctx, Page};
@@ -33,12 +33,15 @@ fn brokers(c: &Connection, config: Option<&Value>) -> Result<Vec<(i64, String)>,
 #[template(path = "wizard/pick_stock_broker.html")]
 struct New { table: Table }
 
-fn page(ctx: &Ctx, config: Option<&Value>, brokers: Vec<(i64, String)>) -> Result<String, WebError> {
+fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, brokers: Vec<(i64, String)>) -> Result<String, WebError> {
     let order = StepOrder::new(BotType::Multi, current_variant(config));
     let venues = brokers.into_iter().map(|(id, class)| Venue { id, mark: exchange_wordmark(&crate::tracker::rows::name_id(&class)), unavailable: false }).collect();
     let table = Table { action: ctx.path("/bots/dca_multi_assets/pick_stock_broker"), csrf: ctx.csrf_token(), param_name: FIELD.into(), venues,
                         unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
-    super::sheet(ctx, &track(ctx, &order, Step::Exchange)?, &New { table }.render()?)
+    // Rails draws no sentence here: the track says where the flow stands and does nothing (D-WIZARD-TRACK r5).
+    let chips = super::chips(c, &basket_ids(config))?;
+    let steered = super::steer(ctx, "", super::SentenceOf { order: &order, step: Step::Exchange, multi: true, chips, exchange: None }, false)?;
+    super::sheet(ctx, &steered.track, &New { table }.render()?)
 }
 
 /// What the step answers, decided with the session as it stands.
@@ -55,7 +58,7 @@ async fn answer(app: &App, ctx: &Ctx, chosen: Option<String>) -> Result<Answer, 
         if let Some(id) = chosen.as_deref().and_then(|wanted| brokers.iter().find(|(id, _)| id.to_string() == wanted).map(|(id, _)| *id)) {
             return Ok(Answer::Chosen(id, super::usd_asset(c)?));
         }
-        Ok(Answer::Page(page(&view, config.as_ref(), brokers)?, Shell::load(c, &inner, &user)?))
+        Ok(Answer::Page(page(c, &view, config.as_ref(), brokers)?, Shell::load(c, &inner, &user)?))
     }).await
 }
 

@@ -1,7 +1,7 @@
 //! The DCA wizard's asset step (Bots::DcaSingleAssets::PickBuyableAssetsController): the basket is collected here, one asset
 //! at a time, and leaves through `advance`. The URL stays in the single namespace; once anything is chosen the later steps
 //! are the multi namespace's. Every GET but `new`'s `||= {}` leaves the session alone: Turbo prefetches on hover.
-use super::{chips, chosen_ids, current_variant, exchange_id, expired, first_incomplete_after, track, reset_keys_but_exchange, sentence, BotType, Chip,
+use super::{chips, chosen_ids, current_variant, exchange_id, expired, first_incomplete_after, reset_keys_but_exchange, steer, BotType, Chip,
             SentenceOf, Step, StepOrder, Variant, EXCHANGE_KEY};
 use crate::web::bot::search::{self, AssetPage, Basket, Item, Side};
 use crate::web::layout::{self, Ctx, Page};
@@ -62,9 +62,10 @@ fn eligible(c: &Connection, basket: &Basket) -> Result<Vec<crate::web::bot::Exch
 struct New<'a> {
     v: &'a Ctx,
     csrf: &'a str,
-    sentence: String,
+    search: String,
+    next_url: String,
+    next_label: String,
     chosen: Vec<Chip>,
-    basket_open: bool,
     remove_url: String,
     remove_title: String,
     no_common_exchange: Option<String>,
@@ -107,17 +108,17 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool
         .then(|| ctx.t("bot.setup.assets_syncing"));
     let order = StepOrder::new(BotType::Single, chosen.variant);
     let exchange = super::exchange_name(c, chosen.venue)?;
-    let sentence = sentence(ctx, &csrf, SentenceOf { order: &order, step: Step::Currencies, multi: !chosen.chips.is_empty(), chips: chips(c, &chosen.ids)?, exchange })?;
+    let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Currencies, multi: !chosen.chips.is_empty(), chips: chips(c, &chosen.ids)?, exchange }, true)?;
     let body = New {
-        v: ctx, csrf: &csrf, sentence,
-        basket_open: params.query("basket") == Some("open"),
+        v: ctx, csrf: &csrf, search: steered.search,
+        next_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/advance"), next_label: ctx.t("button.next"),
         remove_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/remove"), remove_title: ctx.t("bot.dca_multi_asset.remove_asset"),
         no_common_exchange,
         max_reached: (chosen.chips.len() >= MAX_ASSETS).then(|| i18n::t(ctx.locale, "bot.dca_multi_asset.max_assets_reached", &[("max", i18n::Arg::Text("100"))])),
         search_url: ctx.path(NEW), create_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset"), syncing, field_name: FIELD, items, next,
         chosen: chosen.chips,
     }.render()?;
-    Ok((super::sheet(ctx, &track(ctx, &order, Step::Currencies)?, &body)?, false))
+    Ok((super::sheet(ctx, &steered.track, &body)?, false))
 }
 
 /// The step page, through the layout (or bare, for a lazy page of results).

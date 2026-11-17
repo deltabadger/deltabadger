@@ -1,0 +1,6 @@
+<div class="modal--search sheet__search">
+  <form data-controller="form--submit-after-delay" data-turbo-frame="{{ frame }}" style="position:relative" action="{{ url }}" accept-charset="UTF-8" method="get">
+    {% include "svg/_24x24_zoom.html" %}
+    <input autofocus="autofocus" autocomplete="off" placeholder="{{ placeholder }}" data-action="input-&gt;form--submit-after-delay#submit" class="modal--search__input" type="text" name="query" id="query" />
+  </form>
+</div>

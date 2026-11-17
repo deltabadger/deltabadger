@@ -1,10 +1,10 @@
   <div class="bot-creation-layout" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
 
-    {{ sentence|safe }}
+    {{ search|safe }}
 
     <div class="wizard-assets vt-step-body">
 {%- if !chosen.is_empty() %}
-        <div class="wizard-assets__list {% if !basket_open %}hidden{% endif %}" data-class-toggle-target="togglable">
+        <div class="wizard-assets__list " data-class-toggle-target="togglable">
 {%- for chip in chosen %}
             <div class="wizard-assets__row">
               <div class="modal--search__cell">
@@ -17,6 +17,10 @@
             </div>
 {%- endfor %}
         </div>
+{%- endif %}
+
+{%- if !chosen.is_empty() %}
+        <form class="button_to sheet__next" data-turbo-frame="modal_content" method="post" action="{{ next_url }}"><button class="rbutton rbutton--primary" type="submit">{{ next_label }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
 {%- endif %}
 
 {%- if let Some(warning) = no_common_exchange %}
