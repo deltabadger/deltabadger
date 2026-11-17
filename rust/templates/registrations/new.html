@@ -1,6 +1,6 @@
 <form data-turbo="false" data-controller="form--html5-validations form--label-animations form--password-strength" data-form--password-strength-success-class-value="form__validation--success" data-form--password-strength-length-pattern-value=".{8,}" data-form--password-strength-uppercase-pattern-value="(?=.*[A-Z])" data-form--password-strength-lowercase-pattern-value="(?=.*[a-z])" data-form--password-strength-digit-pattern-value="(?=.*\d)" data-form--password-strength-symbol-pattern-value="(?=.*[\W_])" action="{{ v.path("/signup") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
 
-  {% include "svg/_40x30_logo.html" %}
+  {% include "devise/_icon.html" %}
 
   <h1>{{ v.t("devise.registrations.new.title")|safe }}</h1>
 

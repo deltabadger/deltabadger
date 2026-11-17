@@ -1217,7 +1217,8 @@ fn the_desktop_pages_carry_the_launch_token_and_the_update_banner() {
             let bytes = banner.as_bytes();
             assert!(!bytes.windows(3).any(|w| w[0].is_ascii_digit() && w[1] == b'.' && w[2].is_ascii_digit()), "a version: {banner}");
         } else {
-            assert!(!page.contains("desktop-launch") && !page.contains("desktop_update") && !page.contains("desktop-intro"), "{platform}");
+            // D-LOGIN-APP-ICON: the setup and sign-in pages show desktop-intro.png; the intro itself is `"desktop-intro…`.
+            assert!(!page.contains("desktop-launch") && !page.contains("desktop_update") && !page.contains("\"desktop-intro"), "{platform}");
             assert!(page.contains("data-turbo-track=\"reload\" defer=\"defer\"></script>"), "{platform}: today's script tag");
         }
         e.close_stdin();
