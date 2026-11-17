@@ -35,7 +35,7 @@ fn every_recorded_scrub_and_its_stored_cut_is_reproduced() {
             assert_eq!(scrubbed, deltabadger::crypto::VENUE_TEXT_REDACTED, "R2 whole-text security divergence: {input}");
             assert_eq!(stored, deltabadger::crypto::VENUE_TEXT_REDACTED, "R2 stored security divergence: {input}");
         } else if scrubbed != c["scrubbed"] || stored != c["stored"] {
-            failures.push(format!("{}\n  rust: {scrubbed}\n  ruby: {}", c["text"], c["scrubbed"]));
+            failures.push(format!("{}\n  rust: {scrubbed}\n  2.x:  {}", c["text"], c["scrubbed"]));
         }
     }
     assert_eq!(protected, 23, "only the 23 credential-bearing vectors diverge; the other 29 retain exact 2.x output");
@@ -82,7 +82,7 @@ fn every_recorded_activity_becomes_the_entry_v2_makes_of_it() {
                 "quote_amount": e.quote_amount.as_ref().map(BigDec::to_s_f), "fee_currency": e.fee_currency, "fee_amount": e.fee_amount.as_ref().map(BigDec::to_s_f),
                 "tx_id": e.tx_id, "group_id": e.group_id, "description": e.description, "transacted_at": e.transacted_at.map(format_time), "raw": e.raw.value, "raw_text": e.raw.text(),
             });
-            if &got != w { failures.push(format!("rust: {got}\n  ruby: {w}")); }
+            if &got != w { failures.push(format!("rust: {got}\n  2.x:  {w}")); }
         }
     }
     assert_eq!(total, 70, "entries compared");

@@ -364,7 +364,7 @@ async fn polled_open_market_zero_price_uses_the_nil_branch() {
     assert_eq!(line,v2["nil"].as_str().unwrap(),"exact 2.x no-price branch");
     if let Ok(root)=std::env::var("M3_RECORDINGS") {
         std::fs::create_dir_all(&root).unwrap();
-        std::fs::write(Path::new(&root).join("polled-engine.json"),serde_json::to_string_pretty(&json!({"stored_price":stored.0,"stored_amount_exec":stored.1,"external_status":stored.2,"rails_stored_zero":v2["zero"],"rails_nil_price":v2["nil"],"rust_stored_zero":line})).unwrap()).unwrap();
+        std::fs::write(Path::new(&root).join("polled-engine.json"),serde_json::to_string_pretty(&json!({"stored_price":stored.0,"stored_amount_exec":stored.1,"external_status":stored.2,"v2_stored_zero":v2["zero"],"v2_nil_price":v2["nil"],"rust_stored_zero":line})).unwrap()).unwrap();
     }
     assert_eq!(snapshot(dir.path())["transactions"],before,"MCP preserves the persisted zero");
     o.primary.execute("UPDATE transactions SET price=NULL",[]).unwrap();

@@ -378,11 +378,11 @@ fn row_difference(context: &str, before: &Value, after: &Value) -> Option<String
             let (l, r) = (left_by_id.get(&id).map(|row| (*row).clone()), right_by_id.get(&id).map(|row| (*row).clone()));
             if l == r { continue; }
             let (Some(l), Some(r)) = (l.as_ref().and_then(Value::as_object), r.as_ref().and_then(Value::as_object)) else {
-                return Some(format!("{context}: table {table} id={id} column <row> inserted/deleted: rails/before={l:?}, rust/after={r:?}"));
+                return Some(format!("{context}: table {table} id={id} column <row> inserted/deleted: expected/before={l:?}, rust/after={r:?}"));
             };
             for column in l.keys().chain(r.keys()).collect::<std::collections::BTreeSet<_>>() {
                 if l.get(column) != r.get(column) {
-                    return Some(format!("{context}: table {table} id={id} column {column}: rails/before={:?}, rust/after={:?}", l.get(column), r.get(column)));
+                    return Some(format!("{context}: table {table} id={id} column {column}: expected/before={:?}, rust/after={:?}", l.get(column), r.get(column)));
                 }
             }
         }

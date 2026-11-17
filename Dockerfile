@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1
-# Deltabadger 3.0: the Rust program alone, no Ruby. The same contract as the 2.x image:
+# Deltabadger 3.0: the Rust program alone. The same contract as the 2.x image:
 # data in /app/storage, SECRET_KEY_BASE from the environment or /app/storage/.secrets, port 3000,
 # /health-check. Built from source, natively on each platform (amd64, arm64).
 #   docker build .
 
-# Stage 1: the web assets the binary embeds (rust/build.rs): bun + dart-sass, no Ruby.
+# Stage 1: the web assets the binary embeds (rust/build.rs): bun + dart-sass.
 FROM oven/bun:1.3-slim AS assets
 WORKDIR /src
 COPY package.json bun.lock ./

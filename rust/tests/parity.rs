@@ -2188,7 +2188,7 @@ async fn v2_reads_degenerate_indicator_series_as_recorded() {
         if off["sent"].as_array().unwrap().len() != 1 || !carry_kept { failures.push(format!("{name}: the rule-off recording buys once and keeps the carry\n  2.x: {off}")); }
         if refused || !bot.transient.get(met_at).is_none_or(Value::is_null) || bot.condition_started_us().unwrap() != bot.started_at_us().unwrap()
             || owed.cmp(&deltabadger::v2::BigDec::parse(&v2_quote).unwrap()) != std::cmp::Ordering::Equal {
-            failures.push(format!("{name}: D-FLIP-UNMET-KEEPS-BUYING: met_at nil, started_at undecorated, owed {} = the rule-off 2.x order's {v2_quote}\n  rails off: {off}", owed.to_s_f()));
+            failures.push(format!("{name}: D-FLIP-UNMET-KEEPS-BUYING: met_at nil, started_at undecorated, owed {} = the rule-off 2.x order's {v2_quote}\n  2.x off: {off}", owed.to_s_f()));
         }
         drop(c);
         let rust = deltabadger::parity::decide(&rust_root.path().join(name)).await.unwrap();
@@ -2197,7 +2197,7 @@ async fn v2_reads_degenerate_indicator_series_as_recorded() {
         for row in expected["changes"]["bots"].as_array_mut().unwrap() {
             for phase in ["before", "after"] { row[phase]["settings"][flag] = serde_json::json!(true); }
         }
-        if expected != rust { failures.push(format!("{name}: rule-off twin\nRails: {expected}\nRust: {rust}")); }
+        if expected != rust { failures.push(format!("{name}: rule-off twin\n2.x: {expected}\nRust: {rust}")); }
     }
     assert!(failures.is_empty(), "{} of {} degenerate scenarios differ from the recorded findings:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
@@ -2266,7 +2266,7 @@ async fn v2_and_rust_decide_identically_across_the_indicator_condition_grid() {
         let v2: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("expected.json")).unwrap()).unwrap();
         let rust = deltabadger::parity::decide(&rust_root.path().join(name.as_ref())).await.unwrap();
         let expected = r5_cleanup_expected(&v2, &rust);
-        if expected != rust { failures.push(format!("{name}\nRails: {expected}\nRust: {rust}")); }
+        if expected != rust { failures.push(format!("{name}\n2.x: {expected}\nRust: {rust}")); }
         if name.ends_with("-unmet") || name.ends_with("-empty") || name.ends_with("-failed_read") {
             assert!(v2["sent"].as_array().unwrap().is_empty(), "{name}: an unmet rule must send nothing");
         }
@@ -2996,7 +2996,7 @@ async fn flip_condition_grid_matches_v2_and_rule_off_buy_twins() {
                 assert_eq!(rust["changes"]["bots"][0]["after"]["transient_data"]["missed_quote_amount"], serde_json::json!(60.0), "{name}");
                 expected["changes"]["bots"][0]["after"]["transient_data"]["missed_quote_amount"] = serde_json::json!(60.0);
             }
-            if expected != rust { failures.push(format!("{name}\nRails: {expected}\nRust: {rust}")); }
+            if expected != rust { failures.push(format!("{name}\n2.x: {expected}\nRust: {rust}")); }
         }
         if name.ends_with("-met") || name.ends_with("-below_met") {
             assert!(rust["sent"].as_array().unwrap().is_empty(), "{name}: flip sends no order");

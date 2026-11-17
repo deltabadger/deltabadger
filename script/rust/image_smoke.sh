@@ -10,7 +10,7 @@
 # Usage: image_smoke.sh <image>
 set -euo pipefail
 image=${1:?usage: image_smoke.sh <image>}
-rails_2x=ghcr.io/deltabadger/deltabadger:2.70.21
+v2_image=ghcr.io/deltabadger/deltabadger:2.70.21
 c1='this data is from an older version of Deltabadger'
 containers=() volumes=()
 
@@ -52,9 +52,9 @@ stops_with_0
 
 echo "image_smoke: $image: a Behind 2.x volume"
 volume; behind=$vol
-docker run --rm --network none -v "$behind:/app/storage" "$rails_2x" migrate > /dev/null
-# 2.70.21 ships no sqlite3 binary, so its own Rails deletes the rows (no Ruby on the runner).
-left=$(docker run --rm --network none -v "$behind:/app/storage" "$rails_2x" rake runner '
+docker run --rm --network none -v "$behind:/app/storage" "$v2_image" migrate > /dev/null
+# 2.70.21 ships no sqlite3 binary, so 2.x itself deletes the rows (nothing of 2.x on the runner).
+left=$(docker run --rm --network none -v "$behind:/app/storage" "$v2_image" rake runner '
   c = ActiveRecord::Base.connection
   c.execute("DELETE FROM schema_migrations WHERE version IN (SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 3)")
   print c.select_value("SELECT COUNT(*) FROM schema_migrations")' | tail -n 1)

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Deltabadger 3.0 Docker entrypoint: the Rust program alone, no Ruby (Dockerfile).
+# Deltabadger 3.0 Docker entrypoint: the Rust program alone (Dockerfile).
 # Commands: web, standalone, serve (the app), jobs (idle), migrate and setup (secrets only), shell,
 # and the deltabadger commands (run, check, handback, sync, repair-binance-history, resolve-withdrawal,
 # resolve-placement, reconcile-order, encryption-report, encryption-reset, encryption-derived-keys), and export
@@ -10,7 +10,7 @@ set -e
 #
 # The secrets block below is docker-entrypoint.sh's (the 2.x image's), copied unchanged so a 2.x
 # install's /app/storage/.secrets is read and written exactly as before; one comment line names the
-# 3.0 command instead of the Rails task (rust/tests/entrypoint.rs checks both).
+# 3.0 command instead of 2.x's task (rust/tests/entrypoint.rs checks both).
 
 SECRETS_FILE="${SECRETS_FILE:-/app/storage/.secrets}"
 
@@ -34,7 +34,7 @@ generate_hex() {
 
 # Whether a value arrived through this container's environment. Blank after trimming counts
 # as absent, matching how the app reads these: a value of "   " looks supplied to the shell
-# and empty to Rails, and that disagreement would suppress a stored key while the app quietly
+# and empty to 2.x, and that disagreement would suppress a stored key while the app quietly
 # derived a different one.
 supplied_externally() {
     [ -n "$(printf '%s' "$1" | tr -d '[:space:]')" ]
@@ -159,7 +159,7 @@ load_secrets() {
                     fi
                     ;;
                 # Legacy keys from old .secrets files — only needed for
-                # MigrateToRailsEncryption migration (attr_encrypted -> Rails encrypts).
+                # attr_encrypted-to-ActiveRecord-encryption migration.
                 # New containers don't generate these.
                 APP_ENCRYPTION_KEY)
                     if [ -z "$APP_ENCRYPTION_KEY" ]; then

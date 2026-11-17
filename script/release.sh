@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cut a release (PLAN-B8 §1.3, r1–r3). Replaces `rails release:*`; needs bash, git, gh and jq.
+# Cut a release (PLAN-B8 §1.3, r1–r3). Replaces 2.x's release tasks; needs bash, git, gh and jq.
 #
 #   script/release.sh patch|minor [--critical] [--notes FILE]
 #   script/release.sh major --notes FILE [--critical]

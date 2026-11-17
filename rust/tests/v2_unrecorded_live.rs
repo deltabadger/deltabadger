@@ -1438,7 +1438,7 @@ async fn doc_read_on(kind: Kind, tr: &ScriptedTransport, symbols: &[String], fro
 fn ids(c: &deltabadger::venue::Created) -> Vec<&str> { c.orders.iter().map(|o| o.external_id.as_str()).collect() }
 
 #[test]
-fn every_vector_row_reads_strictly_as_rails_parses_it_or_not_at_all() {
+fn every_vector_row_reads_strictly_as_v2_parses_it_or_not_at_all() {
     use deltabadger::venue::CreatedState;
     for kind in DOC_BUILT {
         let mut read = 0;
@@ -1452,8 +1452,8 @@ fn every_vector_row_reads_strictly_as_rails_parses_it_or_not_at_all() {
             let limit = r["type"] == "LIMIT";
             let sized = if limit { d("price").unwrap().is_positive() && d("origQty").unwrap().is_positive() }
                         else { d("origQuoteOrderQty").is_some_and(|q| q.is_positive()) || d("origQty").unwrap().is_positive() };
-            let rails = e["status"].as_str().unwrap();
-            let unreadable = rails == "unknown" || negative || !sized || (rails == "closed" && !d("executedQty").unwrap().is_positive());
+            let v2 = e["status"].as_str().unwrap();
+            let unreadable = v2 == "unknown" || negative || !sized || (v2 == "closed" && !d("executedQty").unwrap().is_positive());
             let got = binance::created_order_shaped(&symbol, &r, doc_shape(kind));
             let Some(o) = got else { assert!(unreadable, "{kind:?}: {r}"); continue };
             assert!(!unreadable, "{kind:?}: read {r}");
@@ -1461,7 +1461,7 @@ fn every_vector_row_reads_strictly_as_rails_parses_it_or_not_at_all() {
             assert_eq!(o.external_id, format!("{symbol}-{}", r["orderId"].as_str().unwrap()));
             assert_eq!(o.filled_base, dec(e["amount_exec"].as_str().unwrap()), "{kind:?}: {r}");
             assert_eq!(format!("{:?}", o.side).to_lowercase(), e["side"].as_str().unwrap());
-            match rails {
+            match v2 {
                 "open" => assert!(o.state.open(), "{kind:?}: {r}"),
                 "closed" => assert_eq!(o.state, CreatedState::Filled),
                 _ => assert!(matches!(o.state, CreatedState::Cancelled | CreatedState::PartlyFilledCancelled), "{kind:?}: {r}"),
@@ -1782,7 +1782,7 @@ fn scripted(kind: Kind) -> ScriptedTransport {
 }
 
 #[test]
-fn every_bitget_and_bitvavo_vector_row_reads_strictly_as_rails_parses_it_or_not_at_all() {
+fn every_bitget_and_bitvavo_vector_row_reads_strictly_as_v2_parses_it_or_not_at_all() {
     use deltabadger::venue::CreatedState;
     for (kind, time) in [(Kind::Bitget, ("cTime", json!(ms(PLACED).to_string()))), (Kind::Bitvavo, ("created", json!(ms(PLACED))))] {
         let mut read = 0;
@@ -1791,14 +1791,14 @@ fn every_bitget_and_bitvavo_vector_row_reads_strictly_as_rails_parses_it_or_not_
             r[time.0] = time.1.clone();
             let symbol = r[if kind == Kind::Bitget { "symbol" } else { "market" }].as_str().unwrap().to_string();
             let got = if kind == Kind::Bitget { bitget::created_order(&symbol, &r) } else { bitvavo::created_order(&symbol, &r) };
-            let rails = e["status"].as_str().unwrap();
+            let v2 = e["status"].as_str().unwrap();
             let Some(o) = got else { continue };
             read += 1;
-            assert_ne!(rails, "unknown", "{kind:?}: {r}");
+            assert_ne!(v2, "unknown", "{kind:?}: {r}");
             assert_eq!(o.filled_base, dec(e["amount_exec"].as_str().unwrap()), "{kind:?}: {r}");
             assert_eq!(o.filled_quote, Some(dec(e["quote_amount_exec"].as_str().unwrap())), "{kind:?}: {r}");
             assert_eq!(format!("{:?}", o.side).to_lowercase(), e["side"].as_str().unwrap());
-            match rails {
+            match v2 {
                 "open" => assert!(o.state.open(), "{kind:?}: {r}"),
                 "closed" => assert_eq!(o.state, CreatedState::Filled),
                 _ => assert!(matches!(o.state, CreatedState::Cancelled | CreatedState::PartlyFilledCancelled), "{kind:?}: {r}"),
@@ -2149,24 +2149,24 @@ fn coinbase_row(o: &O) -> Value {
 fn cb_read(r: &Value) -> Option<deltabadger::venue::CreatedOrder> { coinbase::created_order("BTC-EUR", r) }
 
 #[test]
-fn every_coinbase_vector_row_reads_strictly_as_rails_parses_it_or_not_at_all() {
+fn every_coinbase_vector_row_reads_strictly_as_v2_parses_it_or_not_at_all() {
     use deltabadger::venue::{CreatedKind, CreatedSize, CreatedState};
     let mut read = 0;
     for e in cb_vectors() {
         let mut r = e["raw"].clone();
         r["created_time"] = json!(PLACED);
         let product = r["product_id"].as_str().unwrap().to_string();
-        let rails = e["status"].as_str().unwrap();
+        let v2 = e["status"].as_str().unwrap();
         let Some(o) = coinbase::created_order(&product, &r) else { continue };
         read += 1;
-        assert_ne!(rails, "unknown", "{r}");
+        assert_ne!(v2, "unknown", "{r}");
         assert_eq!((o.external_id.as_str(), o.created_at), (r["order_id"].as_str().unwrap(), t(PLACED)));
         assert_eq!(o.filled_base, dec(e["amount_exec"].as_str().unwrap()), "{r}");
         assert_eq!(o.filled_quote, Some(dec(e["quote_amount_exec"].as_str().unwrap())), "D-HISTORY-COINBASE-QUOTE-AFTER-FEES: {r}");
         assert_eq!(format!("{:?}", o.side).to_lowercase(), e["side"].as_str().unwrap());
         assert_eq!(matches!(o.kind, CreatedKind::Limit { .. }), e["order_type"] == "limit_order", "{r}");
         match &o.size { CreatedSize::Base(b) => assert_eq!(Some(b.clone()), e["amount"].as_str().map(dec)), CreatedSize::Quote(q) => assert_eq!(Some(q.clone()), e["quote_amount"].as_str().map(dec)) }
-        match rails {
+        match v2 {
             "open" => assert!(o.state.open(), "{r}"),
             "closed" => assert_eq!(o.state, CreatedState::Filled),
             _ => assert!(matches!(o.state, CreatedState::Cancelled | CreatedState::PartlyFilledCancelled), "{r}"),
@@ -2396,7 +2396,7 @@ fn kraken_read(r: &Value) -> Option<deltabadger::venue::CreatedOrder> {
 }
 
 #[test]
-fn every_kraken_vector_row_reads_strictly_as_rails_parses_it_or_not_at_all() {
+fn every_kraken_vector_row_reads_strictly_as_v2_parses_it_or_not_at_all() {
     let mut read = 0;
     for (body, accepted) in kraken_vectors() {
         let mut r = body.clone();
@@ -2404,9 +2404,9 @@ fn every_kraken_vector_row_reads_strictly_as_rails_parses_it_or_not_at_all() {
         let Some(o) = kraken_read(&r) else { continue };
         assert!(accepted, "2.x refuses it: {r}");
         read += 1;
-        let rails = kraken::parse_order(&kraken_txid(7), &r).unwrap();
-        assert_eq!((o.filled_base, o.filled_quote), (rails.amount_exec, rails.quote_amount_exec), "{r}");
-        assert_eq!((o.side == deltabadger::venue::Side::Sell, o.external_id.as_str(), o.created_at), (rails.sell, kraken_txid(7).as_str(), t(PLACED)));
+        let v2 = kraken::parse_order(&kraken_txid(7), &r).unwrap();
+        assert_eq!((o.filled_base, o.filled_quote), (v2.amount_exec, v2.quote_amount_exec), "{r}");
+        assert_eq!((o.side == deltabadger::venue::Side::Sell, o.external_id.as_str(), o.created_at), (v2.sell, kraken_txid(7).as_str(), t(PLACED)));
     }
     assert!(read > 3, "{read}");
 }
@@ -2672,7 +2672,7 @@ fn kucoin_rejection(e: &Value) -> Option<&'static str> {
 }
 
 #[test]
-fn every_kucoin_vector_row_reads_strictly_as_rails_parses_it_or_not_at_all() {
+fn every_kucoin_vector_row_reads_strictly_as_v2_parses_it_or_not_at_all() {
     use deltabadger::venue::CreatedState;
     let (mut read, mut rejected) = (0, std::collections::BTreeMap::<&str, usize>::new());
     for e in kucoin_vectors() {
@@ -2683,10 +2683,10 @@ fn every_kucoin_vector_row_reads_strictly_as_rails_parses_it_or_not_at_all() {
         match (got, kucoin_rejection(e)) {
             (Some(o), None) => {
                 read += 1;
-                let rails = kucoin::parse_order(r["id"].as_str().unwrap(), &r, &Default::default()).unwrap();
-                assert_eq!((o.filled_base, o.filled_quote), (rails.amount_exec.clone(), rails.quote_amount_exec), "{r}");
-                assert_eq!((o.side == deltabadger::venue::Side::Sell, o.external_id.as_str(), o.created_at, o.symbol.as_str()), (rails.sell, r["id"].as_str().unwrap(), t(PLACED), symbol.as_str()));
-                let state = match (e["status"].as_str().unwrap(), rails.amount_exec.is_positive()) {
+                let v2 = kucoin::parse_order(r["id"].as_str().unwrap(), &r, &Default::default()).unwrap();
+                assert_eq!((o.filled_base, o.filled_quote), (v2.amount_exec.clone(), v2.quote_amount_exec), "{r}");
+                assert_eq!((o.side == deltabadger::venue::Side::Sell, o.external_id.as_str(), o.created_at, o.symbol.as_str()), (v2.sell, r["id"].as_str().unwrap(), t(PLACED), symbol.as_str()));
+                let state = match (e["status"].as_str().unwrap(), v2.amount_exec.is_positive()) {
                     ("open", false) => CreatedState::Open, ("open", true) => CreatedState::PartlyFilledOpen, ("closed", _) => CreatedState::Filled,
                     (_, false) => CreatedState::Cancelled, (_, true) => CreatedState::PartlyFilledCancelled,
                 };

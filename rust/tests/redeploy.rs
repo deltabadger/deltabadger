@@ -390,7 +390,7 @@ fn redeploy_grid_difference(name: &str, _: &std::path::Path, v2: &Value, rust: &
             _ => want["type"] == "MARKET" && got["type"] == "LIMIT" && got["timeInForce"] == "GTC"
                 && &BigDec::parse(got["quantity"].as_str().unwrap()).unwrap() * &BigDec::parse(got["price"].as_str().unwrap()).unwrap() <= d("320"),
         };
-        if !ok { return Err(format!("D-6C-12 {venue}: rails sent {want}, rust sent {got}")); }
+        if !ok { return Err(format!("D-6C-12 {venue}: 2.x sent {want}, rust sent {got}")); }
         expected["sent"] = rust["sent"].clone();
     }
     // Kraken's refused connection is a skip on the Rust side, whose line carries no sizing (normalised below).
@@ -432,7 +432,7 @@ fn redeploy_grid_difference(name: &str, _: &std::path::Path, v2: &Value, rust: &
         // (Redeployable#place_redeploy_orders!). D-6C-HALT-NOT-BELOW: Rust leaves only the halt. Kraken's refused connection
         // is a skip on the Rust side (below), after which nothing placed is the below-minimums line on both.
         if logs.len() != 2 || logs[1]["after"]["event"] != "redeploy_below_minimums" || logs[0]["after"]["event"] != "redeploy_ambiguous" {
-            return Err(format!("rails logs: {logs:?}\nrust: {}", rust["changes"]["bot_activity_logs"]));
+            return Err(format!("2.x logs: {logs:?}\nrust: {}", rust["changes"]["bot_activity_logs"]));
         }
         if !(kraken && pre_send) { logs.truncate(1); }
         let log = &mut logs[0]["after"];

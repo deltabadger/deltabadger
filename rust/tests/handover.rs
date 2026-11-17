@@ -162,7 +162,7 @@ fn v2_boot_running(dir: &std::path::Path, script: &str) -> (bool, String) {
     (out.status.success() && String::from_utf8_lossy(&out.stdout).contains("booted"), String::from_utf8_lossy(&out.stderr).into_owned())
 }
 
-/// 2.70.21's `rails <args>` against this install's files (cache, cable and any schema dump in `scratch`, at /x), with
+/// 2.70.21's command line (`<args>` after `bundle exec`) against this install's files (cache, cable and any schema dump in `scratch`, at /x), with
 /// the test cipher's keys.
 fn v2_on(dir: &std::path::Path, scratch: &std::path::Path, args: &[&str]) -> std::process::Output {
     common::v2::v2(dir, scratch, "engine-test-secret", args)
@@ -995,9 +995,9 @@ fn every_v2_job_class_has_an_outcome() {
     let table: std::collections::BTreeSet<String> = handover::V2_WORK.iter().map(|(c, _)| c.to_string()).collect();
     assert_eq!(table.len(), handover::V2_WORK.len(), "a class listed twice");
     let missing: Vec<_> = found.difference(&table).collect();
-    assert!(missing.is_empty(), "Rails job classes without an outcome in handover::RAILS_WORK: {missing:?}");
+    assert!(missing.is_empty(), "2.x job classes without an outcome in handover::V2_WORK: {missing:?}");
     let stale: Vec<_> = table.difference(&found).collect();
-    assert!(stale.is_empty(), "handover::RAILS_WORK names classes the repository no longer has: {stale:?}");
+    assert!(stale.is_empty(), "handover::V2_WORK names classes the repository no longer has: {stale:?}");
     assert_eq!(handover::v2_work("Some::FutureJob"), handover::V2Work::Dropped, "an unknown class is dropped, never a hard stop");
 }
 
@@ -1194,7 +1194,7 @@ fn a_failed_only_signal_job_becomes_the_marker() {
 /// engine's) is a hard stop naming the bot: the existing marker is never overwritten, and nothing is written.
 #[test]
 fn a_failed_signal_job_beside_a_marker_or_an_intent_is_a_hard_stop() {
-    for existing in [json!({ "signal_placement_unresolved": { "id": "rails-1", "at": "2026-09-30T11:00:00Z", "side": "buy", "error": "timeout" } }),
+    for existing in [json!({ "signal_placement_unresolved": { "id": "v2-1", "at": "2026-09-30T11:00:00Z", "side": "buy", "error": "timeout" } }),
                      json!({ "rust_placement": { "cl_ord_id": "cl-1" } })] {
         let (_dir, l, o, fixture, _) = signal_install(&["ready"]);
         o.primary.execute("UPDATE bots SET transient_data = ?1 WHERE id = 1", [existing.to_string()]).unwrap();
@@ -1476,7 +1476,7 @@ const REFUSING: &[&str] = &["ibkr_reservations", "kucoin_coverage", "rust_withdr
 /// Refusing or waiting rows the matrix run does not set up, and the test that proves each.
 const PROVEN_ELSEWHERE: &[(&str, &str)] = &[
     ("ibkr_reservations", "tests/ibkr_placement.rs the_handback_is_refused_while_ibkr_holds_anything"),
-    ("rust_placement", "tests/handover.rs an_unresolved_order_blocks_handback_and_rails_keeps_refusing"),
+    ("rust_placement", "tests/handover.rs an_unresolved_order_blocks_handback_and_v2_keeps_refusing"),
 ];
 
 fn rs_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {

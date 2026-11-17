@@ -26,7 +26,7 @@ MUTATIONS = [
     ('retire refresh ancestors on a REST call', 'rust/src/web/rest.rs',
      'bearer::resolve(c, authorization, "api"', 'bearer::authenticate(c, authorization, "api"',
      'api_bots_tokens step 11', 'api_bots_tokens'),
-    # Rails' params: the path's id wins over the query's and the body's.
+    # 2.x's params: the path's id wins over the query's and the body's.
     ('let the query id win over the path', 'rust/src/web/rest.rs',
      'out.extend(self.path.iter().map(|(name, value)| (name.to_string(), json!(value))));',
      'for (name, value) in self.path { out.entry(name.to_string()).or_insert(json!(value)); }',

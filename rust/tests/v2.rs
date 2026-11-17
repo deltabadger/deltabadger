@@ -152,7 +152,7 @@ fn float_digits_match_v2_on_ties_and_everything_else() {
         let got = [
             ("BigDec::from_f64", unsigned_zero(BigDec::from_f64(f).unwrap().to_s_f()), unsigned_zero(to_d.into())),
             ("figures Dec::from_f64", deltabadger::figures::dec::Dec::from_f64(f).unwrap().to_s_f(), to_d.into()),
-            ("ruby::float_to_s", float_to_s(f), to_s.into()),
+            ("v2::float_to_s", float_to_s(f), to_s.into()),
             ("figures float_to_s", deltabadger::figures::num::float_to_s(f), to_s.into()),
             ("web float_to_s", deltabadger::web::format::float_to_s(f), to_s.into()),
         ];

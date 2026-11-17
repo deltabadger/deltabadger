@@ -159,7 +159,7 @@ async fn sessions_cross_before_and_after_initialized_in_both_directions(){
         let sid=first["session"].as_str().unwrap();
         let mut second=if v2_first{play(dir.path(),&steps[cut..],Some(sid.into())).await}else{v2_leg(boot.path(),dir.path(),&steps[cut..],Some(sid))};
         let mut responses=first["responses"].as_array().unwrap().clone();responses.extend(second["responses"].as_array().unwrap().clone());second["responses"]=json!(responses);
-        assert_eq!(unversioned(comparable(second)),unversioned(comparable(expected.clone())),"cut {cut}, rails_first {v2_first}");
+        assert_eq!(unversioned(comparable(second)),unversioned(comparable(expected.clone())),"cut {cut}, v2_first {v2_first}");
     }}
 }
 #[tokio::test(flavor="current_thread")]
