@@ -45,6 +45,18 @@ export default class extends Controller {
       this.changed = new MutationObserver(this.check);
       this.changed.observe(this.pane, { childList: true, subtree: true, attributes: true });
       this.check();
+      // The DCA key step: Connect is the primary button once every key field holds something, secondary until then.
+      this.ready = () => {
+        const form = this.pane.querySelector(".set-api__form");
+        const button = form?.querySelector(".set-api__actions [type=submit]");
+        if (!button) return;
+        const fields = [...form.querySelectorAll("input.rinput--text")];
+        const filled = fields.length > 0 && fields.every((field) => field.value.trim() !== "");
+        button.classList.toggle("rbutton--primary", filled);
+        button.classList.toggle("rbutton--secondary", !filled);
+      };
+      this.pane.addEventListener("input", this.ready);
+      this.ready();
     }
 
     this.element.querySelector("[aria-current]")?.scrollIntoView({ block: "nearest", inline: "nearest" });
@@ -58,6 +70,7 @@ export default class extends Controller {
 
   disconnect() {
     this.pane?.removeEventListener("scroll", this.check);
+    this.pane?.removeEventListener("input", this.ready);
     this.resized?.disconnect();
     this.changed?.disconnect();
   }

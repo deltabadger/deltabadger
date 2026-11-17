@@ -100,11 +100,11 @@ struct Form { search: String, card: String }
 /// The step's `_form`: the venue's connect card, with the DCA step's track (the index and signal steps' own form, with their
 /// progress bar and sentence, and no track). `live`: the Paper/Live switch on Live (Alpaca).
 #[allow(clippy::too_many_arguments)]
-fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>, namespace: Namespace, venue: &Venue, live: bool) -> Result<(String, Option<String>), WebError> {
+fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>, namespace: Namespace, venue: &Venue, live: bool, error: Option<&str>) -> Result<(String, Option<String>), WebError> {
     let instructions = keys::key_instructions(c, app, ctx, &venue.class, &venue.name, 0)?;
     let form_data = "data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"";
     let dca = matches!(namespace, Namespace::Single | Namespace::Multi);
-    let card = if dca { keys::sheet_card(ctx, csrf, ctx.path(namespace.action()), form_data, &venue.name, &venue.class, live, instructions)? }
+    let card = if dca { keys::sheet_card(ctx, csrf, ctx.path(namespace.action()), form_data, &venue.name, &venue.class, live, instructions, error)? }
                else { keys::card(ctx, csrf, ctx.path(namespace.action()), form_data, &venue.name, &venue.class, live, false, instructions)? };
     if namespace == Namespace::Index { return Ok((super::index::key_form(ctx, &venue.name, &venue.class, &card)?, None)) }
     if namespace == Namespace::Signal { return Ok((super::signals::key_form(c, ctx, config, &card)?, None)) }
@@ -165,7 +165,7 @@ async fn new(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, WebEr
     let page = app.db(move |c| {
         if correct { return Ok(Err(after_api_key_path(c, owner.id, config.as_ref(), namespace)?)) }
         let csrf = view.csrf_token();
-        let body = match form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live)? {
+        let body = match form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live, None)? {
             (content, Some(track)) => super::sheet(&view, &track, &content)?,
             (content, None) => FullPage { close_url: view.path("/bots"), content: &content }.render()?,
         };
@@ -205,17 +205,22 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
         keys::Submitted::Failed => i18n::text(ctx.locale, "errors.api_key_permission_validation_failed", &[]),
         keys::Submitted::Refused(reason) => i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&reason))]),
     };
-    let (inner, view) = (app.clone(), ctx.clone());
-    let content = app.db(move |c| {
+    let (inner, view, reason) = (app.clone(), ctx.clone(), message.clone());
+    let (content, sheet) = app.db(move |c| {
         let csrf = view.csrf_token();
-        match form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live)? {
-            (content, Some(track)) => super::sheet_frame(&track, &content),
-            (content, None) => Ok(content),
+        // A DCA step says why under its fields (D-WIZARD-SHEET-KEY-FORM); the index and signal steps flash it.
+        let dca = matches!(namespace, Namespace::Single | Namespace::Multi);
+        match form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live, dca.then_some(reason.as_str()))? {
+            (content, Some(track)) => Ok((super::sheet_frame(&track, &content)?, true)),
+            (content, None) => Ok((content, false)),
         }
     }).await?;
-    // create.turbo_stream: the form in place of the step's frame, then the reason (flash.now).
-    let flash = flash::render(&flash::take(&ctx.session, &[(flash::ALERT, message)]))?;
-    let body = format!("{}\n{}\n", turbo::stream("update", "modal_content", &format!("{content}\n")), turbo::prepend_flash(flash.trim_end()));
+    // create.turbo_stream: the form in place of the step's frame, then the reason (flash.now) where the form does not hold it.
+    let update = turbo::stream("update", "modal_content", &format!("{content}\n"));
+    let body = if sheet { format!("{update}\n") } else {
+        let flash = flash::render(&flash::take(&ctx.session, &[(flash::ALERT, message)]))?;
+        format!("{update}\n{}\n", turbo::prepend_flash(flash.trim_end()))
+    };
     Ok(super::stream(StatusCode::UNPROCESSABLE_ENTITY, body))
 }
 

@@ -690,6 +690,7 @@ turbo-frame.sitem
     display: flex
     flex-direction: column
     gap: 3rem
+    padding-top: 3rem
 .exchange-group__heading
     // The grid's own side padding (_exchange-picker.sass), so the heading starts over its first tile.
     margin: 0 0 1.5rem
@@ -721,12 +722,25 @@ turbo-frame.sitem
         gap: 1rem
         margin: 0
         padding: 0
+    // One grid for the card: the form's own boxes join it (display: contents), so the venue's name and Connect share the
+    // first line; with Alpaca's Paper/Live switch, the switch and Connect share the line under the name. The fields, the
+    // reason a key was refused and the walkthrough run full width under them. Only drawn so: in the page Connect still
+    // comes after the fields.
     .set-api--connect
+        display: grid
+        grid-template-columns: minmax(0, 1fr) auto
+        align-items: center
+        > *, .set-api__form > *
+            grid-column: 1 / -1
+        .set-api__form
+            display: contents
         .set-api__brand
+            grid-row: 1
+            grid-column: 1
             flex-direction: row
             align-items: center
             gap: 1.25rem
-            margin-bottom: 1rem
+            margin: 0
             text-align: left
         .set-api__mark
             width: 2.5rem
@@ -734,25 +748,18 @@ turbo-frame.sitem
         .set-api__title
             font-size: 2rem
             line-height: 2.5rem
-        // Its first line: Alpaca's Paper/Live switch on the left, Connect on the right (alone where there is no switch);
-        // the fields under them, full width. Only drawn there: in the page Connect still comes after the fields.
-        .set-api__form
-            display: grid
-            grid-template-columns: 1fr auto
-            align-items: center
-            gap: 1rem
-            max-width: 44rem
-            margin: 0
-            > *
-                grid-column: 1 / -1
-            .rinput--text
-                width: 100%
-        .set-api__mode
-            grid-row: 1
-            grid-column: 1
-            justify-self: start
-            margin: 0
+        .rinput--text
+            width: 100%
         .set-api__actions
             grid-row: 1
             grid-column: 2
             justify-content: flex-end
+        .set-api__mode
+            grid-row: 2
+            grid-column: 1
+            justify-self: start
+            margin: 0
+        &:has(.set-api__mode) .set-api__actions
+            grid-row: 2
+        .sform__error
+            margin: 0

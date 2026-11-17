@@ -57,10 +57,13 @@
     </div>
 </form>
 {% elif sheet %}
-    <input autofocus="autofocus" autocomplete="off" data-controller="autofocus" class="rinput rinput--outline rinput--text" placeholder="{{ key_label|safe }}" aria-label="{{ key_label|safe }}" type="text" name="api_key[key]" id="api_key_key" />
-    <input autocomplete="off" class="rinput rinput--outline rinput--text" placeholder="{{ secret_label|safe }}" aria-label="{{ secret_label|safe }}" type="text" name="api_key[secret]" id="api_key_secret" />
+    <input autofocus="autofocus" autocomplete="off" data-controller="autofocus" class="rinput rinput--outline rinput--text{% if error.is_some() %} rinput--invalid{% endif %}" placeholder="{{ key_label|safe }}" aria-label="{{ key_label|safe }}"{% if error.is_some() %} aria-invalid="true" aria-describedby="api_key_error"{% endif %} type="text" name="api_key[key]" id="api_key_key" />
+    <input autocomplete="off" class="rinput rinput--outline rinput--text{% if error.is_some() %} rinput--invalid{% endif %}" placeholder="{{ secret_label|safe }}" aria-label="{{ secret_label|safe }}"{% if error.is_some() %} aria-invalid="true" aria-describedby="api_key_error"{% endif %} type="text" name="api_key[secret]" id="api_key_secret" />
 {%- if passphrase %}
-    <input autocomplete="off" class="rinput rinput--outline rinput--text" placeholder="API Passphrase" aria-label="API Passphrase" type="text" name="api_key[passphrase]" id="api_key_passphrase" />
+    <input autocomplete="off" class="rinput rinput--outline rinput--text{% if error.is_some() %} rinput--invalid{% endif %}" placeholder="API Passphrase" aria-label="API Passphrase"{% if error.is_some() %} aria-invalid="true" aria-describedby="api_key_error"{% endif %} type="text" name="api_key[passphrase]" id="api_key_passphrase" />
+{%- endif %}
+{%- if let Some(error) = error %}
+    <p class="sform__error" id="api_key_error" role="alert">{{ error }}</p>
 {%- endif %}
     <div class="set-api__actions">
       <input type="submit" name="commit" value="{{ v.t("button.connect") }}" class="rbutton rbutton--secondary" data-turbo-stream="true" data-turbo-submits-with="{{ v.t("bot.setup.validating") }}" data-disable-with="{{ v.t("button.connect") }}" />

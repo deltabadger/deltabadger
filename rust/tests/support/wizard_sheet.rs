@@ -284,6 +284,18 @@ fn ungroup(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usiz
     Ok(())
 }
 
+/// D-WIZARD-SHEET-KEY-FORM: the key card's title is the venue's name alone (its button says "Connect"), where Rails' reads
+/// "Connect {name}" in the page's locale; read back as Rails'.
+fn retitle(theirs: &[Value], step: usize, ours: &mut [Value], ours_step: usize, locale: &str) -> Result<(), String> {
+    let title = |lines: &[Value], at: usize| positions(lines, at, subtree_end(lines, at), |l| has_class(l, "h2", "set-api__title")).first().map(|t| t + 1);
+    let (Some(mine), Some(rails)) = (title(ours, ours_step), title(theirs, step)) else { return Ok(()) };
+    let name = words(&ours[mine]).unwrap_or_default();
+    let want = deltabadger::web::i18n::text(locale, "bot.setup.connect_to", &[("name", deltabadger::web::i18n::Arg::Text(&name))]);
+    if words(&theirs[rails]).as_deref() != Some(want.as_str()) { return Err(format!("the key card's title {name:?} is not Rails' {:?}", words(&theirs[rails]))) }
+    ours[mine] = json!(format!("{}{}", "  ".repeat(depth(&ours[mine])), text(&theirs[rails]).trim_start()));
+    Ok(())
+}
+
 /// D-WIZARD-SHEET-KEY-FORM: the key step's form in Settings' rows and controls (`.srow`, `.rinput`, `.rbutton`) where Rails
 /// has its floating-label rows. Compared by what it submits and says: the form itself, every field (name, type, id, value
 /// but the token's, autofocus, autocomplete, its controller, Connect's Turbo attributes) and every label with its field,
@@ -401,6 +413,9 @@ pub fn wizard_sheet(path: &str, flow: Option<&str>, rails: &mut Value, rust: &mu
     let ours_step = positions(ours, ours_shell, ours_end, |l| has_class(l, "div", "bot-creation-layout"))[0];
     // D-WIZARD-VENUE-GROUPS: the brokers and the exchanges under their headings; read back as Rails' one grid.
     ungroup(theirs, step, ours, ours_step, locale)?;
+    // The reason a key was refused, under the fields where Rails flashes it (taken out with the form below).
+    let refused = positions(ours, ours_step, subtree_end(ours, ours_step), |l| has_class(l, "p", "sform__error")).first().and_then(|p| words(&ours[p + 1]));
+    retitle(theirs, step, ours, ours_step, locale)?;
     reform(theirs, step, ours, ours_step)?;
     let ours_end = subtree_end(ours, ours_shell);
     // The basket is drawn open; Rails' was closed unless asked for.
@@ -409,6 +424,15 @@ pub fn wizard_sheet(path: &str, flow: Option<&str>, rails: &mut Value, rust: &mu
         return Err("this crate's basket is hidden".into());
     }
     for at in positions(theirs, step, step_end, list) { theirs[at] = json!(text(&theirs[at]).replacen("class=\"wizard-assets__list hidden\"", "class=\"wizard-assets__list \"", 1)) }
+    // Rails' flash of that reason, which this crate's step says itself: the same words, then left out.
+    if let Some(reason) = refused {
+        let flash = positions(theirs, 0, theirs.len(), |l| opens(l, "turbo-stream") && attr(text(l), "target").as_deref() == Some("flash")).first().copied()
+            .ok_or("a refusal under the fields where Rails flashed nothing")?;
+        if !(flash..subtree_end(theirs, flash)).any(|i| words(&theirs[i]).as_deref() == Some(reason.as_str())) {
+            return Err(format!("the refusal under the fields, {reason:?}, is not Rails' flash"));
+        }
+        cut(theirs, flash);
+    }
     // Rails' step without its progress bar and its sentence (and the whitespace before each).
     if let Some((at, _)) = sentence { cut(theirs, at) }
     let (bar, _, _) = progress(theirs, step, subtree_end(theirs, step))?;
@@ -624,6 +648,29 @@ mod tests {
         assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut rails(), &mut ours(ours_fields("api_key[public]", "Connect"))).is_err(), "a renamed field");
         assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut rails(), &mut ours(ours_fields("api_key[key]", "Save"))).is_err(), "another button");
         assert!(wizard_sheet("/bots/dca_single_assets/add_api_key/new", None, &mut rails(), &mut ours(ours_fields("api_key[key]", "Connect").replace("aria-label=\"Secret Key\"", "aria-label=\"Password\""))).is_err(), "another name");
+    }
+
+    #[test]
+    fn a_refused_key_is_said_under_the_fields_as_rails_flashed_it() {
+        let header = |title: &str| format!("<header class=\"set-api__brand\"><span class=\"set-api__mark\">m</span><h2 class=\"set-api__title\">{title}</h2></header>");
+        let submit = |class: &str| format!("<input type=\"submit\" name=\"commit\" value=\"Connect\" class=\"{class}\" data-turbo-stream=\"true\" />");
+        let rails_card = format!("<div class=\"set-api set-api--connect\">{}<form class=\"set-api__form form\" action=\"/k\" method=\"post\">{CSRF}<div class=\"form__row\"><input class=\"form__input\" type=\"text\" name=\"api_key[key]\" id=\"api_key_key\" /><label class=\"form__label\" for=\"api_key_key\">API Key</label></div><div class=\"set-api__actions\">{}</div></form></div>",
+                                 header("Connect Binance"), submit("button button--sky"));
+        let ours_card = |title: &str, reason: &str| format!("<div class=\"set-api set-api--connect\">{}<form class=\"set-api__form form\" action=\"/k\" method=\"post\">{CSRF}<input class=\"rinput rinput--outline rinput--text rinput--invalid\" aria-label=\"API Key\" aria-invalid=\"true\" type=\"text\" name=\"api_key[key]\" id=\"api_key_key\" /><p class=\"sform__error\" id=\"api_key_error\" role=\"alert\">{reason}</p><div class=\"set-api__actions\">{}</div></form></div>",
+                                 header(title), submit("rbutton rbutton--secondary"));
+        let flash = |reason: &str| format!("\n<turbo-stream action=\"prepend\" target=\"flash\"><template><div class=\"flash__message\" role=\"alert\">{reason}</div></template></turbo-stream>");
+        let update = |inner: &str| format!("<turbo-stream action=\"update\" target=\"modal_content\"><template>{inner}\n</template></turbo-stream>");
+        let key_track = track(&[item("current", "Binance", Some(("get", EXCHANGES, &[], true))), item("upcoming", "Assets", Some(("post", ORDER, &[("flow", "asset_first")], false))), item("upcoming", "Currency", None)]);
+        let frame = |card: String| include_str!("../../templates/wizard/_sheet_frame.html").replace("{{ track|safe }}", &key_track).replace("{{ content|safe }}", &ours_step("", &card));
+        let rails = |reason: &str| json!(html::normalize(&format!("{}{}", update(&rails_step("Connect exchange", 50, &key_sentence().replace("Kraken", "Binance"), &rails_card)), flash(reason))));
+        let ours = |title: &str, reason: &str| json!(html::normalize(&update(&frame(ours_card(title, reason)))));
+        let path = "/bots/dca_single_assets/add_api_key";
+        let (mut theirs, mut drawn) = (rails("Incorrect API key permissions"), ours("Binance", "Incorrect API key permissions"));
+        assert_eq!(wizard_sheet(path, None, &mut theirs, &mut drawn), Ok(1));
+        assert!(same(&theirs, &drawn), "{theirs:#}\n{drawn:#}");
+        assert!(wizard_sheet(path, None, &mut rails("Incorrect API key permissions"), &mut ours("Binance", "Something else")).is_err(), "another reason");
+        assert!(wizard_sheet(path, None, &mut json!(html::normalize(&update(&rails_step("Connect exchange", 50, &key_sentence(), &rails_card)))), &mut ours("Binance", "Incorrect API key permissions")).is_err(), "Rails flashed nothing");
+        assert!(wizard_sheet(path, None, &mut rails("Incorrect API key permissions"), &mut ours("Kraken", "Incorrect API key permissions")).is_err(), "another venue's name");
     }
 
     #[test]

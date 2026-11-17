@@ -28,6 +28,7 @@
     justify-content: center
     align-items: center
     text-decoration: none
+    cursor: pointer
     // The filled variants: a colour carries the meaning, so the label is white on all of them and
     // stays white on hover — the default's link colour would read as unfilled halfway through.
     &--primary, &--danger, &--success
@@ -125,6 +126,10 @@
             outline: none !important
             outline-offset: none !important
             box-shadow: var(--rinput-focus)
+    // A value the server refused (a key a venue turned down): the danger colour's edge, focused or not.
+    &--invalid, &--invalid:focus-visible
+        box-shadow: 0 0 0 0.125rem var(--berry) !important
+        outline-color: var(--berry) !important
     // Something typed: a name, an address, a key. Read as written, so no uppercase.
     &--text
         width: 28rem
