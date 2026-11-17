@@ -4,94 +4,95 @@ use regex::bytes::Regex;
 use std::process::Command;
 
 /// (path regex, content regex, reason). A hit is allowed when its path matches and a match of the content regex covers
-/// it. WHOLE allows the file's path and every byte, unread (the recorded answers are 2.4 GB).
+/// it. WHOLE allows every hit in the file's content (still read and counted); UNREAD allows the content without reading
+/// it (only the 2.4 GB of recordings: their paths are still checked); PATH allows the path itself.
 const ALLOWED: &[(&str, &str, &str)] = &[
     (r#"rust/migrations/(20261022000001|20261023000001|20261025000001|20261026000001|20261028000001|20261030000001|20261102000001|20261108000001|20261109000001|20261110000001|20261111000001|20261112000001)_[a-z0-9_]+\.sql"#,
      WHOLE,
      r#"(a) released migrations: applied SQL never changes (B1); B11-9's migration names old and new"#),
-    (r#"rust/(src|tests|examples)/.*\.rs"#,
-     r#"rust_rails_(?:attempt_acks|job_acks|unrecorded(?:_live|_offers|_resolutions|_requests|_notices)?|wakes|queue_done)\b|index_rust_rails_unrecorded_on_source|\brails_unrecorded_report\b|\brails_at\b|\brails_order_[a-z_]*|'rails'|\brails:|rails-job:|status Rails never writes"#,
-     r#"(b) B11-9's stored names and values (PLAN-B11-9 §1.1, §6 list (b)); B11-9 PR2 empties this"#),
+    (r#"rust/migrations/20261108000001_rust_rails_unrecorded\.sql|rust/migrations/20261109000001_rust_rails_unrecorded_live\.sql|rust/migrations/20261110000001_rust_rails_unrecorded_booking\.sql"#,
+     PATH,
+     r#"(a) the released A28 migrations' file names"#),
     (r#"rust/src/parity\.rs"#,
      r#"20261110000001_rust_rails_unrecorded_booking\.sql"#,
      r#"(a) parity's setup runs the released A28 migration file (PLAN-B11-9 r1.3)"#),
-    (r#"rust/tests/fixtures/b11_9_beta/.*"#,
+    (r#"rust/(src|tests|examples)/.*\.rs"#,
+     r#"\brust_rails_(?:attempt_acks|job_acks|unrecorded(?:_live|_offers|_resolutions|_requests|_notices)?|wakes|queue_done)\b|\bindex_rust_rails_unrecorded_on_source\b|\brails_unrecorded_report\b|\brails_at\b|'rails'|\brails:|\brails-job:|status Rails never writes|'rails_order_%'|\brails_order_(?:candidates?|none_seen|open|listed(?:_one)?|recovered|not_mine|unsettled|settled_lower|unchecked(?:_(?:gone|index|no_history|reach|settings_changed|time|unread|unreadable)?)?|not_added(?:_(?:busy|deleted|held|key_changed|ledger|linked|no_cost|not_found|nothing_filled|refused|resolved|settings_changed|unconfirmed|unreachable|unreadable|unsupported)?)?)\b"#,
+     r#"(b) B11-9's stored names and values (PLAN-B11-9 §1.1, §6 list (b)); B11-9 PR2 empties this"#),
+    (r#"rust/tests/fixtures/b11_9_beta/[a-z0-9_]+\.(primary|queue)\.sql"#,
      WHOLE,
-     r#"(b) B11-9's frozen beta installs (PLAN-B11-9 r3.4); PR2 keeps them as its upgrade input"#),
+     r#"(b) B11-9's frozen beta installs (PLAN-B11-9 r3.4): PR2's upgrade input"#),
     (r#"rust/tests/(cli|rust_migrations)\.rs"#,
      r#"a JSON column Rails did not write|last_error naming Rails|'%Rails%'"#,
      r#"(b) the beta fixture's Rails-worded last_error: its generator and its probe (PLAN-B11-9 r1.1, r3.4)"#),
     (r#"rust/tests/recorded/.*"#,
-     WHOLE,
-     r#"(c) the recorded 2.x answers, frozen at rails-oracle-final"#),
+     UNREAD,
+     r#"(c) the recorded 2.x answers' contents, frozen at rails-oracle-final"#),
     (r#"rust/tests/mail_parity\.rs"#,
      r#"case\["rails"\]"#,
      r#"(c2) reads the "rails" key of recorded/mails/cases.json"#),
     (r#"rust/tests/tick_basket\.rs"#,
      r#"scenario\["rails_floor"\]"#,
      r#"(c2) reads the "rails_floor" key of the recorded decisions-grid scenarios"#),
-    (r#"rust/schema/(baseline|queue_baseline)\.sql"#,
-     WHOLE,
-     r#"(d) 2.x's schema as 2.70.21 loads it (fk_rails_* constraint names; tests/schema_baseline.rs writes the header)"#),
-    (r#"rust/tests/fixtures/settings_(primary|queue)_schema\.sql"#,
-     r#"fk_rails_[0-9a-f]{10}"#,
-     r#"(d) 2.x's constraint names"#),
-    (r#"rust/(src/rotation|tests/rotation)\.rs|rust/tests/fixtures/encryption_vectors\.json"#,
+    (r#"rust/schema/(baseline|queue_baseline)\.sql|rust/tests/fixtures/settings_(primary|queue)_schema\.sql"#,
+     r#"\bfk_rails_[0-9a-f]{10}\b"#,
+     r#"(d) 2.x's foreign-key constraint names (tests/schema_baseline.rs)"#),
+    (r#"rust/src/rotation\.rs|rust/tests/rotation\.rs|rust/tests/fixtures/encryption_vectors\.json"#,
      r#"bin/rails deltabadger:encryption:reset"#,
      r#"(d) 2.x's stderr line that 3.0's encryption-reset rewrites (PLAN-B11 r9.6)"#),
     (r#"rust/tests/fixtures/setup_vectors\.json"#,
      WHOLE,
-     r#"(d) 2.x's recorded setup pages and debug pages (PLAN-B11 r9.6)"#),
+     r#"(d) 2.x's recorded setup and debug pages (PLAN-B11 r9.6)"#),
     (r#"rust/tests/fixtures/figures_vectors\.json"#,
      r#""ruby":"[0-9.]+""#,
      r#"(d) the interpreter version the vectors were recorded with"#),
-    (r#"rust/(src|tests)/.*\.rs"#,
-     r#"_aj_ruby2_keywords"#,
+    (r#"rust/tests/(cli|handover)\.rs"#,
+     r#""_aj_ruby2_keywords""#,
      r#"(d) ActiveJob's argument key inside 2.x queue rows"#),
     (r#"rust/src/venue/(http|kraken)\.rs|rust/tests/(http_proxy_env|kraken)\.rs|rust/tests/fixtures/kraken_signing\.json"#,
      r#""(Honeymaker )?Ruby""#,
      r#"(d) the User-Agent the venues have always seen (kraken_signing.json pins it)"#),
     (r#"package\.json|bun\.lock|rust/web/javascript/application\.js|script/rust/(browser_check|quiet_revisit_check)\.mjs|rust/(src|tests)/.*\.rs"#,
-     r#"@hotwired/turbo-rails|@rails/actioncable[A-Za-z0-9_/.-]*|\bturbo-rails\b"#,
+     r#"@hotwired/turbo-rails\b|@rails/actioncable(?:/src/connection\.js)?\b|\bturbo-rails(?:-2\.0\.23/(?:app/controllers/concerns/turbo/request_id_tracking|lib/turbo-rails)\.rb)?\b"#,
      r#"(e) third-party packages: turbo-rails' <turbo-cable-stream-source> and its Action Cable client"#),
     (r#".*"#,
-     r#"rails-oracle-final"#,
+     r#"\brails-oracle-final\b"#,
      r#"(f) the git tag the recordings were frozen from"#),
-    (r#"rust/tests/fixtures/v2/[a-z_]+\.rb|rust/tests/fixtures/umbrel/[a-z0-9.-]+\.(rb|yml)"#,
+    (r#"rust/tests/fixtures/v2/(continue_start|mcp_play|oauth|oauth_pages|sync)\.rb|rust/tests/fixtures/umbrel/(2\.34\.0-docker-compose|2\.70\.21-docker-compose)\.yml|rust/tests/fixtures/umbrel/behind-guard\.rb"#,
      WHOLE,
-     r#"(g) 2.x programs and composes the T8 interop tests run inside 2.x's image"#),
+     r#"(g) 2.x programs and composes the T8 interop tests run inside 2.x's images"#),
     (r#"rust/tests/common/v2\.rs"#,
-     r#"RAILS_ENV|RAILS_LOG_TO_STDOUT|bundle exec rails|`rails <args>`|`rails`"#,
+     r#""RAILS_ENV"|"RAILS_LOG_TO_STDOUT"|bundle exec rails |`rails <args>`|`rails`"#,
      r#"(g) the 2.70.21 image command (T8)"#),
     (r#"rust/tests/image\.rs"#,
-     r#"- ruby\n|`rails runner`|rust_rails_wakes"#,
+     r#"- ruby\n|`rails runner`"#,
      r#"(g) the 2.34.0/2.70.21 image commands (T8)"#),
     (r#"rust/tests/venue_signing\.rs"#,
-     r#"ruby -ropenssl"#,
+     r#""ruby -ropenssl"#,
      r#"(g) the 2.70.21 image's interpreter (T8)"#),
     (r#"deltabadger/docker-compose\.yml"#,
-     r#"RAILS_[A-Z_]+"#,
-     r#"(g) the Umbrel app still runs the 2.70.21 image until B5's switch (#935)"#),
+     r#"\bRAILS_(?:ENV|LOG_TO_STDOUT|SERVE_STATIC_FILES|MAX_THREADS)\b"#,
+     r#"(g) the Umbrel app runs the 2.70.21 image until B5's switch (#935)"#),
     (r#"rust/tests/fixtures/(seed_assets_b11|seeds_expected)\.json"#,
-     r#"(?i)"(?:text:)?(?:rails|ruby-coin|ruby coin|railseur|railsusd)"|coins/(?:rails|ruby-coin)\b|RAILS_TOKEN_LOGO|"(?:text:)?RUBY""#,
-     r#"(h) data: coins named Rails and Ruby Coin in the catalogue"#),
+     r#""(?:text:)?(?:rails|Rails|RAILS|RAILSEUR|RAILSUSD|ruby-coin|Ruby Coin|RUBY)"|coins/(?:rails|ruby-coin)"|/RAILS_TOKEN_LOGO-1\.jpg"#,
+     r#"(h) data: the coins named Rails and Ruby Coin in the catalogue"#),
     (r#"\.github/workflows/rust\.yml"#,
-     r#"Make Ruby absent[\s\S]*?no Ruby anywhere on PATH[^\n]*"#,
+     r#"Make Ruby absent|The toolcache Ruby, the image's apt Ruby \(ruby-full, which also leaves /usr/bin/ruby3\.x\)|/opt/hostedtoolcache/Ruby|'ruby\*' 'libruby\*'|\bruby_named\b|\^\(ruby\||! ruby -v|no Ruby anywhere on PATH"#,
      r#"(h) the step that proves no Ruby is on the runner"#),
     (r#"src-tauri/src/tests\.rs"#,
      r#""RAILS_ENV""#,
      r#"(h) asserts the desktop env no longer sets it"#),
     (r#"src-tauri/tests/desktop_config\.rs"#,
-     r#"for ruby in \["ruby", "bundle exec", "rails", "gem "\][\s\S]*?mentions \{ruby:\?\}"#,
+     r#"for ruby in \["ruby", "bundle exec", "rails", "gem "\]|contains\(ruby\)|mentions \{ruby:\?\}"#,
      r#"(h) asserts the desktop build runs none of these"#),
     (r#"rust/tests/i18n\.rs"#,
      r#"\(\?i\)\\brails\\b|\\bRails\\b"#,
      r#"(h) i18n.rs's own scan for the word in templates and source literals"#),
     (r#"\.gitignore"#,
-     r#"\.ruby-lsp"#,
+     r#"(?m)^\.ruby-lsp$"#,
      r#"(h) 2.x leftovers in existing checkouts stay ignored (PLAN-B11 r11.5)"#),
     (r#"rust/web/javascript/controllers/form/html5_validations_controller\.js"#,
-     r#"modern-rails"#,
+     r#"form-validations-with-html5-and-modern-rails/"#,
      r#"(h) a cited article's URL"#),
     (r#"rust/tests/vocabulary\.rs"#,
      WHOLE,
@@ -99,6 +100,8 @@ const ALLOWED: &[(&str, &str, &str)] = &[
 ];
 
 const WHOLE: &str = "WHOLE";
+const UNREAD: &str = "UNREAD";
+const PATH: &str = "PATH";
 
 struct Hit { path: String, line: usize, text: String }
 
@@ -110,16 +113,24 @@ fn rules() -> Vec<(Regex, Regex, &'static str)> {
 fn scan(files: &[String], read: impl Fn(&str) -> Vec<u8>) -> (Vec<Hit>, Vec<&'static str>) {
     let word = Regex::new("(?i)rails|ruby").unwrap();
     let rules = rules();
+    let kind = |i: usize| rules[i].1.as_str();
     let mut used = vec![false; rules.len()];
     let mut hits = vec![];
     for path in files {
         let mine: Vec<usize> = (0..rules.len()).filter(|&i| rules[i].0.is_match(path.as_bytes())).collect();
-        if let Some(&i) = mine.iter().find(|&&i| rules[i].1.as_str() == WHOLE) { used[i] = true; continue; }
-        if word.is_match(path.as_bytes()) { hits.push(Hit { path: path.clone(), line: 0, text: "(the path)".into() }); }
+        if word.is_match(path.as_bytes()) {
+            match mine.iter().find(|&&i| kind(i) == PATH) {
+                Some(&i) => used[i] = true,
+                None => hits.push(Hit { path: path.clone(), line: 0, text: "(the path)".into() }),
+            }
+        }
+        if let Some(&i) = mine.iter().find(|&&i| kind(i) == UNREAD) { used[i] = true; continue; }
         let bytes = read(path);
         let bytes = &bytes;
-        let spans: Vec<(usize, Vec<(usize, usize)>)> = mine.iter()
-            .map(|&i| (i, rules[i].1.find_iter(bytes).map(|m| (m.start(), m.end())).collect())).collect();
+        let spans: Vec<(usize, Vec<(usize, usize)>)> = mine.iter().filter(|&&i| kind(i) != PATH).map(|&i| {
+            let s = if kind(i) == WHOLE { vec![(0, bytes.len())] } else { rules[i].1.find_iter(bytes).map(|m| (m.start(), m.end())).collect() };
+            (i, s)
+        }).collect();
         for m in word.find_iter(bytes) {
             match spans.iter().find(|(_, s)| s.iter().any(|&(a, b)| a <= m.start() && m.end() <= b)) {
                 Some(&(i, _)) => used[i] = true,
@@ -138,7 +149,7 @@ fn scan(files: &[String], read: impl Fn(&str) -> Vec<u8>) -> (Vec<Hit>, Vec<&'st
 
 fn root() -> std::path::PathBuf { std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..") }
 
-/// Every tracked path; a path deleted in the working tree but not yet from the index reads as empty.
+/// Every tracked path.
 fn tracked() -> Vec<String> {
     let root = root();
     let out = Command::new("git").arg("-C").arg(&root).args(["ls-files", "-z"]).output().expect("git runs (the suite runs in a checkout)");
@@ -146,7 +157,7 @@ fn tracked() -> Vec<String> {
     out.stdout.split(|&b| b == 0).filter(|p| !p.is_empty()).map(|p| String::from_utf8(p.to_vec()).unwrap()).collect()
 }
 
-fn read(path: &str) -> Vec<u8> { std::fs::read(root().join(path)).unwrap_or_default() }
+fn read(path: &str) -> Vec<u8> { std::fs::read(root().join(path)).unwrap_or_else(|e| panic!("{path}: {e}")) }
 
 fn report(hits: &[Hit]) -> String {
     hits.iter().map(|h| format!("{}:{}: {}", h.path, h.line, h.text)).collect::<Vec<_>>().join("\n")
@@ -175,6 +186,9 @@ fn a_planted_word_fails_the_scan() {
     assert!(planted("rust/tests/planted.rs", "let v = &case[\"rails\"];\n"), "an unlisted reader of a recorded key");
     assert!(planted("rust/tests/mail.rs", "let v = &case[\"rails\"];\n"), "a recorded key read beside mail_parity.rs, not in it");
     assert!(planted("rust/migrations/20991231000001_new.sql", "-- Rails\n"), "a new migration");
+    assert!(planted("rust/tests/recorded/rails_new.txt", "\n"), "a recorded path (only contents are allowed)");
+    assert!(planted("rust/tests/v2.rs", "let k = \"rails_order_ruby\";\n"), "a stored-kind lookalike");
+    assert!(planted("rust/schema/baseline.sql", "-- Ruby\n"), "prose beside the constraint names");
 }
 
 /// The (c2) readers read keys the recordings hold, so the entries can't outlive what they name.
