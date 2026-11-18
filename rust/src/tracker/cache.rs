@@ -101,6 +101,7 @@ pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&
     // The bot sales beside it, same fence, same inputs: what the figures read for a sell-only bot's P/L. A failed walk or an
     // oversized set publishes none (nobody's P/L shows); the ledger entry above is never refused for it.
     let sales_row=|sales:Vec<Value>|json!({"schema":SALES_SCHEMA,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"sales":sales}).to_string();
+    if walked.is_none() {crate::engine::log("[tracker] bot sales published empty: the walk failed");}
     let mut sales=sales_row(walked.map(|w|w.bot_sales.iter().map(|b|json!([b.order,b.at.0,b.amount.to_s_f(),b.quote,b.cost.to_s_f(),b.known])).collect()).unwrap_or_default());
     if sales.len()>MAX_SALES {crate::engine::log("[tracker] bot sales publish refused: payload exceeds 1048576-byte limit");sales=sales_row(vec![])}
     app_config::set_plain(c,&sales_key(owner),&sales,now).map_err(FiguresError::Data)?;
@@ -185,14 +186,16 @@ pub fn read_published(c:&Connection,owner:i64,now:DateTime<Utc>)->Result<Publish
 #[derive(Clone, Debug)]
 pub enum Sales { Cold, Warm { by_order: HashMap<i64, BotSale>, expires: DateTime<Utc> } }
 impl Sales {
-    /// A hash of this value (0 when Cold): what figures rendered from it are held to.
+    /// A hash of the sales (0 when Cold, never 0 when Warm): what figures rendered from them are held to. Not of the
+    /// expiry: a republish of the same sales keeps kept figures shown; expiry is the read's (`bot_sales`) and the fill's
+    /// (`until` capped at `expires`).
     pub fn stamp(&self)->u64 {
         use std::hash::{Hash,Hasher};
-        let Sales::Warm{by_order,expires}=self else {return 0};
+        let Sales::Warm{by_order,..}=self else {return 0};
         let mut rows:Vec<_>=by_order.values().map(|b|(b.order,b.at.0,b.amount.to_s_f(),b.quote.clone(),b.cost.to_s_f(),b.known)).collect();
         rows.sort_by_key(|r|r.0);
         let mut h=std::collections::hash_map::DefaultHasher::new();
-        (rows,expires.timestamp_nanos_opt()).hash(&mut h);
+        rows.hash(&mut h);
         h.finish().max(1)
     }
 }
@@ -248,6 +251,9 @@ mod tests {
         let Sales::Warm{by_order,..}=sales(&c) else {panic!("warm")};
         assert_eq!(by_order.len(),2);assert_eq!(by_order[&5],sale(5,"10.25"));assert_eq!(by_order[&9].cost,Dec::zero());
         let a=sales(&c).stamp();
+        // A republish of the same sales, a moment later (a later expiry): the same stamp, so kept figures stay shown.
+        publish(&c,1,&v,Some(&with_sales(vec![sale(9,"0.0"),sale(5,"10.25")])),7,now()+Duration::minutes(5)).unwrap();
+        assert_eq!(sales(&c).stamp(),a,"the stamp is the sales, not their expiry");
         publish(&c,1,&v,Some(&with_sales(vec![sale(5,"10.26")])),7,now()).unwrap();
         let b=sales(&c).stamp();
         assert!(a!=0 && b!=0 && a!=b);
@@ -259,8 +265,10 @@ mod tests {
         let c=db();let v=version(&c,1).unwrap();
         publish(&c,1,&v,Some(&with_sales(vec![sale(5,"10")])),7,now()).unwrap();
         assert!(matches!(bot_sales(&c,1,now()+Duration::days(31)).unwrap(),Sales::Cold));
-        assert!(matches!(bot_sales(&c,2,now()).unwrap(),Sales::Cold));
         let good=app_config::get_plain(&c,&sales_key(1)).unwrap().unwrap();
+        // Another owner's key holding this owner's row: refused by the owner check, not for want of a row.
+        app_config::set_plain(&c,&sales_key(2),&good,now()).unwrap();
+        assert!(matches!(bot_sales(&c,2,now()).unwrap(),Sales::Cold));
         for bad in ["not json".to_string(),good.replace("\"sales\":[[","\"sales\":[[1,"),good.replace("\"schema\":1","\"schema\":2")] {
             app_config::set_plain(&c,&sales_key(1),&bad,now()).unwrap();assert!(matches!(sales(&c),Sales::Cold));
         }
