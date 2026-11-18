@@ -4,7 +4,7 @@
 /422.html
 /500.html
 /assets/application-*.js
-/assets/application-59284758b31ed8e8.css
+/assets/application-2609e4edc6ea98e3.css
 /assets/application.js-*.map
 /assets/desktop-intro-87e9942556c4ecdc.png
 /assets/favicon-86f2871a97f495f3.ico
