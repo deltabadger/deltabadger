@@ -145,7 +145,7 @@ fn every_recorded_v2_alpaca_sizing_and_wire_is_reproduced() {
             assert_eq!(below, c["below_minimum"].as_bool().unwrap() || !t.minimum_base_size.is_zero(), "below_minimum {c}");
             continue;
         }
-        let order = plan.to_order("cl".into(), deadline, ALPACA.wire).unwrap();
+        let order = plan.to_order("cl".into(), deadline, &ALPACA).unwrap();
         let w = &c["wire"];
         // D-ALPACA-BASE-FLOOR: both floors against what is sent; 2.x compares only the floored budget with the quote floor.
         let sent_short = match &order.kind {
@@ -272,7 +272,7 @@ fn every_recorded_v2_alpaca_stock_wire_is_reproduced() {
         };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
         assert_eq!(plan.limit_refusal().unwrap(), None, "{c}");
-        let order = plan.to_order("cl".into(), deadline, ALPACA.wire).unwrap();
+        let order = plan.to_order("cl".into(), deadline, &ALPACA).unwrap();
         let w = &c["wire"];
         // D-ALPACA-BASE-FLOOR: a limit qty is checked as sent, qty × price against the 1 USD floor ($1 at 186.96 sends
         // 0.005348737 shares, worth 0.99999...); 2.x compares the floored budget.
@@ -334,7 +334,7 @@ fn every_recorded_v2_binance_sizing_and_wire_is_reproduced() {
         let refusal = plan.limit_refusal().unwrap();
         assert_eq!(refusal.as_deref(), c["refused"].as_str(), "refusal {c}");
         if refusal.is_some() { refused += 1; continue; }
-        let order = plan.to_order("cl".into(), deadline, BINANCE.wire).unwrap();
+        let order = plan.to_order("cl".into(), deadline, &BINANCE).unwrap();
         let w = &c["wire"];
         assert_eq!((w["symbol"].as_str(), w["side"].as_str(), order.pair.as_str()), (Some("BTCUSDT"), Some("BUY"), "BTCUSDT"), "{c}");
         match order.kind {
@@ -382,7 +382,7 @@ fn every_recorded_v2_kucoin_sizing_and_wire_is_reproduced() {
         let refusal = plan.limit_refusal().unwrap();
         assert_eq!(refusal.as_deref(), c["refused"].as_str(), "refusal {c}");
         if refusal.is_some() { refused += 1; continue; }
-        let order = plan.to_order("cl".into(), deadline, KUCOIN.wire).unwrap();
+        let order = plan.to_order("cl".into(), deadline, &KUCOIN).unwrap();
         let w = &c["wire"];
         assert_eq!((w["symbol"].as_str(), w["side"].as_str(), order.pair.as_str()), (Some("BTC-USDT"), Some("buy"), "BTC-USDT"), "{c}");
         match order.kind {
@@ -428,10 +428,10 @@ fn a_sell_is_priced_above_the_last_trade_and_sized_in_base_under_base_and_quote_
     assert!(matches!(size("0.000001"), Sizing::BelowMinimum(_)), "positive, floors to zero: a skipped row, not order_ignored");
     assert!(matches!(size("0"), Sizing::Ignored(_)));
     // Whatever the venue's buy logic, a sell's wire is a base quantity.
-    for wire in [deltabadger::engine::venue_rules::KRAKEN.wire, ALPACA.wire, deltabadger::engine::venue_rules::BINANCE.wire] {
+    for rules in [&deltabadger::engine::venue_rules::KRAKEN, &ALPACA, &deltabadger::engine::venue_rules::BINANCE] {
         let Sizing::Place(m) = amount::size_sell(&market, &t, &bd("0.5"), &price).unwrap() else { panic!() };
-        let order = m.to_order("cl".into(), "2026-09-01T10:00:10Z".parse().unwrap(), wire).unwrap();
-        assert_eq!((order.side, order.quote_volume, order.volume.as_str()), (Side::Sell, false, if wire == ALPACA.wire { "0.50000" } else { "0.5" }));
+        let order = m.to_order("cl".into(), "2026-09-01T10:00:10Z".parse().unwrap(), rules).unwrap();
+        assert_eq!((order.side, order.quote_volume, order.volume.as_str()), (Side::Sell, false, if rules.wire == ALPACA.wire { "0.50000" } else { "0.5" }));
     }
 }
 
@@ -477,7 +477,7 @@ fn every_recorded_v2_sell_sizing_and_wire_is_reproduced() {
             let refusal = plan.limit_refusal().unwrap();
             assert_eq!(refusal.as_deref(), c["refused"].as_str(), "refusal {c}");
             if refusal.is_some() { refused_n += 1; continue; }
-            let order = plan.to_order("cl".into(), deadline, rules.wire).unwrap();
+            let order = plan.to_order("cl".into(), deadline, rules).unwrap();
             let w = &c["wire"];
             assert!(order.side == Side::Sell && !order.quote_volume, "{c}");
             if venue == "kraken" {

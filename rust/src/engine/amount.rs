@@ -215,25 +215,28 @@ impl OrderPlan {
     }
 
     /// `Err` only for a ticker precision outside `v2::MAX_SCALE` (then `size` refused the plan already).
-    pub fn to_order(&self, cl_ord_id: String, deadline: DateTime<Utc>, wire: WireFormat) -> Result<NewOrder, String> {
+    pub fn to_order(&self, cl_ord_id: String, deadline: DateTime<Utc>, rules: &VenueRules) -> Result<NewOrder, String> {
         let t = &self.ticker;
         let (base_decimals, quote_decimals, price_decimals) = t.scales()?;
-        let (kind, volume, quote_volume) = match wire {
+        // #679: a limit price goes out on the venue's own rule, the one it was sized at (Hyperliquid's significant figures,
+        // not price_decimals as places). Floor is idempotent on an adjusted price; on PriceRule::Decimals it is floor(price_decimals).
+        let limit_price = || rules.adjusted_price(&self.price, t, Rounding::Floor);
+        let (kind, volume, quote_volume) = match rules.wire {
             // Exchanges::Kraken#set_limit_order floors the price again; floor is idempotent.
             WireFormat::Bybit if self.limit => {
-                let price = self.price.floor(price_decimals);
+                let price = limit_price()?;
                 let qty = if self.quote_type { self.quote_amount.div(&price).map(|v| v.floor(base_decimals)).unwrap_or_else(BigDec::zero) } else { self.volume.clone() };
                 (OrderKind::Limit { price: price.to_s_f() }, qty.to_s_f(), false)
             }
             WireFormat::Kraken | WireFormat::Bybit => (
-                if self.limit { OrderKind::Limit { price: self.price.floor(price_decimals).to_s_f() } }
+                if self.limit { OrderKind::Limit { price: limit_price()?.to_s_f() } }
                 // D-679: the persisted crossed price, sent as it is (no second read, no resizing).
                 else if let Some(price) = &self.wire_price { OrderKind::Crossed { price: price.to_s_f() } }
                 else { OrderKind::Market },
                 self.volume.to_s_f(), self.quote_type),
             // Exchanges::Alpaca#set_limit_order: qty = floor(quote, quote_decimals) / price, floored to base_decimals.
             WireFormat::Alpaca if self.limit => {
-                let price = self.price.floor(price_decimals);
+                let price = limit_price()?;
                 let qty = if self.quote_type {
                     self.volume.div(&price).ok_or_else(||"zero limit price".to_string())?.floor(base_decimals)
                 } else { self.volume.floor(base_decimals) };

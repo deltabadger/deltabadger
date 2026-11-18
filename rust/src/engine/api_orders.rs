@@ -332,7 +332,7 @@ pub async fn place_standalone<V: crate::venue::Venue>(c: &Connection, venue: &V,
     if let Err(e) = venue.validate_preparation(identity.as_ref()).await { return failed(e.message()); }
     // 6. The claim: still taken, inside the send deadline, the key validation saw, and the request's own late refusals.
     let cl_ord_id = uuid::Uuid::new_v4().to_string();
-    let order = plan.to_order(cl_ord_id.clone(), request.send_by, rules.wire).map_err(EngineError::Data)?;
+    let order = plan.to_order(cl_ord_id.clone(), request.send_by, rules).map_err(EngineError::Data)?;
     let snapshot = serde_json::json!({ "symbol": order.pair, "side": order.side.as_str(), "limit": plan.limit, "kind": format!("{:?}", order.kind),
                                        "volume": order.volume, "quote": order.quote_volume });
     let (claimed, claimed_at) = {

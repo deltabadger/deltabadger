@@ -635,6 +635,30 @@ fn the_exact_cap_guard_trims_every_crypto_order_form_and_checks_the_venues_whole
     }
 }
 
+/// #679 closing review: on Hyperliquid the guard values a limit order at the significant-figures price it is sent at
+/// (0.001232, base_decimals 2), not that price floored to five decimal places (0.00123, which under-values it).
+#[test]
+fn the_exact_cap_guard_values_a_hyperliquid_limit_order_at_the_price_sent() {
+    // (spent of the 100 cap, budget, Some(guarded volume, its cost) placed / None skipped)
+    for (spent, x, want) in [("89.99001", "10.01", Some(("8124.99", "10.00998768"))), ("90", "10.00000848", None)] {
+        let (_d, o, s) = common::install();
+        o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Hyperliquid'", []).unwrap();
+        o.primary.execute("UPDATE tickers SET ticker = '@142', base_decimals = 2, quote_decimals = 2, price_decimals = 5, minimum_base_size = '0', minimum_quote_size = '10'", []).unwrap();
+        let id = seed::insert_bot(&o.primary, &s, &limited(json!(100)).with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0)));
+        seed::insert_tx(&o.primary, &s, id, &closed("OC-1", leak(spent)));
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+        let rules = deltabadger::engine::venue_rules::for_exchange("Exchanges::Hyperliquid").unwrap();
+        let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &bd(x), &bd("0.001232"), rules).unwrap() else { panic!("{spent}: sized to place") };
+        assert_eq!(plan.price, bd("0.001232"));
+        match (amount::guard_exact_cap(&o.primary, &bot, &plan).unwrap(), want) {
+            (amount::CapGuard::Place(g), Some((volume, cost))) => assert_eq!((g.volume, g.quote_amount), (bd(volume), bd(cost)), "{spent}"),
+            (amount::CapGuard::BelowMinimum(g), None) => assert_eq!(g.quote_amount, bd("9.99999616"), "{spent}"),
+            (_, want) => panic!("{spent}: expected {want:?}"),
+        }
+    }
+}
+
 /// D-ALPACA-BASE-FLOOR after the cap: a trim that leaves the order over the 5 USD quote floor but under the 0.001 BTC base
 /// floor is skipped, as a limit qty (0.001 → 0.00099999) and as a market notional (30.00 → 29.99, 0.00099966 BTC at 30000).
 #[test]
@@ -658,8 +682,7 @@ fn the_exact_cap_guard_skips_an_alpaca_trim_under_the_base_floor() {
 /// intent reads back (Intent::from_json) in its guarded denomination, and the row is the guarded order's.
 #[tokio::test(flavor = "current_thread")]
 async fn a_trimmed_intent_is_sent_and_recovered_in_its_own_denomination_on_each_crypto_wire() {
-    use deltabadger::engine::venue_rules::WireFormat;
-    use deltabadger::venue::http::ScriptedTransport;
+        use deltabadger::venue::http::ScriptedTransport;
     for (venue, pair) in CRYPTO {
         for (form, spent, x) in [(Form::Quote, "80", "20.03"), (Form::Base, "80", "20.003"), (Form::Limit, "80", "20.0009")] {
             let (_d, o, bot) = crypto_capped(venue, pair, spent, form);
@@ -668,7 +691,7 @@ async fn a_trimmed_intent_is_sent_and_recovered_in_its_own_denomination_on_each_
             let label = format!("{venue} {form:?}");
             let stored = model::load_bot(&o.primary, bot.id).unwrap().rust_placement().unwrap().clone();
             assert_eq!((stored["quote_type"].as_bool(), bd(stored["volume"].as_str().unwrap())), (Some(form == Form::Quote), intent.plan.volume.clone()), "{label}");
-            let wire = intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, WireFormat::Kraken).unwrap();
+            let wire = intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, &deltabadger::engine::venue_rules::KRAKEN).unwrap();
             let want_volume = match form { Form::Quote => "20", Form::Base => "0.0002", Form::Limit => "0.00066666" };
             assert_eq!((bd(&wire.volume), wire.quote_volume), (bd(want_volume), form == Form::Quote), "{label}: the volume sent");
             let cl = intent.cl_ord_id.clone();

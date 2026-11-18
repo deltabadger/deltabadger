@@ -151,7 +151,7 @@ async fn every_recorded_v2_sizing_and_wire_is_reproduced() {
         let refusal = plan.limit_refusal().unwrap();
         assert_eq!(refusal.as_deref(), c["refused"].as_str(), "refusal {c}");
         if refusal.is_some() { refused += 1; continue; }
-        let order = plan.to_order(CL.into(), deadline, BYBIT.wire).unwrap();
+        let order = plan.to_order(CL.into(), deadline, &BYBIT).unwrap();
         assert_eq!(sent_body(&order).await.unwrap(), want_body(&c["wire"]), "{c}");
     }
     assert!(refused > 100, "the limit refusal is exercised: {refused}");
@@ -173,7 +173,7 @@ async fn both_sides_of_every_recorded_v2_order_are_reproduced() {
         let volume = raw.floor(u8::try_from(if quote { t.quote_decimals } else { t.base_decimals }).unwrap());
         let plan = OrderPlan { ticker: t.clone(), side, limit, price, amount: raw.clone(), quote_amount: raw, quote_type: quote, volume, kind: TxKind::Regular,
                                origin: if side == Side::Buy { Origin::QuoteBudget } else { Origin::Base }, wire_price: None };
-        let order = plan.to_order(CL.into(), deadline, BYBIT.wire).unwrap();
+        let order = plan.to_order(CL.into(), deadline, &BYBIT).unwrap();
         match c["refused"].as_str() {
             Some(text) => {
                 assert_eq!(sent_body(&order).await, Err(VenueError::Rejected(vec![text.into()])), "{c}");
