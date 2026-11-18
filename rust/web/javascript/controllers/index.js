@@ -165,8 +165,8 @@ application.register("segmented", SegmentedController)
 import SchemeController from "./scheme_controller"
 application.register("scheme", SchemeController)
 
-import InvestAnimationController from "./invest_animation_controller"
-application.register("invest-animation", InvestAnimationController)
+import PixelSceneController from "./pixel_scene_controller"
+application.register("pixel-scene", PixelSceneController)
 
 import SheetController from "./sheet_controller"
 application.register("sheet", SheetController)

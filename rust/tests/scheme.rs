@@ -69,4 +69,8 @@ fn the_normaliser_leaves_out_only_the_scheme_row() {
     let ours = "<div class=\"dropdown\"><form></form><div class=\"dropdown__item\" data-scheme-switch><button>Space</button></div>\n<a>x</a></div>";
     let v2 = "<div class=\"dropdown\"><form></form>\n<a>x</a></div>";
     assert_eq!(common::html::normalize(ours), common::html::normalize(v2));
+    // D-PIXEL-SCENES: an empty state's scene goes the same way.
+    let ours = "<div class=\"welcome-screen\"><canvas class=\"pixel-scene\" data-pixel-scene></canvas>\n<p>Start investing.</p></div>";
+    let v2 = "<div class=\"welcome-screen\">\n<p>Start investing.</p></div>";
+    assert_eq!(common::html::normalize(ours), common::html::normalize(v2));
 }

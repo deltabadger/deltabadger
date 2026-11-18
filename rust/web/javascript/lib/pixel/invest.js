@@ -1,7 +1,7 @@
 /**
  * "Start investing" empty-state animation — procedural pixel art.
  *
- * A little hero walks in from the right (facing left) carrying a spinning coin, tosses it into the ground,
+ * A little astronaut hero walks in from the right (facing left) carrying a spinning coin, tosses it into the ground,
  * cheers, and walks off. Every coin sprouts a procedurally generated plant
  * (random curve, leaf layout, growth speed, sway) that grows forever and
  * eventually leaves the top of the frame. The hero keeps coming back, first
@@ -36,7 +36,7 @@ export function createInvestAnimation(canvas, opts = {}) {
   const WILT = 1.6, SHRINK = 1.4;       // seconds: turn brown, then sink away
 
   const C = Object.assign({
-    hair: '#c0703a', skin: '#ffd6b0', eye: '#0b1630', body: '#3d63ff', legs: '#7f95c4',
+    suit: '#e6edf9', suitShade: '#aebbd4', visor: '#1f3a6e', glint: '#9fd0ff', accent: '#3d63ff', pack: '#8a9bbd', boot: '#6c7fa8',
     coinO: '#c98a00', coinY: '#ffcc33', coinH: '#fff4b8', coinD: '#e8a600',
     stem: '#1f9d5a', leaf: '#2ecc71', leafL: '#8ef0b0',
 
@@ -45,19 +45,19 @@ export function createInvestAnimation(canvas, opts = {}) {
   }, PALETTES[opts.palette] || {}, opts.colors || {});
 
   // ---------- sprites (8px wide hero) ----------
-  const HEAD = ['..hhhh..', '.hhhhhh.', '.hssses.', '..ssss..'];
+  const HEAD = ['..wwvv..', '.wwvvgv.', '.wwvvvv.', '..wwvv..']; // helmet with a glass bubble front
   const ARMS = {
-    free:  ['..bbbb..', '.bbbbbb.', '.sbbbbs.', '..bbbb..'],
-    carry: ['..bbbb..', '..bbbbss', '..bbbb..', '..bbbb..'],
+    free:  ['..aaaa..', 'pwwwwww.', 'pWwwwwW.', '..wwww..'],
+    carry: ['..aaaa..', 'pwwwwwWW', 'pwwwww..', '..wwww..'],
   };
-  const CHEER = ['..hhhh..', 'shhhhhhs', 'bhsssesb', 'b.ssss.b', '.bbbbbb.', '..bbbb..', '..bbbb..', '..bbbb..'];
+  const CHEER = ['W.wwvv.W', 'wwwvvgvw', 'wwwvvvvw', 'w.wwvv.w', '..aaaa..', 'pwwwwww.', 'pwwwwww.', '..wwww..'];
   const LEGS = [
-    ['..l..l..', '..l..l..'],
-    ['..l.l...', '.l...l..'],
-    ['..l..l..', '..l..l..'],
-    ['...l.l..', '..l...l.'],
+    ['..W..W..', '..B..B..'],
+    ['..W.W...', '.B...B..'],
+    ['..W..W..', '..B..B..'],
+    ['...W.W..', '..B...B.'],
   ];
-  const HERO_MAP = { h: C.hair, s: C.skin, e: C.eye, b: C.body, l: C.legs };
+  const HERO_MAP = { w: C.suit, W: C.suitShade, v: C.visor, g: C.glint, a: C.accent, p: C.pack, B: C.boot };
 
   const COIN = [
     ['.ooo.', 'ohyyo', 'oyyyo', 'oyydo', '.ooo.'],
@@ -384,8 +384,7 @@ export function createInvestAnimation(canvas, opts = {}) {
   }
   raf = requestAnimationFrame(frame);
 
-  // Deltabadger: a scheme change recolours the scene in place — the ground and the dust are read as they are drawn,
-  // each plant's depth-shaded tones are worked out again.
+  // Deltabadger: a scheme change recolours the scene in place.
   function recolor(colors) {
     Object.assign(C, colors);
     for (const p of plants) {
