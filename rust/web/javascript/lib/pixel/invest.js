@@ -75,12 +75,17 @@ export function createInvestAnimation(canvas, opts = {}) {
 
   // ---------- canvas ----------
   const scale = opts.scale || 4;
-  canvas.width = W; canvas.height = H;
-  canvas.style.width = W * scale + 'px';
-  canvas.style.height = H * scale + 'px';
-  canvas.style.imageRendering = 'pixelated';
-  const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
+  let ctx;
+  // Deltabadger: the scene can move to another canvas (the bots page drawn again) and go on where it was.
+  function setup(canvas) {
+    canvas.width = W; canvas.height = H;
+    canvas.style.width = W * scale + 'px';
+    canvas.style.height = H * scale + 'px';
+    canvas.style.imageRendering = 'pixelated';
+    ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+  }
+  setup(canvas);
 
   let clip = false;
   function px(x, y, c) {
@@ -382,7 +387,8 @@ export function createInvestAnimation(canvas, opts = {}) {
     render();
     raf = requestAnimationFrame(frame);
   }
-  raf = requestAnimationFrame(frame);
+  function start() { cancelAnimationFrame(raf); last = performance.now(); raf = requestAnimationFrame(frame); }
+  start();
 
   // Deltabadger: a scheme change recolours the scene in place.
   function recolor(colors) {
@@ -395,6 +401,12 @@ export function createInvestAnimation(canvas, opts = {}) {
     }
   }
 
-  return { recolor, destroy() { cancelAnimationFrame(raf); } };
+  return {
+    recolor,
+    // Deltabadger: paused, the scene keeps its state and its clock stands still; attached again, it draws on.
+    pause() { cancelAnimationFrame(raf); },
+    attach(canvas) { setup(canvas); start(); },
+    destroy() { cancelAnimationFrame(raf); },
+  };
 }
 
