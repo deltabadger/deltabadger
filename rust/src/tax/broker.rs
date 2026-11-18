@@ -164,7 +164,9 @@ fn vorabpauschale(year: i32, acquired: NaiveDate, start: &Dec, end: &Dec, distri
 // ---- the ledger rows ---------------------------------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]
-struct Rec { id: i64, kind: i64, key: Option<i64>, base: String, amount: Dec, quote: Option<String>, quote_amount: Option<Dec>, fee: Option<Dec>, at: DateTime<Utc>, local: NaiveDate, raw: Value }
+struct Rec { id: i64, kind: i64, key: Option<i64>, base: String, amount: Dec, quote: Option<String>, quote_amount: Option<Dec>, fee: Option<Dec>, at: DateTime<Utc>, local: NaiveDate, raw: Value,
+             /// The class its stored asset records (`prices::recorded_class`): Some(true) a security, Some(false) a coin.
+             class: Option<bool> }
 
 impl Rec {
     /// D-TAX-BROKER-LOCAL-DATE: a fill's day is the taxpayer's (Alpaca trades until 20:00 ET, past midnight in Berlin); a
@@ -211,8 +213,9 @@ impl Rec {
 
 fn records(c: &Connection, user: i64, exchange: i64, year: i32) -> R<Vec<Rec>> {
     let zone: String = c.query_row("SELECT COALESCE(time_zone, 'UTC') FROM users WHERE id = ?1", [user], |r| r.get(0))?;
-    let mut s = c.prepare("SELECT id, entry_type, base_currency, base_amount, quote_currency, quote_amount, fee_amount, transacted_at, raw_data, api_key_id \
-                           FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at < ?3 ORDER BY transacted_at, id")?;
+    let mut s = c.prepare("SELECT t.id, t.entry_type, t.base_currency, t.base_amount, t.quote_currency, t.quote_amount, t.fee_amount, t.transacted_at, t.raw_data, \
+                           t.api_key_id, ba.id, ba.external_id, ba.category FROM account_transactions t LEFT JOIN assets ba ON ba.id = t.base_asset_id \
+                           WHERE t.user_id = ?1 AND t.exchange_id = ?2 AND t.transacted_at < ?3 ORDER BY t.transacted_at, t.id")?;
     // Every row of the year in any zone; each kept by its own day's year.
     let until = format!("{}-01-02 12:00:00", year + 1);
     let mut rows = s.query(rusqlite::params![user, exchange, until])?;
@@ -223,7 +226,9 @@ fn records(c: &Connection, user: i64, exchange: i64, year: i32) -> R<Vec<Rec>> {
         let at = crate::codec::parse_time(&at).map_err(|_| FiguresError::NotComputed("an unreadable transaction time".into()))?;
         let raw: Option<String> = r.get(8)?;
         let local = crate::web::timezone::local(at, &zone).date_naive();
-        out.push(Rec { id: r.get(0)?, kind: r.get(1)?, key: r.get(9)?, base: r.get(2)?, amount: number(3)?.unwrap_or_else(Dec::zero), quote: r.get(4)?,
+        let asset: Option<i64> = r.get(10)?;
+        let class = crate::tracker::prices::recorded_class(asset.map(|id| Ok::<_, rusqlite::Error>((id, r.get(11)?, r.get(12)?))).transpose()?.as_ref());
+        out.push(Rec { class, id: r.get(0)?, kind: r.get(1)?, key: r.get(9)?, base: r.get(2)?, amount: number(3)?.unwrap_or_else(Dec::zero), quote: r.get(4)?,
                        quote_amount: number(5)?, fee: number(6)?, at, local,
                        raw: raw.and_then(|t| serde_json::from_str(&t).ok()).filter(Value::is_object).unwrap_or_else(|| serde_json::json!({})) });
     }
@@ -353,6 +358,9 @@ impl<'a> Walk<'a> {
         for r in records(c, user, exchange, year)? {
             let crypto = match r.symbol() {
                 None => false,
+                // #1061: the asset a row stored decides its class (a coin is the crypto report's), whatever else shares the
+                // symbol; a distribution's instrument is its quote, which the stored asset does not name.
+                Some(_) if !matches!(r.kind, OTHER_INCOME | WITHHOLDING) && r.class.is_some() => r.class == Some(false),
                 Some(symbol) => {
                     if let Some(categories) = scope.ambiguous(c, &symbol)? { w.warn("ambiguous_symbol", Some(symbol.clone()), Detail::List(categories)); }
                     scope.crypto(c, &symbol)?
@@ -1059,5 +1067,33 @@ mod tests {
         // A degenerate adjustment is no split.
         l.adjust(&n("-40"), day("2024-07-01")).unwrap();
         assert_eq!(l.splits.len(), 1);
+    }
+
+    /// #1061: Alpaca's BTC security (an ETF) beside the BTC coin, both stored as `BTC`. The asset each row stored decides:
+    /// the coin's rows are not walked (the crypto report has them), and the security's split restates its lots only.
+    #[test]
+    fn a_coin_sharing_a_securitys_symbol_is_not_walked() {
+        let c = install();
+        c.execute_batch("INSERT INTO assets (id, external_id, symbol, name, category, instrument_type, created_at, updated_at) VALUES
+              (10, 'BTC.ARCX', 'BTC', 'Grayscale Bitcoin Mini Trust', 'ETF', 'etf', '2026-01-01', '2026-01-01'),
+              (11, 'bitcoin', 'BTC', 'Bitcoin', 'Cryptocurrency', NULL, '2026-01-01', '2026-01-01');").unwrap();
+        for (kind, asset, amount, usd, at, raw) in [(BUY, 11, "1", Some("60000"), "2025-02-03 15:00:00", "{}"), (BUY, 10, "10", Some("300"), "2025-02-04 15:00:00", "{}"),
+                                                    (ADJUSTMENT, 10, "10", None, "2025-03-03 12:00:00", r#"{"activity_type":"SPLIT"}"#),
+                                                    (SELL, 11, "1", Some("70000"), "2025-04-01 15:00:00", "{}"), (SELL, 10, "5", Some("200"), "2025-04-02 15:00:00", "{}")] {
+            c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, base_asset_id, transacted_at, raw_data, created_at, updated_at) \
+                       VALUES (1, 1, ?1, 'BTC', ?2, 'USD', ?3, ?4, ?5, ?6, '2026-01-01', '2026-01-01')", rusqlite::params![kind, amount, usd, asset, at, raw]).unwrap();
+        }
+        let failed = HashSet::new();
+        let closes = Closes::Stored { c: &c, failed: &failed };
+        let mut w = Walk::new(&c, 1, 1, 2025, &closes).unwrap();
+        w.run().unwrap();
+        assert_eq!(w.recs.iter().map(|r| r.id).collect::<Vec<_>>(), [2, 3, 5], "the coin's rows are not walked");
+        let lots = &w.states["BTC"].ledger.lots;
+        assert_eq!(lots.iter().map(|l| l.units.clone()).collect::<Vec<_>>(), [n("15")]);
+        let sold: Vec<&Disposal> = w.disposals.iter().filter(|d| d.symbol == "BTC").collect();
+        assert_eq!(sold.iter().map(|d| d.units.clone()).collect::<Vec<_>>(), [n("5")]);
+        // A quarter of the security's purchase: what is left holds the other three.
+        assert_eq!(mul(&sold[0].cost, &n("3")).unwrap(), lots[0].cost);
+        assert!(!w.warnings.iter().any(|x| x.code == "ambiguous_symbol"), "{:?}", w.warnings.iter().map(|x| x.code).collect::<Vec<_>>());
     }
 }

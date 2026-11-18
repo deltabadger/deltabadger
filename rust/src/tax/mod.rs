@@ -143,7 +143,9 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     };
     let scope = CryptoScope::new(c, user_id)?;
     let mut rows = vec![];
-    for r in all { if !stock.contains(&r.exchange_id) || scope.crypto(c, &r.base)? { rows.push(r); } }
+    for r in all {
+        if crypto_row(stock.contains(&r.exchange_id), prices::recorded_class(r.base_asset.as_ref()), || scope.crypto(c, &r.base))? { rows.push(r); }
+    }
 
     let zone: String = c.query_row("SELECT time_zone FROM users WHERE id = ?1", [user_id], |r| r.get(0))?;
     // D-TAX-CFEE-PREVIOUS-DAY: on the whole history, before the year is cut, so every slice carries the same fold. Poland
@@ -189,6 +191,14 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let forks = if gb { fork_rows(c, user_id)? } else { HashSet::new() };
     let estv = if j.code == "CH" { Some(estv::Estv::load(c)?) } else { None };
     Ok(Prepared::Report(Box::new(Report { j, year, zone, stablecoin_as_fiat, banners, scoped, deposits, reference, fx, nbp, carry, cnb, ahead, forks, estv })))
+}
+
+/// D-TAX-SCOPE-STORED-ASSET (#1061): whether a row is in the crypto report. Every row of a crypto venue; of a stock venue,
+/// the asset the row stored decides (a coin in, a security out), and a row that stored none is read by its symbol, as
+/// 2.x did. By symbol alone a coin whose symbol a security shares was never crypto, and its rows were missing.
+fn crypto_row(stock_venue: bool, class: Option<bool>, by_symbol: impl FnOnce() -> Result<bool, FiguresError>) -> Result<bool, FiguresError> {
+    if !stock_venue { return Ok(true); }
+    match class { Some(security) => Ok(!security), None => by_symbol() }
 }
 
 /// D-TAX-GB-AIRDROP (r3 item 3): the user's rows whose venue label names a fork: the row's own description (Binance's
@@ -1178,4 +1188,58 @@ pub(crate) fn line(out: &mut String, cells: &[Cell]) {
 
 fn quote(v: &str) -> String {
     if v.contains([',', '"', '\r', '\n']) { format!("\"{}\"", v.replace('"', "\"\"")) } else { v.to_string() }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// #1061: Alpaca's BTC security (an ETF) beside the BTC coin, both stored as `BTC`; ids 1 and 2.
+    fn shared_symbol() -> Connection {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(include_str!("../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+        c.execute_batch("PRAGMA foreign_keys = OFF;
+            INSERT INTO users (id, email, created_at, updated_at, time_zone) VALUES (1, 'o@example.com', '2026-01-01', '2026-01-01', 'UTC');
+            INSERT INTO exchanges (id, type, name, created_at, updated_at) VALUES (1, 'Exchanges::Alpaca', 'Alpaca', '2026-01-01', '2026-01-01');
+            INSERT INTO assets (id, external_id, symbol, name, category, instrument_type, created_at, updated_at) VALUES
+              (1, 'BTC.ARCX', 'BTC', 'Grayscale Bitcoin Mini Trust', 'ETF', 'etf', '2026-01-01', '2026-01-01'),
+              (2, 'bitcoin', 'BTC', 'Bitcoin', 'Cryptocurrency', NULL, '2026-01-01', '2026-01-01');").unwrap();
+        let mut day = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+        while day <= NaiveDate::from_ymd_opt(2025, 12, 31).unwrap() {
+            c.execute("INSERT INTO fx_rates (currency, date, rate) VALUES ('USD', ?1, '1.08')", [day.to_string()]).unwrap();
+            day = day.succ_opt().unwrap();
+        }
+        // The coin's buy and sale, the security's buy and its 2:1 split.
+        for (kind, asset, amount, usd, at) in [(0, 2, "1", "60000", "2025-02-01 10:00:00"), (0, 1, "10", "300", "2025-02-02 10:00:00"),
+                                               (15, 1, "10", "0", "2025-03-01 10:00:00"), (1, 2, "1", "70000", "2025-04-01 10:00:00")] {
+            c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, base_asset_id, transacted_at, raw_data, created_at, updated_at) \
+                       VALUES (1, 1, ?1, 'BTC', ?2, 'USD', ?3, ?4, ?5, '{}', '2026-01-01', '2026-01-01')", rusqlite::params![kind, amount, usd, asset, at]).unwrap();
+        }
+        c
+    }
+
+    #[test]
+    fn a_rows_stored_asset_decides_its_scope_on_a_stock_venue() {
+        let never = || -> Result<bool, FiguresError> { panic!("the stored class decides") };
+        assert!(crypto_row(false, Some(true), never).unwrap(), "a crypto venue keeps every row");
+        assert!(crypto_row(false, Some(false), never).unwrap());
+        assert!(crypto_row(false, None, never).unwrap());
+        assert!(crypto_row(true, Some(false), never).unwrap(), "a coin");
+        assert!(!crypto_row(true, Some(true), never).unwrap(), "a security");
+        for by_symbol in [true, false] { assert_eq!(crypto_row(true, None, || Ok(by_symbol)).unwrap(), by_symbol, "no stored asset: by symbol"); }
+    }
+
+    /// D-TAX-SCOPE-STORED-ASSET (#1061): on a stock venue the asset a row stored decides whether it is crypto; the coin's
+    /// rows are reported, the security's left to the broker report, and its split never reaches the coin's basis.
+    #[test]
+    fn a_coin_sharing_a_securitys_symbol_is_in_the_crypto_report() {
+        let c = shared_symbol();
+        let Prepared::Report(report) = prepare(&c, 1, "DE", 2025, false).unwrap() else { panic!("refused") };
+        assert_eq!(report.scoped.iter().map(|r| (r.kind, r.amount.to_s_f())).collect::<Vec<_>>(), [(Kind::Buy, "1.0".to_string()), (Kind::Sell, "1.0".to_string())]);
+        let Outcome::Csv(csv) = report.compute(&mut Unfetched, NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(), &mut |_| {}).unwrap() else { panic!("refused") };
+        let disposals: Vec<Vec<&str>> = csv.lines().skip(1).map(|l| l.split(',').collect()).collect();
+        assert_eq!(disposals.len(), 1, "{csv}");
+        // Quantity, then the cost: the 60,000 USD purchase at 1.08, not 11/21 of it.
+        assert_eq!((disposals[0][2], disposals[0][3], disposals[0][5]), ("BTC", "1.0", "55555.56"), "{csv}");
+    }
 }

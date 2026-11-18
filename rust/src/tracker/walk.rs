@@ -35,7 +35,7 @@ fn binance_a12_recorded_accounting_baselines() {
                 fiat_value:d("fiat_value"),fee_fiat_value:d("fee_fiat_value"),fee_currency:r["fee_currency"].as_str().map(str::to_owned),fee_amount:r["fee_amount"].as_str().map(|s|Dec::parse(s).unwrap()),
                 at:At::from_sql(r["transacted_at"].as_str().unwrap()).unwrap(),group:r["group_id"].as_str().map(str::to_owned),
                 price_missing:false,value_missing:None,exchange:"binance".into(),linked:false,transfer_fee:None,swap_fiat_cost:None,
-                swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false,stated_value:false,fee_missing:false}
+                swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false,stated_value:false,fee_missing:false,class:None}
         }).collect();
         let mut engine=Engine::new(false); engine.calculate(&rows).unwrap();
         let lots: serde_json::Map<String,Value>=engine.lots.iter().map(|((_,asset),ls)|
@@ -89,6 +89,8 @@ pub struct Row {
     pub stated_value: bool,
     /// Whether the fee's own valuation warned (`price_missing` folds it in with the row's value).
     pub fee_missing: bool,
+    /// The class its stored asset records (`prices::recorded_class`): Some(true) a security, Some(false) a coin, None unknown.
+    pub class: Option<bool>,
 }
 
 impl Row {
@@ -342,6 +344,7 @@ pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Pri
             swap_fiat_cost: leg.and_then(|l| l.swap_fiat.clone()), swap_stable_cost: leg.and_then(|l| l.swap_stable.clone()),
             per_share: t.per_share.clone(), to_exchange: t.to_venue.clone(), orphan: false, opening: false,
             stated_value: t.stated.is_some() && !(t.quoted() || leg.is_some_and(|l| l.fiat_value.is_some())), fee_missing,
+            class: super::prices::recorded_class(t.base_asset.as_ref()),
         });
     }
     attribute_quote_row_fees(&mut rows);
@@ -569,7 +572,7 @@ pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next
         before.entry(i).or_default().push(Row {
             uid, kind: Kind::Deposit, base: symbol, fiat_value: (&price * &quantity)?, fee_fiat_value: Dec::zero(), fee_currency: None, fee_amount: None,
             amount: quantity, quote: None, quote_amount: None, at, group: None, price_missing: price.is_zero(), value_missing: None, exchange: venue,
-            linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None, to_exchange: None, orphan: false, opening: true, stated_value: false, fee_missing: false,
+            linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None, to_exchange: None, orphan: false, opening: true, stated_value: false, fee_missing: false, class: None,
         });
     }
     if before.is_empty() { return Ok(rows); }
@@ -584,18 +587,29 @@ pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next
 /// D-ALPACA-SPLIT-GROUPING: a venue's same-day adjustments of one symbol are one restatement.
 /// Applying an intermediate removal first can erase FIFO basis or invent an opening balance. Net before
 /// either walk, at the first row of that day; retain the other row identities with zero quantity changes.
+/// #1061: a day whose legs record both classes (a security and a coin sharing the symbol) nets per class; one leg with
+/// no stored asset beside both classes could be either's, and the walk refuses. One known class: every leg nets into
+/// the first row, which takes that class.
 fn net_daily_splits(mut rows: Vec<Row>) -> Result<Vec<Row>, FiguresError> {
-    let mut first = HashMap::new();
-    for i in 0..rows.len() {
+    let mut days: HashMap<(String, String, NaiveDate), Vec<usize>> = HashMap::new();
+    for (i, row) in rows.iter().enumerate() {
         crate::figures::budget::charge(1, 0)?;
-        let row = &rows[i];
         if row.kind != Kind::Adjustment { continue; }
-        let key = (row.exchange.clone(), row.base.clone(), row.at.utc().date_naive());
-        let at = *first.entry(key).or_insert(i);
-        if at != i {
-            rows[at].amount = (&rows[at].amount + &rows[i].amount)?;
-            rows[i].amount = Dec::zero();
+        days.entry((row.exchange.clone(), row.base.clone(), row.at.utc().date_naive())).or_default().push(i);
+    }
+    for legs in days.values() {
+        let known: HashSet<bool> = legs.iter().filter_map(|&i| rows[i].class).collect();
+        let per_class = known.len() == 2;
+        if per_class && legs.iter().any(|&i| rows[i].class.is_none()) { return Err(FiguresError::NotComputed(super::figures::AMBIGUOUS_CLASS.into())); }
+        let mut first: HashMap<Option<bool>, usize> = HashMap::new();
+        for &i in legs {
+            let at = *first.entry(if per_class { rows[i].class } else { None }).or_insert(i);
+            if at != i {
+                rows[at].amount = (&rows[at].amount + &rows[i].amount)?;
+                rows[i].amount = Dec::zero();
+            }
         }
+        if let (false, Some(&class)) = (per_class, known.iter().next()) { rows[legs[0]].class = Some(class); }
     }
     Ok(rows)
 }
@@ -610,9 +624,9 @@ fn taxable(rows: &[Row]) -> Vec<Row> {
 // ---------------------------------------------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]
-struct Lot { amount: Dec, cost_per_unit: Dec, date: At, basis_assumed: bool, unpriced: Dec }
+struct Lot { amount: Dec, cost_per_unit: Dec, date: At, basis_assumed: bool, unpriced: Dec, class: Option<bool> }
 #[derive(Clone, Debug)]
-struct Tranche { amount: Dec, cost: Dec, date: At, basis_assumed: bool, unpriced: Dec, weight: Dec }
+struct Tranche { amount: Dec, cost: Dec, date: At, basis_assumed: bool, unpriced: Dec, weight: Dec, class: Option<bool> }
 
 /// A disposal (Tax::Methods::Fifo#disposal_row, without a holding rule), as the figures, the round trips and the arming
 /// read one.
@@ -622,6 +636,9 @@ pub struct Disposal { pub at: At, pub acquired: Option<At>, pub asset: String, p
                       pub closes_position: bool, pub any_lot_lost: Option<bool> }
 
 type GroupKey = (String, String);
+
+/// #1061: a lot of the other known class than the row's (a security's corporate action and a coin's lot sharing a symbol).
+fn other_class(r: &Row, lot: &Lot) -> bool { matches!((r.class, lot.class), (Some(a), Some(b)) if a != b) }
 
 pub struct Engine {
     located: bool,
@@ -711,7 +728,7 @@ impl Engine {
             let Some(lot) = lots.front_mut() else { break };
             let take = min(&lot.amount, &remaining);
             let unpriced = if lot.amount.is_positive() { (&lot.unpriced * &take)?.div(&lot.amount)? } else { Dec::zero() };
-            tranches.push(Tranche { cost: (&take * &lot.cost_per_unit)?, amount: take, date: lot.date, basis_assumed: lot.basis_assumed, unpriced: unpriced.clone(), weight: Dec::zero() });
+            tranches.push(Tranche { cost: (&take * &lot.cost_per_unit)?, amount: take, date: lot.date, basis_assumed: lot.basis_assumed, unpriced: unpriced.clone(), weight: Dec::zero(), class: lot.class });
             if lot.amount <= remaining {
                 remaining = (&remaining - &lot.amount)?;
                 lots.pop_front();
@@ -848,13 +865,13 @@ impl Engine {
         if uncovered.is_positive() {
             self.uncovered = true;
             self.uncovered_venues.insert(self.venue.clone());
-            tranches.push(Tranche { amount: uncovered.clone(), cost: Dec::zero(), date: r.at, basis_assumed: true, unpriced: uncovered, weight: Dec::zero() });
+            tranches.push(Tranche { amount: uncovered.clone(), cost: Dec::zero(), date: r.at, basis_assumed: true, unpriced: uncovered, weight: Dec::zero(), class: r.class });
         }
         let key = (Some(destination), r.base.clone());
         let lots = self.lots.entry(key.clone()).or_default();
         for t in &tranches {
             if !t.amount.is_positive() { continue; }
-            lots.push_back(Lot { amount: t.amount.clone(), cost_per_unit: t.cost.div(&t.amount)?, date: t.date, basis_assumed: t.basis_assumed, unpriced: t.unpriced.clone() });
+            lots.push_back(Lot { amount: t.amount.clone(), cost_per_unit: t.cost.div(&t.amount)?, date: t.date, basis_assumed: t.basis_assumed, unpriced: t.unpriced.clone(), class: t.class.or(r.class) });
         }
         self.sort_lots(key);
         self.moved.insert(r.uid, (sum(tranches.iter().map(|t| Ok(t.cost.clone())))?, tranches.iter().any(|t| t.unpriced.is_positive())));
@@ -867,7 +884,7 @@ impl Engine {
         let Some(key) = group_key(r) else { return Ok(()) };
         let uncovered = (amount - &min(amount, &held))?;
         if uncovered.is_positive() {
-            tranches.push(Tranche { amount: uncovered.clone(), cost: Dec::zero(), date: r.at, basis_assumed: true, unpriced: uncovered, weight: Dec::zero() });
+            tranches.push(Tranche { amount: uncovered.clone(), cost: Dec::zero(), date: r.at, basis_assumed: true, unpriced: uncovered, weight: Dec::zero(), class: r.class });
         }
         let weight = self.swap_out_groups.get(&key).and_then(|(w, _)| w.get(&r.uid)).cloned()
             .ok_or_else(|| FiguresError::Raised("KeyError: a swap leg outside its group".into()))?;
@@ -895,7 +912,7 @@ impl Engine {
         let lots_key = self.key(&r.base);
         if tranches.is_empty() && !cash_present {
             let lot = Lot { amount: lot_amount.clone(), cost_per_unit: unit(&(value + &fee_cost)?, &lot_amount)?, date: r.at, basis_assumed: assumed,
-                            unpriced: if r.value_missing() { lot_amount.clone() } else { Dec::zero() } };
+                            unpriced: if r.value_missing() { lot_amount.clone() } else { Dec::zero() }, class: r.class };
             self.lots(&r.base).push_back(lot);
             return Ok(());
         }
@@ -928,37 +945,37 @@ impl Engine {
             // equal tranches carried half of it).
             let cost = (&(&(&t.cost * &share)? * &total_weight)?.div(&t.weight)? + &fee_cost)?;
             let unpriced = if t.amount.is_positive() { (&tranche_amount * &t.unpriced)?.div(&t.amount)? } else { Dec::zero() };
-            opened.push(Lot { amount: tranche_amount, cost_per_unit: cost.div(&rest)?, date: t.date, basis_assumed: t.basis_assumed || assumed, unpriced });
+            opened.push(Lot { amount: tranche_amount, cost_per_unit: cost.div(&rest)?, date: t.date, basis_assumed: t.basis_assumed || assumed, unpriced, class: r.class });
         }
         if cash_amount.is_positive() {
             let mut scale = if tranches.is_empty() { fee_cost.clone() } else if coin_value.is_positive() { coin_value.clone() } else { transferred_cost.clone() };
             // D-TRACKER-SWAP-FEE: when no tranche took any units, the fee joins the cash lot (2.x dropped it).
             if !tranches.is_empty() && !rest.is_positive() { scale = (&scale + &fee_cost)?; }
             opened.push(Lot { amount: cash_amount, cost_per_unit: unit(&(&cash_cost + &scale)?, &lot_amount)?, date: r.at,
-                              basis_assumed: assumed || (rest.is_zero() && tranches.iter().any(|t| t.basis_assumed)), unpriced: Dec::zero() });
+                              basis_assumed: assumed || (rest.is_zero() && tranches.iter().any(|t| t.basis_assumed)), unpriced: Dec::zero(), class: r.class });
         }
         self.lots(&r.base).extend(opened);
         self.sort_lots(lots_key);
         Ok(())
     }
 
-    /// Tax::Methods::Fifo#apply_split.
+    /// Tax::Methods::Fifo#apply_split, over the lots of the row's class (#1061: never the other known class's).
     fn split(&mut self, r: &Row) -> Result<(), FiguresError> {
         let amount = &r.amount;
-        let pool = self.held(&r.base)?;
-        let factor = if pool.is_positive() { (&pool + amount)?.div(&pool)? } else { Dec::zero() };
         let at = r.at;
         let lots = self.lots(&r.base);
+        let pool = sum(lots.iter().filter(|l| !other_class(r, l)).map(|l| Ok(l.amount.clone())))?;
+        let factor = if pool.is_positive() { (&pool + amount)?.div(&pool)? } else { Dec::zero() };
         if !amount.is_zero() && pool.is_positive() && factor.is_positive() {
-            for lot in lots.iter_mut() {
+            for lot in lots.iter_mut().filter(|l| !other_class(r, l)) {
                 lot.cost_per_unit = lot.cost_per_unit.div(&factor)?;
                 lot.amount = (&lot.amount * &factor)?;
                 lot.unpriced = (&lot.unpriced * &factor)?;
             }
         } else if amount.is_negative() && !factor.is_positive() {
-            lots.clear();
+            lots.retain(|l| other_class(r, l));
         } else if amount.is_positive() && pool.is_zero() {
-            lots.push_back(Lot { amount: amount.clone(), cost_per_unit: Dec::zero(), date: at, basis_assumed: true, unpriced: amount.clone() });
+            lots.push_back(Lot { amount: amount.clone(), cost_per_unit: Dec::zero(), date: at, basis_assumed: true, unpriced: amount.clone(), class: r.class });
         }
         Ok(())
     }
@@ -976,16 +993,17 @@ impl Engine {
         let venue = self.venue.clone();
         let lots = self.lots(&r.base);
         // What is returned past the basis is realised (`roc_at`).
-        let excess = if let (Some(per_unit), false) = (&per_unit, lots.is_empty()) {
+        let none_of_its_class = lots.iter().all(|l| other_class(r, l));
+        let excess = if let (Some(per_unit), false) = (&per_unit, none_of_its_class) {
             let mut excess = Dec::zero();
-            for lot in lots.iter_mut() {
+            for lot in lots.iter_mut().filter(|l| !other_class(r, l)) {
                 excess = (&excess + &(&lot.amount * &max(&(per_unit - &lot.cost_per_unit)?, &Dec::zero()))?)?;
                 lot.cost_per_unit = max(&(&lot.cost_per_unit - per_unit)?, &Dec::zero());
             }
             excess
         } else {
             let mut remaining = value;
-            for lot in lots.iter_mut() {
+            for lot in lots.iter_mut().filter(|l| !other_class(r, l)) {
                 if !remaining.is_positive() { break; }
                 let lot_cost = (&lot.amount * &lot.cost_per_unit)?;
                 let take = min(&lot_cost, &remaining);
@@ -1088,7 +1106,7 @@ impl Engine {
         let (lot_amount, lot_cost) = self.acquisition_fee(r, &r.amount, &r.fiat_value)?;
         let cost_per_unit = unit(&lot_cost, &lot_amount)?;
         let unpriced = if r.value_missing() { lot_amount.clone() } else { Dec::zero() };
-        self.lots(&r.base).push_back(Lot { amount: lot_amount, cost_per_unit, date: r.at, basis_assumed, unpriced });
+        self.lots(&r.base).push_back(Lot { amount: lot_amount, cost_per_unit, date: r.at, basis_assumed, unpriced, class: r.class });
         Ok(())
     }
 
@@ -1617,7 +1635,7 @@ mod tests {
         Row { uid, kind, base: base.into(), amount: d(amount), quote: None, quote_amount: None, fiat_value: Dec::zero(), fee_fiat_value: Dec::zero(),
               fee_currency: None, fee_amount: None, at: At::from_sql(at).unwrap(), group: None, price_missing: false, value_missing: None,
               exchange: exchange.into(), linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None,
-              to_exchange: None, orphan: false, opening: false, stated_value: false, fee_missing: false }
+              to_exchange: None, orphan: false, opening: false, stated_value: false, fee_missing: false, class: None }
     }
     /// A 1 BTC withdrawal from `from` linked to a deposit on `to`.
     fn send(uid: usize, from: &str, to: &str) -> Row { Row { linked: true, to_exchange: Some(to.into()), ..row(uid, Kind::Withdrawal, "BTC", "1", T, from) } }
@@ -1721,5 +1739,97 @@ mod tests {
         let mut e = Engine::new(true);
         e.calculate(&rows).unwrap();
         assert_eq!(e.positions(Some("a")).unwrap().into_iter().find(|p| p.symbol == "BTC").unwrap().cost.to_s_f(), "130.0", "2.x: 100");
+    }
+
+    // #1061: a security and a coin sharing a symbol (Alpaca's BTC security beside BTC/USD). A row's stored asset decides its
+    // class; a corporate action of one known class never touches a lot of the other.
+    const DAY: &str = "2026-09-01 10:00:00";
+    const SPLIT: &str = "2026-09-05 10:00:00";
+    fn of(class: Option<bool>, r: Row) -> Row { Row { class, ..r } }
+    fn bought(uid: usize, class: Option<bool>, amount: &str, value: &str, venue: &str) -> Row { of(class, Row { fiat_value: d(value), ..row(uid, Kind::Buy, "BTC", amount, DAY, venue) }) }
+    fn adjust(uid: usize, class: Option<bool>, amount: &str) -> Row { of(class, row(uid, Kind::Adjustment, "BTC", amount, SPLIT, "alpaca")) }
+    fn lots_at(e: &Engine, venue: Option<&str>) -> Vec<(String, String)> {
+        e.remaining_lots().filter(|(a, v, _)| *a == "BTC" && *v == venue).flat_map(|(_, _, l)| l.into_iter().map(|(a, c)| (a.to_s_f(), c.to_s_f()))).collect()
+    }
+    fn walked(located: bool, rows: &[Row]) -> Engine { let mut e = Engine::new(located); e.calculate(rows).unwrap(); e }
+    fn pair(a: &str, c: &str) -> (String, String) { (d(a).to_s_f(), d(c).to_s_f()) }
+    const COIN: Option<bool> = Some(false);
+    const SECURITY: Option<bool> = Some(true);
+
+    #[test]
+    fn a_securitys_split_leaves_the_coin_that_shares_its_symbol() {
+        let rows = [bought(0, COIN, "1", "60000", "alpaca"), bought(1, SECURITY, "10", "300", "alpaca"), adjust(2, SECURITY, "10")];
+        assert_eq!(lots_at(&walked(true, &rows), Some("alpaca")), [pair("1", "60000"), pair("20", "15")]);
+        assert_eq!(lots_at(&walked(false, &rows), None), [pair("1", "60000"), pair("20", "15")]);
+        // The coin bought on another venue: the account-wide pool has no venue, and still leaves it at 1.
+        let rows = [bought(0, COIN, "1", "60000", "kraken"), bought(1, SECURITY, "10", "300", "alpaca"), adjust(2, SECURITY, "10")];
+        assert_eq!(lots_at(&walked(false, &rows), None), [pair("1", "60000"), pair("20", "15")]);
+        assert_eq!(lots_at(&walked(true, &rows), Some("kraken")), [pair("1", "60000")]);
+    }
+
+    #[test]
+    fn a_reverse_split_to_nothing_keeps_the_coin() {
+        for located in [true, false] {
+            let rows = [bought(0, COIN, "1", "60000", "alpaca"), bought(1, SECURITY, "10", "300", "alpaca"), adjust(2, SECURITY, "-10")];
+            assert_eq!(lots_at(&walked(located, &rows), if located { Some("alpaca") } else { None }), [pair("1", "60000")], "located {located}");
+        }
+    }
+
+    #[test]
+    fn a_return_of_capital_leaves_the_coin() {
+        for located in [true, false] {
+            let roc = of(SECURITY, Row { per_share: Some(d("1")), fiat_value: d("10"), ..row(2, Kind::ReturnOfCapital, "BTC", "10", SPLIT, "alpaca") });
+            let rows = [bought(0, COIN, "1", "60000", "alpaca"), bought(1, SECURITY, "10", "300", "alpaca"), roc];
+            assert_eq!(lots_at(&walked(located, &rows), if located { Some("alpaca") } else { None }), [pair("1", "60000"), pair("10", "29")], "located {located}");
+        }
+    }
+
+    #[test]
+    fn a_row_with_no_stored_asset_splits_by_name_as_before() {
+        let factor = d("21").div(&d("11")).unwrap();
+        let scaled = |amount: &str, cost: &str| ((&d(amount) * &factor).unwrap().to_s_f(), d(cost).div(&factor).unwrap().to_s_f());
+        for located in [true, false] {
+            let rows = [bought(0, None, "1", "60000", "alpaca"), bought(1, None, "10", "300", "alpaca"), adjust(2, None, "10")];
+            assert_eq!(lots_at(&walked(located, &rows), if located { Some("alpaca") } else { None }), [scaled("1", "60000"), scaled("10", "30")], "located {located}");
+        }
+    }
+
+    #[test]
+    fn same_day_adjustments_of_two_classes_are_not_netted() {
+        let netted = net_daily_splits(vec![adjust(0, COIN, "1"), adjust(1, SECURITY, "10")]).unwrap();
+        assert_eq!(netted.iter().map(|r| r.amount.to_s_f()).collect::<Vec<_>>(), [d("1").to_s_f(), d("10").to_s_f()]);
+    }
+
+    #[test]
+    fn a_splits_legs_net_when_one_stored_no_asset() {
+        for legs in [[adjust(1, None, "-10"), adjust(2, SECURITY, "20")], [adjust(2, SECURITY, "20"), adjust(1, None, "-10")]] {
+            let rows = [vec![bought(0, SECURITY, "10", "300", "alpaca")], legs.to_vec()].concat();
+            for located in [true, false] {
+                let e = walked(located, &rows);
+                let venue = if located { Some("alpaca".to_string()) } else { None };
+                let lots = &e.lots[&(venue.clone(), "BTC".to_string())];
+                assert_eq!(lots.iter().map(|l| (l.amount.to_s_f(), l.cost_per_unit.to_s_f(), l.class)).collect::<Vec<_>>(),
+                           [(d("20").to_s_f(), d("15").to_s_f(), SECURITY)], "located {located}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_day_with_both_classes_and_an_asset_less_leg_is_refused() {
+        let legs = [adjust(1, COIN, "1"), adjust(2, None, "-10"), adjust(3, SECURITY, "20")];
+        for order in [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]] {
+            let rows = [vec![bought(10, COIN, "1", "60000", "alpaca"), bought(11, SECURITY, "10", "300", "alpaca")], order.iter().map(|&i| legs[i].clone()).collect()].concat();
+            match Engine::new(true).calculate(&rows) {
+                Err(FiguresError::NotComputed(m)) => assert_eq!(m, "Tracker figures unavailable: ambiguous asset class for a shared symbol", "{order:?}"),
+                other => panic!("{order:?}: {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn a_coin_keeps_its_class_through_a_transfer_that_stored_none() {
+        let sent = Row { linked: true, to_exchange: Some("alpaca".into()), ..row(1, Kind::Withdrawal, "BTC", "1", "2026-09-02 10:00:00", "kraken") };
+        let rows = [bought(0, COIN, "1", "60000", "kraken"), sent, bought(2, SECURITY, "10", "300", "alpaca"), adjust(3, SECURITY, "10")];
+        assert_eq!(lots_at(&walked(true, &rows), Some("alpaca")), [pair("1", "60000"), pair("20", "15")]);
     }
 }

@@ -12,8 +12,9 @@ const TTL_DAYS: i64 = 30;
 /// The calculation a stored summary was made by: a summary of another one is cold (4: a broker name that is both a
 /// security and a coin is priced by the asset its rows recorded; 5: coin-quoted rows are two legs, transfers wait for their
 /// funds, a swap-in's fee joins its lots once; 6: an Alpaca CFEE is valued at its fills' price, D-TAX-CFEE-PREVIOUS-DAY;
-/// 7: each opening's dollars, `opening_values`, which the history gap step reads, D-GAP-OPENINGS).
-const SCHEMA: u64 = 7;
+/// 7: each opening's dollars, `opening_values`, which the history gap step reads, D-GAP-OPENINGS; 8: a security's corporate
+/// action never restates a coin's lots under the symbol they share, #1061).
+const SCHEMA: u64 = 8;
 const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
 const MAX_COMPUTED_DECIMAL: usize = 1024 * 1024;
 /// Publication refusals: the walk computed, but its entry is too large to store. The previous entry is kept.
