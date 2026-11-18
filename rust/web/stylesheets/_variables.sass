@@ -54,6 +54,12 @@
 [data-locale="el"]
   --font-family: 'Google Sans', sans-serif
 
+// Not a colour: in both schemes.
+\:root
+  --sheet-side-padding: 2rem
+  @media (min-width: 768px)
+    --sheet-side-padding: 2.5rem
+
 @media (prefers-color-scheme: light)
   \:root
     --sky: color(display-p3 0 0 1)
@@ -111,7 +117,6 @@
     --sinput-background: #fff
     --sinput-text: #00f
 
-    --modal-search-placeholder: #8894B6
 
     --tooltip-background: #fff
     --tooltip-text: #061A4F
@@ -184,7 +189,6 @@
     --sinput-background: #0D223F
     --sinput-text: #fff
 
-    --modal-search-placeholder: #8894B6
 
     --tooltip-background: #00f
     --tooltip-text: #fff

@@ -23,7 +23,6 @@ use serde_json::{json, Map, Value};
 
 const PICK: &str = "/bots/dca_indexes/pick_index";
 const EXCHANGE: &str = "/bots/dca_indexes/pick_exchange";
-const EXCHANGE_NEW: &str = "/bots/dca_indexes/pick_exchange/new";
 const KEY_NEW: &str = "/bots/dca_indexes/add_api_key/new";
 const QUOTE: &str = "/bots/dca_indexes/pick_spendable_asset";
 const QUOTE_NEW: &str = "/bots/dca_indexes/pick_spendable_asset/new";
@@ -213,7 +212,7 @@ pub fn assets_view(c: &Connection, app: &App, ctx: &Ctx, config: Option<&Value>,
         let ids = chosen_ids(config);
         super::steer(ctx, &csrf, super::SentenceOf { order: &order, step: Step::Currencies, multi: !ids.is_empty(), chips: chips(c, &ids)?, exchange: exchange_name(c, venue)? }, true)?.track
     };
-    super::sheet(ctx, &track, &content)
+    super::assets_sheet(ctx, &track, &content)
 }
 
 /// POST .../pick_index: an index the Index view offers (Top Coins, or a category with its id) joins the session's settings in place
@@ -296,10 +295,9 @@ fn exchange_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) 
     let venues = statement.query_map([types.map(|t| json!(t).to_string())], |r| Ok(crate::web::bot::Exchange {
         id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: None,
     }))?.collect::<Result<Vec<_>, _>>()?;
-    let search = search_box("exchange-picker", &ctx.path(EXCHANGE_NEW), "exchange")?;
     let table = super::exchanges::Table { action: ctx.path(EXCHANGE), csrf: csrf.to_string(), param_name: EXCHANGE_FIELD.into(), venues: vec![],
                                           unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
-    let content = super::exchanges::venue_pane(ctx, search, table, venues)?;
+    let content = super::exchanges::venue_pane(ctx, table, venues)?;
     Ok((index_track(ctx, csrf, config, At::Exchange, &index_name(c, config, ctx.locale)?, None)?, content))
 }
 

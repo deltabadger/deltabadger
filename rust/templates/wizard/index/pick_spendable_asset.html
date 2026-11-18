@@ -7,7 +7,7 @@
           <div class="modal--search__assets__item modal--search__assets__item--with-coins" data-arrow-keys-navigation-target="item">
   <button name="bots_dca_index[quote_asset_id]" type="submit" value="{{ row.item.id }}" data-arrow-keys-navigation-target="button" data-turbo-frame="modal_content">
     <div class="modal--search__cell modal--search__cell--ticker">
-      <div class="{{ row.item.ticker_class }}" style="background: {{ row.item.pill }}" data-ticker-symbol="{{ row.item.symbol }}" data-ticker-asset-id="{{ row.item.id }}">{{ row.item.symbol }}</div>
+      <div class="{{ row.item.ticker_class }} ticker--small" style="background: {{ row.item.pill }}" data-ticker-symbol="{{ row.item.symbol }}" data-ticker-asset-id="{{ row.item.id }}">{{ row.item.symbol }}</div>
     </div>
     <div class="modal--search__cell modal--search__cell--name">
       {{ row.item.logo|safe }}
@@ -17,10 +17,10 @@
 {%- if !row.pills.is_empty() %}
         <div class="ticker-group ticker-group--many">
 {%- for pill in row.pills %}
-            <span class="ticker" style="background-color: {{ pill.color }}" data-ticker-symbol="{{ pill.symbol }}" data-ticker-asset-id="{{ pill.id }}">{{ pill.symbol }}</span>
+            <span class="ticker ticker--small" style="background-color: {{ pill.color }}" data-ticker-symbol="{{ pill.symbol }}" data-ticker-asset-id="{{ pill.id }}">{{ pill.symbol }}</span>
 {%- endfor %}
 {%- if row.more > 0 %}
-            <span class="ticker ticker--more">+{{ row.more }}</span>
+            <span class="ticker ticker--small ticker--more">+{{ row.more }}</span>
 {%- endif %}
         </div>
 {%- endif %}

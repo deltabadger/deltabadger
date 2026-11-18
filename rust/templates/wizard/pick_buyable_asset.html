@@ -3,12 +3,22 @@
     {{ search|safe }}
 
     <div class="wizard-assets vt-step-body">
+{%- if max_reached.is_some() %}
+        <div class="wizard-search">{{ switch|safe }}</div>
+{%- else %}
+        <div class="wizard-search">
+          <form data-controller="form--submit-after-delay" data-turbo-frame="asset-picker" class="wizard-search__form" action="{{ search_url }}" accept-charset="UTF-8" method="get">
+            {{ switch|safe }}
+            <input type="hidden" name="kind" value="asset" />
+            <input autofocus="autofocus" autocomplete="off" placeholder="{{ v.t("utils.search.placeholder.asset")|safe }}" data-action="input-&gt;form--submit-after-delay#submit" class="wizard-search__input" type="text" name="query" id="query" />
+</form>        </div>
+{%- endif %}
 {%- if !chosen.is_empty() %}
         <div class="wizard-assets__list " data-class-toggle-target="togglable">
 {%- for chip in chosen %}
             <div class="wizard-assets__row">
               <div class="modal--search__cell">
-                <div class="{{ chip.class }}" style="background: {{ chip.pill }}" data-ticker-symbol="{{ chip.symbol }}" data-ticker-asset-id="{{ chip.id }}">{{ chip.symbol }}</div>
+                <div class="{{ chip.class }} ticker--small" style="background: {{ chip.pill }}" data-ticker-symbol="{{ chip.symbol }}" data-ticker-asset-id="{{ chip.id }}">{{ chip.symbol }}</div>
               </div>
               <div class="modal--search__cell modal--search__cell--name">
                 {{ chip.logo|safe }}
@@ -24,7 +34,7 @@
 
 {%- if !chosen.is_empty() %}
         <form class="button_to sheet__next" data-turbo-frame="modal_content" method="post" action="{{ next_url }}"><button class="rbutton rbutton--primary" type="submit">{{ next_label }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
-        <h3 class="sheet__more-assets">{{ more_label }}</h3>
+        <h3 class="label">{{ more_label }}</h3>
 {%- endif %}
 
 {%- if let Some(warning) = no_common_exchange %}
@@ -32,15 +42,8 @@
 {%- endif %}
 
 {%- if let Some(reached) = max_reached %}
-        <div class="modal--search">{{ switch|safe }}</div>
         <p class="text-inactive text-center">{{ reached|safe }}</p>
 {%- else %}
-        <div class="modal--search">
-          <form data-controller="form--submit-after-delay" data-turbo-frame="asset-picker" style="position:relative" action="{{ search_url }}" accept-charset="UTF-8" method="get">
-            {{ switch|safe }}
-            <input type="hidden" name="kind" value="asset" />
-            <input autofocus="autofocus" autocomplete="off" placeholder="{{ v.t("utils.search.placeholder.asset")|safe }}" data-action="input-&gt;form--submit-after-delay#submit" class="modal--search__input" type="text" name="query" id="query" />
-</form>        </div>
         <turbo-frame data-action="keydown@window-&gt;arrow-keys-navigation#navigate" data-controller="arrow-keys-navigation" class="modal--search__assets selectable-options" id="asset-picker">
 {%- if let Some(syncing) = syncing %}
             <div class="assets-syncing">

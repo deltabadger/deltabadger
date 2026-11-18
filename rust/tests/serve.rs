@@ -3096,7 +3096,7 @@ async fn the_signal_wizard_starts_a_bot_on_bybit() {
     let first = browser.get(&app, "/bots/signals/pick_buyable_asset/new").await;
     assert_eq!(first.status, 200);
     assert_eq!(track(&first.body), ["Assets:current plain", "Exchange:upcoming plain", "Currency:upcoming plain", "Settings:upcoming plain"]);
-    assert!(first.body.contains("data-turbo-frame=\"asset-picker\" style=\"position:relative\" action=\"/bots/signals/pick_buyable_asset/new\""), "the pane's search");
+    assert!(first.body.contains("data-turbo-frame=\"asset-picker\" class=\"wizard-search__form\" action=\"/bots/signals/pick_buyable_asset/new\""), "the pane's search");
     let picked = browser.post(&app, "/bots/signals/pick_buyable_asset", &[("bots_signal[base_asset_id]", &base)]).await;
     assert_eq!(picked.header("location"), Some("/bots/signals/pick_exchange/new"));
     let venues = browser.get(&app, "/bots/signals/pick_exchange/new").await;

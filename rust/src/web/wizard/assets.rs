@@ -126,7 +126,7 @@ fn page(c: &Connection, app: &App, ctx: &Ctx, config: Option<&Value>, partial_al
         search_url: ctx.path(NEW), create_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset"), syncing, field_name: FIELD, items, next,
         chosen: chosen.chips,
     }.render()?;
-    Ok((super::sheet(ctx, &steered.track, &body)?, false))
+    Ok((super::assets_sheet(ctx, &steered.track, &body)?, false))
 }
 
 /// The step page, through the layout (or bare, for a lazy page of results).

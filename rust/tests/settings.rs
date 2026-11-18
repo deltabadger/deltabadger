@@ -2392,8 +2392,8 @@ async fn each_dca_step_is_the_sheet_with_its_track(){
     let back=h.browser.send(&h.app,"POST",advance,Some(&[("to","exchange")]),Csrf::Header,&frame).await;
     let step=follow(&mut h,back,&frame).await;
     assert_eq!(step.status,200,"{}",step.body);
-    assert_eq!(track(&step.body)[0],"Exchange:current plain","picking again: the label, and the search");
-    assert!(step.body.contains("sheet__search"));
+    assert_eq!(track(&step.body)[0],"Exchange:current plain","picking again: the label");
+    assert!(!step.body.contains("sheet__search"),"D-EXCHANGE-NO-SEARCH");
 
     // Asset first, switched from the track: assets, exchange, (key correct) quote.
     let switched=h.browser.send(&h.app,"POST",order,Some(&[("flow","asset_first")]),Csrf::Header,&frame).await;
@@ -4304,15 +4304,17 @@ async fn the_tracker_connect_steps_are_the_sheet(){
     let step=h.browser.send(&h.app,"GET","/tracker/pick_exchange/new",None,Csrf::None,&modal).await;
     assert_eq!(step.status,200,"{}",step.body);
     let page=sheet(&step.body);
-    assert_eq!(track(&page),["Exchange:current plain","Connect exchange:upcoming plain"]);
-    assert_eq!(page.select(&select("form[data-turbo-frame=\"exchange-picker\"][action=\"/tracker/pick_exchange/new\"] input[name=\"query\"]")).count(),1);
+    assert_eq!(track(&page),["Exchange:current plain","Connect:upcoming plain"]);
+    assert_eq!(page.select(&select("input[name=\"query\"]")).count(),0,"D-EXCHANGE-NO-SEARCH");
     assert!(page.select(&select("section.exchange-group button[name=\"exchange_id\"]")).count()>0,"the venues, grouped");
     // A venue link straight to the key step (the populated tracker's menu, a sync warning's fix).
     let step=h.browser.send(&h.app,"GET","/tracker/add_api_key/new?exchange_id=1&key_type=read_only",None,Csrf::None,&modal).await;
     assert_eq!(step.status,200,"{}",step.body);
     let page=sheet(&step.body);
-    assert_eq!(track(&page),["Alpaca:done /tracker/pick_exchange/new","Connect exchange:current plain"]);
+    assert_eq!(track(&page),["Alpaca:done /tracker/pick_exchange/new","Connect:current plain"]);
     assert_eq!(page.select(&select("form[action=\"/tracker/add_api_key?exchange_id=1&key_type=read_only\"][data-turbo-frame=\"modal_content\"] input.rinput[name=\"api_key[key]\"]")).count(),1);
+    // D-KEY-LOGO-BACK: the venue's logo and name are Back, to the venue step.
+    assert_eq!(page.select(&select("a.set-api__back[href=\"/tracker/pick_exchange/new\"][data-wizard-dir=\"back\"][data-turbo-frame=\"modal_content\"] .set-api__mark + h2.set-api__title")).count(),1);
     // Refused: the sheet's frame again, the reason under the fields, nothing flashed.
     let refused=h.submit("POST","/tracker/add_api_key?exchange_id=1&key_type=read_only",&[("api_key[key]","bad-key"),("api_key[secret]","bad-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
     assert_eq!(refused.status,422,"{}",refused.body);

@@ -892,6 +892,19 @@ fn only_the_low_funds_prefix_and_its_colour_are_left_out() {
 
 /// Named divergence D-SPLIT-BOT-MENU: a splittable bot's menu has a Split item (the split modal for that bot), which 2.x's
 /// menu does not. Only that item, with the whitespace before it, is taken out of this crate's page; returns how many.
+/// D-LIST-TICKER-SMALL: every scrollable asset list (the search rows, the picked assets, the index rows and tiles) draws its
+/// tickers small; 2.x's never carry `ticker--small` (no recording has it), so the class alone comes off ours.
+fn without_small_tickers(body: &mut Value) -> usize {
+    let Value::Array(lines) = body else { return 0 };
+    let mut taken = 0;
+    for line in lines.iter_mut() {
+        let Some(text) = line.as_str().filter(|t| t.contains(" ticker--small")) else { continue };
+        taken += 1;
+        *line = json!(text.replace(" ticker--small", ""));
+    }
+    taken
+}
+
 fn without_split_item(body: &mut Value) -> usize {
     let Value::Array(lines) = body else { return 0 };
     let (mut taken, mut i) = (0, 0);
@@ -2767,7 +2780,7 @@ async fn replay_page_shard(shard: usize) {
         let count = std::fs::read_dir("/proc/self/task").map_or(String::new(), |tasks| format!(", {} threads", tasks.count()));
         progress(format!("page shard {}: {name}/{scope} (+{:.1?}{count})", shard + 1, replay.elapsed()), false);
         let scenario = scenario(dir);
-        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut market_data_frames) = (0, 0, 0, 0, 0, 0, 0);
+        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut market_data_frames, mut small_tickers) = (0, 0, 0, 0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| v2_answer(answer, step)).collect();
         let v2_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
@@ -2799,6 +2812,7 @@ async fn replay_page_shard(shard: usize) {
             market_data_frames += without_market_data_contents(&mut answer["body"]);
             without_low_funds(&mut answer["body"]);
             split_menu_pages += without_split_item(&mut answer["body"]);
+            small_tickers += without_small_tickers(&mut answer["body"]);
             jobs_rows += without_jobs_row(&mut answer["body"]);
             index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty());
             signal_rule_pages += usize::from(signal_rules(&mut answer["body"]).is_some());
@@ -2807,7 +2821,8 @@ async fn replay_page_shard(shard: usize) {
                                              ("twin_signal_rules", signal_rule_pages, "D-COND-FORMS-SIGNAL"),
                                              ("twin_basket_member", split_menu_pages, "D-SPLIT-BOT-MENU"),
                                              ("settings_page_account_pt", jobs_rows, "D-JOBS-SETTINGS-LINK"),
-                                             ("settings_page_connect_en", market_data_frames, "D-MARKET-DATA-NO-SWITCH")] {
+                                             ("settings_page_connect_en", market_data_frames, "D-MARKET-DATA-NO-SWITCH"),
+                                             ("asset_search_kraken", small_tickers, "D-LIST-TICKER-SMALL")] {
             if name == witness && count == 0 { failures.push(format!("{name}/{scope}: {divergence}: no rendered witness")); }
         }
         if name.starts_with("countdown_") {
@@ -3533,6 +3548,7 @@ async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
         without_broker_gate(&mut expected["body"]);
         without_low_funds(&mut actual["body"]);
         without_split_item(&mut actual["body"]);
+        without_small_tickers(&mut actual["body"]);
         let path = step["path"].as_str().unwrap_or_default();
         wizard_sheet::sheet_flows(path, step["method"].as_str().unwrap_or("GET"), &mut expected["body"], &mut actual["body"]).unwrap_or_else(|e| panic!("{name}: D-SHEET-EVERYWHERE: {e}"));
         wizard_sheet::wizard_sheet(path, None, &mut expected["body"], &mut actual["body"]).and_then(|_| wizard_sheet::chooser(path, &mut expected, &mut actual)).unwrap_or_else(|e| panic!("{name}: D-WIZARD-SHEET: {e}"));
@@ -4411,7 +4427,7 @@ mod index_in_wizard {
     /// The Asset / Index switch: each option's (label, href, frame, aria-current).
     pub fn switch(answer: &Value) -> Vec<(String, String, String, Option<String>)> {
         let page = scraper::Html::parse_document(&raw(answer));
-        let controls: Vec<_> = page.select(&select(".modal--search .segmented")).collect();
+        let controls: Vec<_> = page.select(&select(".wizard-search .segmented")).collect();
         assert_eq!(controls.len(), 1, "one switch: {}", raw(answer));
         assert!(controls[0].value().attr("data-segmented-frame").is_none(), "no page history");
         controls[0].select(&select("a.segmented__option")).map(|a| (a.text().collect::<String>().trim().to_string(), a.value().attr("href").unwrap().to_string(),
@@ -4468,7 +4484,7 @@ async fn index_in_wizard_the_chooser_is_skipped_and_the_switch_shows_one_list_at
     in_sheet(&answers[3]);
     assert_eq!(switch(&answers[3]), switch_of("", false));
     let asset_view = scraper::Html::parse_document(&raw(&answers[3]));
-    assert!(asset_view.select(&select(".modal--search form[data-turbo-frame=asset-picker] input[type=hidden][name=kind][value=asset]")).next().is_some(), "the search keeps the Asset view");
+    assert!(asset_view.select(&select(".wizard-search form[data-turbo-frame=asset-picker] input[type=hidden][name=kind][value=asset]")).next().is_some(), "the search keeps the Asset view");
     assert!(index_rows(&answers[3]).is_empty());
     // The Index view: the same step, no basket and no Next, every index (asset first, nothing chosen: no venue narrows it).
     in_sheet(&answers[4]);
@@ -4596,7 +4612,7 @@ async fn index_in_wizard_the_index_track_on_each_step_in_both_orders() {
     in_sheet(&answers[6]);
     assert_eq!(track(&answers[6]), [format!("Top 10:done GET {assets}"), "Exchange:current plain".into(), "Currency:upcoming plain".into()]);
     let venues = scraper::Html::parse_document(&raw(&answers[6]));
-    assert!(venues.select(&select(".sheet__search form[data-turbo-frame=exchange-picker]")).next().is_some(), "the pane's search box");
+    assert!(venues.select(&select(".sheet__search")).next().is_none(), "D-EXCHANGE-NO-SEARCH: no search on the exchange step");
     assert!(venues.select(&select("turbo-frame#exchange-picker section.exchange-group button.exchange-grid__item")).count() >= 2, "Brokers / Exchanges");
     in_sheet(&answers[8]);
     assert_eq!(track(&answers[8]), [format!("Top 10:done GET {assets}"), "Kraken:current plain".into(), "Currency:upcoming plain".into()]);
@@ -4704,7 +4720,7 @@ async fn index_in_wizard_market_data_is_connected_in_the_index_view() {
     let tiles: Vec<(String, String, String)> = page.select(&select(".exchange-group .exchange-grid a.exchange-grid__item")).map(|a| (a.value().attr("aria-label").unwrap().to_string(), a.text().collect::<String>().trim().to_string(), a.value().attr("href").unwrap().to_string())).collect();
     // CoinGecko's wordmark draws its name; deltabadger's logo sits beside the lowercase name.
     assert_eq!(tiles, [("CoinGecko".into(), String::new(), card("coingecko")), ("deltabadger".into(), "deltabadger".into(), card("deltabadger"))]);
-    assert_eq!(page.select(&select(".exchange-group__heading")).next().unwrap().text().collect::<String>().trim(), deltabadger::web::i18n::text("en", "bot.setup.market_data.providers", &[]));
+    assert_eq!(page.select(&select(".exchange-group h3.label")).next().unwrap().text().collect::<String>().trim(), deltabadger::web::i18n::text("en", "bot.setup.market_data.providers", &[]));
     assert!(raw(&answers[3]).contains(&deltabadger::web::i18n::text("en", "bot.setup.market_data.intro", &[])));
     assert!(!raw(&answers[3]).contains("market_data_settings"), "no form before a provider is picked");
     // Each provider's card: the key card's layout, posting where Settings posts.
@@ -4712,6 +4728,15 @@ async fn index_in_wizard_market_data_is_connected_in_the_index_view() {
         in_sheet(&answers[at]);
         let card = widget(&answers[at]);
         assert!(card.contains("set-api--connect") && card.contains(&format!("name=\"{field}\"")) && card.contains(&format!("action=\"{action}\"")), "{at}: {card}");
+        // D-KEY-LOGO-BACK: the provider's logo and name are Back, to the providers.
+        let brand = scraper::Html::parse_fragment(&card);
+        assert_eq!(brand.select(&select("a.set-api__back[data-wizard-dir=back] .set-api__mark + h2.set-api__title")).count(), 1, "{at}: {card}");
+    }
+    // Deltabadger's card: the subscription's three perks under the Deltabadger API link, not Settings' line.
+    let perks = widget(&answers[7]);
+    assert!(perks.contains(">Deltabadger API</a>") && !perks.contains("Self-hosted"), "{perks}");
+    for perk in ["indexes_title", "history_title", "ip_title"] {
+        assert!(perks.contains(&format!("<p><b>{}</b><br>", deltabadger::web::i18n::text("en", &format!("bot.setup.market_data.subscription.{perk}"), &[]))), "{perk}");
     }
     // A refused key: its flash, the card left in place, as Settings answers; a missing key: its card again; a refused code: the
     // card again with the error under its field.
