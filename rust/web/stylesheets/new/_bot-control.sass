@@ -119,3 +119,8 @@ turbo-cable-stream-source
         opacity: 1
     50%
         opacity: 0.4
+
+// The chart's frame while it has no chart to draw (`plot::NOT_CHARTED`, a hidden #chart): out of the page's column, so the
+// column's gap is not doubled below the controls. It stays in the page: a later chart replaces #chart inside it, and shows it.
+#bot_chart:has(> #chart[hidden])
+    display: none
