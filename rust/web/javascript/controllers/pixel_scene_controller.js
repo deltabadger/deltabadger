@@ -38,10 +38,18 @@ const HEX = /^#[0-9a-f]{6}$/i
 const rgb = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16))
 const mix = (a, b, t) => "#" + rgb(a).map((v, i) => Math.round(v + (rgb(b)[i] - v) * t).toString(16).padStart(2, "0")).join("")
 
-// The libraries mix colours as #rrggbb; a variable in any other form keeps the library's own colour.
-function themed(spec) {
+// The astronaut: the libraries' white suit on a dark page; on a light one the scheme's mid greys, darker than the page.
+const SUIT_DARK = { suit: "#e6edf9", suitShade: "#aebbd4", pack: "#8a9bbd", boot: "#6c7fa8" }
+const SUIT_LIGHT = { suit: "--concrete", suitShade: "--stone", pack: "--ash", boot: "--ash" }
+const light = (hex) => { const [r, g, b] = rgb(hex); return 0.2126 * r + 0.7152 * g + 0.0722 * b > 128 }
+
+// The libraries mix colours as #rrggbb; a variable in any other form keeps the library's own colour. A source starting
+// with # is a colour as it is.
+function themed(scene) {
   const style = getComputedStyle(document.documentElement)
-  const read = (name) => style.getPropertyValue(name).trim()
+  const read = (name) => (name.startsWith("#") ? name : style.getPropertyValue(name).trim())
+  const paper = read("--paper")
+  const spec = { ...scene, ...(HEX.test(paper) && light(paper) ? SUIT_LIGHT : SUIT_DARK) }
   const colors = {}
   for (const [key, source] of Object.entries(spec)) {
     const [a, b] = (Array.isArray(source) ? source.slice(0, 2) : [source]).map(read)

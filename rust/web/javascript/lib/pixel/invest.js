@@ -387,6 +387,7 @@ export function createInvestAnimation(canvas, opts = {}) {
   // Deltabadger: a scheme change recolours the scene in place.
   function recolor(colors) {
     Object.assign(C, colors);
+    Object.assign(HERO_MAP, { w: C.suit, W: C.suitShade, v: C.visor, g: C.glint, a: C.accent, p: C.pack, B: C.boot });
     for (const p of plants) {
       p.stem = depthTone(C.stem, p.depth);
       p.leaf = depthTone(C.leaf, p.depth);
