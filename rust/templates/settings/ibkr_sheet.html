@@ -1,0 +1,73 @@
+{#- D-TRACKER-IBKR-SHEET: the IBKR connection (settings/ibkr_wizard.html's states) as the sheet's card, opened from the tracker.
+    Its forms answer in the sheet's frame and say so (`sheet=tracker`); what the last one earned (`notice`) is drawn inside. -#}
+<div class="set-api set-api--connect" id="ibkr-connect-wizard">
+  <header class="set-api__brand">
+  <a class="set-api__back" href="{{ back }}" data-turbo-frame="modal_content" data-wizard-dir="back" title="{{ v.t("button.back") }}">
+  <span class="set-api__mark sbutton--exchange--ibkr" aria-hidden="true">{{ mark|safe }}</span>
+  <h2 class="set-api__title">Interactive Brokers</h2>
+  </a>
+</header>
+{%- if let Some((alert, text)) = notice %}
+  <p class="{% if alert %}sform__error{% else %}set-api__note{% endif %}" role="{% if alert %}alert{% else %}status{% endif %}">{{ text }}</p>
+{%- endif %}
+{% macro reset(label, class) %}
+  <form class="button_to set-api__actions" method="post" action="{{ path }}" data-turbo-frame="modal_content"><input type="hidden" name="_method" value="delete" /><input type="hidden" name="sheet" value="tracker" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><button class="rbutton {{ class }}" type="submit">{{ v.t(label)|safe }}</button></form>
+{% endmacro %}
+{% macro credentials() %}
+  <form class="set-api__form form" data-controller="form--html5-validations" data-turbo-frame="modal_content" action="{{ path }}/activate" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><input type="hidden" name="sheet" value="tracker" />
+    <input autocomplete="off" required="required" class="rinput rinput--outline rinput--text" placeholder="{{ v.t("settings.ibkr.consumer_key") }}" aria-label="{{ v.t("settings.ibkr.consumer_key") }}" aria-describedby="api_key_key_hint" type="text" name="api_key[key]" id="api_key_key" />
+    <p class="set-api__note" id="api_key_key_hint">{{ v.t("settings.ibkr.consumer_key_hint")|safe }}</p>
+    <input autocomplete="off" required="required" class="rinput rinput--outline rinput--text" placeholder="{{ v.t("settings.ibkr.access_token") }}" aria-label="{{ v.t("settings.ibkr.access_token") }}" type="text" name="api_key[access_token]" id="api_key_access_token" />
+    <input autocomplete="off" required="required" class="rinput rinput--outline rinput--text" placeholder="{{ v.t("settings.ibkr.access_token_secret") }}" aria-label="{{ v.t("settings.ibkr.access_token_secret") }}" type="text" name="api_key[secret]" id="api_key_secret" />
+    <div class="set-api__actions">
+      <input type="submit" name="commit" value="{{ v.t("button.connect") }}" class="rbutton rbutton--secondary" data-turbo-submits-with="{{ v.t("bot.setup.validating") }}" data-disable-with="{{ v.t("button.connect") }}" />
+    </div>
+</form>
+{% endmacro %}
+{% match state %}
+{% when State::None %}
+  <p class="set-api__note">{{ v.t("settings.ibkr.intro")|safe }}</p>
+  <form class="button_to set-api__actions" method="post" action="{{ path }}" data-turbo-frame="modal_content"><input type="hidden" name="sheet" value="tracker" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><button class="rbutton rbutton--secondary" type="submit">{{ v.t("settings.ibkr.start")|safe }}</button></form>
+{% when State::Connected %}
+  <p class="set-api__note">{{ v.t("settings.ibkr.connected")|safe }}</p>
+  <p class="sform__error">{{ v.t("settings.ibkr.single_key_warning")|safe }}</p>
+{% call reset("settings.ibkr.disconnect", "rbutton--danger") %}{% endcall %}
+{% when State::Unusable %}
+  <p class="sform__error">{{ UNUSABLE }}</p>
+{% call reset("settings.ibkr.disconnect", "rbutton--danger") %}{% endcall %}
+{% when State::Stalled with (duration) %}
+  <p class="sform__error">{{ duration|safe }}</p>
+  <p class="set-api__note">{{ v.t("settings.ibkr.activation_failed_fix")|safe }}</p>
+{% call reset("settings.ibkr.start_over", "rbutton--secondary") %}{% endcall %}
+{% call credentials() %}{% endcall %}
+{% when State::Pending %}
+  <p class="set-api__note">{{ v.t("settings.ibkr.activation_pending")|safe }}</p>
+  <p class="set-api__note">{{ v.t("settings.ibkr.reenter_intro")|safe }}</p>
+{% call credentials() %}{% endcall %}
+{% call reset("settings.ibkr.start_over", "rbutton--secondary") %}{% endcall %}
+{% when State::Downloads %}
+  <section class="set-api__instructions">
+    <h3 class="set-api__eyebrow">{{ v.t("settings.ibkr.download_intro")|safe }}</h3>
+    <div class="set-api__actions">
+      <a data-turbo="false" class="rbutton rbutton--secondary" href="{{ path }}/download?artifact=signing">{{ v.t("settings.ibkr.signing_key")|safe }}</a>
+      <a data-turbo="false" class="rbutton rbutton--secondary" href="{{ path }}/download?artifact=encryption">{{ v.t("settings.ibkr.encryption_key")|safe }}</a>
+      <a data-turbo="false" class="rbutton rbutton--secondary" href="{{ path }}/download?artifact=dhparam">{{ v.t("settings.ibkr.dh_param")|safe }}</a>
+    </div>
+    <h3 class="set-api__eyebrow">{{ v.t("settings.ibkr.portal_intro")|safe }}</h3>
+    <ol>
+      <li>{{ v.t("settings.ibkr.portal_step_private_window")|safe }}</li>
+      <li>{{ check_address|safe }}</li>
+      <li>{{ v.t("settings.ibkr.portal_step_register")|safe }}</li>
+    </ol>
+    <div class="set-api__actions">
+      <a target="_blank" rel="noopener" class="rbutton rbutton--primary" href="{{ recommended_url }}">{{ v.t("settings.ibkr.open_portal")|safe }}</a>
+      <a target="_blank" rel="noopener" class="rbutton rbutton--secondary" href="{{ alternative_url }}">{{ v.t("settings.ibkr.open_portal_alternative")|safe }}</a>
+    </div>
+    <p>{{ v.t("settings.ibkr.portal_error_501")|safe }}</p>
+    <p class="sform__error">{{ v.t("settings.ibkr.single_key_warning")|safe }}</p>
+    <h3 class="set-api__eyebrow">{{ v.t("settings.ibkr.paste_intro")|safe }}</h3>
+  </section>
+{% call credentials() %}{% endcall %}
+{% call reset("settings.ibkr.start_over", "rbutton--secondary") %}{% endcall %}
+{% endmatch %}
+</div>

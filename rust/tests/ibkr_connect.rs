@@ -11,14 +11,20 @@ use deltabadger::web::{App, Config};
 
 const NOW: &str = "2026-09-10T12:00:30.123456Z";
 
-struct Fx { _dir: tempfile::TempDir, c: rusqlite::Connection, app: App, browser: Browser, user: i64, exchange: i64 }
+struct Fx { _dir: tempfile::TempDir, c: rusqlite::Connection, app: App, browser: Browser, user: i64, exchange: i64, seed: common::seed::Seeded }
 
-async fn hosted() -> Fx {
+async fn hosted() -> Fx { install(true).await }
+
+async fn install(hosted: bool) -> Fx { install_with(hosted, None).await }
+
+/// The install, on the data API's container (`hosted`, where IBKR is offered) or not; IBKR's key check sent to `ibkr`.
+async fn install_with(hosted: bool, ibkr: Option<String>) -> Fx {
     let (dir, opened, seed) = fixture::install();
     deltabadger::store::test_support::migrate(&opened.primary).unwrap();
-    let env = |name: &str| match name { "SECRET_KEY_BASE" => Some(web::SECRET.to_string()), "MARKET_DATA_URL" => Some("http://data-api.invalid".into()), _ => None };
+    let env = |name: &str| match name { "SECRET_KEY_BASE" => Some(web::SECRET.to_string()), "MARKET_DATA_URL" if hosted => Some("http://data-api.invalid".into()), _ => None };
     let app = App::new(Config::from_env(&env).unwrap(), &env, opened.primary, web::TestClock::at(NOW)).unwrap()
         .with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap();
+    let app = match ibkr { Some(url) => app.with_venue_key_url(deltabadger::venue::ibkr::IBKR, &url).unwrap(), None => app };
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     c.execute("UPDATE exchanges SET type = 'Exchanges::Ibkr', name = 'Interactive Brokers' WHERE id = ?1", [seed.exchange_id]).unwrap();
     c.execute("DELETE FROM api_keys", []).unwrap();
@@ -28,7 +34,7 @@ async fn hosted() -> Fx {
     browser.send(&app, "GET", "/login", None, Csrf::None, &[]).await;
     let signed = browser.send(&app, "POST", "/login", Some(&[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]), Csrf::Form, &[]).await;
     assert_eq!(signed.status, 303);
-    Fx { _dir: dir, c, app, browser, user: seed.user_id, exchange: seed.exchange_id }
+    Fx { _dir: dir, c, app, browser, user: seed.user_id, exchange: seed.exchange_id, seed }
 }
 
 impl Fx {
@@ -147,4 +153,168 @@ async fn a_queued_key_job_fills_a_blank_key_at_takeover_and_never_rotates_one() 
         let page = fx.page().await;
         assert!(page.contains("artifact=signing") && page.contains("api_key[access_token]") && !page.contains("be used now"), "the downloads: {page}");
     }
+}
+
+impl Fx {
+    /// The tracker's link to IBKR's key (its broken chip, its `+` menu, a sync warning's fix).
+    async fn chip(&mut self, key_type: &str) -> (u16, String) {
+        let path = format!("/tracker/add_api_key/new?exchange_id={}{key_type}", self.exchange);
+        let answer = self.browser.send(&self.app, "GET", &path, None, Csrf::None, &[("Turbo-Frame", "modal")]).await;
+        (answer.status, answer.body)
+    }
+    /// A write posted from the tracker's sheet.
+    async fn sheet_post(&mut self, path: &str, form: &[(&str, &str)]) -> common::web::Answer {
+        self.chip("").await;
+        let mut form = form.to_vec();
+        form.push(("sheet", "tracker"));
+        self.browser.send(&self.app, "POST", path, Some(&form), Csrf::Form, &[("Turbo-Frame", "modal_content")]).await
+    }
+    fn sheet_url(&self) -> String { format!("/tracker/add_api_key/new?exchange_id={}", self.exchange) }
+}
+
+fn location(answer: &common::web::Answer) -> Option<String> { answer.headers.iter().find(|(k, _)| k == "location").map(|(_, v)| v.clone()) }
+
+/// The sheet closing to the tracker with IBKR's connection card in it, the track's Exchange IBKR.
+fn in_sheet(body: &str) -> bool {
+    body.contains("class=\"dialog sheet-dialog\"") && body.contains("data-modal--base-close-url-value=\"/tracker\"") && body.contains("sheet__track")
+        && body.contains("id=\"ibkr-connect-wizard\"") && body.contains("set-api set-api--connect") && body.contains("Interactive Brokers")
+}
+
+/// D-TRACKER-IBKR-SHEET: the tracker's IBKR links open the sheet with the connection in each of its states, whatever key type
+/// the link names; the generic key form never reads IBKR's material.
+#[tokio::test(flavor = "current_thread")]
+async fn the_tracker_ibkr_link_opens_the_sheet_in_every_state() {
+    let mut fx = hosted().await;
+    let (status, body) = fx.chip("").await;
+    assert!(status == 200 && in_sheet(&body) && body.contains("Start setup"), "None: {body}");
+    // Started from the sheet: back to the sheet, on the downloads.
+    let answer = fx.sheet_post("/settings/ibkr_connect", &[]).await;
+    assert_eq!((answer.status, location(&answer)), (302, Some(fx.sheet_url())));
+    let (_, body) = fx.chip("").await;
+    assert!(in_sheet(&body) && body.contains("artifact=signing") && body.contains("name=\"api_key[access_token]\"") && body.contains("rinput"), "Downloads: {body}");
+    let recent = "2026-09-09 00:00:00";
+    fx.c.execute("UPDATE api_keys SET status = 3, updated_at = ?1", [recent]).unwrap();
+    let (_, body) = fx.chip("&key_type=trading").await;
+    assert!(in_sheet(&body) && body.contains("Start over") && body.contains("api_key[access_token]"), "Pending: {body}");
+    fx.c.execute("UPDATE api_keys SET status = 3, updated_at = '2026-08-01 00:00:00'", []).unwrap();
+    let (_, body) = fx.chip("&key_type=read_only").await;
+    assert!(in_sheet(&body) && body.contains("sform__error") && body.contains("Start over"), "Stalled: {body}");
+    fx.c.execute("UPDATE api_keys SET status = 1", []).unwrap();
+    let (_, body) = fx.chip("").await;
+    assert!(in_sheet(&body) && body.contains(">Disconnect</button>") && !body.contains("api_key[access_token]"), "Connected: {body}");
+    // Material this build cannot read: Disconnect only, never a decryption failure.
+    let unreadable = fx.app.cipher.encrypt("not a key");
+    fx.c.execute("UPDATE api_keys SET rsa_signature_key = ?1, rsa_encryption_key = ?1, dh_param = ?1", [&unreadable]).unwrap();
+    let (status, body) = fx.chip("&key_type=trading").await;
+    assert!(status == 200 && in_sheet(&body) && body.contains("be used now") && body.contains(">Disconnect</button>"), "Unusable: {body}");
+}
+
+/// Off the data API's container IBKR is offered only to a user who has its key (as `/settings/ibkr_connect`): with none, the
+/// link answers as before.
+#[tokio::test(flavor = "current_thread")]
+async fn off_the_container_with_no_key_the_ibkr_link_is_not_the_sheet() {
+    let mut fx = install(false).await;
+    let (_, body) = fx.chip("").await;
+    assert!(!body.contains("ibkr-connect-wizard"), "{body}");
+}
+
+/// A write from the sheet that does not finish the connection comes back to the sheet with what it earned inside the card
+/// (a frame does not show the layout's flash), and it is shown once.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unfinished_write_comes_back_to_the_sheet_with_its_message_inside() {
+    let mut fx = hosted().await;
+    fx.sheet_post("/settings/ibkr_connect", &[]).await;
+    let answer = fx.sheet_post("/settings/ibkr_connect/activate", &[("api_key[key]", ""), ("api_key[access_token]", "t"), ("api_key[secret]", "s")]).await;
+    assert_eq!((answer.status, location(&answer)), (302, Some(fx.sheet_url())));
+    let (_, body) = fx.chip("").await;
+    let card = &body[body.find("ibkr-connect-wizard").unwrap()..];
+    assert!(card.contains("class=\"sform__error\" role=\"alert\""), "{body}");
+    let (_, again) = fx.chip("").await;
+    assert!(!again.contains("role=\"alert\""), "shown once");
+    // The key gone meanwhile (another tab): still back to the sheet, never a page without its frame.
+    fx.c.execute("DELETE FROM api_keys", []).unwrap();
+    let answer = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect/activate", Some(&[("api_key[key]", "k"), ("api_key[access_token]", "t"), ("api_key[secret]", "s"), ("sheet", "tracker")]),
+                                 Csrf::Header, &[("Turbo-Frame", "modal_content")]).await;
+    assert_eq!(answer.status, 302);
+    assert!(location(&answer).is_some_and(|l| l.starts_with("/tracker/add_api_key/new")), "{:?}", location(&answer));
+}
+
+/// Disconnect from the sheet finishes on the tracker: its warnings rebuilt and the tracker visited. With IBKR history its chip
+/// stays, broken, and opens the sheet at the start; with none it is gone. A Disconnect refused (an order settling) keeps the
+/// key and says why in the sheet.
+#[tokio::test(flavor = "current_thread")]
+async fn disconnect_from_the_sheet_finishes_on_the_tracker_unless_refused() {
+    for history in [false, true] {
+        let mut fx = hosted().await;
+        fx.sheet_post("/settings/ibkr_connect", &[]).await;
+        fx.c.execute("UPDATE api_keys SET status = 1", []).unwrap();
+        let id: i64 = fx.c.query_row("SELECT id FROM api_keys", [], |r| r.get(0)).unwrap();
+        if history {
+            fx.c.execute("INSERT INTO account_transactions(user_id, exchange_id, api_key_id, base_amount, base_currency, entry_type, transacted_at, created_at, updated_at) \
+                          VALUES(?1, ?2, ?3, 1, 'AAPL', 0, '2026-09-01 00:00:00', '2026-09-01 00:00:00', '2026-09-01 00:00:00')", (fx.user, fx.exchange, id)).unwrap();
+        }
+        let answer = fx.sheet_post("/settings/ibkr_connect", &[("_method", "delete")]).await;
+        assert_eq!(answer.status, 200);
+        assert!(answer.body.contains("target=\"sync-warnings\"") && answer.body.contains("action=\"redirect\"") && answer.body.contains("/tracker"), "{}", answer.body);
+        assert!(fx.key().is_none());
+        let tracker = fx.browser.send(&fx.app, "GET", "/tracker", None, Csrf::None, &[]).await;
+        assert_eq!(tracker.status, 200);
+        let link = format!("/tracker/add_api_key/new?exchange_id={}", fx.exchange);
+        if history {
+            assert_eq!(fx.c.query_row("SELECT count(*) FROM account_transactions", [], |r| r.get::<_, i64>(0)).unwrap(), 1, "the ledger kept");
+            assert!(tracker.body.contains("data-broken=\"true\"") && tracker.body.contains(&link), "{}", tracker.body);
+            let (_, body) = fx.chip("").await;
+            assert!(in_sheet(&body) && body.contains("Start setup"), "{body}");
+        } else {
+            assert!(!tracker.body.contains("data-broken=\"true\""), "{}", tracker.body);
+        }
+    }
+    let mut fx = hosted().await;
+    fx.sheet_post("/settings/ibkr_connect", &[]).await;
+    fx.c.execute("UPDATE api_keys SET status = 1", []).unwrap();
+    let bot = common::seed::insert_bot(&fx.c, &fx.seed, &common::seed::BotSpec::weekly(60.0, "2026-09-01 00:00:00"));
+    fx.c.execute("INSERT INTO transactions(bot_id,exchange_id,external_id,status,external_status,created_at,updated_at)VALUES(?1,?2,'order-a',0,0,'2026-09-10 00:00:00','2026-09-10 00:00:00')", (bot, fx.exchange)).unwrap();
+    let answer = fx.sheet_post("/settings/ibkr_connect", &[("_method", "delete")]).await;
+    assert_eq!((answer.status, location(&answer)), (302, Some(fx.sheet_url())));
+    assert!(fx.key().is_some(), "the key kept");
+    let (_, body) = fx.chip("").await;
+    assert!(in_sheet(&body) && body.contains("An order is still being settled."), "{body}");
+}
+
+fn fixture(name: &str) -> serde_json::Value {
+    serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name)).unwrap()).unwrap()
+}
+
+/// An activation from the sheet that ends connected finishes on the tracker (warnings rebuilt, tracker visited), and the
+/// tracker's IBKR chip is healthy then. IBKR's answers are 2.x's recorded session (ibkr_key_verdicts.json, its DH random
+/// frozen) for one account.
+#[tokio::test(flavor = "current_thread")]
+async fn an_activation_from_the_sheet_that_connects_finishes_on_the_tracker() {
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    let verdicts = fixture("ibkr_key_verdicts.json");
+    deltabadger::venue::ibkr::fix_dh_random(Some(verdicts["ibkr"]["dh_random"].as_str().unwrap().into()));
+    let one = verdicts["ibkr"]["cases"].as_array().unwrap().iter().find(|c| c["case"] == "one_account").unwrap().clone();
+    let server = MockServer::start().await;
+    let answer = |a: &serde_json::Value| ResponseTemplate::new(a["status"].as_u64().unwrap() as u16).set_body_raw(a["body"].as_str().unwrap().as_bytes().to_vec(), "application/json");
+    Mock::given(method("POST")).and(path("/v1/api/oauth/live_session_token")).respond_with(answer(&one["responses"][0])).mount(&server).await;
+    Mock::given(method("POST")).and(path("/v1/api/iserver/auth/ssodh/init")).respond_with(answer(&one["responses"][1])).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v1/api/iserver/accounts")).respond_with(answer(&one["responses"][2])).mount(&server).await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let e = |v: &str| fx.app.cipher.encrypt(v);
+    // The connection's own keys, made earlier (the downloads step), as the recorded session signed with them.
+    let k = fixture("ibkr_test_keys.json");
+    let t = |n: &str| k[n].as_str().unwrap().to_string();
+    fx.c.execute("INSERT INTO api_keys(user_id, exchange_id, key_type, status, rsa_signature_key, rsa_encryption_key, dh_param, ibkr_realm, created_at, updated_at) VALUES(?1, ?2, 0, 0, ?3, ?4, ?5, ?6, '2026-09-01 00:00:00', '2026-09-01 00:00:00')",
+                 rusqlite::params![fx.user, fx.exchange, e(&t("signature_key")), e(&t("encryption_key")), e(verdicts["ibkr"]["dh_param"].as_str().unwrap()), t("realm")]).unwrap();
+    let answer = fx.sheet_post("/settings/ibkr_connect/activate", &[("api_key[key]", &t("consumer_key")), ("api_key[access_token]", &t("access_token")), ("api_key[secret]", &t("access_token_secret"))]).await;
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    assert!(answer.body.contains("target=\"sync-warnings\"") && answer.body.contains("action=\"redirect\""), "{}", answer.body);
+    assert_eq!(fx.key().map(|k| k.0), Some(1), "connected");
+    // IBKR the one venue, healthy: no broken chip asks for its key.
+    let tracker = fx.browser.send(&fx.app, "GET", "/tracker", None, Csrf::None, &[]).await;
+    assert_eq!(tracker.status, 200);
+    assert!(!tracker.body.contains("data-broken=\"true\""), "{}", tracker.body);
+    let (_, body) = fx.chip("").await;
+    assert!(in_sheet(&body) && body.contains(">Disconnect</button>"), "the sheet shows it connected: {body}");
 }

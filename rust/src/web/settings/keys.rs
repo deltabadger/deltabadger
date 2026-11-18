@@ -126,14 +126,6 @@ fn same(a: &Option<String>, b: &Option<String>) -> bool {
         _ => false,
     }
 }
-fn flash_response(ctx: &Ctx, status: StatusCode, key: &str) -> Result<Response, WebError> {
-    let message = i18n::text(ctx.locale, key, &[]);
-    let body = turbo::prepend_flash(flash::render(&flash::take(
-        &ctx.session,
-        &[(flash::ALERT, message)],
-    ))?.trim_end());
-    Ok((status, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response())
-}
 use super::validator::Validity;
 /// The prepared envelopes are the stored producer field for a newly validated slot.
 /// The pending zero identity never enters any persisted account cache.
@@ -230,44 +222,25 @@ pub async fn save(
     if !bot_request {ctx.session.lock().tracker_connect=Some(exchange);}
     let live = ctx.params.form("api_key[passphrase]").map_or(original.passphrase.as_deref() == Some("live"), |mode| mode == "live");
     let outcome = submit(&app, &ctx, user.id, exchange, &class, &name, kind, original).await?;
-    // D-TRACKER-SHEET: a tracker key refused says why under the sheet's fields; the bot page's form flashes it as before.
-    if !bot_request {
-        let message = match &outcome {
-            Submitted::Correct => None,
-            Submitted::Incorrect => Some(i18n::text(ctx.locale, "errors.incorrect_api_key_permissions", &[])),
-            Submitted::Permissions(missing, forbidden) => Some(super::key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&class), &name, kind, missing, forbidden)),
-            Submitted::Failed => Some(i18n::text(ctx.locale, "errors.api_key_permission_validation_failed", &[])),
-            Submitted::Refused(reason) => Some(refusal_text(&ctx, reason)),
-        };
-        if let Some(message) = message {
-            let (inner, v) = (app.clone(), ctx.clone());
-            let (track, content) = app.db(move |c| tracker_step(c, &inner, &v, exchange, &class, &name, kind, live, Some(&message))).await?;
-            let body = turbo::stream("update", "modal_content", &format!("{}\n", crate::web::wizard::sheet_frame(&track, &content)?));
-            return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], format!("{body}\n")).into_response());
-        }
-    }
-    match outcome {
-        Submitted::Correct => {}
-        Submitted::Incorrect => return flash_response(&ctx, StatusCode::UNPROCESSABLE_ENTITY, "errors.incorrect_api_key_permissions"),
+    // D-TRACKER-SHEET, D-BOT-KEY-SHEET: a refused key says why under the sheet's fields.
+    let message = match &outcome {
+        Submitted::Correct => None,
+        Submitted::Incorrect => Some(i18n::text(ctx.locale, "errors.incorrect_api_key_permissions", &[])),
         // ApplicationController#incorrect_api_key_message: the flags the venue named.
-        Submitted::Permissions(missing, forbidden) => {
-            let text = super::key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&class), &name, kind, &missing, &forbidden);
-            let body = turbo::prepend_flash(flash::render(&flash::take(&ctx.session, &[(flash::ALERT, text)]))?.trim_end());
-            return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response());
-        }
-        Submitted::Failed => return flash_response(
-            &ctx,
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "errors.api_key_permission_validation_failed",
-        ),
-        Submitted::Refused(reason) => {
-            let text = refusal_text(&ctx, &reason);
-            let body = turbo::prepend_flash(&flash::render(&flash::take(&ctx.session, &[(flash::ALERT, text)]))?);
-            return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response());
-        }
+        Submitted::Permissions(missing, forbidden) => Some(super::key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&class), &name, kind, missing, forbidden)),
+        Submitted::Failed => Some(i18n::text(ctx.locale, "errors.api_key_permission_validation_failed", &[])),
+        Submitted::Refused(reason) => Some(refusal_text(&ctx, reason)),
+    };
+    if let Some(message) = message {
+        let (inner, v) = (app.clone(), ctx.clone());
+        let (track, content) = app.db(move |c| if bot_request { Ok((String::new(), bot_step(c, &inner, &v, &class, &name, live, Some(&message))?)) }
+                                              else { tracker_step(c, &inner, &v, exchange, &class, &name, kind, live, Some(&message)) }).await?;
+        let body = turbo::stream("update", "modal_content", &format!("{}\n", crate::web::wizard::sheet_frame(&track, &content)?));
+        return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], format!("{body}\n")).into_response());
     }
     if bot_request {
         flash::set(&ctx.session,flash::NOTICE,ctx.t("errors.bots.api_key_success"));
+        // 2.x's page refresh; the card's form closes the sheet on success (`modal--base#submitEnd`).
         return Ok(([(header::CONTENT_TYPE,turbo::CONTENT_TYPE)],turbo::refresh()).into_response());
     }
     ctx.session.lock().tracker_connect=None;
@@ -720,7 +693,7 @@ pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>
 
 #[derive(Template)]
 #[template(path="settings/alpaca_form.html")]
-struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool, modal:bool, sheet:bool, error:Option<&'a str>,
+struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool, error:Option<&'a str>,
     name_id:String, mark:&'static str, alpaca:bool, passphrase:bool, key_label:String, secret_label:String, back:Option<String> }
 
 /// The venues whose keys this build checks (the wizard's list): every other venue's key route is a named refusal.
@@ -736,39 +709,38 @@ pub(crate) fn key_instructions(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&
 }
 /// Exchange#requires_passphrase? outside Alpaca (whose passphrase is its Paper/Live switch): the API Passphrase row.
 fn requires_passphrase(class:&str)->bool{class!=crate::sync::ALPACA&&crate::venue::registry::row(class).is_some_and(|r|r.passphrase)}
-/// shared/_api_key_form inside shared/_connect_form: the venue's connect card. `name`/`class` are the exchange row's name and
-/// type; `instructions` the walkthrough under it; the fields are the key and secret, and Alpaca's Paper/Live switch before them.
-/// Drawn in the bot page's modal.
+/// The venue's connect card as the sheet draws it (D-WIZARD-SHEET-KEY-FORM): Settings' fields and button (`.rinput`, `.rbutton`)
+/// under the venue's name alone (the button says "Connect"), the walkthrough (`instructions`) below; a refused key's reason
+/// (`error`) under the fields, which it marks invalid. `name`/`class` are the exchange row's name and type. With `back` (a
+/// wizard's venue step) the venue's logo is Back (D-KEY-LOGO-BACK); without (the bot page's key, D-BOT-KEY-SHEET) it is a plain
+/// header.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,instructions:String)->Result<String,WebError>{
-    card_in(ctx,csrf,action,form_data,name,class,live,true,None,instructions,None)
-}
-/// The card as the DCA wizard's sheet draws it (D-WIZARD-SHEET-KEY-FORM): Settings' fields and button (`.rinput`, `.rbutton`),
-/// the same fields and the same Connect, under the venue's name alone (the button says "Connect"); a refused key's reason
-/// (`error`) under the fields, which it marks invalid, where the other cards flash it. The venue's logo is Back: a link to `back`,
-/// the wizard's venue step.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn sheet_card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,instructions:String,error:Option<&str>,back:String)->Result<String,WebError>{
-    card_in(ctx,csrf,action,form_data,name,class,live,false,Some(error),instructions,Some(back))
-}
-#[allow(clippy::too_many_arguments)]
-/// `sheet`: drawn in the DCA wizard's sheet, with the refusal to show under its fields if any.
-fn card_in(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,modal:bool,sheet:Option<Option<&str>>,instructions:String,back:Option<String>)->Result<String,WebError>{
+pub(crate) fn sheet_card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,instructions:String,error:Option<&str>,back:Option<String>)->Result<String,WebError>{
     let name_id=crate::tracker::rows::name_id(class);
     // BotHelper#api_key_field_label: the venue's own word for a field, else the generic one.
     let label=|field:&str|{let specific=format!("bot.api.{name_id}.{field}");if lookup(ctx.locale,&specific).is_some(){ctx.t(&specific)}else{ctx.t(&format!("bot.api.{field}_label"))}};
-    let connect_title=if sheet.is_some(){i18n::escape(name)}else{i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text(name))])};
-    Ok(AlpacaForm{v:ctx,csrf,action,form_data,connect_title,
-        instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text(name))]),instructions,live,modal,sheet:sheet.is_some(),error:sheet.flatten(),
+    Ok(AlpacaForm{v:ctx,csrf,action,form_data,connect_title:i18n::escape(name),
+        instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text(name))]),instructions,live,error,
         mark:crate::web::bot::exchange_svg(&name_id),alpaca:class=="Exchanges::Alpaca",passphrase:requires_passphrase(class),key_label:label("public_key"),secret_label:label("private_key"),name_id,back}.render()?)
 }
-#[derive(Template)]
-#[template(path="settings/alpaca_modal.html")]
-struct AlpacaModal<'a> { card:&'a str }
 pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::extract::Extension(ctx):axum::extract::Extension<Ctx>) -> Result<Response,WebError> {
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let exchange=tracker_exchange(&app,&ctx).await?;
     let Some(exchange)=exchange else {return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/pick_exchange/new")))};
+    // D-TRACKER-IBKR-SHEET: IBKR's connection, whatever key type the link asked for, before any key is read the generic way
+    // (its material may not decrypt; its own reader offers Disconnect then).
+    let class:Option<String>=app.db(move|c|Ok(c.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?)).await?;
+    if class.as_deref()==Some(crate::venue::ibkr::IBKR){
+        ctx.session.lock().tracker_connect=Some(exchange);
+        // What the connection's last write earned, drawn in the card: a frame does not show the layout's flash.
+        let notice=std::mem::take(&mut ctx.session.lock().flash).pop().map(|(kind,text)|(kind==flash::ALERT,text));
+        let (inner,v,owner)=(app.clone(),ctx.clone(),user.clone());
+        let found=app.db(move|c|Ok((super::ibkr::tracker_step(c,&inner,&v,owner.id,notice)?,crate::web::shell::Shell::load(c,&inner,&owner)?))).await?;
+        let (Some((track,content)),shell)=found else {return Ok(crate::web::layout::not_ported_for(&ctx))};
+        let csrf=ctx.csrf_token();
+        let body=crate::web::wizard::sheet_to(&ctx,"/tracker",&track,&content)?;
+        return crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]});
+    }
     let requested=ctx.params.query("key_type").filter(|s|matches!(*s,"trading"|"read_only"));
     let kind=if requested==Some("trading"){0}else{2};
     let inner=app.clone();let owner=user.clone();
@@ -810,7 +782,7 @@ fn tracker_step(c:&Connection,app:&App,ctx:&Ctx,exchange:i64,class:&str,name:&st
     use crate::web::wizard::{self, Stop};
     let instructions=key_instructions(c,app,ctx,class,name,kind)?;
     let action=ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"}));
-    let card=sheet_card(ctx,&ctx.csrf_token(),action,"data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"",name,class,live,instructions,error,ctx.path("/tracker/pick_exchange/new"))?;
+    let card=sheet_card(ctx,&ctx.csrf_token(),action,SHEET_FORM,name,class,live,instructions,error,Some(ctx.path("/tracker/pick_exchange/new")))?;
     let track=wizard::track(ctx,1,vec![Stop::new("exchange").name(Some(name.to_string())).back(ctx.path("/tracker/pick_exchange/new")),Stop::new("connect")])?;
     Ok((track,wizard::keys::key_pane(&card)?))
 }
@@ -849,20 +821,32 @@ async fn owned_bot_exchange(app:&App,ctx:&Ctx)->Result<Option<i64>,WebError>{
     let Some(id)=id else{return Ok(None)};
     app.db(move|c|Ok(c.query_row("SELECT exchange_id FROM bots WHERE id=?1 AND user_id=?2",[id,owner],|r|r.get(0)).optional()?)).await
 }
+/// The form attributes of every card the sheet draws: answered in its frame (`modal_content`).
+pub(crate) const SHEET_FORM:&str="data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"";
+/// `/bots/:id`, from this request's `/bots/:id/add_api_key[/new]`.
+fn bot_base(ctx:&Ctx)->String{ctx.params.route_path.trim_end_matches("/new").trim_end_matches("/add_api_key").to_string()}
+/// D-BOT-KEY-SHEET: the bot page's key step ("Add new keys", the status bar's Connect) as the sheet's card with no track: the
+/// venue's name a plain header (no venue step to go back to), `error` under its fields.
+fn bot_step(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&str,live:bool,error:Option<&str>)->Result<String,WebError>{
+    let instructions=key_instructions(c,app,ctx,class,name,0)?;
+    let form_data=format!("{SHEET_FORM} data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"");
+    let card=sheet_card(ctx,&ctx.csrf_token(),ctx.path(&format!("{}/add_api_key",bot_base(ctx))),&form_data,name,class,live,instructions,error,None)?;
+    crate::web::wizard::keys::key_pane(&card)
+}
 pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::extract::Extension(ctx):axum::extract::Extension<Ctx>)->Result<Response,WebError>{
     let Some(user)=ctx.user().cloned() else{return Ok(auth::unauthenticated(&ctx))};
     let Some(exchange)=owned_bot_exchange(&app,&ctx).await? else{return Ok(crate::web::layout::missing())};
     let inner=app.clone();let owner=user.clone();
     let v=ctx.clone();
-    let ((class,name),key,shell,instructions)=app.db(move|c|{
+    let (content,shell)=app.db(move|c|{
         let (class,name)=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[exchange],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default())))?;
-        let instructions=if ported(&class){key_instructions(c,&inner,&v,&class,&name,0)?}else{String::new()};
-        Ok(((class,name),Key::read(c,&inner,owner.id,exchange,0)?,crate::web::shell::Shell::load(c,&inner,&owner)?,instructions))
+        if !ported(&class){return Ok((None,crate::web::shell::Shell::load(c,&inner,&owner)?))}
+        let live=Key::read(c,&inner,owner.id,exchange,0)?.passphrase.as_deref()==Some("live");
+        Ok((Some(bot_step(c,&inner,&v,&class,&name,live,None)?),crate::web::shell::Shell::load(c,&inner,&owner)?))
     }).await?;
-    if !ported(&class){return Ok(crate::web::layout::not_ported_for(&ctx))}
-    let csrf=ctx.csrf_token();let action=ctx.path(ctx.params.route_path.trim_end_matches("/new"));
-    let card=card(&ctx,&csrf,action,"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"",&name,&class,key.passphrase.as_deref()==Some("live"),instructions)?;
-    let body=AlpacaModal{card:&card}.render()?;
+    let Some(content)=content else{return Ok(crate::web::layout::not_ported_for(&ctx))};
+    let csrf=ctx.csrf_token();
+    let body=crate::web::wizard::sheet_to(&ctx,&bot_base(&ctx),"",&content)?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
 

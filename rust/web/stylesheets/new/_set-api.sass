@@ -128,38 +128,6 @@
     display: flex
     justify-content: center
 
-// Inside a small modal: the modal pads, its title names the card, its footer holds Connect, and
-// the fields are settings rows. Everything left-aligned, as the rest of the modal.
-.set-api--modal
-    margin: 0
-    padding: 0
-    gap: 0
-    .set-api__form
-        gap: 0
-        margin: 0
-        max-width: none
-    &.set-api--connect
-        .set-api__brand
-            flex-direction: row
-            align-items: center
-            gap: 1.5rem
-            text-align: left
-        .set-api__mark
-            width: 2.5rem
-            height: 2.5rem
-            flex: none
-        .set-api__note
-            text-align: left
-            margin-bottom: 2rem
-        .set-api__instructions
-            margin: 0
-            padding: 2rem 0 0
-            gap: 1rem
-            border-top: 1px solid var(--zinc)
-    .set-api__mode
-        justify-content: flex-start
-        margin-bottom: 1rem
-
 // Inside a settings widget the widget already pads; the card brings no margins of its own.
 .widget .set-api
     margin: 0

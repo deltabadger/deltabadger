@@ -84,11 +84,52 @@ pub fn wizard(ctx: &Ctx, csrf: &str, state: &State) -> Result<String, WebError> 
     Ok(Wizard { v: ctx, csrf, state, path: ctx.path(PATH), check_address, recommended_url: url(PORTALS[0]), alternative_url: url(PORTALS[1]) }.render()?)
 }
 
+#[derive(Template)]
+#[template(path = "settings/ibkr_sheet.html")]
+struct Sheet<'a> { v: &'a Ctx, csrf: &'a str, state: &'a State, path: String, check_address: String, recommended_url: String, alternative_url: String,
+                   back: String, mark: &'static str, notice: Option<(bool, String)> }
+
+/// D-TRACKER-IBKR-SHEET: the tracker's IBKR key step — the track (IBKR done, Back to the venue step; Connect current) and the
+/// connection as the sheet's card, `notice` (alert?, text) inside it. None when IBKR is not offered here (`gated`).
+pub fn tracker_step(c: &Connection, app: &App, ctx: &Ctx, user: i64, notice: Option<(bool, String)>) -> Result<Option<(String, String)>, WebError> {
+    let key = stored(c, app, user)?;
+    if gated(app, key.as_ref()) { return Ok(None) }
+    let state = state(ctx, key.as_ref());
+    let csrf = ctx.csrf_token();
+    let check_address = i18n::t(ctx.locale, "settings.ibkr.portal_step_check_address", &[("recommended", i18n::Arg::Text(PORTALS[0])), ("alternative", i18n::Arg::Text(PORTALS[1]))]);
+    let url = |host: &str| format!("https://{host}{PORTAL_PATH}");
+    let back = ctx.path("/tracker/pick_exchange/new");
+    let card = Sheet { v: ctx, csrf: &csrf, state: &state, path: ctx.path(PATH), check_address, recommended_url: url(PORTALS[0]), alternative_url: url(PORTALS[1]),
+                       back: back.clone(), mark: crate::web::bot::exchange_svg("ibkr"), notice }.render()?;
+    let track = crate::web::wizard::track(ctx, 1, vec![crate::web::wizard::Stop::new("exchange").name(Some("Interactive Brokers".into())).back(back), crate::web::wizard::Stop::new("connect")])?;
+    Ok(Some((track, crate::web::wizard::keys::key_pane(&card)?)))
+}
+
+/// A write posted from the tracker's sheet (`sheet=tracker`).
+fn from_sheet(ctx: &Ctx) -> bool { ctx.params.form("sheet") == Some("tracker") }
+
+/// Where a write goes on: the connect page, or (from the sheet) the tracker's IBKR step, in the sheet's frame — never a page
+/// without that frame. With no exchange known (the key gone meanwhile) the step the session's tracker venue names.
+fn back_to(ctx: &Ctx, exchange: Option<i64>) -> Response {
+    if !from_sheet(ctx) { return back(ctx) }
+    let query = exchange.map(|id| format!("?exchange_id={id}")).unwrap_or_default();
+    layout::redirect(StatusCode::FOUND, &ctx.path(&format!("/tracker/add_api_key/new{query}")))
+}
+
+/// From the sheet, a write that finished the connection (connected, or disconnected): the tracker's completion, as a tracker
+/// key's save — its warnings rebuilt, the tracker visited (closing the sheet) with the flash.
+async fn tracker_done(app: &App, ctx: &Ctx, user: i64) -> Result<Response, WebError> {
+    let v = ctx.clone();
+    let warnings = app.db(move |c| keys::warnings(c, &v, user)).await?;
+    let body = crate::web::turbo::stream("update", "sync-warnings", &warnings) + &crate::web::turbo::redirect(&ctx.path("/tracker"));
+    Ok(([(header::CONTENT_TYPE, crate::web::turbo::CONTENT_TYPE)], body).into_response())
+}
+
 /// `require_ibkr_available!`: the data API's container (StockTradingSettings.ibkr_available?), or a key there already is.
 fn gated(app: &App, key: Option<&Stored>) -> bool { !app.config.market_data_url && key.is_none() }
 
 fn back(ctx: &Ctx) -> Response { layout::redirect(StatusCode::FOUND, &ctx.path(PATH)) }
-fn gate(ctx: &Ctx) -> Response { layout::redirect(StatusCode::FOUND, &ctx.path("/settings/connect")) }
+fn gate(ctx: &Ctx) -> Response { if from_sheet(ctx) { back_to(ctx, None) } else { layout::redirect(StatusCode::FOUND, &ctx.path("/settings/connect")) } }
 
 /// GET /settings/ibkr_connect.
 pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
@@ -135,7 +176,7 @@ pub async fn create(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let inner = app.clone();
     let (key, exchange) = app.db(move |c| Ok((stored(c, &inner, user.id)?, exchange(c)?))).await?;
     if gated(&app, key.as_ref()) { return Ok(gate(&ctx)); }
-    let (None, Some(exchange)) = (key, exchange) else { return Ok(back(&ctx)) };
+    let (None, Some(exchange)) = (key, exchange) else { return Ok(back_to(&ctx, exchange)) };
     // Ibkr::GenerateConnectionKeysJob's artifacts: RSA generation takes a moment, so off the async workers.
     let material = tokio::task::spawn_blocking(|| [signer::generate_rsa().0, signer::generate_rsa().0, signer::ffdhe2048_pem()])
         .await.map_err(|_| WebError::Config("IBKR key generation failed".into()))?;
@@ -153,7 +194,7 @@ pub async fn create(app: App, ctx: Ctx) -> Result<Response, WebError> {
         tx.commit()?;
         Ok(())
     }).await?;
-    Ok(back(&ctx))
+    Ok(back_to(&ctx, Some(exchange)))
 }
 
 /// POST /settings/ibkr_connect/activate: the pasted consumer key, access token and secret, validated with the stored keys
@@ -167,11 +208,12 @@ pub async fn activate(app: App, ctx: Ctx) -> Result<Response, WebError> {
         Ok(Some((key, original)))
     }).await?;
     if gated(&app, found.as_ref().map(|(key, _)| key)) { return Ok(gate(&ctx)); }
-    let Some((key, original)) = found else { return Ok(back(&ctx)) };
+    let Some((key, original)) = found else { return Ok(back_to(&ctx, None)) };
     // `params.require(:api_key)`: a submission without any of its fields is a bad request.
     let field = |name: &str| ctx.params.form(&format!("api_key[{name}]"));
     if ["key", "access_token", "secret"].iter().all(|name| field(name).is_none()) { return Ok(layout::bad_request()); }
     let (consumer, token, secret) = (field("key").unwrap_or_default(), field("access_token").unwrap_or_default(), field("secret").unwrap_or_default());
+    let mut connected = false;
     let message = if [consumer, token, secret].iter().any(|value| crate::v2::blank(value)) {
         (flash::ALERT, i18n::text(ctx.locale, "settings.ibkr.missing_fields", &[]))
     } else {
@@ -180,6 +222,7 @@ pub async fn activate(app: App, ctx: Ctx) -> Result<Response, WebError> {
             Submitted::Correct => {
                 let id = key.id;
                 let status: i64 = app.db(move |c| Ok(c.query_row("SELECT status FROM api_keys WHERE id = ?1", [id], |r| r.get(0))?)).await?;
+                connected = status == 1;
                 (flash::NOTICE, i18n::text(ctx.locale, if status == 3 { "settings.ibkr.activation_pending" } else { "settings.ibkr.connected" }, &[]))
             }
             Submitted::Incorrect | Submitted::Permissions(..) => (flash::ALERT, i18n::text(ctx.locale, "settings.ibkr.rejected", &[])),
@@ -188,7 +231,8 @@ pub async fn activate(app: App, ctx: Ctx) -> Result<Response, WebError> {
         }
     };
     flash::set(&ctx.session, message.0, message.1);
-    Ok(back(&ctx))
+    if connected && from_sheet(&ctx) { return tracker_done(&app, &ctx, user.id).await }
+    Ok(back_to(&ctx, Some(key.exchange)))
 }
 
 /// DELETE /settings/ibkr_connect: the key gone, its bots stopped first, its ledger rows kept (`keys::remove`).
@@ -197,10 +241,16 @@ pub async fn destroy(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let inner = app.clone();
     let key = app.db(move |c| stored(c, &inner, user.id)).await?;
     if gated(&app, key.as_ref()) { return Ok(gate(&ctx)); }
+    let exchange = key.as_ref().map(|key| key.exchange);
     if let Some(key) = key {
         let inner = app.clone();
         let outcome = app.db(move |c| keys::remove(c, &inner, user.id, key.id, |_| Ok(()))).await?;
-        if let Some(Err(reason)) = outcome { flash::set(&ctx.session, flash::ALERT, keys::refusal_text(&ctx, &reason)); }
+        if let Some(Err(reason)) = outcome {
+            flash::set(&ctx.session, flash::ALERT, keys::refusal_text(&ctx, &reason));
+            // Refused, the key kept: the sheet again, the reason in it.
+            return Ok(back_to(&ctx, exchange));
+        }
     }
+    if from_sheet(&ctx) { return tracker_done(&app, &ctx, user.id).await }
     Ok(back(&ctx))
 }
