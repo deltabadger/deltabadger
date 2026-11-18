@@ -95,6 +95,8 @@ bg:
         scheme_default: 'По подразбиране'
         scheme_space: 'Космос'
         scheme_warm: 'Топла'
+        scheme_ember: 'Жар'
+        scheme_forest: 'Гора'
         show_balances: 'Покажи балансите'
         about: За нас
         telegram: 'Telegram'

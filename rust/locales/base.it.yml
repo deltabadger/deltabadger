@@ -95,6 +95,8 @@ it:
         scheme_default: 'Predefinito'
         scheme_space: 'Spazio'
         scheme_warm: 'Caldo'
+        scheme_ember: 'Brace'
+        scheme_forest: 'Foresta'
         show_balances: 'Mostra saldi'
         about: Chi siamo
         telegram: 'Telegram'

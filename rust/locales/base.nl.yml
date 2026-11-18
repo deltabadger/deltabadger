@@ -95,6 +95,8 @@ nl:
         scheme_default: 'Standaard'
         scheme_space: 'Ruimte'
         scheme_warm: 'Warm'
+        scheme_ember: 'Gloed'
+        scheme_forest: 'Bos'
         show_balances: 'Saldi tonen'
         about: 'Over ons'
         telegram: 'Telegram'

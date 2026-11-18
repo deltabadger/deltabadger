@@ -95,6 +95,8 @@ sv:
         scheme_default: 'Standard'
         scheme_space: 'Rymd'
         scheme_warm: 'Varm'
+        scheme_ember: 'Glöd'
+        scheme_forest: 'Skog'
         show_balances: 'Visa saldon'
         about: Om
         telegram: 'Telegram'

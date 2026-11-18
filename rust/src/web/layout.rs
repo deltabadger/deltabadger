@@ -29,7 +29,7 @@ pub struct Ctx {
     pub turbo_frame: Option<String>,
     /// The request's Accept names `text/vnd.turbo-stream.html` (Turbo's fetch, and the redirect it follows).
     pub stream: bool,
-    /// D-SCHEME-SWITCH: the colour scheme the `scheme` cookie names ("space" or "warm"), "" for the default. The menu sets
+    /// D-SCHEME-SWITCH: the colour scheme the `scheme` cookie names ("space", "warm", "ember" or "forest"), "" for the default. The menu sets
     /// the cookie in the browser; the layouts put it on `<html data-scheme>` so the page paints in it at once.
     pub scheme: &'static str,
 }
@@ -40,7 +40,7 @@ pub fn scheme(headers: &HeaderMap) -> &'static str {
         .filter_map(|line| line.to_str().ok())
         .flat_map(|line| line.split(';'))
         .find_map(|pair| pair.trim().strip_prefix("scheme="))
-        .and_then(|value| ["space", "warm"].into_iter().find(|known| *known == value))
+        .and_then(|value| ["space", "warm", "ember", "forest"].into_iter().find(|known| *known == value))
         .unwrap_or("")
 }
 

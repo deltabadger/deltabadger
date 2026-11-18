@@ -96,6 +96,8 @@ sk:
         scheme_default: 'Predvolená'
         scheme_space: 'Vesmír'
         scheme_warm: 'Teplá'
+        scheme_ember: 'Žiar'
+        scheme_forest: 'Les'
         show_balances: 'Zobraziť zostatky'
         about: O nás
         telegram: 'Telegram'

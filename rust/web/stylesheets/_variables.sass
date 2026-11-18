@@ -211,10 +211,18 @@
   \:root
     +palette-dark
 
-// Space: dark only, neutral near-black greys instead of navy; the blue accent stays.
-\:root[data-scheme="space"]
+// The dark-only schemes start from the dark palette whatever the OS says; each block below makes it its own.
+\:root:is([data-scheme="space"], [data-scheme="ember"], [data-scheme="forest"])
   +palette-dark
   color-scheme: dark
+
+// Space: neutral near-black greys instead of navy, a slate accent.
+\:root[data-scheme="space"]
+  --sky: #3f5569
+  --slider-progress: #3f5569
+  --insight-background: #3f556999
+  --tooltip-background: #3f5569
+  --dropdown-hover: #3f5569
   --link: #e6e6ea
   --ink: #e6e6ea
   --ash: #a3a3ad
@@ -247,6 +255,88 @@
   --text-faded: #55555f
   --widget-shadow-line: #000a
   --slider-track: #ffffff1a
+
+// Ember: the warm scheme's night only — deep brown greys and a burnt-orange accent (white labels 4.8:1).
+\:root[data-scheme="ember"]
+  --sky: #B4592C
+  --link: var(--white)
+  --ink: #F2E8DC
+  --ash: #B8AB9C
+  --stone: #85786B
+  --concrete: #5C5248
+  --steel: #3A332C
+  --silver: #0F0D0B
+  --zinc: #2B2621
+  --paper: #171411
+  --washed: #211D19
+  --paper-on-washed: #2B2621
+  --highlight: var(--white)
+  --autocomplete: #2B2621
+  --menulink: #6E6358
+  --menulink-active: #F2E8DC
+  --menuLogo: #F2E8DC
+  --pickExchangeItemBg: #2B2621
+  --shadow-widget: inset 0.075rem 0.075rem #ffffff10, inset -0.075rem -0.075rem #0007
+  --shadow-paper: inset 0.075rem 0.075rem #ffffff10
+  --benchmark: #5C5248
+  --insight-background: #B4592C66
+  --slider-track: #F2E8DC1a
+  --slider-progress: #B4592C
+  --label: #F2E8DCc0
+  --label-select-inactive: #F2E8DC66
+  --modal-backdrop: #0d0b09c8
+  --pick-bot-item-bg: #211D19
+  --big-header: #85786B
+  --input-text-inactive: #9A8D80
+  --input-border: #9A8D80
+  --sinput-background: #211D19
+  --tooltip-background: #B4592C
+  --dropdown-bg: #26211C
+  --dropdown-border: #3E362E
+  --dropdown-hover: #B4592C
+  --text-faded: #6E6358
+  --widget-shadow-line: #0008
+
+// Forest: deep green greys and a leaf-green accent (white labels 5:1), dark only.
+\:root[data-scheme="forest"]
+  --sky: #2E7D57
+  --link: var(--white)
+  --ink: #E2F0E7
+  --ash: #9DBFAA
+  --stone: #668773
+  --concrete: #43604F
+  --steel: #213A2D
+  --silver: #050F0A
+  --zinc: #18291F
+  --paper: #0C1812
+  --washed: #13231A
+  --paper-on-washed: #1B2E23
+  --highlight: var(--white)
+  --autocomplete: #1B2E23
+  --menulink: #4D6B5A
+  --menulink-active: #E2F0E7
+  --menuLogo: #E2F0E7
+  --pickExchangeItemBg: #1B2E23
+  --shadow-widget: inset 0.075rem 0.075rem #ffffff10, inset -0.075rem -0.075rem #0007
+  --shadow-paper: inset 0.075rem 0.075rem #ffffff10
+  --benchmark: #43604F
+  --insight-background: #2E7D5766
+  --slider-track: #E2F0E71a
+  --slider-progress: #2E7D57
+  --label: #E2F0E7c0
+  --label-select-inactive: #E2F0E766
+  --modal-backdrop: #040a07c8
+  --pick-bot-item-bg: #13231A
+  --big-header: #668773
+  --input-text-inactive: #86A592
+  --input-border: #86A592
+  --sinput-background: #13231A
+  --tooltip-background: #2E7D57
+  --dropdown-bg: #15271D
+  --dropdown-border: #2A4536
+  --dropdown-hover: #2E7D57
+  --text-faded: #4D6B5A
+  --widget-shadow-line: #0008
 
 // Warm: cream and warm greys with a clay accent, in both modes. The clay under white text is #AE5630 (5:1 for a white
 // label), a lighter clay only where it is text or a line on the dark page.

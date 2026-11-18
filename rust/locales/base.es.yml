@@ -95,6 +95,8 @@ es:
         scheme_default: 'Predeterminado'
         scheme_space: 'Espacio'
         scheme_warm: 'Cálido'
+        scheme_ember: 'Brasa'
+        scheme_forest: 'Bosque'
         show_balances: 'Mostrar saldos'
         about: 'Acerca de'
         telegram: 'Telegram'

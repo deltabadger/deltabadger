@@ -97,6 +97,8 @@ pl:
         scheme_default: 'Domyślny'
         scheme_space: 'Kosmos'
         scheme_warm: 'Ciepły'
+        scheme_ember: 'Żar'
+        scheme_forest: 'Las'
         show_balances: 'Pokaż salda'
         about: 'O nas'
         telegram: 'Telegram'

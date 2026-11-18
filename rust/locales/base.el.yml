@@ -95,6 +95,8 @@ el:
         scheme_default: 'Προεπιλογή'
         scheme_space: 'Διάστημα'
         scheme_warm: 'Ζεστό'
+        scheme_ember: 'Θράκα'
+        scheme_forest: 'Δάσος'
         show_balances: 'Εμφάνιση υπολοίπων'
         about: Σχετικά
         telegram: 'Telegram'

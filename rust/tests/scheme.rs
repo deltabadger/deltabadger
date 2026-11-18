@@ -42,6 +42,7 @@ async fn the_scheme_cookie_is_on_the_page_and_chosen_in_both_menus() {
         (None, "", "default"),
         (Some("scheme=space"), " data-scheme=\"space\"", "space"),
         (Some("theme=x; scheme=warm"), " data-scheme=\"warm\"", "warm"),
+        (Some("scheme=forest"), " data-scheme=\"forest\"", "forest"),
         (Some("scheme=bogus"), "", "default"),
     ] {
         let headers: Vec<(&str, &str)> = cookie.map(|c| ("cookie", c)).into_iter().collect();

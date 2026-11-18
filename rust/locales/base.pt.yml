@@ -95,6 +95,8 @@ pt:
         scheme_default: 'Predefinido'
         scheme_space: 'Espaço'
         scheme_warm: 'Quente'
+        scheme_ember: 'Brasa'
+        scheme_forest: 'Floresta'
         show_balances: 'Mostrar saldos'
         about: 'Sobre'
         telegram: 'Telegram'
