@@ -181,7 +181,7 @@ pt:
                 download_csv: 'Transferir'
                 generating_csv: 'Gerando ficheiro...'
                 import_csv: 'Importar'
-                exchange_unavailable_html: 'A API do câmbio não responde atualmente<br>Os cálculos baseiam-se nos últimos dados disponíveis.'
+                exchange_unavailable_html: "Não foi possível ler os preços da corretora.<br>Os valores usam os últimos dados disponíveis."
                 order: Pedido
                 profit_loss: Lucro/perda
                 price: 'Taxa (%{quote})'

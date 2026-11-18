@@ -8,7 +8,7 @@ use rusqlite::Connection;
 fn line(ctx: &Ctx, key: &str, assets: &[String], venue: Option<&str>) -> String {
     let assets = assets.join(", ");
     let key = if venue.is_some() { key.to_string() } else { format!("{key}_anywhere") };
-    format!("    <p class=\"tracker-notice__line\">{}</p>\n",
+    format!("    <p class=\"notice__line\">{}</p>\n",
         i18n::t(ctx.locale, &format!("tracker.prices.{key}"), &[("assets", Arg::Text(&assets)), ("venue", Arg::Text(venue.unwrap_or_default()))]))
 }
 
@@ -22,13 +22,13 @@ pub fn banner(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, arrived
     if chart {
         // Named only from what the sweep recorded it could not price; any other partial day is the generic line.
         let named: Vec<&VenueGap> = gaps.iter().filter(|g| g.exchange_id.is_some() && !g.history.is_empty()).collect();
-        if named.is_empty() { lines.push_str(&format!("    <p class=\"tracker-notice__line\">{}</p>\n", ctx.t("tracker.prices.chart_incomplete"))); }
+        if named.is_empty() { lines.push_str(&format!("    <p class=\"notice__line\">{}</p>\n", ctx.t("tracker.prices.chart_incomplete"))); }
         for g in named { lines.push_str(&line(ctx, "chart_missing", &g.history, g.venue.as_deref())); }
     }
     if lines.is_empty() { return Ok(String::new()); }
     let connect = if crate::web::bots::market_data(c, &ctx.app)?.1 { String::new() } else {
-        format!("    <p class=\"tracker-notice__line\">{} <a data-turbo-frame=\"modal\" href=\"{}\">{}</a></p>\n", ctx.t("tracker.prices.connect_coingecko"),
+        format!("    <p class=\"notice__line\">{} <a data-turbo-frame=\"modal\" href=\"{}\">{}</a></p>\n", ctx.t("tracker.prices.connect_coingecko"),
             ctx.path("/tracker/connect_market_data"), i18n::t(ctx.locale, "bot.setup.connect_to", &[("name", Arg::Text("CoinGecko"))]))
     };
-    Ok(format!("<div class=\"widget tracker-notice\" role=\"status\">\n{lines}{connect}</div>\n"))
+    Ok(format!("<div class=\"widget notice\" role=\"status\">\n{lines}{connect}</div>\n"))
 }

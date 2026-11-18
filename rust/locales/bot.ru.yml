@@ -181,7 +181,7 @@ ru:
                 download_csv: 'Скачать'
                 generating_csv: 'Создание файла...'
                 import_csv: 'Импортировать'
-                exchange_unavailable_html: 'API биржи в данный момент не отвечает.<br>Расчеты основаны на последних доступных данных.'
+                exchange_unavailable_html: "Не удалось получить цены с биржи.<br>Расчёты основаны на последних доступных данных."
                 order: Ордер
                 profit_loss: Прибыль/Убытки
                 price: 'Цена(%{quote})'

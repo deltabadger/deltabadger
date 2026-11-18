@@ -190,7 +190,7 @@ en:
                 import_malformed_csv: 'The CSV file is malformed and cannot be parsed.'
                 import_error: 'Import failed: %{message}'
                 import_currency_mismatch: "Currency mismatch: CSV has '%{csv_quote}' but bot uses '%{bot_quote}'"
-                exchange_unavailable_html: 'The exchange API does not respond at the moment.<br>Calculations are based on the last data available.'
+                exchange_unavailable_html: "Prices could not be read from the exchange.<br>The figures use the last data available."
                 order: Order
                 profit_loss: Profit/Loss
                 price: 'Rate(%{quote})'

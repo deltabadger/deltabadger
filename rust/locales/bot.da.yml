@@ -190,7 +190,7 @@ da:
                 import_malformed_csv: 'CSV-filen er fejlformateret og kan ikke læses.'
                 import_error: 'Import mislykkedes: %{message}'
                 import_currency_mismatch: "Valutauoverensstemmelse: CSV har '%{csv_quote}', men botten bruger '%{bot_quote}'"
-                exchange_unavailable_html: 'Børsens API svarer ikke i øjeblikket.<br>Beregninger er baseret på de senest tilgængelige data.'
+                exchange_unavailable_html: "Priserne kunne ikke læses fra børsen.<br>Tallene bygger på de senest tilgængelige data."
                 order: Ordre
                 profit_loss: Gevinst/Tab
                 price: 'Kurs(%{quote})'

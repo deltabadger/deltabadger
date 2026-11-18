@@ -188,7 +188,7 @@ pub(super) fn render_pair(c: &Connection, p: &crate::figures::pair::Pair, hidden
     let stale = m.prices_stale;
     let mut out = "<div id=\"metrics\" style=\"display: flex; flex-direction: column; gap: 1rem;\">\n".to_string();
     if stale && crate::figures::page_market::notes(&live::venue(s)?, s.bot.user_id, &s.tickers) {
-        out.push_str(&format!("  <p class=\"status-button__hint\" role=\"status\">\n    {}\n  </p>\n", t(locale, "bot.details.stats.exchange_unavailable_html")));
+        out.push_str(&prices_unread(locale));
     }
     if !hidden {
         let item = |label: &str, value: String| format!("      <div class=\"data-grid__item\" data-controller=\"tooltip\">\n  <div class=\"label\">\n    {}\n  </div>\n  \
@@ -286,7 +286,7 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     }
     let mut out = "<div id=\"metrics\" style=\"display: flex; flex-direction: column; gap: 1rem;\">\n".to_string();
     // 3.0 (Rust only): a venue the figures do not read yet (or an IBKR login without the subscription) did not fail to answer.
-    if m.prices_stale && crate::figures::page_market::notes(&crate::figures::live::venue(s)?, s.bot.user_id, &s.tickers) { out.push_str(&format!("<p class=\"status-button__hint\" role=\"status\">\n{}\n</p>\n", t(locale, "bot.details.stats.exchange_unavailable_html"))); }
+    if m.prices_stale && crate::figures::page_market::notes(&crate::figures::live::venue(s)?, s.bot.user_id, &s.tickers) { out.push_str(&prices_unread(locale)); }
     if !hidden {
         out.push_str(&format!("    <div class=\"widget data-grid {}\">\n", if m.realised_pnl.is_zero() { "data-grid--two-columns" } else { "" }));
         let item = |label: &str, value: String| format!("      <div class=\"data-grid__item\" data-controller=\"tooltip\">\n        <div class=\"label\">{}</div>\n        <div class=\"data-grid__item__value\">\n            {value}\n        </div>\n      </div>\n", t(locale, &format!("bot.details.stats.{label}")));
@@ -441,6 +441,11 @@ pub(crate) fn liquidation_table(c:&Connection,ctx:&crate::web::layout::Ctx,id:i6
     })
 }
 
+/// The figures' notice that the venue's prices could not be read: the shared `.notice`, as the tracker's banner.
+fn prices_unread(locale: &str) -> String {
+    format!("  <div class=\"widget notice\" role=\"status\">\n    <p class=\"notice__line\">{}</p>\n  </div>\n", t(locale, "bot.details.stats.exchange_unavailable_html"))
+}
+
 #[cfg(test)]
 #[path="../../../tests/support/normalized_redeploy.rs"]
 mod normalized_redeploy_tests;
@@ -492,3 +497,4 @@ mod token_tests {
         assert_eq!(page.matches("name=\"authenticity_token\" value=\"a&quot;").count(), 2);
     }
 }
+

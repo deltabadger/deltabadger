@@ -348,9 +348,10 @@ impl<'a> Rows<'a> {
             // D-SIG-COND-LINE / D-SIG-CAP: this engine's own signal lines (locale data under `engine.`).
             "signal_condition_unmet" => i18n::text(self.ctx.locale, "engine.signal_condition_unmet", &[("limit", Arg::Text(&detail("limit_type").replace('_', " ")))]),
             "signal_quote_amount_limit_reached" => i18n::text(self.ctx.locale, "engine.signal_quote_amount_limit_reached", &[]),
-            "execution_failed" => match humanized_error(self.bot, &[detail("error")], self.ctx.locale) {
-                Some(error) => event("execution_failed_with_error", &[("error", Arg::Text(&error))]),
-                None => event("execution_failed", &[]),
+            // The stored error, named as execution_failed names it; a row without one keeps the bare line.
+            "execution_failed" | "execution_retrying" => match humanized_error(self.bot, &[detail("error")], self.ctx.locale) {
+                Some(error) => event(&format!("{}_with_error", log.event), &[("error", Arg::Text(&error))]),
+                None => event(&log.event, &[]),
             },
             "stopped" => match detail("stop_message_key") {
                 key if key.trim().is_empty() => event("stopped", &[]),

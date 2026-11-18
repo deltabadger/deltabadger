@@ -782,7 +782,8 @@ de:
             market_closed: 'Markt geschlossen — nächste Öffnung %{time}'
             limit_paused: 'Pausiert: Limit %{limit} nicht erfüllt'
             execution_failed: 'Orderversuch fehlgeschlagen'
-            execution_retrying: 'Vorübergehendes Verbindungsproblem — wird automatisch wiederholt'
+            execution_retrying: "Orderversuch fehlgeschlagen — der Bot versucht es erneut"
+            execution_retrying_with_error: "Orderversuch fehlgeschlagen: %{error} — der Bot versucht es erneut"
             execution_failed_with_error: 'Orderversuch fehlgeschlagen: %{error}'
             order_abandoned: "Order %{order_id} aufgegeben (Börse erfasst sie nicht mehr)"
             placement_ambiguous: "Orderstatus unbestätigt — kein erneuter Versuch, um eine doppelte Order zu vermeiden"

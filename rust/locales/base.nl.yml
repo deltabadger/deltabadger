@@ -781,7 +781,8 @@ nl:
             market_closed: 'Markt gesloten — volgende opening %{time}'
             limit_paused: 'Gepauzeerd: %{limit}-limiet niet bereikt'
             execution_failed: 'Orderpoging mislukt'
-            execution_retrying: 'Tijdelijk verbindingsprobleem — wordt automatisch opnieuw geprobeerd'
+            execution_retrying: "Orderpoging mislukt — de bot probeert het opnieuw"
+            execution_retrying_with_error: "Orderpoging mislukt: %{error} — de bot probeert het opnieuw"
             execution_failed_with_error: 'Orderpoging mislukt: %{error}'
             order_abandoned: "Order %{order_id} opgegeven (de exchange volgt deze niet meer)"
             placement_ambiguous: "Orderstatus onbevestigd — geen nieuwe poging, om een dubbele order te voorkomen"

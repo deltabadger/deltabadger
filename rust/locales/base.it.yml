@@ -781,7 +781,8 @@ it:
             market_closed: 'Mercato chiuso — prossima apertura %{time}'
             limit_paused: 'In pausa: limite %{limit} non soddisfatto'
             execution_failed: 'Tentativo di ordine fallito'
-            execution_retrying: 'Problema di connessione temporaneo — nuovo tentativo automatico'
+            execution_retrying: "Tentativo di ordine fallito — il bot riproverà"
+            execution_retrying_with_error: "Tentativo di ordine fallito: %{error} — il bot riproverà"
             execution_failed_with_error: 'Tentativo di ordine fallito: %{error}'
             order_abandoned: "Ordine %{order_id} abbandonato (l'exchange non lo segue più)"
             placement_ambiguous: "Stato dell'ordine non confermato — nessun nuovo tentativo, per evitare un ordine duplicato"

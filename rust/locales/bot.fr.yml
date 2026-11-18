@@ -183,7 +183,7 @@ fr:
                 download_csv: 'Exporter'
                 generating_csv: 'Génération du fichier...'
                 import_csv: 'Importer'
-                exchange_unavailable_html: 'L''API de l''exchangé ne répond pas pour le moment. <br> Les calculs sont basés sur les dernières données disponibles.'
+                exchange_unavailable_html: "Les prix n'ont pas pu être lus sur l'exchange.<br>Les chiffres reposent sur les dernières données disponibles."
                 order: 'Ordre'
                 profit_loss: 'Gains/pertes'
                 price: 'Taux (%{quote})'
