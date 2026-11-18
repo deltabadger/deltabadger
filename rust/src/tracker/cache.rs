@@ -1,11 +1,12 @@
 //! Page-facing cache of the tracker walk: every scope's Summary the page reads (Tracker::Ledger::Summary).
 //! One Rust-owned app_configs row per user; no request computes, writes or enqueues.
-use super::{backfill, walk::{Position, RoundTrip, Summary, Walked}};
+use super::{backfill, walk::{BotSale, Position, RoundTrip, Summary, Walked}};
 use crate::figures::at::At;
 use crate::{app_config, figures::{dec::Dec, FiguresError}};
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use rusqlite::Connection;
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
 pub const UNAVAILABLE: &str = "Tracker ledger unavailable: calculation failed";
 const TTL_DAYS: i64 = 30;
@@ -15,6 +16,8 @@ const TTL_DAYS: i64 = 30;
 /// 7: each opening's dollars, `opening_values`, which the history gap step reads, D-GAP-OPENINGS).
 const SCHEMA: u64 = 7;
 const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
+const SALES_SCHEMA: u64 = 1;
+const MAX_SALES: usize = 1024 * 1024;
 const MAX_COMPUTED_DECIMAL: usize = 1024 * 1024;
 /// Publication refusals: the walk computed, but its entry is too large to store. The previous entry is kept.
 pub const DECIMAL_TOO_LARGE: &str = "ledger cache computed decimal exceeds 1048576-byte limit";
@@ -33,6 +36,7 @@ pub fn version(c:&Connection,owner:i64)->Result<Version,FiguresError> {
     Ok(Version { history:backfill::history_version(c,owner)?, prices:backfill::generation(c)?,producers:origin.producer_stamps() })
 }
 pub fn key(owner:i64)->String { format!("rust_tracker_ledger.{owner}") }
+pub fn sales_key(owner:i64)->String { format!("rust_tracker_bot_sales.{owner}") }
 fn encode(s:&Summary)->Value {
     let at=|a:&Option<At>|a.map(|a|a.0);
     let pairs=|l:&[(String,Dec)]|l.iter().map(|(k,v)|json!([k,v.to_s_f()])).collect::<Vec<_>>();
@@ -94,6 +98,12 @@ pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&
     let payload=json!({"schema":SCHEMA,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"whole":walked.map(|w|encode(&w.whole)),"venues":walked.map(|w|w.venues.iter().map(|(id,s)|json!([id,encode(s)])).collect::<Vec<_>>())}).to_string();
     if payload.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache publish refused: payload exceeds 8388608-byte limit");return Err(FiguresError::NotComputed(PAYLOAD_TOO_LARGE.into()));}
     app_config::set_plain(c,&key(owner),&payload,now).map_err(FiguresError::Data)?;
+    // The bot sales beside it, same fence, same inputs: what the figures read for a sell-only bot's P/L. A failed walk or an
+    // oversized set publishes none (nobody's P/L shows); the ledger entry above is never refused for it.
+    let sales_row=|sales:Vec<Value>|json!({"schema":SALES_SCHEMA,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"sales":sales}).to_string();
+    let mut sales=sales_row(walked.map(|w|w.bot_sales.iter().map(|b|json!([b.order,b.at.0,b.amount.to_s_f(),b.quote,b.cost.to_s_f(),b.known])).collect()).unwrap_or_default());
+    if sales.len()>MAX_SALES {crate::engine::log("[tracker] bot sales publish refused: payload exceeds 1048576-byte limit");sales=sales_row(vec![])}
+    app_config::set_plain(c,&sales_key(owner),&sales,now).map_err(FiguresError::Data)?;
     Ok(true)
 }
 /// The published entry's own `history`, `prices`, `expires` and `producers`, as stored. `expires` is new with every
@@ -132,20 +142,26 @@ pub fn fingerprint(c:&Connection,owner:i64)->Result<Option<Fingerprint>,FiguresE
 pub fn read(c:&Connection,owner:i64,exchange:Option<i64>,now:DateTime<Utc>)->Result<State,FiguresError> {
     Ok(read_published(c,owner,now)?.scoped(exchange))
 }
+/// The entry stored under `key`, parsed, when it is one the current inputs made: schema, owner, expiry, `version()`, producers
+/// and `ledger_is_current` all hold. None is Cold. The ledger entry and the bot sales row are both read through it.
+fn validated(c:&Connection,key:&str,schema:u64,owner:i64,now:DateTime<Utc>,limit:usize)->Result<Option<Value>,FiguresError> {
+    let Some(raw)=app_config::get_plain(c,key).map_err(FiguresError::Data)? else {return Ok(None)};
+    if raw.len()>limit {crate::engine::log(&format!("[tracker] cache cold: {key} exceeds {limit}-byte limit"));return Ok(None)}
+    let Ok(v)=serde_json::from_str::<Value>(&raw) else {return Ok(None)};
+    if v["schema"].as_u64()!=Some(schema) || v["owner"].as_i64()!=Some(owner) {return Ok(None)}
+    let Some(expires)=v["expires"].as_str().and_then(|s|s.parse::<DateTime<Utc>>().ok()) else {return Ok(None)};
+    if now>=expires {return Ok(None)}
+    let current=version(c,owner)?;
+    if v["history"].as_str()!=Some(current.history.as_str()) || v["prices"].as_i64()!=Some(current.prices) {return Ok(None)}
+    if !crate::engine::model::stamp_set_current_for(&v["producers"],&current.producers) {return Ok(None)}
+    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
+    if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(None)}
+    Ok(Some(v))
+}
 /// `read` before the scope is picked: one parse, every scope, and the publication's fingerprint.
 pub fn read_published(c:&Connection,owner:i64,now:DateTime<Utc>)->Result<Published,FiguresError> {
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=read_published(&tx,owner,now)?;tx.commit()?;return Ok(out)}
-    let Some(raw)=app_config::get_plain(c,&key(owner)).map_err(FiguresError::Data)? else {return Ok(Published::Cold)};
-    if raw.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache cold: payload exceeds 8388608-byte limit");return Ok(Published::Cold)}
-    let Ok(v)=serde_json::from_str::<Value>(&raw) else {return Ok(Published::Cold)};
-    if v["schema"].as_u64()!=Some(SCHEMA) || v["owner"].as_i64()!=Some(owner) {return Ok(Published::Cold)}
-    let Some(expires)=v["expires"].as_str().and_then(|s|s.parse::<DateTime<Utc>>().ok()) else {return Ok(Published::Cold)};
-    if now>=expires {return Ok(Published::Cold)}
-    let current=version(c,owner)?;
-    if v["history"].as_str()!=Some(current.history.as_str()) || v["prices"].as_i64()!=Some(current.prices) {return Ok(Published::Cold)}
-    if !crate::engine::model::stamp_set_current_for(&v["producers"],&current.producers) {return Ok(Published::Cold)}
-    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
-    if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(Published::Cold)}
+    let Some(v)=validated(c,&key(owner),SCHEMA,owner,now,MAX_PAYLOAD)? else {return Ok(Published::Cold)};
     if !v.as_object().is_some_and(|o|o.contains_key("whole") && o.contains_key("venues")) {return Ok(Published::Cold)}
     if v["whole"].is_null() && v["venues"].is_null() {return Ok(Published::Failed(UNAVAILABLE))}
     type Scopes=(Summary,Vec<(i64,Summary)>);
@@ -163,6 +179,38 @@ pub fn read_published(c:&Connection,owner:i64,now:DateTime<Utc>)->Result<Publish
         Ok((whole,venues))=>Ok(Published::Warm{whole:Box::new(whole),venues,from:Fingerprint::of(&v)}),
         Err(_)=>Ok(Published::Cold),
     }
+}
+
+/// The bot sales of the walk the ledger entry was made from. Cold unless validated exactly as the ledger entry is.
+#[derive(Clone, Debug)]
+pub enum Sales { Cold, Warm { by_order: HashMap<i64, BotSale>, expires: DateTime<Utc> } }
+impl Sales {
+    /// A hash of this value (0 when Cold): what figures rendered from it are held to.
+    pub fn stamp(&self)->u64 {
+        use std::hash::{Hash,Hasher};
+        let Sales::Warm{by_order,expires}=self else {return 0};
+        let mut rows:Vec<_>=by_order.values().map(|b|(b.order,b.at.0,b.amount.to_s_f(),b.quote.clone(),b.cost.to_s_f(),b.known)).collect();
+        rows.sort_by_key(|r|r.0);
+        let mut h=std::collections::hash_map::DefaultHasher::new();
+        (rows,expires.timestamp_nanos_opt()).hash(&mut h);
+        h.finish().max(1)
+    }
+}
+pub fn bot_sales(c:&Connection,owner:i64,now:DateTime<Utc>)->Result<Sales,FiguresError> {
+    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=bot_sales(&tx,owner,now)?;tx.commit()?;return Ok(out)}
+    let Some(v)=validated(c,&sales_key(owner),SALES_SCHEMA,owner,now,MAX_SALES)? else {return Ok(Sales::Cold)};
+    let Some(expires)=v["expires"].as_str().and_then(|s|s.parse::<DateTime<Utc>>().ok()) else {return Ok(Sales::Cold)};
+    let decoded=(||->Result<HashMap<i64,BotSale>,FiguresError>{
+        let mut by_order=HashMap::new();
+        for row in array(&v["sales"])? {
+            let row=array(row)?;
+            if row.len()!=6 {return Err(malformed())}
+            let order=row[0].as_i64().ok_or_else(malformed)?;
+            by_order.insert(order,BotSale{order,at:instant(&row[1])?,amount:decimal(&row[2])?,quote:text(&row[3])?.into(),cost:decimal(&row[4])?,known:boolean(&row[5])?});
+        }
+        Ok(by_order)
+    })();
+    Ok(decoded.map_or(Sales::Cold,|by_order|Sales::Warm{by_order,expires}))
 }
 
 #[cfg(test)]
@@ -188,6 +236,50 @@ mod tests {
     }
     fn warm(c:&Connection,exchange:Option<i64>)->Summary {
         let State::Warm(s)=read(c,1,exchange,now()).unwrap() else { panic!("expected warm cache") };*s
+    }
+    fn sale(order:i64,cost:&str)->BotSale { BotSale{order,at:At(1_790_000_000_000_000_000),amount:Dec::strict("0.5").unwrap(),quote:"EUR".into(),cost:Dec::strict(cost).unwrap(),known:true} }
+    fn with_sales(sales:Vec<BotSale>)->Walked { let mut w=walked(); w.bot_sales=sales; w }
+    fn sales(c:&Connection)->Sales { bot_sales(c,1,now()).unwrap() }
+    #[test]
+    fn bot_sales_roundtrip_and_stamp() {
+        let c=db();let v=version(&c,1).unwrap();
+        assert!(matches!(sales(&c),Sales::Cold));
+        publish(&c,1,&v,Some(&with_sales(vec![sale(5,"10.25"),sale(9,"0.0")])),7,now()).unwrap();
+        let Sales::Warm{by_order,..}=sales(&c) else {panic!("warm")};
+        assert_eq!(by_order.len(),2);assert_eq!(by_order[&5],sale(5,"10.25"));assert_eq!(by_order[&9].cost,Dec::zero());
+        let a=sales(&c).stamp();
+        publish(&c,1,&v,Some(&with_sales(vec![sale(5,"10.26")])),7,now()).unwrap();
+        let b=sales(&c).stamp();
+        assert!(a!=0 && b!=0 && a!=b);
+        assert_eq!(Sales::Cold.stamp(),0);
+        warm(&c,None);
+    }
+    #[test]
+    fn bot_sales_cold_when_stale_expired_absent_or_malformed() {
+        let c=db();let v=version(&c,1).unwrap();
+        publish(&c,1,&v,Some(&with_sales(vec![sale(5,"10")])),7,now()).unwrap();
+        assert!(matches!(bot_sales(&c,1,now()+Duration::days(31)).unwrap(),Sales::Cold));
+        assert!(matches!(bot_sales(&c,2,now()).unwrap(),Sales::Cold));
+        let good=app_config::get_plain(&c,&sales_key(1)).unwrap().unwrap();
+        for bad in ["not json".to_string(),good.replace("\"sales\":[[","\"sales\":[[1,"),good.replace("\"schema\":1","\"schema\":2")] {
+            app_config::set_plain(&c,&sales_key(1),&bad,now()).unwrap();assert!(matches!(sales(&c),Sales::Cold));
+        }
+        app_config::set_plain(&c,&sales_key(1),&good,now()).unwrap();assert!(matches!(sales(&c),Sales::Warm{..}));
+        c.execute("UPDATE account_transactions SET updated_at='2026-10-09 00:00:00'",[]).unwrap();
+        c.execute("INSERT INTO account_transactions(id,user_id,updated_at) VALUES(1,1,'2026-10-09 00:00:00')",[]).unwrap();
+        assert!(matches!(sales(&c),Sales::Cold));
+        c.execute("DELETE FROM app_configs WHERE key=?1",[sales_key(1)]).unwrap();
+        assert!(matches!(sales(&c),Sales::Cold));
+    }
+    #[test]
+    fn failed_walk_or_oversized_sales_publish_none_and_the_ledger_still_publishes() {
+        let c=db();let v=version(&c,1).unwrap();
+        assert!(publish(&c,1,&v,None,7,now()).unwrap());
+        let Sales::Warm{by_order,..}=sales(&c) else {panic!("warm")};assert!(by_order.is_empty());
+        let big:Vec<BotSale>=(0..20_000).map(|i|sale(i,"123456789.123456789")).collect();
+        assert!(publish(&c,1,&v,Some(&with_sales(big)),7,now()).unwrap());
+        let Sales::Warm{by_order,..}=sales(&c) else {panic!("warm")};assert!(by_order.is_empty());
+        warm(&c,None);
     }
     #[test]
     fn cache_publish_decimal_limit_keeps_previous_entry() {
