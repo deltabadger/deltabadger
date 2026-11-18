@@ -3,7 +3,7 @@
 //! folds in.
 use super::at::At;
 use super::budget;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use super::db::{self, Order, SplitRow};
 use super::dec::Dec;
 use super::num::NumError;
@@ -75,6 +75,8 @@ fn resolved_factor(rows: &[SplitRow]) -> Result<Option<Dec>, NumError> {
 /// one its row recorded, else the one asset its name stands for on its venue. With both a holding's and a report's
 /// asset known, only the same asset matches; otherwise the strings decide, and only while the string names one class
 /// of asset in the user's account (`account_classes`) — a name that is both is grouped under no date.
+/// D-SPLIT-ASSETLESS-SHARED-NAME (#478): a holding whose rows stored no asset is pooled by name across every venue the
+/// bot traded, so while any of those venues lists a coin under the name it may be the coin: grouped under no date.
 pub fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding]) -> Result<Vec<Group>, FiguresError> {
     let (string_pairs, asset_pairs, exchange_ids) = eligibility(orders)?;
     groups_with(c, user_id, &(string_pairs, asset_pairs, exchange_ids), holdings)
@@ -86,7 +88,7 @@ pub type Eligibility<'a> = (HashSet<(i64, &'a str)>, HashSet<(i64, i64)>, Vec<i6
 /// `groups` with the eligibility given instead of read from orders (A14b: a seller's assets with no traded history).
 pub fn groups_with(c: &Connection, user_id: i64, eligible: &Eligibility<'_>, holdings: &[Holding]) -> Result<Vec<Group>, FiguresError> {
     let (string_pairs, asset_pairs, exchange_ids) = eligible;
-    let (rows, named) = names(c, user_id, exchange_ids)?;
+    let (rows, named, coin_named) = names(c, user_id, exchange_ids)?;
     if rows.is_empty() { return Ok(vec![]); }
     let mut holding_strings = Vec::new();
     for holding in holdings {
@@ -101,36 +103,47 @@ pub fn groups_with(c: &Connection, user_id: i64, eligible: &Eligibility<'_>, hol
     let mut classes: HashMap<String, Vec<Option<String>>> = HashMap::new();
     for (symbol, category) in db::account_classes(c, user_id, &symbols)? { classes.entry(symbol).or_default().push(category); }
     let mut categories: HashMap<i64, Option<String>> = HashMap::new();
+    let category = |categories: &mut HashMap<i64, Option<String>>, id: i64| -> Result<Option<String>, FiguresError> {
+        if let std::collections::hash_map::Entry::Vacant(e) = categories.entry(id) { e.insert(db::asset_category(c, id)?); }
+        Ok(categories[&id].clone())
+    };
     let mut out: Vec<Group> = vec![];
     let mut places = HashMap::new();
     for row in rows {
         budget::charge(1, 0)?;
         let reported = row.base_asset_id.or_else(|| named.get(&(row.exchange_id, row.base_currency.to_uppercase())).copied().flatten());
         let day = row.at.0.div_euclid(86_400_000_000_000);
+        let name = row.base_currency.to_uppercase();
+        let coin_shared = exchange_ids.iter().any(|&venue| coin_named.contains(&(venue, name.clone())));
+        let reported_coin = match reported { Some(id) => category(&mut categories, id)?.as_deref() == Some("Cryptocurrency"), None => false };
         for (holding, strings) in holdings.iter().zip(&holding_strings) {
             budget::charge(1, 0)?;
+            let by_name = strings.contains(row.base_currency.as_str()) && string_pairs.contains(&(row.exchange_id, row.base_currency.as_str()));
+            // The strings decide only while the name stands for one class of asset in the account.
+            let one_class = |categories: &mut HashMap<i64, Option<String>>, asset_id: Option<i64>| -> Result<Option<i64>, FiguresError> {
+                let mut named_classes: Vec<Option<String>> = classes.get(&row.base_currency).cloned().unwrap_or_default();
+                if let Some(id) = asset_id { named_classes.push(category(categories, id)?); }
+                let mut distinct: Vec<String> = vec![];
+                for class in named_classes.into_iter().flatten() { if !distinct.contains(&class) { distinct.push(class); } }
+                Ok((distinct.len() <= 1).then_some(day))
+            };
             // D-SPLIT-NEVER-A-COIN: a split is a security's corporate action. 2.x resolves an asset-less report by its
             // name, and on Alpaca a name a security shares with a coin restates the coin (or leaves it unresolved for
             // good). The holding's asset decides, else the report's; a coin is neither restated nor held unresolved.
-            if let Some(id) = holding.asset_id.or(reported) {
-                if let std::collections::hash_map::Entry::Vacant(e) = categories.entry(id) { e.insert(db::asset_category(c, id)?); }
-                if categories[&id].as_deref() == Some("Cryptocurrency") { continue; }
-            }
             let date = match (holding.asset_id, reported) {
+                // D-SPLIT-ASSETLESS-SHARED-NAME: nothing on such a row says which asset it bought; fail closed.
+                (None, _) if !by_name => continue,
+                (None, _) if coin_shared => None,
+                (None, _) if reported_coin => continue,
+                (None, reported) => one_class(&mut categories, reported)?,
+                (Some(asset_id), _) if category(&mut categories, asset_id)?.as_deref() == Some("Cryptocurrency") => continue,
                 (Some(asset_id), Some(reported)) => {
                     if !(reported == asset_id && asset_pairs.contains(&(row.exchange_id, asset_id))) { continue; }
                     Some(day)
                 }
-                (asset_id, reported) => {
-                    if !(strings.contains(row.base_currency.as_str()) && string_pairs.contains(&(row.exchange_id, row.base_currency.as_str()))) { continue; }
-                    let mut named_classes: Vec<Option<String>> = classes.get(&row.base_currency).cloned().unwrap_or_default();
-                    if let Some(id) = asset_id.or(reported) {
-                        if let std::collections::hash_map::Entry::Vacant(e) = categories.entry(id) { e.insert(db::asset_category(c, id)?); }
-                        named_classes.push(categories[&id].clone());
-                    }
-                    let mut distinct: Vec<String> = vec![];
-                    for class in named_classes.into_iter().flatten() { if !distinct.contains(&class) { distinct.push(class); } }
-                    (distinct.len() <= 1).then_some(day)
+                (Some(asset_id), None) => {
+                    if !by_name { continue; }
+                    one_class(&mut categories, Some(asset_id))?
                 }
             };
             let at = *places.entry((holding.key.clone(), date)).or_insert_with(|| {
@@ -145,10 +158,14 @@ pub fn groups_with(c: &Connection, user_id: i64, eligible: &Eligibility<'_>, hol
 
 /// Per (venue, NAME), the one asset that name stands for on the venue; None: more than one.
 pub type Names = HashMap<(i64, String), Option<i64>>;
+/// The (venue, NAME) pairs where the venue lists a coin under a split row's name (unavailable and replaced listings
+/// count, so a delisting does not lift it), asked of every venue, not only the row's.
+pub type CoinNamed = BTreeSet<(i64, String)>;
 
-/// What the split rows on these venues name, as `groups` resolves it: the rows and their names. The figures'
-/// fingerprint reads it for the venues the account's orders are eligible on (`eligibility`), sorted.
-pub fn lookups(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<(Vec<SplitRow>, Names), FiguresError> {
+/// What the split rows on these venues name, as `groups` resolves it: the rows, their names, and where a coin is listed
+/// under them. The figures' fingerprint reads it for the venues the account's orders are eligible on (`eligibility`),
+/// sorted; `CoinNamed` per venue, as each bot groups over its own venues.
+pub fn lookups(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<(Vec<SplitRow>, Names, CoinNamed), FiguresError> {
     names(c, user_id, exchange_ids)
 }
 
@@ -171,28 +188,34 @@ fn eligibility(orders: &[Order]) -> Result<Eligibility<'_>, FiguresError> {
     Ok((string_pairs, asset_pairs, exchange_ids))
 }
 
-/// The marked rows of these venues, and what each row's name stands for on its venue (Ticker.asset_ids_by_name).
-fn names(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<(Vec<SplitRow>, Names), FiguresError> {
+/// The marked rows of these venues, what each row's name stands for on its venue (Ticker.asset_ids_by_name), and which
+/// venues list a coin under any row's name.
+fn names(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<(Vec<SplitRow>, Names, CoinNamed), FiguresError> {
     let mut named = Names::new();
-    if exchange_ids.is_empty() { return Ok((vec![], named)); }
+    let mut coin_named = CoinNamed::new();
+    if exchange_ids.is_empty() { return Ok((vec![], named, coin_named)); }
     let rows = db::split_rows(c, user_id, exchange_ids)?;
-    if rows.is_empty() { return Ok((rows, named)); }
-    let mut wanted: HashMap<i64, Vec<String>> = HashMap::new();
+    if rows.is_empty() { return Ok((rows, named, coin_named)); }
+    let mut all: Vec<String> = vec![];
     let mut seen = HashSet::new();
     for row in &rows {
         budget::charge(1, 0)?;
         if row.base_currency.trim().is_empty() { continue; }
         let name = row.base_currency.to_uppercase();
-        if seen.insert((row.exchange_id, name.clone())) { wanted.entry(row.exchange_id).or_default().push(name); }
+        if seen.insert((row.exchange_id, name.clone())) && !all.contains(&name) { all.push(name); }
     }
+    let mut coins: HashMap<i64, bool> = HashMap::new();
     for &exchange_id in exchange_ids {
         budget::charge(1, 0)?;
-        for (name, id) in db::asset_ids_by_name(c, exchange_id, wanted.get(&exchange_id).map_or(&[], Vec::as_slice))? {
+        for (name, id) in db::asset_ids_by_name(c, exchange_id, &all)? {
             budget::charge(1, 0)?;
+            let coin = match coins.get(&id) { Some(&coin) => coin, None => *coins.entry(id).or_insert(db::asset_category(c, id)?.as_deref() == Some("Cryptocurrency")) };
+            if coin { coin_named.insert((exchange_id, name.clone())); }
+            if !seen.contains(&(exchange_id, name.clone())) { continue; }
             named.entry((exchange_id, name)).and_modify(|found| { if *found != Some(id) { *found = None; } }).or_insert(Some(id));
         }
     }
-    Ok((rows, named))
+    Ok((rows, named, coin_named))
 }
 
 /// Bot::Restatable#split_events: one composed event per holding and date whose reports agree within each action, timed at the
