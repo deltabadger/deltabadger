@@ -738,9 +738,10 @@ pub(crate) fn key_instructions(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&
 fn requires_passphrase(class:&str)->bool{class!=crate::sync::ALPACA&&crate::venue::registry::row(class).is_some_and(|r|r.passphrase)}
 /// shared/_api_key_form inside shared/_connect_form: the venue's connect card. `name`/`class` are the exchange row's name and
 /// type; `instructions` the walkthrough under it; the fields are the key and secret, and Alpaca's Paper/Live switch before them.
+/// Drawn in the bot page's modal.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,modal:bool,instructions:String)->Result<String,WebError>{
-    card_in(ctx,csrf,action,form_data,name,class,live,modal,None,instructions)
+pub(crate) fn card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,instructions:String)->Result<String,WebError>{
+    card_in(ctx,csrf,action,form_data,name,class,live,true,None,instructions)
 }
 /// The card as the DCA wizard's sheet draws it (D-WIZARD-SHEET-KEY-FORM): Settings' fields and button (`.rinput`, `.rbutton`),
 /// the same fields and the same Connect, under the venue's name alone (the button says "Connect"); a refused key's reason
@@ -859,7 +860,7 @@ pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::
     }).await?;
     if !ported(&class){return Ok(crate::web::layout::not_ported_for(&ctx))}
     let csrf=ctx.csrf_token();let action=ctx.path(ctx.params.route_path.trim_end_matches("/new"));
-    let card=card(&ctx,&csrf,action,"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"",&name,&class,key.passphrase.as_deref()==Some("live"),true,instructions)?;
+    let card=card(&ctx,&csrf,action,"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"",&name,&class,key.passphrase.as_deref()==Some("live"),instructions)?;
     let body=AlpacaModal{card:&card}.render()?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
