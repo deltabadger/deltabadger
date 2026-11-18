@@ -11,7 +11,8 @@ mod headline;
 pub mod service;
 pub mod loading;
 pub mod warm;
-use crate::figures::totals;
+use crate::figures::{basis, totals};
+use crate::tracker::cache::Sales;
 
 pub const NO_VALUE: &str = "<span class=\"no-value\">—</span>";
 fn colour(n: &Num) -> &'static str { if n.is_negative() { "text-danger" } else if n.is_positive() { "text-success" } else { "" } }
@@ -159,10 +160,11 @@ pub(crate) fn format_value(value: &Num, max_decimals: u8) -> Result<String, crat
 pub(crate) fn printed(value: &Num) -> String {
     match value { Num::Int(i) => i.to_string(), Num::Dec(d) => d.to_s_f(), Num::Float(f) => crate::figures::num::float_to_s(*f) }
 }
-fn tile(id: i64, kind: &str, m: &Metrics, unavailable: bool, profit: Option<&Num>, d: &totals::Denomination) -> Result<String, FiguresError> {
+/// `pnl`: the percentage the tile states, None when it cannot be stated.
+fn tile(id: i64, kind: &str, pnl: Option<&Num>, profit: Option<&Num>, d: &totals::Denomination) -> Result<String, FiguresError> {
     let mut body = String::new();
     // Figures that cannot be stated leave the tile without them: no widget, no dash.
-    if let Some(pnl) = m.pnl.as_ref().filter(|_| !unavailable) {
+    if let Some(pnl) = pnl {
         body = format!("<div class=\"bot-tile__pnl {}\">\n<span class=\"pnl-percent\">{}</span>\n", colour(pnl), percent(pnl, 2)?);
         // Bot#profit_in_usd in the account's currency; absent with balances hidden or without a rate, as in 2.x.
         if let Some(profit) = profit {
@@ -191,6 +193,23 @@ pub(crate) fn missing(s: &Subject, m: &Metrics, market: &dyn MarketData) -> Resu
     Ok(keys)
 }
 
+/// D-SELL-ONLY-TILE: a sell-only bot's tile states its realised P/L over what the sold coins cost, and the P/L in USD as
+/// `profit_in_usd` converts; no figure when the cost is not known (or nothing, for a percentage of nothing). None for a
+/// bot that bought: its tile is the walk's.
+#[allow(clippy::type_complexity)]
+fn sell_only_tile(c: &Connection, market: &dyn MarketData, rates: &mut totals::Rates, s: &Subject, pair: bool, sales: &Sales, hidden: bool) -> Result<Option<(Option<Num>, Option<Num>)>, FiguresError> {
+    let Some(sell) = basis::sell_only(s, pair, sales)? else { return Ok(None) };
+    let (Some(pnl), Some(cost)) = (sell.pnl()?, sell.cost.filter(crate::figures::dec::Dec::is_positive)) else { return Ok(Some((None, None))) };
+    let percent = Num::Dec(pnl.div(&cost)?);
+    let profit = if hidden { None } else {
+        match totals::quote_in_usd(c, market, rates, s.quote.as_deref(), pnl) {
+            Err(FiguresError::NotComputed(reason)) if reason == "quote currency unavailable" => None,
+            other => without_fx(other)?,
+        }
+    };
+    Ok(Some((Some(percent), profit)))
+}
+
 /// One bot's figures as the account's totals read them: `marked` None is no track in the history (its chart raised), and
 /// `read` false none in a page's read of it.
 struct Done { subject: Subject, live: Metrics, marked: Option<Metrics>, missing: Vec<String>, read: bool }
@@ -213,7 +232,8 @@ pub fn settings_panels(c: &Connection, id: i64, market: &dyn MarketData, now: At
         let walked = walk::metrics(c, &subject, now)?;
         let metrics = live::live(c, &subject, &walked, market, now)?;
         let missing = missing(&subject, &metrics, market)?;
-        let panel = holdings::render(c, &subject, &metrics, &missing, user.hide_balances, locale, &mut holdings::Token::Value(""), prefix, now)?;
+        let sales = basis::sales(c, subject.bot.user_id, now.utc())?.unwrap_or(Sales::Cold);
+        let panel = holdings::render(c, &subject, &metrics, &missing, &sales, user.hide_balances, locale, &mut holdings::Token::Value(""), prefix, now)?;
         Ok((panel, rebalance(c, &subject, &metrics, locale, now)?.0))
     })
 }
@@ -224,14 +244,19 @@ pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, l
 }
 /// Where each bot's metrics take a form token: (bot id, byte offsets into its `metrics`).
 pub(crate) type Slots = Vec<(String, Vec<usize>)>;
-/// `account` with every form token left empty and where it goes recorded, for figures kept across requests.
-pub(crate) fn kept_account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, locale: &str, prefix: &str) -> Result<(Value, Slots), FiguresError> {
+/// `account` with every form token left empty and where it goes recorded, for figures kept across requests, and the bot
+/// sales they were rendered from (None: the account has no sell-only bot, and none were read): kept figures are held
+/// to them (`loading::sales_hold`).
+pub(crate) fn kept_account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, locale: &str, prefix: &str) -> Result<(Value, Slots, Option<Sales>), FiguresError> {
     computed(c, user_id, market, now, locale, None, prefix)
 }
 /// `csrf`: the token, or None to record where it goes.
-fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, locale: &str, csrf: Option<&str>, prefix: &str) -> Result<(Value, Slots), FiguresError> {
+fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, locale: &str, csrf: Option<&str>, prefix: &str) -> Result<(Value, Slots, Option<Sales>), FiguresError> {
     budget::within(|| {
         let mut slots = vec![];
+        // The bot sales, read once for the account and only when it has a sell-only bot (D-SELL-ONLY-KNOWN-COST 1).
+        let read = basis::sales(c, user_id, now.utc())?;
+        let sales = read.clone().unwrap_or(Sales::Cold);
         let mut bots = Map::new();
         let mut computed = vec![];
         let user = db::user(c, user_id)?;
@@ -263,16 +288,19 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
                 let marked = match pair::marked_at(&live, market, now) { Err(FiguresError::Raised(_)) => None, other => Some(other?) };
                 marked_raised |= marked.is_none();
                 let chart_cache = marked.as_ref().is_some_and(|(_, gridded)| *gridded);
-                let metrics = holdings::render_pair(c, &live, user.hide_balances, locale, prefix, now)?;
-                let profit = if user.hide_balances { None } else {
-                    match totals::profit_in_usd(c, market, &mut rates, live.subject.quote.as_deref(), &live.metrics) {
-                        Err(FiguresError::NotComputed(reason)) if reason == "quote currency unavailable" => None,
-                        other => without_fx(other)?,
-                    }
+                let metrics = holdings::render_pair(c, &live, &sales, user.hide_balances, locale, prefix, now)?;
+                let (pnl, profit) = match sell_only_tile(c, market, &mut rates, &live.subject, true, &sales, user.hide_balances)? {
+                    Some(tile) => tile,
+                    None => (live.metrics.pnl.clone().filter(|_| !live.metrics.prices_stale), if user.hide_balances { None } else {
+                        match totals::profit_in_usd(c, market, &mut rates, live.subject.quote.as_deref(), &live.metrics) {
+                            Err(FiguresError::NotComputed(reason)) if reason == "quote currency unavailable" => None,
+                            other => without_fx(other)?,
+                        }
+                    }),
                 };
                 // D3 (3.0, Rust only): a stale pair's chart is not drawn, as a basket's is not: 2.x's broadcast draws it.
                 let chart = match &marked { Some((m, _)) => plot::render(c, &live.subject, &m.metrics, &[], user.hide_balances, locale, &user.time_zone, true)?, None => plot::NOT_CHARTED.into() };
-                bots.insert(id.to_string(), json!({ "tile": tile(id, kind, &live.metrics, live.metrics.prices_stale, profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": chart, "missing": [],
+                bots.insert(id.to_string(), json!({ "tile": tile(id, kind, pnl.as_ref(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": chart, "missing": [],
                     "cached": cached,
                     // The page draws a chart only beside cached figures (@chart_metrics is read only unless @metrics_loading).
                     "chart_cached": cached && chart_cache }));
@@ -295,17 +323,20 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
             let (marked, gridded) = chart::marked_at(c, &subject, &marked_live, market, now)?;
             let mut offsets = vec![];
             let mut token = match csrf { None => holdings::Token::Slots(&mut offsets), Some(token) => holdings::Token::Value(token) };
-            let metrics = holdings::render(c, &subject, &marked_live, &missing, user.hide_balances, locale, &mut token, prefix, now)?;
+            let metrics = holdings::render(c, &subject, &marked_live, &missing, &sales, user.hide_balances, locale, &mut token, prefix, now)?;
             if !offsets.is_empty() { slots.push((id.to_string(), offsets)); }
             let (rebalance_info, rebalance_drift) = rebalance(c, &subject, &marked_live, locale, now)?;
             // The amount is all a rate was needed for: with balances hidden there is none to convert (BotsController#index).
-            let profit = if user.hide_balances { None } else {
-                match totals::profit_in_usd(c, market, &mut rates, subject.quote.as_deref(), &marked_live) {
-                    Err(FiguresError::NotComputed(reason)) if reason == "quote currency unavailable" => None,
-                    other => without_fx(other)?,
-                }
+            let (pnl, profit) = match sell_only_tile(c, market, &mut rates, &subject, false, &sales, user.hide_balances)? {
+                Some(tile) => tile,
+                None => (marked_live.pnl.clone().filter(|_| !marked_live.prices_stale && missing.is_empty()), if user.hide_balances { None } else {
+                    match totals::profit_in_usd(c, market, &mut rates, subject.quote.as_deref(), &marked_live) {
+                        Err(FiguresError::NotComputed(reason)) if reason == "quote currency unavailable" => None,
+                        other => without_fx(other)?,
+                    }
+                }),
             };
-            bots.insert(id.to_string(), json!({ "tile": tile(id, kind, &marked_live, marked_live.prices_stale || !missing.is_empty(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone, false)?, "missing": missing,
+            bots.insert(id.to_string(), json!({ "tile": tile(id, kind, pnl.as_ref(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone, false)?, "missing": missing,
                 // What 2.x would find in its cache (Measurable#metrics_with_current_prices): stale figures, or ones with no
                 // chart point yet, are never written, so its bot page reads them as still loading.
                 "cached": !marked_live.prices_stale && !marked_live.chart.labels.is_empty(),
@@ -351,7 +382,7 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
         if bytes > 8 * 1024 * 1024 { return Err(FiguresError::NotComputed(crate::figures::OVER_BUDGET.into())); }
         budget::charge(bytes as u64,0)?;
         budget::check()?;
-        Ok((out, slots))
+        Ok((out, slots, read))
     })
 }
 

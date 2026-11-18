@@ -189,6 +189,7 @@ es:
                 price: 'Tasa(%{quote})'
                 sold: Vendido
                 received: 'Recibido'
+                realised_pnl_basis_note: "Lo recibido menos lo que costaron las monedas vendidas, según el historial de tu cuenta."
                 title: Estadísticas
                 total_invested: 'Total invertido'
                 portfolio_value: 'Valor de la cartera'

@@ -241,7 +241,7 @@ async fn render_runs_no_figure_computation() {
             Ok((out?, used.steps))
         }).await.unwrap();
         // Written since `prepare`, the fingerprint is read again: whatever it costs, and nothing more.
-        let fingerprint = if unchanged { 0 } else { install.app.db(|c| Ok(budget::scope(budget::FIGURE, || loading::revision(c, 1)).1.steps)).await.unwrap() };
+        let fingerprint = if unchanged { 0 } else { install.app.db(|c| Ok(budget::scope(budget::FIGURE, || loading::revision(c, 1, chrono::Utc::now())).1.steps)).await.unwrap() };
         assert_eq!(steps, fingerprint, "{case}: a page computed figures");
         if unchanged { assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 0, "{case}: a page read what only a computation reads"); }
         if case.starts_with("ready, n") || case == "ready, another locale" || case == "expired" { assert!(shown.is_none(), "{case}: 2.x's loading state"); }
@@ -1085,7 +1085,7 @@ fn a_pair_bots_listings_by_spelling_are_in_the_fingerprint() {
         INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at)
             VALUES (1,1,'AAA',2,'USD',1,1,1,100,100,0,0,2,'o1','REGULAR','2026-03-02 14:30:00',{t});
     ")).unwrap();
-    let revision = || loading::revision(&c, 1).unwrap().0;
+    let revision = || loading::revision(&c, 1, chrono::Utc::now()).unwrap().0;
     let changes = |sql: &str| { let before = revision(); c.execute_batch(sql).unwrap(); before != revision() };
     assert!(!changes(&format!("INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,created_at,updated_at) \
         VALUES (2,'ZZZ',3,9,1,0,1,2,'USDT',4,2,'ZZZ/USDT',{t},{t})")), "a listing under another spelling");
@@ -1122,7 +1122,7 @@ fn a_coin_listed_under_a_split_rows_name_is_in_the_fingerprint() {
         INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,created_at,updated_at)
             VALUES (1,1,15,'BTC',0,'2026-04-01 00:00:00','{{\"corporate_action\":\"split\",\"split_ratio\":\"2:1\"}}',{t},{t});
     ")).unwrap();
-    let revision = || loading::revision(&c, 1).unwrap().0;
+    let revision = || loading::revision(&c, 1, chrono::Utc::now()).unwrap().0;
     let changes = |sql: &str| { let before = revision(); c.execute_batch(sql).unwrap(); before != revision() };
     let list = |id: i64, venue: i64| format!("INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,created_at,updated_at) \
         VALUES ({id},'XBT',3,9,{venue},0,1,2,'USD',1,2,'XBT/USD',{t},{t})");

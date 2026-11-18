@@ -187,6 +187,7 @@ pt:
                 price: 'Taxa (%{quote})'
                 sold: Vendido
                 received: 'Recebido'
+                realised_pnl_basis_note: "O valor recebido menos o custo das moedas vendidas, segundo o histórico da sua conta."
                 title: Estatísticas
                 total_invested: 'Total investido'
                 portfolio_value: 'Valor da carteira'

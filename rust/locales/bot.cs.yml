@@ -196,6 +196,7 @@ cs:
                 price: 'Cena(%{quote})'
                 sold: Prodáno
                 received: 'Přijato'
+                realised_pnl_basis_note: "Přijatá částka minus to, kolik prodané mince stály, podle historie vašeho účtu."
                 title: Statistiky
                 total_invested: 'Celkem investováno'
                 portfolio_value: 'Hodnota portfolia'

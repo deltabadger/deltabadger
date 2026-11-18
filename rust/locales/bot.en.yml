@@ -196,6 +196,7 @@ en:
                 price: 'Rate(%{quote})'
                 sold: Sold
                 received: 'Received'
+                realised_pnl_basis_note: "Received minus what the sold coins cost, from your account's history."
                 title: Statistics
                 total_invested: 'Total invested'
                 portfolio_value: 'Portfolio Value'

@@ -196,6 +196,7 @@ sv:
                 price: 'Kurs(%{quote})'
                 sold: Sålt
                 received: 'Mottaget'
+                realised_pnl_basis_note: "Mottaget belopp minus vad de sålda mynten kostade, enligt historiken på ditt konto."
                 title: Statistik
                 total_invested: 'Totalt investerat'
                 portfolio_value: 'Portföljvärde'

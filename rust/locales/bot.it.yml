@@ -189,6 +189,7 @@ it:
                 price: 'Tasso(%{quote})'
                 sold: Venduto
                 received: 'Ricevuto'
+                realised_pnl_basis_note: "Importo ricevuto meno il costo delle monete vendute, secondo la cronologia del tuo account."
                 title: Statistiche
                 total_invested: 'Totale investito'
                 portfolio_value: 'Valore del portafoglio'

@@ -187,6 +187,7 @@ de:
                 price: 'Rate(%{quote})'
                 sold: Verkauft
                 received: 'Erhalten'
+                realised_pnl_basis_note: "Erhalten abzüglich dessen, was die verkauften Coins gekostet haben – laut der Historie deines Kontos."
                 title: Statistiken
                 total_invested: 'Insgesamt investiert'
                 portfolio_value: 'Portfoliowert'

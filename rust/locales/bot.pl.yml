@@ -189,6 +189,7 @@ pl:
                 price: 'Kurs (%{quote})'
                 sold: Sprzedane
                 received: 'Otrzymano'
+                realised_pnl_basis_note: "Kwota otrzymana minus koszt sprzedanych monet, według historii Twojego konta."
                 title: Statystyki
                 total_invested: 'Zainwestowana suma'
                 portfolio_value: 'Wartość portfela'

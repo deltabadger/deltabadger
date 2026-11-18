@@ -196,6 +196,7 @@ sk:
                 price: 'Cena(%{quote})'
                 sold: Predané
                 received: 'Prijaté'
+                realised_pnl_basis_note: "Prijatá suma mínus to, koľko predané mince stáli, podľa histórie vášho účtu."
                 title: Štatistiky
                 total_invested: 'Celkom investované'
                 portfolio_value: 'Hodnota portfólia'

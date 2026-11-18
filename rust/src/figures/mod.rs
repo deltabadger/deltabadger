@@ -6,6 +6,7 @@
 //! and `json` writes them as 2.x's encoder does, so a figure can be compared with 2.x's character by character
 //! (rust/tests/figures.rs, against the recorded answers).
 pub mod at;
+pub mod basis;
 pub mod books;
 pub mod budget;
 pub mod chart;

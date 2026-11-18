@@ -126,6 +126,17 @@ pub fn profit_in_usd(c: &Connection, market: &dyn MarketData, rates: &mut Rates,
 fn profit(c: &Connection, market: &dyn MarketData, rates: &mut Rates, quote: Option<&str>, metrics: &Metrics) -> Result<Option<Num>, FiguresError> {
     if quote.is_none_or(|q|q.trim().is_empty()) { return Err(FiguresError::NotComputed("quote currency unavailable".into())); }
     let profit = (&metrics.total_amount_value_in_quote.to_d()? - &metrics.total_quote_amount_invested.to_d()?)?;
+    in_usd(c, market, rates, quote, profit)
+}
+/// `profit_in_usd`'s conversion of an amount in the bot's quote, for a profit the walk does not make (a sell-only bot's
+/// realised P/L, figures::basis).
+pub fn quote_in_usd(c: &Connection, market: &dyn MarketData, rates: &mut Rates, quote: Option<&str>, amount: Dec) -> Result<Option<Num>, FiguresError> {
+    budget::within(|| {
+        if quote.is_none_or(|q|q.trim().is_empty()) { return Err(FiguresError::NotComputed("quote currency unavailable".into())); }
+        in_usd(c, market, rates, quote, amount)
+    })
+}
+fn in_usd(c: &Connection, market: &dyn MarketData, rates: &mut Rates, quote: Option<&str>, profit: Dec) -> Result<Option<Num>, FiguresError> {
     if profit.is_zero() { return Ok(Some(Num::Dec(profit))); }
     let Some(currency) = quote else { return Ok(None) };
     let Some(rate) = rates.usd(c, market, currency)? else { return Ok(None) };

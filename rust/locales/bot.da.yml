@@ -196,6 +196,7 @@ da:
                 price: 'Kurs(%{quote})'
                 sold: Solgt
                 received: 'Modtaget'
+                realised_pnl_basis_note: "Modtaget beløb minus det, de solgte coins kostede, ifølge historikken på din konto."
                 title: Statistik
                 total_invested: 'Samlet investeret'
                 portfolio_value: 'Porteføljeværdi'

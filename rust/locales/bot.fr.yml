@@ -189,6 +189,7 @@ fr:
                 price: 'Taux (%{quote})'
                 sold: 'Vendu'
                 received: 'Reçu'
+                realised_pnl_basis_note: "Montant reçu moins le coût des cryptos vendues, d'après l'historique de votre compte."
                 title: 'Statistiques'
                 total_invested: 'Total investi'
                 portfolio_value: 'Valeur du portefeuille'

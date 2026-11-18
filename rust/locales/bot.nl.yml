@@ -189,6 +189,7 @@ nl:
                 price: 'Tarief(%{quote})'
                 sold: Verkocht
                 received: 'Ontvangen'
+                realised_pnl_basis_note: "Ontvangen bedrag min wat de verkochte coins hebben gekost, op basis van de geschiedenis van je account."
                 title: Statistieken
                 total_invested: 'Totaal geïnvesteerd'
                 portfolio_value: 'Portfoliowaarde'
