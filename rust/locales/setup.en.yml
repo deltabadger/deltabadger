@@ -10,6 +10,12 @@ en:
             venue_groups:
                 brokers: "Brokers"
                 exchanges: "Exchanges"
+            market_data:
+                intro: "Indexes require live market data. Use the official Deltabadger data API, or a free CoinGecko account."
+                providers: "Market data providers"
+            kind:
+                asset: "Asset"
+                index: "Index"
             progress_steps:
                 assets: "Assets"
                 currencies: "Pick asset"

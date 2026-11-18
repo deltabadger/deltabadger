@@ -802,7 +802,7 @@ fn routes(app: App) -> Router {
         .route("/bots/dca_multi_assets/pick_spendable_asset/new", only(get(wizard::spendable::new)))
         .route("/bots/dca_multi_assets/pick_spendable_asset", only(post(wizard::spendable::create)))
         .route("/bots/dca_indexes/setup_coingecko/new", only(get(wizard::index::setup_new)))
-        .route("/bots/dca_indexes/pick_index/new", only(get(wizard::index::pick_new)))
+        .route("/bots/dca_indexes/pick_index/new", only(get(wizard::index::setup_new)))
         .route("/bots/dca_indexes/pick_index", only(post(wizard::index::pick_create)))
         .route("/bots/dca_indexes/pick_exchange/new", only(get(wizard::index::exchange_new)))
         .route("/bots/dca_indexes/pick_exchange", only(post(wizard::index::exchange_create)))

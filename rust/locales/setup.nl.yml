@@ -10,6 +10,12 @@ nl:
             venue_groups:
                 brokers: "Brokers"
                 exchanges: "Exchanges"
+            market_data:
+                intro: "Indexen hebben live marktgegevens nodig. Gebruik de officiële Deltabadger-data-API of een gratis CoinGecko-account."
+                providers: "Aanbieders van marktgegevens"
+            kind:
+                asset: "Asset"
+                index: "Index"
             progress_steps:
                 assets: "Activa"
                 currencies: "Kies asset"

@@ -10,6 +10,12 @@ sk:
             venue_groups:
                 brokers: "Brokeri"
                 exchanges: "Burzy"
+            market_data:
+                intro: "Indexy potrebujú živé trhové dáta. Použite oficiálne dátové API Deltabadger alebo bezplatný účet CoinGecko."
+                providers: "Poskytovatelia trhových dát"
+            kind:
+                asset: "Aktívum"
+                index: "Index"
             progress_steps:
                 assets: "Aktíva"
                 currencies: "Vyberte aktivum"

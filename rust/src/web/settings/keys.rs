@@ -436,8 +436,9 @@ pub fn list(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, 
 }
 /// settings/widgets/_market_data: the container's market data source, the one section Connect holds (D-BROKERS-AS-VENUES).
 /// `show_coingecko_form`: 2.x's `@show_coingecko_form`, a switch to CoinGecko with no key to use. `platform_errors`: 2.x's
-/// `@platform_errors` with `@show_platform_form`, a claim that failed.
-pub(super) fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str,show_coingecko_form:bool,platform_errors:Option<&str>)->Result<String,WebError>{
+/// `@platform_errors` with `@show_platform_form`, a claim that failed. `wizard`: the provider whose connect card the index
+/// wizard's Index view draws in its place (D-INDEX-CONNECT-IN-VIEW), its writes answering the wizard.
+pub(crate) fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str,show_coingecko_form:bool,platform_errors:Option<&str>,wizard:Option<&str>)->Result<String,WebError>{
     let setting=|name:&str|auth::app_config(c,&app.cipher,name);
     let has=|name:&str|Ok::<_,WebError>(setting(name)?.is_some_and(|s|!crate::v2::blank(&s)));
     let provider=setting("market_data_provider")?.unwrap_or_default();let hosted=app.config.market_data_url;
@@ -450,8 +451,8 @@ pub(super) fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str,show_coingecko
     let market_note=hosted_note("settings.market_data.deltabadger_configured");
     let platform_note=v.t(if proxies{"settings.platform.connected_with_proxies"}else{"settings.platform.connected_without_proxies"});
     let coingecko_instructions=v.t("setup.coingecko_api_key_hint_html");
-    let market=super::sections::market_data(v,csrf,&super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors});
-    Ok(market)
+    let m=super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors};
+    Ok(match wizard { Some(provider) => super::sections::market_data_card(v,csrf,provider,&m), None => super::sections::market_data(v,csrf,&m) })
 }
 /// GET /settings/api_keys: the exchange keys.
 pub async fn show_keys(app: App, ctx: Ctx) -> Result<Response, WebError> {
@@ -468,7 +469,7 @@ pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
     let token = csrf.clone();
     let (pane, shell) = app.db(move |c| {
-        let pane = if user.admin { format!("\n{}\n", market_data(c, &inner, &v, &token, false, None)?) } else { String::new() };
+        let pane = if user.admin { format!("\n{}\n", market_data(c, &inner, &v, &token, false, None, None)?) } else { String::new() };
         Ok((pane, crate::web::shell::Shell::load(c, &inner, &user)?))
     }).await?;
     let user = ctx.user().ok_or_else(|| WebError::Config("missing key owner".into()))?;

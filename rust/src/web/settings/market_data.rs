@@ -121,6 +121,9 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
         }
     }
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
+    let wizard = in_wizard(&ctx);
+    // The card to draw again: the provider posted (a claim's refusals are platform_connection's).
+    let card = wizard.then(|| if ctx.params.form("market_data_provider") == Some("deltabadger") { "deltabadger" } else { "coingecko" });
     let done = app
         .db(move |c| {
             let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
@@ -155,19 +158,27 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
                 }
                 _ => None,
             };
-            let widget = keys::market_data(&tx, &inner, &v, &csrf, show_form, None)?;
+            let widget = keys::market_data(&tx, &inner, &v, &csrf, show_form, None, card)?;
+            let configured = crate::web::bots::market_data(&tx, &inner)?.1;
             tx.commit()?;
             if requested { wake(&inner); }
-            Ok(Some((widget, notice)))
+            Ok(Some((widget, notice, configured)))
         })
         .await?;
-    let Some((widget, notice)) = done else {
+    let Some((widget, notice, configured)) = done else {
         // `head :unprocessable_entity`, in the format the request negotiated.
         let format = if stream_wanted { "text/vnd.turbo-stream.html" } else { "text/html" };
         return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, format)]).into_response());
     };
+    if wizard && configured { return Ok(to_index_view(&ctx)) }
     widget_and_flash(&ctx, &widget, notice)
 }
+
+/// D-INDEX-CONNECT-IN-VIEW: a write from the index wizard's Index view (`wizard=1`).
+pub(super) fn in_wizard(ctx: &Ctx) -> bool { ctx.params.form("wizard") == Some("1") }
+
+/// The write that connected market data from the Index view goes on to it, inside the sheet.
+pub(super) fn to_index_view(ctx: &Ctx) -> Response { stream(turbo::redirect(&ctx.path(crate::web::wizard::INDEX_VIEW))) }
 
 /// D-CG-DISCONNECT-KEEPS-PLATFORM: the provider and the key, not a claimed platform's `market_data_url`/`_token`
 /// (2.x's clear_market_data_settings! drops them too).
@@ -178,7 +189,7 @@ async fn disconnect(app: App, ctx: Ctx) -> Result<Response, WebError> {
             let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
             config(crate::app_config::delete(&tx, "market_data_provider"))?;
             config(crate::app_config::set(&tx, &inner.cipher, "coingecko_api_key", "", inner.now()))?;
-            let widget = keys::market_data(&tx, &inner, &v, &csrf, false, None)?;
+            let widget = keys::market_data(&tx, &inner, &v, &csrf, false, None, None)?;
             tx.commit()?;
             Ok(widget)
         })

@@ -1,0 +1,15 @@
+<div class="segmented segmented--search" aria-label="{{ label }}" data-controller="segmented" data-action="click-&gt;segmented#toggle">
+  <span class="segmented__thumb" data-segmented-target="thumb"></span>
+  <div class="segmented__dropdown dropdown" data-segmented-target="dropdown">
+    <div class="segmented__panes">
+      <div class="segmented__pane segmented__menu">
+{%- for (text, href, on) in options %}
+            <a class="segmented__option{% if on %} is-on{% endif %}"{% if on %} aria-current="page"{% endif %} data-value="{% if loop.first %}asset{% else %}index{% endif %}" data-segmented-target="option" data-action="segmented#select" data-turbo-frame="modal_content" href="{{ href }}">{{ text }}</a>
+{%- endfor %}
+      </div>
+    </div>
+  </div>
+  <span class="segmented__caret" aria-hidden="true">
+    {% include "svg/_16x16_down.html" %}
+  </span>
+</div>
