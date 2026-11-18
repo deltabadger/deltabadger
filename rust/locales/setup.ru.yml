@@ -7,6 +7,7 @@ ru:
             stocks_ask_admin: "Попросите администратора включить торговлю акциями."
             stocks_activate_cta: "Включить торговлю акциями в настройках"
             add_more_assets: "Добавить ещё активы"
+            pick_assets: "Выберите один или несколько активов"
             venue_groups:
                 brokers: "Брокеры"
                 exchanges: "Биржи"
@@ -29,7 +30,7 @@ ru:
                 currencies: "Выбрать актив"
                 exchange: "Биржа"
                 spendable: "Валюта"
-                api: "Подключить биржу"
+                api: "Подключить"
                 coingecko: "Подключить CoinGecko"
                 index: "Выбрать индекс"
                 pick_asset: "Выбрать актив"

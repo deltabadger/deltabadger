@@ -7,6 +7,7 @@ sv:
             stocks_ask_admin: "Be din administratör att aktivera aktiehandel."
             stocks_activate_cta: "Aktivera aktiehandel i inställningarna"
             add_more_assets: "Lägg till fler tillgångar"
+            pick_assets: "Välj en eller flera tillgångar"
             venue_groups:
                 brokers: "Mäklare"
                 exchanges: "Börser"
@@ -29,7 +30,7 @@ sv:
                 currencies: "Välj tillgång"
                 exchange: "Börs"
                 spendable: "Valuta"
-                api: "Anslut börs"
+                api: "Anslut"
                 coingecko: "Anslut CoinGecko"
                 index: "Välj index"
                 pick_asset: "Välj tillgång"

@@ -7,6 +7,7 @@ de:
             stocks_ask_admin: "Bitte deinen Admin, den Aktienhandel zu aktivieren."
             stocks_activate_cta: "Aktienhandel in den Einstellungen aktivieren"
             add_more_assets: "Weitere Anlagewerte hinzufügen"
+            pick_assets: "Wähle ein oder mehrere Assets"
             venue_groups:
                 brokers: "Broker"
                 exchanges: "Börsen"
@@ -29,7 +30,7 @@ de:
                 currencies: "Asset wählen"
                 exchange: "Börse"
                 spendable: "Währung"
-                api: "Börse verbinden"
+                api: "Verbinden"
                 coingecko: "CoinGecko verbinden"
                 index: "Index wählen"
                 pick_asset: "Asset wählen"

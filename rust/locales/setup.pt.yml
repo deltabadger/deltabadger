@@ -7,6 +7,7 @@ pt:
             stocks_ask_admin: "Pede ao teu administrador para ativar a negociação de ações."
             stocks_activate_cta: "Ativar a negociação de ações nas definições"
             add_more_assets: "Adicionar mais ativos"
+            pick_assets: "Escolha um ou mais ativos"
             venue_groups:
                 brokers: "Corretoras"
                 exchanges: "Exchanges"
@@ -29,7 +30,7 @@ pt:
                 currencies: "Escolher ativo"
                 exchange: "Exchange"
                 spendable: "Moeda"
-                api: "Conectar exchange"
+                api: "Conectar"
                 coingecko: "Conectar CoinGecko"
                 index: "Escolher índice"
                 pick_asset: "Escolher ativo"

@@ -2050,15 +2050,15 @@ fn rules_sheet(body: &str, expected: &[(&str, &str, Option<&str>)]) -> scraper::
 async fn rules_wizard_steps_are_drawn_in_the_sheet() {
     let (i, _server) = identity_listing("Kraken", &["first"]).await;
     let count = |doc: &scraper::Html, css: &str| doc.select(&scraper::Selector::parse(css).unwrap()).count();
-    // The venue step: the pane's search box over the venues.
+    // The venue step: the venues, no search (D-EXCHANGE-NO-SEARCH).
     let (status, body) = i.send("GET", "/rules/withdrawals/pick_exchange/new", "", None, true, false).await;
     assert_eq!(status, 200);
     let doc = rules_sheet(&body, &[("Exchange", "current", None), ("Assets", "upcoming", None), ("Address", "upcoming", None), ("Settings", "upcoming", None)]);
-    assert_eq!(count(&doc, ".sheet__pane form[data-turbo-frame=\"exchange-picker\"][action=\"/rules/withdrawals/pick_exchange/new\"] input[name=\"query\"]"), 1);
+    assert_eq!(count(&doc, ".sheet__pane input[name=\"query\"]"), 0);
     assert_eq!(count(&doc, "button[name=\"bots_dca_single_asset[exchange_id]\"]"), 1, "the one withdrawing venue");
-    // A query that names no venue offers none.
+    // D-EXCHANGE-NO-SEARCH: a query (a 2.x link's) filters nothing; the venues are all offered.
     let (_, body) = i.send("GET", "/rules/withdrawals/pick_exchange/new?query=zzzz", "", None, true, false).await;
-    assert_eq!(count(&scraper::Html::parse_document(&body), "button[name=\"bots_dca_single_asset[exchange_id]\"]"), 0);
+    assert_eq!(count(&scraper::Html::parse_document(&body), "button[name=\"bots_dca_single_asset[exchange_id]\"]"), 1);
     // The asset step: the venue done, its link back.
     let config = json!({"exchange_id": i.s.exchange_id.to_string()});
     let (status, body) = i.send("GET", "/rules/withdrawals/pick_asset/new", "", Some(config), true, false).await;

@@ -7,6 +7,7 @@ it:
             stocks_ask_admin: "Chiedi al tuo amministratore di attivare il trading di azioni."
             stocks_activate_cta: "Attiva il trading di azioni nelle impostazioni"
             add_more_assets: "Aggiungi altre attività"
+            pick_assets: "Scegli uno o più asset"
             venue_groups:
                 brokers: "Broker"
                 exchanges: "Exchange"
@@ -29,7 +30,7 @@ it:
                 currencies: "Scegli asset"
                 exchange: "Exchange"
                 spendable: "Valuta"
-                api: "Connetti exchange"
+                api: "Connetti"
                 coingecko: "Connetti CoinGecko"
                 index: "Scegli indice"
                 pick_asset: "Scegli asset"

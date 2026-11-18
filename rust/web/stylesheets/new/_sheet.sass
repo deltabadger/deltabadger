@@ -45,8 +45,8 @@
     border-radius: 50%
     cursor: pointer
     svg
-        width: 2.5rem
-        height: 2.5rem
+        width: 2rem
+        height: 2rem
     path
         fill: var(--stone)
     // Level with the tabs, which start 2rem down.
@@ -180,6 +180,9 @@
     &--current
         color: var(--ink)
         font-weight: 600
+    // Upcoming and not a link yet (Currency before an exchange is picked): quieter than the steps that go somewhere.
+    &:not(&--done):not(&--current):has(> span.sheet__control)
+        color: var(--steel)
     @media (max-width: 767.9px)
         display: flex
         flex: none
@@ -258,22 +261,22 @@
 // The pane's search (the exchange and quote steps' .sheet__search, the asset step's own box): first in the pane and stuck
 // to its top edge; a thin line under it once something has scrolled beneath (sheet_controller's sheet__pane--scrolled).
 .sheet__pane--flush
-    .sheet__search, .wizard-assets > .modal--search
+    .wizard-search
         position: sticky
         top: 0
         z-index: 2
-        order: -1
         margin: 0
         background: var(--washed)
         transition: box-shadow 0.15s ease
-    .modal--search__input
-        box-shadow: none !important
     &.sheet__pane--scrolled
-        .sheet__search, .wizard-assets > .modal--search
+        .wizard-search
             box-shadow: 0 1px 0 var(--zinc)
     // The wizard's steps have no "more below" arrow.
     > .sheet__more
         display: none
+// "Add more assets", under Next: close over the results.
+.sheet__pane .sheet__next + h3.label
+    margin-bottom: 0.5rem
 // The asset step's way on, under the basket.
 .sheet__next
     display: flex
@@ -350,7 +353,7 @@
 .sheet__pane .bot-creation-layout
     gap: 0
     padding-bottom: 0
-    .wizard-assets, .modal--search
+    .wizard-assets
         width: auto
         max-width: none
     // The signal wizard's Start and the withdrawal rule's Create: the step's way on, as the asset step's Next.
@@ -719,19 +722,11 @@ turbo-frame.sitem
 .exchange-groups
     display: flex
     flex-direction: column
-    gap: 3rem
-    padding-top: 3rem
-.exchange-group__heading
-    // The grid's own side padding (_exchange-picker.sass), so the heading starts over its first tile.
+// Every caption in a sheet pane (the exchange step's groups, the asset step's "Pick one or more assets" and "Add more
+// assets", the market-data providers): the shared .label, at the pane's side padding so it starts over its content.
+.sheet__pane h3.label
     margin: 0 0 1.5rem
-    padding: 0 2rem
-    @media (min-width: 768px)
-        padding: 0 3rem
-    font-size: 1.5rem
-    font-weight: 600
-    text-transform: uppercase
-    letter-spacing: 0.02em
-    color: var(--stone)
+    padding: var(--sheet-side-padding) var(--sheet-side-padding) 0
 
 // D-WIZARD-SHEET-KEY-FORM: the key step reads as a Settings section — the pane's padding, a heading-sized title beside a
 // small mark, the fields and Connect as Settings' stacked form (.sform--stack), the walkthrough a quiet card under it.
@@ -780,10 +775,20 @@ turbo-frame.sitem
             &--deltabadger
                 position: relative
                 top: -0.25rem
-                height: 3rem
+                height: 2.5rem
                 width: auto
                 path
                     fill: var(--ink)
+        // In a wizard the logo and the name are Back, to the venue step (the track's link back, by another way in).
+        .set-api__back
+            display: flex
+            align-items: center
+            gap: 1.25rem
+            color: inherit
+            text-decoration: none
+            transition: opacity 0.15s ease
+            &:hover
+                opacity: 0.7
         .set-api__title
             font-size: 2rem
             line-height: 2.5rem
@@ -818,17 +823,6 @@ turbo-frame.sitem
 
 // "Add more assets": the label over the results, set apart from the basket and its Next above it; it reads as the
 // exchange step's group headings.
-.sheet__more-assets
-    margin: 2rem 0 0
-    padding: 0 2rem
-    font-size: 1.5rem
-    font-weight: 600
-    text-transform: uppercase
-    letter-spacing: 0.02em
-    color: var(--stone)
-    @media (min-width: 768px)
-        padding: 0 3rem
-
 // A basket row is laid out as a result row (_modal-search.sass): the same columns and cell padding, so the ticker, the
 // logo and the name line up with the list under it.
 .sheet__pane .wizard-assets__row
@@ -836,28 +830,48 @@ turbo-frame.sitem
     .wizard-assets__action
         padding-right: 2rem
 
-// D-INDEX-IN-ASSETS: the Asset / Index switch where the Assets step's zoom icon was, the input after it; at the basket's cap
-// the switch alone.
-.modal--search form:has(> .segmented--search), .modal--search__row
+// The wizard's search (every step's: the assets, the quote, the Index view), its own and nothing of the search modal's: the
+// zoom icon or the Asset / Index switch (D-INDEX-IN-ASSETS; at the basket's cap the switch alone), then a bare input as tall
+// as the switch.
+.wizard-search
     display: flex
     align-items: center
+    padding: 1.5rem var(--sheet-side-padding)
+    background: var(--washed)
+    > .segmented--search
+        flex: none
+.wizard-search__form
+    display: flex
+    flex: 1
+    align-items: center
+    gap: 1.5rem
+    min-width: 0
     .segmented--search
         flex: none
-        margin-left: 2rem
-        @media (min-width: 768px)
-            margin-left: 3rem
-    .modal--search__input
-        flex: 1
-        min-width: 0
-        padding-left: 1.5rem
-.modal--search:has(> .segmented--search)
-    padding: 1.5rem
-.sheet__pane--flush .index-view > .modal--search
+    > svg
+        flex: none
+        width: 2.5rem
+        height: 2.5rem
+        position: static
+.wizard-search__input
+    flex: 1
+    min-width: 0
+    height: 4rem
+    padding: 0
+    border: 0
+    background: none
+    font: inherit
+    font-size: 1.75rem
+    font-weight: 500
+    color: var(--ink)
+    &:focus
+        outline: none
+    &::placeholder
+        color: var(--concrete)
+.sheet__pane--flush .index-view > .wizard-search
     position: sticky
     top: 0
     z-index: 2
-    margin: 0
-    background: var(--washed)
 
 // The Index view's list: one row per index, the name and its members on the first line, the description under them.
 .index-rows

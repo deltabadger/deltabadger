@@ -7,6 +7,7 @@ pl:
             stocks_ask_admin: "Poproś administratora o włączenie handlu akcjami."
             stocks_activate_cta: "Włącz handel akcjami w ustawieniach"
             add_more_assets: "Dodaj więcej aktywów"
+            pick_assets: "Wybierz jedno lub więcej aktywów"
             venue_groups:
                 brokers: "Brokerzy"
                 exchanges: "Giełdy"
@@ -29,7 +30,7 @@ pl:
                 currencies: "Wybierz aktywo"
                 exchange: "Giełda"
                 spendable: "Waluta"
-                api: "Połącz giełdę"
+                api: "Połącz"
                 coingecko: "Połącz CoinGecko"
                 index: "Wybierz indeks"
                 pick_asset: "Wybierz aktywo"

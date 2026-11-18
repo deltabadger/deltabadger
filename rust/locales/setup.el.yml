@@ -7,6 +7,7 @@ el:
             stocks_ask_admin: "Ζήτησε από τον διαχειριστή σου να ενεργοποιήσει τις συναλλαγές μετοχών."
             stocks_activate_cta: "Ενεργοποίησε τις συναλλαγές μετοχών στις ρυθμίσεις"
             add_more_assets: "Προσθήκη περισσότερων περιουσιακών στοιχείων"
+            pick_assets: "Επιλέξτε ένα ή περισσότερα στοιχεία"
             venue_groups:
                 brokers: "Μεσίτες"
                 exchanges: "Ανταλλακτήρια"
@@ -29,7 +30,7 @@ el:
                 currencies: "Επιλογή asset"
                 exchange: "Ανταλλακτήριο"
                 spendable: "Νόμισμα"
-                api: "Σύνδεση ανταλλακτηρίου"
+                api: "Σύνδεση"
                 coingecko: "Σύνδεση CoinGecko"
                 index: "Επιλογή δείκτη"
                 pick_asset: "Επιλογή asset"

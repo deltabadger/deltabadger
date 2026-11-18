@@ -7,6 +7,7 @@ nl:
             stocks_ask_admin: "Vraag je beheerder om aandelenhandel te activeren."
             stocks_activate_cta: "Aandelenhandel activeren in de instellingen"
             add_more_assets: "Meer activa toevoegen"
+            pick_assets: "Kies een of meer assets"
             venue_groups:
                 brokers: "Brokers"
                 exchanges: "Exchanges"
@@ -29,7 +30,7 @@ nl:
                 currencies: "Kies asset"
                 exchange: "Exchange"
                 spendable: "Valuta"
-                api: "Verbind exchange"
+                api: "Verbinden"
                 coingecko: "Verbind CoinGecko"
                 index: "Kies index"
                 pick_asset: "Kies asset"

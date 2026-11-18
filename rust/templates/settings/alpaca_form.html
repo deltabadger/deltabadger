@@ -1,5 +1,12 @@
 <div class="set-api set-api--connect{% if modal %} set-api--modal{% endif %}">
-{% if modal %}  <div class="modal__header">
+{% if let Some(back) = back %}  <header class="set-api__brand">
+  {#- D-KEY-LOGO-BACK: in a wizard the venue's logo and name are Back, to its venue step. #}
+  <a class="set-api__back" href="{{ back }}" data-turbo-frame="modal_content" data-wizard-dir="back" title="{{ v.t("button.back") }}">
+  <span class="set-api__mark sbutton--exchange--{{ name_id }}" aria-hidden="true">{{ mark|safe }}</span>
+  <h2 class="set-api__title">{{ connect_title|safe }}</h2>
+  </a>
+</header>
+{% else %}{% if modal %}  <div class="modal__header">
   <h1 class="modal__title set-api__brand">
 {% else %}  <header class="set-api__brand">
 {% endif %}  <span class="set-api__mark sbutton--exchange--{{ name_id }}" aria-hidden="true">{{ mark|safe }}</span>
@@ -8,7 +15,7 @@
   </div>
 {% else %}  <h2 class="set-api__title">{{ connect_title|safe }}</h2>
 </header>
-{% endif %}
+{% endif %}{% endif %}
 
   <form class="set-api__form form" {{ form_data|safe }} action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
     

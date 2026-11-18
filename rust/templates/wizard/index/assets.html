@@ -4,11 +4,11 @@
 {%- if let Some(error) = error %}
   <p class="wizard-assets__warning" role="alert">{{ error }}</p>
 {%- endif %}
-  <div class="modal--search">
-    <div class="modal--search__row">
+  <div class="wizard-search">
+    <div class="wizard-search__form">
       {{ switch|safe }}
 {%- if configured %}
-      <input autofocus="autofocus" autocomplete="off" placeholder="{{ v.t("utils.search.placeholder.index") }}" class="modal--search__input" type="text" data-index-filter-target="input" data-action="input-&gt;index-filter#filter" />
+      <input autofocus="autofocus" autocomplete="off" placeholder="{{ v.t("utils.search.placeholder.index") }}" class="wizard-search__input" type="text" data-index-filter-target="input" data-action="input-&gt;index-filter#filter" />
 {%- endif %}
     </div>
   </div>
@@ -50,7 +50,7 @@
   <div class="index-view__providers">
     <p class="index-view__intro">{{ v.t("bot.setup.market_data.intro")|safe }}</p>
     <section class="exchange-group">
-      <h3 class="exchange-group__heading">{{ v.t("bot.setup.market_data.providers") }}</h3>
+      <h3 class="label">{{ v.t("bot.setup.market_data.providers") }}</h3>
       <div class="exchange-grid">
 {%- for (href, name, shown, mark) in providers %}
         <div class="exchange-grid__option">

@@ -7,6 +7,7 @@ cs:
             stocks_ask_admin: "Požádej svého administrátora o aktivaci obchodování s akciemi."
             stocks_activate_cta: "Aktivovat obchodování s akciemi v nastavení"
             add_more_assets: "Přidat další aktiva"
+            pick_assets: "Vyberte jedno nebo více aktiv"
             venue_groups:
                 brokers: "Brokeři"
                 exchanges: "Burzy"
@@ -29,7 +30,7 @@ cs:
                 currencies: "Vyberte aktivum"
                 exchange: "Burza"
                 spendable: "Měna"
-                api: "Připojit burzu"
+                api: "Připojit"
                 coingecko: "Připojit CoinGecko"
                 index: "Vybrat index"
                 pick_asset: "Vybrat aktivum"

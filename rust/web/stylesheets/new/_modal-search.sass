@@ -333,7 +333,7 @@ html:has(#modal dialog[open])
         &:focus
             outline: none
         &::placeholder
-            color: var(--modal-search-placeholder)
+            color: var(--concrete)
     &__assets
         display: block
         scrollbar-width: none
@@ -371,9 +371,7 @@ html:has(#modal dialog[open])
         text-overflow: ellipsis
         text-wrap: nowrap
         &:first-child
-            padding-left: 2rem
-            @media (min-width: 768px)
-                padding-left: 3rem
+            padding-left: var(--sheet-side-padding)
         &--ticker
             font-weight: 600
             color: var(--ink)

@@ -4473,7 +4473,7 @@ mod index_in_wizard {
     /// The Asset / Index switch: each option's (label, href, frame, aria-current).
     pub fn switch(answer: &Value) -> Vec<(String, String, String, Option<String>)> {
         let page = scraper::Html::parse_document(&raw(answer));
-        let controls: Vec<_> = page.select(&select(".modal--search .segmented")).collect();
+        let controls: Vec<_> = page.select(&select(".wizard-search .segmented")).collect();
         assert_eq!(controls.len(), 1, "one switch: {}", raw(answer));
         assert!(controls[0].value().attr("data-segmented-frame").is_none(), "no page history");
         controls[0].select(&select("a.segmented__option")).map(|a| (a.text().collect::<String>().trim().to_string(), a.value().attr("href").unwrap().to_string(),
@@ -4530,7 +4530,7 @@ async fn index_in_wizard_the_chooser_is_skipped_and_the_switch_shows_one_list_at
     in_sheet(&answers[3]);
     assert_eq!(switch(&answers[3]), switch_of("", false));
     let asset_view = scraper::Html::parse_document(&raw(&answers[3]));
-    assert!(asset_view.select(&select(".modal--search form[data-turbo-frame=asset-picker] input[type=hidden][name=kind][value=asset]")).next().is_some(), "the search keeps the Asset view");
+    assert!(asset_view.select(&select(".wizard-search form[data-turbo-frame=asset-picker] input[type=hidden][name=kind][value=asset]")).next().is_some(), "the search keeps the Asset view");
     assert!(index_rows(&answers[3]).is_empty());
     // The Index view: the same step, no basket and no Next, every index (asset first, nothing chosen: no venue narrows it).
     in_sheet(&answers[4]);
@@ -4658,7 +4658,7 @@ async fn index_in_wizard_the_index_track_on_each_step_in_both_orders() {
     in_sheet(&answers[6]);
     assert_eq!(track(&answers[6]), [format!("Top 10:done GET {assets}"), "Exchange:current plain".into(), "Currency:upcoming plain".into()]);
     let venues = scraper::Html::parse_document(&raw(&answers[6]));
-    assert!(venues.select(&select(".sheet__search form[data-turbo-frame=exchange-picker]")).next().is_some(), "the pane's search box");
+    assert!(venues.select(&select(".sheet__search")).next().is_none(), "D-EXCHANGE-NO-SEARCH: no search on the exchange step");
     assert!(venues.select(&select("turbo-frame#exchange-picker section.exchange-group button.exchange-grid__item")).count() >= 2, "Brokers / Exchanges");
     in_sheet(&answers[8]);
     assert_eq!(track(&answers[8]), [format!("Top 10:done GET {assets}"), "Kraken:current plain".into(), "Currency:upcoming plain".into()]);
@@ -4766,7 +4766,7 @@ async fn index_in_wizard_market_data_is_connected_in_the_index_view() {
     let tiles: Vec<(String, String, String)> = page.select(&select(".exchange-group .exchange-grid a.exchange-grid__item")).map(|a| (a.value().attr("aria-label").unwrap().to_string(), a.text().collect::<String>().trim().to_string(), a.value().attr("href").unwrap().to_string())).collect();
     // CoinGecko's wordmark draws its name; deltabadger's logo sits beside the lowercase name.
     assert_eq!(tiles, [("CoinGecko".into(), String::new(), card("coingecko")), ("deltabadger".into(), "deltabadger".into(), card("deltabadger"))]);
-    assert_eq!(page.select(&select(".exchange-group__heading")).next().unwrap().text().collect::<String>().trim(), deltabadger::web::i18n::text("en", "bot.setup.market_data.providers", &[]));
+    assert_eq!(page.select(&select(".exchange-group h3.label")).next().unwrap().text().collect::<String>().trim(), deltabadger::web::i18n::text("en", "bot.setup.market_data.providers", &[]));
     assert!(raw(&answers[3]).contains(&deltabadger::web::i18n::text("en", "bot.setup.market_data.intro", &[])));
     assert!(!raw(&answers[3]).contains("market_data_settings"), "no form before a provider is picked");
     // Each provider's card: the key card's layout, posting where Settings posts.
@@ -4774,6 +4774,9 @@ async fn index_in_wizard_market_data_is_connected_in_the_index_view() {
         in_sheet(&answers[at]);
         let card = widget(&answers[at]);
         assert!(card.contains("set-api--connect") && card.contains(&format!("name=\"{field}\"")) && card.contains(&format!("action=\"{action}\"")), "{at}: {card}");
+        // D-KEY-LOGO-BACK: the provider's logo and name are Back, to the providers.
+        let brand = scraper::Html::parse_fragment(&card);
+        assert_eq!(brand.select(&select("a.set-api__back[data-wizard-dir=back] .set-api__mark + h2.set-api__title")).count(), 1, "{at}: {card}");
     }
     // Deltabadger's card: the subscription's three perks under the Deltabadger API link, not Settings' line.
     let perks = widget(&answers[7]);

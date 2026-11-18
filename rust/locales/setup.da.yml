@@ -7,6 +7,7 @@ da:
             stocks_ask_admin: "Bed din administrator om at aktivere aktiehandel."
             stocks_activate_cta: "Aktivér aktiehandel i indstillingerne"
             add_more_assets: "Tilføj flere aktiver"
+            pick_assets: "Vælg et eller flere aktiver"
             venue_groups:
                 brokers: "Mæglere"
                 exchanges: "Børser"
@@ -29,7 +30,7 @@ da:
                 currencies: "Vælg aktiv"
                 exchange: "Børs"
                 spendable: "Valuta"
-                api: "Forbind børs"
+                api: "Forbind"
                 coingecko: "Forbind CoinGecko"
                 index: "Vælg indeks"
                 pick_asset: "Vælg aktiv"
