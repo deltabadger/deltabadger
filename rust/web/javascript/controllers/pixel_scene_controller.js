@@ -10,7 +10,8 @@ import { createWithdrawAnimation } from "../lib/pixel/withdraw"
 // motion. When Turbo takes the page away the scene stops (the garden only pauses: see `kept`).
 //
 // A colour is a variable, or [a, b, t]: t of the way from variable a to variable b.
-const PLANTS = { bg: "--paper", stem: "--concrete", leaf: "--stone", leafL: "--ash" }
+// The plants sit back: every tone a step toward the page, and the nearest ones no lighter than that (depthFront 0).
+const PLANTS = { bg: "--paper", stem: ["--concrete", "--paper", 0.25], leaf: ["--stone", "--paper", 0.25], leafL: ["--ash", "--paper", 0.35] }
 const SCENES = {
   invest: {
     create: createInvestAnimation,
@@ -74,7 +75,7 @@ export default class extends Controller {
       this.animation.attach(this.element)
       this.animation.recolor(themed(scene.colors))
     } else {
-      this.animation = scene.create(this.element, { scale: 4, palette: "mono", coins: "stocks", colors: themed(scene.colors) })
+      this.animation = scene.create(this.element, { scale: 4, palette: "mono", coins: "stocks", depthFront: 0, colors: themed(scene.colors) })
       if (scene.keep) kept[this.nameValue] = this.animation
     }
     this.recolor = () => this.animation.recolor(themed(scene.colors))
