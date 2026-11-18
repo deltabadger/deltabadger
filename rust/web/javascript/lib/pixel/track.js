@@ -243,10 +243,17 @@ export function createTrackAnimation(canvas, opts = {}) {
     const AX = 61, AT = 11;
     for (let y = AT + 1; y < DECK; y++) px(AX, y, C.metalDark);
     px(AX - 1, AT + 3, C.metalDark); px(AX + 1, AT + 3, C.metalDark);
-    px(AX, AT, Math.sin(clock * 4) > 0 ? C.light : C.rail);
-    const ping = (clock % 3.2) / 0.9;
-    if (ping < 1) {
-      const r = 2 + Math.floor(ping * 3) * 2, col = ping < 0.66 ? C.metal : C.metalDark;
+    // Deltabadger: sometimes a pulse of light climbs the mast first, from nothing at the deck to full at the tip.
+    if (ant.pulse >= 0) {
+      const p = ant.pulse / PULSE, y = Math.round(DECK - 1 - p * (DECK - 2 - AT));
+      px(AX, y, mix(C.bg, C.light, p));
+      if (y + 1 < DECK) px(AX, y + 1, mix(C.bg, C.light, p * 0.4));
+    }
+    px(AX, AT, ant.ping >= 0 && ant.ping < 0.15 ? C.light : Math.sin(clock * 4) > 0 ? C.light : C.rail);
+    // Deltabadger: the ring is faint, and fainter as it spreads.
+    if (ant.ping >= 0) {
+      const ping = ant.ping / 0.9;
+      const r = 2 + Math.floor(ping * 3) * 2, col = mix(C.metal, C.bg, 0.65 + ping * 0.3);
       for (const s of [-1, 1]) { px(AX + s * r, AT - 1, col); px(AX + s * r, AT, col); px(AX + s * (r - 1), AT - 2, col); px(AX + s * (r - 1), AT + 1, col); }
     }
 
@@ -306,8 +313,23 @@ export function createTrackAnimation(canvas, opts = {}) {
     cheered = false;
   }
 
+  // Deltabadger: the antenna's rhythm. Every few seconds it pings; now and then a pulse climbs the mast first and the
+  // ping goes out when it reaches the tip.
+  const PULSE = 0.7;
+  const ant = { t: 0, next: 1.5, pulse: -1, ping: -1 };
+  function updateAntenna(dt) {
+    ant.t += dt;
+    if (ant.ping >= 0 && (ant.ping += dt) > 0.9) ant.ping = -1;
+    if (ant.pulse >= 0 && (ant.pulse += dt) >= PULSE) { ant.pulse = -1; ant.ping = 0; }
+    if (ant.t >= ant.next) {
+      ant.t = 0; ant.next = 2.6 + rng() * 1.6;
+      if (rng() < 0.4) ant.pulse = 0; else ant.ping = 0;
+    }
+  }
+
   function update(dt) {
     clock += dt; phaseT += dt; chartT += dt;
+    updateAntenna(dt);
     if (chartT > (task === 'screen' && phase === 'work' ? 0.9 : 1.8)) { chartT = 0; tickChart(); }
 
     if (phase === 'walk') {
