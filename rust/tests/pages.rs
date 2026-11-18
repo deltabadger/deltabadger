@@ -1021,65 +1021,21 @@ fn only_the_settings_jobs_row_is_left_out() {
     }
 }
 
-/// Named divergence D-FULL-PAGE-DIALOG-COMPLETE: a full-page dialog (a `dialogview` straight inside the modal frame) opens
-/// its frame with `complete`, as 2.x's small modals (layouts/modal/_base) do and its full-page layout does not. The modal
-/// CSS shows the card only in a `#modal[complete]` frame, and Turbo marks a frame complete only when it loads it itself, so a
-/// full-page answer (a refresh, a typed URL, a stream redirect) left the card invisible behind the open dialog. Puts this
-/// crate's frame back as 2.x writes it; returns how many, or the line of one left without `complete`.
-fn full_page_dialogs(body: &mut Value) -> Result<usize, String> {
-    let Value::Array(lines) = body else { return Ok(0) };
-    let mut taken = 0;
-    for i in 0..lines.len() {
-        let line = lines[i].as_str().unwrap_or_default();
-        if !(line.trim_start().starts_with("<turbo-frame ") && attr(line, "id").as_deref() == Some("modal")) { continue; }
-        let Some(child) = lines[i + 1..].iter().find(|l| !is_space(l)).and_then(Value::as_str) else { continue };
-        let full_page = child.trim_start().starts_with("<dialog ") && attr(child, "class").is_some_and(|c| c.split(' ').any(|c| c == "dialogview"));
-        if !full_page { continue; }
-        if !line.contains(" complete=\"\"") { return Err(format!("a full-page dialog without complete stays invisible: {line}")); }
-        lines[i] = json!(line.replacen(" complete=\"\"", "", 1));
-        taken += 1;
-    }
-    Ok(taken)
-}
-
+/// D-SHEET-EVERYWHERE: every wizard is the sheet, so no template, source or script draws the old full-page dialog, its
+/// progress bar or its sentence.
 #[test]
-fn full_page_dialogs_are_put_back_as_v2_writes_them() {
-    let page = |frame: &str, dialog: &str| json!(html::normalize(&format!("<html><body>{frame}\n  <dialog class=\"{dialog}\">\n    <div class=\"x\">a</div>\n  </dialog></turbo-frame></body></html>")));
-    let mut ours = page("<turbo-frame id=\"modal\" complete>", "dialogview");
-    assert_eq!((full_page_dialogs(&mut ours), &ours), (Ok(1), &page("<turbo-frame id=\"modal\">", "dialogview")));
-    assert!(full_page_dialogs(&mut page("<turbo-frame id=\"modal\">", "dialogview")).is_err(), "one without complete fails");
-    // A small modal keeps its complete (2.x writes it too); an empty or src frame has no dialog to show.
-    for frame in [page("<turbo-frame id=\"modal\" complete>", "dialog"), json!(html::normalize("<turbo-frame id=\"modal\"></turbo-frame>")),
-                  json!(html::normalize("<turbo-frame id=\"modal\" src=\"/bots/new\"></turbo-frame>"))] {
-        let mut ours = frame.clone();
-        assert_eq!((full_page_dialogs(&mut ours), &ours), (Ok(0), &frame));
-    }
-}
-
-/// D-FULL-PAGE-DIALOG-COMPLETE in the templates themselves, so a step no recorded scenario renders full page is held too.
-#[test]
-fn every_full_page_dialog_template_opens_its_frame_complete() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("templates");
-    let mut found = Vec::new();
-    let mut walk = vec![root.clone()];
+fn no_template_or_source_draws_the_old_wizard_dialog() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut walk = vec![root.join("templates"), root.join("src"), root.join("web/javascript"), root.join("web/stylesheets")];
     while let Some(dir) = walk.pop() {
         for entry in std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().path()) {
             if entry.is_dir() { walk.push(entry); continue; }
-            let text = std::fs::read_to_string(&entry).unwrap();
-            let Some(at) = text.match_indices("<turbo-frame ").map(|(at, _)| at)
-                .find(|&at| text[at..at + text[at..].find('>').unwrap()].contains(" id=\"modal\"")) else { continue };
-            let open = &text[at..at + text[at..].find('>').unwrap() + 1];
-            let rest = text[at + open.len()..].trim_start();
-            // The tag ends at its closing `">`: an attribute value may hold a `>` (`click->modal--base#clickOutside`).
-            if !(rest.starts_with("<dialog ") && rest[..rest.find("\">").unwrap()].contains("class=\"dialogview\"")) { continue; }
-            let name = entry.strip_prefix(&root).unwrap().to_string_lossy().into_owned();
-            assert_eq!(open, "<turbo-frame complete=\"\" id=\"modal\">", "{name}");
-            found.push(name);
+            let Ok(text) = std::fs::read_to_string(&entry) else { continue };
+            for old in ["dialogview", "process-progress", "conversational--bot-setup", "&--bot-setup", "full_page.html", "wizard/_progress.html"] {
+                assert!(!text.contains(old), "{} names {old}", entry.display());
+            }
         }
     }
-    found.sort();
-    // D-SHEET-EVERYWHERE: the chooser and the tracker's connect steps are the sheet; only the index wizard's shell is left.
-    assert_eq!(found, ["wizard/full_page.html"]);
 }
 
 /// This build's own tools: D-SPLIT-API's split_bots (under Control) and D-V2-UNRECORDED-API's answer_unrecorded_order
@@ -2858,7 +2814,6 @@ async fn replay_page_shard(shard: usize) {
             split_menu_pages += without_split_item(&mut answer["body"]);
             small_tickers += without_small_tickers(&mut answer["body"]);
             jobs_rows += without_jobs_row(&mut answer["body"]);
-            match full_page_dialogs(&mut answer["body"]) { Ok(_) => {}, Err(e) => failures.push(format!("{name}/{scope}: D-FULL-PAGE-DIALOG-COMPLETE: {e}")) }
             index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty());
             signal_rule_pages += usize::from(signal_rules(&mut answer["body"]).is_some());
         }
@@ -3594,7 +3549,6 @@ async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
         without_low_funds(&mut actual["body"]);
         without_split_item(&mut actual["body"]);
         without_small_tickers(&mut actual["body"]);
-        full_page_dialogs(&mut actual["body"]).unwrap_or_else(|e| panic!("{name}: D-FULL-PAGE-DIALOG-COMPLETE: {e}"));
         let path = step["path"].as_str().unwrap_or_default();
         wizard_sheet::sheet_flows(path, step["method"].as_str().unwrap_or("GET"), &mut expected["body"], &mut actual["body"]).unwrap_or_else(|e| panic!("{name}: D-SHEET-EVERYWHERE: {e}"));
         wizard_sheet::wizard_sheet(path, None, &mut expected["body"], &mut actual["body"]).and_then(|_| wizard_sheet::chooser(path, &mut expected, &mut actual)).unwrap_or_else(|e| panic!("{name}: D-WIZARD-SHEET: {e}"));

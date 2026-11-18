@@ -89,7 +89,7 @@ fn sheet_shell(close_url: &str, close_label: &str) -> Vec<Value> {
     body_of(&html::normalize(&page))
 }
 
-/// The full-page dialog 2.x draws a step in (`wizard/full_page.html` writes it as 2.x does, `complete` aside), the step as
+/// The full-page dialog 2.x draws a step in (the `v2_full_page.html` fixture, as 2.x writes it), the step as
 /// a placeholder.
 fn full_page_shell(close_url: &str) -> Vec<Value> {
     let page = include_str!("v2_full_page.html").replace("{{ close_url }}", &escape(close_url))
@@ -266,7 +266,10 @@ fn unback(lines: &mut Vec<Value>, path: &str) -> Result<(), String> {
     let line = text(&lines[at]).to_string();
     if attr(&line, "href").as_deref() != Some(want.as_str()) || attr(&line, "data-wizard-dir").as_deref() != Some("back") { return Err(format!("the venue is not Back to {want}: {line}")) }
     let end = subtree_end(lines, at);
-    let inner: Vec<Value> = reindent(&lines[at + 1..end - 1], depth(&lines[at]));
+    let mut inner: Vec<Value> = reindent(&lines[at + 1..end - 1], depth(&lines[at]));
+    // The link's own whitespace inside it goes with it: the header keeps the space it had around the link.
+    while inner.first().is_some_and(is_space) { inner.remove(0); }
+    while inner.last().is_some_and(is_space) { inner.pop(); }
     lines.splice(at..end, inner);
     Ok(())
 }

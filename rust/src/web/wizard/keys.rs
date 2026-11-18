@@ -90,10 +90,6 @@ fn prerequisite_path(c: &Connection, user: i64, config: Option<&Value>, namespac
 }
 
 #[derive(Template)]
-#[template(path = "wizard/full_page.html")]
-pub struct FullPage<'a> { pub close_url: String, pub content: &'a str }
-
-#[derive(Template)]
 #[template(path = "wizard/_api_key_form.html")]
 struct Form { search: String, card: String }
 
@@ -103,21 +99,21 @@ pub fn key_pane(card: &str) -> Result<String, WebError> { Ok(Form { search: Stri
 /// The step's `_form`: the venue's connect card, with the DCA, signal or index step's track. `live`: the Paper/Live switch on
 /// Live (Alpaca).
 #[allow(clippy::too_many_arguments)]
-fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>, namespace: Namespace, venue: &Venue, live: bool, error: Option<&str>) -> Result<(String, Option<String>), WebError> {
+fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>, namespace: Namespace, venue: &Venue, live: bool, error: Option<&str>) -> Result<(String, String), WebError> {
     let instructions = keys::key_instructions(c, app, ctx, &venue.class, &venue.name, 0)?;
     let form_data = "data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"";
     let card = keys::sheet_card(ctx, csrf, ctx.path(namespace.action()), form_data, &venue.name, &venue.class, live, instructions, error,
                                ctx.path(&namespace.action().replace("/add_api_key", "/pick_exchange/new")))?;
     if namespace == Namespace::Index {
         let track = super::index_track(ctx, csrf, config, super::At::Key, &super::index::index_name(c, config, ctx.locale)?, Some(venue.name.clone()))?;
-        return Ok((Form { search: String::new(), card }.render()?, Some(track)));
+        return Ok((Form { search: String::new(), card }.render()?, track));
     }
-    if namespace == Namespace::Signal { return Ok((Form { search: String::new(), card }.render()?, Some(super::signals::key_track(c, ctx, config)?))) }
+    if namespace == Namespace::Signal { return Ok((Form { search: String::new(), card }.render()?, super::signals::key_track(c, ctx, config)?)) }
     let order = order(config, namespace);
     let multi = namespace == Namespace::Multi;
     let ids = if multi { basket_ids(config) } else { vec![] };
     let steered = steer(ctx, csrf, SentenceOf { order: &order, step: Step::Api, multi, chips: chips(c, &ids)?, exchange: exchange_name(c, Some(venue.id))? }, true)?;
-    Ok((Form { search: steered.search, card }.render()?, Some(steered.track)))
+    Ok((Form { search: steered.search, card }.render()?, steered.track))
 }
 
 
@@ -170,10 +166,8 @@ async fn new(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, WebEr
     let page = app.db(move |c| {
         if correct { return Ok(Err(after_api_key_path(c, owner.id, config.as_ref(), namespace)?)) }
         let csrf = view.csrf_token();
-        let body = match form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live, None)? {
-            (content, Some(track)) => super::sheet(&view, &track, &content)?,
-            (content, None) => FullPage { close_url: view.path("/bots"), content: &content }.render()?,
-        };
+        let (content, track) = form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live, None)?;
+        let body = super::sheet(&view, &track, &content)?;
         Ok(Ok((body, Shell::load(c, &inner, &owner)?)))
     }).await?;
     match page {
@@ -210,22 +204,15 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
         keys::Submitted::Failed => i18n::text(ctx.locale, "errors.api_key_permission_validation_failed", &[]),
         keys::Submitted::Refused(reason) => i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&reason))]),
     };
-    let (inner, view, reason) = (app.clone(), ctx.clone(), message.clone());
-    let (content, sheet) = app.db(move |c| {
+    let (inner, view, reason) = (app.clone(), ctx.clone(), message);
+    let content = app.db(move |c| {
         let csrf = view.csrf_token();
-        // A step in the sheet says why under its fields (D-WIZARD-SHEET-KEY-FORM).
-        match form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live, Some(reason.as_str()))? {
-            (content, Some(track)) => Ok((super::sheet_frame(&track, &content)?, true)),
-            (content, None) => Ok((content, false)),
-        }
+        // The step says why under its fields (D-WIZARD-SHEET-KEY-FORM).
+        let (content, track) = form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live, Some(reason.as_str()))?;
+        super::sheet_frame(&track, &content)
     }).await?;
-    // create.turbo_stream: the form in place of the step's frame, then the reason (flash.now) where the form does not hold it.
-    let update = turbo::stream("update", "modal_content", &format!("{content}\n"));
-    let body = if sheet { format!("{update}\n") } else {
-        let flash = flash::render(&flash::take(&ctx.session, &[(flash::ALERT, message)]))?;
-        format!("{update}\n{}\n", turbo::prepend_flash(flash.trim_end()))
-    };
-    Ok(super::stream(StatusCode::UNPROCESSABLE_ENTITY, body))
+    // create.turbo_stream: the form in place of the step's frame, the reason under its fields.
+    Ok(super::stream(StatusCode::UNPROCESSABLE_ENTITY, format!("{}\n", turbo::stream("update", "modal_content", &format!("{content}\n")))))
 }
 
 pub async fn single_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { new(app, ctx, Namespace::Single).await }

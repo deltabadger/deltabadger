@@ -3542,7 +3542,7 @@ async fn r5_snapshot_refuses_incomplete_origin_and_partial_balance_batches(){
     balances::sync_with_steps(&db,&bv,&NoPrices,h.seed.api_key_id,&b,&FixedClock(at),&step).await.unwrap().unwrap();
     assert_eq!(*gaps.borrow(),vec![0,1,2],"cover origin-only and both partial batch gaps");
     jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(&db,None,None,owner,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await.unwrap();
-    assert_eq!(h.c.query_row("SELECT value_usd FROM portfolio_snapshots WHERE user_id=?1",[owner],|r|r.get::<_,f64>(0)).unwrap(),2000.0,"R5 completed B balance set publishes B money");
+    assert_eq!(h.c.query_row("SELECT value_usd FROM portfolio_snapshots WHERE user_id=?1 ORDER BY date DESC LIMIT 1",[owner],|r|r.get::<_,f64>(0)).unwrap(),2000.0,"R5 completed B balance set publishes B money");
 }
 
 async fn r5_retry_rotation(exhaust:bool,restart:bool){
