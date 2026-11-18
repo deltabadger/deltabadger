@@ -172,6 +172,7 @@ pt:
                     prices: 'Mostrar preços'
                     modes: 'Modo do gráfico'
                     pnl: 'P/L'
+                    received: 'Recebido'
                     total_invested: 'Total investido'
                     value: 'Valor'
                 csv_download_html: 'A tabela acima mostra apenas as últimas 10 transações. O relatório completo está disponível para transferência no formato CSV, abaixo.'

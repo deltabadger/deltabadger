@@ -1,7 +1,7 @@
 //! D-SELL-ONLY-*: a bot whose every order is a sell (it holds what it sells from outside) states what it sold, what that
 //! brought in, and, when the account's history knows what the sold coins cost, the realised P/L. The cost is read from
 //! the bot sales the tracker walk publishes beside its ledger entry (`tracker::cache::bot_sales`); figures never walk.
-use super::{at::At, db::{Order, Subject}, dec::Dec, fill, FiguresError};
+use super::{at::At, budget, db::{Order, Subject}, dec::Dec, fill, num::Num, FiguresError};
 use crate::tracker::cache::{self, Sales};
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
@@ -51,6 +51,25 @@ fn of(orders: &[Order], quote: Option<&str>, pair: bool, sales: &Sales) -> Resul
     let sold = (bases.len() == 1).then(|| (amount, bases.into_iter().next().unwrap_or_default()));
     let cost = (known && !out.is_empty()).then_some(cost);
     Ok(Some(SellOnly { sold, received, sales: out, cost }))
+}
+
+/// D-SELL-ONLY-CHART, over `labels` (ascending): value = Received up to each label; invested = the cost up to it when the
+/// bot's cost is known, else zero.
+pub fn series(sell_only: &SellOnly, labels: &[At]) -> Result<(Vec<Num>, Vec<Num>), FiguresError> {
+    budget::charge((labels.len() + sell_only.sales.len()) as u64, 0)?;
+    let known = sell_only.cost.is_some();
+    let (mut value, mut invested) = (Vec::with_capacity(labels.len()), Vec::with_capacity(labels.len()));
+    let (mut received, mut cost, mut next) = (Dec::zero(), Dec::zero(), 0);
+    for label in labels {
+        while let Some((_, got, paid)) = sell_only.sales.get(next).filter(|sale| sale.0 <= *label) {
+            received = (&received + got)?;
+            if let (true, Some(paid)) = (known, paid) { cost = (&cost + paid)?; }
+            next += 1;
+        }
+        value.push(Num::Dec(received.clone()));
+        invested.push(Num::Dec(cost.clone()));
+    }
+    Ok((value, invested))
 }
 
 /// Whether the account has a bot with submitted orders, all sells: the statuses and side `fill::orders` reads. One
@@ -126,6 +145,21 @@ mod tests {
         let sales = warm(vec![sale(1, "0.002", "USDC", "4", true)]);
         assert_eq!(cost(&orders, &sales), None);
         assert_eq!(cost(&orders[..1], &sales), Some(d("4")));
+    }
+
+    #[test]
+    fn the_chart_is_received_and_cost_up_to_each_label() {
+        let orders = [order(10, "0.002", "5", "REGULAR"), order(20, "0.001", "2.6", "REGULAR")];
+        let labels = [At(5), At(10), At(15), At(20), At(30)];
+        let nums = |serie: Vec<Num>| serie.iter().map(|n| n.to_d().unwrap()).collect::<Vec<_>>();
+        let known = of(&orders, Some("USDC"), false, &warm(vec![sale(10, "0.002", "USDC", "4", true), sale(20, "0.001", "USDC", "2", true)])).unwrap().unwrap();
+        let (value, invested) = series(&known, &labels).unwrap();
+        assert_eq!(nums(value), [d("0"), d("5"), d("5"), d("7.6"), d("7.6")]);
+        assert_eq!(nums(invested), [d("0"), d("4"), d("4"), d("6"), d("6")]);
+        let unknown = of(&orders, Some("USDC"), false, &Sales::Cold).unwrap().unwrap();
+        let (value, invested) = series(&unknown, &labels).unwrap();
+        assert_eq!(nums(value), [d("0"), d("5"), d("5"), d("7.6"), d("7.6")]);
+        assert!(nums(invested).iter().all(Dec::is_zero), "no cost while it is not known");
     }
 
     #[test]

@@ -201,14 +201,24 @@ pub(crate) fn missing(s: &Subject, m: &Metrics, market: &dyn MarketData) -> Resu
 /// `profit_in_usd` converts; no figure when the cost is not known (or nothing, for a percentage of nothing). None for a
 /// bot that bought: its tile is the walk's.
 #[allow(clippy::type_complexity)]
-fn sell_only_tile(c: &Connection, market: &dyn MarketData, rates: &mut totals::Rates, s: &Subject, pair: bool, sales: &Sales, hidden: bool) -> Result<Option<(Option<Num>, Option<Num>)>, FiguresError> {
-    let Some(sell) = basis::sell_only(s, pair, sales)? else { return Ok(None) };
-    let (Some(pnl), Some(cost)) = (sell.pnl()?, sell.cost.filter(crate::figures::dec::Dec::is_positive)) else { return Ok(Some((None, None))) };
+fn sell_only_tile(c: &Connection, market: &dyn MarketData, rates: &mut totals::Rates, s: &Subject, sell: Option<&basis::SellOnly>, hidden: bool) -> Result<Option<(Option<Num>, Option<Num>)>, FiguresError> {
+    let Some(sell) = sell else { return Ok(None) };
+    let (Some(pnl), Some(cost)) = (sell.pnl()?, sell.cost.clone().filter(crate::figures::dec::Dec::is_positive)) else { return Ok(Some((None, None))) };
     let percent = Num::Dec(pnl.div(&cost)?);
     let profit = if hidden { None } else {
         tile_usd(totals::quote_in_usd(c, market, rates, s.quote.as_deref(), pnl))?
     };
     Ok(Some((Some(percent), profit)))
+}
+
+/// D-SELL-ONLY-CHART: a sell-only bot's chart is what it received, against its cost when that is known, with no
+/// holding's own curve; and whether the cost is known. None for a bot that bought: its chart is the walk's.
+fn received_chart(sell: Option<&basis::SellOnly>, m: &Metrics) -> Result<Option<(Metrics, bool)>, FiguresError> {
+    let Some(sell) = sell else { return Ok(None) };
+    let mut m = m.clone();
+    (m.chart.value, m.chart.invested) = basis::series(sell, &m.chart.labels)?;
+    m.chart.assets = None;
+    Ok(Some((m, sell.cost.is_some())))
 }
 
 /// One bot's figures as the account's totals read them: `marked` None is no track in the history (its chart raised), and
@@ -290,14 +300,21 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
                 marked_raised |= marked.is_none();
                 let chart_cache = marked.as_ref().is_some_and(|(_, gridded)| *gridded);
                 let metrics = holdings::render_pair(c, &live, &sales, user.hide_balances, locale, prefix, now)?;
-                let (pnl, profit) = match sell_only_tile(c, market, &mut rates, &live.subject, true, &sales, user.hide_balances)? {
+                let sell = basis::sell_only(&live.subject, true, &sales)?;
+                let (pnl, profit) = match sell_only_tile(c, market, &mut rates, &live.subject, sell.as_ref(), user.hide_balances)? {
                     Some(tile) => tile,
                     None => (live.metrics.pnl.clone().filter(|_| !live.metrics.prices_stale), if user.hide_balances { None } else {
                         tile_usd(totals::profit_in_usd(c, market, &mut rates, live.subject.quote.as_deref(), &live.metrics))?
                     }),
                 };
                 // D3 (3.0, Rust only): a stale pair's chart is not drawn, as a basket's is not: 2.x's broadcast draws it.
-                let chart = match &marked { Some((m, _)) => plot::render(c, &live.subject, &m.metrics, &[], user.hide_balances, locale, &user.time_zone, true)?, None => plot::NOT_CHARTED.into() };
+                let chart = match &marked {
+                    Some((m, _)) => match received_chart(sell.as_ref(), &m.metrics)? {
+                        Some((received, known)) => plot::render(c, &live.subject, &received, &[], user.hide_balances, locale, &user.time_zone, true, Some(known))?,
+                        None => plot::render(c, &live.subject, &m.metrics, &[], user.hide_balances, locale, &user.time_zone, true, None)?,
+                    },
+                    None => plot::NOT_CHARTED.into(),
+                };
                 bots.insert(id.to_string(), json!({ "tile": tile(id, kind, pnl.as_ref(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": chart, "missing": [],
                     "cached": cached,
                     // The page draws a chart only beside cached figures (@chart_metrics is read only unless @metrics_loading).
@@ -325,13 +342,18 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
             if !offsets.is_empty() { slots.push((id.to_string(), offsets)); }
             let (rebalance_info, rebalance_drift) = rebalance(c, &subject, &marked_live, locale, now)?;
             // The amount is all a rate was needed for: with balances hidden there is none to convert (BotsController#index).
-            let (pnl, profit) = match sell_only_tile(c, market, &mut rates, &subject, false, &sales, user.hide_balances)? {
+            let sell = basis::sell_only(&subject, false, &sales)?;
+            let (pnl, profit) = match sell_only_tile(c, market, &mut rates, &subject, sell.as_ref(), user.hide_balances)? {
                 Some(tile) => tile,
                 None => (marked_live.pnl.clone().filter(|_| !marked_live.prices_stale && missing.is_empty()), if user.hide_balances { None } else {
                     tile_usd(totals::profit_in_usd(c, market, &mut rates, subject.quote.as_deref(), &marked_live))?
                 }),
             };
-            bots.insert(id.to_string(), json!({ "tile": tile(id, kind, pnl.as_ref(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone, false)?, "missing": missing,
+            let chart = match received_chart(sell.as_ref(), &marked)? {
+                Some((received, known)) => plot::render(c, &subject, &received, &missing, user.hide_balances, locale, &user.time_zone, false, Some(known))?,
+                None => plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone, false, None)?,
+            };
+            bots.insert(id.to_string(), json!({ "tile": tile(id, kind, pnl.as_ref(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": chart, "missing": missing,
                 // What 2.x would find in its cache (Measurable#metrics_with_current_prices): stale figures, or ones with no
                 // chart point yet, are never written, so its bot page reads them as still loading.
                 "cached": !marked_live.prices_stale && !marked_live.chart.labels.is_empty(),

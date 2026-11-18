@@ -504,6 +504,8 @@ pub struct Page {
     pub prices: Vec<(String, Vec<Option<f64>>)>,
     /// The asset behind each charted key, for its logo and colour: every key bought or priced.
     pub logo_assets: Vec<(String, i64)>,
+    /// D-SELL-ONLY-CHART: Some(whether the cost is known) for a sell-only bot, whose series are Received and its cost.
+    pub received: Option<bool>,
 }
 
 /// `bot.decimals[:quote] || 8`: the coarsest quote precision among the bot's tickers.
@@ -597,7 +599,7 @@ fn plotted(s: &Subject, marked: &Metrics, hide_balances: bool, decimals: i64, ma
     Ok(Page {
         bot: s.bot.id, quote, decimals, labels: marked.chart.labels.clone(), series, pnl, assets, pnl_only: hide_balances,
         buys: marks.into_iter().map(|mark| (mark.at, mark.key, mark.amount.to_f(), mark.quote.to_f(), mark.fills)).collect(),
-        prices, logo_assets: vec![],
+        prices, logo_assets: vec![], received: None,
     })
 }
 
@@ -608,13 +610,14 @@ impl Page {
         let time = |at: &At| J::Str(json::time(&at.utc().with_timezone(zone), digits));
         let floats = |serie: &Vec<f64>| J::arr(serie, |f| J::Float(*f));
         let optional = |serie: &Vec<Option<f64>>| J::arr(serie, |f| J::opt(f, |f| J::Float(*f)));
-        vec![
+        let mut out = vec![
             ("bot", self.bot.to_string()),
             ("quote", self.quote.clone()),
             ("decimals", self.decimals.to_string()),
             ("labels", J::arr(&self.labels, time).write()),
             ("series", J::Arr(self.series.iter().map(|serie| J::arr(serie, J::num)).collect()).write()),
-            ("pnl", floats(&self.pnl).write()),
+            // Received is no profit: with the cost unknown there is no P/L curve to send.
+            ("pnl", if self.received == Some(false) { "[]".into() } else { floats(&self.pnl).write() }),
             ("assets", J::Obj(self.assets.iter().map(|(key, value, invested)| (key.clone(), J::Obj(vec![
                 ("value".to_string(), optional(value)), ("invested".to_string(), floats(invested)),
             ]))).collect()).write()),
@@ -622,6 +625,8 @@ impl Page {
             ("buys", J::arr(&self.buys, |(at, key, amount, quote, fills)| J::Arr(vec![time(at), J::opt(key, |key| J::Str(key.clone())), J::Float(*amount), J::Float(*quote), J::Int(*fills)])).write()),
             ("prices", J::Obj(self.prices.iter().map(|(key, serie)| (key.clone(), optional(serie))).collect()).write()),
             ("logo-assets", J::Obj(self.logo_assets.iter().map(|(key, id)| (key.clone(), J::Int(*id))).collect()).write()),
-        ]
+        ];
+        if let Some(known) = self.received { out.push(("received", if known { "known" } else { "unknown" }.into())); }
+        out
     }
 }

@@ -174,6 +174,7 @@ da:
                     prices: 'Vis priser'
                     modes: 'Diagramtilstand'
                     pnl: 'P/L'
+                    received: 'Modtaget'
                     total_invested: 'Samlet investeret'
                     value: Værdi
                 csv_download_html: 'Tabellen ovenfor viser kun de seneste ti transaktioner. Den fulde rapport kan downloades i CSV-format nedenfor.'

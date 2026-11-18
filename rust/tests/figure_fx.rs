@@ -570,6 +570,49 @@ async fn an_unlinked_transfer_withdraws_the_kept_pnl() {
     }
 }
 
+/// The chart's `data-bot--chart-<name>-value`, unescaped; None when the chart has no such attribute.
+fn chart_value(v: &Value, bot: i64, name: &str) -> Option<String> {
+    let chart = v["bots"][bot.to_string()]["chart"].as_str().unwrap();
+    let start = chart.find(&format!("data-bot--chart-{name}-value=\"")).map(|at| at + name.len() + 24)?;
+    let raw = &chart[start..start + chart[start..].find('"').unwrap()];
+    Some(raw.replace("&quot;", "\"").replace("&#39;", "'").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&"))
+}
+fn chart_numbers(v: &Value, bot: i64, name: &str) -> Value { serde_json::from_str(&chart_value(v, bot, name).unwrap()).unwrap() }
+fn float(n: &Value) -> f64 { n.as_f64().or_else(|| n.as_str().and_then(|s| s.parse().ok())).unwrap_or_else(|| panic!("not a number: {n}")) }
+
+#[tokio::test]
+async fn a_sell_only_chart_is_cumulative_received() {
+    // D-SELL-ONLY-CHART: what the sold coins cost is not known, so the chart is what came in, never a profit.
+    let install = gemini_seller(false);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let chart = shown["bots"]["3"]["chart"].as_str().unwrap();
+    let series = chart_numbers(&shown, 3, "series");
+    assert_eq!(float(series[0].as_array().unwrap().last().unwrap()), 7.6, "{chart}");
+    assert!(series[1].as_array().unwrap().iter().all(|n| float(n) == 0.0), "{chart}");
+    assert_eq!(chart_numbers(&shown, 3, "pnl"), json!([]), "{chart}");
+    assert_eq!(chart_value(&shown, 3, "received").as_deref(), Some("unknown"), "{chart}");
+    assert!(!chart.contains("chart-mode"), "no mode switch: {chart}");
+    // A bot that bought is charted as it was.
+    assert_eq!(chart_value(&shown, 1, "received"), None, "{}", shown["bots"]["1"]["chart"]);
+}
+
+#[tokio::test]
+async fn a_sell_only_chart_with_known_cost_draws_the_realised_pnl() {
+    let install = gemini_seller(false);
+    sold_from_a_purchase(&install);
+    walk_and_publish(&install);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let chart = shown["bots"]["3"]["chart"].as_str().unwrap();
+    let series = chart_numbers(&shown, 3, "series");
+    assert_eq!(float(series[0].as_array().unwrap().last().unwrap()), 7.6, "{chart}");
+    assert_eq!(float(series[1].as_array().unwrap().last().unwrap()), 6.0, "{chart}");
+    assert_eq!(float(chart_numbers(&shown, 3, "pnl").as_array().unwrap().last().unwrap()), 1.6, "{chart}");
+    assert_eq!(chart_value(&shown, 3, "received").as_deref(), Some("known"), "{chart}");
+    assert!(chart.contains("chart-mode") && chart.contains(">Received<"), "the mode switch, its value mode named Received: {chart}");
+}
+
 #[tokio::test]
 async fn a_kucoin_bot_is_priced_from_the_venues_tickers_and_counts_in_the_headline() {
     // Exchanges::Kucoin#get_tickers_prices: the whole market from allTickers, through the KuCoin egress. The basket is valued
