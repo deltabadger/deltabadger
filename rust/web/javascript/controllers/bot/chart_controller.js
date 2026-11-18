@@ -253,10 +253,19 @@ export default class extends Controller {
     });
     this.resizeObserver.observe(this.element);
     this.element.addEventListener("turbo:before-morph-element", this.#morph);
+    // D-SCHEME-SWITCH: the chart's colours are read from the page's variables when it is built, so a scheme picked in the
+    // menu, or the OS turning light or dark, builds it again in the new colours.
+    this.repaint = () => this.#buildChart();
+    this.schemes = new MutationObserver(this.repaint);
+    this.schemes.observe(document.documentElement, { attributes: true, attributeFilter: ["data-scheme"] });
+    this.dark = matchMedia("(prefers-color-scheme: dark)");
+    this.dark.addEventListener("change", this.repaint);
   }
 
   disconnect() {
     this.element.removeEventListener("turbo:before-morph-element", this.#morph);
+    this.schemes.disconnect();
+    this.dark.removeEventListener("change", this.repaint);
     this.resizeObserver.disconnect();
     if (this.resizeTimeout) {
       clearTimeout(this.resizeTimeout);

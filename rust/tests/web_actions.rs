@@ -428,7 +428,7 @@ mod action_draft {
             app: common::web::app(dir.path(), common::web::SECRET, common::web::TestClock::at(field(group, "now").as_str().ok_or("now")?)),
             params: std::sync::Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
             session: deltabadger::web::session::Session::new(Default::default()),
-            current: deltabadger::web::auth::Current::SignedOut, method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now, turbo_frame: None, stream: false,
+            current: deltabadger::web::auth::Current::SignedOut, method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now, turbo_frame: None, stream: false, scheme: "",
         };
         for recorded in cases {
             let mut resolved = recorded.clone();
@@ -577,7 +577,7 @@ mod action_write {
             let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
             let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
                 session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
-                method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
+                method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false, scheme: "" };
             Ok(Self { _dir: dir, c, ctx, seed: s, id })
         }
         fn params(fields: Value) -> Result<ActionParams> {
@@ -2413,7 +2413,7 @@ mod custom_allocation {
             let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
             let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
                 session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
-                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
+                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false, scheme: "" };
             Ok(Self { _dir: dir, c, ctx, user: s.user_id, id, assets: members.into_iter().map(|(asset, _)| asset).collect() })
         }
         fn customize(&self) -> Result<Switched> { Ok(customize(&self.c, &self.ctx, self.user, self.id).map_err(|e| format!("{e:?}"))?) }
@@ -2645,7 +2645,7 @@ mod merge {
             let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
             let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
                 session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
-                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
+                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false, scheme: "" };
             Ok(Self { _dir: dir, c, ctx, s, bots })
         }
         fn merge(&self) -> Result<Merged> { self.merge_onto(None) }
@@ -2777,7 +2777,7 @@ mod split {
             let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
             let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
                 session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
-                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
+                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false, scheme: "" };
             Ok((dir, opened.primary, opened.queue, ctx, s))
         }
         /// Stopped Alpaca baskets at 60 weekly, one per list of weights: a stock (S<n>X<i>) per weight, each a member row.

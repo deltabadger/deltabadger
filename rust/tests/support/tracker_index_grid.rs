@@ -49,8 +49,12 @@ fn same_rows(actual: Value, expected: Value, label: &str) {
     assert_eq!(actual.as_object().unwrap().len(),expected.as_object().unwrap().len());
 }
 
-// Mask only authenticated variable values; preserve every other byte and whitespace.
+// Mask only authenticated variable values; preserve every other byte and whitespace. This build's own elements that 2.x
+// never wrote are taken out first, byte for byte: the Settings menu's scheme row (D-SCHEME-SWITCH) and an empty state's
+// pixel scene (D-PIXEL-SCENES). Each is written with nothing around it, so the bytes left are 2.x's.
 pub fn masked(body:&str,app:Option<&deltabadger::web::App>,token:Option<&str>)->String {
+    let ours=regex::Regex::new(r#"(?s)<div class="[^"]*--scheme" data-dropdown-keep-open data-scheme-switch[^>]*>.*?</div>|<canvas class="pixel-scene"[^>]*></canvas>"#).unwrap();
+    let body=&*ours.replace_all(body,"");
     let values=common::html::masked_values(body);let mut out=body.to_string();
     for v in values.tokens {if let Some(t)=token{assert!(csrf::valid(t,&v));}out=out.replace(&v,"[csrf]");}
     if let Some(rest)=body.split("<meta name=\"csp-nonce\" content=\"").nth(1){

@@ -91,6 +91,12 @@ de:
     links:
         hide_balances: 'Guthaben ausblenden'
         display_currency: 'Anzeigewährung'
+        scheme: 'Farbschema'
+        scheme_default: 'Standard'
+        scheme_space: 'Weltraum'
+        scheme_warm: 'Warm'
+        scheme_ember: 'Glut'
+        scheme_forest: 'Wald'
         show_balances: 'Guthaben einblenden'
         about: Über
         telegram: Telegram

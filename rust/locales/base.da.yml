@@ -91,6 +91,12 @@ da:
     links:
         hide_balances: 'Skjul saldi'
         display_currency: 'Visningsvaluta'
+        scheme: 'Farvetema'
+        scheme_default: 'Standard'
+        scheme_space: 'Rummet'
+        scheme_warm: 'Varm'
+        scheme_ember: 'Glød'
+        scheme_forest: 'Skov'
         show_balances: 'Vis saldi'
         about: Om
         telegram: 'Telegram'

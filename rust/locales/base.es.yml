@@ -91,6 +91,12 @@ es:
     links:
         hide_balances: 'Ocultar saldos'
         display_currency: 'Moneda de visualización'
+        scheme: 'Esquema de colores'
+        scheme_default: 'Predeterminado'
+        scheme_space: 'Espacio'
+        scheme_warm: 'Cálido'
+        scheme_ember: 'Brasa'
+        scheme_forest: 'Bosque'
         show_balances: 'Mostrar saldos'
         about: 'Acerca de'
         telegram: 'Telegram'

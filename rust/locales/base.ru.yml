@@ -93,6 +93,12 @@ ru:
     links:
         hide_balances: 'Скрыть балансы'
         display_currency: 'Валюта отображения'
+        scheme: 'Цветовая схема'
+        scheme_default: 'По умолчанию'
+        scheme_space: 'Космос'
+        scheme_warm: 'Тёплая'
+        scheme_ember: 'Угли'
+        scheme_forest: 'Лес'
         show_balances: 'Показать балансы'
         about: 'О нас'
         telegram: 'Телеграм'

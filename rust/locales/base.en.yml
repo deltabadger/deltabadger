@@ -91,6 +91,12 @@ en:
     links:
         hide_balances: 'Hide balances'
         display_currency: 'Display currency'
+        scheme: 'Color scheme'
+        scheme_default: 'Default'
+        scheme_space: 'Space'
+        scheme_warm: 'Warm'
+        scheme_ember: 'Ember'
+        scheme_forest: 'Forest'
         show_balances: 'Show balances'
         about: About
         telegram: 'Telegram'
