@@ -13,6 +13,14 @@ nl:
             market_data:
                 intro: "Indexen hebben live marktgegevens nodig. Gebruik de officiële Deltabadger-data-API of een gratis CoinGecko-account."
                 providers: "Aanbieders van marktgegevens"
+                subscription:
+                    lead_html: "Een <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a>-abonnement omvat:"
+                    indexes_title: "Aandelen- en crypto-indexen"
+                    indexes: "Indexen zijn gebaseerd op de marktkapitalisatie van hun assets en hebben live updates nodig."
+                    history_title: "Historische prijzen"
+                    history: "Exchanges bieden via hun API’s maar een beperkte prijsgeschiedenis. Voor portfoliotracking en belastingaangifte levert de API de volledige geschiedenis van prijzen en wisselkoersen."
+                    ip_title: "Vast IP-adres"
+                    ip: "Je thuisnetwerk heeft meestal geen vast IP-adres voor de whitelist. De proxy houdt je verbonden als het verandert."
             kind:
                 asset: "Asset"
                 index: "Index"

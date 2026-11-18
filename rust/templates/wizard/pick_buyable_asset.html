@@ -8,7 +8,7 @@
 {%- for chip in chosen %}
             <div class="wizard-assets__row">
               <div class="modal--search__cell">
-                <div class="{{ chip.class }}" style="background: {{ chip.pill }}" data-ticker-symbol="{{ chip.symbol }}" data-ticker-asset-id="{{ chip.id }}">{{ chip.symbol }}</div>
+                <div class="{{ chip.class }} ticker--small" style="background: {{ chip.pill }}" data-ticker-symbol="{{ chip.symbol }}" data-ticker-asset-id="{{ chip.id }}">{{ chip.symbol }}</div>
               </div>
               <div class="modal--search__cell modal--search__cell--name">
                 {{ chip.logo|safe }}

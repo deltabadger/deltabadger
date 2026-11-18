@@ -13,6 +13,14 @@ da:
             market_data:
                 intro: "Indeks kræver markedsdata i realtid. Brug Deltabadgers officielle data-API eller en gratis CoinGecko-konto."
                 providers: "Udbydere af markedsdata"
+                subscription:
+                    lead_html: "Et <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a>-abonnement omfatter:"
+                    indexes_title: "Aktie- og kryptoindeks"
+                    indexes: "Indeks bygger på deres aktivers markedsværdi og kræver live-opdateringer."
+                    history_title: "Historiske priser"
+                    history: "Børser tilbyder kun en begrænset prishistorik via deres API. Til porteføljesporing og skatterapportering leverer API’en den fulde historik over priser og vekselkurser."
+                    ip_title: "Fast IP"
+                    ip: "Dit hjemmenetværk har som regel ingen fast IP-adresse til whitelisting. Proxyen holder dig forbundet, når den skifter."
             kind:
                 asset: "Aktiv"
                 index: "Indeks"

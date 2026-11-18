@@ -892,6 +892,19 @@ fn only_the_low_funds_prefix_and_its_colour_are_left_out() {
 
 /// Named divergence D-SPLIT-BOT-MENU: a splittable bot's menu has a Split item (the split modal for that bot), which 2.x's
 /// menu does not. Only that item, with the whitespace before it, is taken out of this crate's page; returns how many.
+/// D-LIST-TICKER-SMALL: every scrollable asset list (the search rows, the picked assets, the index rows and tiles) draws its
+/// tickers small; 2.x's never carry `ticker--small` (no recording has it), so the class alone comes off ours.
+fn without_small_tickers(body: &mut Value) -> usize {
+    let Value::Array(lines) = body else { return 0 };
+    let mut taken = 0;
+    for line in lines.iter_mut() {
+        let Some(text) = line.as_str().filter(|t| t.contains(" ticker--small")) else { continue };
+        taken += 1;
+        *line = json!(text.replace(" ticker--small", ""));
+    }
+    taken
+}
+
 fn without_split_item(body: &mut Value) -> usize {
     let Value::Array(lines) = body else { return 0 };
     let (mut taken, mut i) = (0, 0);
@@ -2810,7 +2823,7 @@ async fn replay_page_shard(shard: usize) {
         let count = std::fs::read_dir("/proc/self/task").map_or(String::new(), |tasks| format!(", {} threads", tasks.count()));
         progress(format!("page shard {}: {name}/{scope} (+{:.1?}{count})", shard + 1, replay.elapsed()), false);
         let scenario = scenario(dir);
-        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut full_page_frames, mut market_data_frames) = (0, 0, 0, 0, 0, 0, 0, 0);
+        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut full_page_frames, mut market_data_frames, mut small_tickers) = (0, 0, 0, 0, 0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| v2_answer(answer, step)).collect();
         let v2_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
@@ -2842,6 +2855,7 @@ async fn replay_page_shard(shard: usize) {
             market_data_frames += without_market_data_contents(&mut answer["body"]);
             without_low_funds(&mut answer["body"]);
             split_menu_pages += without_split_item(&mut answer["body"]);
+            small_tickers += without_small_tickers(&mut answer["body"]);
             jobs_rows += without_jobs_row(&mut answer["body"]);
             match full_page_dialogs(&mut answer["body"]) { Ok(n) => full_page_frames += n, Err(e) => failures.push(format!("{name}/{scope}: D-FULL-PAGE-DIALOG-COMPLETE: {e}")) }
             index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty());
@@ -2852,7 +2866,8 @@ async fn replay_page_shard(shard: usize) {
                                              ("twin_basket_member", split_menu_pages, "D-SPLIT-BOT-MENU"),
                                              ("settings_page_account_pt", jobs_rows, "D-JOBS-SETTINGS-LINK"),
                                              ("settings_page_connect_en", market_data_frames, "D-MARKET-DATA-NO-SWITCH"),
-                                             ("wizard_chooser_advanced", full_page_frames, "D-FULL-PAGE-DIALOG-COMPLETE")] {
+                                             ("wizard_chooser_advanced", full_page_frames, "D-FULL-PAGE-DIALOG-COMPLETE"),
+                                             ("asset_search_kraken", small_tickers, "D-LIST-TICKER-SMALL")] {
             if name == witness && count == 0 { failures.push(format!("{name}/{scope}: {divergence}: no rendered witness")); }
         }
         if name.starts_with("countdown_") {
@@ -3573,6 +3588,7 @@ async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
         without_broker_gate(&mut expected["body"]);
         without_low_funds(&mut actual["body"]);
         without_split_item(&mut actual["body"]);
+        without_small_tickers(&mut actual["body"]);
         full_page_dialogs(&mut actual["body"]).unwrap_or_else(|e| panic!("{name}: D-FULL-PAGE-DIALOG-COMPLETE: {e}"));
         let path = step["path"].as_str().unwrap_or_default();
         wizard_sheet::wizard_sheet(path, None, &mut expected["body"], &mut actual["body"]).and_then(|_| wizard_sheet::chooser(path, &mut expected, &mut actual)).unwrap_or_else(|e| panic!("{name}: D-WIZARD-SHEET: {e}"));
@@ -4765,6 +4781,12 @@ async fn index_in_wizard_market_data_is_connected_in_the_index_view() {
         in_sheet(&answers[at]);
         let card = widget(&answers[at]);
         assert!(card.contains("set-api--connect") && card.contains(&format!("name=\"{field}\"")) && card.contains(&format!("action=\"{action}\"")), "{at}: {card}");
+    }
+    // Deltabadger's card: the subscription's three perks under the Deltabadger API link, not Settings' line.
+    let perks = widget(&answers[7]);
+    assert!(perks.contains(">Deltabadger API</a>") && !perks.contains("Self-hosted"), "{perks}");
+    for perk in ["indexes_title", "history_title", "ip_title"] {
+        assert!(perks.contains(&format!("<p><b>{}</b><br>", deltabadger::web::i18n::text("en", &format!("bot.setup.market_data.subscription.{perk}"), &[]))), "{perk}");
     }
     // A refused key: its flash, the card left in place, as Settings answers; a missing key: its card again; a refused code: the
     // card again with the error under its field.

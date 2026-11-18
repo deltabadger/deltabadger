@@ -13,6 +13,14 @@ pt:
             market_data:
                 intro: "Os índices precisam de dados de mercado em tempo real. Use a API de dados oficial da Deltabadger ou uma conta gratuita da CoinGecko."
                 providers: "Fornecedores de dados de mercado"
+                subscription:
+                    lead_html: "Uma assinatura <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a> inclui:"
+                    indexes_title: "Índices de ações e cripto"
+                    indexes: "Os índices baseiam-se na capitalização de mercado dos seus ativos e precisam de atualizações em tempo real."
+                    history_title: "Preços históricos"
+                    history: "As exchanges oferecem pelas suas APIs apenas um histórico de preços limitado. Para o acompanhamento da carteira e os relatórios fiscais, a API fornece o histórico completo de preços e taxas de câmbio."
+                    ip_title: "IP fixo"
+                    ip: "A sua rede doméstica normalmente não tem um endereço IP fixo para a lista de permissões. O proxy mantém-no ligado quando ele muda."
             kind:
                 asset: "Ativo"
                 index: "Índice"
