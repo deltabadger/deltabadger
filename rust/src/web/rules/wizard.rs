@@ -4,55 +4,25 @@ use crate::{
     v2::{self, BigDec},
     web::{
         bot::{
-            search::{self, AssetPage, Basket, Item, Side},
+            search::{self, AssetPage, Basket, Side},
             Asset,
         },
         colors,
         i18n::{escape, Arg},
         settings::{key_check, keys},
         wizard::{
-            exchanges::{Table, Venue},
-            keys::{venue, FullPage},
+            exchanges::{venue_pane, Table},
+            keys::{key_pane, venue},
+            search_box, Stop,
         },
     },
 };
 use rusqlite::OptionalExtension;
 use serde_json::Value;
 #[derive(Template)]
-#[template(path = "rules/pick_exchange.html")]
-struct Pick<'a> {
-    v: &'a Ctx,
-    progress: String,
-    table: Table,
-}
-#[derive(Template)]
-#[template(path = "rules/sentence.html")]
-struct Sentence<'a> {
-    v: &'a Ctx,
-    search: bool,
-    asset: Option<&'a Asset>,
-    color: String,
-    asset_url: String,
-    exchange_url: String,
-    exchange: &'a str,
-    address: bool,
-}
-#[derive(Template)]
-#[template(path = "rules/pick_asset.html")]
-struct Assets {
-    progress: String,
-    sentence: String,
-    action: String,
-    csrf: String,
-    items: Vec<Item>,
-    field_name: &'static str,
-    next: Option<(String, String)>,
-}
-#[derive(Template)]
 #[template(path = "rules/settings.html")]
 struct Settings<'a> {
     v: &'a Ctx,
-    progress: String,
     action: String,
     csrf: String,
     preview: String,
@@ -87,38 +57,18 @@ fn config(ctx: &Ctx) -> Value {
 fn set(ctx: &Ctx, value: Value) {
     ctx.session.lock().withdrawal_rule_config = Some(value)
 }
-fn progress(ctx: &Ctx, step: &str, n: i64) -> Result<String, WebError> {
-    crate::web::wizard::progress_bar(ctx.t(&format!("bot.setup.progress_steps.{step}")), n)
-}
-async fn full(app: &App, ctx: &Ctx, content: String) -> Result<Response, WebError> {
-    page(
-        app,
-        ctx,
-        FullPage {
-            close_url: ctx.path("/rules"),
-            content: &content,
-        }
-        .render()?,
-    )
-    .await
-}
-fn sentence(
-    ctx: &Ctx,
-    exchange: &str,
-    asset: Option<&Asset>,
-    step: &str,
-) -> Result<String, WebError> {
-    Ok(Sentence {
-        v: ctx,
-        search: step == "pick_asset",
-        asset,
-        color: colors::pill_color(asset.and_then(|a| a.color.as_deref())).unwrap_or_default(),
-        asset_url: ctx.path(&format!("{BASE}/pick_asset/new")),
-        exchange_url: ctx.path(&format!("{BASE}/pick_exchange/new")),
-        exchange,
-        address: step == "add_address",
-    }
-    .render()?)
+/// D-RULES-SHEET: a step in the sheet, closing to the rules page, its track beside `content`. The track is Exchange, Asset,
+/// Address, Settings (the withdrawal key step is the exchange's); an item before `current` shows what was chosen and links back
+/// to its step, the address excepted (its step forwards to Settings once one is known). `key`: the key step, where the venue's
+/// item is current and shows the venue too.
+async fn full(app: &App, ctx: &Ctx, current: usize, key: bool, exchange: Option<&str>, asset: Option<i64>, content: String) -> Result<Response, WebError> {
+    let chips = match asset.filter(|_| current > 1) { Some(id) => app.db(move |c| crate::web::wizard::chips(c, &[id])).await?, None => vec![] };
+    let mut venue = Stop::new("exchange");
+    if let (true, Some(name)) = (current > 0 || key, exchange) { venue = venue.name(Some(name.to_string())).back(ctx.path(&format!("{BASE}/pick_exchange/new"))); }
+    let mut coin = Stop::new("assets");
+    if !chips.is_empty() { coin = coin.chips(chips).back(ctx.path(&format!("{BASE}/pick_asset/new"))); }
+    let track = crate::web::wizard::track(ctx, current, vec![venue, coin, Stop::new("address"), Stop::new("settings")])?;
+    page(app, ctx, crate::web::wizard::sheet_to(ctx, "/rules", &track, &content)?).await
 }
 async fn temporary(app: &App, ctx: &Ctx, config: Value) -> Result<Option<Rule>, WebError> {
     let user = ctx.user().expect("authenticated").id;
@@ -170,30 +120,21 @@ async fn exchange(app: &App, ctx: &Ctx) -> Result<Response, WebError> {
                 },
                 Some(None),
             )?;
-            let venues = crate::web::wizard::exchanges::ordered(venues, None)
+            let venues = venues
                 .into_iter()
                 .filter(|e| crate::venue::withdrawal::Kind::of(&e.class).is_some())
-                .map(|e| Venue {
-                    id: e.id,
-                    mark: crate::web::bot::exchange_wordmark(&e.name_id()),
-                    unavailable: false,
-                })
                 .collect();
-            Ok(Pick {
-                v: &v,
-                progress: progress(&v, "pick_exchange", 20)?,
-                table: Table {
-                    action: v.path(&format!("{BASE}/pick_exchange")),
-                    csrf: v.csrf_token(),
-                    param_name: "bots_dca_single_asset[exchange_id]".into(),
-                    venues,
-                    unavailable_note: v.t("bot.hyperliquid_trading_unavailable"),
-                },
-            }
-            .render()?)
+            let table = Table {
+                action: v.path(&format!("{BASE}/pick_exchange")),
+                csrf: v.csrf_token(),
+                param_name: "bots_dca_single_asset[exchange_id]".into(),
+                venues: vec![],
+                unavailable_note: v.t("bot.hyperliquid_trading_unavailable"),
+            };
+            venue_pane(&v, search_box("exchange-picker", &v.path(&format!("{BASE}/pick_exchange/new")), "exchange")?, table, venues)
         })
         .await?;
-    full(app, ctx, content).await
+    full(app, ctx, 0, false, None, None, content).await
 }
 
 async fn assets(
@@ -256,17 +197,9 @@ async fn assets(
                     true,
                 ));
             }
+            let search = search_box("asset-picker", &v.path(&format!("{BASE}/pick_asset/new")), &v.t("utils.search.placeholder.asset"))?;
             Ok((
-                Assets {
-                    progress: progress(&v, "pick_asset", 60)?,
-                    sentence: sentence(&v, &exchange.name, None, "pick_asset")?,
-                    action: v.path(&format!("{BASE}/pick_asset")),
-                    csrf: v.csrf_token(),
-                    items,
-                    field_name: "bots_dca_single_asset[asset_id]",
-                    next,
-                }
-                .render()?,
+                crate::web::wizard::spendable::asset_pane(search, v.path(&format!("{BASE}/pick_asset")), v.csrf_token(), "bots_dca_single_asset[asset_id]", items, next)?,
                 false,
             ))
         })
@@ -274,20 +207,22 @@ async fn assets(
     if partial {
         Ok(layout::html(StatusCode::OK, content))
     } else {
-        full(app, ctx, content).await
+        full(app, ctx, 1, false, Some(&exchange.name), None, content).await
     }
 }
+/// The withdrawal key's card as the sheet draws it, `error` under its fields.
 async fn key_card(
     app: &App,
     ctx: &Ctx,
     exchange: &crate::web::wizard::keys::Venue,
+    error: Option<String>,
 ) -> Result<String, WebError> {
     let (inner, v, e) = (app.clone(), ctx.clone(), exchange.clone());
     app.db(move|c|{
         let instructions=keys::key_instructions(c,&inner,&v,&e.class,&e.name,1)?;
-        keys::card(&v,&v.csrf_token(),v.path(&format!("{BASE}/add_api_key?exchange_id={}",e.id)),
+        keys::sheet_card(&v,&v.csrf_token(),v.path(&format!("{BASE}/add_api_key?exchange_id={}",e.id)),
             "data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"",
-            &e.name,&e.class,false,false,instructions)
+            &e.name,&e.class,false,instructions,error.as_deref())
     }).await
 }
 async fn next(app: &App, ctx: &Ctx, via_address: bool) -> Result<Response, WebError> {
@@ -372,7 +307,16 @@ async fn keys(
                 &[("reason", Arg::Text(&reason))],
             ),
         };
-        return alert(ctx, message, false);
+        // D-RULES-SHEET: the reason under the card's fields, in the sheet's frame.
+        let rule = temporary(app, ctx, config(ctx)).await?;
+        let card = key_pane(&key_card(app, ctx, &exchange, Some(message)).await?)?;
+        let chips = match rule.map(|r| r.asset.id) { Some(id) => app.db(move |c| crate::web::wizard::chips(c, &[id])).await?, None => vec![] };
+        let mut coin = Stop::new("assets");
+        if !chips.is_empty() { coin = coin.chips(chips).back(ctx.path(&format!("{BASE}/pick_asset/new"))); }
+        let venue = Stop::new("exchange").name(Some(exchange.name.clone())).back(ctx.path(&format!("{BASE}/pick_exchange/new")));
+        let track = crate::web::wizard::track(ctx, 0, vec![venue, coin, Stop::new("address"), Stop::new("settings")])?;
+        let body = turbo::stream("update", "modal_content", &format!("{}\n", crate::web::wizard::sheet_frame(&track, &card)?));
+        return Ok(crate::web::wizard::stream(StatusCode::UNPROCESSABLE_ENTITY, format!("{body}\n")));
     }
     let mut correct = key.status == 1;
     if !correct
@@ -400,18 +344,8 @@ async fn keys(
         return next(app, ctx, false).await;
     }
     let rule = temporary(app, ctx, config(ctx)).await?;
-    let content = format!(
-        "<div class=\"bot-creation-layout\">\n{}\n{}\n{}\n</div>",
-        progress(ctx, "api", 40)?,
-        sentence(
-            ctx,
-            &exchange.name,
-            rule.as_ref().map(|r| &r.asset),
-            "add_api_key"
-        )?,
-        key_card(app, ctx, &exchange).await?
-    );
-    full(app, ctx, content).await
+    let content = key_pane(&key_card(app, ctx, &exchange, None).await?)?;
+    full(app, ctx, 0, true, Some(&exchange.name), rule.map(|r| r.asset.id), content).await
 }
 async fn addresses(app: &App, ctx: &Ctx, rule: Rule) -> Result<Response, WebError> {
     let list = reads::listing(app, &rule, ctx.method == axum::http::Method::POST).await?;
@@ -458,30 +392,21 @@ async fn addresses(app: &App, ctx: &Ctx, rule: Rule) -> Result<Response, WebErro
         return Ok(to(ctx, "confirm_settings"));
     }
     let content = if list.is_some() {
-        format!("<div class=\"set-api widget\">\n<div class=\"set-api__form\">\n<p>{}</p>\n<a data-turbo-frame=\"modal_content\" class=\"button button--sky button--large\" href=\"{}\">{}</a>\n</div>\n</div>",
+        format!("<div class=\"bot-creation-layout\">\n<p class=\"sheet__empty\">{}</p>\n<a data-turbo-frame=\"modal_content\" class=\"rbutton rbutton--secondary\" href=\"{}\">{}</a>\n</div>",
             i18n::t(ctx.locale,"rules.add_address.no_addresses_html",&[("symbol",Arg::Text(rule.asset.symbol())),("exchange",Arg::Text(&rule.exchange.name))]),
             escape(&ctx.path(&format!("{BASE}/add_address/new"))),ctx.t("button.check_again"))
     } else {
         format!(
-            "<p class=\"text-center\">{}</p>\n{}",
+            "<p class=\"sheet__empty\">{}</p>\n{}",
             i18n::t(
                 ctx.locale,
                 "rules.add_address.fetch_failed_html",
                 &[("exchange", Arg::Text(&rule.exchange.name))]
             ),
-            key_card(app, ctx, &rule.exchange).await?
+            key_pane(&key_card(app, ctx, &rule.exchange, None).await?)?
         )
     };
-    full(
-        app,
-        ctx,
-        format!(
-            "<div class=\"bot-creation-layout\">\n{}\n{}\n{content}\n</div>",
-            progress(ctx, "address", 80)?,
-            sentence(ctx, &rule.exchange.name, Some(&rule.asset), "add_address")?
-        ),
-    )
-    .await
+    full(app, ctx, 2, false, Some(&rule.exchange.name), Some(rule.asset.id), content).await
 }
 
 fn preview(ctx: &Ctx, r: &Rule, list: Option<&reads::Listing>) -> Result<String, WebError> {
@@ -684,19 +609,14 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
             turbo::stream("replace", "rule-preview", &(preview + "\n")),
         ));
     }
-    full(
-        app,
-        ctx,
-        Settings {
-            v: ctx,
-            progress: progress(ctx, "settings", 100)?,
-            action: ctx.path(&format!("{BASE}/confirm_settings")),
-            csrf: ctx.csrf_token(),
-            preview,
-        }
-        .render()?,
-    )
-    .await
+    let content = Settings {
+        v: ctx,
+        action: ctx.path(&format!("{BASE}/confirm_settings")),
+        csrf: ctx.csrf_token(),
+        preview,
+    }
+    .render()?;
+    full(app, ctx, 3, false, Some(&rule.exchange.name), Some(rule.asset.id), content).await
 }
 
 pub async fn step(

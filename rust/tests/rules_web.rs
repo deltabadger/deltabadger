@@ -2027,3 +2027,50 @@ async fn all_seventy_x0_api_cells_share_web_database_effects() {
         );
     }
 }
+
+/// D-RULES-SHEET: a step page is the sheet closing to the rules page, with no trace of the old dialog, and its track's items
+/// (label or chosen value, state, link back) as `expected` lists them.
+fn rules_sheet(body: &str, expected: &[(&str, &str, Option<&str>)]) -> scraper::Html {
+    let doc = scraper::Html::parse_document(body);
+    let one = |css: &str| doc.select(&scraper::Selector::parse(css).unwrap()).count();
+    assert_eq!(one("dialog.sheet-dialog[data-modal--base-close-url-value=\"/rules\"] turbo-frame.sheet__frame#modal_content"), 1, "{body}");
+    for old in [".dialogview", ".process-progress", ".conversational--bot-setup", ".set-api__form .form__row"] { assert_eq!(one(old), 0, "{old} left in the sheet"); }
+    let steps: Vec<(String, String, Option<String>)> = doc.select(&scraper::Selector::parse("ol.sheet__track > li").unwrap()).map(|li| {
+        let class = li.value().attr("class").unwrap_or_default();
+        let state = if class.contains("--done") { "done" } else if class.contains("--current") { "current" } else { "upcoming" };
+        let link = li.select(&scraper::Selector::parse("a.sheet__control").unwrap()).next().and_then(|a| a.value().attr("href").map(str::to_string));
+        (li.text().collect::<String>().trim().to_string(), state.to_string(), link)
+    }).collect();
+    let expected: Vec<(String, String, Option<String>)> = expected.iter().map(|(t, s, l)| (t.to_string(), s.to_string(), l.map(str::to_string))).collect();
+    assert_eq!(steps, expected);
+    doc
+}
+
+#[tokio::test]
+async fn rules_wizard_steps_are_drawn_in_the_sheet() {
+    let (i, _server) = identity_listing("Kraken", &["first"]).await;
+    let count = |doc: &scraper::Html, css: &str| doc.select(&scraper::Selector::parse(css).unwrap()).count();
+    // The venue step: the pane's search box over the venues.
+    let (status, body) = i.send("GET", "/rules/withdrawals/pick_exchange/new", "", None, true, false).await;
+    assert_eq!(status, 200);
+    let doc = rules_sheet(&body, &[("Exchange", "current", None), ("Assets", "upcoming", None), ("Address", "upcoming", None), ("Settings", "upcoming", None)]);
+    assert_eq!(count(&doc, ".sheet__pane form[data-turbo-frame=\"exchange-picker\"][action=\"/rules/withdrawals/pick_exchange/new\"] input[name=\"query\"]"), 1);
+    assert_eq!(count(&doc, "button[name=\"bots_dca_single_asset[exchange_id]\"]"), 1, "the one withdrawing venue");
+    // A query that names no venue offers none.
+    let (_, body) = i.send("GET", "/rules/withdrawals/pick_exchange/new?query=zzzz", "", None, true, false).await;
+    assert_eq!(count(&scraper::Html::parse_document(&body), "button[name=\"bots_dca_single_asset[exchange_id]\"]"), 0);
+    // The asset step: the venue done, its link back.
+    let config = json!({"exchange_id": i.s.exchange_id.to_string()});
+    let (status, body) = i.send("GET", "/rules/withdrawals/pick_asset/new", "", Some(config), true, false).await;
+    assert_eq!(status, 200);
+    let doc = rules_sheet(&body, &[("Kraken", "done", Some("/rules/withdrawals/pick_exchange/new")), ("Assets", "current", None), ("Address", "upcoming", None), ("Settings", "upcoming", None)]);
+    assert_eq!(count(&doc, "form[data-turbo-frame=\"asset-picker\"][action=\"/rules/withdrawals/pick_asset/new\"] input[name=\"query\"]"), 1);
+    assert!(count(&doc, "#asset-picker form[action=\"/rules/withdrawals/pick_asset\"] button[name=\"bots_dca_single_asset[asset_id]\"]") > 0);
+    // The settings step: venue and asset done (the asset's ticker), the address plain, the preview kept, Create the sheet's button.
+    let (status, body) = i.send("GET", "/rules/withdrawals/confirm_settings/new", "", Some(i.config()), true, false).await;
+    assert_eq!(status, 200);
+    let doc = rules_sheet(&body, &[("Kraken", "done", Some("/rules/withdrawals/pick_exchange/new")), ("BTC", "done", Some("/rules/withdrawals/pick_asset/new")),
+                                   ("Address", "done", None), ("Settings", "current", None)]);
+    assert_eq!(count(&doc, "#rule-preview"), 1);
+    assert_eq!(count(&doc, "#create-bot-button input.rbutton.rbutton--primary[name=\"commit\"]"), 1);
+}

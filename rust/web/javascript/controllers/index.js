@@ -49,8 +49,6 @@ application.register("clock", ClockController)
 import CoarseSliderController from "./coarse_slider_controller"
 application.register("coarse-slider", CoarseSliderController)
 
-import ConversationalSentenceController from "./conversational_sentence_controller"
-application.register("conversational-sentence", ConversationalSentenceController)
 
 import ConvertingController from "./converting_controller"
 application.register("converting", ConvertingController)

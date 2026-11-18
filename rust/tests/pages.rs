@@ -1065,7 +1065,8 @@ fn every_full_page_dialog_template_opens_its_frame_complete() {
         }
     }
     found.sort();
-    assert_eq!(found, ["bots/new.html", "settings/alpaca_full.html", "settings/pick_exchange.html", "wizard/full_page.html"]);
+    // D-SHEET-EVERYWHERE: the chooser and the tracker's connect steps are the sheet; only the index wizard's shell is left.
+    assert_eq!(found, ["wizard/full_page.html"]);
 }
 
 /// This build's own tools: D-SPLIT-API's split_bots (under Control) and D-V2-UNRECORDED-API's answer_unrecorded_order
@@ -2810,7 +2811,7 @@ async fn replay_page_shard(shard: usize) {
         let count = std::fs::read_dir("/proc/self/task").map_or(String::new(), |tasks| format!(", {} threads", tasks.count()));
         progress(format!("page shard {}: {name}/{scope} (+{:.1?}{count})", shard + 1, replay.elapsed()), false);
         let scenario = scenario(dir);
-        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut full_page_frames, mut market_data_frames) = (0, 0, 0, 0, 0, 0, 0, 0);
+        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut market_data_frames) = (0, 0, 0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| v2_answer(answer, step)).collect();
         let v2_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
@@ -2843,7 +2844,7 @@ async fn replay_page_shard(shard: usize) {
             without_low_funds(&mut answer["body"]);
             split_menu_pages += without_split_item(&mut answer["body"]);
             jobs_rows += without_jobs_row(&mut answer["body"]);
-            match full_page_dialogs(&mut answer["body"]) { Ok(n) => full_page_frames += n, Err(e) => failures.push(format!("{name}/{scope}: D-FULL-PAGE-DIALOG-COMPLETE: {e}")) }
+            match full_page_dialogs(&mut answer["body"]) { Ok(_) => {}, Err(e) => failures.push(format!("{name}/{scope}: D-FULL-PAGE-DIALOG-COMPLETE: {e}")) }
             index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty());
             signal_rule_pages += usize::from(signal_rules(&mut answer["body"]).is_some());
         }
@@ -2851,8 +2852,7 @@ async fn replay_page_shard(shard: usize) {
                                              ("twin_signal_rules", signal_rule_pages, "D-COND-FORMS-SIGNAL"),
                                              ("twin_basket_member", split_menu_pages, "D-SPLIT-BOT-MENU"),
                                              ("settings_page_account_pt", jobs_rows, "D-JOBS-SETTINGS-LINK"),
-                                             ("settings_page_connect_en", market_data_frames, "D-MARKET-DATA-NO-SWITCH"),
-                                             ("wizard_chooser_advanced", full_page_frames, "D-FULL-PAGE-DIALOG-COMPLETE")] {
+                                             ("settings_page_connect_en", market_data_frames, "D-MARKET-DATA-NO-SWITCH")] {
             if name == witness && count == 0 { failures.push(format!("{name}/{scope}: {divergence}: no rendered witness")); }
         }
         if name.starts_with("countdown_") {
@@ -2933,10 +2933,14 @@ async fn replay_page_shard(shard: usize) {
         for answer in v2["responses"].as_array_mut().unwrap() {
             if without_broker_gate(&mut answer["body"]) > 0 { broker_gate_pages += 1; }
         }
-        let (mut sheet_answers, mut chooser_tiles) = (0, 0);
+        let (mut sheet_answers, mut chooser_tiles, mut sheet_flows) = (0, 0, 0);
         for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
             let (Some(theirs), Some(ours)) = (v2["responses"].get_mut(index), rust["responses"].get_mut(index)) else { continue };
             let path = step["path"].as_str().unwrap_or_default();
+            match wizard_sheet::sheet_flows(path, step["method"].as_str().unwrap_or("GET"), &mut theirs["body"], &mut ours["body"]) {
+                Ok(adapted) => sheet_flows += adapted,
+                Err(e) => failures.push(format!("{name}/{scope} step {index}: D-SHEET-EVERYWHERE: {e}")),
+            }
             // The wizard's order as the session holds it, when the step reads the session.
             let flow = ours.get("session").and_then(|s| s.get("bot_config")).filter(|c| c.is_object()).map(|c| c["flow"].as_str().unwrap_or("exchange_first").to_string());
             let sheet = wizard_sheet::wizard_sheet(path, flow.as_deref(), &mut theirs["body"], &mut ours["body"]);
@@ -2945,7 +2949,8 @@ async fn replay_page_shard(shard: usize) {
                 (Err(e), _) | (_, Err(e)) => failures.push(format!("{name}/{scope} step {index}: D-WIZARD-SHEET: {e}")),
             }
         }
-        for (witness, count) in [("wizard_exchange_first_binance", sheet_answers), ("wizard_kucoin_key_stream", sheet_answers), ("wizard_chooser", chooser_tiles)] {
+        for (witness, count) in [("wizard_exchange_first_binance", sheet_answers), ("wizard_kucoin_key_stream", sheet_answers), ("wizard_chooser", chooser_tiles),
+                                 ("wizard_signal_kraken", sheet_flows), ("rules_wizard_exchange", sheet_flows), ("settings_pick_page_en", sheet_flows), ("settings_key_incorrect", sheet_flows)] {
             if name == witness && count == 0 { failures.push(format!("{name}/{scope}: D-WIZARD-SHEET: no rendered witness")); }
         }
         let expected_brokers = expected_broker_pages(&name, &scenario);
@@ -3575,6 +3580,7 @@ async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
         without_split_item(&mut actual["body"]);
         full_page_dialogs(&mut actual["body"]).unwrap_or_else(|e| panic!("{name}: D-FULL-PAGE-DIALOG-COMPLETE: {e}"));
         let path = step["path"].as_str().unwrap_or_default();
+        wizard_sheet::sheet_flows(path, step["method"].as_str().unwrap_or("GET"), &mut expected["body"], &mut actual["body"]).unwrap_or_else(|e| panic!("{name}: D-SHEET-EVERYWHERE: {e}"));
         wizard_sheet::wizard_sheet(path, None, &mut expected["body"], &mut actual["body"]).and_then(|_| wizard_sheet::chooser(path, &mut expected, &mut actual)).unwrap_or_else(|e| panic!("{name}: D-WIZARD-SHEET: {e}"));
         let _ = index_rules(&mut actual["body"]);
         let _ = signal_rules(&mut actual["body"]);
@@ -4274,21 +4280,8 @@ fn rules_differences(name: &str, scenario: &Value, v2: &mut Value, rust: &mut Va
         rules_service_differences(name, step, a, b)?;
         rules_start_differences(name, step, a, b)?;
         rules_listed_entry_picker(&mut a["body"], &b["body"])?;
-        if step["path"].as_str().is_some_and(|p| p.ends_with("/pick_exchange/new")) && step["method"]=="GET" {
-            let offered = |body: &Value| body.as_array().unwrap().iter().filter_map(|l| {
-                let text=l.as_str()?;
-                (text.contains("name=\"bots_dca_single_asset[exchange_id]\"")).then(||attr(text,"value")).flatten()
-            }).collect::<Vec<_>>();
-            if offered(&a["body"]) != ["1","5","2","3","4"] || offered(&b["body"]) != ["1","2","3","4"] {
-                return Err(format!("D-RULE-BINANCE-US-UNSUPPORTED: unexpected picker: {:?} / {:?}",offered(&a["body"]),offered(&b["body"])));
-            }
-            let lines=a["body"].as_array_mut().unwrap();
-            let button=lines.iter().position(|l|l.as_str().is_some_and(|s|s.contains("name=\"bots_dca_single_asset[exchange_id]\"")&&attr(s,"value").as_deref()==Some("5"))).unwrap();
-            let start=(0..button).rev().find(|i|lines[*i].as_str().is_some_and(|s|s.contains("class=\"exchange-grid__option\""))).unwrap();
-            let end=subtree_end(lines,start);
-            let from=if start>0&&is_space(&lines[start-1]){start-1}else{start};
-            lines.drain(from..end);
-        }
+        // D-RULE-BINANCE-US-UNSUPPORTED (the picker offers no Binance US) is checked by wizard_sheet::sheet_flows, which compares
+        // the sheet's venues with 2.x's before the step's body is set aside (D-RULES-SHEET).
         if name=="rules_tile_address_listed" && step["method"]=="PATCH" {
             let old=&a["raw_rows"]["rules"][0]["settings"];
             let mut expected:Value=serde_json::from_str(old.as_str().unwrap()).unwrap();

@@ -92,7 +92,7 @@ fn sheet_shell(close_url: &str, close_label: &str) -> Vec<Value> {
 /// The full-page dialog 2.x draws a step in (`wizard/full_page.html` writes it as 2.x does, `complete` aside), the step as
 /// a placeholder.
 fn full_page_shell(close_url: &str) -> Vec<Value> {
-    let page = include_str!("../../templates/wizard/full_page.html").replace("{{ close_url }}", &escape(close_url))
+    let page = include_str!("v2_full_page.html").replace("{{ close_url }}", &escape(close_url))
         .replace("{% include \"svg/_24x24_close.html\" %}", include_str!("../../templates/svg/_24x24_close.html"))
         .replace("{{ content|safe }}", "<x-layout></x-layout>").replacen(" complete=\"\"", "", 1);
     body_of(&html::normalize(&page))
@@ -567,6 +567,116 @@ pub fn chooser(path: &str, theirs: &mut Value, ours: &mut Value) -> Result<usize
     Ok(1)
 }
 
+/// D-SHEET-EVERYWHERE, D-TRACKER-SHEET, D-SIGNAL-SHEET, D-RULES-SHEET, D-SHEET-NO-DIALOG (PLAN-sheet-wizard-rest): the tracker's
+/// connect steps, the signal wizard, the withdrawal-rule wizard, the bot-type chooser and the bot menu's index picker are drawn
+/// in the sheet where 2.x draws its full-page dialog (or, for a tracker key link, its modal card). Only the bodies that changed
+/// are exempted, each under a structural check, so status, headers, session, venue requests and rows keep being compared:
+/// - a step page: 2.x's modal frame and ours, ours the sheet (one track, none on the chooser and the picker) closing where
+///   2.x's closes, every POST action of 2.x's step present in ours, the offered venues the same (`venues`); then each side's
+///   modal frame is replaced by what stays compared: the chooser's and the picker's content, the signal rules editor
+///   (`#new-settings`), the rule's preview (`#rule-preview`), or nothing;
+/// - a key refused in the sheet: 2.x's flash and ours' sheet frame with the same reason under its fields; both replaced;
+/// - the signal confirm step's POST: the Start button's class alone.
+///
+/// Returns how many answers it adapted.
+pub fn sheet_flows(path: &str, method: &str, v2: &mut Value, rust: &mut Value) -> Result<usize, String> {
+    let route = route(path);
+    let tracker = route.starts_with("/tracker/pick_exchange") || route.starts_with("/tracker/add_api_key");
+    let signal = route.starts_with("/bots/signals/");
+    let rules = ["pick_exchange", "add_api_key", "pick_asset", "add_address", "confirm_settings"].iter().any(|step| route.starts_with(&format!("/rules/withdrawals/{step}")));
+    let bare = route == "/bots/new" || (route.starts_with("/bots/") && route.ends_with("/index/new"));
+    if !(tracker || signal || rules || bare) { return Ok(0) }
+    let (Value::Array(theirs), Value::Array(ours)) = (v2, rust) else { return Ok(0) };
+    if signal && method == "POST" && route == "/bots/signals/confirm_settings" { return start_button(theirs, ours) }
+    let modal = |l: &Value| opens(l, "turbo-frame") && attr(text(l), "id").as_deref() == Some("modal");
+    let refusal = |l: &Value| opens(l, "turbo-stream") && attr(text(l), "action").as_deref() == Some("update") && attr(text(l), "target").as_deref() == Some("modal_content");
+    if let Some(at) = positions(ours, 0, ours.len(), refusal).first().copied() {
+        // 2.x flashes the reason (the signal step also redraws its old card); ours says it under the sheet's fields.
+        let inline = !positions(ours, at, subtree_end(ours, at), |l| has_class(l, "p", "sform__error")).is_empty();
+        if (tracker || signal || rules) && method == "POST" && inline { return refused(theirs, ours, at) }
+        return Ok(0)
+    }
+    let (Some(their_frame), Some(our_frame)) = (positions(theirs, 0, theirs.len(), modal).first().copied(), positions(ours, 0, ours.len(), modal).first().copied()) else { return Ok(0) };
+    let (their_end, our_end) = (subtree_end(theirs, their_frame), subtree_end(ours, our_frame));
+    let sheet = positions(ours, our_frame, our_end, |l| has_class(l, "turbo-frame", "sheet__frame") && attr(text(l), "id").as_deref() == Some("modal_content"));
+    if sheet.len() != 1 { return Err(format!("{route}: no sheet where 2.x draws its dialog")) }
+    let tracks = positions(ours, our_frame, our_end, |l| has_class(l, "ol", "sheet__track")).len();
+    if tracks != usize::from(!bare) { return Err(format!("{route}: the sheet holds {tracks} tracks")) }
+    let close = |lines: &[Value], from: usize, to: usize| positions(lines, from, to, |l| opens(l, "dialog")).first().and_then(|d| attr(text(&lines[*d]), "data-modal--base-close-url-value"));
+    let ours_close = close(ours, our_frame, our_end).ok_or("the sheet has no close URL")?;
+    match close(theirs, their_frame, their_end) {
+        Some(theirs_close) if theirs_close != ours_close => return Err(format!("{route}: the sheet closes to {ours_close}, 2.x's dialog to {theirs_close}")),
+        None if !(tracker && ours_close.ends_with("/tracker")) => return Err(format!("{route}: 2.x's card has no close URL and the sheet closes to {ours_close}")),
+        _ => {}
+    }
+    let actions = |lines: &[Value], from: usize, to: usize| positions(lines, from, to, |l| opens(l, "form") && attr(text(l), "method").as_deref() == Some("post"))
+        .into_iter().filter_map(|f| attr(text(&lines[f]), "action")).collect::<Vec<_>>();
+    let ours_actions = actions(ours, our_frame, our_end);
+    if let Some(missing) = actions(theirs, their_frame, their_end).into_iter().find(|a| !ours_actions.contains(a)) { return Err(format!("{route}: 2.x's step posts to {missing}, the sheet does not")) }
+    venues(route, &theirs[their_frame..their_end], &ours[our_frame..our_end])?;
+    let kept = |lines: &[Value], from: usize, to: usize| -> Result<Vec<Value>, String> {
+        let keep = |l: &Value| opens(l, "div") && matches!(attr(text(l), "id").as_deref(), Some("new-settings" | "rule-preview"));
+        if bare {
+            let inner = positions(lines, from, to, |l| has_class(l, "div", "bot-creation-layout") || has_class(l, "div", "index-picker-layout")).first().copied().ok_or("no content in the dialog")?;
+            return Ok(reindent(&lines[inner..subtree_end(lines, inner)], depth(&lines[from])));
+        }
+        Ok(match positions(lines, from, to, keep).first() { Some(at) => reindent(&lines[*at..subtree_end(lines, *at)], depth(&lines[from])), None => vec![json!(format!("{}<x-sheet-step></x-sheet-step>", "  ".repeat(depth(&lines[from]))))] })
+    };
+    let (theirs_kept, ours_kept) = (kept(theirs, their_frame, their_end)?, kept(ours, our_frame, our_end)?);
+    theirs.splice(their_frame..their_end, theirs_kept);
+    ours.splice(our_frame..our_end, ours_kept);
+    Ok(1)
+}
+
+/// The venues a venue step offers: each pick's button (`name` ending in `exchange_id` or `exchange_id]`) and its value.
+fn offered(lines: &[Value]) -> Vec<String> {
+    lines.iter().filter(|l| opens(l, "button")).filter(|l| attr(text(l), "name").is_some_and(|n| n.ends_with("exchange_id") || n.ends_with("exchange_id]")))
+        .filter_map(|l| attr(text(l), "value")).collect()
+}
+
+/// A venue step offers 2.x's venues less the flow's named exclusions (the rules picker: D-RULE-BINANCE-US-UNSUPPORTED, Binance
+/// US, id 5 on the recorded install), each of this crate's groups (Brokers, Exchanges) in 2.x's relative order.
+fn venues(route: &str, theirs: &[Value], ours: &[Value]) -> Result<(), String> {
+    let mut expected = offered(theirs);
+    if route == "/rules/withdrawals/pick_exchange/new" {
+        if !expected.iter().any(|id| id == "5") { return Err("D-RULE-BINANCE-US-UNSUPPORTED: 2.x's picker no longer offers Binance US".into()) }
+        expected.retain(|id| id != "5");
+    }
+    let groups = positions(ours, 0, ours.len(), |l| has_class(l, "section", "exchange-group"));
+    let drawn: Vec<Vec<String>> = if groups.is_empty() { vec![offered(ours)] } else { groups.iter().map(|g| offered(&ours[*g..subtree_end(ours, *g)])).collect() };
+    let mut all: Vec<String> = drawn.concat();
+    let mut sorted = expected.clone();
+    sorted.sort(); all.sort();
+    if sorted != all { return Err(format!("{route}: the sheet offers {:?}, 2.x {:?}", drawn.concat(), expected)) }
+    for group in &drawn {
+        let order: Vec<&String> = expected.iter().filter(|id| group.contains(id)).collect();
+        if order != group.iter().collect::<Vec<_>>() { return Err(format!("{route}: a venue group out of 2.x's order: {group:?} against {expected:?}")) }
+    }
+    Ok(())
+}
+
+/// A key refused in the sheet (D-WIZARD-SHEET-KEY-FORM): ours the step again with the reason under its fields, theirs the reason
+/// flashed. The reason's text must be the same; then both answers are one marker.
+fn refused(theirs: &mut Vec<Value>, ours: &mut Vec<Value>, at: usize) -> Result<usize, String> {
+    let end = subtree_end(ours, at);
+    let error = positions(ours, at, end, |l| has_class(l, "p", "sform__error")).first().copied().ok_or("a sheet refusal with no reason under its fields")?;
+    let reason = (error + 1..subtree_end(ours, error)).filter_map(|i| words(&ours[i])).collect::<Vec<_>>().join(" ");
+    if reason.is_empty() || !theirs.iter().filter_map(words).collect::<Vec<_>>().join(" ").contains(&reason) { return Err(format!("the sheet's reason \"{reason}\" is not 2.x's flash")) }
+    *theirs = vec![json!("<x-sheet-refusal></x-sheet-refusal>")];
+    *ours = vec![json!("<x-sheet-refusal></x-sheet-refusal>")];
+    Ok(1)
+}
+
+/// D-SIGNAL-SHEET: the confirm step's Start is the sheet's primary button; in the `create-bot-button` stream only its class differs.
+fn start_button(theirs: &mut [Value], ours: &mut [Value]) -> Result<usize, String> {
+    let submit = |l: &Value| opens(l, "input") && attr(text(l), "name").as_deref() == Some("commit");
+    let (Some(a), Some(b)) = (positions(theirs, 0, theirs.len(), submit).first().copied(), positions(ours, 0, ours.len(), submit).first().copied()) else { return Ok(0) };
+    let line = text(&ours[b]).to_string();
+    if !line.contains("class=\"rbutton rbutton--primary\"") || !text(&theirs[a]).contains("class=\"sbutton button--success\"") { return Err(format!("the Start button is not the sheet's: {line}")) }
+    ours[b] = json!(line.replacen("class=\"rbutton rbutton--primary\"", "class=\"sbutton button--success\"", 1));
+    Ok(1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -614,7 +724,7 @@ mod tests {
     fn page(modal: &str) -> Value { json!(html::normalize(&format!("<html><body><main>bots</main>{modal}</body></html>"))) }
     fn v2_page(content: &str) -> Value {
         // As v2_answer has it, the backdrop's click put on (D-FULL-PAGE-DIALOG-BACKDROP-CLOSES).
-        page(&include_str!("../../templates/wizard/full_page.html").replace("{{ close_url }}", "/bots").replace("{% include \"svg/_24x24_close.html\" %}", include_str!("../../templates/svg/_24x24_close.html"))
+        page(&include_str!("v2_full_page.html").replace("{{ close_url }}", "/bots").replace("{% include \"svg/_24x24_close.html\" %}", include_str!("../../templates/svg/_24x24_close.html"))
             .replace("{{ content|safe }}", content).replacen(" complete=\"\"", "", 1))
     }
     /// One track item as _track.html draws it: `action` None (plain), ("get", url, dir) or ("post", url, fields, dir).
@@ -913,4 +1023,51 @@ mod tests {
         assert_eq!(chooser("/bots/new", &mut theirs, &mut ours), Ok(0));
         assert_eq!(chooser("/bots", &mut answer(200, None, &tiles(V2_DCA, true, false), None), &mut answer(200, None, "<p>x</p>", None)), Ok(0));
     }
+    /// D-SHEET-EVERYWHERE's hook: a sheet step exempted only when its shell, close URL, POST actions and venues hold.
+    mod sheet_flows_hook {
+        use super::*;
+        fn dialog(close: &str, inner: &str) -> String {
+            format!("<turbo-frame id=\"modal\"><dialog data-controller=\"modal--base\" data-modal--base-close-url-value=\"{close}\" class=\"dialogview\"><div class=\"dialogview__vertical-center\"><turbo-frame id=\"modal_content\"><div class=\"bot-creation-layout\">{inner}</div></turbo-frame></div></dialog></turbo-frame>")
+        }
+        fn sheet(close: &str, track: bool, inner: &str) -> String {
+            let track = if track { "<ol class=\"sheet__track\"><li class=\"sheet__step sheet__step--current\"><span class=\"sheet__control\">Exchange</span></li></ol>" } else { "" };
+            format!("<turbo-frame id=\"modal\"><dialog class=\"dialog sheet-dialog\" data-controller=\"modal--base\" data-modal--base-close-url-value=\"{close}\"><div class=\"sheet\"><turbo-frame class=\"sheet__frame\" id=\"modal_content\"><nav class=\"sheet__side\">{track}</nav><div class=\"sheet__pane sheet__pane--flush\"><div class=\"bot-creation-layout\">{inner}</div></div></turbo-frame></div></dialog></turbo-frame>")
+        }
+        fn venue(id: &str) -> String { format!("<button name=\"bots_dca_single_asset[exchange_id]\" type=\"submit\" value=\"{id}\">{id}</button>") }
+        fn grid(ids: &[&str]) -> String { format!("<form action=\"/rules/withdrawals/pick_exchange\" method=\"post\">{}</form>", ids.iter().map(|id| venue(id)).collect::<String>()) }
+        fn groups(ids: &[&str]) -> String { format!("<form action=\"/rules/withdrawals/pick_exchange\" method=\"post\"><section class=\"exchange-group\">{}</section></form>", ids.iter().map(|id| venue(id)).collect::<String>()) }
+        const RULES: &str = "/rules/withdrawals/pick_exchange/new";
+
+        #[test]
+        fn a_sheet_step_is_exempted_once_its_shell_actions_and_venues_hold() {
+            let (mut theirs, mut ours) = (page(&dialog("/rules", &grid(&["1", "5", "2"]))), page(&sheet("/rules", true, &groups(&["1", "2"]))));
+            assert_eq!(sheet_flows(RULES, "GET", &mut theirs, &mut ours), Ok(1));
+            assert_eq!(theirs, ours, "the step set aside, the page around it compared");
+            let fails = |theirs: &str, ours: &str| sheet_flows(RULES, "GET", &mut page(theirs), &mut page(ours)).is_err();
+            assert!(fails(&dialog("/rules", &grid(&["1", "5", "2"])), &sheet("/bots", true, &groups(&["1", "2"]))), "a wrong close URL");
+            assert!(fails(&dialog("/rules", &grid(&["1", "5", "2"])), &sheet("/rules", false, &groups(&["1", "2"]))), "no track");
+            assert!(fails(&dialog("/rules", &grid(&["1", "5", "2"])), &sheet("/rules", true, "<p>no form</p>")), "a dropped POST action");
+            assert!(fails(&dialog("/rules", &grid(&["1", "5", "2"])), &sheet("/rules", true, &groups(&["1"]))), "a venue missing besides Binance US");
+            assert!(fails(&dialog("/rules", &grid(&["1", "5", "2"])), &sheet("/rules", true, &groups(&["2", "1"]))), "a venue group out of 2.x's order");
+            assert!(fails(&dialog("/rules", &grid(&["1", "2"])), &sheet("/rules", true, &groups(&["1", "2"]))), "2.x no longer offers Binance US");
+        }
+
+        #[test]
+        fn a_refusal_in_the_sheet_must_say_what_2x_flashed() {
+            let ours = |reason: &str| json!(html::normalize(&format!("<turbo-stream action=\"update\" target=\"modal_content\"><template><nav class=\"sheet__side\"></nav><div class=\"sheet__pane\"><p class=\"sform__error\" id=\"api_key_error\" role=\"alert\">{reason}</p></div></template></turbo-stream>")));
+            let theirs = || json!(html::normalize("<turbo-stream action=\"prepend\" target=\"flash\"><template><div class=\"salert\">The key is incorrect.</div></template></turbo-stream>"));
+            assert_eq!(sheet_flows("/tracker/add_api_key", "POST", &mut theirs(), &mut ours("The key is incorrect.")), Ok(1));
+            assert!(sheet_flows("/tracker/add_api_key", "POST", &mut theirs(), &mut ours("Another reason.")).is_err());
+        }
+
+        #[test]
+        fn the_start_button_differs_by_its_class_alone() {
+            let button = |class: &str| json!(html::normalize(&format!("<turbo-stream action=\"replace\" target=\"create-bot-button\"><template><div id=\"create-bot-button\"><form action=\"/bots/signals\" method=\"post\"><input type=\"submit\" name=\"commit\" value=\"Start\" class=\"{class}\" /></form></div></template></turbo-stream>")));
+            let (mut theirs, mut ours) = (button("sbutton button--success"), button("rbutton rbutton--primary"));
+            assert_eq!(sheet_flows("/bots/signals/confirm_settings", "POST", &mut theirs, &mut ours), Ok(1));
+            assert_eq!(theirs, ours);
+            assert!(sheet_flows("/bots/signals/confirm_settings", "POST", &mut button("sbutton button--success"), &mut button("sbutton")).is_err());
+        }
+    }
+
 }

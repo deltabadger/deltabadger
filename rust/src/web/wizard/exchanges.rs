@@ -124,18 +124,19 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, namespace: Namespace)
     let csrf = ctx.csrf_token();
     let order = StepOrder::new(namespace.bot_type(), current_variant(config));
     let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Exchange, multi: namespace == Namespace::Multi, chips, exchange: None }, true)?;
-    let content = grouped(ctx, steered.search, &ctx.path(&format!("{}/pick_exchange", namespace.base())), csrf, namespace.param(), venues)?;
-    super::sheet(ctx, &steered.track, &content)
+    let table = Table { action: ctx.path(&format!("{}/pick_exchange", namespace.base())), csrf, param_name: namespace.param().into(), venues: vec![],
+                        unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
+    super::sheet(ctx, &steered.track, &venue_pane(ctx, steered.search, table, venues)?)
 }
 
-/// An exchange step's pane: the search box over the venues, each posting `param` to `action`, ordered (or searched) as
-/// Bots::Searchable does and grouped (D-WIZARD-VENUE-GROUPS). The DCA steps' and the index wizard's.
-pub fn grouped(ctx: &Ctx, search: String, action: &str, csrf: String, param: &str, venues: Vec<Exchange>) -> Result<String, WebError> {
+/// A venue step's pane (D-WIZARD-VENUE-GROUPS, D-SHEET-EVERYWHERE): `search` over the venues, searched by the request's `query`
+/// as `ordered` does, the stock brokers under "Brokers" and the rest under "Exchanges", each in that order; a group with no venue
+/// is not drawn. `table` says where a pick posts (its own `venues` unused).
+pub fn venue_pane(ctx: &Ctx, search: String, table: Table, venues: Vec<Exchange>) -> Result<String, WebError> {
     let (brokers, exchanges): (Vec<_>, Vec<_>) = ordered(venues, ctx.params.query("query")).into_iter().partition(|venue| super::assets::broker(&venue.class));
     let venue = |venue: Exchange| Venue { id: venue.id, mark: exchange_wordmark(&venue.name_id()), unavailable: false };
     let groups: Vec<Group> = [("brokers", brokers), ("exchanges", exchanges)].into_iter().filter(|(_, venues)| !venues.is_empty())
         .map(|(key, venues)| Group { title: ctx.t(&format!("bot.setup.venue_groups.{key}")), venues: venues.into_iter().map(venue).collect() }).collect();
-    let table = Table { action: action.to_string(), csrf, param_name: param.into(), venues: vec![], unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
     Ok(New { search, table, groups }.render()?)
 }
 

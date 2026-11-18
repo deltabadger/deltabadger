@@ -347,8 +347,35 @@ struct Sheet<'a> { close_url: String, close_label: String, track: &'a str, conte
 
 /// D-WIZARD-SHEET: a DCA step as the sheet Settings uses, the track beside the pane holding `content`. The frame around both is
 /// `modal_content`, so every form, stream and transition that targets it is unchanged.
-pub fn sheet(ctx: &Ctx, track: &str, content: &str) -> Result<String, WebError> {
-    Ok(Sheet { close_url: ctx.path("/bots"), close_label: ctx.t("button.close"), track, content }.render()?)
+pub fn sheet(ctx: &Ctx, track: &str, content: &str) -> Result<String, WebError> { sheet_to(ctx, "/bots", track, content) }
+
+/// D-SHEET-EVERYWHERE: `sheet` closing to `close` (the tracker's, the rules' and the bots' page). An empty `track` leaves the
+/// side column empty, which the sheet does not draw.
+pub fn sheet_to(ctx: &Ctx, close: &str, track: &str, content: &str) -> Result<String, WebError> {
+    Ok(Sheet { close_url: ctx.path(close), close_label: ctx.t("button.close"), track, content }.render()?)
+}
+
+/// One item of a track that is not the DCA sentence's (D-SHEET-EVERYWHERE): its `bot.setup.progress_steps` label, or the chosen
+/// venue's name, or the chosen tickers; and, when given, the link back to the step that chose it.
+pub struct Stop { pub key: &'static str, pub name: Option<String>, pub chips: Vec<Chip>, pub back: Option<String> }
+
+impl Stop {
+    pub fn new(key: &'static str) -> Self { Stop { key, name: None, chips: vec![], back: None } }
+    pub fn name(mut self, name: Option<String>) -> Self { self.name = name; self }
+    pub fn chips(mut self, chips: Vec<Chip>) -> Self { self.chips = chips; self }
+    pub fn back(mut self, url: String) -> Self { self.back = Some(url); self }
+}
+
+/// The track of `stops`, the one at `current` current, those before it done.
+pub fn track(ctx: &Ctx, current: usize, stops: Vec<Stop>) -> Result<String, WebError> {
+    let items = stops.into_iter().enumerate().map(|(place, stop)| {
+        let state = if place < current { "done" } else if place == current { "current" } else { "upcoming" };
+        let more = stop.chips.len().saturating_sub(5);
+        let stack_class = match stop.chips.len() { 0 | 1 => "", 2 => "ticker-group--2", _ => "ticker-group--many" };
+        Item { state, label: stop.name.unwrap_or_else(|| ctx.t(&format!("bot.setup.progress_steps.{}", stop.key))), more, stack_class,
+               chips: stop.chips.into_iter().take(5).collect(), action: stop.back.map_or_else(Action::plain, |url| Action::get(url, true)) }
+    }).collect();
+    Ok(Track { items, csrf: "" }.render()?)
 }
 
 /// What `sheet` puts in its `modal_content` frame, for a stream that updates the frame.
@@ -498,7 +525,8 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Resu
     // D-CHOOSER-SKIPPED: with nothing but the portfolio wizard to choose (the index is picked on its Assets step), its first step.
     let Some(shell) = shell else { return Ok(layout::redirect(StatusCode::FOUND, &ctx.path("/bots/dca_single_assets/pick_exchange/new"))) };
     let csrf = ctx.csrf_token();
-    let body = New { v: &ctx, advanced }.render()?;
+    // D-SHEET-NO-DIALOG: the chooser in the sheet, with no track.
+    let body = sheet(&ctx, "", &New { v: &ctx, advanced }.render()?)?;
     shell::application(&ctx, &csrf, &user, &shell, Page { status: StatusCode::OK, body, flash_now: vec![] })
 }
 
